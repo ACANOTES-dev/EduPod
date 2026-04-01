@@ -2,8 +2,9 @@ import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../../prisma/prisma.service';
-import { SequenceService } from '../../tenants/sequence.service';
+import { SequenceService } from '../../sequence/sequence.service';
 
+import { CaseQueriesService } from './case-queries.service';
 import { CaseService } from './case.service';
 import { PastoralEventService } from './pastoral-event.service';
 
@@ -63,9 +64,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -108,6 +107,7 @@ const makeConcern = (overrides: Record<string, unknown> = {}) => ({
 
 describe('CaseService', () => {
   let service: CaseService;
+  let queriesService: CaseQueriesService;
   let mockPastoralEventService: { write: jest.Mock };
   let mockSequenceService: { nextNumber: jest.Mock };
   let mockPrisma: {
@@ -144,6 +144,7 @@ describe('CaseService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CaseService,
+        CaseQueriesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SequenceService, useValue: mockSequenceService },
         { provide: PastoralEventService, useValue: mockPastoralEventService },
@@ -151,6 +152,7 @@ describe('CaseService', () => {
     }).compile();
 
     service = module.get<CaseService>(CaseService);
+    queriesService = module.get<CaseQueriesService>(CaseQueriesService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -166,9 +168,7 @@ describe('CaseService', () => {
       tier: 1 as const,
     };
 
-    const setupCreateMocks = (
-      concernOverrides: Record<string, unknown>[] = [{}],
-    ) => {
+    const setupCreateMocks = (concernOverrides: Record<string, unknown>[] = [{}]) => {
       const concerns = concernOverrides.map((o, i) =>
         makeConcern({
           id: i === 0 ? CONCERN_ID_A : `concern-${i}`,
@@ -227,9 +227,7 @@ describe('CaseService', () => {
       // Return empty array (no valid concerns found in tenant)
       mockRlsTx.pastoralConcern.findMany.mockResolvedValue([]);
 
-      await expect(
-        service.create(TENANT_ID, USER_ID_A, baseDto),
-      ).rejects.toThrow();
+      await expect(service.create(TENANT_ID, USER_ID_A, baseDto)).rejects.toThrow();
     });
 
     it('should set initial status to open', async () => {
@@ -314,9 +312,7 @@ describe('CaseService', () => {
 
     it('should allow open -> active', async () => {
       setupTransitionMock('open');
-      mockRlsTx.pastoralCase.update.mockResolvedValue(
-        makeCase({ status: 'active' }),
-      );
+      mockRlsTx.pastoralCase.update.mockResolvedValue(makeCase({ status: 'active' }));
 
       const result = await service.transition(
         TENANT_ID,
@@ -339,9 +335,7 @@ describe('CaseService', () => {
 
     it('should allow active -> monitoring', async () => {
       setupTransitionMock('active');
-      mockRlsTx.pastoralCase.update.mockResolvedValue(
-        makeCase({ status: 'monitoring' }),
-      );
+      mockRlsTx.pastoralCase.update.mockResolvedValue(makeCase({ status: 'monitoring' }));
 
       const result = await service.transition(
         TENANT_ID,
@@ -381,9 +375,7 @@ describe('CaseService', () => {
 
     it('should allow monitoring -> active (re-escalation)', async () => {
       setupTransitionMock('monitoring');
-      mockRlsTx.pastoralCase.update.mockResolvedValue(
-        makeCase({ status: 'active' }),
-      );
+      mockRlsTx.pastoralCase.update.mockResolvedValue(makeCase({ status: 'active' }));
 
       const result = await service.transition(
         TENANT_ID,
@@ -453,12 +445,7 @@ describe('CaseService', () => {
       });
       mockRlsTx.pastoralCase.update.mockResolvedValue(reopenedCase);
 
-      const result = await service.transition(
-        TENANT_ID,
-        USER_ID_A,
-        CASE_ID,
-        transitionDto('open'),
-      );
+      const result = await service.transition(TENANT_ID, USER_ID_A, CASE_ID, transitionDto('open'));
 
       expect(result.data.status).toBe('open');
       expect(mockRlsTx.pastoralCase.update).toHaveBeenCalledWith(
@@ -478,12 +465,7 @@ describe('CaseService', () => {
       setupTransitionMock('open');
 
       await expect(
-        service.transition(
-          TENANT_ID,
-          USER_ID_A,
-          CASE_ID,
-          transitionDto('resolved'),
-        ),
+        service.transition(TENANT_ID, USER_ID_A, CASE_ID, transitionDto('resolved')),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -491,12 +473,7 @@ describe('CaseService', () => {
       setupTransitionMock('open');
 
       await expect(
-        service.transition(
-          TENANT_ID,
-          USER_ID_A,
-          CASE_ID,
-          transitionDto('closed'),
-        ),
+        service.transition(TENANT_ID, USER_ID_A, CASE_ID, transitionDto('closed')),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -504,12 +481,7 @@ describe('CaseService', () => {
       setupTransitionMock('active');
 
       await expect(
-        service.transition(
-          TENANT_ID,
-          USER_ID_A,
-          CASE_ID,
-          transitionDto('open'),
-        ),
+        service.transition(TENANT_ID, USER_ID_A, CASE_ID, transitionDto('open')),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -517,12 +489,7 @@ describe('CaseService', () => {
       setupTransitionMock('monitoring');
 
       await expect(
-        service.transition(
-          TENANT_ID,
-          USER_ID_A,
-          CASE_ID,
-          transitionDto('closed'),
-        ),
+        service.transition(TENANT_ID, USER_ID_A, CASE_ID, transitionDto('closed')),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -530,12 +497,7 @@ describe('CaseService', () => {
       setupTransitionMock('resolved');
 
       await expect(
-        service.transition(
-          TENANT_ID,
-          USER_ID_A,
-          CASE_ID,
-          transitionDto('active'),
-        ),
+        service.transition(TENANT_ID, USER_ID_A, CASE_ID, transitionDto('active')),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -543,20 +505,13 @@ describe('CaseService', () => {
       setupTransitionMock('closed');
 
       await expect(
-        service.transition(
-          TENANT_ID,
-          USER_ID_A,
-          CASE_ID,
-          transitionDto('active'),
-        ),
+        service.transition(TENANT_ID, USER_ID_A, CASE_ID, transitionDto('active')),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should include reason in audit event payload', async () => {
       setupTransitionMock('open');
-      mockRlsTx.pastoralCase.update.mockResolvedValue(
-        makeCase({ status: 'active' }),
-      );
+      mockRlsTx.pastoralCase.update.mockResolvedValue(makeCase({ status: 'active' }));
 
       await service.transition(TENANT_ID, USER_ID_A, CASE_ID, {
         status: 'active' as const,
@@ -577,27 +532,15 @@ describe('CaseService', () => {
       mockRlsTx.pastoralCase.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.transition(
-          TENANT_ID,
-          USER_ID_A,
-          'nonexistent-id',
-          transitionDto('active'),
-        ),
+        service.transition(TENANT_ID, USER_ID_A, 'nonexistent-id', transitionDto('active')),
       ).rejects.toThrow();
     });
 
     it('should record case_status_changed audit event on every valid transition', async () => {
       setupTransitionMock('active');
-      mockRlsTx.pastoralCase.update.mockResolvedValue(
-        makeCase({ status: 'monitoring' }),
-      );
+      mockRlsTx.pastoralCase.update.mockResolvedValue(makeCase({ status: 'monitoring' }));
 
-      await service.transition(
-        TENANT_ID,
-        USER_ID_A,
-        CASE_ID,
-        transitionDto('monitoring'),
-      );
+      await service.transition(TENANT_ID, USER_ID_A, CASE_ID, transitionDto('monitoring'));
 
       expect(mockPastoralEventService.write).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -620,12 +563,8 @@ describe('CaseService', () => {
 
   describe('transferOwnership', () => {
     it('should transfer ownership with audit event', async () => {
-      mockRlsTx.pastoralCase.findUnique.mockResolvedValue(
-        makeCase({ owner_user_id: USER_ID_A }),
-      );
-      mockRlsTx.pastoralCase.findFirst.mockResolvedValue(
-        makeCase({ owner_user_id: USER_ID_A }),
-      );
+      mockRlsTx.pastoralCase.findUnique.mockResolvedValue(makeCase({ owner_user_id: USER_ID_A }));
+      mockRlsTx.pastoralCase.findFirst.mockResolvedValue(makeCase({ owner_user_id: USER_ID_A }));
 
       // Validate new owner exists and belongs to tenant
       mockRlsTx.user.findFirst.mockResolvedValue({ id: USER_ID_B });
@@ -638,12 +577,10 @@ describe('CaseService', () => {
       const updatedCase = makeCase({ owner_user_id: USER_ID_B });
       mockRlsTx.pastoralCase.update.mockResolvedValue(updatedCase);
 
-      const result = await service.transferOwnership(
-        TENANT_ID,
-        USER_ID_A,
-        CASE_ID,
-        { new_owner_user_id: USER_ID_B, reason: 'Staff rotation.' },
-      );
+      const result = await service.transferOwnership(TENANT_ID, USER_ID_A, CASE_ID, {
+        new_owner_user_id: USER_ID_B,
+        reason: 'Staff rotation.',
+      });
 
       expect(result.data.owner_user_id).toBe(USER_ID_B);
       expect(mockPastoralEventService.write).toHaveBeenCalledWith(
@@ -665,12 +602,8 @@ describe('CaseService', () => {
   describe('linkConcern', () => {
     it('should link additional concern and recalculate tier', async () => {
       // Existing case with tier 1
-      mockRlsTx.pastoralCase.findUnique.mockResolvedValue(
-        makeCase({ tier: 1 }),
-      );
-      mockRlsTx.pastoralCase.findFirst.mockResolvedValue(
-        makeCase({ tier: 1 }),
-      );
+      mockRlsTx.pastoralCase.findUnique.mockResolvedValue(makeCase({ tier: 1 }));
+      mockRlsTx.pastoralCase.findFirst.mockResolvedValue(makeCase({ tier: 1 }));
 
       // Concern to link (tier 2, not linked to any case)
       mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(
@@ -689,16 +622,9 @@ describe('CaseService', () => {
       mockRlsTx.pastoralConcern.update.mockResolvedValue(
         makeConcern({ id: CONCERN_ID_B, case_id: CASE_ID }),
       );
-      mockRlsTx.pastoralCase.update.mockResolvedValue(
-        makeCase({ tier: 2 }),
-      );
+      mockRlsTx.pastoralCase.update.mockResolvedValue(makeCase({ tier: 2 }));
 
-      await service.linkConcern(
-        TENANT_ID,
-        USER_ID_A,
-        CASE_ID,
-        { concern_id: CONCERN_ID_B },
-      );
+      await service.linkConcern(TENANT_ID, USER_ID_A, CASE_ID, { concern_id: CONCERN_ID_B });
 
       // Verify concern's case_id was updated
       expect(mockRlsTx.pastoralConcern.update).toHaveBeenCalledWith(
@@ -742,18 +668,12 @@ describe('CaseService', () => {
       mockRlsTx.pastoralCase.findFirst.mockResolvedValue(makeCase());
 
       // The concern to unlink
-      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(
-        makeConcern({ case_id: CASE_ID }),
-      );
-      mockRlsTx.pastoralConcern.findFirst.mockResolvedValue(
-        makeConcern({ case_id: CASE_ID }),
-      );
+      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(makeConcern({ case_id: CASE_ID }));
+      mockRlsTx.pastoralConcern.findFirst.mockResolvedValue(makeConcern({ case_id: CASE_ID }));
 
       // Only 1 concern on this case
       mockRlsTx.pastoralConcern.count.mockResolvedValue(1);
-      mockRlsTx.pastoralConcern.findMany.mockResolvedValue([
-        makeConcern({ case_id: CASE_ID }),
-      ]);
+      mockRlsTx.pastoralConcern.findMany.mockResolvedValue([makeConcern({ case_id: CASE_ID })]);
 
       await expect(
         service.unlinkConcern(TENANT_ID, USER_ID_A, CASE_ID, CONCERN_ID_A),
@@ -761,12 +681,8 @@ describe('CaseService', () => {
     });
 
     it('should recalculate tier when concern unlinked', async () => {
-      mockRlsTx.pastoralCase.findUnique.mockResolvedValue(
-        makeCase({ tier: 3 }),
-      );
-      mockRlsTx.pastoralCase.findFirst.mockResolvedValue(
-        makeCase({ tier: 3 }),
-      );
+      mockRlsTx.pastoralCase.findUnique.mockResolvedValue(makeCase({ tier: 3 }));
+      mockRlsTx.pastoralCase.findFirst.mockResolvedValue(makeCase({ tier: 3 }));
 
       // The tier 3 concern being unlinked
       mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(
@@ -787,16 +703,9 @@ describe('CaseService', () => {
       mockRlsTx.pastoralConcern.update.mockResolvedValue(
         makeConcern({ id: CONCERN_ID_B, case_id: null }),
       );
-      mockRlsTx.pastoralCase.update.mockResolvedValue(
-        makeCase({ tier: 1 }),
-      );
+      mockRlsTx.pastoralCase.update.mockResolvedValue(makeCase({ tier: 1 }));
 
-      await service.unlinkConcern(
-        TENANT_ID,
-        USER_ID_A,
-        CASE_ID,
-        CONCERN_ID_B,
-      );
+      await service.unlinkConcern(TENANT_ID, USER_ID_A, CASE_ID, CONCERN_ID_B);
 
       // Verify tier was recalculated to 1
       expect(mockRlsTx.pastoralCase.update).toHaveBeenCalledWith(
@@ -832,7 +741,7 @@ describe('CaseService', () => {
       const orphanCase = makeCase({ status: 'active' });
       mockRlsTx.pastoralCase.findMany.mockResolvedValue([orphanCase]);
 
-      const result = await service.findOrphans(TENANT_ID);
+      const result = await queriesService.findOrphans(TENANT_ID);
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0]!.id).toBe(CASE_ID);
@@ -842,7 +751,7 @@ describe('CaseService', () => {
       // Only non-closed cases without concerns should be returned
       mockRlsTx.pastoralCase.findMany.mockResolvedValue([]);
 
-      const result = await service.findOrphans(TENANT_ID);
+      const result = await queriesService.findOrphans(TENANT_ID);
 
       expect(result.data).toHaveLength(0);
     });
@@ -924,12 +833,8 @@ describe('CaseService', () => {
 
   describe('removeStudent', () => {
     it('should reject removing primary student', async () => {
-      mockRlsTx.pastoralCase.findUnique.mockResolvedValue(
-        makeCase({ student_id: STUDENT_ID }),
-      );
-      mockRlsTx.pastoralCase.findFirst.mockResolvedValue(
-        makeCase({ student_id: STUDENT_ID }),
-      );
+      mockRlsTx.pastoralCase.findUnique.mockResolvedValue(makeCase({ student_id: STUDENT_ID }));
+      mockRlsTx.pastoralCase.findFirst.mockResolvedValue(makeCase({ student_id: STUDENT_ID }));
 
       await expect(
         service.removeStudent(TENANT_ID, USER_ID_A, CASE_ID, STUDENT_ID),
@@ -937,12 +842,8 @@ describe('CaseService', () => {
     });
 
     it('should remove non-primary student', async () => {
-      mockRlsTx.pastoralCase.findUnique.mockResolvedValue(
-        makeCase({ student_id: STUDENT_ID }),
-      );
-      mockRlsTx.pastoralCase.findFirst.mockResolvedValue(
-        makeCase({ student_id: STUDENT_ID }),
-      );
+      mockRlsTx.pastoralCase.findUnique.mockResolvedValue(makeCase({ student_id: STUDENT_ID }));
+      mockRlsTx.pastoralCase.findFirst.mockResolvedValue(makeCase({ student_id: STUDENT_ID }));
 
       mockRlsTx.pastoralCaseStudent.findFirst.mockResolvedValue({
         case_id: CASE_ID,
@@ -958,12 +859,7 @@ describe('CaseService', () => {
       });
       mockRlsTx.pastoralCaseStudent.deleteMany.mockResolvedValue({ count: 1 });
 
-      await service.removeStudent(
-        TENANT_ID,
-        USER_ID_A,
-        CASE_ID,
-        STUDENT_ID_B,
-      );
+      await service.removeStudent(TENANT_ID, USER_ID_A, CASE_ID, STUDENT_ID_B);
 
       // Should have attempted to delete the student link
       const deleteCall =

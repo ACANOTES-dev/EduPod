@@ -5,5 +5,6 @@ module.exports = {
   rules: {
     'school/no-sequential-transaction': 'error',
     'school/no-raw-sql-outside-rls': 'error',
+    'school/no-cross-module-internal-import': 'warn',
   },
 };

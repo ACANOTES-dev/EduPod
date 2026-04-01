@@ -32,6 +32,7 @@ import { AuthGuard } from '../../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
+import { CaseQueriesService } from '../services/case-queries.service';
 import { CaseService } from '../services/case.service';
 
 @Controller('v1')
@@ -40,6 +41,7 @@ import { CaseService } from '../services/case.service';
 export class CasesController {
   constructor(
     private readonly caseService: CaseService,
+    private readonly caseQueriesService: CaseQueriesService,
   ) {}
 
   // ─── 1. Create Case ────────────────────────────────────────────────────────
@@ -53,11 +55,7 @@ export class CasesController {
     @Body(new ZodValidationPipe(createCaseSchema))
     dto: z.infer<typeof createCaseSchema>,
   ) {
-    return this.caseService.create(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-    );
+    return this.caseService.create(tenant.tenant_id, user.sub, dto);
   }
 
   // ─── 2. List Cases ─────────────────────────────────────────────────────────
@@ -70,35 +68,23 @@ export class CasesController {
     @Query(new ZodValidationPipe(caseFiltersSchema))
     query: z.infer<typeof caseFiltersSchema>,
   ) {
-    return this.caseService.findAll(
-      tenant.tenant_id,
-      user.sub,
-      query,
-    );
+    return this.caseQueriesService.findAll(tenant.tenant_id, user.sub, query);
   }
 
   // ─── 3. My Cases ───────────────────────────────────────────────────────────
 
   @Get('pastoral/cases/my')
   @RequiresPermission('pastoral.manage_cases')
-  async myCases(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    return this.caseService.findMyCases(
-      tenant.tenant_id,
-      user.sub,
-    );
+  async myCases(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
+    return this.caseQueriesService.findMyCases(tenant.tenant_id, user.sub);
   }
 
   // ─── 4. Orphan Detection ───────────────────────────────────────────────────
 
   @Get('pastoral/cases/orphans')
   @RequiresPermission('pastoral.manage_cases')
-  async orphans(
-    @CurrentTenant() tenant: TenantContext,
-  ) {
-    return this.caseService.findOrphans(tenant.tenant_id);
+  async orphans(@CurrentTenant() tenant: TenantContext) {
+    return this.caseQueriesService.findOrphans(tenant.tenant_id);
   }
 
   // ─── 5. Get Case By ID ─────────────────────────────────────────────────────
@@ -110,11 +96,7 @@ export class CasesController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.caseService.findById(
-      tenant.tenant_id,
-      user.sub,
-      id,
-    );
+    return this.caseQueriesService.findById(tenant.tenant_id, user.sub, id);
   }
 
   // ─── 6. Update Case ────────────────────────────────────────────────────────
@@ -128,12 +110,7 @@ export class CasesController {
     @Body(new ZodValidationPipe(updateCaseSchema))
     dto: z.infer<typeof updateCaseSchema>,
   ) {
-    return this.caseService.update(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      dto,
-    );
+    return this.caseService.update(tenant.tenant_id, user.sub, id, dto);
   }
 
   // ─── 7. Transition Status ──────────────────────────────────────────────────
@@ -147,12 +124,7 @@ export class CasesController {
     @Body(new ZodValidationPipe(caseStatusTransitionSchema))
     dto: z.infer<typeof caseStatusTransitionSchema>,
   ) {
-    return this.caseService.transition(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      dto,
-    );
+    return this.caseService.transition(tenant.tenant_id, user.sub, id, dto);
   }
 
   // ─── 8. Transfer Ownership ─────────────────────────────────────────────────
@@ -167,12 +139,7 @@ export class CasesController {
     @Body(new ZodValidationPipe(caseOwnershipTransferSchema))
     dto: z.infer<typeof caseOwnershipTransferSchema>,
   ) {
-    return this.caseService.transferOwnership(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      dto,
-    );
+    return this.caseService.transferOwnership(tenant.tenant_id, user.sub, id, dto);
   }
 
   // ─── 9. Link Concern to Case ───────────────────────────────────────────────
@@ -187,12 +154,7 @@ export class CasesController {
     @Body(new ZodValidationPipe(linkConcernToCaseSchema))
     dto: z.infer<typeof linkConcernToCaseSchema>,
   ) {
-    return this.caseService.linkConcern(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      dto,
-    );
+    return this.caseService.linkConcern(tenant.tenant_id, user.sub, id, dto);
   }
 
   // ─── 10. Unlink Concern from Case ──────────────────────────────────────────
@@ -206,12 +168,7 @@ export class CasesController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('concernId', ParseUUIDPipe) concernId: string,
   ) {
-    return this.caseService.unlinkConcern(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      concernId,
-    );
+    return this.caseService.unlinkConcern(tenant.tenant_id, user.sub, id, concernId);
   }
 
   // ─── 11. Add Student to Case ───────────────────────────────────────────────
@@ -226,12 +183,7 @@ export class CasesController {
     @Body(new ZodValidationPipe(addStudentToCaseSchema))
     dto: z.infer<typeof addStudentToCaseSchema>,
   ) {
-    return this.caseService.addStudent(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      dto,
-    );
+    return this.caseService.addStudent(tenant.tenant_id, user.sub, id, dto);
   }
 
   // ─── 12. Remove Student from Case ──────────────────────────────────────────
@@ -245,11 +197,6 @@ export class CasesController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('studentId', ParseUUIDPipe) studentId: string,
   ) {
-    return this.caseService.removeStudent(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      studentId,
-    );
+    return this.caseService.removeStudent(tenant.tenant_id, user.sub, id, studentId);
   }
 }

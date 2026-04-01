@@ -1,12 +1,12 @@
-import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { BehaviourHistoryService } from './behaviour-history.service';
 import { BehaviourScopeService } from './behaviour-scope.service';
+import { BehaviourSideEffectsService } from './behaviour-side-effects.service';
 import { BehaviourService } from './behaviour.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -121,8 +121,11 @@ describe('BehaviourService', () => {
   let mockSequence: { nextNumber: jest.Mock };
   let mockHistory: { recordHistory: jest.Mock };
   let mockScope: { getUserScope: jest.Mock; buildScopeFilter: jest.Mock };
-  let mockNotificationsQueue: { add: jest.Mock };
-  let mockBehaviourQueue: { add: jest.Mock };
+  let mockSideEffects: {
+    emitParentNotification: jest.Mock;
+    emitPolicyEvaluation: jest.Mock;
+    emitCheckAwards: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -141,8 +144,11 @@ describe('BehaviourService', () => {
       getUserScope: jest.fn().mockResolvedValue({ scope: 'all' }),
       buildScopeFilter: jest.fn().mockReturnValue({}),
     };
-    mockNotificationsQueue = { add: jest.fn().mockResolvedValue(undefined) };
-    mockBehaviourQueue = { add: jest.fn().mockResolvedValue(undefined) };
+    mockSideEffects = {
+      emitParentNotification: jest.fn().mockResolvedValue(undefined),
+      emitPolicyEvaluation: jest.fn().mockResolvedValue(undefined),
+      emitCheckAwards: jest.fn().mockResolvedValue(undefined),
+    };
 
     // Reset all RLS tx mocks
     for (const model of Object.values(mockRlsTx)) {
@@ -158,8 +164,7 @@ describe('BehaviourService', () => {
         { provide: SequenceService, useValue: mockSequence },
         { provide: BehaviourHistoryService, useValue: mockHistory },
         { provide: BehaviourScopeService, useValue: mockScope },
-        { provide: getQueueToken('notifications'), useValue: mockNotificationsQueue },
-        { provide: getQueueToken('behaviour'), useValue: mockBehaviourQueue },
+        { provide: BehaviourSideEffectsService, useValue: mockSideEffects },
       ],
     }).compile();
 
@@ -299,8 +304,7 @@ describe('BehaviourService', () => {
 
       await service.createIncident(TENANT_ID, USER_ID, baseDto);
 
-      expect(mockNotificationsQueue.add).toHaveBeenCalledWith(
-        'behaviour:parent-notification',
+      expect(mockSideEffects.emitParentNotification).toHaveBeenCalledWith(
         expect.objectContaining({
           tenant_id: TENANT_ID,
           incident_id: INCIDENT_ID,
@@ -314,10 +318,7 @@ describe('BehaviourService', () => {
 
       await service.createIncident(TENANT_ID, USER_ID, baseDto);
 
-      expect(mockNotificationsQueue.add).not.toHaveBeenCalledWith(
-        'behaviour:parent-notification',
-        expect.anything(),
-      );
+      expect(mockSideEffects.emitParentNotification).not.toHaveBeenCalled();
     });
 
     it('should queue policy evaluation for active incidents', async () => {
@@ -325,8 +326,7 @@ describe('BehaviourService', () => {
 
       await service.createIncident(TENANT_ID, USER_ID, baseDto);
 
-      expect(mockBehaviourQueue.add).toHaveBeenCalledWith(
-        'behaviour:evaluate-policy',
+      expect(mockSideEffects.emitPolicyEvaluation).toHaveBeenCalledWith(
         expect.objectContaining({
           tenant_id: TENANT_ID,
           incident_id: INCIDENT_ID,
@@ -344,10 +344,7 @@ describe('BehaviourService', () => {
         auto_submit: false,
       });
 
-      expect(mockBehaviourQueue.add).not.toHaveBeenCalledWith(
-        'behaviour:evaluate-policy',
-        expect.anything(),
-      );
+      expect(mockSideEffects.emitPolicyEvaluation).not.toHaveBeenCalled();
     });
 
     it('should set initial status to draft when auto_submit is false', async () => {
@@ -408,8 +405,7 @@ describe('BehaviourService', () => {
 
       await service.createIncident(TENANT_ID, USER_ID, baseDto);
 
-      expect(mockBehaviourQueue.add).toHaveBeenCalledWith(
-        'behaviour:check-awards',
+      expect(mockSideEffects.emitCheckAwards).toHaveBeenCalledWith(
         expect.objectContaining({
           tenant_id: TENANT_ID,
           student_ids: [STUDENT_ID],
@@ -417,14 +413,14 @@ describe('BehaviourService', () => {
       );
     });
 
-    it('should not fail if notification queue add fails', async () => {
+    it('should not fail if side-effect dispatch fails', async () => {
       setupCreateMocks({ requires_parent_notification: true });
       mockRlsTx.behaviourIncident!.create.mockResolvedValue(
         makeIncident({ parent_notification_status: 'pending' }),
       );
-      mockNotificationsQueue.add.mockRejectedValue(new Error('Queue down'));
+      mockSideEffects.emitParentNotification.mockResolvedValue(undefined);
 
-      // Should not throw
+      // Should not throw — side-effects service handles errors internally
       const result = await service.createIncident(TENANT_ID, USER_ID, baseDto);
       expect(result).toBeDefined();
     });
@@ -965,8 +961,7 @@ describe('BehaviourService', () => {
         parent_visible: true,
       });
 
-      expect(mockBehaviourQueue.add).toHaveBeenCalledWith(
-        'behaviour:evaluate-policy',
+      expect(mockSideEffects.emitPolicyEvaluation).toHaveBeenCalledWith(
         expect.objectContaining({
           trigger: 'participant_added',
         }),

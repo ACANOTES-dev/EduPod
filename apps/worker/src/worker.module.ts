@@ -80,6 +80,7 @@ import { WellbeingFlagExpiryProcessor } from './processors/pastoral/wellbeing-fl
 import { PayrollApprovalCallbackProcessor } from './processors/payroll/approval-callback.processor';
 import { PayrollMassExportProcessor } from './processors/payroll/mass-export.processor';
 import { PayrollSessionGenerationProcessor } from './processors/payroll/session-generation.processor';
+import { PdfRenderProcessor } from './processors/pdf-rendering/pdf-render.processor';
 import { RegulatoryDeadlineCheckProcessor } from './processors/regulatory/deadline-check.processor';
 import { RegulatoryDesGenerateProcessor } from './processors/regulatory/des-returns-generate.processor';
 import { RegulatoryPpodImportProcessor } from './processors/regulatory/ppod-import.processor';
@@ -249,6 +250,15 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
         },
       },
       {
+        name: QUEUE_NAMES.PDF_RENDERING,
+        defaultJobOptions: {
+          attempts: 2,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 50,
+          removeOnFail: 200,
+        },
+      },
+      {
         name: QUEUE_NAMES.SECURITY,
         defaultJobOptions: {
           attempts: 2,
@@ -385,6 +395,8 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     StaleInquiryDetectionProcessor,
     IpCleanupProcessor,
     AnnouncementApprovalCallbackProcessor,
+    // PDF Rendering queue processors
+    PdfRenderProcessor,
     // Pastoral queue processors
     NotifyConcernProcessor,
     EscalationTimeoutProcessor,

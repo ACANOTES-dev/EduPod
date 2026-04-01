@@ -1,7 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 import { PolicyEvaluationEngine } from './policy-evaluation-engine';
 import { PolicyReplayService } from './policy-replay.service';
@@ -136,14 +136,9 @@ describe('PolicyReplayService', () => {
       };
 
       mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(MOCK_RULE);
-      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue([
-        MOCK_INCIDENT,
-        incident2,
-      ]);
+      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue([MOCK_INCIDENT, incident2]);
       // First student matches, second does not
-      mockEvaluationEngine.evaluateConditions
-        .mockReturnValueOnce(true)
-        .mockReturnValueOnce(false);
+      mockEvaluationEngine.evaluateConditions.mockReturnValueOnce(true).mockReturnValueOnce(false);
 
       const result = await service.replayRule(TENANT_ID, baseDto);
 
@@ -153,8 +148,10 @@ describe('PolicyReplayService', () => {
       expect(mockEvaluationEngine.evaluateConditions).toHaveBeenCalledTimes(2);
 
       // Verify the evaluated input passed to the engine uses snapshot data
-      const firstCallInput = mockEvaluationEngine.evaluateConditions.mock
-        .calls[0][1] as Record<string, unknown>;
+      const firstCallInput = mockEvaluationEngine.evaluateConditions.mock.calls[0][1] as Record<
+        string,
+        unknown
+      >;
       expect(firstCallInput.year_group_name).toBe('Year 9');
       expect(firstCallInput.has_send).toBe(false);
     });
@@ -196,16 +193,10 @@ describe('PolicyReplayService', () => {
         id: `inc-${String(i).padStart(5, '0')}`,
         participants: [],
       }));
-      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue(
-        largeIncidentList,
-      );
+      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue(largeIncidentList);
 
-      await expect(service.replayRule(TENANT_ID, baseDto)).rejects.toThrow(
-        BadRequestException,
-      );
-      await expect(service.replayRule(TENANT_ID, baseDto)).rejects.toThrow(
-        /10,000/,
-      );
+      await expect(service.replayRule(TENANT_ID, baseDto)).rejects.toThrow(BadRequestException);
+      await expect(service.replayRule(TENANT_ID, baseDto)).rejects.toThrow(/10,000/);
     });
 
     it('should use student_snapshot for student facts, not live student record', async () => {
@@ -227,15 +218,15 @@ describe('PolicyReplayService', () => {
       };
 
       mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(MOCK_RULE);
-      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue([
-        snapshotIncident,
-      ]);
+      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue([snapshotIncident]);
       mockEvaluationEngine.evaluateConditions.mockReturnValue(true);
 
       await service.replayRule(TENANT_ID, baseDto);
 
-      const evaluatedInput = mockEvaluationEngine.evaluateConditions.mock
-        .calls[0][1] as Record<string, unknown>;
+      const evaluatedInput = mockEvaluationEngine.evaluateConditions.mock.calls[0][1] as Record<
+        string,
+        unknown
+      >;
       expect(evaluatedInput.year_group_id).toBe('yg-frozen');
       expect(evaluatedInput.year_group_name).toBe('Year 7');
       expect(evaluatedInput.has_send).toBe(true);
@@ -263,10 +254,7 @@ describe('PolicyReplayService', () => {
       };
 
       mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(MOCK_RULE);
-      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue([
-        MOCK_INCIDENT,
-        incident2,
-      ]);
+      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue([MOCK_INCIDENT, incident2]);
       mockEvaluationEngine.evaluateConditions.mockReturnValue(true);
 
       const result = await service.replayRule(TENANT_ID, baseDto);
@@ -286,12 +274,10 @@ describe('PolicyReplayService', () => {
         dry_run: true,
       };
 
-      await expect(
-        service.replayRule(TENANT_ID, invalidDto),
-      ).rejects.toThrow(BadRequestException);
-      await expect(
-        service.replayRule(TENANT_ID, invalidDto),
-      ).rejects.toThrow(/replay_period.from must be before/);
+      await expect(service.replayRule(TENANT_ID, invalidDto)).rejects.toThrow(BadRequestException);
+      await expect(service.replayRule(TENANT_ID, invalidDto)).rejects.toThrow(
+        /replay_period.from must be before/,
+      );
     });
   });
 
@@ -360,8 +346,8 @@ describe('PolicyReplayService', () => {
       });
 
       // First stage call returns both rules, remaining stages return empty
-      mockPrisma.behaviourPolicyRule!.findMany!
-        .mockResolvedValueOnce([matchingRule, nonMatchingRule])
+      mockPrisma
+        .behaviourPolicyRule!.findMany!.mockResolvedValueOnce([matchingRule, nonMatchingRule])
         .mockResolvedValue([]);
 
       mockEvaluationEngine.evaluateConditions
@@ -374,24 +360,17 @@ describe('PolicyReplayService', () => {
       expect(consequenceStage.rules_evaluated).toBe(2);
       expect(consequenceStage.matched_rules).toHaveLength(1);
       expect(consequenceStage.matched_rules[0]!.rule_id).toBe('rule-match');
-      expect(
-        consequenceStage.matched_rules[0]!.actions_that_would_fire,
-      ).toHaveLength(1);
-      expect(
-        consequenceStage.matched_rules[0]!.actions_that_would_fire[0]!
-          .action_type,
-      ).toBe('flag_for_review');
+      expect(consequenceStage.matched_rules[0]!.actions_that_would_fire).toHaveLength(1);
+      expect(consequenceStage.matched_rules[0]!.actions_that_would_fire[0]!.action_type).toBe(
+        'flag_for_review',
+      );
     });
 
     it('should throw NotFoundException for invalid category_id', async () => {
       mockPrisma.behaviourCategory!.findFirst!.mockResolvedValue(null);
 
-      await expect(
-        service.dryRun(TENANT_ID, baseDryRunDto),
-      ).rejects.toThrow(NotFoundException);
-      await expect(
-        service.dryRun(TENANT_ID, baseDryRunDto),
-      ).rejects.toThrow(/Category not found/);
+      await expect(service.dryRun(TENANT_ID, baseDryRunDto)).rejects.toThrow(NotFoundException);
+      await expect(service.dryRun(TENANT_ID, baseDryRunDto)).rejects.toThrow(/Category not found/);
     });
 
     it('should resolve year group name when ID provided', async () => {
@@ -448,20 +427,13 @@ describe('PolicyReplayService', () => {
         },
       ];
 
-      mockPrisma.behaviourPolicyEvaluation!.findMany!.mockResolvedValue(
-        mockEvaluations,
-      );
+      mockPrisma.behaviourPolicyEvaluation!.findMany!.mockResolvedValue(mockEvaluations);
 
-      const result = await service.getIncidentEvaluationTrace(
-        TENANT_ID,
-        'inc-001',
-      );
+      const result = await service.getIncidentEvaluationTrace(TENANT_ID, 'inc-001');
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0]!.action_executions).toHaveLength(1);
-      expect(result.data[0]!.action_executions[0]!.action_type).toBe(
-        'flag_for_review',
-      );
+      expect(result.data[0]!.action_executions[0]!.action_type).toBe('flag_for_review');
       expect(result.data[0]!.rule_version).toBeDefined();
       expect(result.data[0]!.rule_version?.name).toBe('Test Rule');
     });
@@ -492,14 +464,9 @@ describe('PolicyReplayService', () => {
         },
       ];
 
-      mockPrisma.behaviourPolicyEvaluation!.findMany!.mockResolvedValue(
-        mockEvaluations,
-      );
+      mockPrisma.behaviourPolicyEvaluation!.findMany!.mockResolvedValue(mockEvaluations);
 
-      const result = await service.getIncidentEvaluationTrace(
-        TENANT_ID,
-        'inc-001',
-      );
+      const result = await service.getIncidentEvaluationTrace(TENANT_ID, 'inc-001');
 
       expect(result.data[0]!.stage).toBe('approval');
       expect(result.data[0]!.rule_version?.stage).toBe('notification');

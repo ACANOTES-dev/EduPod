@@ -5,7 +5,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { StaffProfilesService } from './staff-profiles.service';
 
@@ -40,7 +40,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -192,7 +194,9 @@ describe('StaffProfilesService — create', () => {
 
   it('should throw ConflictException if staff profile already exists for user', async () => {
     mockRlsTx.user.findUnique.mockResolvedValue({ id: USER_ID });
-    mockRlsTx.staffProfile.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: STAFF_ID });
+    mockRlsTx.staffProfile.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: STAFF_ID });
 
     await expect(service.create(TENANT_ID, baseCreateDto)).rejects.toThrow(ConflictException);
   });
@@ -239,9 +243,7 @@ describe('StaffProfilesService — findAll', () => {
         phone: '+353871234567',
         memberships: [
           {
-            membership_roles: [
-              { role: { display_name: 'Teacher' } },
-            ],
+            membership_roles: [{ role: { display_name: 'Teacher' } }],
           },
         ],
       },
@@ -412,9 +414,9 @@ describe('StaffProfilesService — update', () => {
   it('should throw NotFoundException when profile does not exist', async () => {
     mockPrisma.staffProfile.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.update(TENANT_ID, STAFF_ID, { job_title: 'Librarian' }),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.update(TENANT_ID, STAFF_ID, { job_title: 'Librarian' })).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should invalidate preview cache after update', async () => {

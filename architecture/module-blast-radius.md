@@ -65,9 +65,11 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 ## Tier 2 — Cross-Cutting Services (change = multiple domains break)
 
-### SequenceService (TenantsModule)
+### SequenceService (SequenceModule)
 
+- **Module location**: `apps/api/src/modules/sequence/`
 - **Consumed by**: Admissions, behaviour, credit notes, fee generation, households, imports, invoices, payments, receipts, recurring invoices, refunds, registration, staff profiles, students
+- **Via TenantsModule**: TenantsModule imports and re-exports SequenceModule for backward compatibility — modules that already import TenantsModule for other reasons can continue to receive SequenceService via that path.
 - **Blast radius**: HIGH. Sequence format changes affect receipt numbers, invoice numbers, application IDs, payslip numbers, student IDs, staff IDs, household references, payment references, incident numbers, sanction numbers, appeal numbers across 14 consumers.
 - **Danger**: The `refund` sequence type is used in code but NOT in the canonical `SEQUENCE_TYPES` constant. If you validate against the constant, refunds break silently.
 
@@ -90,15 +92,31 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 - **Blast radius**: HIGH. The approval callback dispatch system (Mode A) routes approved requests to domain-specific BullMQ queues. The `MODE_A_CALLBACKS` mapping connects approval types to queue/job pairs.
 - **Danger**: Adding a new approval type requires updating BOTH the callback map AND the corresponding worker processor. Missing either = approved items never execute.
 
-### PdfRenderingService (PdfRenderingModule)
+### PdfRenderingService + PdfJobService (PdfRenderingModule)
 
-- **Consumed by**: Finance/receipts, finance/statements, payroll/reports, payslips
-- **Blast radius**: MEDIUM. Template changes affect all PDF-generating domains.
+- **Exports**: `PdfRenderingService` (synchronous rendering), `PdfJobService` (async queue-based rendering)
+- **Consumed by**: Finance/receipts, finance/statements, payroll/reports, payslips, behaviour/documents, child-protection/export, engagement/trip-packs, gradebook/report-cards, pastoral/concern-reports
+- **Queue**: `pdf-rendering` queue with `pdf:render` job processed by `PdfRenderProcessor` in worker
+- **Blast radius**: MEDIUM. Template changes affect all PDF-generating domains. The async path (`PdfJobService`) stores rendered PDFs to S3 — S3 path changes affect retrieval.
 
 ### S3Service (S3Module)
 
 - **Consumed by**: Branding, compliance, imports (service + validation + processing)
 - **Blast radius**: LOW-MEDIUM. File storage path changes affect document retrieval.
+
+### PolicyEvaluationEngine + PolicyRulesService (PolicyEngineModule)
+
+- **Exports**: `PolicyEvaluationEngine`, `PolicyRulesService`, `PolicyReplayService`
+- **Consumed by**: BehaviourModule (via `forwardRef`)
+- **Circular dependency**: PolicyEngineModule ↔ BehaviourModule via `forwardRef()`. PolicyEvaluationEngine depends on `BehaviourHistoryService`, and BehaviourModule uses PolicyEvaluationEngine for incident policy evaluation.
+- **Blast radius**: MEDIUM. Changes to policy evaluation logic affect behaviour incident processing, automated sanctions, and award calculations.
+
+### SequenceService (SequenceModule)
+
+- **Exports**: `SequenceService`
+- **Consumed by**: Admissions, behaviour, child-protection, finance, households, imports, pastoral, registration, security-incidents, SEN, staff-profiles, students (12 modules)
+- **Blast radius**: HIGH. Sequence format changes affect receipt numbers, invoice numbers, application IDs, payslip numbers, student IDs, staff IDs, household references, payment references, incident numbers, sanction numbers, appeal numbers across all consumers.
+- **Note**: Extracted from TenantsModule. TenantsModule re-exports SequenceModule for backward compatibility.
 
 ### SearchIndexService (SearchModule)
 
@@ -218,7 +236,7 @@ ComplianceModule note: anonymisation/export flows now import `SearchModule` and 
   - `BehaviourGuardianRestrictionsController` (6) — restriction management
   - `BehaviourDocumentsController` (6) — document generation, templates
   - `BehaviourAmendmentsController` (4) — amendment trail, corrections
-- **Imports**: `AuthModule` (guards, permission cache), `TenantsModule` (SequenceService for incident/sanction/appeal/exclusion numbers), `ApprovalsModule` (approval request creation from policy actions), `PdfRenderingModule` (Puppeteer PDF generation for documents), `S3Module` (S3 storage for generated documents), `BullModule.registerQueue('notifications')`, `BullModule.registerQueue('behaviour')`
+- **Imports**: `AuthModule` (guards, permission cache), `SequenceModule` (SequenceService for incident/sanction/appeal/exclusion numbers), `ApprovalsModule` (approval request creation from policy actions), `PdfRenderingModule` (Puppeteer PDF generation for documents), `S3Module` (S3 storage for generated documents), `BullModule.registerQueue('notifications')`, `BullModule.registerQueue('behaviour')`
 - **Internal dependencies**:
   - `BehaviourPulseService` -> PrismaService, RedisService
   - `BehaviourAnalyticsService` -> PrismaService, BehaviourScopeService, BehaviourPulseService
@@ -247,7 +265,7 @@ ComplianceModule note: anonymisation/export flows now import `SearchModule` and 
 - **Last verified**: 2026-04-01
 - **Exports**: None — all services internal to the module
 - **Controllers**: `SenProfileController`, `SenSupportPlanController`, `SenGoalController`, `SenResourceController`, `SenSnaController`, `SenProfessionalController`, `SenAccommodationController`, `SenReportsController`, `SenTransitionController`
-- **Imports**: `AuthModule`, `TenantsModule` (`SequenceService` for support plan numbers), `ConfigurationModule` (`SettingsService` for SEN review-cycle, plan-number prefix, and `sen.sna_schedule_format`)
+- **Imports**: `AuthModule`, `SequenceModule` (`SequenceService` for support plan numbers), `ConfigurationModule` (`SettingsService` for SEN review-cycle, plan-number prefix, and `sen.sna_schedule_format`)
 - **Consumed by**: No external module imports. Controllers use the services directly; read access also depends on `PermissionCacheService` through the global auth/permission stack.
 - **Blast radius**: MEDIUM. Changing support-plan numbering impacts versioned SEN plans across tenants. Changing scope resolution affects which students class teachers can see. Changing goal/progress lifecycle behavior affects plan review workflows, stale-goal compliance reporting, and historical progress tracking. Changing resource-allocation capacity rules affects utilisation dashboards, student-hour assignment limits, SNA coordination workflows, and the NCSE return resource-hour totals. Changing transition-note or handover-pack composition affects controlled information-sharing during class/year/school transitions.
 - **Cross-module Prisma-direct reads**: `students` (via `sen_profiles.student_id` scope chain, reporting, handover, and student-hour/SNA joins), `staff_profiles`, `class_staff`, `class_enrolments`, `academic_years`, `academic_periods`, `year_groups`, `users`, `pastoral_referrals` (optional FK link from professional involvements)
@@ -265,14 +283,14 @@ ComplianceModule note: anonymisation/export flows now import `SearchModule` and 
 Known Prisma-direct consumers:
 | Table | Queried directly by |
 |-------|-------------------|
-| `staff_profiles` | Payroll, scheduling, attendance, classes, reports, dashboard |
-| `students` + `student_parents` | Attendance, gradebook, report cards, finance, admissions, reports, parent-daily-digest (worker) |
-| `classes` + `class_enrolments` | Gradebook, attendance, scheduling, report cards, parent-daily-digest (worker) |
-| `academic_periods` + `academic_years` | Gradebook, report cards, scheduling, promotion, attendance |
-| `invoices` + `payments` | Finance reports, dashboard, parent portal, parent-daily-digest (worker) |
-| `attendance_records` + `attendance_sessions` + `daily_attendance_summaries` | Reports, dashboard, gradebook risk detection, parent-daily-digest (worker) |
-| `behaviour_incidents` + `behaviour_recognition_awards` | Behaviour module reads these via Prisma (owned), reports, dashboard, parent-daily-digest (worker) |
-| `grades` + `assessments` | Gradebook (owned), parent-daily-digest (worker) |
+| `staff_profiles` | Payroll, scheduling, attendance, classes, reports, dashboard, behaviour (scope resolution), compliance (DSAR/retention/erasure), configuration (key-rotation batch re-encryption), early-warning (cohort, routing, service), engagement (conferences), regulatory (DES September Returns), schedules (conflict detection), search (index), sen (scope, SNA), staff-availability, staff-preferences |
+| `students` + `student_parents` | Attendance, gradebook, report cards, finance, admissions, reports, parent-daily-digest (worker), academics (promotion, year-groups), behaviour (analytics, pulse, points, students-view), classes (assignments), communications (audience-resolution), compliance (DSAR/anonymisation/retention), early-warning (routing), engagement (event-participants, conferences, form-submissions), gdpr (age-gate, consent), homework (completions, analytics, parent, diary), imports, parent-inquiries, pastoral (notification, report), regulatory (DES, October returns, Tusla, transfers), search (index), sen |
+| `classes` + `class_enrolments` | Gradebook, attendance, scheduling, report cards, parent-daily-digest (worker), behaviour (scope, comparison-analytics), communications (audience-resolution), compliance (DSAR), early-warning (cohort, routing, service), engagement (conferences, event-participants, trip-pack), homework (completions, analytics, parent), pastoral (parent-pastoral), schedules (conflict-detection, timetables), sen (scope) |
+| `academic_periods` + `academic_years` | Gradebook, report cards, scheduling, promotion, attendance, behaviour (admin, award, house, points), classes (assignments, service), early-warning (cohort, service), regulatory (DES, October returns), sen (reports, resource), staff-wellbeing (board-report, workload-data) |
+| `invoices` + `payments` | Finance reports, dashboard, parent portal, parent-daily-digest (worker), compliance (DSAR/retention — reads invoice count for retention eligibility checks) |
+| `attendance_records` + `attendance_sessions` + `daily_attendance_summaries` | Reports, dashboard, gradebook risk detection, parent-daily-digest (worker), behaviour (behaviour-students reads `daily_attendance_summaries` for at-risk context), compliance (DSAR traversal, retention-policies), gradebook (report-cards embed daily summaries; AI services read attendance records for comment/progress context), regulatory (Tusla threshold scanning reads both `attendance_records` and `daily_attendance_summaries`), schedules (counts open sessions before allowing closure deletion), school-closures (checks for open/flagged attendance sessions before applying a closure) |
+| `behaviour_incidents` + `behaviour_recognition_awards` | Behaviour module reads these via Prisma (owned), reports, dashboard, parent-daily-digest (worker), compliance (DSAR traversal reads `behaviourRecognitionAward`; retention-policies counts `behaviourIncident` for retention eligibility) |
+| `grades` + `assessments` | Gradebook (owned), parent-daily-digest (worker), compliance (DSAR traversal reads grades), reports (grade-analytics, student-progress, reports-data-access read assessments) |
 | `homework_assignments` | Homework (owned), parent-daily-digest (worker) |
 
 **Rule**: When changing schema for any table in the left column, grep for that table name across ALL modules, not just the owning module.
@@ -354,7 +372,7 @@ Known Prisma-direct consumers:
 
 - **Exports** (17 services): `AffectedTrackingService`, `CaseService`, `CheckinService`, `ConcernService`, `ConcernVersionService`, `CriticalIncidentService`, `InterventionService`, `NepsVisitService`, `ParentContactService`, `PastoralDsarService`, `PastoralEventService`, `PastoralNotificationService`, `PastoralReportService`, `ReferralService`, `SstService`, `StudentChronologyService`
 - **Controllers** (14): `CasesController`, `CheckinAdminController`, `CheckinConfigController`, `CheckinsController`, `ConcernsController`, `CriticalIncidentsController`, `InterventionsController`, `ParentContactsController`, `ParentPastoralController`, `PastoralAdminController`, `PastoralDsarController`, `PastoralImportController`, `PastoralReportsController`, `ReferralsController`, `SstController`
-- **Imports**: `AuthModule`, `forwardRef(() => ChildProtectionModule)` (circular — CP module imports Pastoral), `CommunicationsModule`, `PdfRenderingModule`, `TenantsModule`, `BullModule.registerQueue('pastoral')`, `BullModule.registerQueue('notifications')`
+- **Imports**: `AuthModule`, `forwardRef(() => ChildProtectionModule)` (circular — CP module imports Pastoral), `CommunicationsModule`, `PdfRenderingModule`, `SequenceModule`, `BullModule.registerQueue('pastoral')`, `BullModule.registerQueue('notifications')`
 - **Consumed by**:
   - `EarlyWarningModule` worker processors read `pastoral_cases` and `pastoral_interventions` via Prisma direct
   - `ChildProtectionModule` uses `forwardRef(PastoralModule)` for CP record linking to pastoral concerns
@@ -372,7 +390,7 @@ Known Prisma-direct consumers:
 
 - **Exports**: `CpAccessService`, `CpExportService`, `CpRecordService`
 - **Controllers** (3): `CpAccessController`, `CpExportController`, `CpRecordsController`
-- **Imports**: `AuthModule`, `forwardRef(() => PastoralModule)`, `PdfRenderingModule`, `TenantsModule`
+- **Imports**: `AuthModule`, `forwardRef(() => PastoralModule)`, `PdfRenderingModule`, `SequenceModule`
 - **Consumed by**: None externally — self-contained child protection record system
 - **Blast radius**: MEDIUM. Changes to `CpRecordService` affect CP record creation/linking from pastoral concerns. Changes to `CpAccessService` affect the break-glass style CP access guard (`CpAccessGuard`).
 - **Cross-module Prisma-direct reads**: `pastoral_concerns` (via PastoralModule forwardRef), `staff_profiles`, `students`, `memberships`

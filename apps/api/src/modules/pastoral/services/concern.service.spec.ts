@@ -5,6 +5,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
+import { ConcernQueriesService } from './concern-queries.service';
 import { ConcernVersionService } from './concern-version.service';
 import { ConcernService } from './concern.service';
 import { PastoralEventService } from './pastoral-event.service';
@@ -125,6 +126,7 @@ const makeConcern = (overrides: Record<string, unknown> = {}) => ({
 
 describe('ConcernService', () => {
   let service: ConcernService;
+  let queriesService: ConcernQueriesService;
   let mockPastoralEventService: { write: jest.Mock };
   let mockConcernVersionService: {
     createInitialVersion: jest.Mock;
@@ -188,6 +190,7 @@ describe('ConcernService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ConcernService,
+        ConcernQueriesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PastoralEventService, useValue: mockPastoralEventService },
         {
@@ -213,6 +216,7 @@ describe('ConcernService', () => {
     }).compile();
 
     service = module.get<ConcernService>(ConcernService);
+    queriesService = module.get<ConcernQueriesService>(ConcernQueriesService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -452,7 +456,7 @@ describe('ConcernService', () => {
       // Non-DLP user has no cp_access_grants
       mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
 
-      const result = await service.list(
+      const result = await queriesService.list(
         TENANT_ID,
         USER_ID_B,
         ['pastoral.view_tier1'],
@@ -480,7 +484,7 @@ describe('ConcernService', () => {
         id: 'grant-1',
       });
 
-      const result = await service.list(
+      const result = await queriesService.list(
         TENANT_ID,
         USER_ID_DLP,
         ['pastoral.view_tier1', 'pastoral.view_tier2'],
@@ -503,7 +507,7 @@ describe('ConcernService', () => {
       mockRlsTx.pastoralConcern.count.mockResolvedValue(1);
       mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
 
-      const result = await service.list(
+      const result = await queriesService.list(
         TENANT_ID,
         USER_ID_B,
         ['pastoral.view_tier1'], // NO pastoral.view_tier2
@@ -530,7 +534,7 @@ describe('ConcernService', () => {
       mockRlsTx.pastoralConcern.count.mockResolvedValue(2);
       mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
 
-      const result = await service.list(
+      const result = await queriesService.list(
         TENANT_ID,
         USER_ID_B,
         ['pastoral.view_tier1', 'pastoral.view_tier2'],
@@ -553,7 +557,7 @@ describe('ConcernService', () => {
       mockRlsTx.pastoralConcern.count.mockResolvedValue(25);
       mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
 
-      const result = await service.list(
+      const result = await queriesService.list(
         TENANT_ID,
         USER_ID_B,
         ['pastoral.view_tier1', 'pastoral.view_tier2'],
@@ -586,10 +590,15 @@ describe('ConcernService', () => {
       ]);
       mockRlsTx.pastoralConcern.count.mockResolvedValue(1);
 
-      await service.list(TENANT_ID, USER_ID_B, ['pastoral.view_tier1', 'pastoral.view_tier2'], {
-        ...defaultQuery,
-        student_id: STUDENT_ID_2,
-      });
+      await queriesService.list(
+        TENANT_ID,
+        USER_ID_B,
+        ['pastoral.view_tier1', 'pastoral.view_tier2'],
+        {
+          ...defaultQuery,
+          student_id: STUDENT_ID_2,
+        },
+      );
 
       expect(mockRlsTx.pastoralConcern.findMany).toHaveBeenCalledWith(
         expect.objectContaining({

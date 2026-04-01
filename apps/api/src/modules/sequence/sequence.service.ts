@@ -30,9 +30,7 @@ export class SequenceService {
       )) as Array<{ current_value: bigint }>;
 
       if (!rows.length) {
-        throw new Error(
-          `Sequence type "${sequenceType}" not found for tenant ${tenantId}`,
-        );
+        throw new Error(`Sequence type "${sequenceType}" not found for tenant ${tenantId}`);
       }
 
       const newValue = Number(rows[0]?.current_value ?? 0) + 1;
@@ -59,10 +57,7 @@ export class SequenceService {
    * Includes collision check — retries on duplicate within tenant.
    * This reference doubles as the parent's initial portal password.
    */
-  async generateHouseholdReference(
-    tenantId: string,
-    tx?: unknown,
-  ): Promise<string> {
+  async generateHouseholdReference(tenantId: string, tx?: unknown): Promise<string> {
     const doWork = async (db: unknown): Promise<string> => {
       const rawTx = db as unknown as {
         $queryRaw: (sql: Prisma.Sql) => Promise<unknown[]>;
@@ -82,9 +77,7 @@ export class SequenceService {
         }
       }
 
-      throw new Error(
-        'Failed to generate unique household reference after 10 attempts',
-      );
+      throw new Error('Failed to generate unique household reference after 10 attempts');
     };
 
     if (tx) {

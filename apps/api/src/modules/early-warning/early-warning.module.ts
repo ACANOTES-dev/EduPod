@@ -30,6 +30,6 @@ import { EarlyWarningService } from './early-warning.service';
     EarlyWarningRoutingService,
     EarlyWarningTriggerService,
   ],
-  exports: [],
+  exports: [EarlyWarningService, EarlyWarningConfigService, EarlyWarningTriggerService],
 })
 export class EarlyWarningModule {}

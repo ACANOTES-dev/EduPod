@@ -1,8 +1,9 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
-import { TenantsModule } from '../tenants/tenants.module';
+import { PolicyEngineModule } from '../policy-engine/policy-engine.module';
+import { SequenceModule } from '../sequence/sequence.module';
 
 import { BehaviourAttachmentService } from './behaviour-attachment.service';
 import { BehaviourConfigController } from './behaviour-config.controller';
@@ -12,20 +13,20 @@ import { BehaviourHistoryService } from './behaviour-history.service';
 import { BehaviourPointsService } from './behaviour-points.service';
 import { BehaviourQuickLogService } from './behaviour-quick-log.service';
 import { BehaviourScopeService } from './behaviour-scope.service';
+import { BehaviourSideEffectsService } from './behaviour-side-effects.service';
 import { BehaviourTasksController } from './behaviour-tasks.controller';
 import { BehaviourTasksService } from './behaviour-tasks.service';
 import { BehaviourController } from './behaviour.controller';
 import { BehaviourService } from './behaviour.service';
-import { PolicyEvaluationEngine } from './policy/policy-evaluation-engine';
-import { PolicyReplayService } from './policy/policy-replay.service';
-import { PolicyRulesService } from './policy/policy-rules.service';
 
 @Module({
   imports: [
     AuthModule,
-    TenantsModule,
+    SequenceModule,
+    forwardRef(() => PolicyEngineModule),
     BullModule.registerQueue({ name: 'notifications' }),
     BullModule.registerQueue({ name: 'behaviour' }),
+    BullModule.registerQueue({ name: 'search-sync' }),
   ],
   controllers: [BehaviourController, BehaviourConfigController, BehaviourTasksController],
   providers: [
@@ -37,10 +38,8 @@ import { PolicyRulesService } from './policy/policy-rules.service';
     BehaviourTasksService,
     BehaviourAttachmentService,
     BehaviourPointsService,
-    PolicyRulesService,
-    PolicyEvaluationEngine,
-    PolicyReplayService,
     BehaviourDocumentTemplateService,
+    BehaviourSideEffectsService,
   ],
   exports: [
     BehaviourService,
@@ -48,8 +47,7 @@ import { PolicyRulesService } from './policy/policy-rules.service';
     BehaviourScopeService,
     BehaviourConfigService,
     BehaviourPointsService,
-    PolicyEvaluationEngine,
-    PolicyReplayService,
+    BehaviourSideEffectsService,
   ],
 })
 export class BehaviourCoreModule {}

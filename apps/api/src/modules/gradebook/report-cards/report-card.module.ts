@@ -16,6 +16,7 @@ import {
   ReportCardVerificationController,
   ReportCardsEnhancedController,
 } from './report-cards-enhanced.controller';
+import { ReportCardsQueriesService } from './report-cards-queries.service';
 import { ReportCardsController } from './report-cards.controller';
 import { ReportCardsService } from './report-cards.service';
 
@@ -37,6 +38,7 @@ import { ReportCardsService } from './report-cards.service';
   providers: [
     // ─── Core ────────────────────────────────────────────────────────────────
     ReportCardsService,
+    ReportCardsQueriesService,
 
     // ─── Templates & Theming ─────────────────────────────────────────────────
     ReportCardTemplateService,
@@ -56,6 +58,6 @@ import { ReportCardsService } from './report-cards.service';
     // ─── Analytics ───────────────────────────────────────────────────────────
     ReportCardAnalyticsService,
   ],
-  exports: [ReportCardsService],
+  exports: [ReportCardsService, ReportCardsQueriesService],
 })
 export class ReportCardModule {}

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
-import { TenantsModule } from '../tenants/tenants.module';
+import { SequenceModule } from '../sequence/sequence.module';
 
 import { CriticalIncidentsController } from './controllers/critical-incidents.controller';
 import { PastoralCoreModule } from './pastoral-core.module';
@@ -11,7 +11,7 @@ import { CriticalIncidentService } from './services/critical-incident.service';
 // Critical incidents management.
 
 @Module({
-  imports: [AuthModule, PastoralCoreModule, TenantsModule],
+  imports: [AuthModule, PastoralCoreModule, SequenceModule],
   controllers: [CriticalIncidentsController],
   providers: [CriticalIncidentService],
   exports: [CriticalIncidentService],

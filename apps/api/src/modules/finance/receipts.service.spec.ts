@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { ReceiptsService } from './receipts.service';
 
@@ -158,9 +158,7 @@ describe('ReceiptsService', () => {
     it('should throw NotFoundException when payment not found', async () => {
       mockPrisma.payment.findFirst.mockResolvedValue(null);
 
-      await expect(service.renderPdf(TENANT_ID, 'bad-id', 'en')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.renderPdf(TENANT_ID, 'bad-id', 'en')).rejects.toThrow(NotFoundException);
     });
   });
 });

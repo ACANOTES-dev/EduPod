@@ -3,7 +3,7 @@ import { Module } from '@nestjs/common';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
-import { TenantsModule } from '../tenants/tenants.module';
+import { SequenceModule } from '../sequence/sequence.module';
 
 import { BulkOperationsService } from './bulk-operations.service';
 import { CreditNotesService } from './credit-notes.service';
@@ -39,12 +39,7 @@ import { StripeWebhookController } from './stripe-webhook.controller';
 import { StripeService } from './stripe.service';
 
 @Module({
-  imports: [
-    ApprovalsModule,
-    TenantsModule,
-    ConfigurationModule,
-    PdfRenderingModule,
-  ],
+  imports: [ApprovalsModule, SequenceModule, ConfigurationModule, PdfRenderingModule],
   controllers: [
     FeeStructuresController,
     DiscountsController,

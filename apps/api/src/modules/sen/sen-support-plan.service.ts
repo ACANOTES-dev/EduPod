@@ -12,7 +12,7 @@ import {
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { SenScopeService } from './sen-scope.service';
 

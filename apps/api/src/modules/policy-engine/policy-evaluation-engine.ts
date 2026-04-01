@@ -7,8 +7,8 @@ import {
   PolicyConditionSchema,
 } from '@school/shared';
 
-import { PrismaService } from '../../prisma/prisma.service';
-import { BehaviourHistoryService } from '../behaviour-history.service';
+import { BehaviourHistoryService } from '../behaviour/behaviour-history.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 /**
  * Prisma enum stage values in pipeline order.
@@ -100,27 +100,17 @@ export class PolicyEvaluationEngine {
       for (const rule of rules) {
         const conditions = PolicyConditionSchema.safeParse(rule.conditions);
         if (!conditions.success) {
-          this.logger.warn(
-            `Rule ${rule.id} has invalid conditions — skipping`,
-          );
+          this.logger.warn(`Rule ${rule.id} has invalid conditions — skipping`);
           continue;
         }
 
-        const input = await this.buildEvaluatedInput(
-          incident,
-          participant,
-          conditions.data,
-          tx,
-        );
+        const input = await this.buildEvaluatedInput(incident, participant, conditions.data, tx);
         const matches = this.evaluateConditions(conditions.data, input);
 
         if (matches) {
           matchedRules.push(rule);
 
-          if (
-            rule.stop_processing_stage ||
-            rule.match_strategy === 'first_match'
-          ) {
+          if (rule.stop_processing_stage || rule.match_strategy === 'first_match') {
             break;
           }
         }
@@ -130,22 +120,13 @@ export class PolicyEvaluationEngine {
       const evaluationResult: $Enums.PolicyEvaluationResult =
         matchedRules.length > 0 ? 'matched' : 'no_match';
 
-      const evaluatedInput = await this.buildEvaluatedInput(
-        incident,
-        participant,
-        {},
-        tx,
-      );
+      const evaluatedInput = await this.buildEvaluatedInput(incident, participant, {}, tx);
 
       // Get version ID for the first matched rule
       let ruleVersionId: string | null = null;
       const firstMatch = matchedRules[0] ?? null;
       if (firstMatch) {
-        ruleVersionId = await this.getVersionId(
-          firstMatch.id,
-          firstMatch.current_version,
-          tx,
-        );
+        ruleVersionId = await this.getVersionId(firstMatch.id, firstMatch.current_version, tx);
       }
 
       const evaluation = await tx.behaviourPolicyEvaluation.create({
@@ -173,13 +154,7 @@ export class PolicyEvaluationEngine {
       // Execute actions for all matched rules
       for (const rule of matchedRules) {
         for (const action of rule.actions) {
-          await this.executeAction(
-            action,
-            incident,
-            participant,
-            evaluation.id,
-            tx,
-          );
+          await this.executeAction(action, incident, participant, evaluation.id, tx);
         }
       }
     }
@@ -197,10 +172,7 @@ export class PolicyEvaluationEngine {
    * Pure condition matching — all specified conditions must pass (AND).
    * Unspecified conditions are wildcards.
    */
-  evaluateConditions(
-    conditions: PolicyCondition,
-    input: EvaluatedInput,
-  ): boolean {
+  evaluateConditions(conditions: PolicyCondition, input: EvaluatedInput): boolean {
     if (conditions.category_ids?.length) {
       if (!conditions.category_ids.includes(input.category_id)) return false;
     }
@@ -218,10 +190,7 @@ export class PolicyEvaluationEngine {
     }
 
     if (conditions.year_group_ids?.length) {
-      if (
-        !input.year_group_id ||
-        !conditions.year_group_ids.includes(input.year_group_id)
-      ) {
+      if (!input.year_group_id || !conditions.year_group_ids.includes(input.year_group_id)) {
         return false;
       }
     }
@@ -231,10 +200,7 @@ export class PolicyEvaluationEngine {
     }
 
     if (conditions.student_has_active_intervention !== undefined) {
-      if (
-        input.had_active_intervention !==
-        conditions.student_has_active_intervention
-      )
+      if (input.had_active_intervention !== conditions.student_has_active_intervention)
         return false;
     }
 
@@ -256,18 +222,11 @@ export class PolicyEvaluationEngine {
     }
 
     if (conditions.weekdays?.length) {
-      if (
-        input.weekday === null ||
-        !conditions.weekdays.includes(input.weekday)
-      )
-        return false;
+      if (input.weekday === null || !conditions.weekdays.includes(input.weekday)) return false;
     }
 
     if (conditions.period_orders?.length) {
-      if (
-        input.period_order === null ||
-        !conditions.period_orders.includes(input.period_order)
-      )
+      if (input.period_order === null || !conditions.period_orders.includes(input.period_order))
         return false;
     }
 
@@ -284,10 +243,7 @@ export class PolicyEvaluationEngine {
     conditions: Partial<PolicyCondition>,
     tx: PrismaService,
   ): Promise<EvaluatedInput> {
-    const snapshot = (participant.student_snapshot ?? {}) as Record<
-      string,
-      unknown
-    >;
+    const snapshot = (participant.student_snapshot ?? {}) as Record<string, unknown>;
 
     // Get category name
     let categoryName = '';
@@ -302,12 +258,7 @@ export class PolicyEvaluationEngine {
     }
 
     // Compute repeat count if needed
-    const repeatCount = await this.computeRepeatCount(
-      incident,
-      participant,
-      conditions,
-      tx,
-    );
+    const repeatCount = await this.computeRepeatCount(incident, participant, conditions, tx);
 
     return EvaluatedInputSchema.parse({
       category_id: incident.category_id,
@@ -323,8 +274,7 @@ export class PolicyEvaluationEngine {
       year_group_id: (snapshot.year_group_id as string) ?? null,
       year_group_name: (snapshot.year_group_name as string) ?? null,
       has_send: (snapshot.has_send as boolean) ?? false,
-      had_active_intervention:
-        (snapshot.had_active_intervention as boolean) ?? false,
+      had_active_intervention: (snapshot.had_active_intervention as boolean) ?? false,
       repeat_count: repeatCount,
       repeat_window_days_used: conditions.repeat_window_days ?? null,
       repeat_category_ids_used: conditions.repeat_category_ids ?? [],
@@ -454,8 +404,7 @@ export class PolicyEvaluationEngine {
           action_type: action.action_type,
           action_config: action.action_config as Prisma.InputJsonValue,
           execution_status: 'failed',
-          failure_reason:
-            err instanceof Error ? err.message : String(err),
+          failure_reason: err instanceof Error ? err.message : String(err),
           executed_at: new Date(),
         },
       });
@@ -481,23 +430,13 @@ export class PolicyEvaluationEngine {
       case 'require_approval':
         return this.executeRequireApproval(config, incident, tx);
       case 'require_parent_meeting':
-        return this.executeRequireParentMeeting(
-          config,
-          incident,
-          participant,
-          tx,
-        );
+        return this.executeRequireParentMeeting(config, incident, participant, tx);
       case 'require_parent_notification':
         return this.executeRequireParentNotification(incident, tx);
       case 'create_task':
         return this.executeCreateTask(config, incident, participant, tx);
       case 'create_intervention':
-        return this.executeCreateIntervention(
-          config,
-          incident,
-          participant,
-          tx,
-        );
+        return this.executeCreateIntervention(config, incident, participant, tx);
       case 'notify_roles':
         // Enqueuing notifications is a side-effect we skip inside the tx
         // We record the action as success; actual dispatch is separate
@@ -527,9 +466,7 @@ export class PolicyEvaluationEngine {
       where: { id: targetCategoryId, tenant_id: incident.tenant_id },
     });
     if (!targetCategory) {
-      this.logger.warn(
-        `Auto-escalate: target category ${targetCategoryId} not found`,
-      );
+      this.logger.warn(`Auto-escalate: target category ${targetCategoryId} not found`);
       return null;
     }
 
@@ -544,7 +481,8 @@ export class PolicyEvaluationEngine {
       data: {
         tenant_id: incident.tenant_id,
         category_id: targetCategoryId,
-        description: `Auto-escalated from ${incident.incident_number}. ${(config.reason as string) ?? ''}`.trim(),
+        description:
+          `Auto-escalated from ${incident.incident_number}. ${(config.reason as string) ?? ''}`.trim(),
         polarity: targetCategory.polarity as $Enums.BehaviourPolarity,
         severity: targetCategory.severity,
         context_type: incident.context_type as $Enums.ContextType,
@@ -730,8 +668,7 @@ export class PolicyEvaluationEngine {
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + dueInDays);
 
-    const assigneeId =
-      (config.assigned_to_user_id as string) ?? incident.reported_by_id;
+    const assigneeId = (config.assigned_to_user_id as string) ?? incident.reported_by_id;
 
     const task = await tx.behaviourTask.create({
       data: {

@@ -9,7 +9,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 }));
 
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { CreditNotesService } from './credit-notes.service';
 import { InvoicesService } from './invoices.service';
@@ -71,7 +71,10 @@ describe('CreditNotesService', () => {
       mockPrisma.creditNote.findMany.mockResolvedValue([cn]);
       mockPrisma.creditNote.count.mockResolvedValue(1);
 
-      const result = await service.findAll(TENANT_ID, { page: 1, pageSize: 20 }) as { data: Array<{ amount: number }>; meta: { total: number } };
+      const result = (await service.findAll(TENANT_ID, { page: 1, pageSize: 20 })) as {
+        data: Array<{ amount: number }>;
+        meta: { total: number };
+      };
 
       expect(result.meta.total).toBe(1);
       expect(result.data[0]?.amount).toBe(500);
@@ -102,11 +105,11 @@ describe('CreditNotesService', () => {
         applications: [],
       });
 
-      const result = await service.create(TENANT_ID, USER_ID, {
+      const result = (await service.create(TENANT_ID, USER_ID, {
         household_id: HOUSEHOLD_ID,
         amount: 500,
         reason: 'Overpayment correction',
-      }) as { credit_note_number: string; amount: number };
+      })) as { credit_note_number: string; amount: number };
 
       expect(result.credit_note_number).toBe('CN-202603-000001');
       expect(result.amount).toBe(500);

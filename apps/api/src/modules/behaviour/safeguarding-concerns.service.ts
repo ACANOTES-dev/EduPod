@@ -30,7 +30,7 @@ import { ConcernVersionService } from '../pastoral/services/concern-version.serv
 import { ConcernService } from '../pastoral/services/concern.service';
 import { PastoralEventService } from '../pastoral/services/pastoral-event.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import {
   ACK_STATUS_TO_PRISMA,
@@ -56,6 +56,7 @@ export class SafeguardingConcernsService {
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
     private readonly auditLogService: AuditLogService,
+    // TODO(M-17): Migrate to BehaviourSideEffectsService
     @InjectQueue('behaviour') private readonly behaviourQueue: Queue,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
     private readonly concernService: ConcernService,

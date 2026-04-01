@@ -15,7 +15,7 @@ import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import {
   deriveInvoiceStatus,

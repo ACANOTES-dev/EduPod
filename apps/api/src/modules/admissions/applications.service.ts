@@ -10,7 +10,7 @@ import type {
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { AdmissionsRateLimitService } from './admissions-rate-limit.service';
 import { ApplicationConversionService } from './application-conversion.service';

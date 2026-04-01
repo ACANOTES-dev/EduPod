@@ -1,4 +1,3 @@
-import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   ForbiddenException,
@@ -17,14 +16,14 @@ import {
   type UpdateIncidentDto,
   type WithdrawIncidentDto,
 } from '@school/shared';
-import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { BehaviourHistoryService } from './behaviour-history.service';
 import { BehaviourScopeService } from './behaviour-scope.service';
+import { BehaviourSideEffectsService } from './behaviour-side-effects.service';
 
 /**
  * Map the Zod/shared context_type strings to Prisma's ContextType enum.
@@ -57,8 +56,7 @@ export class BehaviourService {
     private readonly sequenceService: SequenceService,
     private readonly historyService: BehaviourHistoryService,
     private readonly scopeService: BehaviourScopeService,
-    @InjectQueue('notifications') private readonly notificationsQueue: Queue,
-    @InjectQueue('behaviour') private readonly behaviourQueue: Queue,
+    private readonly sideEffects: BehaviourSideEffectsService,
   ) {}
 
   // ─── Create Incident ────────────────────────────────────────────────────
@@ -276,53 +274,32 @@ export class BehaviourService {
 
         // Queue parent notification if needed
         if (parentNotifStatus === 'pending' && initialStatus === 'active') {
-          try {
-            await this.notificationsQueue.add('behaviour:parent-notification', {
-              tenant_id: tenantId,
-              incident_id: incident.id,
-              student_ids: dto.student_ids,
-            });
-          } catch (err) {
-            this.logger.warn(
-              'Failed to enqueue behaviour:parent-notification — incident creation succeeded',
-              err,
-            );
-          }
+          await this.sideEffects.emitParentNotification({
+            tenant_id: tenantId,
+            incident_id: incident.id,
+            student_ids: dto.student_ids,
+          });
         }
 
         // Queue policy evaluation
         if (initialStatus === 'active') {
-          try {
-            await this.behaviourQueue.add('behaviour:evaluate-policy', {
-              tenant_id: tenantId,
-              incident_id: incident.id,
-              trigger: 'incident_created',
-              triggered_at: new Date().toISOString(),
-            });
-          } catch (err) {
-            this.logger.warn(
-              'Failed to enqueue behaviour:evaluate-policy — incident creation succeeded',
-              err,
-            );
-          }
+          await this.sideEffects.emitPolicyEvaluation({
+            tenant_id: tenantId,
+            incident_id: incident.id,
+            trigger: 'incident_created',
+            triggered_at: new Date().toISOString(),
+          });
         }
 
         // Queue auto-award check for positive incidents
         if (initialStatus === 'active' && category.polarity === 'positive') {
-          try {
-            await this.behaviourQueue.add('behaviour:check-awards', {
-              tenant_id: tenantId,
-              incident_id: incident.id,
-              student_ids: dto.student_ids,
-              academic_year_id: dto.academic_year_id,
-              academic_period_id: dto.academic_period_id ?? null,
-            });
-          } catch (err) {
-            this.logger.warn(
-              'Failed to enqueue behaviour:check-awards — incident creation succeeded',
-              err,
-            );
-          }
+          await this.sideEffects.emitCheckAwards({
+            tenant_id: tenantId,
+            incident_id: incident.id,
+            student_ids: dto.student_ids,
+            academic_year_id: dto.academic_year_id,
+            academic_period_id: dto.academic_period_id ?? null,
+          });
         }
 
         return db.behaviourIncident.findUnique({
@@ -877,19 +854,12 @@ export class BehaviourService {
 
       // Queue policy evaluation for the new participant
       if (dto.participant_type === 'student') {
-        try {
-          await this.behaviourQueue.add('behaviour:evaluate-policy', {
-            tenant_id: tenantId,
-            incident_id: incidentId,
-            trigger: 'participant_added',
-            triggered_at: new Date().toISOString(),
-          });
-        } catch (err) {
-          this.logger.warn(
-            'Failed to enqueue behaviour:evaluate-policy for participant addition — participant creation succeeded',
-            err,
-          );
-        }
+        await this.sideEffects.emitPolicyEvaluation({
+          tenant_id: tenantId,
+          incident_id: incidentId,
+          trigger: 'participant_added',
+          triggered_at: new Date().toISOString(),
+        });
       }
 
       return participant;

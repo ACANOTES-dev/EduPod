@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 
+import { ReportCardsQueriesService } from './report-cards-queries.service';
 import { ReportCardsService } from './report-cards.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -101,22 +102,18 @@ const baseReportCard = {
 
 // ─── findAll ──────────────────────────────────────────────────────────────────
 
-describe('ReportCardsService — findAll', () => {
-  let service: ReportCardsService;
+describe('ReportCardsQueriesService — findAll', () => {
+  let service: ReportCardsQueriesService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReportCardsService,
-        { provide: PrismaService, useValue: mockPrisma },
-        { provide: RedisService, useValue: buildMockRedis() },
-      ],
+      providers: [ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
-    service = module.get<ReportCardsService>(ReportCardsService);
+    service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -184,22 +181,18 @@ describe('ReportCardsService — findAll', () => {
 
 // ─── findOne ──────────────────────────────────────────────────────────────────
 
-describe('ReportCardsService — findOne', () => {
-  let service: ReportCardsService;
+describe('ReportCardsQueriesService — findOne', () => {
+  let service: ReportCardsQueriesService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReportCardsService,
-        { provide: PrismaService, useValue: mockPrisma },
-        { provide: RedisService, useValue: buildMockRedis() },
-      ],
+      providers: [ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
-    service = module.get<ReportCardsService>(ReportCardsService);
+    service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -314,7 +307,9 @@ describe('ReportCardsService — publish', () => {
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRedis = buildMockRedis();
-    mockRlsTx.reportCard.update.mockReset().mockResolvedValue({ ...baseReportCard, status: 'published' });
+    mockRlsTx.reportCard.update
+      .mockReset()
+      .mockResolvedValue({ ...baseReportCard, status: 'published' });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -384,7 +379,9 @@ describe('ReportCardsService — revise', () => {
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
-    mockRlsTx.reportCard.update.mockReset().mockResolvedValue({ ...baseReportCard, status: 'revised' });
+    mockRlsTx.reportCard.update
+      .mockReset()
+      .mockResolvedValue({ ...baseReportCard, status: 'revised' });
     mockRlsTx.reportCard.create.mockReset().mockResolvedValue({ ...baseReportCard, id: 'new-rc' });
 
     const module: TestingModule = await Test.createTestingModule({
@@ -415,7 +412,7 @@ describe('ReportCardsService — revise', () => {
   it('should mark original as revised and create a new draft', async () => {
     mockPrisma.reportCard.findFirst.mockResolvedValue({ ...baseReportCard, status: 'published' });
 
-    const result = await service.revise(TENANT_ID, REPORT_CARD_ID) as { id: string };
+    const result = (await service.revise(TENANT_ID, REPORT_CARD_ID)) as { id: string };
 
     expect(mockRlsTx.reportCard.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -430,22 +427,18 @@ describe('ReportCardsService — revise', () => {
 
 // ─── gradeOverview ────────────────────────────────────────────────────────────
 
-describe('ReportCardsService — gradeOverview', () => {
-  let service: ReportCardsService;
+describe('ReportCardsQueriesService — gradeOverview', () => {
+  let service: ReportCardsQueriesService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReportCardsService,
-        { provide: PrismaService, useValue: mockPrisma },
-        { provide: RedisService, useValue: buildMockRedis() },
-      ],
+      providers: [ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
-    service = module.get<ReportCardsService>(ReportCardsService);
+    service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -508,7 +501,9 @@ describe('ReportCardsService — publishBulk', () => {
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRedis = buildMockRedis();
-    mockRlsTx.reportCard.update.mockReset().mockResolvedValue({ ...baseReportCard, status: 'published' });
+    mockRlsTx.reportCard.update
+      .mockReset()
+      .mockResolvedValue({ ...baseReportCard, status: 'published' });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -548,22 +543,18 @@ describe('ReportCardsService — publishBulk', () => {
 
 // ─── generateTranscript ───────────────────────────────────────────────────────
 
-describe('ReportCardsService — generateTranscript', () => {
-  let service: ReportCardsService;
+describe('ReportCardsQueriesService — generateTranscript', () => {
+  let service: ReportCardsQueriesService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReportCardsService,
-        { provide: PrismaService, useValue: mockPrisma },
-        { provide: RedisService, useValue: buildMockRedis() },
-      ],
+      providers: [ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
-    service = module.get<ReportCardsService>(ReportCardsService);
+    service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
   });
 
   afterEach(() => jest.clearAllMocks());

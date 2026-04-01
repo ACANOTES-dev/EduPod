@@ -2,7 +2,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
-import { TenantsModule } from '../tenants/tenants.module';
+import { SequenceModule } from '../sequence/sequence.module';
 
 import { CasesController } from './controllers/cases.controller';
 import { InterventionsController } from './controllers/interventions.controller';
@@ -25,7 +25,7 @@ import { ReferralService } from './services/referral.service';
   imports: [
     AuthModule,
     PastoralCoreModule,
-    TenantsModule,
+    SequenceModule,
     BullModule.registerQueue({ name: 'notifications' }),
   ],
   controllers: [

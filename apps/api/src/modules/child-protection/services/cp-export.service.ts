@@ -12,7 +12,7 @@ import { PastoralEventService } from '../../pastoral/services/pastoral-event.ser
 import { PdfRenderingService } from '../../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
-import { SequenceService } from '../../tenants/sequence.service';
+import { SequenceService } from '../../sequence/sequence.service';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 

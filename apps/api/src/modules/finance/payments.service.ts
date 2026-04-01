@@ -3,7 +3,7 @@ import type { AllocationSuggestion, ConfirmAllocationsDto, CreatePaymentDto } fr
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { roundMoney } from './helpers/invoice-status.helper';
 import { InvoicesService } from './invoices.service';

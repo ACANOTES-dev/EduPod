@@ -3,7 +3,7 @@ import { Module } from '@nestjs/common';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { SearchModule } from '../search/search.module';
-import { TenantsModule } from '../tenants/tenants.module';
+import { SequenceModule } from '../sequence/sequence.module';
 
 import { AdmissionFormsController } from './admission-forms.controller';
 import { AdmissionFormsService } from './admission-forms.service';
@@ -18,7 +18,7 @@ import { ParentApplicationsController } from './parent-applications.controller';
 import { PublicAdmissionsController } from './public-admissions.controller';
 
 @Module({
-  imports: [TenantsModule, ApprovalsModule, SearchModule, ConfigurationModule],
+  imports: [SequenceModule, ApprovalsModule, SearchModule, ConfigurationModule],
   controllers: [
     AdmissionFormsController,
     ApplicationsController,

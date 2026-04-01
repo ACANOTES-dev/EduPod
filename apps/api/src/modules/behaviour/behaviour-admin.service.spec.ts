@@ -1,12 +1,12 @@
 import { getQueueToken } from '@nestjs/bullmq';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { PolicyReplayService } from '../policy-engine/policy-replay.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
 import { BehaviourAdminService } from './behaviour-admin.service';
 import { BehaviourScopeService } from './behaviour-scope.service';
-import { PolicyReplayService } from './policy/policy-replay.service';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

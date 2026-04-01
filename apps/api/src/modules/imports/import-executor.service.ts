@@ -4,7 +4,7 @@ import type { ImportType } from '@school/shared';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { ImportParserService } from './import-parser.service';
 

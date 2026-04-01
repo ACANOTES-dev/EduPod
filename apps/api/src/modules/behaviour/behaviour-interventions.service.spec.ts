@@ -2,7 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { BehaviourHistoryService } from './behaviour-history.service';
 import { BehaviourInterventionsService } from './behaviour-interventions.service';
@@ -43,9 +43,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(
-      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx),
-    ),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -60,7 +60,9 @@ const makeIntervention = (overrides: Record<string, unknown> = {}) => ({
   status: 'planned',
   trigger_description: 'Repeated disruptions in class',
   goals: [{ goal: 'Reduce disruptions', measurable_target: '<2 per week', deadline: null }],
-  strategies: [{ strategy: 'Daily check-in', responsible_staff_id: ASSIGNED_TO_ID, frequency: 'daily' }],
+  strategies: [
+    { strategy: 'Daily check-in', responsible_staff_id: ASSIGNED_TO_ID, frequency: 'daily' },
+  ],
   assigned_to_id: ASSIGNED_TO_ID,
   start_date: new Date('2026-03-01'),
   target_end_date: null,
@@ -174,7 +176,9 @@ describe('BehaviourInterventionsService', () => {
       type: 'behaviour_plan' as const,
       trigger_description: 'Repeated disruptions in class',
       goals: [{ goal: 'Reduce disruptions', measurable_target: '<2 per week', deadline: null }],
-      strategies: [{ strategy: 'Daily check-in', responsible_staff_id: ASSIGNED_TO_ID, frequency: 'daily' }],
+      strategies: [
+        { strategy: 'Daily check-in', responsible_staff_id: ASSIGNED_TO_ID, frequency: 'daily' },
+      ],
       assigned_to_id: ASSIGNED_TO_ID,
       start_date: '2026-03-01',
       review_frequency_days: 14,
@@ -375,7 +379,15 @@ describe('BehaviourInterventionsService', () => {
       const intervention = makeIntervention({
         reviews: [makeReview()],
         intervention_incidents: [
-          { incident: { id: INCIDENT_ID_A, incident_number: 'BH-202603-0001', description: 'Fight', occurred_at: new Date(), status: 'active' } },
+          {
+            incident: {
+              id: INCIDENT_ID_A,
+              incident_number: 'BH-202603-0001',
+              description: 'Fight',
+              occurred_at: new Date(),
+              status: 'active',
+            },
+          },
         ],
         student: { id: STUDENT_ID, first_name: 'John', last_name: 'Doe' },
         assigned_to: { id: ASSIGNED_TO_ID, first_name: 'Jane', last_name: 'Teacher' },
@@ -385,24 +397,26 @@ describe('BehaviourInterventionsService', () => {
 
       const result = await service.getDetail(TENANT_ID, INTERVENTION_ID, true);
 
-      expect(result).toEqual(expect.objectContaining({
-        id: INTERVENTION_ID,
-        reviews: expect.arrayContaining([expect.objectContaining({ id: 'review-1' })]),
-        intervention_incidents: expect.arrayContaining([
-          expect.objectContaining({
-            incident: expect.objectContaining({ id: INCIDENT_ID_A }),
-          }),
-        ]),
-        tasks: [],
-      }));
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: INTERVENTION_ID,
+          reviews: expect.arrayContaining([expect.objectContaining({ id: 'review-1' })]),
+          intervention_incidents: expect.arrayContaining([
+            expect.objectContaining({
+              incident: expect.objectContaining({ id: INCIDENT_ID_A }),
+            }),
+          ]),
+          tasks: [],
+        }),
+      );
     });
 
     it('should throw NotFoundException for non-existent ID', async () => {
       mockPrisma.behaviourIntervention.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getDetail(TENANT_ID, 'non-existent-id', true),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getDetail(TENANT_ID, 'non-existent-id', true)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should strip send_notes based on permission flag', async () => {
@@ -497,9 +511,9 @@ describe('BehaviourInterventionsService', () => {
     it('should allow planned -> active_intervention', async () => {
       setupTransitionMocks('planned');
 
-      const result = await service.transitionStatus(TENANT_ID, INTERVENTION_ID, USER_ID, {
+      const result = (await service.transitionStatus(TENANT_ID, INTERVENTION_ID, USER_ID, {
         status: 'active',
-      }) as { status: string };
+      })) as { status: string };
 
       expect(mockRlsTx.behaviourIntervention.update).toHaveBeenCalledWith({
         where: { id: INTERVENTION_ID },
@@ -736,14 +750,14 @@ describe('BehaviourInterventionsService', () => {
     it('should create review record for active intervention', async () => {
       setupReviewMocks();
 
-      const result = await service.createReview(
-        TENANT_ID, INTERVENTION_ID, USER_ID, baseReviewDto,
-      );
+      const result = await service.createReview(TENANT_ID, INTERVENTION_ID, USER_ID, baseReviewDto);
 
-      expect(result).toEqual(expect.objectContaining({
-        intervention_id: INTERVENTION_ID,
-        progress: 'on_track',
-      }));
+      expect(result).toEqual(
+        expect.objectContaining({
+          intervention_id: INTERVENTION_ID,
+          progress: 'on_track',
+        }),
+      );
       expect(mockRlsTx.behaviourInterventionReview.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           tenant_id: TENANT_ID,

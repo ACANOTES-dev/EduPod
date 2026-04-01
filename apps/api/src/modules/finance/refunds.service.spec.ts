@@ -1,8 +1,5 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
-import {
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
@@ -12,7 +9,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 }));
 
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { InvoicesService } from './invoices.service';
 import { RefundsService } from './refunds.service';
@@ -92,7 +89,12 @@ describe('RefundsService', () => {
       mockPrisma.refund.findMany.mockResolvedValue([
         {
           ...makeRefund(),
-          payment: { id: PAYMENT_ID, payment_reference: 'PAY-001', amount: '500.00', household: { id: 'hh-1', household_name: 'Smith' } },
+          payment: {
+            id: PAYMENT_ID,
+            payment_reference: 'PAY-001',
+            amount: '500.00',
+            household: { id: 'hh-1', household_name: 'Smith' },
+          },
           requested_by: { id: USER_ID, first_name: 'John', last_name: 'Doe' },
           approved_by: null,
         },
@@ -136,11 +138,11 @@ describe('RefundsService', () => {
         requested_by: { id: USER_ID, first_name: 'John', last_name: 'Doe' },
       });
 
-      const result = await service.create(TENANT_ID, USER_ID, {
+      const result = (await service.create(TENANT_ID, USER_ID, {
         payment_id: PAYMENT_ID,
         amount: 200,
         reason: 'Duplicate payment',
-      }) as { amount: number; status: string };
+      })) as { amount: number; status: string };
 
       expect(result.amount).toBe(200);
       expect(result.status).toBe('pending_approval');
@@ -258,16 +260,14 @@ describe('RefundsService', () => {
     });
 
     it('should throw BadRequestException when not approved', async () => {
-      mockPrisma.refund.findFirst.mockResolvedValue(
-        makeRefund({ status: 'pending_approval' }),
-      );
+      mockPrisma.refund.findFirst.mockResolvedValue(makeRefund({ status: 'pending_approval' }));
 
       await expect(service.execute(TENANT_ID, REFUND_ID)).rejects.toThrow(BadRequestException);
     });
 
     it('should execute an approved refund and update payment status', async () => {
       mockPrisma.refund.findFirst
-        .mockResolvedValueOnce(makeRefund({ status: 'approved' }))  // initial find
+        .mockResolvedValueOnce(makeRefund({ status: 'approved' })) // initial find
         .mockResolvedValueOnce(makeRefund({ status: 'executed', executed_at: new Date() })); // re-read after update
       mockPrisma.refund.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
@@ -278,7 +278,7 @@ describe('RefundsService', () => {
       });
       mockPrisma.payment.update.mockResolvedValue({ id: PAYMENT_ID, status: 'refunded_full' });
 
-      const result = await service.execute(TENANT_ID, REFUND_ID) as { amount: number };
+      const result = (await service.execute(TENANT_ID, REFUND_ID)) as { amount: number };
 
       expect(result.amount).toBe(200);
     });

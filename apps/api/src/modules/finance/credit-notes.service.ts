@@ -4,7 +4,7 @@ import type { ApplyCreditNoteDto, CreateCreditNoteDto, CreditNoteQueryDto } from
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { isPayableStatus, roundMoney } from './helpers/invoice-status.helper';
 import { serializeDecimal } from './helpers/serialize-decimal.helper';

@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type {
   CreateRecurringInvoiceConfigDto,
   RecurringInvoiceConfigQueryDto,
@@ -12,7 +8,7 @@ import type {
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { roundMoney } from './helpers/invoice-status.helper';
 
@@ -177,14 +173,16 @@ export class RecurringInvoicesService {
 
     for (const config of dueConfigs) {
       try {
-        const count = await this.generateForConfig(tenantId, config, autoIssue, resolvedSystemUserId);
+        const count = await this.generateForConfig(
+          tenantId,
+          config,
+          autoIssue,
+          resolvedSystemUserId,
+        );
         totalGenerated += count;
 
         // Update next_generation_date
-        const nextDate = this.computeNextDate(
-          config.next_generation_date,
-          config.frequency,
-        );
+        const nextDate = this.computeNextDate(config.next_generation_date, config.frequency);
 
         await this.prisma.recurringInvoiceConfig.update({
           where: { id: config.id },
@@ -245,23 +243,31 @@ export class RecurringInvoicesService {
         await rlsClient.$transaction(async (tx) => {
           const db = tx as unknown as typeof this.prisma;
 
-          const invoiceNumber = await this.sequenceService.nextNumber(tenantId, 'invoice', tx, prefix);
+          const invoiceNumber = await this.sequenceService.nextNumber(
+            tenantId,
+            'invoice',
+            tx,
+            prefix,
+          );
 
-          const feeAmount = typeof feeStructure.amount === 'object'
-            ? feeStructure.amount.toNumber()
-            : Number(feeStructure.amount);
+          const feeAmount =
+            typeof feeStructure.amount === 'object'
+              ? feeStructure.amount.toNumber()
+              : Number(feeStructure.amount);
 
           let lineTotal = feeAmount;
           let discountAmount = 0;
 
           if (assignment.discount) {
-            const discountValue = typeof assignment.discount.value === 'object'
-              ? assignment.discount.value.toNumber()
-              : Number(assignment.discount.value);
+            const discountValue =
+              typeof assignment.discount.value === 'object'
+                ? assignment.discount.value.toNumber()
+                : Number(assignment.discount.value);
 
-            discountAmount = assignment.discount.discount_type === 'percent'
-              ? roundMoney(feeAmount * (discountValue / 100))
-              : roundMoney(discountValue);
+            discountAmount =
+              assignment.discount.discount_type === 'percent'
+                ? roundMoney(feeAmount * (discountValue / 100))
+                : roundMoney(discountValue);
             lineTotal = roundMoney(feeAmount - discountAmount);
           }
 

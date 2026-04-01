@@ -1,8 +1,5 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
-import {
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
@@ -12,7 +9,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 }));
 
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { InvoicesService } from './invoices.service';
 import { PaymentsService } from './payments.service';
@@ -202,9 +199,7 @@ describe('PaymentsService', () => {
 
     it('should return empty when no remaining balance', async () => {
       mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ amount: '500.00' }));
-      mockPrisma.paymentAllocation.findMany.mockResolvedValue([
-        { allocated_amount: '500.00' },
-      ]);
+      mockPrisma.paymentAllocation.findMany.mockResolvedValue([{ allocated_amount: '500.00' }]);
 
       const result = await service.suggestAllocations(TENANT_ID, PAYMENT_ID);
 
@@ -232,9 +227,7 @@ describe('PaymentsService', () => {
     });
 
     it('should throw BadRequestException when payment not posted', async () => {
-      mockPrisma.payment.findFirst.mockResolvedValue(
-        makePayment({ status: 'refunded_full' }),
-      );
+      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'refunded_full' }));
 
       await expect(
         service.confirmAllocations(TENANT_ID, PAYMENT_ID, USER_ID, {

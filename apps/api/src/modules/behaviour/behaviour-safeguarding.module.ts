@@ -5,7 +5,7 @@ import { AuthModule } from '../auth/auth.module';
 import { ChildProtectionModule } from '../child-protection/child-protection.module';
 import { PastoralCoreModule } from '../pastoral/pastoral-core.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
-import { TenantsModule } from '../tenants/tenants.module';
+import { SequenceModule } from '../sequence/sequence.module';
 
 import { SafeguardingAttachmentService } from './safeguarding-attachment.service';
 import { SafeguardingBreakGlassService } from './safeguarding-break-glass.service';
@@ -22,7 +22,7 @@ import { SafeguardingService } from './safeguarding.service';
     ChildProtectionModule,
     PastoralCoreModule,
     PdfRenderingModule,
-    TenantsModule,
+    SequenceModule,
     BullModule.registerQueue({ name: 'notifications' }),
     BullModule.registerQueue({ name: 'behaviour' }),
   ],

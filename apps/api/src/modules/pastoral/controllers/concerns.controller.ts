@@ -35,6 +35,7 @@ import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard'
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
+import { ConcernQueriesService } from '../services/concern-queries.service';
 import { ConcernVersionService } from '../services/concern-version.service';
 import { ConcernService } from '../services/concern.service';
 import { PastoralEventService } from '../services/pastoral-event.service';
@@ -45,6 +46,7 @@ import { PastoralEventService } from '../services/pastoral-event.service';
 export class ConcernsController {
   constructor(
     private readonly concernService: ConcernService,
+    private readonly concernQueriesService: ConcernQueriesService,
     private readonly versionService: ConcernVersionService,
     private readonly eventService: PastoralEventService,
     private readonly permissionCacheService: PermissionCacheService,
@@ -62,12 +64,7 @@ export class ConcernsController {
     dto: z.infer<typeof createConcernSchema>,
     @Req() req: Request,
   ) {
-    return this.concernService.create(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-      req.ip ?? null,
-    );
+    return this.concernService.create(tenant.tenant_id, user.sub, dto, req.ip ?? null);
   }
 
   // ─── 2. List Concerns ─────────────────────────────────────────────────────
@@ -80,15 +77,8 @@ export class ConcernsController {
     @Query(new ZodValidationPipe(listConcernsQuerySchema))
     query: z.infer<typeof listConcernsQuerySchema>,
   ) {
-    const permissions = await this.permissionCacheService.getPermissions(
-      user.membership_id!,
-    );
-    return this.concernService.list(
-      tenant.tenant_id,
-      user.sub,
-      permissions,
-      query,
-    );
+    const permissions = await this.permissionCacheService.getPermissions(user.membership_id!);
+    return this.concernQueriesService.list(tenant.tenant_id, user.sub, permissions, query);
   }
 
   // ─── 3. Get Concern By ID ─────────────────────────────────────────────────
@@ -101,16 +91,8 @@ export class ConcernsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: Request,
   ) {
-    const permissions = await this.permissionCacheService.getPermissions(
-      user.membership_id!,
-    );
-    return this.concernService.getById(
-      tenant.tenant_id,
-      user.sub,
-      permissions,
-      id,
-      req.ip ?? null,
-    );
+    const permissions = await this.permissionCacheService.getPermissions(user.membership_id!);
+    return this.concernService.getById(tenant.tenant_id, user.sub, permissions, id, req.ip ?? null);
   }
 
   // ─── 4. Update Concern Metadata ───────────────────────────────────────────
@@ -124,12 +106,7 @@ export class ConcernsController {
     @Body(new ZodValidationPipe(updateConcernMetadataSchema))
     dto: z.infer<typeof updateConcernMetadataSchema>,
   ) {
-    return this.concernService.updateMetadata(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      dto,
-    );
+    return this.concernService.updateMetadata(tenant.tenant_id, user.sub, id, dto);
   }
 
   // ─── 5. Escalate Concern Tier ─────────────────────────────────────────────
@@ -145,13 +122,7 @@ export class ConcernsController {
     dto: z.infer<typeof escalateConcernTierSchema>,
     @Req() req: Request,
   ) {
-    return this.concernService.escalateTier(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      dto,
-      req.ip ?? null,
-    );
+    return this.concernService.escalateTier(tenant.tenant_id, user.sub, id, dto, req.ip ?? null);
   }
 
   // ─── 6. Share Concern with Parent ─────────────────────────────────────────
@@ -184,11 +155,7 @@ export class ConcernsController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.concernService.unshareConcernFromParent(
-      tenant.tenant_id,
-      user.sub,
-      id,
-    );
+    return this.concernService.unshareConcernFromParent(tenant.tenant_id, user.sub, id);
   }
 
   // ─── 7. Amend Concern Narrative ───────────────────────────────────────────
@@ -204,13 +171,7 @@ export class ConcernsController {
     dto: z.infer<typeof amendNarrativeSchema>,
     @Req() req: Request,
   ) {
-    return this.versionService.amendNarrative(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      dto,
-      req.ip ?? null,
-    );
+    return this.versionService.amendNarrative(tenant.tenant_id, user.sub, id, dto, req.ip ?? null);
   }
 
   // ─── 8. List Concern Versions ─────────────────────────────────────────────
@@ -235,7 +196,18 @@ export class ConcernsController {
     @Query(new ZodValidationPipe(pastoralEventFiltersSchema))
     query: z.infer<typeof pastoralEventFiltersSchema>,
   ): Promise<{
-    data: { id: string; event_type: string; entity_type: string; entity_id: string; student_id: string | null; actor_user_id: string; tier: number; payload: Prisma.JsonValue; ip_address: string | null; created_at: Date }[];
+    data: {
+      id: string;
+      event_type: string;
+      entity_type: string;
+      entity_id: string;
+      student_id: string | null;
+      actor_user_id: string;
+      tier: number;
+      payload: Prisma.JsonValue;
+      ip_address: string | null;
+      created_at: Date;
+    }[];
     meta: { page: number; pageSize: number; total: number };
   }> {
     return this.eventService.getEntityHistory(
@@ -252,10 +224,8 @@ export class ConcernsController {
 
   @Get('pastoral/categories')
   @RequiresPermission('pastoral.log_concern')
-  async getCategories(
-    @CurrentTenant() tenant: TenantContext,
-  ) {
-    return this.concernService.getCategories(tenant.tenant_id);
+  async getCategories(@CurrentTenant() tenant: TenantContext) {
+    return this.concernQueriesService.getCategories(tenant.tenant_id);
   }
 
   // ─── 11. Get Student Pastoral Chronology ──────────────────────────────────
@@ -269,7 +239,18 @@ export class ConcernsController {
     @Query(new ZodValidationPipe(pastoralEventFiltersSchema))
     query: z.infer<typeof pastoralEventFiltersSchema>,
   ): Promise<{
-    data: { id: string; event_type: string; entity_type: string; entity_id: string; student_id: string | null; actor_user_id: string; tier: number; payload: Prisma.JsonValue; ip_address: string | null; created_at: Date }[];
+    data: {
+      id: string;
+      event_type: string;
+      entity_type: string;
+      entity_id: string;
+      student_id: string | null;
+      actor_user_id: string;
+      tier: number;
+      payload: Prisma.JsonValue;
+      ip_address: string | null;
+      created_at: Date;
+    }[];
     meta: { page: number; pageSize: number; total: number };
   }> {
     return this.eventService.getStudentChronology(

@@ -3,7 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { BehaviourAmendmentsService } from './behaviour-amendments.service';
 import { BehaviourAppealsService } from './behaviour-appeals.service';

@@ -1,5 +1,9 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
+// TODO [M-13]: Migrate to PdfJobService for async PDF rendering.
+// Currently uses PdfRenderingService.renderPdf() synchronously because the HTTP
+// endpoint returns the PDF buffer directly. Migration requires changing the API
+// to return a job ID and having the client poll for the result (or use a webhook).
 import type { PdfBranding } from '../pdf-rendering/pdf-rendering.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';

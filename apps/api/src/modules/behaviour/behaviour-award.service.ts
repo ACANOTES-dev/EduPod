@@ -37,6 +37,7 @@ export class BehaviourAwardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly historyService: BehaviourHistoryService,
+    // TODO(M-17): Migrate to BehaviourSideEffectsService
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
 

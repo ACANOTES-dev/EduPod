@@ -40,11 +40,11 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { PolicyReplayService } from '../policy-engine/policy-replay.service';
+import { PolicyRulesService } from '../policy-engine/policy-rules.service';
 
 import { BehaviourConfigService } from './behaviour-config.service';
 import { BehaviourDocumentTemplateService } from './behaviour-document-template.service';
-import { PolicyReplayService } from './policy/policy-replay.service';
-import { PolicyRulesService } from './policy/policy-rules.service';
 
 // ─── Local Query Schemas ─────────────────────────────────────────────────────
 
@@ -67,9 +67,7 @@ export class BehaviourConfigController {
 
   @Get('behaviour/categories')
   @RequiresPermission('behaviour.view')
-  async listCategories(
-    @CurrentTenant() tenant: TenantContext,
-  ) {
+  async listCategories(@CurrentTenant() tenant: TenantContext) {
     return this.configService.listCategories(tenant.tenant_id);
   }
 
@@ -104,10 +102,7 @@ export class BehaviourConfigController {
     @Query(new ZodValidationPipe(listTemplatesQuerySchema))
     query: z.infer<typeof listTemplatesQuerySchema>,
   ) {
-    return this.configService.listTemplates(
-      tenant.tenant_id,
-      query.category_id,
-    );
+    return this.configService.listTemplates(tenant.tenant_id, query.category_id);
   }
 
   @Post('behaviour/description-templates')
@@ -153,11 +148,7 @@ export class BehaviourConfigController {
     @Body(new ZodValidationPipe(createPolicyRuleSchema))
     dto: z.infer<typeof createPolicyRuleSchema>,
   ) {
-    return this.policyRulesService.createRule(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-    );
+    return this.policyRulesService.createRule(tenant.tenant_id, user.sub, dto);
   }
 
   @Get('behaviour/policies/export')
@@ -175,11 +166,7 @@ export class BehaviourConfigController {
     @Body(new ZodValidationPipe(importPolicyRulesSchema))
     dto: z.infer<typeof importPolicyRulesSchema>,
   ) {
-    return this.policyRulesService.importRules(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-    );
+    return this.policyRulesService.importRules(tenant.tenant_id, user.sub, dto);
   }
 
   @Post('behaviour/policies/replay')
@@ -195,10 +182,7 @@ export class BehaviourConfigController {
 
   @Get('behaviour/policies/:id')
   @RequiresPermission('behaviour.admin')
-  async getPolicy(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getPolicy(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.policyRulesService.getRule(tenant.tenant_id, id);
   }
 
@@ -211,12 +195,7 @@ export class BehaviourConfigController {
     @Body(new ZodValidationPipe(updatePolicyRuleSchema))
     dto: z.infer<typeof updatePolicyRuleSchema>,
   ) {
-    return this.policyRulesService.updateRule(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.policyRulesService.updateRule(tenant.tenant_id, id, user.sub, dto);
   }
 
   @Delete('behaviour/policies/:id')

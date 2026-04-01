@@ -8,7 +8,7 @@ import { Queue } from 'bullmq';
 import { QUEUE_NAMES } from '../../../../../worker/src/base/queue.constants';
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
-import { SequenceService } from '../../tenants/sequence.service';
+import { SequenceService } from '../../sequence/sequence.service';
 
 import { PastoralEventService } from './pastoral-event.service';
 

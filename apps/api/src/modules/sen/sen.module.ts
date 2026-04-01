@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
-import { TenantsModule } from '../tenants/tenants.module';
+import { SequenceModule } from '../sequence/sequence.module';
 
 import { SenAccommodationController } from './sen-accommodation.controller';
 import { SenAccommodationService } from './sen-accommodation.service';
@@ -25,7 +25,7 @@ import { SenTransitionController } from './sen-transition.controller';
 import { SenTransitionService } from './sen-transition.service';
 
 @Module({
-  imports: [AuthModule, ConfigurationModule, TenantsModule],
+  imports: [AuthModule, ConfigurationModule, SequenceModule],
   controllers: [
     SenProfileController,
     SenSupportPlanController,
@@ -49,6 +49,6 @@ import { SenTransitionService } from './sen-transition.service';
     SenReportsService,
     SenTransitionService,
   ],
-  exports: [],
+  exports: [SenProfileService, SenScopeService, SenSupportPlanService],
 })
 export class SenModule {}

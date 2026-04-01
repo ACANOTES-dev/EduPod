@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { RecurringInvoicesService } from './recurring-invoices.service';
 
@@ -92,7 +92,10 @@ describe('RecurringInvoicesService', () => {
 
   describe('createConfig', () => {
     it('should create a config', async () => {
-      mockPrisma.feeStructure.findFirst.mockResolvedValue({ id: FEE_STRUCTURE_ID, name: 'Tuition' });
+      mockPrisma.feeStructure.findFirst.mockResolvedValue({
+        id: FEE_STRUCTURE_ID,
+        name: 'Tuition',
+      });
       mockPrisma.recurringInvoiceConfig.create.mockResolvedValue({
         id: CONFIG_ID,
         fee_structure_id: FEE_STRUCTURE_ID,

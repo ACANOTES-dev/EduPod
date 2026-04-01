@@ -1,13 +1,9 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { CreateRefundDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { roundMoney } from './helpers/invoice-status.helper';
 import { InvoicesService } from './invoices.service';
@@ -348,10 +344,7 @@ export class RefundsService {
     let remaining = refundAmount;
 
     // Calculate total allocated
-    const totalAllocated = allocations.reduce(
-      (sum, a) => sum + Number(a.allocated_amount),
-      0,
-    );
+    const totalAllocated = allocations.reduce((sum, a) => sum + Number(a.allocated_amount), 0);
     const payment = await prisma.payment.findUnique({
       where: { id: paymentId },
     });

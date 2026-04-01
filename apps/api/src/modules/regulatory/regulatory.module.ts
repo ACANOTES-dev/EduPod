@@ -51,6 +51,6 @@ import { RegulatoryController } from './regulatory.controller';
     RegulatoryTuslaMappingsService,
     RegulatoryTuslaService,
   ],
-  exports: [],
+  exports: [RegulatoryCalendarService, RegulatoryDashboardService, RegulatorySubmissionService],
 })
 export class RegulatoryModule {}
