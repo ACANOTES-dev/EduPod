@@ -11,10 +11,6 @@
       "reason": "Pastoral concern lifecycle and sharing remain one of the highest-risk maintainability hotspots because the service coordinates access control, state changes, and cross-entity relationship writes.",
       "budgets": [
         {
-          "name": "ConcernService.list",
-          "max": 15
-        },
-        {
           "name": "ConcernService.getById",
           "max": 10
         }
