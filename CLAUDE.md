@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Multi-tenant school management SaaS. Single PostgreSQL database, shared schema, Row-Level Security isolation. NestJS modular monolith backend, Next.js App Router frontend, BullMQ worker service. Bilingual English/Arabic with full RTL. ~288k lines of code. Two confirmed tenants pending onboarding.
+Multi-tenant school management SaaS. Single PostgreSQL database, shared schema, Row-Level Security isolation. NestJS modular monolith backend, Next.js App Router frontend, BullMQ worker service. Bilingual English/Arabic with full RTL. Two confirmed tenants pending onboarding.
 
 ## Reference Documents
 
@@ -47,6 +47,7 @@ Current work is iterative: refining existing functionality, adding enhancements 
    - **Test in production** — local-only results are not sufficient. The work is not done until it is verified on production.
 
 ## Do Not Ask for Approval During Execution For
+
 - Applying edits, fixing bugs, retrying after failures
 - Refactoring within scope, file restructuring within scope
 - Implementation-level decisions
@@ -54,6 +55,7 @@ Current work is iterative: refining existing functionality, adding enhancements 
 - SSHing into the server (if permission was granted for this task)
 
 ## Stop and Ask If
+
 - The change requires scope beyond what was requested
 - Architecture changes or major unplanned functionality
 - A blocker forces a materially different approach
@@ -145,9 +147,11 @@ Every `catch` block must do one of two things:
 **Empty `catch {}` blocks are prohibited.** Swallowing errors silently hides production bugs.
 
 Backend errors always use the structured `{ code, message }` pattern with NestJS built-in exception classes:
+
 ```
 throw new NotFoundException({ code: 'STUDENT_NOT_FOUND', message: `Student with id "${id}" not found` });
 ```
+
 Error codes are `UPPER_SNAKE_CASE`. Messages are human-readable with context.
 
 ---
@@ -156,17 +160,17 @@ Error codes are `UPPER_SNAKE_CASE`. Messages are human-readable with context.
 
 ### Naming
 
-| Entity | Convention | Example |
-|---|---|---|
-| Files | `kebab-case.suffix.ts` | `students.service.ts`, `zod-validation.pipe.ts` |
-| File suffixes | `.service.ts`, `.controller.ts`, `.module.ts`, `.spec.ts`, `.pipe.ts`, `.guard.ts`, `.processor.ts` | — |
-| Classes | `PascalCase` matching filename | `StudentsService`, `AuthGuard` |
-| Interfaces / Types | `PascalCase`, no `I` prefix | `StudentRow`, `ListStudentsQuery` |
-| Variables / params | `camelCase` in JS, `snake_case` for DB columns and API fields | `tenantId` (JS), `tenant_id` (DB/API) |
-| Constants | `UPPER_SNAKE_CASE` | `QUEUE_NAMES`, `SYSTEM_USER_SENTINEL` |
-| Zod schemas | `camelCase` + `Schema` suffix | `createStudentSchema`, `paginationQuerySchema` |
-| DTO types | `PascalCase` + `Dto` suffix, via `z.infer<>` | `CreateStudentDto` |
-| API routes | `/v1/{resource}` kebab-case, plural | `/v1/students`, `/v1/fee-structures` |
+| Entity             | Convention                                                                                          | Example                                         |
+| ------------------ | --------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Files              | `kebab-case.suffix.ts`                                                                              | `students.service.ts`, `zod-validation.pipe.ts` |
+| File suffixes      | `.service.ts`, `.controller.ts`, `.module.ts`, `.spec.ts`, `.pipe.ts`, `.guard.ts`, `.processor.ts` | —                                               |
+| Classes            | `PascalCase` matching filename                                                                      | `StudentsService`, `AuthGuard`                  |
+| Interfaces / Types | `PascalCase`, no `I` prefix                                                                         | `StudentRow`, `ListStudentsQuery`               |
+| Variables / params | `camelCase` in JS, `snake_case` for DB columns and API fields                                       | `tenantId` (JS), `tenant_id` (DB/API)           |
+| Constants          | `UPPER_SNAKE_CASE`                                                                                  | `QUEUE_NAMES`, `SYSTEM_USER_SENTINEL`           |
+| Zod schemas        | `camelCase` + `Schema` suffix                                                                       | `createStudentSchema`, `paginationQuerySchema`  |
+| DTO types          | `PascalCase` + `Dto` suffix, via `z.infer<>`                                                        | `CreateStudentDto`                              |
+| API routes         | `/v1/{resource}` kebab-case, plural                                                                 | `/v1/students`, `/v1/fee-structures`            |
 
 ### Import Ordering
 
@@ -181,6 +185,7 @@ Use `import type` for type-only imports. Destructured, alphabetically ordered.
 ### Section Separators
 
 Use visual dividers for logical code sections:
+
 ```
 // ─── Status transition map ────────────────────────────────────────────────────
 ```
@@ -217,12 +222,14 @@ Reserve for non-obvious behavior — describe what the method does and key side-
 ### Forms — Hard Rule
 
 New forms **must** use `react-hook-form` with `zodResolver` and the corresponding Zod schema from `@school/shared`:
+
 ```
 const form = useForm<CreateStudentDto>({
   resolver: zodResolver(createStudentSchema),
   defaultValues: { ... },
 });
 ```
+
 Individual `useState` per form field is not acceptable for new forms. Existing hand-rolled forms may be migrated as they are touched.
 
 ### Styling
@@ -237,6 +244,7 @@ Individual `useState` per form field is not acceptable for new forms. Existing h
 ### Module Structure
 
 Each feature module lives in `apps/api/src/modules/{module-name}/`:
+
 ```
 modules/students/
 ├── dto/                          # Thin re-exports from @school/shared
@@ -246,12 +254,14 @@ modules/students/
 ├── students.service.spec.ts
 └── students.module.ts
 ```
+
 - **Flat structure** — no nested `services/` or `controllers/` directories
 - Larger modules (finance, payroll) split into sub-services by concern, differentiated by filename prefix
 
 ### DTO Pattern
 
 DTOs are thin re-exports from `@school/shared`. Zod schema is the single source of truth:
+
 ```
 // dto/create-student.dto.ts
 import { createStudentSchema } from '@school/shared';
@@ -259,6 +269,7 @@ import type { CreateStudentDto } from '@school/shared';
 export { createStudentSchema };
 export type { CreateStudentDto };
 ```
+
 - Schema naming: `{action}{Entity}Schema`
 - Update schemas: `.optional()` on all fields, `.nullable().optional()` for clearable fields
 - Cross-field validation: `.refine()` with `path` pointing to dependent field
@@ -298,6 +309,7 @@ Prefixes: `add_`, `fix_`, `upgrade_`. Suffixes: `_tables`, `_indexes`, `_fields`
 ### RLS Policy for New Tables
 
 Every new tenant-scoped table needs this boilerplate (from `packages/prisma/rls/policies.sql`):
+
 ```sql
 ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY;
 ALTER TABLE {table_name} FORCE ROW LEVEL SECURITY;
@@ -307,6 +319,7 @@ CREATE POLICY {table_name}_tenant_isolation ON {table_name}
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
 ```
+
 - Policy naming: `{table_name}_tenant_isolation` — always
 - Nullable `tenant_id` tables: add `tenant_id IS NULL OR` to both clauses
 - Policies go in `post_migrate.sql` alongside their migration
@@ -335,6 +348,7 @@ Format: `module:action-description` — colon separator, kebab-case action. Expo
 ### Cron Registration
 
 All in `CronSchedulerService` via `OnModuleInit`:
+
 - jobId format: `cron:${JOB_CONSTANT}` for BullMQ deduplication
 - Retention: `removeOnComplete: 10`, `removeOnFail: 50`
 - Cross-tenant crons: empty `{}` payload, processor iterates all tenants
