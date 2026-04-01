@@ -104,6 +104,7 @@ export class ReportsDataAccessService {
     });
   }
 
+  /** Group students by one or more scalar fields, always scoped to the tenant. Returns `_count` per group. */
   async groupStudentsBy<K extends Prisma.StudentScalarFieldEnum>(
     tenantId: string,
     by: K[],
@@ -335,6 +336,7 @@ export class ReportsDataAccessService {
     return result as unknown as Array<Record<string, unknown>>;
   }
 
+  /** Aggregate grade scores. Converts Prisma Decimal to `number` so callers get a plain JS number, not a Decimal object. */
   async aggregateGrades(
     tenantId: string,
     where?: Prisma.GradeWhereInput,
@@ -459,6 +461,7 @@ export class ReportsDataAccessService {
     });
   }
 
+  /** Aggregate invoice monetary totals. Returns plain `number` values — Prisma returns Decimal for NUMERIC columns which must be coerced. */
   async aggregateInvoices(
     tenantId: string,
     where?: Prisma.InvoiceWhereInput,
