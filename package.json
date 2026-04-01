@@ -8,9 +8,11 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "check:worker-processor-specs": "node scripts/check-worker-processor-specs.mjs",
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
     "test": "turbo run test",
+    "test:changed": "turbo run test:changed",
     "i18n:check": "node scripts/check-i18n.js",
     "i18n:baseline": "node scripts/check-i18n.js --write-baseline",
     "hotspots:check": "node scripts/check-hotspot-budgets.js",
@@ -22,6 +24,10 @@
     "db:seed": "pnpm --filter @school/prisma seed",
     "db:post-migrate": "tsx scripts/post-migrate.ts",
     "seed:demo": "bash scripts/seed-demo.sh",
+    "snapshot:api": "tsx scripts/generate-api-surface.ts",
+    "snapshot:schema": "bash scripts/snapshot-prisma-schema.sh",
+    "check:characterization": "bash scripts/check-characterization-tests.sh",
+    "check:test-gate": "bash scripts/check-test-coverage-gate.sh",
     "prepare": "husky"
   },
   "lint-staged": {
