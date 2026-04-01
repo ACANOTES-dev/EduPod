@@ -865,3 +865,18 @@ DROP POLICY IF EXISTS engagement_incident_reports_tenant_isolation ON engagement
 CREATE POLICY engagement_incident_reports_tenant_isolation ON engagement_incident_reports
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- =============================================================
+-- Attendance Pattern Alerts RLS Policy (S-01 security fix)
+-- =============================================================
+-- Defined in: packages/prisma/migrations/20260324020000_attendance_default_present/migration.sql
+-- Fix applied in: packages/prisma/migrations/20260401100000_fix_attendance_pattern_alerts_rls/migration.sql
+-- Original migration had ENABLE + non-standard policy name; FORCE and rename added here.
+
+-- attendance_pattern_alerts (standard)
+ALTER TABLE attendance_pattern_alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attendance_pattern_alerts FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS attendance_pattern_alerts_tenant_isolation ON attendance_pattern_alerts;
+CREATE POLICY attendance_pattern_alerts_tenant_isolation ON attendance_pattern_alerts
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);

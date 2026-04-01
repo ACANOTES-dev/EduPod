@@ -13,10 +13,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { SkipThrottle } from '@nestjs/throttler';
 import { Request } from 'express';
 
 import { WebhookService } from './webhook.service';
 
+@SkipThrottle()
 @Controller('v1/webhooks')
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
@@ -46,9 +48,7 @@ export class WebhookController {
         secret.startsWith('whsec_') ? secret.slice(6) : secret,
         'base64',
       );
-      const expectedSig = createHmac('sha256', secretBytes)
-        .update(payload)
-        .digest('base64');
+      const expectedSig = createHmac('sha256', secretBytes).update(payload).digest('base64');
 
       // svixSignature can contain multiple signatures separated by spaces, each prefixed with "v1,"
       const signatures = svixSignature.split(' ').map((s) => s.replace('v1,', ''));
@@ -72,7 +72,9 @@ export class WebhookController {
         throw new UnauthorizedException('Webhook timestamp too old');
       }
     } else if (process.env.NODE_ENV === 'production') {
-      throw new UnauthorizedException('Webhook endpoint not configured — RESEND_WEBHOOK_SECRET is missing');
+      throw new UnauthorizedException(
+        'Webhook endpoint not configured — RESEND_WEBHOOK_SECRET is missing',
+      );
     } else {
       this.logger.warn('RESEND_WEBHOOK_SECRET not configured — skipping verification (dev only)');
     }
@@ -94,14 +96,16 @@ export class WebhookController {
       const params = body as Record<string, string>;
 
       // Build the data string: URL + sorted key/value pairs
-      const dataStr = requestUrl + Object.keys(params).sort().map((k) => k + params[k]).join('');
+      const dataStr =
+        requestUrl +
+        Object.keys(params)
+          .sort()
+          .map((k) => k + params[k])
+          .join('');
       const expectedSig = createHmac('sha1', authToken).update(dataStr).digest('base64');
 
       try {
-        const isValid = timingSafeEqual(
-          Buffer.from(twilioSignature),
-          Buffer.from(expectedSig),
-        );
+        const isValid = timingSafeEqual(Buffer.from(twilioSignature), Buffer.from(expectedSig));
         if (!isValid) {
           this.logger.error('Twilio webhook signature verification failed');
           throw new UnauthorizedException('Invalid Twilio webhook signature');
@@ -112,7 +116,9 @@ export class WebhookController {
         throw new UnauthorizedException('Twilio webhook signature verification error');
       }
     } else if (!authToken && process.env.NODE_ENV === 'production') {
-      throw new UnauthorizedException('Webhook endpoint not configured — TWILIO_AUTH_TOKEN is missing');
+      throw new UnauthorizedException(
+        'Webhook endpoint not configured — TWILIO_AUTH_TOKEN is missing',
+      );
     } else if (!authToken) {
       this.logger.warn('TWILIO_AUTH_TOKEN not configured — skipping verification (dev only)');
     }
