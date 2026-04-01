@@ -56,6 +56,16 @@
 - [ ] Did I discover a non-obvious coupling? -> Add to `danger-zones.md`
 - [ ] Did I add a new module? -> Add to `module-blast-radius.md` with its exports and consumers
 
+### 6a. ADR Required? (see ADR-005)
+
+- [ ] Did I add a new `APP_GUARD` or `APP_INTERCEPTOR`?
+- [ ] Did I add a new export to a Tier 1 or Tier 2 module?
+- [ ] Did I introduce a first-time import between two modules (A imports B for the first time)?
+- [ ] Did I add a `forwardRef()` to resolve a circular dependency?
+- [ ] Did I add a table that will be read by 3+ modules?
+
+If YES to any of the above: **write an ADR in `architecture/adrs/` and add it to `architecture/adrs/README.md`** before the PR is merged.
+
 ### 7. Regression Test
 
 - [ ] Run `turbo test` for affected packages

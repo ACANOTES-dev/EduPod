@@ -10,6 +10,7 @@ import { SchoolClosuresModule } from '../school-closures/school-closures.module'
 import { AttendanceLockingService } from './attendance-locking.service';
 import { AttendanceParentNotificationService } from './attendance-parent-notification.service';
 import { AttendancePatternService } from './attendance-pattern.service';
+import { AttendanceReadFacade } from './attendance-read.facade';
 import { AttendanceReportingService } from './attendance-reporting.service';
 import { AttendanceScanService } from './attendance-scan.service';
 import { AttendanceSessionService } from './attendance-session.service';
@@ -34,11 +35,12 @@ import { DailySummaryService } from './daily-summary.service';
     AttendanceLockingService,
     AttendanceReportingService,
     AttendancePatternService,
+    AttendanceReadFacade,
     AttendanceScanService,
     AttendanceUploadService,
     DailySummaryService,
     AttendanceParentNotificationService,
   ],
-  exports: [AttendanceService, DailySummaryService],
+  exports: [AttendanceService, AttendanceReadFacade, DailySummaryService],
 })
 export class AttendanceModule {}

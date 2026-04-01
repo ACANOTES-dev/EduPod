@@ -92,51 +92,86 @@ export class ReportCardsService {
 
     const tenantDefaultLocale = tenant?.default_locale ?? 'en';
 
-    // 4. Generate report cards
+    // 4. Batch-load all data BEFORE the per-student loop (avoids N+1 queries)
+
+    // 4a. Load ALL period grade snapshots for ALL students in one query
+    const allSnapshots = await this.prisma.periodGradeSnapshot.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_id: { in: studentIds },
+        academic_period_id: periodId,
+      },
+      include: {
+        subject: {
+          select: { id: true, name: true, code: true },
+        },
+      },
+    });
+
+    // Group snapshots by student_id for fast lookup
+    const snapshotsByStudent = new Map<string, typeof allSnapshots>();
+    for (const snap of allSnapshots) {
+      const existing = snapshotsByStudent.get(snap.student_id) ?? [];
+      existing.push(snap);
+      snapshotsByStudent.set(snap.student_id, existing);
+    }
+
+    // 4b. Load ALL assessments for ALL subjects/classes across all students
+    const allSubjectIds = [...new Set(allSnapshots.map((s) => s.subject_id))];
+    const allClassIds = [...new Set(allSnapshots.map((s) => s.class_id))];
+    const allAssessments =
+      allSubjectIds.length > 0
+        ? await this.prisma.assessment.findMany({
+            where: {
+              tenant_id: tenantId,
+              academic_period_id: periodId,
+              subject_id: { in: allSubjectIds },
+              class_id: { in: allClassIds },
+              status: { not: 'draft' },
+            },
+            include: {
+              grades: {
+                where: { student_id: { in: studentIds } },
+              },
+              category: {
+                select: { name: true },
+              },
+            },
+          })
+        : [];
+
+    // 4c. Load ALL attendance summaries for ALL students in one groupBy query
+    const allAttendance = await this.prisma.dailyAttendanceSummary.groupBy({
+      by: ['student_id', 'derived_status'],
+      where: {
+        tenant_id: tenantId,
+        student_id: { in: studentIds },
+        summary_date: {
+          gte: period.start_date,
+          lte: period.end_date,
+        },
+      },
+      _count: { id: true },
+    });
+
+    // Group attendance by student_id
+    const attendanceByStudent = new Map<string, typeof allAttendance>();
+    for (const row of allAttendance) {
+      const existing = attendanceByStudent.get(row.student_id) ?? [];
+      existing.push(row);
+      attendanceByStudent.set(row.student_id, existing);
+    }
+
+    // 5. Build report cards from pre-loaded data
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
     const reportCards = [];
 
     for (const student of students) {
-      // Load period grade snapshots for this student+period
-      const snapshots = await this.prisma.periodGradeSnapshot.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: student.id,
-          academic_period_id: periodId,
-        },
-        include: {
-          subject: {
-            select: { id: true, name: true, code: true },
-          },
-        },
-      });
+      const studentSnapshots = snapshotsByStudent.get(student.id) ?? [];
 
-      // Load assessment details for each subject
-      const subjectIds = snapshots.map((s) => s.subject_id);
-      const assessments =
-        subjectIds.length > 0
-          ? await this.prisma.assessment.findMany({
-              where: {
-                tenant_id: tenantId,
-                academic_period_id: periodId,
-                subject_id: { in: subjectIds },
-                class_id: { in: snapshots.map((s) => s.class_id) },
-                status: { not: 'draft' },
-              },
-              include: {
-                grades: {
-                  where: { student_id: student.id },
-                },
-                category: {
-                  select: { name: true },
-                },
-              },
-            })
-          : [];
-
-      // Build subjects array for snapshot
-      const subjects = snapshots.map((snapshot) => {
-        const subjectAssessments = assessments.filter(
+      // Build subjects array from pre-loaded snapshots + assessments
+      const subjects = studentSnapshots.map((snapshot) => {
+        const subjectAssessments = allAssessments.filter(
           (a) => a.subject_id === snapshot.subject_id && a.class_id === snapshot.class_id,
         );
 
@@ -147,7 +182,7 @@ export class ReportCardsService {
           display_value: snapshot.overridden_value ?? snapshot.display_value,
           overridden_value: snapshot.overridden_value ?? null,
           assessments: subjectAssessments.map((a) => {
-            const grade = a.grades[0];
+            const grade = a.grades.find((g) => g.student_id === student.id);
             return {
               title: a.title,
               category: a.category.name,
@@ -162,23 +197,11 @@ export class ReportCardsService {
         };
       });
 
-      // Attendance summary: count daily_attendance_summaries within period date range
-      const attendanceSummaries = await this.prisma.dailyAttendanceSummary.groupBy({
-        by: ['derived_status'],
-        where: {
-          tenant_id: tenantId,
-          student_id: student.id,
-          summary_date: {
-            gte: period.start_date,
-            lte: period.end_date,
-          },
-        },
-        _count: { id: true },
-      });
+      // Build attendance summary from pre-loaded data
+      const studentAttendance = attendanceByStudent.get(student.id) ?? [];
+      const statusCounts = new Map(studentAttendance.map((s) => [s.derived_status, s._count.id]));
 
-      const statusCounts = new Map(attendanceSummaries.map((s) => [s.derived_status, s._count.id]));
-
-      const totalDays = attendanceSummaries.reduce((sum, s) => sum + s._count.id, 0);
+      const totalDays = studentAttendance.reduce((sum, s) => sum + s._count.id, 0);
       const presentDays = (statusCounts.get('present') ?? 0) + (statusCounts.get('late') ?? 0);
       const absentDays =
         (statusCounts.get('absent') ?? 0) + (statusCounts.get('partially_absent') ?? 0);
@@ -584,7 +607,29 @@ export class ReportCardsService {
       snapshotsByStudent.set(snap.student_id, existing);
     }
 
-    // 4. Build payloads
+    // 4. Batch-load ALL attendance summaries (avoids N+1 per student)
+    const batchAttendance = await this.prisma.dailyAttendanceSummary.groupBy({
+      by: ['student_id', 'derived_status'],
+      where: {
+        tenant_id: tenantId,
+        student_id: { in: studentIds },
+        summary_date: {
+          gte: period.start_date,
+          lte: period.end_date,
+        },
+      },
+      _count: { id: true },
+    });
+
+    // Group attendance by student_id
+    const attendanceByStudent = new Map<string, typeof batchAttendance>();
+    for (const row of batchAttendance) {
+      const existing = attendanceByStudent.get(row.student_id) ?? [];
+      existing.push(row);
+      attendanceByStudent.set(row.student_id, existing);
+    }
+
+    // 5. Build payloads from pre-loaded data
     const results: Array<{
       studentId: string;
       studentName: string;
@@ -602,23 +647,11 @@ export class ReportCardsService {
         overridden_value: snapshot.overridden_value ?? null,
       }));
 
-      // Attendance summary
-      const attendanceSummaries = await this.prisma.dailyAttendanceSummary.groupBy({
-        by: ['derived_status'],
-        where: {
-          tenant_id: tenantId,
-          student_id: student.id,
-          summary_date: {
-            gte: period.start_date,
-            lte: period.end_date,
-          },
-        },
-        _count: { id: true },
-      });
+      // Build attendance summary from pre-loaded data
+      const studentAttendance = attendanceByStudent.get(student.id) ?? [];
+      const statusCounts = new Map(studentAttendance.map((s) => [s.derived_status, s._count.id]));
 
-      const statusCounts = new Map(attendanceSummaries.map((s) => [s.derived_status, s._count.id]));
-
-      const totalDays = attendanceSummaries.reduce((sum, s) => sum + s._count.id, 0);
+      const totalDays = studentAttendance.reduce((sum, s) => sum + s._count.id, 0);
       const presentDays = (statusCounts.get('present') ?? 0) + (statusCounts.get('late') ?? 0);
       const absentDays =
         (statusCounts.get('absent') ?? 0) + (statusCounts.get('partially_absent') ?? 0);

@@ -49,17 +49,6 @@ import { SenTransitionService } from './sen-transition.service';
     SenReportsService,
     SenTransitionService,
   ],
-  exports: [
-    SenProfileService,
-    SenScopeService,
-    SenSupportPlanService,
-    SenGoalService,
-    SenResourceService,
-    SenSnaService,
-    SenProfessionalService,
-    SenAccommodationService,
-    SenReportsService,
-    SenTransitionService,
-  ],
+  exports: [],
 })
 export class SenModule {}

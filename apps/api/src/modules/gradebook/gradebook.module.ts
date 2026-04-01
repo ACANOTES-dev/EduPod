@@ -1,13 +1,10 @@
-import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
 import { AcademicsModule } from '../academics/academics.module';
 import { AuthModule } from '../auth/auth.module';
 import { CommunicationsModule } from '../communications/communications.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
-import { GdprModule } from '../gdpr/gdpr.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
-import { RedisModule } from '../redis/redis.module';
 
 import { AiCommentsService } from './ai/ai-comments.service';
 import { AiGradingInstructionService } from './ai/ai-grading-instruction.service';
@@ -36,17 +33,7 @@ import { GradingScalesController } from './grading-scales.controller';
 import { GradingScalesService } from './grading-scales.service';
 import { ParentGradebookController } from './parent-gradebook.controller';
 import { ProgressReportService } from './progress/progress-report.service';
-import { GradeThresholdService } from './report-cards/grade-threshold.service';
-import { ReportCardAcknowledgmentService } from './report-cards/report-card-acknowledgment.service';
-import { ReportCardAnalyticsService } from './report-cards/report-card-analytics.service';
-import { ReportCardApprovalService } from './report-cards/report-card-approval.service';
-import { ReportCardCustomFieldsService } from './report-cards/report-card-custom-fields.service';
-import { ReportCardDeliveryService } from './report-cards/report-card-delivery.service';
-import { ReportCardTemplateService } from './report-cards/report-card-template.service';
-import { ReportCardVerificationService } from './report-cards/report-card-verification.service';
-import { ReportCardsEnhancedController, ReportCardVerificationController } from './report-cards/report-cards-enhanced.controller';
-import { ReportCardsController } from './report-cards/report-cards.controller';
-import { ReportCardsService } from './report-cards/report-cards.service';
+import { ReportCardModule } from './report-cards/report-card.module';
 import { ResultsMatrixService } from './results-matrix.service';
 import { TranscriptsController } from './transcripts.controller';
 import { TranscriptsService } from './transcripts.service';
@@ -58,10 +45,9 @@ import { YearGroupGradeWeightsService } from './year-group-grade-weights.service
     AuthModule,
     CommunicationsModule,
     ConfigurationModule,
-    GdprModule,
     PdfRenderingModule,
-    RedisModule,
-    BullModule.registerQueue({ name: 'gradebook' }),
+    // ─── Report Card Sub-Module ──────────────────────────────────────────────
+    ReportCardModule,
   ],
   controllers: [
     GradingScalesController,
@@ -69,14 +55,11 @@ import { YearGroupGradeWeightsService } from './year-group-grade-weights.service
     GradebookController,
     GradebookAdvancedController,
     GradebookInsightsController,
-    ReportCardsController,
     TranscriptsController,
     ParentGradebookController,
-    // Report Cards Enhancement
-    ReportCardsEnhancedController,
-    ReportCardVerificationController,
   ],
   providers: [
+    // ─── Core Grading ────────────────────────────────────────────────────────
     GradingScalesService,
     AssessmentCategoriesService,
     ClassGradeConfigsService,
@@ -84,38 +67,32 @@ import { YearGroupGradeWeightsService } from './year-group-grade-weights.service
     GradesService,
     PeriodGradeComputationService,
     ResultsMatrixService,
-    ReportCardsService,
     TranscriptsService,
     BulkImportService,
     YearGroupGradeWeightsService,
-    // C1–C7 Advanced Grading
+
+    // ─── Advanced Grading (C1-C7) ────────────────────────────────────────────
     RubricService,
     StandardsService,
     CompetencyScaleService,
     GpaService,
     GradeCurveService,
     AssessmentTemplateService,
-    // A: Analytics
+
+    // ─── Analytics ───────────────────────────────────────────────────────────
     AnalyticsService,
-    // B: AI Features
+
+    // ─── AI Features ─────────────────────────────────────────────────────────
     AiCommentsService,
     AiGradingService,
     AiGradingInstructionService,
     NlQueryService,
     AiProgressSummaryService,
-    // D: Parent Experience
+
+    // ─── Parent Experience ───────────────────────────────────────────────────
     GradePublishingService,
     ProgressReportService,
-    // Report Cards World-Class Enhancement
-    ReportCardTemplateService,
-    ReportCardApprovalService,
-    ReportCardDeliveryService,
-    ReportCardCustomFieldsService,
-    GradeThresholdService,
-    ReportCardVerificationService,
-    ReportCardAcknowledgmentService,
-    ReportCardAnalyticsService,
   ],
-  exports: [ReportCardsService, TranscriptsService],
+  exports: [ReportCardModule, TranscriptsService],
 })
 export class GradebookModule {}

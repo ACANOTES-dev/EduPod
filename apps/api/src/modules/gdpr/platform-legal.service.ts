@@ -1,12 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
-import { NotificationsService } from '../communications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 
-import {
-  PLATFORM_DPA_VERSIONS,
-  PLATFORM_SUB_PROCESSOR_REGISTER_VERSIONS,
-} from './legal-content';
+import { PLATFORM_DPA_VERSIONS, PLATFORM_SUB_PROCESSOR_REGISTER_VERSIONS } from './legal-content';
 
 @Injectable()
 export class PlatformLegalService {
@@ -15,7 +13,7 @@ export class PlatformLegalService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notifications: NotificationsService,
+    private readonly redis: RedisService,
   ) {}
 
   async ensureSeeded() {
@@ -58,8 +56,7 @@ export class PlatformLegalService {
         continue;
       }
 
-      const hadPreviousVersions =
-        (await this.prisma.subProcessorRegisterVersion.count()) > 0;
+      const hadPreviousVersions = (await this.prisma.subProcessorRegisterVersion.count()) > 0;
 
       const created = await this.prisma.subProcessorRegisterVersion.create({
         data: {
@@ -89,6 +86,11 @@ export class PlatformLegalService {
     }
   }
 
+  /**
+   * Creates in_app notification records for tenant admins when the
+   * sub-processor register is updated. Writes directly to the
+   * notification table to avoid coupling GDPR to CommunicationsModule.
+   */
   private async notifyTenantAdmins(version: string, summary: string) {
     const memberships = await this.prisma.tenantMembership.findMany({
       where: {
@@ -124,24 +126,37 @@ export class PlatformLegalService {
       byTenant.set(membership.tenant_id, items);
     }
 
+    const client = this.redis.getClient();
+
     for (const [tenantId, recipients] of byTenant) {
       try {
-        await this.notifications.createBatch(
-          tenantId,
-          recipients.map((recipient) => ({
-            tenant_id: tenantId,
-            recipient_user_id: recipient.user_id,
-            channel: 'in_app',
-            template_key: 'legal.sub_processor_updated',
-            locale: recipient.preferred_locale,
-            payload_json: {
-              title: 'Sub-processor register updated',
-              body: `Version ${version} of the sub-processor register has been published. ${summary}`,
-              version,
-            },
-            source_entity_type: 'sub_processor_register_version',
-            source_entity_id: version,
-          })),
+        // Create in_app notification records directly — these are delivered
+        // immediately and do not require external dispatch via the worker.
+        const data = recipients.map((recipient) => ({
+          tenant_id: tenantId,
+          recipient_user_id: recipient.user_id,
+          channel: 'in_app' as const,
+          template_key: 'legal.sub_processor_updated',
+          locale: recipient.preferred_locale,
+          status: 'delivered' as const,
+          payload_json: {
+            title: 'Sub-processor register updated',
+            body: `Version ${version} of the sub-processor register has been published. ${summary}`,
+            version,
+          } as Prisma.InputJsonValue,
+          source_entity_type: 'sub_processor_register_version',
+          source_entity_id: version,
+          delivered_at: new Date(),
+        }));
+
+        await this.prisma.notification.createMany({ data });
+
+        // Invalidate unread-count caches for all recipients
+        const uniqueUserIds = [...new Set(recipients.map((r) => r.user_id))];
+        await Promise.all(
+          uniqueUserIds.map((userId) =>
+            client.del(`tenant:${tenantId}:user:${userId}:unread_notifications`),
+          ),
         );
       } catch (error) {
         this.logger.error(

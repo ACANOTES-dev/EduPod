@@ -1,8 +1,7 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 
 import { AuthModule } from '../auth/auth.module';
-import { CommunicationsModule } from '../communications/communications.module';
 
 import { AgeGateService } from './age-gate.service';
 import { AiAuditController } from './ai-audit.controller';
@@ -22,7 +21,7 @@ import { PublicSubProcessorsController } from './public-sub-processors.controlle
 import { SubProcessorsService } from './sub-processors.service';
 
 @Module({
-  imports: [AuthModule, forwardRef(() => CommunicationsModule)],
+  imports: [AuthModule],
   controllers: [
     AiAuditController,
     GdprTokenController,

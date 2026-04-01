@@ -205,87 +205,14 @@ export class AuthService {
     tenantId?: string,
     mfaCode?: string,
   ): Promise<LoginResult | MfaRequiredResult> {
-    // 1. Check brute force protection
-    const bruteForce = await this.checkBruteForce(email);
-    if (bruteForce.blocked) {
-      await this.securityAuditService.logLoginFailure(
-        email,
-        ipAddress,
-        'BRUTE_FORCE_BLOCKED',
-        tenantId ?? null,
-        userAgent,
-      );
-
-      throw new UnauthorizedException({
-        code: 'BRUTE_FORCE_BLOCKED',
-        message: `Too many failed attempts. Try again in ${bruteForce.retryAfterSeconds} seconds`,
-      });
-    }
-
-    // 2. Find user by email
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (!user) {
-      await this.recordFailedLogin(email, ipAddress, userAgent);
-      await this.securityAuditService.logLoginFailure(
-        email,
-        ipAddress,
-        'INVALID_CREDENTIALS',
-        tenantId ?? null,
-        userAgent,
-      );
-      throw new UnauthorizedException({
-        code: 'INVALID_CREDENTIALS',
-        message: 'Invalid email or password',
-      });
-    }
-
-    // 3. Compare password with bcrypt
-    const passwordValid = await bcrypt.compare(password, user.password_hash);
-    if (!passwordValid) {
-      await this.recordFailedLogin(email, ipAddress, userAgent);
-      await this.securityAuditService.logLoginFailure(
-        email,
-        ipAddress,
-        'INVALID_CREDENTIALS',
-        tenantId ?? null,
-        userAgent,
-      );
-      throw new UnauthorizedException({
-        code: 'INVALID_CREDENTIALS',
-        message: 'Invalid email or password',
-      });
-    }
-
-    // 4. Check user.global_status
-    if (user.global_status === 'suspended') {
-      await this.securityAuditService.logLoginFailure(
-        email,
-        ipAddress,
-        'USER_SUSPENDED',
-        tenantId ?? null,
-        userAgent,
-      );
-      throw new ForbiddenException({
-        code: 'USER_SUSPENDED',
-        message: 'Your account has been suspended',
-      });
-    }
-    if (user.global_status === 'disabled') {
-      await this.securityAuditService.logLoginFailure(
-        email,
-        ipAddress,
-        'USER_DISABLED',
-        tenantId ?? null,
-        userAgent,
-      );
-      throw new ForbiddenException({
-        code: 'USER_DISABLED',
-        message: 'Your account has been disabled',
-      });
-    }
+    // 1–4. Validate credentials and user status
+    const user = await this.validateCredentialsAndStatus(
+      email,
+      password,
+      ipAddress,
+      userAgent,
+      tenantId ?? null,
+    );
 
     // 5. Tenant context checks
     let membershipId: string | null = null;
@@ -787,70 +714,14 @@ export class AuthService {
     ipAddress: string,
     userAgent: string,
   ): Promise<LoginResult> {
-    // 1. Check brute force
-    const bruteForce = await this.checkBruteForce(email);
-    if (bruteForce.blocked) {
-      await this.securityAuditService.logLoginFailure(
-        email,
-        ipAddress,
-        'BRUTE_FORCE_BLOCKED',
-        null,
-        userAgent,
-      );
-      throw new UnauthorizedException({
-        code: 'BRUTE_FORCE_BLOCKED',
-        message: `Too many failed attempts. Try again in ${bruteForce.retryAfterSeconds} seconds`,
-      });
-    }
-
-    // 2. Find user
-    const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      await this.recordFailedLogin(email, ipAddress, userAgent);
-      await this.securityAuditService.logLoginFailure(
-        email,
-        ipAddress,
-        'INVALID_CREDENTIALS',
-        null,
-        userAgent,
-      );
-      throw new UnauthorizedException({
-        code: 'INVALID_CREDENTIALS',
-        message: 'Invalid email or password',
-      });
-    }
-
-    // 3. Check password
-    const passwordValid = await bcrypt.compare(password, user.password_hash);
-    if (!passwordValid) {
-      await this.recordFailedLogin(email, ipAddress, userAgent);
-      await this.securityAuditService.logLoginFailure(
-        email,
-        ipAddress,
-        'INVALID_CREDENTIALS',
-        null,
-        userAgent,
-      );
-      throw new UnauthorizedException({
-        code: 'INVALID_CREDENTIALS',
-        message: 'Invalid email or password',
-      });
-    }
-
-    // 4. Check user status
-    if (user.global_status !== 'active') {
-      await this.securityAuditService.logLoginFailure(
-        email,
-        ipAddress,
-        'USER_NOT_ACTIVE',
-        null,
-        userAgent,
-      );
-      throw new ForbiddenException({
-        code: 'USER_NOT_ACTIVE',
-        message: 'Your account is not active',
-      });
-    }
+    // 1–4. Validate credentials and user status
+    const user = await this.validateCredentialsAndStatus(
+      email,
+      password,
+      ipAddress,
+      userAgent,
+      null,
+    );
 
     // 5. Verify and use recovery code
     try {
@@ -1098,6 +969,103 @@ export class AuthService {
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  /**
+   * Validates credentials and user status for login flows.
+   * Checks brute force, user existence, password, and global_status.
+   * Throws on failure with appropriate security audit logging.
+   */
+  private async validateCredentialsAndStatus(
+    email: string,
+    password: string,
+    ipAddress: string,
+    userAgent: string,
+    tenantId: string | null,
+  ) {
+    // 1. Check brute force protection
+    const bruteForce = await this.checkBruteForce(email);
+    if (bruteForce.blocked) {
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'BRUTE_FORCE_BLOCKED',
+        tenantId,
+        userAgent,
+      );
+
+      throw new UnauthorizedException({
+        code: 'BRUTE_FORCE_BLOCKED',
+        message: `Too many failed attempts. Try again in ${bruteForce.retryAfterSeconds} seconds`,
+      });
+    }
+
+    // 2. Find user by email
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      await this.recordFailedLogin(email, ipAddress, userAgent);
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'INVALID_CREDENTIALS',
+        tenantId,
+        userAgent,
+      );
+      throw new UnauthorizedException({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password',
+      });
+    }
+
+    // 3. Compare password with bcrypt
+    const passwordValid = await bcrypt.compare(password, user.password_hash);
+    if (!passwordValid) {
+      await this.recordFailedLogin(email, ipAddress, userAgent);
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'INVALID_CREDENTIALS',
+        tenantId,
+        userAgent,
+      );
+      throw new UnauthorizedException({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password',
+      });
+    }
+
+    // 4. Check user global_status
+    if (user.global_status === 'suspended') {
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'USER_SUSPENDED',
+        tenantId,
+        userAgent,
+      );
+      throw new ForbiddenException({
+        code: 'USER_SUSPENDED',
+        message: 'Your account has been suspended',
+      });
+    }
+    if (user.global_status === 'disabled') {
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'USER_DISABLED',
+        tenantId,
+        userAgent,
+      );
+      throw new ForbiddenException({
+        code: 'USER_DISABLED',
+        message: 'Your account has been disabled',
+      });
+    }
+
+    return user;
+  }
 
   /**
    * Decrypt an MFA TOTP secret. Handles both legacy plaintext secrets

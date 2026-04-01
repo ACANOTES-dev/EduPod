@@ -1,10 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-
+import { Prisma } from '@prisma/client';
 import type { CreatePrivacyNoticeDto, UpdatePrivacyNoticeDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
-import { NotificationsService } from '../communications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 
 import { buildPrivacyNoticeTemplate } from './legal-content';
 
@@ -12,7 +12,7 @@ import { buildPrivacyNoticeTemplate } from './legal-content';
 export class PrivacyNoticesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notifications: NotificationsService,
+    private readonly redis: RedisService,
   ) {}
 
   async listVersions(tenantId: string) {
@@ -49,10 +49,12 @@ export class PrivacyNoticesService {
 
     const supportEmail = tenant?.branding?.support_email ?? 'support@edupod.app';
     const nextVersionNumber =
-      (await this.prisma.privacyNoticeVersion.aggregate({
-        where: { tenant_id: tenantId },
-        _max: { version_number: true },
-      }))._max.version_number ?? 0;
+      (
+        await this.prisma.privacyNoticeVersion.aggregate({
+          where: { tenant_id: tenantId },
+          _max: { version_number: true },
+        })
+      )._max.version_number ?? 0;
 
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId, user_id: userId });
 
@@ -254,6 +256,11 @@ export class PrivacyNoticesService {
     return this.getCurrentForUser(tenantId, userId);
   }
 
+  /**
+   * Creates in_app notification records for all active tenant members
+   * when a privacy notice version is published. Writes directly to the
+   * notification table to decouple GDPR from the Communications module.
+   */
   private async notifyAllUsers(tenantId: string, versionNumber: number) {
     const memberships = await this.prisma.tenantMembership.findMany({
       where: {
@@ -274,21 +281,34 @@ export class PrivacyNoticesService {
       return;
     }
 
-    await this.notifications.createBatch(
-      tenantId,
-      memberships.map((membership) => ({
-        tenant_id: tenantId,
-        recipient_user_id: membership.user_id,
-        channel: 'in_app',
-        template_key: 'legal.privacy_notice_published',
-        locale: membership.user.preferred_locale ?? 'en',
-        payload_json: {
-          title: 'Privacy notice updated',
-          body: `Version ${versionNumber} of your school privacy notice has been published and may require acknowledgement.`,
-          version_number: versionNumber,
-        },
-        source_entity_type: 'privacy_notice_version',
-      })),
+    // Create in_app notification records directly — these are delivered
+    // immediately and do not require external dispatch via the worker.
+    const data = memberships.map((membership) => ({
+      tenant_id: tenantId,
+      recipient_user_id: membership.user_id,
+      channel: 'in_app' as const,
+      template_key: 'legal.privacy_notice_published',
+      locale: membership.user.preferred_locale ?? 'en',
+      status: 'delivered' as const,
+      payload_json: {
+        title: 'Privacy notice updated',
+        body: `Version ${versionNumber} of your school privacy notice has been published and may require acknowledgement.`,
+        version_number: versionNumber,
+      } as Prisma.InputJsonValue,
+      source_entity_type: 'privacy_notice_version',
+      source_entity_id: null,
+      delivered_at: new Date(),
+    }));
+
+    await this.prisma.notification.createMany({ data });
+
+    // Invalidate unread-count caches for all recipients
+    const uniqueUserIds = [...new Set(memberships.map((m) => m.user_id))];
+    const client = this.redis.getClient();
+    await Promise.all(
+      uniqueUserIds.map((userId) =>
+        client.del(`tenant:${tenantId}:user:${userId}:unread_notifications`),
+      ),
     );
   }
 }
