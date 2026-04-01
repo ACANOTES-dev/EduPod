@@ -6,7 +6,12 @@
 
 ## Operating rules
 
-- `status` stays `open` until implementation, verification, and follow-up docs are all complete.
+- Status progression:
+  - `open` = not started
+  - `in_progress` = active work underway
+  - `ready_for_verification` = implementation complete, waiting for proof review
+  - `retired` = implementation and regression proof accepted
+- items may move from `open` to `in_progress` and `ready_for_verification`, but nothing becomes `retired` until implementation, verification, and follow-up docs are all complete.
 - `retired` is allowed only when the evidence column is fully satisfied and linked from the closing commit or report.
 - `NOW` items are the active backlog. `NEXT` items can be prepared but must not displace `NOW`. `LATER` items stay parked until capacity opens.
 - Due dates use the current health program checkpoints:
@@ -56,3 +61,10 @@ Every `Critical` or `High` item must keep all four fields populated before it ca
 - a calendar due date
 - a concrete retirement plan
 - explicit regression or verification evidence
+
+Additional retirement rules for `Critical` and `High` items:
+
+- the item must pass through `ready_for_verification` before it can become `retired`
+- the closing work must cite the exact tests, checks, drills, or audits that now protect against regression
+- if the fix changed a workflow, queue contract, state machine, or operational path, the linked docs must be updated in the same change
+- if any part of the retirement depends on a temporary shortcut, the item cannot be retired until the shortcut has a written tradeoff record and expiry date
