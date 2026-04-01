@@ -65,7 +65,10 @@ export class SearchIndexService {
         });
       } catch (e) {
         // Non-blocking
-        this.logger.warn(`Failed to upsert search_index_status (failed) for ${entityType}/${entity.id}`, e);
+        this.logger.warn(
+          `Failed to upsert search_index_status (failed) for ${entityType}/${entity.id}`,
+          e,
+        );
       }
       throw err;
     }
@@ -107,7 +110,8 @@ export class SearchIndexService {
           });
           failed++;
         }
-      } catch {
+      } catch (err) {
+        this.logger.warn(`Failed to reindex ${record.entity_type}/${record.entity_id}`, err);
         failed++;
       }
     }
@@ -118,18 +122,26 @@ export class SearchIndexService {
   private async fetchEntity(entityType: string, entityId: string): Promise<EntityBase | null> {
     switch (entityType) {
       case 'students':
-        return this.prisma.student.findUnique({ where: { id: entityId } }) as Promise<EntityBase | null>;
+        return this.prisma.student.findUnique({
+          where: { id: entityId },
+        }) as Promise<EntityBase | null>;
       case 'parents':
-        return this.prisma.parent.findUnique({ where: { id: entityId } }) as Promise<EntityBase | null>;
+        return this.prisma.parent.findUnique({
+          where: { id: entityId },
+        }) as Promise<EntityBase | null>;
       case 'staff':
         return this.prisma.staffProfile.findUnique({
           where: { id: entityId },
           include: { user: { select: { first_name: true, last_name: true } } },
         }) as Promise<EntityBase | null>;
       case 'households':
-        return this.prisma.household.findUnique({ where: { id: entityId } }) as Promise<EntityBase | null>;
+        return this.prisma.household.findUnique({
+          where: { id: entityId },
+        }) as Promise<EntityBase | null>;
       case 'applications':
-        return this.prisma.application.findUnique({ where: { id: entityId } }) as Promise<EntityBase | null>;
+        return this.prisma.application.findUnique({
+          where: { id: entityId },
+        }) as Promise<EntityBase | null>;
       default:
         return null;
     }

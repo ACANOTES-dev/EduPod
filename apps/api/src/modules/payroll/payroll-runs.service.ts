@@ -6,8 +6,16 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { payrollSessionGenerationJobPayloadSchema } from '@school/shared';
-import type { CreatePayrollRunDto, FinaliseRunDto, UpdatePayrollRunDto } from '@school/shared';
+import {
+  isValidPayrollRunTransition,
+  payrollSessionGenerationJobPayloadSchema,
+} from '@school/shared';
+import type {
+  CreatePayrollRunDto,
+  FinaliseRunDto,
+  PayrollRunStatus,
+  UpdatePayrollRunDto,
+} from '@school/shared';
 import type { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -681,9 +689,15 @@ export class PayrollRunsService {
       });
     }
 
-    if (run.status !== 'draft' && run.status !== 'pending_approval') {
+    const canMoveToPendingApproval = isValidPayrollRunTransition(
+      run.status as PayrollRunStatus,
+      'pending_approval',
+    );
+    const canFinalise = isValidPayrollRunTransition(run.status as PayrollRunStatus, 'finalised');
+
+    if (!canMoveToPendingApproval && !canFinalise) {
       throw new BadRequestException({
-        code: 'INVALID_STATUS',
+        code: 'INVALID_STATUS_TRANSITION',
         message: `Cannot finalise a payroll run with status "${run.status}"`,
       });
     }
@@ -736,29 +750,44 @@ export class PayrollRunsService {
     }
 
     if (run.status === 'draft' && requireApproval && !isSchoolOwner) {
-      // Check approval workflow
-      const approvalResult = await this.approvalRequestsService.checkAndCreateIfNeeded(
-        tenantId,
-        'payroll_finalise',
-        'payroll_run',
-        runId,
-        userId,
-        false,
-      );
+      // R-21: Approval creation + entity status change must be atomic
+      const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+      const approvalTxResult = (await rlsClient.$transaction(async (tx) => {
+        const db = tx as unknown as PrismaService;
 
-      if (!approvalResult.approved) {
-        // Set run to pending_approval
-        await this.prisma.payrollRun.update({
-          where: { id: runId },
-          data: {
-            status: 'pending_approval',
+        const approvalResult = await this.approvalRequestsService.checkAndCreateIfNeeded(
+          tenantId,
+          'payroll_finalise',
+          'payroll_run',
+          runId,
+          userId,
+          false,
+          db,
+        );
+
+        if (!approvalResult.approved) {
+          // Set run to pending_approval within the same transaction
+          await db.payrollRun.update({
+            where: { id: runId },
+            data: {
+              status: 'pending_approval',
+              approval_request_id: approvalResult.request_id,
+            },
+          });
+
+          return {
+            pending: true as const,
             approval_request_id: approvalResult.request_id,
-          },
-        });
+          };
+        }
 
+        return { pending: false as const };
+      })) as { pending: true; approval_request_id: string | undefined } | { pending: false };
+
+      if (approvalTxResult.pending) {
         return {
           status: 'pending_approval',
-          approval_request_id: approvalResult.request_id,
+          approval_request_id: approvalTxResult.approval_request_id,
           message: 'Payroll run requires approval before finalisation',
         };
       }
@@ -773,6 +802,26 @@ export class PayrollRunsService {
 
     return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
+
+      // Re-fetch run inside transaction to get current status before finalising
+      const run = await db.payrollRun.findFirst({
+        where: { id: runId, tenant_id: tenantId },
+        select: { status: true },
+      });
+
+      if (!run) {
+        throw new NotFoundException({
+          code: 'PAYROLL_RUN_NOT_FOUND',
+          message: `Payroll run with id "${runId}" not found`,
+        });
+      }
+
+      if (!isValidPayrollRunTransition(run.status as PayrollRunStatus, 'finalised')) {
+        throw new BadRequestException({
+          code: 'INVALID_STATUS_TRANSITION',
+          message: `Cannot transition from "${run.status}" to "finalised"`,
+        });
+      }
 
       // Fetch entries for totals
       const entries = await db.payrollEntry.findMany({
@@ -832,10 +881,10 @@ export class PayrollRunsService {
       });
     }
 
-    if (run.status !== 'draft' && run.status !== 'pending_approval') {
+    if (!isValidPayrollRunTransition(run.status as PayrollRunStatus, 'cancelled')) {
       throw new BadRequestException({
-        code: 'INVALID_STATUS_FOR_CANCEL',
-        message: `Cannot cancel a payroll run with status "${run.status}". Only draft or pending_approval runs can be cancelled.`,
+        code: 'INVALID_STATUS_TRANSITION',
+        message: `Cannot transition from "${run.status}" to "cancelled"`,
       });
     }
 

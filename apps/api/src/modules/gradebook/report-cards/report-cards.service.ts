@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, $Enums } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -20,6 +20,7 @@ interface ListReportCardsParams {
 
 @Injectable()
 export class ReportCardsService {
+  private readonly logger = new Logger(ReportCardsService.name);
   private readonly generationService: ReportCardGenerationService;
   private readonly transcriptService: ReportCardTranscriptService;
 

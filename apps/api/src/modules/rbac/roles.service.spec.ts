@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
+import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { RolesService } from './roles.service';
@@ -37,6 +38,11 @@ const mockPermissionCacheService = {
   invalidate: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockSecurityAuditService = {
+  logRoleChange: jest.fn().mockResolvedValue(undefined),
+  logPermissionChange: jest.fn().mockResolvedValue(undefined),
+};
+
 describe('RolesService', () => {
   let service: RolesService;
 
@@ -50,6 +56,7 @@ describe('RolesService', () => {
         RolesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PermissionCacheService, useValue: mockPermissionCacheService },
+        { provide: SecurityAuditService, useValue: mockSecurityAuditService },
       ],
     }).compile();
 

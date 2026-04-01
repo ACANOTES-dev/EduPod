@@ -1,8 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { isValidReferralTransition } from '@school/shared';
 import type {
   CreateProfessionalInvolvementDto,
   ListProfessionalInvolvementsQuery,
+  SenReferralStatus,
   UpdateProfessionalInvolvementDto,
 } from '@school/shared';
 
@@ -163,7 +165,31 @@ export class SenProfessionalService {
     id: string,
     dto: UpdateProfessionalInvolvementDto,
   ): Promise<ProfessionalInvolvementSummary> {
-    await this.assertInvolvementExists(tenantId, id);
+    const existing = await this.prisma.senProfessionalInvolvement.findFirst({
+      where: { id, tenant_id: tenantId },
+      select: { id: true, status: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'PROFESSIONAL_INVOLVEMENT_NOT_FOUND',
+        message: `Professional involvement record with id "${id}" not found`,
+      });
+    }
+
+    if (dto.status !== undefined && dto.status !== existing.status) {
+      if (
+        !isValidReferralTransition(
+          existing.status as SenReferralStatus,
+          dto.status as SenReferralStatus,
+        )
+      ) {
+        throw new BadRequestException({
+          code: 'INVALID_STATUS_TRANSITION',
+          message: `Cannot transition from "${existing.status}" to "${dto.status}"`,
+        });
+      }
+    }
 
     if (dto.pastoral_referral_id) {
       await this.assertPastoralReferralExists(tenantId, dto.pastoral_referral_id);

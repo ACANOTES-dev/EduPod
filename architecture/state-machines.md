@@ -106,14 +106,14 @@ discontinued*
 ### SenReferralStatus (Professional Involvement)
 
 ```
-pending         -> [scheduled, completed, report_received]
-scheduled       -> [completed, report_received]
+pending         -> [scheduled]
+scheduled       -> [completed]
 completed       -> [report_received]
 report_received*
 ```
 
-- **Guarded by**: No shared state machine — status is set directly via API update. All four values are valid enum values, transitions are not strictly enforced at service level.
-- **Location**: `apps/api/src/modules/sen/sen-professional.service.ts`
+- **Guarded by**: `packages/shared/src/sen/state-machine-referral.ts` — `isValidReferralTransition()`. Strictly forward-only; no skipping steps, no backward transitions.
+- **Location**: `apps/api/src/modules/sen/sen-professional.service.ts` (enforced in `update()`)
 - **Side effects**: None. Status is informational tracking for the referral lifecycle.
 
 ---
@@ -230,13 +230,13 @@ written_off*
 ```
 pending         -> [posted, failed, voided]
 posted          -> [refunded_partial, refunded_full, voided]
-failed*
+failed          -> [pending]
 voided*
 refunded_partial -> [refunded_full]
 refunded_full*
 ```
 
-- **Guarded by**: `payments.service.ts` (implicit)
+- **Guarded by**: `packages/shared/src/finance/state-machine-payment.ts` — `isValidPaymentTransition()`. Wired in `payments.service.ts`.
 - **Side effects**: `posted` updates invoice paid amount and may transition invoice to `partially_paid` or `paid`. `voided` reverses the payment and recalculates invoice status.
 
 ### RefundStatus
@@ -287,13 +287,13 @@ revoked*
 ### PayrollRunStatus
 
 ```
-draft             -> [pending_approval, finalised, cancelled]
-pending_approval  -> [finalised (via approval callback), cancelled]
+draft             -> [pending_approval, cancelled]
+pending_approval  -> [draft (rejected), finalised (approved)]
 finalised*
 cancelled*
 ```
 
-- **Guarded by**: `payroll-runs.service.ts` (implicit per-method)
+- **Guarded by**: `packages/shared/src/payroll/state-machine.ts` — `isValidPayrollRunTransition()`. Wired in `payroll-runs.service.ts` (`finalise()`, `cancelRun()`, `executeFinalisation()`).
 - **Side effects**: `finalised` generates payslip numbers (SequenceService) and creates individual payslip records. If via approval, this happens in the worker processor.
 - **Danger**: `finalised` via approval callback happens in the worker, not the API. If worker fails mid-generation, some payslips may be created and others not.
 
@@ -507,14 +507,14 @@ partially_rolled_back*
 ### ComplianceRequestStatus
 
 ```
-submitted  -> [classified, rejected]
+submitted  -> [classified]
 classified -> [approved, rejected]
 approved   -> [completed]
 rejected*
 completed*
 ```
 
-- **Guarded by**: `compliance.service.ts` (implicit per-method)
+- **Guarded by**: `packages/shared/src/compliance/state-machine.ts` — `isValidComplianceTransition()`. Wired in `compliance.service.ts` (`classify()`, `approve()`, `reject()`, `execute()`).
 - **Side effects**: `create()` auto-sets `deadline_at = now + 30 days`. `extend()` sets `extension_granted=true`, `extension_deadline_at = deadline_at + 60 days` (Article 12(3)). `compliance:deadline-check` cron sets `deadline_exceeded=true` when effective deadline passes. Erasure execution also deletes consent records + tokenisation mappings.
 - **Subject types**: `student`, `parent`, `household`, `user`, `staff` (Phase F), `applicant` (Phase F)
 

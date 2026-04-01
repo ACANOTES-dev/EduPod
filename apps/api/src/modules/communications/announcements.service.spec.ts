@@ -9,6 +9,16 @@ import { AnnouncementsService } from './announcements.service';
 import { AudienceResolutionService } from './audience-resolution.service';
 import { NotificationsService } from './notifications.service';
 
+// Mock RLS middleware — createRlsClient returns a mock with $transaction that delegates to the callback
+const mockRlsTx: Record<string, Record<string, jest.Mock>> = {};
+jest.mock('../../common/middleware/rls.middleware', () => ({
+  createRlsClient: jest.fn().mockReturnValue({
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+  }),
+}));
+
 // Mock sanitise-html module
 jest.mock('../../common/utils/sanitise-html', () => ({
   sanitiseHtml: jest.fn((html: string) =>
@@ -17,8 +27,8 @@ jest.mock('../../common/utils/sanitise-html', () => ({
 }));
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-const USER_ID = 'user-uuid-1';
-const ANNOUNCEMENT_ID = 'announcement-uuid-1';
+const USER_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const ANNOUNCEMENT_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 
 function buildMockAnnouncement(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -96,6 +106,11 @@ describe('AnnouncementsService', () => {
         findFirst: jest.fn(),
       },
     };
+
+    // Wire RLS tx mock to use the same prisma mocks
+    mockRlsTx.announcement = mockPrisma.announcement;
+    mockRlsTx.notification = mockPrisma.notification;
+    mockRlsTx.tenantSetting = mockPrisma.tenantSetting;
 
     mockApprovalService = {
       checkAndCreateIfNeeded: jest.fn(),
@@ -495,6 +510,7 @@ describe('AnnouncementsService', () => {
         ANNOUNCEMENT_ID,
         USER_ID,
         false,
+        expect.anything(),
       );
     });
   });

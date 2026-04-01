@@ -239,8 +239,12 @@ describe('Payroll -> Payslip -> PDF flow', () => {
       })),
       _count: { entries: 1 },
     };
-    // Second findFirst call (getRun after finalisation)
+    // findFirst call sequence:
+    // 1. Initial validation (pre-finalise) → draftRun
+    // 2. State machine guard inside transaction → draftRun (status must be 'draft')
+    // 3. getRun after finalisation → finalisedRun
     mockPrisma.payrollRun.findFirst
+      .mockResolvedValueOnce(draftRun)
       .mockResolvedValueOnce(draftRun)
       .mockResolvedValueOnce(finalisedRun);
 

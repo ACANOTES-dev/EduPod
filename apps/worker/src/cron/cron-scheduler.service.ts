@@ -10,6 +10,7 @@ import {
   BEHAVIOUR_CRON_DISPATCH_MONTHLY_JOB,
   BEHAVIOUR_CRON_DISPATCH_SLA_JOB,
 } from '../processors/behaviour/cron-dispatch.processor';
+import { BEHAVIOUR_NOTIFICATION_RECONCILIATION_JOB } from '../processors/behaviour/notification-reconciliation.processor';
 import { BEHAVIOUR_PARTITION_MAINTENANCE_JOB } from '../processors/behaviour/partition-maintenance.processor';
 import {
   REFRESH_MV_BENCHMARKS_JOB,
@@ -30,8 +31,10 @@ import { HOMEWORK_DIGEST_JOB } from '../processors/homework/digest-homework.proc
 import { HOMEWORK_GENERATE_RECURRING_JOB } from '../processors/homework/generate-recurring.processor';
 import { HOMEWORK_OVERDUE_DETECTION_JOB } from '../processors/homework/overdue-detection.processor';
 import { IMPORT_FILE_CLEANUP_JOB } from '../processors/imports/import-file-cleanup.processor';
+import { DLQ_MONITOR_JOB } from '../processors/monitoring/dlq-monitor.processor';
 import { DISPATCH_QUEUED_JOB } from '../processors/notifications/dispatch-queued.processor';
 import { PARENT_DAILY_DIGEST_JOB } from '../processors/notifications/parent-daily-digest.processor';
+import { PASTORAL_CRON_DISPATCH_OVERDUE_JOB } from '../processors/pastoral/pastoral-cron-dispatch.processor';
 import { REGULATORY_DEADLINE_CHECK_JOB } from '../processors/regulatory/deadline-check.processor';
 import { REGULATORY_TUSLA_THRESHOLD_SCAN_JOB } from '../processors/regulatory/tusla-threshold-scan.processor';
 import { ANOMALY_SCAN_JOB } from '../processors/security/anomaly-scan.processor';
@@ -63,6 +66,7 @@ export class CronSchedulerService implements OnModuleInit {
     @InjectQueue(QUEUE_NAMES.REGULATORY) private readonly regulatoryQueue: Queue,
     @InjectQueue(QUEUE_NAMES.APPROVALS) private readonly approvalsQueue: Queue,
     @InjectQueue(QUEUE_NAMES.ENGAGEMENT) private readonly engagementQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.PASTORAL) private readonly pastoralQueue: Queue,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -79,6 +83,8 @@ export class CronSchedulerService implements OnModuleInit {
     await this.registerParentDigestCronJobs();
     await this.registerApprovalsCronJobs();
     await this.registerEngagementCronJobs();
+    await this.registerPastoralCronJobs();
+    await this.registerMonitoringCronJobs();
   }
 
   private async registerEarlyWarningCronJobs(): Promise<void> {
@@ -168,33 +174,33 @@ export class CronSchedulerService implements OnModuleInit {
     );
     this.logger.log(`Registered repeatable cron: ${REFRESH_MV_STUDENT_SUMMARY_JOB} (every 15 min)`);
 
-    // Refresh exposure rates daily at 02:00 UTC
+    // Refresh exposure rates daily at 01:30 UTC (staggered from 02:00 to reduce DB load)
     await this.behaviourQueue.add(
       REFRESH_MV_EXPOSURE_RATES_JOB,
       {},
       {
-        repeat: { pattern: '0 2 * * *' },
+        repeat: { pattern: '30 1 * * *' },
         jobId: `cron:${REFRESH_MV_EXPOSURE_RATES_JOB}`,
         removeOnComplete: 10,
         removeOnFail: 50,
       },
     );
     this.logger.log(
-      `Registered repeatable cron: ${REFRESH_MV_EXPOSURE_RATES_JOB} (daily 02:00 UTC)`,
+      `Registered repeatable cron: ${REFRESH_MV_EXPOSURE_RATES_JOB} (daily 01:30 UTC)`,
     );
 
-    // Refresh benchmarks daily at 03:00 UTC
+    // Refresh benchmarks daily at 02:15 UTC (staggered from 03:00 to reduce DB load)
     await this.behaviourQueue.add(
       REFRESH_MV_BENCHMARKS_JOB,
       {},
       {
-        repeat: { pattern: '0 3 * * *' },
+        repeat: { pattern: '15 2 * * *' },
         jobId: `cron:${REFRESH_MV_BENCHMARKS_JOB}`,
         removeOnComplete: 10,
         removeOnFail: 50,
       },
     );
-    this.logger.log(`Registered repeatable cron: ${REFRESH_MV_BENCHMARKS_JOB} (daily 03:00 UTC)`);
+    this.logger.log(`Registered repeatable cron: ${REFRESH_MV_BENCHMARKS_JOB} (daily 02:15 UTC)`);
 
     // ── Cross-tenant maintenance ──────────────────────────────────────────────
 
@@ -255,6 +261,24 @@ export class CronSchedulerService implements OnModuleInit {
     );
     this.logger.log(
       `Registered repeatable cron: ${BEHAVIOUR_CRON_DISPATCH_MONTHLY_JOB} (monthly 1st 01:00 UTC)`,
+    );
+
+    // ── Notification reconciliation backstop ──────────────────────────────────
+    // Daily at 05:00 UTC. Cross-tenant — no tenant_id in payload.
+    // Finds incidents with parent_notification_status = 'pending' older than 4
+    // hours and re-enqueues behaviour:parent-notification for each one.
+    await this.behaviourQueue.add(
+      BEHAVIOUR_NOTIFICATION_RECONCILIATION_JOB,
+      {},
+      {
+        repeat: { pattern: '0 5 * * *' },
+        jobId: `cron:${BEHAVIOUR_NOTIFICATION_RECONCILIATION_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(
+      `Registered repeatable cron: ${BEHAVIOUR_NOTIFICATION_RECONCILIATION_JOB} (daily 05:00 UTC)`,
     );
   }
 
@@ -322,19 +346,20 @@ export class CronSchedulerService implements OnModuleInit {
     this.logger.log(`Registered repeatable cron: ${SURVEY_CLOSING_REMINDER_JOB} (daily 08:00 UTC)`);
 
     // ── wellbeing:compute-workload-metrics ─────────────────────────────────
-    // Runs daily at 04:00 UTC. Pre-computes all aggregate workload metrics
-    // for each tenant with staff_wellbeing enabled and caches in Redis (24h TTL).
+    // Runs daily at 03:30 UTC (staggered from 04:00 to reduce DB load).
+    // Pre-computes all aggregate workload metrics for each tenant with
+    // staff_wellbeing enabled and caches in Redis (24h TTL).
     await this.wellbeingQueue.add(
       WORKLOAD_METRICS_JOB,
       {},
       {
-        repeat: { pattern: '0 4 * * *' },
+        repeat: { pattern: '30 3 * * *' },
         jobId: `cron:${WORKLOAD_METRICS_JOB}`,
         removeOnComplete: 10,
         removeOnFail: 50,
       },
     );
-    this.logger.log(`Registered repeatable cron: ${WORKLOAD_METRICS_JOB} (daily 04:00 UTC)`);
+    this.logger.log(`Registered repeatable cron: ${WORKLOAD_METRICS_JOB} (daily 03:30 UTC)`);
   }
 
   private async registerCleanupCronJobs(): Promise<void> {
@@ -642,5 +667,40 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${CONFERENCE_REMINDERS_JOB} (daily 08:00 UTC)`);
+  }
+
+  private async registerPastoralCronJobs(): Promise<void> {
+    // ── pastoral:cron-dispatch-overdue ──────────────────────────────────────
+    // Runs hourly. Cross-tenant — no tenant_id in payload.
+    // Dispatches per-tenant pastoral:overdue-actions jobs to detect
+    // missed escalations for safeguarding concerns (DZ-36 backstop).
+    await this.pastoralQueue.add(
+      PASTORAL_CRON_DISPATCH_OVERDUE_JOB,
+      {},
+      {
+        repeat: { pattern: '0 * * * *' },
+        jobId: `cron:${PASTORAL_CRON_DISPATCH_OVERDUE_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${PASTORAL_CRON_DISPATCH_OVERDUE_JOB} (hourly)`);
+  }
+
+  private async registerMonitoringCronJobs(): Promise<void> {
+    // ── monitoring:dlq-scan ────────────────────────────────────────────────
+    // Runs every 15 minutes. Platform-level — no tenant_id in payload.
+    // Scans all 20 queues for non-zero failed job counts and alerts via Sentry.
+    await this.notificationsQueue.add(
+      DLQ_MONITOR_JOB,
+      {},
+      {
+        repeat: { pattern: '*/15 * * * *' },
+        jobId: `cron:${DLQ_MONITOR_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${DLQ_MONITOR_JOB} (every 15 min)`);
   }
 }

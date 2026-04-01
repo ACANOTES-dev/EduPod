@@ -311,6 +311,7 @@ export class ApplicationStateMachineService {
           // Check with the approval system
           // We pass hasDirectAuthority = false; school_owner bypasses are handled
           // by the approval workflow check itself
+          // R-21: Pass transaction client to keep approval creation atomic
           const approvalResult = await this.approvalRequestsService.checkAndCreateIfNeeded(
             tenantId,
             'application_accept',
@@ -318,6 +319,7 @@ export class ApplicationStateMachineService {
             id,
             userId,
             false, // hasDirectAuthority
+            db,
           );
 
           if (!approvalResult.approved) {

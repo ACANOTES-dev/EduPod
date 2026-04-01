@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { publishAnnouncementJobPayloadSchema } from '@school/shared';
 import { Queue } from 'bullmq';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { sanitiseHtml } from '../../common/utils/sanitise-html';
 import { addValidatedJob } from '../../common/utils/validated-job.util';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
@@ -190,30 +191,43 @@ export class AnnouncementsService {
     const requireApproval = settingsJson?.communications?.requireApprovalForAnnouncements ?? true;
 
     if (requireApproval) {
-      const approvalResult = await this.approvalService.checkAndCreateIfNeeded(
-        tenantId,
-        'announcement_publish',
-        'announcement',
-        id,
-        userId,
-        false,
-      );
+      // R-21: Approval creation + entity status change must be atomic
+      const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+      const approvalTxResult = (await rlsClient.$transaction(async (tx) => {
+        const db = tx as unknown as typeof this.prisma;
 
-      if (!approvalResult.approved) {
-        const updated = await this.prisma.announcement.update({
-          where: { id },
-          data: {
-            status: 'pending_approval',
-            approval_request_id: approvalResult.request_id,
-          },
-          include: {
-            author: {
-              select: { id: true, first_name: true, last_name: true, email: true },
+        const approvalResult = await this.approvalService.checkAndCreateIfNeeded(
+          tenantId,
+          'announcement_publish',
+          'announcement',
+          id,
+          userId,
+          false,
+          db,
+        );
+
+        if (!approvalResult.approved) {
+          const updated = await db.announcement.update({
+            where: { id },
+            data: {
+              status: 'pending_approval',
+              approval_request_id: approvalResult.request_id,
             },
-          },
-        });
+            include: {
+              author: {
+                select: { id: true, first_name: true, last_name: true, email: true },
+              },
+            },
+          });
 
-        return { data: updated, approval_required: true };
+          return { needsApproval: true as const, data: updated };
+        }
+
+        return { needsApproval: false as const };
+      })) as { needsApproval: true; data: Record<string, unknown> } | { needsApproval: false };
+
+      if (approvalTxResult.needsApproval) {
+        return { data: approvalTxResult.data, approval_required: true };
       }
     }
 

@@ -9,6 +9,7 @@ import {
   RawBodyRequest,
   Req,
 } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Request } from 'express';
 
 import { apiError } from '../../common/errors/api-error';
@@ -22,6 +23,7 @@ import { StripeService } from './stripe.service';
  *
  * The tenant is resolved from the webhook payload metadata.
  */
+@SkipThrottle()
 @Controller('v1/stripe')
 export class StripeWebhookController {
   private readonly logger = new Logger(StripeWebhookController.name);

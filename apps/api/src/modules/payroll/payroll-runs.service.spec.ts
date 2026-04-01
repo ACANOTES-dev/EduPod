@@ -1,9 +1,5 @@
 import { getQueueToken } from '@nestjs/bullmq';
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
@@ -14,7 +10,6 @@ import { RedisService } from '../redis/redis.service';
 import { CalculationService } from './calculation.service';
 import { PayrollRunsService } from './payroll-runs.service';
 import { PayslipsService } from './payslips.service';
-
 
 // Mock createRlsClient
 const mockTx: Record<string, unknown> = {};
@@ -120,7 +115,8 @@ describe('PayrollRunsService', () => {
       // No duplicate run
       mockPrisma.payrollRun.findFirst
         .mockResolvedValueOnce(null) // duplicate check inside transaction
-        .mockResolvedValueOnce({     // getRun call after create
+        .mockResolvedValueOnce({
+          // getRun call after create
           id: RUN_ID,
           tenant_id: TENANT_ID,
           period_label: 'March 2026',
@@ -231,13 +227,11 @@ describe('PayrollRunsService', () => {
         status: 'draft',
       });
 
-      await expect(
-        service.createRun(TENANT_ID, USER_ID, createDto),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.createRun(TENANT_ID, USER_ID, createDto)).rejects.toThrow(
+        ConflictException,
+      );
 
-      await expect(
-        service.createRun(TENANT_ID, USER_ID, createDto),
-      ).rejects.toMatchObject({
+      await expect(service.createRun(TENANT_ID, USER_ID, createDto)).rejects.toMatchObject({
         response: expect.objectContaining({ code: 'DUPLICATE_PAYROLL_RUN' }),
       });
 
@@ -265,15 +259,27 @@ describe('PayrollRunsService', () => {
       });
 
       await expect(
-        service.finalise(TENANT_ID, RUN_ID, USER_ID, {
-          expected_updated_at: now.toISOString(),
-        }, true),
+        service.finalise(
+          TENANT_ID,
+          RUN_ID,
+          USER_ID,
+          {
+            expected_updated_at: now.toISOString(),
+          },
+          true,
+        ),
       ).rejects.toThrow(BadRequestException);
 
       await expect(
-        service.finalise(TENANT_ID, RUN_ID, USER_ID, {
-          expected_updated_at: now.toISOString(),
-        }, true),
+        service.finalise(
+          TENANT_ID,
+          RUN_ID,
+          USER_ID,
+          {
+            expected_updated_at: now.toISOString(),
+          },
+          true,
+        ),
       ).rejects.toMatchObject({
         response: expect.objectContaining({ code: 'INCOMPLETE_ENTRIES' }),
       });
@@ -298,9 +304,15 @@ describe('PayrollRunsService', () => {
       });
 
       await expect(
-        service.finalise(TENANT_ID, RUN_ID, USER_ID, {
-          expected_updated_at: now.toISOString(),
-        }, true),
+        service.finalise(
+          TENANT_ID,
+          RUN_ID,
+          USER_ID,
+          {
+            expected_updated_at: now.toISOString(),
+          },
+          true,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -316,17 +328,29 @@ describe('PayrollRunsService', () => {
       });
 
       await expect(
-        service.finalise(TENANT_ID, RUN_ID, USER_ID, {
-          expected_updated_at: now.toISOString(),
-        }, true),
+        service.finalise(
+          TENANT_ID,
+          RUN_ID,
+          USER_ID,
+          {
+            expected_updated_at: now.toISOString(),
+          },
+          true,
+        ),
       ).rejects.toThrow(BadRequestException);
 
       await expect(
-        service.finalise(TENANT_ID, RUN_ID, USER_ID, {
-          expected_updated_at: now.toISOString(),
-        }, true),
+        service.finalise(
+          TENANT_ID,
+          RUN_ID,
+          USER_ID,
+          {
+            expected_updated_at: now.toISOString(),
+          },
+          true,
+        ),
       ).rejects.toMatchObject({
-        response: expect.objectContaining({ code: 'INVALID_STATUS' }),
+        response: expect.objectContaining({ code: 'INVALID_STATUS_TRANSITION' }),
       });
     });
   });
@@ -360,23 +384,17 @@ describe('PayrollRunsService', () => {
         status: 'finalised',
       });
 
-      await expect(
-        service.cancelRun(TENANT_ID, RUN_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.cancelRun(TENANT_ID, RUN_ID)).rejects.toThrow(BadRequestException);
 
-      await expect(
-        service.cancelRun(TENANT_ID, RUN_ID),
-      ).rejects.toMatchObject({
-        response: expect.objectContaining({ code: 'INVALID_STATUS_FOR_CANCEL' }),
+      await expect(service.cancelRun(TENANT_ID, RUN_ID)).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'INVALID_STATUS_TRANSITION' }),
       });
     });
 
     it('should throw NotFoundException when run does not exist', async () => {
       mockPrisma.payrollRun.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.cancelRun(TENANT_ID, 'nonexistent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.cancelRun(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
 });

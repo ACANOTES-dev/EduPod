@@ -259,7 +259,7 @@ ComplianceService.approve()
 | gradebook     | 3           | 5s exponential  |                                                                                                                                                                                                                                                                                                                                                                                          |
 | homework      | 3           | 5s exponential  | 4 job types: homework:overdue-detection (cron 06:00), homework:generate-recurring (cron 05:00), homework:digest-homework (daily per tenant), homework:completion-reminder (daily per tenant 15:00)                                                                                                                                                                                       |
 | imports       | 3           | 5s exponential  | Also handles compliance:execute jobs (legacy routing)                                                                                                                                                                                                                                                                                                                                    |
-| notifications | 5           | 3s exponential  | Higher retries for delivery. Includes notifications:parent-daily-digest (hourly cron), notifications:dispatch-queued (every 30s), plus behaviour/communications jobs routed here                                                                                                                                                                                                         |
+| notifications | 5           | 3s exponential  | Higher retries for delivery. Includes notifications:parent-daily-digest (hourly cron), notifications:dispatch-queued (every 30s), monitoring:dlq-scan (cron every 15 min), plus behaviour/communications jobs routed here                                                                                                                                                                |
 | pastoral      | 3           | 5s exponential  | 8 job types: pastoral:notify-concern (on concern creation), pastoral:escalation-timeout (on concern escalation), pastoral:checkin-alert (on check-in flag), pastoral:intervention-review-reminder (cron), pastoral:overdue-actions (cron), pastoral:precompute-agenda (on SST scheduling), pastoral:sync-behaviour-safeguarding (on sync trigger), pastoral:wellbeing-flag-expiry (cron) |
 | payroll       | 3           | 5s exponential  |                                                                                                                                                                                                                                                                                                                                                                                          |
 | regulatory    | 3           | 5s exponential  | 5 job types: 2 cron (deadline-check 07:00, tusla-threshold-scan 06:00), 3 on-demand (generate-des-files, ppod-sync, ppod-import)                                                                                                                                                                                                                                                         |
@@ -298,6 +298,31 @@ Incident created with parent notification required
 ```
 
 **Danger**: The send-gate check means a notification can be SILENTLY BLOCKED if a high-severity negative incident is logged without a parent_description. The incident stays in `parent_notification_status = 'pending'` until a staff member adds a parent_description and the notification is retried.
+
+### `behaviour:notification-reconciliation` (behaviour queue — CRON)
+
+**Trigger**: Daily cron, 05:00 UTC (registered in `CronSchedulerService`).
+**Payload**: `{}` (cross-tenant — no tenant_id)
+**Processor**: `apps/worker/src/processors/behaviour/notification-reconciliation.processor.ts`
+
+**Side effects chain**:
+
+```
+Cron fires daily at 05:00 UTC
+  -> Queries all active tenants with behaviour module enabled
+  -> For each tenant:
+    -> Finds behaviourIncident records where:
+       - parent_notification_status = 'pending'
+       - created_at < NOW() - 4 hours
+       - status = 'active'
+    -> For each stale incident:
+       -> Loads student participant IDs (participant_type = 'student')
+       -> Enqueues behaviour:parent-notification to notifications queue
+          with { tenant_id, incident_id, student_ids }
+    -> Logs count of re-enqueued notifications per tenant
+```
+
+**Purpose**: Backstop for stuck parent notifications. If the initial `behaviour:parent-notification` job fails or the worker crashes after incident creation, this cron recovers the pending notifications before they are lost indefinitely.
 
 ### `behaviour:task-reminders` (behaviour queue — CRON)
 
@@ -1334,3 +1359,18 @@ Daily cron fires
 - **Payload**: `{ tenant_id }`
 - **Processor**: `WellbeingFlagExpiryProcessor` (`apps/worker/src/processors/pastoral/wellbeing-flag-expiry.processor.ts`)
 - **Side effects**: Clears expired wellbeing flags on student check-ins after the configured retention window.
+
+---
+
+## Monitoring Jobs (`notifications` queue)
+
+### Job: `monitoring:dlq-scan`
+
+- **Trigger**: Cron every 15 minutes (`*/15 * * * *`). Platform-level — no `tenant_id` in payload.
+- **Payload**: `{}` (cross-platform, no tenant context).
+- **Processor**: `DlqMonitorProcessor` (`apps/worker/src/processors/monitoring/dlq-monitor.processor.ts`)
+- **Job constant**: `DLQ_MONITOR_JOB`
+- **Queue**: `notifications` (platform-level cross-cutting job placed on the notifications queue alongside other platform-level cron dispatchers)
+- **jobId**: `cron:monitoring:dlq-scan`
+- **Side effects**: Iterates all 20 registered queue names. For each queue, creates a temporary BullMQ `Queue` instance (reusing the notifications queue's ioredis client) and calls `getFailedCount()`. If any queue has `failedCount > 0`, logs a `warn`-level message listing each affected queue and its count, and sends a `Sentry.captureMessage` at `'warning'` severity. Temporary Queue instances are closed after each check to avoid connection leaks.
+- **Danger**: Creates and immediately closes temporary Queue instances for each of the 20 queues on every tick. This is lightweight (Redis LLEN calls) but adds 20 short-lived Queue objects every 15 minutes. If Redis is unreachable, each queue check throws individually — errors are caught and logged, scan continues for remaining queues.

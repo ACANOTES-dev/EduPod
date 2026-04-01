@@ -203,4 +203,183 @@ export class SecurityAuditService {
       ip,
     );
   }
+
+  // ─── Privileged admin action logging ────────────────────────────────────────
+
+  async logRoleChange(
+    tenantId: string,
+    actorUserId: string,
+    action: 'create' | 'update' | 'delete',
+    roleId: string,
+    details: Record<string, unknown>,
+  ): Promise<void> {
+    await this.auditLogService.write(
+      tenantId,
+      actorUserId,
+      'role',
+      roleId,
+      `role_${action}`,
+      {
+        category: 'security_event',
+        sensitivity: 'elevated',
+        ...details,
+      },
+      null,
+    );
+  }
+
+  async logPermissionChange(
+    tenantId: string,
+    actorUserId: string,
+    roleId: string,
+    permissions: string[],
+    action: 'grant' | 'revoke',
+  ): Promise<void> {
+    await this.auditLogService.write(
+      tenantId,
+      actorUserId,
+      'role',
+      roleId,
+      `permissions_${action}`,
+      {
+        category: 'security_event',
+        sensitivity: 'elevated',
+        permission_ids: permissions,
+        permission_count: permissions.length,
+      },
+      null,
+    );
+  }
+
+  async logTenantConfigChange(
+    tenantId: string,
+    actorUserId: string,
+    configKey: string,
+    details: Record<string, unknown>,
+  ): Promise<void> {
+    await this.auditLogService.write(
+      tenantId,
+      actorUserId,
+      'tenant_config',
+      tenantId,
+      'config_change',
+      {
+        category: 'security_event',
+        sensitivity: 'elevated',
+        config_key: configKey,
+        ...details,
+      },
+      null,
+    );
+  }
+
+  async logUserStatusChange(
+    tenantId: string | null,
+    actorUserId: string,
+    targetUserId: string,
+    newStatus: string,
+  ): Promise<void> {
+    await this.auditLogService.write(
+      tenantId,
+      actorUserId,
+      'membership',
+      targetUserId,
+      'user_status_change',
+      {
+        category: 'security_event',
+        sensitivity: 'elevated',
+        target_user_id: targetUserId,
+        new_status: newStatus,
+      },
+      null,
+    );
+  }
+
+  async logMembershipRoleChange(
+    tenantId: string,
+    actorUserId: string,
+    targetUserId: string,
+    roleIds: string[],
+  ): Promise<void> {
+    await this.auditLogService.write(
+      tenantId,
+      actorUserId,
+      'membership',
+      targetUserId,
+      'membership_role_change',
+      {
+        category: 'security_event',
+        sensitivity: 'elevated',
+        target_user_id: targetUserId,
+        role_ids: roleIds,
+      },
+      null,
+    );
+  }
+
+  async logModuleToggle(
+    tenantId: string,
+    actorUserId: string,
+    moduleKey: string,
+    isEnabled: boolean,
+  ): Promise<void> {
+    await this.auditLogService.write(
+      tenantId,
+      actorUserId,
+      'tenant_config',
+      tenantId,
+      'module_toggle',
+      {
+        category: 'security_event',
+        sensitivity: 'elevated',
+        module_key: moduleKey,
+        is_enabled: isEnabled,
+      },
+      null,
+    );
+  }
+
+  async logDpaAcceptance(
+    tenantId: string,
+    actorUserId: string,
+    dpaVersion: string,
+    ipAddress: string | null,
+  ): Promise<void> {
+    await this.auditLogService.write(
+      tenantId,
+      actorUserId,
+      'dpa',
+      tenantId,
+      'dpa_acceptance',
+      {
+        category: 'security_event',
+        sensitivity: 'elevated',
+        dpa_version: dpaVersion,
+      },
+      ipAddress,
+    );
+  }
+
+  /** Logs tenant status transitions. Uses null tenantId because this is a platform-level action. */
+  async logTenantStatusChange(
+    tenantId: string,
+    actorUserId: string,
+    newStatus: string,
+    previousStatus: string,
+  ): Promise<void> {
+    await this.auditLogService.write(
+      null, // Platform-level action — not scoped to a tenant
+      actorUserId,
+      'tenant',
+      tenantId,
+      'tenant_status_change',
+      {
+        category: 'security_event',
+        sensitivity: 'elevated',
+        new_status: newStatus,
+        previous_status: previousStatus,
+      },
+      null,
+    );
+  }
 }

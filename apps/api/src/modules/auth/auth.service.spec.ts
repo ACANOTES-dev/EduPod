@@ -20,6 +20,7 @@ jest.mock('qrcode', () => ({
 import { verify as otpVerify } from 'otplib';
 
 import { SecurityAuditService } from '../audit-log/security-audit.service';
+import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -46,6 +47,7 @@ const MOCK_USER = {
   global_status: 'active',
   mfa_enabled: false,
   mfa_secret: null,
+  mfa_secret_key_ref: null,
   last_login_at: null,
   created_at: new Date('2026-01-01T00:00:00.000Z'),
 };
@@ -93,6 +95,11 @@ const mockSecurityAuditService = {
   logPasswordChange: jest.fn(),
   logPasswordReset: jest.fn(),
   logSessionRevocation: jest.fn(),
+};
+
+const mockEncryptionService = {
+  encrypt: jest.fn().mockReturnValue({ encrypted: 'iv:tag:ciphertext', keyRef: 'v1' }),
+  decrypt: jest.fn().mockReturnValue('TESTSECRET123'),
 };
 
 const JWT_SECRET = 'test-jwt-secret-that-is-at-least-32-chars-long!!';
@@ -148,6 +155,7 @@ describe('AuthService', () => {
         },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SecurityAuditService, useValue: mockSecurityAuditService },
+        { provide: EncryptionService, useValue: mockEncryptionService },
       ],
     }).compile();
 
@@ -343,7 +351,11 @@ describe('AuthService', () => {
       await service.deleteAllUserSessions(USER_ID);
 
       expect(redisClient.smembers).toHaveBeenCalledWith(`user_sessions:${USER_ID}`);
-      expect(redisClient.del).toHaveBeenCalledWith('session:sess-1', 'session:sess-2', 'session:sess-3');
+      expect(redisClient.del).toHaveBeenCalledWith(
+        'session:sess-1',
+        'session:sess-2',
+        'session:sess-3',
+      );
       expect(redisClient.del).toHaveBeenCalledWith(`user_sessions:${USER_ID}`);
     });
 
@@ -480,7 +492,11 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('refresh_token');
       expect(result).toHaveProperty('user');
 
-      const loginResult = result as unknown as { access_token: string; refresh_token: string; user: Record<string, unknown> };
+      const loginResult = result as unknown as {
+        access_token: string;
+        refresh_token: string;
+        user: Record<string, unknown>;
+      };
       expect(loginResult.user).toEqual(
         expect.objectContaining({
           id: USER_ID,
@@ -793,6 +809,32 @@ describe('AuthService', () => {
 
       expect(result).toHaveProperty('access_token');
       expect(result).toHaveProperty('refresh_token');
+    });
+
+    it('should decrypt encrypted MFA secret during login', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...MOCK_USER,
+        mfa_enabled: true,
+        mfa_secret: 'iv:tag:ciphertext',
+        mfa_secret_key_ref: 'v1',
+      });
+      mockEncryptionService.decrypt.mockReturnValue('DECRYPTED_SECRET');
+      (otpVerify as jest.Mock).mockResolvedValue({ valid: true });
+      mockPrisma.user.update.mockResolvedValue({ ...MOCK_USER });
+
+      await service.login(
+        MOCK_USER.email,
+        PASSWORD_PLAIN,
+        '127.0.0.1',
+        'jest-agent',
+        undefined,
+        '123456',
+      );
+
+      expect(mockEncryptionService.decrypt).toHaveBeenCalledWith('iv:tag:ciphertext', 'v1');
+      expect(otpVerify).toHaveBeenCalledWith(
+        expect.objectContaining({ secret: 'DECRYPTED_SECRET' }),
+      );
     });
 
     it('should throw UnauthorizedException when MFA code is invalid', async () => {
@@ -1209,9 +1251,13 @@ describe('AuthService', () => {
   // ─── setupMfa ─────────────────────────────────────────────────────────────
 
   describe('AuthService -- setupMfa', () => {
-    it('should generate TOTP secret, store it, and return QR code', async () => {
+    it('should generate TOTP secret, encrypt it, store it, and return QR code', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
-      mockPrisma.user.update.mockResolvedValue({ ...MOCK_USER, mfa_secret: 'TESTSECRET123' });
+      mockPrisma.user.update.mockResolvedValue({
+        ...MOCK_USER,
+        mfa_secret: 'iv:tag:ciphertext',
+        mfa_secret_key_ref: 'v1',
+      });
 
       const result = await service.setupMfa(USER_ID);
 
@@ -1219,10 +1265,13 @@ describe('AuthService', () => {
       expect(result.qr_code_url).toBe('data:image/png;base64,test');
       expect(result.otpauth_uri).toBe('otpauth://totp/test');
 
+      // Should encrypt the secret before storing
+      expect(mockEncryptionService.encrypt).toHaveBeenCalledWith('TESTSECRET123');
+
       expect(mockPrisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: USER_ID },
-          data: { mfa_secret: 'TESTSECRET123' },
+          data: { mfa_secret: 'iv:tag:ciphertext', mfa_secret_key_ref: 'v1' },
         }),
       );
     });
@@ -1281,9 +1330,7 @@ describe('AuthService', () => {
     it('should throw BadRequestException when mfa_secret not yet set', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER, mfa_secret: null });
 
-      await expect(service.verifyMfaSetup(USER_ID, '123456')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.verifyMfaSetup(USER_ID, '123456')).rejects.toThrow(BadRequestException);
     });
 
     it('should throw UnauthorizedException when user not found', async () => {
@@ -1291,6 +1338,27 @@ describe('AuthService', () => {
 
       await expect(service.verifyMfaSetup('nonexistent', '123456')).rejects.toThrow(
         UnauthorizedException,
+      );
+    });
+
+    it('should decrypt encrypted MFA secret during verification', async () => {
+      const encryptedUser = {
+        ...MOCK_USER,
+        mfa_secret: 'iv:tag:ciphertext',
+        mfa_secret_key_ref: 'v1',
+      };
+      mockPrisma.user.findUnique.mockResolvedValue({ ...encryptedUser });
+      mockEncryptionService.decrypt.mockReturnValue('DECRYPTED_SECRET');
+      (otpVerify as jest.Mock).mockResolvedValue({ valid: true });
+      mockPrisma.user.update.mockResolvedValue({ ...encryptedUser, mfa_enabled: true });
+      mockPrisma.mfaRecoveryCode.deleteMany.mockResolvedValue({ count: 0 });
+      mockPrisma.mfaRecoveryCode.createMany.mockResolvedValue({ count: 10 });
+
+      await service.verifyMfaSetup(USER_ID, '123456');
+
+      expect(mockEncryptionService.decrypt).toHaveBeenCalledWith('iv:tag:ciphertext', 'v1');
+      expect(otpVerify).toHaveBeenCalledWith(
+        expect.objectContaining({ secret: 'DECRYPTED_SECRET' }),
       );
     });
   });
@@ -1375,10 +1443,10 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('user');
       expect(result.user).not.toHaveProperty('password_hash');
 
-      // MFA disabled
+      // MFA disabled (clears both secret and key ref)
       expect(mockPrisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: { mfa_enabled: false, mfa_secret: null },
+          data: { mfa_enabled: false, mfa_secret: null, mfa_secret_key_ref: null },
         }),
       );
 
@@ -1526,9 +1594,7 @@ describe('AuthService', () => {
       });
 
       redisClient.smembers.mockResolvedValue(['sess-1', 'sess-2']);
-      redisClient.get.mockResolvedValue(
-        JSON.stringify({ user_id: USER_ID, tenant_id: TENANT_ID }),
-      );
+      redisClient.get.mockResolvedValue(JSON.stringify({ user_id: USER_ID, tenant_id: TENANT_ID }));
 
       await service.switchTenant(USER_ID, MOCK_USER.email, targetTenantId);
 
@@ -1547,17 +1613,17 @@ describe('AuthService', () => {
         tenant: { status: 'active' },
       });
 
-      await expect(
-        service.switchTenant(USER_ID, MOCK_USER.email, TENANT_ID),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.switchTenant(USER_ID, MOCK_USER.email, TENANT_ID)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('should throw ForbiddenException when membership does not exist', async () => {
       mockPrisma.tenantMembership.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.switchTenant(USER_ID, MOCK_USER.email, TENANT_ID),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.switchTenant(USER_ID, MOCK_USER.email, TENANT_ID)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('should throw ForbiddenException when target tenant is not active', async () => {
@@ -1567,9 +1633,9 @@ describe('AuthService', () => {
         tenant: { id: TENANT_ID, status: 'suspended' },
       });
 
-      await expect(
-        service.switchTenant(USER_ID, MOCK_USER.email, TENANT_ID),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.switchTenant(USER_ID, MOCK_USER.email, TENANT_ID)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
@@ -1651,9 +1717,7 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.getMe('nonexistent', TENANT_ID)).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(service.getMe('nonexistent', TENANT_ID)).rejects.toThrow(UnauthorizedException);
     });
   });
 
@@ -1782,9 +1846,7 @@ describe('AuthService', () => {
         last_active_at: new Date().toISOString(),
       });
 
-      await expect(service.revokeSession(USER_ID, SESSION_ID)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.revokeSession(USER_ID, SESSION_ID)).rejects.toThrow(BadRequestException);
     });
   });
 });
