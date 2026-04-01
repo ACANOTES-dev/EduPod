@@ -1,51 +1,58 @@
-# Quarterly Backup Restore Drill Checklist
+# Backup Restore Drill Checklist
 
 ---
 
 ## Drill Information
 
-| Field | Value |
-|---|---|
-| **Drill Date** | __________________ |
-| **DBA / Operator** | __________________ |
-| **Engineering Lead** | __________________ |
-| **Production Instance** | school-prod |
-| **Snapshot ID** | __________________ |
-| **Restored Instance** | __________________ |
-| **Drill Log File** | __________________ |
+| Field                   | Value                        |
+| ----------------------- | ---------------------------- |
+| **Drill Date**          | **\*\*\*\***\_\_**\*\*\*\*** |
+| **DBA / Operator**      | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Engineering Lead**    | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Source Backup File**  | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Source Backup Size**  | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Backup Timestamp**    | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Restore Container**   | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Restore Volume**      | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Drill Log File**      | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Declared Target RTO** | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Expected RPO**        | **\*\*\*\***\_\_**\*\*\*\*** |
 
 ---
 
 ## Pre-Drill
 
-- [ ] AWS credentials are valid and have sufficient permissions
-- [ ] Production instance is in `available` state
-- [ ] Latest restorable time is within the last 10 minutes (PITR is current)
+- [ ] Latest `.dump` backup file is available and readable
+- [ ] Docker is installed on the drill host
+- [ ] `pg_restore`, `pg_isready`, and `psql` are installed
 - [ ] No active deployments or migrations in progress
 - [ ] Drill scheduled during a low-traffic window
 
-**Latest restorable time**: __________________
+**Backup file path**: **\*\*\*\***\_\_**\*\*\*\***
 
 ---
 
-## Snapshot Creation
+## Backup Selection
 
-- [ ] Manual snapshot created successfully
-- [ ] Snapshot status is `available`
+- [ ] Selected backup is the intended drill source
+- [ ] Backup file size looks reasonable for recent production volume
 
-**Snapshot size**: __________ GB
-**Snapshot creation time**: __________________
+**Backup source**: [ ] local pre-deploy dump / [ ] downloaded off-site copy
+**Backup age**: **\*\*\*\***\_\_**\*\*\*\***
 
 ---
 
-## Instance Restore
+## Restore Target
 
-- [ ] Restored instance is in `available` state
-- [ ] Restored instance endpoint is reachable
+- [ ] Temporary PostgreSQL container started successfully
+- [ ] Restore endpoint is reachable on the configured drill port
+- [ ] Restore finished without `pg_restore` errors
 
-**Restore start time**: __________________
-**Restore complete time**: __________________
-**Total restore duration**: __________ minutes
+**Restore start time**: **\*\*\*\***\_\_**\*\*\*\***
+**Restore complete time**: **\*\*\*\***\_\_**\*\*\*\***
+**Validation complete time**: **\*\*\*\***\_\_**\*\*\*\***
+**Achieved recovery duration**: \***\*\_\_\*\*** minutes
+**Observed RPO**: **\*\*\*\***\_\_**\*\*\*\***
 
 ---
 
@@ -55,32 +62,32 @@
 
 Compare against expected production counts (obtain from production before the drill):
 
-| Table | Production Count | Restored Count | Match? |
-|---|---|---|---|
-| tenants | ________ | ________ | [ ] |
-| users | ________ | ________ | [ ] |
-| tenant_memberships | ________ | ________ | [ ] |
-| students | ________ | ________ | [ ] |
-| staff_profiles | ________ | ________ | [ ] |
-| invoices | ________ | ________ | [ ] |
-| payments | ________ | ________ | [ ] |
-| payroll_runs | ________ | ________ | [ ] |
+| Table              | Production Count | Restored Count | Match? |
+| ------------------ | ---------------- | -------------- | ------ |
+| tenants            | **\_\_\_\_**     | **\_\_\_\_**   | [ ]    |
+| users              | **\_\_\_\_**     | **\_\_\_\_**   | [ ]    |
+| tenant_memberships | **\_\_\_\_**     | **\_\_\_\_**   | [ ]    |
+| students           | **\_\_\_\_**     | **\_\_\_\_**   | [ ]    |
+| staff_profiles     | **\_\_\_\_**     | **\_\_\_\_**   | [ ]    |
+| invoices           | **\_\_\_\_**     | **\_\_\_\_**   | [ ]    |
+| payments           | **\_\_\_\_**     | **\_\_\_\_**   | [ ]    |
+| payroll_runs       | **\_\_\_\_**     | **\_\_\_\_**   | [ ]    |
 
 ### RLS Verification
 
 - [ ] All tenant-scoped tables have `rowsecurity = true`
 - [ ] No tenant-scoped tables are missing RLS policies
-- [ ] Policy names match expected naming convention (`idx_*` or `rls_*`)
+- [ ] Policy names follow the expected tenant isolation naming pattern
 
-**Number of RLS policies found**: __________
-**Tables missing RLS (should be 0)**: __________
+**Number of RLS policies found**: \***\*\_\_\*\***
+**Tables missing RLS (should be 0)**: \***\*\_\_\*\***
 
 ### Triggers and Functions
 
 - [ ] All trigger functions are present
 - [ ] Triggers are attached to the correct tables
 
-**Number of triggers found**: __________
+**Number of triggers found**: \***\*\_\_\*\***
 
 ### Extensions
 
@@ -98,8 +105,8 @@ Compare against expected production counts (obtain from production before the dr
 - [ ] Migration history is intact
 - [ ] Latest migration matches the current production migration
 
-**Latest migration name**: __________________
-**Latest migration date**: __________________
+**Latest migration name**: **\*\*\*\***\_\_**\*\*\*\***
+**Latest migration date**: **\*\*\*\***\_\_**\*\*\*\***
 
 ---
 
@@ -116,41 +123,43 @@ If testing application connectivity against the restored instance:
 
 ## Post-Drill Cleanup
 
-- [ ] Restored instance deleted (or scheduled for deletion)
-- [ ] Drill snapshot deleted (or retained if needed)
+- [ ] Restore container deleted (or intentionally retained for extended checks)
+- [ ] Restore Docker volume deleted (or intentionally retained for extended checks)
 - [ ] No orphaned resources remaining
 
 ---
 
 ## Drill Assessment
 
-**Overall Result**: [ ] PASS / [ ] FAIL
+**Overall Result**: [ ] PASS / [ ] PASS WITH ACTIONS / [ ] FAIL
+
+**Did the achieved recovery duration stay within the declared RTO?**: [ ] Yes / [ ] No
 
 **Issues Found**:
 
-_____________________________________________________________________________
+---
 
-_____________________________________________________________________________
+---
 
-_____________________________________________________________________________
+---
 
 **Action Items**:
 
-| # | Action | Owner | Due Date |
-|---|---|---|---|
-| 1 | | | |
-| 2 | | | |
-| 3 | | | |
+| #   | Action | Owner | Due Date |
+| --- | ------ | ----- | -------- |
+| 1   |        |       |          |
+| 2   |        |       |          |
+| 3   |        |       |          |
 
 ---
 
 ## Sign-Off
 
-| Role | Name | Signature | Date |
-|---|---|---|---|
-| DBA / Operator | __________________ | __________________ | ________ |
-| Engineering Lead | __________________ | __________________ | ________ |
+| Role             | Name                         | Signature                    | Date         |
+| ---------------- | ---------------------------- | ---------------------------- | ------------ |
+| DBA / Operator   | **\*\*\*\***\_\_**\*\*\*\*** | **\*\*\*\***\_\_**\*\*\*\*** | **\_\_\_\_** |
+| Engineering Lead | **\*\*\*\***\_\_**\*\*\*\*** | **\*\*\*\***\_\_**\*\*\*\*** | **\_\_\_\_** |
 
 ---
 
-**File this completed checklist in**: `docs/drill-results/drill-YYYY-MM-DD.md`
+**Store this completed checklist with**: the weekly ops review record, quarterly ops record, or the incident notes for the drill

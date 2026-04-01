@@ -4,10 +4,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 jest.mock('ioredis', () => {
   const mockQuit = jest.fn().mockResolvedValue('OK');
   const mockPing = jest.fn().mockResolvedValue('PONG');
+  const mockInfo = jest
+    .fn()
+    .mockResolvedValue(['# Memory', 'used_memory:1048576', 'maxmemory:2097152'].join('\r\n'));
 
   return {
     __esModule: true,
     default: jest.fn().mockImplementation(() => ({
+      info: mockInfo,
       quit: mockQuit,
       ping: mockPing,
     })),
@@ -29,10 +33,7 @@ describe('RedisService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        RedisService,
-        { provide: ConfigService, useValue: mockConfigService },
-      ],
+      providers: [RedisService, { provide: ConfigService, useValue: mockConfigService }],
     }).compile();
 
     service = module.get<RedisService>(RedisService);
@@ -48,10 +49,7 @@ describe('RedisService', () => {
     mockConfigService.get.mockReturnValue(undefined);
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        RedisService,
-        { provide: ConfigService, useValue: mockConfigService },
-      ],
+      providers: [RedisService, { provide: ConfigService, useValue: mockConfigService }],
     }).compile();
 
     const svc = module.get<RedisService>(RedisService);
@@ -92,5 +90,27 @@ describe('RedisService', () => {
     (client.ping as jest.Mock).mockRejectedValueOnce(new Error('Connection lost'));
     const result = await service.ping();
     expect(result).toBe(false);
+  });
+
+  it('should parse Redis memory metrics', async () => {
+    await service.onModuleInit();
+
+    await expect(service.getMemoryInfo()).resolves.toEqual({
+      used_memory_bytes: 1_048_576,
+      maxmemory_bytes: 2_097_152,
+    });
+  });
+
+  it('should treat maxmemory=0 as unbounded', async () => {
+    await service.onModuleInit();
+    const client = service.getClient();
+    (client.info as jest.Mock).mockResolvedValueOnce(
+      ['# Memory', 'used_memory:1048576', 'maxmemory:0'].join('\r\n'),
+    );
+
+    await expect(service.getMemoryInfo()).resolves.toEqual({
+      used_memory_bytes: 1_048_576,
+      maxmemory_bytes: null,
+    });
   });
 });

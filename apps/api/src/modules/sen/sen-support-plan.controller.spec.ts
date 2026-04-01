@@ -195,7 +195,7 @@ describe('SenSupportPlanController — permission denied', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   it('should return 403 when user lacks sen.manage permission (POST /v1/sen/profiles/:profileId/plans)', async () => {

@@ -1,52 +1,74 @@
 #!/usr/bin/env bash
-# =============================================================================
-# Quarterly Backup Restore Drill Script
-# =============================================================================
-#
-# This script automates the mechanical steps of a quarterly backup restore drill.
-# Some steps require manual verification (marked with MANUAL CHECK).
-#
-# Prerequisites:
-#   - AWS CLI configured with production account credentials
-#   - psql installed (for database verification queries)
-#   - Sufficient IAM permissions for RDS operations
-#
-# Usage:
-#   ./scripts/backup-drill.sh [--skip-cleanup]
-#
-# Options:
-#   --skip-cleanup    Do not delete the temporary instance (for extended testing)
-#
-# =============================================================================
 
 set -euo pipefail
 
-# --- Configuration -----------------------------------------------------------
-
-PROD_DB_INSTANCE="school-prod"
-RESTORE_PREFIX="drill-restore"
-DRILL_DATE=$(date +%Y%m%d-%H%M)
-RESTORE_INSTANCE="${RESTORE_PREFIX}-${DRILL_DATE}"
-SNAPSHOT_ID="drill-snapshot-${DRILL_DATE}"
+DRILL_DATE="$(date +%Y%m%d-%H%M)"
+CONTAINER_NAME="edupod-backup-drill-${DRILL_DATE}"
+VOLUME_NAME="${CONTAINER_NAME}-data"
 LOG_FILE="backup-drill-${DRILL_DATE}.log"
-DB_NAME="school_platform"
-DB_USER="postgres"
 
+BACKUP_SEARCH_DIR="${BACKUP_SEARCH_DIR:-/opt/edupod/backups/predeploy}"
+BACKUP_FILE_OVERRIDE=""
+DB_NAME="${DRILL_DB_NAME:-school_platform}"
+DB_USER="${DRILL_DB_USER:-postgres}"
+DB_PASSWORD="${DRILL_DB_PASSWORD:-drill-local-password}"
+DB_PORT="${DRILL_DB_PORT:-5543}"
 SKIP_CLEANUP=false
-if [[ "${1:-}" == "--skip-cleanup" ]]; then
-  SKIP_CLEANUP=true
-fi
+RESTORE_STARTED=false
 
-# --- Helper Functions --------------------------------------------------------
+usage() {
+  cat <<'EOF'
+Usage:
+  ./scripts/backup-drill.sh [--backup-file /path/to/file.dump] [--skip-cleanup]
+
+Options:
+  --backup-file    Restore a specific custom-format .dump file.
+  --skip-cleanup   Keep the drill container and Docker volume for extended checks.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --backup-file)
+      BACKUP_FILE_OVERRIDE="${2:-}"
+      shift 2
+      ;;
+    --skip-cleanup)
+      SKIP_CLEANUP=true
+      shift
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
 
 log() {
-  local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+  local msg="[$(date '+%Y-%m-%d %H:%M:%S %Z')] $1"
   echo "$msg"
   echo "$msg" >> "$LOG_FILE"
 }
 
+cleanup_resources() {
+  if [[ "$SKIP_CLEANUP" == true ]]; then
+    return 0
+  fi
+
+  docker rm -f "$CONTAINER_NAME" > /dev/null 2>&1 || true
+  docker volume rm "$VOLUME_NAME" > /dev/null 2>&1 || true
+}
+
 fail() {
   log "FAIL: $1"
+  if [[ "$RESTORE_STARTED" == true ]]; then
+    cleanup_resources
+  fi
   echo ""
   echo "============================================"
   echo "  DRILL FAILED -- see $LOG_FILE for details"
@@ -58,261 +80,214 @@ pass() {
   log "PASS: $1"
 }
 
-# --- Pre-Drill Checks -------------------------------------------------------
+resolve_backup_file() {
+  if [[ -n "$BACKUP_FILE_OVERRIDE" ]]; then
+    if [[ ! -f "$BACKUP_FILE_OVERRIDE" ]]; then
+      fail "Backup file not found: $BACKUP_FILE_OVERRIDE"
+    fi
+    printf '%s\n' "$BACKUP_FILE_OVERRIDE"
+    return 0
+  fi
 
-log "============================================"
-log "  Quarterly Backup Restore Drill"
-log "  Date: $(date '+%Y-%m-%d %H:%M:%S %Z')"
-log "  Production Instance: $PROD_DB_INSTANCE"
-log "  Restore Instance: $RESTORE_INSTANCE"
-log "============================================"
-echo ""
+  local latest_dump
+  latest_dump="$(
+    find "$BACKUP_SEARCH_DIR" -type f -name '*.dump' -print 2>/dev/null | sort | tail -n 1
+  )"
 
-log "Step 0: Pre-drill checks"
+  if [[ -z "$latest_dump" ]]; then
+    fail "No .dump files found in ${BACKUP_SEARCH_DIR}. Pass --backup-file explicitly."
+  fi
 
-# Verify AWS CLI is configured
-if ! aws sts get-caller-identity > /dev/null 2>&1; then
-  fail "AWS CLI not configured or credentials expired"
-fi
-pass "AWS CLI credentials valid"
+  printf '%s\n' "$latest_dump"
+}
 
-# Verify production instance exists and is available
-PROD_STATUS=$(aws rds describe-db-instances \
-  --db-instance-identifier "$PROD_DB_INSTANCE" \
-  --query 'DBInstances[0].DBInstanceStatus' \
-  --output text 2>/dev/null || echo "not-found")
+wait_for_postgres() {
+  local attempt
+  for attempt in $(seq 1 30); do
+    if PGPASSWORD="$DB_PASSWORD" pg_isready \
+      -h 127.0.0.1 \
+      -p "$DB_PORT" \
+      -U "$DB_USER" \
+      -d "$DB_NAME" > /dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
 
-if [[ "$PROD_STATUS" != "available" ]]; then
-  fail "Production instance status: $PROD_STATUS (expected: available)"
-fi
-pass "Production instance is available"
-
-# Check latest restorable time
-LATEST_RESTORABLE=$(aws rds describe-db-instances \
-  --db-instance-identifier "$PROD_DB_INSTANCE" \
-  --query 'DBInstances[0].LatestRestorableTime' \
-  --output text)
-log "Latest restorable time: $LATEST_RESTORABLE"
-
-echo ""
-
-# --- Step 1: Create Snapshot -------------------------------------------------
-
-log "Step 1: Creating manual snapshot of production database"
-
-aws rds create-db-snapshot \
-  --db-instance-identifier "$PROD_DB_INSTANCE" \
-  --db-snapshot-identifier "$SNAPSHOT_ID" \
-  --tags Key=Purpose,Value=backup-drill Key=DrillDate,Value="$DRILL_DATE" \
-  > /dev/null
-
-log "Waiting for snapshot to complete (this may take 10-30 minutes)..."
-
-aws rds wait db-snapshot-available \
-  --db-snapshot-identifier "$SNAPSHOT_ID"
-
-SNAPSHOT_STATUS=$(aws rds describe-db-snapshots \
-  --db-snapshot-identifier "$SNAPSHOT_ID" \
-  --query 'DBSnapshots[0].Status' \
-  --output text)
-
-if [[ "$SNAPSHOT_STATUS" == "available" ]]; then
-  pass "Snapshot created: $SNAPSHOT_ID"
-else
-  fail "Snapshot creation failed. Status: $SNAPSHOT_STATUS"
-fi
-
-SNAPSHOT_SIZE=$(aws rds describe-db-snapshots \
-  --db-snapshot-identifier "$SNAPSHOT_ID" \
-  --query 'DBSnapshots[0].AllocatedStorage' \
-  --output text)
-log "Snapshot size: ${SNAPSHOT_SIZE} GB"
-
-echo ""
-
-# --- Step 2: Restore to Temporary Instance -----------------------------------
-
-log "Step 2: Restoring snapshot to temporary instance"
-
-# Get VPC config from production instance
-VPC_SG=$(aws rds describe-db-instances \
-  --db-instance-identifier "$PROD_DB_INSTANCE" \
-  --query 'DBInstances[0].VpcSecurityGroups[0].VpcSecurityGroupId' \
-  --output text)
-
-SUBNET_GROUP=$(aws rds describe-db-instances \
-  --db-instance-identifier "$PROD_DB_INSTANCE" \
-  --query 'DBInstances[0].DBSubnetGroup.DBSubnetGroupName' \
-  --output text)
-
-INSTANCE_CLASS=$(aws rds describe-db-instances \
-  --db-instance-identifier "$PROD_DB_INSTANCE" \
-  --query 'DBInstances[0].DBInstanceClass' \
-  --output text)
-
-aws rds restore-db-instance-from-db-snapshot \
-  --db-instance-identifier "$RESTORE_INSTANCE" \
-  --db-snapshot-identifier "$SNAPSHOT_ID" \
-  --db-instance-class "$INSTANCE_CLASS" \
-  --vpc-security-group-ids "$VPC_SG" \
-  --db-subnet-group-name "$SUBNET_GROUP" \
-  --no-multi-az \
-  --tags Key=Purpose,Value=backup-drill Key=DrillDate,Value="$DRILL_DATE" Key=AutoDelete,Value=true \
-  > /dev/null
-
-log "Waiting for restored instance to become available (this may take 15-45 minutes)..."
-
-aws rds wait db-instance-available \
-  --db-instance-identifier "$RESTORE_INSTANCE"
-
-RESTORE_STATUS=$(aws rds describe-db-instances \
-  --db-instance-identifier "$RESTORE_INSTANCE" \
-  --query 'DBInstances[0].DBInstanceStatus' \
-  --output text)
-
-if [[ "$RESTORE_STATUS" == "available" ]]; then
-  pass "Restored instance is available: $RESTORE_INSTANCE"
-else
-  fail "Restored instance status: $RESTORE_STATUS (expected: available)"
-fi
-
-RESTORE_ENDPOINT=$(aws rds describe-db-instances \
-  --db-instance-identifier "$RESTORE_INSTANCE" \
-  --query 'DBInstances[0].Endpoint.Address' \
-  --output text)
-
-log "Restored instance endpoint: $RESTORE_ENDPOINT"
-
-echo ""
-
-# --- Step 3: Run Verification Queries ----------------------------------------
-
-log "Step 3: Running verification queries"
-log ""
-log "MANUAL CHECK: You may need to provide the database password when prompted."
-log "Connect to: $RESTORE_ENDPOINT"
-log ""
-
-VERIFY_SQL=$(cat <<'EOSQL'
--- Verification Query Set for Backup Drill
-
--- 1. Row counts for critical tables
-SELECT '--- TABLE ROW COUNTS ---' AS section;
+run_verification_queries() {
+  PGPASSWORD="$DB_PASSWORD" psql \
+    -h 127.0.0.1 \
+    -p "$DB_PORT" \
+    -U "$DB_USER" \
+    -d "$DB_NAME" \
+    >> "$LOG_FILE" 2>&1 <<'EOSQL'
+\echo '--- TABLE ROW COUNTS ---'
 SELECT 'tenants' AS table_name, COUNT(*) AS row_count FROM tenants
 UNION ALL SELECT 'users', COUNT(*) FROM users
 UNION ALL SELECT 'tenant_memberships', COUNT(*) FROM tenant_memberships
+UNION ALL SELECT 'students', COUNT(*) FROM students
+UNION ALL SELECT 'staff_profiles', COUNT(*) FROM staff_profiles
+UNION ALL SELECT 'invoices', COUNT(*) FROM invoices
+UNION ALL SELECT 'payments', COUNT(*) FROM payments
+UNION ALL SELECT 'payroll_runs', COUNT(*) FROM payroll_runs
 ORDER BY table_name;
 
--- 2. RLS enabled on all tenant-scoped tables
-SELECT '--- RLS STATUS ---' AS section;
+\echo '--- RLS STATUS ---'
 SELECT tablename, rowsecurity
 FROM pg_tables
 WHERE schemaname = 'public'
   AND tablename NOT IN ('_prisma_migrations', 'users')
 ORDER BY tablename;
 
--- 3. RLS policies exist
-SELECT '--- RLS POLICIES ---' AS section;
+\echo '--- RLS POLICIES ---'
 SELECT tablename, policyname, cmd
 FROM pg_policies
 WHERE schemaname = 'public'
 ORDER BY tablename, policyname;
 
--- 4. Trigger functions
-SELECT '--- TRIGGERS ---' AS section;
+\echo '--- TRIGGERS ---'
 SELECT trigger_name, event_object_table, action_timing, event_manipulation
 FROM information_schema.triggers
 WHERE trigger_schema = 'public'
 ORDER BY event_object_table, trigger_name;
 
--- 5. Extensions
-SELECT '--- EXTENSIONS ---' AS section;
+\echo '--- EXTENSIONS ---'
 SELECT extname, extversion FROM pg_extension ORDER BY extname;
 
--- 6. Sequences
-SELECT '--- TENANT SEQUENCES ---' AS section;
+\echo '--- TENANT SEQUENCES ---'
 SELECT tenant_id, prefix, current_value
 FROM tenant_sequences
 ORDER BY tenant_id, prefix;
 
--- 7. Migration history (last 10)
-SELECT '--- MIGRATION HISTORY (LAST 10) ---' AS section;
+\echo '--- MIGRATION HISTORY (LAST 10) ---'
 SELECT migration_name, finished_at
 FROM _prisma_migrations
 ORDER BY finished_at DESC
 LIMIT 10;
 
--- 8. Tables without RLS (should be empty except users and _prisma_migrations)
-SELECT '--- TABLES MISSING RLS (SHOULD BE EMPTY) ---' AS section;
+\echo '--- TABLES MISSING RLS (SHOULD BE EMPTY) ---'
 SELECT tablename
 FROM pg_tables
 WHERE schemaname = 'public'
   AND tablename NOT IN ('_prisma_migrations', 'users')
   AND rowsecurity = false;
 EOSQL
-)
+}
 
-log "Running verification queries against restored instance..."
+BACKUP_FILE="$(resolve_backup_file)"
+BACKUP_SIZE_BYTES="$(stat -f '%z' "$BACKUP_FILE" 2>/dev/null || stat -c '%s' "$BACKUP_FILE")"
+BACKUP_SIZE_MB="$((BACKUP_SIZE_BYTES / 1024 / 1024))"
 
-if PGPASSWORD="${DB_PASSWORD:-}" psql \
-  -h "$RESTORE_ENDPOINT" \
-  -U "$DB_USER" \
-  -d "$DB_NAME" \
-  -c "$VERIFY_SQL" \
-  >> "$LOG_FILE" 2>&1; then
-  pass "Verification queries completed"
-else
-  log "WARNING: Verification queries failed or were skipped."
-  log "MANUAL CHECK: Connect to $RESTORE_ENDPOINT and run verification queries manually."
-  log "See docs/runbooks/backup-restore.md section 2.4 for the full query set."
+log "============================================"
+log "  Quarterly Backup Restore Drill"
+log "  Date: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+log "  Backup File: $BACKUP_FILE"
+log "  Drill Container: $CONTAINER_NAME"
+log "============================================"
+echo ""
+
+log "Step 0: Pre-drill checks"
+
+for command in docker pg_restore pg_isready psql; do
+  if ! command -v "$command" > /dev/null 2>&1; then
+    fail "Required command missing: $command"
+  fi
+done
+pass 'Docker and PostgreSQL client tooling are installed'
+
+if [[ ! -f "$BACKUP_FILE" ]]; then
+  fail "Backup file is not readable: $BACKUP_FILE"
 fi
+pass "Backup file located (${BACKUP_SIZE_MB} MB)"
+
+if docker ps -a --format '{{.Names}}' | grep -qx "$CONTAINER_NAME"; then
+  fail "Drill container name already exists: $CONTAINER_NAME"
+fi
+pass 'Drill container name is available'
 
 echo ""
 
-# --- Step 4: Summary ---------------------------------------------------------
+log 'Step 1: Starting temporary PostgreSQL restore target'
+
+docker volume create "$VOLUME_NAME" > /dev/null
+docker run -d \
+  --name "$CONTAINER_NAME" \
+  --env POSTGRES_DB="$DB_NAME" \
+  --env POSTGRES_USER="$DB_USER" \
+  --env POSTGRES_PASSWORD="$DB_PASSWORD" \
+  --publish "${DB_PORT}:5432" \
+  --volume "${VOLUME_NAME}:/var/lib/postgresql/data" \
+  postgres:16 > /dev/null
+
+RESTORE_STARTED=true
+
+if ! wait_for_postgres; then
+  fail 'Temporary PostgreSQL restore target did not become ready'
+fi
+pass "Restore target is ready on 127.0.0.1:${DB_PORT}"
+
+echo ""
+
+log 'Step 2: Restoring backup into the drill container'
+RESTORE_START_TS="$(date '+%Y-%m-%d %H:%M:%S %Z')"
+
+if ! PGPASSWORD="$DB_PASSWORD" pg_restore \
+  --clean \
+  --if-exists \
+  --no-owner \
+  --no-privileges \
+  -h 127.0.0.1 \
+  -p "$DB_PORT" \
+  -U "$DB_USER" \
+  -d "$DB_NAME" \
+  "$BACKUP_FILE" >> "$LOG_FILE" 2>&1; then
+  fail 'pg_restore failed'
+fi
+
+RESTORE_END_TS="$(date '+%Y-%m-%d %H:%M:%S %Z')"
+pass 'Backup restore completed'
+
+echo ""
+
+log 'Step 3: Running verification queries against the restored database'
+
+if ! run_verification_queries; then
+  fail 'Verification queries failed'
+fi
+pass 'Verification queries completed'
+
+echo ""
 
 log "============================================"
 log "  Drill Results Summary"
 log "============================================"
-log ""
-log "Snapshot ID:        $SNAPSHOT_ID"
-log "Snapshot Size:      ${SNAPSHOT_SIZE} GB"
-log "Restored Instance:  $RESTORE_INSTANCE"
-log "Restored Endpoint:  $RESTORE_ENDPOINT"
-log "Log File:           $LOG_FILE"
+log "Backup file:        $BACKUP_FILE"
+log "Backup size:        ${BACKUP_SIZE_MB} MB"
+log "Restore container:  $CONTAINER_NAME"
+log "Restore volume:     $VOLUME_NAME"
+log "Restore endpoint:   127.0.0.1:${DB_PORT}"
+log "Restore start:      $RESTORE_START_TS"
+log "Restore complete:   $RESTORE_END_TS"
+log "Log file:           $LOG_FILE"
 log ""
 log "MANUAL CHECKS REQUIRED:"
 log "  1. Review verification query output in $LOG_FILE"
-log "  2. Confirm row counts match expected production counts"
-log "  3. Confirm all tenant-scoped tables have RLS enabled"
-log "  4. Confirm RLS policies are intact"
-log "  5. Confirm trigger functions are present"
-log "  6. Confirm extensions (citext, btree_gist, uuid-ossp) are installed"
-log "  7. Complete the drill checklist: scripts/backup-drill-checklist.md"
+log "  2. Compare row counts against production counts captured before the drill"
+log "  3. Confirm all tenant-scoped tables still have RLS enabled"
+log "  4. Confirm RLS policies and triggers are intact"
+log "  5. Confirm extensions (citext, btree_gist, uuid-ossp) are installed"
+log "  6. Complete the drill checklist: scripts/backup-drill-checklist.md"
 log ""
 
-# --- Step 5: Cleanup ---------------------------------------------------------
-
 if [[ "$SKIP_CLEANUP" == true ]]; then
-  log "Cleanup SKIPPED (--skip-cleanup flag set)"
-  log "Remember to manually delete:"
-  log "  - Instance: $RESTORE_INSTANCE"
-  log "  - Snapshot: $SNAPSHOT_ID"
+  log 'Cleanup SKIPPED (--skip-cleanup flag set)'
+  log "Remember to remove container ${CONTAINER_NAME} and volume ${VOLUME_NAME} when finished"
 else
-  log "Step 5: Cleaning up temporary resources"
-
-  log "Deleting restored instance: $RESTORE_INSTANCE"
-  aws rds delete-db-instance \
-    --db-instance-identifier "$RESTORE_INSTANCE" \
-    --skip-final-snapshot \
-    > /dev/null 2>&1 || log "WARNING: Failed to delete restored instance"
-
-  log "Deleting drill snapshot: $SNAPSHOT_ID"
-  aws rds delete-db-snapshot \
-    --db-snapshot-identifier "$SNAPSHOT_ID" \
-    > /dev/null 2>&1 || log "WARNING: Failed to delete drill snapshot"
-
-  pass "Cleanup completed"
+  log 'Step 4: Cleaning up temporary restore resources'
+  cleanup_resources
+  pass 'Cleanup completed'
 fi
 
 echo ""

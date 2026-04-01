@@ -125,6 +125,7 @@ describe('AcademicPeriodsService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'ACADEMIC_YEAR_NOT_FOUND',
       });
@@ -147,6 +148,7 @@ describe('AcademicPeriodsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'PERIOD_OUTSIDE_YEAR_RANGE',
       });
@@ -167,6 +169,7 @@ describe('AcademicPeriodsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'INVALID_DATE_RANGE',
       });
@@ -188,6 +191,7 @@ describe('AcademicPeriodsService', () => {
       }
 
       expect(caught).toBeInstanceOf(ConflictException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as ConflictException).getResponse()).toMatchObject({
         code: 'DUPLICATE_NAME',
       });
@@ -241,6 +245,7 @@ describe('AcademicPeriodsService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'ACADEMIC_YEAR_NOT_FOUND',
       });
@@ -263,6 +268,7 @@ describe('AcademicPeriodsService', () => {
       }
 
       expect(caught).toBeInstanceOf(ConflictException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as ConflictException).getResponse()).toMatchObject({
         code: 'OVERLAPPING_PERIOD',
       });
@@ -283,6 +289,7 @@ describe('AcademicPeriodsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'PERIOD_OUTSIDE_YEAR_RANGE',
       });
@@ -303,6 +310,7 @@ describe('AcademicPeriodsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'INVALID_DATE_RANGE',
       });
@@ -343,6 +351,7 @@ describe('AcademicPeriodsService', () => {
       }
 
       expect(caught).toBeInstanceOf(ConflictException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as ConflictException).getResponse()).toMatchObject({
         code: 'OVERLAPPING_PERIOD',
       });
@@ -379,6 +388,7 @@ describe('AcademicPeriodsService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'ACADEMIC_PERIOD_NOT_FOUND',
       });
@@ -401,6 +411,7 @@ describe('AcademicPeriodsService', () => {
       }
 
       expect(caught).toBeInstanceOf(ConflictException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as ConflictException).getResponse()).toMatchObject({
         code: 'DUPLICATE_NAME',
       });
@@ -422,6 +433,7 @@ describe('AcademicPeriodsService', () => {
       }
 
       expect(caught).toBeInstanceOf(ConflictException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as ConflictException).getResponse()).toMatchObject({
         code: 'OVERLAPPING_PERIOD',
       });
@@ -507,6 +519,7 @@ describe('AcademicPeriodsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'INVALID_STATUS_TRANSITION',
       });
@@ -527,6 +540,7 @@ describe('AcademicPeriodsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'INVALID_STATUS_TRANSITION',
       });
@@ -547,6 +561,7 @@ describe('AcademicPeriodsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'INVALID_STATUS_TRANSITION',
       });
@@ -567,6 +582,7 @@ describe('AcademicPeriodsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'INVALID_STATUS_TRANSITION',
       });
@@ -584,6 +600,7 @@ describe('AcademicPeriodsService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'ACADEMIC_PERIOD_NOT_FOUND',
       });

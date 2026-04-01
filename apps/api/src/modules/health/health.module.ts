@@ -2,7 +2,9 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
 import { SearchModule } from '../search/search.module';
+import { PlatformOwnerGuard } from '../tenants/guards/platform-owner.guard';
 
+import { AdminHealthController } from './admin-health.controller';
 import { HealthController } from './health.controller';
 import { HealthService } from './health.service';
 
@@ -10,14 +12,14 @@ import { HealthService } from './health.service';
   imports: [
     SearchModule,
     BullModule.registerQueue(
-      { name: 'behaviour' },
-      { name: 'compliance' },
-      { name: 'finance' },
       { name: 'notifications' },
+      { name: 'behaviour' },
+      { name: 'finance' },
+      { name: 'payroll' },
       { name: 'pastoral' },
     ),
   ],
-  controllers: [HealthController],
-  providers: [HealthService],
+  controllers: [AdminHealthController, HealthController],
+  providers: [HealthService, PlatformOwnerGuard],
 })
 export class HealthModule {}

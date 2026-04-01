@@ -1,260 +1,82 @@
 # Rollback Runbook
 
-Last updated: 2026-03-16
+Last updated: 2026-04-01
 
 ---
 
 ## Overview
 
-This runbook covers procedures for reverting a failed deployment or mitigating a production incident. Rollback strategies vary depending on whether the release included database migrations.
+Production runs on a Hetzner host with PM2-managed services. The default rollback path is now:
+
+1. automatic rollback inside `scripts/deploy-production.sh` when post-restart smoke tests fail
+2. manual application rollback to the previous commit when needed
+3. database restore from the pre-deploy dump or the off-site object-store copy when schema/data rollback is required
 
 ---
 
 ## Decision Matrix
 
-| Situation | Strategy |
-|---|---|
-| App bug, no DB migration in this release | Application rollback (ECS revert) |
-| App bug with DB migration (backwards-compatible) | Application rollback (ECS revert) |
-| App bug with DB migration (breaking schema change) | Full rollback (DB + App) |
-| Data corruption | Point-in-time recovery (PITR) |
-| Feature causing business issues | Feature flag / module toggle disable |
-| Single tenant affected | Tenant-level mitigation |
+| Situation                                          | Strategy                                       |
+| -------------------------------------------------- | ---------------------------------------------- |
+| App bug, smoke test failed during deploy           | Automatic rollback in deploy script            |
+| App bug discovered after deploy                    | Manual application rollback to previous commit |
+| App bug with backwards-compatible migration        | Roll back app first, then reassess             |
+| App bug with breaking migration or data corruption | Restore from pre-deploy or off-site backup     |
+| Data corruption                                    | Restore from known-good backup                 |
+| Feature causing business issues                    | Feature flag / module toggle disable           |
+| Single tenant affected                             | Tenant-level mitigation                        |
 
 ---
 
-## 1. Application Rollback (ECS Task Definition Revert)
+## 1. Automatic Rollback
 
-Use this when the database schema is unchanged or the migration was backwards-compatible (additive columns, new tables, new indexes).
+When `scripts/deploy-production.sh` fails its smoke test, it automatically:
 
-### 1.1 Identify Previous Task Definition Revision
+1. checks out the previous commit SHA
+2. rebuilds the repo with `pnpm install --frozen-lockfile`
+3. regenerates Prisma client
+4. reloads `api` and `web` through `ecosystem.config.cjs`, then restarts `worker`
+5. reruns the smoke tests
 
-```bash
-# List recent task definition revisions for each service
-aws ecs list-task-definitions \
-  --family-prefix school-api \
-  --sort DESC \
-  --max-items 5
+If the rollback smoke test also fails, treat the incident as manual recovery.
 
-aws ecs list-task-definitions \
-  --family-prefix school-web \
-  --sort DESC \
-  --max-items 5
+## 2. Manual Application Rollback
 
-aws ecs list-task-definitions \
-  --family-prefix school-worker \
-  --sort DESC \
-  --max-items 5
-```
-
-Note the revision number immediately prior to the failed deployment.
-
-### 1.2 Revert ECS Services
+Use this when the release is already live but needs to be reverted at the app layer.
 
 ```bash
-# Revert API
-aws ecs update-service \
-  --cluster school-prod \
-  --service school-api \
-  --task-definition school-api:<previous-revision> \
-  --force-new-deployment
-
-# Revert Web
-aws ecs update-service \
-  --cluster school-prod \
-  --service school-web \
-  --task-definition school-web:<previous-revision> \
-  --force-new-deployment
-
-# Revert Worker
-aws ecs update-service \
-  --cluster school-prod \
-  --service school-worker \
-  --task-definition school-worker:<previous-revision> \
-  --force-new-deployment
-```
-
-### 1.3 Wait for Stability
-
-```bash
-aws ecs wait services-stable \
-  --cluster school-prod \
-  --services school-api school-web school-worker
-```
-
-### 1.4 Verify Rollback
-
-```bash
-curl -s https://api.edupod.app/api/health/ready | jq .
-# Verify version field shows the previous release version
-```
-
-### 1.5 Partial Rollback
-
-If only one service is affected, roll back just that service:
-
-```bash
-# Backend only
-aws ecs update-service \
-  --cluster school-prod \
-  --service school-api \
-  --task-definition school-api:<previous-revision> \
-  --force-new-deployment
-
-# Frontend only
-aws ecs update-service \
-  --cluster school-prod \
-  --service school-web \
-  --task-definition school-web:<previous-revision> \
-  --force-new-deployment
-
-# Worker only
-aws ecs update-service \
-  --cluster school-prod \
-  --service school-worker \
-  --task-definition school-worker:<previous-revision> \
-  --force-new-deployment
+ssh <production-host>
+cd /opt/edupod/app
+git checkout main
+git log --oneline -n 5
+git checkout <previous-good-sha>
+pnpm install --frozen-lockfile
+(cd packages/prisma && npx --no-install prisma generate)
+NEXT_PUBLIC_API_URL= SENTRY_RELEASE=<previous-good-sha> pnpm build --force
+sudo -u edupod PM2_HOME=/home/edupod/.pm2 env APP_DIR=/opt/edupod/app SENTRY_ENVIRONMENT=production SENTRY_RELEASE=<previous-good-sha> pm2 startOrGracefulReload /opt/edupod/app/ecosystem.config.cjs --only api,web --update-env
+sudo -u edupod PM2_HOME=/home/edupod/.pm2 env APP_DIR=/opt/edupod/app SENTRY_ENVIRONMENT=production SENTRY_RELEASE=<previous-good-sha> pm2 restart /opt/edupod/app/ecosystem.config.cjs --only worker --update-env
+sudo -u edupod PM2_HOME=/home/edupod/.pm2 pm2 save
+curl -s http://localhost:3001/api/health/ready | jq .
+curl -s http://localhost:5556/health | jq .
 ```
 
 ---
 
-## 2. Database Rollback
+## 3. Database Restore
 
-### 2.1 Safe Rollback: Prisma Migrate (Additive Migrations Only)
+If a migration or data change must be reversed:
 
-Only use this if the migration was purely additive (new tables, new columns with defaults, new indexes) and no data migration was performed.
-
-```bash
-# Caution: Prisma does not natively support migrate down.
-# To revert a migration:
-
-# 1. Identify the migration to revert
-npx prisma migrate status
-
-# 2. Mark it as rolled back in the migration table
-# Connect to the database and:
-UPDATE _prisma_migrations
-SET rolled_back_at = NOW()
-WHERE migration_name = '<migration-name>';
-
-# 3. Manually reverse the schema change
-# Write and execute the inverse SQL:
-# - DROP TABLE if a table was added
-# - ALTER TABLE DROP COLUMN if a column was added
-# - DROP INDEX if an index was added
-
-# 4. Re-run post-migrate to restore RLS policies
-pnpm db:post-migrate
-```
-
-### 2.2 Unsafe Rollback: AWS RDS Point-in-Time Recovery (PITR)
-
-Use PITR when data corruption has occurred or when a migration cannot be safely reversed. This is a destructive operation that will lose all data written after the recovery point.
-
-#### Step-by-step PITR Procedure
-
-**Step 1: Identify the target recovery time**
-
-Determine the exact time before the incident began. Use CloudWatch logs, Sentry timestamps, or deployment records.
-
-```bash
-# Check when the failed migration was applied
-aws rds describe-events \
-  --source-identifier school-prod \
-  --source-type db-instance \
-  --duration 1440
-```
-
-**Step 2: Stop all application traffic**
-
-```bash
-# Scale all ECS services to 0 to prevent writes
-aws ecs update-service --cluster school-prod --service school-api --desired-count 0
-aws ecs update-service --cluster school-prod --service school-web --desired-count 0
-aws ecs update-service --cluster school-prod --service school-worker --desired-count 0
-```
-
-**Step 3: Restore to a new RDS instance**
-
-```bash
-aws rds restore-db-instance-to-point-in-time \
-  --source-db-instance-identifier school-prod \
-  --target-db-instance-identifier school-restore-$(date +%Y%m%d-%H%M) \
-  --restore-time "YYYY-MM-DDTHH:MM:SSZ" \
-  --db-instance-class db.r6g.large \
-  --vpc-security-group-ids <sg-id> \
-  --db-subnet-group-name <subnet-group> \
-  --no-multi-az
-```
-
-**Step 4: Wait for the restored instance to become available**
-
-```bash
-aws rds wait db-instance-available \
-  --db-instance-identifier school-restore-<timestamp>
-```
-
-This can take 15-45 minutes depending on database size.
-
-**Step 5: Verify data integrity on the restored instance**
-
-```sql
--- Connect to the restored instance and verify:
-
--- 1. Row counts for critical tables
-SELECT 'tenants' AS tbl, COUNT(*) FROM tenants
-UNION ALL SELECT 'users', COUNT(*) FROM users
-UNION ALL SELECT 'tenant_memberships', COUNT(*) FROM tenant_memberships;
-
--- 2. RLS policies are intact
-SELECT tablename, policyname FROM pg_policies WHERE schemaname = 'public';
-
--- 3. Trigger functions exist
-SELECT routine_name FROM information_schema.routines
-WHERE routine_type = 'FUNCTION' AND routine_schema = 'public';
-
--- 4. Sequences are correct
-SELECT * FROM tenant_sequences ORDER BY tenant_id, prefix;
-```
-
-**Step 6: Switch application to the restored instance**
-
-1. Update the `DATABASE_URL` in AWS Systems Manager Parameter Store to point to the restored instance endpoint
-2. Restart ECS services:
-
-```bash
-aws ecs update-service --cluster school-prod --service school-api --desired-count 2 --force-new-deployment
-aws ecs update-service --cluster school-prod --service school-web --desired-count 2 --force-new-deployment
-aws ecs update-service --cluster school-prod --service school-worker --desired-count 1 --force-new-deployment
-```
-
-**Step 7: Verify application health**
-
-```bash
-curl -s https://api.edupod.app/api/health/ready | jq .
-```
-
-**Step 8: Clean up**
-
-Once the restored instance is confirmed working:
-
-```bash
-# Rename the old instance (keep for investigation)
-aws rds modify-db-instance \
-  --db-instance-identifier school-prod \
-  --new-db-instance-identifier school-prod-failed-$(date +%Y%m%d)
-
-# Delete after investigation is complete (minimum 7 days)
-aws rds delete-db-instance \
-  --db-instance-identifier school-prod-failed-<date> \
-  --skip-final-snapshot
-```
+1. locate the latest pre-deploy dump in `/opt/edupod/backups/predeploy`
+2. if that is unavailable, use the replicated object-store backup documented in [offsite-backup-replication.md](./offsite-backup-replication.md)
+3. restore into a temporary database first
+4. run verification queries before switching production traffic
+5. only then update application services to point at the restored database
 
 ---
 
-## 3. Feature Flag Emergency Disable
+## 4. Feature Flag Emergency Disable
 
-### 3.1 Tenant Module Toggle
+### 4.1 Tenant Module Toggle
 
 If a specific module is causing issues, disable it at the tenant level without a full rollback.
 
@@ -270,7 +92,7 @@ Available module keys: `payroll`, `finance`, `attendance`, `admissions`, `schedu
 
 This immediately prevents users from accessing the affected module. The `@ModuleEnabled()` guard on controllers returns 403 for disabled modules.
 
-### 3.2 Tenant Suspension (Emergency)
+### 4.2 Tenant Suspension (Emergency)
 
 For critical issues affecting a specific tenant (data corruption, security breach):
 
@@ -281,6 +103,7 @@ curl -X POST https://api.edupod.app/api/v1/admin/tenants/<tenant-id>/suspend \
 ```
 
 This will:
+
 1. Set tenant status to `suspended` in the database
 2. Set a Redis flag for immediate effect (no need to wait for cache expiry)
 3. Invalidate all active sessions for users of that tenant
@@ -295,34 +118,36 @@ curl -X POST https://api.edupod.app/api/v1/admin/tenants/<tenant-id>/reactivate 
 
 ---
 
-## 4. Redis Recovery
+## 5. Redis Recovery
 
-Redis data loss is non-critical for the application -- it stores sessions, caches, and BullMQ job queues.
+Redis data loss is operationally painful but not a source-of-truth event. It stores sessions, caches, and BullMQ state.
 
-### 4.1 Session Loss
+### 5.1 Session Loss
 
 If Redis loses all data:
+
 - All users will be logged out (JWT refresh tokens stored in Redis)
 - Users simply log in again
 - No data loss occurs
 
-### 4.2 BullMQ Queue Recovery
+### 5.2 BullMQ Queue Recovery
 
-- AOF persistence is enabled on ElastiCache -- queues survive restarts
+- Redis persistence should preserve delayed BullMQ jobs across normal restarts
 - If AOF is corrupted, delayed/scheduled jobs are lost
 - Application will re-enqueue recurring jobs on startup
 - One-off jobs (e.g., individual notification dispatches) may need manual re-trigger
 
-### 4.3 Cache Rebuild
+### 5.3 Cache Rebuild
 
 Application caches (tenant config, permission lookups) are populated on-demand. After a Redis flush:
+
 - First requests will be slower (cache miss penalty)
 - No manual intervention needed
 - Caches self-heal within minutes under normal traffic
 
 ---
 
-## 5. Rollback Communication
+## 6. Rollback Communication
 
 After any rollback:
 
@@ -330,3 +155,21 @@ After any rollback:
 2. Notify affected tenants if there was user-facing impact
 3. Create a post-incident review ticket
 4. Document the root cause and prevention measures
+
+---
+
+## 7. Rollback Drill Cadence
+
+Perform an application rollback drill at least quarterly using the process in this runbook.
+
+- checklist: [rollback-drill-checklist.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/rollback-drill-checklist.md)
+- policy: [recovery-drills.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/docs/runbooks/recovery-drills.md)
+
+Every rollback drill must record:
+
+- current deploy SHA
+- rollback target SHA
+- declared target RTO
+- achieved recovery duration
+- whether a database restore would also have been required
+- follow-up fixes if the drill was slow or incomplete

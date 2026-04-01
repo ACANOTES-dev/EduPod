@@ -224,10 +224,7 @@ describe('DsarTraversalService', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        DsarTraversalService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [DsarTraversalService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<DsarTraversalService>(DsarTraversalService);
@@ -239,9 +236,9 @@ describe('DsarTraversalService', () => {
 
   describe('collectAllData — invalid subject type', () => {
     it('should throw BadRequestException for unsupported subject type', async () => {
-      await expect(
-        service.collectAllData(TENANT_ID, 'unknown', 'some-id'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.collectAllData(TENANT_ID, 'unknown', 'some-id')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should include error code in exception', async () => {
@@ -250,6 +247,7 @@ describe('DsarTraversalService', () => {
         fail('Expected BadRequestException');
       } catch (err) {
         expect(err).toBeInstanceOf(BadRequestException);
+        expect(err).toMatchObject({ response: { code: expect.any(String) } });
         const response = (err as BadRequestException).getResponse();
         expect(response).toEqual(
           expect.objectContaining({
@@ -391,15 +389,14 @@ describe('DsarTraversalService', () => {
       await service.collectAllData(TENANT_ID, 'student', STUDENT_ID);
 
       // Check every findMany call on every model does not include 'take'
-      const prismaEntries = Object.entries(mockPrisma) as Array<
-        [string, Partial<MockModel>]
-      >;
+      const prismaEntries = Object.entries(mockPrisma) as Array<[string, Partial<MockModel>]>;
       for (const [modelName, methods] of prismaEntries) {
         const findMany = methods.findMany;
         if (findMany && findMany.mock.calls.length > 0) {
           for (const call of findMany.mock.calls) {
             const args = call[0] as Record<string, unknown> | undefined;
-            expect(args).not.toHaveProperty('take',
+            expect(args).not.toHaveProperty(
+              'take',
               `${modelName}.findMany was called with 'take' — DSAR must return ALL records`,
             );
           }
@@ -607,8 +604,16 @@ describe('DsarTraversalService', () => {
         user_id: null,
       });
       mockPrisma.householdParent.findMany.mockResolvedValue([
-        { household_id: 'hh-1', parent_id: PARENT_ID, household: { id: 'hh-1', household_name: 'Smith' } },
-        { household_id: 'hh-2', parent_id: PARENT_ID, household: { id: 'hh-2', household_name: 'Jones' } },
+        {
+          household_id: 'hh-1',
+          parent_id: PARENT_ID,
+          household: { id: 'hh-1', household_name: 'Smith' },
+        },
+        {
+          household_id: 'hh-2',
+          parent_id: PARENT_ID,
+          household: { id: 'hh-2', household_name: 'Jones' },
+        },
       ]);
 
       await service.collectAllData(TENANT_ID, 'parent', PARENT_ID);
@@ -662,7 +667,11 @@ describe('DsarTraversalService', () => {
     it('should NOT pass take parameter to financial queries', async () => {
       mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID, user_id: null });
       mockPrisma.householdParent.findMany.mockResolvedValue([
-        { household_id: 'hh-1', parent_id: PARENT_ID, household: { id: 'hh-1', household_name: 'X' } },
+        {
+          household_id: 'hh-1',
+          parent_id: PARENT_ID,
+          household: { id: 'hh-1', household_name: 'X' },
+        },
       ]);
 
       await service.collectAllData(TENANT_ID, 'parent', PARENT_ID);
@@ -795,11 +804,7 @@ describe('DsarTraversalService', () => {
 
   describe('collectAllData — applicant', () => {
     it('should return all expected applicant categories', async () => {
-      const result = await service.collectAllData(
-        TENANT_ID,
-        'applicant',
-        APPLICATION_ID,
-      );
+      const result = await service.collectAllData(TENANT_ID, 'applicant', APPLICATION_ID);
 
       expect(result.subject_type).toBe('applicant');
       const cats = result.categories;
@@ -827,11 +832,7 @@ describe('DsarTraversalService', () => {
 
   describe('collectAllData — household', () => {
     it('should return all expected household categories', async () => {
-      const result = await service.collectAllData(
-        TENANT_ID,
-        'household',
-        HOUSEHOLD_ID,
-      );
+      const result = await service.collectAllData(TENANT_ID, 'household', HOUSEHOLD_ID);
 
       expect(result.subject_type).toBe('household');
       const cats = result.categories;

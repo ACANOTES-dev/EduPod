@@ -65,6 +65,7 @@ const buildMockPrisma = () => ({
     deleteMany: jest.fn(),
     createMany: jest.fn(),
   },
+  $queryRawUnsafe: jest.fn(),
 });
 
 const makeInvoice = (overrides: Record<string, unknown> = {}) => ({
@@ -249,22 +250,15 @@ describe('Enrollment -> Invoice -> Payment flow', () => {
       status: 'posted',
     };
 
-    mockPrisma.payment.findFirst
-      .mockResolvedValueOnce(payment) // pre-check outside tx
-      .mockResolvedValueOnce(payment); // re-fetch inside tx
+    mockPrisma.payment.findFirst.mockResolvedValueOnce(payment); // pre-check outside tx
+
+    // Inside tx: $queryRawUnsafe returns payment lock row
+    mockPrisma.$queryRawUnsafe.mockResolvedValueOnce([
+      { id: PAYMENT_ID, amount: '100.00', status: 'posted', household_id: HOUSEHOLD_ID },
+    ]);
 
     // Already allocated 50 of 100
     mockPrisma.paymentAllocation.findMany.mockResolvedValue([{ allocated_amount: '50.00' }]);
-
-    // Trying to allocate 100 to an invoice (only 50 remaining on payment)
-    mockPrisma.invoice.findFirst.mockResolvedValue(
-      makeInvoice({
-        id: INVOICE_ID,
-        status: 'issued',
-        total_amount: '500.00',
-        balance_amount: '500.00',
-      }),
-    );
 
     await expect(
       paymentsService.confirmAllocations(TENANT_ID, PAYMENT_ID, USER_ID, {

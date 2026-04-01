@@ -1,13 +1,11 @@
 import { randomUUID } from 'crypto';
 
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { Queue } from 'bullmq';
 
+import { QUEUE_NAMES } from '../../../../../worker/src/base/queue.constants';
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SequenceService } from '../../tenants/sequence.service';
@@ -237,6 +235,7 @@ export class CriticalIncidentService {
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
     private readonly eventService: PastoralEventService,
+    @InjectQueue(QUEUE_NAMES.PASTORAL) private readonly pastoralQueue: Queue,
   ) {}
 
   // ─── DECLARE ────────────────────────────────────────────────────────────────
@@ -308,9 +307,10 @@ export class CriticalIncidentService {
         data: {
           tenant_id: tenantId,
           incident_type: dto.incident_type === 'other' ? 'ci_other' : dto.incident_type,
-          description: dto.incident_type === 'other'
-            ? `[${dto.incident_type_other}] ${dto.description}`
-            : dto.description,
+          description:
+            dto.incident_type === 'other'
+              ? `[${dto.incident_type_other}] ${dto.description}`
+              : dto.description,
           occurred_at: new Date(dto.incident_date),
           scope: dto.scope === 'class' ? 'class_group' : dto.scope,
           scope_ids: scopeIds ? (scopeIds as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
@@ -345,15 +345,30 @@ export class CriticalIncidentService {
       ip_address: null,
     });
 
+    // Fire-and-forget: notification pathway for newly declared incident
+    void this.pastoralQueue
+      .add(
+        'pastoral:notify-incident-team',
+        {
+          tenant_id: tenantId,
+          incident_id: created.id,
+          action: 'declared',
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: false,
+        },
+      )
+      .catch((err) =>
+        this.logger.error(`Failed to enqueue notification job: ${err.message}`, err.stack),
+      );
+
     return { data: created };
   }
 
   // ─── GET BY ID ──────────────────────────────────────────────────────────────
 
-  async getById(
-    tenantId: string,
-    incidentId: string,
-  ): Promise<{ data: Record<string, unknown> }> {
+  async getById(tenantId: string, incidentId: string): Promise<{ data: Record<string, unknown> }> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     const result = (await rlsClient.$transaction(async (tx) => {
@@ -409,9 +424,8 @@ export class CriticalIncidentService {
       }
 
       if (filters.incident_type) {
-        where.incident_type = filters.incident_type === 'other'
-          ? 'ci_other'
-          : filters.incident_type;
+        where.incident_type =
+          filters.incident_type === 'other' ? 'ci_other' : filters.incident_type;
       }
 
       if (filters.date_from || filters.date_to) {
@@ -526,7 +540,10 @@ export class CriticalIncidentService {
     }
 
     // Closure requires closure_notes
-    if (dto.new_status === 'closed' && (!dto.closure_notes || dto.closure_notes.trim().length === 0)) {
+    if (
+      dto.new_status === 'closed' &&
+      (!dto.closure_notes || dto.closure_notes.trim().length === 0)
+    ) {
       throw new BadRequestException({
         code: 'CLOSURE_NOTES_REQUIRED',
         message: 'closure_notes are required when closing an incident',
@@ -702,6 +719,27 @@ export class CriticalIncidentService {
       },
       ip_address: null,
     });
+
+    // Notification pathway when an item is assigned to a staff member
+    if (dto.assigned_to_id !== undefined && dto.assigned_to_id !== null) {
+      void this.pastoralQueue
+        .add(
+          'pastoral:notify-assigned-staff',
+          {
+            tenant_id: tenantId,
+            incident_id: incidentId,
+            item_id: dto.item_id,
+            assigned_to_id: dto.assigned_to_id,
+          },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+          },
+        )
+        .catch((err) =>
+          this.logger.error(`Failed to enqueue task notification: ${err.message}`, err.stack),
+        );
+    }
 
     return { data: updatedPlan };
   }
@@ -961,7 +999,8 @@ export class CriticalIncidentService {
       if (dto.visit_date !== undefined) entry.visit_date = dto.visit_date ?? null;
       if (dto.visit_time_start !== undefined) entry.visit_time_start = dto.visit_time_start ?? null;
       if (dto.visit_time_end !== undefined) entry.visit_time_end = dto.visit_time_end ?? null;
-      if (dto.availability_notes !== undefined) entry.availability_notes = dto.availability_notes ?? null;
+      if (dto.availability_notes !== undefined)
+        entry.availability_notes = dto.availability_notes ?? null;
       if (dto.students_seen !== undefined) entry.students_seen = dto.students_seen ?? [];
       if (dto.outcome_notes !== undefined) entry.outcome_notes = dto.outcome_notes ?? null;
 

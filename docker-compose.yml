@@ -1,12 +1,10 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16
     container_name: school-db
     restart: unless-stopped
     ports:
-      - "5553:5432"
+      - '5553:5432'
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: localpassword
@@ -15,21 +13,42 @@ services:
       - school_pgdata:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 5s
       timeout: 3s
       retries: 5
+
+  pgbouncer:
+    image: edoburu/pgbouncer:1.25.1-p0
+    container_name: school-pgbouncer
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '6432:5432'
+    environment:
+      DATABASE_URL: postgresql://postgres:localpassword@postgres:5432/school_platform
+      DEFAULT_POOL_SIZE: 20
+      IGNORE_STARTUP_PARAMETERS: extra_float_digits
+      MAX_CLIENT_CONN: 200
+      POOL_MODE: transaction
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -p 5432 -U postgres -d school_platform']
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   redis:
     image: redis:7
     container_name: school-redis
     restart: unless-stopped
     ports:
-      - "5554:6379"
+      - '5554:6379'
     volumes:
       - school_redis:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 3s
       retries: 5
@@ -39,14 +58,14 @@ services:
     container_name: school-search
     restart: unless-stopped
     ports:
-      - "5555:7700"
+      - '5555:7700'
     environment:
       MEILI_MASTER_KEY: local-dev-master-key
       MEILI_ENV: development
     volumes:
       - school_meili:/meili_data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:7700/health']
       interval: 5s
       timeout: 3s
       retries: 5
