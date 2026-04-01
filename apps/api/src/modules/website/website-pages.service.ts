@@ -1,8 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { WebsitePageType } from '@prisma/client';
 
 import { sanitiseHtml } from '../../common/utils/sanitise-html';
 import { PrismaService } from '../prisma/prisma.service';
@@ -56,25 +53,28 @@ export class WebsitePagesService {
     return page;
   }
 
-  async create(tenantId: string, userId: string, dto: {
-    locale?: string;
-    page_type: string;
-    slug: string;
-    title: string;
-    meta_title?: string | null;
-    meta_description?: string | null;
-    body_html: string;
-    show_in_nav?: boolean;
-    nav_order?: number;
-  }) {
+  async create(
+    tenantId: string,
+    userId: string,
+    dto: {
+      locale?: string;
+      page_type: string;
+      slug: string;
+      title: string;
+      meta_title?: string | null;
+      meta_description?: string | null;
+      body_html: string;
+      show_in_nav?: boolean;
+      nav_order?: number;
+    },
+  ) {
     const cleanHtml = sanitiseHtml(dto.body_html);
 
     return this.prisma.websitePage.create({
       data: {
         tenant_id: tenantId,
         locale: dto.locale ?? 'en',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        page_type: dto.page_type as any,
+        page_type: dto.page_type as WebsitePageType,
         slug: dto.slug,
         title: dto.title,
         meta_title: dto.meta_title ?? null,
@@ -88,15 +88,19 @@ export class WebsitePagesService {
     });
   }
 
-  async update(tenantId: string, id: string, dto: {
-    title?: string;
-    slug?: string;
-    meta_title?: string | null;
-    meta_description?: string | null;
-    body_html?: string;
-    show_in_nav?: boolean;
-    nav_order?: number;
-  }) {
+  async update(
+    tenantId: string,
+    id: string,
+    dto: {
+      title?: string;
+      slug?: string;
+      meta_title?: string | null;
+      meta_description?: string | null;
+      body_html?: string;
+      show_in_nav?: boolean;
+      nav_order?: number;
+    },
+  ) {
     await this.getById(tenantId, id);
 
     const updateData: Record<string, unknown> = {};

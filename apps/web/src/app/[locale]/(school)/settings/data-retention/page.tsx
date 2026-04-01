@@ -119,7 +119,7 @@ function formatActionBadge(action: string): {
   }
 }
 
-function formatDateTime(iso: string): string {
+function formatDateTimeLocale(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'short',
@@ -477,7 +477,7 @@ export default function DataRetentionSettingsPage() {
                       {hold.held_by_user_id}
                     </td>
                     <td className="px-5 py-3 text-sm text-text-secondary">
-                      {formatDateTime(hold.held_at)}
+                      {formatDateTimeLocale(hold.held_at)}
                     </td>
                     <td className="px-5 py-3 text-end">
                       <Button

@@ -3,37 +3,15 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@school/ui": [
-        "../../packages/ui/src"
-      ],
-      "@school/ui/*": [
-        "../../packages/ui/src/*"
-      ],
-      "@school/shared": [
-        "../../packages/shared/src"
-      ],
-      "@school/shared/*": [
-        "../../packages/shared/src/*"
-      ]
+      "@/*": ["./src/*"],
+      "@school/ui": ["../../packages/ui/src"],
+      "@school/ui/*": ["../../packages/ui/src/*"],
+      "@school/shared": ["../../packages/shared/src"],
+      "@school/shared/*": ["../../packages/shared/src/*"]
     },
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
-    "noEmit": true,
-    "strictNullChecks": true
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "noEmit": true
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
 }

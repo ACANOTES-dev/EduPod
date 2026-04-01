@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Logger,
   Param,
   Post,
   Req,
@@ -39,6 +40,8 @@ import type { SwitchTenantDto } from './dto/switch-tenant.dto';
 
 @Controller('v1/auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(private authService: AuthService) {}
 
   @Post('login')
@@ -119,9 +122,9 @@ export class AuthController {
         const payload = this.authService.verifyRefreshToken(refreshToken);
         await this.authService.logout(payload.session_id, user.sub);
       } catch (err) {
-        console.error(
-          '[AuthController.logout] refresh token verification failed',
-          err instanceof Error ? err.stack : err,
+        this.logger.error(
+          '[logout] refresh token verification failed',
+          err instanceof Error ? err.stack : String(err),
         );
       }
     }

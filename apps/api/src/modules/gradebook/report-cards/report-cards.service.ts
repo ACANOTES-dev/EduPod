@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, $Enums } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -17,6 +17,8 @@ interface ListReportCardsParams {
 
 @Injectable()
 export class ReportCardsService {
+  private readonly logger = new Logger(ReportCardsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
@@ -741,9 +743,9 @@ export class ReportCardsService {
       const redis = this.redisService.getClient();
       await redis.del(`transcript:${tenantId}:${studentId}`);
     } catch (err) {
-      console.error(
-        '[ReportCardsService.invalidateTranscriptCache] cache invalidation failed',
-        err instanceof Error ? err.stack : err,
+      this.logger.error(
+        '[invalidateTranscriptCache] cache invalidation failed',
+        err instanceof Error ? err.stack : String(err),
       );
     }
   }

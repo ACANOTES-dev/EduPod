@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 
@@ -57,6 +57,8 @@ interface CheckAndCreateAmendmentParams {
 
 @Injectable()
 export class BehaviourAmendmentsService {
+  private readonly logger = new Logger(BehaviourAmendmentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly historyService: BehaviourHistoryService,
@@ -277,9 +279,9 @@ export class BehaviourAmendmentsService {
               },
             });
           } catch (err) {
-            console.error(
-              '[BehaviourAmendmentsService.sendCorrection] ack row creation failed',
-              err instanceof Error ? err.stack : err,
+            this.logger.error(
+              '[sendCorrection] ack row creation failed',
+              err instanceof Error ? err.stack : String(err),
             );
           }
 
@@ -308,9 +310,9 @@ export class BehaviourAmendmentsService {
                 },
               });
             } catch (err) {
-              console.error(
-                '[BehaviourAmendmentsService.sendCorrection] notification creation failed',
-                err instanceof Error ? err.stack : err,
+              this.logger.error(
+                '[sendCorrection] notification creation failed',
+                err instanceof Error ? err.stack : String(err),
               );
             }
           }
@@ -347,9 +349,9 @@ export class BehaviourAmendmentsService {
           });
         }
       } catch (err) {
-        console.error(
-          '[BehaviourAmendmentsService.sendCorrection] document supersession failed',
-          err instanceof Error ? err.stack : err,
+        this.logger.error(
+          '[sendCorrection] document supersession failed',
+          err instanceof Error ? err.stack : String(err),
         );
       }
 
@@ -362,9 +364,9 @@ export class BehaviourAmendmentsService {
           entity_id: notice.entity_id,
         });
       } catch (err) {
-        console.error(
-          '[BehaviourAmendmentsService.sendCorrection] correction-parent queue add failed',
-          err instanceof Error ? err.stack : err,
+        this.logger.error(
+          '[sendCorrection] correction-parent queue add failed',
+          err instanceof Error ? err.stack : String(err),
         );
       }
 
@@ -378,9 +380,9 @@ export class BehaviourAmendmentsService {
             entity_id: notice.entity_id,
           });
         } catch (err) {
-          console.error(
-            '[BehaviourAmendmentsService.sendCorrection] parent-reacknowledgement queue add failed',
-            err instanceof Error ? err.stack : err,
+          this.logger.error(
+            '[sendCorrection] parent-reacknowledgement queue add failed',
+            err instanceof Error ? err.stack : String(err),
           );
         }
       }

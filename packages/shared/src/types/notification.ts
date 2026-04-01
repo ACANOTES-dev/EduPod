@@ -1,4 +1,4 @@
-export type NotificationChannel = 'email' | 'whatsapp' | 'in_app';
+export type NotificationChannel = 'email' | 'whatsapp' | 'in_app' | 'sms';
 export type NotificationStatus = 'queued' | 'sent' | 'delivered' | 'failed' | 'read';
 
 export interface Notification {

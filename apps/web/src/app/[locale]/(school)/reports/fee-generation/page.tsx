@@ -56,7 +56,7 @@ export default function FeeGenerationReportPage() {
       val,
     );
 
-  const formatDate = (iso: string) =>
+  const formatDateShort = (iso: string) =>
     new Date(iso).toLocaleDateString(undefined, {
       year: 'numeric',
       month: 'short',
@@ -105,7 +105,7 @@ export default function FeeGenerationReportPage() {
                     className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary"
                   >
                     <td className="px-4 py-3 text-sm text-text-primary">
-                      {formatDate(run.created_at)}
+                      {formatDateShort(run.created_at)}
                     </td>
                     <td className="px-4 py-3 text-sm text-text-secondary">{run.invoices_count}</td>
                     <td className="px-4 py-3 text-sm font-medium text-text-primary">

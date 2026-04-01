@@ -1,5 +1,11 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 
@@ -64,6 +70,8 @@ const INCIDENT_PARENT_VISIBLE_FIELDS = [
 
 @Injectable()
 export class BehaviourAppealsService {
+  private readonly logger = new Logger(BehaviourAppealsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
@@ -533,9 +541,9 @@ export class BehaviourAppealsService {
             'en',
           );
         } catch (err) {
-          console.error(
-            '[BehaviourAppealsService.update] document generation failed',
-            err instanceof Error ? err.stack : err,
+          this.logger.error(
+            '[update] document generation failed',
+            err instanceof Error ? err.stack : String(err),
           );
         }
       }
@@ -861,9 +869,9 @@ export class BehaviourAppealsService {
               'en',
             );
           } catch (err) {
-            console.error(
-              '[BehaviourAppealsService.decide] document generation failed',
-              err instanceof Error ? err.stack : err,
+            this.logger.error(
+              '[decide] document generation failed',
+              err instanceof Error ? err.stack : String(err),
             );
           }
         }

@@ -121,7 +121,7 @@ describe('Homework Performance Load Tests', () => {
 
       expect(result).toBeDefined();
       expect(duration).toBeLessThan(MAX_RESPONSE_TIME_MS);
-      console.log(`Completion rates query took ${duration}ms`);
+      console.log(`Completion rates query took ${duration}ms`); // eslint-disable-line no-console -- performance test output
     });
 
     it('should handle analytics for large date ranges', async () => {
@@ -136,7 +136,7 @@ describe('Homework Performance Load Tests', () => {
 
       expect(result).toBeDefined();
       expect(duration).toBeLessThan(MAX_RESPONSE_TIME_MS * 2);
-      console.log(`Class patterns query took ${duration}ms`);
+      console.log(`Class patterns query took ${duration}ms`); // eslint-disable-line no-console -- performance test output
     });
   });
 
@@ -152,7 +152,7 @@ describe('Homework Performance Load Tests', () => {
 
       expect(result).toBeDefined();
       expect(duration).toBeLessThan(MAX_RESPONSE_TIME_MS);
-      console.log(`Load analysis query took ${duration}ms`);
+      console.log(`Load analysis query took ${duration}ms`); // eslint-disable-line no-console -- performance test output
     });
   });
 
@@ -166,7 +166,7 @@ describe('Homework Performance Load Tests', () => {
 
       expect(result).toBeDefined();
       expect(duration).toBeLessThan(MAX_RESPONSE_TIME_MS);
-      console.log(`Non-completers query took ${duration}ms`);
+      console.log(`Non-completers query took ${duration}ms`); // eslint-disable-line no-console -- performance test output
     });
   });
 });

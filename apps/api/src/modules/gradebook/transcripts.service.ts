@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -7,6 +7,8 @@ const TRANSCRIPT_CACHE_TTL_SECONDS = 300; // 5 minutes
 
 @Injectable()
 export class TranscriptsService {
+  private readonly logger = new Logger(TranscriptsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
@@ -28,9 +30,9 @@ export class TranscriptsService {
         return JSON.parse(cached) as TranscriptData;
       }
     } catch (err) {
-      console.error(
-        '[TranscriptsService.getTranscriptData] cache read failed',
-        err instanceof Error ? err.stack : err,
+      this.logger.error(
+        '[getTranscriptData] cache read failed',
+        err instanceof Error ? err.stack : String(err),
       );
     }
 
@@ -170,9 +172,9 @@ export class TranscriptsService {
       const redis = this.redisService.getClient();
       await redis.set(cacheKey, JSON.stringify(transcriptData), 'EX', TRANSCRIPT_CACHE_TTL_SECONDS);
     } catch (err) {
-      console.error(
-        '[TranscriptsService.getTranscriptData] cache write failed',
-        err instanceof Error ? err.stack : err,
+      this.logger.error(
+        '[getTranscriptData] cache write failed',
+        err instanceof Error ? err.stack : String(err),
       );
     }
 
@@ -187,9 +189,9 @@ export class TranscriptsService {
       const redis = this.redisService.getClient();
       await redis.del(`transcript:${tenantId}:${studentId}`);
     } catch (err) {
-      console.error(
-        '[TranscriptsService.invalidateCache] cache invalidation failed',
-        err instanceof Error ? err.stack : err,
+      this.logger.error(
+        '[invalidateCache] cache invalidation failed',
+        err instanceof Error ? err.stack : String(err),
       );
     }
   }

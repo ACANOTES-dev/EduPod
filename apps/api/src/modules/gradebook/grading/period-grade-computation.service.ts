@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -35,6 +35,8 @@ export interface ComputationWarning {
 
 @Injectable()
 export class PeriodGradeComputationService {
+  private readonly logger = new Logger(PeriodGradeComputationService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly gpaService: GpaService,
@@ -457,9 +459,9 @@ export class PeriodGradeComputationService {
       try {
         await this.gpaService.computeGpa(tenantId, studentId, periodId);
       } catch (err) {
-        console.error(
-          '[PeriodGradeComputationService.triggerGpaComputation] GPA computation failed',
-          err instanceof Error ? err.stack : err,
+        this.logger.error(
+          '[triggerGpaComputation] GPA computation failed',
+          err instanceof Error ? err.stack : String(err),
         );
       }
     }
@@ -477,9 +479,9 @@ export class PeriodGradeComputationService {
       try {
         await this.standardsService.computeCompetencySnapshots(tenantId, studentId, periodId);
       } catch (err) {
-        console.error(
-          '[PeriodGradeComputationService.triggerCompetencyComputation] competency computation failed',
-          err instanceof Error ? err.stack : err,
+        this.logger.error(
+          '[triggerCompetencyComputation] competency computation failed',
+          err instanceof Error ? err.stack : String(err),
         );
       }
     }

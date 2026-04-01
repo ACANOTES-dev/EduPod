@@ -1,8 +1,7 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+
+import { toNotificationChannel } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -151,8 +150,7 @@ export class NotificationsService {
     const data = notifications.map((n) => ({
       tenant_id: tenantId,
       recipient_user_id: n.recipient_user_id,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      channel: n.channel as any,
+      channel: toNotificationChannel(n.channel),
       template_key: n.template_key,
       locale: n.locale,
       status: n.channel === 'in_app' ? ('delivered' as const) : ('queued' as const),

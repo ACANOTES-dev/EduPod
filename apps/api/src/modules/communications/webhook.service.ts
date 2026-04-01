@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -85,8 +86,7 @@ export class WebhookService {
           template_key: notification.template_key,
           locale: notification.locale,
           status: 'queued',
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          payload_json: notification.payload_json as any,
+          payload_json: notification.payload_json as Prisma.InputJsonValue,
           source_entity_type: notification.source_entity_type,
           source_entity_id: notification.source_entity_id,
         },

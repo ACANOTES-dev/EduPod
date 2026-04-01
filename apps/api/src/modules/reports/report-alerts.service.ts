@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 
 import type { CreateReportAlertDto, UpdateReportAlertDto } from '@school/shared';
@@ -35,6 +35,8 @@ export interface AlertCheckResult {
 
 @Injectable()
 export class ReportAlertsService {
+  private readonly logger = new Logger(ReportAlertsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly unifiedDashboard: UnifiedDashboardService,
@@ -216,9 +218,9 @@ export class ReportAlertsService {
           });
         }
       } catch (err) {
-        console.error(
-          '[ReportAlertsService.checkThresholds] alert check failed',
-          err instanceof Error ? err.stack : err,
+        this.logger.error(
+          '[checkThresholds] alert check failed',
+          err instanceof Error ? err.stack : String(err),
         );
       }
     }

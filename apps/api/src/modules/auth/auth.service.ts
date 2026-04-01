@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -67,6 +68,8 @@ export interface SessionInfo {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private configService: ConfigService,
     private redis: RedisService,
@@ -457,9 +460,9 @@ export class AuthService {
     try {
       payload = this.verifyRefreshToken(refreshToken);
     } catch (err) {
-      console.error(
-        '[AuthService.refresh] refresh token verification failed',
-        err instanceof Error ? err.stack : err,
+      this.logger.error(
+        '[refresh] refresh token verification failed',
+        err instanceof Error ? err.stack : String(err),
       );
       throw new UnauthorizedException({
         code: 'INVALID_REFRESH_TOKEN',
@@ -958,9 +961,9 @@ export class AuthService {
         session.membership_id = membership.id;
         await redisClient.set(key, JSON.stringify(session), 'KEEPTTL');
       } catch (err) {
-        console.error(
-          '[AuthService.switchTenant] skipping malformed session',
-          err instanceof Error ? err.stack : err,
+        this.logger.error(
+          '[switchTenant] skipping malformed session',
+          err instanceof Error ? err.stack : String(err),
         );
       }
     }

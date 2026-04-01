@@ -18,7 +18,7 @@ import {
   ExportDataResponse,
   Student,
   YearGroup,
-  formatDate,
+  formatDateForExport,
   formatGender,
   generateExcel,
   generatePdf,
@@ -320,7 +320,7 @@ ${data.class_lists
       <tbody>${cl.students
         .map(
           (s, i) => `
-        <tr><td>${i + 1}</td><td>${s.student_number ?? '—'}</td><td>${s.first_name}</td><td>${s.last_name}</td><td>${formatGender(s.gender)}</td><td>${formatDate(s.date_of_birth)}</td></tr>`,
+        <tr><td>${i + 1}</td><td>${s.student_number ?? '—'}</td><td>${s.first_name}</td><td>${s.last_name}</td><td>${formatGender(s.gender)}</td><td>${formatDateForExport(s.date_of_birth)}</td></tr>`,
         )
         .join('')}
       </tbody>

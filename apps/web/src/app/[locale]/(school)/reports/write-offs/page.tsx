@@ -61,7 +61,7 @@ export default function WriteOffsReportPage() {
       val,
     );
 
-  const formatDate = (iso: string) =>
+  const formatDateShort = (iso: string) =>
     new Date(iso).toLocaleDateString(undefined, {
       year: 'numeric',
       month: 'short',
@@ -161,7 +161,7 @@ export default function WriteOffsReportPage() {
                       className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary"
                     >
                       <td className="px-4 py-3 text-sm text-text-secondary">
-                        {formatDate(entry.date)}
+                        {formatDateShort(entry.date)}
                       </td>
                       <td className="px-4 py-3 text-sm font-medium text-text-primary">
                         {entry.student_name}

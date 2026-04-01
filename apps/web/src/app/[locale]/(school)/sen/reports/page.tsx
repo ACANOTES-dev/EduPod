@@ -189,7 +189,7 @@ interface ProfessionalInvolvementData {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatDate(dateStr: string | null): string {
+function formatDateShort(dateStr: string | null): string {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleDateString('en-IE', {
     day: '2-digit',
@@ -911,7 +911,7 @@ function PlanComplianceTab() {
                         <td className="px-4 py-2 font-medium text-primary">{plan.plan_number}</td>
                         <td className="px-4 py-2 text-text-primary">{plan.student.name}</td>
                         <td className="px-4 py-2 text-text-primary">
-                          {formatDate(plan.next_review_date)}
+                          {formatDateShort(plan.next_review_date)}
                         </td>
                         <td className="px-4 py-2">
                           <span className="inline-flex rounded-full bg-surface-secondary px-2 py-0.5 text-xs font-medium text-text-secondary">
@@ -968,7 +968,7 @@ function PlanComplianceTab() {
                         </td>
                         <td className="px-4 py-2 text-text-primary">{plan.student.name}</td>
                         <td className="px-4 py-2 text-destructive">
-                          {formatDate(plan.next_review_date)}
+                          {formatDateShort(plan.next_review_date)}
                         </td>
                         <td className="px-4 py-2">
                           <span className="inline-flex rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
@@ -1028,7 +1028,7 @@ function PlanComplianceTab() {
                         </td>
                         <td className="px-4 py-2 text-text-primary">{goal.student.name}</td>
                         <td className="px-4 py-2 text-text-tertiary">
-                          {formatDate(goal.last_progress_at)}
+                          {formatDateShort(goal.last_progress_at)}
                         </td>
                       </tr>
                     ))}

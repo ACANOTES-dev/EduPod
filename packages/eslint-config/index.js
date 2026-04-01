@@ -19,7 +19,7 @@ module.exports = {
         alphabetize: { order: 'asc' },
       },
     ],
-    'no-console': ['warn', { allow: ['warn', 'error'] }],
+    'no-console': ['error', { allow: ['warn', 'error'] }],
     'school/no-empty-catch': 'error',
   },
   ignorePatterns: ['node_modules/', 'dist/', '.next/', 'coverage/'],

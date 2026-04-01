@@ -69,7 +69,7 @@ const CONSENT_TYPE_CATEGORY_MAP: Record<string, ConsentCategory> = {
   homework_diary: 'student_experience',
 };
 
-function formatDate(value: string | null, locale: string): string {
+function formatDateLocale(value: string | null, locale: string): string {
   if (!value) return '-';
 
   return new Intl.DateTimeFormat(locale, {
@@ -282,7 +282,7 @@ export default function PrivacyConsentPage() {
                         <div>
                           <dt className="font-medium text-text-tertiary">{t('grantedAt')}</dt>
                           <dd className="mt-1 text-sm text-text-primary">
-                            {formatDate(item.granted_at, locale)}
+                            {formatDateLocale(item.granted_at, locale)}
                           </dd>
                         </div>
                         <div>

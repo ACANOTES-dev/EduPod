@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
@@ -50,6 +51,8 @@ function toContextType(value: string): $Enums.ContextType {
 
 @Injectable()
 export class BehaviourService {
+  private readonly logger = new Logger(BehaviourService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
@@ -281,9 +284,9 @@ export class BehaviourService {
               student_ids: dto.student_ids,
             });
           } catch (err) {
-            console.error(
-              '[BehaviourService.createIncident] parent-notification queue add failed',
-              err instanceof Error ? err.stack : err,
+            this.logger.error(
+              '[createIncident] parent-notification queue add failed',
+              err instanceof Error ? err.stack : String(err),
             );
           }
         }
@@ -298,9 +301,9 @@ export class BehaviourService {
               triggered_at: new Date().toISOString(),
             });
           } catch (err) {
-            console.error(
-              '[BehaviourService.createIncident] evaluate-policy queue add failed',
-              err instanceof Error ? err.stack : err,
+            this.logger.error(
+              '[createIncident] evaluate-policy queue add failed',
+              err instanceof Error ? err.stack : String(err),
             );
           }
         }
@@ -316,9 +319,9 @@ export class BehaviourService {
               academic_period_id: dto.academic_period_id ?? null,
             });
           } catch (err) {
-            console.error(
-              '[BehaviourService.createIncident] check-awards queue add failed',
-              err instanceof Error ? err.stack : err,
+            this.logger.error(
+              '[createIncident] check-awards queue add failed',
+              err instanceof Error ? err.stack : String(err),
             );
           }
         }
@@ -883,9 +886,9 @@ export class BehaviourService {
             triggered_at: new Date().toISOString(),
           });
         } catch (err) {
-          console.error(
-            '[BehaviourService.addParticipant] evaluate-policy queue add failed',
-            err instanceof Error ? err.stack : err,
+          this.logger.error(
+            '[addParticipant] evaluate-policy queue add failed',
+            err instanceof Error ? err.stack : String(err),
           );
         }
       }

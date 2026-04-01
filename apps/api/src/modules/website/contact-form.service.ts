@@ -1,8 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { ContactFormStatus } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -119,8 +116,7 @@ export class ContactFormService {
 
     return this.prisma.contactFormSubmission.update({
       where: { id },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data: { status: newStatus as any },
+      data: { status: newStatus as ContactFormStatus },
     });
   }
 }

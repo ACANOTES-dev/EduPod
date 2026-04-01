@@ -93,7 +93,7 @@ export interface ExportColumn {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-export function formatDate(dateStr: string | null): string {
+export function formatDateForExport(dateStr: string | null): string {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -267,7 +267,7 @@ export const ALL_EXPORT_COLUMNS: ExportColumn[] = [
     key: 'date_of_birth',
     label: 'Date of Birth',
     group: 'student',
-    getValue: (s) => formatDate(s.date_of_birth),
+    getValue: (s) => formatDateForExport(s.date_of_birth),
     width: 14,
   },
   {

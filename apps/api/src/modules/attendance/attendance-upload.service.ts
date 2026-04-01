@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
 import * as XLSX from 'xlsx';
 
@@ -96,6 +96,8 @@ function getHeaderIndex(indices: Map<string, number>, key: string): number {
 
 @Injectable()
 export class AttendanceUploadService {
+  private readonly logger = new Logger(AttendanceUploadService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService,
@@ -725,9 +727,9 @@ export class AttendanceUploadService {
           );
         }
       } catch (err) {
-        console.error(
-          '[AttendanceUploadService.processExceptionsUpload] parent notification failed',
-          err instanceof Error ? err.stack : err,
+        this.logger.error(
+          '[processExceptionsUpload] parent notification failed',
+          err instanceof Error ? err.stack : String(err),
         );
       }
     }

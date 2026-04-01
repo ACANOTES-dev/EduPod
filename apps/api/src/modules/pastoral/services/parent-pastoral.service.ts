@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
@@ -61,6 +62,8 @@ export interface ParentSelfReferralInput {
 
 @Injectable()
 export class ParentPastoralService {
+  private readonly logger = new Logger(ParentPastoralService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventService: PastoralEventService,
@@ -486,9 +489,9 @@ export class ParentPastoralService {
         },
       });
     } catch (err) {
-      console.error(
-        '[ParentPastoralService.autoAssign] auto-assign failed',
-        err instanceof Error ? err.stack : err,
+      this.logger.error(
+        '[autoAssign] auto-assign failed',
+        err instanceof Error ? err.stack : String(err),
       );
     }
   }

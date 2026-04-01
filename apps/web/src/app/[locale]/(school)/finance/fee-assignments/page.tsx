@@ -69,7 +69,7 @@ export default function FeeAssignmentsPage() {
     setPage(1);
   }, [householdFilter]);
 
-  const formatDate = (dateStr: string) => {
+  const formatDateShort = (dateStr: string) => {
     try {
       return new Date(dateStr).toLocaleDateString('en-GB', {
         day: '2-digit',
@@ -115,8 +115,8 @@ export default function FeeAssignmentsPage() {
       header: t('feeAssignments.colEffectiveDates'),
       render: (row: FeeAssignment) => (
         <span className="text-text-secondary text-sm" dir="ltr">
-          {formatDate(row.effective_from)}
-          {row.effective_to ? ` – ${formatDate(row.effective_to)}` : ' – Ongoing'}
+          {formatDateShort(row.effective_from)}
+          {row.effective_to ? ` – ${formatDateShort(row.effective_to)}` : ' – Ongoing'}
         </span>
       ),
     },
