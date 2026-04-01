@@ -49,10 +49,7 @@ describe('CpAccessGuard', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        CpAccessGuard,
-        { provide: CpAccessService, useValue: mockCpAccessService },
-      ],
+      providers: [CpAccessGuard, { provide: CpAccessService, useValue: mockCpAccessService }],
     }).compile();
 
     guard = module.get<CpAccessGuard>(CpAccessGuard);
@@ -78,10 +75,7 @@ describe('CpAccessGuard', () => {
     const result = await guard.canActivate(context);
 
     expect(result).toBe(true);
-    expect(mockCpAccessService.hasAccess).toHaveBeenCalledWith(
-      TENANT_ID,
-      DLP_USER_ID,
-    );
+    expect(mockCpAccessService.hasAccess).toHaveBeenCalledWith(TENANT_ID, DLP_USER_ID);
   });
 
   // ─── Access denied — returns 403 with generic shape ───────────────────
@@ -104,6 +98,7 @@ describe('CpAccessGuard', () => {
       fail('Expected ForbiddenException to be thrown');
     } catch (error: unknown) {
       expect(error).toBeInstanceOf(ForbiddenException);
+      expect(error).toMatchObject({ response: { error: { code: expect.any(String) } } });
       const forbiddenError = error as ForbiddenException;
       const response = forbiddenError.getResponse() as Record<string, unknown>;
       const errorBody = response['error'] as Record<string, unknown>;
@@ -147,9 +142,7 @@ describe('CpAccessGuard', () => {
   it('should throw ForbiddenException when no currentUser on request', async () => {
     const context = createMockExecutionContext(undefined);
 
-    await expect(guard.canActivate(context)).rejects.toThrow(
-      ForbiddenException,
-    );
+    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
   });
 
   // ─── No tenant_id on user ─────────────────────────────────────────────
@@ -165,9 +158,7 @@ describe('CpAccessGuard', () => {
       exp: 0,
     });
 
-    await expect(guard.canActivate(context)).rejects.toThrow(
-      ForbiddenException,
-    );
+    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
   });
 
   // ─── DLP bypass (DLP has active grant, so hasAccess returns true) ─────
@@ -205,8 +196,6 @@ describe('CpAccessGuard', () => {
       exp: 0,
     });
 
-    await expect(guard.canActivate(context)).rejects.toThrow(
-      ForbiddenException,
-    );
+    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
   });
 });

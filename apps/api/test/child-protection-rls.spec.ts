@@ -1,3 +1,4 @@
+/* eslint-disable school/no-raw-sql-outside-rls -- RLS e2e tests require direct SQL for setup/teardown */
 // Set encryption env vars before any module loading
 process.env.ENCRYPTION_KEY_V1 = 'a'.repeat(64); // 32-byte key as 64 hex chars
 
@@ -81,14 +82,9 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
 
     // ── Authenticate all users ──────────────────────────────────────────────
 
-    const alNoorOwnerLogin = await login(
-      app,
-      AL_NOOR_OWNER_EMAIL,
-      DEV_PASSWORD,
-      AL_NOOR_DOMAIN,
-    );
+    const alNoorOwnerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
     alNoorOwnerToken = alNoorOwnerLogin.accessToken;
-    alNoorOwnerId = (alNoorOwnerLogin.user as Record<string, string>).id;
+    alNoorOwnerId = (alNoorOwnerLogin.user as Record<string, string>).id!;
 
     const alNoorTeacherLogin = await login(
       app,
@@ -97,16 +93,11 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
       AL_NOOR_DOMAIN,
     );
     alNoorTeacherToken = alNoorTeacherLogin.accessToken;
-    alNoorTeacherId = (alNoorTeacherLogin.user as Record<string, string>).id;
+    alNoorTeacherId = (alNoorTeacherLogin.user as Record<string, string>).id!;
 
-    const cedarOwnerLogin = await login(
-      app,
-      CEDAR_OWNER_EMAIL,
-      DEV_PASSWORD,
-      CEDAR_DOMAIN,
-    );
+    const cedarOwnerLogin = await login(app, CEDAR_OWNER_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
     cedarOwnerToken = cedarOwnerLogin.accessToken;
-    cedarOwnerId = (cedarOwnerLogin.user as Record<string, string>).id;
+    cedarOwnerId = (cedarOwnerLogin.user as Record<string, string>).id!;
 
     // ── Direct Prisma client for table-level tests ──────────────────────────
 
@@ -124,9 +115,7 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
        EXCEPTION WHEN duplicate_object THEN NULL;
        END $$`,
     );
-    await directPrisma.$executeRawUnsafe(
-      `GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`,
-    );
+    await directPrisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
     await directPrisma.$executeRawUnsafe(
       `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
     );
@@ -134,18 +123,14 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
     // ── Seed test data directly via Prisma ──────────────────────────────────
 
     // Get a student from Al Noor
-    const alNoorStudent = await directPrisma.$queryRawUnsafe<
-      Array<{ id: string }>
-    >(
+    const alNoorStudent = await directPrisma.$queryRawUnsafe<Array<{ id: string }>>(
       `SELECT id::text FROM students WHERE tenant_id = $1::uuid LIMIT 1`,
       AL_NOOR_TENANT_ID,
     );
     alNoorStudentId = alNoorStudent[0]?.id ?? '';
 
     // Create a tier=3 pastoral concern in Al Noor (bypassing RLS via superuser)
-    const concernRows = await directPrisma.$queryRawUnsafe<
-      Array<{ id: string }>
-    >(
+    const concernRows = await directPrisma.$queryRawUnsafe<Array<{ id: string }>>(
       `INSERT INTO pastoral_concerns (
         tenant_id, student_id, logged_by_user_id, category, severity, tier,
         occurred_at, created_at, updated_at
@@ -160,9 +145,7 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
     alNoorConcernId = concernRows[0]?.id ?? '';
 
     // Grant CP access to the owner (so they can create/read CP records)
-    const grantRows = await directPrisma.$queryRawUnsafe<
-      Array<{ id: string }>
-    >(
+    const grantRows = await directPrisma.$queryRawUnsafe<Array<{ id: string }>>(
       `INSERT INTO cp_access_grants (
         tenant_id, user_id, granted_by_user_id, granted_at
       ) VALUES ($1::uuid, $2::uuid, $3::uuid, NOW())
@@ -178,9 +161,7 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
     alNoorGrantId = grantRows[0]?.id ?? '';
 
     // Create a CP record in Al Noor
-    const cpRecordRows = await directPrisma.$queryRawUnsafe<
-      Array<{ id: string }>
-    >(
+    const cpRecordRows = await directPrisma.$queryRawUnsafe<Array<{ id: string }>>(
       `INSERT INTO cp_records (
         tenant_id, student_id, concern_id, record_type, logged_by_user_id,
         narrative, created_at, updated_at
@@ -244,12 +225,8 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
         await directPrisma.$executeRawUnsafe(
           `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${RLS_TEST_ROLE}`,
         );
-        await directPrisma.$executeRawUnsafe(
-          `REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`,
-        );
-        await directPrisma.$executeRawUnsafe(
-          `DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`,
-        );
+        await directPrisma.$executeRawUnsafe(`REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
+        await directPrisma.$executeRawUnsafe(`DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
       } catch {
         // Cleanup is best-effort
       }
@@ -272,17 +249,11 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
     sql: string,
   ): Promise<Array<Record<string, unknown>>> {
     return directPrisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe(
-        `SELECT set_config('app.current_tenant_id', '${tenantId}', true)`,
-      );
-      await tx.$executeRawUnsafe(
-        `SELECT set_config('app.current_user_id', '${userId}', true)`,
-      );
+      await tx.$executeRawUnsafe(`SELECT set_config('app.current_tenant_id', '${tenantId}', true)`);
+      await tx.$executeRawUnsafe(`SELECT set_config('app.current_user_id', '${userId}', true)`);
       await tx.$executeRawUnsafe(`SET LOCAL ROLE ${RLS_TEST_ROLE}`);
 
-      return tx.$queryRawUnsafe(sql) as Promise<
-        Array<Record<string, unknown>>
-      >;
+      return tx.$queryRawUnsafe(sql) as Promise<Array<Record<string, unknown>>>;
     });
   }
 
@@ -295,32 +266,21 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
     sql: string,
   ): Promise<Array<Record<string, unknown>>> {
     return directPrisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe(
-        `SELECT set_config('app.current_tenant_id', '${tenantId}', true)`,
-      );
+      await tx.$executeRawUnsafe(`SELECT set_config('app.current_tenant_id', '${tenantId}', true)`);
       await tx.$executeRawUnsafe(`SET LOCAL ROLE ${RLS_TEST_ROLE}`);
 
-      return tx.$queryRawUnsafe(sql) as Promise<
-        Array<Record<string, unknown>>
-      >;
+      return tx.$queryRawUnsafe(sql) as Promise<Array<Record<string, unknown>>>;
     });
   }
 
   /**
    * Assert that no rows leak Al Noor data when queried from another context.
    */
-  function assertNoAlNoorRows(
-    rows: Array<Record<string, unknown>>,
-    context: string,
-  ): void {
-    const leaks = rows.filter(
-      (r) => String(r.tenant_id) === AL_NOOR_TENANT_ID,
-    );
+  function assertNoAlNoorRows(rows: Array<Record<string, unknown>>, context: string): void {
+    const leaks = rows.filter((r) => String(r.tenant_id) === AL_NOOR_TENANT_ID);
     expect(leaks).toHaveLength(0);
     if (leaks.length > 0) {
-      throw new Error(
-        `RLS LEAK in ${context}: ${leaks.length} Al Noor row(s) returned`,
-      );
+      throw new Error(`RLS LEAK in ${context}: ${leaks.length} Al Noor row(s) returned`);
     }
   }
 
@@ -342,9 +302,7 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
         alNoorOwnerId,
         `SELECT tenant_id::text, id::text FROM cp_records`,
       );
-      const found = rows.some(
-        (r) => String(r.id) === alNoorCpRecordId,
-      );
+      const found = rows.some((r) => String(r.id) === alNoorCpRecordId);
       expect(found).toBe(true);
     });
 
@@ -485,9 +443,7 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
         `SELECT id::text, tier FROM pastoral_concerns WHERE tier = 3`,
       );
       expect(rows.length).toBeGreaterThan(0);
-      const found = rows.some(
-        (r) => String(r.id) === alNoorConcernId,
-      );
+      const found = rows.some((r) => String(r.id) === alNoorConcernId);
       expect(found).toBe(true);
     });
 
@@ -589,9 +545,7 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
   describe('Pastoral events immutability', () => {
     it('RLS-CP-14: pastoral_events immutability trigger fires on UPDATE attempt', async () => {
       // Get a pastoral event ID for CP
-      const events = await directPrisma.$queryRawUnsafe<
-        Array<{ id: string }>
-      >(
+      const events = await directPrisma.$queryRawUnsafe<Array<{ id: string }>>(
         `SELECT id::text FROM pastoral_events
          WHERE tenant_id = $1::uuid AND tier = 3 LIMIT 1`,
         AL_NOOR_TENANT_ID,
@@ -612,9 +566,7 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
     });
 
     it('RLS-CP-15: pastoral_events immutability trigger fires on DELETE attempt', async () => {
-      const events = await directPrisma.$queryRawUnsafe<
-        Array<{ id: string }>
-      >(
+      const events = await directPrisma.$queryRawUnsafe<Array<{ id: string }>>(
         `SELECT id::text FROM pastoral_events
          WHERE tenant_id = $1::uuid AND tier = 3 LIMIT 1`,
         AL_NOOR_TENANT_ID,
@@ -626,10 +578,7 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
 
       const eventId = events[0]?.id;
       await expect(
-        directPrisma.$executeRawUnsafe(
-          `DELETE FROM pastoral_events WHERE id = $1::uuid`,
-          eventId,
-        ),
+        directPrisma.$executeRawUnsafe(`DELETE FROM pastoral_events WHERE id = $1::uuid`, eventId),
       ).rejects.toThrow();
     });
   });
@@ -684,10 +633,8 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
       expect([403, 404]).toContain(resDenied.status);
 
       // Both should produce the same error code structure
-      const notFoundCode =
-        resNotFound.body?.error?.code ?? resNotFound.body?.code;
-      const deniedCode =
-        resDenied.body?.error?.code ?? resDenied.body?.code;
+      const notFoundCode = resNotFound.body?.error?.code ?? resNotFound.body?.code;
+      const deniedCode = resDenied.body?.error?.code ?? resDenied.body?.code;
 
       if (notFoundCode) {
         expect(notFoundCode).toBe('CP_RECORD_NOT_FOUND');
@@ -820,12 +767,11 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
     afterEach(async () => {
       // Clean up any temporary grants created during this block
       if (tempGrantId) {
-        await directPrisma.$executeRawUnsafe(
-          `DELETE FROM cp_access_grants WHERE id = $1::uuid`,
-          tempGrantId,
-        ).catch(() => {
-          // Best-effort cleanup
-        });
+        await directPrisma
+          .$executeRawUnsafe(`DELETE FROM cp_access_grants WHERE id = $1::uuid`, tempGrantId)
+          .catch(() => {
+            // Best-effort cleanup
+          });
         tempGrantId = undefined;
       }
     });
@@ -842,8 +788,7 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
 
       // If the endpoint exists and works:
       if (grantRes.status === 201 || grantRes.status === 200) {
-        tempGrantId =
-          grantRes.body?.data?.id ?? grantRes.body?.id;
+        tempGrantId = grantRes.body?.data?.id ?? grantRes.body?.id;
 
         // Teacher should now be able to list CP records
         const listRes = await authGet(
@@ -855,9 +800,7 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
 
         if (listRes.status === 200) {
           const items: Array<{ id: string }> = listRes.body?.data ?? [];
-          const found = items.some(
-            (item) => item.id === alNoorCpRecordId,
-          );
+          const found = items.some((item) => item.id === alNoorCpRecordId);
           expect(found).toBe(true);
         }
       }
@@ -874,8 +817,7 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
       );
 
       if (grantRes.status === 201 || grantRes.status === 200) {
-        const grantId =
-          grantRes.body?.data?.id ?? grantRes.body?.id;
+        const grantId = grantRes.body?.data?.id ?? grantRes.body?.id;
 
         if (grantId) {
           // Revoke
@@ -898,9 +840,7 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
             // Either empty 200 or 403/404
             if (listRes.status === 200) {
               const items: Array<{ id: string }> = listRes.body?.data ?? [];
-              const found = items.some(
-                (item) => item.id === alNoorCpRecordId,
-              );
+              const found = items.some((item) => item.id === alNoorCpRecordId);
               expect(found).toBe(false);
             }
           }
@@ -929,12 +869,10 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
       expect([403, 404]).toContain(res.status);
 
       if (res.status === 403) {
-        const errorCode =
-          res.body?.error?.code ?? res.body?.code;
+        const errorCode = res.body?.error?.code ?? res.body?.code;
         expect(errorCode).toBe('PERMISSION_DENIED');
 
-        const errorMsg =
-          res.body?.error?.message ?? res.body?.message ?? '';
+        const errorMsg = res.body?.error?.message ?? res.body?.message ?? '';
         // Verify message is generic — not CP-specific
         expect(errorMsg.toLowerCase()).not.toContain('cp');
         expect(errorMsg.toLowerCase()).not.toContain('child protection');

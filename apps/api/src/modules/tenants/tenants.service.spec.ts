@@ -289,6 +289,7 @@ describe('TenantsService', () => {
       }
 
       expect(caughtError).toBeInstanceOf(ConflictException);
+      expect(caughtError).toMatchObject({ response: { code: expect.any(String) } });
       expect((caughtError as ConflictException).getResponse()).toMatchObject({
         code: 'SLUG_TAKEN',
       });

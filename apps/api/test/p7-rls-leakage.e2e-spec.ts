@@ -1,3 +1,4 @@
+/* eslint-disable school/no-raw-sql-outside-rls -- RLS e2e tests require direct SQL for setup/teardown */
 /**
  * RLS Leakage Tests — Phase 7 (Communications & Engagement)
  *
@@ -66,21 +67,11 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
     app = await createTestApp();
 
     // Authenticate as both tenants
-    const alNoorLogin = await login(
-      app,
-      AL_NOOR_OWNER_EMAIL,
-      DEV_PASSWORD,
-      AL_NOOR_DOMAIN,
-    );
+    const alNoorLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
     alNoorToken = alNoorLogin.accessToken;
-    alNoorUserId = (alNoorLogin.user as Record<string, string>).id;
+    alNoorUserId = (alNoorLogin.user as Record<string, string>).id!;
 
-    const cedarLogin = await login(
-      app,
-      CEDAR_OWNER_EMAIL,
-      DEV_PASSWORD,
-      CEDAR_DOMAIN,
-    );
+    const cedarLogin = await login(app, CEDAR_OWNER_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
     cedarToken = cedarLogin.accessToken;
 
     // ── Direct Prisma for data setup / table-level tests ──────────────────
@@ -112,37 +103,53 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
     // ── Create Al Noor parent inquiry via direct insert ──────────────────
 
     // First find or create a parent record for this tenant
-    const parentRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+    const parentRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(
+      `
       SELECT id::text FROM parents
       WHERE tenant_id = $1::uuid
       LIMIT 1
-    `, AL_NOOR_TENANT_ID);
+    `,
+      AL_NOOR_TENANT_ID,
+    );
 
     let alNoorParentId: string;
     if (parentRows.length > 0) {
-      alNoorParentId = parentRows[0].id;
+      alNoorParentId = parentRows[0]!.id;
     } else {
-      const parentInsert: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+      const parentInsert: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(
+        `
         INSERT INTO parents (tenant_id, user_id, first_name, last_name, preferred_contact_channels)
         VALUES ($1::uuid, $2::uuid, 'RLS', 'TestParent', '["email"]'::jsonb)
         RETURNING id::text
-      `, AL_NOOR_TENANT_ID, alNoorUserId);
-      alNoorParentId = parentInsert[0].id;
+      `,
+        AL_NOOR_TENANT_ID,
+        alNoorUserId,
+      );
+      alNoorParentId = parentInsert[0]!.id;
     }
 
-    const inquiryRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+    const inquiryRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(
+      `
       INSERT INTO parent_inquiries (tenant_id, parent_id, subject, status)
       VALUES ($1::uuid, $2::uuid, '${UNIQUE_MARKER} Inquiry Subject', 'open')
       RETURNING id::text
-    `, AL_NOOR_TENANT_ID, alNoorParentId);
-    alNoorInquiryId = inquiryRows[0].id;
+    `,
+      AL_NOOR_TENANT_ID,
+      alNoorParentId,
+    );
+    alNoorInquiryId = inquiryRows[0]!.id;
 
     // ── Create Al Noor parent inquiry message ───────────────────────────
 
-    await directPrisma.$queryRawUnsafe(`
+    await directPrisma.$queryRawUnsafe(
+      `
       INSERT INTO parent_inquiry_messages (tenant_id, inquiry_id, author_type, author_user_id, message)
       VALUES ($1::uuid, $2::uuid, 'parent', $3::uuid, '${UNIQUE_MARKER} message body')
-    `, AL_NOOR_TENANT_ID, alNoorInquiryId, alNoorUserId);
+    `,
+      AL_NOOR_TENANT_ID,
+      alNoorInquiryId,
+      alNoorUserId,
+    );
 
     // ── Create Al Noor website page via API ──────────────────────────────
 
@@ -163,21 +170,32 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
 
     // ── Create Al Noor contact form submission via direct insert ─────────
 
-    const submissionRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+    const submissionRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(
+      `
       INSERT INTO contact_form_submissions (tenant_id, name, email, message, status)
       VALUES ($1::uuid, '${UNIQUE_MARKER} Parent Name', 'rlstest@example.com', '${UNIQUE_MARKER} message', 'new')
       RETURNING id::text
-    `, AL_NOOR_TENANT_ID);
-    alNoorContactSubmissionId = submissionRows[0].id;
+    `,
+      AL_NOOR_TENANT_ID,
+    );
+    alNoorContactSubmissionId = submissionRows[0]!.id;
 
     // ── Create Al Noor notification via direct insert ────────────────────
 
-    const notifRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+    const notifRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(
+      `
       INSERT INTO notifications (tenant_id, recipient_user_id, channel, locale, status, payload_json)
       VALUES ($1::uuid, $2::uuid, 'in_app', 'en', 'sent', $3::jsonb)
       RETURNING id::text
-    `, AL_NOOR_TENANT_ID, alNoorUserId, JSON.stringify({ title: `${UNIQUE_MARKER} Notification Title`, body: `${UNIQUE_MARKER} notification body` }));
-    alNoorNotificationId = notifRows[0].id;
+    `,
+      AL_NOOR_TENANT_ID,
+      alNoorUserId,
+      JSON.stringify({
+        title: `${UNIQUE_MARKER} Notification Title`,
+        body: `${UNIQUE_MARKER} notification body`,
+      }),
+    );
+    alNoorNotificationId = notifRows[0]!.id;
 
     // ── Table-level RLS setup ───────────────────────────────────────────
 
@@ -187,9 +205,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
        EXCEPTION WHEN duplicate_object THEN NULL;
        END $$`,
     );
-    await directPrisma.$executeRawUnsafe(
-      `GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`,
-    );
+    await directPrisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
     await directPrisma.$executeRawUnsafe(
       `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
     );
@@ -224,12 +240,8 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
         await directPrisma.$executeRawUnsafe(
           `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${RLS_TEST_ROLE}`,
         );
-        await directPrisma.$executeRawUnsafe(
-          `REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`,
-        );
-        await directPrisma.$executeRawUnsafe(
-          `DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`,
-        );
+        await directPrisma.$executeRawUnsafe(`REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
+        await directPrisma.$executeRawUnsafe(`DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
       } catch {
         // Role cleanup is best-effort.
       }
@@ -247,9 +259,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
    *
    * Any row whose tenant_id equals AL_NOOR_TENANT_ID is a policy violation.
    */
-  async function queryAsCedar(
-    tableName: string,
-  ): Promise<Array<{ tenant_id: string | null }>> {
+  async function queryAsCedar(tableName: string): Promise<Array<{ tenant_id: string | null }>> {
     return directPrisma.$transaction(async (tx) => {
       await tx.$executeRawUnsafe(
         `SELECT set_config('app.current_tenant_id', '${CEDAR_TENANT_ID}', true)`,
@@ -257,19 +267,16 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
       await tx.$executeRawUnsafe(`SET LOCAL ROLE ${RLS_TEST_ROLE}`);
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return tx.$queryRawUnsafe(
-        `SELECT tenant_id::text FROM "${tableName}"`,
-      ) as Promise<Array<{ tenant_id: string | null }>>;
+      return tx.$queryRawUnsafe(`SELECT tenant_id::text FROM "${tableName}"`) as Promise<
+        Array<{ tenant_id: string | null }>
+      >;
     });
   }
 
   /**
    * Shared assertion: no row in `rows` should carry the Al Noor tenant_id.
    */
-  function assertNoAlNoorRows(
-    rows: Array<{ tenant_id: string | null }>,
-    context: string,
-  ): void {
+  function assertNoAlNoorRows(rows: Array<{ tenant_id: string | null }>, context: string): void {
     const leaks = rows.filter((r) => r.tenant_id === AL_NOOR_TENANT_ID);
     expect(leaks).toHaveLength(0);
     if (leaks.length > 0) {
@@ -285,12 +292,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
 
   describe('API-level: Cedar must not see Al Noor communications data (list endpoints)', () => {
     it('GET /v1/announcements as Cedar should not return Al Noor announcements', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/announcements',
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/announcements', cedarToken, CEDAR_DOMAIN).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
       const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
@@ -312,12 +314,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
     });
 
     it('GET /v1/notifications as Cedar should not return Al Noor notifications', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/notifications',
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/notifications', cedarToken, CEDAR_DOMAIN).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
       const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
@@ -348,12 +345,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
     });
 
     it('GET /v1/inquiries as Cedar should not return Al Noor parent inquiries', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/inquiries',
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/inquiries', cedarToken, CEDAR_DOMAIN).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
       const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
@@ -363,12 +355,7 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
     });
 
     it('GET /v1/website/pages as Cedar should not return Al Noor website pages', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/website/pages',
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/website/pages', cedarToken, CEDAR_DOMAIN).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
       const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
@@ -417,12 +404,9 @@ describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
     });
 
     it('GET /v1/inquiries/:id with Al Noor ID should return 404', async () => {
-      await authGet(
-        app,
-        `/api/v1/inquiries/${alNoorInquiryId}`,
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(404);
+      await authGet(app, `/api/v1/inquiries/${alNoorInquiryId}`, cedarToken, CEDAR_DOMAIN).expect(
+        404,
+      );
     });
 
     it('GET /v1/website/pages/:id with Al Noor ID should return 404', async () => {

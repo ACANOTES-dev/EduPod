@@ -43,16 +43,21 @@ describe('validateInvoiceTransition', () => {
   describe('invalid transitions from terminal states', () => {
     const terminalStatuses = ['paid', 'void', 'cancelled', 'written_off'] as const;
     const allStatuses = [
-      'draft', 'pending_approval', 'issued', 'partially_paid',
-      'paid', 'overdue', 'void', 'cancelled', 'written_off',
+      'draft',
+      'pending_approval',
+      'issued',
+      'partially_paid',
+      'paid',
+      'overdue',
+      'void',
+      'cancelled',
+      'written_off',
     ] as const;
 
     for (const terminal of terminalStatuses) {
       for (const target of allStatuses) {
         it(`should block ${terminal} -> ${target}`, () => {
-          expect(() => validateInvoiceTransition(terminal, target)).toThrow(
-            BadRequestException,
-          );
+          expect(() => validateInvoiceTransition(terminal, target)).toThrow(BadRequestException);
         });
       }
     }
@@ -93,6 +98,7 @@ describe('validateInvoiceTransition', () => {
       validateInvoiceTransition('paid', 'draft');
     } catch (error) {
       expect(error).toBeInstanceOf(BadRequestException);
+      expect(error).toMatchObject({ response: { code: expect.any(String) } });
       const response = (error as BadRequestException).getResponse() as Record<string, string>;
       expect(response.code).toBe('INVALID_STATUS_TRANSITION');
       expect(response.message).toContain('paid');
@@ -141,7 +147,7 @@ describe('deriveInvoiceStatus', () => {
     expect(deriveInvoiceStatus('issued', 500, 500, tomorrow, null)).toBe('issued');
   });
 
-  it("edge: should handle zero write-off as non-write-off", () => {
+  it('edge: should handle zero write-off as non-write-off', () => {
     expect(deriveInvoiceStatus('issued', 0, 500, tomorrow, 0)).toBe('paid');
   });
 });

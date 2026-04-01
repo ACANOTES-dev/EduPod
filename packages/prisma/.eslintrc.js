@@ -4,5 +4,6 @@ module.exports = {
     project: './tsconfig.json',
     tsconfigRootDir: __dirname,
   },
+  ignorePatterns: ['seed/'],
   root: true,
 };

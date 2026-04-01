@@ -1,13 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import type {
-  AllocationSuggestion,
-  ConfirmAllocationsDto,
-  CreatePaymentDto,
-} from '@school/shared';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { AllocationSuggestion, ConfirmAllocationsDto, CreatePaymentDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -39,7 +31,17 @@ export class PaymentsService {
   ) {}
 
   async findAll(tenantId: string, filters: PaymentFilters) {
-    const { page, pageSize, household_id, status, payment_method, date_from, date_to, search, accepted_by_user_id } = filters;
+    const {
+      page,
+      pageSize,
+      household_id,
+      status,
+      payment_method,
+      date_from,
+      date_to,
+      search,
+      accepted_by_user_id,
+    } = filters;
     const skip = (page - 1) * pageSize;
 
     const where: Record<string, unknown> = { tenant_id: tenantId };
@@ -260,7 +262,12 @@ export class PaymentsService {
     return suggestions;
   }
 
-  async confirmAllocations(tenantId: string, paymentId: string, userId: string, dto: ConfirmAllocationsDto) {
+  async confirmAllocations(
+    tenantId: string,
+    paymentId: string,
+    userId: string,
+    dto: ConfirmAllocationsDto,
+  ) {
     const payment = await this.prisma.payment.findFirst({
       where: { id: paymentId, tenant_id: tenantId },
     });
@@ -285,10 +292,14 @@ export class PaymentsService {
     await rlsClient.$transaction(async (tx) => {
       const prisma = tx as unknown as typeof this.prisma;
 
-      // Re-fetch payment inside transaction to prevent stale amount/status reads
-      const txPayment = await prisma.payment.findFirst({
-        where: { id: paymentId, tenant_id: tenantId },
-      });
+      // Re-fetch payment inside transaction with table lock to prevent stale amount/status reads
+      // eslint-disable-next-line school/no-raw-sql-outside-rls
+      const paymentLocks = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
+        `SELECT id, amount, status, household_id FROM public.payments WHERE id = $1::uuid AND tenant_id = $2::uuid FOR UPDATE`,
+        paymentId,
+        tenantId,
+      );
+      const txPayment = paymentLocks[0];
       if (!txPayment || txPayment.status !== 'posted') {
         throw new BadRequestException({
           code: 'INVALID_STATUS',
@@ -312,11 +323,15 @@ export class PaymentsService {
         });
       }
 
-      // Validate each allocation against invoice balance INSIDE the transaction
+      // Validate each allocation against invoice balance INSIDE the transaction (with Row Lock)
       for (const alloc of dto.allocations) {
-        const invoice = await prisma.invoice.findFirst({
-          where: { id: alloc.invoice_id, tenant_id: tenantId },
-        });
+        // eslint-disable-next-line school/no-raw-sql-outside-rls
+        const invoiceLocks = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
+          `SELECT id, balance_amount, household_id, invoice_number FROM public.invoices WHERE id = $1::uuid AND tenant_id = $2::uuid FOR UPDATE`,
+          alloc.invoice_id,
+          tenantId,
+        );
+        const invoice = invoiceLocks[0];
         if (!invoice) {
           throw new BadRequestException({
             code: 'INVOICE_NOT_FOUND',
