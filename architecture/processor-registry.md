@@ -21,8 +21,11 @@
   - Branches: `20%`
   - Functions: `31%`
   - Lines: `28%`
-- Verification command:
+- Verification commands:
   - `pnpm --filter @school/worker test -- --runInBand --coverageReporters=text-summary`
+  - `pnpm check:worker-processor-specs`
+  - `pnpm --filter @school/worker test:integration`
+- Critical queue integration coverage: `notifications`, `behaviour`, and `compliance` now run against real Redis and Postgres via `apps/worker/test/worker-queues.integration-spec.ts`.
 - Checklist coverage added during Worker Test Health Phase C:
   - tenant-isolation assertions for cross-tenant processors
   - retry exhaustion and failure-path coverage for dispatch flows
