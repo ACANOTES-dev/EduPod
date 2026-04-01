@@ -1,143 +1,118 @@
 # Backup and Restore Runbook
 
-Last updated: 2026-03-16
+Last updated: 2026-04-01
 
 ---
 
 ## Overview
 
-This runbook covers backup configuration, restore procedures, and verification steps for all stateful services in the School Operating System: PostgreSQL (RDS), Redis (ElastiCache), and Meilisearch. The primary database (PostgreSQL) contains all business data and is the most critical component to protect.
+Production runs on a Hetzner VPS, so PostgreSQL recovery is dump-based rather than snapshot-driven. This runbook covers:
+
+1. local pre-deploy PostgreSQL dumps stored on the production host
+2. replicated off-site PostgreSQL dumps in object storage
+3. Docker-based restore drills used to verify backup integrity
+4. Redis and Meilisearch recovery expectations after an outage
+
+PostgreSQL is the source of truth. Redis and Meilisearch are operational dependencies, but both can be rebuilt or repopulated from PostgreSQL-backed state.
 
 ---
 
-## 1. PostgreSQL (AWS RDS) Backups
+## 1. PostgreSQL Backup Sources
 
-### 1.1 Automated Backups
+### 1.1 Pre-Deploy Dumps
 
-AWS RDS automated backups are configured as follows:
+Every production deploy creates a custom-format `pg_dump` before migrations run.
 
-| Setting | Value |
-|---|---|
-| Backup window | 03:00 - 04:00 UTC daily |
-| Retention period | 14 days |
-| Point-in-time recovery (PITR) | Enabled, 5-minute granularity |
-| Multi-AZ | Enabled (automatic failover) |
-| Encryption | AES-256 (AWS managed key) |
+- location: `/opt/edupod/backups/predeploy`
+- format: PostgreSQL custom dump (`.dump`)
+- retention: 14 days by default
+- trigger: [`deploy-production.sh`](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/deploy-production.sh)
 
-Automated backups include:
-- Full daily snapshot at the backup window
-- Transaction logs captured continuously (enabling PITR)
-- Both are stored in S3, managed by RDS (not directly accessible)
+These dumps are the fastest rollback source for migration failures or application regressions introduced during deployment.
 
-### 1.2 Manual Snapshots
+### 1.2 Off-Site Replication
 
-Create manual snapshots before:
-- Any production deployment with database migrations
-- Any manual data manipulation
-- Before deleting or archiving a tenant
-- Before the quarterly backup drill
+Use the replication flow documented in [offsite-backup-replication.md](./offsite-backup-replication.md) to store a second copy outside the VPS.
+
+- command: `pnpm db:backup:replicate`
+- storage target: S3-compatible object storage
+- expected cadence: after deploys with schema changes and on the regular ops schedule
+
+### 1.3 Backup Selection Guidance
+
+Choose the restore source in this order:
+
+1. latest pre-deploy dump from before the incident
+2. latest verified off-site object-store copy
+3. older known-good dump if the newest backups are suspected to contain corruption
+
+---
+
+## 2. Restore to a Temporary Drill Environment
+
+The safest first step is always to restore into an isolated PostgreSQL instance before touching production.
+
+### 2.1 Recommended Drill Command
 
 ```bash
-# Create a manual snapshot
-aws rds create-db-snapshot \
-  --db-instance-identifier school-prod \
-  --db-snapshot-identifier manual-$(date +%Y%m%d)-<reason>
-
-# Example: pre-deployment snapshot
-aws rds create-db-snapshot \
-  --db-instance-identifier school-prod \
-  --db-snapshot-identifier manual-20260316-pre-deploy-p9
-
-# Verify snapshot creation
-aws rds describe-db-snapshots \
-  --db-snapshot-identifier manual-20260316-pre-deploy-p9 \
-  --query 'DBSnapshots[0].{Status:Status,Created:SnapshotCreateTime,Size:AllocatedStorage}'
+./scripts/backup-drill.sh --backup-file /path/to/postgres-YYYY-MM-DD.dump
 ```
 
-Manual snapshots are retained indefinitely (until explicitly deleted). They do not count against the 14-day automated backup retention.
+If no `--backup-file` is provided, the script restores the newest `.dump` file in `/opt/edupod/backups/predeploy`.
 
-### 1.3 Snapshot Inventory
+### 2.2 Drill Prerequisites
 
-List all available snapshots:
+The drill host needs:
+
+- Docker
+- `pg_restore`
+- `pg_isready`
+- `psql`
+- access to the chosen `.dump` file
+
+### 2.3 What the Drill Script Does
+
+The drill script matches the current Hetzner deployment shape:
+
+1. starts a temporary `postgres:16` Docker container
+2. restores the chosen dump with `pg_restore`
+3. runs verification queries against the restored database
+4. records output to `backup-drill-YYYYMMDD-HHMM.log`
+5. cleans up the container and Docker volume unless `--skip-cleanup` is used
+
+### 2.4 Manual Restore Without the Script
 
 ```bash
-# Automated snapshots
-aws rds describe-db-snapshots \
-  --db-instance-identifier school-prod \
-  --snapshot-type automated \
-  --query 'DBSnapshots[].{ID:DBSnapshotIdentifier,Created:SnapshotCreateTime,Status:Status}' \
-  --output table
+docker volume create edupod-restore-data
+docker run -d \
+  --name edupod-restore \
+  -e POSTGRES_DB=school_platform \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=restore-password \
+  -p 5543:5432 \
+  -v edupod-restore-data:/var/lib/postgresql/data \
+  postgres:16
 
-# Manual snapshots
-aws rds describe-db-snapshots \
-  --db-instance-identifier school-prod \
-  --snapshot-type manual \
-  --query 'DBSnapshots[].{ID:DBSnapshotIdentifier,Created:SnapshotCreateTime,Status:Status}' \
-  --output table
+PGPASSWORD=restore-password pg_restore \
+  --clean \
+  --if-exists \
+  --no-owner \
+  --no-privileges \
+  -h 127.0.0.1 \
+  -p 5543 \
+  -U postgres \
+  -d school_platform \
+  /path/to/postgres-YYYY-MM-DD.dump
 ```
 
 ---
 
-## 2. Point-in-Time Recovery (PITR)
+## 3. Verification Queries
 
-PITR allows restoring the database to any point within the retention window (14 days) with 5-minute granularity.
-
-### 2.1 Determine the Recovery Target
-
-Before initiating PITR, identify the exact target time:
-
-- Check Sentry for the timestamp of the first error
-- Check CloudWatch logs for the first sign of the incident
-- Check deployment records for the migration execution time
-- Use a time **before** the incident, with a safety margin of at least 5 minutes
-
-```bash
-# Check the latest restorable time
-aws rds describe-db-instances \
-  --db-instance-identifier school-prod \
-  --query 'DBInstances[0].LatestRestorableTime'
-```
-
-### 2.2 Initiate PITR
-
-```bash
-# Stop all application traffic first
-aws ecs update-service --cluster school-prod --service school-api --desired-count 0
-aws ecs update-service --cluster school-prod --service school-web --desired-count 0
-aws ecs update-service --cluster school-prod --service school-worker --desired-count 0
-
-# Restore to a new instance
-aws rds restore-db-instance-to-point-in-time \
-  --source-db-instance-identifier school-prod \
-  --target-db-instance-identifier school-restore-$(date +%Y%m%d-%H%M) \
-  --restore-time "2026-03-16T10:30:00Z" \
-  --db-instance-class db.r6g.large \
-  --vpc-security-group-ids <sg-id> \
-  --db-subnet-group-name <subnet-group> \
-  --no-multi-az \
-  --copy-tags-to-snapshot \
-  --tags Key=Environment,Value=restore Key=Purpose,Value=pitr-recovery
-```
-
-### 2.3 Wait for Instance Availability
-
-```bash
-# This can take 15-45 minutes depending on database size
-aws rds wait db-instance-available \
-  --db-instance-identifier school-restore-<timestamp>
-
-# Get the endpoint of the restored instance
-aws rds describe-db-instances \
-  --db-instance-identifier school-restore-<timestamp> \
-  --query 'DBInstances[0].Endpoint.{Address:Address,Port:Port}'
-```
-
-### 2.4 Verify Data Integrity
-
-Connect to the restored instance and run verification queries:
+Run these checks after restoring any backup:
 
 ```sql
--- 1. Row counts for key tables (compare against known-good counts)
+-- Row counts for key tables
 SELECT 'tenants' AS table_name, COUNT(*) AS row_count FROM tenants
 UNION ALL SELECT 'users', COUNT(*) FROM users
 UNION ALL SELECT 'tenant_memberships', COUNT(*) FROM tenant_memberships
@@ -148,258 +123,153 @@ UNION ALL SELECT 'payments', COUNT(*) FROM payments
 UNION ALL SELECT 'payroll_runs', COUNT(*) FROM payroll_runs
 ORDER BY table_name;
 
--- 2. Verify RLS policies are intact
-SELECT tablename, policyname, cmd, qual
-FROM pg_policies
-WHERE schemaname = 'public'
-ORDER BY tablename, policyname;
-
--- 3. Verify all tenant-scoped tables have RLS enabled
+-- RLS coverage
 SELECT tablename, rowsecurity
 FROM pg_tables
 WHERE schemaname = 'public'
   AND tablename NOT IN ('_prisma_migrations', 'users')
-  AND rowsecurity = false;
--- This query should return ZERO rows
+ORDER BY tablename;
 
--- 4. Verify trigger functions exist
+-- RLS policies
+SELECT tablename, policyname, cmd
+FROM pg_policies
+WHERE schemaname = 'public'
+ORDER BY tablename, policyname;
+
+-- Trigger inventory
 SELECT trigger_name, event_object_table, action_timing, event_manipulation
 FROM information_schema.triggers
 WHERE trigger_schema = 'public'
 ORDER BY event_object_table, trigger_name;
 
--- 5. Verify sequence counters
+-- Extensions
+SELECT extname, extversion
+FROM pg_extension
+ORDER BY extname;
+
+-- Tenant sequences
 SELECT tenant_id, prefix, current_value
 FROM tenant_sequences
 ORDER BY tenant_id, prefix;
 
--- 6. Verify extensions
-SELECT extname, extversion FROM pg_extension ORDER BY extname;
--- Must include: citext, btree_gist, uuid-ossp
-
--- 7. Check migration history
+-- Latest migrations
 SELECT migration_name, finished_at
 FROM _prisma_migrations
 ORDER BY finished_at DESC
 LIMIT 10;
 ```
 
-### 2.5 Switch Application to Restored Instance
+Critical expectations:
 
-1. Update `DATABASE_URL` in AWS Systems Manager Parameter Store:
-
-```bash
-aws ssm put-parameter \
-  --name "/school/prod/DATABASE_URL" \
-  --value "postgresql://<user>:<password>@<restored-endpoint>:5432/school_platform" \
-  --type SecureString \
-  --overwrite
-```
-
-2. Restart application services:
-
-```bash
-aws ecs update-service --cluster school-prod --service school-api --desired-count 2 --force-new-deployment
-aws ecs update-service --cluster school-prod --service school-web --desired-count 2 --force-new-deployment
-aws ecs update-service --cluster school-prod --service school-worker --desired-count 1 --force-new-deployment
-
-aws ecs wait services-stable \
-  --cluster school-prod \
-  --services school-api school-web school-worker
-```
-
-3. Verify health:
-
-```bash
-curl -s https://api.edupod.app/api/health/ready | jq .
-```
-
-### 2.6 Clean Up
-
-```bash
-# Rename the old instance for investigation (do not delete immediately)
-aws rds modify-db-instance \
-  --db-instance-identifier school-prod \
-  --new-db-instance-identifier school-prod-incident-$(date +%Y%m%d) \
-  --apply-immediately
-
-# Rename the restored instance to the production name
-aws rds modify-db-instance \
-  --db-instance-identifier school-restore-<timestamp> \
-  --new-db-instance-identifier school-prod \
-  --apply-immediately
-
-# Enable Multi-AZ on the restored instance (PITR restores are single-AZ)
-aws rds modify-db-instance \
-  --db-instance-identifier school-prod \
-  --multi-az \
-  --apply-immediately
-
-# Delete the old instance after investigation (minimum 7 days, take a final snapshot)
-aws rds delete-db-instance \
-  --db-instance-identifier school-prod-incident-<date> \
-  --final-db-snapshot-identifier final-school-prod-incident-<date>
-```
+- all tenant-scoped tables still have `rowsecurity = true`
+- policy inventory is intact
+- `citext`, `btree_gist`, and `uuid-ossp` are installed
+- current migrations match production
+- sequence counters are plausible for the restored point in time
 
 ---
 
-## 3. Snapshot Restore (Full Backup)
+## 4. Production Recovery from a Verified Dump
 
-For restoring from a specific snapshot (not PITR):
+Only cut production over after a temporary restore has been validated.
 
-```bash
-# List available snapshots
-aws rds describe-db-snapshots \
-  --db-instance-identifier school-prod \
-  --query 'DBSnapshots[].{ID:DBSnapshotIdentifier,Created:SnapshotCreateTime}' \
-  --output table
+### 4.1 Application-First Failures
 
-# Restore from snapshot
-aws rds restore-db-instance-from-db-snapshot \
-  --db-instance-identifier school-restore-$(date +%Y%m%d) \
-  --db-snapshot-identifier <snapshot-identifier> \
-  --db-instance-class db.r6g.large \
-  --vpc-security-group-ids <sg-id> \
-  --db-subnet-group-name <subnet-group>
+If the schema is still compatible, prefer an application rollback first:
 
-# Then follow steps 2.3 through 2.6 above
-```
+1. revert the app to the previous good commit
+2. confirm health checks recover
+3. reassess whether a database restore is still required
 
----
+### 4.2 Database Recovery Flow
 
-## 4. Redis (ElastiCache) Backup and Restore
+If the database itself must be restored:
 
-### 4.1 Persistence Configuration
+1. stop or isolate writes to production
+2. restore the chosen dump into a temporary PostgreSQL target
+3. validate the restore with the queries above
+4. cut services over only after validation succeeds
+5. restart `api`, `web`, and `worker` against the restored database
+6. verify `/api/health/ready`, worker health, and tenant logins
 
-| Setting | Value |
-|---|---|
-| Persistence | AOF (Append-Only File) enabled |
-| AOF sync policy | everysec |
-| Automatic backups | Daily, 1-day retention |
+Do not restore blindly over the live production database without a validated dry run.
 
-AOF persistence means:
-- Redis data survives process restarts
-- BullMQ delayed and scheduled jobs are preserved
-- Session tokens are preserved
+### 4.3 Post-Recovery Validation
 
-### 4.2 What Redis Stores
+After cutover, verify:
 
-| Data Type | Impact of Loss | Recovery |
-|---|---|---|
-| User sessions (JWT refresh tokens) | Users must re-login | Automatic (users log in again) |
-| Tenant config cache | Slightly slower first requests | Automatic (cache-on-demand) |
-| Permission cache | Slightly slower first requests | Automatic (cache-on-demand) |
-| BullMQ job queues | Pending jobs lost | Re-enqueue recurring jobs; one-off jobs may need manual re-trigger |
-| Tenant suspension flags | Suspended tenants briefly accessible | Re-set flags from database state |
-| Rate limiting counters | Rate limits temporarily reset | Automatic (counters restart) |
-
-### 4.3 Redis Restore Procedure
-
-If ElastiCache fails completely and AOF recovery is not possible:
-
-1. Create a new ElastiCache cluster with the same configuration
-2. Update the `REDIS_URL` in Parameter Store
-3. Restart all application services (they reconnect automatically)
-4. Application self-heals:
-   - Caches repopulate on demand
-   - Users log in again (sessions lost)
-   - BullMQ queues are empty but functional
-5. Manually verify tenant suspension flags match database state:
-
-```sql
--- Check which tenants should be suspended
-SELECT id, name, status FROM tenants WHERE status = 'suspended';
-```
-
-If any tenants show as suspended in the database, the application middleware will re-enforce this on the next request (reading from the database as a fallback when the Redis flag is missing).
+1. `pm2 status` shows `api`, `web`, and `worker` online
+2. tenant login pages load
+3. `/api/health/ready` reports `ok`
+4. worker health responds successfully
+5. queues resume normal throughput without threshold alerts
 
 ---
 
-## 5. Meilisearch Backup and Restore
+## 5. Redis Recovery
 
-### 5.1 Meilisearch Data
+Redis is not the source of truth, but it affects active sessions, queues, and caches.
 
-Meilisearch contains search indexes derived from PostgreSQL data. It is not a source of truth. Complete data loss requires only a re-index, not a restore from backup.
+Expected effects of Redis loss:
 
-### 5.2 Re-Index Procedure
+- users may be logged out
+- BullMQ delayed or scheduled work may need re-enqueueing
+- caches will warm back up over time
+- transient rate-limit and tenant-state caches may reset
 
-If Meilisearch data is lost or corrupted:
+Recovery actions:
 
-1. Clear all indexes (if the instance is still running):
-
-```bash
-curl -X DELETE http://<meilisearch-host>:7700/indexes/students \
-  -H "Authorization: Bearer <master-key>"
-
-curl -X DELETE http://<meilisearch-host>:7700/indexes/staff \
-  -H "Authorization: Bearer <master-key>"
-
-# Repeat for all indexes
-```
-
-2. Trigger a full re-index via the worker:
-
-```bash
-# Enqueue re-index jobs for each tenant
-# This is done via the application's admin API or a management script
-```
-
-3. Monitor re-index progress via Meilisearch tasks API:
-
-```bash
-curl http://<meilisearch-host>:7700/tasks?status=processing,enqueued \
-  -H "Authorization: Bearer <master-key>"
-```
+1. restore Redis service availability
+2. restart `api` and `worker`
+3. confirm `/api/health/ready` is healthy
+4. confirm recurring BullMQ jobs are re-registered
+5. manually re-trigger one-off jobs if required
+6. verify suspended-tenant behavior and critical permissions still reflect PostgreSQL state
 
 ---
 
-## 6. Quarterly Backup Drill
+## 6. Meilisearch Recovery
 
-A backup restore drill must be performed quarterly to verify that backup and restore procedures work correctly and that the team is familiar with the process.
+Meilisearch is fully reconstructable from PostgreSQL.
 
-**Drill script**: See [/scripts/backup-drill.sh](/scripts/backup-drill.sh)
-**Drill checklist**: See [/scripts/backup-drill-checklist.md](/scripts/backup-drill-checklist.md)
+If indexes are lost or corrupted:
 
-### Drill Schedule
+1. restore Meilisearch service availability
+2. trigger a full re-index for affected tenants
+3. confirm search queries succeed again
+4. monitor indexing backlog until it returns to normal
 
-| Quarter | Target Date | DBA | Engineering Lead |
-|---|---|---|---|
-| Q1 2026 | January | TBD | TBD |
-| Q2 2026 | April | TBD | TBD |
-| Q3 2026 | July | TBD | TBD |
-| Q4 2026 | October | TBD | TBD |
-
-### Drill Procedure Summary
-
-1. Create a snapshot of the production database
-2. Restore the snapshot to a temporary instance
-3. Run verification queries (row counts, RLS policies, triggers, sequences)
-4. Verify application can connect and function against the restored instance
-5. Clean up the temporary instance
-6. Document results in the drill checklist
-7. File the completed checklist
+No database restore is required for Meilisearch-only incidents.
 
 ---
 
-## 7. Backup Monitoring
+## 7. Quarterly Restore Drill
 
-### Automated Checks
+Perform a full restore drill at least quarterly.
 
-- CloudWatch alarm: RDS automated backup failed (P2 alert)
-- Daily check: verify the most recent automated snapshot exists and is within 24 hours
-- Weekly check: verify manual pre-deployment snapshots are being created
+- script: [backup-drill.sh](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/backup-drill.sh)
+- checklist: [backup-drill-checklist.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/backup-drill-checklist.md)
 
-### Manual Verification (Monthly)
+The drill should capture:
 
-```bash
-# Verify automated backups are current
-aws rds describe-db-instances \
-  --db-instance-identifier school-prod \
-  --query 'DBInstances[0].{LatestRestorableTime:LatestRestorableTime,BackupRetentionPeriod:BackupRetentionPeriod}'
+- source backup file
+- restore duration
+- row-count comparisons
+- RLS and policy verification results
+- follow-up fixes if anything fails
 
-# Verify at least one automated snapshot exists for each of the last 14 days
-aws rds describe-db-snapshots \
-  --db-instance-identifier school-prod \
-  --snapshot-type automated \
-  --query 'length(DBSnapshots[])'
-```
+Store the completed checklist with the quarterly ops record or incident notes so the latest verified restore evidence is easy to retrieve.
+
+---
+
+## 8. Monitoring Expectations
+
+At minimum, backup operations should have evidence for:
+
+- latest successful pre-deploy dump timestamp
+- latest successful off-site replication timestamp
+- latest successful restore drill date
+- measured restore duration for the last drill
+- any drill failures tracked through remediation
+
+Use the monitoring cadence in [monitoring.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/docs/runbooks/monitoring.md) to review these signals regularly. If any of them are stale, treat it as an operational issue rather than a paperwork gap.

@@ -16,15 +16,15 @@ Production runs on a Hetzner host with PM2-managed services. The default rollbac
 
 ## Decision Matrix
 
-| Situation | Strategy |
-|---|---|
-| App bug, smoke test failed during deploy | Automatic rollback in deploy script |
-| App bug discovered after deploy | Manual application rollback to previous commit |
-| App bug with backwards-compatible migration | Roll back app first, then reassess |
-| App bug with breaking migration or data corruption | Restore from pre-deploy or off-site backup |
-| Data corruption | Restore from known-good backup |
-| Feature causing business issues | Feature flag / module toggle disable |
-| Single tenant affected | Tenant-level mitigation |
+| Situation                                          | Strategy                                       |
+| -------------------------------------------------- | ---------------------------------------------- |
+| App bug, smoke test failed during deploy           | Automatic rollback in deploy script            |
+| App bug discovered after deploy                    | Manual application rollback to previous commit |
+| App bug with backwards-compatible migration        | Roll back app first, then reassess             |
+| App bug with breaking migration or data corruption | Restore from pre-deploy or off-site backup     |
+| Data corruption                                    | Restore from known-good backup                 |
+| Feature causing business issues                    | Feature flag / module toggle disable           |
+| Single tenant affected                             | Tenant-level mitigation                        |
 
 ---
 
@@ -35,7 +35,7 @@ When `scripts/deploy-production.sh` fails its smoke test, it automatically:
 1. checks out the previous commit SHA
 2. rebuilds the repo with `pnpm install --frozen-lockfile`
 3. regenerates Prisma client
-4. restarts `api`, `web`, and `worker`
+4. reloads `api` and `web` through `ecosystem.config.cjs`, then restarts `worker`
 5. reruns the smoke tests
 
 If the rollback smoke test also fails, treat the incident as manual recovery.
@@ -52,10 +52,12 @@ git log --oneline -n 5
 git checkout <previous-good-sha>
 pnpm install --frozen-lockfile
 (cd packages/prisma && npx --no-install prisma generate)
-NEXT_PUBLIC_API_URL= pnpm build --force
-sudo -u edupod PM2_HOME=/home/edupod/.pm2 pm2 restart api web worker
+NEXT_PUBLIC_API_URL= SENTRY_RELEASE=<previous-good-sha> pnpm build --force
+sudo -u edupod PM2_HOME=/home/edupod/.pm2 env APP_DIR=/opt/edupod/app SENTRY_ENVIRONMENT=production SENTRY_RELEASE=<previous-good-sha> pm2 startOrGracefulReload /opt/edupod/app/ecosystem.config.cjs --only api,web --update-env
+sudo -u edupod PM2_HOME=/home/edupod/.pm2 env APP_DIR=/opt/edupod/app SENTRY_ENVIRONMENT=production SENTRY_RELEASE=<previous-good-sha> pm2 restart /opt/edupod/app/ecosystem.config.cjs --only worker --update-env
 sudo -u edupod PM2_HOME=/home/edupod/.pm2 pm2 save
 curl -s http://localhost:3001/api/health/ready | jq .
+curl -s http://localhost:5556/health | jq .
 ```
 
 ---
@@ -74,7 +76,7 @@ If a migration or data change must be reversed:
 
 ## 4. Feature Flag Emergency Disable
 
-### 3.1 Tenant Module Toggle
+### 4.1 Tenant Module Toggle
 
 If a specific module is causing issues, disable it at the tenant level without a full rollback.
 
@@ -90,7 +92,7 @@ Available module keys: `payroll`, `finance`, `attendance`, `admissions`, `schedu
 
 This immediately prevents users from accessing the affected module. The `@ModuleEnabled()` guard on controllers returns 403 for disabled modules.
 
-### 3.2 Tenant Suspension (Emergency)
+### 4.2 Tenant Suspension (Emergency)
 
 For critical issues affecting a specific tenant (data corruption, security breach):
 
@@ -101,6 +103,7 @@ curl -X POST https://api.edupod.app/api/v1/admin/tenants/<tenant-id>/suspend \
 ```
 
 This will:
+
 1. Set tenant status to `suspended` in the database
 2. Set a Redis flag for immediate effect (no need to wait for cache expiry)
 3. Invalidate all active sessions for users of that tenant
@@ -122,6 +125,7 @@ Redis data loss is operationally painful but not a source-of-truth event. It sto
 ### 5.1 Session Loss
 
 If Redis loses all data:
+
 - All users will be logged out (JWT refresh tokens stored in Redis)
 - Users simply log in again
 - No data loss occurs
@@ -136,6 +140,7 @@ If Redis loses all data:
 ### 5.3 Cache Rebuild
 
 Application caches (tenant config, permission lookups) are populated on-demand. After a Redis flush:
+
 - First requests will be slower (cache miss penalty)
 - No manual intervention needed
 - Caches self-heal within minutes under normal traffic

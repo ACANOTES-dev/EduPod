@@ -16,7 +16,18 @@ function buildHealthResult(status: FullHealthResult['status']): FullHealthResult
       postgresql: { status: 'up', latency_ms: 2 },
       redis: { status: 'up', latency_ms: 1 },
       meilisearch: { status: 'up', latency_ms: 5 },
-      bullmq: { status: 'up', stuck_jobs: 0 },
+      bullmq: {
+        status: 'up',
+        stuck_jobs: 0,
+        alerts: [],
+        queues: {
+          notifications: { waiting: 0, active: 0, delayed: 0, failed: 0, stuck_jobs: 0 },
+          behaviour: { waiting: 0, active: 0, delayed: 0, failed: 0, stuck_jobs: 0 },
+          finance: { waiting: 0, active: 0, delayed: 0, failed: 0, stuck_jobs: 0 },
+          payroll: { waiting: 0, active: 0, delayed: 0, failed: 0, stuck_jobs: 0 },
+          pastoral: { waiting: 0, active: 0, delayed: 0, failed: 0, stuck_jobs: 0 },
+        },
+      },
       disk: { status: 'up', free_gb: 45.2, total_gb: 100 },
     },
   };

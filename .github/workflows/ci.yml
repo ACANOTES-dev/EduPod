@@ -9,6 +9,9 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    env:
+      SENTRY_ENVIRONMENT: ci
+      SENTRY_RELEASE: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v5
 
@@ -42,6 +45,8 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [ci]
     runs-on: ubuntu-latest
+    env:
+      SENTRY_ENVIRONMENT: production
     concurrency:
       group: production-deploy
       cancel-in-progress: false
@@ -58,4 +63,4 @@ jobs:
           envs: DEPLOY_SHA
           script: |
             cd /opt/edupod/app
-            DEPLOY_SHA="$DEPLOY_SHA" bash scripts/deploy-production.sh
+            DEPLOY_SHA="$DEPLOY_SHA" SENTRY_ENVIRONMENT="$SENTRY_ENVIRONMENT" bash scripts/deploy-production.sh

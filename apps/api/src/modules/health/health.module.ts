@@ -7,7 +7,16 @@ import { HealthController } from './health.controller';
 import { HealthService } from './health.service';
 
 @Module({
-  imports: [SearchModule, BullModule.registerQueue({ name: 'notifications' })],
+  imports: [
+    SearchModule,
+    BullModule.registerQueue(
+      { name: 'notifications' },
+      { name: 'behaviour' },
+      { name: 'finance' },
+      { name: 'payroll' },
+      { name: 'pastoral' },
+    ),
+  ],
   controllers: [HealthController],
   providers: [HealthService],
 })
