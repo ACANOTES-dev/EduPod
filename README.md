@@ -4,15 +4,15 @@ Multi-tenant school management SaaS platform. Single codebase, single deployment
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Backend | NestJS + TypeScript (modular monolith) |
+| Layer    | Technology                                      |
+| -------- | ----------------------------------------------- |
+| Backend  | NestJS + TypeScript (modular monolith)          |
 | Frontend | Next.js 14+ (App Router) + Tailwind + shadcn/ui |
-| Database | PostgreSQL 16+ with RLS |
-| Cache | Redis 7 |
-| Search | Meilisearch + PostgreSQL full-text fallback |
-| Queue | BullMQ |
-| i18n | English + Arabic (full RTL) |
+| Database | PostgreSQL 16+ with RLS                         |
+| Cache    | Redis 7                                         |
+| Search   | Meilisearch + PostgreSQL full-text fallback     |
+| Queue    | BullMQ                                          |
+| i18n     | English + Arabic (full RTL)                     |
 
 ## Prerequisites
 
@@ -21,6 +21,8 @@ Multi-tenant school management SaaS platform. Single codebase, single deployment
 - Docker Desktop
 
 ## Getting Started
+
+The quick-start in this README is enough for a local boot, but the canonical contributor onboarding flow lives at [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md).
 
 ### 1. Clone and install
 
@@ -65,6 +67,7 @@ pnpm dev
 ```
 
 This starts:
+
 - Frontend: http://localhost:5551
 - API: http://localhost:5552
 
@@ -90,6 +93,7 @@ root/
 ## Implementation Plans
 
 This project is built phase-by-phase. See `plans/` for the full structure. Each phase has:
+
 - **Instruction file** (`plans/phases-instruction/P{N}.md`) — what to build
 - **Results file** (`plans/phases-results/P{N}-results.md`) — what was built
 - **Testing instruction** (`plans/phases-testing-instruction/P{N}-testing.md`) — how to test
@@ -97,25 +101,31 @@ This project is built phase-by-phase. See `plans/` for the full structure. Each 
 
 Build order: P0 → P1 → P2 → P3 → P4 → P5 → P6 → P6B → P7 → P8 → P9
 
+## Additional Developer References
+
+- [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) — full onboarding and local workflow
+- [docs/api-versioning.md](docs/api-versioning.md) — when to stay in `/v1/` and when to create `/v2/`
+- [architecture/README.md](architecture/README.md) — architecture document table of contents
+
 ## Seed Data (Development)
 
 Two test schools are pre-configured:
 
-| | School 1 | School 2 |
-|--|---------|---------|
-| **Name** | Nurul Huda Quranic School | Midaad UlQalam |
-| **Slug** | nhqs | mdad |
-| **Locale** | en | ar |
-| **Timezone** | Europe/Dublin | Africa/Tripoli |
-| **Currency** | EUR | LYD |
-| **Academic Year Start** | September | November |
+|                         | School 1                  | School 2       |
+| ----------------------- | ------------------------- | -------------- |
+| **Name**                | Nurul Huda Quranic School | Midaad UlQalam |
+| **Slug**                | nhqs                      | mdad           |
+| **Locale**              | en                        | ar             |
+| **Timezone**            | Europe/Dublin             | Africa/Tripoli |
+| **Currency**            | EUR                       | LYD            |
+| **Academic Year Start** | September                 | November       |
 
 ## Ports
 
-| Service | Port |
-|---------|------|
-| Frontend (Next.js) | 5551 |
+| Service              | Port |
+| -------------------- | ---- |
+| Frontend (Next.js)   | 5551 |
 | Backend API (NestJS) | 5552 |
-| PostgreSQL | 5553 |
-| Redis | 5554 |
-| Meilisearch | 5555 |
+| PostgreSQL           | 5553 |
+| Redis                | 5554 |
+| Meilisearch          | 5555 |

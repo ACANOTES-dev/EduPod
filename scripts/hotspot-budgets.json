@@ -1,0 +1,63 @@
+{
+  "waves": [
+    {
+      "name": "Wave 1",
+      "date": "2026-04-01",
+      "summary": "Maintainability audit baseline after Phase D service decomposition and shared frontend pattern extraction."
+    }
+  ],
+  "files": {
+    "apps/api/src/modules/pastoral/services/concern.service.ts": {
+      "reason": "Pastoral concern lifecycle and sharing remain one of the highest-risk maintainability hotspots because the service coordinates access control, state changes, and cross-entity relationship writes.",
+      "budgets": [
+        {
+          "name": "ConcernService.list",
+          "max": 15
+        },
+        {
+          "name": "ConcernService.getById",
+          "max": 10
+        }
+      ]
+    },
+    "apps/api/src/modules/behaviour/behaviour-students.service.ts": {
+      "reason": "Behaviour student views still aggregate history, summary, and parent-facing information across several tables, so new logic should stay bounded as the module evolves.",
+      "budgets": [
+        {
+          "name": "BehaviourStudentsService.listStudents",
+          "max": 6
+        },
+        {
+          "name": "BehaviourStudentsService.getStudentProfile",
+          "max": 2
+        }
+      ]
+    },
+    "apps/api/src/modules/staff-wellbeing/services/workload-compute.service.ts": {
+      "reason": "Workload calculations mix personal, aggregate, and trend concerns; budgets help keep future additions inside the extracted helpers rather than back in the facade.",
+      "budgets": [
+        {
+          "name": "WorkloadComputeService.getAggregateTimetableQuality::closure@617",
+          "max": 12
+        },
+        {
+          "name": "WorkloadComputeService.getAggregateWorkloadSummary::closure@459",
+          "max": 10
+        }
+      ]
+    },
+    "apps/api/src/modules/gradebook/report-cards/report-cards.service.ts": {
+      "reason": "Report cards remain a high-change module with lifecycle orchestration, approval flow, and query responsibilities that can regress into a god service without guardrails.",
+      "budgets": [
+        {
+          "name": "ReportCardsService.publish",
+          "max": 12
+        },
+        {
+          "name": "ReportCardsService.update",
+          "max": 10
+        }
+      ]
+    }
+  }
+}

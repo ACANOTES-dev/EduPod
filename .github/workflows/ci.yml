@@ -26,6 +26,12 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @school/prisma exec prisma generate
 
+      - name: Check i18n completeness
+        run: pnpm i18n:check
+
+      - name: Check hotspot complexity budgets
+        run: pnpm hotspots:check
+
       - name: Lint
         run: pnpm -r run lint
 

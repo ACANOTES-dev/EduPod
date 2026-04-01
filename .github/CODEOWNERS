@@ -1,0 +1,13 @@
+# Default ownership
+* @ACANOTES-dev
+
+# Critical modules
+/apps/api/src/modules/auth/ @ACANOTES-dev
+/apps/api/src/modules/behaviour/ @ACANOTES-dev
+/apps/api/src/modules/finance/ @ACANOTES-dev
+/apps/api/src/modules/gdpr/ @ACANOTES-dev
+/apps/web/src/app/[locale]/(school)/behaviour/ @ACANOTES-dev
+/apps/web/src/app/[locale]/(school)/finance/ @ACANOTES-dev
+/apps/web/src/app/[locale]/(school)/settings/legal/ @ACANOTES-dev
+/architecture/ @ACANOTES-dev
+/packages/prisma/ @ACANOTES-dev
