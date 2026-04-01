@@ -18,4 +18,14 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   setupFiles: ['<rootDir>/test/setup-env.ts'],
+  collectCoverage: true,
+  coverageDirectory: 'coverage',
+  coverageThreshold: {
+    global: {
+      statements: 0,
+      branches: 0,
+      functions: 0,
+      lines: 0,
+    },
+  },
 };

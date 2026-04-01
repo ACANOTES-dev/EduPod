@@ -9,6 +9,24 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: prisma
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: edupod_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
     steps:
       - uses: actions/checkout@v5
 
@@ -34,6 +52,19 @@ jobs:
 
       - name: Run unit tests
         run: pnpm turbo run test
+
+      - name: Setup Test Database
+        run: pnpm --filter @school/prisma exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://prisma:password@localhost:5432/edupod_test?schema=public
+
+      - name: Run integration and e2e tests
+        run: |
+          pnpm --filter @school/api run test:integration
+          pnpm --filter @school/api run test:e2e
+        env:
+          DATABASE_URL: postgresql://prisma:password@localhost:5432/edupod_test?schema=public
+          REDIS_URL: redis://localhost:6379
 
       - name: Build
         run: pnpm build --force
