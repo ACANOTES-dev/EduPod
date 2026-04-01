@@ -14,7 +14,7 @@ import { InvoicesService } from '../../../modules/finance/invoices.service';
 import { PaymentsService } from '../../../modules/finance/payments.service';
 import { ReceiptsService } from '../../../modules/finance/receipts.service';
 import { PrismaService } from '../../../modules/prisma/prisma.service';
-import { SequenceService } from '../../../modules/tenants/sequence.service';
+import { SequenceService } from '../../../modules/sequence/sequence.service';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 

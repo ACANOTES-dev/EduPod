@@ -6,7 +6,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { ImportExecutorService } from './import-executor.service';
 import { ImportParserService } from './import-parser.service';

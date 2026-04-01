@@ -23,7 +23,7 @@ jest.mock('../middleware/rls.middleware', () => ({
 
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import { RedisService } from '../../modules/redis/redis.service';
-import { SequenceService } from '../../modules/tenants/sequence.service';
+import { SequenceService } from '../../modules/sequence/sequence.service';
 import { StudentsService } from '../../modules/students/students.service';
 import { InvoicesService } from '../../modules/finance/invoices.service';
 import { PaymentsService } from '../../modules/finance/payments.service';

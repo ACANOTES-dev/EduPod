@@ -8,7 +8,7 @@ import { ConcernVersionService } from '../pastoral/services/concern-version.serv
 import { ConcernService } from '../pastoral/services/concern.service';
 import { PastoralEventService } from '../pastoral/services/pastoral-event.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { SafeguardingConcernsService } from './safeguarding-concerns.service';
 import { SAFEGUARDING_CRITICAL_ESCALATION_JOB } from './safeguarding.constants';

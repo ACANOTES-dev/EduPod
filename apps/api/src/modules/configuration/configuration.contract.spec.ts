@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
+import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { EncryptionService } from './encryption.service';
@@ -35,7 +36,11 @@ describe('ConfigurationModule — contract', () => {
 
   it('should resolve SettingsService via DI', async () => {
     const module = await Test.createTestingModule({
-      providers: [SettingsService, { provide: PrismaService, useValue: MOCK_PRISMA }],
+      providers: [
+        SettingsService,
+        { provide: PrismaService, useValue: MOCK_PRISMA },
+        { provide: SecurityAuditService, useValue: { logSettingsAccess: jest.fn() } },
+      ],
     }).compile();
 
     const service = module.get(SettingsService);
