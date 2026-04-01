@@ -1,3 +1,4 @@
+import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
@@ -131,6 +132,7 @@ describe('CriticalIncidentService', () => {
   let service: CriticalIncidentService;
   let mockPastoralEventService: { write: jest.Mock };
   let mockSequenceService: { nextNumber: jest.Mock };
+  let mockPastoralQueue: { add: jest.Mock };
 
   beforeEach(async () => {
     mockPastoralEventService = {
@@ -139,6 +141,10 @@ describe('CriticalIncidentService', () => {
 
     mockSequenceService = {
       nextNumber: jest.fn().mockResolvedValue('CI-202603-000001'),
+    };
+
+    mockPastoralQueue = {
+      add: jest.fn().mockResolvedValue({ id: 'job-1' }),
     };
 
     // Reset all RLS tx mocks
@@ -154,6 +160,7 @@ describe('CriticalIncidentService', () => {
         { provide: PrismaService, useValue: {} },
         { provide: SequenceService, useValue: mockSequenceService },
         { provide: PastoralEventService, useValue: mockPastoralEventService },
+        { provide: getQueueToken('pastoral'), useValue: mockPastoralQueue },
       ],
     }).compile();
 
@@ -303,6 +310,17 @@ describe('CriticalIncidentService', () => {
           entity_type: 'critical_incident',
           actor_user_id: USER_ID,
         }),
+      );
+
+      // Verification of Notification Pathway
+      expect(mockPastoralQueue.add).toHaveBeenCalledWith(
+        'pastoral:notify-incident-team',
+        expect.objectContaining({
+          tenant_id: TENANT_ID,
+          incident_id: INCIDENT_ID,
+          action: 'declared',
+        }),
+        expect.any(Object),
       );
     });
 
@@ -607,6 +625,32 @@ describe('CriticalIncidentService', () => {
             is_done: true,
           }),
         }),
+      );
+    });
+
+    it('should enqueue pastoral:notify-assigned-staff job when assigned_to_id is provided', async () => {
+      const plan = makeResponsePlan();
+      const incident = makeIncident({ response_plan: plan });
+      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
+      mockRlsTx.criticalIncident.update.mockResolvedValue(incident);
+
+      const dto: UpdateResponsePlanItemDto = {
+        phase: 'immediate',
+        item_id: '11111111-1111-1111-1111-111111111111',
+        assigned_to_id: USER_ID,
+      };
+
+      await service.updateResponsePlanItem(TENANT_ID, INCIDENT_ID, USER_ID, dto);
+
+      expect(mockPastoralQueue.add).toHaveBeenCalledWith(
+        'pastoral:notify-assigned-staff',
+        expect.objectContaining({
+          tenant_id: TENANT_ID,
+          incident_id: INCIDENT_ID,
+          item_id: dto.item_id,
+          assigned_to_id: USER_ID,
+        }),
+        expect.any(Object),
       );
     });
 

@@ -1,5 +1,7 @@
+import { ForbiddenException, type INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { TenantContext } from '@school/shared';
+import request from 'supertest';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
@@ -75,8 +77,45 @@ describe('ContactSubmissionsController', () => {
   it('should propagate service errors to the caller', async () => {
     mockService.list.mockRejectedValueOnce(new Error('DB error'));
 
-    await expect(
-      controller.list(tenant, { page: 1, pageSize: 20 } as never),
-    ).rejects.toThrow('DB error');
+    await expect(controller.list(tenant, { page: 1, pageSize: 20 } as never)).rejects.toThrow(
+      'DB error',
+    );
+  });
+});
+
+// ─── Permission denied (guard rejection via HTTP) ──────────────────────────────
+
+describe('ContactSubmissionsController — permission denied', () => {
+  let app: INestApplication;
+
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({
+      controllers: [ContactSubmissionsController],
+      providers: [{ provide: ContactFormService, useValue: {} }],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({
+        canActivate: () => {
+          throw new ForbiddenException({
+            error: { code: 'PERMISSION_DENIED', message: 'Missing required permission' },
+          });
+        },
+      })
+      .compile();
+
+    app = module.createNestApplication();
+    await app.init();
+  });
+
+  afterEach(async () => {
+    if (app) await app.close();
+  });
+
+  it('should return 403 when user lacks communications.view permission (GET /v1/contact-submissions)', async () => {
+    await request(app.getHttpServer()).get('/v1/contact-submissions').send({}).expect(403);
   });
 });

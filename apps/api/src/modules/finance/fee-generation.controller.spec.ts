@@ -1,7 +1,10 @@
+import { ForbiddenException, type INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { JwtPayload, TenantContext } from '@school/shared';
+import request from 'supertest';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { FeeGenerationController } from './fee-generation.controller';
@@ -66,5 +69,45 @@ describe('FeeGenerationController', () => {
     mockService.preview.mockResolvedValue(expected);
     const result = await controller.preview(TENANT, {} as never);
     expect(result).toEqual(expected);
+  });
+});
+
+// ─── Permission denied (guard rejection via HTTP) ──────────────────────────────
+
+describe('FeeGenerationController — permission denied', () => {
+  let app: INestApplication;
+
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({
+      controllers: [FeeGenerationController],
+      providers: [{ provide: FeeGenerationService, useValue: mockService }],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({
+        canActivate: () => {
+          throw new ForbiddenException({
+            error: { code: 'PERMISSION_DENIED', message: 'Missing required permission' },
+          });
+        },
+      })
+      .compile();
+
+    app = module.createNestApplication();
+    await app.init();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('should return 403 when user lacks finance.manage permission (POST /v1/finance/fee-generation/preview)', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/finance/fee-generation/preview')
+      .send({})
+      .expect(403);
   });
 });

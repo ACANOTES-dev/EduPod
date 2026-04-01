@@ -16,8 +16,35 @@ function buildHealthResult(status: FullHealthResult['status']): FullHealthResult
       postgresql: { status: 'up', latency_ms: 2 },
       redis: { status: 'up', latency_ms: 1 },
       meilisearch: { status: 'up', latency_ms: 5 },
-      bullmq: { status: 'up', stuck_jobs: 0 },
+      bullmq: {
+        status: 'up',
+        stuck_jobs: 0,
+        alerts: [],
+        queues: {
+          notifications: { waiting: 0, active: 0, delayed: 0, failed: 0, stuck_jobs: 0 },
+          behaviour: { waiting: 0, active: 0, delayed: 0, failed: 0, stuck_jobs: 0 },
+          finance: { waiting: 0, active: 0, delayed: 0, failed: 0, stuck_jobs: 0 },
+          payroll: { waiting: 0, active: 0, delayed: 0, failed: 0, stuck_jobs: 0 },
+          pastoral: { waiting: 0, active: 0, delayed: 0, failed: 0, stuck_jobs: 0 },
+        },
+      },
       disk: { status: 'up', free_gb: 45.2, total_gb: 100 },
+      pgbouncer: {
+        status: 'not_configured',
+        latency_ms: 0,
+        active_client_connections: null,
+        waiting_client_connections: null,
+        max_client_connections: null,
+        utilization_percent: null,
+        alert: null,
+      },
+      redis_memory: {
+        status: 'up',
+        used_memory_bytes: 1_048_576,
+        maxmemory_bytes: 2_097_152,
+        utilization_percent: 50,
+        alert: null,
+      },
     },
   };
 }

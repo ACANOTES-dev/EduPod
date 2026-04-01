@@ -1,8 +1,11 @@
 import { randomUUID } from 'crypto';
 
+import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { Queue } from 'bullmq';
 
+import { QUEUE_NAMES } from '../../../../../worker/src/base/queue.constants';
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SequenceService } from '../../sequence/sequence.service';
@@ -232,6 +235,7 @@ export class CriticalIncidentService {
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
     private readonly eventService: PastoralEventService,
+    @InjectQueue(QUEUE_NAMES.PASTORAL) private readonly pastoralQueue: Queue,
   ) {}
 
   // ─── DECLARE ────────────────────────────────────────────────────────────────
@@ -340,6 +344,24 @@ export class CriticalIncidentService {
       },
       ip_address: null,
     });
+
+    // Fire-and-forget: notification pathway for newly declared incident
+    void this.pastoralQueue
+      .add(
+        'pastoral:notify-incident-team',
+        {
+          tenant_id: tenantId,
+          incident_id: created.id,
+          action: 'declared',
+        },
+        {
+          removeOnComplete: true,
+          removeOnFail: false,
+        },
+      )
+      .catch((err) =>
+        this.logger.error(`Failed to enqueue notification job: ${err.message}`, err.stack),
+      );
 
     return { data: created };
   }
@@ -697,6 +719,27 @@ export class CriticalIncidentService {
       },
       ip_address: null,
     });
+
+    // Notification pathway when an item is assigned to a staff member
+    if (dto.assigned_to_id !== undefined && dto.assigned_to_id !== null) {
+      void this.pastoralQueue
+        .add(
+          'pastoral:notify-assigned-staff',
+          {
+            tenant_id: tenantId,
+            incident_id: incidentId,
+            item_id: dto.item_id,
+            assigned_to_id: dto.assigned_to_id,
+          },
+          {
+            removeOnComplete: true,
+            removeOnFail: false,
+          },
+        )
+        .catch((err) =>
+          this.logger.error(`Failed to enqueue task notification: ${err.message}`, err.stack),
+        );
+    }
 
     return { data: updatedPlan };
   }

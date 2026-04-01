@@ -24,6 +24,8 @@ const envSchema = z.object({
 
   // Optional -- Sentry
   SENTRY_DSN_BACKEND: z.string().optional(),
+  PGBOUNCER_ADMIN_URL: z.string().url().optional(),
+  WORKER_HEALTH_URL: z.string().url().optional(),
 
   // Optional -- Encryption
   ENCRYPTION_KEY: z.string().optional(),
@@ -70,11 +72,11 @@ export function envValidation(config: Record<string, unknown>): EnvConfig {
 export function validateEnv(): void {
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
-    const errors = result.error.errors.map(
-      (e) => `  • ${e.path.join('.')}: ${e.message}`,
-    );
+    const errors = result.error.errors.map((e) => `  • ${e.path.join('.')}: ${e.message}`);
     console.error('');
-    console.error('✗ Environment validation failed — the following variables are missing or invalid:');
+    console.error(
+      '✗ Environment validation failed — the following variables are missing or invalid:',
+    );
     console.error('');
     for (const line of errors) {
       console.error(line);

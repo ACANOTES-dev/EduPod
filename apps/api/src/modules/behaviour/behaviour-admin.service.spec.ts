@@ -34,6 +34,9 @@ const mockRlsTx = {
   behaviourLegalHold: {
     count: jest.fn(),
   },
+  behaviourParentAcknowledgement: {
+    create: jest.fn(),
+  },
 };
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
@@ -240,6 +243,90 @@ describe('BehaviourAdminService', () => {
         expect.any(Object),
       );
       expect(result.job_id).toBe('job-1');
+    });
+  });
+
+  // ─── Reindex Search ───────────────────────────────────────────────────────
+
+  describe('reindexSearchPreview', () => {
+    it('should return search reindex preview', async () => {
+      mockRlsTx.behaviourIncident.count.mockResolvedValue(100);
+
+      const result = await service.reindexSearchPreview(TENANT_ID);
+
+      expect(result.affected_records).toBe(100);
+      expect(result.reversible).toBe(true);
+    });
+  });
+
+  describe('reindexSearch', () => {
+    it('should enqueue search sync job', async () => {
+      const result = await service.reindexSearch(TENANT_ID);
+      expect(mockSearchSyncQueue.add).toHaveBeenCalledWith(
+        'search:full-reindex',
+        { tenant_id: TENANT_ID },
+        expect.any(Object),
+      );
+      expect(result.job_id).toBe('job-3');
+    });
+  });
+
+  // ─── Resend Notification ──────────────────────────────────────────────────
+
+  describe('resendNotification', () => {
+    it('should enqueue notification and create acknowledgement record', async () => {
+      await service.resendNotification(TENANT_ID, {
+        incident_id: 'i-1',
+        parent_id: 'p-1',
+        channel: 'email',
+      });
+
+      expect(mockRlsTx.behaviourParentAcknowledgement.create).toHaveBeenCalled();
+      expect(mockNotificationsQueue.add).toHaveBeenCalledWith(
+        'behaviour:parent-notification',
+        expect.objectContaining({
+          tenant_id: TENANT_ID,
+          parent_id: 'p-1',
+          incident_id: 'i-1',
+          channel: 'email',
+          is_resend: true,
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it('should require either incident_id or sanction_id', async () => {
+      await expect(
+        service.resendNotification(TENANT_ID, {
+          parent_id: 'p-1',
+          channel: 'email',
+        } as Parameters<typeof service.resendNotification>[1]),
+      ).rejects.toThrow('Either incident_id or sanction_id is required');
+    });
+  });
+
+  // ─── Policy Dry Run ───────────────────────────────────────────────────────
+
+  describe('policyDryRun', () => {
+    it('should delegate to policyReplayService', async () => {
+      const policyService = (service as unknown as { policyReplayService: { dryRun: jest.Mock } })
+        .policyReplayService;
+      policyService.dryRun = jest.fn().mockResolvedValue({ some: 'data' });
+
+      const result = await service.policyDryRun(TENANT_ID, {
+        category_id: 'c-1',
+        polarity: 'negative',
+        severity: 3,
+        context_type: 'class',
+      });
+
+      expect(policyService.dryRun).toHaveBeenCalledWith(TENANT_ID, {
+        category_id: 'c-1',
+        polarity: 'negative',
+        severity: 3,
+        context_type: 'class',
+      });
+      expect(result).toEqual({ some: 'data' });
     });
   });
 });

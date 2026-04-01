@@ -1,3 +1,4 @@
+/* eslint-disable school/no-raw-sql-outside-rls -- RLS e2e tests require direct SQL for setup/teardown */
 /**
  * RLS Leakage Tests — Phase 8 (Audit Logs, Compliance, Imports, Search Index)
  *
@@ -72,7 +73,7 @@ describe('P8 RLS Leakage — Audit, Compliance, Imports, Search Index (e2e)', ()
     // Authenticate as both tenants + platform admin
     const alNoorLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
     alNoorToken = alNoorLogin.accessToken;
-    alNoorUserId = (alNoorLogin.user as Record<string, string>).id;
+    alNoorUserId = (alNoorLogin.user as Record<string, string>).id!;
 
     const cedarLogin = await login(app, CEDAR_OWNER_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
     cedarToken = cedarLogin.accessToken;
@@ -91,20 +92,30 @@ describe('P8 RLS Leakage — Audit, Compliance, Imports, Search Index (e2e)', ()
     // ── Create Al Noor audit log data (direct insert for precise control) ─
 
     // 1. Tenant-scoped audit log for Al Noor
-    const alLogResult: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+    const alLogResult: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(
+      `
       INSERT INTO audit_logs (tenant_id, actor_user_id, entity_type, action, metadata_json, ip_address)
       VALUES ($1::uuid, $2::uuid, $3, 'rls_test_action', '{}'::jsonb, '127.0.0.1')
       RETURNING id::text
-    `, AL_NOOR_TENANT_ID, alNoorUserId, `rls_test_p8b_${UNIQUE_MARKER}`);
-    alNoorAuditLogId = alLogResult[0].id;
+    `,
+      AL_NOOR_TENANT_ID,
+      alNoorUserId,
+      `rls_test_p8b_${UNIQUE_MARKER}`,
+    );
+    alNoorAuditLogId = alLogResult[0]!.id;
 
     // 2. Platform-level audit log (tenant_id = NULL)
-    const platformLogResult: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+    const platformLogResult: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(
+      `
       INSERT INTO audit_logs (tenant_id, actor_user_id, entity_type, action, metadata_json, ip_address)
       VALUES (NULL, NULL, $1, $2, '{}'::jsonb, $3)
       RETURNING id::text
-    `, `platform_rls_test_p8b_${UNIQUE_MARKER}`, 'platform_test_action', '127.0.0.1');
-    platformAuditLogId = platformLogResult[0].id;
+    `,
+      `platform_rls_test_p8b_${UNIQUE_MARKER}`,
+      'platform_test_action',
+      '127.0.0.1',
+    );
+    platformAuditLogId = platformLogResult[0]!.id;
 
     // ── Create Al Noor compliance request data ────────────────────────────
 
@@ -124,21 +135,28 @@ describe('P8 RLS Leakage — Audit, Compliance, Imports, Search Index (e2e)', ()
 
     // ── Create Al Noor import job (direct insert to avoid file upload) ────
 
-    const ijResult: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+    const ijResult: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(
+      `
       INSERT INTO import_jobs (tenant_id, import_type, status, summary_json, created_by_user_id)
       VALUES ($1::uuid, 'students', 'uploaded', '{"total_rows": 5, "failed": 0}'::jsonb, $2::uuid)
       RETURNING id::text
-    `, AL_NOOR_TENANT_ID, alNoorUserId);
-    importJobId = ijResult[0].id;
+    `,
+      AL_NOOR_TENANT_ID,
+      alNoorUserId,
+    );
+    importJobId = ijResult[0]!.id;
 
     // ── Create Al Noor search index status (direct insert) ───────────────
 
-    const sisResult: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+    const sisResult: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(
+      `
       INSERT INTO search_index_status (tenant_id, entity_type, entity_id, index_status)
       VALUES ($1::uuid, 'student', gen_random_uuid(), 'pending')
       RETURNING id::text
-    `, AL_NOOR_TENANT_ID);
-    searchIndexStatusId = sisResult[0].id;
+    `,
+      AL_NOOR_TENANT_ID,
+    );
+    searchIndexStatusId = sisResult[0]!.id;
 
     // ── Table-level RLS setup ─────────────────────────────────────────────
 
@@ -148,9 +166,7 @@ describe('P8 RLS Leakage — Audit, Compliance, Imports, Search Index (e2e)', ()
        EXCEPTION WHEN duplicate_object THEN NULL;
        END $$`,
     );
-    await directPrisma.$executeRawUnsafe(
-      `GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`,
-    );
+    await directPrisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
     await directPrisma.$executeRawUnsafe(
       `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
     );
@@ -162,7 +178,8 @@ describe('P8 RLS Leakage — Audit, Compliance, Imports, Search Index (e2e)', ()
       try {
         await directPrisma.$executeRawUnsafe(
           `DELETE FROM audit_logs WHERE id IN ($1::uuid, $2::uuid)`,
-          alNoorAuditLogId, platformAuditLogId,
+          alNoorAuditLogId,
+          platformAuditLogId,
         );
         await directPrisma.$executeRawUnsafe(
           `DELETE FROM compliance_requests WHERE id = $1::uuid`,
@@ -185,12 +202,8 @@ describe('P8 RLS Leakage — Audit, Compliance, Imports, Search Index (e2e)', ()
         await directPrisma.$executeRawUnsafe(
           `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${RLS_TEST_ROLE}`,
         );
-        await directPrisma.$executeRawUnsafe(
-          `REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`,
-        );
-        await directPrisma.$executeRawUnsafe(
-          `DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`,
-        );
+        await directPrisma.$executeRawUnsafe(`REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
+        await directPrisma.$executeRawUnsafe(`DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
       } catch {
         // Role cleanup is best-effort.
       }
@@ -208,9 +221,7 @@ describe('P8 RLS Leakage — Audit, Compliance, Imports, Search Index (e2e)', ()
    *
    * Any row whose tenant_id equals AL_NOOR_TENANT_ID is a policy violation.
    */
-  async function queryAsCedar(
-    tableName: string,
-  ): Promise<Array<{ tenant_id: string | null }>> {
+  async function queryAsCedar(tableName: string): Promise<Array<{ tenant_id: string | null }>> {
     return directPrisma.$transaction(async (tx) => {
       await tx.$executeRawUnsafe(
         `SELECT set_config('app.current_tenant_id', '${CEDAR_TENANT_ID}', true)`,
@@ -218,19 +229,16 @@ describe('P8 RLS Leakage — Audit, Compliance, Imports, Search Index (e2e)', ()
       await tx.$executeRawUnsafe(`SET LOCAL ROLE ${RLS_TEST_ROLE}`);
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return tx.$queryRawUnsafe(
-        `SELECT tenant_id::text FROM "${tableName}"`,
-      ) as Promise<Array<{ tenant_id: string | null }>>;
+      return tx.$queryRawUnsafe(`SELECT tenant_id::text FROM "${tableName}"`) as Promise<
+        Array<{ tenant_id: string | null }>
+      >;
     });
   }
 
   /**
    * Shared assertion: no row in `rows` should carry the Al Noor tenant_id.
    */
-  function assertNoAlNoorRows(
-    rows: Array<{ tenant_id: string | null }>,
-    context: string,
-  ): void {
+  function assertNoAlNoorRows(rows: Array<{ tenant_id: string | null }>, context: string): void {
     const leaks = rows.filter((r) => r.tenant_id === AL_NOOR_TENANT_ID);
     expect(leaks).toHaveLength(0);
     if (leaks.length > 0) {
@@ -246,12 +254,7 @@ describe('P8 RLS Leakage — Audit, Compliance, Imports, Search Index (e2e)', ()
 
   describe('audit_logs — Tenant isolation with nullable tenant_id', () => {
     it('Tenant B cannot see Tenant A audit logs via GET /api/v1/audit-logs', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/audit-logs',
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/audit-logs', cedarToken, CEDAR_DOMAIN).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
       const ids = items.map((i) => i.id);
@@ -354,12 +357,7 @@ describe('P8 RLS Leakage — Audit, Compliance, Imports, Search Index (e2e)', ()
 
   describe('import_jobs — Tenant isolation', () => {
     it('Tenant B cannot list Tenant A import jobs', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/imports',
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/imports', cedarToken, CEDAR_DOMAIN).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
       const ids = items.map((i) => i.id);
@@ -368,12 +366,7 @@ describe('P8 RLS Leakage — Audit, Compliance, Imports, Search Index (e2e)', ()
     });
 
     it('Tenant B cannot get Tenant A import job by ID', async () => {
-      await authGet(
-        app,
-        `/api/v1/imports/${importJobId}`,
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(404);
+      await authGet(app, `/api/v1/imports/${importJobId}`, cedarToken, CEDAR_DOMAIN).expect(404);
     });
 
     it('Tenant B cannot confirm Tenant A import job', async () => {
