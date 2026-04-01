@@ -18,14 +18,17 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   setupFiles: ['<rootDir>/test/setup-env.ts'],
-  collectCoverage: true,
-  coverageDirectory: 'coverage',
+  collectCoverage: false,
+  coverageDirectory: '<rootDir>/coverage',
+  coveragePathIgnorePatterns: ['/node_modules/', '/test/', '/dist/'],
+  // Coverage baselines measured 2026-04-01: stmts ~81%, branch ~63%, fn ~83%, lines ~82%
+  // Thresholds set at baseline minus 5% — ratchet up over time toward >80% target
   coverageThreshold: {
     global: {
-      statements: 0,
-      branches: 0,
-      functions: 0,
-      lines: 0,
+      statements: 76,
+      branches: 57,
+      functions: 78,
+      lines: 77,
     },
   },
 };

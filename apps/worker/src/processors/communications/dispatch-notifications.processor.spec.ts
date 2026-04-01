@@ -270,6 +270,119 @@ describe('DispatchNotificationsProcessor', () => {
     });
   });
 
+  describe('process — retry and dead-letter handling', () => {
+    beforeEach(() => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-04-01T12:00:00.000Z'));
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('should set exponential backoff when provider dispatch fails before max attempts', async () => {
+      const notification = buildNotification({
+        attempt_count: 0,
+        channel: 'email',
+        id: NOTIF_ID_1,
+        status: 'queued',
+      });
+
+      mockTx.notification.findMany.mockResolvedValue([notification]);
+      mockTx.notificationTemplate.findFirst.mockResolvedValue({
+        body_template: '<p>Hello {{student_name}}</p>',
+        subject_template: 'Update',
+      });
+      mockTx.user.findUnique.mockResolvedValue({ email: 'parent@example.com' });
+      (
+        processor as unknown as {
+          getResendClient: jest.Mock;
+        }
+      ).getResendClient = jest.fn().mockReturnValue({
+        emails: {
+          send: jest.fn().mockResolvedValue({
+            data: null,
+            error: { message: 'provider offline' },
+          }),
+        },
+      });
+
+      const job = buildMockJob(DISPATCH_NOTIFICATIONS_JOB, {
+        tenant_id: TENANT_ID,
+        notification_ids: [NOTIF_ID_1],
+      });
+
+      await processor.process(job);
+
+      expect(mockTx.notification.update).toHaveBeenCalledWith({
+        where: { id: NOTIF_ID_1 },
+        data: {
+          attempt_count: 1,
+          failure_reason: 'Resend email failed: provider offline',
+          next_retry_at: new Date('2026-04-01T12:02:00.000Z'),
+          status: 'failed',
+        },
+      });
+      expect(mockTx.notification.create).not.toHaveBeenCalled();
+    });
+
+    it('should dead-letter notifications and create the fallback channel once max attempts are hit', async () => {
+      const notification = buildNotification({
+        attempt_count: 2,
+        channel: 'email',
+        id: NOTIF_ID_1,
+        status: 'queued',
+      });
+
+      mockTx.notification.findMany.mockResolvedValue([notification]);
+      mockTx.notificationTemplate.findFirst.mockResolvedValue({
+        body_template: '<p>Hello {{student_name}}</p>',
+        subject_template: 'Update',
+      });
+      mockTx.user.findUnique.mockResolvedValue({ email: 'parent@example.com' });
+      (
+        processor as unknown as {
+          getResendClient: jest.Mock;
+        }
+      ).getResendClient = jest.fn().mockReturnValue({
+        emails: {
+          send: jest.fn().mockResolvedValue({
+            data: null,
+            error: { message: 'provider offline' },
+          }),
+        },
+      });
+
+      const job = buildMockJob(DISPATCH_NOTIFICATIONS_JOB, {
+        tenant_id: TENANT_ID,
+        notification_ids: [NOTIF_ID_1],
+      });
+
+      await processor.process(job);
+
+      expect(mockTx.notification.update).toHaveBeenCalledWith({
+        where: { id: NOTIF_ID_1 },
+        data: {
+          attempt_count: 3,
+          failure_reason: 'Resend email failed: provider offline',
+          next_retry_at: null,
+          status: 'failed',
+        },
+      });
+      expect(mockTx.notification.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          channel: 'in_app',
+          locale: 'en',
+          recipient_user_id: USER_ID,
+          source_entity_id: null,
+          source_entity_type: null,
+          status: 'delivered',
+          template_key: 'test_template',
+          tenant_id: TENANT_ID,
+        }),
+      });
+    });
+  });
+
   // ─── Logging ──────────────────────────────────────────────────────────
 
   describe('process — logging', () => {
