@@ -4,5 +4,5 @@
     "outDir": "./dist",
     "rootDir": "."
   },
-  "include": ["src", "seed", "seed.ts", "schema-snapshot.spec.ts"]
+  "include": ["src", "seed.ts", "schema-snapshot.spec.ts"]
 }

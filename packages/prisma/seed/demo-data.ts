@@ -121,7 +121,7 @@ function randomItem<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function _randomName(): { first: string; last: string } {
+function randomName(): { first: string; last: string } {
   return {
     first: randomItem(FIRST_NAMES),
     last: randomItem(LAST_NAMES),
