@@ -59,9 +59,8 @@ describe('Systematic RLS Smoke Tests', () => {
         try {
           // Attempt a read using Tenant B's context
           const result = await rlsClientB.$transaction(async (tx) => {
-            return (tx as Record<string, { findFirst: () => Promise<unknown> }>)[
-              modelNameFirstLower
-            ].findFirst();
+            const client = tx as unknown as Record<string, { findFirst: () => Promise<unknown> }>;
+            return client[modelNameFirstLower]!.findFirst();
           });
 
           // Result should safely be null (or undefined if the table is empty).
@@ -82,9 +81,11 @@ describe('Systematic RLS Smoke Tests', () => {
     // Additional strict check on a known populated table (e.g., Student if tests leak)
     try {
       await rlsClientB.$transaction(async (tx) => {
-        const leakedStudents = await (
-          tx as Record<string, { findMany: (args: Record<string, unknown>) => Promise<unknown[]> }>
-        ).student.findMany({
+        const client = tx as unknown as Record<
+          string,
+          { findMany: (args: Record<string, unknown>) => Promise<unknown[]> }
+        >;
+        const leakedStudents = await client.student!.findMany({
           where: { tenant_id: TENANT_A_ID },
         });
         expect(leakedStudents).toHaveLength(0);
