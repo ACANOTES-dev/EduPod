@@ -31,6 +31,7 @@ import { z } from 'zod';
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -61,10 +62,7 @@ export class CompensationController {
 
   @Get(':id')
   @RequiresPermission('payroll.view')
-  async get(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async get(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.compensationService.getCompensation(tenant.tenant_id, id);
   }
 
@@ -98,17 +96,11 @@ export class CompensationController {
     @UploadedFile() file: UploadedFileShape | undefined,
   ) {
     if (!file) {
-      throw new BadRequestException({
-        code: 'FILE_REQUIRED',
-        message: 'A CSV file must be uploaded',
-      });
+      throw new BadRequestException(apiError('FILE_REQUIRED', 'A CSV file must be uploaded'));
     }
 
     if (!file.mimetype.includes('csv') && !file.originalname.endsWith('.csv')) {
-      throw new BadRequestException({
-        code: 'INVALID_FILE_TYPE',
-        message: 'Only CSV files are accepted',
-      });
+      throw new BadRequestException(apiError('INVALID_FILE_TYPE', 'Only CSV files are accepted'));
     }
 
     return this.compensationService.bulkImport(tenant.tenant_id, user.sub, file.buffer);

@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
+import { buildMockPrisma, buildMockRedis } from '../../../test/mock-factories';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -39,29 +40,17 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function buildMockPrisma() {
-  return {
-    academicYear: { findFirst: jest.fn() },
-    class: {
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      count: jest.fn(),
-    },
-    yearGroup: { findFirst: jest.fn() },
-    subject: { findFirst: jest.fn() },
-    staffProfile: { findFirst: jest.fn() },
-    classStaff: { findFirst: jest.fn() },
-  };
-}
+const createMockPrisma = () =>
+  buildMockPrisma({
+    academicYear: ['findFirst'],
+    class: ['findFirst', 'findMany', 'count'],
+    classStaff: ['findFirst'],
+    staffProfile: ['findFirst'],
+    subject: ['findFirst'],
+    yearGroup: ['findFirst'],
+  } as const);
 
-function buildMockRedis() {
-  const client = {
-    get: jest.fn().mockResolvedValue(null),
-    set: jest.fn().mockResolvedValue('OK'),
-    del: jest.fn().mockResolvedValue(1),
-  };
-  return { getClient: jest.fn().mockReturnValue(client), _client: client };
-}
+const createMockRedis = () => buildMockRedis();
 
 const baseClass = {
   id: CLASS_ID,
@@ -87,12 +76,12 @@ const baseCreateDto = {
 
 describe('ClassesService — create', () => {
   let service: ClassesService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
-  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockPrisma: ReturnType<typeof createMockPrisma>;
+  let mockRedis: ReturnType<typeof createMockRedis>;
 
   beforeEach(async () => {
-    mockPrisma = buildMockPrisma();
-    mockRedis = buildMockRedis();
+    mockPrisma = createMockPrisma();
+    mockRedis = createMockRedis();
 
     mockRlsTx.class.create.mockReset().mockResolvedValue({
       ...baseClass,
@@ -150,12 +139,12 @@ describe('ClassesService — create', () => {
 
 describe('ClassesService — findAll', () => {
   let service: ClassesService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
-  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockPrisma: ReturnType<typeof createMockPrisma>;
+  let mockRedis: ReturnType<typeof createMockRedis>;
 
   beforeEach(async () => {
-    mockPrisma = buildMockPrisma();
-    mockRedis = buildMockRedis();
+    mockPrisma = createMockPrisma();
+    mockRedis = createMockRedis();
 
     mockPrisma.class.findMany.mockResolvedValue([baseClass]);
     mockPrisma.class.count.mockResolvedValue(1);
@@ -240,12 +229,12 @@ describe('ClassesService — findAll', () => {
 
 describe('ClassesService — findOne', () => {
   let service: ClassesService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
-  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockPrisma: ReturnType<typeof createMockPrisma>;
+  let mockRedis: ReturnType<typeof createMockRedis>;
 
   beforeEach(async () => {
-    mockPrisma = buildMockPrisma();
-    mockRedis = buildMockRedis();
+    mockPrisma = createMockPrisma();
+    mockRedis = createMockRedis();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -285,12 +274,12 @@ describe('ClassesService — findOne', () => {
 
 describe('ClassesService — update', () => {
   let service: ClassesService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
-  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockPrisma: ReturnType<typeof createMockPrisma>;
+  let mockRedis: ReturnType<typeof createMockRedis>;
 
   beforeEach(async () => {
-    mockPrisma = buildMockPrisma();
-    mockRedis = buildMockRedis();
+    mockPrisma = createMockPrisma();
+    mockRedis = createMockRedis();
 
     mockRlsTx.class.update.mockReset().mockResolvedValue({ ...baseClass, name: 'Updated' });
 
@@ -359,12 +348,12 @@ describe('ClassesService — update', () => {
 
 describe('ClassesService — assignStaff', () => {
   let service: ClassesService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
-  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockPrisma: ReturnType<typeof createMockPrisma>;
+  let mockRedis: ReturnType<typeof createMockRedis>;
 
   beforeEach(async () => {
-    mockPrisma = buildMockPrisma();
-    mockRedis = buildMockRedis();
+    mockPrisma = createMockPrisma();
+    mockRedis = createMockRedis();
 
     mockRlsTx.classStaff.create.mockReset().mockResolvedValue({
       class_id: CLASS_ID,
@@ -424,12 +413,12 @@ describe('ClassesService — assignStaff', () => {
 
 describe('ClassesService — removeStaff', () => {
   let service: ClassesService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
-  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockPrisma: ReturnType<typeof createMockPrisma>;
+  let mockRedis: ReturnType<typeof createMockRedis>;
 
   beforeEach(async () => {
-    mockPrisma = buildMockPrisma();
-    mockRedis = buildMockRedis();
+    mockPrisma = createMockPrisma();
+    mockRedis = createMockRedis();
 
     mockRlsTx.classStaff.delete.mockReset().mockResolvedValue({});
 
@@ -482,13 +471,13 @@ describe('ClassesService — removeStaff', () => {
 
 describe('ClassesService — updateStatus', () => {
   let service: ClassesService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
-  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockPrisma: ReturnType<typeof createMockPrisma>;
+  let mockRedis: ReturnType<typeof createMockRedis>;
   let mockSchedulesService: { endDateForClass: jest.Mock };
 
   beforeEach(async () => {
-    mockPrisma = buildMockPrisma();
-    mockRedis = buildMockRedis();
+    mockPrisma = createMockPrisma();
+    mockRedis = createMockRedis();
     mockSchedulesService = { endDateForClass: jest.fn().mockResolvedValue(undefined) };
 
     mockRlsTx.class.update.mockReset().mockResolvedValue({ ...baseClass, status: 'inactive' });
@@ -554,12 +543,12 @@ describe('ClassesService — updateStatus', () => {
 
 describe('ClassesService — findStaff', () => {
   let service: ClassesService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
-  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockPrisma: ReturnType<typeof createMockPrisma>;
+  let mockRedis: ReturnType<typeof createMockRedis>;
 
   beforeEach(async () => {
-    mockPrisma = buildMockPrisma();
-    mockRedis = buildMockRedis();
+    mockPrisma = createMockPrisma();
+    mockRedis = createMockRedis();
 
     mockRlsTx.classStaff.findMany.mockReset().mockResolvedValue([
       {
@@ -628,8 +617,8 @@ describe('ClassesService — findStaff', () => {
 
 describe('ClassesService — preview', () => {
   let service: ClassesService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
-  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockPrisma: ReturnType<typeof createMockPrisma>;
+  let mockRedis: ReturnType<typeof createMockRedis>;
 
   const classPreviewEntity = {
     id: CLASS_ID,
@@ -645,8 +634,8 @@ describe('ClassesService — preview', () => {
   };
 
   beforeEach(async () => {
-    mockPrisma = buildMockPrisma();
-    mockRedis = buildMockRedis();
+    mockPrisma = createMockPrisma();
+    mockRedis = createMockRedis();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -740,12 +729,12 @@ describe('ClassesService — preview', () => {
 
 describe('ClassesService — create (room validation)', () => {
   let service: ClassesService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
-  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockPrisma: ReturnType<typeof createMockPrisma>;
+  let mockRedis: ReturnType<typeof createMockRedis>;
 
   beforeEach(async () => {
-    mockPrisma = buildMockPrisma();
-    mockRedis = buildMockRedis();
+    mockPrisma = createMockPrisma();
+    mockRedis = createMockRedis();
 
     mockRlsTx.class.create.mockReset().mockResolvedValue({
       ...baseClass,
@@ -803,12 +792,12 @@ describe('ClassesService — create (room validation)', () => {
 
 describe('ClassesService — update (FK validation)', () => {
   let service: ClassesService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
-  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockPrisma: ReturnType<typeof createMockPrisma>;
+  let mockRedis: ReturnType<typeof createMockRedis>;
 
   beforeEach(async () => {
-    mockPrisma = buildMockPrisma();
-    mockRedis = buildMockRedis();
+    mockPrisma = createMockPrisma();
+    mockRedis = createMockRedis();
 
     mockRlsTx.class.update.mockReset().mockResolvedValue({ ...baseClass, name: 'Updated' });
 

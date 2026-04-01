@@ -11,15 +11,13 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import {
-  checkoutSessionSchema,
-  requestPaymentPlanSchema,
-} from '@school/shared';
+import { checkoutSessionSchema, requestPaymentPlanSchema } from '@school/shared';
 import type { JwtPayload, RequestPaymentPlanDto, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -56,11 +54,7 @@ export class ParentFinanceController {
     );
 
     const [invoicesResult, payments] = await Promise.all([
-      this.invoicesService.findAll(
-        tenant.tenant_id,
-        { page: 1, pageSize: 50 },
-        [household.id],
-      ),
+      this.invoicesService.findAll(tenant.tenant_id, { page: 1, pageSize: 50 }, [household.id]),
       this.prisma.payment.findMany({
         where: {
           tenant_id: tenant.tenant_id,
@@ -160,10 +154,9 @@ export class ParentFinanceController {
     });
 
     if (!parent) {
-      throw new NotFoundException({
-        code: 'PARENT_NOT_FOUND',
-        message: 'No parent profile found for the current user',
-      });
+      throw new NotFoundException(
+        apiError('PARENT_NOT_FOUND', 'No parent profile found for the current user'),
+      );
     }
 
     const studentParent = await this.prisma.studentParent.findUnique({
@@ -181,10 +174,9 @@ export class ParentFinanceController {
     });
 
     if (!studentParent || studentParent.tenant_id !== tenantId) {
-      throw new ForbiddenException({
-        code: 'NOT_LINKED_TO_STUDENT',
-        message: 'You are not linked to this student',
-      });
+      throw new ForbiddenException(
+        apiError('NOT_LINKED_TO_STUDENT', 'You are not linked to this student'),
+      );
     }
 
     const household = await this.prisma.household.findFirst({
@@ -192,10 +184,7 @@ export class ParentFinanceController {
     });
 
     if (!household) {
-      throw new NotFoundException({
-        code: 'HOUSEHOLD_NOT_FOUND',
-        message: 'Household not found',
-      });
+      throw new NotFoundException(apiError('HOUSEHOLD_NOT_FOUND', 'Household not found'));
     }
 
     return household;
@@ -211,10 +200,9 @@ export class ParentFinanceController {
     });
 
     if (!parent) {
-      throw new NotFoundException({
-        code: 'PARENT_NOT_FOUND',
-        message: 'No parent profile found for the current user',
-      });
+      throw new NotFoundException(
+        apiError('PARENT_NOT_FOUND', 'No parent profile found for the current user'),
+      );
     }
 
     // Get all household IDs for this parent's students
@@ -234,10 +222,9 @@ export class ParentFinanceController {
     });
 
     if (!invoice) {
-      throw new ForbiddenException({
-        code: 'INVOICE_ACCESS_DENIED',
-        message: 'Invoice not found or access denied',
-      });
+      throw new ForbiddenException(
+        apiError('INVOICE_ACCESS_DENIED', 'Invoice not found or access denied'),
+      );
     }
   }
 }

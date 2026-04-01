@@ -18,6 +18,7 @@ import { CurrentTenant } from '../../common/decorators/current-tenant.decorator'
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
@@ -170,10 +171,9 @@ export class ParentEventsController {
     });
 
     if (!parent) {
-      throw new NotFoundException({
-        code: 'PARENT_NOT_FOUND',
-        message: 'No parent profile found for the current user',
-      });
+      throw new NotFoundException(
+        apiError('PARENT_NOT_FOUND', 'No parent profile found for the current user'),
+      );
     }
 
     const links = await this.prisma.studentParent.findMany({
@@ -194,10 +194,9 @@ export class ParentEventsController {
     });
 
     if (!parent) {
-      throw new NotFoundException({
-        code: 'PARENT_NOT_FOUND',
-        message: 'No parent profile found for the current user',
-      });
+      throw new NotFoundException(
+        apiError('PARENT_NOT_FOUND', 'No parent profile found for the current user'),
+      );
     }
 
     const link = await this.prisma.studentParent.findUnique({
@@ -207,10 +206,9 @@ export class ParentEventsController {
     });
 
     if (!link || link.tenant_id !== tenantId) {
-      throw new ForbiddenException({
-        code: 'NOT_LINKED_TO_STUDENT',
-        message: 'You are not linked to this student',
-      });
+      throw new ForbiddenException(
+        apiError('NOT_LINKED_TO_STUDENT', 'You are not linked to this student'),
+      );
     }
   }
 }

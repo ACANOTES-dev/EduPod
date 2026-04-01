@@ -12,6 +12,7 @@ import type { TenantContext, TenantSettingsModuleKey } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -75,10 +76,12 @@ export class SettingsController {
    */
   private assertValidModuleKey(moduleKey: string): asserts moduleKey is TenantSettingsModuleKey {
     if (!VALID_MODULE_KEYS.has(moduleKey)) {
-      throw new BadRequestException({
-        code: 'INVALID_MODULE_KEY',
-        message: `Unknown settings module "${moduleKey}". Valid keys: ${[...VALID_MODULE_KEYS].join(', ')}`,
-      });
+      throw new BadRequestException(
+        apiError(
+          'INVALID_MODULE_KEY',
+          `Unknown settings module "${moduleKey}". Valid keys: ${[...VALID_MODULE_KEYS].join(', ')}`,
+        ),
+      );
     }
   }
 }

@@ -20,7 +20,15 @@ const tenantContext = {
   default_locale: 'en',
   timezone: 'Europe/Dublin',
 };
-const userPayload = { sub: USER_ID, membership_id: 'mem-1', email: 'test@test.com', tenant_id: TENANT_ID, type: 'access' as const, iat: 0, exp: 9999999999 };
+const userPayload = {
+  sub: USER_ID,
+  membership_id: 'mem-1',
+  email: 'test@test.com',
+  tenant_id: TENANT_ID,
+  type: 'access' as const,
+  iat: 0,
+  exp: 9999999999,
+};
 
 const mockService = {
   listCompensation: jest.fn(),
@@ -38,12 +46,12 @@ describe('CompensationController', () => {
 
     const module = await Test.createTestingModule({
       controllers: [CompensationController],
-      providers: [
-        { provide: CompensationService, useValue: mockService },
-      ],
+      providers: [{ provide: CompensationService, useValue: mockService }],
     })
-      .overrideGuard(AuthGuard).useValue({ canActivate: () => true })
-      .overrideGuard(PermissionGuard).useValue({ canActivate: () => true })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get<CompensationController>(CompensationController);
@@ -54,9 +62,17 @@ describe('CompensationController', () => {
       const comps = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
       mockService.listCompensation.mockResolvedValue(comps);
 
-      const result = await controller.list(tenantContext, { page: 1, pageSize: 20, active_only: true });
+      const result = await controller.list(tenantContext, {
+        page: 1,
+        pageSize: 20,
+        active_only: true,
+      });
 
-      expect(mockService.listCompensation).toHaveBeenCalledWith(TENANT_ID, { page: 1, pageSize: 20, active_only: true });
+      expect(mockService.listCompensation).toHaveBeenCalledWith(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        active_only: true,
+      });
       expect(result).toEqual(comps);
     });
   });
@@ -114,8 +130,12 @@ describe('CompensationController', () => {
         BadRequestException,
       );
 
-      await expect(controller.bulkImport(tenantContext, userPayload, undefined)).rejects.toMatchObject({
-        response: expect.objectContaining({ code: 'FILE_REQUIRED' }),
+      await expect(
+        controller.bulkImport(tenantContext, userPayload, undefined),
+      ).rejects.toMatchObject({
+        response: {
+          error: expect.objectContaining({ code: 'FILE_REQUIRED' }),
+        },
       });
 
       expect(mockService.bulkImport).not.toHaveBeenCalled();
@@ -134,7 +154,9 @@ describe('CompensationController', () => {
       );
 
       await expect(controller.bulkImport(tenantContext, userPayload, file)).rejects.toMatchObject({
-        response: expect.objectContaining({ code: 'INVALID_FILE_TYPE' }),
+        response: {
+          error: expect.objectContaining({ code: 'INVALID_FILE_TYPE' }),
+        },
       });
     });
 

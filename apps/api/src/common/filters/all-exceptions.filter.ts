@@ -20,8 +20,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let code = 'INTERNAL_ERROR';
+    let details: unknown;
     let message = 'An unexpected error occurred';
-    let details: Record<string, unknown> | undefined;
 
     if (!(exception instanceof HttpException)) {
       const err = exception instanceof Error ? exception : new Error(String(exception));
@@ -35,15 +35,25 @@ export class AllExceptionsFilter implements ExceptionFilter {
       if (typeof exceptionResponse === 'string') {
         message = exceptionResponse;
         code = this.getCodeFromStatus(status);
-      } else if (typeof exceptionResponse === 'object') {
+      } else if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
         const resp = exceptionResponse as Record<string, unknown>;
-        // Handle nested error objects: { error: { code, message, details } }
-        const errorObj = (resp['error'] && typeof resp['error'] === 'object')
-          ? resp['error'] as Record<string, unknown>
-          : resp;
-        message = (errorObj['message'] as string) || message;
-        code = (errorObj['code'] as string) || this.getCodeFromStatus(status);
-        details = (errorObj['details'] as Record<string, unknown>) ?? (resp['details'] as Record<string, unknown> | undefined);
+        const nestedError = resp['error'];
+        const errorObj =
+          typeof nestedError === 'object' && nestedError !== null
+            ? (nestedError as Record<string, unknown>)
+            : resp;
+
+        if (typeof errorObj['message'] === 'string') {
+          message = errorObj['message'];
+        }
+
+        if (typeof errorObj['code'] === 'string') {
+          code = errorObj['code'];
+        } else {
+          code = this.getCodeFromStatus(status);
+        }
+
+        details = errorObj['details'] ?? resp['details'];
       } else {
         code = this.getCodeFromStatus(status);
       }
@@ -53,22 +63,31 @@ export class AllExceptionsFilter implements ExceptionFilter {
       error: {
         code,
         message,
-        ...(details && { details }),
+        ...(details !== undefined && { details }),
       },
     });
   }
 
   private getCodeFromStatus(status: number): string {
     switch (status) {
-      case 400: return 'BAD_REQUEST';
-      case 401: return 'UNAUTHORIZED';
-      case 403: return 'FORBIDDEN';
-      case 404: return 'NOT_FOUND';
-      case 409: return 'CONFLICT';
-      case 422: return 'VALIDATION_ERROR';
-      case 429: return 'RATE_LIMITED';
-      case 501: return 'NOT_IMPLEMENTED';
-      default: return 'INTERNAL_ERROR';
+      case 400:
+        return 'BAD_REQUEST';
+      case 401:
+        return 'UNAUTHORIZED';
+      case 403:
+        return 'FORBIDDEN';
+      case 404:
+        return 'NOT_FOUND';
+      case 409:
+        return 'CONFLICT';
+      case 422:
+        return 'VALIDATION_ERROR';
+      case 429:
+        return 'RATE_LIMITED';
+      case 501:
+        return 'NOT_IMPLEMENTED';
+      default:
+        return 'INTERNAL_ERROR';
     }
   }
 }

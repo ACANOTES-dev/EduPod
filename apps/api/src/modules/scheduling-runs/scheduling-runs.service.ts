@@ -105,22 +105,18 @@ export class SchedulingRunsService {
           mode,
           status: 'queued',
           config_snapshot: configSnapshot,
-          solver_seed: dto.solver_seed !== undefined && dto.solver_seed !== null
-            ? BigInt(dto.solver_seed)
-            : null,
+          solver_seed:
+            dto.solver_seed !== undefined && dto.solver_seed !== null
+              ? BigInt(dto.solver_seed)
+              : null,
           created_by_user_id: userId,
         },
       });
     });
 
-    // TODO: Enqueue the solver job once BullMQ is registered in the API module.
-    // Pattern:
-    //   await this.schedulingQueue.add('scheduling:solve', {
-    //     tenant_id: tenantId,
-    //     run_id: run.id,
-    //     academic_year_id: dto.academic_year_id,
-    //   });
-    // For now, the worker polls for 'queued' runs directly.
+    // Solver dispatch from the API remains tracked in
+    // Manuals/PRE-LAUNCH-CHECKLIST.md (Part 5, item 6). Until that item lands,
+    // the worker polls queued runs directly.
 
     return this.formatRun(run as unknown as Record<string, unknown>);
   }
@@ -305,8 +301,7 @@ export class SchedulingRunsService {
     if (expectedAt !== actualAt) {
       throw new ConflictException({
         code: 'STALE_RUN',
-        message:
-          'The run has been modified since you last loaded it. Reload and try again.',
+        message: 'The run has been modified since you last loaded it. Reload and try again.',
         details: { expected_updated_at: expectedAt, actual_updated_at: actualAt },
       });
     }
@@ -361,8 +356,7 @@ export class SchedulingRunsService {
     if (expectedAt !== actualAt) {
       throw new ConflictException({
         code: 'STALE_RUN',
-        message:
-          'The run has been modified since you last loaded it. Reload and try again.',
+        message: 'The run has been modified since you last loaded it. Reload and try again.',
         details: { expected_updated_at: expectedAt, actual_updated_at: actualAt },
       });
     }
@@ -385,24 +379,26 @@ export class SchedulingRunsService {
   private formatRunPartial(run: Record<string, unknown>): Record<string, unknown> {
     return {
       ...run,
-      solver_seed: run['solver_seed'] !== null && run['solver_seed'] !== undefined
-        ? Number(run['solver_seed'])
-        : null,
-      soft_preference_score: run['soft_preference_score'] !== null
-        ? Number(run['soft_preference_score'])
-        : null,
-      soft_preference_max: run['soft_preference_max'] !== null
-        ? Number(run['soft_preference_max'])
-        : null,
-      created_at: run['created_at'] instanceof Date
-        ? (run['created_at'] as Date).toISOString()
-        : run['created_at'],
-      updated_at: run['updated_at'] instanceof Date
-        ? (run['updated_at'] as Date).toISOString()
-        : run['updated_at'],
-      applied_at: run['applied_at'] instanceof Date
-        ? (run['applied_at'] as Date).toISOString()
-        : run['applied_at'],
+      solver_seed:
+        run['solver_seed'] !== null && run['solver_seed'] !== undefined
+          ? Number(run['solver_seed'])
+          : null,
+      soft_preference_score:
+        run['soft_preference_score'] !== null ? Number(run['soft_preference_score']) : null,
+      soft_preference_max:
+        run['soft_preference_max'] !== null ? Number(run['soft_preference_max']) : null,
+      created_at:
+        run['created_at'] instanceof Date
+          ? (run['created_at'] as Date).toISOString()
+          : run['created_at'],
+      updated_at:
+        run['updated_at'] instanceof Date
+          ? (run['updated_at'] as Date).toISOString()
+          : run['updated_at'],
+      applied_at:
+        run['applied_at'] instanceof Date
+          ? (run['applied_at'] as Date).toISOString()
+          : run['applied_at'],
     };
   }
 

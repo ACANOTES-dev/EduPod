@@ -68,6 +68,7 @@ import { z } from 'zod';
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -91,7 +92,10 @@ const listReducedSchoolDaysQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   student_id: z.string().uuid().optional(),
-  is_active: z.enum(['true', 'false']).transform(v => v === 'true').optional(),
+  is_active: z
+    .enum(['true', 'false'])
+    .transform((v) => v === 'true')
+    .optional(),
 });
 
 type ListReducedSchoolDaysQueryDto = z.infer<typeof listReducedSchoolDaysQuerySchema>;
@@ -320,7 +324,8 @@ export class RegulatoryController {
   @HttpCode(HttpStatus.CREATED)
   async createTuslaMapping(
     @CurrentTenant() tenant: TenantContext,
-    @Body(new ZodValidationPipe(createTuslaAbsenceCodeMappingSchema)) dto: CreateTuslaAbsenceCodeMappingDto,
+    @Body(new ZodValidationPipe(createTuslaAbsenceCodeMappingSchema))
+    dto: CreateTuslaAbsenceCodeMappingDto,
   ) {
     return this.tuslaMappingsService.create(tenant.tenant_id, dto);
   }
@@ -407,7 +412,8 @@ export class RegulatoryController {
   @HttpCode(HttpStatus.CREATED)
   async createDesMapping(
     @CurrentTenant() tenant: TenantContext,
-    @Body(new ZodValidationPipe(createDesSubjectCodeMappingSchema)) dto: CreateDesSubjectCodeMappingDto,
+    @Body(new ZodValidationPipe(createDesSubjectCodeMappingSchema))
+    dto: CreateDesSubjectCodeMappingDto,
   ) {
     return this.desMappingsService.create(tenant.tenant_id, dto);
   }
@@ -750,10 +756,12 @@ export class RegulatoryController {
 
   private validateDesFileType(fileType: string): asserts fileType is DesFileType {
     if (!(DES_FILE_TYPES as readonly string[]).includes(fileType)) {
-      throw new BadRequestException({
-        code: 'INVALID_DES_FILE_TYPE',
-        message: `Invalid DES file type "${fileType}". Must be one of: ${DES_FILE_TYPES.join(', ')}`,
-      });
+      throw new BadRequestException(
+        apiError(
+          'INVALID_DES_FILE_TYPE',
+          `Invalid DES file type "${fileType}". Must be one of: ${DES_FILE_TYPES.join(', ')}`,
+        ),
+      );
     }
   }
 }

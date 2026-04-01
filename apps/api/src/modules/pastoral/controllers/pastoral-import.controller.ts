@@ -21,6 +21,7 @@ import { CurrentTenant } from '../../../common/decorators/current-tenant.decorat
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { ModuleEnabled } from '../../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../../common/decorators/requires-permission.decorator';
+import { apiError } from '../../../common/errors/api-error';
 import { AuthGuard } from '../../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
@@ -52,10 +53,7 @@ export class PastoralImportController {
     @UploadedFile() file: UploadedFileShape | undefined,
   ) {
     if (!file) {
-      throw new BadRequestException({
-        code: 'FILE_REQUIRED',
-        message: 'CSV file is required',
-      });
+      throw new BadRequestException(apiError('FILE_REQUIRED', 'CSV file is required'));
     }
 
     return this.importService.validate(tenant.tenant_id, user.sub, file.buffer);

@@ -37,6 +37,7 @@ import { z } from 'zod';
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -105,12 +106,7 @@ export class GradebookController {
     @Body(new ZodValidationPipe(upsertGradeConfigSchema))
     dto: z.infer<typeof upsertGradeConfigSchema>,
   ) {
-    return this.classGradeConfigsService.upsert(
-      tenant.tenant_id,
-      classId,
-      subjectId,
-      dto,
-    );
+    return this.classGradeConfigsService.upsert(tenant.tenant_id, classId, subjectId, dto);
   }
 
   @Get('gradebook/classes/:classId/grade-configs')
@@ -119,10 +115,7 @@ export class GradebookController {
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('classId', ParseUUIDPipe) classId: string,
   ) {
-    return this.classGradeConfigsService.findByClass(
-      tenant.tenant_id,
-      classId,
-    );
+    return this.classGradeConfigsService.findByClass(tenant.tenant_id, classId);
   }
 
   @Get('gradebook/classes/:classId/subjects/:subjectId/grade-config')
@@ -132,11 +125,7 @@ export class GradebookController {
     @Param('classId', ParseUUIDPipe) classId: string,
     @Param('subjectId', ParseUUIDPipe) subjectId: string,
   ) {
-    return this.classGradeConfigsService.findOne(
-      tenant.tenant_id,
-      classId,
-      subjectId,
-    );
+    return this.classGradeConfigsService.findOne(tenant.tenant_id, classId, subjectId);
   }
 
   @Delete('gradebook/classes/:classId/subjects/:subjectId/grade-config')
@@ -146,11 +135,7 @@ export class GradebookController {
     @Param('classId', ParseUUIDPipe) classId: string,
     @Param('subjectId', ParseUUIDPipe) subjectId: string,
   ) {
-    return this.classGradeConfigsService.delete(
-      tenant.tenant_id,
-      classId,
-      subjectId,
-    );
+    return this.classGradeConfigsService.delete(tenant.tenant_id, classId, subjectId);
   }
 
   // ─── Assessments ────────────────────────────────────────────────────────
@@ -175,10 +160,7 @@ export class GradebookController {
     @Query(new ZodValidationPipe(listAssessmentsQuerySchema))
     query: z.infer<typeof listAssessmentsQuerySchema>,
   ) {
-    const { permissions, staffProfileId } = await this.getUserContext(
-      user,
-      tenant.tenant_id,
-    );
+    const { permissions, staffProfileId } = await this.getUserContext(user, tenant.tenant_id);
     const hasManage = permissions.includes('gradebook.manage');
 
     // If user has enter_grades but NOT manage, filter to their assigned classes
@@ -248,12 +230,7 @@ export class GradebookController {
     @Body(new ZodValidationPipe(bulkUpsertGradesSchema))
     dto: z.infer<typeof bulkUpsertGradesSchema>,
   ) {
-    return this.gradesService.bulkUpsert(
-      tenant.tenant_id,
-      assessmentId,
-      user.sub,
-      dto,
-    );
+    return this.gradesService.bulkUpsert(tenant.tenant_id, assessmentId, user.sub, dto);
   }
 
   @Get('gradebook/assessments/:assessmentId/grades')
@@ -335,10 +312,7 @@ export class GradebookController {
           select: { id: true, name: true },
         },
       },
-      orderBy: [
-        { academic_period: { start_date: 'desc' } },
-        { subject: { name: 'asc' } },
-      ],
+      orderBy: [{ academic_period: { start_date: 'desc' } }, { subject: { name: 'asc' } }],
     });
 
     return { data };
@@ -359,10 +333,9 @@ export class GradebookController {
     });
 
     if (!snapshot) {
-      throw new NotFoundException({
-        code: 'PERIOD_GRADE_NOT_FOUND',
-        message: `Period grade snapshot with id "${id}" not found`,
-      });
+      throw new NotFoundException(
+        apiError('PERIOD_GRADE_NOT_FOUND', `Period grade snapshot with id "${id}" not found`),
+      );
     }
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenant.tenant_id });
@@ -389,11 +362,7 @@ export class GradebookController {
     @Param('classId', ParseUUIDPipe) classId: string,
     @Query('academic_period_id', ParseUUIDPipe) academicPeriodId: string,
   ) {
-    return this.resultsMatrixService.getMatrix(
-      tenant.tenant_id,
-      classId,
-      academicPeriodId,
-    );
+    return this.resultsMatrixService.getMatrix(tenant.tenant_id, classId, academicPeriodId);
   }
 
   @Put('gradebook/classes/:classId/results-matrix')
@@ -405,12 +374,7 @@ export class GradebookController {
     @Body(new ZodValidationPipe(saveResultsMatrixSchema))
     dto: z.infer<typeof saveResultsMatrixSchema>,
   ) {
-    return this.resultsMatrixService.saveMatrix(
-      tenant.tenant_id,
-      classId,
-      user.sub,
-      dto.grades,
-    );
+    return this.resultsMatrixService.saveMatrix(tenant.tenant_id, classId, user.sub, dto.grades);
   }
 
   // ─── Year Group Grade Weights ───────────────────────────────────────────
@@ -431,10 +395,7 @@ export class GradebookController {
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('yearGroupId', ParseUUIDPipe) yearGroupId: string,
   ) {
-    return this.yearGroupGradeWeightsService.findByYearGroup(
-      tenant.tenant_id,
-      yearGroupId,
-    );
+    return this.yearGroupGradeWeightsService.findByYearGroup(tenant.tenant_id, yearGroupId);
   }
 
   @Post('gradebook/year-group-weights/copy')
@@ -445,10 +406,7 @@ export class GradebookController {
     @Body(new ZodValidationPipe(copyYearGroupGradeWeightsSchema))
     dto: z.infer<typeof copyYearGroupGradeWeightsSchema>,
   ) {
-    return this.yearGroupGradeWeightsService.copyFromYearGroup(
-      tenant.tenant_id,
-      dto,
-    );
+    return this.yearGroupGradeWeightsService.copyFromYearGroup(tenant.tenant_id, dto);
   }
 
   // ─── Import ─────────────────────────────────────────────────────────────
@@ -460,11 +418,7 @@ export class GradebookController {
     @Query('class_id') classId?: string,
     @Query('academic_period_id') periodId?: string,
   ) {
-    return this.bulkImportService.generateTemplate(
-      tenant.tenant_id,
-      classId,
-      periodId,
-    );
+    return this.bulkImportService.generateTemplate(tenant.tenant_id, classId, periodId);
   }
 
   @Post('gradebook/import/validate')
@@ -475,10 +429,7 @@ export class GradebookController {
     @UploadedFile() file: UploadedFileShape | undefined,
   ) {
     if (!file) {
-      throw new BadRequestException({
-        code: 'EMPTY_FILE',
-        message: 'No file uploaded',
-      });
+      throw new BadRequestException(apiError('EMPTY_FILE', 'No file uploaded'));
     }
 
     // Support both CSV and XLSX
@@ -498,11 +449,7 @@ export class GradebookController {
     @Body(new ZodValidationPipe(importProcessSchema))
     dto: z.infer<typeof importProcessSchema>,
   ) {
-    return this.bulkImportService.processImport(
-      tenant.tenant_id,
-      user.sub,
-      dto.rows,
-    );
+    return this.bulkImportService.processImport(tenant.tenant_id, user.sub, dto.rows);
   }
 
   // ─── Private Helpers ────────────────────────────────────────────────────

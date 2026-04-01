@@ -35,6 +35,7 @@ import { CurrentTenant } from '../../common/decorators/current-tenant.decorator'
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
@@ -81,11 +82,15 @@ const exceptionsQuerySchema = z.object({
 });
 
 const uploadTemplateQuerySchema = z.object({
-  session_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'session_date must be in YYYY-MM-DD format'),
+  session_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'session_date must be in YYYY-MM-DD format'),
 });
 
 const uploadBodySchema = z.object({
-  session_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'session_date must be in YYYY-MM-DD format'),
+  session_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'session_date must be in YYYY-MM-DD format'),
 });
 
 const listPatternAlertsQuerySchema = z.object({
@@ -105,7 +110,9 @@ interface UploadedFileShape {
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 const scanBodySchema = z.object({
-  session_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'session_date must be in YYYY-MM-DD format'),
+  session_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'session_date must be in YYYY-MM-DD format'),
 });
 
 @Controller('v1')
@@ -132,10 +139,7 @@ export class AttendanceController {
     @Body(new ZodValidationPipe(createAttendanceSessionSchema))
     dto: z.infer<typeof createAttendanceSessionSchema>,
   ) {
-    const { permissions, staffProfileId } = await this.getUserContext(
-      user,
-      tenant.tenant_id,
-    );
+    const { permissions, staffProfileId } = await this.getUserContext(user, tenant.tenant_id);
 
     return this.attendanceService.createSession(
       tenant.tenant_id,
@@ -155,10 +159,7 @@ export class AttendanceController {
     query: z.infer<typeof listSessionsQuerySchema>,
   ) {
     // Check if user is teacher-only (has attendance.take but not attendance.manage)
-    const { permissions, staffProfileId } = await this.getUserContext(
-      user,
-      tenant.tenant_id,
-    );
+    const { permissions, staffProfileId } = await this.getUserContext(user, tenant.tenant_id);
     const hasManage = permissions.includes('attendance.manage');
 
     return this.attendanceService.findAllSessions(
@@ -197,12 +198,7 @@ export class AttendanceController {
     @Body(new ZodValidationPipe(saveAttendanceRecordsSchema))
     dto: z.infer<typeof saveAttendanceRecordsSchema>,
   ) {
-    return this.attendanceService.saveRecords(
-      tenant.tenant_id,
-      sessionId,
-      user.sub,
-      dto,
-    );
+    return this.attendanceService.saveRecords(tenant.tenant_id, sessionId, user.sub, dto);
   }
 
   @Patch('attendance-sessions/:sessionId/submit')
@@ -212,11 +208,7 @@ export class AttendanceController {
     @CurrentUser() user: JwtPayload,
     @Param('sessionId', ParseUUIDPipe) sessionId: string,
   ) {
-    return this.attendanceService.submitSession(
-      tenant.tenant_id,
-      sessionId,
-      user.sub,
-    );
+    return this.attendanceService.submitSession(tenant.tenant_id, sessionId, user.sub);
   }
 
   @Patch('attendance-records/:id/amend')
@@ -228,12 +220,7 @@ export class AttendanceController {
     @Body(new ZodValidationPipe(amendAttendanceRecordSchema))
     dto: z.infer<typeof amendAttendanceRecordSchema>,
   ) {
-    return this.attendanceService.amendRecord(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.attendanceService.amendRecord(tenant.tenant_id, id, user.sub, dto);
   }
 
   // ─── Daily Summaries ────────────────────────────────────────────────────
@@ -256,11 +243,7 @@ export class AttendanceController {
     @Query(new ZodValidationPipe(dateRangeQuerySchema))
     query: z.infer<typeof dateRangeQuerySchema>,
   ) {
-    return this.dailySummaryService.findForStudent(
-      tenant.tenant_id,
-      studentId,
-      query,
-    );
+    return this.dailySummaryService.findForStudent(tenant.tenant_id, studentId, query);
   }
 
   // ─── Exceptions ─────────────────────────────────────────────────────────
@@ -327,10 +310,7 @@ export class AttendanceController {
     body: z.infer<typeof uploadBodySchema>,
   ) {
     if (!file) {
-      throw new BadRequestException({
-        code: 'FILE_REQUIRED',
-        message: 'A file must be uploaded',
-      });
+      throw new BadRequestException(apiError('FILE_REQUIRED', 'A file must be uploaded'));
     }
 
     const ext = file.originalname.toLowerCase().split('.').pop();
@@ -343,17 +323,13 @@ export class AttendanceController {
       file.mimetype.includes('excel');
 
     if (!isValidType) {
-      throw new BadRequestException({
-        code: 'INVALID_FILE_TYPE',
-        message: 'Only CSV (.csv) and Excel (.xlsx, .xls) files are accepted',
-      });
+      throw new BadRequestException(
+        apiError('INVALID_FILE_TYPE', 'Only CSV (.csv) and Excel (.xlsx, .xls) files are accepted'),
+      );
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      throw new BadRequestException({
-        code: 'FILE_TOO_LARGE',
-        message: 'File size must not exceed 10MB',
-      });
+      throw new BadRequestException(apiError('FILE_TOO_LARGE', 'File size must not exceed 10MB'));
     }
 
     return this.attendanceUploadService.processUpload(
@@ -411,11 +387,7 @@ export class AttendanceController {
     @Body(new ZodValidationPipe(uploadUndoSchema))
     body: z.infer<typeof uploadUndoSchema>,
   ) {
-    return this.attendanceUploadService.undoUpload(
-      tenant.tenant_id,
-      user.sub,
-      body.batch_id,
-    );
+    return this.attendanceUploadService.undoUpload(tenant.tenant_id, user.sub, body.batch_id);
   }
 
   // ─── AI Scan ────────────────────────────────────────────────────────────
@@ -446,8 +418,7 @@ export class AttendanceController {
       throw new BadRequestException({
         error: {
           code: 'INVALID_FILE_TYPE',
-          message:
-            'Only image files are accepted (JPEG, PNG, GIF, WebP)',
+          message: 'Only image files are accepted (JPEG, PNG, GIF, WebP)',
         },
       });
     }
@@ -508,11 +479,7 @@ export class AttendanceController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.attendancePatternService.acknowledgeAlert(
-      tenant.tenant_id,
-      id,
-      user.sub,
-    );
+    return this.attendancePatternService.acknowledgeAlert(tenant.tenant_id, id, user.sub);
   }
 
   @Patch('attendance/pattern-alerts/:id/resolve')
@@ -531,10 +498,7 @@ export class AttendanceController {
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.attendancePatternService.notifyParentManual(
-      tenant.tenant_id,
-      id,
-    );
+    return this.attendancePatternService.notifyParentManual(tenant.tenant_id, id);
   }
 
   // ─── Private Helpers ────────────────────────────────────────────────────
