@@ -31,6 +31,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @school/prisma exec prisma generate
 
+      - name: Verify worker processor specs
+        run: pnpm check:worker-processor-specs
+
       - name: Lint
         run: pnpm -r run lint
 
