@@ -13,6 +13,7 @@ import { StaffAssignment } from '../_components/staff-assignment';
 import { RecordHub } from '@/components/record-hub';
 import { apiClient } from '@/lib/api-client';
 
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ClassDetail {

@@ -24,6 +24,7 @@ import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {
     minimumFractionDigits: 2,

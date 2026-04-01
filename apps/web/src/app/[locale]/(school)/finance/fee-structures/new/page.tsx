@@ -11,6 +11,7 @@ import { FeeStructureForm, type FeeStructureFormValues } from '../_components/fe
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+
 export default function NewFeeStructurePage() {
   const t = useTranslations('finance');
   const tc = useTranslations('common');

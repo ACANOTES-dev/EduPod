@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 
 import { Badge, Button, Input, Textarea } from '@school/ui';
 
+
 import type {
   ExclusionDetail,
   HearingAttendee,

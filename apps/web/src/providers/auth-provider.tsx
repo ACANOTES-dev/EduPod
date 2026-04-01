@@ -61,14 +61,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /* ---- Fetch full user profile with memberships ---- */
   const fetchMe = React.useCallback(async (): Promise<AuthUser | null> => {
     try {
-      const me = await apiClient<{ data: { user: AuthUser; memberships: Array<{
-        id: string;
-        tenant_id: string;
-        tenant_name: string;
-        tenant_slug: string;
-        membership_status: string;
-        roles: Array<{ role_id: string; role_key: string; display_name: string }>;
-      }> } }>('/api/v1/auth/me');
+      const me = await apiClient<{
+        data: {
+          user: AuthUser;
+          memberships: Array<{
+            id: string;
+            tenant_id: string;
+            tenant_name: string;
+            tenant_slug: string;
+            membership_status: string;
+            roles: Array<{ role_id: string; role_key: string; display_name: string }>;
+          }>;
+        };
+      }>('/api/v1/auth/me');
       if (me?.data) {
         const fullUser: AuthUser = {
           ...me.data.user,
@@ -77,7 +82,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             tenant_id: m.tenant_id,
             membership_status: m.membership_status,
             tenant: { id: m.tenant_id, name: m.tenant_name, slug: m.tenant_slug },
-            roles: m.roles.map((r) => ({ id: r.role_id, role_key: r.role_key, display_name: r.display_name })),
+            roles: m.roles.map((r) => ({
+              id: r.role_id,
+              role_key: r.role_key,
+              display_name: r.display_name,
+            })),
           })),
         };
         return fullUser;
@@ -93,10 +102,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     async function bootstrap() {
       try {
-        const data = await apiClient<{ data: { access_token: string } }>(
-          '/api/v1/auth/refresh',
-          { method: 'POST', skipAuth: true },
-        );
+        const data = await apiClient<{ data: { access_token: string } }>('/api/v1/auth/refresh', {
+          method: 'POST',
+          skipAuth: true,
+        });
         if (!cancelled && data?.data?.access_token) {
           setAccessToken(data.data.access_token);
           const fullUser = await fetchMe();
@@ -166,8 +175,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = React.useCallback(async () => {
     try {
       await apiClient('/api/v1/auth/logout', { method: 'POST' });
-    } catch {
-      // best-effort
+    } catch (err) {
+      console.error('[logout]', err);
     } finally {
       setAccessToken(null);
       setUser(null);
@@ -175,24 +184,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /* ---- Switch tenant ---- */
-  const switchTenant = React.useCallback(async (tenantId: string) => {
-    try {
-      const data = await apiClient<{ data: { access_token: string } }>(
-        '/api/v1/auth/switch-tenant',
-        {
-          method: 'POST',
-          body: JSON.stringify({ tenant_id: tenantId }),
-        },
-      );
-      if (data?.data?.access_token) {
-        setAccessToken(data.data.access_token);
-        const fullUser = await fetchMe();
-        setUser(fullUser);
+  const switchTenant = React.useCallback(
+    async (tenantId: string) => {
+      try {
+        const data = await apiClient<{ data: { access_token: string } }>(
+          '/api/v1/auth/switch-tenant',
+          {
+            method: 'POST',
+            body: JSON.stringify({ tenant_id: tenantId }),
+          },
+        );
+        if (data?.data?.access_token) {
+          setAccessToken(data.data.access_token);
+          const fullUser = await fetchMe();
+          setUser(fullUser);
+        }
+      } catch (err: unknown) {
+        console.error('Failed to switch tenant:', err);
       }
-    } catch (err: unknown) {
-      console.error('Failed to switch tenant:', err);
-    }
-  }, [fetchMe]);
+    },
+    [fetchMe],
+  );
 
   /* ---- Refresh user ---- */
   const refreshUser = React.useCallback(async () => {

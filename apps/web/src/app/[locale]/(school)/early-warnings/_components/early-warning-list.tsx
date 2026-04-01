@@ -22,6 +22,7 @@ import { apiClient } from '@/lib/api-client';
 import type { RiskProfileListItem, RiskProfileListResponse } from '@/lib/early-warning';
 import { TIER_ORDER } from '@/lib/early-warning';
 
+
 const PAGE_SIZE = 20;
 
 interface YearGroupOption {

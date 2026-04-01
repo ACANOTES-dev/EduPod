@@ -12,6 +12,7 @@ import { CohortHeatmap } from './_components/cohort-heatmap';
 
 import { PageHeader } from '@/components/page-header';
 
+
 export default function CohortPage() {
   const t = useTranslations('early_warning');
   const pathname = usePathname();

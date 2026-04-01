@@ -16,6 +16,7 @@ import {
   toast,
 } from '@school/ui';
 
+
 import { DomainScoreBars } from './domain-score-bars';
 import { RiskTierBadge } from './risk-tier-badge';
 import { SignalBreakdown } from './signal-breakdown';

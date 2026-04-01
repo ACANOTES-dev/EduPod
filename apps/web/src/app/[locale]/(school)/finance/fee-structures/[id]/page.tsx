@@ -13,6 +13,7 @@ import { FeeStructureForm, type FeeStructureFormValues } from '../_components/fe
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+
 interface FeeStructureDetail {
   id: string;
   name: string;

@@ -20,6 +20,7 @@ import { EventStatusBadge } from '../../_components/event-status-badge';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+
 // ─── Mini-calendar helpers ─────────────────────────────────────────────────────
 
 function getDaysInMonth(year: number, month: number): number {

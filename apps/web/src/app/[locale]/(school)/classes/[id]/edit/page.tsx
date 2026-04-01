@@ -12,6 +12,7 @@ import { ClassForm, type ClassFormValues } from '../../_components/class-form';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+
 interface ClassDetail {
   id: string;
   name: string;

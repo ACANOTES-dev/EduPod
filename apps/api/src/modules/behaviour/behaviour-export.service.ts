@@ -157,6 +157,7 @@ export class BehaviourExportService {
         // 6. Load points from mv_student_behaviour_summary (graceful if MV empty)
         let mvSummary: MvSummaryRow | null = null;
         try {
+          // eslint-disable-next-line school/no-raw-sql-outside-rls -- aggregate query on materialized view within RLS transaction
           const rows = await db.$queryRaw<MvSummaryRow[]>`
             SELECT positive_count, negative_count, neutral_count, total_points, positive_ratio
             FROM mv_student_behaviour_summary

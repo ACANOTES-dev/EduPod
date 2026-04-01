@@ -11,6 +11,7 @@ import { CurrencyDisplay } from '../../_components/currency-display';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
+
 interface AllocationRow {
   invoice_id: string;
   invoice_number: string;

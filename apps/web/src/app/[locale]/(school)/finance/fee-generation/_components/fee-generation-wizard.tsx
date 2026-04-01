@@ -8,6 +8,7 @@ import * as React from 'react';
 import type { FeeGenerationPreview as PreviewData } from '@school/shared';
 import { Button, Checkbox, Input, Label } from '@school/ui';
 
+
 import { CurrencyDisplay } from '../../_components/currency-display';
 
 import { FeeGenerationPreview } from './fee-generation-preview';

@@ -10,6 +10,7 @@ import { StudentForm, type StudentFormData } from '../_components/student-form';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+
 export default function NewStudentPage() {
   const router = useRouter();
 

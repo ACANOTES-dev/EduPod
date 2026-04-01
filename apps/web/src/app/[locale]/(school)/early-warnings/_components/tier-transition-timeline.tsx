@@ -8,6 +8,7 @@ import { RiskTierBadge } from './risk-tier-badge';
 import { TIER_COLORS, type TierTransition } from '@/lib/early-warning';
 import { formatDateTime } from '@/lib/format-date';
 
+
 interface TierTransitionTimelineProps {
   transitions: TierTransition[];
 }

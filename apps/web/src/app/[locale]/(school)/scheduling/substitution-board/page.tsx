@@ -56,8 +56,8 @@ export default function SubstitutionBoardPage() {
       setData(res);
       setLastRefresh(new Date());
       setCountdown(60);
-    } catch {
-      // Keep stale data on error
+    } catch (err) {
+      console.error('[fetchBoard]', err);
     }
   }, []);
 
@@ -90,8 +90,18 @@ export default function SubstitutionBoardPage() {
   const borderColor = dark ? 'border-gray-800' : 'border-gray-200';
 
   const today = data?.today_date
-    ? new Date(data.today_date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-    : new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    ? new Date(data.today_date).toLocaleDateString(undefined, {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+    : new Date().toLocaleDateString(undefined, {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
 
   return (
     <div className={`min-h-screen ${bg} transition-colors duration-300`}>
@@ -101,7 +111,11 @@ export default function SubstitutionBoardPage() {
           <div className="flex items-center gap-4">
             {data?.school_logo_url && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={data.school_logo_url} alt="School logo" className="h-10 w-auto object-contain" />
+              <img
+                src={data.school_logo_url}
+                alt="School logo"
+                className="h-10 w-auto object-contain"
+              />
             )}
             <div>
               <p className="text-sm font-semibold">{data?.school_name ?? t('schoolName')}</p>
@@ -143,35 +157,57 @@ export default function SubstitutionBoardPage() {
             <table className="w-full">
               <thead>
                 <tr className={`border-b ${borderColor} ${headerBg}`}>
-                  {[t('period'), t('absentTeacher'), t('substitute'), t('subject'), t('class'), t('room'), t('statusCol')].map((h) => (
-                    <th key={h} className={`px-6 py-4 text-start text-base font-semibold ${mutedText} uppercase tracking-wide`}>{h}</th>
+                  {[
+                    t('period'),
+                    t('absentTeacher'),
+                    t('substitute'),
+                    t('subject'),
+                    t('class'),
+                    t('room'),
+                    t('statusCol'),
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className={`px-6 py-4 text-start text-base font-semibold ${mutedText} uppercase tracking-wide`}
+                    >
+                      {h}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {[...data.slots].sort((a, b) => a.period_order - b.period_order).map((slot, i) => (
-                  <tr key={i} className={`border-b ${borderColor} last:border-b-0 ${rowHover} transition-colors`}>
-                    <td className="px-6 py-5 text-xl font-bold">{slot.period_name}</td>
-                    <td className="px-6 py-5 text-lg text-red-400">{slot.absent_teacher_name}</td>
-                    <td className="px-6 py-5 text-lg font-semibold text-green-400">
-                      {slot.substitute_name ?? (
-                        <span className="text-yellow-400">{t('tbd')}</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-5 text-lg">{slot.subject_name}</td>
-                    <td className="px-6 py-5 text-lg">{slot.class_name}</td>
-                    <td className="px-6 py-5 text-lg">{slot.room_name ?? '—'}</td>
-                    <td className="px-6 py-5">
-                      <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${
-                        slot.status === 'confirmed' ? 'bg-green-900/50 text-green-300' :
-                        slot.status === 'assigned' ? 'bg-blue-900/50 text-blue-300' :
-                        'bg-yellow-900/50 text-yellow-300'
-                      }`}>
-                        {slot.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {[...data.slots]
+                  .sort((a, b) => a.period_order - b.period_order)
+                  .map((slot, i) => (
+                    <tr
+                      key={i}
+                      className={`border-b ${borderColor} last:border-b-0 ${rowHover} transition-colors`}
+                    >
+                      <td className="px-6 py-5 text-xl font-bold">{slot.period_name}</td>
+                      <td className="px-6 py-5 text-lg text-red-400">{slot.absent_teacher_name}</td>
+                      <td className="px-6 py-5 text-lg font-semibold text-green-400">
+                        {slot.substitute_name ?? (
+                          <span className="text-yellow-400">{t('tbd')}</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-5 text-lg">{slot.subject_name}</td>
+                      <td className="px-6 py-5 text-lg">{slot.class_name}</td>
+                      <td className="px-6 py-5 text-lg">{slot.room_name ?? '—'}</td>
+                      <td className="px-6 py-5">
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${
+                            slot.status === 'confirmed'
+                              ? 'bg-green-900/50 text-green-300'
+                              : slot.status === 'assigned'
+                                ? 'bg-blue-900/50 text-blue-300'
+                                : 'bg-yellow-900/50 text-yellow-300'
+                          }`}
+                        >
+                          {slot.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           )}
@@ -186,26 +222,42 @@ export default function SubstitutionBoardPage() {
                 <thead>
                   <tr className={`border-b ${borderColor} ${headerBg}`}>
                     {[t('date'), t('teacher'), t('coverage'), t('coverageStatus')].map((h) => (
-                      <th key={h} className={`px-6 py-4 text-start text-base font-semibold ${mutedText} uppercase tracking-wide`}>{h}</th>
+                      <th
+                        key={h}
+                        className={`px-6 py-4 text-start text-base font-semibold ${mutedText} uppercase tracking-wide`}
+                      >
+                        {h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {data.upcoming.map((abs, i) => (
-                    <tr key={i} className={`border-b ${borderColor} last:border-b-0 ${rowHover} transition-colors`}>
+                    <tr
+                      key={i}
+                      className={`border-b ${borderColor} last:border-b-0 ${rowHover} transition-colors`}
+                    >
                       <td className="px-6 py-4 text-lg font-medium">
-                        {new Date(abs.absence_date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                        {new Date(abs.absence_date).toLocaleDateString(undefined, {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
                       </td>
                       <td className="px-6 py-4 text-lg">{abs.teacher_name}</td>
-                      <td className="px-6 py-4 text-lg">{abs.full_day ? t('fullDay') : t('partialDay')}</td>
+                      <td className="px-6 py-4 text-lg">
+                        {abs.full_day ? t('fullDay') : t('partialDay')}
+                      </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${
-                          abs.assigned_count >= abs.total_slots
-                            ? 'bg-green-900/50 text-green-300'
-                            : abs.assigned_count > 0
-                            ? 'bg-yellow-900/50 text-yellow-300'
-                            : 'bg-red-900/50 text-red-300'
-                        }`}>
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${
+                            abs.assigned_count >= abs.total_slots
+                              ? 'bg-green-900/50 text-green-300'
+                              : abs.assigned_count > 0
+                                ? 'bg-yellow-900/50 text-yellow-300'
+                                : 'bg-red-900/50 text-red-300'
+                          }`}
+                        >
                           {abs.assigned_count}/{abs.total_slots} {t('covered')}
                         </span>
                       </td>

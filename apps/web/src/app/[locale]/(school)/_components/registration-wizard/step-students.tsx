@@ -19,6 +19,7 @@ import type { StudentFormData, WizardAction, WizardState } from './types';
 
 import { apiClient } from '@/lib/api-client';
 
+
 // ─── Validation ──────────────────────────────────────────────────────────────
 
 export function validateStep2(state: WizardState): boolean {

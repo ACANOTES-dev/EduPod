@@ -7,6 +7,7 @@ import { CurrencyDisplay } from '../../../_components/currency-display';
 import { EntityLink } from '@/components/entity-link';
 import { formatDate } from '@/lib/format-date';
 
+
 interface PaymentAllocation {
   id: string;
   amount: number;

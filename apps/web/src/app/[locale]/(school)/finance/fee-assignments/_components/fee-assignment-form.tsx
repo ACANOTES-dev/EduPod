@@ -18,6 +18,7 @@ import { HouseholdSelector } from '../../_components/household-selector';
 
 import { apiClient } from '@/lib/api-client';
 
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface FeeStructure {

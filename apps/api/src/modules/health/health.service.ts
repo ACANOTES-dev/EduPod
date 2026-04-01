@@ -346,6 +346,7 @@ export class HealthService {
   private async checkPostgresql(): Promise<DependencyCheck> {
     const start = Date.now();
     try {
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- health check ping, not tenant-scoped
       await this.prisma.$queryRaw`SELECT 1`;
       return { status: 'up', latency_ms: Date.now() - start };
     } catch {

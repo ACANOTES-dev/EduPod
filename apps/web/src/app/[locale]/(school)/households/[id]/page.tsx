@@ -34,6 +34,7 @@ import { RecordHub } from '@/components/record-hub';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
+
 interface Invoice {
   id: string;
   invoice_number: string;

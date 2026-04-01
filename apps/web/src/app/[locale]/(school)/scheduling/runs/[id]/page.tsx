@@ -31,6 +31,7 @@ import {
   toast,
 } from '@school/ui';
 
+
 import { CoverTeacherDialog } from './_components/cover-teacher-dialog';
 import { HealthScore, type ValidationResult } from './_components/health-score';
 import { ScheduleGrid, type PeriodSlot, type ScheduleEntry } from './_components/schedule-grid';

@@ -12,6 +12,7 @@ import { StaffForm, type StaffFormValues } from '../../_components/staff-form';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+
 interface StaffDetail {
   id: string;
   staff_number: string | null;

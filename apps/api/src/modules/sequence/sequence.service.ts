@@ -25,6 +25,7 @@ export class SequenceService {
         $queryRaw: (sql: Prisma.Sql) => Promise<unknown[]>;
       };
 
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- SELECT FOR UPDATE sequence lock within RLS transaction
       const rows = (await rawTx.$queryRaw(
         Prisma.sql`SELECT current_value FROM tenant_sequences WHERE tenant_id = ${tenantId}::uuid AND sequence_type = ${sequenceType} FOR UPDATE`,
       )) as Array<{ current_value: bigint }>;
@@ -38,6 +39,7 @@ export class SequenceService {
       const rawExec = db as unknown as {
         $executeRaw: (sql: Prisma.Sql) => Promise<number>;
       };
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- SELECT FOR UPDATE sequence lock within RLS transaction
       await rawExec.$executeRaw(
         Prisma.sql`UPDATE tenant_sequences SET current_value = ${newValue} WHERE tenant_id = ${tenantId}::uuid AND sequence_type = ${sequenceType}`,
       );
@@ -68,6 +70,7 @@ export class SequenceService {
         const ref = this.randomHouseholdRef();
 
         // Check uniqueness within tenant
+        // eslint-disable-next-line school/no-raw-sql-outside-rls -- SELECT FOR UPDATE sequence lock within RLS transaction
         const existing = (await rawTx.$queryRaw(
           Prisma.sql`SELECT 1 FROM households WHERE tenant_id = ${tenantId}::uuid AND household_number = ${ref} LIMIT 1`,
         )) as unknown[];

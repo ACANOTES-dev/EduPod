@@ -20,6 +20,7 @@ import type { FeePreviewResult, RegistrationResult, WizardAction, WizardState } 
 
 import { apiClient } from '@/lib/api-client';
 
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatCurrency(value: number): string {

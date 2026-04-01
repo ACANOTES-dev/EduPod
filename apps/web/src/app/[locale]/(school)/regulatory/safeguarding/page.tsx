@@ -12,6 +12,7 @@ import { RegulatoryNav } from '../_components/regulatory-nav';
 
 import { PageHeader } from '@/components/page-header';
 
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getLocaleFromPathname(pathname: string): string {

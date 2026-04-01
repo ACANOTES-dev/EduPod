@@ -18,6 +18,7 @@ import { RecordHub } from '@/components/record-hub';
 import { apiClient } from '@/lib/api-client';
 import { formatDate, formatDateTime } from '@/lib/format-date';
 
+
 interface Allocation {
   id: string;
   amount?: number;

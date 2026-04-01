@@ -19,6 +19,7 @@ import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+
 export default function ConsentArchivePage() {
   const t = useTranslations('engagement');
   const locale = React.useMemo(

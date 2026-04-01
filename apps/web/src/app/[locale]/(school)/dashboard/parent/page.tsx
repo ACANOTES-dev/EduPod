@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { Button, EmptyState, StatusBadge } from '@school/ui';
 
+
 import { AiInsightCard } from './_components/ai-insight-card';
 import { FinancesTab } from './_components/finances-tab';
 import { GradesTab } from './_components/grades-tab';

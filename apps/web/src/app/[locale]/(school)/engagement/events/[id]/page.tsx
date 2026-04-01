@@ -8,6 +8,7 @@ import * as React from 'react';
 
 import { Button, toast } from '@school/ui';
 
+
 import { CompletionDashboard } from '../../_components/completion-dashboard';
 import {
   EVENT_TYPE_OPTIONS,

@@ -31,6 +31,7 @@ import { EntityLink } from '@/components/entity-link';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+
 interface YearGroup {
   id: string;
   name: string;

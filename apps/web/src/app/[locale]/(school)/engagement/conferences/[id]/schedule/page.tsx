@@ -35,6 +35,7 @@ import { ScheduleGrid } from '../../../_components/schedule-grid';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+
 export default function ConferenceSchedulePage() {
   const params = useParams<{ id: string }>();
   const eventId = params?.id ?? '';

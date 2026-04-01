@@ -6,6 +6,7 @@ import * as React from 'react';
 import type { InvoiceStatus, InstallmentStatus } from '@school/shared';
 import { Button, StatusBadge } from '@school/ui';
 
+
 import { CurrencyDisplay } from '../../../_components/currency-display';
 
 import { InstallmentForm } from './installment-form';

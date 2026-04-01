@@ -6,6 +6,7 @@ import { PromotionWizard } from './_components/promotion-wizard';
 
 import { PageHeader } from '@/components/page-header';
 
+
 export default function PromotionPage() {
   const t = useTranslations('promotion');
 

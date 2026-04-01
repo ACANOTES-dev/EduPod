@@ -7,6 +7,7 @@ import { BehaviourPointsService } from './behaviour-points.service';
 import { BehaviourScopeService } from './behaviour-scope.service';
 import { BehaviourStudentAnalyticsService } from './behaviour-student-analytics.service';
 import { ACTIVE_INCIDENT_FILTER } from './behaviour-students.constants';
+import { mapParentIncidentToDto } from './behaviour-students.helpers';
 
 export type {
   AttendanceCorrelation,

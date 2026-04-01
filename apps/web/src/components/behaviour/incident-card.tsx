@@ -6,6 +6,7 @@ import { IncidentStatusBadge } from './incident-status-badge';
 
 import { formatDateTime } from '@/lib/format-date';
 
+
 export interface IncidentCardData {
   id: string;
   incident_number: string;

@@ -307,14 +307,12 @@ describe('BehaviourStudentsService', () => {
 
   describe('getStudentProfile', () => {
     const setupProfileMocks = () => {
-      mockPrisma.student.findFirst.mockResolvedValue(
-        makeStudent(STUDENT_ID),
-      );
+      mockPrisma.student.findFirst.mockResolvedValue(makeStudent(STUDENT_ID));
       mockPoints.getStudentPoints.mockResolvedValue({ total: 15, fromCache: false });
       mockPrisma.behaviourIncidentParticipant.count
-        .mockResolvedValueOnce(10)  // total incident count
-        .mockResolvedValueOnce(6)   // positive count
-        .mockResolvedValueOnce(4);  // negative count
+        .mockResolvedValueOnce(10) // total incident count
+        .mockResolvedValueOnce(6) // positive count
+        .mockResolvedValueOnce(4); // negative count
     };
 
     it('should return student with points, summary counts', async () => {
@@ -335,18 +333,18 @@ describe('BehaviourStudentsService', () => {
     it('should throw NotFoundException for non-existent student', async () => {
       mockPrisma.student.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getStudentProfile(TENANT_ID, 'non-existent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getStudentProfile(TENANT_ID, 'non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should aggregate positive/negative/total counts correctly', async () => {
       mockPrisma.student.findFirst.mockResolvedValue(makeStudent(STUDENT_ID));
       mockPoints.getStudentPoints.mockResolvedValue({ total: 25, fromCache: true });
       mockPrisma.behaviourIncidentParticipant.count
-        .mockResolvedValueOnce(20)  // total
-        .mockResolvedValueOnce(12)  // positive
-        .mockResolvedValueOnce(8);  // negative
+        .mockResolvedValueOnce(20) // total
+        .mockResolvedValueOnce(12) // positive
+        .mockResolvedValueOnce(8); // negative
 
       const result = await service.getStudentProfile(TENANT_ID, STUDENT_ID);
 
@@ -501,8 +499,8 @@ describe('BehaviourStudentsService', () => {
       mockPrisma.student.findFirst.mockResolvedValue(makeStudent(STUDENT_ID));
       mockPoints.getStudentPoints.mockResolvedValue({ total: 10, fromCache: false });
       mockPrisma.behaviourIncidentParticipant.count
-        .mockResolvedValueOnce(5)  // total
-        .mockResolvedValueOnce(3)  // positive
+        .mockResolvedValueOnce(5) // total
+        .mockResolvedValueOnce(3) // positive
         .mockResolvedValueOnce(2); // negative
 
       const result = await service.getStudentPreview(TENANT_ID, STUDENT_ID);
@@ -542,9 +540,9 @@ describe('BehaviourStudentsService', () => {
 
       // Fallback counts for summary: positive, negative, neutral, points
       mockPrisma.behaviourIncidentParticipant.count
-        .mockResolvedValueOnce(5)   // positive
-        .mockResolvedValueOnce(3)   // negative
-        .mockResolvedValueOnce(1);  // neutral
+        .mockResolvedValueOnce(5) // positive
+        .mockResolvedValueOnce(3) // negative
+        .mockResolvedValueOnce(1); // neutral
       mockPrisma.behaviourIncidentParticipant.aggregate.mockResolvedValue({
         _sum: { points_awarded: 12 },
       });
@@ -605,11 +603,13 @@ describe('BehaviourStudentsService', () => {
 
       expect(result.data.student.id).toBe(STUDENT_ID);
       expect(result.data.incidents).toHaveLength(1);
-      expect(result.data.incidents[0]!.description).toBe(
-        'Your child was involved in an incident',
-      );
+      const firstIncident = result.data.incidents[0] as {
+        description: string;
+        context_notes?: string;
+      };
+      expect(firstIncident.description).toBe('Your child was involved in an incident');
       // Should NOT include raw description or context_notes
-      expect(result.data.incidents[0]!).not.toHaveProperty('context_notes');
+      expect(firstIncident).not.toHaveProperty('context_notes');
 
       // Verify parent_visible filter was applied
       expect(mockPrisma.behaviourIncident.findMany).toHaveBeenCalledWith(

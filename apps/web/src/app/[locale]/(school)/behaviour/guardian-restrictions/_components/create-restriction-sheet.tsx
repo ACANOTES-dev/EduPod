@@ -25,6 +25,7 @@ import {
   Textarea,
 } from '@school/ui';
 
+
 import { RESTRICTION_TYPE_LABELS, RESTRICTION_TYPES } from './restriction-types';
 import type { ParentOption, StudentDetailResponse, StudentOption } from './restriction-types';
 

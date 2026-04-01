@@ -13,6 +13,7 @@ import { EarlyWarningCard } from './_components/early-warning-card';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/providers/auth-provider';
 
+
 interface HouseholdNeedingCompletion {
   id: string;
   household_name: string;

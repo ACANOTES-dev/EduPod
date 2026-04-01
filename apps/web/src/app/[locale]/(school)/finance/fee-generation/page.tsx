@@ -6,6 +6,7 @@ import { FeeGenerationWizard } from './_components/fee-generation-wizard';
 
 import { PageHeader } from '@/components/page-header';
 
+
 export default function FeeGenerationPage() {
   const t = useTranslations('finance');
 

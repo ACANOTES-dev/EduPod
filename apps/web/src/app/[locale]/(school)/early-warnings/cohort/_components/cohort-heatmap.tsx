@@ -11,6 +11,7 @@ import { CohortFilters, type CohortGroupBy } from './cohort-filters';
 import { apiClient } from '@/lib/api-client';
 import { getHeatmapColor, type CohortResponse, type CohortRow } from '@/lib/early-warning';
 
+
 const DOMAIN_KEYS = [
   'avg_attendance',
   'avg_grades',

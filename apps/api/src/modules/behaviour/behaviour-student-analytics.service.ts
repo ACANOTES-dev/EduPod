@@ -62,6 +62,7 @@ export class BehaviourStudentAnalyticsService {
     let fromMv = false;
 
     try {
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- aggregate query on materialized view with tenant filter
       const mvRows = await this.prisma.$queryRaw<MvStudentSummaryRow[]>`
         SELECT positive_count, negative_count, neutral_count, total_points
         FROM mv_student_behaviour_summary

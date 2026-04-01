@@ -8,6 +8,7 @@ import { HomeworkTypeBadge } from './homework-type-badge';
 
 import { formatDate } from '@/lib/format-date';
 
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface HomeworkCardProps {

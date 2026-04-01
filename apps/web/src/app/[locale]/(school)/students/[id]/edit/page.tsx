@@ -10,6 +10,7 @@ import { StudentForm, type StudentFormData } from '../../_components/student-for
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+
 interface StudentDetail {
   id: string;
   first_name: string;

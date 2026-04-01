@@ -27,6 +27,7 @@ import {
   toast,
 } from '@school/ui';
 
+
 import { RegulatoryNav } from '../../_components/regulatory-nav';
 import { SubjectMappingTable } from '../_components/subject-mapping-table';
 import type { SubjectMapping } from '../_components/subject-mapping-table';

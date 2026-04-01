@@ -10,6 +10,7 @@ import { HouseholdForm, type HouseholdFormData } from '../_components/household-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+
 export default function NewHouseholdPage() {
   const router = useRouter();
 

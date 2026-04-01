@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+
 import { SafeguardingSeverityBadge } from './safeguarding-severity-badge';
 import { SafeguardingStatusBadge } from './safeguarding-status-badge';
 import { SlaIndicator } from './sla-indicator';

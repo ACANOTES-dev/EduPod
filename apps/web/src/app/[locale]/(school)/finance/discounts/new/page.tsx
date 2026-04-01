@@ -11,6 +11,7 @@ import { DiscountForm, type DiscountFormValues } from '../_components/discount-f
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+
 export default function NewDiscountPage() {
   const t = useTranslations('finance');
   const tc = useTranslations('common');

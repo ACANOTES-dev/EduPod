@@ -6,6 +6,7 @@ import * as React from 'react';
 import type { InvoiceStatus } from '@school/shared';
 import { Skeleton } from '@school/ui';
 
+
 import { CurrencyDisplay } from '../../_components/currency-display';
 
 import { InvoiceActions } from './_components/invoice-actions';

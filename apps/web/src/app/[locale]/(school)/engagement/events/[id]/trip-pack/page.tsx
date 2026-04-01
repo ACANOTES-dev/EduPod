@@ -21,6 +21,7 @@ import {
 import { PageHeader } from '@/components/page-header';
 import { apiClient, getAccessToken } from '@/lib/api-client';
 
+
 export default function EngagementTripPackPage() {
   const params = useParams<{ id: string }>();
   const eventId = params?.id ?? '';

@@ -20,6 +20,7 @@ import { CurrencyDisplay } from '../../../_components/currency-display';
 
 import { apiClient } from '@/lib/api-client';
 
+
 interface InstallmentRow {
   due_date: string;
   amount: string;

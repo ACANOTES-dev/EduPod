@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 
 import { Badge } from '@school/ui';
 
+
 import type { LinkedIncident } from './intervention-types';
 import { STATUS_COLORS } from './intervention-types';
 

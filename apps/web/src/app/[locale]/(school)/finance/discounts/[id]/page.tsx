@@ -13,6 +13,7 @@ import { DiscountForm, type DiscountFormValues } from '../_components/discount-f
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+
 interface DiscountDetail {
   id: string;
   name: string;

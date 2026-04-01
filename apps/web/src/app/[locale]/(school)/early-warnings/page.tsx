@@ -12,6 +12,7 @@ import { EarlyWarningList } from './_components/early-warning-list';
 
 import { PageHeader } from '@/components/page-header';
 
+
 export default function EarlyWarningsPage() {
   const t = useTranslations('early_warning');
   const pathname = usePathname();
