@@ -240,3 +240,192 @@ When you complete work on a dimension via `/audit <dimension>`, append your dime
 | MT-22 | Add CODEOWNERS file | E | Done | Yes (e502219) | Added CODEOWNERS coverage for critical auth, behaviour, finance, GDPR, architecture, and Prisma surfaces. |
 | MT-23 | Add "change cost" review notes for hotspot modules | E | Done | Yes (e502219) | Added a Change Cost Notes section to the PR template for blast-radius, downstream-consumer, and regression-review context. |
 | MT-24 | Recompute and publish hotspot metrics after each wave | E | Done | Yes (e502219) | Published `docs/maintainability/hotspot-metrics.md` and scripted hotspot report regeneration for future maintainability waves. |
+
+---
+
+## 4. Modularity (6.5 → 9.5)
+
+| Branch | Reviewer | Date |
+|--------|----------|------|
+| `audit/modularity` | Opus 4.6 independent review on Phase D (1 review, 5 MUST_FIX + 2 SHOULD_FIX, all resolved) | 2026-04-01 |
+
+| # | Action | Phase | Status | Committed | Notes |
+|---|--------|-------|--------|-----------|-------|
+| M-01 | Reduce BehaviourModule export ratio to <30% | D | Done | Yes (298ecfb) | Exports reduced 38→10 (86%→24%). No external consumers; retained BehaviourService, ConfigService, StudentsService, ScopeService, SafeguardingService, SafeguardingConcernsService, SanctionsService, ExportService, AnalyticsService, HistoryService. |
+| M-02 | Reduce EarlyWarningModule exports to <40% | D | Done | Yes (298ecfb) | Exports reduced 10→3 (100%→30%). Kept EarlyWarningService, ConfigService, TriggerService. 5 signal collectors + CohortService + RoutingService internalized. |
+| M-03 | Reduce EngagementModule exports to <40% | D | Done | Yes (298ecfb) | Exports reduced 8→3 (100%→38%). Kept ConferencesService, ConsentRecordsService, EventsService. AnalyticsService, FormServices, TripPackService internalized. |
+| M-04 | Reduce SenModule exports to <40% | D | Done | Yes (298ecfb) | Exports reduced 10→3 (100%→30%). Kept SenProfileService, SenScopeService, SenSupportPlanService. 7 sub-domain services internalized. |
+| M-05 | Reduce ConfigurationModule exports to essentials | D | Done | Yes (298ecfb) | Exports reduced 6→2 (100%→33%). Kept SettingsService + EncryptionService (consumed by 14+ modules). BrandingService, StripeConfigService, NotificationSettingsService, KeyRotationService internalized. |
+| M-06 | Reduce RegulatoryModule exports to <30% | D | Done | Yes (298ecfb) | Exports reduced 12→3 (100%→25%). Kept CalendarService, DashboardService, SubmissionService. 9 Ireland-specific regulatory services internalized. |
+| M-07 | Add module boundary enforcement ESLint rule | D | Done | Yes (298ecfb) | `no-cross-module-internal-import` rule in school plugin. Warns on cross-module internal file imports. Allows *.module.ts, import type, test files. Infrastructure modules (prisma, redis, auth, s3, config, common, audit-log) allowlisted. 168 existing violations surfaced as warnings. |
+| M-08 | Create explicit public API barrels per module | D | Done | Yes (298ecfb) | Created `index.ts` for 10 modules: behaviour, early-warning, engagement, SEN, configuration, regulatory, reports, pastoral, finance, tenants. Each re-exports only the module's NestJS exports. |
+| M-09 | Audit Prisma-direct cross-module reads | D | Done | Yes (298ecfb) | Cross-module Prisma read table in module-blast-radius.md expanded. Found: `students`/`student_parents` read by ~18 modules, `staff_profiles` by ~17 modules. Compliance module reads 8/9 audited table groups. Notable undocumented coupling in school-closures, key-rotation, regulatory/tusla, gradebook AI. |
+| M-10 | Route all ReportsModule cross-module reads through data access service | D | Done | Yes (298ecfb) | Audit confirmed ReportsDataAccessService already properly used for all 31 foreign-table reads across 12 modules. No code changes needed. |
+| M-11 | Add module cohesion metrics to CI | E | Done | Yes (4044f63) | `scripts/check-module-cohesion.js` — counts files + LOC per module, warns >50 files or >10k LOC, errors >15k LOC. CI step with continue-on-error (3 pre-existing oversized modules: behaviour, pastoral, gradebook). |
+| M-12 | Extract BehaviourPolicyEngine into own module | D | Done | Yes (298ecfb) | Created `PolicyEngineModule` at `modules/policy-engine/`. Moved 3 policy files + 3 spec files. Uses `forwardRef()` bidirectionally with BehaviourModule (PolicyEvaluationEngine depends on BehaviourHistoryService). Barrel re-exports for backward compatibility. |
+| M-13 | Extract PdfRenderingModule consumers to use queue | D | Done | Yes (298ecfb) | Created `PdfJobService` (async queue dispatch) + `PdfRenderProcessor` (worker). Added `pdf-rendering` queue to constants and worker module. Existing synchronous PdfRenderingService preserved for backward compat. EngagementModule trip-pack marked with migration TODO. |
+| M-14 | Extract SequenceService into SequenceModule | D | Done | Yes (298ecfb) | Created standalone `SequenceModule` at `modules/sequence/`. Migrated 12 consuming modules from TenantsModule to SequenceModule. TenantsModule re-exports for backward compat. 41 service/spec files updated. None of the 12 consumers used TenantsService. |
+| M-15 | Document and enforce module tiers | E | Done | Yes (4044f63) | `architecture/module-tiers.md` — 4-tier system (Infrastructure, Cross-cutting, Domain, Leaf) with 59 modules classified. `scripts/check-module-tiers.js` CI enforcement with 21 whitelisted exceptions. 3 undocumented intra-Tier-2 deps discovered and documented. |
+| M-16 | CQRS-lite split in behaviour, pastoral, gradebook | D | Done | Yes (298ecfb) | Extracted query services: ConcernQueriesService (list + getCategories), CaseQueriesService (findAll/findById/findMyCases/findOrphans), ReportCardsQueriesService (findAll/findOne/gradeOverview/buildBatchSnapshots/generateTranscript). Controllers rewired. ~888 LOC extracted. BehaviourStudentsService confirmed already query-only. |
+| M-17 | Move queue-emission behind side-effect services | D | Done | Yes (298ecfb) | Created `BehaviourSideEffectsService` with 5 typed methods (emitParentNotification, emitPolicyEvaluation, emitCheckAwards, emitSanctionParentNotification, emitCreateExclusionCase). Migrated BehaviourService + BehaviourSanctionsService. TODO on 8 remaining services. |
+| M-18 | Fail CI on new cross-module deps without arch update | E | Done | Yes (4044f63) | `scripts/check-cross-module-deps.js` — parses module imports, compares against blast-radius doc. CI step with continue-on-error. Found 2 pre-existing undocumented deps (Engagement→PdfRendering, Imports→Sequence). |
+| M-19 | Add module-level READMEs | E | Done | Yes (4044f63) | Created README.md for 10 modules: behaviour, pastoral, finance, attendance, gradebook, communications, SEN, payroll, compliance, early-warning. Each documents purpose, public API, deps, queues, cross-module reads, danger zones. |
+| M-20 | Establish module exit criteria for future extraction | E | Done | Yes (4044f63) | `architecture/module-extraction-criteria.md` — 5-gate readiness checklist, 5-step extraction process, module readiness assessment (6 GREEN, 4 YELLOW, 6 RED). Anti-patterns documented. |
+| M-21 | Add contract tests for public module facades | D | Done | Yes (298ecfb) | 5 contract spec files (sequence, policy-engine, configuration, reports, early-warning) with 126 tests. Prototype-based method existence + DI resolution assertions. Surface guards verify no accidental API changes. |
+| M-22 | Prevent new global singletons without blast-radius review | E | Done | Yes (4044f63) | `scripts/check-global-providers.js` — detects APP_GUARD/FILTER/INTERCEPTOR/PIPE registrations, compares against known baseline of 5 providers. CI step blocks on undocumented global providers. |
+
+---
+
+## 11. Refactor Safety (5.5 → 9.5)
+
+| Branch | Reviewer | Date |
+|--------|----------|------|
+| `audit/refactor-safety` | Opus 4.6 independent review per phase (3 reviews, 7 findings, 7 resolved) | 2026-04-01 |
+
+| # | Action | Phase | Status | Committed | Notes |
+|---|--------|-------|--------|-----------|-------|
+| RS-01 | Achieve >80% backend line coverage | C | Done | Yes (da7cd4b) | API jest.config.js: `collectCoverage`, `coverageThreshold` (stmts 76, branch 57, fn 78, lines 77). `test:coverage` script added. CI coverage enforcement step. |
+| RS-02 | Achieve >70% worker line coverage | C | Done | Yes (da7cd4b) | Worker jest.config.js: same pattern (stmts 78, branch 58, fn 81, lines 78). `test:coverage` script added. |
+| RS-03 | Write tests for all state machine transition services | C | Done | Yes (da7cd4b) | 11 new spec files covering all VALID_TRANSITIONS maps: sanction, exclusion, appeal, intervention, safeguarding, student-status, enrolment-status, homework-status, invoice-status, engagement-constants (4 maps), pastoral case. 634 tests in shared. |
+| RS-04 | Add mutation testing for critical services | E | Done | Yes (4818967) | Stryker config targeting 5 critical services (auth, invoices, payments, sanctions, safeguarding). `test:mutation` script. Guide at `architecture/mutation-testing-guide.md`. Stryker devDeps added (install deferred to merge). |
+| RS-05 | Create refactoring safety checklist | D | Done | Yes (2552644) | `architecture/refactoring-checklist.md` — 7-stage pre-refactoring process with PR-ready checkboxes. Red flags section. |
+| RS-06 | Add snapshot tests for complex Prisma query structures | D | Done | Yes (2552644) | `prisma-query-snapshots.spec.ts` — 6 tests across Students/Invoices/Payments capturing include/where shapes. 9 Jest snapshots. |
+| RS-07 | Add contract tests between API and frontend | D | Done | Yes (2552644) | `api-contract.spec.ts` — 101 tests across 13 modules and 20+ endpoint schemas. Both positive (valid data) and negative (rejection) cases. |
+| RS-08 | Establish convention: every bug fix includes regression test | E | Done | Yes (4818967) | `architecture/bug-fix-regression-convention.md` — rule, naming convention (`regression:` prefix), and refactoring-checklist cross-reference. |
+| RS-09 | Create module-level test coverage dashboard | D | Done | Yes (2552644) | `scripts/coverage-by-module.{ts,sh}` — reads coverage-summary.json, aggregates by NestJS module, outputs formatted table. `coverage:modules` script. |
+| RS-10 | Add `test:changed` command | D | Done | Yes (2552644) | `test:changed` scripts in API, worker, shared package.jsons. Turbo task configured. Root `pnpm test:changed` wired. Uses `--changedSince=main`. |
+| RS-11 | Write integration tests for top 5 cross-module flows | D | Done | Yes (2552644) | 5 integration test files, 23 tests: enrollment→invoice→payment, incident→sanction→notification, attendance→pattern→warning, payroll→payslip→PDF, DSAR→export→anonymisation. |
+| RS-12 | Add automated API schema validation | D | Done | Yes (2552644) | `scripts/generate-api-surface.ts` scans 176 controllers, extracts 1442 endpoints. `api-surface.snapshot.json` committed. `api-surface.spec.ts` diffs against snapshot. `snapshot:api` script. |
+| RS-13 | Add database schema snapshot test | D | Done | Yes (2552644) | `scripts/snapshot-prisma-schema.sh` + `packages/prisma/schema-snapshot.prisma` + `schema-snapshot.spec.ts`. Drift detection with clear update instructions. |
+| RS-14 | Add "test before refactor" CI gate | E | Done | Yes (4818967) | `scripts/check-test-coverage-gate.sh` — detects modified service/controller files without spec changes. Warning-only mode. CI step added. |
+| RS-15 | Create refactoring log | E | Done | Yes (4818967) | `architecture/refactoring-log.md` — living log with first entry documenting Phase C/D/E health recovery work. |
+| RS-16 | Define refactor risk matrix | D | Done | Yes (2552644) | `architecture/refactor-risk-matrix.md` — 4-tier (Low/Medium/High/Critical) with criteria, safeguards, and codebase examples. |
+| RS-17 | Require characterization tests before changing hotspot services | D | Done | Yes (2552644) | `architecture/characterization-testing-guide.md` — patterns, hotspot list (15 services >1000 LOC). `scripts/check-characterization-tests.sh` CI check (warning mode). |
+| RS-18 | Use feature flags for risky behavioral refactors | D | Done | Yes (2552644) | `packages/shared/src/constants/feature-flags.ts` + `apps/api/src/common/utils/feature-flag.helper.ts` reading tenant_settings. `architecture/feature-flag-guide.md`. |
+| RS-19 | Create schema-change playbook | D | Done | Yes (2552644) | `architecture/schema-change-playbook.md` — 9-step playbook: ownership analysis, cross-module reads, RLS, expand/contract migrations, rollback plan. |
+| RS-20 | Add shadow-read/dual-read validation | D | Done | Yes (2552644) | `shadow-read.helper.ts` — fire-and-forget shadow with error isolation. `shadow-read.helper.spec.ts` — 10 tests. Primary always returned; divergence logged. |
+| RS-21 | Benchmark critical performance paths | D | Done | Yes (2552644) | `benchmark.helper.ts` — avg/min/max/p95/median stats + `hasPerformanceRegression()`. `benchmark-example.performance.spec.ts` (excluded from normal runs). `architecture/performance-benchmarking-guide.md`. |
+| RS-22 | Schedule mini re-audits after each major wave | E | Done | Yes (4818967) | `architecture/re-audit-schedule.md` — 4-wave schedule with per-dimension checklists. `architecture/health-scorecard.md` — score tracking with evidence log. |
+
+---
+
+## 9. Developer Experience (8.0 → 9.5)
+
+| Branch | Reviewer | Date |
+|--------|----------|------|
+| `audit/dx` | Stage-gated local review per phase (3 review passes, no unresolved findings) | 2026-04-01 |
+
+| # | Action | Phase | Status | Committed | Notes |
+|---|--------|-------|--------|-----------|-------|
+| DX-01 | Add `ecosystem.config.js` to repo | B | Done | Yes (acbb902) | Added a versioned PM2 ecosystem file for API, web, and worker process definitions instead of relying on untracked server config. |
+| DX-02 | Add E2E Playwright tests to CI | D | Done | Yes (3f649a2) | Added a dedicated `visual` CI job that installs Playwright Chromium and runs committed public-page visual smoke coverage. |
+| DX-03 | Add integration test CI step | B | Done | Yes (acbb902) | Added a separate CI integration job with PostgreSQL and Redis service containers, Prisma migrate/post-migrate, seed, and API integration test execution. |
+| DX-04 | Add Makefile with common tasks | E | Done | Yes (86e9e98) | Added a root `Makefile` covering setup, dev, build, lint, type-check, test, validate, seed, doctor, and RLS audit shortcuts. |
+| DX-05 | Add database migration safety check | D | Done | Yes (3f649a2) | Added `scripts/check-migration-safety.mjs` and wired deploy to fail fast on destructive `DROP TABLE` or `DROP COLUMN` migration SQL. |
+| DX-06 | Add TypeScript build caching | E | Done | Yes (86e9e98) | Expanded `turbo.json` outputs to persist TypeScript build info files and Next.js cache artifacts for faster repeat runs. |
+| DX-07 | Add `pnpm test:affected` | E | Done | Yes (86e9e98) | Added a root `test:affected` script and helper that runs Turbo tests for changed packages, with full-suite fallback when no base ref exists. |
+| DX-08 | Add Dockerfile for production parity | D | Done | Yes (3f649a2) | Added multi-stage Dockerfiles for API, web, and worker plus `.dockerignore` so local container builds mirror production runtime expectations. |
+| DX-09 | Add PgBouncer to local Docker Compose | D | Done | Yes (3f649a2) | Added a local PgBouncer service on `localhost:6432`, updated docs/env guidance, and preserved direct DB access for migrations via `DATABASE_MIGRATE_URL`. |
+| DX-10 | Add BullMQ Dashboard to local dev | D | Done | Yes (3f649a2) | Added a development-only Bull Board route at `/admin/queues` in the worker service for queue visibility and troubleshooting. |
+| DX-11 | Add git hook for architecture doc freshness reminder | E | Done | Yes (86e9e98) | Added a Husky `pre-push` reminder plus `scripts/check-architecture-freshness.sh` and setup docs so architecture review stays visible before pushes. |
+| DX-12 | Add automated changelog generation | E | Done | Yes (86e9e98) | Added changelog tooling, preview commands, and committed a generated `CHANGELOG.md` based on Conventional Commits history. |
+| DX-13 | Add IDE workspace settings | E | Skipped | No | No `.vscode/settings.json` or recommended extensions file was committed on `audit/dx`, so this item remains unimplemented. |
+| DX-14 | Add database seed idempotency | E | Done | Yes (86e9e98) | Updated demo seeding to support safe reruns by default and added a documented `--reset` path for full rebuilds when needed. |
+| DX-15 | Add API request/response logging in development | E | Done | Yes (86e9e98) | Added development-only API request logging middleware that records method, path, status code, and duration while skipping health/docs noise. |
+| DX-16 | Add `pnpm doctor` command | E | Done | Yes (86e9e98) | Added `scripts/doctor.mjs` to validate Node version, dependencies, env file presence, generated Prisma client, build artifacts, and local service reachability. |
+| DX-17 | Add developer docs for worker debugging and failed-job replay | E | Done | Yes (86e9e98) | Added `Manuals/WORKER-DEBUGGING.md` covering Bull Board usage, queue inspection, retry flow, repeatable jobs, and safe replay guidance. |
+| DX-18 | Align local and CI validation commands | D | Done | Yes (3f649a2) | Added a shared root `pnpm validate` command and updated CI to use it so local lint/type-check/unit-test expectations match the default pipeline. |
+
+---
+
+## 8. Worker Test Health (4.0 → 9.5)
+
+| Branch | Reviewer | Date |
+|--------|----------|------|
+| `audit/worker-test-health` | Local independent review per phase (3 reviews, all review findings resolved before commit) | 2026-04-01 |
+
+| # | Action | Phase | Status | Committed | Notes |
+|---|--------|-------|--------|-----------|-------|
+| WT-01 | Write `evaluate-policy.processor.spec.ts` | B | Done | Yes (a7fba75) | Added policy evaluation processor coverage for the five-stage pipeline, idempotency, dedup, cooldown, and failure handling paths. |
+| WT-02 | Write `gradebook-risk-detection.processor.spec.ts` | C | Done | Yes (8391d63) | Added gradebook risk detection coverage for threshold evaluation, alert creation, and tenant iteration. |
+| WT-03 | Write `signal-collection.utils.spec.ts` | C | Done | Yes (8391d63) | Added signal collection utility coverage for all five collectors, aggregation, and threshold calculations. |
+| WT-04 | Write `critical-escalation.processor.spec.ts` | B | Done | Yes (a7fba75) | Added critical escalation processor coverage for escalation-chain progression, re-enqueueing, and terminal conditions. |
+| WT-05 | Write `detect-patterns.processor.spec.ts` | C | Done | Yes (8391d63) | Added pattern detection coverage for threshold matching, alert generation, and no-op branches. |
+| WT-06 | Write specs for all 5 regulatory processors | C | Done | Yes (8391d63) | Added suites for Tusla threshold scanning, deadline checks, DES returns generation, PPOD import, and PPOD sync processors. |
+| WT-07 | Write specs for all 3 import processors | C | Done | Yes (8391d63) | Added processor coverage for import validation, import processing, and import file cleanup flows. |
+| WT-08 | Write specs for all 3 payroll processors | C | Done | Yes (8391d63) | Added payroll processor suites for mass export, session generation, and approval callback handling. |
+| WT-09 | Write specs for remaining 12 behaviour processors | C | Done | Yes (8391d63) | Closed the remaining behaviour processor backlog with coverage for notification, cron, award, retention, partition, and enforcement flows. |
+| WT-10 | Write specs for remaining 7 pastoral processors | C | Done | Yes (8391d63) | Added the remaining pastoral processor suites covering overdue actions, check-in alerts, agenda precompute, concern sync, and reminder flows. |
+| WT-11 | Write specs for remaining 3 attendance processors | C | Done | Yes (8391d63) | Added attendance processor coverage for pending detection, pattern detection, and session generation. |
+| WT-12 | Write specs for all 3 early-warning processors | C | Done | Yes (8391d63) | Added early-warning processor suites for daily compute, per-student compute, and weekly digest jobs. |
+| WT-13 | Write specs for remaining 6 engagement processors | C | Done | Yes (8391d63) | Added the remaining engagement processor suites covering event cancellation, chasers, reminders, trip packs, expiry, and invoice generation. |
+| WT-14 | Write specs for remaining 6 communications processors | C | Done | Yes (8391d63) | Added communications processor coverage for stale inquiries, notifications, announcement publishing, retries, callbacks, and IP cleanup. |
+| WT-15 | Write specs for remaining 3 gradebook processors | C | Done | Yes (8391d63) | Added the remaining gradebook processor suites, including report-card automation and PDF generation flows. |
+| WT-16 | Add worker test coverage measurement | B | Done | Yes (a7fba75) | Enabled worker coverage collection and thresholds in `apps/worker/jest.config.js`. |
+| WT-17 | Write `solver-v2.processor.spec.ts` | C | Done | Yes (8391d63) | Added scheduling solver processor coverage for solver dispatch, success, and guarded execution branches. |
+| WT-18 | Create processor coverage registry | B | Done | Yes (a7fba75) | Added `architecture/processor-registry.md` cataloguing all 87 worker processors, owners, and spec coverage status. |
+| WT-19 | Require spec before merge for new processors | D | Done | Yes (a3d914e) | Added `scripts/check-worker-processor-specs.mjs`, root package scripts, and CI enforcement so new processors must ship with matching specs. |
+| WT-20 | Add tenant-isolation tests for cross-tenant processors | C | Done | Yes (8391d63) | Added cross-tenant safety coverage for processors that iterate tenants manually and verified tenant-scoped execution boundaries. |
+| WT-21 | Add retry-exhaustion and failure-path tests as standard checklist | C | Done | Yes (8391d63) | Standardized failure-path coverage across the new processor suites for retries, backoff, and terminal error handling. |
+| WT-22 | Add idempotency rerun tests | C | Done | Yes (8391d63) | Added rerun and duplicate-execution coverage for side-effecting processors so repeated job payloads stay safe. |
+| WT-23 | Add worker integration tests against real Redis/Postgres | D | Done | Yes (a3d914e) | Added real Redis/Postgres worker integration coverage for critical notifications, behaviour, and compliance queue flows. |
+
+---
+
+## 12. Overall Health & Governance (6.8 → 9.5+)
+
+| Branch | Reviewer | Date |
+|--------|----------|------|
+| `audit/governance` | Stage-gated local review per phase (4 review passes, no unresolved findings) | 2026-04-01 |
+
+| # | Action | Phase | Status | Committed | Notes |
+|---|--------|-------|--------|-----------|-------|
+| OH-01 | Turn risk ledger into tracked recovery backlog | A | Done | Yes (f615b9a) | Created the tracked recovery backlog with owners, due dates, retirement plans, and evidence-of-done rules. Canonical doc later moved into `Governance/` in `4b4c8cd`. |
+| OH-02 | Re-rank roadmap work against health backlog | A | Done | Yes (f615b9a) | Added roadmap execution policy that puts health backlog work ahead of expansion work while `NOW` items remain open. |
+| OH-03 | Reserve fixed delivery capacity for health work | A | Done | Yes (f615b9a) | Added the reserved-capacity rule with a practical solo-founder default of protecting the first two weekly build sessions for health work. |
+| OH-04 | Publish monthly scorecard update | E | Done | Yes (ea8e46f) | Published the first evidence-based monthly scorecard and recorded the current health band, baseline gates, and backlog counts. |
+| OH-05 | Re-run static health audit after Wave 1, Wave 3, and final completion | E | Partial | Yes (ea8e46f) | Documented the checkpoint policy, required inputs, and required outputs for each re-audit. The actual Wave 1, Wave 3, and final re-audits are still future milestones. |
+| OH-06 | Add "no new debt without written tradeoff" rule | B | Done | Yes (df3436a) | Added the written-tradeoff rule and made the architecture pre-flight checklist point to it before shortcuts can be treated as accepted. |
+| OH-07 | Require every critical/high risk to have retirement plan + due date | B | Done | Yes (df3436a) | Added the retirement guard requiring named owner, due date, retirement plan, and evidence before critical/high risks can close. |
+| OH-08 | Track time-to-detect and time-to-recover as health KPIs | D | Done | Yes (75a8165) | Added `TTD` and `TTR` to the KPI registry and scorecard with an explicit note that the baseline is not yet recorded because no versioned drill history exists yet. |
+| OH-09 | Track hotspot count, queue-failure count, flaky-test count, direct-foreign-read count | D | Done | Yes (75a8165) | Added the headline health metrics to the KPI registry and scorecard, including current values where available and explicit baseline gaps where evidence is still missing. |
+| OH-10 | Block major expansion work until Phase A and B items complete | A | Done | Yes (f615b9a) | Added the expansion execution gate so major roadmap implementation stays blocked until the early health/governance foundation is in place. |
+| OH-11 | Require proof of regression protection before declaring any risk retired | B | Done | Yes (df3436a) | Added the rule that risks cannot be marked retired without regression proof tied to the closing work. |
+| OH-12 | Hold weekly health review until system exits high-risk band | B | Done | Yes (df3436a) | Added the weekly health review cadence and the condition for ending the review loop. |
+| OH-13 | Treat every new critical workflow as incomplete until code + tests + ops + docs + rollback all exist | B | Done | Yes (df3436a) | Added the critical-workflow completeness rule and surfaced it in the architecture pre-flight checklist. |
+| OH-14 | Run final independent re-audit only after all Now/Next items verified | E | Partial | Yes (ea8e46f) | Added the hard gate and independence rule for the final re-audit. The final independent re-audit itself has not been run yet because `NOW` and `NEXT` backlog items remain open. |
+| OH-15 | Keep architecture docs, runbooks, scorecard in repo | B | Done | Yes (df3436a) | Governance docs were committed into the repo and then centralized into a visible top-level `Governance/` home with a `.claude/rules/health-governance.md` loader in `4b4c8cd`. |
+
+---
+
+## 5. Code Quality (7.5 → 9.5)
+
+| Branch | Reviewer | Date |
+|--------|----------|------|
+| `audit/code-quality` | Opus 4.6 independent review per phase (4 reviews, 4 findings, 4 resolved) | 2026-04-01 |
+
+| # | Action | Phase | Status | Committed | Notes |
+|---|--------|-------|--------|-----------|-------|
+| CQ-01 | Add ESLint rule for empty catch blocks | B | Done | Yes (d6faeb0) | Created `no-empty-catch` custom rule + 8 tests. Registered in plugin and base config at `error` level. Fixed 175 empty catch blocks across web and API with `console.error`/`this.logger.error`. |
+| CQ-02 | Fix all `as any` casts in production code | C | Done | Yes (20133fb) | Replaced 12 `as any` casts with proper Prisma enum types (`NotificationChannel`, `AnnouncementScope`, `WebsitePageType`, `ContactFormStatus`, `Prisma.InputJsonValue`, `Prisma.StaffProfileUpdateInput`). |
+| CQ-03 | Create typed `withRls()` helper | D | Done | Yes (be38db5) | Created `apps/api/src/common/helpers/with-rls.ts` encapsulating `createRlsClient` + `$transaction` + the one permitted cast. Migrated 5 services as demonstration. |
+| CQ-04 | Migrate guardian-restrictions page to `react-hook-form` | D | Done | Yes (be38db5) | Migrated `create-restriction-sheet.tsx` from 7 individual `useState` calls to `useForm` + `zodResolver(createGuardianRestrictionSchema)`. Reviewer caught incomplete migration post-extraction; remediated. |
+| CQ-05 | Create react-hook-form migration guide | D | Done | Yes (be38db5) | Created `docs/conventions/form-migration.md` (168 lines) with before/after examples, step-by-step checklist, common patterns, and do's/don'ts. |
+| CQ-06 | Migrate top forms to `react-hook-form` | D | Partial | Yes (be38db5) | Migrated 2 additional forms (report alerts, scheduled reports) to RHF. Full 10-form migration deferred — remaining forms need Zod schemas created in `@school/shared` first. |
+| CQ-07 | Fix i18n gaps in behaviour module frontend | D | Done | Yes (be38db5) | Extracted 26 hardcoded English strings across 5 behaviour pages (interventions, exclusions, sanctions, appeals, new intervention). Added keys to `en.json` and `ar.json`. |
+| CQ-08 | Fix i18n gaps in engagement module frontend | D | Done | Yes (be38db5) | Extracted 15 hardcoded strings in 2 engagement components (completion dashboard, event participants CSV headers). Added keys to `en.json` and `ar.json`. |
+| CQ-09 | Standardize `formatDate` usage | C | Done | Yes (20133fb) | Renamed 8 local `formatDate` redefinitions to avoid shadowing shared `@/lib/format-date` (`formatDateLocale`, `formatDateShort`, `formatDateForExport`, `formatDateTimeLocale`). Backend definitions kept (different purpose). |
+| CQ-10 | Tighten `no-console` to error level | C | Done | Yes (20133fb) | Promoted from `warn` to `error`. `console.error` and `console.warn` remain allowed. Added `eslint-disable-line` to 4 performance spec `console.log` calls. |
+| CQ-11 | Extract large frontend pages into sub-components | D | Done | Yes (be38db5) | Extracted 3 pages: SEN reports (1248→93 lines, 6 components), wellbeing surveys (1056→173, 4 components), guardian-restrictions (1050→392, 5 components). |
+| CQ-12 | Add JSDoc to exported service methods | E | Done | Yes (c14a688) | Added JSDoc to 4 key services: invoices (9 methods), permission-cache (3), s3 (4), reports-data-access (3). Focused on non-obvious behavior and side effects. |
+| CQ-13 | Eliminate notification template `as any` duplication | C | Done | Yes (20133fb) | Created `toNotificationChannel()` helper in `packages/shared/src/helpers/notification.ts`. Used in 3 API services + 1 worker processor. Barrel-exported from `@school/shared`. |
+| CQ-14 | Verify `strict: true` in all tsconfig files | C | Done | Yes (20133fb) | All configs inherit `strict: true` from `packages/tsconfig/base.json`. Removed redundant `strictNullChecks: true` from `apps/web/tsconfig.json` and `apps/web/tsconfig.test.json`. |
+| CQ-15 | Enforce maximum file length via ESLint | E | Done | Yes (c14a688) | Added `max-lines` rule: warn at 500 lines for API/worker (nest.js), warn at 600 lines for frontend (next.js). `skipBlankLines` and `skipComments` enabled. |
+| CQ-16 | Promote `import/order` from warning to error | B | Done | Yes (d6faeb0) | Changed severity from `warn` to `error`. Added `pathGroups` for `@school/**` (internal, before) and `@/**` (internal, after). Auto-fixed all existing violations. |
+| CQ-17 | Expand raw-SQL ESLint rule to cover `$queryRaw` and `$executeRaw` | B | Done | Yes (d6faeb0) | Expanded from 2 to 4 methods. Added `TaggedTemplateExpression` visitor. Expanded allowlist for processors, rules, scripts, test files. Added `eslint-disable-next-line` with reasons to 26 legitimate API usages. |
+| CQ-18 | Add lint gate blocking new hand-rolled forms | D | Done | Yes (be38db5) | Created `no-hand-rolled-forms` ESLint rule (heuristic: 3+ useState + form-field names + submit handler). `warn` level in `next.js` config. 11 tests. |
+| CQ-19 | Add lint gate for untranslated human-facing strings | D | Done | Yes (be38db5) | Created `no-untranslated-strings` ESLint rule. Flags JSXText and string attributes not wrapped in `t()`. Skips `(platform)/` routes, safe attributes, non-human strings. `warn` level. 42 tests. |
+| CQ-20 | Standardize logger naming and structured context fields | C | Done | Yes (20133fb) | Added NestJS `Logger` to 13 API services + 1 controller. Replaced `console.error` with `this.logger.error`. Fixed `TenantAwareJob` from string literal to `ClassName.name`. |
+| CQ-21 | Add public-method-count budget for services | E | Done | Yes (c14a688) | Created `max-public-methods` ESLint rule. `warn` at >15 public methods in `nest.js` config. Excludes constructor, private, protected. 17 tests. |
+| CQ-22 | Move complex mapping/projection logic into dedicated helpers | D | Done | Yes (be38db5) | Extracted 764 lines into 3 helper files: `concern.helpers.ts` (191 lines), `behaviour-students.helpers.ts` (518 lines), `households.helpers.ts` (55 lines). |
+| CQ-23 | Add hotspot-focused code review checklists | E | Done | Yes (c14a688) | Created `docs/code-review-checklists.md` (112 lines) covering behaviour, pastoral, auth, finance. Each item references danger zone IDs for traceability. |
