@@ -47,26 +47,87 @@ const TABS: SettingsTab[] = [
   { key: 'legal', labelKey: 'legal', href: 'legal/dpa', roles: LEGAL_SETTINGS_ROLES },
   { key: 'branding', labelKey: 'branding', href: 'branding', roles: ADMIN_SETTINGS_ROLES },
   { key: 'general', labelKey: 'general', href: 'general', roles: ADMIN_SETTINGS_ROLES },
-  { key: 'notifications', labelKey: 'notifications', href: 'notifications', roles: ADMIN_SETTINGS_ROLES },
+  {
+    key: 'notifications',
+    labelKey: 'notifications',
+    href: 'notifications',
+    roles: ADMIN_SETTINGS_ROLES,
+  },
   { key: 'stripe', labelKey: 'stripe', href: 'stripe', roles: ['school_principal'] },
   { key: 'users', labelKey: 'users', href: 'users', roles: ADMIN_SETTINGS_ROLES },
   { key: 'invitations', labelKey: 'invitations', href: 'invitations', roles: ADMIN_SETTINGS_ROLES },
   { key: 'roles', labelKey: 'roles', href: 'roles', roles: ADMIN_SETTINGS_ROLES },
-  { key: 'academic-years', labelKey: 'academicYears', href: 'academic-years', roles: ADMIN_SETTINGS_ROLES },
+  {
+    key: 'academic-years',
+    labelKey: 'academicYears',
+    href: 'academic-years',
+    roles: ADMIN_SETTINGS_ROLES,
+  },
   { key: 'year-groups', labelKey: 'yearGroups', href: 'year-groups', roles: ADMIN_SETTINGS_ROLES },
-  { key: 'grading-scales', labelKey: 'gradingScales', href: 'grading-scales', roles: ADMIN_SETTINGS_ROLES },
-  { key: 'assessment-categories', labelKey: 'assessmentCategories', href: 'assessment-categories', roles: ADMIN_SETTINGS_ROLES },
-  { key: 'grading-weights', labelKey: 'gradingWeights', href: 'grading-weights', roles: ADMIN_SETTINGS_ROLES },
-  { key: 'rubric-templates', labelKey: 'rubricTemplates', href: 'rubric-templates', roles: ADMIN_SETTINGS_ROLES },
-  { key: 'curriculum-standards', labelKey: 'curriculumStandards', href: 'curriculum-standards', roles: ADMIN_SETTINGS_ROLES },
-  { key: 'competency-scales', labelKey: 'competencyScales', href: 'competency-scales', roles: ADMIN_SETTINGS_ROLES },
-  { key: 'assessment-templates', labelKey: 'assessmentTemplates', href: 'assessment-templates', roles: ADMIN_SETTINGS_ROLES },
-  { key: 'report-card-templates', labelKey: 'reportCardTemplates', href: 'report-card-templates', roles: ADMIN_SETTINGS_ROLES },
-  { key: 'custom-fields', labelKey: 'customFields', href: 'custom-fields', roles: ADMIN_SETTINGS_ROLES },
-  { key: 'grade-thresholds', labelKey: 'gradeThresholds', href: 'grade-thresholds', roles: ADMIN_SETTINGS_ROLES },
+  {
+    key: 'grading-scales',
+    labelKey: 'gradingScales',
+    href: 'grading-scales',
+    roles: ADMIN_SETTINGS_ROLES,
+  },
+  {
+    key: 'assessment-categories',
+    labelKey: 'assessmentCategories',
+    href: 'assessment-categories',
+    roles: ADMIN_SETTINGS_ROLES,
+  },
+  {
+    key: 'grading-weights',
+    labelKey: 'gradingWeights',
+    href: 'grading-weights',
+    roles: ADMIN_SETTINGS_ROLES,
+  },
+  {
+    key: 'rubric-templates',
+    labelKey: 'rubricTemplates',
+    href: 'rubric-templates',
+    roles: ADMIN_SETTINGS_ROLES,
+  },
+  {
+    key: 'curriculum-standards',
+    labelKey: 'curriculumStandards',
+    href: 'curriculum-standards',
+    roles: ADMIN_SETTINGS_ROLES,
+  },
+  {
+    key: 'competency-scales',
+    labelKey: 'competencyScales',
+    href: 'competency-scales',
+    roles: ADMIN_SETTINGS_ROLES,
+  },
+  {
+    key: 'assessment-templates',
+    labelKey: 'assessmentTemplates',
+    href: 'assessment-templates',
+    roles: ADMIN_SETTINGS_ROLES,
+  },
+  {
+    key: 'report-card-templates',
+    labelKey: 'reportCardTemplates',
+    href: 'report-card-templates',
+    roles: ADMIN_SETTINGS_ROLES,
+  },
+  {
+    key: 'custom-fields',
+    labelKey: 'customFields',
+    href: 'custom-fields',
+    roles: ADMIN_SETTINGS_ROLES,
+  },
+  {
+    key: 'grade-thresholds',
+    labelKey: 'gradeThresholds',
+    href: 'grade-thresholds',
+    roles: ADMIN_SETTINGS_ROLES,
+  },
   { key: 'audit-log', labelKey: 'auditLog', href: 'audit-log', roles: ADMIN_SETTINGS_ROLES },
   { key: 'compliance', labelKey: 'compliance', href: 'compliance', roles: ADMIN_SETTINGS_ROLES },
   { key: 'imports', labelKey: 'imports', href: 'imports', roles: ADMIN_SETTINGS_ROLES },
+  { key: 'sen', labelKey: 'sen', href: 'sen', roles: ADMIN_SETTINGS_ROLES },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
@@ -87,7 +148,9 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
   const userRoleKeys = React.useMemo(() => {
     if (!user?.memberships) return [];
-    return user.memberships.flatMap((m) => m.roles?.map((r: { role_key: string }) => r.role_key) ?? []);
+    return user.memberships.flatMap(
+      (m) => m.roles?.map((r: { role_key: string }) => r.role_key) ?? [],
+    );
   }, [user]);
 
   const visibleTabs = React.useMemo(
@@ -97,9 +160,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
-        {t('title')}
-      </h1>
+      <h1 className="text-2xl font-semibold tracking-tight text-text-primary">{t('title')}</h1>
 
       {/* Tab navigation */}
       <nav

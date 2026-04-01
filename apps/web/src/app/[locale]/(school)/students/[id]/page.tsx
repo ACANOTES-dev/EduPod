@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Badge,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +11,7 @@ import {
   Skeleton,
   toast,
 } from '@school/ui';
-import { Edit, ChevronDown } from 'lucide-react';
+import { ChevronDown, Edit, HeartHandshake } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import * as React from 'react';
 
@@ -73,6 +74,15 @@ const statusVariantMap: Record<
   archived: 'neutral',
 };
 
+interface SenProfileSummary {
+  id: string;
+  primary_category: string;
+  support_level: string;
+  is_active: boolean;
+  sen_coordinator_name: string | null;
+  has_active_plan: boolean;
+}
+
 const nextStatuses: Record<Student['status'], string[]> = {
   applicant: ['active', 'withdrawn'],
   active: ['withdrawn', 'graduated', 'archived'],
@@ -93,7 +103,13 @@ export default function StudentHubPage() {
   // Homework analytics for this student
   const [hwData, setHwData] = React.useState<{
     overall: { total_assigned: number; total_completed: number; completion_rate: number };
-    by_subject: Array<{ subject_id: string | null; subject_name: string | null; total_assigned: number; total_completed: number; completion_rate: number }>;
+    by_subject: Array<{
+      subject_id: string | null;
+      subject_name: string | null;
+      total_assigned: number;
+      total_completed: number;
+      completion_rate: number;
+    }>;
   } | null>(null);
   const [hwLoading, setHwLoading] = React.useState(true);
 
@@ -116,10 +132,29 @@ export default function StudentHubPage() {
   React.useEffect(() => {
     if (!id) return;
     setHwLoading(true);
-    apiClient<{ overall: { total_assigned: number; total_completed: number; completion_rate: number }; by_subject: Array<{ subject_id: string | null; subject_name: string | null; total_assigned: number; total_completed: number; completion_rate: number }> }>(`/api/v1/homework/analytics/student/${id}`)
+    apiClient<{
+      overall: { total_assigned: number; total_completed: number; completion_rate: number };
+      by_subject: Array<{
+        subject_id: string | null;
+        subject_name: string | null;
+        total_assigned: number;
+        total_completed: number;
+        completion_rate: number;
+      }>;
+    }>(`/api/v1/homework/analytics/student/${id}`)
       .then((res) => setHwData(res))
       .catch(() => console.error('[StudentHub] Failed to load homework data'))
       .finally(() => setHwLoading(false));
+  }, [id]);
+
+  // SEN profile (silently fails if no profile exists)
+  const [senProfile, setSenProfile] = React.useState<SenProfileSummary | null>(null);
+
+  React.useEffect(() => {
+    if (!id) return;
+    apiClient<{ data: SenProfileSummary }>(`/api/v1/sen/students/${id}/profile`, { silent: true })
+      .then((res) => setSenProfile(res.data))
+      .catch(() => setSenProfile(null));
   }, [id]);
 
   const handleStatusChange = async (newStatus: string) => {
@@ -189,15 +224,11 @@ export default function StudentHubPage() {
   const metrics = [
     {
       label: 'Date of Birth',
-      value: student.date_of_birth
-        ? formatDate(student.date_of_birth)
-        : '—',
+      value: student.date_of_birth ? formatDate(student.date_of_birth) : '—',
     },
     {
       label: 'Entry Date',
-      value: student.entry_date
-        ? formatDate(student.entry_date)
-        : '—',
+      value: student.entry_date ? formatDate(student.entry_date) : '—',
     },
     {
       label: 'Household',
@@ -221,7 +252,9 @@ export default function StudentHubPage() {
         {student.gender && (
           <div>
             <dt className="text-xs text-text-tertiary">Gender</dt>
-            <dd className="text-sm font-medium text-text-primary capitalize">{student.gender.replace(/_/g, ' ')}</dd>
+            <dd className="text-sm font-medium text-text-primary capitalize">
+              {student.gender.replace(/_/g, ' ')}
+            </dd>
           </div>
         )}
         {student.year_group && (
@@ -273,9 +306,7 @@ export default function StudentHubPage() {
                 {parent.relationship_label && (
                   <span className="text-xs text-text-tertiary">({parent.relationship_label})</span>
                 )}
-                {parent.is_primary_contact && (
-                  <StatusBadge status="info">Primary</StatusBadge>
-                )}
+                {parent.is_primary_contact && <StatusBadge status="info">Primary</StatusBadge>}
               </li>
             ))}
           </ul>
@@ -291,18 +322,25 @@ export default function StudentHubPage() {
       ) : (
         <ul className="divide-y divide-border rounded-xl border border-border">
           {student.class_enrolments.map((enrolment) => (
-            <li
-              key={enrolment.id}
-              className="flex items-center justify-between px-4 py-3"
-            >
+            <li key={enrolment.id} className="flex items-center justify-between px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-text-primary">{enrolment.class_entity?.name ?? enrolment.class_name ?? '—'}</p>
+                <p className="text-sm font-medium text-text-primary">
+                  {enrolment.class_entity?.name ?? enrolment.class_name ?? '—'}
+                </p>
                 {(enrolment.class_entity?.subject?.name ?? enrolment.subject_name) && (
-                  <p className="text-xs text-text-tertiary">{enrolment.class_entity?.subject?.name ?? enrolment.subject_name}</p>
+                  <p className="text-xs text-text-tertiary">
+                    {enrolment.class_entity?.subject?.name ?? enrolment.subject_name}
+                  </p>
                 )}
               </div>
               <StatusBadge
-                status={enrolment.status === 'active' ? 'success' : enrolment.status === 'dropped' ? 'danger' : 'neutral'}
+                status={
+                  enrolment.status === 'active'
+                    ? 'success'
+                    : enrolment.status === 'dropped'
+                      ? 'danger'
+                      : 'neutral'
+                }
               >
                 {enrolment.status.charAt(0).toUpperCase() + enrolment.status.slice(1)}
               </StatusBadge>
@@ -355,7 +393,9 @@ export default function StudentHubPage() {
         <>
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-xl border border-border bg-surface p-4 text-center">
-              <p className="text-2xl font-bold text-text-primary">{hwData.overall.total_assigned}</p>
+              <p className="text-2xl font-bold text-text-primary">
+                {hwData.overall.total_assigned}
+              </p>
               <p className="text-xs text-text-tertiary">Total Assigned</p>
             </div>
             <div className="rounded-xl border border-border bg-surface p-4 text-center">
@@ -363,7 +403,9 @@ export default function StudentHubPage() {
               <p className="text-xs text-text-tertiary">Completed</p>
             </div>
             <div className="rounded-xl border border-border bg-surface p-4 text-center">
-              <p className="text-2xl font-bold text-primary-600">{hwData.overall.completion_rate}%</p>
+              <p className="text-2xl font-bold text-primary-600">
+                {hwData.overall.completion_rate}%
+              </p>
               <p className="text-xs text-text-tertiary">Completion Rate</p>
             </div>
           </div>
@@ -373,11 +415,20 @@ export default function StudentHubPage() {
               <h3 className="mb-2 text-sm font-semibold text-text-primary">By Subject</h3>
               <ul className="divide-y divide-border rounded-xl border border-border">
                 {hwData.by_subject.map((subj) => (
-                  <li key={subj.subject_id ?? 'none'} className="flex items-center justify-between px-4 py-3">
-                    <span className="text-sm text-text-primary">{subj.subject_name ?? 'No Subject'}</span>
+                  <li
+                    key={subj.subject_id ?? 'none'}
+                    className="flex items-center justify-between px-4 py-3"
+                  >
+                    <span className="text-sm text-text-primary">
+                      {subj.subject_name ?? 'No Subject'}
+                    </span>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-text-secondary">{subj.total_completed}/{subj.total_assigned}</span>
-                      <span className="text-xs font-medium text-primary-600">{subj.completion_rate}%</span>
+                      <span className="text-xs text-text-secondary">
+                        {subj.total_completed}/{subj.total_assigned}
+                      </span>
+                      <span className="text-xs font-medium text-primary-600">
+                        {subj.completion_rate}%
+                      </span>
                     </div>
                   </li>
                 ))}
@@ -389,20 +440,78 @@ export default function StudentHubPage() {
     </div>
   );
 
+  // ─── SEN tab (conditional) ─────────────────────────────────────────────────
+
+  const senTab: { key: string; label: string; content: React.ReactNode } | null = senProfile
+    ? {
+        key: 'sen',
+        label: 'SEN',
+        content: (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <div>
+                <dt className="text-xs text-text-tertiary">Category</dt>
+                <dd className="text-sm font-medium text-text-primary">
+                  {senProfile.primary_category}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-text-tertiary">Support Level</dt>
+                <dd className="text-sm font-medium text-text-primary">
+                  {senProfile.support_level}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-text-tertiary">Coordinator</dt>
+                <dd className="text-sm font-medium text-text-primary">
+                  {senProfile.sen_coordinator_name ?? '—'}
+                </dd>
+              </div>
+            </div>
+            {senProfile.has_active_plan && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/sen/students/${id}`)}
+              >
+                <HeartHandshake className="me-2 h-4 w-4" />
+                View Full SEN Profile
+              </Button>
+            )}
+          </div>
+        ),
+      }
+    : null;
+
+  const allTabs = [
+    { key: 'overview', label: 'Overview', content: overviewTab },
+    { key: 'classes', label: 'Classes & Enrolments', content: classesTab },
+    { key: 'homework', label: 'Homework', content: homeworkTab },
+    { key: 'medical', label: 'Medical', content: medicalTab },
+    ...(senTab ? [senTab] : []),
+  ];
+
   return (
     <RecordHub
       title={student.full_name}
       subtitle={student.year_group?.name}
-      status={{ label: student.status.charAt(0).toUpperCase() + student.status.slice(1), variant: statusVariantMap[student.status] }}
+      status={{
+        label: student.status.charAt(0).toUpperCase() + student.status.slice(1),
+        variant: statusVariantMap[student.status],
+      }}
       reference={student.student_number}
       actions={actions}
       metrics={metrics}
-      tabs={[
-        { key: 'overview', label: 'Overview', content: overviewTab },
-        { key: 'classes', label: 'Classes & Enrolments', content: classesTab },
-        { key: 'homework', label: 'Homework', content: homeworkTab },
-        { key: 'medical', label: 'Medical', content: medicalTab },
-      ]}
-    />
+      tabs={allTabs}
+    >
+      {senProfile && (
+        <div className="flex items-center gap-2">
+          <Badge variant="info">SEN</Badge>
+          <span className="text-sm text-text-secondary">
+            {senProfile.primary_category} · {senProfile.support_level}
+          </span>
+        </div>
+      )}
+    </RecordHub>
   );
 }
