@@ -11,6 +11,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Secret scanning
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: pnpm/action-setup@v5
 
@@ -25,6 +32,9 @@ jobs:
 
       - name: Generate Prisma client
         run: pnpm --filter @school/prisma exec prisma generate
+
+      - name: Verify worker processor specs
+        run: pnpm check:worker-processor-specs
 
       - name: Lint
         run: pnpm -r run lint
@@ -46,8 +56,11 @@ jobs:
         run: node scripts/check-cross-module-deps.js
         continue-on-error: true
 
-      - name: Run unit tests
-        run: pnpm turbo run test
+      - name: Run unit tests with coverage enforcement
+        run: pnpm --filter @school/api --filter @school/worker run test:coverage && pnpm --filter @school/shared --filter @school/web --filter @school/prisma run test
+
+      - name: Test coverage gate
+        run: pnpm run check:test-gate
 
       - name: Build
         run: pnpm build --force
