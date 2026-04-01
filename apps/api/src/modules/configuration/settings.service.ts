@@ -5,7 +5,7 @@ import { ZodError } from 'zod';
 import { TENANT_SETTINGS_MODULE_SCHEMAS, tenantSettingsSchema } from '@school/shared';
 import type { TenantSettingsDto, TenantSettingsModuleKey } from '@school/shared';
 
-import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { withRls } from '../../common/helpers/with-rls';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
@@ -235,11 +235,9 @@ export class SettingsService {
     }
 
     // Write to both the per-module table (RLS-scoped) and the legacy blob
-    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
-    await rlsClient.$transaction(async (tx) => {
-      const txClient = tx as unknown as PrismaService;
+    await withRls(this.prisma, { tenant_id: tenantId }, async (tx) => {
       // Upsert the per-module row
-      await txClient.tenantModuleSetting.upsert({
+      await tx.tenantModuleSetting.upsert({
         where: { tenant_id_module_key: { tenant_id: tenantId, module_key: moduleKey } },
         create: {
           tenant_id: tenantId,
@@ -252,7 +250,7 @@ export class SettingsService {
       });
 
       // Sync legacy blob — read existing, replace the module section, save
-      const legacyRecord = await txClient.tenantSetting.findUnique({
+      const legacyRecord = await tx.tenantSetting.findUnique({
         where: { tenant_id: tenantId },
       });
 
@@ -263,7 +261,7 @@ export class SettingsService {
           [moduleKey]: validatedModule,
         };
 
-        await txClient.tenantSetting.update({
+        await tx.tenantSetting.update({
           where: { tenant_id: tenantId },
           data: { settings: updatedSettings as unknown as Prisma.InputJsonValue },
         });

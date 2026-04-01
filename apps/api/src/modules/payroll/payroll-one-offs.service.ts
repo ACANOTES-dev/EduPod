@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 
 import type { CreateOneOffItemDto, UpdateOneOffItemDto } from '@school/shared';
 
-import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { withRls } from '../../common/helpers/with-rls';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -34,12 +34,8 @@ export class PayrollOneOffsService {
       });
     }
 
-    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    return rlsClient.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
-      const item = await db.payrollOneOffItem.create({
+    return withRls(this.prisma, { tenant_id: tenantId }, async (tx) => {
+      const item = await tx.payrollOneOffItem.create({
         data: {
           tenant_id: tenantId,
           payroll_entry_id: entryId,

@@ -94,18 +94,18 @@ function getDaysRemaining(deadline: string | null): number | null {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-const TABS = [
-  { key: 'all', label: 'All' },
-  { key: 'initiated', label: 'Initiated' },
-  { key: 'notice_issued', label: 'Notice Issued' },
-  { key: 'hearing_scheduled', label: 'Hearing Scheduled' },
-  { key: 'decision_made', label: 'Decision Made' },
-  { key: 'appeal_window', label: 'Appeal Window' },
-  { key: 'finalised', label: 'Finalised' },
-  { key: 'overturned', label: 'Overturned' },
+const TAB_KEYS = [
+  'all',
+  'initiated',
+  'notice_issued',
+  'hearing_scheduled',
+  'decision_made',
+  'appeal_window',
+  'finalised',
+  'overturned',
 ] as const;
 
-type TabKey = (typeof TABS)[number]['key'];
+type TabKey = (typeof TAB_KEYS)[number];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -173,14 +173,14 @@ export default function ExclusionListPage() {
         const indicator = getComplianceIndicator(row.statutory_timeline);
         if (indicator === 'overdue') {
           return (
-            <span title="Statutory step overdue">
+            <span title={t('tooltips.overdueStep')}>
               <AlertTriangle className="h-4 w-4 text-red-500" />
             </span>
           );
         }
         if (indicator === 'warning') {
           return (
-            <span title="Statutory step pending">
+            <span title={t('tooltips.pendingStep')}>
               <AlertTriangle className="h-4 w-4 text-amber-500" />
             </span>
           );
@@ -283,11 +283,13 @@ export default function ExclusionListPage() {
                       : 'text-text-tertiary'
                 }`}
               >
-                {days === 0 ? 'Today' : `${days}d remaining`}
+                {days === 0 ? t('appealDays.today') : t('appealDays.remaining', { days })}
               </span>
             )}
             {days !== null && days < 0 && (
-              <span className="text-xs font-medium text-red-600 dark:text-red-400">Expired</span>
+              <span className="text-xs font-medium text-red-600 dark:text-red-400">
+                {t('appealDays.expired')}
+              </span>
             )}
           </div>
         );
@@ -353,7 +355,7 @@ export default function ExclusionListPage() {
                     : 'text-text-tertiary'
               }`}
             >
-              Appeal: {days === 0 ? 'Today' : `${days}d`}
+              {days === 0 ? t('appealDays.today') : t('appealDays.appeal', { days })}
             </span>
           )}
         </div>
@@ -381,18 +383,18 @@ export default function ExclusionListPage() {
       {/* Tabs */}
       <div className="overflow-x-auto">
         <div className="flex gap-1 border-b border-border">
-          {TABS.map((tab) => (
+          {TAB_KEYS.map((key) => (
             <button
-              key={tab.key}
+              key={key}
               type="button"
-              onClick={() => handleTabChange(tab.key)}
+              onClick={() => handleTabChange(key)}
               className={`shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                activeTab === tab.key
+                activeTab === key
                   ? 'border-primary-600 text-primary-600'
                   : 'border-transparent text-text-tertiary hover:text-text-primary'
               }`}
             >
-              {tab.label}
+              {t(`tabs.${key}` as Parameters<typeof t>[0])}
             </button>
           ))}
         </div>
@@ -409,7 +411,7 @@ export default function ExclusionListPage() {
             ) : data.length === 0 ? (
               <div className="rounded-xl border border-border bg-surface py-12 text-center">
                 <ShieldAlert className="mx-auto h-8 w-8 text-text-tertiary" />
-                <p className="mt-2 text-sm text-text-tertiary">{t('noResults')}</p>
+                <p className="mt-2 text-sm text-text-tertiary">{t('noExclusionCases')}</p>
               </div>
             ) : (
               data.map(renderMobileCard)

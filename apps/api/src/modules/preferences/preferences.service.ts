@@ -3,7 +3,7 @@ import type { Prisma } from '@prisma/client';
 
 import type { UpdateUiPreferencesDto } from '@school/shared';
 
-import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { withRls } from '../../common/helpers/with-rls';
 import { PrismaService } from '../prisma/prisma.service';
 
 const MAX_PREFERENCES_SIZE_BYTES = 500 * 1024; // 500 KB
@@ -52,10 +52,8 @@ export class PreferencesService {
    * Returns empty object if no preferences have been saved.
    */
   async getPreferences(tenantId: string, userId: string): Promise<Record<string, unknown>> {
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    const record = (await prismaWithRls.$transaction(async (tx) => {
-      return (tx as unknown as PrismaService).userUiPreference.findUnique({
+    const record = (await withRls(this.prisma, { tenant_id: tenantId }, async (tx) => {
+      return tx.userUiPreference.findUnique({
         where: {
           tenant_id_user_id: {
             tenant_id: tenantId,
@@ -98,10 +96,9 @@ export class PreferencesService {
 
     // Upsert with RLS
     const jsonValue = merged as unknown as Prisma.InputJsonValue;
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const record = (await prismaWithRls.$transaction(async (tx) => {
-      return (tx as unknown as PrismaService).userUiPreference.upsert({
+    const record = (await withRls(this.prisma, { tenant_id: tenantId }, async (tx) => {
+      return tx.userUiPreference.upsert({
         where: {
           tenant_id_user_id: {
             tenant_id: tenantId,

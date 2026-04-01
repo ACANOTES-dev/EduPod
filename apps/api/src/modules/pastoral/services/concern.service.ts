@@ -23,6 +23,12 @@ import { PermissionCacheService } from '../../../common/services/permission-cach
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { ConcernVersionService } from './concern-version.service';
+import {
+  buildConcernOrderBy,
+  buildConcernWhereClause,
+  mapConcernRowToDetail,
+  mapConcernRowToListItem,
+} from './concern.helpers';
 import { PastoralEventService } from './pastoral-event.service';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -356,57 +362,13 @@ export class ConcernService {
 
     const skip = (query.page - 1) * query.pageSize;
 
-    // Build where clause
-    const where: Prisma.PastoralConcernWhereInput = {
-      tenant_id: tenantId,
-    };
-
-    // Tier filtering: if caller cannot see tier 2, filter to tier 1 only
-    // Tier 3 is already handled by RLS (only visible to DLP users)
-    if (callerMaxTier < 2) {
-      where.tier = 1;
-    } else if (callerMaxTier < 3) {
-      where.tier = { in: [1, 2] };
-    }
-    // If user-requested tier filter, apply it within allowed range
-    if (query.tier !== undefined) {
-      if (query.tier <= callerMaxTier) {
-        where.tier = query.tier;
-      } else {
-        // Requested tier exceeds access — return empty
-        return { data: [], meta: { page: query.page, pageSize: query.pageSize, total: 0 } };
-      }
+    const where = buildConcernWhereClause(tenantId, query, callerMaxTier);
+    if (where === null) {
+      // Requested tier exceeds caller's access level — return empty
+      return { data: [], meta: { page: query.page, pageSize: query.pageSize, total: 0 } };
     }
 
-    if (query.student_id) {
-      where.OR = [
-        { student_id: query.student_id },
-        {
-          involved_students: {
-            some: {
-              tenant_id: tenantId,
-              student_id: query.student_id,
-            },
-          },
-        },
-      ];
-    }
-    if (query.category) where.category = query.category;
-    if (query.severity) where.severity = query.severity;
-    if (query.case_id) where.case_id = query.case_id;
-
-    // Date range filtering
-    if (query.from || query.to) {
-      where.created_at = {};
-      if (query.from) where.created_at.gte = new Date(query.from);
-      if (query.to) where.created_at.lte = new Date(query.to);
-    }
-
-    // Build orderBy
-    const orderBy: Prisma.PastoralConcernOrderByWithRelationInput = {};
-    if (query.sort === 'occurred_at') orderBy.occurred_at = query.order;
-    else if (query.sort === 'severity') orderBy.severity = query.order;
-    else orderBy.created_at = query.order;
+    const orderBy = buildConcernOrderBy(query);
 
     return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
@@ -431,7 +393,7 @@ export class ConcernService {
         db.pastoralConcern.count({ where }),
       ]);
 
-      const data = (concerns as ConcernRow[]).map((c) => this.toConcernListItem(c, hasCpAccess));
+      const data = (concerns as ConcernRow[]).map((c) => mapConcernRowToListItem(c, hasCpAccess));
 
       return { data, meta: { page: query.page, pageSize: query.pageSize, total } };
     }) as Promise<{ data: ConcernListItemDto[]; meta: PaginationMeta }>;
@@ -517,7 +479,7 @@ export class ConcernService {
       void this.acknowledge(tenantId, userId, concern.id, ipAddress);
     }
 
-    const data = this.toConcernDetail(concern, hasCpAccess);
+    const data = mapConcernRowToDetail(concern, hasCpAccess);
 
     return { data };
   }
@@ -1005,50 +967,6 @@ export class ConcernService {
   }
 
   /**
-   * Applies author masking to a concern DTO.
-   * If author_masked is true and the viewer does NOT have DLP (CP access),
-   * the author information is redacted.
-   */
-  private applyAuthorMasking(
-    concern: ConcernRow,
-    hasCpAccess: boolean,
-  ): {
-    author_name: string | null;
-    logged_by_user_id: string | null;
-    author_masked_for_viewer: boolean;
-  } {
-    if (!concern.author_masked) {
-      const authorName = concern.logged_by
-        ? `${concern.logged_by.first_name} ${concern.logged_by.last_name}`
-        : null;
-      return {
-        author_name: authorName,
-        logged_by_user_id: concern.logged_by_user_id,
-        author_masked_for_viewer: false,
-      };
-    }
-
-    // DLP users see everything
-    if (hasCpAccess) {
-      const authorName = concern.logged_by
-        ? `${concern.logged_by.first_name} ${concern.logged_by.last_name}`
-        : null;
-      return {
-        author_name: authorName,
-        logged_by_user_id: concern.logged_by_user_id,
-        author_masked_for_viewer: false,
-      };
-    }
-
-    // Non-DLP viewers see masked author
-    return {
-      author_name: 'Author masked',
-      logged_by_user_id: null,
-      author_masked_for_viewer: true,
-    };
-  }
-
-  /**
    * Resolves the maximum tier level a caller can access.
    * - pastoral.view_tier1 only -> max tier 1
    * - pastoral.view_tier2 -> max tier 2
@@ -1213,63 +1131,5 @@ export class ConcernService {
         versions: { orderBy: { version_number: 'asc' } },
       },
     })) as ConcernRow | null;
-  }
-
-  private toConcernInvolvedStudents(concern: ConcernRow): ConcernListItemDto['students_involved'] {
-    return (concern.involved_students ?? []).map((studentLink) => ({
-      student_id: studentLink.student_id,
-      student_name: studentLink.student
-        ? `${studentLink.student.first_name} ${studentLink.student.last_name}`
-        : 'Unknown',
-      added_at: studentLink.added_at,
-    }));
-  }
-
-  /**
-   * Maps a raw concern row to a list item DTO with author masking applied.
-   */
-  private toConcernListItem(concern: ConcernRow, hasCpAccess: boolean): ConcernListItemDto {
-    const masking = this.applyAuthorMasking(concern, hasCpAccess);
-    const studentName = concern.student
-      ? `${concern.student.first_name} ${concern.student.last_name}`
-      : 'Unknown';
-
-    return {
-      id: concern.id,
-      student_id: concern.student_id,
-      student_name: studentName,
-      category: concern.category,
-      severity: concern.severity,
-      tier: concern.tier,
-      occurred_at: concern.occurred_at,
-      created_at: concern.created_at,
-      follow_up_needed: concern.follow_up_needed,
-      case_id: concern.case_id,
-      students_involved: this.toConcernInvolvedStudents(concern),
-      author_name: masking.author_name,
-      author_masked_for_viewer: masking.author_masked_for_viewer,
-      logged_by_user_id: masking.logged_by_user_id,
-    };
-  }
-
-  /**
-   * Maps a raw concern row (with versions) to a detail DTO with author masking.
-   */
-  private toConcernDetail(concern: ConcernRow, hasCpAccess: boolean): ConcernDetailDto {
-    const listItem = this.toConcernListItem(concern, hasCpAccess);
-
-    return {
-      ...listItem,
-      witnesses: concern.witnesses,
-      actions_taken: concern.actions_taken,
-      follow_up_suggestion: concern.follow_up_suggestion,
-      location: concern.location,
-      behaviour_incident_id: concern.behaviour_incident_id,
-      parent_shareable: concern.parent_shareable,
-      parent_share_level: concern.parent_share_level,
-      acknowledged_at: concern.acknowledged_at,
-      acknowledged_by_user_id: concern.acknowledged_by_user_id,
-      versions: concern.versions ?? [],
-    };
   }
 }

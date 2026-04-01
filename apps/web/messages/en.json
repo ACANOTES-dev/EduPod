@@ -619,6 +619,14 @@
           "payment": "Payment",
           "attendance": "Attendance",
           "actions": "Actions"
+        },
+        "csvColumns": {
+          "student": "Student",
+          "yearGroup": "Year Group",
+          "class": "Class",
+          "eventStatus": "Event Status",
+          "consentStatus": "Consent Status",
+          "paymentStatus": "Payment Status"
         }
       },
       "analytics": {
@@ -743,6 +751,17 @@
       "consentRecord": "Consent record",
       "consentStatus": "Consent status",
       "consentType": "Consent type"
+    },
+    "completionDashboard": {
+      "consent": "Consent",
+      "consentDescription": "Families that have completed the required consent step.",
+      "payment": "Payment",
+      "paymentDescription": "Participants who have completed payment or been waived.",
+      "registration": "Registration",
+      "registrationDescriptionWithCapacity": "Registration progress against {capacity} available places.",
+      "registrationDescription": "Confirmed registrations compared with invited participants.",
+      "progressComplete": "{current} complete",
+      "progressTotal": "{total} total"
     },
     "tripPack": {
       "description": "Preview the trip leader pack and download the PDF version for the day of travel.",
@@ -5917,7 +5936,11 @@
         "parent_engagement": "Parent Engagement",
         "external_agency": "External Agency",
         "other": "Other"
-      }
+      },
+      "noResults": "No interventions found",
+      "pagination": "Page {page} of {total}",
+      "previous": "Previous",
+      "next": "Next"
     },
     "interventionDetail": {
       "title": "Intervention Detail",
@@ -5984,7 +6007,49 @@
       "creating": "Creating...",
       "errorStudent": "Please select a student",
       "errorTitle": "Please enter a title",
-      "errorGeneric": "Failed to create intervention"
+      "errorGeneric": "Failed to create intervention",
+      "labels": {
+        "student": "Student *",
+        "interventionType": "Intervention Type *",
+        "titleField": "Title *",
+        "triggerReason": "Trigger / Reason",
+        "sendAwareness": "SEND Awareness",
+        "sendAwarenessDescription": "Flag if the student has special educational needs",
+        "sendNotes": "Sensitive - SEND Notes",
+        "goals": "Goals",
+        "goalNumber": "Goal {index}",
+        "goal": "Goal",
+        "measurableTarget": "Measurable Target",
+        "deadline": "Deadline (optional)",
+        "strategies": "Strategies",
+        "strategyNumber": "Strategy {index}",
+        "strategy": "Strategy",
+        "responsibleStaff": "Responsible Staff (UUID)",
+        "frequency": "Frequency",
+        "schedule": "Schedule",
+        "startDate": "Start Date *",
+        "targetEndDate": "Target End Date",
+        "reviewFrequency": "Review Every (days)",
+        "assignedTo": "Assigned To",
+        "assignedToHint": "Leave blank to assign to yourself"
+      },
+      "placeholders": {
+        "searchStudents": "Search students...",
+        "title": "e.g. Behaviour Support Plan - Term 2",
+        "trigger": "What behaviours or incidents triggered this intervention...",
+        "sendNotes": "Relevant SEND information for this intervention...",
+        "goal": "What should the student achieve?",
+        "measurableTarget": "e.g. Reduce incidents by 50%",
+        "strategy": "What approach will be used?",
+        "responsibleStaff": "Staff member UUID",
+        "frequency": "e.g. Daily, Weekly, As needed",
+        "assignedTo": "Staff member UUID (defaults to current user)"
+      },
+      "errors": {
+        "selectStudent": "Please select a student",
+        "enterTitle": "Please enter a title",
+        "createFailed": "Failed to create intervention"
+      }
     },
     "exclusions": {
       "title": "Exclusion Cases",
@@ -6018,8 +6083,13 @@
       "appealDays": {
         "today": "Today",
         "remaining": "{days}d remaining",
-        "expired": "Expired"
-      }
+        "expired": "Expired",
+        "appeal": "Appeal: {days}d"
+      },
+      "noResults": "No exclusion cases found",
+      "pagination": "Page {page} of {total}",
+      "previous": "Previous",
+      "next": "Next"
     },
     "exclusionDetail": {
       "title": "Exclusion Case {number}",
@@ -6197,6 +6267,11 @@
       "reviewerAssigned": "Reviewer assigned",
       "failedToAssign": "Failed to assign reviewer",
       "searchByStudent": "Search by student...",
+      "search": "Search by student...",
+      "noResults": "No appeals found",
+      "pageOf": "Page {page} of {total}",
+      "previous": "Previous",
+      "next": "Next",
       "tabs": {
         "all": "All",
         "submitted": "Submitted",
@@ -6218,12 +6293,18 @@
       },
       "filters": {
         "grounds": "Grounds",
+        "groundsPlaceholder": "Grounds",
         "allGrounds": "All Grounds",
         "factual_inaccuracy": "Factual Inaccuracy",
+        "factualInaccuracy": "Factual Inaccuracy",
         "disproportionate_consequence": "Disproportionate",
+        "disproportionate": "Disproportionate",
         "procedural_error": "Procedural Error",
+        "proceduralError": "Procedural Error",
         "mitigating_circumstances": "Mitigating Circumstances",
+        "mitigatingCircumstances": "Mitigating Circumstances",
         "mistaken_identity": "Mistaken Identity",
+        "mistakenIdentity": "Mistaken Identity",
         "other": "Other",
         "dateFrom": "Date from",
         "dateTo": "Date to"

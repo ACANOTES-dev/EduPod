@@ -55,12 +55,12 @@ interface SanctionsResponse {
 
 // ─── View Tabs ───────────────────────────────────────────────────────────────
 
-const VIEW_TABS = [
-  { key: 'list', label: 'List', icon: List },
-  { key: 'calendar', label: 'Calendar', icon: Calendar },
+const VIEW_TAB_KEYS = [
+  { key: 'list', icon: List },
+  { key: 'calendar', icon: Calendar },
 ] as const;
 
-type ViewTab = (typeof VIEW_TABS)[number]['key'];
+type ViewTab = (typeof VIEW_TAB_KEYS)[number]['key'];
 
 // ─── Sanction Type / Status Config ───────────────────────────────────────────
 
@@ -456,7 +456,7 @@ export default function SanctionListPage() {
       {/* View Toggle Tabs */}
       <div className="overflow-x-auto">
         <div className="flex gap-1 border-b border-border">
-          {VIEW_TABS.map((tab) => {
+          {VIEW_TAB_KEYS.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
@@ -470,7 +470,7 @@ export default function SanctionListPage() {
                 }`}
               >
                 <Icon className="h-4 w-4" />
-                {tab.label}
+                {t(`tabs.${tab.key}` as Parameters<typeof t>[0])}
               </button>
             );
           })}

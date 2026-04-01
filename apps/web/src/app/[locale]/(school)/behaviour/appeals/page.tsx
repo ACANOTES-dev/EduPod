@@ -400,7 +400,7 @@ export default function AppealsListPage() {
         }}
       >
         <SelectTrigger className="w-full sm:w-48">
-          <SelectValue placeholder="Grounds" />
+          <SelectValue placeholder={t('filters.groundsPlaceholder')} />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">{t('filters.allGrounds')}</SelectItem>
@@ -424,7 +424,7 @@ export default function AppealsListPage() {
           setPage(1);
         }}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary dark:bg-surface-secondary sm:w-auto"
-        aria-label="Date from"
+        aria-label={t('filters.dateFrom')}
       />
       <input
         type="date"
@@ -434,7 +434,7 @@ export default function AppealsListPage() {
           setPage(1);
         }}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary dark:bg-surface-secondary sm:w-auto"
-        aria-label="Date to"
+        aria-label={t('filters.dateTo')}
       />
     </div>
   );

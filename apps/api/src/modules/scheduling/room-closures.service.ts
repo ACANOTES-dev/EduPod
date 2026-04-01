@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 
 import type { CreateRoomClosureDto } from '@school/shared';
 
-import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { withRls } from '../../common/helpers/with-rls';
 import { PrismaService } from '../prisma/prisma.service';
 
 interface ListParams {
@@ -79,11 +79,8 @@ export class RoomClosuresService {
       });
     }
 
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    const record = (await prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-      return db.roomClosure.create({
+    const record = (await withRls(this.prisma, { tenant_id: tenantId }, async (tx) => {
+      return tx.roomClosure.create({
         data: {
           tenant_id: tenantId,
           room_id: dto.room_id,
@@ -114,11 +111,8 @@ export class RoomClosuresService {
       });
     }
 
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    await prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-      await db.roomClosure.delete({ where: { id } });
+    await withRls(this.prisma, { tenant_id: tenantId }, async (tx) => {
+      await tx.roomClosure.delete({ where: { id } });
     });
 
     return { message: 'Room closure deleted' };

@@ -611,6 +611,14 @@
           "payment": "الدفع",
           "attendance": "الحضور",
           "actions": "الإجراءات"
+        },
+        "csvColumns": {
+          "student": "الطالب",
+          "yearGroup": "المرحلة الدراسية",
+          "class": "الفصل",
+          "eventStatus": "حالة الفعالية",
+          "consentStatus": "حالة الموافقة",
+          "paymentStatus": "حالة الدفع"
         }
       },
       "analytics": {
@@ -735,6 +743,17 @@
       "consentRecord": "سجل الموافقة",
       "consentStatus": "حالة الموافقة",
       "consentType": "نوع الموافقة"
+    },
+    "completionDashboard": {
+      "consent": "الموافقة",
+      "consentDescription": "الأسر التي أكملت خطوة الموافقة المطلوبة.",
+      "payment": "الدفع",
+      "paymentDescription": "المشاركون الذين أتمّوا الدفع أو تم الإعفاء عنهم.",
+      "registration": "التسجيل",
+      "registrationDescriptionWithCapacity": "تقدم التسجيل مقابل {capacity} مقعداً متاحاً.",
+      "registrationDescription": "التسجيلات المؤكدة مقارنةً بالمشاركين المدعوين.",
+      "progressComplete": "{current} مكتمل",
+      "progressTotal": "{total} إجمالي"
     },
     "tripPack": {
       "description": "راجع حزمة قائد الرحلة ثم نزّل نسخة PDF الجاهزة ليوم الرحلة.",
@@ -5908,7 +5927,11 @@
         "parent_engagement": "مشاركة أولياء الأمور",
         "external_agency": "جهة خارجية",
         "other": "أخرى"
-      }
+      },
+      "noResults": "لم يتم العثور على تدخلات",
+      "pagination": "الصفحة {page} من {total}",
+      "previous": "السابق",
+      "next": "التالي"
     },
     "interventionDetail": {
       "title": "تفاصيل التدخل",
@@ -5975,7 +5998,49 @@
       "creating": "جارٍ الإنشاء...",
       "errorStudent": "يرجى اختيار طالب",
       "errorTitle": "يرجى إدخال عنوان",
-      "errorGeneric": "فشل في إنشاء التدخل"
+      "errorGeneric": "فشل في إنشاء التدخل",
+      "labels": {
+        "student": "الطالب *",
+        "interventionType": "نوع التدخل *",
+        "titleField": "العنوان *",
+        "triggerReason": "السبب / المحفز",
+        "sendAwareness": "وعي SEND",
+        "sendAwarenessDescription": "تحديد إذا كان لدى الطالب احتياجات تعليمية خاصة",
+        "sendNotes": "حساس - ملاحظات SEND",
+        "goals": "الأهداف",
+        "goalNumber": "الهدف {index}",
+        "goal": "الهدف",
+        "measurableTarget": "الهدف القابل للقياس",
+        "deadline": "الموعد النهائي (اختياري)",
+        "strategies": "الاستراتيجيات",
+        "strategyNumber": "الاستراتيجية {index}",
+        "strategy": "الاستراتيجية",
+        "responsibleStaff": "الموظف المسؤول (UUID)",
+        "frequency": "التكرار",
+        "schedule": "الجدول",
+        "startDate": "تاريخ البدء *",
+        "targetEndDate": "تاريخ الانتهاء المستهدف",
+        "reviewFrequency": "مراجعة كل (أيام)",
+        "assignedTo": "مسؤول عن",
+        "assignedToHint": "اتركه فارغاً لتعيينه لنفسك"
+      },
+      "placeholders": {
+        "searchStudents": "البحث عن طلاب...",
+        "title": "مثال: خطة دعم السلوك - الفصل الثاني",
+        "trigger": "ما السلوكيات أو الحوادث التي أدت إلى هذا التدخل...",
+        "sendNotes": "معلومات SEND ذات الصلة بهذا التدخل...",
+        "goal": "ماذا يجب أن يحقق الطالب؟",
+        "measurableTarget": "مثال: تقليل الحوادث بنسبة 50%",
+        "strategy": "ما النهج الذي سيُستخدم؟",
+        "responsibleStaff": "UUID الموظف",
+        "frequency": "مثال: يومي، أسبوعي، حسب الحاجة",
+        "assignedTo": "UUID الموظف (افتراضياً المستخدم الحالي)"
+      },
+      "errors": {
+        "selectStudent": "يرجى اختيار طالب",
+        "enterTitle": "يرجى إدخال عنوان",
+        "createFailed": "فشل في إنشاء التدخل"
+      }
     },
     "exclusions": {
       "title": "حالات الاستبعاد",
@@ -6009,8 +6074,13 @@
       "appealDays": {
         "today": "اليوم",
         "remaining": "{days} يوم متبقي",
-        "expired": "منتهي"
-      }
+        "expired": "منتهي",
+        "appeal": "طعن: {days} يوم"
+      },
+      "noResults": "لم يتم العثور على حالات استبعاد",
+      "pagination": "الصفحة {page} من {total}",
+      "previous": "السابق",
+      "next": "التالي"
     },
     "exclusionDetail": {
       "title": "حالة الاستبعاد {number}",
@@ -6188,6 +6258,11 @@
       "reviewerAssigned": "تم تعيين المراجع",
       "failedToAssign": "فشل في تعيين المراجع",
       "searchByStudent": "البحث حسب الطالب...",
+      "search": "البحث حسب الطالب...",
+      "noResults": "لم يتم العثور على طعون",
+      "pageOf": "الصفحة {page} من {total}",
+      "previous": "السابق",
+      "next": "التالي",
       "tabs": {
         "all": "الكل",
         "submitted": "مقدّم",
@@ -6209,12 +6284,18 @@
       },
       "filters": {
         "grounds": "الأسباب",
+        "groundsPlaceholder": "الأسباب",
         "allGrounds": "جميع الأسباب",
         "factual_inaccuracy": "خطأ واقعي",
+        "factualInaccuracy": "خطأ واقعي",
         "disproportionate_consequence": "عقوبة غير متناسبة",
+        "disproportionate": "عقوبة غير متناسبة",
         "procedural_error": "خطأ إجرائي",
+        "proceduralError": "خطأ إجرائي",
         "mitigating_circumstances": "ظروف مخففة",
+        "mitigatingCircumstances": "ظروف مخففة",
         "mistaken_identity": "هوية خاطئة",
+        "mistakenIdentity": "هوية خاطئة",
         "other": "أخرى",
         "dateFrom": "من تاريخ",
         "dateTo": "إلى تاريخ"

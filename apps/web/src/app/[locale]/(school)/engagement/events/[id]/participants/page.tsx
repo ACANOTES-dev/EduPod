@@ -115,7 +115,14 @@ export default function EventParticipantsPage() {
 
   function exportParticipants() {
     downloadCsv(`event-${id}-participants.csv`, [
-      ['Student', 'Year Group', 'Class', 'Event Status', 'Consent Status', 'Payment Status'],
+      [
+        t('pages.eventParticipants.csvColumns.student'),
+        t('pages.eventParticipants.csvColumns.yearGroup'),
+        t('pages.eventParticipants.csvColumns.class'),
+        t('pages.eventParticipants.csvColumns.eventStatus'),
+        t('pages.eventParticipants.csvColumns.consentStatus'),
+        t('pages.eventParticipants.csvColumns.paymentStatus'),
+      ],
       ...filteredParticipants.map((participant) => [
         `${participant.student.first_name} ${participant.student.last_name}`,
         getParticipantYearGroupName(participant),
