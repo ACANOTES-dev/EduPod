@@ -17,6 +17,10 @@ This directory is the version-controlled home for the operating rules that keep 
   - weekly health review agenda, outputs, and exit condition
 - [scorecard-metrics.md](./scorecard-metrics.md)
   - KPI definitions, evidence sources, and current baselines or evidence gaps
+- [re-audit-checkpoints.md](./re-audit-checkpoints.md)
+  - Wave 1, Wave 3, and final re-audit triggers plus required outputs
+- [monthly-scorecards/2026-04.md](./monthly-scorecards/2026-04.md)
+  - first monthly scorecard update grounded in audit evidence and local baseline verification
 
 ## Adjacent repo sources of truth
 
