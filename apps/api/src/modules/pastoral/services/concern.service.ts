@@ -7,7 +7,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { Queue } from 'bullmq';
 import type {
   CreateConcernDto,
   EscalateConcernTierDto,
@@ -16,6 +15,7 @@ import type {
   UpdateConcernMetadataDto,
 } from '@school/shared';
 import { pastoralTenantSettingsSchema } from '@school/shared';
+import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
@@ -742,57 +742,52 @@ export class ConcernService {
   ): Promise<{
     data: { id: string; parent_shareable: boolean; parent_share_level: string; shared_at: string };
   }> {
-    const rlsClient = createRlsClient(this.prisma, {
-      tenant_id: tenantId,
-      user_id: userId,
-    });
-
-    // 1. Load the concern
-    const concern = (await rlsClient.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-      return db.pastoralConcern.findUnique({ where: { id: concernId } });
-    })) as ConcernRow | null;
-
-    if (!concern) {
-      throw new NotFoundException({
-        code: 'CONCERN_NOT_FOUND',
-        message: `Concern "${concernId}" not found`,
-      });
-    }
-
-    // 2. Tier 3 concerns cannot be shared with parents
-    if (concern.tier === 3) {
-      throw new ForbiddenException({
-        code: 'TIER3_SHARE_BLOCKED',
-        message: 'Tier 3 concerns cannot be shared with parents',
-      });
-    }
-
-    // 3. Permission check: caller must be logging teacher, have pastoral.view_tier2, or be year head
-    const isLoggingTeacher = concern.logged_by_user_id === userId;
+    // 1. Permission checks (outside transaction — read-only, cache-based)
     const permissions = await this.permissionCacheService.getPermissions(membershipId);
     const hasTier2 = permissions.includes('pastoral.view_tier2');
     const isYearHead = await this.checkIsYearHead(tenantId, membershipId);
 
-    if (!isLoggingTeacher && !hasTier2 && !isYearHead) {
-      throw new ForbiddenException({
-        code: 'SHARE_NOT_PERMITTED',
-        message: 'You do not have permission to share this concern with parents',
-      });
-    }
-
-    // 4. Resolve share_level (fallback to tenant default if omitted)
+    // 2. Resolve share_level (fallback to tenant default if omitted)
     let shareLevel = dto.share_level;
     if (!shareLevel) {
       const settings = await this.loadPastoralSettings(tenantId);
       shareLevel = settings.parent_share_default_level;
     }
 
-    // 5. Update the concern
+    // 3. Single atomic transaction: read + validate + update
+    const rlsClient = createRlsClient(this.prisma, {
+      tenant_id: tenantId,
+      user_id: userId,
+    });
+
     const now = new Date();
-    const updated = (await rlsClient.$transaction(async (tx) => {
+    const { concern, updated } = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
-      return db.pastoralConcern.update({
+
+      const c = await db.pastoralConcern.findUnique({ where: { id: concernId } });
+      if (!c) {
+        throw new NotFoundException({
+          code: 'CONCERN_NOT_FOUND',
+          message: `Concern "${concernId}" not found`,
+        });
+      }
+
+      if (c.tier === 3) {
+        throw new ForbiddenException({
+          code: 'TIER3_SHARE_BLOCKED',
+          message: 'Tier 3 concerns cannot be shared with parents',
+        });
+      }
+
+      const isLoggingTeacher = c.logged_by_user_id === userId;
+      if (!isLoggingTeacher && !hasTier2 && !isYearHead) {
+        throw new ForbiddenException({
+          code: 'SHARE_NOT_PERMITTED',
+          message: 'You do not have permission to share this concern with parents',
+        });
+      }
+
+      const u = await db.pastoralConcern.update({
         where: { id: concernId },
         data: {
           parent_shareable: true,
@@ -801,9 +796,11 @@ export class ConcernService {
           shared_at: now,
         },
       });
-    })) as ConcernRow;
 
-    // 6. Write immutable audit event
+      return { concern: c, updated: u };
+    })) as { concern: ConcernRow; updated: ConcernRow };
+
+    // 4. Write immutable audit event (outside transaction — fire-and-forget)
     void this.eventService.write({
       tenant_id: tenantId,
       event_type: 'concern_shared_with_parent',
@@ -820,7 +817,7 @@ export class ConcernService {
       ip_address: null,
     });
 
-    // 7. Optionally enqueue parent notification
+    // 5. Optionally enqueue parent notification
     if (dto.notify_parent) {
       await this.notificationsQueue.add('pastoral:notify-parent-share', {
         tenant_id: tenantId,

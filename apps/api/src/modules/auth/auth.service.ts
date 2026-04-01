@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -67,6 +68,8 @@ export interface SessionInfo {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private configService: ConfigService,
     private redis: RedisService,
@@ -963,8 +966,11 @@ export class AuthService {
         session.tenant_id = targetTenantId;
         session.membership_id = membership.id;
         await redisClient.set(key, JSON.stringify(session), 'KEEPTTL');
-      } catch {
-        /* skip malformed sessions */
+      } catch (err) {
+        this.logger.warn(
+          `Skipping malformed session ${sessionId} during tenant switch for user ${userId}`,
+          err,
+        );
       }
     }
 

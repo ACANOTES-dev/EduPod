@@ -62,19 +62,26 @@ export class WebhookController {
 
       if (!isValid) {
         this.logger.error('Resend webhook signature verification failed');
-        throw new UnauthorizedException('Invalid webhook signature');
+        throw new UnauthorizedException({
+          code: 'WEBHOOK_SIGNATURE_INVALID',
+          message: 'Invalid webhook signature',
+        });
       }
 
       // Validate timestamp (reject events older than 5 minutes)
       const ts = parseInt(svixTimestamp, 10);
       if (Math.abs(Date.now() / 1000 - ts) > 300) {
         this.logger.error('Resend webhook timestamp is too old');
-        throw new UnauthorizedException('Webhook timestamp too old');
+        throw new UnauthorizedException({
+          code: 'WEBHOOK_TIMESTAMP_EXPIRED',
+          message: 'Webhook timestamp too old',
+        });
       }
     } else if (process.env.NODE_ENV === 'production') {
-      throw new UnauthorizedException(
-        'Webhook endpoint not configured — RESEND_WEBHOOK_SECRET is missing',
-      );
+      throw new UnauthorizedException({
+        code: 'WEBHOOK_NOT_CONFIGURED',
+        message: 'Webhook endpoint not configured — RESEND_WEBHOOK_SECRET is missing',
+      });
     } else {
       this.logger.warn('RESEND_WEBHOOK_SECRET not configured — skipping verification (dev only)');
     }
@@ -108,17 +115,24 @@ export class WebhookController {
         const isValid = timingSafeEqual(Buffer.from(twilioSignature), Buffer.from(expectedSig));
         if (!isValid) {
           this.logger.error('Twilio webhook signature verification failed');
-          throw new UnauthorizedException('Invalid Twilio webhook signature');
+          throw new UnauthorizedException({
+            code: 'WEBHOOK_SIGNATURE_INVALID',
+            message: 'Invalid Twilio webhook signature',
+          });
         }
       } catch (err) {
         if (err instanceof UnauthorizedException) throw err;
         this.logger.error('Twilio signature verification error');
-        throw new UnauthorizedException('Twilio webhook signature verification error');
+        throw new UnauthorizedException({
+          code: 'WEBHOOK_SIGNATURE_ERROR',
+          message: 'Twilio webhook signature verification error',
+        });
       }
     } else if (!authToken && process.env.NODE_ENV === 'production') {
-      throw new UnauthorizedException(
-        'Webhook endpoint not configured — TWILIO_AUTH_TOKEN is missing',
-      );
+      throw new UnauthorizedException({
+        code: 'WEBHOOK_NOT_CONFIGURED',
+        message: 'Webhook endpoint not configured — TWILIO_AUTH_TOKEN is missing',
+      });
     } else if (!authToken) {
       this.logger.warn('TWILIO_AUTH_TOKEN not configured — skipping verification (dev only)');
     }

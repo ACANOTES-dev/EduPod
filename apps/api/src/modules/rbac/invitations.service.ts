@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'crypto';
 
 import { InjectQueue } from '@nestjs/bullmq';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type { CreateInvitationDto, InvitedRolePayload } from '@school/shared';
 import { hash } from 'bcryptjs';
@@ -18,6 +18,8 @@ interface RegistrationData {
 
 @Injectable()
 export class InvitationsService {
+  private readonly logger = new Logger(InvitationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
@@ -128,8 +130,11 @@ export class InvitationsService {
         },
         { attempts: 3, backoff: { type: 'exponential', delay: 60_000 } },
       );
-    } catch {
-      // Queue failure should not block invitation creation
+    } catch (err) {
+      this.logger.warn(
+        'Failed to enqueue communications:send-invitation — invitation creation succeeded',
+        err,
+      );
     }
 
     return invitation;

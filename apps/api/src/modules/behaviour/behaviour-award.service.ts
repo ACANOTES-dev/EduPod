@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
@@ -31,6 +32,8 @@ interface AwardTypeEligibility {
 
 @Injectable()
 export class BehaviourAwardService {
+  private readonly logger = new Logger(BehaviourAwardService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly historyService: BehaviourHistoryService,
@@ -39,11 +42,7 @@ export class BehaviourAwardService {
 
   // ─── Create Manual Award ──────────────────────────────────────────────────
 
-  async createManualAward(
-    tenantId: string,
-    userId: string,
-    dto: CreateManualAwardDto,
-  ) {
+  async createManualAward(tenantId: string, userId: string, dto: CreateManualAwardDto) {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
     });
@@ -112,17 +111,12 @@ export class BehaviourAwardService {
         if (!eligible) {
           throw new ConflictException({
             code: 'AWARD_NOT_ELIGIBLE',
-            message:
-              'Student is not eligible for this award based on repeat mode rules',
+            message: 'Student is not eligible for this award based on repeat mode rules',
           });
         }
 
         // Compute fresh points for this student
-        const pointsAtAward = await this.computeFreshStudentPoints(
-          db,
-          tenantId,
-          dto.student_id,
-        );
+        const pointsAtAward = await this.computeFreshStudentPoints(db, tenantId, dto.student_id);
 
         // Create the award
         const award = await db.behaviourRecognitionAward.create({
@@ -153,17 +147,17 @@ export class BehaviourAwardService {
 
         // Enqueue parent notification
         try {
-          await this.notificationsQueue.add(
-            'behaviour:parent-notification',
-            {
-              tenant_id: tenantId,
-              template_key: 'behaviour_award_parent',
-              student_ids: [dto.student_id],
-              award_id: award.id,
-            },
+          await this.notificationsQueue.add('behaviour:parent-notification', {
+            tenant_id: tenantId,
+            template_key: 'behaviour_award_parent',
+            student_ids: [dto.student_id],
+            award_id: award.id,
+          });
+        } catch (err) {
+          this.logger.warn(
+            'Failed to enqueue behaviour:parent-notification for award — award creation succeeded',
+            err,
           );
-        } catch {
-          // Don't fail the award creation if queue add fails
         }
 
         return award;
@@ -184,11 +178,7 @@ export class BehaviourAwardService {
   ): Promise<void> {
     for (const studentId of studentIds) {
       // Compute fresh points for the student
-      const currentPoints = await this.computeFreshStudentPoints(
-        tx,
-        tenantId,
-        studentId,
-      );
+      const currentPoints = await this.computeFreshStudentPoints(tx, tenantId, studentId);
 
       // Load active award types with thresholds, ordered by tier_level DESC
       const awardTypes = await tx.behaviourAwardType.findMany({
@@ -202,23 +192,19 @@ export class BehaviourAwardService {
 
       for (const awardType of awardTypes) {
         // Check points meet threshold
-        if (
-          awardType.points_threshold === null ||
-          currentPoints < awardType.points_threshold
-        ) {
+        if (awardType.points_threshold === null || currentPoints < awardType.points_threshold) {
           continue;
         }
 
         // Dedup: skip if already awarded for this incident + award type
-        const existingForIncident =
-          await tx.behaviourRecognitionAward.findFirst({
-            where: {
-              tenant_id: tenantId,
-              student_id: studentId,
-              award_type_id: awardType.id,
-              triggered_by_incident_id: incidentId,
-            },
-          });
+        const existingForIncident = await tx.behaviourRecognitionAward.findFirst({
+          where: {
+            tenant_id: tenantId,
+            student_id: studentId,
+            award_type_id: awardType.id,
+            triggered_by_incident_id: incidentId,
+          },
+        });
         if (existingForIncident) {
           continue;
         }
@@ -265,17 +251,17 @@ export class BehaviourAwardService {
 
         // Enqueue parent notification for auto-award
         try {
-          await this.notificationsQueue.add(
-            'behaviour:parent-notification',
-            {
-              tenant_id: tenantId,
-              template_key: 'behaviour_award_parent',
-              student_ids: [studentId],
-              award_id: award.id,
-            },
+          await this.notificationsQueue.add('behaviour:parent-notification', {
+            tenant_id: tenantId,
+            template_key: 'behaviour_award_parent',
+            student_ids: [studentId],
+            award_id: award.id,
+          });
+        } catch (err) {
+          this.logger.warn(
+            'Failed to enqueue behaviour:parent-notification for auto-award — award creation succeeded',
+            err,
           );
-        } catch {
-          // Don't fail award creation if queue add fails
         }
       }
     }
@@ -364,15 +350,14 @@ export class BehaviourAwardService {
       }
 
       case 'once_per_year': {
-        const existingThisYear =
-          await tx.behaviourRecognitionAward.findFirst({
-            where: {
-              tenant_id: tenantId,
-              student_id: studentId,
-              award_type_id: awardType.id,
-              academic_year_id: academicYearId,
-            },
-          });
+        const existingThisYear = await tx.behaviourRecognitionAward.findFirst({
+          where: {
+            tenant_id: tenantId,
+            student_id: studentId,
+            award_type_id: awardType.id,
+            academic_year_id: academicYearId,
+          },
+        });
         if (existingThisYear) return false;
         break;
       }
@@ -385,19 +370,18 @@ export class BehaviourAwardService {
             select: { start_date: true, end_date: true },
           });
           if (period) {
-            const existingThisPeriod =
-              await tx.behaviourRecognitionAward.findFirst({
-                where: {
-                  tenant_id: tenantId,
-                  student_id: studentId,
-                  award_type_id: awardType.id,
-                  academic_year_id: academicYearId,
-                  awarded_at: {
-                    gte: period.start_date,
-                    lte: period.end_date,
-                  },
+            const existingThisPeriod = await tx.behaviourRecognitionAward.findFirst({
+              where: {
+                tenant_id: tenantId,
+                student_id: studentId,
+                award_type_id: awardType.id,
+                academic_year_id: academicYearId,
+                awarded_at: {
+                  gte: period.start_date,
+                  lte: period.end_date,
                 },
-              });
+              },
+            });
             if (existingThisPeriod) return false;
           }
         }

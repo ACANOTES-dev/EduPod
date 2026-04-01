@@ -100,7 +100,10 @@ export class BehaviourExportService {
         });
 
         if (!student) {
-          throw new NotFoundException('Student not found');
+          throw new NotFoundException({
+            code: 'STUDENT_NOT_FOUND',
+            message: `Student with id "${studentId}" not found`,
+          });
         }
 
         // 2. Load tenant/school name for branding
@@ -217,12 +220,15 @@ export class BehaviourExportService {
         }));
 
         const totalIncidents = mvSummary
-          ? Number(mvSummary.positive_count) + Number(mvSummary.negative_count) + Number(mvSummary.neutral_count)
+          ? Number(mvSummary.positive_count) +
+            Number(mvSummary.negative_count) +
+            Number(mvSummary.neutral_count)
           : incidents.length;
 
-        const positiveRatio = mvSummary?.positive_ratio != null
-          ? `${(Number(mvSummary.positive_ratio) * 100).toFixed(1)}%`
-          : 'N/A';
+        const positiveRatio =
+          mvSummary?.positive_ratio != null
+            ? `${(Number(mvSummary.positive_ratio) * 100).toFixed(1)}%`
+            : 'N/A';
 
         const pointsBalance = mvSummary ? Number(mvSummary.total_points) : 0;
 
@@ -273,10 +279,11 @@ function escapeHtml(text: string): string {
 }
 
 function buildStudentPackHtml(data: StudentExportData): string {
-  const incidentTableRows = data.incidents.length > 0
-    ? data.incidents
-        .map(
-          (i) => `<tr>
+  const incidentTableRows =
+    data.incidents.length > 0
+      ? data.incidents
+          .map(
+            (i) => `<tr>
             <td>${escapeHtml(i.date)}</td>
             <td>${escapeHtml(i.category)}</td>
             <td>${escapeHtml(i.polarity)}</td>
@@ -284,47 +291,50 @@ function buildStudentPackHtml(data: StudentExportData): string {
             <td>${escapeHtml(i.reporter)}</td>
             <td>${escapeHtml(i.description)}</td>
           </tr>`,
-        )
-        .join('')
-    : '<tr><td colspan="6" class="empty">No incidents recorded</td></tr>';
+          )
+          .join('')
+      : '<tr><td colspan="6" class="empty">No incidents recorded</td></tr>';
 
-  const sanctionTableRows = data.sanctions.length > 0
-    ? data.sanctions
-        .map(
-          (s) => `<tr>
+  const sanctionTableRows =
+    data.sanctions.length > 0
+      ? data.sanctions
+          .map(
+            (s) => `<tr>
             <td>${escapeHtml(s.type)}</td>
             <td>${escapeHtml(s.date)}</td>
             <td>${escapeHtml(s.status)}</td>
             <td>${escapeHtml(s.served)}</td>
           </tr>`,
-        )
-        .join('')
-    : '<tr><td colspan="4" class="empty">No sanctions recorded</td></tr>';
+          )
+          .join('')
+      : '<tr><td colspan="4" class="empty">No sanctions recorded</td></tr>';
 
-  const interventionTableRows = data.interventions.length > 0
-    ? data.interventions
-        .map(
-          (iv) => `<tr>
+  const interventionTableRows =
+    data.interventions.length > 0
+      ? data.interventions
+          .map(
+            (iv) => `<tr>
             <td>${escapeHtml(iv.title)}</td>
             <td>${escapeHtml(iv.type)}</td>
             <td>${escapeHtml(iv.status)}</td>
             <td>${escapeHtml(iv.outcome)}</td>
           </tr>`,
-        )
-        .join('')
-    : '<tr><td colspan="4" class="empty">No interventions recorded</td></tr>';
+          )
+          .join('')
+      : '<tr><td colspan="4" class="empty">No interventions recorded</td></tr>';
 
-  const awardTableRows = data.awards.length > 0
-    ? data.awards
-        .map(
-          (a) => `<tr>
+  const awardTableRows =
+    data.awards.length > 0
+      ? data.awards
+          .map(
+            (a) => `<tr>
             <td>${escapeHtml(a.award_type)}</td>
             <td>${escapeHtml(a.date)}</td>
             <td>${escapeHtml(a.reason)}</td>
           </tr>`,
-        )
-        .join('')
-    : '<tr><td colspan="3" class="empty">No awards recorded</td></tr>';
+          )
+          .join('')
+      : '<tr><td colspan="3" class="empty">No awards recorded</td></tr>';
 
   return `<!DOCTYPE html>
 <html>

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
@@ -61,6 +62,8 @@ export interface ParentSelfReferralInput {
 
 @Injectable()
 export class ParentPastoralService {
+  private readonly logger = new Logger(ParentPastoralService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventService: PastoralEventService,
@@ -94,7 +97,7 @@ export class ParentPastoralService {
 
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    return (rlsClient.$transaction(async (tx) => {
+    return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       const today = new Date();
 
@@ -193,7 +196,7 @@ export class ParentPastoralService {
       });
 
       return { data, meta: { page: query.page, pageSize: query.pageSize, total } };
-    }) as unknown as Promise<{ data: ParentConcernView[]; meta: PaginationMeta }>);
+    }) as unknown as Promise<{ data: ParentConcernView[]; meta: PaginationMeta }>;
   }
 
   // ─── Submit Self-Referral ─────────────────────────────────────────────────
@@ -219,7 +222,7 @@ export class ParentPastoralService {
       user_id: userId,
     });
 
-    return (rlsClient.$transaction(async (tx) => {
+    return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       // 2. Verify parent-student link
@@ -291,7 +294,7 @@ export class ParentPastoralService {
           created_at: concern.created_at.toISOString(),
         },
       };
-    }) as unknown as Promise<{ data: { id: string; created_at: string } }>);
+    }) as unknown as Promise<{ data: { id: string; created_at: string } }>;
   }
 
   // ─── Get Intervention Summaries ───────────────────────────────────────────
@@ -305,7 +308,7 @@ export class ParentPastoralService {
 
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    return (rlsClient.$transaction(async (tx) => {
+    return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       const today = new Date();
 
@@ -386,13 +389,11 @@ export class ParentPastoralService {
         parent_input: i.parent_input,
         student_voice: i.student_voice,
         status: i.status,
-        next_review_date: i.next_review_date
-          ? i.next_review_date.toISOString()
-          : null,
+        next_review_date: i.next_review_date ? i.next_review_date.toISOString() : null,
       }));
 
       return { data };
-    }) as unknown as Promise<{ data: ParentInterventionView[] }>);
+    }) as unknown as Promise<{ data: ParentInterventionView[] }>;
   }
 
   // ─── Private Helpers ──────────────────────────────────────────────────────
@@ -420,10 +421,7 @@ export class ParentPastoralService {
         },
         status: 'active_restriction' as $Enums.RestrictionStatus,
         effective_from: { lte: today },
-        OR: [
-          { effective_until: null },
-          { effective_until: { gte: today } },
-        ],
+        OR: [{ effective_until: null }, { effective_until: { gte: today } }],
       },
     });
 
@@ -490,8 +488,11 @@ export class ParentPastoralService {
           follow_up_suggestion: 'Auto-assigned to homeroom teacher',
         },
       });
-    } catch {
-      // Auto-assign is best-effort — no throw
+    } catch (err) {
+      this.logger.warn(
+        `Auto-assign homeroom teacher failed for concern ${concernId} — operation continues`,
+        err,
+      );
     }
   }
 
