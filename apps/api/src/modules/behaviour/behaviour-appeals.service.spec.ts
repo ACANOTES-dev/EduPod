@@ -1,9 +1,9 @@
-import { BadRequestException } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { BehaviourAmendmentsService } from './behaviour-amendments.service';
 import { BehaviourAppealsService } from './behaviour-appeals.service';
@@ -57,7 +57,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -119,10 +121,7 @@ describe('BehaviourAppealsService', () => {
       grounds_category: 'disproportionate_consequence' as const,
     };
 
-    function setupSubmitMocks(overrides?: {
-      sanctionStatus?: string;
-      existingAppeal?: unknown;
-    }) {
+    function setupSubmitMocks(overrides?: { sanctionStatus?: string; existingAppeal?: unknown }) {
       mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue({
         id: INCIDENT_ID,
         tenant_id: TENANT_ID,
@@ -133,9 +132,7 @@ describe('BehaviourAppealsService', () => {
         tenant_id: TENANT_ID,
         status: overrides?.sanctionStatus ?? 'scheduled',
       });
-      mockRlsTx.behaviourAppeal!.findFirst.mockResolvedValue(
-        overrides?.existingAppeal ?? null,
-      );
+      mockRlsTx.behaviourAppeal!.findFirst.mockResolvedValue(overrides?.existingAppeal ?? null);
       mockRlsTx.behaviourAppeal!.create.mockResolvedValue({
         id: APPEAL_ID,
         appeal_number: 'AP-202603-000001',
@@ -150,7 +147,9 @@ describe('BehaviourAppealsService', () => {
     it('should generate AP- sequence number on submission', async () => {
       setupSubmitMocks();
 
-      const result = await service.submit(TENANT_ID, USER_ID, baseDto) as { appeal_number: string };
+      const result = (await service.submit(TENANT_ID, USER_ID, baseDto)) as {
+        appeal_number: string;
+      };
 
       expect(mockSequenceService.nextNumber).toHaveBeenCalledWith(
         TENANT_ID,
@@ -177,9 +176,9 @@ describe('BehaviourAppealsService', () => {
         existingAppeal: { id: 'existing-appeal', status: 'submitted' },
       });
 
-      await expect(
-        service.submit(TENANT_ID, USER_ID, baseDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.submit(TENANT_ID, USER_ID, baseDto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should set legal hold on incident and sanction on submission', async () => {

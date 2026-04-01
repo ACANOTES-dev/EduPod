@@ -4,7 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchIndexService } from '../search/search-index.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { AdmissionsRateLimitService } from './admissions-rate-limit.service';
 import { ApplicationConversionService } from './application-conversion.service';

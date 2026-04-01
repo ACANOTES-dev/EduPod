@@ -24,7 +24,7 @@ import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { GradesService } from './grades.service';
-import { ReportCardsService } from './report-cards/report-cards.service';
+import { ReportCardsQueriesService } from './report-cards/report-cards-queries.service';
 import { TranscriptsService } from './transcripts.service';
 
 // ─── Query Schemas ────────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ const parentReportCardsQuerySchema = z.object({
 export class ParentGradebookController {
   constructor(
     private readonly gradesService: GradesService,
-    private readonly reportCardsService: ReportCardsService,
+    private readonly reportCardsQueriesService: ReportCardsQueriesService,
     private readonly transcriptsService: TranscriptsService,
     private readonly pdfRenderingService: PdfRenderingService,
     private readonly prisma: PrismaService,
@@ -53,9 +53,7 @@ export class ParentGradebookController {
 
   @Get('parent/academic-periods')
   @RequiresPermission('parent.view_grades')
-  async getAcademicPeriods(
-    @CurrentTenant() tenant: { tenant_id: string },
-  ) {
+  async getAcademicPeriods(@CurrentTenant() tenant: { tenant_id: string }) {
     return this.academicPeriodsService.findAll(tenant.tenant_id, 50);
   }
 
@@ -85,7 +83,7 @@ export class ParentGradebookController {
     await this.verifyParentStudentLink(user.sub, tenant.tenant_id, studentId);
 
     // Only return published report cards for parents
-    return this.reportCardsService.findAll(tenant.tenant_id, {
+    return this.reportCardsQueriesService.findAll(tenant.tenant_id, {
       page: 1,
       pageSize: 100,
       student_id: studentId,
@@ -107,10 +105,7 @@ export class ParentGradebookController {
     await this.verifyParentStudentLink(user.sub, tenant.tenant_id, studentId);
 
     // Load the report card and verify it belongs to the student and is published
-    const reportCard = await this.reportCardsService.findOne(
-      tenant.tenant_id,
-      reportCardId,
-    );
+    const reportCard = await this.reportCardsQueriesService.findOne(tenant.tenant_id, reportCardId);
 
     if (reportCard.student_id !== studentId) {
       throw new ForbiddenException({

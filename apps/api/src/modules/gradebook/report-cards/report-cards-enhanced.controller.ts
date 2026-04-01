@@ -56,6 +56,7 @@ import { ReportCardCustomFieldsService } from './report-card-custom-fields.servi
 import { ReportCardDeliveryService } from './report-card-delivery.service';
 import { ReportCardTemplateService } from './report-card-template.service';
 import { ReportCardVerificationService } from './report-card-verification.service';
+import { ReportCardsQueriesService } from './report-cards-queries.service';
 import { ReportCardsService } from './report-cards.service';
 
 // ─── Public Verification Controller ──────────────────────────────────────────
@@ -66,9 +67,7 @@ import { ReportCardsService } from './report-cards.service';
  */
 @Controller('v1')
 export class ReportCardVerificationController {
-  constructor(
-    private readonly verificationService: ReportCardVerificationService,
-  ) {}
+  constructor(private readonly verificationService: ReportCardVerificationService) {}
 
   @Get('verify/:token')
   async verify(@Param('token') token: string) {
@@ -91,6 +90,7 @@ export class ReportCardsEnhancedController {
     private readonly acknowledgmentService: ReportCardAcknowledgmentService,
     private readonly analyticsService: ReportCardAnalyticsService,
     private readonly reportCardsService: ReportCardsService,
+    private readonly reportCardsQueriesService: ReportCardsQueriesService,
     @InjectQueue('gradebook') private readonly gradebookQueue: Queue,
   ) {}
 
@@ -179,9 +179,7 @@ export class ReportCardsEnhancedController {
 
   @Get('report-cards/approval-configs')
   @RequiresPermission('gradebook.view')
-  async listApprovalConfigs(
-    @CurrentTenant() tenant: { tenant_id: string },
-  ) {
+  async listApprovalConfigs(@CurrentTenant() tenant: { tenant_id: string }) {
     return this.approvalService.findAllConfigs(tenant.tenant_id);
   }
 
@@ -256,12 +254,10 @@ export class ReportCardsEnhancedController {
     @Query(new ZodValidationPipe(getPendingApprovalsQuerySchema))
     query: z.infer<typeof getPendingApprovalsQuerySchema>,
   ) {
-    return this.approvalService.getPendingApprovals(
-      tenant.tenant_id,
-      user.sub,
-      query.role_key,
-      { page: query.page, pageSize: query.pageSize },
-    );
+    return this.approvalService.getPendingApprovals(tenant.tenant_id, user.sub, query.role_key, {
+      page: query.page,
+      pageSize: query.pageSize,
+    });
   }
 
   @Post('report-cards/approvals/bulk-approve')
@@ -310,9 +306,7 @@ export class ReportCardsEnhancedController {
 
   @Get('report-cards/custom-fields')
   @RequiresPermission('gradebook.view')
-  async listCustomFields(
-    @CurrentTenant() tenant: { tenant_id: string },
-  ) {
+  async listCustomFields(@CurrentTenant() tenant: { tenant_id: string }) {
     return this.customFieldsService.findAllFieldDefs(tenant.tenant_id);
   }
 
@@ -382,9 +376,7 @@ export class ReportCardsEnhancedController {
 
   @Get('report-cards/grade-thresholds')
   @RequiresPermission('gradebook.view')
-  async listThresholds(
-    @CurrentTenant() tenant: { tenant_id: string },
-  ) {
+  async listThresholds(@CurrentTenant() tenant: { tenant_id: string }) {
     return this.thresholdService.findAll(tenant.tenant_id);
   }
 
@@ -429,9 +421,10 @@ export class ReportCardsEnhancedController {
     dto: z.infer<typeof acknowledgeReportCardSchema>,
     @Req() req: Request,
   ) {
-    const ipAddress = (req.headers['x-forwarded-for'] as string | undefined)
-      ?? req.socket.remoteAddress
-      ?? undefined;
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string | undefined) ??
+      req.socket.remoteAddress ??
+      undefined;
     return this.acknowledgmentService.acknowledge(tenant.tenant_id, id, dto.parent_id, ipAddress);
   }
 
@@ -513,7 +506,7 @@ export class ReportCardsEnhancedController {
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('studentId', ParseUUIDPipe) studentId: string,
   ) {
-    return this.reportCardsService.generateTranscript(tenant.tenant_id, studentId);
+    return this.reportCardsQueriesService.generateTranscript(tenant.tenant_id, studentId);
   }
 
   // ─── Verification Token (R15) ────────────────────────────────────────────

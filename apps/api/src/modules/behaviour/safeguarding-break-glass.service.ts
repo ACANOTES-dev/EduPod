@@ -1,10 +1,5 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 import type { CompleteBreakGlassReviewDto, GrantBreakGlassDto } from '@school/shared';
 import { Queue } from 'bullmq';
@@ -28,6 +23,7 @@ export class SafeguardingBreakGlassService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
+    // TODO(M-17): Migrate to BehaviourSideEffectsService
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
 
@@ -113,11 +109,7 @@ export class SafeguardingBreakGlassService {
 
   // ─── Grant Access ──────────────────────────────────────────────────────────
 
-  async grantAccess(
-    tenantId: string,
-    userId: string,
-    dto: GrantBreakGlassDto,
-  ) {
+  async grantAccess(tenantId: string, userId: string, dto: GrantBreakGlassDto) {
     if (dto.duration_hours > 72) {
       throw new BadRequestException({
         code: 'DURATION_EXCEEDED',

@@ -2,8 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { EvaluatedInput, PolicyCondition } from '@school/shared';
 
-import { PrismaService } from '../../prisma/prisma.service';
-import { BehaviourHistoryService } from '../behaviour-history.service';
+import { BehaviourHistoryService } from '../behaviour/behaviour-history.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 import { PolicyEvaluationEngine } from './policy-evaluation-engine';
 
@@ -195,29 +195,19 @@ describe('PolicyEvaluationEngine', () => {
       };
 
       // Exactly at min boundary
-      expect(
-        engine.evaluateConditions(conditions, makeInput({ severity: 3 })),
-      ).toBe(true);
+      expect(engine.evaluateConditions(conditions, makeInput({ severity: 3 }))).toBe(true);
 
       // Exactly at max boundary
-      expect(
-        engine.evaluateConditions(conditions, makeInput({ severity: 7 })),
-      ).toBe(true);
+      expect(engine.evaluateConditions(conditions, makeInput({ severity: 7 }))).toBe(true);
 
       // Below min
-      expect(
-        engine.evaluateConditions(conditions, makeInput({ severity: 2 })),
-      ).toBe(false);
+      expect(engine.evaluateConditions(conditions, makeInput({ severity: 2 }))).toBe(false);
 
       // Above max
-      expect(
-        engine.evaluateConditions(conditions, makeInput({ severity: 8 })),
-      ).toBe(false);
+      expect(engine.evaluateConditions(conditions, makeInput({ severity: 8 }))).toBe(false);
 
       // In the middle
-      expect(
-        engine.evaluateConditions(conditions, makeInput({ severity: 5 })),
-      ).toBe(true);
+      expect(engine.evaluateConditions(conditions, makeInput({ severity: 5 }))).toBe(true);
     });
 
     it('should correctly evaluate repeat_count_min with a window', () => {
@@ -226,19 +216,13 @@ describe('PolicyEvaluationEngine', () => {
       };
 
       // Count below minimum
-      expect(
-        engine.evaluateConditions(conditions, makeInput({ repeat_count: 2 })),
-      ).toBe(false);
+      expect(engine.evaluateConditions(conditions, makeInput({ repeat_count: 2 }))).toBe(false);
 
       // Count at minimum
-      expect(
-        engine.evaluateConditions(conditions, makeInput({ repeat_count: 3 })),
-      ).toBe(true);
+      expect(engine.evaluateConditions(conditions, makeInput({ repeat_count: 3 }))).toBe(true);
 
       // Count above minimum
-      expect(
-        engine.evaluateConditions(conditions, makeInput({ repeat_count: 10 })),
-      ).toBe(true);
+      expect(engine.evaluateConditions(conditions, makeInput({ repeat_count: 10 }))).toBe(true);
     });
 
     it('should read student_has_send from student_snapshot, not live student data', () => {
@@ -271,15 +255,9 @@ describe('PolicyEvaluationEngine', () => {
         severity_min: 1,
       };
 
-      expect(
-        engine.evaluateConditions(conditions, makeInput({ severity: 1 })),
-      ).toBe(true);
-      expect(
-        engine.evaluateConditions(conditions, makeInput({ severity: 5 })),
-      ).toBe(true);
-      expect(
-        engine.evaluateConditions(conditions, makeInput({ severity: 10 })),
-      ).toBe(true);
+      expect(engine.evaluateConditions(conditions, makeInput({ severity: 1 }))).toBe(true);
+      expect(engine.evaluateConditions(conditions, makeInput({ severity: 5 }))).toBe(true);
+      expect(engine.evaluateConditions(conditions, makeInput({ severity: 10 }))).toBe(true);
     });
 
     it('edge: repeat_window_days = 365 should include the full year', () => {
@@ -338,7 +316,9 @@ describe('PolicyEvaluationEngine', () => {
         },
         behaviourIncident: {
           update: jest.fn().mockResolvedValue({}),
-          findFirst: jest.fn().mockResolvedValue({ status: 'active', approval_status: 'not_required' }),
+          findFirst: jest
+            .fn()
+            .mockResolvedValue({ status: 'active', approval_status: 'not_required' }),
         },
         behaviourIncidentParticipant: {
           count: jest.fn().mockResolvedValue(0),
@@ -455,11 +435,9 @@ describe('PolicyEvaluationEngine', () => {
 
         // Only one evaluation should be created for consequence stage
         // and matched_conditions should correspond to ruleA
-        const consequenceEvals =
-          mockTx.behaviourPolicyEvaluation!.create!.mock.calls.filter(
-            (call: Array<{ data: { stage: string } }>) =>
-              call[0]!.data.stage === 'consequence',
-          );
+        const consequenceEvals = mockTx.behaviourPolicyEvaluation!.create!.mock.calls.filter(
+          (call: Array<{ data: { stage: string } }>) => call[0]!.data.stage === 'consequence',
+        );
         expect(consequenceEvals).toHaveLength(1);
 
         // The matched rule's conditions should be ruleA's (stop_processing_stage = true)
@@ -508,12 +486,11 @@ describe('PolicyEvaluationEngine', () => {
         );
 
         // Only ruleA's action should be executed for consequence
-        const actionExecCalls =
-          mockTx.behaviourPolicyActionExecution!.create!.mock.calls.filter(
-            (call: Array<{ data: { action_type: string } }>) =>
-              call[0]!.data.action_type === 'notify_roles' ||
-              call[0]!.data.action_type === 'notify_users',
-          );
+        const actionExecCalls = mockTx.behaviourPolicyActionExecution!.create!.mock.calls.filter(
+          (call: Array<{ data: { action_type: string } }>) =>
+            call[0]!.data.action_type === 'notify_roles' ||
+            call[0]!.data.action_type === 'notify_users',
+        );
 
         const notifyRolesCalls = actionExecCalls.filter(
           (call: Array<{ data: { action_type: string } }>) =>
@@ -568,12 +545,11 @@ describe('PolicyEvaluationEngine', () => {
           mockTx as unknown as PrismaService,
         );
 
-        const actionExecCalls =
-          mockTx.behaviourPolicyActionExecution!.create!.mock.calls.filter(
-            (call: Array<{ data: { action_type: string } }>) =>
-              call[0]!.data.action_type === 'notify_roles' ||
-              call[0]!.data.action_type === 'notify_users',
-          );
+        const actionExecCalls = mockTx.behaviourPolicyActionExecution!.create!.mock.calls.filter(
+          (call: Array<{ data: { action_type: string } }>) =>
+            call[0]!.data.action_type === 'notify_roles' ||
+            call[0]!.data.action_type === 'notify_users',
+        );
 
         // Both rules' actions should have been executed
         const notifyRoles = actionExecCalls.filter(
@@ -616,11 +592,9 @@ describe('PolicyEvaluationEngine', () => {
           mockTx as unknown as PrismaService,
         );
 
-        const consequenceEvals =
-          mockTx.behaviourPolicyEvaluation!.create!.mock.calls.filter(
-            (call: Array<{ data: { stage: string } }>) =>
-              call[0]!.data.stage === 'consequence',
-          );
+        const consequenceEvals = mockTx.behaviourPolicyEvaluation!.create!.mock.calls.filter(
+          (call: Array<{ data: { stage: string } }>) => call[0]!.data.stage === 'consequence',
+        );
         expect(consequenceEvals).toHaveLength(1);
 
         const evalData = consequenceEvals[0]![0].data;
@@ -650,11 +624,9 @@ describe('PolicyEvaluationEngine', () => {
           mockTx as unknown as PrismaService,
         );
 
-        const consequenceEvals =
-          mockTx.behaviourPolicyEvaluation!.create!.mock.calls.filter(
-            (call: Array<{ data: { stage: string } }>) =>
-              call[0]!.data.stage === 'consequence',
-          );
+        const consequenceEvals = mockTx.behaviourPolicyEvaluation!.create!.mock.calls.filter(
+          (call: Array<{ data: { stage: string } }>) => call[0]!.data.stage === 'consequence',
+        );
         expect(consequenceEvals).toHaveLength(1);
 
         const evalData = consequenceEvals[0]![0].data;
@@ -689,13 +661,11 @@ describe('PolicyEvaluationEngine', () => {
 
         // First dedup check returns null (no prior), second returns existing
         let dedupCallCount = 0;
-        mockTx.behaviourPolicyActionExecution!.findFirst!.mockImplementation(
-          async () => {
-            dedupCallCount++;
-            if (dedupCallCount === 1) return null;
-            return { id: 'existing-exec', execution_status: 'success' };
-          },
-        );
+        mockTx.behaviourPolicyActionExecution!.findFirst!.mockImplementation(async () => {
+          dedupCallCount++;
+          if (dedupCallCount === 1) return null;
+          return { id: 'existing-exec', execution_status: 'success' };
+        });
 
         await engine.evaluateForStudent(
           makeIncident(),
@@ -704,8 +674,7 @@ describe('PolicyEvaluationEngine', () => {
           mockTx as unknown as PrismaService,
         );
 
-        const createCalls =
-          mockTx.behaviourPolicyActionExecution!.create!.mock.calls;
+        const createCalls = mockTx.behaviourPolicyActionExecution!.create!.mock.calls;
         const flagForReviewExecs = createCalls.filter(
           (call: Array<{ data: { action_type: string } }>) =>
             call[0]!.data.action_type === 'flag_for_review',
@@ -713,8 +682,7 @@ describe('PolicyEvaluationEngine', () => {
 
         // One success, one skipped_duplicate
         const statuses = flagForReviewExecs.map(
-          (call: Array<{ data: { execution_status: string } }>) =>
-            call[0]!.data.execution_status,
+          (call: Array<{ data: { execution_status: string } }>) => call[0]!.data.execution_status,
         );
         expect(statuses).toContain('success');
         expect(statuses).toContain('skipped_duplicate');
@@ -740,9 +708,7 @@ describe('PolicyEvaluationEngine', () => {
         );
 
         // Make the sanction creation throw
-        mockTx.behaviourSanction!.create!.mockRejectedValue(
-          new Error('DB constraint violation'),
-        );
+        mockTx.behaviourSanction!.create!.mockRejectedValue(new Error('DB constraint violation'));
 
         // Should not throw — the engine catches action failures
         await expect(
@@ -755,19 +721,15 @@ describe('PolicyEvaluationEngine', () => {
         ).resolves.toBeUndefined();
 
         // A 'failed' action execution should have been recorded
-        const failedExecs =
-          mockTx.behaviourPolicyActionExecution!.create!.mock.calls.filter(
-            (call: Array<{ data: { execution_status: string } }>) =>
-              call[0]!.data.execution_status === 'failed',
-          );
-        expect(failedExecs.length).toBeGreaterThanOrEqual(1);
-        expect(failedExecs[0]![0].data.failure_reason).toBe(
-          'DB constraint violation',
+        const failedExecs = mockTx.behaviourPolicyActionExecution!.create!.mock.calls.filter(
+          (call: Array<{ data: { execution_status: string } }>) =>
+            call[0]!.data.execution_status === 'failed',
         );
+        expect(failedExecs.length).toBeGreaterThanOrEqual(1);
+        expect(failedExecs[0]![0].data.failure_reason).toBe('DB constraint violation');
 
         // Pipeline continued — all 5 stages still got evaluated
-        const totalEvals =
-          mockTx.behaviourPolicyEvaluation!.create!.mock.calls.length;
+        const totalEvals = mockTx.behaviourPolicyEvaluation!.create!.mock.calls.length;
         expect(totalEvals).toBe(5);
       });
 
@@ -835,9 +797,7 @@ describe('PolicyEvaluationEngine', () => {
         );
 
         // Verify version lookup was called with the correct version number
-        expect(
-          mockTx.behaviourPolicyRuleVersion!.findFirst,
-        ).toHaveBeenCalledWith(
+        expect(mockTx.behaviourPolicyRuleVersion!.findFirst).toHaveBeenCalledWith(
           expect.objectContaining({
             where: { rule_id: RULE_ID, version: 3 },
             select: { id: true },
@@ -885,12 +845,10 @@ describe('PolicyEvaluationEngine', () => {
           mockTx as unknown as PrismaService,
         );
 
-        const versionLookups =
-          mockTx.behaviourPolicyRuleVersion!.findFirst!.mock.calls;
+        const versionLookups = mockTx.behaviourPolicyRuleVersion!.findFirst!.mock.calls;
         // At minimum, one lookup per call that had a matching consequence rule
         const versionNumbers = versionLookups.map(
-          (call: Array<{ where: { version: number } }>) =>
-            call[0]!.where.version,
+          (call: Array<{ where: { version: number } }>) => call[0]!.where.version,
         );
         expect(versionNumbers).toContain(1);
         expect(versionNumbers).toContain(2);
@@ -921,11 +879,9 @@ describe('PolicyEvaluationEngine', () => {
           mockTx as unknown as PrismaService,
         );
 
-        const consequenceEvals =
-          mockTx.behaviourPolicyEvaluation!.create!.mock.calls.filter(
-            (call: Array<{ data: { stage: string } }>) =>
-              call[0]!.data.stage === 'consequence',
-          );
+        const consequenceEvals = mockTx.behaviourPolicyEvaluation!.create!.mock.calls.filter(
+          (call: Array<{ data: { stage: string } }>) => call[0]!.data.stage === 'consequence',
+        );
 
         const evalData = consequenceEvals[0]![0].data;
         // Linked to version ID, not the rule ID itself
@@ -960,11 +916,7 @@ describe('PolicyEvaluationEngine', () => {
         );
 
         mockTx.behaviourPolicyRuleVersion!.findFirst!.mockImplementation(
-          async ({
-            where,
-          }: {
-            where: { rule_id: string; version: number };
-          }) => {
+          async ({ where }: { where: { rule_id: string; version: number } }) => {
             return { id: `version-${where.version}` };
           },
         );
@@ -987,8 +939,7 @@ describe('PolicyEvaluationEngine', () => {
 
         const allEvals = mockTx.behaviourPolicyEvaluation!.create!.mock.calls;
         const consequenceEvals = allEvals.filter(
-          (call: Array<{ data: { stage: string } }>) =>
-            call[0]!.data.stage === 'consequence',
+          (call: Array<{ data: { stage: string } }>) => call[0]!.data.stage === 'consequence',
         );
 
         // First evaluation references version 1
@@ -1052,12 +1003,10 @@ describe('PolicyEvaluationEngine', () => {
         const allEvals = mockTx.behaviourPolicyEvaluation!.create!.mock.calls;
 
         const studentAEvals = allEvals.filter(
-          (call: Array<{ data: { student_id: string } }>) =>
-            call[0]!.data.student_id === STUDENT_A,
+          (call: Array<{ data: { student_id: string } }>) => call[0]!.data.student_id === STUDENT_A,
         );
         const studentBEvals = allEvals.filter(
-          (call: Array<{ data: { student_id: string } }>) =>
-            call[0]!.data.student_id === STUDENT_B,
+          (call: Array<{ data: { student_id: string } }>) => call[0]!.data.student_id === STUDENT_B,
         );
 
         // 5 stages per student
@@ -1122,16 +1071,14 @@ describe('PolicyEvaluationEngine', () => {
         // Student A (has SEND) should match on consequence
         const studentAConsequence = allEvals.find(
           (call: Array<{ data: { student_id: string; stage: string } }>) =>
-            call[0]!.data.student_id === STUDENT_A &&
-            call[0]!.data.stage === 'consequence',
+            call[0]!.data.student_id === STUDENT_A && call[0]!.data.stage === 'consequence',
         );
         expect(studentAConsequence![0].data.evaluation_result).toBe('matched');
 
         // Student B (no SEND) should not match on consequence
         const studentBConsequence = allEvals.find(
           (call: Array<{ data: { student_id: string; stage: string } }>) =>
-            call[0]!.data.student_id === STUDENT_B &&
-            call[0]!.data.stage === 'consequence',
+            call[0]!.data.student_id === STUDENT_B && call[0]!.data.stage === 'consequence',
         );
         expect(studentBConsequence![0].data.evaluation_result).toBe('no_match');
       });
@@ -1154,11 +1101,7 @@ describe('PolicyEvaluationEngine', () => {
 
         // Student A has 5 repeats, Student B has 1
         mockTx.behaviourIncidentParticipant!.count!.mockImplementation(
-          async ({
-            where,
-          }: {
-            where: { student_id: string };
-          }) => {
+          async ({ where }: { where: { student_id: string } }) => {
             if (where.student_id === STUDENT_A) return 5;
             return 1;
           },
@@ -1194,16 +1137,14 @@ describe('PolicyEvaluationEngine', () => {
         // Student A (5 repeats >= 3) should match
         const studentAConsequence = allEvals.find(
           (call: Array<{ data: { student_id: string; stage: string } }>) =>
-            call[0]!.data.student_id === STUDENT_A &&
-            call[0]!.data.stage === 'consequence',
+            call[0]!.data.student_id === STUDENT_A && call[0]!.data.stage === 'consequence',
         );
         expect(studentAConsequence![0].data.evaluation_result).toBe('matched');
 
         // Student B (1 repeat < 3) should not match
         const studentBConsequence = allEvals.find(
           (call: Array<{ data: { student_id: string; stage: string } }>) =>
-            call[0]!.data.student_id === STUDENT_B &&
-            call[0]!.data.stage === 'consequence',
+            call[0]!.data.student_id === STUDENT_B && call[0]!.data.stage === 'consequence',
         );
         expect(studentBConsequence![0].data.evaluation_result).toBe('no_match');
       });

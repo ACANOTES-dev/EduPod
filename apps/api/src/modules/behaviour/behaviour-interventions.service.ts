@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 import {
   isValidInterventionTransition,
@@ -18,7 +14,7 @@ import {
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { BehaviourHistoryService } from './behaviour-history.service';
 
@@ -77,9 +73,7 @@ export class BehaviourInterventionsService {
         // Calculate next_review_date from start_date + review_frequency_days
         const startDate = new Date(dto.start_date);
         const nextReviewDate = new Date(startDate);
-        nextReviewDate.setDate(
-          nextReviewDate.getDate() + (dto.review_frequency_days ?? 14),
-        );
+        nextReviewDate.setDate(nextReviewDate.getDate() + (dto.review_frequency_days ?? 14));
 
         // Create the intervention
         const intervention = await db.behaviourIntervention.create({
@@ -95,9 +89,7 @@ export class BehaviourInterventionsService {
             strategies: dto.strategies as unknown as Prisma.InputJsonValue,
             assigned_to_id: dto.assigned_to_id,
             start_date: startDate,
-            target_end_date: dto.target_end_date
-              ? new Date(dto.target_end_date)
-              : null,
+            target_end_date: dto.target_end_date ? new Date(dto.target_end_date) : null,
             review_frequency_days: dto.review_frequency_days ?? 14,
             next_review_date: nextReviewDate,
             send_aware: dto.send_aware ?? false,
@@ -158,11 +150,7 @@ export class BehaviourInterventionsService {
 
   // ─── List ──────────────────────────────────────────────────────────────────
 
-  async list(
-    tenantId: string,
-    query: ListInterventionsQuery,
-    hasSensitivePermission: boolean,
-  ) {
+  async list(tenantId: string, query: ListInterventionsQuery, hasSensitivePermission: boolean) {
     const where: Prisma.BehaviourInterventionWhereInput = {
       tenant_id: tenantId,
     };
@@ -211,11 +199,7 @@ export class BehaviourInterventionsService {
 
   // ─── Get Detail ────────────────────────────────────────────────────────────
 
-  async getDetail(
-    tenantId: string,
-    id: string,
-    hasSensitivePermission: boolean,
-  ) {
+  async getDetail(tenantId: string, id: string, hasSensitivePermission: boolean) {
     const intervention = await this.prisma.behaviourIntervention.findFirst({
       where: { id, tenant_id: tenantId },
       include: {
@@ -276,12 +260,7 @@ export class BehaviourInterventionsService {
 
   // ─── Update ────────────────────────────────────────────────────────────────
 
-  async update(
-    tenantId: string,
-    id: string,
-    userId: string,
-    dto: UpdateInterventionDto,
-  ) {
+  async update(tenantId: string, id: string, userId: string, dto: UpdateInterventionDto) {
     const existing = await this.prisma.behaviourIntervention.findFirst({
       where: { id, tenant_id: tenantId },
     });
@@ -315,15 +294,12 @@ export class BehaviourInterventionsService {
       if (dto.strategies !== undefined) {
         previousValues.strategies = existing.strategies;
         newValues.strategies = dto.strategies;
-        updateData.strategies =
-          dto.strategies as unknown as Prisma.InputJsonValue;
+        updateData.strategies = dto.strategies as unknown as Prisma.InputJsonValue;
       }
       if (dto.target_end_date !== undefined) {
         previousValues.target_end_date = existing.target_end_date;
         newValues.target_end_date = dto.target_end_date;
-        updateData.target_end_date = dto.target_end_date
-          ? new Date(dto.target_end_date)
-          : null;
+        updateData.target_end_date = dto.target_end_date ? new Date(dto.target_end_date) : null;
       }
       if (dto.send_aware !== undefined) {
         previousValues.send_aware = existing.send_aware;
@@ -343,23 +319,18 @@ export class BehaviourInterventionsService {
         updateData.review_frequency_days = dto.review_frequency_days;
 
         // Find last review date (or fall back to start_date)
-        const lastReview =
-          await db.behaviourInterventionReview.findFirst({
-            where: {
-              tenant_id: tenantId,
-              intervention_id: id,
-            },
-            orderBy: { review_date: 'desc' },
-            select: { review_date: true },
-          });
+        const lastReview = await db.behaviourInterventionReview.findFirst({
+          where: {
+            tenant_id: tenantId,
+            intervention_id: id,
+          },
+          orderBy: { review_date: 'desc' },
+          select: { review_date: true },
+        });
 
-        const baseDate = lastReview
-          ? lastReview.review_date
-          : existing.start_date;
+        const baseDate = lastReview ? lastReview.review_date : existing.start_date;
         const nextReviewDate = new Date(baseDate);
-        nextReviewDate.setDate(
-          nextReviewDate.getDate() + dto.review_frequency_days,
-        );
+        nextReviewDate.setDate(nextReviewDate.getDate() + dto.review_frequency_days);
         updateData.next_review_date = nextReviewDate;
       }
 
@@ -412,8 +383,7 @@ export class BehaviourInterventionsService {
 
       // Map DTO status to Prisma enum name for validation
       const targetPrismaStatus = this.mapStatusToPrisma(dto.status);
-      const currentPrismaStatus =
-        intervention.status as InterventionStatusKey;
+      const currentPrismaStatus = intervention.status as InterventionStatusKey;
       const targetKey = targetPrismaStatus as InterventionStatusKey;
 
       if (!isValidInterventionTransition(currentPrismaStatus, targetKey)) {
@@ -432,10 +402,8 @@ export class BehaviourInterventionsService {
         await db.behaviourTask.create({
           data: {
             tenant_id: tenantId,
-            task_type:
-              'intervention_review' as $Enums.BehaviourTaskType,
-            entity_type:
-              'intervention' as $Enums.BehaviourTaskEntityType,
+            task_type: 'intervention_review' as $Enums.BehaviourTaskType,
+            entity_type: 'intervention' as $Enums.BehaviourTaskEntityType,
             entity_id: id,
             title: `Review intervention ${intervention.intervention_number}`,
             assigned_to_id: intervention.assigned_to_id,
@@ -448,14 +416,10 @@ export class BehaviourInterventionsService {
       }
 
       // If completing or abandoning, set actual_end_date and outcome
-      if (
-        targetPrismaStatus === 'completed_intervention' ||
-        targetPrismaStatus === 'abandoned'
-      ) {
+      if (targetPrismaStatus === 'completed_intervention' || targetPrismaStatus === 'abandoned') {
         updateData.actual_end_date = new Date();
         if (dto.outcome) {
-          updateData.outcome =
-            dto.outcome as $Enums.InterventionOutcome;
+          updateData.outcome = dto.outcome as $Enums.InterventionOutcome;
         }
         if (dto.outcome_notes) {
           updateData.outcome_notes = dto.outcome_notes;
@@ -509,10 +473,7 @@ export class BehaviourInterventionsService {
       }
 
       // Only active or monitoring interventions can be reviewed
-      if (
-        intervention.status !== 'active_intervention' &&
-        intervention.status !== 'monitoring'
-      ) {
+      if (intervention.status !== 'active_intervention' && intervention.status !== 'monitoring') {
         throw new BadRequestException({
           code: 'INTERVENTION_NOT_REVIEWABLE',
           message: `Cannot review an intervention with status "${intervention.status}"`,
@@ -520,31 +481,26 @@ export class BehaviourInterventionsService {
       }
 
       // Auto-populate behaviour points since last review
-      const lastReview =
-        await db.behaviourInterventionReview.findFirst({
-          where: {
-            tenant_id: tenantId,
-            intervention_id: interventionId,
-          },
-          orderBy: { review_date: 'desc' },
-          select: { review_date: true },
-        });
+      const lastReview = await db.behaviourInterventionReview.findFirst({
+        where: {
+          tenant_id: tenantId,
+          intervention_id: interventionId,
+        },
+        orderBy: { review_date: 'desc' },
+        select: { review_date: true },
+      });
 
-      const sinceDate = lastReview
-        ? lastReview.review_date
-        : intervention.start_date;
+      const sinceDate = lastReview ? lastReview.review_date : intervention.start_date;
 
       // SUM points for this student since the last review date
-      const pointsResult = await db.behaviourIncidentParticipant.aggregate(
-        {
-          where: {
-            tenant_id: tenantId,
-            student_id: intervention.student_id,
-            created_at: { gte: sinceDate },
-          },
-          _sum: { points_awarded: true },
+      const pointsResult = await db.behaviourIncidentParticipant.aggregate({
+        where: {
+          tenant_id: tenantId,
+          student_id: intervention.student_id,
+          created_at: { gte: sinceDate },
         },
-      );
+        _sum: { points_awarded: true },
+      });
       const behaviourPointsSinceLast = pointsResult._sum.points_awarded ?? 0;
 
       // Create review (append-only)
@@ -555,20 +511,16 @@ export class BehaviourInterventionsService {
           reviewed_by_id: userId,
           review_date: new Date(dto.review_date),
           progress: dto.progress as $Enums.InterventionProgress,
-          goal_updates:
-            dto.goal_updates as unknown as Prisma.InputJsonValue,
+          goal_updates: dto.goal_updates as unknown as Prisma.InputJsonValue,
           notes: dto.notes,
-          next_review_date: dto.next_review_date
-            ? new Date(dto.next_review_date)
-            : null,
+          next_review_date: dto.next_review_date ? new Date(dto.next_review_date) : null,
           behaviour_points_since_last: behaviourPointsSinceLast,
           attendance_rate_since_last: null, // Attendance module integration deferred
         },
       });
 
       // Update intervention next_review_date if provided
-      const interventionUpdate: Prisma.BehaviourInterventionUpdateInput =
-        {};
+      const interventionUpdate: Prisma.BehaviourInterventionUpdateInput = {};
       if (dto.next_review_date) {
         interventionUpdate.next_review_date = new Date(dto.next_review_date);
 
@@ -576,10 +528,8 @@ export class BehaviourInterventionsService {
         await db.behaviourTask.create({
           data: {
             tenant_id: tenantId,
-            task_type:
-              'intervention_review' as $Enums.BehaviourTaskType,
-            entity_type:
-              'intervention' as $Enums.BehaviourTaskEntityType,
+            task_type: 'intervention_review' as $Enums.BehaviourTaskType,
+            entity_type: 'intervention' as $Enums.BehaviourTaskEntityType,
             entity_id: interventionId,
             title: `Review intervention ${intervention.intervention_number}`,
             assigned_to_id: intervention.assigned_to_id,
@@ -616,30 +566,26 @@ export class BehaviourInterventionsService {
     }
 
     // Find last review date (or fall back to start_date)
-    const lastReview =
-      await this.prisma.behaviourInterventionReview.findFirst({
-        where: {
-          tenant_id: tenantId,
-          intervention_id: interventionId,
-        },
-        orderBy: { review_date: 'desc' },
-        select: { review_date: true },
-      });
+    const lastReview = await this.prisma.behaviourInterventionReview.findFirst({
+      where: {
+        tenant_id: tenantId,
+        intervention_id: interventionId,
+      },
+      orderBy: { review_date: 'desc' },
+      select: { review_date: true },
+    });
 
-    const sinceDate = lastReview
-      ? lastReview.review_date
-      : intervention.start_date;
+    const sinceDate = lastReview ? lastReview.review_date : intervention.start_date;
 
     // SUM points for this student since the last review date
-    const pointsResult =
-      await this.prisma.behaviourIncidentParticipant.aggregate({
-        where: {
-          tenant_id: tenantId,
-          student_id: intervention.student_id,
-          created_at: { gte: sinceDate },
-        },
-        _sum: { points_awarded: true },
-      });
+    const pointsResult = await this.prisma.behaviourIncidentParticipant.aggregate({
+      where: {
+        tenant_id: tenantId,
+        student_id: intervention.student_id,
+        created_at: { gte: sinceDate },
+      },
+      _sum: { points_awarded: true },
+    });
 
     return {
       behaviour_points_since_last: pointsResult._sum.points_awarded ?? 0,
@@ -649,12 +595,7 @@ export class BehaviourInterventionsService {
 
   // ─── List Reviews ──────────────────────────────────────────────────────────
 
-  async listReviews(
-    tenantId: string,
-    interventionId: string,
-    page: number,
-    pageSize: number,
-  ) {
+  async listReviews(tenantId: string, interventionId: string, page: number, pageSize: number) {
     const where: Prisma.BehaviourInterventionReviewWhereInput = {
       tenant_id: tenantId,
       intervention_id: interventionId,
@@ -680,12 +621,7 @@ export class BehaviourInterventionsService {
 
   // ─── Complete (shorthand) ──────────────────────────────────────────────────
 
-  async complete(
-    tenantId: string,
-    id: string,
-    userId: string,
-    dto: CompleteInterventionDto,
-  ) {
+  async complete(tenantId: string, id: string, userId: string, dto: CompleteInterventionDto) {
     return this.transitionStatus(tenantId, id, userId, {
       status: 'completed',
       outcome: dto.outcome,
@@ -703,10 +639,7 @@ export class BehaviourInterventionsService {
       tenant_id: tenantId,
       next_review_date: { lt: today },
       status: {
-        in: [
-          'active_intervention',
-          'monitoring',
-        ] as $Enums.InterventionStatus[],
+        in: ['active_intervention', 'monitoring'] as $Enums.InterventionStatus[],
       },
     };
 
@@ -733,21 +666,12 @@ export class BehaviourInterventionsService {
 
   // ─── List My Interventions ─────────────────────────────────────────────────
 
-  async listMy(
-    tenantId: string,
-    userId: string,
-    page: number,
-    pageSize: number,
-  ) {
+  async listMy(tenantId: string, userId: string, page: number, pageSize: number) {
     const where: Prisma.BehaviourInterventionWhereInput = {
       tenant_id: tenantId,
       assigned_to_id: userId,
       status: {
-        in: [
-          'planned',
-          'active_intervention',
-          'monitoring',
-        ] as $Enums.InterventionStatus[],
+        in: ['planned', 'active_intervention', 'monitoring'] as $Enums.InterventionStatus[],
       },
     };
 

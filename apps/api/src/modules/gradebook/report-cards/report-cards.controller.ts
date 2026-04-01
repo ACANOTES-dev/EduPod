@@ -31,6 +31,7 @@ import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { PdfRenderingService } from '../../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
+import { ReportCardsQueriesService } from './report-cards-queries.service';
 import { ReportCardsService } from './report-cards.service';
 
 // ─── Query Schemas ────────────────────────────────────────────────────────
@@ -52,6 +53,7 @@ const listReportCardsQuerySchema = z.object({
 export class ReportCardsController {
   constructor(
     private readonly reportCardsService: ReportCardsService,
+    private readonly reportCardsQueriesService: ReportCardsQueriesService,
     private readonly pdfRenderingService: PdfRenderingService,
     private readonly prisma: PrismaService,
   ) {}
@@ -78,7 +80,7 @@ export class ReportCardsController {
     @Query(new ZodValidationPipe(listReportCardsQuerySchema))
     query: z.infer<typeof listReportCardsQuerySchema>,
   ) {
-    return this.reportCardsService.findAll(tenant.tenant_id, query);
+    return this.reportCardsQueriesService.findAll(tenant.tenant_id, query);
   }
 
   @Get('report-cards/overview')
@@ -88,7 +90,7 @@ export class ReportCardsController {
     @Query(new ZodValidationPipe(reportCardOverviewQuerySchema))
     query: z.infer<typeof reportCardOverviewQuerySchema>,
   ) {
-    return this.reportCardsService.gradeOverview(tenant.tenant_id, query);
+    return this.reportCardsQueriesService.gradeOverview(tenant.tenant_id, query);
   }
 
   @Get('report-cards/:id')
@@ -97,7 +99,7 @@ export class ReportCardsController {
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.reportCardsService.findOne(tenant.tenant_id, id);
+    return this.reportCardsQueriesService.findOne(tenant.tenant_id, id);
   }
 
   @Patch('report-cards/:id')
@@ -140,7 +142,7 @@ export class ReportCardsController {
     @Res() res: Response,
   ) {
     // 1. Build snapshot payloads for all students in the class
-    const snapshots = await this.reportCardsService.buildBatchSnapshots(
+    const snapshots = await this.reportCardsQueriesService.buildBatchSnapshots(
       tenant.tenant_id,
       dto.class_id,
       dto.academic_period_id,
@@ -159,12 +161,7 @@ export class ReportCardsController {
     const htmlPages: string[] = [];
     for (const snap of snapshots) {
       // Render each student individually. We use 'en' as default locale.
-      const html = this.pdfRenderingService.renderHtml(
-        templateKey,
-        'en',
-        snap.payload,
-        branding,
-      );
+      const html = this.pdfRenderingService.renderHtml(templateKey, 'en', snap.payload, branding);
       htmlPages.push(html);
     }
 
@@ -189,7 +186,7 @@ export class ReportCardsController {
     @Res() res: Response,
   ) {
     // Load the report card with its snapshot payload
-    const reportCard = await this.reportCardsService.findOne(tenant.tenant_id, id);
+    const reportCard = await this.reportCardsQueriesService.findOne(tenant.tenant_id, id);
 
     // Load tenant branding
     const branding = await this.loadBranding(tenant.tenant_id);
@@ -232,9 +229,12 @@ export class ReportCardsController {
   </style>
 </head>
 <body>
-  ${bodies.map((body, i) =>
-    `<div class="page-break"${i === bodies.length - 1 ? ' style="page-break-after: avoid;"' : ''}>${body}</div>`,
-  ).join('\n  ')}
+  ${bodies
+    .map(
+      (body, i) =>
+        `<div class="page-break"${i === bodies.length - 1 ? ' style="page-break-after: avoid;"' : ''}>${body}</div>`,
+    )
+    .join('\n  ')}
 </body>
 </html>`;
   }

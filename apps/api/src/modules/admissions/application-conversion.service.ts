@@ -4,7 +4,7 @@ import type { ConvertApplicationDto } from '@school/shared';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchIndexService } from '../search/search-index.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
 

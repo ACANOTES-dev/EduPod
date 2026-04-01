@@ -25,9 +25,19 @@ import { BEHAVIOUR_ATTACHMENT_SCAN_JOB } from './safeguarding.constants';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 const ALLOWED_EXTENSIONS = new Set([
-  '.pdf', '.doc', '.docx', '.xls', '.xlsx',
-  '.jpg', '.jpeg', '.png', '.gif',
-  '.mp4', '.mov', '.mp3', '.wav',
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.xls',
+  '.xlsx',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.mp4',
+  '.mov',
+  '.mp3',
+  '.wav',
   '.txt',
 ]);
 
@@ -59,6 +69,7 @@ export class SafeguardingAttachmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
+    // TODO(M-17): Migrate to BehaviourSideEffectsService
     @InjectQueue('behaviour') private readonly behaviourQueue: Queue,
   ) {}
 
@@ -141,14 +152,11 @@ export class SafeguardingAttachmentService {
 
         // Enqueue virus scan job
         try {
-          await this.behaviourQueue.add(
-            BEHAVIOUR_ATTACHMENT_SCAN_JOB,
-            {
-              tenant_id: tenantId,
-              attachment_id: attachment.id,
-              file_key: fileKey,
-            },
-          );
+          await this.behaviourQueue.add(BEHAVIOUR_ATTACHMENT_SCAN_JOB, {
+            tenant_id: tenantId,
+            attachment_id: attachment.id,
+            file_key: fileKey,
+          });
         } catch (err) {
           this.logger.warn(
             `Failed to enqueue attachment scan job for ${attachment.id}: ${err instanceof Error ? err.message : String(err)}`,
@@ -173,9 +181,16 @@ export class SafeguardingAttachmentService {
 
         // Fire-and-forget audit log
         void this.auditLogService.write(
-          tenantId, userId, 'behaviour_attachment', attachment.id,
+          tenantId,
+          userId,
+          'behaviour_attachment',
+          attachment.id,
           'safeguarding_attachment_uploaded',
-          { concern_id: concernId, file_name: file.originalname, classification: dto.classification },
+          {
+            concern_id: concernId,
+            file_name: file.originalname,
+            classification: dto.classification,
+          },
           null,
         );
 
@@ -224,10 +239,7 @@ export class SafeguardingAttachmentService {
     }
 
     // Verify entity relationship
-    if (
-      attachment.entity_type !== 'safeguarding_concern' ||
-      attachment.entity_id !== concernId
-    ) {
+    if (attachment.entity_type !== 'safeguarding_concern' || attachment.entity_id !== concernId) {
       throw new BadRequestException({
         code: 'ENTITY_MISMATCH',
         message: 'Attachment does not belong to this concern',
@@ -259,7 +271,10 @@ export class SafeguardingAttachmentService {
 
     // Audit log
     void this.auditLogService.write(
-      tenantId, userId, 'behaviour_attachment', attachmentId,
+      tenantId,
+      userId,
+      'behaviour_attachment',
+      attachmentId,
       'safeguarding_attachment_downloaded',
       {
         concern_id: concernId,

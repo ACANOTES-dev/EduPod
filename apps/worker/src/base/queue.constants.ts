@@ -13,6 +13,7 @@ export const QUEUE_NAMES = {
   NOTIFICATIONS: 'notifications',
   PASTORAL: 'pastoral',
   PAYROLL: 'payroll',
+  PDF_RENDERING: 'pdf-rendering',
   REGULATORY: 'regulatory',
   REPORTS: 'reports',
   SCHEDULING: 'scheduling',

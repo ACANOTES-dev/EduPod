@@ -7,15 +7,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { Queue } from 'bullmq';
 import type {
   CreateConcernDto,
   EscalateConcernTierDto,
-  ListConcernsQuery,
   ShareConcernWithParentDto,
   UpdateConcernMetadataDto,
 } from '@school/shared';
 import { pastoralTenantSettingsSchema } from '@school/shared';
+import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
@@ -337,104 +336,7 @@ export class ConcernService {
     return { data: concern };
   }
 
-  // ─── LIST ───────────────────────────────────────────────────────────────────
-
-  async list(
-    tenantId: string,
-    userId: string,
-    permissions: string[],
-    query: ListConcernsQuery,
-  ): Promise<{ data: ConcernListItemDto[]; meta: PaginationMeta }> {
-    const hasCpAccess = await this.checkCpAccess(tenantId, userId);
-    const callerMaxTier = this.resolveCallerTierAccess(permissions, hasCpAccess);
-
-    const rlsClient = createRlsClient(this.prisma, {
-      tenant_id: tenantId,
-      user_id: userId,
-    });
-
-    const skip = (query.page - 1) * query.pageSize;
-
-    // Build where clause
-    const where: Prisma.PastoralConcernWhereInput = {
-      tenant_id: tenantId,
-    };
-
-    // Tier filtering: if caller cannot see tier 2, filter to tier 1 only
-    // Tier 3 is already handled by RLS (only visible to DLP users)
-    if (callerMaxTier < 2) {
-      where.tier = 1;
-    } else if (callerMaxTier < 3) {
-      where.tier = { in: [1, 2] };
-    }
-    // If user-requested tier filter, apply it within allowed range
-    if (query.tier !== undefined) {
-      if (query.tier <= callerMaxTier) {
-        where.tier = query.tier;
-      } else {
-        // Requested tier exceeds access — return empty
-        return { data: [], meta: { page: query.page, pageSize: query.pageSize, total: 0 } };
-      }
-    }
-
-    if (query.student_id) {
-      where.OR = [
-        { student_id: query.student_id },
-        {
-          involved_students: {
-            some: {
-              tenant_id: tenantId,
-              student_id: query.student_id,
-            },
-          },
-        },
-      ];
-    }
-    if (query.category) where.category = query.category;
-    if (query.severity) where.severity = query.severity;
-    if (query.case_id) where.case_id = query.case_id;
-
-    // Date range filtering
-    if (query.from || query.to) {
-      where.created_at = {};
-      if (query.from) where.created_at.gte = new Date(query.from);
-      if (query.to) where.created_at.lte = new Date(query.to);
-    }
-
-    // Build orderBy
-    const orderBy: Prisma.PastoralConcernOrderByWithRelationInput = {};
-    if (query.sort === 'occurred_at') orderBy.occurred_at = query.order;
-    else if (query.sort === 'severity') orderBy.severity = query.order;
-    else orderBy.created_at = query.order;
-
-    return rlsClient.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
-      const [concerns, total] = await Promise.all([
-        db.pastoralConcern.findMany({
-          where,
-          include: {
-            student: { select: { id: true, first_name: true, last_name: true } },
-            logged_by: { select: { first_name: true, last_name: true } },
-            involved_students: {
-              include: {
-                student: { select: { id: true, first_name: true, last_name: true } },
-              },
-              orderBy: { added_at: 'asc' },
-            },
-          },
-          orderBy,
-          skip,
-          take: query.pageSize,
-        }),
-        db.pastoralConcern.count({ where }),
-      ]);
-
-      const data = (concerns as ConcernRow[]).map((c) => this.toConcernListItem(c, hasCpAccess));
-
-      return { data, meta: { page: query.page, pageSize: query.pageSize, total } };
-    }) as Promise<{ data: ConcernListItemDto[]; meta: PaginationMeta }>;
-  }
+  // ─── LIST (delegated to ConcernQueriesService — M-16 CQRS-lite split) ─────
 
   // ─── GET BY ID ──────────────────────────────────────────────────────────────
 
@@ -901,15 +803,7 @@ export class ConcernService {
     };
   }
 
-  // ─── GET CATEGORIES ─────────────────────────────────────────────────────────
-
-  async getCategories(tenantId: string): Promise<{ data: ConcernCategory[] }> {
-    const settings = await this.loadPastoralSettings(tenantId);
-
-    const activeCategories = settings.concern_categories.filter((c) => c.active);
-
-    return { data: activeCategories };
-  }
+  // ─── GET CATEGORIES (delegated to ConcernQueriesService — M-16 CQRS-lite split) ─
 
   // ─── ACKNOWLEDGE ────────────────────────────────────────────────────────────
 

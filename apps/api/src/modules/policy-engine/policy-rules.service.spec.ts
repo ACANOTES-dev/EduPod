@@ -25,17 +25,15 @@ const mockTx = {
   },
 };
 
-jest.mock('../../../common/middleware/rls.middleware', () => ({
+jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(
-        async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { PolicyRulesService } from './policy-rules.service';
 
 const TENANT_ID = '11111111-1111-1111-1111-111111111111';
@@ -65,10 +63,7 @@ describe('PolicyRulesService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        PolicyRulesService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [PolicyRulesService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<PolicyRulesService>(PolicyRulesService);
@@ -234,10 +229,8 @@ describe('PolicyRulesService', () => {
       });
 
       // Verify snapshot was created before the rule update by checking call order
-      const snapshotOrder =
-        mockTx.behaviourPolicyRuleVersion.create.mock.invocationCallOrder[0]!;
-      const updateOrder =
-        mockTx.behaviourPolicyRule.update.mock.invocationCallOrder[0]!;
+      const snapshotOrder = mockTx.behaviourPolicyRuleVersion.create.mock.invocationCallOrder[0]!;
+      const updateOrder = mockTx.behaviourPolicyRule.update.mock.invocationCallOrder[0]!;
       expect(snapshotOrder).toBeLessThan(updateOrder);
     });
 
@@ -323,9 +316,9 @@ describe('PolicyRulesService', () => {
     it('should throw NotFoundException for non-existent rule', async () => {
       mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(null);
 
-      await expect(
-        service.deleteRule(TENANT_ID, 'non-existent-id'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.deleteRule(TENANT_ID, 'non-existent-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -448,16 +441,12 @@ describe('PolicyRulesService', () => {
           },
         },
       ];
-      mockPrisma.behaviourPolicyRuleVersion!.findMany!.mockResolvedValue(
-        versions,
-      );
+      mockPrisma.behaviourPolicyRuleVersion!.findMany!.mockResolvedValue(versions);
 
       const result = await service.getVersionHistory(TENANT_ID, RULE_ID);
 
       // Descending order enforced by orderBy
-      expect(
-        mockPrisma.behaviourPolicyRuleVersion!.findMany,
-      ).toHaveBeenCalledWith(
+      expect(mockPrisma.behaviourPolicyRuleVersion!.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { rule_id: RULE_ID, tenant_id: TENANT_ID },
           orderBy: { version: 'desc' },
@@ -473,9 +462,9 @@ describe('PolicyRulesService', () => {
     it('should throw NotFoundException for non-existent rule', async () => {
       mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(null);
 
-      await expect(
-        service.getVersionHistory(TENANT_ID, 'non-existent-id'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getVersionHistory(TENANT_ID, 'non-existent-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

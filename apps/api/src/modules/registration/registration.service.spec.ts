@@ -9,7 +9,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { InvoicesService } from '../finance/invoices.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { RegistrationService } from './registration.service';
 
@@ -36,7 +36,8 @@ describe('RegistrationService', () => {
     };
     mockSequenceService = {
       generateHouseholdReference: jest.fn().mockResolvedValue('HH-202603-0001'),
-      nextNumber: jest.fn()
+      nextNumber: jest
+        .fn()
         .mockResolvedValueOnce('STU-202603-0001')
         .mockResolvedValueOnce('INV-202603-0001'),
     };
@@ -59,9 +60,19 @@ describe('RegistrationService', () => {
   afterEach(() => jest.clearAllMocks());
 
   // ── Result types for assertions ──────────────────────────────────────
-  interface PreviewFee { annual_amount: number }
-  interface PreviewStudent { year_group_name: string; fees: PreviewFee[]; subtotal: number }
-  interface PreviewResult { students: PreviewStudent[]; available_discounts: { name: string }[]; grand_total: number }
+  interface PreviewFee {
+    annual_amount: number;
+  }
+  interface PreviewStudent {
+    year_group_name: string;
+    fees: PreviewFee[];
+    subtotal: number;
+  }
+  interface PreviewResult {
+    students: PreviewStudent[];
+    available_discounts: { name: string }[];
+    grand_total: number;
+  }
   interface RegistrationResult {
     household: { household_name: string };
     parents: unknown[];
@@ -80,13 +91,15 @@ describe('RegistrationService', () => {
         phone: '+353123456',
         relationship_label: 'Father',
       },
-      secondary_parent: undefined as undefined | {
-        first_name: string;
-        last_name: string;
-        phone?: string;
-        email?: string;
-        relationship_label: string;
-      },
+      secondary_parent: undefined as
+        | undefined
+        | {
+            first_name: string;
+            last_name: string;
+            phone?: string;
+            email?: string;
+            relationship_label: string;
+          },
       students: [
         {
           first_name: 'Jane',
@@ -127,9 +140,7 @@ describe('RegistrationService', () => {
         create: jest.fn().mockResolvedValue({}),
       },
       parent: {
-        create: jest.fn()
-          .mockResolvedValueOnce({ id: 'p-1' })
-          .mockResolvedValue({ id: 'p-2' }),
+        create: jest.fn().mockResolvedValueOnce({ id: 'p-1' }).mockResolvedValue({ id: 'p-2' }),
       },
       householdParent: {
         create: jest.fn().mockResolvedValue({}),
@@ -183,9 +194,9 @@ describe('RegistrationService', () => {
 
   function setupMockTransaction(mockTx: ReturnType<typeof buildMockTx>) {
     mockCreateRlsClient.mockReturnValue({
-      $transaction: jest.fn().mockImplementation(
-        (fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx),
-      ),
+      $transaction: jest
+        .fn()
+        .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
     });
   }
 
@@ -218,13 +229,13 @@ describe('RegistrationService', () => {
         },
       };
       mockCreateRlsClient.mockReturnValue({
-        $transaction: jest.fn().mockImplementation(
-          (fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx),
-        ),
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
       });
 
       const dto = { students: [{ year_group_id: 'yg-1' }] };
-      const result = await service.previewFees(TENANT_ID, dto as never) as PreviewResult;
+      const result = (await service.previewFees(TENANT_ID, dto as never)) as PreviewResult;
 
       expect(result.students).toHaveLength(1);
       expect(result.students[0]!.year_group_name).toBe('Year 10');
@@ -235,42 +246,70 @@ describe('RegistrationService', () => {
 
     it('should calculate annual amount for monthly billing frequency', async () => {
       const mockTx = {
-        academicYear: { findFirst: jest.fn().mockResolvedValue({ id: 'ay-1', _count: { periods: 3 } }) },
+        academicYear: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'ay-1', _count: { periods: 3 } }),
+        },
         feeStructure: {
-          findMany: jest.fn().mockResolvedValue([
-            { id: 'fs-1', name: 'Lunch', amount: 100, billing_frequency: 'monthly', year_group_id: null, year_group: null, active: true },
-          ]),
+          findMany: jest
+            .fn()
+            .mockResolvedValue([
+              {
+                id: 'fs-1',
+                name: 'Lunch',
+                amount: 100,
+                billing_frequency: 'monthly',
+                year_group_id: null,
+                year_group: null,
+                active: true,
+              },
+            ]),
         },
         yearGroup: { findMany: jest.fn().mockResolvedValue([{ id: 'yg-1', name: 'Year 10' }]) },
         discount: { findMany: jest.fn().mockResolvedValue([]) },
       };
       mockCreateRlsClient.mockReturnValue({
-        $transaction: jest.fn().mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
       });
 
       const dto = { students: [{ year_group_id: 'yg-1' }] };
-      const result = await service.previewFees(TENANT_ID, dto as never) as PreviewResult;
+      const result = (await service.previewFees(TENANT_ID, dto as never)) as PreviewResult;
 
       expect(result.students[0]!.fees[0]!.annual_amount).toBe(1200); // 100 * 12
     });
 
     it('should calculate annual amount for one_off billing frequency', async () => {
       const mockTx = {
-        academicYear: { findFirst: jest.fn().mockResolvedValue({ id: 'ay-1', _count: { periods: 3 } }) },
+        academicYear: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'ay-1', _count: { periods: 3 } }),
+        },
         feeStructure: {
-          findMany: jest.fn().mockResolvedValue([
-            { id: 'fs-1', name: 'Registration', amount: 500, billing_frequency: 'one_off', year_group_id: null, year_group: null, active: true },
-          ]),
+          findMany: jest
+            .fn()
+            .mockResolvedValue([
+              {
+                id: 'fs-1',
+                name: 'Registration',
+                amount: 500,
+                billing_frequency: 'one_off',
+                year_group_id: null,
+                year_group: null,
+                active: true,
+              },
+            ]),
         },
         yearGroup: { findMany: jest.fn().mockResolvedValue([{ id: 'yg-1', name: 'Year 10' }]) },
         discount: { findMany: jest.fn().mockResolvedValue([]) },
       };
       mockCreateRlsClient.mockReturnValue({
-        $transaction: jest.fn().mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
       });
 
       const dto = { students: [{ year_group_id: 'yg-1' }] };
-      const result = await service.previewFees(TENANT_ID, dto as never) as PreviewResult;
+      const result = (await service.previewFees(TENANT_ID, dto as never)) as PreviewResult;
 
       expect(result.students[0]!.fees[0]!.annual_amount).toBe(500);
     });
@@ -281,17 +320,27 @@ describe('RegistrationService', () => {
         feeStructure: { findMany: jest.fn().mockResolvedValue([]) },
         yearGroup: { findMany: jest.fn().mockResolvedValue([]) },
         discount: {
-          findMany: jest.fn().mockResolvedValue([
-            { id: 'd-1', name: 'Sibling Discount', discount_type: 'percent', value: 10, active: true },
-          ]),
+          findMany: jest
+            .fn()
+            .mockResolvedValue([
+              {
+                id: 'd-1',
+                name: 'Sibling Discount',
+                discount_type: 'percent',
+                value: 10,
+                active: true,
+              },
+            ]),
         },
       };
       mockCreateRlsClient.mockReturnValue({
-        $transaction: jest.fn().mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
       });
 
       const dto = { students: [{ year_group_id: 'yg-1' }] };
-      const result = await service.previewFees(TENANT_ID, dto as never) as PreviewResult;
+      const result = (await service.previewFees(TENANT_ID, dto as never)) as PreviewResult;
 
       expect(result.available_discounts).toHaveLength(1);
       expect(result.available_discounts[0]!.name).toBe('Sibling Discount');
@@ -301,19 +350,31 @@ describe('RegistrationService', () => {
       const mockTx = {
         academicYear: { findFirst: jest.fn().mockResolvedValue(null) },
         feeStructure: {
-          findMany: jest.fn().mockResolvedValue([
-            { id: 'fs-1', name: 'Tuition', amount: 500, billing_frequency: 'term', year_group_id: 'yg-1', year_group: { id: 'yg-1', name: 'Year 10' }, active: true },
-          ]),
+          findMany: jest
+            .fn()
+            .mockResolvedValue([
+              {
+                id: 'fs-1',
+                name: 'Tuition',
+                amount: 500,
+                billing_frequency: 'term',
+                year_group_id: 'yg-1',
+                year_group: { id: 'yg-1', name: 'Year 10' },
+                active: true,
+              },
+            ]),
         },
         yearGroup: { findMany: jest.fn().mockResolvedValue([{ id: 'yg-1', name: 'Year 10' }]) },
         discount: { findMany: jest.fn().mockResolvedValue([]) },
       };
       mockCreateRlsClient.mockReturnValue({
-        $transaction: jest.fn().mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
       });
 
       const dto = { students: [{ year_group_id: 'yg-1' }] };
-      const result = await service.previewFees(TENANT_ID, dto as never) as PreviewResult;
+      const result = (await service.previewFees(TENANT_ID, dto as never)) as PreviewResult;
 
       // 500 * 3 (default term count)
       expect(result.students[0]!.fees[0]!.annual_amount).toBe(1500);
@@ -368,7 +429,11 @@ describe('RegistrationService', () => {
       const mockTx = buildMockTx();
       setupMockTransaction(mockTx);
 
-      const result = await service.registerFamily(TENANT_ID, USER_ID, dto as never) as RegistrationResult;
+      const result = (await service.registerFamily(
+        TENANT_ID,
+        USER_ID,
+        dto as never,
+      )) as RegistrationResult;
 
       expect(mockTx.household.create).toHaveBeenCalledTimes(1);
       expect(mockTx.parent.create).toHaveBeenCalledTimes(1);
@@ -406,7 +471,11 @@ describe('RegistrationService', () => {
       const mockTx = buildMockTx();
       setupMockTransaction(mockTx);
 
-      const result = await service.registerFamily(TENANT_ID, USER_ID, dto as never) as RegistrationResult;
+      const result = (await service.registerFamily(
+        TENANT_ID,
+        USER_ID,
+        dto as never,
+      )) as RegistrationResult;
 
       // primary + secondary
       expect(mockTx.parent.create).toHaveBeenCalledTimes(2);
@@ -437,8 +506,9 @@ describe('RegistrationService', () => {
       const mockTx = buildMockTx();
       setupMockTransaction(mockTx);
 
-      await expect(service.registerFamily(TENANT_ID, USER_ID, dto as never))
-        .rejects.toThrow(BadRequestException);
+      await expect(service.registerFamily(TENANT_ID, USER_ID, dto as never)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw NotFoundException when tenant is not found', async () => {
@@ -447,8 +517,9 @@ describe('RegistrationService', () => {
       mockTx.tenant.findUnique.mockResolvedValue(null);
       setupMockTransaction(mockTx);
 
-      await expect(service.registerFamily(TENANT_ID, USER_ID, dto as never))
-        .rejects.toThrow(NotFoundException);
+      await expect(service.registerFamily(TENANT_ID, USER_ID, dto as never)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should still return result when invoice issuing fails', async () => {
@@ -457,7 +528,11 @@ describe('RegistrationService', () => {
       setupMockTransaction(mockTx);
       mockInvoicesService.issue.mockRejectedValue(new Error('Approval needed'));
 
-      const result = await service.registerFamily(TENANT_ID, USER_ID, dto as never) as RegistrationResult;
+      const result = (await service.registerFamily(
+        TENANT_ID,
+        USER_ID,
+        dto as never,
+      )) as RegistrationResult;
 
       // Should fall back to draft status
       expect(result.invoice.status).toBe('draft');
@@ -469,7 +544,11 @@ describe('RegistrationService', () => {
       setupMockTransaction(mockTx);
       mockInvoicesService.issue.mockResolvedValue({ status: 'issued' });
 
-      const result = await service.registerFamily(TENANT_ID, USER_ID, dto as never) as RegistrationResult;
+      const result = (await service.registerFamily(
+        TENANT_ID,
+        USER_ID,
+        dto as never,
+      )) as RegistrationResult;
 
       expect(result.invoice.status).toBe('issued');
     });

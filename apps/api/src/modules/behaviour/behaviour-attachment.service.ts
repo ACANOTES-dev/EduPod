@@ -27,9 +27,19 @@ import { BEHAVIOUR_ATTACHMENT_SCAN_JOB } from './safeguarding.constants';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 const ALLOWED_EXTENSIONS = new Set([
-  '.pdf', '.doc', '.docx', '.xls', '.xlsx',
-  '.jpg', '.jpeg', '.png', '.gif',
-  '.mp4', '.mov', '.mp3', '.wav',
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.xls',
+  '.xlsx',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.mp4',
+  '.mov',
+  '.mp3',
+  '.wav',
   '.txt',
 ]);
 
@@ -55,6 +65,7 @@ export class BehaviourAttachmentService {
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
     private readonly historyService: BehaviourHistoryService,
+    // TODO(M-17): Migrate to BehaviourSideEffectsService
     @InjectQueue('behaviour') private readonly behaviourQueue: Queue,
   ) {}
 
@@ -137,14 +148,11 @@ export class BehaviourAttachmentService {
 
         // Enqueue virus scan job
         try {
-          await this.behaviourQueue.add(
-            BEHAVIOUR_ATTACHMENT_SCAN_JOB,
-            {
-              tenant_id: tenantId,
-              attachment_id: attachment.id,
-              file_key: fileKey,
-            },
-          );
+          await this.behaviourQueue.add(BEHAVIOUR_ATTACHMENT_SCAN_JOB, {
+            tenant_id: tenantId,
+            attachment_id: attachment.id,
+            file_key: fileKey,
+          });
         } catch (err) {
           this.logger.warn(
             `Failed to enqueue attachment scan job for ${attachment.id}: ${err instanceof Error ? err.message : String(err)}`,
@@ -169,9 +177,16 @@ export class BehaviourAttachmentService {
 
         // Fire-and-forget audit log
         void this.auditLogService.write(
-          tenantId, userId, 'behaviour_attachment', attachment.id,
+          tenantId,
+          userId,
+          'behaviour_attachment',
+          attachment.id,
           'behaviour_attachment_uploaded',
-          { incident_id: incidentId, file_name: file.originalname, classification: dto.classification },
+          {
+            incident_id: incidentId,
+            file_name: file.originalname,
+            classification: dto.classification,
+          },
           null,
         );
 
@@ -302,7 +317,10 @@ export class BehaviourAttachmentService {
 
     // Audit log
     void this.auditLogService.write(
-      tenantId, userId, 'behaviour_attachment', attachmentId,
+      tenantId,
+      userId,
+      'behaviour_attachment',
+      attachmentId,
       'behaviour_attachment_downloaded',
       {
         incident_id: incidentId,
@@ -377,7 +395,8 @@ export class BehaviourAttachmentService {
         );
 
         // Optionally create a follow-up task
-        let task: { id: string; title: string; due_date: Date | null; status: string } | null = null;
+        let task: { id: string; title: string; due_date: Date | null; status: string } | null =
+          null;
         if (dto.create_task && dto.task_title) {
           const created = await db.behaviourTask.create({
             data: {
@@ -427,7 +446,10 @@ export class BehaviourAttachmentService {
 
         // Audit log
         void this.auditLogService.write(
-          tenantId, userId, 'behaviour_incident', incidentId,
+          tenantId,
+          userId,
+          'behaviour_incident',
+          incidentId,
           'follow_up_recorded',
           {
             action_taken: dto.action_taken,

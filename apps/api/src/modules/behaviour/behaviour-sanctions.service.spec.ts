@@ -1,12 +1,12 @@
 import { BadRequestException } from '@nestjs/common';
-import { getQueueToken } from '@nestjs/bullmq';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { BehaviourHistoryService } from './behaviour-history.service';
 import { BehaviourSanctionsService } from './behaviour-sanctions.service';
+import { BehaviourSideEffectsService } from './behaviour-side-effects.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const USER_ID = 'user-1';
@@ -57,9 +57,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(
-      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx),
-    ),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -106,8 +106,10 @@ describe('BehaviourSanctionsService', () => {
   };
   let mockSequence: { nextNumber: jest.Mock };
   let mockHistory: { recordHistory: jest.Mock };
-  let mockNotificationsQueue: { add: jest.Mock };
-  let mockBehaviourQueue: { add: jest.Mock };
+  let mockSideEffects: {
+    emitSanctionParentNotification: jest.Mock;
+    emitCreateExclusionCase: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -125,8 +127,10 @@ describe('BehaviourSanctionsService', () => {
       nextNumber: jest.fn().mockResolvedValue('SN-202603-000001'),
     };
     mockHistory = { recordHistory: jest.fn().mockResolvedValue(undefined) };
-    mockNotificationsQueue = { add: jest.fn().mockResolvedValue(undefined) };
-    mockBehaviourQueue = { add: jest.fn().mockResolvedValue(undefined) };
+    mockSideEffects = {
+      emitSanctionParentNotification: jest.fn().mockResolvedValue(undefined),
+      emitCreateExclusionCase: jest.fn().mockResolvedValue(undefined),
+    };
 
     // Reset all RLS tx mocks
     for (const model of Object.values(mockRlsTx)) {
@@ -141,8 +145,7 @@ describe('BehaviourSanctionsService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SequenceService, useValue: mockSequence },
         { provide: BehaviourHistoryService, useValue: mockHistory },
-        { provide: getQueueToken('notifications'), useValue: mockNotificationsQueue },
-        { provide: getQueueToken('behaviour'), useValue: mockBehaviourQueue },
+        { provide: BehaviourSideEffectsService, useValue: mockSideEffects },
       ],
     }).compile();
 
@@ -172,9 +175,7 @@ describe('BehaviourSanctionsService', () => {
         id: STUDENT_ID,
         tenant_id: TENANT_ID,
       });
-      mockRlsTx.tenantSetting!.findFirst.mockResolvedValue(
-        makeSettings(settingsOverrides),
-      );
+      mockRlsTx.tenantSetting!.findFirst.mockResolvedValue(makeSettings(settingsOverrides));
       mockRlsTx.schoolClosure!.findFirst.mockResolvedValue(null);
       mockRlsTx.behaviourSanction!.create.mockResolvedValue(
         makeSanction({ type: 'suspension_internal' }),
@@ -287,8 +288,7 @@ describe('BehaviourSanctionsService', () => {
 
       await service.create(TENANT_ID, USER_ID, externalDto);
 
-      expect(mockBehaviourQueue.add).toHaveBeenCalledWith(
-        'behaviour:create-exclusion-case',
+      expect(mockSideEffects.emitCreateExclusionCase).toHaveBeenCalledWith(
         expect.objectContaining({
           tenant_id: TENANT_ID,
           sanction_id: SANCTION_ID,
@@ -321,8 +321,8 @@ describe('BehaviourSanctionsService', () => {
       // is tested in the exclusion cases spec.
       await service.create(TENANT_ID, USER_ID, externalDto);
 
-      // Queue is called — the dedup guard lives in the job processor
-      expect(mockBehaviourQueue.add).toHaveBeenCalled();
+      // Side-effect is called — the dedup guard lives in the job processor
+      expect(mockSideEffects.emitCreateExclusionCase).toHaveBeenCalled();
     });
   });
 
@@ -399,9 +399,7 @@ describe('BehaviourSanctionsService', () => {
     });
 
     it('should throw BadRequestException for invalid state transition (served -> appealed)', async () => {
-      mockRlsTx.behaviourSanction!.findFirst.mockResolvedValue(
-        makeSanction({ status: 'served' }),
-      );
+      mockRlsTx.behaviourSanction!.findFirst.mockResolvedValue(makeSanction({ status: 'served' }));
 
       await expect(
         service.transitionStatus(TENANT_ID, SANCTION_ID, 'appealed', undefined, USER_ID),
@@ -416,10 +414,16 @@ describe('BehaviourSanctionsService', () => {
       const sanctionIds = ['s1', 's2', 's3'];
 
       // s1 = scheduled (valid), s2 = scheduled (valid), s3 = served (invalid — terminal)
-      mockRlsTx.behaviourSanction!.findFirst
-        .mockResolvedValueOnce(makeSanction({ id: 's1', sanction_number: 'SN-001', status: 'scheduled' }))
-        .mockResolvedValueOnce(makeSanction({ id: 's2', sanction_number: 'SN-002', status: 'scheduled' }))
-        .mockResolvedValueOnce(makeSanction({ id: 's3', sanction_number: 'SN-003', status: 'served' }));
+      mockRlsTx
+        .behaviourSanction!.findFirst.mockResolvedValueOnce(
+          makeSanction({ id: 's1', sanction_number: 'SN-001', status: 'scheduled' }),
+        )
+        .mockResolvedValueOnce(
+          makeSanction({ id: 's2', sanction_number: 'SN-002', status: 'scheduled' }),
+        )
+        .mockResolvedValueOnce(
+          makeSanction({ id: 's3', sanction_number: 'SN-003', status: 'served' }),
+        );
 
       mockRlsTx.behaviourSanction!.update.mockResolvedValue({});
 
@@ -442,9 +446,7 @@ describe('BehaviourSanctionsService', () => {
 
   describe('blocked transitions', () => {
     it('should reject served -> any (terminal status)', async () => {
-      mockRlsTx.behaviourSanction!.findFirst.mockResolvedValue(
-        makeSanction({ status: 'served' }),
-      );
+      mockRlsTx.behaviourSanction!.findFirst.mockResolvedValue(makeSanction({ status: 'served' }));
 
       await expect(
         service.transitionStatus(TENANT_ID, SANCTION_ID, 'scheduled', undefined, USER_ID),

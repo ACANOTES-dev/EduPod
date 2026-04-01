@@ -1,9 +1,5 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
@@ -15,7 +11,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { InvoicesService } from './invoices.service';
 
@@ -169,11 +165,11 @@ describe('InvoicesService', () => {
       mockPrisma.tenantBranding.findUnique.mockResolvedValue({ invoice_prefix: 'INV' });
       mockPrisma.invoice.create.mockResolvedValue(makeInvoice());
 
-      const result = await service.create(TENANT_ID, USER_ID, {
+      const result = (await service.create(TENANT_ID, USER_ID, {
         household_id: HOUSEHOLD_ID,
         due_date: '2026-04-01',
         lines: [{ description: 'Tuition', quantity: 1, unit_amount: 1000 }],
-      }) as { invoice_number: string; total_amount: number };
+      })) as { invoice_number: string; total_amount: number };
 
       expect(result.invoice_number).toBe('INV-202603-000001');
       expect(result.total_amount).toBe(1000);
@@ -197,7 +193,10 @@ describe('InvoicesService', () => {
       mockPrisma.invoice.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.update(TENANT_ID, 'bad-id', { due_date: '2026-05-01', expected_updated_at: new Date().toISOString() }),
+        service.update(TENANT_ID, 'bad-id', {
+          due_date: '2026-05-01',
+          expected_updated_at: new Date().toISOString(),
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -205,7 +204,10 @@ describe('InvoicesService', () => {
       mockPrisma.invoice.findFirst.mockResolvedValue(makeInvoice({ status: 'issued' }));
 
       await expect(
-        service.update(TENANT_ID, INVOICE_ID, { due_date: '2026-05-01', expected_updated_at: new Date().toISOString() }),
+        service.update(TENANT_ID, INVOICE_ID, {
+          due_date: '2026-05-01',
+          expected_updated_at: new Date().toISOString(),
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -239,17 +241,17 @@ describe('InvoicesService', () => {
     it('should throw NotFoundException when invoice not found', async () => {
       mockPrisma.invoice.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.issue(TENANT_ID, 'bad-id', USER_ID, true),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.issue(TENANT_ID, 'bad-id', USER_ID, true)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException when not draft', async () => {
       mockPrisma.invoice.findFirst.mockResolvedValue(makeInvoice({ status: 'paid' }));
 
-      await expect(
-        service.issue(TENANT_ID, INVOICE_ID, USER_ID, true),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.issue(TENANT_ID, INVOICE_ID, USER_ID, true)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -268,17 +270,13 @@ describe('InvoicesService', () => {
         makeInvoice({ status: 'issued', balance_amount: '500.00', total_amount: '1000.00' }),
       );
 
-      await expect(service.voidInvoice(TENANT_ID, INVOICE_ID)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.voidInvoice(TENANT_ID, INVOICE_ID)).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException for invalid status', async () => {
       mockPrisma.invoice.findFirst.mockResolvedValue(makeInvoice({ status: 'draft' }));
 
-      await expect(service.voidInvoice(TENANT_ID, INVOICE_ID)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.voidInvoice(TENANT_ID, INVOICE_ID)).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -295,9 +293,9 @@ describe('InvoicesService', () => {
     it('should throw BadRequestException for non-cancellable status', async () => {
       mockPrisma.invoice.findFirst.mockResolvedValue(makeInvoice({ status: 'issued' }));
 
-      await expect(
-        service.cancel(TENANT_ID, INVOICE_ID, USER_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.cancel(TENANT_ID, INVOICE_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -310,7 +308,9 @@ describe('InvoicesService', () => {
         makeInvoice({ status: 'written_off', write_off_amount: '500.00', balance_amount: '0.00' }),
       );
 
-      const result = await service.writeOff(TENANT_ID, INVOICE_ID, { write_off_reason: 'Bad debt' });
+      const result = await service.writeOff(TENANT_ID, INVOICE_ID, {
+        write_off_reason: 'Bad debt',
+      });
 
       expect((result as Record<string, unknown>).status).toBe('written_off');
     });
@@ -369,7 +369,9 @@ describe('InvoicesService', () => {
     it('should throw NotFoundException when invoice not found', async () => {
       mockPrisma.invoice.findFirst.mockResolvedValue(null);
 
-      await expect(service.deleteInstallments(TENANT_ID, 'bad-id')).rejects.toThrow(NotFoundException);
+      await expect(service.deleteInstallments(TENANT_ID, 'bad-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

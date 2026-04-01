@@ -5,7 +5,7 @@ import { AuthModule } from '../auth/auth.module';
 import { ChildProtectionModule } from '../child-protection/child-protection.module';
 import { CommunicationsModule } from '../communications/communications.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
-import { TenantsModule } from '../tenants/tenants.module';
+import { SequenceModule } from '../sequence/sequence.module';
 
 import { CasesController } from './controllers/cases.controller';
 import { CheckinAdminController } from './controllers/checkin-admin.controller';
@@ -24,11 +24,13 @@ import { ReferralsController } from './controllers/referrals.controller';
 import { SstController } from './controllers/sst.controller';
 import { AuthorMaskingInterceptor } from './interceptors/author-masking.interceptor';
 import { AffectedTrackingService } from './services/affected-tracking.service';
+import { CaseQueriesService } from './services/case-queries.service';
 import { CaseService } from './services/case.service';
 import { CheckinAlertService } from './services/checkin-alert.service';
 import { CheckinAnalyticsService } from './services/checkin-analytics.service';
 import { CheckinPrerequisiteService } from './services/checkin-prerequisite.service';
 import { CheckinService } from './services/checkin.service';
+import { ConcernQueriesService } from './services/concern-queries.service';
 import { ConcernVersionService } from './services/concern-version.service';
 import { ConcernService } from './services/concern.service';
 import { CriticalIncidentService } from './services/critical-incident.service';
@@ -57,7 +59,7 @@ import { StudentChronologyService } from './services/student-chronology.service'
     forwardRef(() => ChildProtectionModule),
     CommunicationsModule,
     PdfRenderingModule,
-    TenantsModule,
+    SequenceModule,
     BullModule.registerQueue({ name: 'pastoral' }),
     BullModule.registerQueue({ name: 'notifications' }),
   ],
@@ -81,11 +83,13 @@ import { StudentChronologyService } from './services/student-chronology.service'
   providers: [
     AffectedTrackingService,
     AuthorMaskingInterceptor,
+    CaseQueriesService,
     CaseService,
     CheckinAlertService,
     CheckinAnalyticsService,
     CheckinPrerequisiteService,
     CheckinService,
+    ConcernQueriesService,
     ConcernService,
     ConcernVersionService,
     CriticalIncidentService,

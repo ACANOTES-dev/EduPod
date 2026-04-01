@@ -1,12 +1,12 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bullmq';
+import { Test, TestingModule } from '@nestjs/testing';
 
+import { PolicyReplayService } from '../policy-engine/policy-replay.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
 import { BehaviourAdminService } from './behaviour-admin.service';
 import { BehaviourScopeService } from './behaviour-scope.service';
-import { PolicyReplayService } from './policy/policy-replay.service';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -38,7 +38,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -87,7 +89,10 @@ describe('BehaviourAdminService', () => {
         BehaviourAdminService,
         { provide: PrismaService, useValue: { $executeRaw: jest.fn() } },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
-        { provide: BehaviourScopeService, useValue: { getUserScope: jest.fn().mockResolvedValue({ scope: 'all' }) } },
+        {
+          provide: BehaviourScopeService,
+          useValue: { getUserScope: jest.fn().mockResolvedValue({ scope: 'all' }) },
+        },
         { provide: PolicyReplayService, useValue: { dryRun: jest.fn().mockResolvedValue({}) } },
         { provide: getQueueToken('behaviour'), useValue: mockBehaviourQueue },
         { provide: getQueueToken('notifications'), useValue: mockNotificationsQueue },
@@ -133,7 +138,13 @@ describe('BehaviourAdminService', () => {
   describe('listDeadLetterJobs', () => {
     it('should return failed jobs sorted by date', async () => {
       mockBehaviourQueue.getFailed.mockResolvedValue([
-        { id: 'j1', name: 'behaviour:detect-patterns', finishedOn: Date.now(), failedReason: 'timeout', attemptsMade: 3 },
+        {
+          id: 'j1',
+          name: 'behaviour:detect-patterns',
+          finishedOn: Date.now(),
+          failedReason: 'timeout',
+          attemptsMade: 3,
+        },
       ]);
       mockNotificationsQueue.getFailed.mockResolvedValue([]);
 
@@ -175,7 +186,9 @@ describe('BehaviourAdminService', () => {
       });
 
       expect(result.affected_students).toBe(500);
-      expect(result.warnings).toContain('This will invalidate all cached point totals for the entire school.');
+      expect(result.warnings).toContain(
+        'This will invalidate all cached point totals for the entire school.',
+      );
     });
   });
 

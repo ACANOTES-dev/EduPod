@@ -15,6 +15,7 @@ import {
   ReportCardVerificationController,
   ReportCardsEnhancedController,
 } from './report-cards-enhanced.controller';
+import { ReportCardsQueriesService } from './report-cards-queries.service';
 import { ReportCardsService } from './report-cards.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -90,6 +91,9 @@ const mockAnalyticsService = {
 const mockReportCardsService = {
   generateBulkDrafts: jest.fn(),
   publishBulk: jest.fn(),
+};
+
+const mockReportCardsQueriesService = {
   generateTranscript: jest.fn(),
 };
 
@@ -114,6 +118,7 @@ async function buildModule() {
       { provide: ReportCardAcknowledgmentService, useValue: mockAcknowledgmentService },
       { provide: ReportCardAnalyticsService, useValue: mockAnalyticsService },
       { provide: ReportCardsService, useValue: mockReportCardsService },
+      { provide: ReportCardsQueriesService, useValue: mockReportCardsQueriesService },
       { provide: getQueueToken('gradebook'), useValue: mockGradebookQueue },
       { provide: PermissionCacheService, useValue: mockPermissionCacheService },
     ],
@@ -199,12 +204,9 @@ describe('ReportCardsEnhancedController — approval actions', () => {
   it('should reject a report card approval with reason', async () => {
     mockApprovalService.reject.mockResolvedValue({ rejected: true });
 
-    const result = await controller.rejectReportCard(
-      tenantContext,
-      jwtUser as never,
-      APPROVAL_ID,
-      { reason: 'Incomplete grades' },
-    );
+    const result = await controller.rejectReportCard(tenantContext, jwtUser as never, APPROVAL_ID, {
+      reason: 'Incomplete grades',
+    });
 
     expect(mockApprovalService.reject).toHaveBeenCalledWith(
       TENANT_ID,
@@ -315,11 +317,14 @@ describe('ReportCardsEnhancedController — transcript and analytics', () => {
 
   it('should call generateTranscript for student transcript', async () => {
     const transcript = { student: { id: STUDENT_ID }, academic_years: [] };
-    mockReportCardsService.generateTranscript.mockResolvedValue(transcript);
+    mockReportCardsQueriesService.generateTranscript.mockResolvedValue(transcript);
 
     const result = await controller.getTranscript(tenantContext, STUDENT_ID);
 
-    expect(mockReportCardsService.generateTranscript).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID);
+    expect(mockReportCardsQueriesService.generateTranscript).toHaveBeenCalledWith(
+      TENANT_ID,
+      STUDENT_ID,
+    );
     expect(result).toEqual(transcript);
   });
 
@@ -356,9 +361,7 @@ describe('ReportCardVerificationController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ReportCardVerificationController],
-      providers: [
-        { provide: ReportCardVerificationService, useValue: mockVerificationService },
-      ],
+      providers: [{ provide: ReportCardVerificationService, useValue: mockVerificationService }],
     }).compile();
 
     controller = module.get<ReportCardVerificationController>(ReportCardVerificationController);

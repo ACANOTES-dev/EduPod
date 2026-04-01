@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 import { GradesService } from './grades.service';
 import { ParentGradebookController } from './parent-gradebook.controller';
-import { ReportCardsService } from './report-cards/report-cards.service';
+import { ReportCardsQueriesService } from './report-cards/report-cards-queries.service';
 import { TranscriptsService } from './transcripts.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -32,7 +32,7 @@ const mockGradesService = {
   findByStudent: jest.fn(),
 };
 
-const mockReportCardsService = {
+const mockReportCardsQueriesService = {
   findAll: jest.fn(),
   findOne: jest.fn(),
 };
@@ -64,7 +64,7 @@ describe('ParentGradebookController', () => {
       controllers: [ParentGradebookController],
       providers: [
         { provide: GradesService, useValue: mockGradesService },
-        { provide: ReportCardsService, useValue: mockReportCardsService },
+        { provide: ReportCardsQueriesService, useValue: mockReportCardsQueriesService },
         { provide: TranscriptsService, useValue: mockTranscriptsService },
         { provide: PdfRenderingService, useValue: mockPdfRenderingService },
         { provide: PrismaService, useValue: mockPrisma },
@@ -106,12 +106,7 @@ describe('ParentGradebookController', () => {
     const grades = [{ id: 'grade-1', raw_score: 85 }];
     mockGradesService.findByStudent.mockResolvedValue(grades);
 
-    const result = await controller.getStudentGrades(
-      tenantContext,
-      userContext,
-      STUDENT_ID,
-      {},
-    );
+    const result = await controller.getStudentGrades(tenantContext, userContext, STUDENT_ID, {});
 
     expect(result).toEqual(grades);
     expect(mockGradesService.findByStudent).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID, {});
@@ -144,7 +139,7 @@ describe('ParentGradebookController', () => {
       tenant_id: TENANT_ID,
     });
     const reportCards = { data: [{ id: REPORT_CARD_ID, status: 'published' }] };
-    mockReportCardsService.findAll.mockResolvedValue(reportCards);
+    mockReportCardsQueriesService.findAll.mockResolvedValue(reportCards);
 
     const result = await controller.getStudentReportCards(
       tenantContext,
@@ -154,7 +149,7 @@ describe('ParentGradebookController', () => {
     );
 
     expect(result).toEqual(reportCards);
-    expect(mockReportCardsService.findAll).toHaveBeenCalledWith(
+    expect(mockReportCardsQueriesService.findAll).toHaveBeenCalledWith(
       TENANT_ID,
       expect.objectContaining({ student_id: STUDENT_ID, status: 'published' }),
     );
@@ -169,7 +164,7 @@ describe('ParentGradebookController', () => {
       parent_id: PARENT_ID,
       tenant_id: TENANT_ID,
     });
-    mockReportCardsService.findOne.mockResolvedValue({
+    mockReportCardsQueriesService.findOne.mockResolvedValue({
       id: REPORT_CARD_ID,
       student_id: 'different-student-id',
       status: 'published',
@@ -197,7 +192,7 @@ describe('ParentGradebookController', () => {
       parent_id: PARENT_ID,
       tenant_id: TENANT_ID,
     });
-    mockReportCardsService.findOne.mockResolvedValue({
+    mockReportCardsQueriesService.findOne.mockResolvedValue({
       id: REPORT_CARD_ID,
       student_id: STUDENT_ID,
       status: 'draft',
@@ -225,7 +220,7 @@ describe('ParentGradebookController', () => {
       parent_id: PARENT_ID,
       tenant_id: TENANT_ID,
     });
-    mockReportCardsService.findOne.mockResolvedValue({
+    mockReportCardsQueriesService.findOne.mockResolvedValue({
       id: REPORT_CARD_ID,
       student_id: STUDENT_ID,
       status: 'published',

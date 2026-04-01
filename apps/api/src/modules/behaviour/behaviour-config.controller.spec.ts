@@ -2,11 +2,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import type { JwtPayload, TenantContext } from '@school/shared';
 
+import { PolicyReplayService } from '../policy-engine/policy-replay.service';
+import { PolicyRulesService } from '../policy-engine/policy-rules.service';
+
 import { BehaviourConfigController } from './behaviour-config.controller';
 import { BehaviourConfigService } from './behaviour-config.service';
 import { BehaviourDocumentTemplateService } from './behaviour-document-template.service';
-import { PolicyReplayService } from './policy/policy-replay.service';
-import { PolicyRulesService } from './policy/policy-rules.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const USER_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
@@ -148,7 +149,10 @@ describe('BehaviourConfigController', () => {
 
   it('should call configService.updateTemplate with tenant_id, id, and dto', async () => {
     const dto = { name: 'Updated Template' };
-    mockConfigService.updateTemplate.mockResolvedValue({ id: TEMPLATE_ID, name: 'Updated Template' });
+    mockConfigService.updateTemplate.mockResolvedValue({
+      id: TEMPLATE_ID,
+      name: 'Updated Template',
+    });
 
     const result = await controller.updateTemplate(TENANT, TEMPLATE_ID, dto as never);
 
@@ -222,7 +226,12 @@ describe('BehaviourConfigController', () => {
 
     const result = await controller.updatePolicy(TENANT, USER, POLICY_ID, dto as never);
 
-    expect(mockPolicyRulesService.updateRule).toHaveBeenCalledWith(TENANT_ID, POLICY_ID, USER_ID, dto);
+    expect(mockPolicyRulesService.updateRule).toHaveBeenCalledWith(
+      TENANT_ID,
+      POLICY_ID,
+      USER_ID,
+      dto,
+    );
     expect(result).toEqual({ id: POLICY_ID, name: 'Updated Rule' });
   });
 
@@ -287,11 +296,18 @@ describe('BehaviourConfigController', () => {
 
   it('should call documentTemplateService.updateTemplate with tenant_id, id, and dto', async () => {
     const dto = { name: 'Updated Letter' };
-    mockDocumentTemplateService.updateTemplate.mockResolvedValue({ id: DOC_TEMPLATE_ID, name: 'Updated Letter' });
+    mockDocumentTemplateService.updateTemplate.mockResolvedValue({
+      id: DOC_TEMPLATE_ID,
+      name: 'Updated Letter',
+    });
 
     const result = await controller.updateDocumentTemplate(TENANT, DOC_TEMPLATE_ID, dto as never);
 
-    expect(mockDocumentTemplateService.updateTemplate).toHaveBeenCalledWith(TENANT_ID, DOC_TEMPLATE_ID, dto);
+    expect(mockDocumentTemplateService.updateTemplate).toHaveBeenCalledWith(
+      TENANT_ID,
+      DOC_TEMPLATE_ID,
+      dto,
+    );
     expect(result).toEqual({ id: DOC_TEMPLATE_ID, name: 'Updated Letter' });
   });
 

@@ -58,7 +58,7 @@ import { ConcernService } from '../pastoral/services/concern.service';
 import { PastoralEventService } from '../pastoral/services/pastoral-event.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 import { BehaviourHistoryService } from './behaviour-history.service';
 import { BehaviourTasksService } from './behaviour-tasks.service';
 import { SafeguardingConcernsService } from './safeguarding-concerns.service';

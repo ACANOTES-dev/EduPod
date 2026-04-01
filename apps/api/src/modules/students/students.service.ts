@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { PreviewResponse } from '@school/shared';
 import { CONSENT_TYPES } from '@school/shared';
@@ -10,7 +6,7 @@ import { CONSENT_TYPES } from '@school/shared';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import type { CreateStudentDto } from './dto/create-student.dto';
 import type { UpdateStudentStatusDto } from './dto/update-student-status.dto';
@@ -467,14 +463,12 @@ export class StudentsService {
       if (dto.last_name !== undefined) updateData.last_name = dto.last_name;
       if ('first_name_ar' in dto) updateData.first_name_ar = dto.first_name_ar ?? null;
       if ('last_name_ar' in dto) updateData.last_name_ar = dto.last_name_ar ?? null;
-      if (dto.date_of_birth !== undefined)
-        updateData.date_of_birth = new Date(dto.date_of_birth);
+      if (dto.date_of_birth !== undefined) updateData.date_of_birth = new Date(dto.date_of_birth);
       if ('gender' in dto) updateData.gender = dto.gender ?? null;
       if ('entry_date' in dto)
         updateData.entry_date = dto.entry_date ? new Date(dto.entry_date) : null;
       if ('year_group_id' in dto) updateData.year_group_id = dto.year_group_id ?? null;
-      if ('class_homeroom_id' in dto)
-        updateData.class_homeroom_id = dto.class_homeroom_id ?? null;
+      if ('class_homeroom_id' in dto) updateData.class_homeroom_id = dto.class_homeroom_id ?? null;
       if ('student_number' in dto) updateData.student_number = dto.student_number ?? null;
       if ('nationality' in dto) updateData.nationality = dto.nationality ?? null;
       if ('city_of_birth' in dto) updateData.city_of_birth = dto.city_of_birth ?? null;
@@ -504,11 +498,7 @@ export class StudentsService {
    * On withdrawal: drops all active class enrolments and sets exit_date.
    * On graduation: sets exit_date.
    */
-  async updateStatus(
-    tenantId: string,
-    id: string,
-    dto: UpdateStudentStatusDto,
-  ) {
+  async updateStatus(tenantId: string, id: string, dto: UpdateStudentStatusDto) {
     const { status: newStatus, reason } = dto;
 
     const student = await this.prisma.student.findFirst({
@@ -629,14 +619,11 @@ export class StudentsService {
       });
     }
 
-    const fullName =
-      student.full_name ??
-      `${student.first_name} ${student.last_name}`.trim();
+    const fullName = student.full_name ?? `${student.first_name} ${student.last_name}`.trim();
 
     const secondaryParts: string[] = [];
     if (student.year_group?.name) secondaryParts.push(student.year_group.name);
-    if (student.homeroom_class?.name)
-      secondaryParts.push(student.homeroom_class.name);
+    if (student.homeroom_class?.name) secondaryParts.push(student.homeroom_class.name);
 
     const previewData: PreviewResponse = {
       id: student.id,
@@ -663,7 +650,15 @@ export class StudentsService {
    * Bulk export data — returns all students matching filters with enriched
    * parent, year group, household, and homeroom class data.
    */
-  async getExportData(tenantId: string, filters: { status?: StudentStatus; year_group_id?: string; has_allergy?: boolean; search?: string }) {
+  async getExportData(
+    tenantId: string,
+    filters: {
+      status?: StudentStatus;
+      year_group_id?: string;
+      has_allergy?: boolean;
+      search?: string;
+    },
+  ) {
     const where: Prisma.StudentWhereInput = { tenant_id: tenantId };
 
     if (filters.status) where.status = filters.status;

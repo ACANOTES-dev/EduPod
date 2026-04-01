@@ -2,7 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../../prisma/prisma.service';
-import { SequenceService } from '../../tenants/sequence.service';
+import { SequenceService } from '../../sequence/sequence.service';
 
 import { CriticalIncidentService } from './critical-incident.service';
 import type {
@@ -44,9 +44,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -196,9 +194,7 @@ describe('CriticalIncidentService', () => {
         scope: 'year_group',
       };
 
-      await expect(
-        service.declare(TENANT_ID, USER_ID, dto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.declare(TENANT_ID, USER_ID, dto)).rejects.toThrow(BadRequestException);
     });
 
     it('should validate scope constraints: year_group with empty IDs fails', async () => {
@@ -208,9 +204,7 @@ describe('CriticalIncidentService', () => {
         scope_year_group_ids: [],
       };
 
-      await expect(
-        service.declare(TENANT_ID, USER_ID, dto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.declare(TENANT_ID, USER_ID, dto)).rejects.toThrow(BadRequestException);
     });
 
     it('should validate scope constraints: class requires scope_class_ids', async () => {
@@ -219,9 +213,7 @@ describe('CriticalIncidentService', () => {
         scope: 'class',
       };
 
-      await expect(
-        service.declare(TENANT_ID, USER_ID, dto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.declare(TENANT_ID, USER_ID, dto)).rejects.toThrow(BadRequestException);
     });
 
     it('should accept year_group scope with valid IDs', async () => {
@@ -290,7 +282,7 @@ describe('CriticalIncidentService', () => {
       expect(plan.long_term.length).toBe(5);
 
       // Verify each item has generated UUID and defaults
-      const firstItem = plan.immediate[0] as NonNullable<typeof plan.immediate[0]>;
+      const firstItem = plan.immediate[0] as NonNullable<(typeof plan.immediate)[0]>;
       expect(firstItem.id).toBeDefined();
       expect(firstItem.label).toBe('Convene Critical Incident Management Team');
       expect(firstItem.is_done).toBe(false);
@@ -320,9 +312,7 @@ describe('CriticalIncidentService', () => {
         incident_type: 'other',
       };
 
-      await expect(
-        service.declare(TENANT_ID, USER_ID, dto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.declare(TENANT_ID, USER_ID, dto)).rejects.toThrow(BadRequestException);
     });
 
     it('should accept incident_type other with incident_type_other', async () => {
@@ -375,12 +365,7 @@ describe('CriticalIncidentService', () => {
         reason: 'Immediate phase complete',
       };
 
-      const result = await service.transitionStatus(
-        TENANT_ID,
-        INCIDENT_ID,
-        USER_ID,
-        dto,
-      );
+      const result = await service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, dto);
 
       expect(result.data).toBeDefined();
       expect(mockRlsTx.criticalIncident.update).toHaveBeenCalledWith({
@@ -395,9 +380,9 @@ describe('CriticalIncidentService', () => {
         reason: 'All support in place',
       };
 
-      await expect(
-        service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, dto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should transition from ci_active to ci_closed with closure_notes', async () => {
@@ -414,12 +399,7 @@ describe('CriticalIncidentService', () => {
         closure_notes: 'All support provided and monitoring complete.',
       };
 
-      const result = await service.transitionStatus(
-        TENANT_ID,
-        INCIDENT_ID,
-        USER_ID,
-        dto,
-      );
+      const result = await service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, dto);
 
       expect(result.data).toBeDefined();
       expect(mockRlsTx.criticalIncident.update).toHaveBeenCalledWith({
@@ -442,12 +422,7 @@ describe('CriticalIncidentService', () => {
         closure_notes: 'All students receiving ongoing external support.',
       };
 
-      const result = await service.transitionStatus(
-        TENANT_ID,
-        INCIDENT_ID,
-        USER_ID,
-        dto,
-      );
+      const result = await service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, dto);
 
       expect(result.data).toBeDefined();
     });
@@ -465,12 +440,7 @@ describe('CriticalIncidentService', () => {
         reason: 'Anniversary reaction detected in affected students',
       };
 
-      const result = await service.transitionStatus(
-        TENANT_ID,
-        INCIDENT_ID,
-        USER_ID,
-        dto,
-      );
+      const result = await service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, dto);
 
       expect(result.data).toBeDefined();
       expect(mockRlsTx.criticalIncident.update).toHaveBeenCalledWith({
@@ -488,9 +458,9 @@ describe('CriticalIncidentService', () => {
         reason: 'Trying to re-activate',
       };
 
-      await expect(
-        service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, dto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should record audit event on status transition', async () => {
@@ -528,9 +498,9 @@ describe('CriticalIncidentService', () => {
         reason: 'Test',
       };
 
-      await expect(
-        service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, dto),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, dto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -549,12 +519,7 @@ describe('CriticalIncidentService', () => {
         description: 'Updated description text',
       };
 
-      const result = await service.update(
-        TENANT_ID,
-        INCIDENT_ID,
-        USER_ID,
-        dto,
-      );
+      const result = await service.update(TENANT_ID, INCIDENT_ID, USER_ID, dto);
 
       expect(result.data).toBeDefined();
       expect(mockRlsTx.criticalIncident.update).toHaveBeenCalledWith({
@@ -601,12 +566,7 @@ describe('CriticalIncidentService', () => {
         is_done: true,
       };
 
-      const result = await service.updateResponsePlanItem(
-        TENANT_ID,
-        INCIDENT_ID,
-        USER_ID,
-        dto,
-      );
+      const result = await service.updateResponsePlanItem(TENANT_ID, INCIDENT_ID, USER_ID, dto);
 
       expect(result.data).toBeDefined();
 
@@ -615,7 +575,9 @@ describe('CriticalIncidentService', () => {
         data: { response_plan: ResponsePlan };
       };
       const updatedPlan = updateCall.data.response_plan;
-      const updatedItem = updatedPlan.immediate[0] as NonNullable<typeof updatedPlan.immediate[0]>;
+      const updatedItem = updatedPlan.immediate[0] as NonNullable<
+        (typeof updatedPlan.immediate)[0]
+      >;
 
       expect(updatedItem.is_done).toBe(true);
       expect(updatedItem.completed_at).toBeDefined();
@@ -634,12 +596,7 @@ describe('CriticalIncidentService', () => {
         is_done: true,
       };
 
-      await service.updateResponsePlanItem(
-        TENANT_ID,
-        INCIDENT_ID,
-        USER_ID,
-        dto,
-      );
+      await service.updateResponsePlanItem(TENANT_ID, INCIDENT_ID, USER_ID, dto);
 
       expect(mockPastoralEventService.write).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -665,19 +622,14 @@ describe('CriticalIncidentService', () => {
       };
 
       await expect(
-        service.updateResponsePlanItem(
-          TENANT_ID,
-          INCIDENT_ID,
-          USER_ID,
-          dto,
-        ),
+        service.updateResponsePlanItem(TENANT_ID, INCIDENT_ID, USER_ID, dto),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('should clear completed_at/by when marking item undone', async () => {
       const plan = makeResponsePlan();
       // Mark item as already done
-      const firstItem = plan.immediate[0] as NonNullable<typeof plan.immediate[0]>;
+      const firstItem = plan.immediate[0] as NonNullable<(typeof plan.immediate)[0]>;
       firstItem.is_done = true;
       firstItem.completed_at = '2026-03-16T10:00:00Z';
       firstItem.completed_by_id = USER_ID;
@@ -692,17 +644,14 @@ describe('CriticalIncidentService', () => {
         is_done: false,
       };
 
-      await service.updateResponsePlanItem(
-        TENANT_ID,
-        INCIDENT_ID,
-        USER_ID,
-        dto,
-      );
+      await service.updateResponsePlanItem(TENANT_ID, INCIDENT_ID, USER_ID, dto);
 
       const updateCall = mockRlsTx.criticalIncident.update.mock.calls[0][0] as {
         data: { response_plan: ResponsePlan };
       };
-      const updatedItem = updateCall.data.response_plan.immediate[0] as NonNullable<typeof updateCall.data.response_plan.immediate[0]>;
+      const updatedItem = updateCall.data.response_plan.immediate[0] as NonNullable<
+        (typeof updateCall.data.response_plan.immediate)[0]
+      >;
 
       expect(updatedItem.is_done).toBe(false);
       expect(updatedItem.completed_at).toBeNull();
@@ -725,12 +674,7 @@ describe('CriticalIncidentService', () => {
         description: 'Contact board chair immediately',
       };
 
-      const result = await service.addResponsePlanItem(
-        TENANT_ID,
-        INCIDENT_ID,
-        USER_ID,
-        dto,
-      );
+      const result = await service.addResponsePlanItem(TENANT_ID, INCIDENT_ID, USER_ID, dto);
 
       expect(result.data).toBeDefined();
 
@@ -742,7 +686,7 @@ describe('CriticalIncidentService', () => {
       // Original 2 items + 1 new
       expect(updatedPlan.immediate.length).toBe(3);
 
-      const newItem = updatedPlan.immediate[2] as NonNullable<typeof updatedPlan.immediate[2]>;
+      const newItem = updatedPlan.immediate[2] as NonNullable<(typeof updatedPlan.immediate)[2]>;
       expect(newItem.label).toBe('Notify board of management');
       expect(newItem.description).toBe('Contact board chair immediately');
       expect(newItem.id).toBeDefined();
@@ -760,12 +704,7 @@ describe('CriticalIncidentService', () => {
         label: 'Contact educational psychologist',
       };
 
-      await service.addResponsePlanItem(
-        TENANT_ID,
-        INCIDENT_ID,
-        USER_ID,
-        dto,
-      );
+      await service.addResponsePlanItem(TENANT_ID, INCIDENT_ID, USER_ID, dto);
 
       expect(mockPastoralEventService.write).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -787,10 +726,7 @@ describe('CriticalIncidentService', () => {
       const incident = makeIncident({ response_plan: plan });
       mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
 
-      const result = await service.getResponsePlanProgress(
-        TENANT_ID,
-        INCIDENT_ID,
-      );
+      const result = await service.getResponsePlanProgress(TENANT_ID, INCIDENT_ID);
 
       expect(result.data).toHaveLength(4);
 
@@ -822,9 +758,9 @@ describe('CriticalIncidentService', () => {
     it('should throw NotFoundException for non-existent incident', async () => {
       mockRlsTx.criticalIncident.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getResponsePlanProgress(TENANT_ID, INCIDENT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getResponsePlanProgress(TENANT_ID, INCIDENT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -843,12 +779,7 @@ describe('CriticalIncidentService', () => {
         visit_date: '2026-03-16',
       };
 
-      const result = await service.addExternalSupport(
-        TENANT_ID,
-        INCIDENT_ID,
-        USER_ID,
-        dto,
-      );
+      const result = await service.addExternalSupport(TENANT_ID, INCIDENT_ID, USER_ID, dto);
 
       expect(result.data).toBeDefined();
       expect(result.data.id).toBeDefined();
@@ -874,12 +805,7 @@ describe('CriticalIncidentService', () => {
         provider_name: 'Counselling Services Ltd',
       };
 
-      await service.addExternalSupport(
-        TENANT_ID,
-        INCIDENT_ID,
-        USER_ID,
-        dto,
-      );
+      await service.addExternalSupport(TENANT_ID, INCIDENT_ID, USER_ID, dto);
 
       expect(mockPastoralEventService.write).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -920,18 +846,12 @@ describe('CriticalIncidentService', () => {
       mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
       mockRlsTx.criticalIncident.update.mockResolvedValue(incident);
 
-      const result = await service.updateExternalSupport(
-        TENANT_ID,
-        INCIDENT_ID,
-        entryId,
-        USER_ID,
-        { outcome_notes: 'Supported 5 students, follow-up scheduled' },
-      );
+      const result = await service.updateExternalSupport(TENANT_ID, INCIDENT_ID, entryId, USER_ID, {
+        outcome_notes: 'Supported 5 students, follow-up scheduled',
+      });
 
       expect(result.data).toBeDefined();
-      expect(result.data.outcome_notes).toBe(
-        'Supported 5 students, follow-up scheduled',
-      );
+      expect(result.data.outcome_notes).toBe('Supported 5 students, follow-up scheduled');
     });
 
     it('should throw NotFoundException for non-existent entry', async () => {
@@ -939,13 +859,9 @@ describe('CriticalIncidentService', () => {
       mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
 
       await expect(
-        service.updateExternalSupport(
-          TENANT_ID,
-          INCIDENT_ID,
-          'non-existent',
-          USER_ID,
-          { outcome_notes: 'Test' },
-        ),
+        service.updateExternalSupport(TENANT_ID, INCIDENT_ID, 'non-existent', USER_ID, {
+          outcome_notes: 'Test',
+        }),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -972,9 +888,7 @@ describe('CriticalIncidentService', () => {
     it('should throw NotFoundException for non-existent incident', async () => {
       mockRlsTx.criticalIncident.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getById(TENANT_ID, INCIDENT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getById(TENANT_ID, INCIDENT_ID)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -1056,8 +970,8 @@ describe('CriticalIncidentService', () => {
 
       expect(result.data).toHaveLength(2);
       // Should be sorted by visit_date DESC
-      const first = result.data[0] as NonNullable<typeof result.data[0]>;
-      const second = result.data[1] as NonNullable<typeof result.data[1]>;
+      const first = result.data[0] as NonNullable<(typeof result.data)[0]>;
+      const second = result.data[1] as NonNullable<(typeof result.data)[1]>;
       expect(first.visit_date).toBe('2026-03-17');
       expect(second.visit_date).toBe('2026-03-16');
     });

@@ -3,7 +3,7 @@ import { forwardRef, Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { PastoralModule } from '../pastoral/pastoral.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
-import { TenantsModule } from '../tenants/tenants.module';
+import { SequenceModule } from '../sequence/sequence.module';
 
 import { CpAccessController } from './controllers/cp-access.controller';
 import { CpExportController } from './controllers/cp-export.controller';
@@ -15,17 +15,8 @@ import { CpRecordService } from './services/cp-record.service';
 import { MandatedReportService } from './services/mandated-report.service';
 
 @Module({
-  imports: [
-    AuthModule,
-    forwardRef(() => PastoralModule),
-    PdfRenderingModule,
-    TenantsModule,
-  ],
-  controllers: [
-    CpAccessController,
-    CpExportController,
-    CpRecordsController,
-  ],
+  imports: [AuthModule, forwardRef(() => PastoralModule), PdfRenderingModule, SequenceModule],
+  controllers: [CpAccessController, CpExportController, CpRecordsController],
   providers: [
     CpAccessGuard,
     CpAccessService,
@@ -33,10 +24,6 @@ import { MandatedReportService } from './services/mandated-report.service';
     CpRecordService,
     MandatedReportService,
   ],
-  exports: [
-    CpAccessService,
-    CpExportService,
-    CpRecordService,
-  ],
+  exports: [CpAccessService, CpExportService, CpRecordService],
 })
 export class ChildProtectionModule {}

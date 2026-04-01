@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
-import { TenantsModule } from '../tenants/tenants.module';
+import { SequenceModule } from '../sequence/sequence.module';
 
 import { SecurityIncidentsController } from './security-incidents.controller';
 import { SecurityIncidentsService } from './security-incidents.service';
 
 @Module({
-  imports: [AuthModule, TenantsModule],
+  imports: [AuthModule, SequenceModule],
   controllers: [SecurityIncidentsController],
   providers: [SecurityIncidentsService],
   exports: [SecurityIncidentsService],

@@ -4,6 +4,7 @@ import { PermissionCacheService } from '../../../common/services/permission-cach
 import { PdfRenderingService } from '../../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
+import { ReportCardsQueriesService } from './report-cards-queries.service';
 import { ReportCardsController } from './report-cards.controller';
 import { ReportCardsService } from './report-cards.service';
 
@@ -18,15 +19,18 @@ const jwtUser = { sub: USER_ID, email: 'teacher@school.com' };
 
 const mockReportCardsService = {
   generate: jest.fn(),
-  findAll: jest.fn(),
-  findOne: jest.fn(),
   update: jest.fn(),
   publish: jest.fn(),
   revise: jest.fn(),
-  gradeOverview: jest.fn(),
-  buildBatchSnapshots: jest.fn(),
   generateBulkDrafts: jest.fn(),
   publishBulk: jest.fn(),
+};
+
+const mockReportCardsQueriesService = {
+  findAll: jest.fn(),
+  findOne: jest.fn(),
+  gradeOverview: jest.fn(),
+  buildBatchSnapshots: jest.fn(),
   generateTranscript: jest.fn(),
 };
 
@@ -53,6 +57,7 @@ describe('ReportCardsController', () => {
       controllers: [ReportCardsController],
       providers: [
         { provide: ReportCardsService, useValue: mockReportCardsService },
+        { provide: ReportCardsQueriesService, useValue: mockReportCardsQueriesService },
         { provide: PdfRenderingService, useValue: mockPdfRenderingService },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PermissionCacheService, useValue: mockPermissionCacheService },
@@ -90,21 +95,24 @@ describe('ReportCardsController', () => {
   describe('findAll', () => {
     it('should delegate to service.findAll and return paginated result', async () => {
       const paginated = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
-      mockReportCardsService.findAll.mockResolvedValue(paginated);
+      mockReportCardsQueriesService.findAll.mockResolvedValue(paginated);
 
       const result = await controller.findAll(tenantContext, { page: 1, pageSize: 20 });
 
-      expect(mockReportCardsService.findAll).toHaveBeenCalledWith(TENANT_ID, { page: 1, pageSize: 20 });
+      expect(mockReportCardsQueriesService.findAll).toHaveBeenCalledWith(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+      });
       expect(result).toEqual(paginated);
     });
 
     it('should pass status filter through to service', async () => {
       const paginated = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
-      mockReportCardsService.findAll.mockResolvedValue(paginated);
+      mockReportCardsQueriesService.findAll.mockResolvedValue(paginated);
 
       await controller.findAll(tenantContext, { page: 1, pageSize: 20, status: 'published' });
 
-      expect(mockReportCardsService.findAll).toHaveBeenCalledWith(
+      expect(mockReportCardsQueriesService.findAll).toHaveBeenCalledWith(
         TENANT_ID,
         expect.objectContaining({ status: 'published' }),
       );
@@ -116,11 +124,11 @@ describe('ReportCardsController', () => {
   describe('findOne', () => {
     it('should call service.findOne with tenant and id', async () => {
       const card = { id: REPORT_CARD_ID, status: 'draft' };
-      mockReportCardsService.findOne.mockResolvedValue(card);
+      mockReportCardsQueriesService.findOne.mockResolvedValue(card);
 
       const result = await controller.findOne(tenantContext, REPORT_CARD_ID);
 
-      expect(mockReportCardsService.findOne).toHaveBeenCalledWith(TENANT_ID, REPORT_CARD_ID);
+      expect(mockReportCardsQueriesService.findOne).toHaveBeenCalledWith(TENANT_ID, REPORT_CARD_ID);
       expect(result).toEqual(card);
     });
   });
@@ -136,11 +144,9 @@ describe('ReportCardsController', () => {
         teacher_comment: 'Great work!',
       });
 
-      expect(mockReportCardsService.update).toHaveBeenCalledWith(
-        TENANT_ID,
-        REPORT_CARD_ID,
-        { teacher_comment: 'Great work!' },
-      );
+      expect(mockReportCardsService.update).toHaveBeenCalledWith(TENANT_ID, REPORT_CARD_ID, {
+        teacher_comment: 'Great work!',
+      });
       expect(result).toEqual(updated);
     });
   });
@@ -154,7 +160,11 @@ describe('ReportCardsController', () => {
 
       const result = await controller.publish(tenantContext, jwtUser as never, REPORT_CARD_ID);
 
-      expect(mockReportCardsService.publish).toHaveBeenCalledWith(TENANT_ID, REPORT_CARD_ID, USER_ID);
+      expect(mockReportCardsService.publish).toHaveBeenCalledWith(
+        TENANT_ID,
+        REPORT_CARD_ID,
+        USER_ID,
+      );
       expect(result).toEqual(published);
     });
   });
@@ -178,11 +188,14 @@ describe('ReportCardsController', () => {
   describe('gradeOverview', () => {
     it('should delegate to service.gradeOverview', async () => {
       const overview = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
-      mockReportCardsService.gradeOverview.mockResolvedValue(overview);
+      mockReportCardsQueriesService.gradeOverview.mockResolvedValue(overview);
 
       const result = await controller.gradeOverview(tenantContext, { page: 1, pageSize: 20 });
 
-      expect(mockReportCardsService.gradeOverview).toHaveBeenCalledWith(TENANT_ID, { page: 1, pageSize: 20 });
+      expect(mockReportCardsQueriesService.gradeOverview).toHaveBeenCalledWith(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+      });
       expect(result).toEqual(overview);
     });
   });

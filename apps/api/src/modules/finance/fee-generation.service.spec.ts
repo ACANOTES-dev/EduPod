@@ -10,7 +10,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
+import { SequenceService } from '../sequence/sequence.service';
 
 import { FeeGenerationService } from './fee-generation.service';
 
@@ -201,14 +201,14 @@ describe('FeeGenerationService', () => {
         invoice_number: 'INV-202603-000001',
       });
 
-      const result = await service.confirm(TENANT_ID, USER_ID, {
+      const result = (await service.confirm(TENANT_ID, USER_ID, {
         fee_structure_ids: [FS_ID],
         year_group_ids: [YG_ID],
         billing_period_start: '2026-03-01',
         billing_period_end: '2026-03-31',
         due_date: '2026-04-01',
         excluded_household_ids: [],
-      }) as { invoices_created: number; total_amount: number };
+      })) as { invoices_created: number; total_amount: number };
 
       expect(result.invoices_created).toBe(1);
       expect(result.total_amount).toBe(1000);

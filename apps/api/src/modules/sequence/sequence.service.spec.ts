@@ -30,10 +30,7 @@ describe('SequenceService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        SequenceService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [SequenceService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<SequenceService>(SequenceService);
@@ -76,9 +73,9 @@ describe('SequenceService', () => {
   it('should throw for missing sequence type', async () => {
     mockTx.$queryRaw.mockResolvedValue([]);
 
-    await expect(
-      service.nextNumber(TENANT_ID, 'nonexistent'),
-    ).rejects.toThrow('Sequence type "nonexistent" not found');
+    await expect(service.nextNumber(TENANT_ID, 'nonexistent')).rejects.toThrow(
+      'Sequence type "nonexistent" not found',
+    );
   });
 
   it('should format correctly at high numbers', async () => {

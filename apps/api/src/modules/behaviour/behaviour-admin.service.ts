@@ -14,11 +14,11 @@ import {
 import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { PolicyReplayService } from '../policy-engine/policy-replay.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
 import { BehaviourScopeService } from './behaviour-scope.service';
-import { PolicyReplayService } from './policy/policy-replay.service';
 
 @Injectable()
 export class BehaviourAdminService {
@@ -29,6 +29,7 @@ export class BehaviourAdminService {
     private readonly redis: RedisService,
     private readonly scopeService: BehaviourScopeService,
     private readonly policyReplayService: PolicyReplayService,
+    // TODO(M-17): Migrate to BehaviourSideEffectsService
     @InjectQueue('behaviour') private readonly behaviourQueue: Queue,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
     @InjectQueue('search-sync') private readonly searchSyncQueue: Queue,
@@ -183,12 +184,20 @@ export class BehaviourAdminService {
         sampleIds.push(dto.student_id);
       } else if (dto.scope === 'year_group' && dto.year_group_id) {
         const students = await tx.student.findMany({
-          where: { tenant_id: tenantId, year_group_id: dto.year_group_id, status: 'active' as $Enums.StudentStatus },
+          where: {
+            tenant_id: tenantId,
+            year_group_id: dto.year_group_id,
+            status: 'active' as $Enums.StudentStatus,
+          },
           select: { id: true },
           take: 10,
         });
         studentCount = await tx.student.count({
-          where: { tenant_id: tenantId, year_group_id: dto.year_group_id, status: 'active' as $Enums.StudentStatus },
+          where: {
+            tenant_id: tenantId,
+            year_group_id: dto.year_group_id,
+            status: 'active' as $Enums.StudentStatus,
+          },
         });
         sampleIds.push(...students.map((s) => s.id));
       } else {
@@ -208,7 +217,10 @@ export class BehaviourAdminService {
         affected_students: studentCount,
         sample_records: sampleIds,
         estimated_duration: studentCount > 100 ? '~2min' : '~30s',
-        warnings: dto.scope === 'tenant' ? ['This will invalidate all cached point totals for the entire school.'] : [],
+        warnings:
+          dto.scope === 'tenant'
+            ? ['This will invalidate all cached point totals for the entire school.']
+            : [],
         reversible: true,
         rollback_method: 'Re-run recompute. Points are computed from source records — idempotent.',
       };
@@ -226,7 +238,11 @@ export class BehaviourAdminService {
       await rlsClient.$transaction(async (txRaw) => {
         const tx = txRaw as unknown as PrismaService;
         const students = await tx.student.findMany({
-          where: { tenant_id: tenantId, year_group_id: dto.year_group_id, status: 'active' as $Enums.StudentStatus },
+          where: {
+            tenant_id: tenantId,
+            year_group_id: dto.year_group_id,
+            status: 'active' as $Enums.StudentStatus,
+          },
           select: { id: true },
         });
         const pipeline = client.pipeline();
@@ -263,8 +279,10 @@ export class BehaviourAdminService {
 
   async refreshViews(_tenantId: string): Promise<void> {
     // Materialised views are not tenant-scoped, but we can still refresh them
-    await this.prisma.$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_student_behaviour_summary`;
-    await this.prisma.$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_exposure_rates`;
+    await this.prisma
+      .$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_student_behaviour_summary`;
+    await this.prisma
+      .$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_exposure_rates`;
     await this.prisma.$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_benchmarks`;
     this.logger.log(`All behaviour materialised views refreshed`);
   }
@@ -332,7 +350,11 @@ export class BehaviourAdminService {
         studentCount = 1;
       } else if (dto.scope === 'year_group' && dto.year_group_id) {
         studentCount = await tx.student.count({
-          where: { tenant_id: tenantId, year_group_id: dto.year_group_id, status: 'active' as $Enums.StudentStatus },
+          where: {
+            tenant_id: tenantId,
+            year_group_id: dto.year_group_id,
+            status: 'active' as $Enums.StudentStatus,
+          },
         });
       } else {
         studentCount = await tx.student.count({
@@ -345,7 +367,9 @@ export class BehaviourAdminService {
         affected_students: studentCount,
         sample_records: [],
         estimated_duration: studentCount > 100 ? '~3min' : '~45s',
-        warnings: ['New awards may be created for students who crossed thresholds. Existing awards are not removed.'],
+        warnings: [
+          'New awards may be created for students who crossed thresholds. Existing awards are not removed.',
+        ],
         reversible: false,
         rollback_method: 'New awards can be individually revoked via DELETE /awards/:id.',
       };
@@ -354,14 +378,11 @@ export class BehaviourAdminService {
 
   // ─── Rebuild Awards ───────────────────────────────────────────────────────
 
-  async rebuildAwards(
-    tenantId: string,
-    dto: RebuildAwardsDto,
-  ): Promise<{ enqueued: number }> {
+  async rebuildAwards(tenantId: string, dto: RebuildAwardsDto): Promise<{ enqueued: number }> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     // Resolve student IDs based on scope
-    const studentIds = await rlsClient.$transaction(async (txRaw) => {
+    const studentIds = (await rlsClient.$transaction(async (txRaw) => {
       const tx = txRaw as unknown as PrismaService;
 
       if (dto.scope === 'student' && dto.student_id) {
@@ -373,7 +394,11 @@ export class BehaviourAdminService {
         return student ? [student.id] : [];
       }
 
-      const baseFilter: { tenant_id: string; status: $Enums.StudentStatus; year_group_id?: string } = {
+      const baseFilter: {
+        tenant_id: string;
+        status: $Enums.StudentStatus;
+        year_group_id?: string;
+      } = {
         tenant_id: tenantId,
         status: 'active' as $Enums.StudentStatus,
       };
@@ -388,7 +413,7 @@ export class BehaviourAdminService {
       });
 
       return students.map((s) => s.id);
-    }) as string[];
+    })) as string[];
 
     if (studentIds.length === 0) {
       return { enqueued: 0 };
@@ -462,16 +487,15 @@ export class BehaviourAdminService {
       }
     });
 
-    this.logger.log(`rebuildAwards: enqueued ${String(enqueued)} check-awards jobs for tenant ${tenantId}`);
+    this.logger.log(
+      `rebuildAwards: enqueued ${String(enqueued)} check-awards jobs for tenant ${tenantId}`,
+    );
     return { enqueued };
   }
 
   // ─── Backfill Tasks ───────────────────────────────────────────────────────
 
-  async backfillTasks(
-    tenantId: string,
-    dto: BackfillTasksDto,
-  ): Promise<{ created: number }> {
+  async backfillTasks(tenantId: string, dto: BackfillTasksDto): Promise<{ created: number }> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
     let created = 0;
 
@@ -483,8 +507,7 @@ export class BehaviourAdminService {
         (dto.scope === 'entity_type' && dto.entity_type === 'intervention');
 
       const shouldBackfillSanctions =
-        dto.scope === 'tenant' ||
-        (dto.scope === 'entity_type' && dto.entity_type === 'sanction');
+        dto.scope === 'tenant' || (dto.scope === 'entity_type' && dto.entity_type === 'sanction');
 
       // ── Interventions ──────────────────────────────────────────────────
 
@@ -602,7 +625,9 @@ export class BehaviourAdminService {
       }
     });
 
-    this.logger.log(`backfillTasks: created ${String(created)} missing tasks for tenant ${tenantId}`);
+    this.logger.log(
+      `backfillTasks: created ${String(created)} missing tasks for tenant ${tenantId}`,
+    );
     return { created };
   }
 
@@ -615,7 +640,9 @@ export class BehaviourAdminService {
       { attempts: 2, backoff: { type: 'exponential', delay: 3000 } },
     );
 
-    this.logger.log(`reindexSearch: enqueued search:full-reindex job ${job.id ?? ''} for tenant ${tenantId}`);
+    this.logger.log(
+      `reindexSearch: enqueued search:full-reindex job ${job.id ?? ''} for tenant ${tenantId}`,
+    );
     return { job_id: job.id ?? '' };
   }
 
@@ -666,9 +693,7 @@ export class BehaviourAdminService {
 
   // ─── Reindex Search Preview ───────────────────────────────────────────────
 
-  async reindexSearchPreview(
-    tenantId: string,
-  ): Promise<AdminPreviewResponse> {
+  async reindexSearchPreview(tenantId: string): Promise<AdminPreviewResponse> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return rlsClient.$transaction(async (txRaw) => {
@@ -683,7 +708,9 @@ export class BehaviourAdminService {
         affected_students: 0,
         sample_records: [],
         estimated_duration: incidentCount > 5000 ? '~5min' : '~1min',
-        warnings: ['Search index will be rebuilt from scratch. Brief search outage during rebuild.'],
+        warnings: [
+          'Search index will be rebuilt from scratch. Brief search outage during rebuild.',
+        ],
         reversible: true,
         rollback_method: 'Idempotent — re-run to rebuild.',
       };
@@ -760,10 +787,7 @@ export class BehaviourAdminService {
 
   // ─── Resend Notification ──────────────────────────────────────────────────
 
-  async resendNotification(
-    tenantId: string,
-    dto: ResendNotificationDto,
-  ): Promise<void> {
+  async resendNotification(tenantId: string, dto: ResendNotificationDto): Promise<void> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     await rlsClient.$transaction(async (txRaw) => {
@@ -824,6 +848,9 @@ export class BehaviourAdminService {
       period_order?: number;
     },
   ) {
-    return this.policyReplayService.dryRun(tenantId, dto as Parameters<typeof this.policyReplayService.dryRun>[1]);
+    return this.policyReplayService.dryRun(
+      tenantId,
+      dto as Parameters<typeof this.policyReplayService.dryRun>[1],
+    );
   }
 }

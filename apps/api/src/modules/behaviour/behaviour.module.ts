@@ -1,5 +1,5 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { AuthModule } from '../auth/auth.module';
@@ -7,8 +7,9 @@ import { ChildProtectionModule } from '../child-protection/child-protection.modu
 import { GdprModule } from '../gdpr/gdpr.module';
 import { PastoralModule } from '../pastoral/pastoral.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
+import { PolicyEngineModule } from '../policy-engine/policy-engine.module';
 import { S3Module } from '../s3/s3.module';
-import { TenantsModule } from '../tenants/tenants.module';
+import { SequenceModule } from '../sequence/sequence.module';
 
 import { BehaviourAdminController } from './behaviour-admin.controller';
 import { BehaviourAdminService } from './behaviour-admin.service';
@@ -52,6 +53,7 @@ import { BehaviourSanctionAnalyticsService } from './behaviour-sanction-analytic
 import { BehaviourSanctionsController } from './behaviour-sanctions.controller';
 import { BehaviourSanctionsService } from './behaviour-sanctions.service';
 import { BehaviourScopeService } from './behaviour-scope.service';
+import { BehaviourSideEffectsService } from './behaviour-side-effects.service';
 import { BehaviourStaffAnalyticsService } from './behaviour-staff-analytics.service';
 import { BehaviourStudentsController } from './behaviour-students.controller';
 import { BehaviourStudentsService } from './behaviour-students.service';
@@ -59,9 +61,6 @@ import { BehaviourTasksController } from './behaviour-tasks.controller';
 import { BehaviourTasksService } from './behaviour-tasks.service';
 import { BehaviourController } from './behaviour.controller';
 import { BehaviourService } from './behaviour.service';
-import { PolicyEvaluationEngine } from './policy/policy-evaluation-engine';
-import { PolicyReplayService } from './policy/policy-replay.service';
-import { PolicyRulesService } from './policy/policy-rules.service';
 import { SafeguardingAttachmentService } from './safeguarding-attachment.service';
 import { SafeguardingBreakGlassService } from './safeguarding-break-glass.service';
 import { SafeguardingConcernsService } from './safeguarding-concerns.service';
@@ -78,9 +77,10 @@ import { SafeguardingService } from './safeguarding.service';
     ChildProtectionModule,
     GdprModule,
     PastoralModule,
-    TenantsModule,
+    SequenceModule,
     PdfRenderingModule,
     S3Module,
+    forwardRef(() => PolicyEngineModule),
     BullModule.registerQueue({ name: 'notifications' }),
     BullModule.registerQueue({ name: 'behaviour' }),
     BullModule.registerQueue({ name: 'search-sync' }),
@@ -119,9 +119,6 @@ import { SafeguardingService } from './safeguarding.service';
     BehaviourStudentsService,
     BehaviourTasksService,
     BehaviourAttachmentService,
-    PolicyRulesService,
-    PolicyEvaluationEngine,
-    PolicyReplayService,
     SafeguardingService,
     SafeguardingConcernsService,
     SafeguardingReferralsService,
@@ -148,46 +145,21 @@ import { SafeguardingService } from './safeguarding.service';
     BehaviourParentService,
     BehaviourLegalHoldService,
     BehaviourAdminService,
+    BehaviourSideEffectsService,
   ],
   exports: [
+    // ─── M-01: Reduced public API (<30% export ratio) ───────────────────────
     BehaviourService,
     BehaviourConfigService,
     BehaviourStudentsService,
-    BehaviourTasksService,
-    BehaviourHistoryService,
     BehaviourScopeService,
-    BehaviourQuickLogService,
-    BehaviourPointsService,
-    BehaviourAwardService,
-    BehaviourRecognitionService,
-    BehaviourHouseService,
-    BehaviourInterventionsService,
-    BehaviourGuardianRestrictionsService,
-    BehaviourAttachmentService,
-    PolicyRulesService,
-    PolicyEvaluationEngine,
-    PolicyReplayService,
     SafeguardingService,
     SafeguardingConcernsService,
-    SafeguardingReferralsService,
-    SafeguardingReportingService,
-    SafeguardingSealService,
-    SafeguardingAttachmentService,
-    SafeguardingBreakGlassService,
     BehaviourSanctionsService,
-    BehaviourAppealsService,
-    BehaviourExclusionCasesService,
     BehaviourExportService,
-    BehaviourAmendmentsService,
-    BehaviourPulseService,
     BehaviourAnalyticsService,
-    BehaviourAlertsService,
-    BehaviourAIService,
-    BehaviourDocumentService,
-    BehaviourDocumentTemplateService,
-    BehaviourParentService,
-    BehaviourLegalHoldService,
-    BehaviourAdminService,
+    // BehaviourHistoryService exported for PolicyEngineModule (forwardRef)
+    BehaviourHistoryService,
   ],
 })
 export class BehaviourModule {}

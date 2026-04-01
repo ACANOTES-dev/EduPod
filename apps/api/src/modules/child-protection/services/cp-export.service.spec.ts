@@ -1,9 +1,5 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
-import {
-  BadRequestException,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 jest.mock('../../../common/middleware/rls.middleware', () => ({
@@ -14,14 +10,11 @@ import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PdfRenderingService } from '../../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
-import { SequenceService } from '../../tenants/sequence.service';
+import { SequenceService } from '../../sequence/sequence.service';
 import { PastoralEventService } from '../../pastoral/services/pastoral-event.service';
 
 import { CpExportService } from './cp-export.service';
-import type {
-  CpExportPreviewDto,
-  CpExportGenerateDto,
-} from './cp-export.service';
+import type { CpExportPreviewDto, CpExportGenerateDto } from './cp-export.service';
 
 // ─── Test Data ──────────────────────────────────────────────────────────────
 
@@ -208,9 +201,9 @@ describe('CpExportService', () => {
     it('should throw NotFoundException when no records match', async () => {
       mockFindMany.mockResolvedValue([]);
 
-      await expect(
-        service.preview(TENANT_ID, USER_ID, previewDto, IP_ADDRESS),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.preview(TENANT_ID, USER_ID, previewDto, IP_ADDRESS)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should filter by record_types when provided', async () => {
@@ -384,9 +377,9 @@ describe('CpExportService', () => {
         purpose: 'invalid_purpose' as CpExportGenerateDto['purpose'],
       };
 
-      await expect(
-        service.generate(TENANT_ID, USER_ID, badDto, IP_ADDRESS),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.generate(TENANT_ID, USER_ID, badDto, IP_ADDRESS)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException when purpose is "other" without other_reason', async () => {
@@ -395,9 +388,9 @@ describe('CpExportService', () => {
         purpose: 'other',
       };
 
-      await expect(
-        service.generate(TENANT_ID, USER_ID, otherDto, IP_ADDRESS),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.generate(TENANT_ID, USER_ID, otherDto, IP_ADDRESS)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should accept purpose "other" when other_reason is provided', async () => {
@@ -460,9 +453,7 @@ describe('CpExportService', () => {
         }),
         expect.any(Object),
       );
-      expect(mockRedisClient.del).toHaveBeenCalledWith(
-        'cp-export:preview:preview-token-1',
-      );
+      expect(mockRedisClient.del).toHaveBeenCalledWith('cp-export:preview:preview-token-1');
     });
 
     it('should reject a preview_token used by a different user', async () => {
@@ -501,9 +492,9 @@ describe('CpExportService', () => {
     it('should throw NotFoundException when no records match', async () => {
       mockFindMany.mockResolvedValue([]);
 
-      await expect(
-        service.generate(TENANT_ID, USER_ID, generateDto, IP_ADDRESS),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.generate(TENANT_ID, USER_ID, generateDto, IP_ADDRESS)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should default locale to "en" when not provided', async () => {
@@ -576,25 +567,21 @@ describe('CpExportService', () => {
     it('should delete the download token after use (one-time consumption)', async () => {
       await service.download(DOWNLOAD_TOKEN, IP_ADDRESS);
 
-      expect(mockRedisClient.del).toHaveBeenCalledWith(
-        `cp-export:download:${DOWNLOAD_TOKEN}`,
-      );
+      expect(mockRedisClient.del).toHaveBeenCalledWith(`cp-export:download:${DOWNLOAD_TOKEN}`);
     });
 
     it('should delete the PDF buffer from Redis after retrieval', async () => {
       await service.download(DOWNLOAD_TOKEN, IP_ADDRESS);
 
-      expect(mockRedisClient.del).toHaveBeenCalledWith(
-        `cp-export:pdf:${DOWNLOAD_TOKEN}`,
-      );
+      expect(mockRedisClient.del).toHaveBeenCalledWith(`cp-export:pdf:${DOWNLOAD_TOKEN}`);
     });
 
     it('should throw NotFoundException for invalid or expired token', async () => {
       mockRedisClient.get.mockResolvedValue(null);
 
-      await expect(
-        service.download('nonexistent-token', IP_ADDRESS),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.download('nonexistent-token', IP_ADDRESS)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw NotFoundException when token is valid but PDF buffer has expired', async () => {
@@ -605,9 +592,7 @@ describe('CpExportService', () => {
         return Promise.resolve(null); // PDF expired
       });
 
-      await expect(
-        service.download(DOWNLOAD_TOKEN, IP_ADDRESS),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.download(DOWNLOAD_TOKEN, IP_ADDRESS)).rejects.toThrow(NotFoundException);
     });
 
     it('should reject second download attempt (token already consumed)', async () => {
@@ -617,9 +602,7 @@ describe('CpExportService', () => {
       // Now the token is deleted — second attempt gets null
       mockRedisClient.get.mockResolvedValue(null);
 
-      await expect(
-        service.download(DOWNLOAD_TOKEN, IP_ADDRESS),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.download(DOWNLOAD_TOKEN, IP_ADDRESS)).rejects.toThrow(NotFoundException);
     });
 
     it('should write a pastoral audit event on download', async () => {

@@ -1,16 +1,11 @@
 import { randomUUID } from 'crypto';
 
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
-import { SequenceService } from '../../tenants/sequence.service';
+import { SequenceService } from '../../sequence/sequence.service';
 
 import { PastoralEventService } from './pastoral-event.service';
 
@@ -308,9 +303,10 @@ export class CriticalIncidentService {
         data: {
           tenant_id: tenantId,
           incident_type: dto.incident_type === 'other' ? 'ci_other' : dto.incident_type,
-          description: dto.incident_type === 'other'
-            ? `[${dto.incident_type_other}] ${dto.description}`
-            : dto.description,
+          description:
+            dto.incident_type === 'other'
+              ? `[${dto.incident_type_other}] ${dto.description}`
+              : dto.description,
           occurred_at: new Date(dto.incident_date),
           scope: dto.scope === 'class' ? 'class_group' : dto.scope,
           scope_ids: scopeIds ? (scopeIds as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
@@ -350,10 +346,7 @@ export class CriticalIncidentService {
 
   // ─── GET BY ID ──────────────────────────────────────────────────────────────
 
-  async getById(
-    tenantId: string,
-    incidentId: string,
-  ): Promise<{ data: Record<string, unknown> }> {
+  async getById(tenantId: string, incidentId: string): Promise<{ data: Record<string, unknown> }> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     const result = (await rlsClient.$transaction(async (tx) => {
@@ -409,9 +402,8 @@ export class CriticalIncidentService {
       }
 
       if (filters.incident_type) {
-        where.incident_type = filters.incident_type === 'other'
-          ? 'ci_other'
-          : filters.incident_type;
+        where.incident_type =
+          filters.incident_type === 'other' ? 'ci_other' : filters.incident_type;
       }
 
       if (filters.date_from || filters.date_to) {
@@ -526,7 +518,10 @@ export class CriticalIncidentService {
     }
 
     // Closure requires closure_notes
-    if (dto.new_status === 'closed' && (!dto.closure_notes || dto.closure_notes.trim().length === 0)) {
+    if (
+      dto.new_status === 'closed' &&
+      (!dto.closure_notes || dto.closure_notes.trim().length === 0)
+    ) {
       throw new BadRequestException({
         code: 'CLOSURE_NOTES_REQUIRED',
         message: 'closure_notes are required when closing an incident',
@@ -961,7 +956,8 @@ export class CriticalIncidentService {
       if (dto.visit_date !== undefined) entry.visit_date = dto.visit_date ?? null;
       if (dto.visit_time_start !== undefined) entry.visit_time_start = dto.visit_time_start ?? null;
       if (dto.visit_time_end !== undefined) entry.visit_time_end = dto.visit_time_end ?? null;
-      if (dto.availability_notes !== undefined) entry.availability_notes = dto.availability_notes ?? null;
+      if (dto.availability_notes !== undefined)
+        entry.availability_notes = dto.availability_notes ?? null;
       if (dto.students_seen !== undefined) entry.students_seen = dto.students_seen ?? [];
       if (dto.outcome_notes !== undefined) entry.outcome_notes = dto.outcome_notes ?? null;
 

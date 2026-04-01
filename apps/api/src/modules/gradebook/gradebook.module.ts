@@ -44,7 +44,11 @@ import { ReportCardCustomFieldsService } from './report-cards/report-card-custom
 import { ReportCardDeliveryService } from './report-cards/report-card-delivery.service';
 import { ReportCardTemplateService } from './report-cards/report-card-template.service';
 import { ReportCardVerificationService } from './report-cards/report-card-verification.service';
-import { ReportCardsEnhancedController, ReportCardVerificationController } from './report-cards/report-cards-enhanced.controller';
+import {
+  ReportCardsEnhancedController,
+  ReportCardVerificationController,
+} from './report-cards/report-cards-enhanced.controller';
+import { ReportCardsQueriesService } from './report-cards/report-cards-queries.service';
 import { ReportCardsController } from './report-cards/report-cards.controller';
 import { ReportCardsService } from './report-cards/report-cards.service';
 import { ResultsMatrixService } from './results-matrix.service';
@@ -84,6 +88,7 @@ import { YearGroupGradeWeightsService } from './year-group-grade-weights.service
     GradesService,
     PeriodGradeComputationService,
     ResultsMatrixService,
+    ReportCardsQueriesService,
     ReportCardsService,
     TranscriptsService,
     BulkImportService,
