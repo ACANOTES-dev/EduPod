@@ -27,9 +27,10 @@ import {
   toast,
 } from '@school/ui';
 
+import { apiClient } from '@/lib/api-client';
+
 import { humanise } from './shared';
 
-import { apiClient } from '@/lib/api-client';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────

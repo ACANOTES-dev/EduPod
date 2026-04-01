@@ -32,14 +32,15 @@ import {
 } from '@school/ui';
 
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 import { CoverTeacherDialog } from './_components/cover-teacher-dialog';
 import { HealthScore, type ValidationResult } from './_components/health-score';
 import { ScheduleGrid, type PeriodSlot, type ScheduleEntry } from './_components/schedule-grid';
 import { ValidateResults } from './_components/validate-results';
 import { WorkloadSidebar } from './_components/workload-sidebar';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

@@ -16,12 +16,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button, EmptyState, StatusBadge } from '@school/ui';
 
 
+import { apiClient } from '@/lib/api-client';
+
 import { AiInsightCard } from './_components/ai-insight-card';
 import { FinancesTab } from './_components/finances-tab';
 import { GradesTab } from './_components/grades-tab';
 import { TimetableTab } from './_components/timetable-tab';
 
-import { apiClient } from '@/lib/api-client';
 
 interface LinkedStudent {
   student_id: string;

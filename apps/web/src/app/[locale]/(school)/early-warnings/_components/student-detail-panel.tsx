@@ -17,14 +17,15 @@ import {
 } from '@school/ui';
 
 
+import { apiClient } from '@/lib/api-client';
+import type { RiskProfileDetail } from '@/lib/early-warning';
+
 import { DomainScoreBars } from './domain-score-bars';
 import { RiskTierBadge } from './risk-tier-badge';
 import { SignalBreakdown } from './signal-breakdown';
 import { TierTransitionTimeline } from './tier-transition-timeline';
 import { TrendSparkline } from './trend-sparkline';
 
-import { apiClient } from '@/lib/api-client';
-import type { RiskProfileDetail } from '@/lib/early-warning';
 
 interface StudentDetailPanelProps {
   studentId: string | null;

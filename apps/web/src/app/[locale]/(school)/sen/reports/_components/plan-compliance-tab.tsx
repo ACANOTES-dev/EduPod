@@ -7,9 +7,10 @@ import * as React from 'react';
 
 import { EmptyState, Input, Label, Skeleton, toast } from '@school/ui';
 
+import { apiClient } from '@/lib/api-client';
+
 import { formatDateShort, humanise } from './shared';
 
-import { apiClient } from '@/lib/api-client';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────

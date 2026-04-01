@@ -9,6 +9,9 @@ import * as React from 'react';
 import { Button } from '@school/ui';
 
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 import { DecisionDialog } from './_components/decision-dialog';
 import type {
   ExclusionDetail,
@@ -28,8 +31,6 @@ import {
 } from './_components/main-content-sections';
 import { AppealSidebar, CaseMetaSidebar } from './_components/sidebar-sections';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 

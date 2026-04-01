@@ -16,9 +16,10 @@ import {
   toast,
 } from '@school/ui';
 
+import { apiClient } from '@/lib/api-client';
+
 import type { FeePreviewResult, RegistrationResult, WizardAction, WizardState } from './types';
 
-import { apiClient } from '@/lib/api-client';
 
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

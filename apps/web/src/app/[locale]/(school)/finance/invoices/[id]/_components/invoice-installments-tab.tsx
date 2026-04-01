@@ -7,11 +7,12 @@ import type { InvoiceStatus, InstallmentStatus } from '@school/shared';
 import { Button, StatusBadge } from '@school/ui';
 
 
+import { formatDate } from '@/lib/format-date';
+
 import { CurrencyDisplay } from '../../../_components/currency-display';
 
 import { InstallmentForm } from './installment-form';
 
-import { formatDate } from '@/lib/format-date';
 
 interface Installment {
   id: string;

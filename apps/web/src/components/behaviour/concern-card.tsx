@@ -4,11 +4,12 @@ import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 
+import { formatDate } from '@/lib/format-date';
+
 import { SafeguardingSeverityBadge } from './safeguarding-severity-badge';
 import { SafeguardingStatusBadge } from './safeguarding-status-badge';
 import { SlaIndicator } from './sla-indicator';
 
-import { formatDate } from '@/lib/format-date';
 
 export interface ConcernCardData {
   id: string;

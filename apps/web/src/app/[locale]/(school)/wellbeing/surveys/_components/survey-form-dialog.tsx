@@ -26,6 +26,8 @@ import {
 } from '@school/ui';
 
 
+import { apiClient } from '@/lib/api-client';
+
 import {
   DEFAULT_FORM,
   FREQUENCIES,
@@ -42,7 +44,6 @@ import type {
   SurveyFormState,
 } from './survey-types';
 
-import { apiClient } from '@/lib/api-client';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 

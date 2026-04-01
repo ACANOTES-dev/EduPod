@@ -54,7 +54,6 @@ import {
   ToastProvider,
 } from '@school/ui';
 
-import { RegistrationWizard } from './_components/registration-wizard/registration-wizard';
 
 import { ErrorBoundary } from '@/components/error-boundary';
 import { GlobalSearch } from '@/components/global-search';
@@ -65,6 +64,8 @@ import { UserMenu } from '@/components/user-menu';
 import { useShortcuts } from '@/hooks/use-shortcuts';
 import { apiClient, setApiErrorHandler } from '@/lib/api-client';
 import { RequireAuth, useAuth } from '@/providers/auth-provider';
+
+import { RegistrationWizard } from './_components/registration-wizard/registration-wizard';
 
 
 // ─── Role-based navigation ──────────────────────────────────────────────────

@@ -15,10 +15,11 @@ import {
 } from '@school/ui';
 
 
+import { apiClient } from '@/lib/api-client';
+
 import { PromotionPreview, type PreviewStudent, type OverrideMap } from './promotion-preview';
 import { PromotionSummary } from './promotion-summary';
 
-import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

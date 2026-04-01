@@ -4,9 +4,10 @@ import { useTranslations } from 'next-intl';
 
 import { Badge } from '@school/ui';
 
+import { formatDate } from '@/lib/format-date';
+
 import type { TaskEntry } from './intervention-types';
 
-import { formatDate } from '@/lib/format-date';
 
 
 // ─── Props ───────────────────────────────────────────────────────────────────

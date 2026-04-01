@@ -27,6 +27,10 @@ import {
   StatCard,
 } from '@school/ui';
 
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 import {
   EVENT_TYPE_OPTIONS,
   formatDisplayDate,
@@ -34,9 +38,6 @@ import {
   type AcademicYearOption,
   type EngagementAnalyticsOutstandingItem,
 } from '../_components/engagement-types';
-
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────

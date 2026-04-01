@@ -7,6 +7,9 @@ import * as React from 'react';
 
 import { Button } from '@school/ui';
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 import {
   formatDisplayDate,
   isConferenceEvent,
@@ -17,8 +20,6 @@ import {
 } from '../../_components/engagement-types';
 import { EventStatusBadge } from '../../_components/event-status-badge';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 
 // ─── Mini-calendar helpers ─────────────────────────────────────────────────────

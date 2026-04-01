@@ -8,10 +8,11 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { EmptyState, StatCard } from '@school/ui';
 
-import { EarlyWarningCard } from './_components/early-warning-card';
 
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/providers/auth-provider';
+
+import { EarlyWarningCard } from './_components/early-warning-card';
 
 
 interface HouseholdNeedingCompletion {

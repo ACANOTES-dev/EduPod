@@ -14,9 +14,10 @@ import {
   DialogTitle,
 } from '@school/ui';
 
+import { apiClient } from '@/lib/api-client';
+
 import type { Survey } from './survey-types';
 
-import { apiClient } from '@/lib/api-client';
 
 
 // ─── Props ────────────────────────────────────────────────────────────────────

@@ -14,11 +14,12 @@ import {
 } from '@school/ui';
 
 
+import { formatDate } from '@/lib/format-date';
+
 import { StatusBadge, TypeBadge } from './restriction-badges';
 import { getParentDisplayName } from './restriction-types';
 import type { RestrictionRow } from './restriction-types';
 
-import { formatDate } from '@/lib/format-date';
 
 // ─── Detail Field ─────────────────────────────────────────────────────────────
 

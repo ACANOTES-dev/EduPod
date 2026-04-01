@@ -24,15 +24,16 @@ import {
   toast,
 } from '@school/ui';
 
+import { EntityLink } from '@/components/entity-link';
+import { RecordHub } from '@/components/record-hub';
+import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/format-date';
+
 import { CurrencyDisplay } from '../../finance/_components/currency-display';
 import { InvoiceStatusBadge } from '../../finance/_components/invoice-status-badge';
 import { MergeDialog } from '../_components/merge-dialog';
 import { SplitDialog } from '../_components/split-dialog';
 
-import { EntityLink } from '@/components/entity-link';
-import { RecordHub } from '@/components/record-hub';
-import { apiClient } from '@/lib/api-client';
-import { formatDate } from '@/lib/format-date';
 
 
 interface Invoice {

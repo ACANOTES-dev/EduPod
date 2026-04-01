@@ -2,9 +2,10 @@
 
 import { useTranslations } from 'next-intl';
 
+import { PageHeader } from '@/components/page-header';
+
 import { PromotionWizard } from './_components/promotion-wizard';
 
-import { PageHeader } from '@/components/page-header';
 
 
 export default function PromotionPage() {

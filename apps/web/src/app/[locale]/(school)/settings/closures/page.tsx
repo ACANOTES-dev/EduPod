@@ -6,11 +6,12 @@ import * as React from 'react';
 
 import { Badge, Button, toast } from '@school/ui';
 
-import { ClosureForm } from './_components/closure-form';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
+import { ClosureForm } from './_components/closure-form';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────

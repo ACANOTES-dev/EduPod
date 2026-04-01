@@ -12,14 +12,15 @@ import { updateEarlyWarningConfigSchema, type UpdateEarlyWarningConfigDto } from
 import { Button, toast } from '@school/ui';
 
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+import type { EarlyWarningConfig, RiskTier, SignalDomain } from '@/lib/early-warning';
+
 import { DigestConfig } from './_components/digest-config';
 import { RoutingRulesConfig } from './_components/routing-rules-config';
 import { ThresholdConfig } from './_components/threshold-config';
 import { WeightSliders } from './_components/weight-sliders';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
-import type { EarlyWarningConfig, RiskTier, SignalDomain } from '@/lib/early-warning';
 
 const DEFAULT_WEIGHTS: Record<SignalDomain, number> = {
   attendance: 25,

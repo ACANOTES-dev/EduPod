@@ -5,10 +5,11 @@ import * as React from 'react';
 
 import { toast } from '@school/ui';
 
-import { StudentForm, type StudentFormData } from '../_components/student-form';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
+import { StudentForm, type StudentFormData } from '../_components/student-form';
 
 
 export default function NewStudentPage() {

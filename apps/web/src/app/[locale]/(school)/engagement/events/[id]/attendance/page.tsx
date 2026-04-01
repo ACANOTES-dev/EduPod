@@ -7,6 +7,9 @@ import * as React from 'react';
 
 import { Button, toast } from '@school/ui';
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 import { AttendanceToggle } from '../../../_components/attendance-toggle';
 import {
   type EventAttendanceResponse,
@@ -14,8 +17,6 @@ import {
   pickLocalizedValue,
 } from '../../../_components/engagement-types';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 
 export default function EngagementEventAttendancePage() {

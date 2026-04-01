@@ -12,6 +12,10 @@ import type { GenerateTimeSlotsDto } from '@school/shared';
 import { generateTimeSlotsSchema } from '@school/shared';
 import { Button, Checkbox, Input, Label, toast } from '@school/ui';
 
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 import {
   getStaffDisplayName,
   pickLocalizedValue,
@@ -19,9 +23,6 @@ import {
   type PaginatedResponse,
   type StaffOption,
 } from '../../../_components/engagement-types';
-
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 
 function calculateSlotsPerTeacher(values: Partial<GenerateTimeSlotsDto>): number {

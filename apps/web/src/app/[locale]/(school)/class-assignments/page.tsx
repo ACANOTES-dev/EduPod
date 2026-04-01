@@ -7,6 +7,9 @@ import * as React from 'react';
 import { Button, Switch, Label, toast } from '@school/ui';
 
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 import { AssignmentBoard } from './_components/assignment-board';
 import { AssignmentList } from './_components/assignment-list';
 import { ExportDialog } from './_components/export-dialog';
@@ -26,8 +29,6 @@ import {
 } from './_components/export-utils';
 import { BulkAssignBar, SaveBar } from './_components/floating-action-bars';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 

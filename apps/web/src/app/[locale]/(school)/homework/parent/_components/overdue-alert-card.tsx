@@ -6,9 +6,10 @@ import * as React from 'react';
 
 import { Badge } from '@school/ui';
 
+import { formatDate } from '@/lib/format-date';
+
 import { ParentCompletionToggle } from './parent-completion-toggle';
 
-import { formatDate } from '@/lib/format-date';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────

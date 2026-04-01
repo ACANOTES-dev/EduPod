@@ -6,10 +6,11 @@ import { useTranslations } from 'next-intl';
 
 import { Button } from '@school/ui';
 
-import { FeeStructureForm, type FeeStructureFormValues } from '../_components/fee-structure-form';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
+import { FeeStructureForm, type FeeStructureFormValues } from '../_components/fee-structure-form';
 
 
 export default function NewFeeStructurePage() {

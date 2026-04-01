@@ -4,9 +4,10 @@ import { Calendar } from 'lucide-react';
 
 import { StatusBadge } from '@school/ui';
 
+import { formatDate } from '@/lib/format-date';
+
 import { HomeworkTypeBadge } from './homework-type-badge';
 
-import { formatDate } from '@/lib/format-date';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────

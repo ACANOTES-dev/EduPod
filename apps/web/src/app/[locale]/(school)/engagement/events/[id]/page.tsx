@@ -9,6 +9,9 @@ import * as React from 'react';
 import { Button, toast } from '@school/ui';
 
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 import { CompletionDashboard } from '../../_components/completion-dashboard';
 import {
   EVENT_TYPE_OPTIONS,
@@ -25,8 +28,6 @@ import {
 } from '../../_components/engagement-types';
 import { EventStatusBadge } from '../../_components/event-status-badge';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 type EventTab = 'participants' | 'staff' | 'settings';
 

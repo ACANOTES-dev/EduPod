@@ -4,10 +4,11 @@ import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 
+import { PageHeader } from '@/components/page-header';
+
 import { RegulatoryNav } from '../../_components/regulatory-nav';
 import { AarWizard } from '../_components/aar-wizard';
 
-import { PageHeader } from '@/components/page-header';
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 

@@ -19,9 +19,10 @@ import {
   Textarea,
 } from '@school/ui';
 
+import { apiClient } from '@/lib/api-client';
+
 import { STATUS_COLORS, STATUS_TRANSITIONS } from './intervention-types';
 
-import { apiClient } from '@/lib/api-client';
 
 
 // ─── Props ────────────────────────────────────────────────────────────────────

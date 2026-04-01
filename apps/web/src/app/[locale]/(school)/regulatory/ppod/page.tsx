@@ -14,13 +14,14 @@ import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 import { RegulatoryNav } from '../_components/regulatory-nav';
 
 import { SyncDiffPreview } from './_components/sync-diff-preview';
 import { SyncStatusOverview } from './_components/sync-status-overview';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

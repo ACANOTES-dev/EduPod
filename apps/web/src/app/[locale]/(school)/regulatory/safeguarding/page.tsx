@@ -8,9 +8,10 @@ import * as React from 'react';
 
 import { Button } from '@school/ui';
 
+import { PageHeader } from '@/components/page-header';
+
 import { RegulatoryNav } from '../_components/regulatory-nav';
 
-import { PageHeader } from '@/components/page-header';
 
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

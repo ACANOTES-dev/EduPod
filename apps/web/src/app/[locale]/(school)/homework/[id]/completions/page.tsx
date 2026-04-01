@@ -7,11 +7,12 @@ import * as React from 'react';
 
 import { Button, toast } from '@school/ui';
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 import { CompletionGrid } from '../../_components/completion-grid';
 import type { StudentCompletion } from '../../_components/completion-grid';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────

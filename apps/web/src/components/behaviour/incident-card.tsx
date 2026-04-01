@@ -2,9 +2,10 @@
 
 import * as React from 'react';
 
+import { formatDateTime } from '@/lib/format-date';
+
 import { IncidentStatusBadge } from './incident-status-badge';
 
-import { formatDateTime } from '@/lib/format-date';
 
 
 export interface IncidentCardData {

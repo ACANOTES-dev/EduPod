@@ -15,9 +15,10 @@ import {
   Textarea,
 } from '@school/ui';
 
+import { apiClient } from '@/lib/api-client';
+
 import { CategoryPicker, type CategoryOption } from './category-picker';
 
-import { apiClient } from '@/lib/api-client';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────

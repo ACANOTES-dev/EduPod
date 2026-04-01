@@ -9,10 +9,11 @@ import * as React from 'react';
 import { Button } from '@school/ui';
 
 
+import { PageHeader } from '@/components/page-header';
+
 import { RegulatoryNav } from '../../../_components/regulatory-nav';
 import { TransferForm } from '../../_components/transfer-form';
 
-import { PageHeader } from '@/components/page-header';
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 

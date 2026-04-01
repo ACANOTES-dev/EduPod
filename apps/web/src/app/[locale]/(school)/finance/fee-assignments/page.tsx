@@ -7,12 +7,13 @@ import * as React from 'react';
 
 import { Button, EmptyState } from '@school/ui';
 
-import { HouseholdSelector } from '../_components/household-selector';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
+
+import { HouseholdSelector } from '../_components/household-selector';
 
 
 interface FeeAssignment {

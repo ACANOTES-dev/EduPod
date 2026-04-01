@@ -5,13 +5,14 @@ import * as React from 'react';
 
 import { StatCard } from '@school/ui';
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/format-date';
+
 import { ComplianceStatusCard } from './_components/compliance-status-card';
 import { DeadlineTimeline } from './_components/deadline-timeline';
 import { RegulatoryNav } from './_components/regulatory-nav';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
-import { formatDate } from '@/lib/format-date';
 
 
 // ─── Types ───────────────────────────────────────────────────────────────────

@@ -22,6 +22,8 @@ import {
   toast,
 } from '@school/ui';
 
+import { apiClient } from '@/lib/api-client';
+
 import {
   EVENT_TYPE_OPTIONS,
   TARGET_TYPE_OPTIONS,
@@ -37,7 +39,6 @@ import {
   type YearGroupOption,
 } from './engagement-types';
 
-import { apiClient } from '@/lib/api-client';
 
 
 const STEP_KEYS = ['basicInfo', 'schedule', 'compliance', 'fees', 'staff', 'targeting'] as const;

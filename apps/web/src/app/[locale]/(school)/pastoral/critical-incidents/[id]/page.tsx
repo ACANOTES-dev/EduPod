@@ -4,15 +4,6 @@ import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { ExternalSupportSection } from './_components/external-support-section';
-import { RecordSection } from './_components/record-section';
-import { ResponsePlanSection } from './_components/response-plan-section';
-import {
-  AffectedPeoplePanel,
-  AffectedSummaryPanel,
-  OperatingContextPanel,
-  StatusPanel,
-} from './_components/sidebar-panels';
 
 import { PageHeader } from '@/components/page-header';
 import { PastoralCriticalIncidentStatusBadge } from '@/components/pastoral/pastoral-badges';
@@ -32,6 +23,16 @@ import {
   type PastoralCriticalIncidentResponsePlan,
   type PastoralCriticalIncidentResponsePlanProgress,
 } from '@/lib/pastoral';
+
+import { ExternalSupportSection } from './_components/external-support-section';
+import { RecordSection } from './_components/record-section';
+import { ResponsePlanSection } from './_components/response-plan-section';
+import {
+  AffectedPeoplePanel,
+  AffectedSummaryPanel,
+  OperatingContextPanel,
+  StatusPanel,
+} from './_components/sidebar-panels';
 
 
 // ─── Constants ────────────────────────────────────────────────────────────────

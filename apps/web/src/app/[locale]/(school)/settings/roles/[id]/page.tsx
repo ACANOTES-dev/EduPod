@@ -18,10 +18,11 @@ import {
   StatusBadge,
 } from '@school/ui';
 
-import { PermissionPicker, type RoleTier } from '../_components/permission-picker';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
+import { PermissionPicker, type RoleTier } from '../_components/permission-picker';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────

@@ -7,10 +7,11 @@ import * as React from 'react';
 
 import { Button, Textarea, toast } from '@school/ui';
 
-import { ParentNoteThread } from '../../_components/parent-note-thread';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
+import { ParentNoteThread } from '../../_components/parent-note-thread';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────

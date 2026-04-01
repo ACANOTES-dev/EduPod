@@ -7,10 +7,11 @@ import * as React from 'react';
 
 import { Button } from '@school/ui';
 
-import { ClassForm, type ClassFormValues } from '../../_components/class-form';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
+import { ClassForm, type ClassFormValues } from '../../_components/class-form';
 
 
 interface ClassDetail {

@@ -14,12 +14,13 @@ import {
   StatusBadge,
 } from '@school/ui';
 
-import { AcademicYearForm, type AcademicYearFormValues } from './_components/academic-year-form';
-import { PeriodManagement } from './_components/period-management';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
+
+import { AcademicYearForm, type AcademicYearFormValues } from './_components/academic-year-form';
+import { PeriodManagement } from './_components/period-management';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────

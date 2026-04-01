@@ -2,9 +2,10 @@
 
 import { useTranslations } from 'next-intl';
 
+import { PageHeader } from '@/components/page-header';
+
 import { EventWizard } from '../../_components/event-wizard';
 
-import { PageHeader } from '@/components/page-header';
 
 
 export default function NewEngagementEventPage() {

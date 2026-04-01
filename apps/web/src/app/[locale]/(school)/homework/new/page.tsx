@@ -7,10 +7,11 @@ import * as React from 'react';
 import type { CreateHomeworkDto } from '@school/shared';
 import { toast } from '@school/ui';
 
-import { HomeworkQuickForm } from '../_components/homework-quick-form';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
+import { HomeworkQuickForm } from '../_components/homework-quick-form';
 
 
 interface SelectOption {
