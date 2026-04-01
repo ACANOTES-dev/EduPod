@@ -205,3 +205,38 @@ When you complete work on a dimension via `/audit <dimension>`, append your dime
 | OR-23 | Add operational dashboards | D | Done | Yes (de319a1) | Added a platform admin health dashboard covering API, queue, PgBouncer, Redis, search, and provider health surfaces. |
 | OR-24 | Establish weekly operational review | E | Done | Yes (5afdfea) | Added a weekly ops review template covering alerts, failed jobs, deploy outcomes, and unresolved degradations. |
 | OR-25 | Add queue-depth, retry, failure, and stuck-job alerts | B | Done | Yes (0714cc4) | Health monitoring now tracks backlog, retries, failures, and stuck jobs across critical queues with alert-ready thresholds. |
+
+---
+
+## 6. Maintainability (7.0 → 9.5)
+
+| Branch | Reviewer | Date |
+|--------|----------|------|
+| `audit/maintainability` | Opus 4.6 independent review per phase (4 reviews, no unresolved findings) | 2026-04-01 |
+
+| # | Action | Phase | Status | Committed | Notes |
+|---|--------|-------|--------|-----------|-------|
+| MT-01 | Complete i18n audit for all frontend modules | D | Done | Yes (cbd7ed8) | Scanned translation usage, fixed high-priority behaviour/platform strings, and aligned EN/AR keys across the touched pages and layouts. |
+| MT-02 | Add automated i18n completeness check | E | Done | Yes (e502219) | Added `scripts/check-i18n.js`, baseline tracking, and `pnpm i18n:check` in CI to catch new missing translation keys and parity gaps. |
+| MT-03 | Fix 34 import/order lint warnings | B | Done | Yes (878aae9) | Ran repo lint autofix and cleaned a broad batch of import/order warnings across API, worker, and web maintainability hotspots. |
+| MT-04 | Standardize controller error response shape | C | Done | Yes (302adb1) | Added shared `ApiError` helper and updated exception handling so controller error payloads follow the `{ error: { code, message, details? } }` structure. |
+| MT-05 | Add shared mock factories | C | Done | Yes (302adb1) | Added reusable API test factories in `apps/api/test/mock-factories.ts` for Prisma, Redis, logger, and queue mocks. |
+| MT-06 | Document all BullMQ job payloads with Zod schemas | D | Done | Yes (cbd7ed8) | Added shared job payload schemas and producer-side `addValidatedJob()` enqueue validation for early warning, communications, engagement, payroll, and pastoral jobs. |
+| MT-07 | Create onboarding developer guide | E | Done | Yes (e502219) | Added `docs/GETTING-STARTED.md` covering clone, setup, seed, run, verify, and contribution workflow. |
+| MT-08 | Add conventional commit enforcement | E | Done | Yes (e502219) | Added commitlint config plus Husky `commit-msg` enforcement so local commits must follow Conventional Commits. |
+| MT-09 | Extract `window.innerWidth` mobile detection to `useIsMobile()` hook | D | Done | Yes (cbd7ed8) | Added `useIsMobile()` and replaced repeated resize/mobile detection logic in behaviour and settings pages. |
+| MT-10 | Standardize toast error messages from API errors | D | Done | Yes (cbd7ed8) | Added `handleApiError()` and centralized frontend API error normalization for clearer, consistent user-facing failures. |
+| MT-11 | Add architecture doc table of contents | E | Done | Yes (e502219) | Expanded `architecture/README.md` into a real index with reading order and change-type entry points. |
+| MT-12 | Clean up TODO/FIXME markers | C | Done | Yes (302adb1) | Resolved maintainability TODO/FIXME cleanup in the audited surfaces during the phase C error-handling and test-helper pass. |
+| MT-13 | Document API versioning strategy | E | Done | Yes (e502219) | Added `docs/api-versioning.md` covering additive changes, breaking changes, and when `/v2/` should be introduced. |
+| MT-14 | Standardize page-level error boundary pattern | D | Done | Yes (cbd7ed8) | Added shared `ErrorBoundary` and `useApiQuery()` patterns, then adopted them in school/platform layouts and selected pages. |
+| MT-15 | Add PR template with checklist | E | Done | Yes (e502219) | Added `.github/pull_request_template.md` with testing, RLS, architecture, and danger-zone review checklist items. |
+| MT-16 | Break `ConcernService` into lifecycle, sharing, CP-integration slices | D | Done | Yes (cbd7ed8) | Split concern logic into access, relations, projection, and shared type helpers while preserving `ConcernService` as the public facade. |
+| MT-17 | Break `BehaviourStudentsService` into query, analytics, parent-view slices | D | Done | Yes (cbd7ed8) | Extracted analytics-specific logic into dedicated helper services/constants and significantly reduced `BehaviourStudentsService` size. |
+| MT-18 | Break `WorkloadComputeService` into personal, aggregate, trend slices | D | Done | Yes (cbd7ed8) | Moved empty-state and trend-analysis responsibilities into dedicated services to reduce `WorkloadComputeService` sprawl. |
+| MT-19 | Break `ReportCardsService` into generation, lifecycle, query slices | D | Done | Yes (cbd7ed8) | Split generation and transcript responsibilities into dedicated services while keeping `ReportCardsService` as the coordinating facade. |
+| MT-20 | Add complexity budgets via static analysis | E | Done | Yes (e502219) | Added hotspot complexity budget scripts/config, CI enforcement, and tracked thresholds for the highest-risk maintainability services. |
+| MT-21 | Remove commented-out code and dead branches from critical modules | C | Done | Yes (302adb1) | Removed dead/commented code paths encountered across auth, behaviour, finance, and pastoral cleanup passes. |
+| MT-22 | Add CODEOWNERS file | E | Done | Yes (e502219) | Added CODEOWNERS coverage for critical auth, behaviour, finance, GDPR, architecture, and Prisma surfaces. |
+| MT-23 | Add "change cost" review notes for hotspot modules | E | Done | Yes (e502219) | Added a Change Cost Notes section to the PR template for blast-radius, downstream-consumer, and regression-review context. |
+| MT-24 | Recompute and publish hotspot metrics after each wave | E | Done | Yes (e502219) | Published `docs/maintainability/hotspot-metrics.md` and scripted hotspot report regeneration for future maintainability waves. |
