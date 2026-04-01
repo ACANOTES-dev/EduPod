@@ -6,14 +6,13 @@ import { useTranslations } from 'next-intl';
 
 import { Button } from '@school/ui';
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 import {
   FeeAssignmentForm,
   type FeeAssignmentFormValues,
 } from '../_components/fee-assignment-form';
-
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
-
 
 export default function NewFeeAssignmentPage() {
   const t = useTranslations('finance');

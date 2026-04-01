@@ -8,11 +8,10 @@ import * as React from 'react';
 
 import { EmptyState, StatCard } from '@school/ui';
 
-import { HomeworkCard } from './_components/homework-card';
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { HomeworkCard } from './_components/homework-card';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

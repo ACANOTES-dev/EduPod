@@ -16,6 +16,10 @@ import {
   toast,
 } from '@school/ui';
 
+import { DataTable } from '@/components/data-table';
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 import {
   getParticipantClassName,
   getParticipantYearGroupName,
@@ -24,11 +28,6 @@ import {
   type EventRecord,
   type PaginatedResponse,
 } from '../../../_components/engagement-types';
-
-import { DataTable } from '@/components/data-table';
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
-
 
 function downloadCsv(filename: string, rows: string[][]) {
   const csv = rows

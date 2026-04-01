@@ -15,6 +15,10 @@ import {
   SelectValue,
 } from '@school/ui';
 
+import { DataTable } from '@/components/data-table';
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 import {
   EVENT_TYPE_OPTIONS,
   formatDisplayDate,
@@ -23,11 +27,6 @@ import {
   type PaginatedResponse,
 } from '../_components/engagement-types';
 import { EventStatusBadge } from '../_components/event-status-badge';
-
-import { DataTable } from '@/components/data-table';
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
-
 
 export default function EngagementEventsPage() {
   const locale = useLocale();

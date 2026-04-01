@@ -19,9 +19,6 @@ import {
   toast,
 } from '@school/ui';
 
-import { CurrencyDisplay } from '../_components/currency-display';
-import { InvoiceStatusBadge } from '../_components/invoice-status-badge';
-
 import { DataTable } from '@/components/data-table';
 import { EntityLink } from '@/components/entity-link';
 import { PageHeader } from '@/components/page-header';
@@ -29,6 +26,8 @@ import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
+import { CurrencyDisplay } from '../_components/currency-display';
+import { InvoiceStatusBadge } from '../_components/invoice-status-badge';
 
 interface InvoiceHousehold {
   id: string;

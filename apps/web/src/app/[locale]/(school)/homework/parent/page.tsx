@@ -6,13 +6,12 @@ import * as React from 'react';
 
 import { toast } from '@school/ui';
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 import { ChildSwitcher } from './_components/child-switcher';
 import { OverdueAlertCard } from './_components/overdue-alert-card';
 import { ParentHomeworkList } from './_components/parent-homework-list';
-
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

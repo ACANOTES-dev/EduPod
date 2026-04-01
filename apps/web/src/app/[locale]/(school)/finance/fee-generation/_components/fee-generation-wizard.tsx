@@ -8,12 +8,11 @@ import * as React from 'react';
 import type { FeeGenerationPreview as PreviewData } from '@school/shared';
 import { Button, Checkbox, Input, Label } from '@school/ui';
 
+import { apiClient } from '@/lib/api-client';
 
 import { CurrencyDisplay } from '../../_components/currency-display';
 
 import { FeeGenerationPreview } from './fee-generation-preview';
-
-import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

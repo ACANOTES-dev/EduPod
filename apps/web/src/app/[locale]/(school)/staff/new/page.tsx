@@ -7,11 +7,10 @@ import * as React from 'react';
 
 import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@school/ui';
 
-import { StaffForm, type StaffFormValues } from '../_components/staff-form';
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { StaffForm, type StaffFormValues } from '../_components/staff-form';
 
 interface CreatedCredentials {
   name: string;

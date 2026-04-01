@@ -15,10 +15,9 @@ import {
   SelectValue,
 } from '@school/ui';
 
-import type { StudentFormData, WizardAction, WizardState } from './types';
-
 import { apiClient } from '@/lib/api-client';
 
+import type { StudentFormData, WizardAction, WizardState } from './types';
 
 // ─── Validation ──────────────────────────────────────────────────────────────
 

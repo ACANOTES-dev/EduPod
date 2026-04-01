@@ -14,10 +14,9 @@ import {
   SelectValue,
 } from '@school/ui';
 
-import { HouseholdSelector } from '../../_components/household-selector';
-
 import { apiClient } from '@/lib/api-client';
 
+import { HouseholdSelector } from '../../_components/household-selector';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

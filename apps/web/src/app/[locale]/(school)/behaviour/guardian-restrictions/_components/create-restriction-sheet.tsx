@@ -25,11 +25,10 @@ import {
   Textarea,
 } from '@school/ui';
 
+import { apiClient } from '@/lib/api-client';
 
 import { RESTRICTION_TYPE_LABELS, RESTRICTION_TYPES } from './restriction-types';
 import type { ParentOption, StudentDetailResponse, StudentOption } from './restriction-types';
-
-import { apiClient } from '@/lib/api-client';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 

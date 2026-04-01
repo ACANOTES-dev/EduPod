@@ -6,6 +6,8 @@ import * as React from 'react';
 
 import { Button } from '@school/ui';
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 import { DryRunDialog } from './_components/dry-run-dialog';
 import type {
@@ -21,9 +23,6 @@ import { ReplayPanel } from './_components/replay-panel';
 import { RuleEditorSheet } from './_components/rule-editor-sheet';
 import { StageRulesList, StageTabs } from './_components/stage-rules-list';
 import { VersionHistoryDialog } from './_components/version-history-dialog';
-
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 

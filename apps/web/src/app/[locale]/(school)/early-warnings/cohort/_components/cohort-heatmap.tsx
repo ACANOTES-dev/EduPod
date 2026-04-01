@@ -6,11 +6,10 @@ import * as React from 'react';
 
 import { toast } from '@school/ui';
 
-import { CohortFilters, type CohortGroupBy } from './cohort-filters';
-
 import { apiClient } from '@/lib/api-client';
 import { getHeatmapColor, type CohortResponse, type CohortRow } from '@/lib/early-warning';
 
+import { CohortFilters, type CohortGroupBy } from './cohort-filters';
 
 const DOMAIN_KEYS = [
   'avg_attendance',

@@ -17,6 +17,9 @@ import {
   toast,
 } from '@school/ui';
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 import {
   formatDisplayDate,
   formatDisplayTimeRange,
@@ -31,10 +34,6 @@ import {
   type StudentOption,
 } from '../../../_components/engagement-types';
 import { ScheduleGrid } from '../../../_components/schedule-grid';
-
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
-
 
 export default function ConferenceSchedulePage() {
   const params = useParams<{ id: string }>();

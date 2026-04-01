@@ -6,11 +6,10 @@ import * as React from 'react';
 
 import { Button, Input, Label, cn } from '@school/ui';
 
+import { apiClient } from '@/lib/api-client';
 
 import type { DesPreviewResponse } from './file-preview';
 import { FilePreview } from './file-preview';
-
-import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

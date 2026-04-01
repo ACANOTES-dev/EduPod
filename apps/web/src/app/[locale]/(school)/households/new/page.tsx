@@ -5,11 +5,10 @@ import * as React from 'react';
 
 import { toast } from '@school/ui';
 
-import { HouseholdForm, type HouseholdFormData } from '../_components/household-form';
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { HouseholdForm, type HouseholdFormData } from '../_components/household-form';
 
 export default function NewHouseholdPage() {
   const router = useRouter();

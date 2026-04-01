@@ -8,12 +8,11 @@ import * as React from 'react';
 import type { FinanceDashboardData } from '@school/shared';
 import { StatCard } from '@school/ui';
 
-import { PaymentStatusBadge } from './_components/payment-status-badge';
-import { PdfPreviewModal } from './_components/pdf-preview-modal';
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { PaymentStatusBadge } from './_components/payment-status-badge';
+import { PdfPreviewModal } from './_components/pdf-preview-modal';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

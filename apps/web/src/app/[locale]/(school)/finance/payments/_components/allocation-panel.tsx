@@ -6,11 +6,10 @@ import * as React from 'react';
 import type { AllocationSuggestion } from '@school/shared';
 import { Button, Input, toast } from '@school/ui';
 
-import { CurrencyDisplay } from '../../_components/currency-display';
-
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
+import { CurrencyDisplay } from '../../_components/currency-display';
 
 interface AllocationRow {
   invoice_id: string;

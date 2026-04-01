@@ -27,13 +27,12 @@ import {
   toast,
 } from '@school/ui';
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 import { RegulatoryNav } from '../../_components/regulatory-nav';
 import { SubjectMappingTable } from '../_components/subject-mapping-table';
 import type { SubjectMapping } from '../_components/subject-mapping-table';
-
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 

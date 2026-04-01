@@ -14,12 +14,11 @@ import {
   StatusBadge,
 } from '@school/ui';
 
-import { CreateRunDialog } from './_components/create-run-dialog';
-
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { CreateRunDialog } from './_components/create-run-dialog';
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {

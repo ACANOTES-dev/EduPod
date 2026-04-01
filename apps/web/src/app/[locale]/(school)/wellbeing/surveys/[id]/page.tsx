@@ -17,6 +17,8 @@ import {
   Skeleton,
 } from '@school/ui';
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 import { ModerationTab } from './_components/moderation-tab';
 import { OverviewTab } from './_components/overview-tab';
@@ -28,9 +30,6 @@ import type {
   SurveyResultsResponse,
 } from './_components/survey-types';
 import { STATUS_BADGE_VARIANT } from './_components/survey-types';
-
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 

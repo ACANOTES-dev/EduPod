@@ -18,13 +18,12 @@ import {
   toast,
 } from '@school/ui';
 
-import { CompletionDonut } from '../_components/completion-donut';
-import { HomeworkTypeBadge } from '../_components/homework-type-badge';
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
+import { CompletionDonut } from '../_components/completion-donut';
+import { HomeworkTypeBadge } from '../_components/homework-type-badge';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

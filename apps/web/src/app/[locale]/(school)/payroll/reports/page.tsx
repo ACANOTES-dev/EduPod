@@ -13,13 +13,12 @@ import {
   YAxis,
 } from 'recharts';
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 import { BonusAnalysisTable } from './_components/bonus-analysis-table';
 import { CostTrendChart } from './_components/cost-trend-chart';
 import { YtdSummaryTable } from './_components/ytd-summary-table';
-
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {

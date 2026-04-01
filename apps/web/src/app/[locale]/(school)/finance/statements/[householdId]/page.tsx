@@ -8,11 +8,10 @@ import * as React from 'react';
 import type { HouseholdStatementData, StatementEntry } from '@school/shared';
 import { Button, EmptyState, StatusBadge } from '@school/ui';
 
-import { PdfPreviewModal } from '../../_components/pdf-preview-modal';
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { PdfPreviewModal } from '../../_components/pdf-preview-modal';
 
 // ─── Date Filter (client) ─────────────────────────────────────────────────────
 

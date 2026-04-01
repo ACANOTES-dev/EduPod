@@ -6,6 +6,10 @@ import * as React from 'react';
 import type { InvoiceStatus } from '@school/shared';
 import { Skeleton } from '@school/ui';
 
+import { EntityLink } from '@/components/entity-link';
+import { RecordHub } from '@/components/record-hub';
+import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../../_components/currency-display';
 
@@ -13,11 +17,6 @@ import { InvoiceActions } from './_components/invoice-actions';
 import { InvoiceInstallmentsTab } from './_components/invoice-installments-tab';
 import { InvoiceLinesTab } from './_components/invoice-lines-tab';
 import { InvoicePaymentsTab } from './_components/invoice-payments-tab';
-
-import { EntityLink } from '@/components/entity-link';
-import { RecordHub } from '@/components/record-hub';
-import { apiClient } from '@/lib/api-client';
-import { formatDate } from '@/lib/format-date';
 
 interface InvoiceLine {
   id: string;

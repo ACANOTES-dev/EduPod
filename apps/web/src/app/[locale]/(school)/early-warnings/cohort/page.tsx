@@ -8,10 +8,9 @@ import * as React from 'react';
 
 import { Button } from '@school/ui';
 
-import { CohortHeatmap } from './_components/cohort-heatmap';
-
 import { PageHeader } from '@/components/page-header';
 
+import { CohortHeatmap } from './_components/cohort-heatmap';
 
 export default function CohortPage() {
   const t = useTranslations('early_warning');

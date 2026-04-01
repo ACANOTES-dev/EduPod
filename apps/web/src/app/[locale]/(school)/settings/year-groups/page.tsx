@@ -14,11 +14,10 @@ import {
   DialogTitle,
 } from '@school/ui';
 
-import { YearGroupForm, type YearGroupFormValues } from './_components/year-group-form';
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { YearGroupForm, type YearGroupFormValues } from './_components/year-group-form';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

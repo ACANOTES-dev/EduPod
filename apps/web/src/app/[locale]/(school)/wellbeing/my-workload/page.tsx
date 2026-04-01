@@ -16,11 +16,10 @@ import {
 
 import { StatCard } from '@school/ui';
 
-import { SmallSchoolGuidance } from '../_components/small-school-guidance';
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { SmallSchoolGuidance } from '../_components/small-school-guidance';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

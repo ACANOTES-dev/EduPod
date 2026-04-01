@@ -7,6 +7,9 @@ import * as React from 'react';
 
 import { Button, toast } from '@school/ui';
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient, getAccessToken } from '@/lib/api-client';
+
 import {
   formatDisplayDate,
   formatDisplayDateTime,
@@ -17,10 +20,6 @@ import {
   type StaffOption,
   type TripPackPreview,
 } from '../../../_components/engagement-types';
-
-import { PageHeader } from '@/components/page-header';
-import { apiClient, getAccessToken } from '@/lib/api-client';
-
 
 export default function EngagementTripPackPage() {
   const params = useParams<{ id: string }>();

@@ -5,6 +5,7 @@ import * as React from 'react';
 
 import { Button, toast } from '@school/ui';
 
+import { apiClient } from '@/lib/api-client';
 
 import { AiSection } from './_components/ai-section';
 import { AttendanceSection } from './_components/attendance-section';
@@ -24,8 +25,6 @@ import {
   SubSectionCard,
   TextRow,
 } from './_components/settings-ui';
-
-import { apiClient } from '@/lib/api-client';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 

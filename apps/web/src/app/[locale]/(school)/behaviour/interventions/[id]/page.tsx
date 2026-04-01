@@ -8,6 +8,8 @@ import * as React from 'react';
 
 import { Badge, Button } from '@school/ui';
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 import { AddReviewDialog } from './_components/add-review-dialog';
 import { HistoryTab } from './_components/history-tab';
@@ -32,9 +34,6 @@ import { InterventionOverviewTab } from './_components/overview-tab';
 import { ReviewsTab } from './_components/reviews-tab';
 import { StatusTransitionDialog } from './_components/status-transition-dialog';
 import { TasksTab } from './_components/tasks-tab';
-
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 

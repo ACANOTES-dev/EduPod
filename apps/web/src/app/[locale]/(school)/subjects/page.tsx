@@ -15,12 +15,11 @@ import {
   Switch,
 } from '@school/ui';
 
-import { SubjectForm, type SubjectFormValues } from './_components/subject-form';
-
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { SubjectForm, type SubjectFormValues } from './_components/subject-form';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

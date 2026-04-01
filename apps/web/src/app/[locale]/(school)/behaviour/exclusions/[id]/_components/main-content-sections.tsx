@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 
 import { Badge, Button, Input, Textarea } from '@school/ui';
 
+import { formatDate, formatDateTime } from '@/lib/format-date';
 
 import type {
   ExclusionDetail,
@@ -13,8 +14,6 @@ import type {
   TimelineStep,
 } from './exclusion-types';
 import { formatLabel } from './exclusion-types';
-
-import { formatDate, formatDateTime } from '@/lib/format-date';
 
 // ─── Timeline Dot ─────────────────────────────────────────────────────────────
 

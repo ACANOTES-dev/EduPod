@@ -7,11 +7,10 @@ import * as React from 'react';
 
 import { Input } from '@school/ui';
 
+import { apiClient } from '@/lib/api-client';
 
 import { DiaryDateNavigator } from './_components/diary-date-navigator';
 import { DiaryDayView } from './_components/diary-day-view';
-
-import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

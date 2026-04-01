@@ -5,11 +5,10 @@ import { useTranslations } from 'next-intl';
 
 import { Badge, Button } from '@school/ui';
 
+import { formatDate, formatDateTime } from '@/lib/format-date';
 
 import type { InterventionDetail } from './intervention-types';
 import { daysUntil, STATUS_TRANSITIONS } from './intervention-types';
-
-import { formatDate, formatDateTime } from '@/lib/format-date';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 

@@ -7,12 +7,11 @@ import * as React from 'react';
 
 import { Button } from '@school/ui';
 
-import { EnrolmentManagement } from '../_components/enrolment-management';
-import { StaffAssignment } from '../_components/staff-assignment';
-
 import { RecordHub } from '@/components/record-hub';
 import { apiClient } from '@/lib/api-client';
 
+import { EnrolmentManagement } from '../_components/enrolment-management';
+import { StaffAssignment } from '../_components/staff-assignment';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

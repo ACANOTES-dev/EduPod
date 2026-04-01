@@ -17,9 +17,6 @@ import {
   EmptyState,
 } from '@school/ui';
 
-import { CurrencyDisplay } from '../_components/currency-display';
-import { PaymentStatusBadge } from '../_components/payment-status-badge';
-
 import { DataTable } from '@/components/data-table';
 import { EntityLink } from '@/components/entity-link';
 import { PageHeader } from '@/components/page-header';
@@ -27,6 +24,8 @@ import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
+import { CurrencyDisplay } from '../_components/currency-display';
+import { PaymentStatusBadge } from '../_components/payment-status-badge';
 
 interface PaymentHousehold {
   id: string;

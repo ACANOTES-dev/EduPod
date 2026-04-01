@@ -6,11 +6,10 @@ import { useTranslations } from 'next-intl';
 
 import { Button } from '@school/ui';
 
-import { ClassForm, type ClassFormValues } from '../_components/class-form';
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { ClassForm, type ClassFormValues } from '../_components/class-form';
 
 export default function NewClassPage() {
   const t = useTranslations('classes');

@@ -27,13 +27,12 @@ import {
   toast,
 } from '@school/ui';
 
-import { AnalyticsTab } from './analytics-tab';
-import { ResultsMatrix } from './results-matrix';
-
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { AnalyticsTab } from './analytics-tab';
+import { ResultsMatrix } from './results-matrix';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

@@ -13,15 +13,14 @@ import {
   toast,
 } from '@school/ui';
 
-import { RiskTierBadge } from './risk-tier-badge';
-import { StudentDetailPanel } from './student-detail-panel';
-import { TrendSparkline } from './trend-sparkline';
-
 import { DataTable } from '@/components/data-table';
 import { apiClient } from '@/lib/api-client';
 import type { RiskProfileListItem, RiskProfileListResponse } from '@/lib/early-warning';
 import { TIER_ORDER } from '@/lib/early-warning';
 
+import { RiskTierBadge } from './risk-tier-badge';
+import { StudentDetailPanel } from './student-detail-panel';
+import { TrendSparkline } from './trend-sparkline';
 
 const PAGE_SIZE = 20;
 

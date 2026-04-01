@@ -2,10 +2,9 @@
 
 import { useTranslations } from 'next-intl';
 
-import type { HistoryEntry } from './intervention-types';
-
 import { formatDateTime } from '@/lib/format-date';
 
+import type { HistoryEntry } from './intervention-types';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 

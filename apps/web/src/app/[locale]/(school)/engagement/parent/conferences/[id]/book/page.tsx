@@ -16,6 +16,9 @@ import {
   toast,
 } from '@school/ui';
 
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 import {
   getStaffDisplayName,
   pickLocalizedValue,
@@ -27,10 +30,6 @@ import {
   type StaffOption,
 } from '../../../../_components/engagement-types';
 import { SlotPicker } from '../../../../_components/slot-picker';
-
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
-
 
 function overlaps(
   leftStart: string,

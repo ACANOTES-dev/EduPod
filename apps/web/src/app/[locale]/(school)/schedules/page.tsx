@@ -14,12 +14,11 @@ import {
   SelectValue,
 } from '@school/ui';
 
-import { ScheduleForm } from './_components/schedule-form';
-
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { ScheduleForm } from './_components/schedule-form';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

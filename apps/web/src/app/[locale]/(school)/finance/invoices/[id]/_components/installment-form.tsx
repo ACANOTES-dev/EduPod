@@ -16,10 +16,9 @@ import {
   toast,
 } from '@school/ui';
 
-import { CurrencyDisplay } from '../../../_components/currency-display';
-
 import { apiClient } from '@/lib/api-client';
 
+import { CurrencyDisplay } from '../../../_components/currency-display';
 
 interface InstallmentRow {
   due_date: string;

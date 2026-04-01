@@ -6,6 +6,10 @@ import * as React from 'react';
 
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
+import { DataTable } from '@/components/data-table';
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/format-date';
 
 import { CreateRestrictionSheet } from './_components/create-restriction-sheet';
 import { StatusBadge, TypeBadge } from './_components/restriction-badges';
@@ -17,11 +21,6 @@ import {
 } from './_components/restriction-types';
 import type { RestrictionRow, RestrictionsResponse } from './_components/restriction-types';
 import { RevokeRestrictionSheet } from './_components/revoke-restriction-sheet';
-
-import { DataTable } from '@/components/data-table';
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
-import { formatDate } from '@/lib/format-date';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

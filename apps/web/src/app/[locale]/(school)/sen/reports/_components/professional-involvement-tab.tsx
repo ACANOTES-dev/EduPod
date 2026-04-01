@@ -19,10 +19,9 @@ import {
 
 import { EmptyState, Skeleton, StatCard } from '@school/ui';
 
-import { CHART_COLORS, humanise } from './shared';
-
 import { apiClient } from '@/lib/api-client';
 
+import { CHART_COLORS, humanise } from './shared';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

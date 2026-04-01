@@ -6,12 +6,11 @@ import * as React from 'react';
 
 import { Badge, Button, StatCard, StatusBadge, toast } from '@school/ui';
 
-import { RegulatoryNav } from '../../_components/regulatory-nav';
-import { CbaSyncTable } from '../_components/cba-sync-table';
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { RegulatoryNav } from '../../_components/regulatory-nav';
+import { CbaSyncTable } from '../_components/cba-sync-table';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

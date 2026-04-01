@@ -8,10 +8,9 @@ import * as React from 'react';
 
 import { Button } from '@school/ui';
 
-import { EarlyWarningList } from './_components/early-warning-list';
-
 import { PageHeader } from '@/components/page-header';
 
+import { EarlyWarningList } from './_components/early-warning-list';
 
 export default function EarlyWarningsPage() {
   const t = useTranslations('early_warning');
