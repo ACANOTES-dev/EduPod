@@ -5,7 +5,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 import type { ScheduleRow } from './workload-data.service';
 import { WorkloadDataService } from './workload-data.service';
+import { WorkloadEmptyStateService } from './workload-empty-state.service';
 import { WorkloadMetricsService } from './workload-metrics.service';
+import { WorkloadTrendAnalysisService } from './workload-trend-analysis.service';
 
 // ─── Return Types ────────────────────────────────────────────────────────────
 
@@ -151,6 +153,8 @@ const CORRELATION_DISCLAIMER =
 @Injectable()
 export class WorkloadComputeService {
   private readonly logger = new Logger(WorkloadComputeService.name);
+  private readonly emptyStateService = new WorkloadEmptyStateService();
+  private readonly trendAnalysisService = new WorkloadTrendAnalysisService();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -173,7 +177,7 @@ export class WorkloadComputeService {
 
       const academicYear = await this.dataService.getActiveAcademicYear(db, tenantId);
       if (!academicYear) {
-        return this.emptyPersonalSummary();
+        return this.emptyStateService.emptyPersonalSummary();
       }
 
       const currentPeriod = await this.dataService.getCurrentPeriod(db, tenantId, academicYear.id);
@@ -348,7 +352,7 @@ export class WorkloadComputeService {
 
       const academicYear = await this.dataService.getActiveAcademicYear(db, tenantId);
       if (!academicYear) {
-        return this.emptyTimetableQuality();
+        return this.emptyStateService.emptyTimetableQuality();
       }
 
       const schedules = await this.dataService.getTeacherSchedules(
@@ -457,7 +461,7 @@ export class WorkloadComputeService {
 
       const academicYear = await this.dataService.getActiveAcademicYear(db, tenantId);
       if (!academicYear) {
-        return this.emptyAggregateWorkload();
+        return this.emptyStateService.emptyAggregateWorkload();
       }
 
       const currentPeriod = await this.dataService.getCurrentPeriod(db, tenantId, academicYear.id);
@@ -557,12 +561,12 @@ export class WorkloadComputeService {
 
       const academicYear = await this.dataService.getActiveAcademicYear(db, tenantId);
       if (!academicYear) {
-        return this.emptyCoverFairness();
+        return this.emptyStateService.emptyCoverFairness();
       }
 
       const currentPeriod = await this.dataService.getCurrentPeriod(db, tenantId, academicYear.id);
       if (!currentPeriod) {
-        return this.emptyCoverFairness();
+        return this.emptyStateService.emptyCoverFairness();
       }
 
       const allStaff = await db.staffProfile.findMany({
@@ -615,7 +619,7 @@ export class WorkloadComputeService {
 
       const academicYear = await this.dataService.getActiveAcademicYear(db, tenantId);
       if (!academicYear) {
-        return this.emptyAggregateTimetableQuality();
+        return this.emptyStateService.emptyAggregateTimetableQuality();
       }
 
       const allTemplates = await db.schedulePeriodTemplate.findMany({
@@ -706,7 +710,7 @@ export class WorkloadComputeService {
 
       const academicYear = await this.dataService.getActiveAcademicYear(db, tenantId);
       if (!academicYear) {
-        return this.emptyAbsenceTrends();
+        return this.emptyStateService.emptyAbsenceTrends();
       }
 
       const currentPeriod = await this.dataService.getCurrentPeriod(db, tenantId, academicYear.id);
@@ -716,7 +720,7 @@ export class WorkloadComputeService {
       });
 
       if (staffCount === 0) {
-        return this.emptyAbsenceTrends();
+        return this.emptyStateService.emptyAbsenceTrends();
       }
 
       // All absences in the academic year
@@ -797,7 +801,9 @@ export class WorkloadComputeService {
 
       // Seasonal pattern — only if >= 12 months of data
       const seasonalPattern: AbsenceTrends['seasonal_pattern'] =
-        monthlyRates.length >= 12 ? this.computeSeasonalPattern(absences, staffCount) : null;
+        monthlyRates.length >= 12
+          ? this.trendAnalysisService.computeSeasonalPattern(absences, staffCount)
+          : null;
 
       return {
         monthly_rates: monthlyRates,
@@ -816,7 +822,7 @@ export class WorkloadComputeService {
 
       const academicYear = await this.dataService.getActiveAcademicYear(db, tenantId);
       if (!academicYear) {
-        return this.emptySubstitutionPressure();
+        return this.emptyStateService.emptySubstitutionPressure();
       }
 
       const currentPeriod = await this.dataService.getCurrentPeriod(db, tenantId, academicYear.id);
@@ -826,7 +832,7 @@ export class WorkloadComputeService {
       });
 
       if (staffCount === 0 || !currentPeriod) {
-        return this.emptySubstitutionPressure();
+        return this.emptyStateService.emptySubstitutionPressure();
       }
 
       // Days in current period
@@ -892,7 +898,11 @@ export class WorkloadComputeService {
         select: { created_at: true },
       });
 
-      const trend = this.computeMonthlyPressureTrend(allAbsences, allSubs, staffCount);
+      const trend = this.trendAnalysisService.computeMonthlyPressureTrend(
+        allAbsences,
+        allSubs,
+        staffCount,
+      );
 
       return {
         absence_rate: WorkloadMetricsService.round2(absenceRate),
@@ -989,7 +999,7 @@ export class WorkloadComputeService {
       }));
 
       // Simple trend description
-      const trendDescription = this.describeCorrelationTrend(series);
+      const trendDescription = this.trendAnalysisService.describeCorrelationTrend(series);
 
       return {
         status: 'available' as const,
@@ -1057,191 +1067,6 @@ export class WorkloadComputeService {
         currentPeriod.end_date,
       );
     }) as Promise<number>;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Private helpers
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  private computeSeasonalPattern(
-    absences: { absence_date: Date }[],
-    staffCount: number,
-  ): { month: number; average_rate: number }[] {
-    const monthCounts = new Map<number, number[]>();
-    for (const a of absences) {
-      const m = a.absence_date.getMonth() + 1;
-      if (!monthCounts.has(m)) {
-        monthCounts.set(m, []);
-      }
-      const arr = monthCounts.get(m);
-      if (arr) arr.push(1);
-    }
-
-    return Array.from(monthCounts.entries())
-      .sort((a, b) => a[0] - b[0])
-      .map(([month, counts]) => ({
-        month,
-        average_rate: WorkloadMetricsService.round2(counts.length / staffCount),
-      }));
-  }
-
-  private computeMonthlyPressureTrend(
-    absences: { absence_date: Date }[],
-    subs: { created_at: Date }[],
-    staffCount: number,
-  ): SubstitutionPressure['trend'] {
-    const absenceByMonth = new Map<string, number>();
-    for (const a of absences) {
-      const key = `${a.absence_date.getFullYear()}-${String(a.absence_date.getMonth() + 1).padStart(2, '0')}`;
-      absenceByMonth.set(key, (absenceByMonth.get(key) ?? 0) + 1);
-    }
-
-    const subsByMonth = new Map<string, number>();
-    for (const s of subs) {
-      const key = `${s.created_at.getFullYear()}-${String(s.created_at.getMonth() + 1).padStart(2, '0')}`;
-      subsByMonth.set(key, (subsByMonth.get(key) ?? 0) + 1);
-    }
-
-    const allMonths = new Set([...absenceByMonth.keys(), ...subsByMonth.keys()]);
-    const sortedMonths = Array.from(allMonths).sort();
-
-    return sortedMonths.map((month) => {
-      const absCount = absenceByMonth.get(month) ?? 0;
-      const subsCount = subsByMonth.get(month) ?? 0;
-      const daysInMonth = 20; // approximate school days per month
-      const absRate = staffCount > 0 && daysInMonth > 0 ? absCount / staffCount / daysInMonth : 0;
-      const coverDiff = absCount > 0 ? subsCount / absCount : 0;
-      const unfilledRate = absCount > 0 ? Math.max(0, absCount - subsCount) / absCount : 0;
-      const score = absRate * 0.4 + (1 - coverDiff) * 0.3 + unfilledRate * 0.3;
-      return {
-        month,
-        score: WorkloadMetricsService.round2(score),
-      };
-    });
-  }
-
-  private describeCorrelationTrend(
-    series: { month: string; coverPressure: number; absenceRate: number }[],
-  ): string {
-    if (series.length < 2) return 'Insufficient data for trend analysis.';
-
-    const recentHalf = series.slice(Math.floor(series.length / 2));
-    const earlyHalf = series.slice(0, Math.floor(series.length / 2));
-
-    const recentAvgAbsence = WorkloadMetricsService.mean(recentHalf.map((s) => s.absenceRate));
-    const earlyAvgAbsence = WorkloadMetricsService.mean(earlyHalf.map((s) => s.absenceRate));
-
-    const recentAvgCover = WorkloadMetricsService.mean(recentHalf.map((s) => s.coverPressure));
-    const earlyAvgCover = WorkloadMetricsService.mean(earlyHalf.map((s) => s.coverPressure));
-
-    const absenceTrend =
-      recentAvgAbsence > earlyAvgAbsence * 1.1
-        ? 'increasing'
-        : recentAvgAbsence < earlyAvgAbsence * 0.9
-          ? 'decreasing'
-          : 'stable';
-
-    const coverTrend =
-      recentAvgCover > earlyAvgCover * 1.1
-        ? 'increasing'
-        : recentAvgCover < earlyAvgCover * 0.9
-          ? 'decreasing'
-          : 'stable';
-
-    return `Absence rates are ${absenceTrend} and cover pressure is ${coverTrend} over the observed period.`;
-  }
-
-  // ─── Empty state helpers ──────────────────────────────────────────────────
-
-  private emptyPersonalSummary(): PersonalWorkloadSummary {
-    return {
-      teaching_periods_per_week: 0,
-      cover_duties_this_term: 0,
-      school_average_covers: 0,
-      timetable_quality_score: 100,
-      timetable_quality_label: 'Good',
-      trend: null,
-      status: 'normal',
-    };
-  }
-
-  private emptyTimetableQuality(): PersonalTimetableQuality {
-    return {
-      free_period_distribution: [],
-      consecutive_periods: { max: 0, average: 0 },
-      split_days_count: 0,
-      room_changes: { average: 0, max: 0 },
-      school_averages: {
-        consecutive_max: 0,
-        free_distribution_score: 0,
-        split_days_pct: 0,
-        room_changes_avg: 0,
-      },
-      composite_score: 100,
-      composite_label: 'Good',
-    };
-  }
-
-  private emptyAggregateWorkload(): AggregateWorkloadSummary {
-    return {
-      average_teaching_periods: 0,
-      range: { min: 0, max: 0, p25: 0, p50: 0, p75: 0 },
-      over_allocated_periods_count: 0,
-      average_cover_duties: 0,
-      over_allocated_covers_count: 0,
-      trend: null,
-    };
-  }
-
-  private emptyCoverFairness(): CoverFairnessResult {
-    return {
-      distribution: [],
-      gini_coefficient: 0,
-      range: { min: 0, max: 0, median: 0 },
-      assessment: 'Well distributed',
-    };
-  }
-
-  private emptyAggregateTimetableQuality(): AggregateTimetableQuality {
-    return {
-      consecutive_periods: {
-        mean: 0,
-        median: 0,
-        range: { min: 0, max: 0 },
-      },
-      free_period_clumping: {
-        mean: 0,
-        median: 0,
-        range: { min: 0, max: 0 },
-      },
-      split_timetable_pct: 0,
-      room_changes: {
-        mean: 0,
-        median: 0,
-        range: { min: 0, max: 0 },
-      },
-      trend: null,
-    };
-  }
-
-  private emptyAbsenceTrends(): AbsenceTrends {
-    return {
-      monthly_rates: [],
-      day_of_week_pattern: [],
-      term_comparison: null,
-      seasonal_pattern: null,
-    };
-  }
-
-  private emptySubstitutionPressure(): SubstitutionPressure {
-    return {
-      absence_rate: 0,
-      cover_difficulty: 0,
-      unfilled_rate: 0,
-      composite_score: 0.3,
-      trend: [],
-      assessment: 'Low',
-    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

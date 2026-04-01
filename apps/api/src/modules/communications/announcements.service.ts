@@ -1,19 +1,16 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { publishAnnouncementJobPayloadSchema } from '@school/shared';
 import { Queue } from 'bullmq';
 
 import { sanitiseHtml } from '../../common/utils/sanitise-html';
+import { addValidatedJob } from '../../common/utils/validated-job.util';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AudienceResolutionService } from './audience-resolution.service';
 import { NotificationsService } from './notifications.service';
-
 
 interface ListAnnouncementsFilters {
   page: number;
@@ -79,14 +76,18 @@ export class AnnouncementsService {
     return announcement;
   }
 
-  async create(tenantId: string, userId: string, dto: {
-    title: string;
-    body_html: string;
-    scope: string;
-    target_payload: Record<string, unknown>;
-    scheduled_publish_at?: string | null;
-    delivery_channels?: string[];
-  }) {
+  async create(
+    tenantId: string,
+    userId: string,
+    dto: {
+      title: string;
+      body_html: string;
+      scope: string;
+      target_payload: Record<string, unknown>;
+      scheduled_publish_at?: string | null;
+      delivery_channels?: string[];
+    },
+  ) {
     const cleanHtml = sanitiseHtml(dto.body_html);
 
     // Ensure in_app is always present
@@ -117,14 +118,18 @@ export class AnnouncementsService {
     });
   }
 
-  async update(tenantId: string, id: string, dto: {
-    title?: string;
-    body_html?: string;
-    scope?: string;
-    target_payload?: Record<string, unknown>;
-    scheduled_publish_at?: string | null;
-    delivery_channels?: string[];
-  }) {
+  async update(
+    tenantId: string,
+    id: string,
+    dto: {
+      title?: string;
+      body_html?: string;
+      scope?: string;
+      target_payload?: Record<string, unknown>;
+      scheduled_publish_at?: string | null;
+      delivery_channels?: string[];
+    },
+  ) {
     const existing = await this.getById(tenantId, id);
 
     if (existing.status !== 'draft') {
@@ -182,8 +187,7 @@ export class AnnouncementsService {
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const settingsJson = (settings?.settings as Record<string, any>) ?? {};
-    const requireApproval =
-      settingsJson?.communications?.requireApprovalForAnnouncements ?? true;
+    const requireApproval = settingsJson?.communications?.requireApprovalForAnnouncements ?? true;
 
     if (requireApproval) {
       const approvalResult = await this.approvalService.checkAndCreateIfNeeded(
@@ -231,8 +235,10 @@ export class AnnouncementsService {
 
       // Enqueue delayed job
       const delay = scheduledAt.getTime() - Date.now();
-      await this.notificationsQueue.add(
+      await addValidatedJob(
+        this.notificationsQueue,
         'communications:publish-announcement',
+        publishAnnouncementJobPayloadSchema,
         { tenant_id: tenantId, announcement_id: id },
         { delay, attempts: 3, backoff: { type: 'exponential', delay: 60_000 } },
       );
@@ -352,7 +358,11 @@ export class AnnouncementsService {
     return result;
   }
 
-  async listForParent(tenantId: string, userId: string, filters: { page: number; pageSize: number }) {
+  async listForParent(
+    tenantId: string,
+    userId: string,
+    filters: { page: number; pageSize: number },
+  ) {
     const { page, pageSize } = filters;
     const skip = (page - 1) * pageSize;
 

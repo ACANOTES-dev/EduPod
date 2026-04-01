@@ -16,7 +16,7 @@ jest.mock('../../common/utils/sanitise-html', () => ({
   ),
 }));
 
-const TENANT_ID = 'tenant-uuid-1';
+const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const USER_ID = 'user-uuid-1';
 const ANNOUNCEMENT_ID = 'announcement-uuid-1';
 

@@ -9,10 +9,11 @@ import {
 import { EngagementEventStatus } from '@prisma/client';
 import type { EventStaffRole } from '@prisma/client';
 import type { CreateEngagementEventDto, UpdateEngagementEventDto } from '@school/shared';
-import { EVENT_VALID_TRANSITIONS } from '@school/shared';
+import { engagementEventJobPayloadSchema, EVENT_VALID_TRANSITIONS } from '@school/shared';
 import type { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { addValidatedJob } from '../../common/utils/validated-job.util';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -267,17 +268,27 @@ export class EventsService {
     const updated = await this.transitionStatus(tenantId, eventId, EngagementEventStatus.open);
 
     // Enqueue form distribution
-    await this.engagementQueue.add('engagement:distribute-forms', {
-      tenant_id: tenantId,
-      event_id: eventId,
-    });
+    await addValidatedJob(
+      this.engagementQueue,
+      'engagement:distribute-forms',
+      engagementEventJobPayloadSchema,
+      {
+        tenant_id: tenantId,
+        event_id: eventId,
+      },
+    );
 
     // Enqueue invoice generation for paid events
     if (event.fee_amount && Number(event.fee_amount) > 0) {
-      await this.engagementQueue.add('engagement:generate-event-invoices', {
-        tenant_id: tenantId,
-        event_id: eventId,
-      });
+      await addValidatedJob(
+        this.engagementQueue,
+        'engagement:generate-event-invoices',
+        engagementEventJobPayloadSchema,
+        {
+          tenant_id: tenantId,
+          event_id: eventId,
+        },
+      );
     }
 
     return updated;
@@ -290,10 +301,15 @@ export class EventsService {
   async cancel(tenantId: string, eventId: string, _userId: string) {
     const updated = await this.transitionStatus(tenantId, eventId, EngagementEventStatus.cancelled);
 
-    await this.engagementQueue.add('engagement:cancel-event', {
-      tenant_id: tenantId,
-      event_id: eventId,
-    });
+    await addValidatedJob(
+      this.engagementQueue,
+      'engagement:cancel-event',
+      engagementEventJobPayloadSchema,
+      {
+        tenant_id: tenantId,
+        event_id: eventId,
+      },
+    );
 
     return updated;
   }

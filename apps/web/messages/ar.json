@@ -2522,6 +2522,7 @@
     "admin": {
       "title": "إدارة المنصة",
       "dashboard": "لوحة تحكم المنصة",
+      "securityIncidents": "الحوادث الأمنية",
       "tenantsManaged": "المدارس المُدارة",
       "systemHealth": "حالة النظام"
     },

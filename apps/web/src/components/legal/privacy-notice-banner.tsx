@@ -7,30 +7,25 @@ import { usePathname } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { useApiQuery } from '@/hooks/use-api-query';
 import { apiClient } from '@/lib/api-client';
+import { handleApiError } from '@/lib/handle-api-error';
 
 export function PrivacyNoticeBanner() {
   const t = useTranslations('legal');
   const locale = useLocale();
   const pathname = usePathname();
-  const [state, setState] = React.useState<PrivacyNoticeCurrent | null>(null);
-  const [loading, setLoading] = React.useState(true);
   const [acknowledging, setAcknowledging] = React.useState(false);
-
-  const loadCurrent = React.useCallback(async () => {
-    try {
-      const response = await apiClient<PrivacyNoticeCurrent>('/api/v1/privacy-notices/current');
-      setState(response);
-    } catch (err) {
-      console.error('[PrivacyNoticeBanner.loadCurrent]', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    void loadCurrent();
-  }, [loadCurrent]);
+  const {
+    data: state,
+    isLoading: loading,
+    setData: setState,
+  } = useApiQuery<PrivacyNoticeCurrent>('/api/v1/privacy-notices/current', {
+    fallbackMessage: t('acknowledgeError'),
+    onError: (error) => {
+      console.error('[PrivacyNoticeBanner.loadCurrent]', error);
+    },
+  });
 
   const handleAcknowledge = React.useCallback(async () => {
     setAcknowledging(true);
@@ -50,12 +45,15 @@ export function PrivacyNoticeBanner() {
       );
       toast.success(t('acknowledgeSuccess'));
     } catch (err) {
-      console.error('[PrivacyNoticeBanner.handleAcknowledge]', err);
-      toast.error(t('acknowledgeError'));
+      const normalizedError = handleApiError(err, {
+        fallbackMessage: t('acknowledgeError'),
+      });
+      console.error('[PrivacyNoticeBanner.handleAcknowledge]', normalizedError);
+      toast.error(normalizedError.message);
     } finally {
       setAcknowledging(false);
     }
-  }, [t]);
+  }, [setState, t]);
 
   if (
     loading ||

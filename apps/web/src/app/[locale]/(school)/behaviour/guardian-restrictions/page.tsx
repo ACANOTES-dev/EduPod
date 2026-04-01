@@ -18,18 +18,13 @@ import {
   SheetTitle,
   Textarea,
 } from '@school/ui';
-import {
-  Ban,
-  Plus,
-  Search,
-  ShieldAlert,
-  X,
-} from 'lucide-react';
+import { Ban, Plus, Search, ShieldAlert, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
+import { useIsMobile } from '@/hooks/use-is-mobile';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
@@ -150,8 +145,10 @@ const STATUS_BADGE_CLASSES: Record<string, string> = {
 };
 
 const TYPE_BADGE_CLASSES: Record<string, string> = {
-  no_behaviour_visibility: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  no_behaviour_notifications: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  no_behaviour_visibility:
+    'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  no_behaviour_notifications:
+    'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
   no_portal_access: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   no_communications: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
 };
@@ -191,9 +188,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function getParentDisplayName(
-  parent: RestrictionRow['parent'],
-): string {
+function getParentDisplayName(parent: RestrictionRow['parent']): string {
   if (!parent) return '\u2014';
   // Prefer the user name (the actual account name), fall back to parent record name
   if (parent.user) {
@@ -217,14 +212,7 @@ export default function GuardianRestrictionsPage() {
   const [statusFilter, setStatusFilter] = React.useState('all');
   const [typeFilter, setTypeFilter] = React.useState('all');
 
-  // Mobile detection
-  const [isMobile, setIsMobile] = React.useState(false);
-  React.useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
+  const isMobile = useIsMobile();
 
   // ─── Create Sheet State ───────────────────────────────────────────
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -262,34 +250,31 @@ export default function GuardianRestrictionsPage() {
 
   // ─── Fetch Restrictions ───────────────────────────────────────────
 
-  const fetchRestrictions = React.useCallback(
-    async (p: number, status: string, type: string) => {
-      setIsLoading(true);
-      try {
-        const params = new URLSearchParams({
-          page: String(p),
-          pageSize: String(PAGE_SIZE),
-        });
-        if (status !== 'all') params.set('status', status);
-        const res = await apiClient<RestrictionsResponse>(
-          `/api/v1/behaviour/guardian-restrictions?${params.toString()}`,
-        );
-        // Client-side type filter (the API doesn't support type filter directly)
-        let items = res.data ?? [];
-        if (type !== 'all') {
-          items = items.filter((r) => r.restriction_type === type);
-        }
-        setData(items);
-        setTotal(type !== 'all' ? items.length : (res.meta?.total ?? 0));
-      } catch {
-        setData([]);
-        setTotal(0);
-      } finally {
-        setIsLoading(false);
+  const fetchRestrictions = React.useCallback(async (p: number, status: string, type: string) => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: String(p),
+        pageSize: String(PAGE_SIZE),
+      });
+      if (status !== 'all') params.set('status', status);
+      const res = await apiClient<RestrictionsResponse>(
+        `/api/v1/behaviour/guardian-restrictions?${params.toString()}`,
+      );
+      // Client-side type filter (the API doesn't support type filter directly)
+      let items = res.data ?? [];
+      if (type !== 'all') {
+        items = items.filter((r) => r.restriction_type === type);
       }
-    },
-    [],
-  );
+      setData(items);
+      setTotal(type !== 'all' ? items.length : (res.meta?.total ?? 0));
+    } catch {
+      setData([]);
+      setTotal(0);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   React.useEffect(() => {
     void fetchRestrictions(page, statusFilter, typeFilter);
@@ -392,9 +377,7 @@ export default function GuardianRestrictionsPage() {
     setDetailOpen(true);
     setDetailLoading(true);
     try {
-      const res = await apiClient<RestrictionRow>(
-        `/api/v1/behaviour/guardian-restrictions/${id}`,
-      );
+      const res = await apiClient<RestrictionRow>(`/api/v1/behaviour/guardian-restrictions/${id}`);
       setDetailData(res);
     } catch {
       setDetailData(null);
@@ -443,9 +426,7 @@ export default function GuardianRestrictionsPage() {
       header: 'Student',
       render: (row: RestrictionRow) => (
         <span className="text-sm font-medium text-text-primary">
-          {row.student
-            ? `${row.student.first_name} ${row.student.last_name}`
-            : '\u2014'}
+          {row.student ? `${row.student.first_name} ${row.student.last_name}` : '\u2014'}
         </span>
       ),
     },
@@ -453,9 +434,7 @@ export default function GuardianRestrictionsPage() {
       key: 'parent',
       header: 'Guardian',
       render: (row: RestrictionRow) => (
-        <span className="text-sm text-text-primary">
-          {getParentDisplayName(row.parent)}
-        </span>
+        <span className="text-sm text-text-primary">{getParentDisplayName(row.parent)}</span>
       ),
     },
     {
@@ -640,17 +619,12 @@ export default function GuardianRestrictionsPage() {
           <div className="mt-4 space-y-2">
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-28 animate-pulse rounded-xl bg-surface-secondary"
-                />
+                <div key={i} className="h-28 animate-pulse rounded-xl bg-surface-secondary" />
               ))
             ) : data.length === 0 ? (
               <div className="rounded-xl border border-border bg-surface py-12 text-center dark:bg-surface">
                 <ShieldAlert className="mx-auto mb-2 h-8 w-8 text-text-tertiary" />
-                <p className="text-sm font-medium text-text-primary">
-                  No restrictions found
-                </p>
+                <p className="text-sm font-medium text-text-primary">No restrictions found</p>
                 <p className="mt-1 text-xs text-text-tertiary">
                   No guardian restrictions match the current filters
                 </p>
@@ -781,14 +755,9 @@ export default function GuardianRestrictionsPage() {
               ) : loadingParents ? (
                 <div className="h-10 animate-pulse rounded-md bg-surface-secondary" />
               ) : parentOptions.length === 0 ? (
-                <p className="text-sm text-text-tertiary">
-                  No guardians linked to this student.
-                </p>
+                <p className="text-sm text-text-tertiary">No guardians linked to this student.</p>
               ) : (
-                <Select
-                  value={selectedParentId}
-                  onValueChange={setSelectedParentId}
-                >
+                <Select value={selectedParentId} onValueChange={setSelectedParentId}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select guardian..." />
                   </SelectTrigger>
@@ -865,9 +834,7 @@ export default function GuardianRestrictionsPage() {
                 onChange={(e) => setFormEffectiveUntil(e.target.value)}
                 className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-text-primary dark:bg-surface dark:text-text-primary sm:text-sm"
               />
-              <p className="text-xs text-text-tertiary">
-                Leave empty for indefinite restriction.
-              </p>
+              <p className="text-xs text-text-tertiary">Leave empty for indefinite restriction.</p>
             </div>
 
             {/* Review Date */}
@@ -886,17 +853,10 @@ export default function GuardianRestrictionsPage() {
           </div>
 
           <SheetFooter className="mt-6">
-            <Button
-              variant="outline"
-              onClick={() => setCreateOpen(false)}
-              disabled={creating}
-            >
+            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>
               Cancel
             </Button>
-            <Button
-              onClick={handleCreate}
-              disabled={!isFormValid || creating}
-            >
+            <Button onClick={handleCreate} disabled={!isFormValid || creating}>
               {creating ? 'Creating...' : 'Create Restriction'}
             </Button>
           </SheetFooter>
@@ -908,9 +868,7 @@ export default function GuardianRestrictionsPage() {
         <SheetContent side="end" className="w-full overflow-y-auto sm:max-w-lg">
           <SheetHeader>
             <SheetTitle>Restriction Details</SheetTitle>
-            <SheetDescription>
-              View guardian restriction information and history.
-            </SheetDescription>
+            <SheetDescription>View guardian restriction information and history.</SheetDescription>
           </SheetHeader>
 
           {detailLoading ? (
@@ -918,9 +876,7 @@ export default function GuardianRestrictionsPage() {
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
             </div>
           ) : !detailData ? (
-            <div className="mt-8 text-center text-text-tertiary">
-              Restriction not found.
-            </div>
+            <div className="mt-8 text-center text-text-tertiary">Restriction not found.</div>
           ) : (
             <div className="mt-6 space-y-6">
               {/* Status + Type */}
@@ -939,24 +895,12 @@ export default function GuardianRestrictionsPage() {
                       : '\u2014'
                   }
                 />
-                <DetailField
-                  label="Guardian"
-                  value={getParentDisplayName(detailData.parent)}
-                />
-                <DetailField
-                  label="Reason"
-                  value={detailData.reason}
-                />
+                <DetailField label="Guardian" value={getParentDisplayName(detailData.parent)} />
+                <DetailField label="Reason" value={detailData.reason} />
                 {detailData.legal_basis && (
-                  <DetailField
-                    label="Legal Basis"
-                    value={detailData.legal_basis}
-                  />
+                  <DetailField label="Legal Basis" value={detailData.legal_basis} />
                 )}
-                <DetailField
-                  label="Effective From"
-                  value={formatDate(detailData.effective_from)}
-                />
+                <DetailField label="Effective From" value={formatDate(detailData.effective_from)} />
                 <DetailField
                   label="Effective Until"
                   value={
@@ -966,10 +910,7 @@ export default function GuardianRestrictionsPage() {
                   }
                 />
                 {detailData.review_date && (
-                  <DetailField
-                    label="Review Date"
-                    value={formatDate(detailData.review_date)}
-                  />
+                  <DetailField label="Review Date" value={formatDate(detailData.review_date)} />
                 )}
                 {detailData.set_by && (
                   <DetailField
@@ -983,18 +924,13 @@ export default function GuardianRestrictionsPage() {
                     value={`${detailData.approved_by.first_name} ${detailData.approved_by.last_name}`}
                   />
                 )}
-                <DetailField
-                  label="Created"
-                  value={formatDate(detailData.created_at)}
-                />
+                <DetailField label="Created" value={formatDate(detailData.created_at)} />
               </div>
 
               {/* Revoke info if revoked */}
               {detailData.status === 'revoked' && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
-                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                    Revoked
-                  </p>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Revoked</p>
                   {detailData.revoked_by && (
                     <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
                       By: {detailData.revoked_by.first_name} {detailData.revoked_by.last_name}
@@ -1016,15 +952,10 @@ export default function GuardianRestrictionsPage() {
               {/* History */}
               {detailData.history && detailData.history.length > 0 && (
                 <div>
-                  <h4 className="mb-3 text-sm font-medium text-text-primary">
-                    History
-                  </h4>
+                  <h4 className="mb-3 text-sm font-medium text-text-primary">History</h4>
                   <div className="space-y-2">
                     {detailData.history.map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="rounded-lg border border-border p-3"
-                      >
+                      <div key={entry.id} className="rounded-lg border border-border p-3">
                         <div className="flex items-center justify-between">
                           <Badge variant="secondary" className="text-xs capitalize">
                             {entry.action}
@@ -1034,9 +965,7 @@ export default function GuardianRestrictionsPage() {
                           </span>
                         </div>
                         {entry.reason && (
-                          <p className="mt-1 text-sm text-text-secondary">
-                            {entry.reason}
-                          </p>
+                          <p className="mt-1 text-sm text-text-secondary">{entry.reason}</p>
                         )}
                       </div>
                     ))}
@@ -1045,8 +974,7 @@ export default function GuardianRestrictionsPage() {
               )}
 
               {/* Revoke button if active */}
-              {(detailData.status === 'active_restriction' ||
-                detailData.status === 'active') && (
+              {(detailData.status === 'active_restriction' || detailData.status === 'active') && (
                 <Button
                   variant="outline"
                   className="w-full text-red-600 hover:text-red-700"
@@ -1085,11 +1013,7 @@ export default function GuardianRestrictionsPage() {
           </div>
 
           <SheetFooter className="mt-6">
-            <Button
-              variant="outline"
-              onClick={() => setRevokeOpen(false)}
-              disabled={revoking}
-            >
+            <Button variant="outline" onClick={() => setRevokeOpen(false)} disabled={revoking}>
               Cancel
             </Button>
             <Button
