@@ -155,3 +155,21 @@ After any rollback:
 2. Notify affected tenants if there was user-facing impact
 3. Create a post-incident review ticket
 4. Document the root cause and prevention measures
+
+---
+
+## 7. Rollback Drill Cadence
+
+Perform an application rollback drill at least quarterly using the process in this runbook.
+
+- checklist: [rollback-drill-checklist.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/rollback-drill-checklist.md)
+- policy: [recovery-drills.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/docs/runbooks/recovery-drills.md)
+
+Every rollback drill must record:
+
+- current deploy SHA
+- rollback target SHA
+- declared target RTO
+- achieved recovery duration
+- whether a database restore would also have been required
+- follow-up fixes if the drill was slow or incomplete

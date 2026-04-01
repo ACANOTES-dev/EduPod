@@ -123,3 +123,5 @@ Review these at least weekly:
 - queue alert history from the health endpoint
 - Loki error bursts grouped by `service`
 - any stale backup replication or restore-drill evidence
+
+Use [weekly-ops-review.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/docs/runbooks/weekly-ops-review.md) as the recurring review template, and treat any stale recovery-drill evidence from [recovery-drills.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/docs/runbooks/recovery-drills.md) as an ops issue.

@@ -95,6 +95,8 @@ For the first 15-30 minutes after release:
 - watch Sentry for new deploy-correlated errors
 - review [monitoring.md](./monitoring.md) if queue alerts are present
 
+If a rollback occurs, record the timings and validation results in [rollback-drill-checklist.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/rollback-drill-checklist.md) so the event counts as recovery evidence rather than tribal knowledge.
+
 ---
 
 ## Deployment Rollback

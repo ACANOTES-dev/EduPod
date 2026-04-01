@@ -1,19 +1,22 @@
-# Quarterly Backup Restore Drill Checklist
+# Backup Restore Drill Checklist
 
 ---
 
 ## Drill Information
 
-| Field                  | Value                |
-| ---------------------- | -------------------- |
-| **Drill Date**         | ********\_\_******** |
-| **DBA / Operator**     | ********\_\_******** |
-| **Engineering Lead**   | ********\_\_******** |
-| **Source Backup File** | ********\_\_******** |
-| **Source Backup Size** | ********\_\_******** |
-| **Restore Container**  | ********\_\_******** |
-| **Restore Volume**     | ********\_\_******** |
-| **Drill Log File**     | ********\_\_******** |
+| Field                   | Value                        |
+| ----------------------- | ---------------------------- |
+| **Drill Date**          | **\*\*\*\***\_\_**\*\*\*\*** |
+| **DBA / Operator**      | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Engineering Lead**    | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Source Backup File**  | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Source Backup Size**  | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Backup Timestamp**    | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Restore Container**   | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Restore Volume**      | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Drill Log File**      | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Declared Target RTO** | **\*\*\*\***\_\_**\*\*\*\*** |
+| **Expected RPO**        | **\*\*\*\***\_\_**\*\*\*\*** |
 
 ---
 
@@ -25,7 +28,7 @@
 - [ ] No active deployments or migrations in progress
 - [ ] Drill scheduled during a low-traffic window
 
-**Backup file path**: ********\_\_********
+**Backup file path**: **\*\*\*\***\_\_**\*\*\*\***
 
 ---
 
@@ -35,7 +38,7 @@
 - [ ] Backup file size looks reasonable for recent production volume
 
 **Backup source**: [ ] local pre-deploy dump / [ ] downloaded off-site copy
-**Backup age**: ********\_\_********
+**Backup age**: **\*\*\*\***\_\_**\*\*\*\***
 
 ---
 
@@ -45,9 +48,11 @@
 - [ ] Restore endpoint is reachable on the configured drill port
 - [ ] Restore finished without `pg_restore` errors
 
-**Restore start time**: ********\_\_********
-**Restore complete time**: ********\_\_********
-**Total restore duration**: ****\_\_**** minutes
+**Restore start time**: **\*\*\*\***\_\_**\*\*\*\***
+**Restore complete time**: **\*\*\*\***\_\_**\*\*\*\***
+**Validation complete time**: **\*\*\*\***\_\_**\*\*\*\***
+**Achieved recovery duration**: \***\*\_\_\*\*** minutes
+**Observed RPO**: **\*\*\*\***\_\_**\*\*\*\***
 
 ---
 
@@ -74,15 +79,15 @@ Compare against expected production counts (obtain from production before the dr
 - [ ] No tenant-scoped tables are missing RLS policies
 - [ ] Policy names follow the expected tenant isolation naming pattern
 
-**Number of RLS policies found**: ****\_\_****
-**Tables missing RLS (should be 0)**: ****\_\_****
+**Number of RLS policies found**: \***\*\_\_\*\***
+**Tables missing RLS (should be 0)**: \***\*\_\_\*\***
 
 ### Triggers and Functions
 
 - [ ] All trigger functions are present
 - [ ] Triggers are attached to the correct tables
 
-**Number of triggers found**: ****\_\_****
+**Number of triggers found**: \***\*\_\_\*\***
 
 ### Extensions
 
@@ -100,8 +105,8 @@ Compare against expected production counts (obtain from production before the dr
 - [ ] Migration history is intact
 - [ ] Latest migration matches the current production migration
 
-**Latest migration name**: ********\_\_********
-**Latest migration date**: ********\_\_********
+**Latest migration name**: **\*\*\*\***\_\_**\*\*\*\***
+**Latest migration date**: **\*\*\*\***\_\_**\*\*\*\***
 
 ---
 
@@ -126,7 +131,9 @@ If testing application connectivity against the restored instance:
 
 ## Drill Assessment
 
-**Overall Result**: [ ] PASS / [ ] FAIL
+**Overall Result**: [ ] PASS / [ ] PASS WITH ACTIONS / [ ] FAIL
+
+**Did the achieved recovery duration stay within the declared RTO?**: [ ] Yes / [ ] No
 
 **Issues Found**:
 
@@ -148,11 +155,11 @@ If testing application connectivity against the restored instance:
 
 ## Sign-Off
 
-| Role             | Name                 | Signature            | Date         |
-| ---------------- | -------------------- | -------------------- | ------------ |
-| DBA / Operator   | ********\_\_******** | ********\_\_******** | **\_\_\_\_** |
-| Engineering Lead | ********\_\_******** | ********\_\_******** | **\_\_\_\_** |
+| Role             | Name                         | Signature                    | Date         |
+| ---------------- | ---------------------------- | ---------------------------- | ------------ |
+| DBA / Operator   | **\*\*\*\***\_\_**\*\*\*\*** | **\*\*\*\***\_\_**\*\*\*\*** | **\_\_\_\_** |
+| Engineering Lead | **\*\*\*\***\_\_**\*\*\*\*** | **\*\*\*\***\_\_**\*\*\*\*** | **\_\_\_\_** |
 
 ---
 
-**Store this completed checklist with**: the quarterly ops record or the incident notes for the drill
+**Store this completed checklist with**: the weekly ops review record, quarterly ops record, or the incident notes for the drill

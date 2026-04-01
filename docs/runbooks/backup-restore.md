@@ -243,9 +243,14 @@ No database restore is required for Meilisearch-only incidents.
 
 ---
 
-## 7. Quarterly Restore Drill
+## 7. Restore Drill Cadence
 
-Perform a full restore drill at least quarterly.
+Follow the cadence defined in [recovery-drills.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/docs/runbooks/recovery-drills.md):
+
+- monthly remote-copy restore drill
+- quarterly full restore drill
+
+Use the same evidence requirements for both, with the remote-copy exercise focusing on off-site recoverability.
 
 - script: [backup-drill.sh](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/backup-drill.sh)
 - checklist: [backup-drill-checklist.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/backup-drill-checklist.md)
@@ -253,7 +258,9 @@ Perform a full restore drill at least quarterly.
 The drill should capture:
 
 - source backup file
-- restore duration
+- backup timestamp
+- declared target RTO and expected RPO
+- achieved recovery duration and observed RPO
 - row-count comparisons
 - RLS and policy verification results
 - follow-up fixes if anything fails
@@ -269,7 +276,8 @@ At minimum, backup operations should have evidence for:
 - latest successful pre-deploy dump timestamp
 - latest successful off-site replication timestamp
 - latest successful restore drill date
-- measured restore duration for the last drill
+- measured recovery duration for the last drill
+- observed RPO for the last drill
 - any drill failures tracked through remediation
 
 Use the monitoring cadence in [monitoring.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/docs/runbooks/monitoring.md) to review these signals regularly. If any of them are stale, treat it as an operational issue rather than a paperwork gap.

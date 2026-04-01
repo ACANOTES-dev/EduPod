@@ -60,6 +60,8 @@ At least once per month:
 4. Run the verification queries from the backup/restore runbook
 5. Record the restore duration and findings
 
+Use [backup-drill-checklist.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/backup-drill-checklist.md) and the cadence rules in [recovery-drills.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/docs/runbooks/recovery-drills.md) so monthly remote-copy exercises and quarterly restore drills share the same evidence standard.
+
 Example restore flow:
 
 ```bash
@@ -72,7 +74,8 @@ For each monthly drill capture:
 
 - backup object key
 - drill date
-- restore duration
+- declared target RTO and expected RPO
+- achieved recovery duration and observed RPO
 - operator
 - verification result
 - follow-up fixes if anything failed
