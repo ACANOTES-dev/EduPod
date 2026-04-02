@@ -97,7 +97,7 @@ jobs:
 
       - name: Setup Test Database
         run: |
-          psql "$DATABASE_URL" -c "DO \$\$ BEGIN CREATE TYPE timerange AS RANGE (subtype = time); EXCEPTION WHEN duplicate_object THEN null; END \$\$;"
+          psql "postgresql://prisma:password@localhost:5432/edupod_test" -c "DO \$\$ BEGIN CREATE TYPE timerange AS RANGE (subtype = time); EXCEPTION WHEN duplicate_object THEN null; END \$\$;"
           pnpm --filter @school/prisma exec prisma migrate deploy
           pnpm db:post-migrate
         env:
