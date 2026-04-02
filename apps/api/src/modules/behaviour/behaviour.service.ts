@@ -273,33 +273,47 @@ export class BehaviourService {
           });
         }
 
+        // Queue side-effects; track if any enqueue fails (R-13)
+        let automationFailed = false;
+
         // Queue parent notification if needed
         if (parentNotifStatus === 'pending' && initialStatus === 'active') {
-          await this.sideEffects.emitParentNotification({
+          const ok = await this.sideEffects.emitParentNotification({
             tenant_id: tenantId,
             incident_id: incident.id,
             student_ids: dto.student_ids,
           });
+          if (!ok) automationFailed = true;
         }
 
         // Queue policy evaluation
         if (initialStatus === 'active') {
-          await this.sideEffects.emitPolicyEvaluation({
+          const ok = await this.sideEffects.emitPolicyEvaluation({
             tenant_id: tenantId,
             incident_id: incident.id,
             trigger: 'incident_created',
             triggered_at: new Date().toISOString(),
           });
+          if (!ok) automationFailed = true;
         }
 
         // Queue auto-award check for positive incidents
         if (initialStatus === 'active' && category.polarity === 'positive') {
-          await this.sideEffects.emitCheckAwards({
+          const ok = await this.sideEffects.emitCheckAwards({
             tenant_id: tenantId,
             incident_id: incident.id,
             student_ids: dto.student_ids,
             academic_year_id: dto.academic_year_id,
             academic_period_id: dto.academic_period_id ?? null,
+          });
+          if (!ok) automationFailed = true;
+        }
+
+        // Persist automation_failed flag if any queue dispatch failed
+        if (automationFailed) {
+          await db.behaviourIncident.update({
+            where: { id: incident.id },
+            data: { automation_failed: true },
           });
         }
 

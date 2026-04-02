@@ -134,7 +134,13 @@ const STANDARD_TENANT_TABLES = [
  * For these tables, the test additionally verifies that platform rows ARE
  * visible while Al Noor rows are NOT.
  */
-const DUAL_POLICY_TABLES = ['roles', 'role_permissions', 'notification_templates', 'audit_logs'];
+const DUAL_POLICY_TABLES = [
+  'roles',
+  'role_permissions',
+  'notification_templates',
+  'audit_logs',
+  'cron_execution_logs',
+];
 
 /**
  * Combined list of all tables to test (standard + dual-policy).

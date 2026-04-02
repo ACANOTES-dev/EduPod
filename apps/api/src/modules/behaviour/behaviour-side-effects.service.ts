@@ -51,33 +51,39 @@ export class BehaviourSideEffectsService {
 
   // ─── Incident side-effects ──────────────────────────────────────────────────
 
-  async emitParentNotification(payload: ParentNotificationPayload): Promise<void> {
+  async emitParentNotification(payload: ParentNotificationPayload): Promise<boolean> {
     try {
       await this.notificationsQueue.add('behaviour:parent-notification', payload);
+      return true;
     } catch (err) {
       this.logger.warn(
         `[emitParentNotification] Failed to enqueue for incident ${payload.incident_id}: ${err instanceof Error ? err.message : String(err)}`,
       );
+      return false;
     }
   }
 
-  async emitPolicyEvaluation(payload: PolicyEvaluationPayload): Promise<void> {
+  async emitPolicyEvaluation(payload: PolicyEvaluationPayload): Promise<boolean> {
     try {
       await this.behaviourQueue.add('behaviour:evaluate-policy', payload);
+      return true;
     } catch (err) {
       this.logger.warn(
         `[emitPolicyEvaluation] Failed to enqueue for incident ${payload.incident_id}: ${err instanceof Error ? err.message : String(err)}`,
       );
+      return false;
     }
   }
 
-  async emitCheckAwards(payload: CheckAwardsPayload): Promise<void> {
+  async emitCheckAwards(payload: CheckAwardsPayload): Promise<boolean> {
     try {
       await this.behaviourQueue.add('behaviour:check-awards', payload);
+      return true;
     } catch (err) {
       this.logger.warn(
         `[emitCheckAwards] Failed to enqueue for incident ${payload.incident_id}: ${err instanceof Error ? err.message : String(err)}`,
       );
+      return false;
     }
   }
 
