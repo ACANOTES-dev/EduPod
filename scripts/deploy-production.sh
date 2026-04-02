@@ -170,7 +170,7 @@ create_predeploy_backup() {
 
 install_dependencies() {
   log 'Installing dependencies'
-  pnpm install --frozen-lockfile
+  pnpm install --frozen-lockfile --force
 
   cleanup_build_outputs
 }
