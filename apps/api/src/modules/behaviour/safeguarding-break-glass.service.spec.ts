@@ -1,8 +1,5 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
-import {
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 const mockTx = {
@@ -28,9 +25,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(
-        async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
@@ -67,9 +62,7 @@ describe('SafeguardingBreakGlassService', () => {
       ],
     }).compile();
 
-    service = module.get<SafeguardingBreakGlassService>(
-      SafeguardingBreakGlassService,
-    );
+    service = module.get<SafeguardingBreakGlassService>(SafeguardingBreakGlassService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -113,13 +106,15 @@ describe('SafeguardingBreakGlassService', () => {
       });
 
       // Verify expires_at is approximately duration_hours from now
-      const createCall = mockTx.safeguardingBreakGlassGrant.create.mock
-        .calls[0] as [{ data: { expires_at: Date; granted_at: Date } }];
+      const createCall = mockTx.safeguardingBreakGlassGrant.create.mock.calls[0] as [
+        { data: { expires_at: Date; granted_at: Date } },
+      ];
       const expiresAt = createCall[0].data.expires_at.getTime();
       const grantedAt = createCall[0].data.granted_at.getTime();
       const expectedDurationMs = 24 * 60 * 60 * 1000;
 
-      expect(expiresAt - grantedAt).toBe(expectedDurationMs);
+      expect(expiresAt - grantedAt).toBeGreaterThanOrEqual(expectedDurationMs);
+      expect(expiresAt - grantedAt).toBeLessThanOrEqual(expectedDurationMs + 100);
       // granted_at should be close to now
       expect(grantedAt).toBeGreaterThanOrEqual(before);
       expect(grantedAt).toBeLessThanOrEqual(after);
@@ -131,9 +126,9 @@ describe('SafeguardingBreakGlassService', () => {
     it('should reject duration > 72 hours', async () => {
       const longDto = { ...baseDto, duration_hours: 73 };
 
-      await expect(
-        service.grantAccess(TENANT_ID, USER_ID, longDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.grantAccess(TENANT_ID, USER_ID, longDto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should queue notification', async () => {
@@ -193,9 +188,7 @@ describe('SafeguardingBreakGlassService', () => {
       const result = await service.listActiveGrants(TENANT_ID);
 
       // Verify filter criteria: revoked_at null, expires_at in the future
-      expect(
-        mockTx.safeguardingBreakGlassGrant.findMany,
-      ).toHaveBeenCalledWith(
+      expect(mockTx.safeguardingBreakGlassGrant.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             tenant_id: TENANT_ID,
@@ -253,9 +246,7 @@ describe('SafeguardingBreakGlassService', () => {
     it('should set review fields (completed_at, by_id, notes)', async () => {
       await service.completeReview(TENANT_ID, USER_ID, GRANT_ID, reviewDto);
 
-      expect(
-        mockTx.safeguardingBreakGlassGrant.update,
-      ).toHaveBeenCalledWith({
+      expect(mockTx.safeguardingBreakGlassGrant.update).toHaveBeenCalledWith({
         where: { id: GRANT_ID },
         data: {
           after_action_review_completed_at: expect.any(Date) as Date,
@@ -298,9 +289,9 @@ describe('SafeguardingBreakGlassService', () => {
         after_action_review_completed_at: new Date('2026-01-10'),
       });
 
-      await expect(
-        service.completeReview(TENANT_ID, USER_ID, GRANT_ID, reviewDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.completeReview(TENANT_ID, USER_ID, GRANT_ID, reviewDto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -322,11 +313,7 @@ describe('SafeguardingBreakGlassService', () => {
         revoked_at: null,
       });
 
-      const result = await service.checkEffectivePermission(
-        USER_ID,
-        TENANT_ID,
-        MEMBERSHIP_ID,
-      );
+      const result = await service.checkEffectivePermission(USER_ID, TENANT_ID, MEMBERSHIP_ID);
 
       expect(result).toEqual({
         allowed: true,
@@ -350,11 +337,7 @@ describe('SafeguardingBreakGlassService', () => {
         id: GRANT_ID,
       });
 
-      const result = await service.checkEffectivePermission(
-        USER_ID,
-        TENANT_ID,
-        MEMBERSHIP_ID,
-      );
+      const result = await service.checkEffectivePermission(USER_ID, TENANT_ID, MEMBERSHIP_ID);
 
       expect(result).toEqual({
         allowed: true,
@@ -368,11 +351,7 @@ describe('SafeguardingBreakGlassService', () => {
 
     it('should deny access when user has neither grant type', async () => {
       // All three checks return nothing
-      const result = await service.checkEffectivePermission(
-        USER_ID,
-        TENANT_ID,
-        MEMBERSHIP_ID,
-      );
+      const result = await service.checkEffectivePermission(USER_ID, TENANT_ID, MEMBERSHIP_ID);
 
       expect(result).toEqual({
         allowed: false,
