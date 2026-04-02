@@ -4,7 +4,7 @@
  */
 import { INestApplication } from '@nestjs/common';
 
-import { authGet, authPost, AL_NOOR_DOMAIN } from './helpers';
+import { authGet, authPost, getAuthToken, AL_NOOR_DOMAIN } from './helpers';
 
 export interface P4ATestData {
   academicYearId: string;
@@ -129,12 +129,14 @@ export async function setupP4ATestData(
   if (!teacherProfile && staffList.length > 0) {
     teacherProfile = staffList.find((s) => s['employment_status'] === 'active') ?? staffList[0];
   }
-  // Last resort: create a staff profile via the API
+  // Last resort: create a staff profile via the API using owner credentials
+  // (admin may not have users.manage permission required by POST /staff-profiles)
   if (!teacherProfile) {
+    const ownerToken = await getAuthToken(app, 'owner@alnoor.test', AL_NOOR_DOMAIN);
     const createStaffRes = await authPost(
       app,
       '/api/v1/staff-profiles',
-      adminToken,
+      ownerToken,
       {
         email: `test-teacher-${ts}@alnoor.test`,
         first_name: 'Test',
