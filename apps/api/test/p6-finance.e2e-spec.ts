@@ -1173,45 +1173,28 @@ describe('P6 Finance Module (e2e)', () => {
         AL_NOOR_DOMAIN,
       ).expect(200);
 
-      // Dashboard may be at res.body.data or res.body directly
+      // Dashboard is wrapped by interceptor: { data: { expected_revenue, ... } }
       const data = res.body.data ?? res.body;
       expect(data).toBeDefined();
 
-      // Overdue summary
-      expect(data.overdue_summary).toBeDefined();
-      expect(typeof data.overdue_summary.total_overdue_amount).toBe('number');
-      expect(typeof data.overdue_summary.overdue_count).toBe('number');
-      expect(data.overdue_summary.ageing).toBeDefined();
-      expect(data.overdue_summary.ageing.days_1_30).toBeDefined();
-      expect(data.overdue_summary.ageing.days_31_60).toBeDefined();
-      expect(data.overdue_summary.ageing.days_61_90).toBeDefined();
-      expect(data.overdue_summary.ageing.days_90_plus).toBeDefined();
+      // Core metrics
+      expect(typeof data.expected_revenue).toBe('number');
+      expect(typeof data.received_payments).toBe('number');
+      expect(typeof data.outstanding).toBe('number');
+      expect(typeof data.collection_rate).toBe('number');
 
-      // Invoice pipeline
-      expect(data.invoice_pipeline).toBeDefined();
-      expect(data.invoice_pipeline.draft).toBeDefined();
-      expect(typeof data.invoice_pipeline.draft.count).toBe('number');
-      expect(typeof data.invoice_pipeline.draft.amount).toBe('number');
-      expect(data.invoice_pipeline.issued).toBeDefined();
-      expect(data.invoice_pipeline.overdue).toBeDefined();
-      expect(data.invoice_pipeline.paid).toBeDefined();
-
-      // Unallocated payments
-      expect(data.unallocated_payments).toBeDefined();
-      expect(typeof data.unallocated_payments.count).toBe('number');
-      expect(typeof data.unallocated_payments.total_amount).toBe('number');
+      // Household debt breakdown
+      expect(data.household_debt_breakdown).toBeDefined();
+      expect(typeof data.household_debt_breakdown.pct_0_10).toBe('number');
+      expect(typeof data.household_debt_breakdown.pct_10_30).toBe('number');
+      expect(typeof data.household_debt_breakdown.pct_30_50).toBe('number');
+      expect(typeof data.household_debt_breakdown.pct_50_plus).toBe('number');
 
       // Pending refund approvals
       expect(typeof data.pending_refund_approvals).toBe('number');
 
       // Recent payments
       expect(Array.isArray(data.recent_payments)).toBe(true);
-
-      // Revenue summary
-      expect(data.revenue_summary).toBeDefined();
-      expect(typeof data.revenue_summary.current_month_collected).toBe('number');
-      expect(typeof data.revenue_summary.previous_month_collected).toBe('number');
-      expect(typeof data.revenue_summary.current_month_invoiced).toBe('number');
     });
 
     it('should allow admin to view dashboard (200)', async () => {
@@ -1224,7 +1207,7 @@ describe('P6 Finance Module (e2e)', () => {
 
       const data = res.body.data ?? res.body;
       expect(data).toBeDefined();
-      expect(data.overdue_summary).toBeDefined();
+      expect(typeof data.expected_revenue).toBe('number');
     });
 
     it('should reject teacher access to dashboard (403)', async () => {

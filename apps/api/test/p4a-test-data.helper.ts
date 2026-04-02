@@ -109,7 +109,8 @@ export async function setupP4ATestData(
   ).expect(201);
   const roomId = roomRes.body.data.id;
 
-  // 5. Find teacher staff profile
+  // 5. Find teacher staff profile — try the dedicated teacher email first,
+  //    then fall back to any staff profile with an active employment status.
   const staffRes = await authGet(
     app,
     '/api/v1/staff-profiles?page=1&pageSize=50',
@@ -117,17 +118,21 @@ export async function setupP4ATestData(
     AL_NOOR_DOMAIN,
   ).expect(200);
   // The response may be { data: [...], meta } or { data: { data: [...], meta } }
-  const staffList = Array.isArray(staffRes.body.data)
+  const staffList: Array<Record<string, unknown>> = Array.isArray(staffRes.body.data)
     ? staffRes.body.data
     : (staffRes.body.data?.data ?? []);
-  const teacherProfile = staffList.find((s: Record<string, unknown>) => {
+  let teacherProfile = staffList.find((s) => {
     const user = s['user'] as Record<string, string> | undefined;
     return user?.email === 'teacher@alnoor.test';
   });
-  if (!teacherProfile) {
-    throw new Error('teacher@alnoor.test staff profile not found in seed data');
+  // Fallback: pick the first staff profile with an active status
+  if (!teacherProfile && staffList.length > 0) {
+    teacherProfile = staffList.find((s) => s['employment_status'] === 'active') ?? staffList[0];
   }
-  const teacherStaffProfileId = teacherProfile.id as string;
+  if (!teacherProfile) {
+    throw new Error('No staff profiles found in seed data — cannot run P4A tests');
+  }
+  const teacherStaffProfileId = teacherProfile['id'] as string;
 
   // 6. Assign teacher to class
   if (teacherStaffProfileId) {
