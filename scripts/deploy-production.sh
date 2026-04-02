@@ -170,7 +170,7 @@ create_predeploy_backup() {
 
 install_dependencies() {
   log 'Installing dependencies'
-  pnpm install --frozen-lockfile --force
+  CI=true pnpm install --frozen-lockfile --force --config.confirmModulesPurge=false
 
   cleanup_build_outputs
 }
