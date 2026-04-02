@@ -129,10 +129,25 @@ export async function setupP4ATestData(
   if (!teacherProfile && staffList.length > 0) {
     teacherProfile = staffList.find((s) => s['employment_status'] === 'active') ?? staffList[0];
   }
+  // Last resort: create a staff profile via the API
   if (!teacherProfile) {
-    throw new Error('No staff profiles found in seed data — cannot run P4A tests');
+    const createStaffRes = await authPost(
+      app,
+      '/api/v1/staff-profiles',
+      adminToken,
+      {
+        email: `test-teacher-${ts}@alnoor.test`,
+        first_name: 'Test',
+        last_name: `Teacher${ts}`,
+        job_title: 'Teacher',
+        employment_status: 'active',
+        employment_type: 'full_time',
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+    teacherProfile = createStaffRes.body.data ?? createStaffRes.body;
   }
-  const teacherStaffProfileId = teacherProfile['id'] as string;
+  const teacherStaffProfileId = (teacherProfile as Record<string, unknown>)['id'] as string;
 
   // 6. Assign teacher to class
   if (teacherStaffProfileId) {
