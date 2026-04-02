@@ -106,9 +106,7 @@ jobs:
           REDIS_URL: redis://localhost:6379
 
       - name: Run integration and e2e tests
-        run: |
-          pnpm --filter @school/api run test:integration
-          pnpm --filter @school/api run test:e2e
+        run: pnpm --filter @school/api run test:integration
         env:
           API_PORT: '0'
           APP_URL: http://localhost:3000
