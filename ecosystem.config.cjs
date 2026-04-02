@@ -27,7 +27,7 @@ module.exports = {
     {
       name: 'web',
       cwd: `${APP_DIR}/apps/web`,
-      script: `${APP_DIR}/node_modules/next/dist/bin/next`,
+      script: 'node_modules/next/dist/bin/next',
       args: 'start -p 5551',
       interpreter: 'node',
       exec_mode: 'cluster',
