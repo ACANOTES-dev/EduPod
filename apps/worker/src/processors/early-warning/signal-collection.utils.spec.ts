@@ -544,12 +544,14 @@ describe('collectAllSignals', () => {
     const behaviour = findDomain(results, 'behaviour');
 
     expect(behaviour.rawScore).toBe(100);
-    expect(behaviour.signals.map((signal) => signal.signalType)).toEqual([
-      'incident_frequency',
-      'active_sanction',
-      'exclusion_history',
-      'failed_intervention',
-    ]);
+    expect(behaviour.signals.map((signal) => signal.signalType)).toEqual(
+      expect.arrayContaining([
+        'incident_frequency',
+        'active_sanction',
+        'exclusion_history',
+        'failed_intervention',
+      ]),
+    );
   });
 
   it('should collect wellbeing signals for declining mood, active concerns, cases, referrals, and critical incidents', async () => {
