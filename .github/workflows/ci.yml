@@ -201,6 +201,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @school/prisma exec prisma generate
 
+      - name: Build shared packages
+        run: pnpm --filter @school/shared --filter @school/prisma run build
+
       - name: Apply Prisma migrations
         run: pnpm --filter @school/prisma exec prisma migrate deploy
 
