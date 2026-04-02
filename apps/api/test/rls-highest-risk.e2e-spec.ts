@@ -13,6 +13,22 @@ describe('Highest-Risk Tables RLS Leakage Preventer', () => {
   let tenantA: TenantFixture;
   let tenantB: TenantFixture;
 
+  async function execWithRetry(client: PrismaClient, sql: string, maxRetries = 3): Promise<void> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await client.$executeRawUnsafe(sql);
+        return;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('tuple concurrently updated') && attempt < maxRetries) {
+          await new Promise((r) => setTimeout(r, 200 * attempt));
+          continue;
+        }
+        throw err;
+      }
+    }
+  }
+
   beforeAll(async () => {
     prisma = new PrismaClient({
       datasources: { db: { url: process.env.DATABASE_URL } },
@@ -34,11 +50,13 @@ describe('Highest-Risk Tables RLS Leakage Preventer', () => {
     `);
 
     // Ensure the role can read/write the tables it needs
-    await prisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO rls_test_user_p10;`);
-    await prisma.$executeRawUnsafe(
+    await execWithRetry(prisma, `GRANT USAGE ON SCHEMA public TO rls_test_user_p10;`);
+    await execWithRetry(
+      prisma,
       `GRANT SELECT ON ALL TABLES IN SCHEMA public TO rls_test_user_p10;`,
     );
-    await prisma.$executeRawUnsafe(
+    await execWithRetry(
+      prisma,
       `GRANT INSERT, UPDATE ON TABLE public.invoices, public.attendance_sessions TO rls_test_user_p10;`,
     );
 

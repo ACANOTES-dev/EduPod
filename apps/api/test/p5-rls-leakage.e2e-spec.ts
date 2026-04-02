@@ -43,6 +43,22 @@ describe('P5 RLS Leakage (e2e)', () => {
   let directPrisma: PrismaClient;
   let td: P4ATestData;
 
+  async function execWithRetry(prisma: PrismaClient, sql: string, maxRetries = 3): Promise<void> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await prisma.$executeRawUnsafe(sql);
+        return;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('tuple concurrently updated') && attempt < maxRetries) {
+          await new Promise((r) => setTimeout(r, 200 * attempt));
+          continue;
+        }
+        throw err;
+      }
+    }
+  }
+
   // Al Noor P5 entity IDs
   let alNoorGradingScaleId: string;
   let alNoorCategoryId: string;
@@ -77,8 +93,9 @@ describe('P5 RLS Leakage (e2e)', () => {
     await directPrisma.$executeRawUnsafe(
       `DO $$ BEGIN CREATE ROLE ${RLS_TEST_ROLE} NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
     );
-    await directPrisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
-    await directPrisma.$executeRawUnsafe(
+    await execWithRetry(directPrisma, `GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
+    await execWithRetry(
+      directPrisma,
       `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
     );
 
@@ -222,11 +239,12 @@ describe('P5 RLS Leakage (e2e)', () => {
   afterAll(async () => {
     if (directPrisma) {
       try {
-        await directPrisma.$executeRawUnsafe(
+        await execWithRetry(
+          directPrisma,
           `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${RLS_TEST_ROLE}`,
         );
-        await directPrisma.$executeRawUnsafe(`REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
-        await directPrisma.$executeRawUnsafe(`DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
+        await execWithRetry(directPrisma, `REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
+        await execWithRetry(directPrisma, `DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
       } catch (err) {
         console.error('[P5-RLS cleanup]', err);
       }

@@ -43,6 +43,22 @@ describe('RLS Leakage P3 — Admissions (e2e)', () => {
   let alNoorToken: string;
   let directPrisma: PrismaClient;
 
+  async function execWithRetry(prisma: PrismaClient, sql: string, maxRetries = 3): Promise<void> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await prisma.$executeRawUnsafe(sql);
+        return;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('tuple concurrently updated') && attempt < maxRetries) {
+          await new Promise((r) => setTimeout(r, 200 * attempt));
+          continue;
+        }
+        throw err;
+      }
+    }
+  }
+
   // Al Noor entity IDs
   let alNoorFormId: string;
   let alNoorAppId: string;
@@ -180,23 +196,11 @@ describe('RLS Leakage P3 — Admissions (e2e)', () => {
        EXCEPTION WHEN duplicate_object THEN NULL;
        END $$`,
     );
-    // Retry on "tuple concurrently updated" — multiple RLS test suites run in parallel
-    for (let attempt = 0; attempt < 5; attempt++) {
-      try {
-        await directPrisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
-        await directPrisma.$executeRawUnsafe(
-          `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
-        );
-        break;
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes('tuple concurrently updated') && attempt < 4) {
-          await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
-          continue;
-        }
-        throw err;
-      }
-    }
+    await execWithRetry(directPrisma, `GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
+    await execWithRetry(
+      directPrisma,
+      `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
+    );
   }, 90000);
 
   afterAll(async () => {
@@ -204,11 +208,12 @@ describe('RLS Leakage P3 — Admissions (e2e)', () => {
 
     if (directPrisma) {
       try {
-        await directPrisma.$executeRawUnsafe(
+        await execWithRetry(
+          directPrisma,
           `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${RLS_TEST_ROLE}`,
         );
-        await directPrisma.$executeRawUnsafe(`REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
-        await directPrisma.$executeRawUnsafe(`DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
+        await execWithRetry(directPrisma, `REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
+        await execWithRetry(directPrisma, `DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
       } catch (err) {
         console.error('[admissions RLS role cleanup]', err);
       }

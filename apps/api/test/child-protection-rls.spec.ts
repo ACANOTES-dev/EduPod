@@ -61,6 +61,22 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
   let app: INestApplication;
   let directPrisma: PrismaClient;
 
+  async function execWithRetry(prisma: PrismaClient, sql: string, maxRetries = 3): Promise<void> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await prisma.$executeRawUnsafe(sql);
+        return;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('tuple concurrently updated') && attempt < maxRetries) {
+          await new Promise((r) => setTimeout(r, 200 * attempt));
+          continue;
+        }
+        throw err;
+      }
+    }
+  }
+
   // Auth tokens
   let alNoorOwnerToken: string;
   let alNoorTeacherToken: string;
@@ -122,8 +138,9 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
        EXCEPTION WHEN duplicate_object THEN NULL;
        END $$`,
     );
-    await directPrisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
-    await directPrisma.$executeRawUnsafe(
+    await execWithRetry(directPrisma, `GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
+    await execWithRetry(
+      directPrisma,
       `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
     );
 
@@ -229,11 +246,12 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
         );
 
         // Drop the test role
-        await directPrisma.$executeRawUnsafe(
+        await execWithRetry(
+          directPrisma,
           `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${RLS_TEST_ROLE}`,
         );
-        await directPrisma.$executeRawUnsafe(`REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
-        await directPrisma.$executeRawUnsafe(`DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
+        await execWithRetry(directPrisma, `REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
+        await execWithRetry(directPrisma, `DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
       } catch (err) {
         console.error('[CP-RLS cleanup]', err);
       }

@@ -60,6 +60,22 @@ describe('P8 RLS Leakage — Audit, Compliance, Imports, Search Index (e2e)', ()
   /** Direct Prisma client for table-level RLS tests and data setup. */
   let directPrisma: PrismaClient;
 
+  async function execWithRetry(prisma: PrismaClient, sql: string, maxRetries = 3): Promise<void> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await prisma.$executeRawUnsafe(sql);
+        return;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('tuple concurrently updated') && attempt < maxRetries) {
+          await new Promise((r) => setTimeout(r, 200 * attempt));
+          continue;
+        }
+        throw err;
+      }
+    }
+  }
+
   // IDs created as Al Noor
   let alNoorAuditLogId: string;
   let platformAuditLogId: string;
@@ -174,8 +190,9 @@ describe('P8 RLS Leakage — Audit, Compliance, Imports, Search Index (e2e)', ()
        EXCEPTION WHEN duplicate_object THEN NULL;
        END $$`,
     );
-    await directPrisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
-    await directPrisma.$executeRawUnsafe(
+    await execWithRetry(directPrisma, `GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
+    await execWithRetry(
+      directPrisma,
       `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
     );
   }, 120_000);
@@ -207,11 +224,12 @@ describe('P8 RLS Leakage — Audit, Compliance, Imports, Search Index (e2e)', ()
 
       // Clean up RLS test role
       try {
-        await directPrisma.$executeRawUnsafe(
+        await execWithRetry(
+          directPrisma,
           `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${RLS_TEST_ROLE}`,
         );
-        await directPrisma.$executeRawUnsafe(`REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
-        await directPrisma.$executeRawUnsafe(`DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
+        await execWithRetry(directPrisma, `REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
+        await execWithRetry(directPrisma, `DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
       } catch (err) {
         console.error('[p8 RLS leakage role cleanup]', err);
       }
