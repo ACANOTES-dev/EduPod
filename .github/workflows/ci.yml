@@ -110,7 +110,15 @@ jobs:
           pnpm --filter @school/api run test:integration
           pnpm --filter @school/api run test:e2e
         env:
+          API_PORT: '0'
+          APP_URL: http://localhost:3000
           DATABASE_URL: postgresql://prisma:password@localhost:5432/edupod_test?schema=public
+          ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          JWT_REFRESH_SECRET: 1a5be597a11a3d357ec51c55b88bdd4fe6a138f9f816dd0e8f048d802f87b2b3
+          JWT_SECRET: 73e10ad593c9fb3e3c0aaef14332e1f4f38dfe27bb579e35ef57e8303a767d48
+          MFA_ISSUER: SchoolOS-Test
+          NODE_ENV: test
+          PLATFORM_DOMAIN: edupod.app
           REDIS_URL: redis://localhost:6379
 
       - name: Build
