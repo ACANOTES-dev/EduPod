@@ -100,6 +100,7 @@ jobs:
           psql "postgresql://prisma:password@localhost:5432/edupod_test" -c "DO \$\$ BEGIN CREATE TYPE timerange AS RANGE (subtype = time); EXCEPTION WHEN duplicate_object THEN null; END \$\$;"
           pnpm --filter @school/prisma exec prisma migrate deploy
           pnpm db:post-migrate
+          pnpm db:seed
         env:
           DATABASE_URL: postgresql://prisma:password@localhost:5432/edupod_test?schema=public
 
