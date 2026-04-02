@@ -2,8 +2,9 @@ module.exports = {
   apps: [
     {
       name: 'api',
-      script: 'pnpm',
-      args: '--filter @school/api start',
+      cwd: './apps/api',
+      script: 'node',
+      args: 'dist/api/src/main.js',
       env: {
         API_PORT: '3001',
         NODE_ENV: 'production',
@@ -15,8 +16,9 @@ module.exports = {
     },
     {
       name: 'web',
-      script: 'pnpm',
-      args: '--filter @school/web start',
+      cwd: './apps/web',
+      script: './node_modules/.bin/next',
+      args: 'start -p 5551',
       env: {
         NODE_ENV: 'production',
       },
