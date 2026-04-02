@@ -1149,6 +1149,729 @@ describe('PolicyEvaluationEngine', () => {
         );
         expect(studentBConsequence![0].data.evaluation_result).toBe('no_match');
       });
+
+      it('should compute repeat count with category filter', async () => {
+        const rule = makeRule({
+          conditions: {
+            repeat_count_min: 2,
+            repeat_window_days: 30,
+            repeat_category_ids: [CATEGORY_ID],
+          },
+          actions: [],
+        });
+
+        mockTx.behaviourPolicyRule!.findMany!.mockImplementation(
+          async ({ where }: { where: { stage: string } }) => {
+            if (where.stage === 'consequence') return [rule];
+            return [];
+          },
+        );
+
+        await engine.evaluateForStudent(
+          makeIncident(),
+          makeParticipant(),
+          new Set(),
+          mockTx as unknown as PrismaService,
+        );
+
+        expect(mockTx.behaviourIncidentParticipant!.count).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              incident: expect.objectContaining({
+                category_id: { in: [CATEGORY_ID] },
+              }),
+            }),
+          }),
+        );
+      });
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Action Execution - Complete Coverage
+  // -----------------------------------------------------------------------
+
+  describe('action execution - complete coverage', () => {
+    let engine: PolicyEvaluationEngine;
+    let mockTx: any;
+    let mockHistoryService: { recordHistory: jest.Mock };
+
+    beforeEach(async () => {
+      mockHistoryService = { recordHistory: jest.fn().mockResolvedValue(undefined) };
+
+      mockTx = {
+        behaviourPolicyRule: { findMany: jest.fn().mockResolvedValue([]) },
+        behaviourPolicyRuleVersion: {
+          findFirst: jest.fn().mockResolvedValue({ id: RULE_VERSION_ID }),
+        },
+        behaviourPolicyEvaluation: {
+          create: jest.fn().mockImplementation(({ data }) => ({ id: EVALUATION_ID, ...data })),
+        },
+        behaviourPolicyActionExecution: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn(),
+        },
+        behaviourIncident: {
+          update: jest.fn().mockResolvedValue({}),
+          findFirst: jest
+            .fn()
+            .mockResolvedValue({
+              status: 'active',
+              approval_status: 'not_required',
+              parent_notification_status: 'not_required',
+            }),
+          create: jest.fn().mockResolvedValue({ id: 'new-incident' }),
+        },
+        behaviourIncidentParticipant: { count: jest.fn().mockResolvedValue(0) },
+        behaviourCategory: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValue({
+              id: CATEGORY_ID,
+              name: 'Test Category',
+              polarity: 'negative',
+              severity: 5,
+            }),
+        },
+        behaviourTask: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({ id: 'task-001' }),
+        },
+        behaviourSanction: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({ id: 'sanction-001' }),
+        },
+        behaviourIntervention: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({ id: 'intervention-001' }),
+        },
+      };
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          PolicyEvaluationEngine,
+          { provide: BehaviourHistoryService, useValue: mockHistoryService },
+        ],
+      }).compile();
+
+      engine = module.get<PolicyEvaluationEngine>(PolicyEvaluationEngine);
+    });
+
+    afterEach(() => jest.clearAllMocks());
+
+    // notify_roles and notify_users - these return null
+    it('should execute notify_roles action', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [
+          {
+            action_type: 'notify_roles',
+            action_config: { roles: ['teacher'] },
+            execution_order: 1,
+          },
+        ],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+
+      await engine.evaluateForStudent(makeIncident(), makeParticipant(), new Set(), mockTx);
+
+      expect(mockTx.behaviourPolicyActionExecution.create).toHaveBeenCalled();
+    });
+
+    it('should execute notify_users action', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [
+          {
+            action_type: 'notify_users',
+            action_config: { user_ids: ['user-001'] },
+            execution_order: 1,
+          },
+        ],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+
+      await engine.evaluateForStudent(makeIncident(), makeParticipant(), new Set(), mockTx);
+
+      expect(mockTx.behaviourPolicyActionExecution.create).toHaveBeenCalled();
+    });
+
+    // auto_escalate edge cases
+    it('should skip auto_escalate without target_category_id', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [
+          { action_type: 'auto_escalate', action_config: { reason: 'test' }, execution_order: 1 },
+        ],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+
+      await engine.evaluateForStudent(makeIncident(), makeParticipant(), new Set(), mockTx);
+
+      expect(mockTx.behaviourIncident.create).not.toHaveBeenCalled();
+    });
+
+    it('should skip auto_escalate when category not found', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [
+          {
+            action_type: 'auto_escalate',
+            action_config: { target_category_id: 'non-existent' },
+            execution_order: 1,
+          },
+        ],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+      mockTx.behaviourCategory.findFirst.mockResolvedValue(null);
+
+      await engine.evaluateForStudent(makeIncident(), makeParticipant(), new Set(), mockTx);
+
+      expect(mockTx.behaviourIncident.create).not.toHaveBeenCalled();
+    });
+
+    // create_sanction with duplicate check
+    it('should skip create_sanction when duplicate exists', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [
+          {
+            action_type: 'create_sanction',
+            action_config: { sanction_type: 'detention' },
+            execution_order: 1,
+          },
+        ],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+      mockTx.behaviourSanction.findFirst.mockResolvedValue({ id: 'existing-sanction' });
+
+      await engine.evaluateForStudent(makeIncident(), makeParticipant(), new Set(), mockTx);
+
+      expect(mockTx.behaviourSanction.create).not.toHaveBeenCalled();
+    });
+
+    it('should skip create_sanction for non-student', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [
+          {
+            action_type: 'create_sanction',
+            action_config: { sanction_type: 'detention' },
+            execution_order: 1,
+          },
+        ],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+
+      await engine.evaluateForStudent(
+        makeIncident(),
+        makeParticipant({ student_id: null }),
+        new Set(),
+        mockTx,
+      );
+
+      expect(mockTx.behaviourSanction.create).not.toHaveBeenCalled();
+    });
+
+    // require_approval edge cases
+    it('should skip require_approval when already awaiting approval', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [{ action_type: 'require_approval', action_config: {}, execution_order: 1 }],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'approval_stage') return [rule];
+          return [];
+        },
+      );
+
+      await engine.evaluateForStudent(
+        makeIncident({ status: 'awaiting_approval' }),
+        makeParticipant(),
+        new Set(),
+        mockTx,
+      );
+
+      const approvalUpdates = mockTx.behaviourIncident.update.mock.calls.filter(
+        (call: any[]) => call[0]?.data?.approval_status === 'pending',
+      );
+      expect(approvalUpdates).toHaveLength(0);
+    });
+
+    it('should skip require_approval when not not_required', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [{ action_type: 'require_approval', action_config: {}, execution_order: 1 }],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'approval_stage') return [rule];
+          return [];
+        },
+      );
+      mockTx.behaviourIncident.findFirst.mockResolvedValue({ approval_status: 'approved' });
+
+      await engine.evaluateForStudent(makeIncident(), makeParticipant(), new Set(), mockTx);
+
+      const approvalUpdates = mockTx.behaviourIncident.update.mock.calls.filter(
+        (call: any[]) => call[0]?.data?.approval_status === 'pending',
+      );
+      expect(approvalUpdates).toHaveLength(0);
+    });
+
+    // require_parent_meeting edge cases
+    it('should skip require_parent_meeting for non-student', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [{ action_type: 'require_parent_meeting', action_config: {}, execution_order: 1 }],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+
+      await engine.evaluateForStudent(
+        makeIncident(),
+        makeParticipant({ student_id: null }),
+        new Set(),
+        mockTx,
+      );
+
+      expect(mockTx.behaviourTask.create).not.toHaveBeenCalled();
+    });
+
+    it('should skip require_parent_meeting when task exists', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [{ action_type: 'require_parent_meeting', action_config: {}, execution_order: 1 }],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+      mockTx.behaviourTask.findFirst.mockResolvedValue({ id: 'existing-task' });
+
+      await engine.evaluateForStudent(makeIncident(), makeParticipant(), new Set(), mockTx);
+
+      expect(mockTx.behaviourTask.create).not.toHaveBeenCalled();
+    });
+
+    // require_parent_notification edge cases
+    it('should skip require_parent_notification when completed', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [
+          { action_type: 'require_parent_notification', action_config: {}, execution_order: 1 },
+        ],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+      mockTx.behaviourIncident.findFirst.mockResolvedValue({
+        parent_notification_status: 'completed',
+      });
+
+      await engine.evaluateForStudent(makeIncident(), makeParticipant(), new Set(), mockTx);
+
+      const notificationUpdates = mockTx.behaviourIncident.update.mock.calls.filter(
+        (call: any[]) => call[0]?.data?.parent_notification_status === 'pending',
+      );
+      expect(notificationUpdates).toHaveLength(0);
+    });
+
+    it('should skip require_parent_notification when pending', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [
+          { action_type: 'require_parent_notification', action_config: {}, execution_order: 1 },
+        ],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+      mockTx.behaviourIncident.findFirst.mockResolvedValue({
+        parent_notification_status: 'pending',
+      });
+
+      await engine.evaluateForStudent(makeIncident(), makeParticipant(), new Set(), mockTx);
+
+      const notificationUpdates = mockTx.behaviourIncident.update.mock.calls.filter(
+        (call: any[]) => call[0]?.data?.parent_notification_status === 'pending',
+      );
+      expect(notificationUpdates).toHaveLength(0);
+    });
+
+    // create_task edge cases
+    it('should skip create_task for non-student', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [
+          {
+            action_type: 'create_task',
+            action_config: { task_type: 'review' },
+            execution_order: 1,
+          },
+        ],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+
+      await engine.evaluateForStudent(
+        makeIncident(),
+        makeParticipant({ student_id: null }),
+        new Set(),
+        mockTx,
+      );
+
+      expect(mockTx.behaviourTask.create).not.toHaveBeenCalled();
+    });
+
+    it('should skip create_task when task exists', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [
+          {
+            action_type: 'create_task',
+            action_config: { task_type: 'review' },
+            execution_order: 1,
+          },
+        ],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+      mockTx.behaviourTask.findFirst.mockResolvedValue({ id: 'existing-task' });
+
+      await engine.evaluateForStudent(makeIncident(), makeParticipant(), new Set(), mockTx);
+
+      expect(mockTx.behaviourTask.create).not.toHaveBeenCalled();
+    });
+
+    // create_intervention edge cases
+    it('should skip create_intervention for non-student', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [
+          {
+            action_type: 'create_intervention',
+            action_config: { type: 'mentoring' },
+            execution_order: 1,
+          },
+        ],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+
+      await engine.evaluateForStudent(
+        makeIncident(),
+        makeParticipant({ student_id: null }),
+        new Set(),
+        mockTx,
+      );
+
+      expect(mockTx.behaviourIntervention.create).not.toHaveBeenCalled();
+    });
+
+    it('should skip create_intervention when intervention exists', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [
+          {
+            action_type: 'create_intervention',
+            action_config: { type: 'mentoring' },
+            execution_order: 1,
+          },
+        ],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+      mockTx.behaviourIntervention.findFirst.mockResolvedValue({ id: 'existing-intervention' });
+
+      await engine.evaluateForStudent(makeIncident(), makeParticipant(), new Set(), mockTx);
+
+      expect(mockTx.behaviourIntervention.create).not.toHaveBeenCalled();
+    });
+
+    // flag_for_review edge cases
+    it('should skip flag_for_review when not active', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [
+          { action_type: 'flag_for_review', action_config: { reason: 'test' }, execution_order: 1 },
+        ],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+      mockTx.behaviourIncident.findFirst.mockResolvedValue({ status: 'under_review' });
+
+      await engine.evaluateForStudent(makeIncident(), makeParticipant(), new Set(), mockTx);
+
+      const statusUpdates = mockTx.behaviourIncident.update.mock.calls.filter(
+        (call: any[]) => call[0]?.data?.status === 'under_review',
+      );
+      expect(statusUpdates).toHaveLength(0);
+    });
+
+    // block_without_approval edge cases
+    it('should skip block_without_approval when not not_required', async () => {
+      const rule = makeRule({
+        conditions: {},
+        actions: [{ action_type: 'block_without_approval', action_config: {}, execution_order: 1 }],
+      });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'approval_stage') return [rule];
+          return [];
+        },
+      );
+      mockTx.behaviourIncident.findFirst.mockResolvedValue({ approval_status: 'approved' });
+
+      await engine.evaluateForStudent(makeIncident(), makeParticipant(), new Set(), mockTx);
+
+      const approvalUpdates = mockTx.behaviourIncident.update.mock.calls.filter(
+        (call: any[]) => call[0]?.data?.approval_status === 'pending',
+      );
+      expect(approvalUpdates).toHaveLength(0);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Condition Evaluation - Additional Edge Cases
+  // -----------------------------------------------------------------------
+
+  describe('evaluateConditions - additional edge cases', () => {
+    let engine: PolicyEvaluationEngine;
+
+    beforeEach(() => {
+      const mockHistoryService = { recordHistory: jest.fn() } as unknown as BehaviourHistoryService;
+      engine = new PolicyEvaluationEngine(mockHistoryService);
+    });
+
+    it('should handle student_has_active_intervention condition', () => {
+      const conditions: PolicyCondition = { student_has_active_intervention: true };
+      expect(
+        engine.evaluateConditions(conditions, makeInput({ had_active_intervention: true })),
+      ).toBe(true);
+      expect(
+        engine.evaluateConditions(conditions, makeInput({ had_active_intervention: false })),
+      ).toBe(false);
+    });
+
+    it('should handle empty array conditions', () => {
+      expect(engine.evaluateConditions({ category_ids: [] }, makeInput())).toBe(true);
+      expect(engine.evaluateConditions({ year_group_ids: [] }, makeInput())).toBe(true);
+      expect(engine.evaluateConditions({ context_types: [] }, makeInput())).toBe(true);
+      expect(engine.evaluateConditions({ weekdays: [] }, makeInput())).toBe(true);
+      expect(engine.evaluateConditions({ period_orders: [] }, makeInput())).toBe(true);
+    });
+
+    it('should handle null weekday with weekdays specified', () => {
+      const conditions: PolicyCondition = { weekdays: [1, 2, 3, 4, 5] };
+      expect(engine.evaluateConditions(conditions, makeInput({ weekday: null }))).toBe(false);
+    });
+
+    it('should handle null period_order with period_orders specified', () => {
+      const conditions: PolicyCondition = { period_orders: [1, 2, 3] };
+      expect(engine.evaluateConditions(conditions, makeInput({ period_order: null }))).toBe(false);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Edge Cases
+  // -----------------------------------------------------------------------
+
+  describe('edge cases', () => {
+    let engine: PolicyEvaluationEngine;
+    let mockTx: any;
+    let mockHistoryService: { recordHistory: jest.Mock };
+
+    beforeEach(async () => {
+      mockHistoryService = { recordHistory: jest.fn().mockResolvedValue(undefined) };
+
+      mockTx = {
+        behaviourPolicyRule: { findMany: jest.fn().mockResolvedValue([]) },
+        behaviourPolicyRuleVersion: {
+          findFirst: jest.fn().mockResolvedValue({ id: RULE_VERSION_ID }),
+        },
+        behaviourPolicyEvaluation: {
+          create: jest.fn().mockImplementation(({ data }) => ({ id: EVALUATION_ID, ...data })),
+        },
+        behaviourPolicyActionExecution: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn(),
+        },
+        behaviourIncident: {
+          update: jest.fn().mockResolvedValue({}),
+          findFirst: jest
+            .fn()
+            .mockResolvedValue({ status: 'active', approval_status: 'not_required' }),
+          create: jest.fn().mockResolvedValue({ id: 'new-incident' }),
+        },
+        behaviourIncidentParticipant: { count: jest.fn().mockResolvedValue(0) },
+        behaviourCategory: { findFirst: jest.fn().mockResolvedValue({ name: 'Test Category' }) },
+        behaviourTask: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn() },
+        behaviourSanction: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn() },
+        behaviourIntervention: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn() },
+      };
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          PolicyEvaluationEngine,
+          { provide: BehaviourHistoryService, useValue: mockHistoryService },
+        ],
+      }).compile();
+
+      engine = module.get<PolicyEvaluationEngine>(PolicyEvaluationEngine);
+    });
+
+    afterEach(() => jest.clearAllMocks());
+
+    it('should skip stages already in evaluatedStages set', async () => {
+      const rule = makeRule({ conditions: {}, actions: [] });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+
+      await engine.evaluateForStudent(
+        makeIncident(),
+        makeParticipant(),
+        new Set(['consequence']),
+        mockTx,
+      );
+
+      const consequenceEvals = mockTx.behaviourPolicyEvaluation.create.mock.calls.filter(
+        (call: any[]) => call[0].data.stage === 'consequence',
+      );
+      expect(consequenceEvals).toHaveLength(0);
+    });
+
+    it('should skip evaluation for non-student participants', async () => {
+      await engine.evaluateForStudent(
+        makeIncident(),
+        makeParticipant({ student_id: null }),
+        new Set(),
+        mockTx,
+      );
+      expect(mockTx.behaviourPolicyEvaluation.create).not.toHaveBeenCalled();
+    });
+
+    it('should handle rule with no version record', async () => {
+      const rule = makeRule({ conditions: {}, current_version: 999, actions: [] });
+
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+      mockTx.behaviourPolicyRuleVersion.findFirst.mockResolvedValue(null);
+
+      await engine.evaluateForStudent(makeIncident(), makeParticipant(), new Set(), mockTx);
+
+      const consequenceEvals = mockTx.behaviourPolicyEvaluation.create.mock.calls.filter(
+        (call: any[]) => call[0].data.stage === 'consequence',
+      );
+      expect(consequenceEvals).toHaveLength(1);
+      expect(consequenceEvals[0][0].data.rule_version_id).toBeNull();
+    });
+
+    it('should handle incident without category property', async () => {
+      const incident = makeIncident({ category: null });
+      mockTx.behaviourCategory.findFirst.mockResolvedValue({ name: 'Looked Up Category' });
+
+      const rule = makeRule({ conditions: {}, actions: [] });
+      mockTx.behaviourPolicyRule.findMany.mockImplementation(
+        async ({ where }: { where: { stage: string } }) => {
+          if (where.stage === 'consequence') return [rule];
+          return [];
+        },
+      );
+
+      await engine.evaluateForStudent(incident, makeParticipant(), new Set(), mockTx);
+
+      expect(mockTx.behaviourCategory.findFirst).toHaveBeenCalled();
     });
   });
 });

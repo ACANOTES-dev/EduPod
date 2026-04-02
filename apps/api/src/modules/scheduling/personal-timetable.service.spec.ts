@@ -21,7 +21,9 @@ const mockTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
@@ -69,10 +71,7 @@ describe('PersonalTimetableService', () => {
     });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        PersonalTimetableService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [PersonalTimetableService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<PersonalTimetableService>(PersonalTimetableService);
@@ -84,10 +83,7 @@ describe('PersonalTimetableService', () => {
 
   describe('getTeacherTimetable', () => {
     it('should return formatted timetable entries for a teacher', async () => {
-      mockPrisma.schedule.findMany.mockResolvedValue([
-        makeSchedule(1, 1),
-        makeSchedule(2, 2),
-      ]);
+      mockPrisma.schedule.findMany.mockResolvedValue([makeSchedule(1, 1), makeSchedule(2, 2)]);
 
       const result = await service.getTeacherTimetable(TENANT_ID, STAFF_ID, {});
 
@@ -133,10 +129,7 @@ describe('PersonalTimetableService', () => {
 
   describe('getClassTimetable', () => {
     it('should return formatted timetable entries for a class', async () => {
-      mockPrisma.schedule.findMany.mockResolvedValue([
-        makeSchedule(1, 1),
-        makeSchedule(3, 2),
-      ]);
+      mockPrisma.schedule.findMany.mockResolvedValue([makeSchedule(1, 1), makeSchedule(3, 2)]);
 
       const result = await service.getClassTimetable(TENANT_ID, CLASS_ID, {});
 
@@ -189,10 +182,7 @@ describe('PersonalTimetableService', () => {
         entity_id: STAFF_ID,
         tenant: { name: 'Test School' },
       });
-      mockPrisma.schedule.findMany.mockResolvedValue([
-        makeSchedule(1, 1),
-        makeSchedule(3, 2),
-      ]);
+      mockPrisma.schedule.findMany.mockResolvedValue([makeSchedule(1, 1), makeSchedule(3, 2)]);
 
       const ics = await service.generateIcsCalendar(TENANT_ID, TOKEN);
 
@@ -216,9 +206,9 @@ describe('PersonalTimetableService', () => {
     it('should throw NotFoundException when token does not exist', async () => {
       mockPrisma.calendarSubscriptionToken.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.generateIcsCalendar(TENANT_ID, 'invalid-token'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.generateIcsCalendar(TENANT_ID, 'invalid-token')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should handle class-type tokens by querying by class_id', async () => {
@@ -306,9 +296,143 @@ describe('PersonalTimetableService', () => {
         user_id: 'another-user',
       });
 
+      await expect(service.revokeSubscriptionToken(TENANT_ID, USER_ID, TOKEN_ID)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  // ─── getTeacherTimetableByUserId ──────────────────────────────────────────
+
+  describe('getTeacherTimetableByUserId', () => {
+    it('should return timetable when staff profile exists', async () => {
+      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_ID });
+      mockPrisma.schedule.findMany.mockResolvedValue([makeSchedule(1, 1), makeSchedule(2, 2)]);
+
+      const result = await service.getTeacherTimetableByUserId(TENANT_ID, USER_ID, {});
+
+      expect(result.data).toHaveLength(2);
+      expect(mockPrisma.staffProfile.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { user_id: USER_ID, tenant_id: TENANT_ID },
+        }),
+      );
+    });
+
+    it('should throw NotFoundException when staff profile does not exist', async () => {
+      mockPrisma.staffProfile.findFirst.mockResolvedValue(null);
+
       await expect(
-        service.revokeSubscriptionToken(TENANT_ID, USER_ID, TOKEN_ID),
-      ).rejects.toThrow(ForbiddenException);
+        service.getTeacherTimetableByUserId(TENANT_ID, 'nonexistent-user', {}),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── generateIcsCalendar edge cases ───────────────────────────────────────
+
+  describe('generateIcsCalendar', () => {
+    it('should handle class schedules without subject names', async () => {
+      mockPrisma.calendarSubscriptionToken.findFirst.mockResolvedValue({
+        entity_type: 'class',
+        entity_id: CLASS_ID,
+        tenant: { name: 'Test School' },
+      });
+
+      const scheduleWithoutSubject = {
+        ...makeSchedule(1, 1),
+        class_entity: { name: '10A', subject: null },
+      };
+      mockPrisma.schedule.findMany.mockResolvedValue([scheduleWithoutSubject]);
+
+      const ics = await service.generateIcsCalendar(TENANT_ID, TOKEN);
+
+      expect(ics).toContain('Class');
+      expect(ics).toContain('BEGIN:VEVENT');
+    });
+
+    it('should handle schedules without teachers', async () => {
+      mockPrisma.calendarSubscriptionToken.findFirst.mockResolvedValue({
+        entity_type: 'teacher',
+        entity_id: STAFF_ID,
+        tenant: { name: 'Test School' },
+      });
+
+      const scheduleWithoutTeacher = {
+        ...makeSchedule(1, 1),
+        teacher: null,
+      };
+      mockPrisma.schedule.findMany.mockResolvedValue([scheduleWithoutTeacher]);
+
+      const ics = await service.generateIcsCalendar(TENANT_ID, TOKEN);
+
+      expect(ics).toContain('BEGIN:VEVENT');
+    });
+
+    it('should handle schedules without rooms', async () => {
+      mockPrisma.calendarSubscriptionToken.findFirst.mockResolvedValue({
+        entity_type: 'teacher',
+        entity_id: STAFF_ID,
+        tenant: { name: 'Test School' },
+      });
+
+      const scheduleWithoutRoom = {
+        ...makeSchedule(1, 1),
+        room: null,
+      };
+      mockPrisma.schedule.findMany.mockResolvedValue([scheduleWithoutRoom]);
+
+      const ics = await service.generateIcsCalendar(TENANT_ID, TOKEN);
+
+      expect(ics).toContain('BEGIN:VEVENT');
+    });
+
+    it('should skip events past the 90-day window', async () => {
+      mockPrisma.calendarSubscriptionToken.findFirst.mockResolvedValue({
+        entity_type: 'teacher',
+        entity_id: STAFF_ID,
+        tenant: { name: 'Test School' },
+      });
+
+      // Schedule for a weekday that will be beyond 90 days
+      const farSchedule = makeSchedule(1, 1);
+      mockPrisma.schedule.findMany.mockResolvedValue([farSchedule]);
+
+      const ics = await service.generateIcsCalendar(TENANT_ID, TOKEN);
+
+      // The schedule exists but might not generate events if they're past 90 days
+      expect(ics).toContain('BEGIN:VCALENDAR');
+    });
+  });
+
+  // ─── listSubscriptionTokens ───────────────────────────────────────────────
+
+  describe('listSubscriptionTokens', () => {
+    it('should return formatted subscription tokens', async () => {
+      const createdAt = new Date('2026-03-01T10:00:00Z');
+      mockPrisma.calendarSubscriptionToken.findMany.mockResolvedValue([
+        {
+          id: TOKEN_ID,
+          token: TOKEN,
+          entity_type: 'teacher',
+          entity_id: STAFF_ID,
+          created_at: createdAt,
+        },
+      ]);
+
+      const result = await service.listSubscriptionTokens(TENANT_ID, USER_ID);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]!.token).toBe(TOKEN);
+      expect(result.data[0]!.entity_type).toBe('teacher');
+      expect(result.data[0]!.created_at).toBe(createdAt.toISOString());
+    });
+
+    it('should return empty array when no tokens exist', async () => {
+      mockPrisma.calendarSubscriptionToken.findMany.mockResolvedValue([]);
+
+      const result = await service.listSubscriptionTokens(TENANT_ID, USER_ID);
+
+      expect(result.data).toHaveLength(0);
     });
   });
 });

@@ -175,5 +175,138 @@ describe('CreditNotesService', () => {
         }),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('should throw NotFoundException when invoice not found', async () => {
+      mockPrisma.creditNote.findFirst.mockResolvedValue({
+        id: CN_ID,
+        remaining_balance: '500.00',
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.applyToInvoice(TENANT_ID, USER_ID, {
+          credit_note_id: CN_ID,
+          invoice_id: INVOICE_ID,
+          applied_amount: 100,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException when invoice already paid', async () => {
+      mockPrisma.creditNote.findFirst.mockResolvedValue({
+        id: CN_ID,
+        remaining_balance: '500.00',
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        status: 'issued',
+        balance_amount: '0.00',
+      });
+
+      await expect(
+        service.applyToInvoice(TENANT_ID, USER_ID, {
+          credit_note_id: CN_ID,
+          invoice_id: INVOICE_ID,
+          applied_amount: 100,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('findOne', () => {
+    it('should return credit note with applications', async () => {
+      const cn = {
+        id: CN_ID,
+        amount: '500.00',
+        remaining_balance: '300.00',
+        applications: [
+          {
+            id: 'app-1',
+            invoice_id: INVOICE_ID,
+            applied_amount: '200.00',
+            applied_at: new Date(),
+            invoice: { id: INVOICE_ID, invoice_number: 'INV-001' },
+          },
+        ],
+        household: { id: HOUSEHOLD_ID, household_name: 'Smith Family' },
+      };
+      mockPrisma.creditNote.findFirst.mockResolvedValue(cn);
+
+      const result = (await service.findOne(TENANT_ID, CN_ID)) as {
+        amount: number;
+        remaining_balance: number;
+        applications: Array<{ applied_amount: number }>;
+      };
+
+      expect(result.amount).toBe(500);
+      expect(result.remaining_balance).toBe(300);
+      expect(result.applications).toHaveLength(1);
+      expect(result.applications[0]?.applied_amount).toBe(200);
+    });
+
+    it('should throw NotFoundException when credit note not found', async () => {
+      mockPrisma.creditNote.findFirst.mockResolvedValue(null);
+
+      await expect(service.findOne(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findAll', () => {
+    it('should filter by household_id', async () => {
+      mockPrisma.creditNote.findMany.mockResolvedValue([]);
+      mockPrisma.creditNote.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        household_id: HOUSEHOLD_ID,
+      });
+
+      expect(mockPrisma.creditNote.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ household_id: HOUSEHOLD_ID }),
+        }),
+      );
+    });
+
+    it('should serialize applications correctly', async () => {
+      const cn = {
+        id: CN_ID,
+        amount: '500.00',
+        remaining_balance: '200.00',
+        applications: [
+          {
+            id: 'app-1',
+            invoice_id: INVOICE_ID,
+            applied_amount: '300.00',
+            applied_at: new Date(),
+          },
+        ],
+        household: { id: HOUSEHOLD_ID, household_name: 'Smith' },
+      };
+      mockPrisma.creditNote.findMany.mockResolvedValue([cn]);
+      mockPrisma.creditNote.count.mockResolvedValue(1);
+
+      const result = await service.findAll(TENANT_ID, { page: 1, pageSize: 20 });
+
+      expect(result.data[0]?.amount).toBe(500);
+      expect(result.data[0]?.remaining_balance).toBe(200);
+      expect(result.data[0]?.applications).toHaveLength(1);
+      expect(result.data[0]?.applications[0]?.applied_amount).toBe(300);
+    });
+  });
+
+  describe('create - error handling', () => {
+    it('should throw NotFoundException when household not found', async () => {
+      mockPrisma.household.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(TENANT_ID, USER_ID, {
+          household_id: 'nonexistent',
+          amount: 500,
+          reason: 'Test',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
   });
 });

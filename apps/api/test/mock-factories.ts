@@ -89,3 +89,71 @@ export function buildMockQueue(overrides: Partial<MockQueue> = {}): MockQueue {
     ...overrides,
   };
 }
+
+// ─── RLS Transaction Helpers ─────────────────────────────────────────────────
+
+export interface MockRlsTransaction {
+  $executeRaw: jest.Mock;
+  $executeRawUnsafe: jest.Mock;
+  $queryRaw: jest.Mock;
+  $queryRawUnsafe: jest.Mock;
+}
+
+export function buildMockRlsTransaction(): MockRlsTransaction {
+  return {
+    $executeRaw: jest.fn().mockResolvedValue(undefined),
+    $executeRawUnsafe: jest.fn().mockResolvedValue(undefined),
+    $queryRaw: jest.fn().mockResolvedValue([]),
+    $queryRawUnsafe: jest.fn().mockResolvedValue([]),
+  };
+}
+
+export function buildMockPrismaWithRls<T extends MockModuleMap>(
+  modelMethods: T,
+): MockPrisma<T> & { $transaction: jest.Mock } {
+  const mockTx = buildMockRlsTransaction();
+  const basePrisma = buildMockPrisma(modelMethods);
+
+  return {
+    ...basePrisma,
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: MockRlsTransaction) => Promise<unknown>) => {
+        return fn(mockTx);
+      }),
+  } as MockPrisma<T> & { $transaction: jest.Mock };
+}
+
+// ─── Error Path Fixtures ─────────────────────────────────────────────────────
+
+export const ERROR_SCENARIOS = {
+  prisma: {
+    uniqueConstraint: (field: string) =>
+      new Error(`Unique constraint failed on the fields: (${field})`),
+    foreignKey: (field: string) =>
+      new Error(`Foreign key constraint failed on the field: ${field}`),
+    notFound: () => new Error('Record not found'),
+  },
+  validation: {
+    invalidDate: () => new Error('Invalid date format'),
+    invalidEmail: () => new Error('Invalid email format'),
+    requiredField: (field: string) => new Error(`${field} is required`),
+    invalidUuid: () => new Error('Invalid UUID format'),
+  },
+  permission: {
+    denied: (action: string) => new Error(`Permission denied: ${action}`),
+    moduleDisabled: (module: string) => new Error(`Module ${module} is disabled`),
+  },
+} as const;
+
+// ─── Test Constants ───────────────────────────────────────────────────────────
+
+export const TEST_CONSTANTS = {
+  TENANT_ID: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+  USER_ID: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+  MEMBERSHIP_ID: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+  STUDENT_ID: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+  STAFF_ID: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+  CLASS_ID: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+  YEAR_GROUP_ID: '11111111-1111-1111-1111-111111111111',
+} as const;

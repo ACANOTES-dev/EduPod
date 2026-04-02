@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -47,10 +43,7 @@ describe('FeeStructuresService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        FeeStructuresService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [FeeStructuresService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<FeeStructuresService>(FeeStructuresService);
@@ -112,9 +105,7 @@ describe('FeeStructuresService', () => {
     it('should throw NotFoundException when not found', async () => {
       mockPrisma.feeStructure.findFirst.mockResolvedValue(null);
 
-      await expect(service.findOne(TENANT_ID, 'nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.findOne(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -164,7 +155,7 @@ describe('FeeStructuresService', () => {
     it('should update a fee structure', async () => {
       mockPrisma.feeStructure.findFirst
         .mockResolvedValueOnce(makeFeeStructure()) // existing lookup
-        .mockResolvedValueOnce(null);              // no duplicate name
+        .mockResolvedValueOnce(null); // no duplicate name
       mockPrisma.feeStructure.update.mockResolvedValue(
         makeFeeStructure({ name: 'Updated Fee', amount: '1500.00' }),
       );
@@ -177,9 +168,9 @@ describe('FeeStructuresService', () => {
     it('should throw NotFoundException when fee structure not found', async () => {
       mockPrisma.feeStructure.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.update(TENANT_ID, 'bad-id', { name: 'X' }),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.update(TENANT_ID, 'bad-id', { name: 'X' })).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw ConflictException on duplicate name during update', async () => {
@@ -187,9 +178,9 @@ describe('FeeStructuresService', () => {
         .mockResolvedValueOnce(makeFeeStructure({ name: 'Old Name' }))
         .mockResolvedValueOnce(makeFeeStructure({ id: 'other-id', name: 'Duplicate' }));
 
-      await expect(
-        service.update(TENANT_ID, FS_ID, { name: 'Duplicate' }),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.update(TENANT_ID, FS_ID, { name: 'Duplicate' })).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -197,9 +188,7 @@ describe('FeeStructuresService', () => {
     it('should deactivate a fee structure with no active assignments', async () => {
       mockPrisma.feeStructure.findFirst.mockResolvedValue(makeFeeStructure());
       mockPrisma.householdFeeAssignment.count.mockResolvedValue(0);
-      mockPrisma.feeStructure.update.mockResolvedValue(
-        makeFeeStructure({ active: false }),
-      );
+      mockPrisma.feeStructure.update.mockResolvedValue(makeFeeStructure({ active: false }));
 
       const result = await service.deactivate(TENANT_ID, FS_ID);
 
@@ -209,18 +198,115 @@ describe('FeeStructuresService', () => {
     it('should throw NotFoundException when fee structure not found', async () => {
       mockPrisma.feeStructure.findFirst.mockResolvedValue(null);
 
-      await expect(service.deactivate(TENANT_ID, 'bad-id')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.deactivate(TENANT_ID, 'bad-id')).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException when active assignments exist', async () => {
       mockPrisma.feeStructure.findFirst.mockResolvedValue(makeFeeStructure());
       mockPrisma.householdFeeAssignment.count.mockResolvedValue(3);
 
-      await expect(service.deactivate(TENANT_ID, FS_ID)).rejects.toThrow(
-        BadRequestException,
+      await expect(service.deactivate(TENANT_ID, FS_ID)).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('findAll', () => {
+    it('should filter by year_group_id', async () => {
+      mockPrisma.feeStructure.findMany.mockResolvedValue([]);
+      mockPrisma.feeStructure.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, { page: 1, pageSize: 20, year_group_id: YG_ID });
+
+      expect(mockPrisma.feeStructure.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ year_group_id: YG_ID }),
+        }),
       );
+    });
+
+    it('should handle case-insensitive search', async () => {
+      mockPrisma.feeStructure.findMany.mockResolvedValue([]);
+      mockPrisma.feeStructure.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, { page: 1, pageSize: 20, search: 'TUTION' });
+
+      expect(mockPrisma.feeStructure.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            name: expect.objectContaining({
+              contains: 'TUTION',
+              mode: 'insensitive',
+            }),
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('update', () => {
+    it('should update all fields', async () => {
+      mockPrisma.feeStructure.findFirst
+        .mockResolvedValueOnce(makeFeeStructure())
+        .mockResolvedValueOnce(null);
+      mockPrisma.feeStructure.update.mockResolvedValue(
+        makeFeeStructure({
+          name: 'Updated Fee',
+          amount: '1500.00',
+          billing_frequency: 'termly',
+          active: false,
+        }),
+      );
+
+      const result = await service.update(TENANT_ID, FS_ID, {
+        name: 'Updated Fee',
+        amount: 1500,
+        billing_frequency: 'termly',
+        active: false,
+      });
+
+      expect(result.name).toBe('Updated Fee');
+      expect(result.amount).toBe(1500);
+    });
+
+    it('should allow same name during update of same record', async () => {
+      mockPrisma.feeStructure.findFirst
+        .mockResolvedValueOnce(makeFeeStructure({ id: FS_ID, name: 'Same Name' }))
+        .mockResolvedValueOnce(null);
+      mockPrisma.feeStructure.update.mockResolvedValue(makeFeeStructure({ name: 'Same Name' }));
+
+      const result = await service.update(TENANT_ID, FS_ID, { name: 'Same Name' });
+
+      expect(result.name).toBe('Same Name');
+    });
+  });
+
+  describe('create with year_group_id', () => {
+    it('should create fee structure with year group', async () => {
+      mockPrisma.feeStructure.findFirst.mockResolvedValue(null);
+      mockPrisma.yearGroup.findFirst.mockResolvedValue({ id: YG_ID, name: 'Year 1' });
+      mockPrisma.feeStructure.create.mockResolvedValue(makeFeeStructure({ year_group_id: YG_ID }));
+
+      const result = await service.create(TENANT_ID, {
+        name: 'Year 1 Tuition',
+        amount: 1000,
+        billing_frequency: 'monthly',
+        year_group_id: YG_ID,
+      });
+
+      expect(result.year_group_id).toBe(YG_ID);
+    });
+
+    it('should throw BadRequestException when year_group_id not found', async () => {
+      mockPrisma.feeStructure.findFirst.mockResolvedValue(null);
+      mockPrisma.yearGroup.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(TENANT_ID, {
+          name: 'New Fee',
+          amount: 500,
+          billing_frequency: 'monthly',
+          year_group_id: 'nonexistent',
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

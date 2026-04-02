@@ -60,7 +60,15 @@ describe('SearchIndexService', () => {
 
   describe('indexEntity()', () => {
     it('should add document to Meilisearch and update status to indexed', async () => {
-      const entity = { id: ENTITY_ID, tenant_id: TENANT_ID, first_name: 'John', last_name: 'Doe', full_name: 'John Doe', student_number: 'STU-001', status: 'active' };
+      const entity = {
+        id: ENTITY_ID,
+        tenant_id: TENANT_ID,
+        first_name: 'John',
+        last_name: 'Doe',
+        full_name: 'John Doe',
+        student_number: 'STU-001',
+        status: 'active',
+      };
 
       await service.indexEntity('students', entity);
 
@@ -147,7 +155,12 @@ describe('SearchIndexService', () => {
     });
 
     it('should format household documents correctly', async () => {
-      const entity = { id: ENTITY_ID, tenant_id: TENANT_ID, household_name: 'Smith Family', status: 'active' };
+      const entity = {
+        id: ENTITY_ID,
+        tenant_id: TENANT_ID,
+        household_name: 'Smith Family',
+        status: 'active',
+      };
 
       await service.indexEntity('households', entity);
 
@@ -270,6 +283,247 @@ describe('SearchIndexService', () => {
       // fetchEntity returns null for unknown type, so it counts as failed
       expect(result.reindexed).toBe(0);
       expect(result.failed).toBe(1);
+    });
+
+    it('should handle missing tenant_id in fetch results gracefully', async () => {
+      const pendingRecord = {
+        id: 'status-1',
+        tenant_id: TENANT_ID,
+        entity_type: 'students',
+        entity_id: ENTITY_ID,
+        index_status: 'pending',
+      };
+      mockPrisma.searchIndexStatus.findMany.mockResolvedValue([pendingRecord]);
+      mockPrisma.student.findUnique.mockResolvedValue({
+        id: ENTITY_ID,
+        // tenant_id intentionally missing to test handling
+        first_name: 'John',
+        last_name: 'Doe',
+      });
+
+      // Should not throw - entity is found and indexed even without tenant_id
+      const result = await service.reconcile(TENANT_ID);
+
+      expect(result.reindexed).toBe(1); // Entity was indexed successfully
+      expect(result.failed).toBe(0);
+    });
+
+    it('should handle reconcile of applications entity type', async () => {
+      const pendingRecord = {
+        id: 'status-1',
+        tenant_id: TENANT_ID,
+        entity_type: 'applications',
+        entity_id: 'app-1',
+        index_status: 'pending',
+      };
+      mockPrisma.searchIndexStatus.findMany.mockResolvedValue([pendingRecord]);
+      mockPrisma.application.findUnique.mockResolvedValue({
+        id: 'app-1',
+        tenant_id: TENANT_ID,
+        student_first_name: 'Test',
+        student_last_name: 'Student',
+        application_number: 'APP-001',
+        status: 'pending',
+      });
+
+      const result = await service.reconcile(TENANT_ID);
+
+      expect(result.reindexed).toBe(1);
+      expect(result.failed).toBe(0);
+    });
+
+    it('should handle application without optional fields', async () => {
+      const pendingRecord = {
+        id: 'status-1',
+        tenant_id: TENANT_ID,
+        entity_type: 'applications',
+        entity_id: 'app-1',
+        index_status: 'pending',
+      };
+      mockPrisma.searchIndexStatus.findMany.mockResolvedValue([pendingRecord]);
+      mockPrisma.application.findUnique.mockResolvedValue({
+        id: 'app-1',
+        tenant_id: TENANT_ID,
+        // Missing optional fields
+      });
+
+      const result = await service.reconcile(TENANT_ID);
+
+      expect(result.reindexed).toBe(1);
+    });
+
+    it('should handle staff entity without user relation', async () => {
+      const pendingRecord = {
+        id: 'status-1',
+        tenant_id: TENANT_ID,
+        entity_type: 'staff',
+        entity_id: ENTITY_ID,
+        index_status: 'pending',
+      };
+      mockPrisma.searchIndexStatus.findMany.mockResolvedValue([pendingRecord]);
+      mockPrisma.staffProfile.findUnique.mockResolvedValue({
+        id: ENTITY_ID,
+        tenant_id: TENANT_ID,
+        // No user field
+        job_title: 'Teacher',
+        department: 'Math',
+        employment_status: 'active',
+      });
+
+      const result = await service.reconcile(TENANT_ID);
+
+      expect(result.reindexed).toBe(1);
+    });
+
+    it('should handle parent entity with missing optional fields', async () => {
+      const entity = {
+        id: ENTITY_ID,
+        tenant_id: TENANT_ID,
+        first_name: 'Jane',
+        last_name: 'Smith',
+        // email, phone intentionally missing
+        status: 'active',
+      };
+
+      await service.indexEntity('parents', entity);
+
+      expect(mockMeilisearch.addDocuments).toHaveBeenCalledWith('parents', [
+        {
+          id: ENTITY_ID,
+          tenant_id: TENANT_ID,
+          first_name: 'Jane',
+          last_name: 'Smith',
+          email: undefined,
+          phone: undefined,
+          status: 'active',
+        },
+      ]);
+    });
+
+    it('should handle student entity with missing optional fields', async () => {
+      const entity = {
+        id: ENTITY_ID,
+        tenant_id: TENANT_ID,
+        first_name: 'John',
+        last_name: 'Doe',
+        // full_name, student_number intentionally missing
+        status: 'active',
+      };
+
+      await service.indexEntity('students', entity);
+
+      expect(mockMeilisearch.addDocuments).toHaveBeenCalledWith('students', [
+        {
+          id: ENTITY_ID,
+          tenant_id: TENANT_ID,
+          first_name: 'John',
+          last_name: 'Doe',
+          full_name: undefined,
+          student_number: undefined,
+          status: 'active',
+        },
+      ]);
+    });
+
+    it('should handle unknown entity type gracefully in indexEntity', async () => {
+      const entity = {
+        id: ENTITY_ID,
+        tenant_id: TENANT_ID,
+        custom_field: 'value',
+      };
+
+      await service.indexEntity('unknown_type', entity);
+
+      // Should still index with base fields
+      expect(mockMeilisearch.addDocuments).toHaveBeenCalledWith('unknown_type', [
+        {
+          id: ENTITY_ID,
+          tenant_id: TENANT_ID,
+        },
+      ]);
+    });
+
+    it('should handle reconcile with multiple entity types', async () => {
+      const pendingRecords = [
+        {
+          id: 'status-1',
+          tenant_id: TENANT_ID,
+          entity_type: 'students',
+          entity_id: 'stu-1',
+          index_status: 'pending',
+        },
+        {
+          id: 'status-2',
+          tenant_id: TENANT_ID,
+          entity_type: 'parents',
+          entity_id: 'p-1',
+          index_status: 'search_failed',
+        },
+      ];
+      mockPrisma.searchIndexStatus.findMany.mockResolvedValue(pendingRecords);
+      mockPrisma.student.findUnique.mockResolvedValue({
+        id: 'stu-1',
+        tenant_id: TENANT_ID,
+        first_name: 'John',
+        last_name: 'Doe',
+      });
+      mockPrisma.parent.findUnique.mockResolvedValue({
+        id: 'p-1',
+        tenant_id: TENANT_ID,
+        first_name: 'Jane',
+        last_name: 'Smith',
+        email: 'jane@example.com',
+      });
+
+      const result = await service.reconcile(TENANT_ID);
+
+      expect(result.reindexed).toBe(2);
+      expect(result.failed).toBe(0);
+    });
+
+    it('should handle staff with user object in formatDocument', async () => {
+      const entity = {
+        id: ENTITY_ID,
+        tenant_id: TENANT_ID,
+        user: { first_name: 'Alice', last_name: 'Johnson' },
+        job_title: 'Teacher',
+        department: 'Science',
+        employment_status: 'active',
+      };
+
+      await service.indexEntity('staff', entity);
+
+      expect(mockMeilisearch.addDocuments).toHaveBeenCalledWith('staff', [
+        {
+          id: ENTITY_ID,
+          tenant_id: TENANT_ID,
+          first_name: 'Alice',
+          last_name: 'Johnson',
+          job_title: 'Teacher',
+          department: 'Science',
+          employment_status: 'active',
+        },
+      ]);
+    });
+
+    it('should handle household without optional status field', async () => {
+      const entity = {
+        id: ENTITY_ID,
+        tenant_id: TENANT_ID,
+        household_name: 'Smith Family',
+        // status missing
+      };
+
+      await service.indexEntity('households', entity);
+
+      expect(mockMeilisearch.addDocuments).toHaveBeenCalledWith('households', [
+        {
+          id: ENTITY_ID,
+          tenant_id: TENANT_ID,
+          household_name: 'Smith Family',
+          status: undefined,
+        },
+      ]);
     });
   });
 });

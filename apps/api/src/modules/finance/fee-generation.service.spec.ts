@@ -253,5 +253,194 @@ describe('FeeGenerationService', () => {
         }),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('should throw BadRequestException when tenant not found', async () => {
+      mockPrisma.householdFeeAssignment.findMany.mockResolvedValue([makeAssignment()]);
+      mockPrisma.invoiceLine.findMany.mockResolvedValue([]);
+      mockPrisma.tenant.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.confirm(TENANT_ID, USER_ID, {
+          fee_structure_ids: [FS_ID],
+          year_group_ids: [YG_ID],
+          billing_period_start: '2026-03-01',
+          billing_period_end: '2026-03-31',
+          due_date: '2026-04-01',
+          excluded_household_ids: [],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('preview edge cases', () => {
+    it('should filter by year group on fee structure', async () => {
+      const assignment = makeAssignment({
+        fee_structure: {
+          id: FS_ID,
+          name: 'Tuition',
+          amount: '1000.00',
+          year_group_id: YG_ID,
+        },
+        student: { year_group_id: 'different-yg' },
+      });
+      mockPrisma.householdFeeAssignment.findMany.mockResolvedValue([assignment]);
+      mockPrisma.invoiceLine.findMany.mockResolvedValue([]);
+
+      const result = await service.preview(TENANT_ID, {
+        fee_structure_ids: [FS_ID],
+        year_group_ids: [YG_ID],
+        billing_period_start: '2026-03-01',
+        billing_period_end: '2026-03-31',
+        due_date: '2026-04-15',
+      });
+
+      expect(result.preview_lines).toHaveLength(1);
+    });
+
+    it('should filter by year group on student when fee structure has no year group', async () => {
+      const assignment = makeAssignment({
+        fee_structure: {
+          id: FS_ID,
+          name: 'Tuition',
+          amount: '1000.00',
+          year_group_id: null,
+        },
+        student: {
+          id: 'student-1',
+          first_name: 'John',
+          last_name: 'Doe',
+          year_group_id: YG_ID,
+        },
+      });
+      mockPrisma.householdFeeAssignment.findMany.mockResolvedValue([assignment]);
+      mockPrisma.invoiceLine.findMany.mockResolvedValue([]);
+
+      const result = await service.preview(TENANT_ID, {
+        fee_structure_ids: [FS_ID],
+        year_group_ids: [YG_ID],
+        billing_period_start: '2026-03-01',
+        billing_period_end: '2026-03-31',
+        due_date: '2026-04-15',
+      });
+
+      expect(result.preview_lines).toHaveLength(1);
+    });
+
+    it('should include household-level assignment without year group', async () => {
+      const assignment = makeAssignment({
+        fee_structure: {
+          id: FS_ID,
+          name: 'Tuition',
+          amount: '1000.00',
+          year_group_id: null,
+        },
+        student: null,
+      });
+      mockPrisma.householdFeeAssignment.findMany.mockResolvedValue([assignment]);
+      mockPrisma.invoiceLine.findMany.mockResolvedValue([]);
+
+      const result = await service.preview(TENANT_ID, {
+        fee_structure_ids: [FS_ID],
+        year_group_ids: [YG_ID],
+        billing_period_start: '2026-03-01',
+        billing_period_end: '2026-03-31',
+        due_date: '2026-04-15',
+      });
+
+      expect(result.preview_lines).toHaveLength(1);
+    });
+
+    it('should generate invoice number with default prefix', async () => {
+      mockPrisma.householdFeeAssignment.findMany.mockResolvedValue([makeAssignment()]);
+      mockPrisma.invoiceLine.findMany.mockResolvedValue([]);
+      mockPrisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, currency_code: 'EUR' });
+      mockPrisma.tenantBranding.findUnique.mockResolvedValue(null);
+      mockPrisma.invoice.create.mockResolvedValue({
+        id: 'inv-uuid',
+        invoice_number: 'INV-202603-000001',
+      });
+
+      await service.confirm(TENANT_ID, USER_ID, {
+        fee_structure_ids: [FS_ID],
+        year_group_ids: [YG_ID],
+        billing_period_start: '2026-03-01',
+        billing_period_end: '2026-03-31',
+        due_date: '2026-04-01',
+        excluded_household_ids: [],
+      });
+
+      expect(mockSequenceService.nextNumber).toHaveBeenCalledWith(
+        TENANT_ID,
+        'invoice',
+        expect.anything(),
+        'INV',
+      );
+    });
+
+    it('should handle discount exceeding base amount', async () => {
+      mockPrisma.householdFeeAssignment.findMany.mockResolvedValue([
+        makeAssignment({
+          discount: { name: 'Over Discount', discount_type: 'fixed', value: '1500.00' },
+        }),
+      ]);
+      mockPrisma.invoiceLine.findMany.mockResolvedValue([]);
+
+      const result = await service.preview(TENANT_ID, {
+        fee_structure_ids: [FS_ID],
+        year_group_ids: [YG_ID],
+        billing_period_start: '2026-03-01',
+        billing_period_end: '2026-03-31',
+        due_date: '2026-04-15',
+      });
+
+      // Discount capped at base amount
+      expect(result.preview_lines[0]?.discount_amount).toBe(1000);
+      expect(result.preview_lines[0]?.line_total).toBe(0);
+    });
+
+    it('should handle multiple households in same invoice', async () => {
+      const assignment1 = makeAssignment({
+        household_id: 'hh-1',
+        household: { id: 'hh-1', household_name: 'Family 1', primary_billing_parent_id: 'p1' },
+      });
+      const assignment2 = makeAssignment({
+        household_id: 'hh-2',
+        household: { id: 'hh-2', household_name: 'Family 2', primary_billing_parent_id: 'p2' },
+      });
+      mockPrisma.householdFeeAssignment.findMany.mockResolvedValue([assignment1, assignment2]);
+      mockPrisma.invoiceLine.findMany.mockResolvedValue([]);
+      mockPrisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, currency_code: 'EUR' });
+      mockPrisma.tenantBranding.findUnique.mockResolvedValue({ invoice_prefix: 'INV' });
+      let invoiceCount = 0;
+      mockPrisma.invoice.create.mockImplementation(() => {
+        invoiceCount++;
+        return Promise.resolve({
+          id: `inv-${invoiceCount}`,
+          invoice_number: `INV-000${invoiceCount}`,
+        });
+      });
+
+      const result = (await service.confirm(TENANT_ID, USER_ID, {
+        fee_structure_ids: [FS_ID],
+        year_group_ids: [YG_ID],
+        billing_period_start: '2026-03-01',
+        billing_period_end: '2026-03-31',
+        due_date: '2026-04-01',
+        excluded_household_ids: [],
+      })) as { invoices_created: number; total_amount: number };
+
+      expect(result.invoices_created).toBe(2);
+      expect(mockAuditLogService.write).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        'fee_generation',
+        null,
+        'fee_generation_confirm',
+        expect.objectContaining({
+          households_affected: 2,
+        }),
+        null,
+      );
+    });
   });
 });

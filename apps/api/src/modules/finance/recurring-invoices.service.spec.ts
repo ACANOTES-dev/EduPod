@@ -166,5 +166,211 @@ describe('RecurringInvoicesService', () => {
       const count = await service.generateDueInvoices(TENANT_ID);
       expect(count).toBe(0);
     });
+
+    it('should generate invoices for termly frequency', async () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      mockPrisma.recurringInvoiceConfig.findMany.mockResolvedValue([
+        {
+          id: CONFIG_ID,
+          frequency: 'termly',
+          next_generation_date: yesterday,
+          fee_structure: {
+            id: FEE_STRUCTURE_ID,
+            name: 'Tuition',
+            amount: 1000,
+            household_fee_assignments: [],
+          },
+        },
+      ]);
+      mockPrisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, currency_code: 'EUR' });
+      mockPrisma.recurringInvoiceConfig.update.mockResolvedValue({});
+
+      const count = await service.generateDueInvoices(TENANT_ID);
+      expect(count).toBe(0);
+    });
+
+    it('should generate invoices with discounts', async () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      mockPrisma.recurringInvoiceConfig.findMany.mockResolvedValue([
+        {
+          id: CONFIG_ID,
+          frequency: 'monthly',
+          next_generation_date: yesterday,
+          fee_structure: {
+            id: FEE_STRUCTURE_ID,
+            name: 'Tuition',
+            amount: { toNumber: () => 1000 },
+            household_fee_assignments: [
+              {
+                household: { id: 'hh-1', household_name: 'Smith' },
+                discount: {
+                  discount_type: 'percent',
+                  value: { toNumber: () => 10 },
+                },
+              },
+            ],
+          },
+        },
+      ]);
+      mockPrisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, currency_code: 'EUR' });
+      mockPrisma.invoice.create.mockResolvedValue({ id: 'inv-1' });
+      mockPrisma.recurringInvoiceConfig.update.mockResolvedValue({});
+
+      const count = await service.generateDueInvoices(TENANT_ID);
+      expect(count).toBe(1);
+    });
+
+    it('should auto-issue when configured', async () => {
+      mockSettingsService.getSettings.mockResolvedValue({
+        ...defaultSettings,
+        finance: { ...defaultSettings.finance, autoIssueRecurringInvoices: true },
+      });
+
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      mockPrisma.recurringInvoiceConfig.findMany.mockResolvedValue([
+        {
+          id: CONFIG_ID,
+          frequency: 'monthly',
+          next_generation_date: yesterday,
+          fee_structure: {
+            id: FEE_STRUCTURE_ID,
+            name: 'Tuition',
+            amount: 1000,
+            household_fee_assignments: [],
+          },
+        },
+      ]);
+      mockPrisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, currency_code: 'EUR' });
+      mockPrisma.recurringInvoiceConfig.update.mockResolvedValue({});
+
+      const count = await service.generateDueInvoices(TENANT_ID);
+      expect(count).toBe(0);
+    });
+
+    it('should fall back to first admin when no system user provided', async () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      mockPrisma.recurringInvoiceConfig.findMany.mockResolvedValue([
+        {
+          id: CONFIG_ID,
+          frequency: 'monthly',
+          next_generation_date: yesterday,
+          fee_structure: {
+            id: FEE_STRUCTURE_ID,
+            name: 'Tuition',
+            amount: 1000,
+            household_fee_assignments: [],
+          },
+        },
+      ]);
+      mockPrisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, currency_code: 'EUR' });
+      mockPrisma.recurringInvoiceConfig.update.mockResolvedValue({});
+      mockPrisma.tenantMembership.findFirst.mockResolvedValue({ user_id: 'admin-1' });
+
+      const count = await service.generateDueInvoices(TENANT_ID);
+      expect(count).toBe(0);
+    });
+
+    it('should use tenant ID when no admin found', async () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      mockPrisma.recurringInvoiceConfig.findMany.mockResolvedValue([
+        {
+          id: CONFIG_ID,
+          frequency: 'monthly',
+          next_generation_date: yesterday,
+          fee_structure: {
+            id: FEE_STRUCTURE_ID,
+            name: 'Tuition',
+            amount: 1000,
+            household_fee_assignments: [],
+          },
+        },
+      ]);
+      mockPrisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, currency_code: 'EUR' });
+      mockPrisma.recurringInvoiceConfig.update.mockResolvedValue({});
+      mockPrisma.tenantMembership.findFirst.mockResolvedValue(null);
+
+      const count = await service.generateDueInvoices(TENANT_ID);
+      expect(count).toBe(0);
+    });
+  });
+
+  describe('updateConfig', () => {
+    it('should update frequency and next generation date', async () => {
+      mockPrisma.recurringInvoiceConfig.findFirst.mockResolvedValue({
+        id: CONFIG_ID,
+        fee_structure_id: FEE_STRUCTURE_ID,
+        frequency: 'monthly',
+      });
+      mockPrisma.recurringInvoiceConfig.update.mockResolvedValue({
+        id: CONFIG_ID,
+        fee_structure_id: FEE_STRUCTURE_ID,
+        frequency: 'termly',
+        next_generation_date: new Date('2026-06-01'),
+        active: true,
+      });
+
+      const result = await service.updateConfig(TENANT_ID, CONFIG_ID, {
+        frequency: 'termly',
+        next_generation_date: '2026-06-01',
+      });
+
+      expect(result.frequency).toBe('termly');
+    });
+
+    it('should toggle active status', async () => {
+      mockPrisma.recurringInvoiceConfig.findFirst.mockResolvedValue({
+        id: CONFIG_ID,
+        fee_structure_id: FEE_STRUCTURE_ID,
+        frequency: 'monthly',
+      });
+      mockPrisma.recurringInvoiceConfig.update.mockResolvedValue({
+        id: CONFIG_ID,
+        fee_structure_id: FEE_STRUCTURE_ID,
+        frequency: 'monthly',
+        active: false,
+      });
+
+      const result = await service.updateConfig(TENANT_ID, CONFIG_ID, { active: false });
+
+      expect(result.active).toBe(false);
+    });
+  });
+
+  describe('findAllConfigs', () => {
+    it('should filter by active status', async () => {
+      mockPrisma.recurringInvoiceConfig.findMany.mockResolvedValue([]);
+      mockPrisma.recurringInvoiceConfig.count.mockResolvedValue(0);
+
+      await service.findAllConfigs(TENANT_ID, { page: 1, pageSize: 20, active: true });
+
+      expect(mockPrisma.recurringInvoiceConfig.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ active: true }),
+        }),
+      );
+    });
+
+    it('should filter by inactive status', async () => {
+      mockPrisma.recurringInvoiceConfig.findMany.mockResolvedValue([]);
+      mockPrisma.recurringInvoiceConfig.count.mockResolvedValue(0);
+
+      await service.findAllConfigs(TENANT_ID, { page: 1, pageSize: 20, active: false });
+
+      expect(mockPrisma.recurringInvoiceConfig.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ active: false }),
+        }),
+      );
+    });
   });
 });

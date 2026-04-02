@@ -274,7 +274,6 @@ describe('StripeService', () => {
   describe('handleWebhook', () => {
     it('should throw BadRequestException when webhook secret missing', async () => {
       mockConfigService.get.mockReturnValue(undefined);
-      // Wipe env fallback as well
       const originalEnv = process.env.STRIPE_WEBHOOK_SECRET;
       delete process.env.STRIPE_WEBHOOK_SECRET;
       mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue(null);
@@ -284,6 +283,150 @@ describe('StripeService', () => {
       );
 
       process.env.STRIPE_WEBHOOK_SECRET = originalEnv;
+    });
+
+    it('should use per-tenant webhook secret when available', async () => {
+      mockConfigService.get.mockReturnValue(undefined);
+      mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue({
+        stripe_webhook_secret_encrypted: 'enc-webhook-secret',
+        encryption_key_ref: 'ref',
+      });
+      mockEncryptionService.decrypt.mockReturnValue('whsec_test_secret');
+      mockStripeWebhooksConstructEvent.mockReturnValue({
+        type: 'checkout.session.completed',
+        data: { object: { id: 'cs_test', amount_total: 50000 } },
+      });
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result.received).toBe(true);
+    });
+
+    it('should handle signature verification failure', async () => {
+      mockConfigService.get.mockReturnValue('whsec_test');
+      mockStripeWebhooksConstructEvent.mockImplementation(() => {
+        throw new Error('Invalid signature');
+      });
+
+      await expect(
+        service.handleWebhook(TENANT_ID, Buffer.from('body'), 'bad-sig'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should handle payment_intent.payment_failed event', async () => {
+      mockConfigService.get.mockReturnValue('whsec_test');
+      mockStripeWebhooksConstructEvent.mockReturnValue({
+        type: 'payment_intent.payment_failed',
+        id: 'evt_test',
+      });
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result.received).toBe(true);
+    });
+
+    it('should handle unhandled event types gracefully', async () => {
+      mockConfigService.get.mockReturnValue('whsec_test');
+      mockStripeWebhooksConstructEvent.mockReturnValue({
+        type: 'invoice.created',
+        id: 'evt_test',
+      });
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result.received).toBe(true);
+    });
+
+    it('should handle decryption error for per-tenant secret', async () => {
+      mockConfigService.get.mockReturnValue(undefined);
+      mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue({
+        stripe_webhook_secret_encrypted: 'enc',
+        encryption_key_ref: 'ref',
+      });
+      mockEncryptionService.decrypt.mockImplementation(() => {
+        throw new Error('Decryption failed');
+      });
+
+      await expect(service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('createCheckoutSession with household info', () => {
+    it('should include household name in product data', async () => {
+      mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue({
+        stripe_secret_key_encrypted: 'enc',
+        encryption_key_ref: 'ref',
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        status: 'issued',
+        balance_amount: '500.00',
+        currency_code: 'EUR',
+        household_id: HOUSEHOLD_ID,
+        invoice_number: 'INV-001',
+        lines: [],
+        household: { id: HOUSEHOLD_ID, household_name: 'Smith Family' },
+      });
+      mockStripeCheckoutCreate.mockResolvedValue({
+        id: 'cs_test_123',
+        url: 'https://checkout.stripe.com/session',
+      });
+
+      const result = await service.createCheckoutSession(TENANT_ID, INVOICE_ID, {
+        success_url: 'https://example.com/success',
+        cancel_url: 'https://example.com/cancel',
+      });
+
+      expect(result.checkout_url).toBe('https://checkout.stripe.com/session');
+    });
+  });
+
+  describe('processRefund edge cases', () => {
+    it('should handle refund with status other than succeeded', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: PAYMENT_ID,
+        payment_method: 'stripe',
+        external_event_id: 'pi_test_123',
+      });
+      mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue({
+        stripe_secret_key_encrypted: 'enc',
+        encryption_key_ref: 'ref',
+      });
+      mockStripeRefundsCreate.mockResolvedValue({
+        id: 're_test_123',
+        status: 'pending',
+      });
+
+      const result = await service.processRefund(TENANT_ID, PAYMENT_ID, 200);
+
+      expect(result.refund_id).toBe('re_test_123');
+      expect(result.status).toBe('pending');
+    });
+
+    it('should convert amount to cents correctly', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: PAYMENT_ID,
+        payment_method: 'stripe',
+        external_event_id: 'pi_test_123',
+      });
+      mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue({
+        stripe_secret_key_encrypted: 'enc',
+        encryption_key_ref: 'ref',
+      });
+      mockStripeRefundsCreate.mockResolvedValue({
+        id: 're_test_123',
+        status: 'succeeded',
+      });
+
+      await service.processRefund(TENANT_ID, PAYMENT_ID, 199.99);
+
+      expect(mockStripeRefundsCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 19999,
+        }),
+      );
     });
   });
 });

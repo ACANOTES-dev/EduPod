@@ -20,14 +20,16 @@ const mockTx = {
     update: jest.fn(),
   },
   examInvigilation: {
-    count: jest.fn().mockResolvedValue(0),
+    count: jest.fn(),
     create: jest.fn(),
   },
 };
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
@@ -95,10 +97,7 @@ describe('ExamSchedulingService', () => {
     });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ExamSchedulingService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ExamSchedulingService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ExamSchedulingService>(ExamSchedulingService);
@@ -198,9 +197,9 @@ describe('ExamSchedulingService', () => {
     it('should throw BadRequestException when session is published', async () => {
       mockPrisma.examSession.findFirst.mockResolvedValue(makePlanningSession('published'));
 
-      await expect(
-        service.deleteExamSession(TENANT_ID, SESSION_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.deleteExamSession(TENANT_ID, SESSION_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -277,25 +276,319 @@ describe('ExamSchedulingService', () => {
     it('should throw BadRequestException when session is already published', async () => {
       mockPrisma.examSession.findFirst.mockResolvedValue(makePlanningSession('published'));
 
-      await expect(
-        service.publishExamSchedule(TENANT_ID, SESSION_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.publishExamSchedule(TENANT_ID, SESSION_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException when session is completed', async () => {
       mockPrisma.examSession.findFirst.mockResolvedValue(makePlanningSession('completed'));
 
-      await expect(
-        service.publishExamSchedule(TENANT_ID, SESSION_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.publishExamSchedule(TENANT_ID, SESSION_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw NotFoundException when session does not exist', async () => {
       mockPrisma.examSession.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.publishExamSchedule(TENANT_ID, 'nonexistent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.publishExamSchedule(TENANT_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ─── getExamSession ─────────────────────────────────────────────────────────
+
+  describe('getExamSession', () => {
+    it('should return formatted exam session with slots', async () => {
+      mockPrisma.examSession.findFirst.mockResolvedValue({
+        id: SESSION_ID,
+        name: 'Summer Exams',
+        start_date: new Date('2026-06-01'),
+        end_date: new Date('2026-06-10'),
+        status: 'planning',
+        academic_period_id: PERIOD_ID,
+        created_at: new Date('2026-03-01'),
+        updated_at: new Date('2026-03-01'),
+        exam_slots: [
+          {
+            id: 'slot-1',
+            subject: { name: 'Mathematics' },
+            year_group: { name: 'Year 10' },
+            date: new Date('2026-06-05'),
+            start_time: new Date('1970-01-01T09:00:00Z'),
+            end_time: new Date('1970-01-01T11:00:00Z'),
+            room: { name: 'Hall A' },
+            duration_minutes: 120,
+            student_count: 150,
+            invigilations: [
+              {
+                id: 'inv-1',
+                role: 'lead',
+                staff_profile: { user: { first_name: 'John', last_name: 'Doe' } },
+              },
+            ],
+          },
+        ],
+      });
+
+      const result = await service.getExamSession(TENANT_ID, SESSION_ID);
+
+      expect(result.id).toBe(SESSION_ID);
+      expect(result.exam_slots).toHaveLength(1);
+      expect(result.exam_slots[0]!.subject_name).toBe('Mathematics');
+      expect(result.exam_slots[0]!.invigilators).toHaveLength(1);
+    });
+
+    it('should throw NotFoundException when session does not exist', async () => {
+      mockPrisma.examSession.findFirst.mockResolvedValue(null);
+
+      await expect(service.getExamSession(TENANT_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should handle slots without optional relations', async () => {
+      mockPrisma.examSession.findFirst.mockResolvedValue({
+        id: SESSION_ID,
+        name: 'Summer Exams',
+        start_date: new Date('2026-06-01'),
+        end_date: new Date('2026-06-10'),
+        status: 'planning',
+        academic_period_id: PERIOD_ID,
+        created_at: new Date('2026-03-01'),
+        updated_at: new Date('2026-03-01'),
+        exam_slots: [
+          {
+            id: 'slot-1',
+            subject: null,
+            year_group: null,
+            date: new Date('2026-06-05'),
+            start_time: new Date('1970-01-01T09:00:00Z'),
+            end_time: new Date('1970-01-01T11:00:00Z'),
+            room: null,
+            duration_minutes: 120,
+            student_count: 150,
+            invigilations: [],
+          },
+        ],
+      });
+
+      const result = await service.getExamSession(TENANT_ID, SESSION_ID);
+
+      expect(result.exam_slots[0]!.subject_name).toBeNull();
+      expect(result.exam_slots[0]!.room_name).toBeNull();
+      expect(result.exam_slots[0]!.invigilators).toHaveLength(0);
+    });
+  });
+
+  // ─── listExamSessions ───────────────────────────────────────────────────────
+
+  describe('listExamSessions', () => {
+    it('should return paginated exam sessions', async () => {
+      mockPrisma.examSession.findMany.mockResolvedValue([
+        {
+          id: SESSION_ID,
+          name: 'Summer Exams',
+          start_date: new Date('2026-06-01'),
+          end_date: new Date('2026-06-10'),
+          status: 'planning',
+          academic_period_id: PERIOD_ID,
+          _count: { exam_slots: 5 },
+          created_at: new Date('2026-03-01'),
+        },
+      ]);
+      mockPrisma.examSession.count.mockResolvedValue(1);
+
+      const result = await service.listExamSessions(TENANT_ID, { page: 1, pageSize: 20 });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]!.slot_count).toBe(5);
+      expect(result.meta.total).toBe(1);
+    });
+
+    it('should filter by academic_period_id', async () => {
+      mockPrisma.examSession.findMany.mockResolvedValue([]);
+      mockPrisma.examSession.count.mockResolvedValue(0);
+
+      await service.listExamSessions(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        academic_period_id: PERIOD_ID,
+      });
+
+      expect(mockPrisma.examSession.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ academic_period_id: PERIOD_ID }),
+        }),
+      );
+    });
+
+    it('should format dates as YYYY-MM-DD strings', async () => {
+      mockPrisma.examSession.findMany.mockResolvedValue([
+        {
+          id: SESSION_ID,
+          name: 'Summer Exams',
+          start_date: new Date('2026-06-01'),
+          end_date: new Date('2026-06-10'),
+          status: 'planning',
+          academic_period_id: PERIOD_ID,
+          _count: { exam_slots: 0 },
+          created_at: new Date('2026-03-01'),
+        },
+      ]);
+      mockPrisma.examSession.count.mockResolvedValue(1);
+
+      const result = await service.listExamSessions(TENANT_ID, { page: 1, pageSize: 20 });
+
+      expect(result.data[0]!.start_date).toBe('2026-06-01');
+      expect(result.data[0]!.end_date).toBe('2026-06-10');
+    });
+  });
+
+  // ─── generateExamSchedule ───────────────────────────────────────────────────
+
+  describe('generateExamSchedule', () => {
+    it('should assign rooms to unassigned slots', async () => {
+      mockPrisma.examSession.findFirst.mockResolvedValue({
+        id: SESSION_ID,
+        exam_slots: [
+          { id: 'slot-1', room_id: null, student_count: 25 },
+          { id: 'slot-2', room_id: null, student_count: 30 },
+        ],
+      });
+      mockPrisma.room.findMany.mockResolvedValue([
+        { id: 'room-1', name: 'Room 101', capacity: 30 },
+        { id: 'room-2', name: 'Room 102', capacity: 35 },
+      ]);
+
+      const result = await service.generateExamSchedule(TENANT_ID, SESSION_ID);
+
+      expect(result.slots_assigned).toBe(2);
+      expect(mockTx.examSlot.update).toHaveBeenCalledTimes(2);
+    });
+
+    it('should skip slots with already assigned rooms', async () => {
+      mockPrisma.examSession.findFirst.mockResolvedValue({
+        id: SESSION_ID,
+        exam_slots: [
+          { id: 'slot-1', room_id: 'room-1', student_count: 25 },
+          { id: 'slot-2', room_id: null, student_count: 30 },
+        ],
+      });
+      mockPrisma.room.findMany.mockResolvedValue([
+        { id: 'room-1', name: 'Room 101', capacity: 30 },
+      ]);
+
+      const result = await service.generateExamSchedule(TENANT_ID, SESSION_ID);
+
+      expect(result.slots_assigned).toBe(1);
+    });
+
+    it('should skip slots when no suitable room exists', async () => {
+      mockPrisma.examSession.findFirst.mockResolvedValue({
+        id: SESSION_ID,
+        exam_slots: [{ id: 'slot-1', room_id: null, student_count: 50 }],
+      });
+      mockPrisma.room.findMany.mockResolvedValue([
+        { id: 'room-1', name: 'Small Room', capacity: 30 },
+      ]);
+
+      const result = await service.generateExamSchedule(TENANT_ID, SESSION_ID);
+
+      expect(result.slots_assigned).toBe(0);
+      expect(mockTx.examSlot.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when session does not exist', async () => {
+      mockPrisma.examSession.findFirst.mockResolvedValue(null);
+
+      await expect(service.generateExamSchedule(TENANT_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ─── assignInvigilators ─────────────────────────────────────────────────────
+
+  describe('assignInvigilators', () => {
+    beforeEach(() => {
+      mockTx.examInvigilation.count.mockReset();
+      mockTx.examInvigilation.create.mockReset();
+    });
+
+    it('should assign lead and assistant invigilators', async () => {
+      mockPrisma.examSession.findFirst.mockResolvedValue({
+        id: SESSION_ID,
+        exam_slots: [{ id: 'slot-1' }],
+      });
+      mockPrisma.staffProfile.findMany.mockResolvedValue([
+        { id: 'staff-1', user: { first_name: 'Alice', last_name: 'Smith' } },
+        { id: 'staff-2', user: { first_name: 'Bob', last_name: 'Jones' } },
+      ]);
+      mockTx.examInvigilation.count.mockResolvedValue(0);
+      mockTx.examInvigilation.create.mockResolvedValue({ id: 'inv-1' });
+
+      const result = await service.assignInvigilators(TENANT_ID, SESSION_ID);
+
+      expect(result.assignments_created).toBe(2);
+      expect(mockTx.examInvigilation.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('should skip slots with existing invigilations', async () => {
+      mockPrisma.examSession.findFirst.mockResolvedValue({
+        id: SESSION_ID,
+        exam_slots: [{ id: 'slot-1' }],
+      });
+      mockPrisma.staffProfile.findMany.mockResolvedValue([
+        { id: 'staff-1', user: { first_name: 'Alice', last_name: 'Smith' } },
+      ]);
+      // Already has 2 invigilators (lead + assistant)
+      mockTx.examInvigilation.count.mockResolvedValue(2);
+
+      const result = await service.assignInvigilators(TENANT_ID, SESSION_ID);
+
+      expect(result.assignments_created).toBe(0);
+      expect(mockTx.examInvigilation.create).not.toHaveBeenCalled();
+    });
+
+    it('should add only assistant when lead already exists', async () => {
+      mockPrisma.examSession.findFirst.mockResolvedValue({
+        id: SESSION_ID,
+        exam_slots: [{ id: 'slot-1' }],
+      });
+      mockPrisma.staffProfile.findMany.mockResolvedValue([
+        { id: 'staff-1', user: { first_name: 'Alice', last_name: 'Smith' } },
+        { id: 'staff-2', user: { first_name: 'Bob', last_name: 'Jones' } },
+      ]);
+      mockTx.examInvigilation.count.mockResolvedValue(1);
+      mockTx.examInvigilation.create.mockResolvedValue({ id: 'inv-2' });
+
+      const result = await service.assignInvigilators(TENANT_ID, SESSION_ID);
+
+      expect(result.assignments_created).toBe(1);
+      expect(mockTx.examInvigilation.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return zero assignments when no staff exist', async () => {
+      mockPrisma.examSession.findFirst.mockResolvedValue({
+        id: SESSION_ID,
+        exam_slots: [{ id: 'slot-1' }],
+      });
+      mockPrisma.staffProfile.findMany.mockResolvedValue([]);
+
+      const result = await service.assignInvigilators(TENANT_ID, SESSION_ID);
+
+      expect(result.assignments_created).toBe(0);
+    });
+
+    it('should throw NotFoundException when session does not exist', async () => {
+      mockPrisma.examSession.findFirst.mockResolvedValue(null);
+
+      await expect(service.assignInvigilators(TENANT_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

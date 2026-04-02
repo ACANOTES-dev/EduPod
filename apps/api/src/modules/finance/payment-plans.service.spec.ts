@@ -40,10 +40,7 @@ describe('PaymentPlansService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        PaymentPlansService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [PaymentPlansService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<PaymentPlansService>(PaymentPlansService);
@@ -73,7 +70,12 @@ describe('PaymentPlansService', () => {
     });
 
     it('should throw BadRequestException for invalid invoice status', async () => {
-      mockPrisma.invoice.findFirst.mockResolvedValue({ id: INVOICE_ID, status: 'draft', balance_amount: '1000.00', household_id: HOUSEHOLD_ID });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        status: 'draft',
+        balance_amount: '1000.00',
+        household_id: HOUSEHOLD_ID,
+      });
 
       await expect(
         service.requestPlan(TENANT_ID, PARENT_ID, INVOICE_ID, {
@@ -127,7 +129,9 @@ describe('PaymentPlansService', () => {
     it('should throw NotFoundException when request not found', async () => {
       mockPrisma.paymentPlanRequest.findFirst.mockResolvedValue(null);
 
-      await expect(service.approvePlan(TENANT_ID, USER_ID, REQUEST_ID, {})).rejects.toThrow(NotFoundException);
+      await expect(service.approvePlan(TENANT_ID, USER_ID, REQUEST_ID, {})).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException for non-pending request', async () => {
@@ -136,7 +140,9 @@ describe('PaymentPlansService', () => {
         status: 'approved',
       });
 
-      await expect(service.approvePlan(TENANT_ID, USER_ID, REQUEST_ID, {})).rejects.toThrow(BadRequestException);
+      await expect(service.approvePlan(TENANT_ID, USER_ID, REQUEST_ID, {})).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -170,9 +176,199 @@ describe('PaymentPlansService', () => {
         proposed_installments_json: proposedInstallments,
       });
 
+      await expect(service.acceptCounterOffer(TENANT_ID, PARENT_ID, REQUEST_ID)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should accept counter-offer successfully', async () => {
+      mockPrisma.paymentPlanRequest.findFirst.mockResolvedValue({
+        id: REQUEST_ID,
+        status: 'counter_offered',
+        requested_by_parent_id: PARENT_ID,
+        invoice_id: INVOICE_ID,
+        proposed_installments_json: proposedInstallments,
+        household_id: HOUSEHOLD_ID,
+        invoice: { total_amount: '1000.00' },
+        household: { id: HOUSEHOLD_ID, household_name: 'Smith' },
+      });
+      mockPrisma.paymentPlanRequest.update.mockResolvedValue({
+        id: REQUEST_ID,
+        status: 'approved',
+      });
+      mockPrisma.installment.deleteMany.mockResolvedValue({ count: 0 });
+      mockPrisma.installment.createMany.mockResolvedValue({ count: 3 });
+
+      const result = await service.acceptCounterOffer(TENANT_ID, PARENT_ID, REQUEST_ID);
+
+      expect(result.status).toBe('approved');
+    });
+
+    it('should throw NotFoundException when request not found', async () => {
+      mockPrisma.paymentPlanRequest.findFirst.mockResolvedValue(null);
+
+      await expect(service.acceptCounterOffer(TENANT_ID, PARENT_ID, REQUEST_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw BadRequestException when not in counter_offered status', async () => {
+      mockPrisma.paymentPlanRequest.findFirst.mockResolvedValue({
+        id: REQUEST_ID,
+        status: 'pending',
+        requested_by_parent_id: PARENT_ID,
+      });
+
+      await expect(service.acceptCounterOffer(TENANT_ID, PARENT_ID, REQUEST_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('findAll', () => {
+    it('should filter by status', async () => {
+      mockPrisma.paymentPlanRequest.findMany.mockResolvedValue([]);
+      mockPrisma.paymentPlanRequest.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, { page: 1, pageSize: 20, status: 'pending' });
+
+      expect(mockPrisma.paymentPlanRequest.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: 'pending' }),
+        }),
+      );
+    });
+  });
+
+  describe('findOne', () => {
+    it('should throw NotFoundException when request not found', async () => {
+      mockPrisma.paymentPlanRequest.findFirst.mockResolvedValue(null);
+
+      await expect(service.findOne(TENANT_ID, REQUEST_ID)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should return request with serialized amounts', async () => {
+      mockPrisma.paymentPlanRequest.findFirst.mockResolvedValue({
+        id: REQUEST_ID,
+        status: 'pending',
+        invoice_id: INVOICE_ID,
+        household_id: HOUSEHOLD_ID,
+        proposed_installments_json: proposedInstallments,
+        invoice: {
+          id: INVOICE_ID,
+          invoice_number: 'INV-001',
+          total_amount: '1000.00',
+          due_date: new Date(),
+        },
+        household: { id: HOUSEHOLD_ID, household_name: 'Smith' },
+      });
+
+      const result = await service.findOne(TENANT_ID, REQUEST_ID);
+
+      expect(result.status).toBe('pending');
+      expect(result.invoice?.total_amount).toBe(1000);
+    });
+  });
+
+  describe('rejectPlan', () => {
+    it('should reject a pending request', async () => {
+      mockPrisma.paymentPlanRequest.findFirst.mockResolvedValue({
+        id: REQUEST_ID,
+        status: 'pending',
+      });
+      mockPrisma.paymentPlanRequest.update.mockResolvedValue({
+        id: REQUEST_ID,
+        status: 'rejected',
+      });
+
+      const result = await service.rejectPlan(TENANT_ID, USER_ID, REQUEST_ID, {
+        admin_notes: 'Not approved',
+      });
+
+      expect(result.status).toBe('rejected');
+    });
+
+    it('should reject a counter_offered request', async () => {
+      mockPrisma.paymentPlanRequest.findFirst.mockResolvedValue({
+        id: REQUEST_ID,
+        status: 'counter_offered',
+      });
+      mockPrisma.paymentPlanRequest.update.mockResolvedValue({
+        id: REQUEST_ID,
+        status: 'rejected',
+      });
+
+      const result = await service.rejectPlan(TENANT_ID, USER_ID, REQUEST_ID, {
+        admin_notes: 'Rejected',
+      });
+
+      expect(result.status).toBe('rejected');
+    });
+
+    it('should throw NotFoundException when request not found', async () => {
+      mockPrisma.paymentPlanRequest.findFirst.mockResolvedValue(null);
+
       await expect(
-        service.acceptCounterOffer(TENANT_ID, PARENT_ID, REQUEST_ID),
-      ).rejects.toThrow(ForbiddenException);
+        service.rejectPlan(TENANT_ID, USER_ID, REQUEST_ID, { admin_notes: 'No' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException for already approved request', async () => {
+      mockPrisma.paymentPlanRequest.findFirst.mockResolvedValue({
+        id: REQUEST_ID,
+        status: 'approved',
+      });
+
+      await expect(
+        service.rejectPlan(TENANT_ID, USER_ID, REQUEST_ID, { admin_notes: 'No' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('approvePlan', () => {
+    it('should approve plan and create installments', async () => {
+      mockPrisma.paymentPlanRequest.findFirst.mockResolvedValue({
+        id: REQUEST_ID,
+        status: 'pending',
+        invoice_id: INVOICE_ID,
+        proposed_installments_json: proposedInstallments,
+        household_id: HOUSEHOLD_ID,
+      });
+      mockPrisma.paymentPlanRequest.update.mockResolvedValue({
+        id: REQUEST_ID,
+        status: 'approved',
+        invoice_id: INVOICE_ID,
+        household_id: HOUSEHOLD_ID,
+      });
+      mockPrisma.installment.deleteMany.mockResolvedValue({ count: 1 });
+      mockPrisma.installment.createMany.mockResolvedValue({ count: 3 });
+
+      const result = await service.approvePlan(TENANT_ID, USER_ID, REQUEST_ID, {
+        admin_notes: 'Approved',
+      });
+
+      expect(result.status).toBe('approved');
+      expect(mockPrisma.installment.deleteMany).toHaveBeenCalled();
+      expect(mockPrisma.installment.createMany).toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when request not found', async () => {
+      mockPrisma.paymentPlanRequest.findFirst.mockResolvedValue(null);
+
+      await expect(service.approvePlan(TENANT_ID, USER_ID, REQUEST_ID, {})).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw BadRequestException for non-pending request', async () => {
+      mockPrisma.paymentPlanRequest.findFirst.mockResolvedValue({
+        id: REQUEST_ID,
+        status: 'approved',
+      });
+
+      await expect(service.approvePlan(TENANT_ID, USER_ID, REQUEST_ID, {})).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

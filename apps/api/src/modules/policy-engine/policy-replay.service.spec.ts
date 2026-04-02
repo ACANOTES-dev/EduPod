@@ -476,4 +476,212 @@ describe('PolicyReplayService', () => {
       expect(result.data[2]!.rule_version?.stage).toBe('alerting');
     });
   });
+
+  describe('edge cases and error handling', () => {
+    it('should throw NotFoundException when rule not found in replayRule', async () => {
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(null);
+
+      await expect(
+        service.replayRule(TENANT_ID, {
+          rule_id: 'non-existent-rule',
+          replay_period: { from: '2026-01-01', to: '2026-01-31' },
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should handle replay with no matching incidents', async () => {
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(MOCK_RULE);
+      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue([]);
+
+      const result = await service.replayRule(TENANT_ID, {
+        rule_id: 'rule-001',
+        replay_period: { from: '2026-01-01', to: '2026-01-31' },
+      });
+
+      expect(result.incidents_evaluated).toBe(0);
+      expect(result.incidents_matched).toBe(0);
+      expect(result.students_affected).toBe(0);
+    });
+
+    it('should handle replay with incidents having no participants', async () => {
+      const incidentWithNoParticipants = {
+        ...MOCK_INCIDENT,
+        id: 'inc-no-participants',
+        participants: [],
+      };
+
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(MOCK_RULE);
+      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue([incidentWithNoParticipants]);
+
+      const result = await service.replayRule(TENANT_ID, {
+        rule_id: 'rule-001',
+        replay_period: { from: '2026-01-01', to: '2026-01-31' },
+      });
+
+      expect(result.incidents_evaluated).toBe(1);
+      expect(result.incidents_matched).toBe(0);
+      expect(result.students_affected).toBe(0);
+    });
+
+    it('should handle dryRun with first_match strategy', async () => {
+      const matchingRule = {
+        id: 'rule-match',
+        name: 'Matching Rule',
+        conditions: { polarity: 'negative', severity_min: 3 },
+        stop_processing_stage: true,
+        match_strategy: 'first_match',
+        actions: [
+          {
+            action_type: 'flag_for_review',
+            action_config: { reason: 'test' },
+          },
+        ],
+      };
+
+      mockPrisma.behaviourCategory!.findFirst!.mockResolvedValue({
+        name: 'Verbal Warning',
+      });
+
+      mockPrisma
+        .behaviourPolicyRule!.findMany!.mockResolvedValueOnce([matchingRule])
+        .mockResolvedValue([]);
+
+      mockEvaluationEngine.evaluateConditions.mockReturnValue(true);
+
+      const result = await service.dryRun(TENANT_ID, {
+        category_id: 'cat-001',
+        polarity: 'negative',
+        severity: 5,
+        context_type: 'class',
+        student_has_send: false,
+        student_has_active_intervention: false,
+        participant_role: 'subject',
+        repeat_count: 0,
+      });
+
+      const consequenceStage = result.stage_results[0]!;
+      expect(consequenceStage.matched_rules).toHaveLength(1);
+      expect(consequenceStage.matched_rules[0]!.rule_id).toBe('rule-match');
+    });
+
+    it('should handle invalid conditions in dryRun', async () => {
+      const invalidRule = {
+        id: 'rule-invalid',
+        name: 'Invalid Rule',
+        conditions: { invalid_field: 'value' },
+        stop_processing_stage: false,
+        match_strategy: 'all_matching',
+        actions: [],
+      };
+
+      mockPrisma.behaviourCategory!.findFirst!.mockResolvedValue({
+        name: 'Verbal Warning',
+      });
+
+      mockPrisma
+        .behaviourPolicyRule!.findMany!.mockResolvedValueOnce([invalidRule])
+        .mockResolvedValue([]);
+
+      mockEvaluationEngine.evaluateConditions.mockReturnValue(false);
+
+      const result = await service.dryRun(TENANT_ID, {
+        category_id: 'cat-001',
+        polarity: 'negative',
+        severity: 5,
+        context_type: 'class',
+        student_has_send: false,
+        student_has_active_intervention: false,
+        participant_role: 'subject',
+        repeat_count: 0,
+      });
+
+      const consequenceStage = result.stage_results[0]!;
+      expect(consequenceStage.rules_evaluated).toBe(1);
+      expect(consequenceStage.matched_rules).toHaveLength(0);
+    });
+
+    it('should handle empty action counts in replay results', async () => {
+      const ruleWithNoActions = {
+        ...MOCK_RULE,
+        actions: [],
+      };
+
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(ruleWithNoActions);
+      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue([MOCK_INCIDENT]);
+
+      const result = await service.replayRule(TENANT_ID, {
+        rule_id: 'rule-001',
+        replay_period: { from: '2026-01-01', to: '2026-01-31' },
+      });
+
+      expect(result.actions_that_would_fire).toEqual({});
+      expect(result.estimated_sanctions_created).toEqual({});
+      expect(result.estimated_approvals_created).toBe(0);
+    });
+
+    it('should limit sample matches to 10 in replay', async () => {
+      const manyIncidents = Array.from({ length: 20 }, (_, i) => ({
+        ...MOCK_INCIDENT,
+        id: `inc-${i}`,
+        incident_number: `BH-${String(i).padStart(5, '0')}`,
+      }));
+
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(MOCK_RULE);
+      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue(manyIncidents);
+
+      const result = await service.replayRule(TENANT_ID, {
+        rule_id: 'rule-001',
+        replay_period: { from: '2026-01-01', to: '2026-01-31' },
+      });
+
+      expect(result.sample_matches.length).toBeLessThanOrEqual(10);
+    });
+
+    it('should handle dryRun with no year group ID provided', async () => {
+      mockPrisma.behaviourCategory!.findFirst!.mockResolvedValue({
+        name: 'Verbal Warning',
+      });
+      mockPrisma.behaviourPolicyRule!.findMany!.mockResolvedValue([]);
+
+      const result = await service.dryRun(TENANT_ID, {
+        category_id: 'cat-001',
+        polarity: 'negative',
+        severity: 5,
+        context_type: 'class',
+        student_has_send: false,
+        student_has_active_intervention: false,
+        participant_role: 'subject',
+        repeat_count: 0,
+      });
+
+      expect(result.hypothetical_input).toBeDefined();
+      expect(result.stage_results).toHaveLength(5);
+    });
+
+    it('should calculate action counts correctly for create_sanction', async () => {
+      const ruleWithSanction = {
+        ...MOCK_RULE,
+        actions: [
+          {
+            action_type: 'create_sanction',
+            action_config: { sanction_type: 'detention' },
+            execution_order: 0,
+          },
+        ],
+      };
+
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(ruleWithSanction);
+      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue([MOCK_INCIDENT]);
+      mockEvaluationEngine.evaluateConditions.mockReturnValue(true);
+
+      const result = await service.replayRule(TENANT_ID, {
+        rule_id: 'rule-001',
+        replay_period: { from: '2026-01-01', to: '2026-01-31' },
+      });
+
+      expect(result.estimated_sanctions_created).toEqual({
+        detention: 1,
+      });
+    });
+  });
 });

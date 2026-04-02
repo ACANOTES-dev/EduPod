@@ -1,9 +1,5 @@
 import { getQueueToken } from '@nestjs/bullmq';
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -31,7 +27,9 @@ const mockTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
@@ -128,13 +126,9 @@ describe('SchedulerOrchestrationService', () => {
 
     it('should return ready=true when all prerequisites are met', async () => {
       // Year groups with classes
-      mockPrisma.yearGroup.findMany.mockResolvedValue([
-        { id: 'yg-1', name: 'Year 1' },
-      ]);
+      mockPrisma.yearGroup.findMany.mockResolvedValue([{ id: 'yg-1', name: 'Year 1' }]);
       // Period grid exists (shared)
-      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([
-        { year_group_id: null },
-      ]);
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: null }]);
       // Curriculum requirements exist for yg-1
       mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
         {
@@ -158,13 +152,16 @@ describe('SchedulerOrchestrationService', () => {
     });
 
     it('should report missing period grid for a year group', async () => {
-      mockPrisma.yearGroup.findMany.mockResolvedValue([
-        { id: 'yg-1', name: 'Year 1' },
-      ]);
+      mockPrisma.yearGroup.findMany.mockResolvedValue([{ id: 'yg-1', name: 'Year 1' }]);
       // No period templates at all
       mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([]);
       mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
-        { year_group_id: 'yg-1', subject_id: 'sub-1', subject: { name: 'Math' }, year_group: { name: 'Year 1' } },
+        {
+          year_group_id: 'yg-1',
+          subject_id: 'sub-1',
+          subject: { name: 'Math' },
+          year_group: { name: 'Year 1' },
+        },
       ]);
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([
         { subject_id: 'sub-1', year_group_id: 'yg-1' },
@@ -175,19 +172,13 @@ describe('SchedulerOrchestrationService', () => {
 
       expect(result.ready).toBe(false);
       expect(result.missing).toEqual(
-        expect.arrayContaining([
-          expect.stringContaining('No period grid configured'),
-        ]),
+        expect.arrayContaining([expect.stringContaining('No period grid configured')]),
       );
     });
 
     it('should report missing curriculum requirements', async () => {
-      mockPrisma.yearGroup.findMany.mockResolvedValue([
-        { id: 'yg-1', name: 'Year 1' },
-      ]);
-      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([
-        { year_group_id: null },
-      ]);
+      mockPrisma.yearGroup.findMany.mockResolvedValue([{ id: 'yg-1', name: 'Year 1' }]);
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: null }]);
       // No curriculum requirements
       mockPrisma.curriculumRequirement.findMany.mockResolvedValue([]);
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
@@ -197,9 +188,7 @@ describe('SchedulerOrchestrationService', () => {
 
       expect(result.ready).toBe(false);
       expect(result.missing).toEqual(
-        expect.arrayContaining([
-          expect.stringContaining('No curriculum requirements defined'),
-        ]),
+        expect.arrayContaining([expect.stringContaining('No curriculum requirements defined')]),
       );
     });
 
@@ -228,9 +217,7 @@ describe('SchedulerOrchestrationService', () => {
 
       expect(result.ready).toBe(false);
       expect(result.missing).toEqual(
-        expect.arrayContaining([
-          expect.stringContaining('teacher double-booking'),
-        ]),
+        expect.arrayContaining([expect.stringContaining('teacher double-booking')]),
       );
     });
   });
@@ -241,9 +228,9 @@ describe('SchedulerOrchestrationService', () => {
     it('should throw NotFoundException when academic year does not exist', async () => {
       mockPrisma.academicYear.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException when prerequisites are not met', async () => {
@@ -252,9 +239,9 @@ describe('SchedulerOrchestrationService', () => {
       mockPrisma.yearGroup.findMany.mockResolvedValue([]);
       mockPrisma.schedule.findMany.mockResolvedValue([]);
 
-      await expect(
-        service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw ConflictException when a run is already active', async () => {
@@ -263,18 +250,26 @@ describe('SchedulerOrchestrationService', () => {
       mockPrisma.yearGroup.findMany.mockResolvedValue([{ id: 'yg-1', name: 'Y1' }]);
       mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: null }]);
       mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
-        { year_group_id: 'yg-1', subject_id: 's1', subject: { name: 'M' }, year_group: { name: 'Y1' } },
+        {
+          year_group_id: 'yg-1',
+          subject_id: 's1',
+          subject: { name: 'M' },
+          year_group: { name: 'Y1' },
+        },
       ]);
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([
         { subject_id: 's1', year_group_id: 'yg-1' },
       ]);
       mockPrisma.schedule.findMany.mockResolvedValue([]);
       // Active run exists
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({ id: 'existing-run', status: 'running' });
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+        id: 'existing-run',
+        status: 'running',
+      });
 
-      await expect(
-        service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -294,17 +289,13 @@ describe('SchedulerOrchestrationService', () => {
     it('should throw NotFoundException when run does not exist', async () => {
       mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
 
-      await expect(service.discardRun(TENANT_ID, 'nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.discardRun(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException when run is not completed', async () => {
       mockPrisma.schedulingRun.findFirst.mockResolvedValue({ id: RUN_ID, status: 'running' });
 
-      await expect(service.discardRun(TENANT_ID, RUN_ID)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.discardRun(TENANT_ID, RUN_ID)).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -444,6 +435,438 @@ describe('SchedulerOrchestrationService', () => {
 
       await expect(service.applyRun(TENANT_ID, RUN_ID, USER_ID)).rejects.toThrow(
         BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException when tier-1 violations exist', async () => {
+      const { validateSchedule } = jest.requireMock('@school/shared');
+      validateSchedule.mockReturnValueOnce({
+        violations: [{ tier: 1, message: 'Hard constraint violation' }],
+        summary: { tier1: 1, tier2: 0, tier3: 0 },
+      });
+
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        result_json: { entries: [{ id: 'entry-1', is_supervision: false }] },
+        config_snapshot: { year_groups: [] },
+        academic_year_id: AY_ID,
+      });
+
+      await expect(service.applyRun(TENANT_ID, RUN_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should return tier-2 violations when they exist and no acknowledgement', async () => {
+      const { validateSchedule } = jest.requireMock('@school/shared');
+      validateSchedule.mockReturnValueOnce({
+        violations: [
+          { tier: 2, message: 'Soft preference violation 1' },
+          { tier: 2, message: 'Soft preference violation 2' },
+        ],
+        summary: { tier1: 0, tier2: 2, tier3: 0 },
+      });
+
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        result_json: { entries: [{ id: 'entry-1', is_supervision: false }] },
+        config_snapshot: { year_groups: [] },
+        academic_year_id: AY_ID,
+      });
+
+      const result = await service.applyRun(TENANT_ID, RUN_ID, USER_ID);
+
+      expect(result.requires_acknowledgement).toBe(true);
+      expect(result.tier2_count).toBe(2);
+    });
+
+    it('should apply run successfully with acknowledged violations', async () => {
+      const { validateSchedule } = jest.requireMock('@school/shared');
+      validateSchedule.mockReturnValueOnce({
+        violations: [{ tier: 2, message: 'Soft preference' }],
+        summary: { tier1: 0, tier2: 1, tier3: 0 },
+      });
+
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        result_json: {
+          entries: [
+            {
+              id: 'entry-1',
+              class_id: 'class-1',
+              weekday: 1,
+              period_order: 1,
+              year_group_id: 'yg-1',
+              is_supervision: false,
+            },
+          ],
+        },
+        config_snapshot: { year_groups: [{ year_group_id: 'yg-1' }] },
+        academic_year_id: AY_ID,
+      });
+
+      mockTx.schedulePeriodTemplate.findMany.mockResolvedValue([
+        {
+          weekday: 1,
+          period_order: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T10:00:00Z'),
+          year_group_id: 'yg-1',
+        },
+      ]);
+
+      mockTx.schedule.findMany.mockResolvedValue([]);
+      mockTx.schedule.create.mockResolvedValue({ id: 'new-schedule' });
+      mockTx.schedulingRun.update.mockResolvedValue({
+        id: RUN_ID,
+        status: 'applied',
+        applied_at: new Date(),
+      });
+
+      const result = await service.applyRun(TENANT_ID, RUN_ID, USER_ID, true);
+
+      expect(result.status).toBe('applied');
+      expect(result.entries_applied).toBe(1);
+    });
+  });
+
+  // ─── assembleSolverInput ─────────────────────────────────────────────────────
+
+  describe('assembleSolverInput', () => {
+    it('should assemble complete solver input with all data', async () => {
+      // Setup mocks for all parallel queries
+      mockPrisma.yearGroup.findMany.mockResolvedValue([
+        {
+          id: 'yg-1',
+          name: 'Year 1',
+          classes: [
+            { id: 'class-1', name: '1A', _count: { class_enrolments: 25 } },
+            { id: 'class-2', name: '1B', _count: { class_enrolments: 24 } },
+          ],
+        },
+      ]);
+
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([
+        {
+          weekday: 1,
+          period_order: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T10:00:00Z'),
+          schedule_period_type: 'teaching',
+          supervision_mode: 'teacher',
+          break_group_id: null,
+          year_group_id: 'yg-1',
+        },
+        {
+          weekday: 1,
+          period_order: 2,
+          start_time: new Date('1970-01-01T10:00:00Z'),
+          end_time: new Date('1970-01-01T11:00:00Z'),
+          schedule_period_type: 'teaching',
+          supervision_mode: 'teacher',
+          break_group_id: null,
+          year_group_id: null,
+        }, // shared
+      ]);
+
+      mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
+        {
+          id: 'cr-1',
+          year_group_id: 'yg-1',
+          subject_id: 'sub-1',
+          min_periods_per_week: 4,
+          max_periods_per_day: 2,
+          preferred_periods_per_week: 5,
+          requires_double_period: false,
+          double_period_count: 0,
+          subject: { name: 'Math' },
+        },
+      ]);
+
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
+        {
+          staff_profile_id: 'teacher-1',
+          subject_id: 'sub-1',
+          year_group_id: 'yg-1',
+          is_primary: true,
+        },
+      ]);
+
+      mockPrisma.staffAvailability.findMany.mockResolvedValue([
+        {
+          staff_profile_id: 'teacher-1',
+          weekday: 1,
+          available_from: new Date('1970-01-01T08:00:00Z'),
+          available_to: new Date('1970-01-01T16:00:00Z'),
+        },
+      ]);
+
+      mockPrisma.staffSchedulingPreference.findMany.mockResolvedValue([]);
+
+      mockPrisma.teacherSchedulingConfig.findMany.mockResolvedValue([
+        {
+          staff_profile_id: 'teacher-1',
+          max_periods_per_week: 20,
+          max_periods_per_day: 5,
+          max_supervision_duties_per_week: 3,
+        },
+      ]);
+
+      mockPrisma.room.findMany.mockResolvedValue([
+        { id: 'room-1', room_type: 'classroom', capacity: 30, is_exclusive: false },
+      ]);
+
+      mockPrisma.roomClosure.findMany.mockResolvedValue([
+        { room_id: 'room-1', date_from: new Date('2026-06-01'), date_to: new Date('2026-06-05') },
+      ]);
+
+      mockPrisma.breakGroup.findMany.mockResolvedValue([
+        {
+          id: 'bg-1',
+          name: 'Morning Break',
+          required_supervisor_count: 2,
+          year_groups: [{ year_group_id: 'yg-1' }],
+        },
+      ]);
+
+      mockPrisma.schedule.findMany.mockResolvedValue([
+        {
+          id: 'pinned-1',
+          class_id: 'class-1',
+          weekday: 1,
+          period_order: 1,
+          room_id: 'room-1',
+          teacher_staff_id: 'teacher-1',
+          class_entity: { year_group_id: 'yg-1', subject_id: 'sub-1' },
+        },
+      ]);
+
+      mockPrisma.classEnrolment.findMany.mockResolvedValue([
+        { class_id: 'class-1', student_id: 'student-1' },
+        { class_id: 'class-2', student_id: 'student-1' },
+        { class_id: 'class-1', student_id: 'student-2' },
+      ]);
+
+      mockPrisma.tenantSetting.findFirst.mockResolvedValue({
+        settings: {
+          scheduling: {
+            maxSolverDurationSeconds: 180,
+            preferenceWeights: { low: 1, medium: 2, high: 5 },
+            globalSoftWeights: {
+              evenSubjectSpread: 3,
+              minimiseTeacherGaps: 2,
+              roomConsistency: 1,
+              workloadBalance: 2,
+              breakDutyBalance: 1,
+            },
+          },
+        },
+      });
+
+      mockPrisma.staffProfile.findMany.mockResolvedValue([
+        { id: 'teacher-1', user: { first_name: 'John', last_name: 'Doe' } },
+      ]);
+
+      const result = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(result.year_groups).toHaveLength(1);
+      expect(result.year_groups[0]!.sections).toHaveLength(2);
+      expect(result.year_groups[0]!.period_grid).toHaveLength(2);
+      expect(result.curriculum).toHaveLength(1);
+      expect(result.teachers).toHaveLength(1);
+      expect(result.teachers[0]!.competencies).toHaveLength(1);
+      expect(result.rooms).toHaveLength(1);
+      expect(result.room_closures).toHaveLength(1);
+      expect(result.break_groups).toHaveLength(1);
+      expect(result.pinned_entries).toHaveLength(1);
+      expect(result.student_overlaps).toHaveLength(1);
+      expect(result.settings.max_solver_duration_seconds).toBe(180);
+      expect(result.settings.preference_weights.high).toBe(5);
+    });
+
+    it('should handle empty data gracefully', async () => {
+      mockPrisma.yearGroup.findMany.mockResolvedValue([]);
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([]);
+      mockPrisma.curriculumRequirement.findMany.mockResolvedValue([]);
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
+      mockPrisma.staffAvailability.findMany.mockResolvedValue([]);
+      mockPrisma.staffSchedulingPreference.findMany.mockResolvedValue([]);
+      mockPrisma.teacherSchedulingConfig.findMany.mockResolvedValue([]);
+      mockPrisma.room.findMany.mockResolvedValue([]);
+      mockPrisma.roomClosure.findMany.mockResolvedValue([]);
+      mockPrisma.breakGroup.findMany.mockResolvedValue([]);
+      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+      mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
+
+      const result = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(result.year_groups).toHaveLength(0);
+      expect(result.teachers).toHaveLength(0);
+      expect(result.student_overlaps).toHaveLength(0);
+      expect(result.settings.max_solver_duration_seconds).toBe(120); // default
+    });
+
+    it('should handle students in multiple classes', async () => {
+      mockPrisma.yearGroup.findMany.mockResolvedValue([
+        {
+          id: 'yg-1',
+          name: 'Year 1',
+          classes: [{ id: 'class-1', name: '1A', _count: { class_enrolments: 3 } }],
+        },
+      ]);
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([
+        {
+          weekday: 1,
+          period_order: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T10:00:00Z'),
+          schedule_period_type: 'teaching',
+          supervision_mode: 'teacher',
+          break_group_id: null,
+          year_group_id: 'yg-1',
+        },
+      ]);
+      mockPrisma.curriculumRequirement.findMany.mockResolvedValue([]);
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
+      mockPrisma.staffAvailability.findMany.mockResolvedValue([]);
+      mockPrisma.staffSchedulingPreference.findMany.mockResolvedValue([]);
+      mockPrisma.teacherSchedulingConfig.findMany.mockResolvedValue([]);
+      mockPrisma.room.findMany.mockResolvedValue([]);
+      mockPrisma.roomClosure.findMany.mockResolvedValue([]);
+      mockPrisma.breakGroup.findMany.mockResolvedValue([]);
+      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      // Student 1 in both class-1 and class-2
+      mockPrisma.classEnrolment.findMany.mockResolvedValue([
+        { class_id: 'class-1', student_id: 'student-1' },
+        { class_id: 'class-2', student_id: 'student-1' },
+        { class_id: 'class-1', student_id: 'student-2' },
+        { class_id: 'class-3', student_id: 'student-2' },
+      ]);
+      mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
+
+      const result = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(result.student_overlaps.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ─── triggerSolverRun with settings ──────────────────────────────────────────
+
+  describe('triggerSolverRun with settings', () => {
+    beforeEach(() => {
+      // Setup prerequisites
+      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: AY_ID });
+      mockPrisma.yearGroup.findMany.mockResolvedValue([
+        {
+          id: 'yg-1',
+          name: 'Year 1',
+          classes: [{ id: 'class-1', name: '1A', _count: { class_enrolments: 20 } }],
+        },
+      ]);
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([
+        {
+          weekday: 1,
+          period_order: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T10:00:00Z'),
+          schedule_period_type: 'teaching',
+          supervision_mode: 'teacher',
+          break_group_id: null,
+          year_group_id: null,
+        },
+      ]);
+      mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
+        {
+          year_group_id: 'yg-1',
+          subject_id: 's1',
+          min_periods_per_week: 4,
+          max_periods_per_day: 2,
+          preferred_periods_per_week: 5,
+          requires_double_period: false,
+          double_period_count: 0,
+          subject: { name: 'Math' },
+          year_group: { name: 'Year 1' },
+        },
+      ]);
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
+        { subject_id: 's1', year_group_id: 'yg-1' },
+      ]);
+      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
+
+      // Minimal solver input data
+      mockPrisma.staffProfile.findMany.mockResolvedValue([]);
+      mockPrisma.staffAvailability.findMany.mockResolvedValue([]);
+      mockPrisma.staffSchedulingPreference.findMany.mockResolvedValue([]);
+      mockPrisma.teacherSchedulingConfig.findMany.mockResolvedValue([]);
+      mockPrisma.room.findMany.mockResolvedValue([]);
+      mockPrisma.roomClosure.findMany.mockResolvedValue([]);
+      mockPrisma.breakGroup.findMany.mockResolvedValue([]);
+      mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+      mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
+
+      mockTx.schedulingRun.create.mockResolvedValue({
+        id: RUN_ID,
+        status: 'queued',
+        created_at: new Date(),
+      });
+    });
+
+    it('should apply solver_seed from settings', async () => {
+      await service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID, { solver_seed: 12345 });
+
+      expect(mockTx.schedulingRun.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            solver_seed: BigInt(12345),
+          }),
+        }),
+      );
+    });
+
+    it('should apply max_solver_duration_seconds from settings', async () => {
+      await service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID, {
+        max_solver_duration_seconds: 300,
+      });
+
+      const createCall = mockTx.schedulingRun.create.mock.calls[0][0];
+      const configSnapshot = createCall.data.config_snapshot as {
+        settings: { max_solver_duration_seconds: number };
+      };
+      expect(configSnapshot.settings.max_solver_duration_seconds).toBe(300);
+    });
+
+    it('should set mode to hybrid when pinned entries exist', async () => {
+      mockPrisma.schedule.findMany.mockResolvedValue([
+        { id: 'pinned-1', class_id: 'class-1', weekday: 1, period_order: 1, is_pinned: true },
+      ]);
+
+      await service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID);
+
+      expect(mockTx.schedulingRun.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            mode: 'hybrid',
+          }),
+        }),
+      );
+    });
+
+    it('should set mode to auto when no pinned entries exist', async () => {
+      mockPrisma.schedule.findMany.mockResolvedValue([]);
+
+      await service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID);
+
+      expect(mockTx.schedulingRun.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            mode: 'auto',
+          }),
+        }),
       );
     });
   });
