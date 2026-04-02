@@ -66,7 +66,12 @@ export default function ApprovalsPage() {
         page: String(page),
         pageSize: String(pageSize),
       });
-      if (statusFilter) params.set('status', statusFilter);
+      if (statusFilter === 'callback_failed') {
+        params.set('status', 'approved');
+        params.set('callback_status', 'failed');
+      } else if (statusFilter) {
+        params.set('status', statusFilter);
+      }
 
       const result = await apiClient<{
         data: ApprovalRequest[];
@@ -157,6 +162,7 @@ export default function ApprovalsPage() {
             <option value="rejected">Rejected</option>
             <option value="cancelled">Cancelled</option>
             <option value="">All</option>
+            <option value="callback_failed">Failed Callbacks</option>
           </select>
         }
       />

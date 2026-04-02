@@ -29,7 +29,7 @@ export interface ComputeStudentPayload extends TenantJobPayload {
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.EARLY_WARNING)
+@Processor(QUEUE_NAMES.EARLY_WARNING, { lockDuration: 300_000 })
 export class ComputeStudentProcessor extends WorkerHost {
   private readonly logger = new Logger(ComputeStudentProcessor.name);
 

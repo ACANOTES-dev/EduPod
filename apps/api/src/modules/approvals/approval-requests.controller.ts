@@ -48,6 +48,7 @@ export class ApprovalRequestsController {
       page: query.page,
       pageSize: query.pageSize,
       status: query.status,
+      callback_status: query.callback_status,
     });
   }
 
@@ -94,5 +95,16 @@ export class ApprovalRequestsController {
     dto: ApprovalCommentDto,
   ) {
     return this.requestsService.cancel(tenant.tenant_id, id, user.sub, dto.comment);
+  }
+
+  // POST /v1/approval-requests/:id/retry-callback
+  @Post(':id/retry-callback')
+  @HttpCode(HttpStatus.OK)
+  @RequiresPermission('approvals.manage')
+  async retryCallback(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.requestsService.retryCallback(tenant.tenant_id, id);
   }
 }

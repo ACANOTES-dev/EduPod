@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import twilio from 'twilio';
 import type { Twilio } from 'twilio';
 
+import { CircuitBreakerRegistry } from '../../../common/services/circuit-breaker-registry';
+
 /** Maximum SMS body length before truncation. */
 const SMS_MAX_LENGTH = 1600;
 
@@ -11,7 +13,10 @@ export class TwilioSmsProvider {
   private readonly logger = new Logger(TwilioSmsProvider.name);
   private client: Twilio | null = null;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly circuitBreaker: CircuitBreakerRegistry,
+  ) {}
 
   /**
    * Whether all required Twilio SMS env vars are configured.
@@ -35,26 +40,24 @@ export class TwilioSmsProvider {
 
     const smsFrom = this.configService.get<string>('TWILIO_SMS_FROM');
     if (!smsFrom) {
-      throw new Error(
-        'Twilio SMS is not configured. Set TWILIO_SMS_FROM environment variable.',
-      );
+      throw new Error('Twilio SMS is not configured. Set TWILIO_SMS_FROM environment variable.');
     }
 
     let body = params.body;
     if (body.length > SMS_MAX_LENGTH) {
-      this.logger.warn(
-        `SMS body exceeds ${SMS_MAX_LENGTH} chars (${body.length}), truncating`,
-      );
+      this.logger.warn(`SMS body exceeds ${SMS_MAX_LENGTH} chars (${body.length}), truncating`);
       body = body.slice(0, SMS_MAX_LENGTH - 3) + '...';
     }
 
     this.logger.log(`Sending SMS to=${params.to}`);
 
-    const message = await client.messages.create({
-      body,
-      from: smsFrom,
-      to: params.to,
-    });
+    const message = await this.circuitBreaker.exec('twilio', () =>
+      client.messages.create({
+        body,
+        from: smsFrom,
+        to: params.to,
+      }),
+    );
 
     this.logger.log(`SMS sent successfully sid=${message.sid}`);
 

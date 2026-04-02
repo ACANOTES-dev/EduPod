@@ -1,7 +1,9 @@
 import * as crypto from 'crypto';
 
+import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma, PrismaClient } from '@prisma/client';
+import type { Queue } from 'bullmq';
 
 import type { GenerateDocumentDto, ListDocumentsQuery, SendDocumentDto } from '@school/shared';
 // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports -- Handlebars requires CommonJS import
@@ -32,6 +34,7 @@ export class BehaviourDocumentService {
     private readonly pdfRenderingService: PdfRenderingService,
     private readonly templateService: BehaviourDocumentTemplateService,
     private readonly historyService: BehaviourHistoryService,
+    @InjectQueue('pdf-rendering') private readonly pdfQueue: Queue,
   ) {}
 
   // ─── Generate Document (8-step pipeline) ─────────────────────────────
@@ -43,102 +46,106 @@ export class BehaviourDocumentService {
   async generateDocument(tenantId: string, userId: string, dto: GenerateDocumentDto) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    return rlsClient.$transaction(
-      async (tx) => {
-        const db = tx as unknown as PrismaService;
+    return rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
 
-        // Step 1 — Load template
-        const locale = dto.locale ?? 'en';
-        let template;
-        if (dto.template_id) {
-          template = await db.behaviourDocumentTemplate.findFirst({
-            where: { id: dto.template_id, tenant_id: tenantId, is_active: true },
-          });
-        } else {
-          template = await this.templateService.getActiveTemplate(
-            tx as unknown as PrismaClient,
-            tenantId,
-            dto.document_type,
-            locale,
-          );
-        }
-
-        if (!template) {
-          throw new NotFoundException({
-            code: 'DOCUMENT_TEMPLATE_NOT_FOUND',
-            message: `No active template for ${dto.document_type}/${locale}`,
-          });
-        }
-
-        // Step 2 — Populate merge fields
-        const { dataSnapshot, studentId } = await this.resolveMergeFields(
-          db,
+      // Step 1 — Load template
+      const locale = dto.locale ?? 'en';
+      let template;
+      if (dto.template_id) {
+        template = await db.behaviourDocumentTemplate.findFirst({
+          where: { id: dto.template_id, tenant_id: tenantId, is_active: true },
+        });
+      } else {
+        template = await this.templateService.getActiveTemplate(
+          tx as unknown as PrismaClient,
           tenantId,
-          dto.entity_type,
-          dto.entity_id,
+          dto.document_type,
           locale,
         );
+      }
 
-        // Pre-generate document ID for S3 key
-        const documentId = crypto.randomUUID();
-
-        // Step 3 — Handlebars render to HTML
-        const compiledTemplate = Handlebars.compile(template.template_body, {
-          strict: false,
+      if (!template) {
+        throw new NotFoundException({
+          code: 'DOCUMENT_TEMPLATE_NOT_FOUND',
+          message: `No active template for ${dto.document_type}/${locale}`,
         });
-        const renderedHtml = compiledTemplate(dataSnapshot);
+      }
 
-        // Step 4 — PDF generation via Puppeteer
-        const pdfBuffer = await this.pdfRenderingService.renderFromHtml(renderedHtml);
+      // Step 2 — Populate merge fields
+      const { dataSnapshot, studentId } = await this.resolveMergeFields(
+        db,
+        tenantId,
+        dto.entity_type,
+        dto.entity_id,
+        locale,
+      );
 
-        // Step 5 — SHA-256 hash
-        const sha256Hash = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
+      // Pre-generate document ID for S3 key
+      const documentId = crypto.randomUUID();
 
-        // Step 6 — S3 upload
-        const s3Key = `behaviour/documents/${dto.document_type}/${documentId}.pdf`;
-        const fullKey = await this.s3Service.upload(tenantId, s3Key, pdfBuffer, 'application/pdf');
+      // Step 3 — Handlebars render to HTML
+      const compiledTemplate = Handlebars.compile(template.template_body, {
+        strict: false,
+      });
+      const renderedHtml = compiledTemplate(dataSnapshot);
 
-        // Step 7 — Create DB record
-        const document = await db.behaviourDocument.create({
-          data: {
-            id: documentId,
-            tenant_id: tenantId,
-            document_type: dto.document_type as $Enums.DocumentType,
-            template_id: template.id,
-            entity_type: dto.entity_type,
-            entity_id: dto.entity_id,
-            student_id: studentId,
-            generated_by_id: userId,
-            generated_at: new Date(),
-            file_key: fullKey,
-            file_size_bytes: BigInt(pdfBuffer.length),
-            sha256_hash: sha256Hash,
-            locale,
-            data_snapshot: dataSnapshot as Prisma.InputJsonValue,
-            status: 'draft_doc' as $Enums.DocumentStatus,
-          },
-        });
+      // Step 4 — SHA-256 hash of rendered HTML (for integrity tracking)
+      const sha256Hash = crypto.createHash('sha256').update(renderedHtml).digest('hex');
 
-        // Step 8 — Log history
-        await this.historyService.recordHistory(
-          db,
-          tenantId,
-          dto.entity_type,
-          dto.entity_id,
-          userId,
-          'document_generated',
-          null,
-          { document_id: documentId, document_type: dto.document_type },
-        );
+      // Step 5 — Create placeholder document with 'generating' status
+      const s3Key = `behaviour/documents/${dto.document_type}/${documentId}.pdf`;
 
-        this.logger.log(
-          `Generated ${dto.document_type} document ${documentId} for entity ${dto.entity_id}`,
-        );
+      const document = await db.behaviourDocument.create({
+        data: {
+          id: documentId,
+          tenant_id: tenantId,
+          document_type: dto.document_type as $Enums.DocumentType,
+          template_id: template.id,
+          entity_type: dto.entity_type,
+          entity_id: dto.entity_id,
+          student_id: studentId,
+          generated_by_id: userId,
+          generated_at: new Date(),
+          file_key: s3Key,
+          file_size_bytes: BigInt(0),
+          sha256_hash: sha256Hash,
+          locale,
+          data_snapshot: dataSnapshot as Prisma.InputJsonValue,
+          status: 'generating' as $Enums.DocumentStatus,
+        },
+      });
 
-        return { data: this.serializeDocument(document) };
-      },
-      { timeout: 60000 }, // PDF generation may take longer
-    );
+      // Step 6 — Enqueue PDF render job (writes to Redis, not Postgres — safe inside tx)
+      await this.pdfQueue.add('pdf:render', {
+        tenant_id: tenantId,
+        template_html: renderedHtml,
+        output_key: `${tenantId}/${s3Key}`,
+        callback_queue_name: 'behaviour',
+        callback_job_name: 'behaviour:document-ready',
+        callback_payload: {
+          document_id: documentId,
+          sha256_hash: sha256Hash,
+          generated_by_id: userId,
+        },
+      });
+
+      // Step 7 — Log history
+      await this.historyService.recordHistory(
+        db,
+        tenantId,
+        dto.entity_type,
+        dto.entity_id,
+        userId,
+        'document_generated',
+        null,
+        { document_id: documentId, document_type: dto.document_type },
+      );
+
+      this.logger.log(`Queued ${dto.document_type} document ${documentId} for PDF generation`);
+
+      return { data: this.serializeDocument(document) };
+    });
   }
 
   // ─── List Documents ──────────────────────────────────────────────────
@@ -419,11 +426,9 @@ export class BehaviourDocumentService {
         strict: false,
       });
       const renderedHtml = compiledTemplate(dataSnapshot);
-      const pdfBuffer = await this.pdfRenderingService.renderFromHtml(renderedHtml);
-      const sha256Hash = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
+      const sha256Hash = crypto.createHash('sha256').update(renderedHtml).digest('hex');
 
       const s3Key = `behaviour/documents/${documentType}/${documentId}.pdf`;
-      const fullKey = await this.s3Service.upload(tenantId, s3Key, pdfBuffer, 'application/pdf');
 
       const document = await db.behaviourDocument.create({
         data: {
@@ -436,51 +441,37 @@ export class BehaviourDocumentService {
           student_id: studentId,
           generated_by_id: userId,
           generated_at: new Date(),
-          file_key: fullKey,
-          file_size_bytes: BigInt(pdfBuffer.length),
+          file_key: s3Key,
+          file_size_bytes: BigInt(0),
           sha256_hash: sha256Hash,
           locale,
           data_snapshot: dataSnapshot as Prisma.InputJsonValue,
-          status: 'draft_doc' as $Enums.DocumentStatus,
+          status: 'generating' as $Enums.DocumentStatus,
         },
       });
 
-      // Notify staff that document is ready for review
-      try {
-        await db.notification.create({
-          data: {
-            tenant_id: tenantId,
-            recipient_user_id: userId,
-            channel: 'in_app',
-            template_key: 'behaviour_document_review',
-            locale: 'en',
-            status: 'delivered',
-            payload_json: {
-              document_id: documentId,
-              document_type: documentType,
-              entity_type: entityType,
-              entity_id: entityId,
-              student_id: studentId,
-            },
-            source_entity_type: 'behaviour_document',
-            source_entity_id: documentId,
-            delivered_at: new Date(),
-          },
-        });
-      } catch (notifyErr) {
-        this.logger.warn(
-          `Failed to create document-ready notification for ${documentId}: ${(notifyErr as Error).message}`,
-        );
-      }
+      // Enqueue PDF render job (writes to Redis, not Postgres — safe inside caller's tx)
+      await this.pdfQueue.add('pdf:render', {
+        tenant_id: tenantId,
+        template_html: renderedHtml,
+        output_key: `${tenantId}/${s3Key}`,
+        callback_queue_name: 'behaviour',
+        callback_job_name: 'behaviour:document-ready',
+        callback_payload: {
+          document_id: documentId,
+          sha256_hash: sha256Hash,
+          generated_by_id: userId,
+        },
+      });
 
       this.logger.log(
-        `Auto-generated ${documentType} document ${documentId} for ${entityType}/${entityId}`,
+        `Auto-generate queued for ${documentType} document ${documentId} (${entityType}/${entityId})`,
       );
 
       return document;
     } catch (err) {
       this.logger.error(
-        `Failed to auto-generate ${documentType} for ${entityType}/${entityId}: ${(err as Error).message}`,
+        `Failed to enqueue auto-generate ${documentType} for ${entityType}/${entityId}: ${(err as Error).message}`,
       );
       return null;
     }

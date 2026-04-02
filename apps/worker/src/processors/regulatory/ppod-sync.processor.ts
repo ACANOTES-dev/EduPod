@@ -20,13 +20,11 @@ export const REGULATORY_PPOD_SYNC_JOB = 'regulatory:ppod-sync';
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.REGULATORY)
+@Processor(QUEUE_NAMES.REGULATORY, { lockDuration: 120_000 })
 export class RegulatoryPpodSyncProcessor extends WorkerHost {
   private readonly logger = new Logger(RegulatoryPpodSyncProcessor.name);
 
-  constructor(
-    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
-  ) {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();
   }
 
@@ -52,10 +50,7 @@ export class RegulatoryPpodSyncProcessor extends WorkerHost {
 class PpodSyncJob extends TenantAwareJob<PpodSyncPayload> {
   private readonly logger = new Logger(PpodSyncJob.name);
 
-  protected async processJob(
-    data: PpodSyncPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: PpodSyncPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, database_type, scope } = data;
     const dbType = database_type as PodDatabaseType;
     const startedAt = new Date();

@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
+import { AnthropicClientService } from '../../ai/anthropic-client.service';
 import { SettingsService } from '../../configuration/settings.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { ConsentService } from '../../gdpr/consent.service';
@@ -79,25 +80,6 @@ describe('AI Comments GDPR Integration', () => {
       attendanceRecord: { findMany: jest.fn() },
     };
 
-    // Set ANTHROPIC_API_KEY so the service attempts to initialise the SDK
-    process.env.ANTHROPIC_API_KEY = 'test-key';
-
-    // Mock the Anthropic SDK require
-    jest.mock('@anthropic-ai/sdk', () => ({
-      default: class MockAnthropic {
-        messages = {
-          create: jest.fn().mockResolvedValue({
-            content: [
-              {
-                type: 'text',
-                text: 'TOKENISED_STUDENT is performing very well this term.',
-              },
-            ],
-          }),
-        };
-      },
-    }));
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiCommentsService,
@@ -106,6 +88,20 @@ describe('AI Comments GDPR Integration', () => {
         { provide: ConsentService, useValue: mockConsentService },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
         { provide: AiAuditService, useValue: mockAiAuditService },
+        {
+          provide: AnthropicClientService,
+          useValue: {
+            isConfigured: true,
+            createMessage: jest.fn().mockResolvedValue({
+              content: [
+                {
+                  type: 'text',
+                  text: 'TOKENISED_STUDENT is performing very well this term.',
+                },
+              ],
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -113,7 +109,6 @@ describe('AI Comments GDPR Integration', () => {
   });
 
   afterEach(() => {
-    delete process.env.ANTHROPIC_API_KEY;
     jest.restoreAllMocks();
   });
 
@@ -239,9 +234,6 @@ describe('AI Comments GDPR Integration', () => {
   });
 
   it('should not call GDPR gateway when AI service is unavailable', async () => {
-    // Create a service instance without the API key
-    delete process.env.ANTHROPIC_API_KEY;
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiCommentsService,
@@ -250,6 +242,10 @@ describe('AI Comments GDPR Integration', () => {
         { provide: ConsentService, useValue: mockConsentService },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
         { provide: AiAuditService, useValue: mockAiAuditService },
+        {
+          provide: AnthropicClientService,
+          useValue: { isConfigured: false, createMessage: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -297,36 +293,6 @@ describe('AI Substitution GDPR Integration', () => {
       substitutionRecord: { findMany: jest.fn() },
     };
 
-    process.env.ANTHROPIC_API_KEY = 'test-key';
-
-    jest.mock('@anthropic-ai/sdk', () => ({
-      default: class MockAnthropic {
-        messages = {
-          create: jest.fn().mockResolvedValue({
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify([
-                  {
-                    staff_profile_id: STAFF_A_ID,
-                    confidence: 'high',
-                    score: 90,
-                    reasoning: 'Primary subject teacher.',
-                  },
-                  {
-                    staff_profile_id: STAFF_B_ID,
-                    confidence: 'medium',
-                    score: 70,
-                    reasoning: 'Competent but higher cover load.',
-                  },
-                ]),
-              },
-            ],
-          }),
-        };
-      },
-    }));
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiSubstitutionService,
@@ -334,6 +300,33 @@ describe('AI Substitution GDPR Integration', () => {
         { provide: SettingsService, useValue: mockSettingsService },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
         { provide: AiAuditService, useValue: mockAiAuditService },
+        {
+          provide: AnthropicClientService,
+          useValue: {
+            isConfigured: true,
+            createMessage: jest.fn().mockResolvedValue({
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify([
+                    {
+                      staff_profile_id: STAFF_A_ID,
+                      confidence: 'high',
+                      score: 90,
+                      reasoning: 'Primary subject teacher.',
+                    },
+                    {
+                      staff_profile_id: STAFF_B_ID,
+                      confidence: 'medium',
+                      score: 70,
+                      reasoning: 'Competent but higher cover load.',
+                    },
+                  ]),
+                },
+              ],
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -341,7 +334,6 @@ describe('AI Substitution GDPR Integration', () => {
   });
 
   afterEach(() => {
-    delete process.env.ANTHROPIC_API_KEY;
     jest.restoreAllMocks();
   });
 

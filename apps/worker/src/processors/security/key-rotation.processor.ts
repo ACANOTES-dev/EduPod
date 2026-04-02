@@ -47,7 +47,7 @@ interface StaffProfileRow {
  *
  * Triggered manually via an admin API endpoint, not on a cron schedule.
  */
-@Processor(QUEUE_NAMES.SECURITY)
+@Processor(QUEUE_NAMES.SECURITY, { lockDuration: 300_000 })
 export class KeyRotationProcessor extends WorkerHost {
   private readonly logger = new Logger(KeyRotationProcessor.name);
 
@@ -72,7 +72,12 @@ export class KeyRotationProcessor extends WorkerHost {
     }
 
     const stripeStats = await this.rotateStripeConfigs(keys, currentVersion, currentKeyRef, dryRun);
-    const bankStats = await this.rotateStaffBankDetails(keys, currentVersion, currentKeyRef, dryRun);
+    const bankStats = await this.rotateStaffBankDetails(
+      keys,
+      currentVersion,
+      currentKeyRef,
+      dryRun,
+    );
 
     await job.updateProgress(100);
 
@@ -293,7 +298,9 @@ export class KeyRotationProcessor extends WorkerHost {
   private decrypt(ciphertext: string, key: Buffer): string {
     const parts = ciphertext.split(':');
     if (parts.length !== 3) {
-      throw new Error(`Invalid ciphertext format — expected 3 colon-separated parts, got ${parts.length}`);
+      throw new Error(
+        `Invalid ciphertext format — expected 3 colon-separated parts, got ${parts.length}`,
+      );
     }
 
     const iv = Buffer.from(parts[0] as string, 'hex');
@@ -321,9 +328,7 @@ export class KeyRotationProcessor extends WorkerHost {
       if (!hex) break;
       const buf = Buffer.from(hex, 'hex');
       if (buf.length !== 32) {
-        throw new Error(
-          `ENCRYPTION_KEY_V${v} must be 32 bytes (64 hex chars), got ${buf.length}.`,
-        );
+        throw new Error(`ENCRYPTION_KEY_V${v} must be 32 bytes (64 hex chars), got ${buf.length}.`);
       }
       keys.set(v, buf);
     }

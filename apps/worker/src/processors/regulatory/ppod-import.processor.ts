@@ -28,13 +28,11 @@ interface PpodCsvRow {
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.REGULATORY)
+@Processor(QUEUE_NAMES.REGULATORY, { lockDuration: 120_000 })
 export class RegulatoryPpodImportProcessor extends WorkerHost {
   private readonly logger = new Logger(RegulatoryPpodImportProcessor.name);
 
-  constructor(
-    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
-  ) {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();
   }
 
@@ -60,10 +58,7 @@ export class RegulatoryPpodImportProcessor extends WorkerHost {
 class PpodImportJob extends TenantAwareJob<PpodImportPayload> {
   private readonly logger = new Logger(PpodImportJob.name);
 
-  protected async processJob(
-    data: PpodImportPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: PpodImportPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, database_type, csv_content } = data;
     const dbType = database_type as PodDatabaseType;
     const startedAt = new Date();
@@ -71,9 +66,7 @@ class PpodImportJob extends TenantAwareJob<PpodImportPayload> {
     // 1. Parse CSV content
     const rows = this.parseCsv(csv_content);
 
-    this.logger.log(
-      `Tenant ${tenant_id}: importing ${rows.length} rows for ${database_type}`,
-    );
+    this.logger.log(`Tenant ${tenant_id}: importing ${rows.length} rows for ${database_type}`);
 
     let createdCount = 0;
     let updatedCount = 0;
@@ -206,9 +199,7 @@ class PpodImportJob extends TenantAwareJob<PpodImportPayload> {
     const headerLine = lines[0];
     if (!headerLine) return [];
 
-    const headers = this.parseCsvLine(headerLine).map((h) =>
-      h.toLowerCase().replace(/\s+/g, '_'),
-    );
+    const headers = this.parseCsvLine(headerLine).map((h) => h.toLowerCase().replace(/\s+/g, '_'));
 
     const rows: PpodCsvRow[] = [];
 

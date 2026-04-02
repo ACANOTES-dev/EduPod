@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { AiModule } from '../ai/ai.module';
 import { AuthModule } from '../auth/auth.module';
 import { GdprModule } from '../gdpr/gdpr.module';
 
@@ -17,7 +18,7 @@ import { BehaviourSanctionAnalyticsService } from './behaviour-sanction-analytic
 import { BehaviourStaffAnalyticsService } from './behaviour-staff-analytics.service';
 
 @Module({
-  imports: [AuthModule, GdprModule, BehaviourCoreModule],
+  imports: [AiModule, AuthModule, GdprModule, BehaviourCoreModule],
   controllers: [BehaviourAnalyticsController, BehaviourAlertsController],
   providers: [
     BehaviourAnalyticsService,

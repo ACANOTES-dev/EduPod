@@ -9,6 +9,7 @@ import {
 import type { GdprOutboundData } from '@school/shared';
 import { CONSENT_TYPES, SYSTEM_USER_SENTINEL } from '@school/shared';
 
+import { AnthropicClientService } from '../../ai/anthropic-client.service';
 import { SettingsService } from '../../configuration/settings.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { ConsentService } from '../../gdpr/consent.service';
@@ -28,20 +29,11 @@ export interface BatchCommentResult {
   errors: { report_card_id: string; error: string }[];
 }
 
-type AnthropicClient = {
-  messages: {
-    create: (params: Record<string, unknown>) => Promise<{
-      content: Array<{ type: string; text?: string }>;
-    }>;
-  };
-};
-
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class AiCommentsService {
   private readonly logger = new Logger(AiCommentsService.name);
-  private anthropic: AnthropicClient | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -49,27 +41,13 @@ export class AiCommentsService {
     private readonly consentService: ConsentService,
     private readonly gdprTokenService: GdprTokenService,
     private readonly aiAuditService: AiAuditService,
-  ) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (apiKey) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const AnthropicSdk = require('@anthropic-ai/sdk').default;
-        this.anthropic = new AnthropicSdk({ apiKey }) as AnthropicClient;
-      } catch {
-        this.logger.warn(
-          '@anthropic-ai/sdk is not installed — AI comment generation will be unavailable',
-        );
-      }
-    } else {
-      this.logger.warn('ANTHROPIC_API_KEY is not set — AI comment generation will be unavailable');
-    }
-  }
+    private readonly anthropicClient: AnthropicClientService,
+  ) {}
 
   // ─── Generate Single Comment ──────────────────────────────────────────────
 
   async generateComment(tenantId: string, reportCardId: string): Promise<AiCommentResult> {
-    if (!this.anthropic) {
+    if (!this.anthropicClient.isConfigured) {
       throw new ServiceUnavailableException({
         error: {
           code: 'AI_SERVICE_UNAVAILABLE',
@@ -164,17 +142,15 @@ export class AiCommentsService {
     this.logger.log(`Generating AI comment for report card ${reportCardId}, tenant ${tenantId}`);
 
     const startTime = Date.now();
-    const response = await this.anthropic.messages.create({
+    const response = await this.anthropicClient.createMessage({
       model: 'claude-sonnet-4-6-20250514',
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }],
     });
     const elapsed = Date.now() - startTime;
 
-    const textBlock = response.content.find(
-      (b: { type: string; text?: string }) => b.type === 'text',
-    );
-    const rawComment = textBlock?.text?.trim() ?? '';
+    const textBlock = response.content.find((b) => b.type === 'text');
+    const rawComment = textBlock?.type === 'text' ? (textBlock.text?.trim() ?? '') : '';
 
     await this.aiAuditService.log({
       tenantId,
@@ -202,7 +178,7 @@ export class AiCommentsService {
     tenantId: string,
     reportCardIds: string[],
   ): Promise<BatchCommentResult> {
-    if (!this.anthropic) {
+    if (!this.anthropicClient.isConfigured) {
       throw new ServiceUnavailableException({
         error: {
           code: 'AI_SERVICE_UNAVAILABLE',

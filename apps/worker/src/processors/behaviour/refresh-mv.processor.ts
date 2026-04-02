@@ -30,9 +30,7 @@ class RefreshStudentSummaryJob extends CrossTenantSystemJob {
       await this.prisma.$executeRaw(
         Prisma.sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_student_behaviour_summary`,
       );
-      this.logger.log(
-        `mv_student_behaviour_summary refreshed in ${Date.now() - start}ms`,
-      );
+      this.logger.log(`mv_student_behaviour_summary refreshed in ${Date.now() - start}ms`);
     } catch (error) {
       this.logger.error(
         `Failed to refresh mv_student_behaviour_summary: ${error instanceof Error ? error.message : String(error)}`,
@@ -55,9 +53,7 @@ class RefreshBenchmarksJob extends CrossTenantSystemJob {
       await this.prisma.$executeRaw(
         Prisma.sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_benchmarks`,
       );
-      this.logger.log(
-        `mv_behaviour_benchmarks refreshed in ${Date.now() - start}ms`,
-      );
+      this.logger.log(`mv_behaviour_benchmarks refreshed in ${Date.now() - start}ms`);
     } catch (error) {
       this.logger.error(
         `Failed to refresh mv_behaviour_benchmarks: ${error instanceof Error ? error.message : String(error)}`,
@@ -80,9 +76,7 @@ class RefreshExposureRatesJob extends CrossTenantSystemJob {
       await this.prisma.$executeRaw(
         Prisma.sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_exposure_rates`,
       );
-      this.logger.log(
-        `mv_behaviour_exposure_rates refreshed in ${Date.now() - start}ms`,
-      );
+      this.logger.log(`mv_behaviour_exposure_rates refreshed in ${Date.now() - start}ms`);
     } catch (error) {
       this.logger.error(
         `Failed to refresh mv_behaviour_exposure_rates: ${error instanceof Error ? error.message : String(error)}`,
@@ -94,7 +88,7 @@ class RefreshExposureRatesJob extends CrossTenantSystemJob {
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR)
+@Processor(QUEUE_NAMES.BEHAVIOUR, { lockDuration: 300_000 })
 export class RefreshMVProcessor extends WorkerHost {
   constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();

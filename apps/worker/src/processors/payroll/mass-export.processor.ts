@@ -51,16 +51,24 @@ function getTemplateRenderer(locale: 'en' | 'ar'): TemplateRenderFn {
       : "'Helvetica Neue', Arial, sans-serif";
     const title = isAr ? '\u0643\u0634\u0641 \u0627\u0644\u0631\u0627\u062A\u0628' : 'PAYSLIP';
     const schoolName = isAr
-      ? (branding.school_name_ar || branding.school_name)
+      ? branding.school_name_ar || branding.school_name
       : branding.school_name;
-    const basicLabel = isAr ? '\u0627\u0644\u0631\u0627\u062A\u0628 \u0627\u0644\u0623\u0633\u0627\u0633\u064A' : 'Basic Pay';
+    const basicLabel = isAr
+      ? '\u0627\u0644\u0631\u0627\u062A\u0628 \u0627\u0644\u0623\u0633\u0627\u0633\u064A'
+      : 'Basic Pay';
     const bonusLabel = isAr ? '\u0627\u0644\u0645\u0643\u0627\u0641\u0623\u0629' : 'Bonus Pay';
-    const totalLabel = isAr ? '\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0631\u0627\u062A\u0628' : 'Total Pay';
+    const totalLabel = isAr
+      ? '\u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0631\u0627\u062A\u0628'
+      : 'Total Pay';
 
     const fmt = (n: unknown): string => `${currency} ${Number(n || 0).toFixed(2)}`;
     const esc = (s: unknown): string => {
       if (!s) return '';
-      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
     };
 
     return `<div style="font-family: ${fontFamily}; direction: ${dir}; color: #111827; font-size: 14px; padding: 0;">
@@ -93,7 +101,7 @@ function getTemplateRenderer(locale: 'en' | 'ar'): TemplateRenderFn {
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PAYROLL)
+@Processor(QUEUE_NAMES.PAYROLL, { lockDuration: 300_000 })
 export class PayrollMassExportProcessor extends WorkerHost {
   private readonly logger = new Logger(PayrollMassExportProcessor.name);
 
@@ -132,10 +140,7 @@ class PayrollMassExportJob extends TenantAwareJob<MassExportPayload> {
     this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:5554');
   }
 
-  protected async processJob(
-    data: MassExportPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: MassExportPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, payroll_run_id, locale } = data;
     const statusKey = `payroll:mass-export:${payroll_run_id}`;
     const pdfKey = `payroll:mass-export:${payroll_run_id}:pdf`;

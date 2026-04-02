@@ -4639,7 +4639,17 @@
       "rejectSuccess": "تم رفض الطلب",
       "rejectError": "فشل في رفض الطلب",
       "loadError": "فشل في تحميل طلب الموافقة",
-      "notFound": "طلب الموافقة غير موجود"
+      "notFound": "طلب الموافقة غير موجود",
+      "callbackStatus": "حالة الاستدعاء",
+      "callbackExecuted": "تم التنفيذ",
+      "callbackPending": "قيد الانتظار",
+      "callbackFailed": "فشل",
+      "retryCallback": "إعادة المحاولة",
+      "retrying": "جارٍ إعادة المحاولة...",
+      "callbackRetryQueued": "تمت إعادة المحاولة بنجاح",
+      "callbackRetryError": "فشلت إعادة المحاولة",
+      "attempt": "محاولة",
+      "attempts": "محاولات"
     }
   },
   "website": {

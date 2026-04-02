@@ -488,6 +488,67 @@ describe('ApprovalRequestsService', () => {
   });
 
   // -------------------------------------------------------------------------
+  // retryCallback
+  // -------------------------------------------------------------------------
+
+  describe('retryCallback', () => {
+    it('should reset callback state and re-enqueue for failed callbacks', async () => {
+      const failedRequest = buildMockRequest({
+        status: 'approved',
+        callback_status: 'failed',
+        callback_attempts: 5,
+        action_type: 'invoice_issue',
+        target_entity_id: 'invoice-123',
+        approver_user_id: 'user-456',
+      });
+
+      mockPrisma.approvalRequest.findFirst
+        .mockResolvedValueOnce(failedRequest) // retryCallback lookup
+        .mockResolvedValueOnce(failedRequest); // getRequest lookup
+      mockPrisma.approvalRequest.update.mockResolvedValue({});
+
+      await service.retryCallback(TENANT_ID, REQUEST_ID);
+
+      expect(mockPrisma.approvalRequest.update).toHaveBeenCalledWith({
+        where: { id: REQUEST_ID },
+        data: { callback_status: 'pending', callback_attempts: 0, callback_error: null },
+      });
+      expect(mockFinanceQueue.add).toHaveBeenCalledWith('finance:on-approval', {
+        tenant_id: TENANT_ID,
+        approval_request_id: REQUEST_ID,
+        target_entity_id: 'invoice-123',
+        approver_user_id: 'user-456',
+      });
+    });
+
+    it('should reject retry for non-approved requests', async () => {
+      mockPrisma.approvalRequest.findFirst.mockResolvedValue(
+        buildMockRequest({ status: 'pending_approval', callback_status: null }),
+      );
+
+      await expect(service.retryCallback(TENANT_ID, REQUEST_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should reject retry for non-failed callbacks', async () => {
+      mockPrisma.approvalRequest.findFirst.mockResolvedValue(
+        buildMockRequest({ status: 'approved', callback_status: 'pending' }),
+      );
+
+      await expect(service.retryCallback(TENANT_ID, REQUEST_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw NotFoundException when request does not exist', async () => {
+      mockPrisma.approvalRequest.findFirst.mockResolvedValue(null);
+
+      await expect(service.retryCallback(TENANT_ID, REQUEST_ID)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // checkAndCreateIfNeeded
   // -------------------------------------------------------------------------
 

@@ -45,6 +45,9 @@ interface ApprovalRequestDetail {
   requester: ApprovalUser;
   approver: ApprovalUser | null;
   announcements?: LinkedAnnouncement[];
+  callback_status: 'pending' | 'executed' | 'failed' | null;
+  callback_error: string | null;
+  callback_attempts: number;
 }
 
 const STATUS_MAP: Record<
@@ -87,6 +90,7 @@ export default function ApprovalDetailPage() {
   const [loading, setLoading] = React.useState(true);
   const [comment, setComment] = React.useState('');
   const [actionLoading, setActionLoading] = React.useState(false);
+  const [isRetrying, setIsRetrying] = React.useState(false);
 
   const fetchRequest = React.useCallback(async () => {
     if (!id) return;
@@ -137,6 +141,21 @@ export default function ApprovalDetailPage() {
       setActionLoading(false);
     }
   };
+
+  const handleRetryCallback = React.useCallback(async () => {
+    setIsRetrying(true);
+    try {
+      await apiClient(`/api/v1/approval-requests/${id}/retry-callback`, {
+        method: 'POST',
+      });
+      toast.success(t('detail.callbackRetryQueued'));
+      void fetchRequest();
+    } catch {
+      toast.error(t('detail.callbackRetryError'));
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [id, t, fetchRequest]);
 
   // ─── Loading state ────────────────────────────────────────────────────────
 
@@ -260,6 +279,47 @@ export default function ApprovalDetailPage() {
           <div className="prose prose-sm max-w-none text-text-primary whitespace-pre-wrap border-t border-border pt-3">
             <div dangerouslySetInnerHTML={{ __html: linkedAnnouncement.body_html }} />
           </div>
+        </div>
+      )}
+
+      {/* Callback status */}
+      {request.status === 'approved' && request.callback_status && (
+        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm space-y-3">
+          <h2 className="text-sm font-semibold text-text-tertiary">{t('detail.callbackStatus')}</h2>
+          <div className="flex items-center gap-2">
+            <StatusBadge
+              status={
+                request.callback_status === 'executed'
+                  ? 'success'
+                  : request.callback_status === 'pending'
+                    ? 'warning'
+                    : 'danger'
+              }
+              dot
+            >
+              {request.callback_status === 'executed'
+                ? t('detail.callbackExecuted')
+                : request.callback_status === 'pending'
+                  ? t('detail.callbackPending')
+                  : t('detail.callbackFailed')}
+            </StatusBadge>
+            {request.callback_attempts > 0 && (
+              <span className="text-xs text-text-secondary">
+                ({request.callback_attempts}{' '}
+                {request.callback_attempts === 1 ? t('detail.attempt') : t('detail.attempts')})
+              </span>
+            )}
+          </div>
+          {request.callback_error && (
+            <p className="text-sm text-danger-text font-mono bg-danger-bg/50 rounded-lg p-3">
+              {request.callback_error}
+            </p>
+          )}
+          {request.callback_status === 'failed' && (
+            <Button variant="outline" size="sm" onClick={handleRetryCallback} disabled={isRetrying}>
+              {isRetrying ? t('detail.retrying') : t('detail.retryCallback')}
+            </Button>
+          )}
         </div>
       )}
 

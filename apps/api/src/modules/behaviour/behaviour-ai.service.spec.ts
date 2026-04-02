@@ -1,21 +1,6 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
-import {
-  ForbiddenException,
-  ServiceUnavailableException,
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { ForbiddenException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-
-jest.mock('@anthropic-ai/sdk', () => ({
-  __esModule: true,
-  default: jest.fn().mockImplementation(() => ({
-    messages: {
-      create: jest.fn().mockResolvedValue({
-        content: [{ type: 'text', text: 'AI response text' }],
-      }),
-    },
-  })),
-}));
 
 jest.mock('@school/shared', () => {
   const original = jest.requireActual('@school/shared');
@@ -25,15 +10,15 @@ jest.mock('@school/shared', () => {
       anonymised: { overview: { total_incidents: 10 } },
       tokenMap: new Map([['Student-A', 'John Doe']]),
     }),
-    deAnonymiseFromAI: jest.fn().mockImplementation((text: string) =>
-      text.replace('Student-A', 'John Doe'),
-    ),
+    deAnonymiseFromAI: jest
+      .fn()
+      .mockImplementation((text: string) => text.replace('Student-A', 'John Doe')),
   };
 });
 
-import Anthropic from '@anthropic-ai/sdk';
 import { anonymiseForAI, deAnonymiseFromAI } from '@school/shared';
 
+import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -43,11 +28,24 @@ import { BehaviourAnalyticsService } from './behaviour-analytics.service';
 import { BehaviourScopeService } from './behaviour-scope.service';
 
 const mockGdprTokenService = {
-  processOutbound: jest.fn().mockImplementation(async (_t: string, _e: string, data: { entities: Array<{ type: string; id: string; fields: Record<string, string> }>; entityCount: number }) => ({
-    processedData: data,
-    tokenMap: null,
-  })),
-  processInbound: jest.fn().mockImplementation(async (_tenantId: string, response: string) => response),
+  processOutbound: jest
+    .fn()
+    .mockImplementation(
+      async (
+        _t: string,
+        _e: string,
+        data: {
+          entities: Array<{ type: string; id: string; fields: Record<string, string> }>;
+          entityCount: number;
+        },
+      ) => ({
+        processedData: data,
+        tokenMap: null,
+      }),
+    ),
+  processInbound: jest
+    .fn()
+    .mockImplementation(async (_tenantId: string, response: string) => response),
 };
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -112,8 +110,8 @@ describe('BehaviourAIService', () => {
     getTrends: jest.Mock;
     getCategories: jest.Mock;
   };
-  let mockConfig: { get: jest.Mock };
   let mockAnthropicCreate: jest.Mock;
+  let mockAnthropicClientService: { isConfigured: boolean; createMessage: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -134,8 +132,12 @@ describe('BehaviourAIService', () => {
       getCategories: jest.fn().mockResolvedValue(mockCategories),
     };
 
-    mockConfig = {
-      get: jest.fn().mockReturnValue('test-api-key'),
+    mockAnthropicCreate = jest.fn().mockResolvedValue({
+      content: [{ type: 'text', text: 'Student-A has issues' }],
+    });
+    mockAnthropicClientService = {
+      isConfigured: true,
+      createMessage: mockAnthropicCreate,
     };
 
     module = await Test.createTestingModule({
@@ -144,23 +146,13 @@ describe('BehaviourAIService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: BehaviourScopeService, useValue: mockScope },
         { provide: BehaviourAnalyticsService, useValue: mockAnalytics },
-        { provide: ConfigService, useValue: mockConfig },
+        { provide: AnthropicClientService, useValue: mockAnthropicClientService },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 
     service = module.get<BehaviourAIService>(BehaviourAIService);
-
-    // Get a reference to the mock create fn on the Anthropic instance
-    const AnthropicCtor = Anthropic as unknown as jest.Mock;
-    const instance = AnthropicCtor.mock.results[AnthropicCtor.mock.results.length - 1]?.value as {
-      messages: { create: jest.Mock };
-    };
-    mockAnthropicCreate = instance.messages.create;
-    mockAnthropicCreate.mockResolvedValue({
-      content: [{ type: 'text', text: 'Student-A has issues' }],
-    });
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -354,26 +346,11 @@ describe('BehaviourAIService', () => {
   // ─── callAI (via processNLQuery) ────────────────────────────────────────
 
   describe('callAI (via processNLQuery)', () => {
-    it('should throw when anthropicClient is null', async () => {
-      // Build service with no API key so client is null
-      mockConfig.get.mockReturnValue(undefined);
-
-      const moduleNoKey: TestingModule = await Test.createTestingModule({
-        providers: [
-          BehaviourAIService,
-          { provide: PrismaService, useValue: mockPrisma },
-          { provide: BehaviourScopeService, useValue: mockScope },
-          { provide: BehaviourAnalyticsService, useValue: mockAnalytics },
-          { provide: ConfigService, useValue: mockConfig },
-          { provide: GdprTokenService, useValue: mockGdprTokenService },
-          { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
-        ],
-      }).compile();
-
-      const serviceNoKey = moduleNoKey.get<BehaviourAIService>(BehaviourAIService);
+    it('should throw when anthropicClient is not configured', async () => {
+      mockAnthropicClientService.isConfigured = false;
 
       await expect(
-        serviceNoKey.processNLQuery(TENANT_ID, USER_ID, PERMISSIONS, baseInput, enabledSettings),
+        service.processNLQuery(TENANT_ID, USER_ID, PERMISSIONS, baseInput, enabledSettings),
       ).rejects.toThrow(ServiceUnavailableException);
     });
 
@@ -387,6 +364,9 @@ describe('BehaviourAIService', () => {
           model: expect.any(String) as string,
           max_tokens: 1024,
           messages: expect.any(Array) as unknown[],
+        }),
+        expect.objectContaining({
+          timeoutMs: expect.any(Number) as number,
         }),
       );
     });

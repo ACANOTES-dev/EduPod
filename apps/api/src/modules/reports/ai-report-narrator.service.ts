@@ -3,6 +3,7 @@ import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 import type { GdprOutboundData } from '@school/shared';
 
+import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { SettingsService } from '../configuration/settings.service';
 import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
@@ -12,36 +13,14 @@ import { RedisService } from '../redis/redis.service';
 export class AiReportNarratorService {
   private readonly logger = new Logger(AiReportNarratorService.name);
   private readonly CACHE_TTL = 3600; // 1 hour
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private anthropic: {
-    messages: {
-      create: (
-        params: Record<string, unknown>,
-      ) => Promise<{ content: Array<{ type: string; text?: string }> }>;
-    };
-  } | null = null;
 
   constructor(
     private readonly settingsService: SettingsService,
     private readonly redis: RedisService,
     private readonly gdprTokenService: GdprTokenService,
     private readonly aiAuditService: AiAuditService,
-  ) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (apiKey) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const AnthropicSdk = require('@anthropic-ai/sdk').default;
-        this.anthropic = new AnthropicSdk({ apiKey });
-      } catch {
-        this.logger.warn(
-          '@anthropic-ai/sdk is not installed — AI report narration will be unavailable',
-        );
-      }
-    } else {
-      this.logger.warn('ANTHROPIC_API_KEY is not set — AI report narration will be unavailable');
-    }
-  }
+    private readonly anthropicClient: AnthropicClientService,
+  ) {}
 
   async generateNarrative(
     tenantId: string,
@@ -49,7 +28,7 @@ export class AiReportNarratorService {
     reportType: string,
     userId?: string,
   ): Promise<string> {
-    if (!this.anthropic) {
+    if (!this.anthropicClient.isConfigured) {
       throw new ServiceUnavailableException({
         error: {
           code: 'AI_SERVICE_UNAVAILABLE',
@@ -86,7 +65,7 @@ export class AiReportNarratorService {
     const prompt = this.buildNarrativePrompt(data, reportType);
 
     const startTime = Date.now();
-    const response = await this.anthropic.messages.create({
+    const response = await this.anthropicClient.createMessage({
       model: 'claude-sonnet-4-6',
       max_tokens: 500,
       messages: [
@@ -99,7 +78,7 @@ export class AiReportNarratorService {
     const elapsed = Date.now() - startTime;
 
     const content = response.content.find((c) => c.type === 'text');
-    const narrative = content?.text ?? 'No narrative generated.';
+    const narrative = content?.type === 'text' ? content.text : 'No narrative generated.';
 
     await this.aiAuditService.log({
       tenantId,

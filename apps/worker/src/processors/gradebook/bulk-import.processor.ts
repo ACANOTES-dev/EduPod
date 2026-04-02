@@ -23,7 +23,7 @@ export const BULK_IMPORT_PROCESS_JOB = 'gradebook:bulk-import-process';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.GRADEBOOK)
+@Processor(QUEUE_NAMES.GRADEBOOK, { lockDuration: 60_000 })
 export class BulkImportProcessor extends WorkerHost {
   private readonly logger = new Logger(BulkImportProcessor.name);
 
@@ -56,10 +56,7 @@ export class BulkImportProcessor extends WorkerHost {
 class BulkImportJob extends TenantAwareJob<BulkImportPayload> {
   private readonly logger = new Logger(BulkImportJob.name);
 
-  protected async processJob(
-    data: BulkImportPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: BulkImportPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, rows, imported_by_user_id } = data;
     const batchSize = 100;
     let processed = 0;

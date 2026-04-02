@@ -150,7 +150,7 @@ class AnomalyScanJob extends CrossTenantSystemJob {
 
 // ─── Processor ────────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.SECURITY)
+@Processor(QUEUE_NAMES.SECURITY, { lockDuration: 300_000 })
 export class AnomalyScanProcessor extends WorkerHost {
   constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();

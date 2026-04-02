@@ -54,13 +54,17 @@ const mockPrisma = {
   }),
 };
 
+// ─── Mock Notifications Queue ───────────────────────────────────────────────
+
+const mockNotificationsQueue = { client: Promise.resolve({}) };
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('PdfRenderProcessor', () => {
   let processor: PdfRenderProcessor;
 
   beforeEach(() => {
-    processor = new PdfRenderProcessor(mockPrisma as never);
+    processor = new PdfRenderProcessor(mockPrisma as never, mockNotificationsQueue as never);
   });
 
   afterEach(() => jest.clearAllMocks());

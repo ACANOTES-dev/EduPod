@@ -10,6 +10,7 @@ import {
 import type { GdprOutboundData } from '@school/shared';
 import { CONSENT_TYPES, SYSTEM_USER_SENTINEL } from '@school/shared';
 
+import { AnthropicClientService } from '../../ai/anthropic-client.service';
 import { SettingsService } from '../../configuration/settings.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { ConsentService } from '../../gdpr/consent.service';
@@ -46,20 +47,11 @@ interface RawAiGradingResponse {
   criterion_scores?: { criterion_id: string; points: number; reasoning: string }[];
 }
 
-type AnthropicClient = {
-  messages: {
-    create: (params: Record<string, unknown>) => Promise<{
-      content: Array<{ type: string; text?: string }>;
-    }>;
-  };
-};
-
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class AiGradingService {
   private readonly logger = new Logger(AiGradingService.name);
-  private anthropic: AnthropicClient | null = null;
   private readonly DAILY_LIMIT_DEFAULT = 200;
 
   constructor(
@@ -69,20 +61,8 @@ export class AiGradingService {
     private readonly consentService: ConsentService,
     private readonly gdprTokenService: GdprTokenService,
     private readonly aiAuditService: AiAuditService,
-  ) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (apiKey) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const AnthropicSdk = require('@anthropic-ai/sdk').default;
-        this.anthropic = new AnthropicSdk({ apiKey }) as AnthropicClient;
-      } catch {
-        this.logger.warn('@anthropic-ai/sdk is not installed — AI grading will be unavailable');
-      }
-    } else {
-      this.logger.warn('ANTHROPIC_API_KEY is not set — AI grading will be unavailable');
-    }
-  }
+    private readonly anthropicClient: AnthropicClientService,
+  ) {}
 
   // ─── Inline Grade ─────────────────────────────────────────────────────────
 
@@ -97,7 +77,7 @@ export class AiGradingService {
     imageBuffer: Buffer,
     mimeType: string,
   ): Promise<AiGradingSuggestion> {
-    if (!this.anthropic) {
+    if (!this.anthropicClient.isConfigured) {
       throw new ServiceUnavailableException({
         error: {
           code: 'AI_SERVICE_UNAVAILABLE',
@@ -168,7 +148,7 @@ export class AiGradingService {
     );
 
     const startTime = Date.now();
-    const response = await this.anthropic.messages.create({
+    const response = await this.anthropicClient.createMessage({
       model: 'claude-sonnet-4-6-20250514',
       max_tokens: 2048,
       messages: [
@@ -190,10 +170,8 @@ export class AiGradingService {
     });
     const elapsed = Date.now() - startTime;
 
-    const textBlock = response.content.find(
-      (b: { type: string; text?: string }) => b.type === 'text',
-    );
-    const rawText = textBlock?.text ?? '';
+    const textBlock = response.content.find((b) => b.type === 'text');
+    const rawText = textBlock?.type === 'text' ? textBlock.text : '';
     const parsed = this.parseGradingResponse(rawText, context.maxScore);
 
     const confidenceScoreMap: Record<string, number> = { high: 0.9, medium: 0.7, low: 0.4 };
@@ -227,7 +205,7 @@ export class AiGradingService {
     assessmentId: string,
     images: BatchGradingImage[],
   ): Promise<AiGradingSuggestion[]> {
-    if (!this.anthropic) {
+    if (!this.anthropicClient.isConfigured) {
       throw new ServiceUnavailableException({
         error: {
           code: 'AI_SERVICE_UNAVAILABLE',
@@ -304,7 +282,7 @@ export class AiGradingService {
         const base64Image = img.image_buffer.toString('base64');
 
         const batchStartTime = Date.now();
-        const response = await this.anthropic.messages.create({
+        const response = await this.anthropicClient.createMessage({
           model: 'claude-sonnet-4-6-20250514',
           max_tokens: 2048,
           messages: [
@@ -326,10 +304,8 @@ export class AiGradingService {
         });
         const batchElapsed = Date.now() - batchStartTime;
 
-        const textBlock = response.content.find(
-          (b: { type: string; text?: string }) => b.type === 'text',
-        );
-        const batchRawText = textBlock?.text ?? '';
+        const textBlock = response.content.find((b) => b.type === 'text');
+        const batchRawText = textBlock?.type === 'text' ? textBlock.text : '';
         const parsed = this.parseGradingResponse(batchRawText, context.maxScore);
 
         const batchConfidenceMap: Record<string, number> = { high: 0.9, medium: 0.7, low: 0.4 };

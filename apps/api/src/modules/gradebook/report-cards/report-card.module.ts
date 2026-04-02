@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
+import { AiModule } from '../../ai/ai.module';
 import { GdprModule } from '../../gdpr/gdpr.module';
 import { PdfRenderingModule } from '../../pdf-rendering/pdf-rendering.module';
 
@@ -29,7 +30,12 @@ import { ReportCardsService } from './report-cards.service';
 // (used by ParentGradebookController).
 
 @Module({
-  imports: [GdprModule, PdfRenderingModule, BullModule.registerQueue({ name: 'gradebook' })],
+  imports: [
+    AiModule,
+    GdprModule,
+    PdfRenderingModule,
+    BullModule.registerQueue({ name: 'gradebook' }),
+  ],
   controllers: [
     ReportCardsController,
     ReportCardsEnhancedController,

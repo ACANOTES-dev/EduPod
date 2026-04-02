@@ -13,33 +13,59 @@ import type { ApprovalActionType, ApprovalRequestStatus } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
 
+// ─── Mode A callback mapping ─────────────────────────────────────────────
+
+interface CallbackMapping {
+  queue: Queue;
+  jobName: string;
+}
+
+function buildModeACallbacks(
+  notificationsQueue: Queue,
+  financeQueue: Queue,
+  payrollQueue: Queue,
+): Record<string, CallbackMapping> {
+  return {
+    announcement_publish: { queue: notificationsQueue, jobName: 'communications:on-approval' },
+    invoice_issue: { queue: financeQueue, jobName: 'finance:on-approval' },
+    payroll_finalise: { queue: payrollQueue, jobName: 'payroll:on-approval' },
+  };
+}
+
 interface ListRequestsFilters {
   page: number;
   pageSize: number;
   status?: ApprovalRequestStatus;
+  callback_status?: string;
 }
 
 @Injectable()
 export class ApprovalRequestsService {
   private readonly logger = new Logger(ApprovalRequestsService.name);
+  private readonly modeACallbacks: Record<string, CallbackMapping>;
 
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
     @InjectQueue('finance') private readonly financeQueue: Queue,
     @InjectQueue('payroll') private readonly payrollQueue: Queue,
-  ) {}
+  ) {
+    this.modeACallbacks = buildModeACallbacks(notificationsQueue, financeQueue, payrollQueue);
+  }
 
   /**
    * List approval requests for a tenant, with pagination and optional status filter.
    */
   async listRequests(tenantId: string, filters: ListRequestsFilters) {
-    const { page, pageSize, status } = filters;
+    const { page, pageSize, status, callback_status } = filters;
     const skip = (page - 1) * pageSize;
 
     const where: Record<string, unknown> = { tenant_id: tenantId };
     if (status) {
       where.status = status;
+    }
+    if (callback_status) {
+      where.callback_status = callback_status;
     }
 
     const [requests, total] = await Promise.all([
@@ -157,16 +183,7 @@ export class ApprovalRequestsService {
     }
 
     // Mode A: Auto-execute on approval
-    const MODE_A_CALLBACKS: Record<string, { queue: Queue; jobName: string }> = {
-      announcement_publish: {
-        queue: this.notificationsQueue,
-        jobName: 'communications:on-approval',
-      },
-      invoice_issue: { queue: this.financeQueue, jobName: 'finance:on-approval' },
-      payroll_finalise: { queue: this.payrollQueue, jobName: 'payroll:on-approval' },
-    };
-
-    const callback = MODE_A_CALLBACKS[request.action_type];
+    const callback = this.modeACallbacks[request.action_type];
     const hasCallback = !!callback;
 
     const updated = await this.prisma.approvalRequest.update({
@@ -347,6 +364,84 @@ export class ApprovalRequestsService {
     });
 
     return updated;
+  }
+
+  /**
+   * Manually retry a permanently-failed approval callback.
+   * Resets callback_attempts to 0, re-enqueues the domain job.
+   * Only valid for approved requests with callback_status = 'failed'.
+   */
+  async retryCallback(tenantId: string, requestId: string) {
+    const request = await this.prisma.approvalRequest.findFirst({
+      where: { id: requestId, tenant_id: tenantId },
+    });
+
+    if (!request) {
+      throw new NotFoundException({
+        code: 'APPROVAL_REQUEST_NOT_FOUND',
+        message: `Approval request with id "${requestId}" not found`,
+      });
+    }
+
+    if (request.status !== 'approved') {
+      throw new BadRequestException({
+        code: 'INVALID_STATUS',
+        message: `Cannot retry callback for a request with status "${request.status}" — must be "approved"`,
+      });
+    }
+
+    if (request.callback_status !== 'failed') {
+      throw new BadRequestException({
+        code: 'CALLBACK_NOT_FAILED',
+        message: `Cannot retry callback with status "${request.callback_status}" — must be "failed"`,
+      });
+    }
+
+    const mapping = this.modeACallbacks[request.action_type];
+    if (!mapping) {
+      throw new BadRequestException({
+        code: 'NO_CALLBACK_MAPPING',
+        message: `Action type "${request.action_type}" does not have a callback mapping`,
+      });
+    }
+
+    // Reset callback state
+    await this.prisma.approvalRequest.update({
+      where: { id: requestId },
+      data: {
+        callback_status: 'pending',
+        callback_attempts: 0,
+        callback_error: null,
+      },
+    });
+
+    // Re-enqueue the domain job
+    try {
+      await mapping.queue.add(mapping.jobName, {
+        tenant_id: tenantId,
+        approval_request_id: requestId,
+        target_entity_id: request.target_entity_id,
+        approver_user_id: request.approver_user_id,
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Failed to re-enqueue callback for approval ${requestId}: ${errorMessage}`);
+      await this.prisma.approvalRequest.update({
+        where: { id: requestId },
+        data: {
+          callback_status: 'failed',
+          callback_error: `Manual retry enqueue failed: ${errorMessage}`,
+        },
+      });
+      throw new BadRequestException({
+        code: 'CALLBACK_ENQUEUE_FAILED',
+        message: `Failed to enqueue callback: ${errorMessage}`,
+      });
+    }
+
+    this.logger.log(`Manual callback retry for approval ${requestId} (${request.action_type})`);
+
+    return this.getRequest(tenantId, requestId);
   }
 
   /**

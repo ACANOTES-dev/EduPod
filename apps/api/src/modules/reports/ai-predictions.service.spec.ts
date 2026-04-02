@@ -1,6 +1,7 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { SettingsService } from '../configuration/settings.service';
 import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
@@ -8,13 +9,6 @@ import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { AiPredictionsService } from './ai-predictions.service';
 
 const mockAnthropicCreate = jest.fn();
-
-jest.mock('@anthropic-ai/sdk', () => ({
-  __esModule: true,
-  default: jest.fn().mockImplementation(() => ({
-    messages: { create: mockAnthropicCreate },
-  })),
-}));
 
 const VALID_PREDICTION_RESPONSE = {
   expected: [82, 84, 86],
@@ -32,9 +26,13 @@ const mockSettingsService = {
 describe('AiPredictionsService', () => {
   let service: AiPredictionsService;
   let module: TestingModule;
+  let mockAnthropicClientService: { isConfigured: boolean; createMessage: jest.Mock };
 
   beforeEach(async () => {
-    process.env.ANTHROPIC_API_KEY = 'test-key';
+    mockAnthropicClientService = {
+      isConfigured: true,
+      createMessage: mockAnthropicCreate,
+    };
 
     mockAnthropicCreate.mockResolvedValue({
       content: [{ type: 'text', text: JSON.stringify(VALID_PREDICTION_RESPONSE) }],
@@ -56,6 +54,7 @@ describe('AiPredictionsService', () => {
           },
         },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: mockAnthropicClientService },
       ],
     }).compile();
 
@@ -64,7 +63,6 @@ describe('AiPredictionsService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
-    delete process.env.ANTHROPIC_API_KEY;
   });
 
   it('should return a valid TrendPrediction when AI responds correctly', async () => {
@@ -167,29 +165,9 @@ describe('AiPredictionsService', () => {
   });
 
   it('should throw ServiceUnavailableException when ANTHROPIC_API_KEY is not set', async () => {
-    delete process.env.ANTHROPIC_API_KEY;
+    mockAnthropicClientService.isConfigured = false;
 
-    const moduleNoKey: TestingModule = await Test.createTestingModule({
-      providers: [
-        AiPredictionsService,
-        { provide: SettingsService, useValue: mockSettingsService },
-        {
-          provide: GdprTokenService,
-          useValue: {
-            processOutbound: jest.fn().mockResolvedValue({
-              processedData: { entities: [], entityCount: 0 },
-              tokenMap: null,
-            }),
-            processInbound: jest.fn().mockImplementation(async (_t: string, r: string) => r),
-          },
-        },
-        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
-      ],
-    }).compile();
-
-    const serviceNoKey = moduleNoKey.get<AiPredictionsService>(AiPredictionsService);
-
-    await expect(serviceNoKey.predictTrend(TENANT_ID, [], 'attendance', 3)).rejects.toThrow(
+    await expect(service.predictTrend(TENANT_ID, [], 'attendance', 3)).rejects.toThrow(
       ServiceUnavailableException,
     );
   });

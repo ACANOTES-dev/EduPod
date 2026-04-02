@@ -1,6 +1,7 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { SettingsService } from '../configuration/settings.service';
 import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
@@ -9,13 +10,6 @@ import { RedisService } from '../redis/redis.service';
 import { AiReportNarratorService } from './ai-report-narrator.service';
 
 const mockAnthropicCreate = jest.fn();
-
-jest.mock('@anthropic-ai/sdk', () => ({
-  __esModule: true,
-  default: jest.fn().mockImplementation(() => ({
-    messages: { create: mockAnthropicCreate },
-  })),
-}));
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const mockSettingsService = {
@@ -26,9 +20,13 @@ describe('AiReportNarratorService', () => {
   let service: AiReportNarratorService;
   let module: TestingModule;
   let mockRedisClient: { get: jest.Mock; setex: jest.Mock };
+  let mockAnthropicClientService: { isConfigured: boolean; createMessage: jest.Mock };
 
   beforeEach(async () => {
-    process.env.ANTHROPIC_API_KEY = 'test-key';
+    mockAnthropicClientService = {
+      isConfigured: true,
+      createMessage: mockAnthropicCreate,
+    };
 
     mockRedisClient = {
       get: jest.fn().mockResolvedValue(null),
@@ -56,6 +54,7 @@ describe('AiReportNarratorService', () => {
           },
         },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: mockAnthropicClientService },
       ],
     }).compile();
 
@@ -64,11 +63,14 @@ describe('AiReportNarratorService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
-    delete process.env.ANTHROPIC_API_KEY;
   });
 
   it('should return AI-generated narrative for attendance report type', async () => {
-    const result = await service.generateNarrative(TENANT_ID, { attendance_rate: 85 }, 'attendance');
+    const result = await service.generateNarrative(
+      TENANT_ID,
+      { attendance_rate: 85 },
+      'attendance',
+    );
 
     expect(result).toBe('Attendance is improving steadily.');
     expect(mockAnthropicCreate).toHaveBeenCalledTimes(1);
@@ -77,7 +79,11 @@ describe('AiReportNarratorService', () => {
   it('should return cached narrative when cache hit occurs', async () => {
     mockRedisClient.get.mockResolvedValue('Cached narrative text.');
 
-    const result = await service.generateNarrative(TENANT_ID, { attendance_rate: 85 }, 'attendance');
+    const result = await service.generateNarrative(
+      TENANT_ID,
+      { attendance_rate: 85 },
+      'attendance',
+    );
 
     expect(result).toBe('Cached narrative text.');
     expect(mockAnthropicCreate).not.toHaveBeenCalled();
@@ -144,30 +150,9 @@ describe('AiReportNarratorService', () => {
   });
 
   it('should throw ServiceUnavailableException when ANTHROPIC_API_KEY is not set', async () => {
-    delete process.env.ANTHROPIC_API_KEY;
+    mockAnthropicClientService.isConfigured = false;
 
-    const moduleNoKey: TestingModule = await Test.createTestingModule({
-      providers: [
-        AiReportNarratorService,
-        { provide: SettingsService, useValue: mockSettingsService },
-        { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
-        {
-          provide: GdprTokenService,
-          useValue: {
-            processOutbound: jest.fn().mockResolvedValue({
-              processedData: { entities: [], entityCount: 0 },
-              tokenMap: null,
-            }),
-            processInbound: jest.fn().mockImplementation(async (_t: string, r: string) => r),
-          },
-        },
-        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
-      ],
-    }).compile();
-
-    const serviceNoKey = moduleNoKey.get<AiReportNarratorService>(AiReportNarratorService);
-
-    await expect(serviceNoKey.generateNarrative(TENANT_ID, {}, 'attendance')).rejects.toThrow(
+    await expect(service.generateNarrative(TENANT_ID, {}, 'attendance')).rejects.toThrow(
       ServiceUnavailableException,
     );
   });

@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
+import { AiModule } from '../ai/ai.module';
 import { AuthModule } from '../auth/auth.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { GdprModule } from '../gdpr/gdpr.module';
@@ -35,6 +36,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
 
 @Module({
   imports: [
+    AiModule,
     AuthModule,
     ConfigurationModule,
     GdprModule,

@@ -12,7 +12,10 @@ export const DEADLINE_CHECK_JOB = 'compliance:deadline-check';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const TERMINAL_STATUSES: ComplianceRequestStatus[] = [ComplianceRequestStatus.completed, ComplianceRequestStatus.rejected];
+const TERMINAL_STATUSES: ComplianceRequestStatus[] = [
+  ComplianceRequestStatus.completed,
+  ComplianceRequestStatus.rejected,
+];
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 // ─── Job ────────────────────────────────────────────────────────────────────
@@ -58,9 +61,7 @@ class DeadlineCheckJob extends CrossTenantSystemJob {
           ? request.extension_deadline_at
           : request.deadline_at!;
 
-      const daysRemaining = Math.ceil(
-        (effectiveDeadline.getTime() - now.getTime()) / MS_PER_DAY,
-      );
+      const daysRemaining = Math.ceil((effectiveDeadline.getTime() - now.getTime()) / MS_PER_DAY);
 
       if (daysRemaining <= 0 && !request.deadline_exceeded) {
         // Deadline exceeded — flag and notify tenant admins, platform admins, + requester
@@ -183,11 +184,9 @@ class DeadlineCheckJob extends CrossTenantSystemJob {
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.COMPLIANCE)
+@Processor(QUEUE_NAMES.COMPLIANCE, { lockDuration: 120_000 })
 export class DeadlineCheckProcessor extends WorkerHost {
-  constructor(
-    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
-  ) {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();
   }
 

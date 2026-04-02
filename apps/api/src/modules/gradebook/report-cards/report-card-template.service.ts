@@ -10,19 +10,12 @@ import { Prisma } from '@prisma/client';
 import type { GdprOutboundData } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { AnthropicClientService } from '../../ai/anthropic-client.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type AnthropicClient = {
-  messages: {
-    create: (params: Record<string, unknown>) => Promise<{
-      content: Array<{ type: string; text?: string }>;
-    }>;
-  };
-};
 
 export interface TemplateSectionConfig {
   id: string;
@@ -53,28 +46,13 @@ export interface UpdateTemplateDto {
 @Injectable()
 export class ReportCardTemplateService {
   private readonly logger = new Logger(ReportCardTemplateService.name);
-  private anthropic: AnthropicClient | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly gdprTokenService: GdprTokenService,
     private readonly aiAuditService: AiAuditService,
-  ) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (apiKey) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const AnthropicSdk = require('@anthropic-ai/sdk').default;
-        this.anthropic = new AnthropicSdk({ apiKey }) as AnthropicClient;
-      } catch {
-        this.logger.warn(
-          '@anthropic-ai/sdk is not installed — AI template conversion will be unavailable',
-        );
-      }
-    } else {
-      this.logger.warn('ANTHROPIC_API_KEY is not set — AI template conversion will be unavailable');
-    }
-  }
+    private readonly anthropicClient: AnthropicClientService,
+  ) {}
 
   // ─── Create ───────────────────────────────────────────────────────────────
 
@@ -316,7 +294,7 @@ export class ReportCardTemplateService {
   // ─── AI Template Conversion ───────────────────────────────────────────────
 
   async convertFromImage(tenantId: string, userId: string, imageBuffer: Buffer, mimeType: string) {
-    if (!this.anthropic) {
+    if (!this.anthropicClient.isConfigured) {
       throw new ServiceUnavailableException({
         error: {
           code: 'AI_SERVICE_UNAVAILABLE',
@@ -356,6 +334,7 @@ export class ReportCardTemplateService {
     );
 
     const base64Image = imageBuffer.toString('base64');
+    const mediaType = mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
 
     const sectionTypesDoc = `
 Available section types:
@@ -403,7 +382,7 @@ Return ONLY the JSON array, no explanation.`;
     this.logger.log(`Converting report card template from image for tenant ${tenantId}`);
 
     const startTime = Date.now();
-    const response = await this.anthropic.messages.create({
+    const response = await this.anthropicClient.createMessage({
       model: 'claude-sonnet-4-6-20250514',
       max_tokens: 2048,
       messages: [
@@ -414,7 +393,7 @@ Return ONLY the JSON array, no explanation.`;
               type: 'image',
               source: {
                 type: 'base64',
-                media_type: mimeType,
+                media_type: mediaType,
                 data: base64Image,
               },
             },
@@ -429,7 +408,7 @@ Return ONLY the JSON array, no explanation.`;
     const elapsed = Date.now() - startTime;
 
     const textBlock = response.content.find((b) => b.type === 'text');
-    const rawText = textBlock?.text?.trim() ?? '[]';
+    const rawText = textBlock?.type === 'text' ? (textBlock.text?.trim() ?? '[]') : '[]';
 
     await this.aiAuditService.log({
       tenantId,

@@ -42,6 +42,11 @@ type MockTx = ReturnType<typeof buildMockTx>;
 function buildMockPrisma(mockTx: MockTx) {
   return {
     $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    // Phase 2 uses flat prisma calls (outside tx)
+    notification: mockTx.notification,
+    notificationTemplate: mockTx.notificationTemplate,
+    user: mockTx.user,
+    parent: mockTx.parent,
   };
 }
 

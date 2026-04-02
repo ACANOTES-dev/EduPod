@@ -1,7 +1,8 @@
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { Queue } from 'bullmq';
 import type { Job } from 'bullmq';
 import type { Browser } from 'puppeteer';
 
@@ -26,12 +27,15 @@ export interface PdfRenderJobPayload extends TenantJobPayload {
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PDF_RENDERING)
+@Processor(QUEUE_NAMES.PDF_RENDERING, { lockDuration: 120_000 })
 export class PdfRenderProcessor extends WorkerHost {
   private readonly logger = new Logger(PdfRenderProcessor.name);
   private browser: Browser | null = null;
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
+  ) {
     super();
   }
 
@@ -49,6 +53,7 @@ export class PdfRenderProcessor extends WorkerHost {
       this.prisma,
       () => this.getBrowser(),
       (key, buf) => this.uploadPdfToS3(key, buf),
+      (queueName, jobName, payload) => this.dispatchCallback(queueName, jobName, payload),
     );
     await renderJob.execute(job.data);
   }
@@ -80,6 +85,22 @@ export class PdfRenderProcessor extends WorkerHost {
       }),
     );
   }
+
+  // ─── Callback dispatch ────────────────────────────────────────────────
+
+  private async dispatchCallback(
+    queueName: string,
+    jobName: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const redis = await this.notificationsQueue.client;
+    const q = new Queue(queueName, { connection: redis });
+    try {
+      await q.add(jobName, payload, { removeOnComplete: 50, removeOnFail: 200 });
+    } finally {
+      await q.close();
+    }
+  }
 }
 
 // ─── TenantAwareJob Implementation ──────────────────────────────────────────
@@ -91,6 +112,11 @@ class PdfRenderJob extends TenantAwareJob<PdfRenderJobPayload> {
     prisma: PrismaClient,
     private readonly getBrowser: () => Promise<Browser>,
     private readonly uploadPdf: (key: string, buffer: Buffer) => Promise<void>,
+    private readonly dispatchCallback: (
+      queueName: string,
+      jobName: string,
+      payload: Record<string, unknown>,
+    ) => Promise<void>,
   ) {
     super(prisma);
   }
@@ -140,8 +166,25 @@ class PdfRenderJob extends TenantAwareJob<PdfRenderJobPayload> {
       `PDF rendered and uploaded — key=${output_key}, size=${pdfBuffer.length} bytes`,
     );
 
-    // NOTE: Callback job dispatch (enqueue a follow-up job after PDF is ready)
-    // is not yet implemented. When needed, this would use a Queue reference
-    // to enqueue data.callback_job_name with data.callback_payload.
+    // ─── 3. Dispatch callback if requested ──────────────────────────────
+
+    if (data.callback_job_name && data.callback_queue_name) {
+      const callbackPayload = {
+        ...(data.callback_payload ?? {}),
+        tenant_id: data.tenant_id,
+        output_key,
+        pdf_size_bytes: pdfBuffer.length,
+      };
+
+      await this.dispatchCallback(
+        data.callback_queue_name,
+        data.callback_job_name,
+        callbackPayload,
+      );
+
+      this.logger.log(
+        `Dispatched callback ${data.callback_job_name} on ${data.callback_queue_name}`,
+      );
+    }
   }
 }

@@ -1,11 +1,9 @@
-import Anthropic from '@anthropic-ai/sdk';
 import {
   ForbiddenException,
   Injectable,
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 
 import { AI_BEHAVIOUR_SYSTEM_PROMPT, anonymiseForAI } from '@school/shared';
 import type {
@@ -16,6 +14,7 @@ import type {
   GdprOutboundData,
 } from '@school/shared';
 
+import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -29,21 +28,15 @@ const AI_TIMEOUT_MS = 15_000;
 @Injectable()
 export class BehaviourAIService {
   private readonly logger = new Logger(BehaviourAIService.name);
-  private anthropicClient: Anthropic | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeService: BehaviourScopeService,
     private readonly analyticsService: BehaviourAnalyticsService,
-    private readonly configService: ConfigService,
+    private readonly anthropicClient: AnthropicClientService,
     private readonly gdprTokenService: GdprTokenService,
     private readonly aiAuditService: AiAuditService,
-  ) {
-    const apiKey = this.configService.get<string>('ANTHROPIC_API_KEY');
-    if (apiKey) {
-      this.anthropicClient = new Anthropic({ apiKey });
-    }
-  }
+  ) {}
 
   /**
    * Process a natural language analytics query through the full pipeline:
@@ -56,6 +49,16 @@ export class BehaviourAIService {
     input: AIQueryInput,
     settings: Record<string, unknown>,
   ): Promise<AIQueryResult> {
+    // Check AI availability
+    if (!this.anthropicClient.isConfigured) {
+      throw new ServiceUnavailableException({
+        error: {
+          code: 'AI_SERVICE_UNAVAILABLE',
+          message: 'AI provider not configured. ANTHROPIC_API_KEY is not set.',
+        },
+      });
+    }
+
     // Check AI gate
     if (!settings.ai_nl_query_enabled) {
       throw new ForbiddenException({
@@ -187,29 +190,21 @@ export class BehaviourAIService {
    * Call AI provider with Claude primary and timeout fallback.
    */
   private async callAI(prompt: string, timeout: number): Promise<string> {
-    if (!this.anthropicClient) {
-      throw new Error('AI provider not configured');
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-    try {
-      const response = await this.anthropicClient.messages.create({
+    const response = await this.anthropicClient.createMessage(
+      {
         model: 'claude-sonnet-4-5-20250514',
         max_tokens: 1024,
         system: AI_BEHAVIOUR_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: prompt }],
-      });
+      },
+      { timeoutMs: timeout },
+    );
 
-      const textBlock = response.content.find((b) => b.type === 'text');
-      if (!textBlock || textBlock.type !== 'text') {
-        throw new Error('No text response from AI');
-      }
-      return textBlock.text;
-    } finally {
-      clearTimeout(timeoutId);
+    const textBlock = response.content.find((b) => b.type === 'text');
+    if (!textBlock || textBlock.type !== 'text') {
+      throw new Error('No text response from AI');
     }
+    return textBlock.text;
   }
 
   /**

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { AcademicsModule } from '../academics/academics.module';
+import { AiModule } from '../ai/ai.module';
 import { AuthModule } from '../auth/auth.module';
 import { CommunicationsModule } from '../communications/communications.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
@@ -43,6 +44,7 @@ import { YearGroupGradeWeightsService } from './year-group-grade-weights.service
 @Module({
   imports: [
     AcademicsModule,
+    AiModule,
     AuthModule,
     CommunicationsModule,
     ConfigurationModule,

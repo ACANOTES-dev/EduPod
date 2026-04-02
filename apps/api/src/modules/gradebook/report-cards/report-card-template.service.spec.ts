@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AnthropicClientService } from '../../ai/anthropic-client.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -39,7 +40,9 @@ const mockGdprTokenService = {
     processedData: { entities: [], entityCount: 0 },
     tokenMap: null,
   }),
-  processInbound: jest.fn().mockImplementation(async (_tenantId: string, response: string) => response),
+  processInbound: jest
+    .fn()
+    .mockImplementation(async (_tenantId: string, response: string) => response),
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -96,6 +99,13 @@ describe('ReportCardTemplateService — create', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: {
+            isConfigured: true,
+            createMessage: jest.fn().mockResolvedValue({ content: [{ type: 'text', text: '[]' }] }),
+          },
+        },
       ],
     }).compile();
 
@@ -172,6 +182,13 @@ describe('ReportCardTemplateService — findAll', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: {
+            isConfigured: true,
+            createMessage: jest.fn().mockResolvedValue({ content: [{ type: 'text', text: '[]' }] }),
+          },
+        },
       ],
     }).compile();
 
@@ -219,6 +236,13 @@ describe('ReportCardTemplateService — findOne', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: {
+            isConfigured: true,
+            createMessage: jest.fn().mockResolvedValue({ content: [{ type: 'text', text: '[]' }] }),
+          },
+        },
       ],
     }).compile();
 
@@ -259,6 +283,13 @@ describe('ReportCardTemplateService — update', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: {
+            isConfigured: true,
+            createMessage: jest.fn().mockResolvedValue({ content: [{ type: 'text', text: '[]' }] }),
+          },
+        },
       ],
     }).compile();
 
@@ -295,9 +326,9 @@ describe('ReportCardTemplateService — update', () => {
       .mockResolvedValueOnce({ id: TEMPLATE_ID, locale: 'en' })
       .mockResolvedValueOnce({ id: 'other-template' }); // conflict
 
-    await expect(
-      service.update(TENANT_ID, TEMPLATE_ID, { name: 'Conflict Name' }),
-    ).rejects.toThrow(ConflictException);
+    await expect(service.update(TENANT_ID, TEMPLATE_ID, { name: 'Conflict Name' })).rejects.toThrow(
+      ConflictException,
+    );
   });
 });
 
@@ -317,6 +348,13 @@ describe('ReportCardTemplateService — remove', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: {
+            isConfigured: true,
+            createMessage: jest.fn().mockResolvedValue({ content: [{ type: 'text', text: '[]' }] }),
+          },
+        },
       ],
     }).compile();
 
@@ -362,6 +400,13 @@ describe('ReportCardTemplateService — setDefault', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: {
+            isConfigured: true,
+            createMessage: jest.fn().mockResolvedValue({ content: [{ type: 'text', text: '[]' }] }),
+          },
+        },
       ],
     }).compile();
 
@@ -413,6 +458,13 @@ describe('ReportCardTemplateService — convertFromImage', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: {
+            isConfigured: true,
+            createMessage: jest.fn().mockResolvedValue({ content: [{ type: 'text', text: '[]' }] }),
+          },
+        },
       ],
     }).compile();
 
@@ -422,18 +474,15 @@ describe('ReportCardTemplateService — convertFromImage', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should throw ServiceUnavailableException when Anthropic client is not configured', async () => {
-    // Service constructed without ANTHROPIC_API_KEY — anthropic is null
+    // Override isConfigured to false
+    (service['anthropicClient'] as unknown as { isConfigured: boolean }).isConfigured = false;
+
     await expect(
       service.convertFromImage(TENANT_ID, USER_ID, Buffer.from('img'), 'image/jpeg'),
     ).rejects.toThrow(ServiceUnavailableException);
   });
 
   it('should throw ConflictException when monthly rate limit is reached', async () => {
-    // Inject a mock anthropic client
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (service as any).anthropic = {
-      messages: { create: jest.fn() },
-    };
     mockPrisma.reportCardTemplate.count.mockResolvedValue(10); // at limit
 
     await expect(
@@ -446,29 +495,37 @@ describe('ReportCardTemplateService — convertFromImage', () => {
       { id: 's1', type: 'header', order: 1, style_variant: 'centered', enabled: true, config: {} },
     ];
 
-    const mockAnthropicClient = {
-      messages: {
-        create: jest.fn().mockResolvedValue({
-          content: [{ type: 'text', text: JSON.stringify(mockSections) }],
-        }),
-      },
-    };
+    const mockCreateMessage = jest.fn().mockResolvedValue({
+      content: [{ type: 'text', text: JSON.stringify(mockSections) }],
+    });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (service as any).anthropic = mockAnthropicClient;
+    const module2: TestingModule = await Test.createTestingModule({
+      providers: [
+        ReportCardTemplateService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: GdprTokenService, useValue: mockGdprTokenService },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: { isConfigured: true, createMessage: mockCreateMessage },
+        },
+      ],
+    }).compile();
+
+    const svc = module2.get<ReportCardTemplateService>(ReportCardTemplateService);
 
     mockPrisma.reportCardTemplate.count.mockResolvedValue(0); // under limit
     // create inside findFirst check: no duplicate
     mockPrisma.reportCardTemplate.findFirst.mockResolvedValue(null);
 
-    const result = await service.convertFromImage(
+    const result = await svc.convertFromImage(
       TENANT_ID,
       USER_ID,
       Buffer.from('imagedata'),
       'image/jpeg',
     );
 
-    expect(mockAnthropicClient.messages.create).toHaveBeenCalled();
+    expect(mockCreateMessage).toHaveBeenCalled();
     expect(result).toHaveProperty('template');
     expect(result).toHaveProperty('sections_json');
     expect(result.sections_json).toEqual(mockSections);
@@ -479,36 +536,31 @@ describe('ReportCardTemplateService — convertFromImage', () => {
       { id: 's1', type: 'header', order: 1, style_variant: 'centered', enabled: true, config: {} },
     ];
 
-    const mockAnthropicClient = {
-      messages: {
-        create: jest.fn().mockResolvedValue({
-          content: [{ type: 'text', text: JSON.stringify(mockSections) }],
-        }),
-      },
-    };
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (service as any).anthropic = mockAnthropicClient;
+    const mockCreateMessage = jest.fn().mockResolvedValue({
+      content: [{ type: 'text', text: JSON.stringify(mockSections) }],
+    });
 
     mockPrisma.reportCardTemplate.count.mockResolvedValue(0);
     mockPrisma.reportCardTemplate.findFirst.mockResolvedValue(null);
 
-    const module: TestingModule = await Test.createTestingModule({
+    const module2: TestingModule = await Test.createTestingModule({
       providers: [
         ReportCardTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: { isConfigured: true, createMessage: mockCreateMessage },
+        },
       ],
     }).compile();
 
-    const svc = module.get<ReportCardTemplateService>(ReportCardTemplateService);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (svc as any).anthropic = mockAnthropicClient;
+    const svc = module2.get<ReportCardTemplateService>(ReportCardTemplateService);
 
     await svc.convertFromImage(TENANT_ID, USER_ID, Buffer.from('imagedata'), 'image/jpeg');
 
-    const mockAuditService = module.get(AiAuditService);
+    const mockAuditService = module2.get(AiAuditService);
     expect(mockAuditService.log).toHaveBeenCalledWith(
       expect.objectContaining({
         tenantId: TENANT_ID,
@@ -519,26 +571,29 @@ describe('ReportCardTemplateService — convertFromImage', () => {
   });
 
   it('should fall back to default sections when AI returns invalid JSON', async () => {
-    const mockAnthropicClient = {
-      messages: {
-        create: jest.fn().mockResolvedValue({
-          content: [{ type: 'text', text: 'NOT JSON {{{{' }],
-        }),
-      },
-    };
+    const mockCreateMessage = jest.fn().mockResolvedValue({
+      content: [{ type: 'text', text: 'NOT JSON {{{{' }],
+    });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (service as any).anthropic = mockAnthropicClient;
+    const module2: TestingModule = await Test.createTestingModule({
+      providers: [
+        ReportCardTemplateService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: GdprTokenService, useValue: mockGdprTokenService },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: { isConfigured: true, createMessage: mockCreateMessage },
+        },
+      ],
+    }).compile();
+
+    const svc = module2.get<ReportCardTemplateService>(ReportCardTemplateService);
 
     mockPrisma.reportCardTemplate.count.mockResolvedValue(0);
     mockPrisma.reportCardTemplate.findFirst.mockResolvedValue(null);
 
-    const result = await service.convertFromImage(
-      TENANT_ID,
-      USER_ID,
-      Buffer.from('bad'),
-      'image/jpeg',
-    );
+    const result = await svc.convertFromImage(TENANT_ID, USER_ID, Buffer.from('bad'), 'image/jpeg');
 
     // Default sections include header, student_info, grades_table, attendance_summary, teacher_comment
     expect(result.sections_json.length).toBeGreaterThanOrEqual(1);

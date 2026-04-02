@@ -18,13 +18,11 @@ export const REGULATORY_DES_GENERATE_JOB = 'regulatory:generate-des-files';
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.REGULATORY)
+@Processor(QUEUE_NAMES.REGULATORY, { lockDuration: 120_000 })
 export class RegulatoryDesGenerateProcessor extends WorkerHost {
   private readonly logger = new Logger(RegulatoryDesGenerateProcessor.name);
 
-  constructor(
-    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
-  ) {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();
   }
 
@@ -50,10 +48,7 @@ export class RegulatoryDesGenerateProcessor extends WorkerHost {
 class DesGenerateJob extends TenantAwareJob<DesGeneratePayload> {
   private readonly logger = new Logger(DesGenerateJob.name);
 
-  protected async processJob(
-    data: DesGeneratePayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: DesGeneratePayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, academic_year, file_type } = data;
 
     // Update submission status to in_progress
@@ -63,7 +58,12 @@ class DesGenerateJob extends TenantAwareJob<DesGeneratePayload> {
         domain: 'des_september_returns',
         submission_type: file_type,
         academic_year,
-        status: { in: [RegulatorySubmissionStatus.reg_not_started, RegulatorySubmissionStatus.reg_in_progress] },
+        status: {
+          in: [
+            RegulatorySubmissionStatus.reg_not_started,
+            RegulatorySubmissionStatus.reg_in_progress,
+          ],
+        },
       },
       orderBy: { created_at: 'desc' },
     });

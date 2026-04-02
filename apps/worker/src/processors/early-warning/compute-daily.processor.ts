@@ -27,7 +27,7 @@ export interface ComputeDailyPayload extends TenantJobPayload {
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.EARLY_WARNING)
+@Processor(QUEUE_NAMES.EARLY_WARNING, { lockDuration: 300_000 })
 export class ComputeDailyProcessor extends WorkerHost {
   private readonly logger = new Logger(ComputeDailyProcessor.name);
 

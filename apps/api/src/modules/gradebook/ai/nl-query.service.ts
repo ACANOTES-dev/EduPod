@@ -7,6 +7,7 @@ import {
 
 import type { GdprOutboundData } from '@school/shared';
 
+import { AnthropicClientService } from '../../ai/anthropic-client.service';
 import { SettingsService } from '../../configuration/settings.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
@@ -65,14 +66,6 @@ interface RawStructuredQueryResponse {
   limit?: number;
 }
 
-type AnthropicClient = {
-  messages: {
-    create: (params: Record<string, unknown>) => Promise<{
-      content: Array<{ type: string; text?: string }>;
-    }>;
-  };
-};
-
 // ─── Schema Description ───────────────────────────────────────────────────────
 
 const SCHEMA_DESCRIPTION = `
@@ -107,32 +100,19 @@ Sort directions: "asc", "desc"
 @Injectable()
 export class NlQueryService {
   private readonly logger = new Logger(NlQueryService.name);
-  private anthropic: AnthropicClient | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService,
     private readonly gdprTokenService: GdprTokenService,
     private readonly aiAuditService: AiAuditService,
-  ) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (apiKey) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const AnthropicSdk = require('@anthropic-ai/sdk').default;
-        this.anthropic = new AnthropicSdk({ apiKey }) as AnthropicClient;
-      } catch {
-        this.logger.warn('@anthropic-ai/sdk is not installed — NL queries will be unavailable');
-      }
-    } else {
-      this.logger.warn('ANTHROPIC_API_KEY is not set — NL queries will be unavailable');
-    }
-  }
+    private readonly anthropicClient: AnthropicClientService,
+  ) {}
 
   // ─── Process Query ────────────────────────────────────────────────────────
 
   async processQuery(tenantId: string, userId: string, question: string): Promise<NlQueryResult> {
-    if (!this.anthropic) {
+    if (!this.anthropicClient.isConfigured) {
       throw new ServiceUnavailableException({
         error: {
           code: 'AI_SERVICE_UNAVAILABLE',
@@ -223,7 +203,7 @@ export class NlQueryService {
   // ─── Generate Structured Query via Claude ─────────────────────────────────
 
   private async generateStructuredQuery(question: string): Promise<NlStructuredQuery> {
-    if (!this.anthropic) {
+    if (!this.anthropicClient.isConfigured) {
       throw new ServiceUnavailableException({
         error: { code: 'AI_SERVICE_UNAVAILABLE', message: 'AI not available' },
       });
@@ -254,17 +234,16 @@ Rules:
 - limit defaults to 50, max 200
 - Return ONLY the JSON, no explanation, no markdown.`;
 
-    const response = await this.anthropic.messages.create({
+    const response = await this.anthropicClient.createMessage({
       model: 'claude-sonnet-4-6-20250514',
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }],
     });
 
-    const textBlock = response.content.find(
-      (b: { type: string; text?: string }) => b.type === 'text',
-    );
+    const textBlock = response.content.find((b) => b.type === 'text');
+    const responseText = textBlock?.type === 'text' ? textBlock.text : '';
 
-    return this.parseStructuredQuery(textBlock?.text ?? '');
+    return this.parseStructuredQuery(responseText);
   }
 
   private parseStructuredQuery(text: string): NlStructuredQuery {

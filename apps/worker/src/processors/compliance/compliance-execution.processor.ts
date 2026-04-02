@@ -24,7 +24,7 @@ export const COMPLIANCE_EXECUTION_JOB = 'compliance:execute';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.IMPORTS)
+@Processor(QUEUE_NAMES.IMPORTS, { lockDuration: 120_000 })
 export class ComplianceExecutionProcessor extends WorkerHost {
   private readonly logger = new Logger(ComplianceExecutionProcessor.name);
 

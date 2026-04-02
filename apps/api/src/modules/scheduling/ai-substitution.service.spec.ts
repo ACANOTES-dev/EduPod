@@ -1,6 +1,7 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { SettingsService } from '../configuration/settings.service';
 import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
@@ -13,16 +14,6 @@ const SCHEDULE_ID = 'schedule-1';
 const DATE = '2026-03-20';
 
 const mockMessagesCreate = jest.fn();
-
-jest.mock('@anthropic-ai/sdk', () => {
-  return {
-    default: jest.fn().mockImplementation(() => ({
-      messages: {
-        create: mockMessagesCreate,
-      },
-    })),
-  };
-});
 
 const mockSettingsService = {
   getSettings: jest.fn().mockResolvedValue({ ai: { substitutionRankingEnabled: true } }),
@@ -56,8 +47,13 @@ describe('AiSubstitutionService', () => {
     substitutionRecord: { findMany: jest.Mock };
   };
 
+  let mockAnthropicClientService: { isConfigured: boolean; createMessage: jest.Mock };
+
   beforeEach(async () => {
-    process.env.ANTHROPIC_API_KEY = 'test-api-key';
+    mockAnthropicClientService = {
+      isConfigured: true,
+      createMessage: mockMessagesCreate,
+    };
 
     mockPrisma = {
       schedule: {
@@ -85,8 +81,22 @@ describe('AiSubstitutionService', () => {
         AiSubstitutionService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettingsService },
-        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: mockAnthropicClientService },
       ],
     }).compile();
 
@@ -95,7 +105,6 @@ describe('AiSubstitutionService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
-    delete process.env.ANTHROPIC_API_KEY;
   });
 
   // ─── rankSubstitutes ──────────────────────────────────────────────────────
@@ -139,8 +148,18 @@ describe('AiSubstitutionService', () => {
           {
             type: 'text',
             text: JSON.stringify([
-              { staff_profile_id: 'staff-3', confidence: 'low', score: 40, reasoning: 'Lower score' },
-              { staff_profile_id: 'staff-2', confidence: 'high', score: 85, reasoning: 'Higher score' },
+              {
+                staff_profile_id: 'staff-3',
+                confidence: 'low',
+                score: 40,
+                reasoning: 'Lower score',
+              },
+              {
+                staff_profile_id: 'staff-2',
+                confidence: 'high',
+                score: 85,
+                reasoning: 'Higher score',
+              },
             ]),
           },
         ],
@@ -157,7 +176,12 @@ describe('AiSubstitutionService', () => {
           {
             type: 'text',
             text: JSON.stringify([
-              { staff_profile_id: 'staff-2', confidence: 'high', score: 150, reasoning: 'Too high' },
+              {
+                staff_profile_id: 'staff-2',
+                confidence: 'high',
+                score: 150,
+                reasoning: 'Too high',
+              },
             ]),
           },
         ],
@@ -174,7 +198,12 @@ describe('AiSubstitutionService', () => {
           {
             type: 'text',
             text: JSON.stringify([
-              { staff_profile_id: 'staff-2', confidence: 'very_high', score: 80, reasoning: 'Unknown confidence' },
+              {
+                staff_profile_id: 'staff-2',
+                confidence: 'very_high',
+                score: 80,
+                reasoning: 'Unknown confidence',
+              },
             ]),
           },
         ],
@@ -278,24 +307,11 @@ describe('AiSubstitutionService', () => {
 
   describe('graceful degradation', () => {
     it('should throw ServiceUnavailableException when ANTHROPIC_API_KEY is not set', async () => {
-      delete process.env.ANTHROPIC_API_KEY;
+      mockAnthropicClientService.isConfigured = false;
 
-      // Re-create service without API key
-      const moduleNoKey: TestingModule = await Test.createTestingModule({
-        providers: [
-          AiSubstitutionService,
-          { provide: PrismaService, useValue: mockPrisma },
-          { provide: SettingsService, useValue: mockSettingsService },
-          { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
-          { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
-        ],
-      }).compile();
-
-      const serviceWithoutKey = moduleNoKey.get<AiSubstitutionService>(AiSubstitutionService);
-
-      await expect(
-        serviceWithoutKey.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE),
-      ).rejects.toThrow(ServiceUnavailableException);
+      await expect(service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE)).rejects.toThrow(
+        ServiceUnavailableException,
+      );
     });
   });
 });

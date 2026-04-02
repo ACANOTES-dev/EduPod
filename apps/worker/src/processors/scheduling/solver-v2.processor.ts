@@ -15,7 +15,7 @@ export interface SchedulingSolverV2Payload extends TenantJobPayload {
 
 export const SCHEDULING_SOLVE_V2_JOB = 'scheduling:solve-v2';
 
-@Processor(QUEUE_NAMES.SCHEDULING)
+@Processor(QUEUE_NAMES.SCHEDULING, { lockDuration: 300_000 })
 export class SchedulingSolverV2Processor extends WorkerHost {
   private readonly logger = new Logger(SchedulingSolverV2Processor.name);
 
@@ -28,7 +28,7 @@ export class SchedulingSolverV2Processor extends WorkerHost {
 
     this.logger.log(`Processing ${SCHEDULING_SOLVE_V2_JOB} -- run ${job.data.run_id}`);
 
-    const solverJob = new SchedulingSolverV2Job(this.prisma);
+    const solverJob = new SchedulingSolverV2Job(this.prisma, job);
     try {
       await solverJob.execute(job.data);
     } catch (err) {
@@ -50,10 +50,14 @@ export class SchedulingSolverV2Processor extends WorkerHost {
 class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
   private readonly logger = new Logger(SchedulingSolverV2Job.name);
 
-  protected async processJob(
-    data: SchedulingSolverV2Payload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  constructor(
+    prisma: PrismaClient,
+    private readonly job: Job<SchedulingSolverV2Payload>,
+  ) {
+    super(prisma);
+  }
+
+  protected async processJob(data: SchedulingSolverV2Payload, tx: PrismaClient): Promise<void> {
     const { run_id } = data;
 
     // 1. Load the run
@@ -89,9 +93,21 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
     );
 
     // 4. Run solver
+    let lastExtend = Date.now();
+    const EXTEND_INTERVAL_MS = 60_000;
+
     const result = solveV2(configSnapshot, {
       onProgress: (assigned, total, phase) => {
         this.logger.debug(`Solver v2 progress: ${assigned}/${total} (${phase})`);
+
+        // Extend BullMQ lock to prevent stall detection during long solves
+        if (Date.now() - lastExtend >= EXTEND_INTERVAL_MS) {
+          this.job.extendLock(this.job.token!, 300_000).catch((extendErr) => {
+            this.logger.warn(`Failed to extend lock for run ${data.run_id}: ${extendErr}`);
+          });
+          lastExtend = Date.now();
+          this.logger.debug(`Extended job lock for solver run ${data.run_id}`);
+        }
       },
     });
 
@@ -113,9 +129,10 @@ class SchedulingSolverV2Job extends TenantAwareJob<SchedulingSolverV2Payload> {
         entries_pinned: result.entries.filter((e) => e.is_pinned).length,
         entries_unassigned: result.unassigned.length,
         solver_duration_ms: result.duration_ms,
-        solver_seed: configSnapshot.settings.solver_seed !== null
-          ? BigInt(configSnapshot.settings.solver_seed)
-          : BigInt(0),
+        solver_seed:
+          configSnapshot.settings.solver_seed !== null
+            ? BigInt(configSnapshot.settings.solver_seed)
+            : BigInt(0),
       },
     });
 

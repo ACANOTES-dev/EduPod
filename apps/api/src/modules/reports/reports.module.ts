@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { AiModule } from '../ai/ai.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { GdprModule } from '../gdpr/gdpr.module';
 
@@ -25,7 +26,7 @@ import { StudentProgressService } from './student-progress.service';
 import { UnifiedDashboardService } from './unified-dashboard.service';
 
 @Module({
-  imports: [ConfigurationModule, GdprModule],
+  imports: [AiModule, ConfigurationModule, GdprModule],
   controllers: [ReportsController, ReportsEnhancedController],
   providers: [
     ReportsDataAccessService,

@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying any queue, job, or approval flow, check here for the full chain of consequences.
 > **Maintenance**: Update when adding new jobs, changing job payloads, or modifying approval callbacks.
-> **Last verified**: 2026-03-30
+> **Last verified**: 2026-04-02
 
 ---
 
@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **19 queues**, **~55 documented job types**, **31 cron registrations** (30 by pattern + 1 by interval)
+- **19 queues**, **~59 documented job types**, **33 cron registrations** (31 by pattern + 1 by interval + 1 canary delayed)
 
 ---
 
@@ -80,6 +80,10 @@ AnnouncementsService.publish()
   |           -> enqueues communications:dispatch-notifications
   |             -> DispatchNotificationsProcessor
   |               -> sends email/whatsapp/in_app per recipient
+  |               NOTE: External API calls (Resend/Twilio) now happen
+  |               OUTSIDE the DB transaction. DB-read phase (notification
+  |               lookup) runs inside tx; dispatch phase runs after commit.
+  |               Circuit breakers (cockatiel) protect each provider.
   |-- if no approval needed:
         -> notifications queue: communications:publish-announcement
           -> PublishAnnouncementProcessor (same path as above)
@@ -259,7 +263,7 @@ ComplianceService.approve()
 | gradebook     | 3           | 5s exponential  |                                                                                                                                                                                                                                                                                                                                                                                          |
 | homework      | 3           | 5s exponential  | 4 job types: homework:overdue-detection (cron 06:00), homework:generate-recurring (cron 05:00), homework:digest-homework (daily per tenant), homework:completion-reminder (daily per tenant 15:00)                                                                                                                                                                                       |
 | imports       | 3           | 5s exponential  | Also handles compliance:execute jobs (legacy routing)                                                                                                                                                                                                                                                                                                                                    |
-| notifications | 5           | 3s exponential  | Higher retries for delivery. Includes notifications:parent-daily-digest (hourly cron), notifications:dispatch-queued (every 30s), monitoring:dlq-scan (cron every 15 min), plus behaviour/communications jobs routed here                                                                                                                                                                |
+| notifications | 5           | 3s exponential  | Higher retries for delivery. Includes notifications:parent-daily-digest (hourly cron), notifications:dispatch-queued (every 30s), monitoring:dlq-scan (cron every 15 min), monitoring:canary-ping (cron every 5 min), monitoring:canary-check (delayed), plus behaviour/communications jobs routed here                                                                                  |
 | pastoral      | 3           | 5s exponential  | 8 job types: pastoral:notify-concern (on concern creation), pastoral:escalation-timeout (on concern escalation), pastoral:checkin-alert (on check-in flag), pastoral:intervention-review-reminder (cron), pastoral:overdue-actions (cron), pastoral:precompute-agenda (on SST scheduling), pastoral:sync-behaviour-safeguarding (on sync trigger), pastoral:wellbeing-flag-expiry (cron) |
 | payroll       | 3           | 5s exponential  |                                                                                                                                                                                                                                                                                                                                                                                          |
 | regulatory    | 3           | 5s exponential  | 5 job types: 2 cron (deadline-check 07:00, tusla-threshold-scan 06:00), 3 on-demand (generate-des-files, ppod-sync, ppod-import)                                                                                                                                                                                                                                                         |
@@ -603,6 +607,32 @@ Attachment uploaded
 ```
 
 **Danger**: ClamAV fallback auto-approves all attachments as clean when the socket is not found. This is safe for development but means ALL attachments pass scanning in non-ClamAV environments. The actual ClamAV scanning integration is a TODO — currently marks all files as clean even in production if ClamAV is installed.
+
+---
+
+### `behaviour:document-ready` (behaviour queue)
+
+**Trigger**: Enqueued by `PdfRenderProcessor` after PDF rendering and S3 upload complete. Callback from the BullMQ PDF rendering job.
+**Payload**: `{ tenant_id, document_id, file_key, file_size }`
+**Processor**: `apps/worker/src/processors/behaviour/document-ready.processor.ts`
+**Retries**: 3 with exponential backoff
+**Added in**: Reliability hardening (R-14)
+
+**Side effects chain**:
+
+```
+PdfRenderProcessor completes PDF rendering + S3 upload
+  -> behaviour:document-ready enqueued to behaviour queue
+  -> Worker loads behaviour_document by id + tenant_id
+  -> Guard: skip if document status is not 'generating'
+  -> Update document:
+    -> status = 'draft_doc'
+    -> file_key = uploaded S3 key
+    -> file_size = rendered PDF size
+  -> Create in-app notification for the requesting user
+```
+
+**Danger**: If `PdfRenderProcessor` fails or the callback job is lost, the document remains in `generating` status indefinitely. BullMQ retries on the render job provide the primary recovery. There is no reconciliation cron for stuck `generating` documents yet.
 
 ---
 
@@ -1374,3 +1404,28 @@ Daily cron fires
 - **jobId**: `cron:monitoring:dlq-scan`
 - **Side effects**: Iterates all 20 registered queue names. For each queue, creates a temporary BullMQ `Queue` instance (reusing the notifications queue's ioredis client) and calls `getFailedCount()`. If any queue has `failedCount > 0`, logs a `warn`-level message listing each affected queue and its count, and sends a `Sentry.captureMessage` at `'warning'` severity. Temporary Queue instances are closed after each check to avoid connection leaks.
 - **Danger**: Creates and immediately closes temporary Queue instances for each of the 20 queues on every tick. This is lightweight (Redis LLEN calls) but adds 20 short-lived Queue objects every 15 minutes. If Redis is unreachable, each queue check throws individually — errors are caught and logged, scan continues for remaining queues.
+
+### Job: `monitoring:canary-ping` (notifications queue — CRON)
+
+- **Trigger**: Cron every 5 minutes (`*/5 * * * *`). Platform-level — no `tenant_id` in payload.
+- **Payload**: `{}` (cross-platform, no tenant context).
+- **Processor**: `CanaryPingProcessor` (`apps/worker/src/processors/monitoring/canary-ping.processor.ts`)
+- **jobId**: `cron:monitoring:canary-ping`
+- **Side effects**: Enqueues `monitoring:canary-echo` to each of the 10 critical queues. Each echo job carries a `run_id` (timestamp). After dispatching all echo jobs, schedules `monitoring:canary-check` with a delay (SLA window) to verify ACKs.
+- **Danger**: If the notifications queue itself is unhealthy, the canary cron never fires. The canary monitors other queues but cannot detect its own queue being down.
+
+### Job: `monitoring:canary-echo` (dispatched to critical queues)
+
+- **Trigger**: Dispatched by `monitoring:canary-ping` to each critical queue.
+- **Payload**: `{ run_id, source_queue }`
+- **Processor**: `CanaryEchoProcessor` (registered on each critical queue's worker)
+- **Side effects**: Worker ACKs by writing a Redis key (`canary:ack:{run_id}:{queue_name}`) with short TTL. No database operations.
+- **Danger**: If a queue's worker is down, the echo is never processed and the ACK key is never written. This is the intended detection mechanism — `canary-check` will flag the missing ACK.
+
+### Job: `monitoring:canary-check` (notifications queue — delayed)
+
+- **Trigger**: Scheduled by `monitoring:canary-ping` with a delay matching the SLA window.
+- **Payload**: `{ run_id, expected_queues }`
+- **Processor**: `CanaryCheckProcessor` (`apps/worker/src/processors/monitoring/canary-check.processor.ts`)
+- **Side effects**: Reads Redis for ACK keys matching the `run_id`. Compares against `expected_queues`. For any queue that did not ACK within the SLA window, fires a Sentry alert (`Sentry.captureMessage` at `'error'` severity) identifying the unresponsive queue(s).
+- **Danger**: Depends on Redis key TTL being longer than the SLA window. If Redis flushes keys prematurely, false positive alerts will fire.

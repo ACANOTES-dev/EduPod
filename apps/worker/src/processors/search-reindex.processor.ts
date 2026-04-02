@@ -17,7 +17,7 @@ export const SEARCH_FULL_REINDEX_JOB = 'search:full-reindex';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.SEARCH_SYNC)
+@Processor(QUEUE_NAMES.SEARCH_SYNC, { lockDuration: 120_000 })
 export class SearchReindexProcessor extends WorkerHost {
   private readonly logger = new Logger(SearchReindexProcessor.name);
 
@@ -38,9 +38,7 @@ export class SearchReindexProcessor extends WorkerHost {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
-    this.logger.log(
-      `Processing ${SEARCH_FULL_REINDEX_JOB} for tenant ${tenant_id}`,
-    );
+    this.logger.log(`Processing ${SEARCH_FULL_REINDEX_JOB} for tenant ${tenant_id}`);
 
     const reindexJob = new SearchFullReindexJob(this.prisma);
     await reindexJob.execute(job.data);
@@ -58,10 +56,7 @@ const BATCH_SIZE = 200;
 class SearchFullReindexJob extends TenantAwareJob<SearchFullReindexPayload> {
   private readonly logger = new Logger(SearchFullReindexJob.name);
 
-  protected async processJob(
-    data: SearchFullReindexPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: SearchFullReindexPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id } = data;
 
     this.logger.log(`Starting full reindex for tenant ${tenant_id}`);

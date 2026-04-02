@@ -21,24 +21,12 @@ export const IMPORT_VALIDATION_JOB = 'imports:validate';
 // ─── Expected headers per import type ────────────────────────────────────────
 
 const EXPECTED_HEADERS: Record<string, string[]> = {
-  students: [
-    'first_name', 'last_name', 'date_of_birth', 'gender',
-  ],
-  parents: [
-    'first_name', 'last_name', 'email', 'phone', 'relationship_label',
-  ],
-  staff: [
-    'first_name', 'last_name', 'email', 'job_title', 'department',
-  ],
-  fees: [
-    'fee_name', 'amount', 'currency_code', 'academic_year',
-  ],
-  exam_results: [
-    'student_number', 'subject', 'score', 'max_score',
-  ],
-  staff_compensation: [
-    'staff_number', 'compensation_type', 'base_salary',
-  ],
+  students: ['first_name', 'last_name', 'date_of_birth', 'gender'],
+  parents: ['first_name', 'last_name', 'email', 'phone', 'relationship_label'],
+  staff: ['first_name', 'last_name', 'email', 'job_title', 'department'],
+  fees: ['fee_name', 'amount', 'currency_code', 'academic_year'],
+  exam_results: ['student_number', 'subject', 'score', 'max_score'],
+  staff_compensation: ['staff_number', 'compensation_type', 'base_salary'],
 };
 
 const REQUIRED_FIELDS: Record<string, string[]> = {
@@ -52,7 +40,7 @@ const REQUIRED_FIELDS: Record<string, string[]> = {
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.IMPORTS)
+@Processor(QUEUE_NAMES.IMPORTS, { lockDuration: 120_000 })
 export class ImportValidationProcessor extends WorkerHost {
   private readonly logger = new Logger(ImportValidationProcessor.name);
 
@@ -87,8 +75,8 @@ function normaliseHeader(raw: string): string {
   return raw
     .toLowerCase()
     .trim()
-    .replace(/\s*\*+$/, '')   // strip trailing " *" or " **"
-    .replace(/\s+/g, '_');    // collapse spaces to underscores
+    .replace(/\s*\*+$/, '') // strip trailing " *" or " **"
+    .replace(/\s+/g, '_'); // collapse spaces to underscores
 }
 
 function parseCsvLine(line: string): string[] {
@@ -126,10 +114,7 @@ function parseCsvLine(line: string): string[] {
   return fields;
 }
 
-function parseFile(
-  fileBuffer: Buffer,
-  fileKey: string,
-): { headers: string[]; rows: string[][] } {
+function parseFile(fileBuffer: Buffer, fileKey: string): { headers: string[]; rows: string[][] } {
   const isXlsx = fileKey.toLowerCase().endsWith('.xlsx') || fileKey.toLowerCase().endsWith('.xls');
 
   if (isXlsx) {
@@ -224,10 +209,7 @@ function isExampleRow(headers: string[], row: string[]): boolean {
 class ImportValidationJob extends TenantAwareJob<ImportValidationPayload> {
   private readonly logger = new Logger(ImportValidationJob.name);
 
-  protected async processJob(
-    data: ImportValidationPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: ImportValidationPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, import_job_id } = data;
 
     // 1. Fetch the import job
@@ -308,9 +290,10 @@ class ImportValidationJob extends TenantAwareJob<ImportValidationPayload> {
         data: {
           status: 'failed',
           summary_json: {
-            error: allRows.length > 0
-              ? 'File contains only example/template rows. Please replace them with real data.'
-              : 'File has headers but no data rows.',
+            error:
+              allRows.length > 0
+                ? 'File contains only example/template rows. Please replace them with real data.'
+                : 'File has headers but no data rows.',
             total_rows: 0,
             valid_rows: 0,
             invalid_rows: 0,
@@ -399,7 +382,10 @@ class ImportValidationJob extends TenantAwareJob<ImportValidationPayload> {
               select: { id: true },
             });
             if (existing) {
-              duplicates.push({ row: i + 2, match: `Student "${fnValue.trim()} ${lnValue.trim()}" already exists` });
+              duplicates.push({
+                row: i + 2,
+                match: `Student "${fnValue.trim()} ${lnValue.trim()}" already exists`,
+              });
             }
           }
         } else if (importType === 'parents' || importType === 'staff') {
@@ -414,7 +400,10 @@ class ImportValidationJob extends TenantAwareJob<ImportValidationPayload> {
                   select: { id: true },
                 });
                 if (existing) {
-                  duplicates.push({ row: i + 2, match: `Parent with email "${email}" already exists` });
+                  duplicates.push({
+                    row: i + 2,
+                    match: `Parent with email "${email}" already exists`,
+                  });
                 }
               } else {
                 const existing = await tx.staffProfile.findFirst({
@@ -425,7 +414,10 @@ class ImportValidationJob extends TenantAwareJob<ImportValidationPayload> {
                   select: { id: true },
                 });
                 if (existing) {
-                  duplicates.push({ row: i + 2, match: `Staff with email "${email}" already exists` });
+                  duplicates.push({
+                    row: i + 2,
+                    match: `Staff with email "${email}" already exists`,
+                  });
                 }
               }
             }
@@ -433,7 +425,9 @@ class ImportValidationJob extends TenantAwareJob<ImportValidationPayload> {
         }
       }
     } catch (err) {
-      this.logger.warn(`Duplicate detection encountered an error — continuing without full duplicate check: ${err instanceof Error ? err.message : String(err)}`);
+      this.logger.warn(
+        `Duplicate detection encountered an error — continuing without full duplicate check: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
     // 8. Build summary and update import_job

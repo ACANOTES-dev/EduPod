@@ -22,10 +22,7 @@ type DeletableModel =
   | 'parentInquiryMessage';
 
 /** Categories where the action is a straightforward deleteMany */
-const DELETABLE_CATEGORIES: Record<
-  string,
-  { model: DeletableModel; dateField: string }
-> = {
+const DELETABLE_CATEGORIES: Record<string, { model: DeletableModel; dateField: string }> = {
   communications_notifications: { model: 'notification', dateField: 'created_at' },
   audit_logs: { model: 'auditLog', dateField: 'created_at' },
   contact_form_submissions: { model: 'contactFormSubmission', dateField: 'created_at' },
@@ -67,7 +64,7 @@ interface EnforcementSummary {
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.COMPLIANCE)
+@Processor(QUEUE_NAMES.COMPLIANCE, { lockDuration: 120_000 })
 export class RetentionEnforcementProcessor extends WorkerHost {
   private readonly logger = new Logger(RetentionEnforcementProcessor.name);
 
@@ -274,7 +271,14 @@ export class RetentionEnforcementProcessor extends WorkerHost {
     const { data_category, action_on_expiry, retention_months } = policy;
     const categoryConfig = DELETABLE_CATEGORIES[data_category];
     if (!categoryConfig) {
-      return { data_category, action_on_expiry, records_affected: 0, retention_months, dry_run: dryRun, skipped_reason: 'no_config' };
+      return {
+        data_category,
+        action_on_expiry,
+        records_affected: 0,
+        retention_months,
+        dry_run: dryRun,
+        skipped_reason: 'no_config',
+      };
     }
 
     // Find expired records within an RLS transaction
@@ -318,9 +322,7 @@ export class RetentionEnforcementProcessor extends WorkerHost {
       totalDeleted += deleted;
     }
 
-    this.logger.log(
-      `Deleted ${totalDeleted} ${data_category} records for tenant ${tenantId}`,
-    );
+    this.logger.log(`Deleted ${totalDeleted} ${data_category} records for tenant ${tenantId}`);
 
     return {
       data_category,
@@ -353,9 +355,7 @@ export class RetentionEnforcementProcessor extends WorkerHost {
 
     // Filter out records with active holds
     if (holdSet.size > 0) {
-      return records
-        .filter((r) => !holdSet.has(`${dataCategory}:${r.id}`))
-        .map((r) => r.id);
+      return records.filter((r) => !holdSet.has(`${dataCategory}:${r.id}`)).map((r) => r.id);
     }
 
     return records.map((r) => r.id);
@@ -555,9 +555,7 @@ export class RetentionEnforcementProcessor extends WorkerHost {
       totalDeleted += result;
     }
 
-    this.logger.log(
-      `Deleted ${totalDeleted} ${data_category} records for tenant ${tenantId}`,
-    );
+    this.logger.log(`Deleted ${totalDeleted} ${data_category} records for tenant ${tenantId}`);
 
     return {
       data_category,
@@ -601,10 +599,7 @@ export class RetentionEnforcementProcessor extends WorkerHost {
 
   // ─── Audit logging ──────────────────────────────────────────────────────
 
-  private async createAuditEntry(
-    tenantId: string,
-    summary: EnforcementSummary,
-  ): Promise<void> {
+  private async createAuditEntry(tenantId: string, summary: EnforcementSummary): Promise<void> {
     await this.prisma.auditLog.create({
       data: {
         tenant_id: tenantId,
@@ -636,7 +631,5 @@ interface PrismaModelDelegate {
     where: Record<string, unknown>;
     select?: Record<string, boolean>;
   }): Promise<Array<{ id: string }>>;
-  deleteMany(args: {
-    where: Record<string, unknown>;
-  }): Promise<{ count: number }>;
+  deleteMany(args: { where: Record<string, unknown> }): Promise<{ count: number }>;
 }

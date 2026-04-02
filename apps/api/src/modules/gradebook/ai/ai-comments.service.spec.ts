@@ -1,6 +1,7 @@
 import { ForbiddenException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AnthropicClientService } from '../../ai/anthropic-client.service';
 import { SettingsService } from '../../configuration/settings.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { ConsentService } from '../../gdpr/consent.service';
@@ -25,18 +26,22 @@ function buildMockPrisma() {
 function buildMockSettingsService(aiOverrides: Record<string, unknown> = {}) {
   return {
     getSettings: jest.fn().mockResolvedValue({
-      ai: { commentsEnabled: true, commentStyle: 'balanced', commentTargetWordCount: 100, ...aiOverrides },
+      ai: {
+        commentsEnabled: true,
+        commentStyle: 'balanced',
+        commentTargetWordCount: 100,
+        ...aiOverrides,
+      },
     }),
   };
 }
 
-function buildMockAnthropic(responseText = 'Great student progress this term.') {
+function buildMockAnthropicClient(responseText = 'Great student progress this term.') {
   return {
-    messages: {
-      create: jest.fn().mockResolvedValue({
-        content: [{ type: 'text', text: responseText }],
-      }),
-    },
+    isConfigured: true,
+    createMessage: jest.fn().mockResolvedValue({
+      content: [{ type: 'text', text: responseText }],
+    }),
   };
 }
 
@@ -79,11 +84,13 @@ describe('AiCommentsService — generateComment', () => {
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockSettings: ReturnType<typeof buildMockSettingsService>;
   let mockConsentService: ReturnType<typeof buildMockConsentService>;
+  let mockAnthropicClientService: ReturnType<typeof buildMockAnthropicClient>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockSettings = buildMockSettingsService();
     mockConsentService = buildMockConsentService(true);
+    mockAnthropicClientService = buildMockAnthropicClient();
 
     mockPrisma.reportCard.findFirst.mockResolvedValue(baseReportCard);
     mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue(baseSnapshots);
@@ -95,33 +102,44 @@ describe('AiCommentsService — generateComment', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettings },
         { provide: ConsentService, useValue: mockConsentService },
-        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: mockAnthropicClientService },
       ],
     }).compile();
 
     service = module.get<AiCommentsService>(AiCommentsService);
-
-    // Inject mock anthropic client
-    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic();
   });
 
   afterEach(() => jest.clearAllMocks());
 
   it('should throw ServiceUnavailableException when anthropic client is not configured', async () => {
-    (service as unknown as Record<string, unknown>).anthropic = null;
+    mockAnthropicClientService.isConfigured = false;
 
-    await expect(
-      service.generateComment(TENANT_ID, REPORT_CARD_ID),
-    ).rejects.toThrow(ServiceUnavailableException);
+    await expect(service.generateComment(TENANT_ID, REPORT_CARD_ID)).rejects.toThrow(
+      ServiceUnavailableException,
+    );
   });
 
   it('should throw AI_FEATURE_DISABLED when commentsEnabled is false', async () => {
     mockSettings.getSettings.mockResolvedValue({ ai: { commentsEnabled: false } });
 
-    await expect(
-      service.generateComment(TENANT_ID, REPORT_CARD_ID),
-    ).rejects.toThrow(ServiceUnavailableException);
+    await expect(service.generateComment(TENANT_ID, REPORT_CARD_ID)).rejects.toThrow(
+      ServiceUnavailableException,
+    );
 
     try {
       await service.generateComment(TENANT_ID, REPORT_CARD_ID);
@@ -136,17 +154,17 @@ describe('AiCommentsService — generateComment', () => {
   it('should throw NotFoundException when report card does not exist', async () => {
     mockPrisma.reportCard.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.generateComment(TENANT_ID, REPORT_CARD_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.generateComment(TENANT_ID, REPORT_CARD_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should throw ForbiddenException when AI comments consent is not active', async () => {
     mockConsentService.hasConsent.mockResolvedValue(false);
 
-    await expect(
-      service.generateComment(TENANT_ID, REPORT_CARD_ID),
-    ).rejects.toThrow(ForbiddenException);
+    await expect(service.generateComment(TENANT_ID, REPORT_CARD_ID)).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 
   it('should return comment result with correct report_card_id and locale', async () => {
@@ -176,28 +194,18 @@ describe('AiCommentsService — generateComment', () => {
 
     await service.generateComment(TENANT_ID, REPORT_CARD_ID);
 
-    const mockAnthropicCreate = (
-      (service as unknown as Record<string, unknown>).anthropic as ReturnType<typeof buildMockAnthropic>
-    ).messages.create;
-
-    expect(mockAnthropicCreate).toHaveBeenCalledWith(
+    expect(mockAnthropicClientService.createMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         model: expect.any(String),
-        messages: expect.arrayContaining([
-          expect.objectContaining({ role: 'user' }),
-        ]),
+        messages: expect.arrayContaining([expect.objectContaining({ role: 'user' })]),
       }),
     );
   });
 
   it('should return empty string comment when AI returns no text block', async () => {
-    (service as unknown as Record<string, unknown>).anthropic = {
-      messages: {
-        create: jest.fn().mockResolvedValue({
-          content: [{ type: 'image' }],
-        }),
-      },
-    };
+    mockAnthropicClientService.createMessage.mockResolvedValueOnce({
+      content: [{ type: 'image' }],
+    });
 
     const result = await service.generateComment(TENANT_ID, REPORT_CARD_ID);
 
@@ -233,11 +241,9 @@ describe('AiCommentsService — generateComment', () => {
 
     await service.generateComment(TENANT_ID, REPORT_CARD_ID);
 
-    const mockCreate = (
-      (service as unknown as Record<string, unknown>).anthropic as ReturnType<typeof buildMockAnthropic>
-    ).messages.create;
-
-    const prompt = (mockCreate.mock.calls[0] as unknown[])[0] as Record<string, unknown>;
+    const prompt = (
+      mockAnthropicClientService.createMessage.mock.calls[0] as unknown[]
+    )[0] as Record<string, unknown>;
     const messages = prompt.messages as Array<{ content: string }>;
     expect(messages[0]?.content).toContain('sample');
   });
@@ -250,11 +256,13 @@ describe('AiCommentsService — generateBatchComments', () => {
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockSettings: ReturnType<typeof buildMockSettingsService>;
   let mockConsentService: ReturnType<typeof buildMockConsentService>;
+  let mockAnthropicClientService: ReturnType<typeof buildMockAnthropicClient>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockSettings = buildMockSettingsService();
     mockConsentService = buildMockConsentService(true);
+    mockAnthropicClientService = buildMockAnthropicClient();
 
     mockPrisma.reportCard.findFirst.mockResolvedValue(baseReportCard);
     mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue(baseSnapshots);
@@ -266,23 +274,36 @@ describe('AiCommentsService — generateBatchComments', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettings },
         { provide: ConsentService, useValue: mockConsentService },
-        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: mockAnthropicClientService },
       ],
     }).compile();
 
     service = module.get<AiCommentsService>(AiCommentsService);
-    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic();
   });
 
   afterEach(() => jest.clearAllMocks());
 
   it('should throw ServiceUnavailableException when anthropic is not configured', async () => {
-    (service as unknown as Record<string, unknown>).anthropic = null;
+    mockAnthropicClientService.isConfigured = false;
 
-    await expect(
-      service.generateBatchComments(TENANT_ID, ['rc-1', 'rc-2']),
-    ).rejects.toThrow(ServiceUnavailableException);
+    await expect(service.generateBatchComments(TENANT_ID, ['rc-1', 'rc-2'])).rejects.toThrow(
+      ServiceUnavailableException,
+    );
   });
 
   it('should return results and empty errors on full success', async () => {
@@ -294,8 +315,8 @@ describe('AiCommentsService — generateBatchComments', () => {
 
   it('should capture error for a failing report card without aborting others', async () => {
     mockPrisma.reportCard.findFirst
-      .mockResolvedValueOnce(baseReportCard)    // rc-1 succeeds
-      .mockResolvedValueOnce(null);            // rc-2 throws NotFoundException
+      .mockResolvedValueOnce(baseReportCard) // rc-1 succeeds
+      .mockResolvedValueOnce(null); // rc-2 throws NotFoundException
 
     const result = await service.generateBatchComments(TENANT_ID, ['rc-1', 'rc-2']);
 

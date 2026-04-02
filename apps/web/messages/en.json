@@ -4648,7 +4648,17 @@
       "rejectSuccess": "Request rejected",
       "rejectError": "Failed to reject request",
       "loadError": "Failed to load approval request",
-      "notFound": "Approval request not found"
+      "notFound": "Approval request not found",
+      "callbackStatus": "Callback Status",
+      "callbackExecuted": "Executed",
+      "callbackPending": "Pending",
+      "callbackFailed": "Failed",
+      "retryCallback": "Retry Callback",
+      "retrying": "Retrying...",
+      "callbackRetryQueued": "Callback retry has been queued",
+      "callbackRetryError": "Failed to retry callback",
+      "attempt": "attempt",
+      "attempts": "attempts"
     }
   },
   "website": {

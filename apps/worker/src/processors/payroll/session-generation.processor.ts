@@ -19,7 +19,7 @@ export const PAYROLL_GENERATE_SESSIONS_JOB = 'payroll:generate-sessions';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PAYROLL)
+@Processor(QUEUE_NAMES.PAYROLL, { lockDuration: 300_000 })
 export class PayrollSessionGenerationProcessor extends WorkerHost {
   private readonly logger = new Logger(PayrollSessionGenerationProcessor.name);
 
@@ -58,10 +58,7 @@ class PayrollSessionGenerationJob extends TenantAwareJob<SessionGenerationPayloa
     this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:5554');
   }
 
-  protected async processJob(
-    data: SessionGenerationPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: SessionGenerationPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, payroll_run_id } = data;
     const redisKey = `payroll:session-gen:${payroll_run_id}`;
 
@@ -124,10 +121,7 @@ class PayrollSessionGenerationJob extends TenantAwareJob<SessionGenerationPayloa
             tenant_id,
             teacher_staff_id: entry.staff_profile_id,
             effective_start_date: { lte: lastDayOfMonth },
-            OR: [
-              { effective_end_date: null },
-              { effective_end_date: { gte: firstDayOfMonth } },
-            ],
+            OR: [{ effective_end_date: null }, { effective_end_date: { gte: firstDayOfMonth } }],
           },
         });
 

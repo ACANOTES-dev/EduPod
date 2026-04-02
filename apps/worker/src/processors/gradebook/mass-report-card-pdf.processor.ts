@@ -20,7 +20,7 @@ export const MASS_REPORT_CARD_PDF_JOB = 'gradebook:mass-report-card-pdf';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.GRADEBOOK)
+@Processor(QUEUE_NAMES.GRADEBOOK, { lockDuration: 60_000 })
 export class MassReportCardPdfProcessor extends WorkerHost {
   private readonly logger = new Logger(MassReportCardPdfProcessor.name);
 
@@ -53,10 +53,7 @@ export class MassReportCardPdfProcessor extends WorkerHost {
 class MassReportCardPdfJob extends TenantAwareJob<MassReportCardPdfPayload> {
   private readonly logger = new Logger(MassReportCardPdfJob.name);
 
-  protected async processJob(
-    data: MassReportCardPdfPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: MassReportCardPdfPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, report_card_ids } = data;
 
     // Load all report cards for the batch

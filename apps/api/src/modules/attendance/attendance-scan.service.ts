@@ -9,6 +9,7 @@ import {
 
 import type { GdprOutboundData, ScanResultEntry } from '@school/shared';
 
+import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { SettingsService } from '../configuration/settings.service';
 import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
@@ -67,14 +68,6 @@ If the image does not appear to be an attendance/absence sheet, return an empty 
 @Injectable()
 export class AttendanceScanService {
   private readonly logger = new Logger(AttendanceScanService.name);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private anthropic: {
-    messages: {
-      create: (
-        params: Record<string, unknown>,
-      ) => Promise<{ content: Array<{ type: string; text?: string }> }>;
-    };
-  } | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -82,23 +75,8 @@ export class AttendanceScanService {
     private readonly settingsService: SettingsService,
     private readonly gdprTokenService: GdprTokenService,
     private readonly aiAuditService: AiAuditService,
-  ) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (apiKey) {
-      try {
-        // Dynamic import to avoid build failure when SDK is not installed
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const AnthropicSdk = require('@anthropic-ai/sdk').default;
-        this.anthropic = new AnthropicSdk({ apiKey });
-      } catch {
-        this.logger.warn(
-          '@anthropic-ai/sdk is not installed — AI scan functionality will be unavailable',
-        );
-      }
-    } else {
-      this.logger.warn('ANTHROPIC_API_KEY is not set — AI scan functionality will be unavailable');
-    }
-  }
+    private readonly anthropicClient: AnthropicClientService,
+  ) {}
 
   // ─── Scan Image ──────────────────────────────────────────────────────────
 
@@ -110,7 +88,7 @@ export class AttendanceScanService {
     sessionDate: string,
   ): Promise<{ scan_id: string; entries: ScanResultEntry[] }> {
     // 1. Verify Anthropic client is available
-    if (!this.anthropic) {
+    if (!this.anthropicClient.isConfigured) {
       throw new ServiceUnavailableException({
         error: {
           code: 'AI_SERVICE_UNAVAILABLE',
@@ -148,7 +126,7 @@ export class AttendanceScanService {
     this.logger.log(`Scanning attendance image for tenant ${tenantId}, date ${sessionDate}`);
 
     const startTime = Date.now();
-    const response = await this.anthropic.messages.create({
+    const response = await this.anthropicClient.createMessage({
       model: 'claude-sonnet-4-6-20250514',
       max_tokens: 2048,
       messages: [
@@ -173,10 +151,8 @@ export class AttendanceScanService {
     });
     const elapsed = Date.now() - startTime;
 
-    const textBlock = response.content.find(
-      (b: { type: string; text?: string }) => b.type === 'text',
-    );
-    const aiText = textBlock?.text ?? '';
+    const textBlock = response.content.find((b) => b.type === 'text');
+    const aiText = textBlock?.type === 'text' ? textBlock.text : '';
 
     await this.aiAuditService.log({
       tenantId,

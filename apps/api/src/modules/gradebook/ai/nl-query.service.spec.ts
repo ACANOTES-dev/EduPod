@@ -1,6 +1,7 @@
 import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AnthropicClientService } from '../../ai/anthropic-client.service';
 import { SettingsService } from '../../configuration/settings.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
@@ -36,13 +37,12 @@ function buildMockSettingsService(nlQueriesEnabled = true) {
   };
 }
 
-function buildMockAnthropic(responseText: string) {
+function buildMockAnthropicClient(responseText: string, configured = true) {
   return {
-    messages: {
-      create: jest.fn().mockResolvedValue({
-        content: [{ type: 'text', text: responseText }],
-      }),
-    },
+    isConfigured: configured,
+    createMessage: jest.fn().mockResolvedValue({
+      content: [{ type: 'text', text: responseText }],
+    }),
   };
 }
 
@@ -52,10 +52,14 @@ describe('NlQueryService — processQuery', () => {
   let service: NlQueryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockSettings: ReturnType<typeof buildMockSettingsService>;
+  let mockAnthropicClientService: ReturnType<typeof buildMockAnthropicClient>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockSettings = buildMockSettingsService(true);
+    mockAnthropicClientService = buildMockAnthropicClient(
+      JSON.stringify({ entity: 'student', filters: [], select: [], limit: 50 }),
+    );
 
     mockPrisma.student.findMany.mockResolvedValue([]);
     mockPrisma.nlQueryHistory.create.mockResolvedValue({ id: 'qh-1' });
@@ -65,8 +69,22 @@ describe('NlQueryService — processQuery', () => {
         NlQueryService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettings },
-        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: mockAnthropicClientService },
       ],
     }).compile();
 
@@ -76,22 +94,19 @@ describe('NlQueryService — processQuery', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should throw ServiceUnavailableException when anthropic is not configured', async () => {
-    (service as unknown as Record<string, unknown>).anthropic = null;
+    mockAnthropicClientService.isConfigured = false;
 
-    await expect(
-      service.processQuery(TENANT_ID, USER_ID, 'show all students'),
-    ).rejects.toThrow(ServiceUnavailableException);
+    await expect(service.processQuery(TENANT_ID, USER_ID, 'show all students')).rejects.toThrow(
+      ServiceUnavailableException,
+    );
   });
 
   it('should throw AI_FEATURE_DISABLED when nlQueriesEnabled is false', async () => {
-    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic(
-      JSON.stringify({ entity: 'student', filters: [], select: [], limit: 50 }),
-    );
     mockSettings.getSettings.mockResolvedValue({ ai: { nlQueriesEnabled: false } });
 
-    await expect(
-      service.processQuery(TENANT_ID, USER_ID, 'show all students'),
-    ).rejects.toThrow(ServiceUnavailableException);
+    await expect(service.processQuery(TENANT_ID, USER_ID, 'show all students')).rejects.toThrow(
+      ServiceUnavailableException,
+    );
 
     try {
       await service.processQuery(TENANT_ID, USER_ID, 'show all students');
@@ -104,9 +119,19 @@ describe('NlQueryService — processQuery', () => {
   });
 
   it('should return structured query result with data and query_id for student entity', async () => {
-    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic(
-      JSON.stringify({ entity: 'student', filters: [], select: ['first_name', 'last_name'], limit: 50 }),
-    );
+    mockAnthropicClientService.createMessage.mockResolvedValue({
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            entity: 'student',
+            filters: [],
+            select: ['first_name', 'last_name'],
+            limit: 50,
+          }),
+        },
+      ],
+    });
 
     mockPrisma.student.findMany.mockResolvedValue([
       {
@@ -129,9 +154,14 @@ describe('NlQueryService — processQuery', () => {
   });
 
   it('should handle grade entity queries', async () => {
-    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic(
-      JSON.stringify({ entity: 'grade', filters: [], select: ['raw_score'], limit: 50 }),
-    );
+    mockAnthropicClientService.createMessage.mockResolvedValue({
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({ entity: 'grade', filters: [], select: ['raw_score'], limit: 50 }),
+        },
+      ],
+    });
 
     mockPrisma.grade.findMany.mockResolvedValue([
       {
@@ -155,27 +185,39 @@ describe('NlQueryService — processQuery', () => {
   });
 
   it('should throw BadRequestException when AI returns unparseable JSON', async () => {
-    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic('this is not json');
+    mockAnthropicClientService.createMessage.mockResolvedValue({
+      content: [{ type: 'text', text: 'this is not json' }],
+    });
 
-    await expect(
-      service.processQuery(TENANT_ID, USER_ID, 'show data'),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.processQuery(TENANT_ID, USER_ID, 'show data')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should throw BadRequestException when AI returns unsupported entity', async () => {
-    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic(
-      JSON.stringify({ entity: 'teacher', filters: [], select: [], limit: 50 }),
-    );
+    mockAnthropicClientService.createMessage.mockResolvedValue({
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({ entity: 'teacher', filters: [], select: [], limit: 50 }),
+        },
+      ],
+    });
 
-    await expect(
-      service.processQuery(TENANT_ID, USER_ID, 'show teachers'),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.processQuery(TENANT_ID, USER_ID, 'show teachers')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should cap query limit at 200', async () => {
-    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic(
-      JSON.stringify({ entity: 'student', filters: [], select: [], limit: 9999 }),
-    );
+    mockAnthropicClientService.createMessage.mockResolvedValue({
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({ entity: 'student', filters: [], select: [], limit: 9999 }),
+        },
+      ],
+    });
 
     mockPrisma.student.findMany.mockResolvedValue([]);
 
@@ -185,9 +227,19 @@ describe('NlQueryService — processQuery', () => {
   });
 
   it('should log AI processing to audit trail', async () => {
-    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic(
-      JSON.stringify({ entity: 'student', filters: [], select: ['first_name'], limit: 50 }),
-    );
+    mockAnthropicClientService.createMessage.mockResolvedValue({
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            entity: 'student',
+            filters: [],
+            select: ['first_name'],
+            limit: 50,
+          }),
+        },
+      ],
+    });
 
     mockPrisma.student.findMany.mockResolvedValue([]);
 
@@ -208,16 +260,10 @@ describe('NlQueryService — processQuery', () => {
   });
 
   it('should not throw if saving query history fails', async () => {
-    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic(
-      JSON.stringify({ entity: 'student', filters: [], select: [], limit: 50 }),
-    );
-
     mockPrisma.nlQueryHistory.create.mockRejectedValue(new Error('DB error'));
 
     // Should still succeed — history is non-critical
-    await expect(
-      service.processQuery(TENANT_ID, USER_ID, 'show students'),
-    ).resolves.not.toThrow();
+    await expect(service.processQuery(TENANT_ID, USER_ID, 'show students')).resolves.not.toThrow();
   });
 });
 
@@ -235,8 +281,22 @@ describe('NlQueryService — getQueryHistory', () => {
         NlQueryService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: buildMockSettingsService(true) },
-        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: buildMockAnthropicClient('{}') },
       ],
     }).compile();
 

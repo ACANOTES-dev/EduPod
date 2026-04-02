@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
+import { AiModule } from '../ai/ai.module';
 import { AuthModule } from '../auth/auth.module';
 import { CommunicationsModule } from '../communications/communications.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
@@ -21,6 +22,7 @@ import { DailySummaryService } from './daily-summary.service';
 
 @Module({
   imports: [
+    AiModule,
     AuthModule,
     SchoolClosuresModule,
     ConfigurationModule,

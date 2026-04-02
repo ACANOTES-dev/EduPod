@@ -34,6 +34,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+import { CircuitBreakerRegistry } from '../../common/services/circuit-breaker-registry';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -99,6 +100,12 @@ describe('StripeService', () => {
         { provide: InvoicesService, useValue: mockInvoicesService },
         { provide: ReceiptsService, useValue: mockReceiptsService },
         { provide: ConfigService, useValue: mockConfigService },
+        {
+          provide: CircuitBreakerRegistry,
+          useValue: {
+            exec: jest.fn().mockImplementation((_name: string, fn: () => Promise<unknown>) => fn()),
+          },
+        },
       ],
     }).compile();
 
@@ -234,9 +241,9 @@ describe('StripeService', () => {
     it('should throw NotFoundException when payment not found', async () => {
       mockPrisma.payment.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.processRefund(TENANT_ID, 'bad-id', 100),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.processRefund(TENANT_ID, 'bad-id', 100)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException when not a Stripe payment', async () => {
@@ -246,9 +253,9 @@ describe('StripeService', () => {
         external_event_id: null,
       });
 
-      await expect(
-        service.processRefund(TENANT_ID, PAYMENT_ID, 100),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.processRefund(TENANT_ID, PAYMENT_ID, 100)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw InternalServerErrorException when external_event_id missing', async () => {
@@ -258,9 +265,9 @@ describe('StripeService', () => {
         external_event_id: null,
       });
 
-      await expect(
-        service.processRefund(TENANT_ID, PAYMENT_ID, 100),
-      ).rejects.toThrow(InternalServerErrorException);
+      await expect(service.processRefund(TENANT_ID, PAYMENT_ID, 100)).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 
@@ -272,9 +279,9 @@ describe('StripeService', () => {
       delete process.env.STRIPE_WEBHOOK_SECRET;
       mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig')).rejects.toThrow(
+        BadRequestException,
+      );
 
       process.env.STRIPE_WEBHOOK_SECRET = originalEnv;
     });

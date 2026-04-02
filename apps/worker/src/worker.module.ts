@@ -21,6 +21,7 @@ import { CriticalEscalationProcessor } from './processors/behaviour/critical-esc
 import { BehaviourCronDispatchProcessor } from './processors/behaviour/cron-dispatch.processor';
 import { DetectPatternsProcessor } from './processors/behaviour/detect-patterns.processor';
 import { DigestNotificationsProcessor } from './processors/behaviour/digest-notifications.processor';
+import { DocumentReadyProcessor } from './processors/behaviour/document-ready.processor';
 import { EvaluatePolicyProcessor } from './processors/behaviour/evaluate-policy.processor';
 import { BehaviourGuardianRestrictionCheckProcessor } from './processors/behaviour/guardian-restriction-check.processor';
 import { NotificationReconciliationProcessor } from './processors/behaviour/notification-reconciliation.processor';
@@ -65,6 +66,7 @@ import { HomeworkOverdueDetectionProcessor } from './processors/homework/overdue
 import { ImportFileCleanupProcessor } from './processors/imports/import-file-cleanup.processor';
 import { ImportProcessingProcessor } from './processors/imports/import-processing.processor';
 import { ImportValidationProcessor } from './processors/imports/import-validation.processor';
+import { CanaryProcessor } from './processors/monitoring/canary.processor';
 import { DlqMonitorProcessor } from './processors/monitoring/dlq-monitor.processor';
 import { DispatchQueuedProcessor } from './processors/notifications/dispatch-queued.processor';
 import { ParentDailyDigestProcessor } from './processors/notifications/parent-daily-digest.processor';
@@ -334,6 +336,7 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     // Behaviour queue processors
     BehaviourCronDispatchProcessor,
     BehaviourParentNotificationProcessor,
+    DocumentReadyProcessor,
     NotificationReconciliationProcessor,
     DigestNotificationsProcessor,
     BehaviourTaskRemindersProcessor,
@@ -408,6 +411,7 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     WellbeingFlagExpiryProcessor,
     PastoralCronDispatchProcessor,
     // Monitoring processors
+    CanaryProcessor,
     DlqMonitorProcessor,
     // Security queue processors
     KeyRotationProcessor,

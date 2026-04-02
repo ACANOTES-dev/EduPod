@@ -2,12 +2,17 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 
+import { CircuitBreakerRegistry } from '../../../common/services/circuit-breaker-registry';
+
 @Injectable()
 export class ResendEmailProvider {
   private readonly logger = new Logger(ResendEmailProvider.name);
   private client: Resend | null = null;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly circuitBreaker: CircuitBreakerRegistry,
+  ) {}
 
   /**
    * Whether the Resend API key is configured.
@@ -38,17 +43,17 @@ export class ResendEmailProvider {
 
     this.logger.log(`Sending email to=${params.to} subject="${params.subject}"`);
 
-    const { data, error } = await client.emails.send({
-      from,
-      to: [params.to],
-      subject: params.subject,
-      html: params.html,
-      ...(params.replyTo ? { reply_to: params.replyTo } : {}),
-      ...(params.tags && params.tags.length > 0 ? { tags: params.tags } : {}),
-      ...(params.idempotencyKey
-        ? { headers: { 'X-Entity-Ref-ID': params.idempotencyKey } }
-        : {}),
-    });
+    const { data, error } = await this.circuitBreaker.exec('resend', () =>
+      client.emails.send({
+        from,
+        to: [params.to],
+        subject: params.subject,
+        html: params.html,
+        ...(params.replyTo ? { reply_to: params.replyTo } : {}),
+        ...(params.tags && params.tags.length > 0 ? { tags: params.tags } : {}),
+        ...(params.idempotencyKey ? { headers: { 'X-Entity-Ref-ID': params.idempotencyKey } } : {}),
+      }),
+    );
 
     if (error) {
       this.logger.error(`Resend email failed: ${error.message}`, error.name);
@@ -68,9 +73,7 @@ export class ResendEmailProvider {
 
     const apiKey = this.configService.get<string>('RESEND_API_KEY');
     if (!apiKey) {
-      throw new Error(
-        'Resend is not configured. Set RESEND_API_KEY environment variable.',
-      );
+      throw new Error('Resend is not configured. Set RESEND_API_KEY environment variable.');
     }
 
     this.client = new Resend(apiKey);

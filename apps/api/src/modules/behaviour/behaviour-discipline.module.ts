@@ -32,6 +32,7 @@ import { BehaviourSanctionsService } from './behaviour-sanctions.service';
     BehaviourCoreModule,
     BullModule.registerQueue({ name: 'notifications' }),
     BullModule.registerQueue({ name: 'behaviour' }),
+    BullModule.registerQueue({ name: 'pdf-rendering' }),
   ],
   controllers: [
     BehaviourSanctionsController,

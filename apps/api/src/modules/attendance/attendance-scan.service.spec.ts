@@ -1,6 +1,7 @@
 import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { SettingsService } from '../configuration/settings.service';
 import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
@@ -28,17 +29,31 @@ describe('AttendanceScanService — parseScanResponse', () => {
   let service: AttendanceScanService;
 
   beforeEach(async () => {
-    // Clear ANTHROPIC_API_KEY to avoid real SDK init
-    delete process.env.ANTHROPIC_API_KEY;
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttendanceScanService,
         { provide: PrismaService, useValue: { student: { findMany: jest.fn() } } },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
         { provide: SettingsService, useValue: mockSettingsService },
-        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: { isConfigured: false, createMessage: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -103,9 +118,7 @@ describe('AttendanceScanService — parseScanResponse', () => {
   });
 
   it('should skip entries with unrecognised status values', () => {
-    const raw = JSON.stringify([
-      { student_number: '1005', status: 'on_time', confidence: 'high' },
-    ]);
+    const raw = JSON.stringify([{ student_number: '1005', status: 'on_time', confidence: 'high' }]);
 
     const entries = service.parseScanResponse(raw);
 
@@ -163,8 +176,25 @@ describe('AttendanceScanService — resolveStudentNames', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
         { provide: SettingsService, useValue: mockSettingsService },
-        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: { isConfigured: false, createMessage: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -237,8 +267,25 @@ describe('AttendanceScanService — scanImage guards', () => {
         { provide: PrismaService, useValue: { student: { findMany: jest.fn() } } },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
         { provide: SettingsService, useValue: mockSettingsService },
-        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: { isConfigured: false, createMessage: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -255,21 +302,35 @@ describe('AttendanceScanService — scanImage guards', () => {
     // incr returns > 50 → rate limit exceeded
     mockRedisClient.incr.mockResolvedValue(51);
 
-    // Manually inject a fake anthropic client to bypass the unavailable check
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttendanceScanService,
         { provide: PrismaService, useValue: { student: { findMany: jest.fn() } } },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
         { provide: SettingsService, useValue: mockSettingsService },
-        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: { isConfigured: true, createMessage: jest.fn() },
+        },
       ],
     }).compile();
 
     const svc = module.get<AttendanceScanService>(AttendanceScanService);
-    // Inject a stub anthropic so we reach the rate-limit check
-    (svc as unknown as { anthropic: unknown }).anthropic = { messages: { create: jest.fn() } };
 
     await expect(
       svc.scanImage(TENANT_ID, USER_ID, Buffer.from('img'), 'image/jpeg', '2026-03-10'),
@@ -286,11 +347,12 @@ describe('AttendanceScanService — scanImage guards', () => {
 
 describe('AttendanceScanService — AI audit trail', () => {
   it('should log AI processing to audit trail when scanning an image', async () => {
-    process.env.ANTHROPIC_API_KEY = 'test-key';
-
     const mockAnthropicCreate = jest.fn().mockResolvedValue({
       content: [
-        { type: 'text', text: JSON.stringify([{ student_number: '1001', status: 'absent', confidence: 'high' }]) },
+        {
+          type: 'text',
+          text: JSON.stringify([{ student_number: '1001', status: 'absent', confidence: 'high' }]),
+        },
       ],
     });
 
@@ -306,16 +368,27 @@ describe('AttendanceScanService — AI audit trail', () => {
         { provide: PrismaService, useValue: mockStudentPrisma },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
         { provide: SettingsService, useValue: mockSettingsService },
-        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockResolvedValue({ processedData: { entities: [], entityCount: 0 }, tokenMap: null }), processInbound: jest.fn().mockImplementation(async (_t: string, r: string) => r) } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockResolvedValue({
+                processedData: { entities: [], entityCount: 0 },
+                tokenMap: null,
+              }),
+            processInbound: jest.fn().mockImplementation(async (_t: string, r: string) => r),
+          },
+        },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: { isConfigured: true, createMessage: mockAnthropicCreate },
+        },
       ],
     }).compile();
 
     const svc = module.get<AttendanceScanService>(AttendanceScanService);
-    // Inject the mock anthropic client
-    (svc as unknown as { anthropic: unknown }).anthropic = {
-      messages: { create: mockAnthropicCreate },
-    };
 
     await svc.scanImage(TENANT_ID, USER_ID, Buffer.from('img'), 'image/jpeg', '2026-03-10');
 
@@ -327,8 +400,6 @@ describe('AttendanceScanService — AI audit trail', () => {
         tokenised: true,
       }),
     );
-
-    delete process.env.ANTHROPIC_API_KEY;
   });
 
   afterEach(() => jest.clearAllMocks());

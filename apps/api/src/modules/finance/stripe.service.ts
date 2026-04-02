@@ -11,6 +11,7 @@ import Stripe from 'stripe';
 import type { CheckoutSessionDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { CircuitBreakerRegistry } from '../../common/services/circuit-breaker-registry';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -32,6 +33,7 @@ export class StripeService {
     private readonly invoicesService: InvoicesService,
     private readonly receiptsService: ReceiptsService,
     private readonly configService: ConfigService,
+    private readonly circuitBreaker: CircuitBreakerRegistry,
   ) {}
 
   private get webhookSecret(): string | undefined {
@@ -99,27 +101,29 @@ export class StripeService {
       });
     }
 
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: invoice.currency_code.toLowerCase(),
-            unit_amount: Math.round(balanceAmount * 100),
-            product_data: { name: `Invoice ${invoice.invoice_number ?? invoiceId}` },
+    const session = await this.circuitBreaker.exec('stripe', () =>
+      stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: invoice.currency_code.toLowerCase(),
+              unit_amount: Math.round(balanceAmount * 100),
+              product_data: { name: `Invoice ${invoice.invoice_number ?? invoiceId}` },
+            },
+            quantity: 1,
           },
-          quantity: 1,
+        ],
+        mode: 'payment',
+        success_url: dto.success_url,
+        cancel_url: dto.cancel_url,
+        metadata: {
+          tenant_id: tenantId,
+          invoice_id: invoiceId,
+          household_id: invoice.household_id,
         },
-      ],
-      mode: 'payment',
-      success_url: dto.success_url,
-      cancel_url: dto.cancel_url,
-      metadata: {
-        tenant_id: tenantId,
-        invoice_id: invoiceId,
-        household_id: invoice.household_id,
-      },
-    });
+      }),
+    );
 
     return {
       session_id: session.id,
@@ -316,11 +320,14 @@ export class StripeService {
     }
 
     const stripe = await this.getStripeClient(tenantId);
+    const paymentIntentId = payment.external_event_id;
 
-    const refund = await stripe.refunds.create({
-      payment_intent: payment.external_event_id,
-      amount: Math.round(amount * 100),
-    });
+    const refund = await this.circuitBreaker.exec('stripe', () =>
+      stripe.refunds.create({
+        payment_intent: paymentIntentId,
+        amount: Math.round(amount * 100),
+      }),
+    );
 
     return {
       refund_id: refund.id,

@@ -220,6 +220,9 @@ export class DispatchNotificationsProcessor extends WorkerHost {
 class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPayload> {
   private readonly logger = new Logger(DispatchNotificationsJob.name);
 
+  /** Intermediate state between Phase 1 (read inside tx) and Phase 2 (dispatch outside tx) */
+  private loadedNotifications: DispatchableNotification[] = [];
+
   constructor(
     prisma: PrismaClient,
     private readonly configService: ConfigService,
@@ -229,10 +232,40 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     super(prisma);
   }
 
-  protected async processJob(data: DispatchNotificationsPayload, tx: PrismaClient): Promise<void> {
+  // ─── Override execute() to split DB reads from external HTTP calls ────
+
+  override async execute(data: DispatchNotificationsPayload): Promise<void> {
+    if (!data.tenant_id) {
+      throw new Error('Job rejected: missing tenant_id in payload.');
+    }
+
+    // Phase 1: Read notifications inside RLS transaction (short-lived)
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${data.tenant_id}::text, true)`;
+      const userId = data.user_id || '00000000-0000-0000-0000-000000000000';
+      await tx.$executeRaw`SELECT set_config('app.current_user_id', ${userId}::text, true)`;
+
+      await this.loadNotifications(data, tx as unknown as PrismaClient);
+    });
+
+    // Phase 2: Dispatch externally — NO active transaction holding a PgBouncer connection
+    if (this.loadedNotifications.length > 0) {
+      await this.dispatchAll(data);
+    }
+  }
+
+  protected async processJob(): Promise<void> {
+    // No-op — logic moved to execute() override
+  }
+
+  // ─── Phase 1: Load notifications inside RLS transaction ───────────────
+
+  private async loadNotifications(
+    data: DispatchNotificationsPayload,
+    tx: PrismaClient,
+  ): Promise<void> {
     const { tenant_id, notification_ids, announcement_id } = data;
 
-    // Resolve notification IDs: either from explicit list or by querying for announcement
     let resolvedIds: string[] = notification_ids ?? [];
 
     if (resolvedIds.length === 0 && announcement_id) {
@@ -254,63 +287,59 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
       return;
     }
 
-    const notifications = await tx.notification.findMany({
+    this.loadedNotifications = await tx.notification.findMany({
       where: {
         id: { in: resolvedIds },
         tenant_id,
         status: { in: ['queued', 'failed'] },
       },
     });
+  }
 
-    if (notifications.length === 0) {
-      this.logger.log(`No dispatchable notifications found for IDs: ${resolvedIds.join(', ')}`);
-      return;
-    }
+  // ─── Phase 2: Dispatch externally (outside transaction) ───────────────
 
+  private async dispatchAll(data: DispatchNotificationsPayload): Promise<void> {
     let sentCount = 0;
     let failedCount = 0;
     let inAppCount = 0;
 
-    for (const notification of notifications) {
+    for (const notification of this.loadedNotifications) {
       try {
         switch (notification.channel) {
           case 'in_app':
-            await this.dispatchInApp(tx, notification);
+            await this.dispatchInApp(notification);
             inAppCount++;
             break;
           case 'email':
-            await this.dispatchEmail(tx, notification);
+            await this.dispatchEmail(notification);
             sentCount++;
             break;
           case 'whatsapp':
-            await this.dispatchWhatsApp(tx, notification);
+            await this.dispatchWhatsApp(notification);
             sentCount++;
             break;
           case 'sms':
-            await this.dispatchSms(tx, notification);
+            await this.dispatchSms(notification);
             sentCount++;
             break;
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
-        await this.handleFailure(tx, notification, message);
+        await this.handleFailure(notification, message);
         failedCount++;
       }
     }
 
     this.logger.log(
-      `Dispatched ${notifications.length} notifications for tenant ${tenant_id} — ` +
+      `Dispatched ${this.loadedNotifications.length} notifications for tenant ${data.tenant_id} — ` +
         `in_app: ${inAppCount}, sent: ${sentCount}, failed: ${failedCount}`,
     );
   }
 
   // ─── Channel dispatchers ──────────────────────────────────────────────
 
-  private async dispatchInApp(
-    tx: PrismaClient,
-    notification: DispatchableNotification,
-  ): Promise<void> {
-    await tx.notification.update({
+  private async dispatchInApp(notification: DispatchableNotification): Promise<void> {
+    await this.prisma.notification.update({
       where: { id: notification.id },
       data: {
         status: 'delivered',
@@ -320,13 +349,9 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     });
   }
 
-  private async dispatchEmail(
-    tx: PrismaClient,
-    notification: DispatchableNotification,
-  ): Promise<void> {
+  private async dispatchEmail(notification: DispatchableNotification): Promise<void> {
     // Resolve template
     const template = await this.resolveTemplate(
-      tx,
       notification.tenant_id,
       notification.template_key ?? 'default',
       'email',
@@ -337,22 +362,21 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
       this.logger.warn(
         `No email template for key=${notification.template_key} locale=${notification.locale}`,
       );
-      await this.markFailed(tx, notification, 'No email template for locale');
-      await this.createFallbackNotification(tx, notification, 'in_app');
+      await this.markFailed(notification, 'No email template for locale');
+      await this.createFallbackNotification(notification, 'in_app');
       return;
     }
 
     // Resolve recipient email
     const email = await this.resolveRecipientContact(
-      tx,
       notification.tenant_id,
       notification.recipient_user_id,
       'email',
     );
 
     if (!email) {
-      await this.markFailed(tx, notification, 'No email address found for recipient');
-      await this.createFallbackNotification(tx, notification, 'in_app');
+      await this.markFailed(notification, 'No email address found for recipient');
+      await this.createFallbackNotification(notification, 'in_app');
       return;
     }
 
@@ -383,7 +407,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     const messageId = sendData?.id ?? '';
 
     // Mark as sent
-    await tx.notification.update({
+    await this.prisma.notification.update({
       where: { id: notification.id },
       data: {
         status: 'sent',
@@ -398,13 +422,9 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     );
   }
 
-  private async dispatchWhatsApp(
-    tx: PrismaClient,
-    notification: DispatchableNotification,
-  ): Promise<void> {
+  private async dispatchWhatsApp(notification: DispatchableNotification): Promise<void> {
     // Resolve template
     const template = await this.resolveTemplate(
-      tx,
       notification.tenant_id,
       notification.template_key ?? 'default',
       'whatsapp',
@@ -415,14 +435,13 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
       this.logger.warn(
         `No WhatsApp template for key=${notification.template_key} locale=${notification.locale}, falling back`,
       );
-      await this.markFailed(tx, notification, 'No WhatsApp template for locale');
-      await this.createFallbackNotification(tx, notification, 'sms');
+      await this.markFailed(notification, 'No WhatsApp template for locale');
+      await this.createFallbackNotification(notification, 'sms');
       return;
     }
 
     // Resolve WhatsApp phone
     const phone = await this.resolveRecipientContact(
-      tx,
       notification.tenant_id,
       notification.recipient_user_id,
       'whatsapp',
@@ -432,7 +451,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
       this.logger.log(
         `No WhatsApp phone for recipient ${notification.recipient_user_id}, falling back to SMS`,
       );
-      await tx.notification.update({
+      await this.prisma.notification.update({
         where: { id: notification.id },
         data: {
           status: 'failed',
@@ -441,7 +460,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
           next_retry_at: null,
         },
       });
-      await this.createFallbackNotification(tx, notification, 'sms');
+      await this.createFallbackNotification(notification, 'sms');
       return;
     }
 
@@ -469,7 +488,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     });
 
     // Mark as sent
-    await tx.notification.update({
+    await this.prisma.notification.update({
       where: { id: notification.id },
       data: {
         status: 'sent',
@@ -482,13 +501,9 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     this.logger.log(`WhatsApp sent to=${to} sid=${message.sid} notification=${notification.id}`);
   }
 
-  private async dispatchSms(
-    tx: PrismaClient,
-    notification: DispatchableNotification,
-  ): Promise<void> {
+  private async dispatchSms(notification: DispatchableNotification): Promise<void> {
     // Resolve template
     const template = await this.resolveTemplate(
-      tx,
       notification.tenant_id,
       notification.template_key ?? 'default',
       'sms',
@@ -499,14 +514,13 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
       this.logger.warn(
         `No SMS template for key=${notification.template_key} locale=${notification.locale}, falling back to email`,
       );
-      await this.markFailed(tx, notification, 'No SMS template for locale');
-      await this.createFallbackNotification(tx, notification, 'email');
+      await this.markFailed(notification, 'No SMS template for locale');
+      await this.createFallbackNotification(notification, 'email');
       return;
     }
 
     // Resolve SMS phone
     const phone = await this.resolveRecipientContact(
-      tx,
       notification.tenant_id,
       notification.recipient_user_id,
       'sms',
@@ -516,7 +530,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
       this.logger.log(
         `No phone number for recipient ${notification.recipient_user_id}, falling back to email`,
       );
-      await tx.notification.update({
+      await this.prisma.notification.update({
         where: { id: notification.id },
         data: {
           status: 'failed',
@@ -525,7 +539,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
           next_retry_at: null,
         },
       });
-      await this.createFallbackNotification(tx, notification, 'email');
+      await this.createFallbackNotification(notification, 'email');
       return;
     }
 
@@ -556,7 +570,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     });
 
     // Mark as sent
-    await tx.notification.update({
+    await this.prisma.notification.update({
       where: { id: notification.id },
       data: {
         status: 'sent',
@@ -572,14 +586,13 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
   // ─── Template resolution ──────────────────────────────────────────────
 
   private async resolveTemplate(
-    tx: PrismaClient,
     tenantId: string,
     templateKey: string,
     channel: string,
     locale: string,
   ): Promise<{ subject_template: string | null; body_template: string } | null> {
     // Tenant-level first
-    const tenantTemplate = await tx.notificationTemplate.findFirst({
+    const tenantTemplate = await this.prisma.notificationTemplate.findFirst({
       where: {
         tenant_id: tenantId,
         template_key: templateKey,
@@ -592,7 +605,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     if (tenantTemplate) return tenantTemplate;
 
     // Platform-level fallback (tenant_id IS NULL)
-    return tx.notificationTemplate.findFirst({
+    return this.prisma.notificationTemplate.findFirst({
       where: {
         tenant_id: null,
         template_key: templateKey,
@@ -606,13 +619,12 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
   // ─── Recipient contact resolution ─────────────────────────────────────
 
   private async resolveRecipientContact(
-    tx: PrismaClient,
     tenantId: string,
     userId: string,
     channel: 'email' | 'whatsapp' | 'sms',
   ): Promise<string | null> {
     if (channel === 'email') {
-      const user = await tx.user.findUnique({
+      const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: { email: true },
       });
@@ -620,7 +632,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     }
 
     // For whatsapp and sms, look up Parent record via User
-    const parent = await tx.parent.findFirst({
+    const parent = await this.prisma.parent.findFirst({
       where: { user_id: userId, tenant_id: tenantId },
       select: { phone: true, whatsapp_phone: true },
     });
@@ -640,7 +652,6 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
   // ─── Failure handling with fallback chain ─────────────────────────────
 
   private async handleFailure(
-    tx: PrismaClient,
     notification: DispatchableNotification,
     reason: string,
   ): Promise<void> {
@@ -653,12 +664,12 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
 
     if (newAttemptCount >= maxAttempts) {
       // Dead-letter: no more retries
-      await this.markFailed(tx, notification, reason);
+      await this.markFailed(notification, reason);
 
       // Create fallback via the chain
       const fallbackChannel = FALLBACK_CHAIN[notification.channel];
       if (fallbackChannel) {
-        await this.createFallbackNotification(tx, notification, fallbackChannel);
+        await this.createFallbackNotification(notification, fallbackChannel);
       }
       return;
     }
@@ -667,7 +678,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     const backoffMs = 60_000 * Math.pow(2, newAttemptCount);
     const nextRetryAt = new Date(Date.now() + backoffMs);
 
-    await tx.notification.update({
+    await this.prisma.notification.update({
       where: { id: notification.id },
       data: {
         status: 'failed',
@@ -678,12 +689,8 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     });
   }
 
-  private async markFailed(
-    tx: PrismaClient,
-    notification: DispatchableNotification,
-    reason: string,
-  ): Promise<void> {
-    await tx.notification.update({
+  private async markFailed(notification: DispatchableNotification, reason: string): Promise<void> {
+    await this.prisma.notification.update({
       where: { id: notification.id },
       data: {
         status: 'failed',
@@ -695,7 +702,6 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
   }
 
   private async createFallbackNotification(
-    tx: PrismaClient,
     original: DispatchableNotification,
     fallbackChannel: NotificationChannel,
   ): Promise<void> {
@@ -703,7 +709,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
       `Creating ${fallbackChannel} fallback notification for ${original.id} (was ${original.channel})`,
     );
 
-    await tx.notification.create({
+    await this.prisma.notification.create({
       data: {
         tenant_id: original.tenant_id,
         recipient_user_id: original.recipient_user_id,

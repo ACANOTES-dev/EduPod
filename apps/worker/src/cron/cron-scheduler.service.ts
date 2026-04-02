@@ -4,7 +4,7 @@ import { Queue } from 'bullmq';
 
 import { EARLY_WARNING_COMPUTE_DAILY_JOB, EARLY_WARNING_WEEKLY_DIGEST_JOB } from '@school/shared';
 
-import { QUEUE_NAMES } from '../base/queue.constants';
+import { CANARY_PING_JOB, QUEUE_NAMES } from '../base/queue.constants';
 import { APPROVAL_CALLBACK_RECONCILIATION_JOB } from '../processors/approvals/callback-reconciliation.processor';
 import {
   BEHAVIOUR_CRON_DISPATCH_DAILY_JOB,
@@ -86,6 +86,7 @@ export class CronSchedulerService implements OnModuleInit {
     await this.registerEngagementCronJobs();
     await this.registerPastoralCronJobs();
     await this.registerMonitoringCronJobs();
+    await this.registerCanaryCronJobs();
   }
 
   private async registerEarlyWarningCronJobs(): Promise<void> {
@@ -703,5 +704,22 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${DLQ_MONITOR_JOB} (every 15 min)`);
+  }
+
+  private async registerCanaryCronJobs(): Promise<void> {
+    // ── monitoring:canary-ping ─────────────────────────────────────────────
+    // Runs every 5 minutes. Platform-level — no tenant_id in payload.
+    // Emits a lightweight heartbeat to verify the worker process is alive.
+    await this.notificationsQueue.add(
+      CANARY_PING_JOB,
+      {},
+      {
+        repeat: { pattern: '*/5 * * * *' },
+        jobId: `cron:${CANARY_PING_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${CANARY_PING_JOB} (every 5 minutes)`);
   }
 }

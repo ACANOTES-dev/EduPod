@@ -1,3 +1,4 @@
+import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
@@ -61,9 +62,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(
-      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx),
-    ),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -123,6 +124,7 @@ describe('BehaviourDocumentService', () => {
   let mockPdf: { renderFromHtml: jest.Mock };
   let mockTemplateService: { getActiveTemplate: jest.Mock };
   let mockHistoryService: { recordHistory: jest.Mock };
+  let mockPdfQueue: { add: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -150,6 +152,10 @@ describe('BehaviourDocumentService', () => {
       recordHistory: jest.fn().mockResolvedValue(undefined),
     };
 
+    mockPdfQueue = {
+      add: jest.fn().mockResolvedValue({}),
+    };
+
     // Reset all RLS tx mocks
     for (const model of Object.values(mockRlsTx)) {
       for (const fn of Object.values(model)) {
@@ -165,6 +171,7 @@ describe('BehaviourDocumentService', () => {
         { provide: PdfRenderingService, useValue: mockPdf },
         { provide: BehaviourDocumentTemplateService, useValue: mockTemplateService },
         { provide: BehaviourHistoryService, useValue: mockHistoryService },
+        { provide: getQueueToken('pdf-rendering'), useValue: mockPdfQueue },
       ],
     }).compile();
 
@@ -211,26 +218,25 @@ describe('BehaviourDocumentService', () => {
         ],
       });
       mockRlsTx.studentParent.findFirst.mockResolvedValue(null);
-      mockRlsTx.behaviourDocument.create.mockResolvedValue(makeDocument());
+      mockRlsTx.behaviourDocument.create.mockResolvedValue(
+        makeDocument({ status: 'generating', file_size_bytes: BigInt(0) }),
+      );
     };
 
-    it('should load template, render HTML, generate PDF, upload to S3, create DB record, record history', async () => {
+    it('should load template, render HTML, create placeholder record, enqueue PDF job, record history', async () => {
       setupIncidentMocks();
 
-      const result = (await service.generateDocument(TENANT_ID, USER_ID, baseDto)) as DocumentResult;
+      const result = (await service.generateDocument(
+        TENANT_ID,
+        USER_ID,
+        baseDto,
+      )) as DocumentResult;
 
       expect(mockTemplateService.getActiveTemplate).toHaveBeenCalledWith(
         mockRlsTx,
         TENANT_ID,
         'detention_notice',
         'en',
-      );
-      expect(mockPdf.renderFromHtml).toHaveBeenCalledWith(expect.stringContaining('Hello'));
-      expect(mockS3.upload).toHaveBeenCalledWith(
-        TENANT_ID,
-        expect.stringContaining('detention_notice'),
-        expect.any(Buffer),
-        'application/pdf',
       );
       expect(mockRlsTx.behaviourDocument.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -241,9 +247,18 @@ describe('BehaviourDocumentService', () => {
           entity_id: INCIDENT_ID,
           student_id: STUDENT_ID,
           generated_by_id: USER_ID,
-          status: 'draft_doc',
+          status: 'generating',
+          file_size_bytes: BigInt(0),
         }),
       });
+      expect(mockPdfQueue.add).toHaveBeenCalledWith(
+        'pdf:render',
+        expect.objectContaining({
+          tenant_id: TENANT_ID,
+          callback_queue_name: 'behaviour',
+          callback_job_name: 'behaviour:document-ready',
+        }),
+      );
       expect(mockHistoryService.recordHistory).toHaveBeenCalledWith(
         mockRlsTx,
         TENANT_ID,
@@ -255,7 +270,7 @@ describe('BehaviourDocumentService', () => {
         expect.objectContaining({ document_type: 'detention_notice' }),
       );
       expect(result.data).toBeDefined();
-      expect(result.data.status).toBe('draft');
+      expect(result.data.status).toBe('generating');
     });
 
     it('should throw NotFoundException when no active template is found', async () => {
@@ -292,7 +307,9 @@ describe('BehaviourDocumentService', () => {
         ],
       });
       mockRlsTx.studentParent.findFirst.mockResolvedValue(null);
-      mockRlsTx.behaviourDocument.create.mockResolvedValue(makeDocument());
+      mockRlsTx.behaviourDocument.create.mockResolvedValue(
+        makeDocument({ status: 'generating', file_size_bytes: BigInt(0) }),
+      );
 
       await service.generateDocument(TENANT_ID, USER_ID, {
         ...baseDto,
@@ -422,17 +439,17 @@ describe('BehaviourDocumentService', () => {
       const sent = makeDocument({ status: 'sent_doc' });
       mockRlsTx.behaviourDocument.findFirst.mockResolvedValue(sent);
 
-      await expect(
-        service.finaliseDocument(TENANT_ID, USER_ID, DOCUMENT_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.finaliseDocument(TENANT_ID, USER_ID, DOCUMENT_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw NotFoundException when document does not exist', async () => {
       mockRlsTx.behaviourDocument.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.finaliseDocument(TENANT_ID, USER_ID, 'missing-doc'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.finaliseDocument(TENANT_ID, USER_ID, 'missing-doc')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -487,9 +504,9 @@ describe('BehaviourDocumentService', () => {
         student: null,
       });
 
-      await expect(
-        service.sendDocument(TENANT_ID, USER_ID, DOCUMENT_ID, sendDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.sendDocument(TENANT_ID, USER_ID, DOCUMENT_ID, sendDto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should skip acknowledgement creation when no recipient_parent_id provided', async () => {

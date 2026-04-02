@@ -3,12 +3,17 @@ import { ConfigService } from '@nestjs/config';
 import twilio from 'twilio';
 import type { Twilio } from 'twilio';
 
+import { CircuitBreakerRegistry } from '../../../common/services/circuit-breaker-registry';
+
 @Injectable()
 export class TwilioWhatsAppProvider {
   private readonly logger = new Logger(TwilioWhatsAppProvider.name);
   private client: Twilio | null = null;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly circuitBreaker: CircuitBreakerRegistry,
+  ) {}
 
   /**
    * Whether all required Twilio WhatsApp env vars are configured.
@@ -38,17 +43,17 @@ export class TwilioWhatsAppProvider {
     }
 
     const to = params.to.startsWith('whatsapp:') ? params.to : `whatsapp:${params.to}`;
-    const from = whatsappFrom.startsWith('whatsapp:')
-      ? whatsappFrom
-      : `whatsapp:${whatsappFrom}`;
+    const from = whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`;
 
     this.logger.log(`Sending WhatsApp message to=${to}`);
 
-    const message = await client.messages.create({
-      body: params.body,
-      from,
-      to,
-    });
+    const message = await this.circuitBreaker.exec('twilio', () =>
+      client.messages.create({
+        body: params.body,
+        from,
+        to,
+      }),
+    );
 
     this.logger.log(`WhatsApp message sent successfully sid=${message.sid}`);
 

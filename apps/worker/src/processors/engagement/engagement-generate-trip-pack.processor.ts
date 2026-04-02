@@ -24,7 +24,7 @@ const TRIP_EVENT_TYPES = ['school_trip', 'overnight_trip'] as const;
 
 // ─── Processor ────────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.ENGAGEMENT)
+@Processor(QUEUE_NAMES.ENGAGEMENT, { lockDuration: 30_000 })
 export class GenerateTripPackProcessor extends WorkerHost {
   private readonly logger = new Logger(GenerateTripPackProcessor.name);
 

@@ -20,7 +20,7 @@ export const IMPORT_PROCESSING_JOB = 'imports:process';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.IMPORTS)
+@Processor(QUEUE_NAMES.IMPORTS, { lockDuration: 120_000 })
 export class ImportProcessingProcessor extends WorkerHost {
   private readonly logger = new Logger(ImportProcessingProcessor.name);
 
@@ -93,10 +93,7 @@ function parseCsvLine(line: string): string[] {
   return fields;
 }
 
-function parseFile(
-  fileBuffer: Buffer,
-  fileKey: string,
-): { headers: string[]; rows: string[][] } {
+function parseFile(fileBuffer: Buffer, fileKey: string): { headers: string[]; rows: string[][] } {
   const isXlsx = fileKey.toLowerCase().endsWith('.xlsx') || fileKey.toLowerCase().endsWith('.xls');
 
   if (isXlsx) {
@@ -155,10 +152,7 @@ function getField(headers: string[], row: string[], fieldName: string): string |
 class ImportProcessingJob extends TenantAwareJob<ImportProcessingPayload> {
   private readonly logger = new Logger(ImportProcessingJob.name);
 
-  protected async processJob(
-    data: ImportProcessingPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: ImportProcessingPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, import_job_id } = data;
 
     // 1. Fetch the import job
@@ -240,7 +234,9 @@ class ImportProcessingJob extends TenantAwareJob<ImportProcessingPayload> {
             break;
           default:
             // Other import types are not yet implemented
-            throw new Error(`Import type "${importJob.import_type}" processing not yet implemented`);
+            throw new Error(
+              `Import type "${importJob.import_type}" processing not yet implemented`,
+            );
         }
         successCount++;
       } catch (err) {
@@ -275,7 +271,9 @@ class ImportProcessingJob extends TenantAwareJob<ImportProcessingPayload> {
       await deleteFromS3(importJob.file_key);
       this.logger.log(`Deleted S3 file ${importJob.file_key} after processing`);
     } catch (err) {
-      this.logger.warn(`Failed to delete S3 file ${importJob.file_key}: ${err instanceof Error ? err.message : String(err)}`);
+      this.logger.warn(
+        `Failed to delete S3 file ${importJob.file_key}: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
     this.logger.log(

@@ -546,6 +546,13 @@
     "permission": "approvals.manage"
   },
   {
+    "method": "POST",
+    "path": "/v1/approval-requests/:id/retry-callback",
+    "controller": "ApprovalRequestsController",
+    "module": "approvals",
+    "permission": "approvals.manage"
+  },
+  {
     "method": "GET",
     "path": "/v1/approval-workflows",
     "controller": "ApprovalWorkflowsController",

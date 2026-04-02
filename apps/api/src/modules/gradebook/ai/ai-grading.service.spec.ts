@@ -1,6 +1,12 @@
-import { BadRequestException, ForbiddenException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AnthropicClientService } from '../../ai/anthropic-client.service';
 import { SettingsService } from '../../configuration/settings.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { ConsentService } from '../../gdpr/consent.service';
@@ -42,13 +48,14 @@ function buildMockRedis(incrValue = 1) {
   };
 }
 
-function buildMockAnthropic(responseText = '{"suggested_score": 85, "confidence": "high", "reasoning": "Good work"}') {
+function buildMockAnthropicClient(
+  responseText = '{"suggested_score": 85, "confidence": "high", "reasoning": "Good work"}',
+) {
   return {
-    messages: {
-      create: jest.fn().mockResolvedValue({
-        content: [{ type: 'text', text: responseText }],
-      }),
-    },
+    isConfigured: true,
+    createMessage: jest.fn().mockResolvedValue({
+      content: [{ type: 'text', text: responseText }],
+    }),
   };
 }
 
@@ -95,19 +102,33 @@ describe('AiGradingService — gradeInline', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: mockSettings },
         { provide: ConsentService, useValue: mockConsentService },
-        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: buildMockAnthropicClient() },
       ],
     }).compile();
 
     service = module.get<AiGradingService>(AiGradingService);
-    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic();
+    // AnthropicClientService is provided via DI
   });
 
   afterEach(() => jest.clearAllMocks());
 
   it('should throw ServiceUnavailableException when anthropic is not configured', async () => {
-    (service as unknown as Record<string, unknown>).anthropic = null;
+    (service['anthropicClient'] as unknown as { isConfigured: boolean }).isConfigured = false;
 
     await expect(
       service.gradeInline(TENANT_ID, ASSESSMENT_ID, STUDENT_ID, Buffer.from('img'), 'image/jpeg'),
@@ -122,7 +143,13 @@ describe('AiGradingService — gradeInline', () => {
     ).rejects.toThrow(ServiceUnavailableException);
 
     try {
-      await service.gradeInline(TENANT_ID, ASSESSMENT_ID, STUDENT_ID, Buffer.from('img'), 'image/jpeg');
+      await service.gradeInline(
+        TENANT_ID,
+        ASSESSMENT_ID,
+        STUDENT_ID,
+        Buffer.from('img'),
+        'image/jpeg',
+      );
     } catch (err) {
       const response = (err as ServiceUnavailableException).getResponse() as {
         error: { code: string };
@@ -133,7 +160,13 @@ describe('AiGradingService — gradeInline', () => {
 
   it('should throw BadRequestException for unsupported mime type', async () => {
     await expect(
-      service.gradeInline(TENANT_ID, ASSESSMENT_ID, STUDENT_ID, Buffer.from('img'), 'application/pdf'),
+      service.gradeInline(
+        TENANT_ID,
+        ASSESSMENT_ID,
+        STUDENT_ID,
+        Buffer.from('img'),
+        'application/pdf',
+      ),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -177,12 +210,26 @@ describe('AiGradingService — gradeInline', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: mockSettings },
         { provide: ConsentService, useValue: mockConsentService },
-        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: buildMockAnthropicClient() },
       ],
     }).compile();
     service = module.get<AiGradingService>(AiGradingService);
-    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic();
+    // AnthropicClientService is provided via DI
 
     await expect(
       service.gradeInline(TENANT_ID, ASSESSMENT_ID, STUDENT_ID, Buffer.from('img'), 'image/jpeg'),
@@ -213,7 +260,11 @@ describe('AiGradingService — gradeInline', () => {
   });
 
   it('should return low confidence and null score when AI returns invalid JSON', async () => {
-    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic('not json at all');
+    (
+      service['anthropicClient'] as unknown as { createMessage: jest.Mock }
+    ).createMessage.mockResolvedValueOnce({
+      content: [{ type: 'text', text: 'not json at all' }],
+    });
 
     const result = await service.gradeInline(
       TENANT_ID,
@@ -253,39 +304,53 @@ describe('AiGradingService — gradeBatch', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: mockSettings },
         { provide: ConsentService, useValue: mockConsentService },
-        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: buildMockAnthropicClient() },
       ],
     }).compile();
 
     service = module.get<AiGradingService>(AiGradingService);
-    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic();
+    // AnthropicClientService is provided via DI
   });
 
   afterEach(() => jest.clearAllMocks());
 
   it('should throw ServiceUnavailableException when anthropic is not configured', async () => {
-    (service as unknown as Record<string, unknown>).anthropic = null;
+    (service['anthropicClient'] as unknown as { isConfigured: boolean }).isConfigured = false;
 
-    await expect(
-      service.gradeBatch(TENANT_ID, ASSESSMENT_ID, []),
-    ).rejects.toThrow(ServiceUnavailableException);
+    await expect(service.gradeBatch(TENANT_ID, ASSESSMENT_ID, [])).rejects.toThrow(
+      ServiceUnavailableException,
+    );
   });
 
   it('should throw AI_FEATURE_DISABLED when gradingEnabled is false', async () => {
     mockSettings.getSettings.mockResolvedValue({ ai: { gradingEnabled: false } });
 
-    await expect(
-      service.gradeBatch(TENANT_ID, ASSESSMENT_ID, []),
-    ).rejects.toThrow(ServiceUnavailableException);
+    await expect(service.gradeBatch(TENANT_ID, ASSESSMENT_ID, [])).rejects.toThrow(
+      ServiceUnavailableException,
+    );
   });
 
   it('should throw NotFoundException when assessment does not exist', async () => {
     mockPrisma.assessment.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.gradeBatch(TENANT_ID, ASSESSMENT_ID, []),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.gradeBatch(TENANT_ID, ASSESSMENT_ID, [])).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should return low confidence result for unsupported mime type', async () => {

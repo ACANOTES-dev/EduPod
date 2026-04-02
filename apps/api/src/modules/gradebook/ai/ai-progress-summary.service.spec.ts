@@ -1,6 +1,7 @@
 import { ForbiddenException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AnthropicClientService } from '../../ai/anthropic-client.service';
 import { SettingsService } from '../../configuration/settings.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { ConsentService } from '../../gdpr/consent.service';
@@ -46,13 +47,12 @@ function buildMockSettings(aiEnabled: boolean, commentStyle = 'balanced') {
   };
 }
 
-function buildMockAnthropic(summaryText = 'Ali has shown great progress this term.') {
+function buildMockAnthropicClient(summaryText = 'Ali has shown great progress this term.') {
   return {
-    messages: {
-      create: jest.fn().mockResolvedValue({
-        content: [{ type: 'text', text: summaryText }],
-      }),
-    },
+    isConfigured: true,
+    createMessage: jest.fn().mockResolvedValue({
+      content: [{ type: 'text', text: summaryText }],
+    }),
   };
 }
 
@@ -98,15 +98,11 @@ describe('AiProgressSummaryService — generateSummary', () => {
   let mockRedis: ReturnType<typeof buildMockRedis>;
   let mockConsentService: ReturnType<typeof buildMockConsentService>;
 
-  function setupMocks(aiEnabled = true) {
+  function setupMocks() {
     mockPrisma.student.findFirst.mockResolvedValue(baseStudent);
     mockPrisma.academicPeriod.findFirst.mockResolvedValue(basePeriod);
     mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue(baseSnapshots);
     mockPrisma.attendanceRecord.findMany.mockResolvedValue(baseAttendance);
-
-    if (aiEnabled) {
-      (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic();
-    }
   }
 
   beforeEach(async () => {
@@ -121,8 +117,22 @@ describe('AiProgressSummaryService — generateSummary', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: buildMockSettings(true) },
         { provide: ConsentService, useValue: mockConsentService },
-        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: buildMockAnthropicClient() },
       ],
     }).compile();
 
@@ -132,11 +142,11 @@ describe('AiProgressSummaryService — generateSummary', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should throw ServiceUnavailableException when Anthropic client is not configured', async () => {
-    (service as unknown as Record<string, unknown>).anthropic = null;
+    (service['anthropicClient'] as unknown as { isConfigured: boolean }).isConfigured = false;
 
-    await expect(
-      service.generateSummary(TENANT_ID, STUDENT_ID, PERIOD_ID, 'en'),
-    ).rejects.toThrow(ServiceUnavailableException);
+    await expect(service.generateSummary(TENANT_ID, STUDENT_ID, PERIOD_ID, 'en')).rejects.toThrow(
+      ServiceUnavailableException,
+    );
   });
 
   it('should throw ServiceUnavailableException when AI feature is disabled for tenant', async () => {
@@ -147,16 +157,30 @@ describe('AiProgressSummaryService — generateSummary', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: buildMockSettings(false) },
         { provide: ConsentService, useValue: mockConsentService },
-        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: buildMockAnthropicClient() },
       ],
     }).compile();
     service = module.get<AiProgressSummaryService>(AiProgressSummaryService);
-    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic();
+    // AnthropicClientService is provided via DI
 
-    await expect(
-      service.generateSummary(TENANT_ID, STUDENT_ID, PERIOD_ID, 'en'),
-    ).rejects.toThrow(ServiceUnavailableException);
+    await expect(service.generateSummary(TENANT_ID, STUDENT_ID, PERIOD_ID, 'en')).rejects.toThrow(
+      ServiceUnavailableException,
+    );
   });
 
   it('should return cached result when cache hit exists', async () => {
@@ -177,40 +201,52 @@ describe('AiProgressSummaryService — generateSummary', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: buildMockSettings(true) },
         { provide: ConsentService, useValue: mockConsentService },
-        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: buildMockAnthropicClient() },
       ],
     }).compile();
     service = module.get<AiProgressSummaryService>(AiProgressSummaryService);
-    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic();
+    // AnthropicClientService is provided via DI
 
     const result = await service.generateSummary(TENANT_ID, STUDENT_ID, PERIOD_ID, 'en');
 
     expect(result.cached).toBe(true);
     expect(result.summary).toBe('Cached summary');
     // Should NOT call Anthropic when cached
-    const anthropic = (service as unknown as Record<string, unknown>).anthropic as {
-      messages: { create: jest.Mock };
-    };
-    expect(anthropic.messages.create).not.toHaveBeenCalled();
+    const anthropicClient = module.get(AnthropicClientService) as { createMessage: jest.Mock };
+    expect(anthropicClient.createMessage).not.toHaveBeenCalled();
   });
 
   it('should throw NotFoundException when student is not found in DB', async () => {
     setupMocks();
     mockPrisma.student.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.generateSummary(TENANT_ID, STUDENT_ID, PERIOD_ID, 'en'),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.generateSummary(TENANT_ID, STUDENT_ID, PERIOD_ID, 'en')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should throw ForbiddenException when AI progress summary consent is not active', async () => {
     setupMocks();
     mockConsentService.hasConsent.mockResolvedValue(false);
 
-    await expect(
-      service.generateSummary(TENANT_ID, STUDENT_ID, PERIOD_ID, 'en'),
-    ).rejects.toThrow(ForbiddenException);
+    await expect(service.generateSummary(TENANT_ID, STUDENT_ID, PERIOD_ID, 'en')).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 
   it('should generate summary via Anthropic and cache the result', async () => {
@@ -233,13 +269,11 @@ describe('AiProgressSummaryService — generateSummary', () => {
   it('should pass Arabic locale instruction when locale is ar', async () => {
     setupMocks();
 
-    const mockCreate = (service as unknown as Record<string, unknown>).anthropic as {
-      messages: { create: jest.Mock };
-    };
+    const anthropicClient = service['anthropicClient'] as unknown as { createMessage: jest.Mock };
 
     await service.generateSummary(TENANT_ID, STUDENT_ID, PERIOD_ID, 'ar');
 
-    const callArgs = mockCreate.messages.create.mock.calls[0]?.[0] as {
+    const callArgs = anthropicClient.createMessage.mock.calls[0]?.[0] as {
       messages: Array<{ content: string }>;
     };
     expect(callArgs.messages[0]?.content).toContain('Arabic');
@@ -280,10 +314,8 @@ describe('AiProgressSummaryService — generateSummary', () => {
 
     expect(result.summary).toBeDefined();
 
-    const mockCreate = (service as unknown as Record<string, unknown>).anthropic as {
-      messages: { create: jest.Mock };
-    };
-    const callArgs = mockCreate.messages.create.mock.calls[0]?.[0] as {
+    const anthropicClient = service['anthropicClient'] as unknown as { createMessage: jest.Mock };
+    const callArgs = anthropicClient.createMessage.mock.calls[0]?.[0] as {
       messages: Array<{ content: string }>;
     };
     expect(callArgs.messages[0]?.content).toContain('No grades recorded yet');
@@ -307,8 +339,22 @@ describe('AiProgressSummaryService — invalidateCache', () => {
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: buildMockSettings(true) },
         { provide: ConsentService, useValue: buildMockConsentService(true) },
-        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: buildMockAnthropicClient() },
       ],
     }).compile();
 
@@ -352,6 +398,8 @@ describe('AiProgressSummaryService — invalidateCache', () => {
     mockRedis.getClient().del.mockRejectedValue(new Error('Redis connection lost'));
 
     // Should not throw
-    await expect(service.invalidateCache(TENANT_ID, STUDENT_ID, PERIOD_ID)).resolves.toBeUndefined();
+    await expect(
+      service.invalidateCache(TENANT_ID, STUDENT_ID, PERIOD_ID),
+    ).resolves.toBeUndefined();
   });
 });

@@ -64,7 +64,7 @@ interface GradeDataPoint {
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.GRADEBOOK)
+@Processor(QUEUE_NAMES.GRADEBOOK, { lockDuration: 60_000 })
 export class GradebookRiskDetectionProcessor extends WorkerHost {
   private readonly logger = new Logger(GradebookRiskDetectionProcessor.name);
 

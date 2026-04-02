@@ -19,7 +19,7 @@ export interface WeeklyDigestPayload extends TenantJobPayload {
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.EARLY_WARNING)
+@Processor(QUEUE_NAMES.EARLY_WARNING, { lockDuration: 300_000 })
 export class WeeklyDigestProcessor extends WorkerHost {
   private readonly logger = new Logger(WeeklyDigestProcessor.name);
 
