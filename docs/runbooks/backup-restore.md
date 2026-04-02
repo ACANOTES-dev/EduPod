@@ -26,7 +26,7 @@ Every production deploy creates a custom-format `pg_dump` before migrations run.
 - location: `/opt/edupod/backups/predeploy`
 - format: PostgreSQL custom dump (`.dump`)
 - retention: 14 days by default
-- trigger: [`deploy-production.sh`](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/deploy-production.sh)
+- trigger: [`deploy-production.sh`](../../scripts/deploy-production.sh)
 
 These dumps are the fastest rollback source for migration failures or application regressions introduced during deployment.
 
@@ -245,15 +245,15 @@ No database restore is required for Meilisearch-only incidents.
 
 ## 7. Restore Drill Cadence
 
-Follow the cadence defined in [recovery-drills.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/docs/runbooks/recovery-drills.md):
+Follow the cadence defined in [recovery-drills.md](./recovery-drills.md):
 
 - monthly remote-copy restore drill
 - quarterly full restore drill
 
 Use the same evidence requirements for both, with the remote-copy exercise focusing on off-site recoverability.
 
-- script: [backup-drill.sh](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/backup-drill.sh)
-- checklist: [backup-drill-checklist.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/backup-drill-checklist.md)
+- script: [backup-drill.sh](../../scripts/backup-drill.sh)
+- checklist: [backup-drill-checklist.md](../../scripts/backup-drill-checklist.md)
 
 The drill should capture:
 
@@ -280,4 +280,11 @@ At minimum, backup operations should have evidence for:
 - observed RPO for the last drill
 - any drill failures tracked through remediation
 
-Use the monitoring cadence in [monitoring.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/docs/runbooks/monitoring.md) to review these signals regularly. If any of them are stale, treat it as an operational issue rather than a paperwork gap.
+Use the monitoring cadence in [monitoring.md](./monitoring.md) to review these signals regularly. If any of them are stale, treat it as an operational issue rather than a paperwork gap.
+
+---
+
+## Related Documents
+
+- See also: [restore-drill.md](./restore-drill.md) for rehearsal schedule and drill completion log
+- See also: [recovery-drills.md](./recovery-drills.md) for drill cadence and evidence requirements

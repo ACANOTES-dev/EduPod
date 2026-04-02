@@ -22,5 +22,5 @@ export default withSentryConfig(withNextIntl(nextConfig), {
   silent: true,
   org: process.env.SENTRY_ORG || 'edupod',
   project: process.env.SENTRY_PROJECT_FRONTEND || 'school-web',
-  release: process.env.SENTRY_RELEASE,
+  release: { name: process.env.SENTRY_RELEASE },
 });

@@ -986,6 +986,8 @@ model User {
   mfa_enabled        Boolean          @default(false)
   mfa_secret         String?          @db.Text
   mfa_secret_key_ref String?          @db.VarChar(10)
+  failed_login_attempts Int          @default(0)
+  locked_until          DateTime?    @db.Timestamptz()
   last_login_at     DateTime?        @db.Timestamptz()
   created_at        DateTime         @default(now()) @db.Timestamptz()
   updated_at        DateTime         @default(now()) @updatedAt @db.Timestamptz()

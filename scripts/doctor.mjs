@@ -120,6 +120,49 @@ if (exists('.env')) {
   fail('Environment file', 'missing .env', 'Copy `.env.example` to `.env` and fill in the required values.');
 }
 
+// ─── Critical env var validation ────────────────────────────────────────────
+if (exists('.env')) {
+  const envContent = fs.readFileSync(path.join(repoRoot, '.env'), 'utf-8');
+  const envVars = {};
+  for (const line of envContent.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIndex = trimmed.indexOf('=');
+    if (eqIndex === -1) continue;
+    const key = trimmed.slice(0, eqIndex).trim();
+    const value = trimmed.slice(eqIndex + 1).trim();
+    envVars[key] = value;
+  }
+
+  const requiredVars = [
+    'DATABASE_URL',
+    'REDIS_URL',
+    'JWT_SECRET',
+    'JWT_REFRESH_SECRET',
+    'ENCRYPTION_KEY',
+    'MEILISEARCH_URL',
+  ];
+
+  for (const varName of requiredVars) {
+    if (envVars[varName] && envVars[varName].length > 0) {
+      pass(`env: ${varName}`, 'set');
+    } else {
+      fail(`env: ${varName}`, 'missing or empty in .env', `Add ${varName}=<value> to your .env file.`);
+    }
+  }
+
+  // Backward-compat drift: warn about deprecated variable names
+  const deprecatedMap = {
+    MEILISEARCH_HOST: 'MEILISEARCH_URL',
+    ENCRYPTION_KEY_LOCAL: 'ENCRYPTION_KEY',
+  };
+  for (const [oldName, newName] of Object.entries(deprecatedMap)) {
+    if (envVars[oldName] !== undefined) {
+      fail(`env: ${oldName}`, `deprecated — rename to ${newName}`, `Replace ${oldName} with ${newName} in your .env file.`);
+    }
+  }
+}
+
 if (hasGeneratedPrismaClient()) {
   pass('Prisma client', 'generated client present');
 } else {

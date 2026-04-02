@@ -2327,3 +2327,23 @@ DROP POLICY IF EXISTS ai_processing_logs_tenant_isolation ON ai_processing_logs;
 CREATE POLICY ai_processing_logs_tenant_isolation ON ai_processing_logs
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- =============================================================
+-- Cron Execution Logs RLS Policies
+-- =============================================================
+-- Defined in: packages/prisma/migrations/20260402080000_add_reliability_r13_r18_r19_r23/post_migrate.sql
+
+-- cron_execution_logs (nullable tenant_id — cross-tenant cron jobs)
+ALTER TABLE cron_execution_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cron_execution_logs FORCE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS cron_execution_logs_tenant_isolation ON cron_execution_logs;
+CREATE POLICY cron_execution_logs_tenant_isolation ON cron_execution_logs
+  USING (
+    tenant_id IS NULL
+    OR tenant_id = current_setting('app.current_tenant_id')::uuid
+  )
+  WITH CHECK (
+    tenant_id IS NULL
+    OR tenant_id = current_setting('app.current_tenant_id')::uuid
+  );

@@ -10,10 +10,10 @@ Operational readiness depends on proving that backups and rollback procedures st
 
 Use this together with:
 
-- [backup-restore.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/docs/runbooks/backup-restore.md)
-- [rollback.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/docs/runbooks/rollback.md)
-- [backup-drill-checklist.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/backup-drill-checklist.md)
-- [rollback-drill-checklist.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/rollback-drill-checklist.md)
+- [backup-restore.md](./backup-restore.md)
+- [rollback.md](./rollback.md)
+- [backup-drill-checklist.md](../../scripts/backup-drill-checklist.md)
+- [rollback-drill-checklist.md](../../scripts/rollback-drill-checklist.md)
 
 ---
 
@@ -56,7 +56,7 @@ Minimum terminology:
 For restore drills:
 
 1. prefer the newest verified off-site backup for the monthly exercise
-2. use the checklist in [backup-drill-checklist.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/backup-drill-checklist.md)
+2. use the checklist in [backup-drill-checklist.md](../../scripts/backup-drill-checklist.md)
 3. record the backup timestamp so the observed RPO can be calculated
 4. run the verification queries from the backup/restore runbook
 5. record whether the achieved RTO stayed within the declared target
@@ -68,7 +68,7 @@ For restore drills:
 For rollback drills:
 
 1. choose a recent deployment scenario with a clearly known-good rollback target SHA
-2. use the checklist in [rollback-drill-checklist.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/rollback-drill-checklist.md)
+2. use the checklist in [rollback-drill-checklist.md](../../scripts/rollback-drill-checklist.md)
 3. time the rollback from decision point to restored healthy services
 4. verify `/api/health/ready`, worker health, and tenant login availability
 5. record whether a database restore would also have been required for the simulated incident
@@ -84,3 +84,10 @@ Every drill produces one of three outcomes:
 - `FAIL`: recovery did not complete or validation failed
 
 Any `PASS WITH ACTIONS` or `FAIL` outcome must be reviewed in the next weekly ops review and tracked until remediated.
+
+---
+
+## Related Documents
+
+- See also: [restore-drill.md](./restore-drill.md) for step-by-step restore procedure
+- See also: [migration-safety.md](./migration-safety.md) for schema change and rollback decision tree

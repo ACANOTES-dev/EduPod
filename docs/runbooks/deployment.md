@@ -95,7 +95,7 @@ For the first 15-30 minutes after release:
 - watch Sentry for new deploy-correlated errors
 - review [monitoring.md](./monitoring.md) if queue alerts are present
 
-If a rollback occurs, record the timings and validation results in [rollback-drill-checklist.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/rollback-drill-checklist.md) so the event counts as recovery evidence rather than tribal knowledge.
+If a rollback occurs, record the timings and validation results in [rollback-drill-checklist.md](../../scripts/rollback-drill-checklist.md) so the event counts as recovery evidence rather than tribal knowledge.
 
 ---
 
@@ -121,3 +121,11 @@ Before deploying a release that introduces new environment variables:
 2. Verify `api`, `web`, and `worker` can read them after restart
 3. Never hardcode secrets into workflow YAML or committed files
 4. Required variables for each service are documented in the repo runbooks and `.env.example`
+
+---
+
+## Related Documents
+
+- See also: [migration-safety.md](./migration-safety.md) for schema change protocols
+- See also: [rollback.md](./rollback.md) for rollback decision tree and procedures
+- See also: [recovery-drills.md](./recovery-drills.md) for drill cadence and evidence requirements

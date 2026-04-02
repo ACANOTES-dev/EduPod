@@ -162,8 +162,8 @@ After any rollback:
 
 Perform an application rollback drill at least quarterly using the process in this runbook.
 
-- checklist: [rollback-drill-checklist.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/scripts/rollback-drill-checklist.md)
-- policy: [recovery-drills.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/docs/runbooks/recovery-drills.md)
+- checklist: [rollback-drill-checklist.md](../../scripts/rollback-drill-checklist.md)
+- policy: [recovery-drills.md](./recovery-drills.md)
 
 Every rollback drill must record:
 
@@ -173,3 +173,10 @@ Every rollback drill must record:
 - achieved recovery duration
 - whether a database restore would also have been required
 - follow-up fixes if the drill was slow or incomplete
+
+---
+
+## Related Documents
+
+- See also: [migration-safety.md](./migration-safety.md) for rollback decision tree and schema change protocols
+- See also: [restore-drill.md](./restore-drill.md) for step-by-step restore procedure

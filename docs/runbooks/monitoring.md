@@ -63,7 +63,7 @@ If `PGBOUNCER_ADMIN_URL` is not configured, the health payload reports `checks.p
 
 ## 3. Log Aggregation
 
-Use the Vector config at [ops/vector/vector.toml](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/ops/vector/vector.toml) to ship PM2 logs into Loki.
+Use the Vector config at [ops/vector/vector.toml](../../ops/vector/vector.toml) to ship PM2 logs into Loki.
 
 Expected environment on the server:
 
@@ -124,4 +124,4 @@ Review these at least weekly:
 - Loki error bursts grouped by `service`
 - any stale backup replication or restore-drill evidence
 
-Use [weekly-ops-review.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/docs/runbooks/weekly-ops-review.md) as the recurring review template, and treat any stale recovery-drill evidence from [recovery-drills.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/docs/runbooks/recovery-drills.md) as an ops issue.
+Use [weekly-ops-review.md](./weekly-ops-review.md) as the recurring review template, and treat any stale recovery-drill evidence from [recovery-drills.md](./recovery-drills.md) as an ops issue.

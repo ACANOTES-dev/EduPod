@@ -48,6 +48,8 @@ const MOCK_USER = {
   mfa_enabled: false,
   mfa_secret: null,
   mfa_secret_key_ref: null,
+  failed_login_attempts: 0,
+  locked_until: null,
   last_login_at: null,
   created_at: new Date('2026-01-01T00:00:00.000Z'),
 };
@@ -614,7 +616,11 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException when brute force blocked', async () => {
-      redisClient.get.mockResolvedValue('10'); // Above threshold
+      redisClient.get.mockImplementation(async (key: string) => {
+        if (key.startsWith('ip_throttle:')) return '0'; // IP throttle not hit
+        if (key.startsWith('brute_force:')) return '10'; // Above brute force threshold
+        return null;
+      });
 
       await expect(
         service.login(MOCK_USER.email, PASSWORD_PLAIN, '127.0.0.1', 'jest-agent'),
@@ -1544,7 +1550,11 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException when brute force blocked', async () => {
-      redisClient.get.mockResolvedValue('10');
+      redisClient.get.mockImplementation(async (key: string) => {
+        if (key.startsWith('ip_throttle:')) return '0';
+        if (key.startsWith('brute_force:')) return '10';
+        return null;
+      });
 
       await expect(
         service.loginWithRecoveryCode(
@@ -1856,6 +1866,284 @@ describe('AuthService', () => {
       });
 
       await expect(service.revokeSession(USER_ID, SESSION_ID)).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ─── IP Throttle (Layer 1) ──────────────────────────────────────────────────
+
+  describe('AuthService -- IP throttle', () => {
+    it('should block login after IP exceeds max attempts', async () => {
+      // IP throttle key returns count at threshold
+      redisClient.get.mockImplementation(async (key: string) => {
+        if (key === 'ip_throttle:10.0.0.99') return '10';
+        if (key.startsWith('brute_force:')) return '0';
+        return null;
+      });
+
+      await expect(
+        service.login(MOCK_USER.email, PASSWORD_PLAIN, '10.0.0.99', 'jest-agent'),
+      ).rejects.toThrow(UnauthorizedException);
+
+      // Should log with IP_THROTTLED internally but expose INVALID_CREDENTIALS
+      expect(mockSecurityAuditService.logLoginFailure).toHaveBeenCalledWith(
+        MOCK_USER.email,
+        '10.0.0.99',
+        'IP_THROTTLED',
+        null,
+        'jest-agent',
+      );
+
+      // Should NOT try to find user when IP is blocked
+      expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('should allow login when IP is below max attempts', async () => {
+      redisClient.get.mockImplementation(async (key: string) => {
+        if (key === 'ip_throttle:10.0.0.1') return '5'; // Below 10
+        if (key.startsWith('brute_force:')) return '0';
+        return null;
+      });
+      mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
+      mockPrisma.user.update.mockResolvedValue({ ...MOCK_USER });
+
+      const result = await service.login(MOCK_USER.email, PASSWORD_PLAIN, '10.0.0.1', 'jest-agent');
+
+      expect(result).toHaveProperty('access_token');
+    });
+
+    it('should increment IP failure counter on failed login', async () => {
+      redisClient.get.mockImplementation(async (key: string) => {
+        if (key.startsWith('ip_throttle:')) return '0';
+        if (key.startsWith('brute_force:')) return '0';
+        return null;
+      });
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.login('bad@email.com', 'password', '10.0.0.50', 'jest-agent'),
+      ).rejects.toThrow(UnauthorizedException);
+
+      // IP failure counter should be incremented
+      expect(redisClient.incr).toHaveBeenCalledWith('ip_throttle:10.0.0.50');
+      expect(redisClient.expire).toHaveBeenCalledWith('ip_throttle:10.0.0.50', 900);
+    });
+
+    it('should return generic INVALID_CREDENTIALS error code when IP throttled', async () => {
+      redisClient.get.mockImplementation(async (key: string) => {
+        if (key === 'ip_throttle:10.0.0.99') return '15';
+        if (key.startsWith('brute_force:')) return '0';
+        return null;
+      });
+
+      try {
+        await service.login(MOCK_USER.email, PASSWORD_PLAIN, '10.0.0.99', 'jest-agent');
+        fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(UnauthorizedException);
+        const err = error as UnauthorizedException;
+        const response = err.getResponse() as { code: string };
+        expect(response.code).toBe('INVALID_CREDENTIALS');
+      }
+    });
+  });
+
+  // ─── Account Lockout (Layer 2) ──────────────────────────────────────────────
+
+  describe('AuthService -- Account lockout', () => {
+    beforeEach(() => {
+      // Default: no IP throttle, no brute force
+      redisClient.get.mockImplementation(async (key: string) => {
+        if (key.startsWith('ip_throttle:')) return '0';
+        if (key.startsWith('brute_force:')) return '0';
+        return null;
+      });
+    });
+
+    it('should block login when account is locked and lockout has not expired', async () => {
+      const futureDate = new Date(Date.now() + 10 * 60 * 1000); // 10 min from now
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...MOCK_USER,
+        locked_until: futureDate,
+        failed_login_attempts: 5,
+      });
+
+      await expect(
+        service.login(MOCK_USER.email, PASSWORD_PLAIN, '127.0.0.1', 'jest-agent'),
+      ).rejects.toThrow(UnauthorizedException);
+
+      // Should log ACCOUNT_LOCKED internally
+      expect(mockSecurityAuditService.logLoginFailure).toHaveBeenCalledWith(
+        MOCK_USER.email,
+        '127.0.0.1',
+        'ACCOUNT_LOCKED',
+        null,
+        'jest-agent',
+      );
+    });
+
+    it('should return generic INVALID_CREDENTIALS when account is locked', async () => {
+      const futureDate = new Date(Date.now() + 10 * 60 * 1000);
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...MOCK_USER,
+        locked_until: futureDate,
+        failed_login_attempts: 5,
+      });
+
+      try {
+        await service.login(MOCK_USER.email, PASSWORD_PLAIN, '127.0.0.1', 'jest-agent');
+        fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(UnauthorizedException);
+        const err = error as UnauthorizedException;
+        const response = err.getResponse() as { code: string };
+        expect(response.code).toBe('INVALID_CREDENTIALS');
+      }
+    });
+
+    it('should allow login when lockout has expired', async () => {
+      const pastDate = new Date(Date.now() - 60 * 1000); // 1 min ago
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...MOCK_USER,
+        locked_until: pastDate,
+        failed_login_attempts: 5,
+      });
+      mockPrisma.user.update.mockResolvedValue({ ...MOCK_USER });
+
+      const result = await service.login(
+        MOCK_USER.email,
+        PASSWORD_PLAIN,
+        '127.0.0.1',
+        'jest-agent',
+      );
+
+      expect(result).toHaveProperty('access_token');
+    });
+
+    it('should increment failed_login_attempts on wrong password', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...MOCK_USER,
+        failed_login_attempts: 2,
+      });
+
+      await expect(
+        service.login(MOCK_USER.email, 'WrongPassword!', '127.0.0.1', 'jest-agent'),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: USER_ID },
+          data: { failed_login_attempts: 3 },
+        }),
+      );
+    });
+
+    it('should lock account when failed attempts reach threshold', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...MOCK_USER,
+        failed_login_attempts: 4, // Next failure = 5 = threshold
+      });
+
+      await expect(
+        service.login(MOCK_USER.email, 'WrongPassword!', '127.0.0.1', 'jest-agent'),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: USER_ID },
+          data: {
+            failed_login_attempts: 5,
+            locked_until: expect.any(Date),
+          },
+        }),
+      );
+    });
+
+    it('should reset failed_login_attempts on successful login', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...MOCK_USER,
+        failed_login_attempts: 3,
+      });
+      mockPrisma.user.update.mockResolvedValue({ ...MOCK_USER });
+
+      await service.login(MOCK_USER.email, PASSWORD_PLAIN, '127.0.0.1', 'jest-agent');
+
+      // First update call resets lockout counters, second updates last_login_at
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: USER_ID },
+          data: { failed_login_attempts: 0, locked_until: null },
+        }),
+      );
+    });
+
+    it('should not update lockout counters when they are already zero', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER }); // already 0/null
+      mockPrisma.user.update.mockResolvedValue({ ...MOCK_USER });
+
+      await service.login(MOCK_USER.email, PASSWORD_PLAIN, '127.0.0.1', 'jest-agent');
+
+      // Only one update: last_login_at (no lockout reset needed)
+      const updateCalls = (mockPrisma.user.update as jest.Mock).mock.calls;
+      expect(updateCalls).toHaveLength(1);
+      expect(updateCalls[0][0]).toEqual(
+        expect.objectContaining({
+          data: { last_login_at: expect.any(Date) },
+        }),
+      );
+    });
+
+    it('should return same INVALID_CREDENTIALS code for all failure paths', async () => {
+      // Test 1: User not found
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      try {
+        await service.login('ghost@school.com', 'password', '127.0.0.1', 'jest-agent');
+        fail('Should have thrown');
+      } catch (error) {
+        const err = error as UnauthorizedException;
+        const response = err.getResponse() as { code: string };
+        expect(response.code).toBe('INVALID_CREDENTIALS');
+      }
+
+      jest.clearAllMocks();
+      redisClient.get.mockImplementation(async (key: string) => {
+        if (key.startsWith('ip_throttle:')) return '0';
+        if (key.startsWith('brute_force:')) return '0';
+        return null;
+      });
+
+      // Test 2: Wrong password
+      mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
+      mockPrisma.user.update.mockResolvedValue({ ...MOCK_USER });
+      try {
+        await service.login(MOCK_USER.email, 'WrongPassword!', '127.0.0.1', 'jest-agent');
+        fail('Should have thrown');
+      } catch (error) {
+        const err = error as UnauthorizedException;
+        const response = err.getResponse() as { code: string };
+        expect(response.code).toBe('INVALID_CREDENTIALS');
+      }
+
+      jest.clearAllMocks();
+      redisClient.get.mockImplementation(async (key: string) => {
+        if (key.startsWith('ip_throttle:')) return '0';
+        if (key.startsWith('brute_force:')) return '0';
+        return null;
+      });
+
+      // Test 3: Account locked
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...MOCK_USER,
+        locked_until: new Date(Date.now() + 600_000),
+        failed_login_attempts: 5,
+      });
+      try {
+        await service.login(MOCK_USER.email, PASSWORD_PLAIN, '127.0.0.1', 'jest-agent');
+        fail('Should have thrown');
+      } catch (error) {
+        const err = error as UnauthorizedException;
+        const response = err.getResponse() as { code: string };
+        expect(response.code).toBe('INVALID_CREDENTIALS');
+      }
     });
   });
 });

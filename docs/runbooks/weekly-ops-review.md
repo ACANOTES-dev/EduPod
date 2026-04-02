@@ -19,8 +19,8 @@ Recommended slot:
 
 Review these sources every week:
 
-- [monitoring.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/docs/runbooks/monitoring.md)
-- [recovery-drills.md](/Users/ram/Library/Mobile%20Documents/com~apple~CloudDocs/Shared/GitHub%20Repos/SDB/.worktrees/audit-ops/docs/runbooks/recovery-drills.md)
+- [monitoring.md](./docs/runbooks/monitoring.md)
+- [recovery-drills.md](./docs/runbooks/recovery-drills.md)
 - platform admin health dashboard at `/en/admin/health`
 - UptimeRobot monitor history
 - PM2 service status and recent deploy notifications

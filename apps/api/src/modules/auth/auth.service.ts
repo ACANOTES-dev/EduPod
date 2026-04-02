@@ -14,8 +14,12 @@ import { generateSecret as otpGenerateSecret, generateURI, verify as otpVerify }
 import * as QRCode from 'qrcode';
 
 import {
+  ACCOUNT_LOCKOUT_DURATION_MINUTES,
+  ACCOUNT_LOCKOUT_THRESHOLD,
   BRUTE_FORCE_THRESHOLDS,
   BRUTE_FORCE_WINDOW_SECONDS,
+  IP_LOGIN_THROTTLE_MAX_ATTEMPTS,
+  IP_LOGIN_THROTTLE_WINDOW_SECONDS,
   JWT_EXPIRY,
   REFRESH_EXPIRY,
   type JwtPayload,
@@ -1003,7 +1007,10 @@ export class AuthService {
     userAgent: string,
     tenantId: string | null,
   ) {
-    // 1. Check brute force protection
+    // ─── Layer 1: IP-based throttle (before any DB lookup) ─────────────────
+    await this.checkIpThrottle(ipAddress, email, tenantId, userAgent);
+
+    // 2. Check email brute force protection (Layer 3 — existing)
     const bruteForce = await this.checkBruteForce(email);
     if (bruteForce.blocked) {
       await this.securityAuditService.logLoginFailure(
@@ -1020,13 +1027,14 @@ export class AuthService {
       });
     }
 
-    // 2. Find user by email
+    // 3. Find user by email
     const user = await this.prisma.user.findUnique({
       where: { email },
     });
 
     if (!user) {
       await this.recordFailedLogin(email, ipAddress, userAgent);
+      await this.recordIpFailure(ipAddress);
       await this.securityAuditService.logLoginFailure(
         email,
         ipAddress,
@@ -1040,10 +1048,43 @@ export class AuthService {
       });
     }
 
-    // 3. Compare password with bcrypt
+    // ─── Layer 2: Account lockout check (after user found) ─────────────────
+    if (user.locked_until && user.locked_until > new Date()) {
+      await this.recordIpFailure(ipAddress);
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'ACCOUNT_LOCKED',
+        tenantId,
+        userAgent,
+      );
+      throw new UnauthorizedException({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password',
+      });
+    }
+
+    // 4. Compare password with bcrypt
     const passwordValid = await bcrypt.compare(password, user.password_hash);
     if (!passwordValid) {
       await this.recordFailedLogin(email, ipAddress, userAgent);
+      await this.recordIpFailure(ipAddress);
+
+      // Increment account-level failed attempts
+      const newFailedAttempts = user.failed_login_attempts + 1;
+      const lockoutData: { failed_login_attempts: number; locked_until?: Date } = {
+        failed_login_attempts: newFailedAttempts,
+      };
+      if (newFailedAttempts >= ACCOUNT_LOCKOUT_THRESHOLD) {
+        lockoutData.locked_until = new Date(
+          Date.now() + ACCOUNT_LOCKOUT_DURATION_MINUTES * 60 * 1000,
+        );
+      }
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: lockoutData,
+      });
+
       await this.securityAuditService.logLoginFailure(
         email,
         ipAddress,
@@ -1057,7 +1098,7 @@ export class AuthService {
       });
     }
 
-    // 4. Check user global_status
+    // 5. Check user global_status
     if (user.global_status === 'suspended') {
       await this.securityAuditService.logLoginFailure(
         email,
@@ -1085,7 +1126,58 @@ export class AuthService {
       });
     }
 
+    // Reset account lockout counters on successful credential validation
+    if (user.failed_login_attempts > 0 || user.locked_until) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { failed_login_attempts: 0, locked_until: null },
+      });
+    }
+
     return user;
+  }
+
+  // ─── IP Throttle Helpers ────────────────────────────────────────────────────
+
+  /**
+   * Layer 1: Check IP-based throttle. Blocks login attempts from IPs
+   * that have exceeded the failure threshold within the window.
+   * Returns a generic INVALID_CREDENTIALS to prevent account enumeration.
+   */
+  private async checkIpThrottle(
+    ipAddress: string,
+    email: string,
+    tenantId: string | null,
+    userAgent: string,
+  ): Promise<void> {
+    const client = this.redis.getClient();
+    const key = `ip_throttle:${ipAddress}`;
+    const count = parseInt((await client.get(key)) || '0', 10);
+
+    if (count >= IP_LOGIN_THROTTLE_MAX_ATTEMPTS) {
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'IP_THROTTLED',
+        tenantId,
+        userAgent,
+      );
+      throw new UnauthorizedException({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password',
+      });
+    }
+  }
+
+  /**
+   * Record an IP-based login failure. Increments the counter and sets
+   * the TTL to the configured window.
+   */
+  private async recordIpFailure(ipAddress: string): Promise<void> {
+    const client = this.redis.getClient();
+    const key = `ip_throttle:${ipAddress}`;
+    await client.incr(key);
+    await client.expire(key, IP_LOGIN_THROTTLE_WINDOW_SECONDS);
   }
 
   /**

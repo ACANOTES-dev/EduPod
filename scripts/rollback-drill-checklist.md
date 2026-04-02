@@ -78,3 +78,11 @@
 | 1   |        |       |          |
 | 2   |        |       |          |
 | 3   |        |       |          |
+
+---
+
+## Related Documents
+
+- See also: [docs/runbooks/migration-safety.md](../docs/runbooks/migration-safety.md) for rollback decision tree and schema change protocols
+- See also: [docs/runbooks/rollback.md](../docs/runbooks/rollback.md) for full rollback runbook
+- See also: [docs/runbooks/recovery-drills.md](../docs/runbooks/recovery-drills.md) for drill cadence and evidence requirements

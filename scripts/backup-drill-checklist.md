@@ -163,3 +163,11 @@ If testing application connectivity against the restored instance:
 ---
 
 **Store this completed checklist with**: the weekly ops review record, quarterly ops record, or the incident notes for the drill
+
+---
+
+## Related Documents
+
+- See also: [docs/runbooks/restore-drill.md](../docs/runbooks/restore-drill.md) for step-by-step restore procedure
+- See also: [docs/runbooks/backup-restore.md](../docs/runbooks/backup-restore.md) for full backup and restore runbook
+- See also: [docs/runbooks/recovery-drills.md](../docs/runbooks/recovery-drills.md) for drill cadence and evidence requirements
