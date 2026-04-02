@@ -185,8 +185,8 @@ generate_prisma_client() {
 
 run_deploy_preflight() {
   log 'Running deploy preflight checks'
+  local migrate_status_file
   local migrate_status_output
-  local migrate_status_exit=0
 
   if ! command -v psql > /dev/null 2>&1; then
     log 'psql is required for deploy preflight checks'
@@ -232,14 +232,15 @@ EOF
     fi
   fi
 
-  migrate_status_output="$(
-    (
-      cd packages/prisma
-      DATABASE_URL="$DATABASE_MIGRATE_URL" npx prisma migrate status
-    ) 2>&1
-  )" || migrate_status_exit=$?
+  migrate_status_file="$(mktemp)"
 
-  if [[ "$migrate_status_exit" -ne 0 ]]; then
+  if ! (
+    cd packages/prisma
+    DATABASE_URL="$DATABASE_MIGRATE_URL" npx --no-install prisma migrate status
+  ) >"$migrate_status_file" 2>&1; then
+    migrate_status_output="$(cat "$migrate_status_file")"
+    rm -f "$migrate_status_file"
+
     if printf '%s\n' "$migrate_status_output" | grep -Eiq 'not yet been applied|database is not up to date'; then
       log 'Pending Prisma migrations detected; continuing to migration step'
       return
@@ -249,6 +250,8 @@ EOF
     printf '%s\n' "$migrate_status_output"
     exit 1
   fi
+
+  rm -f "$migrate_status_file"
 }
 
 run_build() {
