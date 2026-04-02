@@ -98,7 +98,7 @@ describe('AnnouncementApprovalCallbackProcessor', () => {
     });
   });
 
-  it('should skip announcements that are already published', async () => {
+  it('should self-heal when announcement is already published', async () => {
     const mockTx = buildMockTx();
     mockTx.announcement.findFirst.mockResolvedValue({
       id: ANNOUNCEMENT_ID,
@@ -110,6 +110,35 @@ describe('AnnouncementApprovalCallbackProcessor', () => {
     await processor.process(buildJob());
 
     expect(mockTx.announcement.update).not.toHaveBeenCalled();
-    expect(mockTx.approvalRequest.update).not.toHaveBeenCalled();
+    expect(mockTx.approvalRequest.update).toHaveBeenCalledWith({
+      where: { id: APPROVAL_REQUEST_ID },
+      data: {
+        status: 'executed',
+        executed_at: expect.any(Date),
+        callback_status: 'already_completed',
+        callback_error: 'Self-healed: announcement was in status "published"',
+      },
+    });
+  });
+
+  it('should mark unexpected state when announcement is in draft', async () => {
+    const mockTx = buildMockTx();
+    mockTx.announcement.findFirst.mockResolvedValue({
+      id: ANNOUNCEMENT_ID,
+      status: 'draft',
+      title: 'School Closure',
+    });
+    const processor = new AnnouncementApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+
+    await processor.process(buildJob());
+
+    expect(mockTx.announcement.update).not.toHaveBeenCalled();
+    expect(mockTx.approvalRequest.update).toHaveBeenCalledWith({
+      where: { id: APPROVAL_REQUEST_ID },
+      data: {
+        callback_status: 'skipped_unexpected_state',
+        callback_error: 'Self-healed: announcement was in status "draft"',
+      },
+    });
   });
 });

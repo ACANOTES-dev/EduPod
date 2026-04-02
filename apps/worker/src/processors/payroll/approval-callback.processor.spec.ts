@@ -137,7 +137,34 @@ describe('PayrollApprovalCallbackProcessor', () => {
     ).rejects.toThrow('Job rejected: missing tenant_id in payload.');
   });
 
-  it('should skip payroll runs that are not pending approval', async () => {
+  it('should self-heal when payroll run is already finalised', async () => {
+    const mockTx = buildMockTx();
+    mockTx.payrollRun.findFirst.mockResolvedValue({
+      id: PAYROLL_RUN_ID,
+      period_label: 'March 2026',
+      period_month: 3,
+      period_year: 2026,
+      status: 'finalised',
+      total_working_days: 20,
+    });
+    const processor = new PayrollApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+
+    await processor.process(buildJob());
+
+    expect(mockTx.payrollEntry.findMany).not.toHaveBeenCalled();
+    expect(mockTx.payrollRun.update).not.toHaveBeenCalled();
+    expect(mockTx.approvalRequest.update).toHaveBeenCalledWith({
+      where: { id: APPROVAL_REQUEST_ID },
+      data: {
+        status: 'executed',
+        executed_at: expect.any(Date),
+        callback_status: 'already_completed',
+        callback_error: 'Self-healed: payroll run was in status "finalised"',
+      },
+    });
+  });
+
+  it('should mark unexpected state when payroll run is in draft', async () => {
     const mockTx = buildMockTx();
     mockTx.payrollRun.findFirst.mockResolvedValue({
       id: PAYROLL_RUN_ID,
@@ -153,7 +180,13 @@ describe('PayrollApprovalCallbackProcessor', () => {
 
     expect(mockTx.payrollEntry.findMany).not.toHaveBeenCalled();
     expect(mockTx.payrollRun.update).not.toHaveBeenCalled();
-    expect(mockTx.approvalRequest.update).not.toHaveBeenCalled();
+    expect(mockTx.approvalRequest.update).toHaveBeenCalledWith({
+      where: { id: APPROVAL_REQUEST_ID },
+      data: {
+        callback_status: 'skipped_unexpected_state',
+        callback_error: 'Self-healed: payroll run was in status "draft"',
+      },
+    });
   });
 
   it('should finalise the payroll run, generate a payslip, and mark the approval executed', async () => {

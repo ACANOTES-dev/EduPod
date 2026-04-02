@@ -81,8 +81,21 @@ class PayrollApprovalCallbackJob extends TenantAwareJob<ApprovalCallbackPayload>
     }
 
     if (payrollRun.status !== 'pending_approval') {
+      // Self-heal: update the approval request so it is no longer retried by reconciliation
+      const isPostApproval = payrollRun.status === 'finalised';
+
+      await tx.approvalRequest.update({
+        where: { id: approval_request_id },
+        data: {
+          ...(isPostApproval ? { status: 'executed' as const, executed_at: new Date() } : {}),
+          callback_status: isPostApproval ? 'already_completed' : 'skipped_unexpected_state',
+          callback_error: `Self-healed: payroll run was in status "${payrollRun.status}"`,
+        },
+      });
+
       this.logger.warn(
-        `Payroll run ${target_entity_id} is in status "${payrollRun.status}", expected "pending_approval". Skipping.`,
+        `Payroll run ${target_entity_id} is in status "${payrollRun.status}", expected "pending_approval". ` +
+          `${isPostApproval ? 'Self-healed' : 'Skipped'}: approval request ${approval_request_id} updated.`,
       );
       return;
     }

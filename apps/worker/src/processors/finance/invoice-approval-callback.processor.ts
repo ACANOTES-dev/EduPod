@@ -77,8 +77,21 @@ class InvoiceApprovalCallbackJob extends TenantAwareJob<InvoiceApprovalCallbackP
     }
 
     if (invoice.status !== 'pending_approval') {
+      // Self-heal: update the approval request so it is no longer retried by reconciliation
+      const isPostApproval = invoice.status === 'issued';
+
+      await tx.approvalRequest.update({
+        where: { id: approval_request_id },
+        data: {
+          ...(isPostApproval ? { status: 'executed' as const, executed_at: new Date() } : {}),
+          callback_status: isPostApproval ? 'already_completed' : 'skipped_unexpected_state',
+          callback_error: `Self-healed: invoice was in status "${invoice.status}"`,
+        },
+      });
+
       this.logger.warn(
-        `Invoice ${target_entity_id} is in status "${invoice.status}", expected "pending_approval". Skipping.`,
+        `Invoice ${target_entity_id} is in status "${invoice.status}", expected "pending_approval". ` +
+          `${isPostApproval ? 'Self-healed' : 'Skipped'}: approval request ${approval_request_id} updated.`,
       );
       return;
     }

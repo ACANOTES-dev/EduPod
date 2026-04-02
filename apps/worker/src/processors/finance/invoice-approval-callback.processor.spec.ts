@@ -90,7 +90,7 @@ describe('InvoiceApprovalCallbackProcessor', () => {
     });
   });
 
-  it('should skip invoices that are no longer pending approval', async () => {
+  it('should self-heal when invoice is already issued', async () => {
     const tx = buildMockTx();
     tx.invoice.findFirst.mockResolvedValue({
       id: INVOICE_ID,
@@ -102,6 +102,35 @@ describe('InvoiceApprovalCallbackProcessor', () => {
     await processor.process(buildJob(INVOICE_APPROVAL_CALLBACK_JOB));
 
     expect(tx.invoice.update).not.toHaveBeenCalled();
-    expect(tx.approvalRequest.update).not.toHaveBeenCalled();
+    expect(tx.approvalRequest.update).toHaveBeenCalledWith({
+      where: { id: APPROVAL_REQUEST_ID },
+      data: {
+        status: 'executed',
+        executed_at: expect.any(Date),
+        callback_status: 'already_completed',
+        callback_error: 'Self-healed: invoice was in status "issued"',
+      },
+    });
+  });
+
+  it('should mark unexpected state when invoice is in draft', async () => {
+    const tx = buildMockTx();
+    tx.invoice.findFirst.mockResolvedValue({
+      id: INVOICE_ID,
+      invoice_number: 'INV-001',
+      status: 'draft',
+    });
+    const processor = new InvoiceApprovalCallbackProcessor(buildMockPrisma(tx));
+
+    await processor.process(buildJob(INVOICE_APPROVAL_CALLBACK_JOB));
+
+    expect(tx.invoice.update).not.toHaveBeenCalled();
+    expect(tx.approvalRequest.update).toHaveBeenCalledWith({
+      where: { id: APPROVAL_REQUEST_ID },
+      data: {
+        callback_status: 'skipped_unexpected_state',
+        callback_error: 'Self-healed: invoice was in status "draft"',
+      },
+    });
   });
 });
