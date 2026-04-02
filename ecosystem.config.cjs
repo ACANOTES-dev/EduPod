@@ -8,7 +8,7 @@ module.exports = {
     {
       name: 'api',
       cwd: `${APP_DIR}/apps/api`,
-      script: 'dist/main.js',
+      script: 'dist/api/src/main.js',
       interpreter: 'node',
       node_args: '--enable-source-maps',
       exec_mode: 'cluster',

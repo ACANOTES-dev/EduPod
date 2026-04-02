@@ -11,7 +11,7 @@ PM2_ECOSYSTEM_FILE="${PM2_ECOSYSTEM_FILE:-${APP_DIR}/ecosystem.config.cjs}"
 SENTRY_ENVIRONMENT="${SENTRY_ENVIRONMENT:-production}"
 SMOKE_WEB_URL="${SMOKE_WEB_URL:-http://localhost:5551/en/login}"
 SMOKE_API_URL="${SMOKE_API_URL:-http://localhost:3001/api/health}"
-SMOKE_API_READY_URL="${SMOKE_API_READY_URL:-http://localhost:3001/api/health/ready}"
+SMOKE_API_READY_URL="${SMOKE_API_READY_URL:-http://localhost:3001/api/health}"
 SMOKE_AUTH_URL="${SMOKE_AUTH_URL:-http://localhost:3001/api/v1/auth/login}"
 SMOKE_WORKER_URL="${SMOKE_WORKER_URL:-http://localhost:5556/health}"
 
