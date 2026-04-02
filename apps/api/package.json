@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
-    "start": "node dist/main",
-    "start:prod": "node dist/main",
+    "start": "node dist/api/src/main",
+    "start:prod": "node dist/api/src/main",
     "lint": "eslint src/",
     "type-check": "tsc --noEmit",
     "test": "jest --runInBand",
