@@ -1,3 +1,4 @@
+import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
@@ -11,7 +12,12 @@ import { CriticalIncidentService } from './services/critical-incident.service';
 // Critical incidents management.
 
 @Module({
-  imports: [AuthModule, PastoralCoreModule, SequenceModule],
+  imports: [
+    AuthModule,
+    BullModule.registerQueue({ name: 'pastoral' }),
+    PastoralCoreModule,
+    SequenceModule,
+  ],
   controllers: [CriticalIncidentsController],
   providers: [CriticalIncidentService],
   exports: [CriticalIncidentService],
