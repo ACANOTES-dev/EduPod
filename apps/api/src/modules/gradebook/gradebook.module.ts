@@ -4,6 +4,7 @@ import { AcademicsModule } from '../academics/academics.module';
 import { AuthModule } from '../auth/auth.module';
 import { CommunicationsModule } from '../communications/communications.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
+import { GdprModule } from '../gdpr/gdpr.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
 
 import { AiCommentsService } from './ai/ai-comments.service';
@@ -45,6 +46,7 @@ import { YearGroupGradeWeightsService } from './year-group-grade-weights.service
     AuthModule,
     CommunicationsModule,
     ConfigurationModule,
+    GdprModule,
     PdfRenderingModule,
     // ─── Report Card Sub-Module ──────────────────────────────────────────────
     ReportCardModule,
