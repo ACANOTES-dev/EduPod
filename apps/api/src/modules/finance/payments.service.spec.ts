@@ -45,6 +45,7 @@ const mockPrisma = {
   receipt: {
     findFirst: jest.fn(),
   },
+  $queryRawUnsafe: jest.fn(),
 };
 
 const mockInvoicesService = {
@@ -234,6 +235,282 @@ describe('PaymentsService', () => {
           allocations: [{ invoice_id: INVOICE_ID, amount: 100 }],
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should successfully allocate payment to invoice and update balance', async () => {
+      // Pre-transaction: payment is posted
+      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted' }));
+      // Inside transaction: SELECT FOR UPDATE on payment
+      mockPrisma.$queryRawUnsafe.mockImplementation(
+        async (sql: string, ..._args: unknown[]) => {
+          if (sql.includes('FROM public.payments')) {
+            return [{ id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID }];
+          }
+          if (sql.includes('FROM public.invoices')) {
+            return [{ id: INVOICE_ID, balance_amount: '300.00', household_id: HOUSEHOLD_ID, invoice_number: 'INV-001' }];
+          }
+          return [];
+        },
+      );
+      // No existing allocations
+      mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
+      mockPrisma.paymentAllocation.create.mockResolvedValue({});
+      mockInvoicesService.recalculateBalance.mockResolvedValue(undefined);
+      // No existing receipt
+      mockPrisma.receipt.findFirst.mockResolvedValue(null);
+      mockReceiptsService.createForPayment.mockResolvedValue({});
+      // findOne after commit — return full payment
+      mockPrisma.payment.findFirst.mockResolvedValue(
+        makePayment({
+          allocations: [{ id: 'alloc-1', allocated_amount: '300.00', invoice: { id: INVOICE_ID, invoice_number: 'INV-001', total_amount: '300.00', balance_amount: '0.00', status: 'paid' } }],
+        }),
+      );
+
+      const result = await service.confirmAllocations(TENANT_ID, PAYMENT_ID, USER_ID, {
+        allocations: [{ invoice_id: INVOICE_ID, amount: 300 }],
+      });
+
+      expect(mockPrisma.paymentAllocation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            payment_id: PAYMENT_ID,
+            invoice_id: INVOICE_ID,
+            allocated_amount: 300,
+          }),
+        }),
+      );
+      expect(mockInvoicesService.recalculateBalance).toHaveBeenCalledWith(
+        TENANT_ID,
+        INVOICE_ID,
+        expect.anything(),
+      );
+      expect(result.amount).toBe(500);
+    });
+
+    it('should throw when invoice belongs to a different household', async () => {
+      const OTHER_HOUSEHOLD_ID = 'hh-uuid-9999';
+      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted' }));
+      mockPrisma.$queryRawUnsafe.mockImplementation(
+        async (sql: string, ..._args: unknown[]) => {
+          if (sql.includes('FROM public.payments')) {
+            return [{ id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID }];
+          }
+          if (sql.includes('FROM public.invoices')) {
+            return [{ id: INVOICE_ID, balance_amount: '300.00', household_id: OTHER_HOUSEHOLD_ID, invoice_number: 'INV-001' }];
+          }
+          return [];
+        },
+      );
+      mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.confirmAllocations(TENANT_ID, PAYMENT_ID, USER_ID, {
+          allocations: [{ invoice_id: INVOICE_ID, amount: 100 }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw when allocation exceeds invoice balance', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted', amount: '500.00' }));
+      mockPrisma.$queryRawUnsafe.mockImplementation(
+        async (sql: string, ..._args: unknown[]) => {
+          if (sql.includes('FROM public.payments')) {
+            return [{ id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID }];
+          }
+          if (sql.includes('FROM public.invoices')) {
+            return [{ id: INVOICE_ID, balance_amount: '100.00', household_id: HOUSEHOLD_ID, invoice_number: 'INV-001' }];
+          }
+          return [];
+        },
+      );
+      mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.confirmAllocations(TENANT_ID, PAYMENT_ID, USER_ID, {
+          allocations: [{ invoice_id: INVOICE_ID, amount: 200 }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw when total allocations exceed remaining payment amount', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted', amount: '500.00' }));
+      mockPrisma.$queryRawUnsafe.mockImplementation(
+        async (sql: string, ..._args: unknown[]) => {
+          if (sql.includes('FROM public.payments')) {
+            return [{ id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID }];
+          }
+          if (sql.includes('FROM public.invoices')) {
+            return [{ id: INVOICE_ID, balance_amount: '1000.00', household_id: HOUSEHOLD_ID, invoice_number: 'INV-001' }];
+          }
+          return [];
+        },
+      );
+      // Already allocated 400 of 500
+      mockPrisma.paymentAllocation.findMany.mockResolvedValue([{ allocated_amount: '400.00' }]);
+
+      await expect(
+        service.confirmAllocations(TENANT_ID, PAYMENT_ID, USER_ID, {
+          allocations: [{ invoice_id: INVOICE_ID, amount: 200 }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should allocate payment across multiple invoices with partial amounts', async () => {
+      const INVOICE_ID_2 = 'inv-uuid-2222';
+      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted', amount: '500.00' }));
+
+      let invoiceCallCount = 0;
+      mockPrisma.$queryRawUnsafe.mockImplementation(
+        async (sql: string, id: string, ..._args: unknown[]) => {
+          if (sql.includes('FROM public.payments')) {
+            return [{ id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID }];
+          }
+          if (sql.includes('FROM public.invoices')) {
+            invoiceCallCount++;
+            if (id === INVOICE_ID || invoiceCallCount === 1) {
+              return [{ id: INVOICE_ID, balance_amount: '300.00', household_id: HOUSEHOLD_ID, invoice_number: 'INV-001' }];
+            }
+            return [{ id: INVOICE_ID_2, balance_amount: '400.00', household_id: HOUSEHOLD_ID, invoice_number: 'INV-002' }];
+          }
+          return [];
+        },
+      );
+      mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
+      mockPrisma.paymentAllocation.create.mockResolvedValue({});
+      mockInvoicesService.recalculateBalance.mockResolvedValue(undefined);
+      mockPrisma.receipt.findFirst.mockResolvedValue(null);
+      mockReceiptsService.createForPayment.mockResolvedValue({});
+      // findOne re-read after commit
+      mockPrisma.payment.findFirst.mockResolvedValue(
+        makePayment({
+          allocations: [
+            { id: 'alloc-1', allocated_amount: '300.00', invoice: { id: INVOICE_ID, invoice_number: 'INV-001', total_amount: '300.00', balance_amount: '0.00', status: 'paid' } },
+            { id: 'alloc-2', allocated_amount: '200.00', invoice: { id: INVOICE_ID_2, invoice_number: 'INV-002', total_amount: '400.00', balance_amount: '200.00', status: 'partially_paid' } },
+          ],
+        }),
+      );
+
+      const result = await service.confirmAllocations(TENANT_ID, PAYMENT_ID, USER_ID, {
+        allocations: [
+          { invoice_id: INVOICE_ID, amount: 300 },
+          { invoice_id: INVOICE_ID_2, amount: 200 },
+        ],
+      });
+
+      expect(mockPrisma.paymentAllocation.create).toHaveBeenCalledTimes(2);
+      expect(mockInvoicesService.recalculateBalance).toHaveBeenCalledTimes(2);
+      expect(result.amount).toBe(500);
+    });
+
+    it('should skip receipt generation when a receipt already exists', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted' }));
+      mockPrisma.$queryRawUnsafe.mockImplementation(
+        async (sql: string, ..._args: unknown[]) => {
+          if (sql.includes('FROM public.payments')) {
+            return [{ id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID }];
+          }
+          if (sql.includes('FROM public.invoices')) {
+            return [{ id: INVOICE_ID, balance_amount: '500.00', household_id: HOUSEHOLD_ID, invoice_number: 'INV-001' }];
+          }
+          return [];
+        },
+      );
+      mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
+      mockPrisma.paymentAllocation.create.mockResolvedValue({});
+      mockInvoicesService.recalculateBalance.mockResolvedValue(undefined);
+      // Receipt already exists
+      mockPrisma.receipt.findFirst.mockResolvedValue({ id: 'rec-1', receipt_number: 'REC-001' });
+      // findOne re-read
+      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ receipt: { id: 'rec-1', receipt_number: 'REC-001' } }));
+
+      await service.confirmAllocations(TENANT_ID, PAYMENT_ID, USER_ID, {
+        allocations: [{ invoice_id: INVOICE_ID, amount: 100 }],
+      });
+
+      expect(mockReceiptsService.createForPayment).not.toHaveBeenCalled();
+    });
+
+    it('should throw when payment status changes concurrently between fetch and lock', async () => {
+      // Pre-transaction: payment appears posted
+      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted' }));
+      // Inside transaction: SELECT FOR UPDATE reveals status changed
+      mockPrisma.$queryRawUnsafe.mockImplementation(
+        async (sql: string, ..._args: unknown[]) => {
+          if (sql.includes('FROM public.payments')) {
+            return [{ id: PAYMENT_ID, amount: '500.00', status: 'refunded_full', household_id: HOUSEHOLD_ID }];
+          }
+          return [];
+        },
+      );
+      mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.confirmAllocations(TENANT_ID, PAYMENT_ID, USER_ID, {
+          allocations: [{ invoice_id: INVOICE_ID, amount: 100 }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw when allocating to a non-existent invoice', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted' }));
+      mockPrisma.$queryRawUnsafe.mockImplementation(
+        async (sql: string, ..._args: unknown[]) => {
+          if (sql.includes('FROM public.payments')) {
+            return [{ id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID }];
+          }
+          if (sql.includes('FROM public.invoices')) {
+            return []; // invoice not found
+          }
+          return [];
+        },
+      );
+      mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.confirmAllocations(TENANT_ID, PAYMENT_ID, USER_ID, {
+          allocations: [{ invoice_id: 'nonexistent-invoice-id', amount: 100 }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should handle exact boundary allocation where amount equals remaining balance', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted', amount: '250.75' }));
+      mockPrisma.$queryRawUnsafe.mockImplementation(
+        async (sql: string, ..._args: unknown[]) => {
+          if (sql.includes('FROM public.payments')) {
+            return [{ id: PAYMENT_ID, amount: '250.75', status: 'posted', household_id: HOUSEHOLD_ID }];
+          }
+          if (sql.includes('FROM public.invoices')) {
+            return [{ id: INVOICE_ID, balance_amount: '250.75', household_id: HOUSEHOLD_ID, invoice_number: 'INV-001' }];
+          }
+          return [];
+        },
+      );
+      mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
+      mockPrisma.paymentAllocation.create.mockResolvedValue({});
+      mockInvoicesService.recalculateBalance.mockResolvedValue(undefined);
+      mockPrisma.receipt.findFirst.mockResolvedValue(null);
+      mockReceiptsService.createForPayment.mockResolvedValue({});
+      // findOne re-read
+      mockPrisma.payment.findFirst.mockResolvedValue(
+        makePayment({
+          amount: '250.75',
+          allocations: [{ id: 'alloc-1', allocated_amount: '250.75', invoice: { id: INVOICE_ID, invoice_number: 'INV-001', total_amount: '250.75', balance_amount: '0.00', status: 'paid' } }],
+        }),
+      );
+
+      const result = await service.confirmAllocations(TENANT_ID, PAYMENT_ID, USER_ID, {
+        allocations: [{ invoice_id: INVOICE_ID, amount: 250.75 }],
+      });
+
+      expect(mockPrisma.paymentAllocation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            allocated_amount: 250.75,
+          }),
+        }),
+      );
+      expect(result.amount).toBe(250.75);
     });
   });
 

@@ -54,7 +54,6 @@ import {
   ToastProvider,
 } from '@school/ui';
 
-
 import { ErrorBoundary } from '@/components/error-boundary';
 import { GlobalSearch } from '@/components/global-search';
 import { PrivacyNoticeBanner } from '@/components/legal/privacy-notice-banner';
@@ -63,273 +62,95 @@ import { RequireRole } from '@/components/require-role';
 import { UserMenu } from '@/components/user-menu';
 import { useShortcuts } from '@/hooks/use-shortcuts';
 import { apiClient, setApiErrorHandler } from '@/lib/api-client';
+import { filterNavForRoles, navSectionConfigs } from '@/lib/nav-config';
+import type { NavItemConfig } from '@/lib/nav-config';
+import { ADMIN_ROLES, STAFF_ROLES } from '@/lib/route-roles';
+import type { RoleKey } from '@/lib/route-roles';
 import { RequireAuth, useAuth } from '@/providers/auth-provider';
 
 import { RegistrationWizard } from './_components/registration-wizard/registration-wizard';
 
+// ─── Icon map ───────────────────────────────────────────────────────────────
 
-// ─── Role-based navigation ──────────────────────────────────────────────────
+/** Maps nav item hrefs to their icons. Kept in the layout since icons are React/UI concerns. */
+const ICON_MAP: Record<string, LucideIcon> = {
+  '/dashboard': LayoutDashboard,
+  '/announcements': Megaphone,
+  '/inquiries': MessageCircle,
+  '/privacy-consent': ShieldCheck,
+  '/applications': ClipboardList,
+  '/parent/sen': HeartHandshake,
+  '/students': GraduationCap,
+  '/staff': Users,
+  '/households': Home,
+  '/classes': BookOpen,
+  '/subjects': LayoutGrid,
+  '/curriculum-matrix': Grid3X3,
+  '/class-assignments': UserPlus,
+  '/promotion': TrendingUp,
+  '/diary': CalendarDays,
+  '/attendance': ClipboardCheck,
+  '/gradebook': ClipboardList,
+  '/homework': BookOpen,
+  '/report-cards': FileText,
+  '/behaviour': Shield,
+  '/behaviour/incidents': Activity,
+  '/behaviour/students': Users,
+  '/behaviour/guardian-restrictions': Ban,
+  '/pastoral': Heart,
+  '/wellbeing/my-workload': Heart,
+  '/wellbeing/resources': LifeBuoy,
+  '/wellbeing/survey': MessageSquare,
+  '/wellbeing/dashboard': BarChart3,
+  '/wellbeing/surveys': ClipboardList,
+  '/wellbeing/reports': FileText,
+  '/sen': HeartHandshake,
+  '/sen/students': GraduationCap,
+  '/sen/resource-allocation': Clock,
+  '/sen/sna-assignments': Users,
+  '/sen/reports': BarChart3,
+  '/rooms': CalendarDays,
+  '/scheduling': Clock,
+  '/admissions': UserPlus,
+  '/engagement': PenSquare,
+  '/communications': Mail,
+  '/approvals': ShieldCheck,
+  '/finance': Calculator,
+  '/payroll': DollarSign,
+  '/reports': BarChart3,
+  '/regulatory': Shield,
+  '/regulatory/calendar': CalendarDays,
+  '/regulatory/tusla': FileCheck,
+  '/regulatory/des-returns': FileText,
+  '/regulatory/october-returns': ClipboardList,
+  '/regulatory/ppod': ShieldCheck,
+  '/regulatory/ppod/cba': ClipboardCheck,
+  '/regulatory/ppod/transfers': Users,
+  '/regulatory/anti-bullying': Shield,
+  '/regulatory/submissions': FileText,
+  '/regulatory/safeguarding': ShieldCheck,
+  '/website': Globe,
+  '/settings': Settings,
+  '/settings/closures': Ban,
+};
 
-type RoleKey =
-  | 'school_owner'
-  | 'school_principal'
-  | 'admin'
-  | 'teacher'
-  | 'accounting'
-  | 'front_office'
-  | 'parent'
-  | 'school_vice_principal'
-  | 'student';
+// ─── Derived nav with icons ─────────────────────────────────────────────────
 
-/** Roles with full admin access */
-const ADMIN_ROLES: RoleKey[] = [
-  'school_owner',
-  'school_principal',
-  'admin',
-  'school_vice_principal',
-];
-/** Roles that are school staff (not parents) */
-const STAFF_ROLES: RoleKey[] = [...ADMIN_ROLES, 'teacher', 'accounting', 'front_office'];
-
-interface NavItem {
+interface NavItem extends NavItemConfig {
   icon: LucideIcon;
-  labelKey: string;
-  href: string;
-  /** If set, item is only visible to users with one of these role_keys. If omitted, visible to all. */
-  roles?: RoleKey[];
 }
 
-const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] = [
-  {
-    labelKey: 'nav.overview',
-    items: [{ icon: LayoutDashboard, labelKey: 'nav.dashboard', href: '/dashboard' }],
-  },
-  {
-    labelKey: 'nav.parentPortal',
-    roles: ['parent'],
-    items: [
-      { icon: Megaphone, labelKey: 'nav.announcements', href: '/announcements', roles: ['parent'] },
-      { icon: MessageCircle, labelKey: 'nav.inquiries', href: '/inquiries', roles: ['parent'] },
-      {
-        icon: ShieldCheck,
-        labelKey: 'nav.privacyConsent',
-        href: '/privacy-consent',
-        roles: ['parent'],
-      },
-      {
-        icon: ClipboardList,
-        labelKey: 'nav.applications',
-        href: '/applications',
-        roles: ['parent'],
-      },
-      {
-        icon: HeartHandshake,
-        labelKey: 'nav.senParent',
-        href: '/parent/sen',
-        roles: ['parent'],
-      },
-    ],
-  },
-  {
-    labelKey: 'nav.people',
-    roles: STAFF_ROLES,
-    items: [
-      { icon: GraduationCap, labelKey: 'nav.students', href: '/students' },
-      { icon: Users, labelKey: 'nav.staff', href: '/staff', roles: ADMIN_ROLES },
-      { icon: Home, labelKey: 'nav.households', href: '/households', roles: ADMIN_ROLES },
-    ],
-  },
-  {
-    labelKey: 'nav.academics',
-    roles: STAFF_ROLES,
-    items: [
-      { icon: BookOpen, labelKey: 'nav.classes', href: '/classes' },
-      { icon: LayoutGrid, labelKey: 'nav.subjects', href: '/subjects', roles: ADMIN_ROLES },
-      {
-        icon: Grid3X3,
-        labelKey: 'nav.curriculumMatrix',
-        href: '/curriculum-matrix',
-        roles: ADMIN_ROLES,
-      },
-      {
-        icon: UserPlus,
-        labelKey: 'nav.classAssignments',
-        href: '/class-assignments',
-        roles: ADMIN_ROLES,
-      },
-      { icon: TrendingUp, labelKey: 'nav.promotion', href: '/promotion', roles: ADMIN_ROLES },
-      { icon: CalendarDays, labelKey: 'nav.diary', href: '/diary' },
-    ],
-  },
-  {
-    labelKey: 'nav.assessmentRecords',
-    roles: STAFF_ROLES,
-    items: [
-      { icon: ClipboardCheck, labelKey: 'nav.attendance', href: '/attendance' },
-      { icon: ClipboardList, labelKey: 'nav.gradebook', href: '/gradebook' },
-      { icon: BookOpen, labelKey: 'nav.homework', href: '/homework' },
-      { icon: FileText, labelKey: 'nav.reportCards', href: '/report-cards', roles: ADMIN_ROLES },
-    ],
-  },
-  {
-    labelKey: 'nav.behaviour',
-    roles: STAFF_ROLES,
-    items: [
-      { icon: Shield, labelKey: 'nav.behaviourDashboard', href: '/behaviour' },
-      { icon: Activity, labelKey: 'nav.behaviourIncidents', href: '/behaviour/incidents' },
-      { icon: Users, labelKey: 'nav.behaviourStudents', href: '/behaviour/students' },
-      {
-        icon: Ban,
-        labelKey: 'nav.guardianRestrictions',
-        href: '/behaviour/guardian-restrictions',
-        roles: ADMIN_ROLES,
-      },
-      {
-        icon: Heart,
-        labelKey: 'nav.pastoral',
-        href: '/pastoral',
-        roles: [...ADMIN_ROLES, 'teacher'],
-      },
-    ],
-  },
-  {
-    labelKey: 'nav.wellbeing',
-    roles: STAFF_ROLES,
-    items: [
-      { icon: Heart, labelKey: 'nav.myWorkload', href: '/wellbeing/my-workload' },
-      { icon: LifeBuoy, labelKey: 'nav.supportResources', href: '/wellbeing/resources' },
-      { icon: MessageSquare, labelKey: 'nav.survey', href: '/wellbeing/survey' },
-      {
-        icon: BarChart3,
-        labelKey: 'nav.wellbeingDashboard',
-        href: '/wellbeing/dashboard',
-        roles: ADMIN_ROLES,
-      },
-      {
-        icon: ClipboardList,
-        labelKey: 'nav.surveyManagement',
-        href: '/wellbeing/surveys',
-        roles: ADMIN_ROLES,
-      },
-      {
-        icon: FileText,
-        labelKey: 'nav.boardReport',
-        href: '/wellbeing/reports',
-        roles: ADMIN_ROLES,
-      },
-    ],
-  },
-  {
-    labelKey: 'nav.sen',
-    roles: STAFF_ROLES,
-    items: [
-      { icon: HeartHandshake, labelKey: 'nav.senDashboard', href: '/sen' },
-      { icon: GraduationCap, labelKey: 'nav.senStudents', href: '/sen/students' },
-      { icon: Clock, labelKey: 'nav.senResourceAllocation', href: '/sen/resource-allocation' },
-      { icon: Users, labelKey: 'nav.senSnaAssignments', href: '/sen/sna-assignments' },
-      { icon: BarChart3, labelKey: 'nav.senReports', href: '/sen/reports' },
-    ],
-  },
-  {
-    labelKey: 'nav.scheduling',
-    roles: STAFF_ROLES,
-    items: [
-      { icon: CalendarDays, labelKey: 'nav.rooms', href: '/rooms', roles: ADMIN_ROLES },
-      { icon: Clock, labelKey: 'nav.scheduling', href: '/scheduling', roles: ADMIN_ROLES },
-    ],
-  },
-  {
-    labelKey: 'nav.operations',
-    items: [
-      {
-        icon: UserPlus,
-        labelKey: 'nav.admissions',
-        href: '/admissions',
-        roles: [...ADMIN_ROLES, 'front_office'],
-      },
-      {
-        icon: PenSquare,
-        labelKey: 'nav.engagement',
-        href: '/engagement',
-        roles: STAFF_ROLES,
-      },
-      { icon: Mail, labelKey: 'nav.communications', href: '/communications', roles: ADMIN_ROLES },
-      { icon: ShieldCheck, labelKey: 'nav.approvals', href: '/approvals', roles: ADMIN_ROLES },
-    ],
-  },
-  {
-    labelKey: 'nav.financials',
-    items: [
-      {
-        icon: Calculator,
-        labelKey: 'nav.finance',
-        href: '/finance',
-        roles: [...ADMIN_ROLES, 'accounting'],
-      },
-      {
-        icon: DollarSign,
-        labelKey: 'nav.payroll',
-        href: '/payroll',
-        roles: ['school_owner', 'school_principal'],
-      },
-    ],
-  },
-  {
-    labelKey: 'nav.reports',
-    roles: STAFF_ROLES,
-    items: [{ icon: BarChart3, labelKey: 'nav.reports', href: '/reports' }],
-  },
-  {
-    labelKey: 'nav.regulatory',
-    roles: ADMIN_ROLES,
-    items: [
-      { icon: Shield, labelKey: 'nav.regulatoryDashboard', href: '/regulatory' },
-      { icon: CalendarDays, labelKey: 'nav.regulatoryCalendar', href: '/regulatory/calendar' },
-      { icon: FileCheck, labelKey: 'nav.regulatoryTusla', href: '/regulatory/tusla' },
-      { icon: FileText, labelKey: 'nav.regulatoryDesReturns', href: '/regulatory/des-returns' },
-      {
-        icon: ClipboardList,
-        labelKey: 'nav.regulatoryOctoberReturns',
-        href: '/regulatory/october-returns',
-      },
-      { icon: ShieldCheck, labelKey: 'nav.regulatoryPpod', href: '/regulatory/ppod' },
-      { icon: ClipboardCheck, labelKey: 'nav.regulatoryCba', href: '/regulatory/ppod/cba' },
-      { icon: Users, labelKey: 'nav.regulatoryTransfers', href: '/regulatory/ppod/transfers' },
-      { icon: Shield, labelKey: 'nav.regulatoryAntiBullying', href: '/regulatory/anti-bullying' },
-      { icon: FileText, labelKey: 'nav.regulatorySubmissions', href: '/regulatory/submissions' },
-      {
-        icon: ShieldCheck,
-        labelKey: 'nav.regulatorySafeguarding',
-        href: '/regulatory/safeguarding',
-      },
-    ],
-  },
-  {
-    labelKey: 'nav.school',
-    roles: ADMIN_ROLES,
-    items: [
-      { icon: Globe, labelKey: 'nav.website', href: '/website' },
-      { icon: Settings, labelKey: 'nav.settings', href: '/settings' },
-      { icon: Ban, labelKey: 'nav.closures', href: '/settings/closures' },
-    ],
-  },
-];
+const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
+  navSectionConfigs.map((section) => ({
+    ...section,
+    items: section.items.map((item) => ({
+      ...item,
+      icon: ICON_MAP[item.href] ?? LayoutDashboard,
+    })),
+  }));
 
 /** All top-level sidebar hrefs — pages at these exact paths don't get a back button. */
 const TOP_LEVEL_HREFS = new Set(navSections.flatMap((s) => s.items.map((i) => i.href)));
-
-/** Filter nav sections and items based on the user's role keys. */
-function filterNavForRoles(userRoleKeys: string[]): { labelKey: string; items: NavItem[] }[] {
-  return navSections
-    .filter((section) => !section.roles || section.roles.some((r) => userRoleKeys.includes(r)))
-    .map((section) => ({
-      ...section,
-      items: section.items.filter(
-        (item) => !item.roles || item.roles.some((r) => userRoleKeys.includes(r)),
-      ),
-    }))
-    .filter((section) => section.items.length > 0);
-}
 
 export default function SchoolLayout({ children }: { children: React.ReactNode }) {
   const t = useTranslations();
@@ -379,7 +200,23 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
     return user.memberships.flatMap((m) => m.roles?.map((r) => r.role_key) ?? []);
   }, [user]);
 
-  const filteredSections = React.useMemo(() => filterNavForRoles(userRoleKeys), [userRoleKeys]);
+  const filteredSections = React.useMemo(
+    () => filterNavForRoles(navSectionConfigs, userRoleKeys),
+    [userRoleKeys],
+  );
+
+  // Enrich filtered sections with icons for rendering
+  const filteredSectionsWithIcons = React.useMemo(
+    () =>
+      filteredSections.map((section) => ({
+        ...section,
+        items: section.items.map((item) => ({
+          ...item,
+          icon: ICON_MAP[item.href] ?? LayoutDashboard,
+        })),
+      })),
+    [filteredSections],
+  );
 
   // Fetch active survey status for sidebar badge (staff only)
   const isStaff = userRoleKeys.some((r) => STAFF_ROLES.includes(r as RoleKey));
@@ -398,7 +235,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
 
   // Derive page title from current path by matching nav items
   const pageTitle = React.useMemo(() => {
-    // Strip locale prefix (e.g., /en/students → /students)
+    // Strip locale prefix (e.g., /en/students -> /students)
     const path = (pathname ?? '').replace(/^\/[a-z]{2}(?=\/)/, '');
     for (const section of navSections) {
       for (const item of section.items) {
@@ -450,7 +287,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
           </Button>
         </div>
       )}
-      {filteredSections.map((section) => (
+      {filteredSectionsWithIcons.map((section) => (
         <SidebarSection key={section.labelKey} label={t(section.labelKey)} collapsed={collapsed}>
           {section.items.map((item) => (
             <div key={item.href} className="relative">
