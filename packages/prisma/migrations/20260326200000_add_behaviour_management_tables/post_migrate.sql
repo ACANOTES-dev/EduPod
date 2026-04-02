@@ -448,8 +448,10 @@ WHERE p.participant_type = 'student'
 GROUP BY p.tenant_id, p.student_id
 WITH NO DATA;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_student_behaviour_summary_pk
-  ON mv_student_behaviour_summary (tenant_id, student_id);
+-- Index superseded by 20260326220000_upgrade_behaviour_materialised_views
+-- which drops and recreates the view with academic_year_id in the key.
+-- CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_student_behaviour_summary_pk
+--   ON mv_student_behaviour_summary (tenant_id, student_id);
 
 -- Behaviour benchmarks (ETB)
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_behaviour_benchmarks AS
@@ -467,8 +469,10 @@ WHERE i.status NOT IN ('draft', 'withdrawn')
 GROUP BY i.tenant_id, c.benchmark_category, date_trunc('month', i.occurred_at)
 WITH NO DATA;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_behaviour_benchmarks_pk
-  ON mv_behaviour_benchmarks (tenant_id, benchmark_category, month);
+-- Index superseded by 20260326220000_upgrade_behaviour_materialised_views
+-- which drops and recreates the view with a different schema (no month column).
+-- CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_behaviour_benchmarks_pk
+--   ON mv_behaviour_benchmarks (tenant_id, benchmark_category, month);
 
 -- Exposure rates
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_behaviour_exposure_rates AS
@@ -488,8 +492,10 @@ WHERE i.status NOT IN ('draft', 'withdrawn')
 GROUP BY i.tenant_id, i.subject_id, i.weekday, i.period_order
 WITH NO DATA;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_behaviour_exposure_rates_pk
-  ON mv_behaviour_exposure_rates (tenant_id, subject_id, weekday, period_order);
+-- Index superseded by 20260326220000_upgrade_behaviour_materialised_views
+-- which drops and recreates the view with a different schema (no weekday/period_order).
+-- CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_behaviour_exposure_rates_pk
+--   ON mv_behaviour_exposure_rates (tenant_id, subject_id, weekday, period_order);
 
 
 -- ─── 5. Domain Boundary Constraint Trigger ──────────────────────────────────────
