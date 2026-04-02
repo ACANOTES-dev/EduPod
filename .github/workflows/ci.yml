@@ -103,6 +103,7 @@ jobs:
           pnpm db:seed
         env:
           DATABASE_URL: postgresql://prisma:password@localhost:5432/edupod_test?schema=public
+          REDIS_URL: redis://localhost:6379
 
       - name: Run integration and e2e tests
         run: |
