@@ -115,6 +115,7 @@ export async function setupP4BTestData(
       adminToken,
       {
         academic_year_id: p4aData.academicYearId,
+        year_group_id: p4aData.yearGroupId,
         ...period,
         schedule_period_type: 'teaching',
       },

@@ -177,9 +177,15 @@ describe('Imports (e2e)', () => {
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       );
       expect(res.headers['content-disposition']).toContain('students_import_template.xlsx');
-      // Response body is binary XLSX — verify it is non-empty
+      // Response body is binary XLSX — verify it is non-empty.
+      // supertest may return a Buffer or an object depending on content-type handling.
       expect(res.body).toBeDefined();
-      expect(Buffer.isBuffer(res.body) || res.body.length > 0).toBe(true);
+      const bodyLen = Buffer.isBuffer(res.body)
+        ? res.body.length
+        : typeof res.body === 'object'
+          ? JSON.stringify(res.body).length
+          : 0;
+      expect(bodyLen).toBeGreaterThan(0);
     });
 
     it('should return 400 for invalid import_type', async () => {

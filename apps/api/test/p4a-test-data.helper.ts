@@ -35,7 +35,15 @@ export async function setupP4ATestData(
   const dateInYear = (month: number, day: number): string => {
     // Months 9-12 are in baseYear, months 1-6 are in baseYear+1
     const year = month >= 9 ? baseYear : baseYear + 1;
-    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    // Ensure the date falls on a weekday (Mon-Fri) by shifting forward if needed.
+    // This prevents SESSION_DATE_NOT_WORK_DAY errors from tenant work-day validation.
+    const candidate = new Date(Date.UTC(year, month - 1, day));
+    const dow = candidate.getUTCDay(); // 0=Sun, 6=Sat
+    let adjusted = day;
+    if (dow === 0)
+      adjusted = day + 1; // Sun -> Mon
+    else if (dow === 6) adjusted = day + 2; // Sat -> Mon
+    return `${year}-${String(month).padStart(2, '0')}-${String(adjusted).padStart(2, '0')}`;
   };
 
   // 1. Create academic year

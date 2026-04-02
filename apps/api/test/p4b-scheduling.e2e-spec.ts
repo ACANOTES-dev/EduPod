@@ -51,6 +51,7 @@ describe('P4B Scheduling (e2e)', () => {
         adminToken,
         {
           academic_year_id: td.academicYearId,
+          year_group_id: td.yearGroupId,
           weekday: 1,
           period_name: `Test Period ${Date.now()}`,
           period_order: 0,
@@ -93,6 +94,7 @@ describe('P4B Scheduling (e2e)', () => {
         adminToken,
         {
           academic_year_id: td.academicYearId,
+          year_group_id: td.yearGroupId,
           weekday: 2,
           period_name: 'Backwards Period',
           period_order: 0,
@@ -113,6 +115,7 @@ describe('P4B Scheduling (e2e)', () => {
         adminToken,
         {
           academic_year_id: td.academicYearId,
+          year_group_id: td.yearGroupId,
           weekday: 3,
           period_name: 'Original Period',
           period_order: 0,
@@ -129,6 +132,7 @@ describe('P4B Scheduling (e2e)', () => {
         adminToken,
         {
           academic_year_id: td.academicYearId,
+          year_group_id: td.yearGroupId,
           weekday: 3,
           period_name: 'Duplicate Period',
           period_order: 0,
@@ -189,6 +193,7 @@ describe('P4B Scheduling (e2e)', () => {
         adminToken,
         {
           academic_year_id: td.academicYearId,
+          year_group_id: td.yearGroupId,
           weekday: 4,
           period_name: `Deletable Period ${Date.now()}`,
           period_order: 0,
@@ -220,6 +225,7 @@ describe('P4B Scheduling (e2e)', () => {
         adminToken,
         {
           academic_year_id: td.academicYearId,
+          year_group_id: td.yearGroupId,
           source_weekday: 0,
           target_weekdays: [5, 6],
         },
@@ -254,6 +260,7 @@ describe('P4B Scheduling (e2e)', () => {
         adminToken,
         {
           academic_year_id: freshAyId,
+          year_group_id: td.yearGroupId,
           source_weekday: 0,
           target_weekdays: [1],
         },

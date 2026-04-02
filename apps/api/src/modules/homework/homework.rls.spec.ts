@@ -32,11 +32,30 @@ describe('Homework RLS Integration Tests', () => {
     prisma = module.get(PrismaService);
     await cleanupTestData();
     await seedPrerequisites();
+
+    // Create non-BYPASSRLS role for RLS testing (idempotent)
+    await prisma.$executeRawUnsafe(
+      `DO $$ BEGIN CREATE ROLE ${RLS_TEST_ROLE} NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+    );
+    await prisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
+    await prisma.$executeRawUnsafe(
+      `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
+    );
   });
 
   afterAll(async () => {
     await cleanupTestData();
     await cleanupPrerequisites();
+    // Clean up RLS test role
+    try {
+      await prisma.$executeRawUnsafe(
+        `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${RLS_TEST_ROLE}`,
+      );
+      await prisma.$executeRawUnsafe(`REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
+      await prisma.$executeRawUnsafe(`DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
+    } catch (err) {
+      console.error('[homework RLS role cleanup]', err);
+    }
     await module.close();
   });
 
@@ -166,13 +185,25 @@ describe('Homework RLS Integration Tests', () => {
     await prisma.$executeRawUnsafe(`DELETE FROM tenants WHERE id IN (${tenantIds})`);
   }
 
-  async function withTenantContext(tenantId: string, fn: () => Promise<void>) {
-    await prisma.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = '${tenantId}'`);
-    try {
-      await fn();
-    } finally {
-      await prisma.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = ''`);
-    }
+  const RLS_TEST_ROLE = 'rls_hw_test_user';
+
+  /**
+   * Queries a table as a specific tenant using a non-BYPASSRLS role inside a transaction.
+   * SET LOCAL only works within a transaction, and the default Prisma connection
+   * is a superuser with BYPASSRLS, so we must switch to a restricted role.
+   */
+  async function queryAsTenant<T>(tenantId: string, sql: string): Promise<T[]> {
+    return prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`SELECT set_config('app.current_tenant_id', '${tenantId}', true)`);
+      await tx.$executeRawUnsafe(`SET LOCAL ROLE ${RLS_TEST_ROLE}`);
+      const result = await tx.$queryRawUnsafe(sql);
+      return result as T[];
+    });
+  }
+
+  // Legacy helper kept for creating data (uses superuser, no RLS needed for inserts)
+  async function withTenantContext(_tenantId: string, fn: () => Promise<void>) {
+    await fn();
   }
 
   describe('homework_assignments RLS', () => {
@@ -216,22 +247,20 @@ describe('Homework RLS Integration Tests', () => {
     });
 
     it('should return only Tenant A assignments when querying as Tenant A', async () => {
-      await withTenantContext(TENANT_A_ID, async () => {
-        const assignments = await prisma.homeworkAssignment.findMany({
-          where: { tenant_id: TENANT_A_ID },
-        });
-        expect(assignments).toHaveLength(1);
-        expect(assignments[0]!.title).toBe('Tenant A Assignment');
-      });
+      const assignments = await queryAsTenant<{ title: string }>(
+        TENANT_A_ID,
+        `SELECT title FROM homework_assignments WHERE tenant_id = '${TENANT_A_ID}'`,
+      );
+      expect(assignments).toHaveLength(1);
+      expect(assignments[0]!.title).toBe('Tenant A Assignment');
     });
 
     it('should return empty when Tenant A queries for Tenant B data', async () => {
-      await withTenantContext(TENANT_A_ID, async () => {
-        const assignments = await prisma.homeworkAssignment.findMany({
-          where: { id: assignmentBId },
-        });
-        expect(assignments).toHaveLength(0);
-      });
+      const assignments = await queryAsTenant<{ id: string }>(
+        TENANT_A_ID,
+        `SELECT id FROM homework_assignments WHERE id = '${assignmentBId}'`,
+      );
+      expect(assignments).toHaveLength(0);
     });
   });
 
@@ -268,22 +297,20 @@ describe('Homework RLS Integration Tests', () => {
     });
 
     it('should return only Tenant A completions when querying as Tenant A', async () => {
-      await withTenantContext(TENANT_A_ID, async () => {
-        const completions = await prisma.homeworkCompletion.findMany({
-          where: { tenant_id: TENANT_A_ID },
-        });
-        expect(completions).toHaveLength(1);
-        expect(completions[0]!.student_id).toBe(STUDENT_A_ID);
-      });
+      const completions = await queryAsTenant<{ student_id: string }>(
+        TENANT_A_ID,
+        `SELECT student_id::text FROM homework_completions WHERE tenant_id = '${TENANT_A_ID}'`,
+      );
+      expect(completions).toHaveLength(1);
+      expect(completions[0]!.student_id).toBe(STUDENT_A_ID);
     });
 
     it('should return empty when Tenant B queries for Tenant A completion', async () => {
-      await withTenantContext(TENANT_B_ID, async () => {
-        const completion = await prisma.homeworkCompletion.findFirst({
-          where: { id: completionAId },
-        });
-        expect(completion).toBeNull();
-      });
+      const completions = await queryAsTenant<{ id: string }>(
+        TENANT_B_ID,
+        `SELECT id FROM homework_completions WHERE id = '${completionAId}'`,
+      );
+      expect(completions).toHaveLength(0);
     });
   });
 
@@ -321,12 +348,11 @@ describe('Homework RLS Integration Tests', () => {
     });
 
     it('should return empty when Tenant B queries for Tenant A attachment', async () => {
-      await withTenantContext(TENANT_B_ID, async () => {
-        const attachment = await prisma.homeworkAttachment.findFirst({
-          where: { id: attachmentAId },
-        });
-        expect(attachment).toBeNull();
-      });
+      const attachments = await queryAsTenant<{ id: string }>(
+        TENANT_B_ID,
+        `SELECT id FROM homework_attachments WHERE id = '${attachmentAId}'`,
+      );
+      expect(attachments).toHaveLength(0);
     });
   });
 
@@ -350,12 +376,11 @@ describe('Homework RLS Integration Tests', () => {
     });
 
     it('should return empty when Tenant B queries for Tenant A rule', async () => {
-      await withTenantContext(TENANT_B_ID, async () => {
-        const rule = await prisma.homeworkRecurrenceRule.findFirst({
-          where: { id: ruleAId },
-        });
-        expect(rule).toBeNull();
-      });
+      const rules = await queryAsTenant<{ id: string }>(
+        TENANT_B_ID,
+        `SELECT id FROM homework_recurrence_rules WHERE id = '${ruleAId}'`,
+      );
+      expect(rules).toHaveLength(0);
     });
   });
 
@@ -377,12 +402,11 @@ describe('Homework RLS Integration Tests', () => {
     });
 
     it('should return empty when Tenant B queries for Tenant A note', async () => {
-      await withTenantContext(TENANT_B_ID, async () => {
-        const note = await prisma.diaryNote.findFirst({
-          where: { id: noteAId },
-        });
-        expect(note).toBeNull();
-      });
+      const notes = await queryAsTenant<{ id: string }>(
+        TENANT_B_ID,
+        `SELECT id FROM diary_notes WHERE id = '${noteAId}'`,
+      );
+      expect(notes).toHaveLength(0);
     });
   });
 
@@ -406,12 +430,11 @@ describe('Homework RLS Integration Tests', () => {
     });
 
     it('should return empty when Tenant B queries for Tenant A parent note', async () => {
-      await withTenantContext(TENANT_B_ID, async () => {
-        const note = await prisma.diaryParentNote.findFirst({
-          where: { id: parentNoteAId },
-        });
-        expect(note).toBeNull();
-      });
+      const notes = await queryAsTenant<{ id: string }>(
+        TENANT_B_ID,
+        `SELECT id FROM diary_parent_notes WHERE id = '${parentNoteAId}'`,
+      );
+      expect(notes).toHaveLength(0);
     });
   });
 });

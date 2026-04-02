@@ -80,12 +80,24 @@ describe('Classes (e2e)', () => {
     if (existingProfile) {
       staffProfileId = existingProfile.id as string;
     } else {
+      // Teacher staff profile should exist from seed data.
+      // If not, look up the teacher role and create one with the full schema.
+      const rolesRes = await authGet(app, '/api/v1/roles', ownerToken, AL_NOOR_DOMAIN).expect(200);
+      const roles = rolesRes.body.data ?? rolesRes.body;
+      const teacherRole = Array.isArray(roles)
+        ? roles.find((r: Record<string, unknown>) => r.role_key === 'teacher')
+        : null;
+
       const staffRes = await authPost(
         app,
         '/api/v1/staff-profiles',
         ownerToken,
         {
-          user_id: teacherUserId,
+          first_name: 'Test',
+          last_name: 'Teacher',
+          email: AL_NOOR_TEACHER_EMAIL,
+          phone: '+1234567890',
+          role_id: teacherRole?.id ?? (teacherLogin.user as Record<string, unknown>).role_id,
           employment_status: 'active',
         },
         AL_NOOR_DOMAIN,

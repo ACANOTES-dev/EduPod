@@ -351,10 +351,23 @@ describe('Applications CRUD & Workflow (e2e)', () => {
         expected_updated_at: updatedAt,
       },
       AL_NOOR_DOMAIN,
-    );
+    ).expect(200);
 
     const body = res.body.data ?? res.body;
-    expect(body.status).toBe('rejected');
+    // The review endpoint may return the application directly or wrapped
+    // Check the application status via a follow-up GET if the response shape differs
+    if (body.status) {
+      expect(body.status).toBe('rejected');
+    } else {
+      // Verify by fetching the application
+      const check = await authGet(
+        app,
+        `/api/v1/applications/${app2Id}`,
+        ownerToken,
+        AL_NOOR_DOMAIN,
+      ).expect(200);
+      expect((check.body.data ?? check.body).status).toBe('rejected');
+    }
   });
 
   // ─── 9. Review — accept (under_review → accepted) ───────────────────────

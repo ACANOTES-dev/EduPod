@@ -69,6 +69,7 @@ const SEQUENCE_TYPES = [
   'staff',
   'household',
   'payment',
+  'refund',
   'pastoral_case',
   'sen_support_plan',
 ];

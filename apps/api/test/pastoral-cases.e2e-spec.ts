@@ -39,7 +39,7 @@ import {
 
 jest.setTimeout(120_000);
 
-const UNIQUE_MARKER = `PastoralCases_${Date.now()}`;
+const UNIQUE_MARKER = `PC_${Date.now()}`;
 
 // ─── Infrastructure check ───────────────────────────────────────────────────
 
@@ -161,7 +161,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
     const testCase = await directPrisma.pastoralCase.create({
       data: {
         tenant_id: alNoorTenantId,
-        case_number: `PC-TEST-${UNIQUE_MARKER}`,
+        case_number: `PC-${Date.now() % 100000}`,
         status: 'open',
         student_id: alNoorStudentId,
         owner_user_id: alNoorAdminUserId,
@@ -214,22 +214,29 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
 
     if (directPrisma) {
       try {
-        // Clean up in dependency order
+        // Clean up in dependency order.
+        // pastoral_events and pastoral_concern_versions are append-only (DB triggers block DELETE).
+        // Temporarily disable triggers to allow test data cleanup.
+        await directPrisma.$executeRawUnsafe(`SET session_replication_role = 'replica'`);
+
         if (alNoorCaseId) {
-          await directPrisma.pastoralEvent.deleteMany({
-            where: { entity_id: alNoorCaseId },
-          });
+          await directPrisma.$executeRawUnsafe(
+            `DELETE FROM pastoral_events WHERE entity_id = $1::uuid`,
+            alNoorCaseId,
+          );
           await directPrisma.pastoralCaseStudent.deleteMany({
             where: { case_id: alNoorCaseId },
           });
         }
         if (alNoorConcernId) {
-          await directPrisma.pastoralEvent.deleteMany({
-            where: { entity_id: alNoorConcernId },
-          });
-          await directPrisma.pastoralConcernVersion.deleteMany({
-            where: { concern_id: alNoorConcernId },
-          });
+          await directPrisma.$executeRawUnsafe(
+            `DELETE FROM pastoral_events WHERE entity_id = $1::uuid`,
+            alNoorConcernId,
+          );
+          await directPrisma.$executeRawUnsafe(
+            `DELETE FROM pastoral_concern_versions WHERE concern_id = $1::uuid`,
+            alNoorConcernId,
+          );
           await directPrisma.pastoralConcern.update({
             where: { id: alNoorConcernId },
             data: { case_id: null },
@@ -243,7 +250,15 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
             where: { id: alNoorCaseId },
           });
         }
+
+        await directPrisma.$executeRawUnsafe(`SET session_replication_role = 'origin'`);
       } catch (err) {
+        // Restore trigger mode even on error
+        try {
+          await directPrisma.$executeRawUnsafe(`SET session_replication_role = 'origin'`);
+        } catch (innerErr) {
+          console.error('[pastoral-cases trigger restore]', innerErr);
+        }
         console.error('[pastoral-cases cleanup]', err);
       }
       await directPrisma.$disconnect();

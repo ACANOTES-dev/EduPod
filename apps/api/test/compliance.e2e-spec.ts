@@ -27,9 +27,9 @@ describe('Compliance Requests (e2e)', () => {
 
   // Track created compliance request IDs for lifecycle tests
   let createdRequestId: string;
-  let lifecycleRequestId: string;
+  let _lifecycleRequestId: string;
   let rejectableRequestId: string;
-  let accessExportRequestId: string;
+  let _accessExportRequestId: string;
   let parentUserId: string;
 
   beforeAll(async () => {
@@ -191,12 +191,7 @@ describe('Compliance Requests (e2e)', () => {
     });
 
     it('should return 403 when user lacks compliance.view', async () => {
-      await authGet(
-        app,
-        '/api/v1/compliance-requests',
-        parentToken,
-        AL_NOOR_DOMAIN,
-      ).expect(403);
+      await authGet(app, '/api/v1/compliance-requests', parentToken, AL_NOOR_DOMAIN).expect(403);
     });
 
     it('should filter by status query param', async () => {
@@ -362,6 +357,15 @@ describe('Compliance Requests (e2e)', () => {
       if (res.status === 201) {
         // Service returns plain object → interceptor wraps to {data: {...}}
         rejectableRequestId = res.body.data.id;
+
+        // Classify before rejecting — state machine requires submitted → classified → rejected
+        await authPost(
+          app,
+          `/api/v1/compliance-requests/${rejectableRequestId}/classify`,
+          ownerToken,
+          { classification: 'erase', decision_notes: 'classify before reject test' },
+          AL_NOOR_DOMAIN,
+        ).expect(200);
       }
     });
 
