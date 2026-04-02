@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable school/no-hand-rolled-forms -- legacy form; migrate to react-hook-form when touched (HR-025) */
 
 import { ArrowLeft, Plus, Search, Trash2, X } from 'lucide-react';
 import Link from 'next/link';

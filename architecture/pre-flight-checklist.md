@@ -44,6 +44,14 @@
 - [ ] Open `architecture/danger-zones.md` and scan for entries related to my change area
 - [ ] If my change area is listed: read the full entry and follow the mitigation
 
+### 5a. Hotspot Review Check (if touching a hotspot module)
+
+- [ ] Am I adding lines to a file tracked in `scripts/hotspot-budgets.json`? -> Check the budget headroom before proceeding
+- [ ] Am I adding a new public method to a class that is already at its max-public-methods limit?
+- [ ] If touching behaviour/pastoral: is the change in the correct sub-module? -> See `architecture/pr-review-checklist.md` for sub-module boundaries
+- [ ] If touching scheduling: am I adding lines to `scheduling-orchestration.service.ts` (964 lines)? -> Check budget
+- [ ] If touching finance: does my change respect the invoice/payment/payroll state machines?
+
 ---
 
 ## After ANY Change

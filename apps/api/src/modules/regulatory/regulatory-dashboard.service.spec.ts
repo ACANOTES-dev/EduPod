@@ -266,12 +266,12 @@ describe('RegulatoryDashboardService', () => {
     });
 
     it('should calculate days_overdue correctly', async () => {
-      const exactlyTenDaysAgo = new Date();
-      exactlyTenDaysAgo.setDate(exactlyTenDaysAgo.getDate() - 10);
-      exactlyTenDaysAgo.setHours(0, 0, 0, 0);
+      const elevenDaysAgo = new Date();
+      elevenDaysAgo.setDate(elevenDaysAgo.getDate() - 11);
+      elevenDaysAgo.setHours(0, 0, 0, 0);
 
       mockPrisma.regulatoryCalendarEvent.findMany.mockResolvedValue([
-        { id: 'e1', title: 'Old Event', domain: 'des_october_census', due_date: exactlyTenDaysAgo },
+        { id: 'e1', title: 'Old Event', domain: 'des_october_census', due_date: elevenDaysAgo },
       ]);
 
       const result = await service.getOverdueItems(TENANT_ID);

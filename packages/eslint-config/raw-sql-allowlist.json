@@ -1,0 +1,251 @@
+{
+  "_comment": [
+    "Raw SQL Governance Allowlist",
+    "",
+    "Every file in this list is permitted to use raw SQL ($executeRaw, $queryRaw,",
+    "$executeRawUnsafe, $queryRawUnsafe). All other files are blocked by the",
+    "school/no-raw-sql-outside-rls ESLint rule.",
+    "",
+    "To add a new entry:",
+    "  1. Add the file path (relative to repo root) with a reason",
+    "  2. The reason must explain WHY raw SQL is necessary",
+    "  3. Get explicit review approval — raw SQL bypasses RLS",
+    "  4. Prefer tagged templates ($queryRaw`...`) over Unsafe variants",
+    "",
+    "Categories:",
+    "  rls-infrastructure  — Core RLS context-setting (SET LOCAL / set_config)",
+    "  health-check        — Non-tenant DB liveness pings (SELECT 1)",
+    "  ddl-operations      — Schema-level DDL (partition management)",
+    "  startup-assertion   — Bootstrap safety checks (pg_roles)",
+    "  materialized-view   — REFRESH MATERIALIZED VIEW (not tenant-scoped)",
+    "  select-for-update   — Row-level locking within an RLS transaction",
+    "  aggregate-query     — Complex aggregation on materialized views with tenant filter",
+    "  sequence-lock       — Sequence number generation with FOR UPDATE lock",
+    "  test-setup          — E2E/integration test setup and teardown"
+  ],
+
+  "allowlist": [
+    {
+      "file": "apps/api/src/common/middleware/rls.middleware.ts",
+      "methods": ["$executeRawUnsafe"],
+      "category": "rls-infrastructure",
+      "reason": "Core RLS context-setting: SET LOCAL app.current_tenant_id, app.current_user_id, app.current_role"
+    },
+    {
+      "file": "apps/worker/src/base/tenant-aware-job.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "Worker RLS context-setting via set_config() — tagged template, not Unsafe"
+    },
+    {
+      "file": "apps/api/src/common/guards/rls-role-check.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "startup-assertion",
+      "reason": "Bootstrap assertion querying pg_roles to verify DB role lacks SUPERUSER/BYPASSRLS"
+    },
+    {
+      "file": "apps/api/src/modules/health/health.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "health-check",
+      "reason": "PostgreSQL liveness check (SELECT 1), not tenant-scoped"
+    },
+    {
+      "file": "apps/worker/src/health/worker-health.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "health-check",
+      "reason": "Worker PostgreSQL liveness check (SELECT 1), not tenant-scoped"
+    },
+    {
+      "file": "apps/worker/src/processors/behaviour/partition-maintenance.processor.ts",
+      "methods": ["$executeRawUnsafe", "$queryRawUnsafe"],
+      "category": "ddl-operations",
+      "reason": "Partition DDL (CREATE TABLE PARTITION OF). Table names from constants, not user input. Input-validated with SAFE_IDENTIFIER_RE and SAFE_DATE_RE."
+    },
+    {
+      "file": "apps/worker/src/processors/behaviour/refresh-mv.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "materialized-view",
+      "reason": "REFRESH MATERIALIZED VIEW CONCURRENTLY for behaviour summary views"
+    },
+    {
+      "file": "apps/api/src/modules/behaviour/behaviour-admin.service.ts",
+      "methods": ["$executeRaw"],
+      "category": "materialized-view",
+      "reason": "REFRESH MATERIALIZED VIEW CONCURRENTLY for behaviour summary/benchmark/exposure views"
+    },
+    {
+      "file": "apps/api/src/modules/sequence/sequence.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "sequence-lock",
+      "reason": "SELECT FOR UPDATE on tenant_sequences within RLS transaction for sequence number generation"
+    },
+    {
+      "file": "apps/api/src/modules/payroll/payslips.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "sequence-lock",
+      "reason": "SELECT FOR UPDATE and sequence update within RLS transaction for payslip numbering"
+    },
+    {
+      "file": "apps/api/src/modules/finance/payments.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "select-for-update",
+      "reason": "SELECT FOR UPDATE for payment processing lock within RLS transaction"
+    },
+    {
+      "file": "apps/api/src/modules/scheduling-runs/scheduling-apply.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "select-for-update",
+      "reason": "SELECT FOR UPDATE on scheduling_runs within RLS transaction"
+    },
+    {
+      "file": "apps/api/src/modules/households/households.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "select-for-update",
+      "reason": "SELECT FOR UPDATE lock ordering within RLS transaction for household operations"
+    },
+    {
+      "file": "apps/api/src/modules/pastoral/services/concern-version.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "select-for-update",
+      "reason": "SELECT FOR UPDATE within RLS transaction for concern version locking"
+    },
+    {
+      "file": "apps/api/src/modules/engagement/event-participants.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "select-for-update",
+      "reason": "SELECT FOR UPDATE within RLS transaction for event participant operations"
+    },
+    {
+      "file": "apps/api/src/modules/engagement/conferences.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "select-for-update",
+      "reason": "SELECT FOR UPDATE within RLS transaction for conference slot locking"
+    },
+    {
+      "file": "apps/api/src/modules/admissions/applications.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "aggregate-query",
+      "reason": "Aggregate query within RLS transaction for admissions statistics"
+    },
+    {
+      "file": "apps/api/src/modules/behaviour/behaviour-student-analytics.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "aggregate-query",
+      "reason": "Aggregate query on materialized view with tenant filter for student analytics"
+    },
+    {
+      "file": "apps/api/src/modules/behaviour/behaviour-incident-analytics.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "aggregate-query",
+      "reason": "Aggregate/count queries on materialized view with tenant filter for incident analytics"
+    },
+    {
+      "file": "apps/api/src/modules/behaviour/behaviour-sanction-analytics.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "aggregate-query",
+      "reason": "Aggregate/benchmark queries on materialized view with tenant filter"
+    },
+    {
+      "file": "apps/api/src/modules/behaviour/behaviour-staff-analytics.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "aggregate-query",
+      "reason": "Aggregate query on materialized view with tenant filter for staff analytics"
+    },
+    {
+      "file": "apps/api/src/modules/behaviour/behaviour-students.helpers.ts",
+      "methods": ["$queryRaw"],
+      "category": "aggregate-query",
+      "reason": "Student behaviour statistics query"
+    },
+    {
+      "file": "apps/api/src/modules/behaviour/behaviour-export.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "aggregate-query",
+      "reason": "Aggregate query on materialized view within RLS transaction for export"
+    },
+    {
+      "file": "apps/worker/src/processors/communications/dispatch-notifications.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() within transaction — tagged template"
+    },
+    {
+      "file": "apps/worker/src/processors/communications/retry-failed.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() within transaction — tagged template"
+    },
+    {
+      "file": "apps/worker/src/processors/wellbeing/cleanup-participation-tokens.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() within transaction — tagged template"
+    },
+    {
+      "file": "apps/worker/src/processors/wellbeing/survey-closing-reminder.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() within transaction — tagged template"
+    },
+    {
+      "file": "apps/worker/src/processors/wellbeing/workload-metrics.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() within transaction — tagged template"
+    },
+    {
+      "file": "apps/worker/src/processors/wellbeing/eap-refresh-check.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() within transaction — tagged template"
+    },
+    {
+      "file": "apps/worker/src/processors/notifications/dispatch-queued.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() within transaction — tagged template"
+    },
+    {
+      "file": "apps/worker/src/processors/scheduling-stale-reaper.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() within transaction — tagged template"
+    },
+    {
+      "file": "apps/worker/src/processors/compliance/retention-enforcement.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() within transaction — tagged template"
+    },
+    {
+      "file": "apps/worker/src/processors/engagement/chase-outstanding.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() within transaction — tagged template"
+    },
+    {
+      "file": "apps/worker/src/processors/engagement/engagement-annual-renewal.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() within transaction — tagged template"
+    },
+    {
+      "file": "apps/worker/src/processors/engagement/engagement-conference-reminders.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() within transaction — tagged template"
+    },
+    {
+      "file": "apps/worker/src/processors/engagement/expire-pending.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() within transaction — tagged template"
+    },
+    {
+      "file": "apps/worker/src/processors/engagement/generate-invoices.processor.ts",
+      "methods": ["$executeRaw", "$queryRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() and sequence lock SELECT FOR UPDATE within transaction"
+    }
+  ]
+}

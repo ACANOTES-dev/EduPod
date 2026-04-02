@@ -4,6 +4,11 @@
       "name": "Wave 1",
       "date": "2026-04-01",
       "summary": "Maintainability audit baseline after Phase D service decomposition and shared frontend pattern extraction."
+    },
+    {
+      "name": "Wave 2",
+      "date": "2026-04-02",
+      "summary": "Expanded hotspot tracking to top 10 API, top 3 worker, and top 3 frontend files. Added file-level line budgets."
     }
   ],
   "files": {
@@ -54,6 +59,307 @@
           "max": 10
         }
       ]
+    },
+    "apps/api/src/modules/households/households.service.ts": {
+      "reason": "Household operations (create, merge, split) coordinate multi-entity writes across students, parents, addresses, and contacts with complex validation logic.",
+      "budgets": [
+        {
+          "name": "HouseholdsService.split::closure@903",
+          "max": 12
+        },
+        {
+          "name": "HouseholdsService.create::closure@116",
+          "max": 11
+        },
+        {
+          "name": "HouseholdsService.merge::closure@726",
+          "max": 11
+        }
+      ]
+    },
+    "apps/api/src/modules/homework/homework-analytics.service.ts": {
+      "reason": "Homework analytics aggregates trend, correlation, and pattern data across multiple tables with heavy branching for time-window and grouping logic.",
+      "budgets": [
+        {
+          "name": "HomeworkAnalyticsService.studentTrends",
+          "max": 23
+        },
+        {
+          "name": "HomeworkAnalyticsService.correlationAnalysis",
+          "max": 16
+        },
+        {
+          "name": "HomeworkAnalyticsService.loadAnalysis",
+          "max": 11
+        }
+      ]
+    },
+    "apps/api/src/modules/behaviour/behaviour-sanctions.service.ts": {
+      "reason": "Sanction lifecycle involves creation with approval routing, conflict detection, and status transition logic that can grow unbounded without guardrails.",
+      "budgets": [
+        {
+          "name": "BehaviourSanctionsService.create::closure@55",
+          "max": 27
+        },
+        {
+          "name": "BehaviourSanctionsService.update::closure@412",
+          "max": 24
+        },
+        {
+          "name": "BehaviourSanctionsService.checkConflicts",
+          "max": 16
+        }
+      ]
+    },
+    "apps/api/src/modules/behaviour/safeguarding-concerns.service.ts": {
+      "reason": "Safeguarding concern reporting and triage involves access-controlled detail mapping, multi-step status transitions, and sensitive data handling.",
+      "budgets": [
+        {
+          "name": "SafeguardingConcernsService.mapConcernDetail",
+          "max": 24
+        },
+        {
+          "name": "SafeguardingConcernsService.reportConcern::closure@74",
+          "max": 20
+        },
+        {
+          "name": "SafeguardingConcernsService.listConcerns",
+          "max": 19
+        }
+      ]
+    },
+    "apps/api/src/modules/pastoral/services/pastoral-dsar.service.ts": {
+      "reason": "DSAR processing aggregates records across all pastoral entities with complex record-type routing, summary assembly, and multi-entity fetch logic.",
+      "budgets": [
+        {
+          "name": "PastoralDsarService.getRecordSummary",
+          "max": 30
+        },
+        {
+          "name": "PastoralDsarService.routeForReview::closure@162",
+          "max": 22
+        },
+        {
+          "name": "PastoralDsarService.fetchEntityRecord",
+          "max": 20
+        }
+      ]
+    },
+    "apps/api/src/modules/attendance/attendance-upload.service.ts": {
+      "reason": "Attendance bulk upload parses CSV/XLSX with row-level validation, conflict detection, and transactional commit that concentrates branching in a single flow.",
+      "budgets": [
+        {
+          "name": "AttendanceUploadService.processUpload",
+          "max": 27
+        },
+        {
+          "name": "AttendanceUploadService.parseXlsx",
+          "max": 17
+        },
+        {
+          "name": "AttendanceUploadService.parseCsv",
+          "max": 14
+        }
+      ]
+    },
+    "apps/api/src/modules/behaviour/behaviour.service.ts": {
+      "reason": "Core behaviour incident service with the highest single-function complexity in the codebase; createIncident orchestrates validation, participant handling, escalation, and notification dispatch.",
+      "budgets": [
+        {
+          "name": "BehaviourService.createIncident::closure@71",
+          "max": 48
+        },
+        {
+          "name": "BehaviourService.addParticipant::closure@787",
+          "max": 21
+        },
+        {
+          "name": "BehaviourService.listIncidents",
+          "max": 19
+        }
+      ]
+    },
+    "apps/api/src/modules/behaviour/behaviour-appeals.service.ts": {
+      "reason": "Appeal lifecycle with decision branching, sanction reversal, and multi-party notification makes the decide and submit methods complex.",
+      "budgets": [
+        {
+          "name": "BehaviourAppealsService.decide::closure@563",
+          "max": 29
+        },
+        {
+          "name": "BehaviourAppealsService.submit::closure@99",
+          "max": 19
+        },
+        {
+          "name": "BehaviourAppealsService.update::closure@443",
+          "max": 19
+        }
+      ]
+    },
+    "apps/api/src/modules/homework/homework.service.ts": {
+      "reason": "Homework service manages CRUD, recurrence generation, and bulk operations with date computation and validation branching.",
+      "budgets": [
+        {
+          "name": "HomeworkService.update::closure@250",
+          "max": 19
+        },
+        {
+          "name": "HomeworkService.generateRecurrenceDates",
+          "max": 19
+        },
+        {
+          "name": "HomeworkService.bulkCreate::closure@894",
+          "max": 16
+        }
+      ]
+    },
+    "apps/worker/src/processors/early-warning/signal-collection.utils.ts": {
+      "reason": "Signal collection utilities contain the highest-complexity functions in the entire codebase; each collector aggregates data across multiple domains with extensive conditional logic.",
+      "budgets": [
+        {
+          "name": "collectEngagementSignals",
+          "max": 65
+        },
+        {
+          "name": "collectWellbeingSignals",
+          "max": 34
+        },
+        {
+          "name": "collectGradesSignals",
+          "max": 33
+        }
+      ]
+    },
+    "apps/worker/src/cron/cron-scheduler.service.ts": {
+      "reason": "Cron scheduler is low-complexity per method but extremely long; line budget is the primary control to prevent unbounded growth as new cron jobs are added.",
+      "budgets": [
+        {
+          "name": "CronSchedulerService.onModuleInit",
+          "max": 3
+        }
+      ]
+    },
+    "apps/worker/src/processors/communications/dispatch-notifications.processor.ts": {
+      "reason": "Notification dispatch handles multi-channel routing (email, SMS, WhatsApp, push) with per-channel formatting and error handling branching.",
+      "budgets": [
+        {
+          "name": "DispatchNotificationsJob.dispatchEmail",
+          "max": 12
+        },
+        {
+          "name": "DispatchNotificationsJob.dispatchAll",
+          "max": 10
+        },
+        {
+          "name": "DispatchNotificationsJob.dispatchWhatsApp",
+          "max": 10
+        }
+      ]
+    },
+    "apps/web/src/app/[locale]/(school)/sen/plans/[planId]/page.tsx": {
+      "reason": "SEN plan detail page is the largest frontend file with a monolithic component handling view, edit, review, and approval states in a single render function.",
+      "budgets": [
+        {
+          "name": "SupportPlanDetailPage",
+          "max": 20
+        },
+        {
+          "name": "SupportPlanDetailPage::closure@533",
+          "max": 13
+        }
+      ]
+    },
+    "apps/web/src/app/[locale]/(school)/behaviour/appeals/[id]/page.tsx": {
+      "reason": "Appeal detail page has extreme render-function complexity with status-dependent UI sections, decision forms, and timeline rendering.",
+      "budgets": [
+        {
+          "name": "AppealDetailPage",
+          "max": 45
+        },
+        {
+          "name": "handleDecide",
+          "max": 10
+        }
+      ]
+    },
+    "apps/web/src/app/[locale]/(school)/settings/behaviour-admin/page.tsx": {
+      "reason": "Behaviour admin settings page contains multiple tab components (operations, scope audit, retention) each with their own form handling and state.",
+      "budgets": [
+        {
+          "name": "BehaviourAdminPage",
+          "max": 8
+        },
+        {
+          "name": "ScopeAuditTab",
+          "max": 8
+        }
+      ]
+    }
+  },
+  "lineBudgets": {
+    "apps/api/src/modules/staff-wellbeing/services/workload-compute.service.ts": {
+      "max": 1211,
+      "reason": "Workload compute service mixes personal, aggregate, and trend logic across 1161 lines"
+    },
+    "apps/api/src/modules/households/households.service.ts": {
+      "max": 1173,
+      "reason": "Household CRUD with merge/split orchestration across 1123 lines"
+    },
+    "apps/api/src/modules/homework/homework-analytics.service.ts": {
+      "max": 1139,
+      "reason": "Homework analytics with trend/correlation/pattern queries across 1089 lines"
+    },
+    "apps/api/src/modules/behaviour/behaviour-sanctions.service.ts": {
+      "max": 1129,
+      "reason": "Sanction lifecycle with approval routing and conflict detection across 1079 lines"
+    },
+    "apps/api/src/modules/behaviour/safeguarding-concerns.service.ts": {
+      "max": 1120,
+      "reason": "Safeguarding concern triage and access-controlled detail mapping across 1070 lines"
+    },
+    "apps/api/src/modules/pastoral/services/pastoral-dsar.service.ts": {
+      "max": 1106,
+      "reason": "DSAR processing with multi-entity record aggregation across 1056 lines"
+    },
+    "apps/api/src/modules/attendance/attendance-upload.service.ts": {
+      "max": 1091,
+      "reason": "Bulk attendance upload with CSV/XLSX parsing and validation across 1041 lines"
+    },
+    "apps/api/src/modules/behaviour/behaviour.service.ts": {
+      "max": 1062,
+      "reason": "Core behaviour incident service with the highest single-function complexity across 1012 lines"
+    },
+    "apps/api/src/modules/behaviour/behaviour-appeals.service.ts": {
+      "max": 1038,
+      "reason": "Appeal lifecycle with decision branching and sanction reversal across 988 lines"
+    },
+    "apps/api/src/modules/homework/homework.service.ts": {
+      "max": 1036,
+      "reason": "Homework CRUD with recurrence generation and bulk operations across 986 lines"
+    },
+    "apps/worker/src/processors/early-warning/signal-collection.utils.ts": {
+      "max": 1382,
+      "reason": "Signal collection utilities with the highest complexity functions in the codebase across 1332 lines"
+    },
+    "apps/worker/src/cron/cron-scheduler.service.ts": {
+      "max": 792,
+      "reason": "Cron scheduler grows as new jobs are added; line budget prevents unbounded expansion from 742 lines"
+    },
+    "apps/worker/src/processors/communications/dispatch-notifications.processor.ts": {
+      "max": 778,
+      "reason": "Multi-channel notification dispatch with per-channel formatting across 728 lines"
+    },
+    "apps/web/src/app/[locale]/(school)/sen/plans/[planId]/page.tsx": {
+      "max": 1011,
+      "reason": "Largest frontend file; monolithic SEN plan detail component across 961 lines"
+    },
+    "apps/web/src/app/[locale]/(school)/behaviour/appeals/[id]/page.tsx": {
+      "max": 989,
+      "reason": "Appeal detail page with status-dependent UI and decision forms across 939 lines"
+    },
+    "apps/web/src/app/[locale]/(school)/settings/behaviour-admin/page.tsx": {
+      "max": 988,
+      "reason": "Multi-tab behaviour admin settings page across 938 lines"
     }
   }
 }

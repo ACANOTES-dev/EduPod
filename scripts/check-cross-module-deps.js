@@ -228,9 +228,23 @@ function parseDocumentedImports(content) {
   return map;
 }
 
+// ─── CLI argument parsing ─────────────────────────────────────────────────────
+
+function parseMaxViolations() {
+  const idx = process.argv.indexOf('--max-violations');
+  if (idx === -1 || idx + 1 >= process.argv.length) return null;
+  const value = parseInt(process.argv[idx + 1], 10);
+  if (isNaN(value) || value < 0) {
+    console.error(`ERROR: --max-violations requires a non-negative integer, got "${process.argv[idx + 1]}"`);
+    process.exit(2);
+  }
+  return value;
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 function main() {
+  const maxViolations = parseMaxViolations();
   const LINE = '━'.repeat(52);
 
   console.log('\nCross-Module Dependency Check');
@@ -349,6 +363,17 @@ function main() {
       `${undocumented.length} undocumented ${undocumented.length === 1 ? 'dependency' : 'dependencies'} found.`,
     );
     console.log('Please update architecture/module-blast-radius.md before merging.');
+
+    // ── Threshold gate (HR-025) ──────────────────────────────────────────────
+    if (maxViolations !== null) {
+      if (undocumented.length > maxViolations) {
+        console.log(`\nFAILED: ${undocumented.length} violations exceed --max-violations threshold of ${maxViolations}.`);
+        process.exit(1);
+      }
+      console.log(`\nPASSED: ${undocumented.length} violations within --max-violations threshold of ${maxViolations}.`);
+      process.exit(0);
+    }
+
     process.exit(1);
   }
 }

@@ -85,9 +85,11 @@ jobs:
       - name: Global provider registry check
         run: node scripts/check-global-providers.js
 
+      - name: Module boundary check
+        run: pnpm check:boundaries -- --max-violations 235
+
       - name: Cross-module dependency check
-        run: node scripts/check-cross-module-deps.js
-        continue-on-error: true
+        run: node scripts/check-cross-module-deps.js --max-violations 8
 
       - name: Run unit tests with coverage enforcement
         run: pnpm --filter @school/api --filter @school/worker run test:coverage && pnpm --filter @school/shared --filter @school/web --filter @school/prisma run test

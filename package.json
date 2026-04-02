@@ -39,6 +39,7 @@
     "snapshot:api": "tsx scripts/generate-api-surface.ts",
     "snapshot:schema": "bash scripts/snapshot-prisma-schema.sh",
     "check:characterization": "bash scripts/check-characterization-tests.sh",
+    "check:boundaries": "npx tsx scripts/check-module-boundaries.ts",
     "check:test-gate": "bash scripts/check-test-coverage-gate.sh",
     "prepare": "husky"
   },

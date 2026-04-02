@@ -4,7 +4,7 @@ module.exports = {
   plugins: ['school'],
   rules: {
     'max-lines': ['warn', { max: 600, skipBlankLines: true, skipComments: true }],
-    'school/no-hand-rolled-forms': 'warn',
+    'school/no-hand-rolled-forms': 'error',
     'school/no-physical-css-direction': 'error',
     'school/no-untranslated-strings': 'warn',
   },

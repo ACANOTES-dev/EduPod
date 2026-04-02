@@ -1,3 +1,4 @@
+/* eslint-disable school/no-hand-rolled-forms -- legacy form, tracked for migration in HR-025 */
 'use client';
 
 import { UserPlus, X } from 'lucide-react';

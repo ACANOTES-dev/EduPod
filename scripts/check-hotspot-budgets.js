@@ -161,11 +161,21 @@ function analyzeFile(relativeFilePath) {
   });
 }
 
+function countFileLines(relativeFilePath) {
+  const absoluteFilePath = path.join(REPO_ROOT, relativeFilePath);
+  try {
+    const content = fs.readFileSync(absoluteFilePath, 'utf8');
+    return content.split('\n').length;
+  } catch {
+    return null;
+  }
+}
+
 function formatBudgetFailure(filePath, metric, budget) {
   return `${filePath}:${metric.line} ${metric.name} complexity ${metric.complexity} exceeds budget ${budget.max}`;
 }
 
-function renderReport(config, metricsByFile) {
+function renderReport(config, metricsByFile, lineCounts) {
   const generatedAt = new Date().toISOString().slice(0, 10);
   const lines = [];
 
@@ -174,7 +184,7 @@ function renderReport(config, metricsByFile) {
   lines.push(`Generated: ${generatedAt}`);
   lines.push('');
   lines.push(
-    'Tracked maintainability hotspots and their current cyclomatic complexity budgets. The CI check fails if any monitored function exceeds its budget, and this report should be refreshed after each maintainability wave.',
+    'Tracked maintainability hotspots and their current cyclomatic complexity budgets and file-level line counts. The CI check fails if any monitored function exceeds its complexity budget or any file exceeds its line budget. This report should be refreshed after each maintainability wave.',
   );
   lines.push('');
   lines.push('## Wave History');
@@ -187,7 +197,7 @@ function renderReport(config, metricsByFile) {
   });
 
   lines.push('');
-  lines.push('## Budgeted Hotspots');
+  lines.push('## Budgeted Hotspots — Function Complexity');
   lines.push('');
 
   Object.entries(config.files).forEach(([filePath, fileConfig]) => {
@@ -217,6 +227,51 @@ function renderReport(config, metricsByFile) {
     lines.push('');
   });
 
+  if (config.lineBudgets && Object.keys(config.lineBudgets).length > 0) {
+    lines.push('## File Line Budgets');
+    lines.push('');
+    lines.push('| File | Current lines | Budget | Utilisation | Status |');
+    lines.push('|------|---------------|--------|-------------|--------|');
+
+    Object.entries(config.lineBudgets).forEach(([filePath, budget]) => {
+      const lineCount = lineCounts.get(filePath);
+      if (lineCount === null || lineCount === undefined) {
+        lines.push(`| ${filePath} | Missing | ${budget.max} | — | Needs review |`);
+        return;
+      }
+
+      const utilisation = Math.round((lineCount / budget.max) * 100);
+      const status = lineCount <= budget.max ? 'PASS' : 'FAIL';
+      lines.push(
+        `| ${filePath} | ${lineCount} | ${budget.max} | ${utilisation}% | ${status} |`,
+      );
+    });
+
+    lines.push('');
+
+    const needsAttention = Object.entries(config.lineBudgets).filter(([filePath, budget]) => {
+      const lineCount = lineCounts.get(filePath);
+      return lineCount !== null && lineCount !== undefined && lineCount > budget.max * 0.8;
+    });
+
+    if (needsAttention.length > 0) {
+      lines.push('## Needs Attention');
+      lines.push('');
+      lines.push('Files above 80% of their line budget:');
+      lines.push('');
+
+      needsAttention.forEach(([filePath, budget]) => {
+        const lineCount = lineCounts.get(filePath);
+        const utilisation = Math.round((lineCount / budget.max) * 100);
+        lines.push(
+          `- **${filePath}**: ${lineCount}/${budget.max} lines (${utilisation}%) — ${budget.reason}`,
+        );
+      });
+
+      lines.push('');
+    }
+  }
+
   return `${lines.join('\n')}\n`;
 }
 
@@ -224,8 +279,10 @@ function main() {
   const shouldWrite = process.argv.includes('--write-report');
   const config = readJson(CONFIG_PATH);
   const metricsByFile = new Map();
+  const lineCounts = new Map();
   const failures = [];
 
+  // ─── Function complexity budgets ──────────────────────────────────────────────
   Object.entries(config.files).forEach(([filePath, fileConfig]) => {
     const metrics = analyzeFile(filePath);
     metricsByFile.set(filePath, metrics);
@@ -244,14 +301,33 @@ function main() {
     });
   });
 
+  // ─── File line budgets ────────────────────────────────────────────────────────
+  if (config.lineBudgets) {
+    Object.entries(config.lineBudgets).forEach(([filePath, budget]) => {
+      const lineCount = countFileLines(filePath);
+      lineCounts.set(filePath, lineCount);
+
+      if (lineCount === null) {
+        failures.push(`${filePath}: file not found for line budget check`);
+        return;
+      }
+
+      if (lineCount > budget.max) {
+        failures.push(
+          `${filePath}: ${lineCount} lines exceeds line budget of ${budget.max}`,
+        );
+      }
+    });
+  }
+
   if (shouldWrite) {
     fs.mkdirSync(path.dirname(REPORT_PATH), { recursive: true });
-    fs.writeFileSync(REPORT_PATH, renderReport(config, metricsByFile));
+    fs.writeFileSync(REPORT_PATH, renderReport(config, metricsByFile, lineCounts));
     console.log(`Wrote hotspot report to ${getRelativePath(REPORT_PATH)}`);
   }
 
   if (failures.length > 0) {
-    console.error('Hotspot complexity budget check failed.\n');
+    console.error('Hotspot budget check failed.\n');
     failures.forEach((failure) => console.error(`- ${failure}`));
     process.exitCode = 1;
     return;
@@ -261,8 +337,9 @@ function main() {
     (count, fileConfig) => count + fileConfig.budgets.length,
     0,
   );
+  const trackedFiles = config.lineBudgets ? Object.keys(config.lineBudgets).length : 0;
   console.log(
-    `Hotspot complexity budgets passed: ${trackedFunctions} tracked functions across ${Object.keys(config.files).length} files.`,
+    `Hotspot budgets passed: ${trackedFunctions} function complexity budgets across ${Object.keys(config.files).length} files, ${trackedFiles} file line budgets.`,
   );
 }
 

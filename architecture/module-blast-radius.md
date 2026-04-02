@@ -22,11 +22,13 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 ### PrismaService
 
+- **Change cost**: CRITICAL -- every module depends on this; interface changes require full regression across all 43 modules
 - **Blast radius**: Every module. Every service. Every test.
 - **Rule**: Never modify PrismaService interface without full regression.
 
 ### RedisService
 
+- **Change cost**: HIGH -- 15 modules use Redis caching; key format or TTL changes require auditing all consumers
 - **Blast radius**: Auth, attendance, classes, communications, domains, finance reports, gradebook, households, memberships, notifications, payroll, staff-profiles, students, dashboard, website
 - **Rule**: Cache key format changes require auditing all consumers.
 
@@ -34,6 +36,7 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 ### GdprTokenService (GdprModule)
 
+- **Change cost**: HIGH -- 8 AI services across 4 modules route through this; interface changes break all AI features
 - **Exports**: `GdprTokenService`
 - **Consumed by**: GradebookModule (ai-comments, ai-grading, ai-progress-summary, nl-query, report-card-template), SchedulingModule (ai-substitution), AttendanceModule (attendance-scan), BehaviourModule (behaviour-ai)
 - **Blast radius**: HIGH. Every AI service routes through this for tokenisation + audit. Changing the `processOutbound`/`processInbound` interface breaks all AI features.
@@ -41,6 +44,7 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 ### AiAuditService (GdprModule)
 
+- **Change cost**: MEDIUM -- 10 AI services log through this; failures are fire-and-forget so breakage is silent, not blocking
 - **Exports**: `AiAuditService`
 - **Consumed by**: GradebookModule (ai-comments, ai-grading, ai-progress-summary, nl-query, report-card-template), ReportsModule (ai-report-narrator, ai-predictions), SchedulingModule (ai-substitution), AttendanceModule (attendance-scan), BehaviourModule (behaviour-ai)
 - **Blast radius**: MEDIUM. All 10 AI services log through this for Article 22 compliance. Changing the `log()` interface breaks audit trail for all AI features. However, `log()` is fire-and-forget — failures do NOT break AI features.
@@ -48,6 +52,7 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 ### ConsentService (GdprModule)
 
+- **Change cost**: HIGH -- consent withdrawal is synchronous and immediately affects WhatsApp delivery, AI features, allergy reports, risk detection, and benchmarking
 - **Exports**: `ConsentService`
 - **Consumed by**: GradebookModule (ai-grading, ai-comments, ai-progress-summary), CommunicationsModule (`NotificationDispatchService`)
 - **Prisma-direct consumers of `consent_records`**: RegistrationModule, AdmissionsModule, StudentsModule, Gradebook worker (`GradebookRiskDetectionProcessor`), Behaviour analytics benchmarking query
@@ -56,6 +61,7 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 ### DpaService + PrivacyNoticesService + SubProcessorsService (GdprModule)
 
+- **Change cost**: HIGH -- DpaAcceptedGuard is global APP_GUARD; changing version lookup or exempt-path allowlist can lock every tenant-scoped API surface
 - **Exports**: `DpaService`, `PrivacyNoticesService`, `SubProcessorsService`
 - **Consumed by**: Global `DpaAcceptedGuard` (`APP_GUARD`), all tenant-scoped API surfaces indirectly through the guard, the legal settings UI, the parent portal privacy notice page, and the public sub-processor register page. GDPR no longer imports CommunicationsModule — notifications are written directly via Prisma.
 - **Blast radius**: HIGH. `DpaAcceptedGuard` is global, so changing current-version lookup, acceptance checks, or the exempt-path allowlist can lock every tenant-scoped API surface. Privacy notice publish logic fans out notifications to every active tenant membership and resets acknowledgement requirements for users who only acknowledged older versions. Sub-processor register content is public and versioned, so changes affect both legal disclosure and tenant admin notification flows.
@@ -67,6 +73,7 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 ### SequenceService (SequenceModule)
 
+- **Change cost**: HIGH -- 14 consumers rely on sequence format; format changes affect receipt/invoice/application/payslip/student/staff/household/payment numbers across the platform
 - **Module location**: `apps/api/src/modules/sequence/`
 - **Consumed by**: Admissions, behaviour, credit notes, fee generation, households, imports, invoices, payments, receipts, recurring invoices, refunds, registration, staff profiles, students
 - **Via TenantsModule**: TenantsModule imports and re-exports SequenceModule for backward compatibility — modules that already import TenantsModule for other reasons can continue to receive SequenceService via that path.
@@ -75,6 +82,7 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 ### SettingsService (ConfigurationModule)
 
+- **Change cost**: HIGH -- settings JSONB shape changes require migrating ALL tenants' stored data; affects attendance, behaviour, finance, payroll, and SEN policies
 - **Consumed by**: Attendance (service + upload + pattern + parent notification), behaviour (parent notification send-gate, quick-log defaults, points settings), finance (invoices, payment reminders, recurring invoices), payroll (runs, calendar, exports), SEN (review-cycle, plan-number prefix, SNA schedule format)
 - **Blast radius**: HIGH. Settings shape changes affect attendance policies, behaviour module policies, finance billing rules, and payroll calculation.
 - **Danger**: Settings are tenant-specific. A schema change requires migrating ALL tenants' stored JSONB settings. The `tenantSettingsSchema` in shared/ is the single source of truth.
@@ -82,12 +90,14 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 ### EncryptionService (ConfigurationModule)
 
+- **Change cost**: HIGH -- algorithm or key changes make existing encrypted data permanently unreadable (DZ-09)
 - **Consumed by**: Admissions payment, finance/Stripe, payslips, staff profiles, AuthModule (MFA TOTP secret encryption)
 - **Blast radius**: MEDIUM. All encrypted field access (bank details, Stripe keys, MFA secrets).
 - **Danger**: Changing encryption/decryption logic makes existing encrypted data unreadable.
 
 ### ApprovalRequestsService (ApprovalsModule)
 
+- **Change cost**: HIGH -- approval callback dispatch must stay in sync with all consumer worker processors; missing either side = approved items never execute (DZ-03)
 - **Consumed by**: Admissions/applications, communications/announcements, finance/invoices, payroll/runs
 - **Blast radius**: HIGH. The approval callback dispatch system (Mode A) routes approved requests to domain-specific BullMQ queues. The `MODE_A_CALLBACKS` mapping connects approval types to queue/job pairs.
 - **Danger**: Adding a new approval type requires updating BOTH the callback map AND the corresponding worker processor. Missing either = approved items never execute.
@@ -129,18 +139,21 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 ### AuthService (AuthModule)
 
+- **Change cost**: MEDIUM -- recently decomposed into 5 sub-services + facade; 3-layer rate limiting and bootstrap RLS policies are fragile (DZ-38)
 - **Imports**: ConfigurationModule (EncryptionService for MFA TOTP secret encryption/decryption)
 - **Consumed by**: TenantsModule
 - **Blast radius**: LOW (only tenant provisioning uses it directly; auth flow is middleware-based)
 
 ### StaffProfilesService (StaffProfilesModule)
 
+- **Change cost**: HIGH -- 15+ modules read staff_profiles directly via Prisma; schema changes silently break payroll, scheduling, attendance, behaviour scope
 - **Consumed by**: Imported by its own controllers only, but staff data is READ by payroll, scheduling, attendance, classes via Prisma directly
 - **Blast radius**: MEDIUM. Schema changes to staff_profiles table affect payroll calculations, scheduling solver, attendance marking, class assignments.
 - **Danger**: Other modules query staff_profiles via Prisma, not through StaffProfilesService. A schema change won't cause import errors but WILL cause runtime query failures in payroll/scheduling/attendance.
 
 ### ClassesService + ClassEnrolmentsService (ClassesModule)
 
+- **Change cost**: HIGH -- 14+ modules read classes/class_enrolments directly via Prisma; circular dep with SchedulesModule via ModuleRef (DZ-07)
 - **Consumed by**: No direct importers, but class data is READ by gradebook, attendance, scheduling, finance, report cards
 - **Danger**: Same pattern as StaffProfiles — other modules query classes/class_enrolments via Prisma directly.
 
@@ -151,6 +164,7 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 ### NotificationsService + NotificationDispatchService (CommunicationsModule)
 
+- **Change cost**: MEDIUM -- WhatsApp dispatch hard-depends on consent; parent daily digest reads from 6+ modules via Prisma direct
 - **Consumed by**: AttendanceModule (parent notifications)
 - **Blast radius**: MEDIUM. Notification channel/template changes affect attendance alerts, GDPR legal/privacy fan-out notifications, and the parent daily digest.
 - **Danger**: WhatsApp dispatch now hard-depends on `consent_records` through `ConsentService`. Missing or withdrawn `whatsapp_channel` consent marks the original notification failed and creates an SMS fallback. CommunicationsModule imports GdprModule directly (no `forwardRef`) for ConsentService. GdprModule no longer imports CommunicationsModule — privacy notice publishes and sub-processor register updates write `notifications` records directly via Prisma and invalidate Redis unread-count caches.
@@ -166,13 +180,15 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 - **Consumed by**: No direct importers, but academic periods are READ by gradebook, report cards, scheduling, promotion
 - **Danger**: Period status transitions (planned -> active -> closed) trigger gradebook and report card auto-generation cron jobs in the worker.
 
-### PermissionCacheService (CommonModule — Global)
+### PermissionCacheService (CommonModule -- Global)
 
+- **Change cost**: CRITICAL -- cache invalidation bugs cause permission escalation or lockout across every protected endpoint (DZ-08)
 - **Consumed by**: PermissionGuard (every protected endpoint)
 - **Blast radius**: CRITICAL. Cache invalidation bugs = users can't access features. Cache poisoning = permission escalation.
 
-### AuditLogService + SecurityAuditService (AuditLogModule — Global)
+### AuditLogService + SecurityAuditService (AuditLogModule -- Global)
 
+- **Change cost**: HIGH -- global interceptor on every mutation endpoint; metadata shape changes affect all audit logging and security event visibility
 - **Consumed by**: Global `AuditLogInterceptor`, `AuthService`, `TenantsService`, `PermissionGuard`, safeguarding/behaviour attachment services
 - **Blast radius**: HIGH. Changes to audit metadata shape or service signatures affect mutation logging, sensitive read coverage, security event logging, and permission-denied visibility.
 - **Danger**: Sensitive read logging depends on the global interceptor plus `@SensitiveDataAccess()` metadata. Breaking either side silently reduces Phase G audit coverage.
@@ -216,6 +232,7 @@ ComplianceModule note: anonymisation/export flows now import `SearchModule` and 
 
 ### BehaviourModule
 
+- **Change cost**: VERY HIGH -- 7 sub-modules, 45+ services, 214 endpoints, 16 worker processors; changes cascade through appeal/sanction/exclusion chains (DZ-13/17/18). Verify sub-module placement for every change.
 - **Last verified**: 2026-03-30
 - **Exports** (28 services): `BehaviourService`, `BehaviourConfigService`, `BehaviourStudentsService`, `BehaviourTasksService`, `BehaviourHistoryService`, `BehaviourScopeService`, `BehaviourQuickLogService`, `BehaviourPointsService`, `BehaviourAwardService`, `BehaviourRecognitionService`, `BehaviourHouseService`, `BehaviourInterventionsService`, `BehaviourGuardianRestrictionsService`, `PolicyRulesService`, `PolicyEvaluationEngine`, `PolicyReplayService`, `SafeguardingService`, `SafeguardingAttachmentService`, `SafeguardingBreakGlassService`, `BehaviourSanctionsService`, `BehaviourAppealsService`, `BehaviourExclusionCasesService`, `BehaviourExportService`, `BehaviourAmendmentsService`, `BehaviourPulseService`, `BehaviourAnalyticsService`, `BehaviourAlertsService`, `BehaviourAIService`, `BehaviourDocumentService`, `BehaviourDocumentTemplateService`, `BehaviourParentService`, `BehaviourLegalHoldService`, `BehaviourAdminService`
 - **Controllers**: 17 controllers, 214 endpoints total:
@@ -367,6 +384,8 @@ Known Prisma-direct consumers:
 ---
 
 ## PastoralModule
+
+**Change cost**: HIGH -- 7 sub-modules, 30+ services, 14 controllers, 8 worker processors; circular dep with ChildProtectionModule via forwardRef (DZ-35). Verify sub-module placement for every change.
 
 **Location**: `apps/api/src/modules/pastoral/pastoral.module.ts`
 

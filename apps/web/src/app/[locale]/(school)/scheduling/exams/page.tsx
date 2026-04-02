@@ -1,3 +1,4 @@
+/* eslint-disable school/no-hand-rolled-forms -- legacy form, tracked for migration in HR-025 */
 'use client';
 
 import { BookOpen, Calendar, ChevronRight, Loader2, Plus, Sparkles, UserCheck } from 'lucide-react';

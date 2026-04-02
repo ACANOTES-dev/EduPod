@@ -10,3 +10,15 @@ export const BRUTE_FORCE_THRESHOLDS = [
 ] as const;
 
 export const BRUTE_FORCE_WINDOW_SECONDS = 3600; // 1 hour window
+
+/** IP-based login throttle: max failed attempts per IP before blocking */
+export const IP_LOGIN_THROTTLE_MAX_ATTEMPTS = 10;
+
+/** IP-based login throttle: window in seconds */
+export const IP_LOGIN_THROTTLE_WINDOW_SECONDS = 900; // 15 minutes
+
+/** Account lockout: consecutive failures before locking */
+export const ACCOUNT_LOCKOUT_THRESHOLD = 5;
+
+/** Account lockout: duration in minutes */
+export const ACCOUNT_LOCKOUT_DURATION_MINUTES = 15;

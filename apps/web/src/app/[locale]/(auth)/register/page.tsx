@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable school/no-hand-rolled-forms -- legacy form; migrate to react-hook-form when touched (HR-025) */
 
 import { Loader2, CheckCircle } from 'lucide-react';
 import { useSearchParams, usePathname } from 'next/navigation';
