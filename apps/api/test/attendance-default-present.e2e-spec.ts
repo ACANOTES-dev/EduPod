@@ -71,7 +71,7 @@ describe('Attendance Default Present (e2e)', () => {
     const res = await authPost(
       app,
       '/api/v1/attendance-sessions',
-      teacherToken,
+      adminToken,
       {
         class_id: td.classId,
         session_date: td.dateInYear(11, 3),
@@ -103,7 +103,7 @@ describe('Attendance Default Present (e2e)', () => {
     const res = await authPost(
       app,
       '/api/v1/attendance-sessions',
-      teacherToken,
+      adminToken,
       {
         class_id: td.classId,
         session_date: td.dateInYear(11, 7),
@@ -132,7 +132,7 @@ describe('Attendance Default Present (e2e)', () => {
     const sessRes = await authPost(
       app,
       '/api/v1/attendance-sessions',
-      teacherToken,
+      adminToken,
       {
         class_id: td.classId,
         session_date: td.dateInYear(11, 11),
@@ -181,7 +181,7 @@ describe('Attendance Default Present (e2e)', () => {
     const sessRes = await authPost(
       app,
       '/api/v1/attendance-sessions',
-      teacherToken,
+      adminToken,
       {
         class_id: td.classId,
         session_date: td.dateInYear(11, 15),
