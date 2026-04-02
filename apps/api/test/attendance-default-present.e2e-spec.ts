@@ -281,11 +281,11 @@ describe('Attendance Default Present (e2e)', () => {
   // ─── Test 6: Exceptions Upload ────────────────────────────────────────
 
   it('should update records via exceptions upload (POST /api/v1/attendance/exceptions-upload)', async () => {
-    // Create session with default present
+    // Create session with default present (use adminToken for reliability)
     await authPost(
       app,
       '/api/v1/attendance-sessions',
-      teacherToken,
+      adminToken,
       {
         class_id: td.classId,
         session_date: td.dateInYear(11, 19),
