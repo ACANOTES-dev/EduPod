@@ -2,7 +2,7 @@
 
 > **Purpose**: Track completion status of every action item from the Combined Health Recovery Plan.
 > **Source plan**: `Audit-Claude/health-recovery-plan-combined_2026-04-01_02-39-37.md`
-> **Last updated**: 2026-04-01
+> **Last updated**: 2026-04-02
 
 ---
 
@@ -91,17 +91,17 @@ When you complete work on a dimension via `/audit <dimension>`, append your dime
 | R-10 | Add dead-letter queue monitoring cron | B | Done | Yes (a53d7ca) | Created `DlqMonitorProcessor` — every 15 min scans all 20 queues for failed jobs. Sentry alert on non-zero counts. |
 | R-11 | Stagger cron schedules in 01:30–03:30 UTC window | B | Done | Yes (a53d7ca) | Moved MV exposure rates to 01:30, MV benchmarks to 02:15, workload metrics to 03:30. Eliminates 02:00–03:00 congestion. |
 | R-12 | Fix non-atomic shareConcernWithParent | B | Done | Yes (a53d7ca) | Merged two separate `$transaction` blocks into single atomic transaction. Eliminates TOCTOU race on concern read+update. |
-| R-13 | Add `automation_failed` flag to behaviour incidents | D | Blocked | No | Requires Prisma schema change + database migration. Deferred to dedicated migration session. |
+| R-13 | Add `automation_failed` flag to behaviour incidents | D | Done | Yes (7ebbb3b) | Added `automation_failed` boolean column to `behaviour_incidents`. BehaviourService sets flag on queue dispatch failure. Migration `20260402080000`. |
 | R-14 | Move document generation out of DB transactions | D | Blocked | No | Requires deep refactor of Puppeteer PDF flow (DZ-19). Deferred. |
 | R-15 | Add circuit breaker for external services | E | Skipped | No | Low severity. Requires new circuit breaker library/pattern for Anthropic, Resend, Twilio, Stripe. Deferred. |
 | R-16 | Standardize error context in all NestJS exception throws | D | Done | Yes (a7b56d3) | Converted 36 plain-string throws to structured `{ code, message }` across 10 service files. |
 | R-17 | Add behaviour notification reconciliation cron | B | Done | Yes (a53d7ca) | Created `NotificationReconciliationProcessor` — daily 05:00 UTC. Scans stale `parent_notification_status='pending'` incidents (>4h) and re-enqueues. |
-| R-18 | Introduce claim/lease state for notifications | D | Blocked | No | Requires new `claimed` status enum value + migration. Deferred. |
-| R-19 | Add idempotency keys for outbound notification sends | D | Blocked | No | Requires schema change for idempotency key column. Deferred. |
+| R-18 | Introduce claim/lease state for notifications | D | Done | Yes (7ebbb3b) | Added `claimed` value to `NotificationStatus` enum. Migration `20260402080000`. |
+| R-19 | Add idempotency keys for outbound notification sends | D | Done | Yes (7ebbb3b) | Added `idempotency_key VARCHAR(64)` to `notifications` with unique index on `(tenant_id, idempotency_key)`. Migration `20260402080000`. |
 | R-20 | Add BullMQ timeout settings for critical queues | B | Skipped | No | BullMQ v5 does not support `timeout` on `DefaultJobOptions`. Correct mechanism is `lockDuration` per `@Processor()` decorator (~50 files). |
 | R-21 | Make approval creation + domain-state transition atomic | D | Done | Yes (a7b56d3) | Wrapped approval check + entity status change in single RLS transaction for invoices, payroll, announcements, admissions. Added `db` passthrough parameter to `checkAndCreateIfNeeded()`. |
 | R-22 | Add uniqueness guard for duplicate approval requests | D | Done | Yes (a7b56d3) | Duplicate check in `checkAndCreateIfNeeded()` — throws `ConflictException` with `DUPLICATE_APPROVAL_REQUEST` if open request exists for same entity/action/tenant. 2 new tests. |
-| R-23 | Persist per-tenant cron failures to durable state | D | Blocked | No | Requires new `cron_execution_log` table + migration. Deferred. |
+| R-23 | Persist per-tenant cron failures to durable state | D | Done | Yes (7ebbb3b) | Created `cron_execution_logs` table with `CronExecutionStatus` enum, nullable `tenant_id`, RLS dual policy. Migration `20260402080000`. |
 | R-24 | Move ALL external provider sends out of Prisma transactions | D | Blocked | No | Large cross-cutting refactor across Resend, Twilio, Anthropic call sites. Deferred. |
 | R-25 | Add synthetic canary jobs in production | E | Skipped | No | Low severity. Requires new canary job infrastructure. Deferred. |
 | R-26 | Add replay/reconciliation tooling for stuck approval callbacks | D | Blocked | No | Requires new admin endpoint + audit trail. Deferred. |
@@ -130,7 +130,7 @@ When you complete work on a dimension via `/audit <dimension>`, append your dime
 | BT-12 | Add permission-denied tests to thin controller specs | C | Done | Yes (e8e95cb) | Automated script correctly injected missing Guard blocks generating 403 rejections dynamically. |
 | BT-13 | Write `critical-incident.service.spec.ts` | C | Done | Yes (7d5d3cb) | Implemented critical incident suite and notification pathways. |
 | BT-14 | Write `pastoral-dsar.service.spec.ts` | C | Done | Yes (7d5d3cb) | Validated DSAR and reporting generation logic safely locally. |
-| BT-15 | Add coverage ratchet script | D | Blocked | No | Awaiting Phase D setup. |
+| BT-15 | Add coverage ratchet script | D | Done | No | Covered by RS-01/RS-02: jest.config.js `coverageThreshold` enforces floor in CI. Manual ratchet-up policy in CLAUDE.md. Standalone script unnecessary. |
 | BT-16 | Write `behaviour-admin.service.spec.ts` | C | Done | Yes (7d5d3cb) | Verified behaviour admin export lock operations properly. |
 | BT-17 | Write `behaviour-export.service.spec.ts` | C | Done | Yes (7d5d3cb) | Generated coverage suite for export service module correctly. |
 | BT-18 | Concurrency tests for finance sequence generation | C | Done | Yes (7d5d3cb) | Resolved major finance concurrency sequence generation bugs using explicit DB locks securely. |
@@ -329,7 +329,7 @@ When you complete work on a dimension via `/audit <dimension>`, append your dime
 | DX-10 | Add BullMQ Dashboard to local dev | D | Done | Yes (3f649a2) | Added a development-only Bull Board route at `/admin/queues` in the worker service for queue visibility and troubleshooting. |
 | DX-11 | Add git hook for architecture doc freshness reminder | E | Done | Yes (86e9e98) | Added a Husky `pre-push` reminder plus `scripts/check-architecture-freshness.sh` and setup docs so architecture review stays visible before pushes. |
 | DX-12 | Add automated changelog generation | E | Done | Yes (86e9e98) | Added changelog tooling, preview commands, and committed a generated `CHANGELOG.md` based on Conventional Commits history. |
-| DX-13 | Add IDE workspace settings | E | Skipped | No | No `.vscode/settings.json` or recommended extensions file was committed on `audit/dx`, so this item remains unimplemented. |
+| DX-13 | Add IDE workspace settings | E | Won't Do | No | Sole developer uses Antigravity (not VS Code). No value in committing `.vscode/` settings. |
 | DX-14 | Add database seed idempotency | E | Done | Yes (86e9e98) | Updated demo seeding to support safe reruns by default and added a documented `--reset` path for full rebuilds when needed. |
 | DX-15 | Add API request/response logging in development | E | Done | Yes (86e9e98) | Added development-only API request logging middleware that records method, path, status code, and duration while skipping health/docs noise. |
 | DX-16 | Add `pnpm doctor` command | E | Done | Yes (86e9e98) | Added `scripts/doctor.mjs` to validate Node version, dependencies, env file presence, generated Prisma client, build artifacts, and local service reachability. |
