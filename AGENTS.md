@@ -9,6 +9,7 @@ Multi-tenant school management SaaS. Single PostgreSQL database, shared schema, 
 As of **2026-03-29**, the monorepo consists of **~721k tracked lines** across **2,588 tracked files** (excluding dependencies, builds, and config caches).
 
 **Top 7 Language Breakdown:**
+
 - **TypeScript (incl. TSX):** 516,387 lines
 - **Markdown:** 141,611 lines
 - **YAML:** 17,017 lines
@@ -18,6 +19,7 @@ As of **2026-03-29**, the monorepo consists of **~721k tracked lines** across **
 - **Prisma Schema:** 8,025 lines
 
 **Test Suite Scale:**
+
 - **Test File Count:** 569 test files (`.spec.ts`, `.test.ts`, `.e2e-spec.ts`)
 - **Cumulative Test Lines:** 174,698 lines of test code
 - **Explicit Test Declarations:** 5,945 tracked `it()` / `test()` calls across repo test files
@@ -125,6 +127,7 @@ Current work is iterative: refining existing functionality, adding enhancements 
    - **Test in production** — local-only results are not sufficient. The work is not done until it is verified on production.
 
 ## Do Not Ask for Approval During Execution For
+
 - Applying edits, fixing bugs, retrying after failures
 - Refactoring within scope, file restructuring within scope
 - Implementation-level decisions
@@ -132,6 +135,7 @@ Current work is iterative: refining existing functionality, adding enhancements 
 - SSHing into the server (if permission was granted for this task)
 
 ## Stop and Ask If
+
 - The change requires scope beyond what was requested
 - Architecture changes or major unplanned functionality
 - A blocker forces a materially different approach
@@ -223,9 +227,11 @@ Every `catch` block must do one of two things:
 **Empty `catch {}` blocks are prohibited.** Swallowing errors silently hides production bugs.
 
 Backend errors always use the structured `{ code, message }` pattern with NestJS built-in exception classes:
+
 ```
 throw new NotFoundException({ code: 'STUDENT_NOT_FOUND', message: `Student with id "${id}" not found` });
 ```
+
 Error codes are `UPPER_SNAKE_CASE`. Messages are human-readable with context.
 
 ---
@@ -234,17 +240,17 @@ Error codes are `UPPER_SNAKE_CASE`. Messages are human-readable with context.
 
 ### Naming
 
-| Entity | Convention | Example |
-|---|---|---|
-| Files | `kebab-case.suffix.ts` | `students.service.ts`, `zod-validation.pipe.ts` |
-| File suffixes | `.service.ts`, `.controller.ts`, `.module.ts`, `.spec.ts`, `.pipe.ts`, `.guard.ts`, `.processor.ts` | — |
-| Classes | `PascalCase` matching filename | `StudentsService`, `AuthGuard` |
-| Interfaces / Types | `PascalCase`, no `I` prefix | `StudentRow`, `ListStudentsQuery` |
-| Variables / params | `camelCase` in JS, `snake_case` for DB columns and API fields | `tenantId` (JS), `tenant_id` (DB/API) |
-| Constants | `UPPER_SNAKE_CASE` | `QUEUE_NAMES`, `SYSTEM_USER_SENTINEL` |
-| Zod schemas | `camelCase` + `Schema` suffix | `createStudentSchema`, `paginationQuerySchema` |
-| DTO types | `PascalCase` + `Dto` suffix, via `z.infer<>` | `CreateStudentDto` |
-| API routes | `/v1/{resource}` kebab-case, plural | `/v1/students`, `/v1/fee-structures` |
+| Entity             | Convention                                                                                          | Example                                         |
+| ------------------ | --------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Files              | `kebab-case.suffix.ts`                                                                              | `students.service.ts`, `zod-validation.pipe.ts` |
+| File suffixes      | `.service.ts`, `.controller.ts`, `.module.ts`, `.spec.ts`, `.pipe.ts`, `.guard.ts`, `.processor.ts` | —                                               |
+| Classes            | `PascalCase` matching filename                                                                      | `StudentsService`, `AuthGuard`                  |
+| Interfaces / Types | `PascalCase`, no `I` prefix                                                                         | `StudentRow`, `ListStudentsQuery`               |
+| Variables / params | `camelCase` in JS, `snake_case` for DB columns and API fields                                       | `tenantId` (JS), `tenant_id` (DB/API)           |
+| Constants          | `UPPER_SNAKE_CASE`                                                                                  | `QUEUE_NAMES`, `SYSTEM_USER_SENTINEL`           |
+| Zod schemas        | `camelCase` + `Schema` suffix                                                                       | `createStudentSchema`, `paginationQuerySchema`  |
+| DTO types          | `PascalCase` + `Dto` suffix, via `z.infer<>`                                                        | `CreateStudentDto`                              |
+| API routes         | `/v1/{resource}` kebab-case, plural                                                                 | `/v1/students`, `/v1/fee-structures`            |
 
 ### Import Ordering
 
@@ -259,6 +265,7 @@ Use `import type` for type-only imports. Destructured, alphabetically ordered.
 ### Section Separators
 
 Use visual dividers for logical code sections:
+
 ```
 // ─── Status transition map ────────────────────────────────────────────────────
 ```
@@ -295,12 +302,14 @@ Reserve for non-obvious behavior — describe what the method does and key side-
 ### Forms — Hard Rule
 
 New forms **must** use `react-hook-form` with `zodResolver` and the corresponding Zod schema from `@school/shared`:
+
 ```
 const form = useForm<CreateStudentDto>({
   resolver: zodResolver(createStudentSchema),
   defaultValues: { ... },
 });
 ```
+
 Individual `useState` per form field is not acceptable for new forms. Existing hand-rolled forms may be migrated as they are touched.
 
 ### Styling
@@ -315,6 +324,7 @@ Individual `useState` per form field is not acceptable for new forms. Existing h
 ### Module Structure
 
 Each feature module lives in `apps/api/src/modules/{module-name}/`:
+
 ```
 modules/students/
 ├── dto/                          # Thin re-exports from @school/shared
@@ -324,12 +334,14 @@ modules/students/
 ├── students.service.spec.ts
 └── students.module.ts
 ```
+
 - **Flat structure** — no nested `services/` or `controllers/` directories
 - Larger modules (finance, payroll) split into sub-services by concern, differentiated by filename prefix
 
 ### DTO Pattern
 
 DTOs are thin re-exports from `@school/shared`. Zod schema is the single source of truth:
+
 ```
 // dto/create-student.dto.ts
 import { createStudentSchema } from '@school/shared';
@@ -337,6 +349,7 @@ import type { CreateStudentDto } from '@school/shared';
 export { createStudentSchema };
 export type { CreateStudentDto };
 ```
+
 - Schema naming: `{action}{Entity}Schema`
 - Update schemas: `.optional()` on all fields, `.nullable().optional()` for clearable fields
 - Cross-field validation: `.refine()` with `path` pointing to dependent field
@@ -376,6 +389,7 @@ Prefixes: `add_`, `fix_`, `upgrade_`. Suffixes: `_tables`, `_indexes`, `_fields`
 ### RLS Policy for New Tables
 
 Every new tenant-scoped table needs this boilerplate (from `packages/prisma/rls/policies.sql`):
+
 ```sql
 ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY;
 ALTER TABLE {table_name} FORCE ROW LEVEL SECURITY;
@@ -385,6 +399,7 @@ CREATE POLICY {table_name}_tenant_isolation ON {table_name}
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
 ```
+
 - Policy naming: `{table_name}_tenant_isolation` — always
 - Nullable `tenant_id` tables: add `tenant_id IS NULL OR` to both clauses
 - Policies go in `post_migrate.sql` alongside their migration
@@ -413,6 +428,7 @@ Format: `module:action-description` — colon separator, kebab-case action. Expo
 ### Cron Registration
 
 All in `CronSchedulerService` via `OnModuleInit`:
+
 - jobId format: `cron:${JOB_CONSTANT}` for BullMQ deduplication
 - Retention: `removeOnComplete: 10`, `removeOnFail: 50`
 - Cross-tenant crons: empty `{}` payload, processor iterates all tenants
@@ -444,3 +460,58 @@ Receipt numbers, invoice numbers, application numbers, payslip numbers all use t
 ## Permanent Constraints
 
 - No multi-currency — single currency per tenant, always
+
+---
+
+## Regression Prevention Rules
+
+These rules exist because each one caused real CI failures. Follow them exactly.
+
+### Module Registration — Verify DI Before Pushing
+
+When you add a dependency to a service constructor (`@Inject`, `@InjectQueue`, or any new parameter), you MUST verify the providing module is imported in the consumer module's `imports` array.
+
+When you create a new service and add it to a module's `providers`, decide immediately whether it needs to be in `exports` too — will any other module need it?
+
+Before pushing any change that touches module `imports`/`exports`/`providers`, run this local verification:
+
+```bash
+cd apps/api && DATABASE_URL=postgresql://x:x@localhost:5432/x \
+REDIS_URL=redis://localhost:6379 \
+JWT_SECRET=fakefakefakefakefakefakefakefake \
+JWT_REFRESH_SECRET=fakefakefakefakefakefakefakefake \
+ENCRYPTION_KEY=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+MFA_ISSUER=test PLATFORM_DOMAIN=test.local APP_URL=http://localhost:3000 \
+npx ts-node -e "
+import { Test } from '@nestjs/testing';
+import { AppModule } from './src/app.module';
+Test.createTestingModule({ imports: [AppModule] }).compile()
+  .then(() => { console.log('DI OK'); process.exit(0); })
+  .catch(e => { console.error(e.message); process.exit(1); });
+"
+```
+
+This catches DI failures in seconds instead of waiting for CI.
+
+### Zod Schema Changes — Update Test Payloads
+
+When you modify a Zod schema in `packages/shared/` (add required field, remove optional, tighten validation), you MUST grep for all e2e tests that send data to affected endpoints and update their payloads:
+
+```bash
+grep -r "POST.*v1/affected-endpoint" apps/api/test/
+```
+
+The e2e tests in `apps/api/test/` send real HTTP requests — if the schema changes, the test payloads must change too.
+
+### CI Environment — Two Integration Contexts
+
+The CI pipeline runs integration/e2e tests in TWO places:
+
+- The `ci` job: Postgres on **5432**, Redis on **6379**, DB name `edupod_test`
+- The `integration` job: Postgres on **5553**, Redis on **5554**, DB name `school_platform`
+
+`apps/api/test/setup-env.ts` uses `??=` (nullish assignment) so CI env vars take precedence. If you add a new env var the app needs, add it to BOTH jobs in `.github/workflows/ci.yml`. Never use plain `=` assignment in `setup-env.ts`.
+
+### Coverage — Ratchet, Never Lower
+
+Coverage thresholds in `jest.config.js` are a floor, not a target. When coverage improves, ratchet the threshold UP to the new baseline minus 2%. Never lower a threshold to make CI pass — find and fix the missing tests instead.

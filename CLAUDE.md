@@ -380,3 +380,58 @@ Receipt numbers, invoice numbers, application numbers, payslip numbers all use t
 ## Permanent Constraints
 
 - No multi-currency — single currency per tenant, always
+
+---
+
+## Regression Prevention Rules
+
+These rules exist because each one caused real CI failures. Follow them exactly.
+
+### Module Registration — Verify DI Before Pushing
+
+When you add a dependency to a service constructor (`@Inject`, `@InjectQueue`, or any new parameter), you MUST verify the providing module is imported in the consumer module's `imports` array.
+
+When you create a new service and add it to a module's `providers`, decide immediately whether it needs to be in `exports` too — will any other module need it?
+
+Before pushing any change that touches module `imports`/`exports`/`providers`, run this local verification:
+
+```bash
+cd apps/api && DATABASE_URL=postgresql://x:x@localhost:5432/x \
+REDIS_URL=redis://localhost:6379 \
+JWT_SECRET=fakefakefakefakefakefakefakefake \
+JWT_REFRESH_SECRET=fakefakefakefakefakefakefakefake \
+ENCRYPTION_KEY=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+MFA_ISSUER=test PLATFORM_DOMAIN=test.local APP_URL=http://localhost:3000 \
+npx ts-node -e "
+import { Test } from '@nestjs/testing';
+import { AppModule } from './src/app.module';
+Test.createTestingModule({ imports: [AppModule] }).compile()
+  .then(() => { console.log('DI OK'); process.exit(0); })
+  .catch(e => { console.error(e.message); process.exit(1); });
+"
+```
+
+This catches DI failures in seconds instead of waiting for CI.
+
+### Zod Schema Changes — Update Test Payloads
+
+When you modify a Zod schema in `packages/shared/` (add required field, remove optional, tighten validation), you MUST grep for all e2e tests that send data to affected endpoints and update their payloads:
+
+```bash
+grep -r "POST.*v1/affected-endpoint" apps/api/test/
+```
+
+The e2e tests in `apps/api/test/` send real HTTP requests — if the schema changes, the test payloads must change too.
+
+### CI Environment — Two Integration Contexts
+
+The CI pipeline runs integration/e2e tests in TWO places:
+
+- The `ci` job: Postgres on **5432**, Redis on **6379**, DB name `edupod_test`
+- The `integration` job: Postgres on **5553**, Redis on **5554**, DB name `school_platform`
+
+`apps/api/test/setup-env.ts` uses `??=` (nullish assignment) so CI env vars take precedence. If you add a new env var the app needs, add it to BOTH jobs in `.github/workflows/ci.yml`. Never use plain `=` assignment in `setup-env.ts`.
+
+### Coverage — Ratchet, Never Lower
+
+Coverage thresholds in `jest.config.js` are a floor, not a target. When coverage improves, ratchet the threshold UP to the new baseline minus 2%. Never lower a threshold to make CI pass — find and fix the missing tests instead.
