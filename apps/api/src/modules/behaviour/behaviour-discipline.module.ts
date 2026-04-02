@@ -52,6 +52,6 @@ import { BehaviourSanctionsService } from './behaviour-sanctions.service';
     BehaviourGuardianRestrictionsService,
     BehaviourInterventionsService,
   ],
-  exports: [BehaviourSanctionsService, BehaviourAppealsService],
+  exports: [BehaviourLegalHoldService, BehaviourSanctionsService, BehaviourAppealsService],
 })
 export class BehaviourDisciplineModule {}

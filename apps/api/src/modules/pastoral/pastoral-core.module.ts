@@ -8,6 +8,7 @@ import { ConcernsController } from './controllers/concerns.controller';
 import { PastoralDsarController } from './controllers/pastoral-dsar.controller';
 import { AuthorMaskingInterceptor } from './interceptors/author-masking.interceptor';
 import { AffectedTrackingService } from './services/affected-tracking.service';
+import { ConcernQueriesService } from './services/concern-queries.service';
 import { ConcernVersionService } from './services/concern-version.service';
 import { ConcernService } from './services/concern.service';
 import { PastoralDsarService } from './services/pastoral-dsar.service';
@@ -30,6 +31,7 @@ import { StudentChronologyService } from './services/student-chronology.service'
   providers: [
     AffectedTrackingService,
     AuthorMaskingInterceptor,
+    ConcernQueriesService,
     ConcernService,
     ConcernVersionService,
     PastoralDsarService,
@@ -39,6 +41,7 @@ import { StudentChronologyService } from './services/student-chronology.service'
   ],
   exports: [
     AffectedTrackingService,
+    ConcernQueriesService,
     ConcernService,
     ConcernVersionService,
     PastoralDsarService,

@@ -42,6 +42,7 @@ import { BehaviourService } from './behaviour.service';
     BehaviourSideEffectsService,
   ],
   exports: [
+    BehaviourDocumentTemplateService,
     BehaviourService,
     BehaviourHistoryService,
     BehaviourScopeService,

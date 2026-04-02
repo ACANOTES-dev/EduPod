@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
+import { PolicyEngineModule } from '../policy-engine/policy-engine.module';
 
 import { BehaviourAdminController } from './behaviour-admin.controller';
 import { BehaviourAdminService } from './behaviour-admin.service';
@@ -20,6 +21,7 @@ import { BehaviourStudentsService } from './behaviour-students.service';
     PdfRenderingModule,
     BehaviourCoreModule,
     BehaviourDisciplineModule,
+    PolicyEngineModule,
     BullModule.registerQueue({ name: 'behaviour' }),
     BullModule.registerQueue({ name: 'notifications' }),
     BullModule.registerQueue({ name: 'search-sync' }),

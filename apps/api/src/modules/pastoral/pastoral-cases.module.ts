@@ -9,6 +9,7 @@ import { InterventionsController } from './controllers/interventions.controller'
 import { ParentContactsController } from './controllers/parent-contacts.controller';
 import { ReferralsController } from './controllers/referrals.controller';
 import { PastoralCoreModule } from './pastoral-core.module';
+import { CaseQueriesService } from './services/case-queries.service';
 import { CaseService } from './services/case.service';
 import { InterventionActionService } from './services/intervention-action.service';
 import { InterventionService } from './services/intervention.service';
@@ -35,6 +36,7 @@ import { ReferralService } from './services/referral.service';
     ReferralsController,
   ],
   providers: [
+    CaseQueriesService,
     CaseService,
     InterventionActionService,
     InterventionService,
