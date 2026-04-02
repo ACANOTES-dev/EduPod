@@ -18,6 +18,7 @@ const _STUDENT_B_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 const USER_A_ID = '11111111-1111-1111-1111-111111111111';
 const USER_B_ID = '22222222-2222-2222-2222-222222222222';
 const ACADEMIC_YEAR_ID = '33333333-3333-3333-3333-333333333333';
+const HOUSEHOLD_A_ID = '44444444-4444-4444-4444-444444444444';
 
 describe('Homework RLS Integration Tests', () => {
   let module: TestingModule;
@@ -30,28 +31,147 @@ describe('Homework RLS Integration Tests', () => {
 
     prisma = module.get(PrismaService);
     await cleanupTestData();
+    await seedPrerequisites();
   });
 
   afterAll(async () => {
     await cleanupTestData();
+    await cleanupPrerequisites();
     await module.close();
   });
 
+  async function seedPrerequisites() {
+    // Tenants
+    for (const t of [
+      { id: TENANT_A_ID, name: 'RLS Tenant A', slug: 'rls-hw-a' },
+      { id: TENANT_B_ID, name: 'RLS Tenant B', slug: 'rls-hw-b' },
+    ]) {
+      await prisma.tenant.upsert({
+        where: { id: t.id },
+        update: {},
+        create: {
+          id: t.id,
+          name: t.name,
+          slug: t.slug,
+          default_locale: 'en',
+          timezone: 'UTC',
+          date_format: 'YYYY-MM-DD',
+          currency_code: 'USD',
+          academic_year_start_month: 9,
+          status: 'active',
+        },
+      });
+    }
+
+    // Users
+    for (const u of [
+      { id: USER_A_ID, email: 'rls-hw-user-a@test.local' },
+      { id: USER_B_ID, email: 'rls-hw-user-b@test.local' },
+    ]) {
+      await prisma.user.upsert({
+        where: { id: u.id },
+        update: {},
+        create: {
+          id: u.id,
+          email: u.email,
+          password_hash: '$2a$10$placeholder',
+          first_name: 'RLS',
+          last_name: 'User',
+          global_status: 'active',
+        },
+      });
+    }
+
+    // Academic year (shared — referenced by both tenants, owned by tenant A for simplicity)
+    await prisma.academicYear.upsert({
+      where: { id: ACADEMIC_YEAR_ID },
+      update: {},
+      create: {
+        id: ACADEMIC_YEAR_ID,
+        tenant_id: TENANT_A_ID,
+        name: 'RLS Test Year',
+        start_date: new Date('2025-09-01'),
+        end_date: new Date('2026-06-30'),
+        status: 'active',
+      },
+    });
+
+    // Classes
+    for (const c of [
+      { id: CLASS_A_ID, tenant_id: TENANT_A_ID, name: 'RLS Class A' },
+      { id: CLASS_B_ID, tenant_id: TENANT_B_ID, name: 'RLS Class B' },
+    ]) {
+      await prisma.class.upsert({
+        where: { id: c.id },
+        update: {},
+        create: {
+          id: c.id,
+          tenant_id: c.tenant_id,
+          academic_year_id: ACADEMIC_YEAR_ID,
+          name: c.name,
+          status: 'active',
+        },
+      });
+    }
+
+    // Household + student (for completion/diary tests)
+    await prisma.household.upsert({
+      where: { id: HOUSEHOLD_A_ID },
+      update: {},
+      create: { id: HOUSEHOLD_A_ID, tenant_id: TENANT_A_ID, household_name: 'RLS HW Household' },
+    });
+
+    await prisma.student.upsert({
+      where: { id: STUDENT_A_ID },
+      update: {},
+      create: {
+        id: STUDENT_A_ID,
+        tenant_id: TENANT_A_ID,
+        household_id: HOUSEHOLD_A_ID,
+        first_name: 'RLS',
+        last_name: 'Student',
+        date_of_birth: new Date('2012-01-01'),
+        status: 'active',
+      },
+    });
+  }
+
   async function cleanupTestData() {
-    await prisma.$executeRaw`DELETE FROM diary_parent_notes WHERE tenant_id IN (${TENANT_A_ID}, ${TENANT_B_ID})`;
-    await prisma.$executeRaw`DELETE FROM diary_notes WHERE tenant_id IN (${TENANT_A_ID}, ${TENANT_B_ID})`;
-    await prisma.$executeRaw`DELETE FROM homework_completions WHERE tenant_id IN (${TENANT_A_ID}, ${TENANT_B_ID})`;
-    await prisma.$executeRaw`DELETE FROM homework_attachments WHERE tenant_id IN (${TENANT_A_ID}, ${TENANT_B_ID})`;
-    await prisma.$executeRaw`DELETE FROM homework_assignments WHERE tenant_id IN (${TENANT_A_ID}, ${TENANT_B_ID})`;
-    await prisma.$executeRaw`DELETE FROM homework_recurrence_rules WHERE tenant_id IN (${TENANT_A_ID}, ${TENANT_B_ID})`;
+    const tenantIds = `'${TENANT_A_ID}','${TENANT_B_ID}'`;
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM diary_parent_notes WHERE tenant_id IN (${tenantIds})`,
+    );
+    await prisma.$executeRawUnsafe(`DELETE FROM diary_notes WHERE tenant_id IN (${tenantIds})`);
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM homework_completions WHERE tenant_id IN (${tenantIds})`,
+    );
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM homework_attachments WHERE tenant_id IN (${tenantIds})`,
+    );
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM homework_assignments WHERE tenant_id IN (${tenantIds})`,
+    );
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM homework_recurrence_rules WHERE tenant_id IN (${tenantIds})`,
+    );
+  }
+
+  async function cleanupPrerequisites() {
+    const tenantIds = `'${TENANT_A_ID}','${TENANT_B_ID}'`;
+    await prisma.$executeRawUnsafe(`DELETE FROM students WHERE tenant_id IN (${tenantIds})`);
+    await prisma.$executeRawUnsafe(`DELETE FROM households WHERE tenant_id IN (${tenantIds})`);
+    await prisma.$executeRawUnsafe(`DELETE FROM classes WHERE tenant_id IN (${tenantIds})`);
+    await prisma.$executeRawUnsafe(`DELETE FROM academic_years WHERE tenant_id IN (${tenantIds})`);
+    await prisma.$executeRawUnsafe(`DELETE FROM users WHERE id IN ('${USER_A_ID}','${USER_B_ID}')`);
+    await prisma.$executeRawUnsafe(`DELETE FROM tenants WHERE id IN (${tenantIds})`);
   }
 
   async function withTenantContext(tenantId: string, fn: () => Promise<void>) {
-    await prisma.$executeRaw`SET LOCAL app.current_tenant_id = ${tenantId}`;
+    await prisma.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = '${tenantId}'`);
     try {
       await fn();
     } finally {
-      await prisma.$executeRaw`SET LOCAL app.current_tenant_id = ''`;
+      await prisma.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = ''`);
     }
   }
 

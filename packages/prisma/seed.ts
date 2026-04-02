@@ -1,3 +1,4 @@
+/* eslint-disable no-console -- seed script uses console for progress reporting */
 import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
 import { Client } from 'pg';
@@ -447,6 +448,27 @@ async function main() {
               membership_id: membership.id,
               role_id: role.id,
               tenant_id: tenantId,
+            },
+          });
+        }
+      }
+
+      // Create Parent record for parent-role users (needed by parent_inquiries module)
+      if (u.role_key === 'parent') {
+        const existingParent = await prisma.parent.findFirst({
+          where: { tenant_id: tenantId, user_id: user.id },
+        });
+        if (!existingParent) {
+          await prisma.parent.create({
+            data: {
+              tenant_id: tenantId,
+              user_id: user.id,
+              first_name: u.first_name,
+              last_name: u.last_name,
+              email: u.email,
+              phone: u.phone ?? null,
+              preferred_contact_channels: ['email'],
+              is_primary_contact: true,
             },
           });
         }

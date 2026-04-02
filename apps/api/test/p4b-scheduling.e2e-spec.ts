@@ -45,15 +45,21 @@ describe('P4B Scheduling (e2e)', () => {
     let createdPeriodId: string;
 
     it('POST /api/v1/period-grid -> 201 (happy path)', async () => {
-      const res = await authPost(app, '/api/v1/period-grid', adminToken, {
-        academic_year_id: td.academicYearId,
-        weekday: 1,
-        period_name: `Test Period ${Date.now()}`,
-        period_order: 0,
-        start_time: '08:00',
-        end_time: '08:45',
-        schedule_period_type: 'teaching',
-      }, AL_NOOR_DOMAIN).expect(201);
+      const res = await authPost(
+        app,
+        '/api/v1/period-grid',
+        adminToken,
+        {
+          academic_year_id: td.academicYearId,
+          weekday: 1,
+          period_name: `Test Period ${Date.now()}`,
+          period_order: 0,
+          start_time: '08:00',
+          end_time: '08:45',
+          schedule_period_type: 'teaching',
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
       expect(res.body.data.id).toBeDefined();
       expect(res.body.data.weekday).toBe(1);
@@ -63,50 +69,74 @@ describe('P4B Scheduling (e2e)', () => {
     });
 
     it('POST /api/v1/period-grid -> 400 (missing academic_year_id)', async () => {
-      const res = await authPost(app, '/api/v1/period-grid', adminToken, {
-        weekday: 1,
-        period_name: 'Bad Period',
-        period_order: 10,
-        start_time: '12:00',
-        end_time: '12:45',
-      }, AL_NOOR_DOMAIN).expect(400);
+      const res = await authPost(
+        app,
+        '/api/v1/period-grid',
+        adminToken,
+        {
+          weekday: 1,
+          period_name: 'Bad Period',
+          period_order: 10,
+          start_time: '12:00',
+          end_time: '12:45',
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(400);
 
       expect(res.body.error).toBeDefined();
     });
 
     it('POST /api/v1/period-grid -> 400 (end_time <= start_time)', async () => {
-      const res = await authPost(app, '/api/v1/period-grid', adminToken, {
-        academic_year_id: td.academicYearId,
-        weekday: 2,
-        period_name: 'Backwards Period',
-        period_order: 0,
-        start_time: '10:00',
-        end_time: '09:00',
-      }, AL_NOOR_DOMAIN).expect(400);
+      const res = await authPost(
+        app,
+        '/api/v1/period-grid',
+        adminToken,
+        {
+          academic_year_id: td.academicYearId,
+          weekday: 2,
+          period_name: 'Backwards Period',
+          period_order: 0,
+          start_time: '10:00',
+          end_time: '09:00',
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(400);
 
       expect(res.body.error.code).toBe('INVALID_TIME_RANGE');
     });
 
     it('POST /api/v1/period-grid -> 409 (duplicate period_order for same weekday)', async () => {
       // First, create a period for weekday 3
-      await authPost(app, '/api/v1/period-grid', adminToken, {
-        academic_year_id: td.academicYearId,
-        weekday: 3,
-        period_name: 'Original Period',
-        period_order: 0,
-        start_time: '08:00',
-        end_time: '08:45',
-      }, AL_NOOR_DOMAIN).expect(201);
+      await authPost(
+        app,
+        '/api/v1/period-grid',
+        adminToken,
+        {
+          academic_year_id: td.academicYearId,
+          weekday: 3,
+          period_name: 'Original Period',
+          period_order: 0,
+          start_time: '08:00',
+          end_time: '08:45',
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
       // Now try to create another with same weekday+period_order
-      const res = await authPost(app, '/api/v1/period-grid', adminToken, {
-        academic_year_id: td.academicYearId,
-        weekday: 3,
-        period_name: 'Duplicate Period',
-        period_order: 0,
-        start_time: '09:00',
-        end_time: '09:45',
-      }, AL_NOOR_DOMAIN).expect(409);
+      const res = await authPost(
+        app,
+        '/api/v1/period-grid',
+        adminToken,
+        {
+          academic_year_id: td.academicYearId,
+          weekday: 3,
+          period_name: 'Duplicate Period',
+          period_order: 0,
+          start_time: '09:00',
+          end_time: '09:45',
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(409);
 
       expect(res.body.error.code).toBe('PERIOD_TEMPLATE_CONFLICT');
     });
@@ -124,12 +154,7 @@ describe('P4B Scheduling (e2e)', () => {
     });
 
     it('GET /api/v1/period-grid -> 400 (missing academic_year_id)', async () => {
-      await authGet(
-        app,
-        '/api/v1/period-grid',
-        adminToken,
-        AL_NOOR_DOMAIN,
-      ).expect(400);
+      await authGet(app, '/api/v1/period-grid', adminToken, AL_NOOR_DOMAIN).expect(400);
     });
 
     it('PATCH /api/v1/period-grid/:id -> 200 (update name)', async () => {
@@ -158,42 +183,48 @@ describe('P4B Scheduling (e2e)', () => {
 
     it('DELETE /api/v1/period-grid/:id -> 204', async () => {
       // Create a period to delete
-      const createRes = await authPost(app, '/api/v1/period-grid', adminToken, {
-        academic_year_id: td.academicYearId,
-        weekday: 4,
-        period_name: `Deletable Period ${Date.now()}`,
-        period_order: 0,
-        start_time: '13:00',
-        end_time: '13:45',
-      }, AL_NOOR_DOMAIN).expect(201);
+      const createRes = await authPost(
+        app,
+        '/api/v1/period-grid',
+        adminToken,
+        {
+          academic_year_id: td.academicYearId,
+          weekday: 4,
+          period_name: `Deletable Period ${Date.now()}`,
+          period_order: 0,
+          start_time: '13:00',
+          end_time: '13:45',
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
       const deleteId = createRes.body.data.id;
 
-      await authDelete(
-        app,
-        `/api/v1/period-grid/${deleteId}`,
-        adminToken,
-        AL_NOOR_DOMAIN,
-      ).expect(204);
+      await authDelete(app, `/api/v1/period-grid/${deleteId}`, adminToken, AL_NOOR_DOMAIN).expect(
+        204,
+      );
     });
 
     it('DELETE /api/v1/period-grid/:nonexistent -> 404', async () => {
       const fakeId = '00000000-0000-0000-0000-000000000000';
-      await authDelete(
-        app,
-        `/api/v1/period-grid/${fakeId}`,
-        adminToken,
-        AL_NOOR_DOMAIN,
-      ).expect(404);
+      await authDelete(app, `/api/v1/period-grid/${fakeId}`, adminToken, AL_NOOR_DOMAIN).expect(
+        404,
+      );
     });
 
     it('POST /api/v1/period-grid/copy-day -> 200 (copy Sun to Mon,Tue)', async () => {
       // Weekday 0 (Sunday) was populated in setupP4BTestData with 4 periods.
       // Copy to weekday 5 and weekday 6 to avoid collisions.
-      const res = await authPost(app, '/api/v1/period-grid/copy-day', adminToken, {
-        academic_year_id: td.academicYearId,
-        source_weekday: 0,
-        target_weekdays: [5, 6],
-      }, AL_NOOR_DOMAIN).expect(200);
+      const res = await authPost(
+        app,
+        '/api/v1/period-grid/copy-day',
+        adminToken,
+        {
+          academic_year_id: td.academicYearId,
+          source_weekday: 0,
+          target_weekdays: [5, 6],
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(200);
 
       expect(res.body.data.created).toBeDefined();
       expect(res.body.data.created.length).toBeGreaterThan(0);
@@ -202,20 +233,32 @@ describe('P4B Scheduling (e2e)', () => {
     it('POST /api/v1/period-grid/copy-day -> 404 (source day empty)', async () => {
       const freshTs = Date.now();
       const freshBaseYear = 3000 + Math.floor(Math.random() * 5000);
-      const freshAyRes = await authPost(app, '/api/v1/academic-years', adminToken, {
-        name: `Empty Day Test Year ${freshTs}`,
-        start_date: `${freshBaseYear}-09-01`,
-        end_date: `${freshBaseYear + 1}-06-30`,
-        status: 'active',
-      }, AL_NOOR_DOMAIN).expect(201);
+      const freshAyRes = await authPost(
+        app,
+        '/api/v1/academic-years',
+        adminToken,
+        {
+          name: `Empty Day Test Year ${freshTs}`,
+          start_date: `${freshBaseYear}-09-01`,
+          end_date: `${freshBaseYear + 1}-06-30`,
+          status: 'active',
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
       const freshAyId = freshAyRes.body.data.id;
 
       // Try to copy from a weekday with no periods in this fresh year
-      const res = await authPost(app, '/api/v1/period-grid/copy-day', adminToken, {
-        academic_year_id: freshAyId,
-        source_weekday: 0,
-        target_weekdays: [1],
-      }, AL_NOOR_DOMAIN).expect(404);
+      const res = await authPost(
+        app,
+        '/api/v1/period-grid/copy-day',
+        adminToken,
+        {
+          academic_year_id: freshAyId,
+          source_weekday: 0,
+          target_weekdays: [1],
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(404);
 
       expect(res.body.error.code).toBe('SOURCE_DAY_EMPTY');
     });
@@ -248,17 +291,31 @@ describe('P4B Scheduling (e2e)', () => {
     beforeAll(async () => {
       // Create a second class for testing
       const ts = Date.now();
-      const subRes = await authPost(app, '/api/v1/subjects', adminToken, {
-        name: `P4B Req Subject ${ts}`,
-        code: `REQ${ts}`,
-      }, AL_NOOR_DOMAIN).expect(201);
+      const _subRes = await authPost(
+        app,
+        '/api/v1/subjects',
+        adminToken,
+        {
+          name: `P4B Req Subject ${ts}`,
+          code: `REQ${ts}`,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
-      const classRes = await authPost(app, '/api/v1/classes', adminToken, {
-        academic_year_id: td.academicYearId,
-        name: `P4B Req Class ${ts}`,
-        subject_id: subRes.body.data.id,
-        status: 'active',
-      }, AL_NOOR_DOMAIN).expect(201);
+      const classRes = await authPost(
+        app,
+        '/api/v1/classes',
+        adminToken,
+        {
+          academic_year_id: td.academicYearId,
+          year_group_id: td.yearGroupId,
+          name: `P4B Req Class ${ts}`,
+          max_capacity: 30,
+          class_type: 'floating',
+          status: 'active',
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
       secondClassId = classRes.body.data.id;
     });
 
@@ -275,14 +332,20 @@ describe('P4B Scheduling (e2e)', () => {
     });
 
     it('POST /api/v1/class-scheduling-requirements -> 201 (happy path)', async () => {
-      const res = await authPost(app, '/api/v1/class-scheduling-requirements', adminToken, {
-        class_id: secondClassId,
-        academic_year_id: td.academicYearId,
-        periods_per_week: 3,
-        max_consecutive_periods: 2,
-        min_consecutive_periods: 1,
-        spread_preference: 'spread_evenly',
-      }, AL_NOOR_DOMAIN).expect(201);
+      const res = await authPost(
+        app,
+        '/api/v1/class-scheduling-requirements',
+        adminToken,
+        {
+          class_id: secondClassId,
+          academic_year_id: td.academicYearId,
+          periods_per_week: 3,
+          max_consecutive_periods: 2,
+          min_consecutive_periods: 1,
+          spread_preference: 'spread_evenly',
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
       expect(res.body.data.id).toBeDefined();
       expect(res.body.data.periods_per_week).toBe(3);
@@ -290,36 +353,62 @@ describe('P4B Scheduling (e2e)', () => {
     });
 
     it('POST /api/v1/class-scheduling-requirements -> 409 (duplicate class+year)', async () => {
-      const res = await authPost(app, '/api/v1/class-scheduling-requirements', adminToken, {
-        class_id: secondClassId,
-        academic_year_id: td.academicYearId,
-        periods_per_week: 5,
-      }, AL_NOOR_DOMAIN).expect(409);
+      const res = await authPost(
+        app,
+        '/api/v1/class-scheduling-requirements',
+        adminToken,
+        {
+          class_id: secondClassId,
+          academic_year_id: td.academicYearId,
+          periods_per_week: 5,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(409);
 
       expect(res.body.error.code).toBe('REQUIREMENT_ALREADY_EXISTS');
     });
 
     it('POST /api/v1/class-scheduling-requirements/bulk -> 200 with created/updated counts', async () => {
       const ts = Date.now();
-      const subRes = await authPost(app, '/api/v1/subjects', adminToken, {
-        name: `P4B Bulk Subject ${ts}`,
-        code: `BLK${ts}`,
-      }, AL_NOOR_DOMAIN).expect(201);
-      const bulkClassRes = await authPost(app, '/api/v1/classes', adminToken, {
-        academic_year_id: td.academicYearId,
-        name: `P4B Bulk Class ${ts}`,
-        subject_id: subRes.body.data.id,
-        status: 'active',
-      }, AL_NOOR_DOMAIN).expect(201);
+      const _subRes = await authPost(
+        app,
+        '/api/v1/subjects',
+        adminToken,
+        {
+          name: `P4B Bulk Subject ${ts}`,
+          code: `BLK${ts}`,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
+      const bulkClassRes = await authPost(
+        app,
+        '/api/v1/classes',
+        adminToken,
+        {
+          academic_year_id: td.academicYearId,
+          year_group_id: td.yearGroupId,
+          name: `P4B Bulk Class ${ts}`,
+          max_capacity: 30,
+          class_type: 'floating',
+          status: 'active',
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
       const bulkClassId = bulkClassRes.body.data.id;
 
-      const res = await authPost(app, '/api/v1/class-scheduling-requirements/bulk', adminToken, {
-        academic_year_id: td.academicYearId,
-        requirements: [
-          { class_id: secondClassId, periods_per_week: 4 },
-          { class_id: bulkClassId, periods_per_week: 6 },
-        ],
-      }, AL_NOOR_DOMAIN).expect(200);
+      const res = await authPost(
+        app,
+        '/api/v1/class-scheduling-requirements/bulk',
+        adminToken,
+        {
+          academic_year_id: td.academicYearId,
+          requirements: [
+            { class_id: secondClassId, periods_per_week: 4 },
+            { class_id: bulkClassId, periods_per_week: 6 },
+          ],
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(200);
 
       // Service returns { data: [...], count: N }, interceptor passes through as-is
       expect(res.body.count).toBe(2);
@@ -341,46 +430,86 @@ describe('P4B Scheduling (e2e)', () => {
     it('PATCH /api/v1/class-scheduling-requirements/:id -> 400 (min > max consecutive via create)', async () => {
       // The create schema has a Zod refine that validates min <= max.
       const ts = Date.now();
-      const subRes = await authPost(app, '/api/v1/subjects', adminToken, {
-        name: `P4B MinMax Subject ${ts}`,
-        code: `MM${ts}`,
-      }, AL_NOOR_DOMAIN).expect(201);
-      const mmClassRes = await authPost(app, '/api/v1/classes', adminToken, {
-        academic_year_id: td.academicYearId,
-        name: `P4B MinMax Class ${ts}`,
-        subject_id: subRes.body.data.id,
-        status: 'active',
-      }, AL_NOOR_DOMAIN).expect(201);
+      const _subRes = await authPost(
+        app,
+        '/api/v1/subjects',
+        adminToken,
+        {
+          name: `P4B MinMax Subject ${ts}`,
+          code: `MM${ts}`,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
+      const mmClassRes = await authPost(
+        app,
+        '/api/v1/classes',
+        adminToken,
+        {
+          academic_year_id: td.academicYearId,
+          year_group_id: td.yearGroupId,
+          name: `P4B MinMax Class ${ts}`,
+          max_capacity: 30,
+          class_type: 'floating',
+          status: 'active',
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
-      const res = await authPost(app, '/api/v1/class-scheduling-requirements', adminToken, {
-        class_id: mmClassRes.body.data.id,
-        academic_year_id: td.academicYearId,
-        periods_per_week: 5,
-        min_consecutive_periods: 5,
-        max_consecutive_periods: 2,
-      }, AL_NOOR_DOMAIN).expect(400);
+      const res = await authPost(
+        app,
+        '/api/v1/class-scheduling-requirements',
+        adminToken,
+        {
+          class_id: mmClassRes.body.data.id,
+          academic_year_id: td.academicYearId,
+          periods_per_week: 5,
+          min_consecutive_periods: 5,
+          max_consecutive_periods: 2,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(400);
 
       expect(res.body.error).toBeDefined();
     });
 
     it('DELETE /api/v1/class-scheduling-requirements/:id -> 204', async () => {
       const ts = Date.now();
-      const subRes = await authPost(app, '/api/v1/subjects', adminToken, {
-        name: `P4B Del Subject ${ts}`,
-        code: `DL${ts}`,
-      }, AL_NOOR_DOMAIN).expect(201);
-      const delClassRes = await authPost(app, '/api/v1/classes', adminToken, {
-        academic_year_id: td.academicYearId,
-        name: `P4B Del Class ${ts}`,
-        subject_id: subRes.body.data.id,
-        status: 'active',
-      }, AL_NOOR_DOMAIN).expect(201);
+      const _subRes = await authPost(
+        app,
+        '/api/v1/subjects',
+        adminToken,
+        {
+          name: `P4B Del Subject ${ts}`,
+          code: `DL${ts}`,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
+      const delClassRes = await authPost(
+        app,
+        '/api/v1/classes',
+        adminToken,
+        {
+          academic_year_id: td.academicYearId,
+          year_group_id: td.yearGroupId,
+          name: `P4B Del Class ${ts}`,
+          max_capacity: 30,
+          class_type: 'floating',
+          status: 'active',
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
-      const createRes = await authPost(app, '/api/v1/class-scheduling-requirements', adminToken, {
-        class_id: delClassRes.body.data.id,
-        academic_year_id: td.academicYearId,
-        periods_per_week: 2,
-      }, AL_NOOR_DOMAIN).expect(201);
+      const createRes = await authPost(
+        app,
+        '/api/v1/class-scheduling-requirements',
+        adminToken,
+        {
+          class_id: delClassRes.body.data.id,
+          academic_year_id: td.academicYearId,
+          periods_per_week: 2,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
       const deleteId = createRes.body.data.id;
 
       await authDelete(
@@ -444,9 +573,7 @@ describe('P4B Scheduling (e2e)', () => {
         `/api/v1/staff-availability/staff/${td.teacherStaffProfileId}/year/${td.academicYearId}`,
         ownerToken,
         {
-          entries: [
-            { weekday: 3, available_from: '08:00', available_to: '14:00' },
-          ],
+          entries: [{ weekday: 3, available_from: '08:00', available_to: '14:00' }],
         },
         AL_NOOR_DOMAIN,
       ).expect(200);
@@ -485,9 +612,7 @@ describe('P4B Scheduling (e2e)', () => {
         `/api/v1/staff-availability/staff/${td.teacherStaffProfileId}/year/${td.academicYearId}`,
         ownerToken,
         {
-          entries: [
-            { weekday: 4, available_from: '08:00', available_to: '14:00' },
-          ],
+          entries: [{ weekday: 4, available_from: '08:00', available_to: '14:00' }],
         },
         AL_NOOR_DOMAIN,
       ).expect(200);
@@ -544,16 +669,22 @@ describe('P4B Scheduling (e2e)', () => {
     });
 
     it('POST /api/v1/staff-scheduling-preferences -> 201 (admin creates subject preference)', async () => {
-      const res = await authPost(app, '/api/v1/staff-scheduling-preferences', adminToken, {
-        staff_profile_id: td.teacherStaffProfileId,
-        academic_year_id: td.academicYearId,
-        preference_payload: {
-          type: 'subject',
-          subject_ids: [td.subjectId],
-          mode: 'prefer',
+      const res = await authPost(
+        app,
+        '/api/v1/staff-scheduling-preferences',
+        adminToken,
+        {
+          staff_profile_id: td.teacherStaffProfileId,
+          academic_year_id: td.academicYearId,
+          preference_payload: {
+            type: 'subject',
+            subject_ids: [td.subjectId],
+            mode: 'prefer',
+          },
+          priority: 'high',
         },
-        priority: 'high',
-      }, AL_NOOR_DOMAIN).expect(201);
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
       expect(res.body.data.id).toBeDefined();
       expect(res.body.data.preference_type).toBe('subject');
@@ -561,17 +692,23 @@ describe('P4B Scheduling (e2e)', () => {
     });
 
     it('POST /api/v1/staff-scheduling-preferences -> 201 (admin creates time_slot preference)', async () => {
-      const res = await authPost(app, '/api/v1/staff-scheduling-preferences', adminToken, {
-        staff_profile_id: td.teacherStaffProfileId,
-        academic_year_id: td.academicYearId,
-        preference_payload: {
-          type: 'time_slot',
-          weekday: 0,
-          preferred_period_orders: [0, 1],
-          mode: 'prefer',
+      const res = await authPost(
+        app,
+        '/api/v1/staff-scheduling-preferences',
+        adminToken,
+        {
+          staff_profile_id: td.teacherStaffProfileId,
+          academic_year_id: td.academicYearId,
+          preference_payload: {
+            type: 'time_slot',
+            weekday: 0,
+            preferred_period_orders: [0, 1],
+            mode: 'prefer',
+          },
+          priority: 'medium',
         },
-        priority: 'medium',
-      }, AL_NOOR_DOMAIN).expect(201);
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
       expect(res.body.data.id).toBeDefined();
       expect(res.body.data.preference_type).toBe('time_slot');
@@ -580,15 +717,21 @@ describe('P4B Scheduling (e2e)', () => {
     it('POST /api/v1/staff-scheduling-preferences -> 403 (teacher creates for another teacher)', async () => {
       // Teacher only has schedule.manage_own_preferences.
       // The POST requires @RequiresPermission('schedule.manage_preferences') which teacher lacks.
-      await authPost(app, '/api/v1/staff-scheduling-preferences', teacherToken, {
-        staff_profile_id: '00000000-0000-0000-0000-000000000001',
-        academic_year_id: td.academicYearId,
-        preference_payload: {
-          type: 'subject',
-          subject_ids: [td.subjectId],
-          mode: 'prefer',
+      await authPost(
+        app,
+        '/api/v1/staff-scheduling-preferences',
+        teacherToken,
+        {
+          staff_profile_id: '00000000-0000-0000-0000-000000000001',
+          academic_year_id: td.academicYearId,
+          preference_payload: {
+            type: 'subject',
+            subject_ids: [td.subjectId],
+            mode: 'prefer',
+          },
         },
-      }, AL_NOOR_DOMAIN).expect(403);
+        AL_NOOR_DOMAIN,
+      ).expect(403);
     });
 
     it('PATCH /api/v1/staff-scheduling-preferences/:id -> 200', async () => {
@@ -604,16 +747,22 @@ describe('P4B Scheduling (e2e)', () => {
     });
 
     it('DELETE /api/v1/staff-scheduling-preferences/:id -> 204', async () => {
-      const createRes = await authPost(app, '/api/v1/staff-scheduling-preferences', adminToken, {
-        staff_profile_id: td.teacherStaffProfileId,
-        academic_year_id: td.academicYearId,
-        preference_payload: {
-          type: 'subject',
-          subject_ids: [td.subjectId],
-          mode: 'avoid',
+      const createRes = await authPost(
+        app,
+        '/api/v1/staff-scheduling-preferences',
+        adminToken,
+        {
+          staff_profile_id: td.teacherStaffProfileId,
+          academic_year_id: td.academicYearId,
+          preference_payload: {
+            type: 'subject',
+            subject_ids: [td.subjectId],
+            mode: 'avoid',
+          },
+          priority: 'low',
         },
-        priority: 'low',
-      }, AL_NOOR_DOMAIN).expect(201);
+        AL_NOOR_DOMAIN,
+      ).expect(201);
       const deleteId = createRes.body.data.id;
 
       await authDelete(
@@ -635,32 +784,50 @@ describe('P4B Scheduling (e2e)', () => {
 
     beforeAll(async () => {
       // Create schedules to pin
-      const roomRes = await authPost(app, '/api/v1/rooms', adminToken, {
-        name: `Pin Room ${Date.now()}`,
-        room_type: 'classroom',
-        capacity: 30,
-        is_exclusive: false,
-      }, AL_NOOR_DOMAIN).expect(201);
+      const roomRes = await authPost(
+        app,
+        '/api/v1/rooms',
+        adminToken,
+        {
+          name: `Pin Room ${Date.now()}`,
+          room_type: 'classroom',
+          capacity: 30,
+          is_exclusive: false,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
       const roomId = roomRes.body.data.id;
 
-      const schedRes1 = await authPost(app, '/api/v1/schedules', adminToken, {
-        class_id: td.classId,
-        room_id: roomId,
-        weekday: 0,
-        start_time: '08:00',
-        end_time: '08:45',
-        effective_start_date: td.dateInYear(9, 1),
-      }, AL_NOOR_DOMAIN).expect(201);
+      const schedRes1 = await authPost(
+        app,
+        '/api/v1/schedules',
+        adminToken,
+        {
+          class_id: td.classId,
+          room_id: roomId,
+          weekday: 0,
+          start_time: '08:00',
+          end_time: '08:45',
+          effective_start_date: td.dateInYear(9, 1),
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
       scheduleId = (schedRes1.body.data?.data ?? schedRes1.body.data).id;
 
-      const schedRes2 = await authPost(app, '/api/v1/schedules', adminToken, {
-        class_id: td.classId,
-        room_id: roomId,
-        weekday: 1,
-        start_time: '08:00',
-        end_time: '08:45',
-        effective_start_date: td.dateInYear(9, 1),
-      }, AL_NOOR_DOMAIN).expect(201);
+      const schedRes2 = await authPost(
+        app,
+        '/api/v1/schedules',
+        adminToken,
+        {
+          class_id: td.classId,
+          room_id: roomId,
+          weekday: 1,
+          start_time: '08:00',
+          end_time: '08:45',
+          effective_start_date: td.dateInYear(9, 1),
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
       secondScheduleId = (schedRes2.body.data?.data ?? schedRes2.body.data).id;
     });
 
@@ -692,10 +859,16 @@ describe('P4B Scheduling (e2e)', () => {
     });
 
     it('POST /api/v1/schedules/bulk-pin -> 201', async () => {
-      const res = await authPost(app, '/api/v1/schedules/bulk-pin', adminToken, {
-        schedule_ids: [scheduleId, secondScheduleId],
-        pin_reason: 'Bulk pin test',
-      }, AL_NOOR_DOMAIN).expect(201);
+      const res = await authPost(
+        app,
+        '/api/v1/schedules/bulk-pin',
+        adminToken,
+        {
+          schedule_ids: [scheduleId, secondScheduleId],
+          pin_reason: 'Bulk pin test',
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
       // Service returns { data: [...], meta: { pinned: N } }, interceptor passes through
       expect(res.body.meta.pinned).toBe(2);
@@ -755,9 +928,15 @@ describe('P4B Scheduling (e2e)', () => {
       const prereqs = prereqRes.body.data;
 
       // Try to create the run
-      const res = await authPost(app, '/api/v1/scheduling-runs', ownerToken, {
-        academic_year_id: td.academicYearId,
-      }, AL_NOOR_DOMAIN);
+      const res = await authPost(
+        app,
+        '/api/v1/scheduling-runs',
+        ownerToken,
+        {
+          academic_year_id: td.academicYearId,
+        },
+        AL_NOOR_DOMAIN,
+      );
 
       if (res.status === 201) {
         expect(res.body.data.status).toBe('queued');
@@ -777,9 +956,15 @@ describe('P4B Scheduling (e2e)', () => {
         return;
       }
 
-      const res = await authPost(app, '/api/v1/scheduling-runs', ownerToken, {
-        academic_year_id: td.academicYearId,
-      }, AL_NOOR_DOMAIN).expect(409);
+      const res = await authPost(
+        app,
+        '/api/v1/scheduling-runs',
+        ownerToken,
+        {
+          academic_year_id: td.academicYearId,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(409);
 
       expect(res.body.error.code).toBe('RUN_ALREADY_ACTIVE');
     });
