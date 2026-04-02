@@ -1173,7 +1173,8 @@ describe('P6 Finance Module (e2e)', () => {
         AL_NOOR_DOMAIN,
       ).expect(200);
 
-      const data = res.body.data;
+      // Dashboard may be at res.body.data or res.body directly
+      const data = res.body.data ?? res.body;
       expect(data).toBeDefined();
 
       // Overdue summary
@@ -1221,8 +1222,9 @@ describe('P6 Finance Module (e2e)', () => {
         AL_NOOR_DOMAIN,
       ).expect(200);
 
-      expect(res.body.data).toBeDefined();
-      expect(res.body.data.overdue_summary).toBeDefined();
+      const data = res.body.data ?? res.body;
+      expect(data).toBeDefined();
+      expect(data.overdue_summary).toBeDefined();
     });
 
     it('should reject teacher access to dashboard (403)', async () => {
@@ -1353,7 +1355,7 @@ describe('P6 Finance Module (e2e)', () => {
       expect(body2.received).toBe(true);
     });
 
-    it('should handle webhook without tenant_id gracefully (200)', async () => {
+    it('should reject webhook without tenant_id in metadata (400)', async () => {
       const request = await import('supertest');
       const res = await request
         .default(app.getHttpServer())
@@ -1362,14 +1364,13 @@ describe('P6 Finance Module (e2e)', () => {
         .set('Content-Type', 'application/json')
         .send(JSON.stringify({ type: 'unknown.event', data: {} }));
 
-      // No tenant_id → returns early with warning, never reaches signature check
-      expect(res.status).toBe(200);
-      const body = res.body.data ?? res.body;
-      expect(body.received).toBe(true);
-      expect(body.warning).toBeDefined();
+      // No tenant_id → returns 400 for Stripe retry
+      expect(res.status).toBe(400);
+      const error = res.body.error ?? res.body;
+      expect(error.code).toBe('MISSING_TENANT_ID');
     });
 
-    it('should handle webhook with empty body gracefully (200)', async () => {
+    it('should reject webhook with empty body (400)', async () => {
       const request = await import('supertest');
       const res = await request
         .default(app.getHttpServer())
@@ -1378,7 +1379,8 @@ describe('P6 Finance Module (e2e)', () => {
         .set('Content-Type', 'application/json')
         .send('{}');
 
-      expect(res.status).toBe(200);
+      // Empty body has no tenant_id → returns 400
+      expect(res.status).toBe(400);
     });
   });
 

@@ -59,9 +59,11 @@ describe('P4A Dashboard & Exceptions (e2e)', () => {
     ).expect(200);
 
     const body = res.body.data ?? res.body;
-    expect(body.today).toBeDefined();
-    expect(Array.isArray(body.schedules)).toBe(true);
-    expect(Array.isArray(body.sessions)).toBe(true);
+    // Service returns { greeting, todays_schedule, todays_sessions, pending_submissions }
+    expect(body.greeting).toBeDefined();
+    expect(Array.isArray(body.todays_schedule)).toBe(true);
+    expect(Array.isArray(body.todays_sessions)).toBe(true);
+    expect(typeof body.pending_submissions).toBe('number');
   });
 
   // ─── 3. Parent attendance ───────────────────────────────────────────

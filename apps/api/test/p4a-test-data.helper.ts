@@ -37,13 +37,16 @@ export async function setupP4ATestData(
     const year = month >= 9 ? baseYear : baseYear + 1;
     // Ensure the date falls on a weekday (Mon-Fri) by shifting forward if needed.
     // This prevents SESSION_DATE_NOT_WORK_DAY errors from tenant work-day validation.
+    // Use Date arithmetic to handle month overflow safely (e.g., June 32 -> July 2).
     const candidate = new Date(Date.UTC(year, month - 1, day));
     const dow = candidate.getUTCDay(); // 0=Sun, 6=Sat
-    let adjusted = day;
     if (dow === 0)
-      adjusted = day + 1; // Sun -> Mon
-    else if (dow === 6) adjusted = day + 2; // Sat -> Mon
-    return `${year}-${String(month).padStart(2, '0')}-${String(adjusted).padStart(2, '0')}`;
+      candidate.setUTCDate(candidate.getUTCDate() + 1); // Sun -> Mon
+    else if (dow === 6) candidate.setUTCDate(candidate.getUTCDate() + 2); // Sat -> Mon
+    const y = candidate.getUTCFullYear();
+    const m = String(candidate.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(candidate.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   };
 
   // 1. Create academic year
@@ -113,11 +116,18 @@ export async function setupP4ATestData(
     adminToken,
     AL_NOOR_DOMAIN,
   ).expect(200);
-  const teacherProfile = staffRes.body.data.find((s: Record<string, unknown>) => {
+  // The response may be { data: [...], meta } or { data: { data: [...], meta } }
+  const staffList = Array.isArray(staffRes.body.data)
+    ? staffRes.body.data
+    : (staffRes.body.data?.data ?? []);
+  const teacherProfile = staffList.find((s: Record<string, unknown>) => {
     const user = s['user'] as Record<string, string> | undefined;
     return user?.email === 'teacher@alnoor.test';
   });
-  const teacherStaffProfileId = teacherProfile?.id as string;
+  if (!teacherProfile) {
+    throw new Error('teacher@alnoor.test staff profile not found in seed data');
+  }
+  const teacherStaffProfileId = teacherProfile.id as string;
 
   // 6. Assign teacher to class
   if (teacherStaffProfileId) {

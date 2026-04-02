@@ -233,10 +233,24 @@ describe('P6 Finance — RLS Leakage Tests (e2e)', () => {
     );
 
     // Grant enough privileges for the role to SELECT from tenant tables.
-    await directPrisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
-    await directPrisma.$executeRawUnsafe(
-      `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
-    );
+    // Retry on "tuple concurrently updated" — multiple RLS test suites run in parallel
+    // and may collide on the pg_class catalog when GRANTing simultaneously.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        await directPrisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
+        await directPrisma.$executeRawUnsafe(
+          `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
+        );
+        break;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('tuple concurrently updated') && attempt < 4) {
+          await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+          continue;
+        }
+        throw err;
+      }
+    }
   }, 120_000);
 
   afterAll(async () => {
