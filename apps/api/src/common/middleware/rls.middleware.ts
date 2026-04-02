@@ -104,7 +104,10 @@ export function createRlsClient(
       },
     },
     client: {
-      async $transaction(fn: (tx: PrismaClient) => Promise<unknown>, options?: TransactionOptions) {
+      async $transaction<T>(
+        fn: (tx: PrismaClient) => Promise<T>,
+        options?: TransactionOptions,
+      ): Promise<T> {
         return prisma.$transaction(async (tx) => {
           await applyRlsContext(tx as unknown as RlsPrismaTransaction, context);
           return fn(tx as unknown as PrismaClient);

@@ -11,6 +11,7 @@ import type { Queue } from 'bullmq';
 
 import type { ApprovalActionType, ApprovalRequestStatus } from '@school/shared';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Mode A callback mapping ─────────────────────────────────────────────
@@ -39,6 +40,16 @@ interface ListRequestsFilters {
   callback_status?: string;
 }
 
+interface PendingDecisionUpdate {
+  status: 'approved' | 'rejected' | 'cancelled';
+  approver_user_id?: string;
+  decided_at: Date;
+  decision_comment: string | null;
+  callback_status?: 'pending';
+  callback_attempts?: number;
+  callback_error?: string | null;
+}
+
 @Injectable()
 export class ApprovalRequestsService {
   private readonly logger = new Logger(ApprovalRequestsService.name);
@@ -51,6 +62,92 @@ export class ApprovalRequestsService {
     @InjectQueue('payroll') private readonly payrollQueue: Queue,
   ) {
     this.modeACallbacks = buildModeACallbacks(notificationsQueue, financeQueue, payrollQueue);
+  }
+
+  // ─── Atomic decision helpers ───────────────────────────────────────────────
+
+  private async transitionPendingRequest(
+    tenantId: string,
+    requestId: string,
+    actorUserId: string,
+    data: PendingDecisionUpdate,
+  ): Promise<void> {
+    const rlsClient = createRlsClient(this.prisma, {
+      tenant_id: tenantId,
+      user_id: actorUserId,
+    });
+
+    const result = await rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      const updateResult = await db.approvalRequest.updateMany({
+        where: {
+          id: requestId,
+          tenant_id: tenantId,
+          status: 'pending_approval',
+        },
+        data,
+      });
+
+      if (updateResult.count > 0) {
+        return { updated: true as const };
+      }
+
+      const latest = await db.approvalRequest.findFirst({
+        where: {
+          id: requestId,
+          tenant_id: tenantId,
+        },
+        select: {
+          status: true,
+        },
+      });
+
+      return {
+        updated: false as const,
+        latestStatus: latest?.status ?? null,
+      };
+    });
+
+    if (result.updated) {
+      return;
+    }
+
+    if (result.latestStatus === null) {
+      throw new NotFoundException({
+        code: 'APPROVAL_REQUEST_NOT_FOUND',
+        message: `Approval request with id "${requestId}" not found`,
+      });
+    }
+
+    throw new ConflictException({
+      code: 'APPROVAL_DECISION_CONFLICT',
+      message:
+        `Approval request with id "${requestId}" is no longer pending approval ` +
+        `(current status: "${result.latestStatus}")`,
+    });
+  }
+
+  private async markCallbackFailure(
+    tenantId: string,
+    requestId: string,
+    actorUserId: string,
+    errorMessage: string,
+  ): Promise<void> {
+    const rlsClient = createRlsClient(this.prisma, {
+      tenant_id: tenantId,
+      user_id: actorUserId,
+    });
+
+    await rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      await db.approvalRequest.update({
+        where: { id: requestId },
+        data: {
+          callback_status: 'failed',
+          callback_error: `Enqueue failed: ${errorMessage}`,
+        },
+      });
+    });
   }
 
   /**
@@ -186,34 +283,18 @@ export class ApprovalRequestsService {
     const callback = this.modeACallbacks[request.action_type];
     const hasCallback = !!callback;
 
-    const updated = await this.prisma.approvalRequest.update({
-      where: { id: requestId },
-      data: {
-        status: 'approved',
-        approver_user_id: approverUserId,
-        decided_at: new Date(),
-        decision_comment: comment ?? null,
-        // Track callback dispatch status for reconciliation
-        ...(hasCallback ? { callback_status: 'pending', callback_attempts: 0 } : {}),
-      },
-      include: {
-        requester: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            email: true,
-          },
-        },
-        approver: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            email: true,
-          },
-        },
-      },
+    await this.transitionPendingRequest(tenantId, requestId, approverUserId, {
+      status: 'approved',
+      approver_user_id: approverUserId,
+      decided_at: new Date(),
+      decision_comment: comment ?? null,
+      ...(hasCallback
+        ? {
+            callback_status: 'pending',
+            callback_attempts: 0,
+            callback_error: null,
+          }
+        : {}),
     });
 
     if (callback) {
@@ -227,18 +308,11 @@ export class ApprovalRequestsService {
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         this.logger.error(`Failed to enqueue callback for approval ${requestId}: ${errorMessage}`);
-        // Mark callback as failed so reconciliation can retry
-        await this.prisma.approvalRequest.update({
-          where: { id: requestId },
-          data: {
-            callback_status: 'failed',
-            callback_error: `Enqueue failed: ${errorMessage}`,
-          },
-        });
+        await this.markCallbackFailure(tenantId, requestId, approverUserId, errorMessage);
       }
     }
 
-    return updated;
+    return this.getRequest(tenantId, requestId);
   }
 
   /**
@@ -273,35 +347,14 @@ export class ApprovalRequestsService {
       });
     }
 
-    const updated = await this.prisma.approvalRequest.update({
-      where: { id: requestId },
-      data: {
-        status: 'rejected',
-        approver_user_id: approverUserId,
-        decided_at: new Date(),
-        decision_comment: comment ?? null,
-      },
-      include: {
-        requester: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            email: true,
-          },
-        },
-        approver: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            email: true,
-          },
-        },
-      },
+    await this.transitionPendingRequest(tenantId, requestId, approverUserId, {
+      status: 'rejected',
+      approver_user_id: approverUserId,
+      decided_at: new Date(),
+      decision_comment: comment ?? null,
     });
 
-    return updated;
+    return this.getRequest(tenantId, requestId);
   }
 
   /**
@@ -336,34 +389,13 @@ export class ApprovalRequestsService {
       });
     }
 
-    const updated = await this.prisma.approvalRequest.update({
-      where: { id: requestId },
-      data: {
-        status: 'cancelled',
-        decision_comment: comment ?? null,
-        decided_at: new Date(),
-      },
-      include: {
-        requester: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            email: true,
-          },
-        },
-        approver: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            email: true,
-          },
-        },
-      },
+    await this.transitionPendingRequest(tenantId, requestId, requesterUserId, {
+      status: 'cancelled',
+      decided_at: new Date(),
+      decision_comment: comment ?? null,
     });
 
-    return updated;
+    return this.getRequest(tenantId, requestId);
   }
 
   /**

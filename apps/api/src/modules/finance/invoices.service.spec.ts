@@ -165,14 +165,16 @@ describe('InvoicesService', () => {
       mockPrisma.tenantBranding.findUnique.mockResolvedValue({ invoice_prefix: 'INV' });
       mockPrisma.invoice.create.mockResolvedValue(makeInvoice());
 
-      const result = (await service.create(TENANT_ID, USER_ID, {
+      const result = await service.create(TENANT_ID, USER_ID, {
         household_id: HOUSEHOLD_ID,
         due_date: '2026-04-01',
         lines: [{ description: 'Tuition', quantity: 1, unit_amount: 1000 }],
-      })) as { invoice_number: string; total_amount: number };
+      });
 
-      expect(result.invoice_number).toBe('INV-202603-000001');
-      expect(result.total_amount).toBe(1000);
+      expect(result).toMatchObject({
+        invoice_number: 'INV-202603-000001',
+        total_amount: 1000,
+      });
     });
 
     it('should throw BadRequestException when household not found', async () => {

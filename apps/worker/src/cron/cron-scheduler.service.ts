@@ -19,6 +19,7 @@ import {
   REFRESH_MV_STUDENT_SUMMARY_JOB,
 } from '../processors/behaviour/refresh-mv.processor';
 import { IP_CLEANUP_JOB } from '../processors/communications/ip-cleanup.processor';
+import { RETRY_FAILED_NOTIFICATIONS_JOB } from '../processors/communications/retry-failed.processor';
 import { DEADLINE_CHECK_JOB } from '../processors/compliance/deadline-check.processor';
 import { RETENTION_ENFORCEMENT_JOB } from '../processors/compliance/retention-enforcement.processor';
 import { CHASE_OUTSTANDING_JOB } from '../processors/engagement/chase-outstanding.processor';
@@ -299,6 +300,21 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${DISPATCH_QUEUED_JOB} (every 30s)`);
+
+    // ── communications:retry-failed-notifications ──────────────────────────
+    // Runs every 30 seconds. Cross-tenant — no tenant_id in payload.
+    // Re-queues failed notifications whose next_retry_at backoff has elapsed.
+    await this.notificationsQueue.add(
+      RETRY_FAILED_NOTIFICATIONS_JOB,
+      {},
+      {
+        repeat: { every: 30_000 },
+        jobId: `cron:${RETRY_FAILED_NOTIFICATIONS_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${RETRY_FAILED_NOTIFICATIONS_JOB} (every 30s)`);
   }
 
   private async registerWellbeingCronJobs(): Promise<void> {

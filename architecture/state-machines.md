@@ -486,6 +486,7 @@ expired*
 executed*
 ```
 
+- **Guarded by**: `ApprovalRequestsService.approve()`, `reject()`, and `cancel()` use conditional `updateMany(... status: 'pending_approval' ...)` transitions so concurrent stale reads cannot produce two successful decisions.
 - **Side effects**: `approved` triggers MODE_A_CALLBACKS dispatch (see event-job-catalog.md)
 
 ---

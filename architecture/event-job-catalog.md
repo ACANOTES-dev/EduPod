@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **19 queues**, **~59 documented job types**, **33 cron registrations** (31 by pattern + 1 by interval + 1 canary delayed)
+- **19 queues**, **~60 documented job types**, **34 cron registrations** (31 by pattern + 2 by interval + 1 canary delayed)
 
 ---
 
@@ -263,7 +263,7 @@ ComplianceService.approve()
 | gradebook     | 3           | 5s exponential  |                                                                                                                                                                                                                                                                                                                                                                                          |
 | homework      | 3           | 5s exponential  | 4 job types: homework:overdue-detection (cron 06:00), homework:generate-recurring (cron 05:00), homework:digest-homework (daily per tenant), homework:completion-reminder (daily per tenant 15:00)                                                                                                                                                                                       |
 | imports       | 3           | 5s exponential  | Also handles compliance:execute jobs (legacy routing)                                                                                                                                                                                                                                                                                                                                    |
-| notifications | 5           | 3s exponential  | Higher retries for delivery. Includes notifications:parent-daily-digest (hourly cron), notifications:dispatch-queued (every 30s), monitoring:dlq-scan (cron every 15 min), monitoring:canary-ping (cron every 5 min), monitoring:canary-check (delayed), plus behaviour/communications jobs routed here                                                                                  |
+| notifications | 5           | 3s exponential  | Higher retries for delivery. Includes notifications:parent-daily-digest (hourly cron), notifications:dispatch-queued (every 30s), communications:retry-failed-notifications (every 30s), monitoring:dlq-scan (cron every 15 min), monitoring:canary-ping (cron every 5 min), monitoring:canary-check (delayed), plus behaviour/communications jobs routed here                           |
 | pastoral      | 3           | 5s exponential  | 8 job types: pastoral:notify-concern (on concern creation), pastoral:escalation-timeout (on concern escalation), pastoral:checkin-alert (on check-in flag), pastoral:intervention-review-reminder (cron), pastoral:overdue-actions (cron), pastoral:precompute-agenda (on SST scheduling), pastoral:sync-behaviour-safeguarding (on sync trigger), pastoral:wellbeing-flag-expiry (cron) |
 | payroll       | 3           | 5s exponential  |                                                                                                                                                                                                                                                                                                                                                                                          |
 | regulatory    | 3           | 5s exponential  | 5 job types: 2 cron (deadline-check 07:00, tusla-threshold-scan 06:00), 3 on-demand (generate-des-files, ppod-sync, ppod-import)                                                                                                                                                                                                                                                         |
@@ -893,6 +893,34 @@ Every 30 seconds cron fires
 ```
 
 **Danger**: The 50-per-batch limit means at most 50 notifications are dispatched per 30-second tick. If a tenant generates a burst of queued notifications (e.g., mass digest), it may take multiple ticks to drain the queue. The cross-tenant query runs without RLS — it reads notification IDs across all tenants, then sets RLS per tenant for the update. This is intentional for the dispatch pattern.
+
+---
+
+### `communications:retry-failed-notifications` (notifications queue — CRON)
+
+**Trigger**: Repeatable cron, runs every 30 seconds (`every: 30_000`).
+**Payload**: None (cross-tenant dispatcher — no tenant_id).
+**Processor**: `apps/worker/src/processors/communications/retry-failed.processor.ts`
+**Retries**: 5 with exponential backoff (3s, notifications queue defaults)
+**Added in**: W0-A recovery
+
+**Side effects chain**:
+
+```
+Every 30 seconds cron fires
+  -> Cross-tenant query (no RLS): find notifications WHERE
+     status = 'failed'
+     AND next_retry_at <= NOW()
+     AND attempt_count < hard cap
+  -> Filter rows whose attempt_count is still below max_attempts
+  -> Group eligible notifications by tenant_id
+  -> For each tenant batch:
+    -> Set RLS context within interactive transaction
+    -> Reset status back to 'queued' and clear next_retry_at
+    -> Enqueue communications:dispatch-notifications with { tenant_id, notification_ids }
+```
+
+**Danger**: This cron is the backoff exit path for transient delivery failures. If it is not registered, notifications that fail with a future `next_retry_at` remain stranded in `failed` even though the dispatch processor calculates retry times correctly.
 
 ---
 

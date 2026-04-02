@@ -7,9 +7,14 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { ApprovalRequestsService } from './approval-requests.service';
+
+jest.mock('../../common/middleware/rls.middleware', () => ({
+  createRlsClient: jest.fn(),
+}));
 
 const TENANT_ID = 'tenant-uuid-1';
 const REQUEST_ID = 'request-uuid-1';
@@ -46,6 +51,7 @@ describe('ApprovalRequestsService', () => {
       findMany: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
+      updateMany: jest.Mock;
       count: jest.Mock;
     };
     approvalWorkflow: {
@@ -63,6 +69,7 @@ describe('ApprovalRequestsService', () => {
         findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
         count: jest.fn(),
       },
       approvalWorkflow: {
@@ -73,6 +80,13 @@ describe('ApprovalRequestsService', () => {
     mockNotificationsQueue = { add: jest.fn().mockResolvedValue({}) };
     mockFinanceQueue = { add: jest.fn().mockResolvedValue({}) };
     mockPayrollQueue = { add: jest.fn().mockResolvedValue({}) };
+    (createRlsClient as jest.Mock).mockReturnValue({
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: typeof mockPrisma) => Promise<unknown>) =>
+          fn(mockPrisma),
+        ),
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -122,14 +136,16 @@ describe('ApprovalRequestsService', () => {
       };
 
       mockPrisma.approvalRequest.findFirst.mockResolvedValue(pendingRequest);
-      mockPrisma.approvalRequest.update.mockResolvedValue(approvedRequest);
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce(pendingRequest);
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce(approvedRequest);
+      mockPrisma.approvalRequest.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID, 'Looks good');
 
       expect(result.status).toBe('approved');
-      expect(mockPrisma.approvalRequest.update).toHaveBeenCalledWith(
+      expect(mockPrisma.approvalRequest.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: REQUEST_ID },
+          where: { id: REQUEST_ID, status: 'pending_approval', tenant_id: TENANT_ID },
           data: expect.objectContaining({
             status: 'approved',
             approver_user_id: APPROVER_USER_ID,
@@ -207,11 +223,13 @@ describe('ApprovalRequestsService', () => {
       };
 
       mockPrisma.approvalRequest.findFirst.mockResolvedValue(pendingRequest);
-      mockPrisma.approvalRequest.update.mockResolvedValue(approvedRequest);
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce(pendingRequest);
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce(approvedRequest);
+      mockPrisma.approvalRequest.updateMany.mockResolvedValue({ count: 1 });
 
       await service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID);
 
-      expect(mockPrisma.approvalRequest.update).toHaveBeenCalledWith(
+      expect(mockPrisma.approvalRequest.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             callback_status: 'pending',
@@ -251,12 +269,14 @@ describe('ApprovalRequestsService', () => {
       };
 
       mockPrisma.approvalRequest.findFirst.mockResolvedValue(pendingRequest);
-      mockPrisma.approvalRequest.update.mockResolvedValue(approvedRequest);
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce(pendingRequest);
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce(approvedRequest);
+      mockPrisma.approvalRequest.updateMany.mockResolvedValue({ count: 1 });
 
       await service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID);
 
       // Should not include callback_status in the update data
-      const updateCall = mockPrisma.approvalRequest.update.mock.calls[0][0];
+      const updateCall = mockPrisma.approvalRequest.updateMany.mock.calls[0][0];
       expect(updateCall.data.callback_status).toBeUndefined();
       expect(mockPayrollQueue.add).not.toHaveBeenCalled();
       expect(mockFinanceQueue.add).not.toHaveBeenCalled();
@@ -286,22 +306,41 @@ describe('ApprovalRequestsService', () => {
         },
       };
 
-      mockPrisma.approvalRequest.findFirst.mockResolvedValue(pendingRequest);
-      mockPrisma.approvalRequest.update.mockResolvedValue(approvedRequest);
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce(pendingRequest);
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce({
+        ...approvedRequest,
+        callback_status: 'failed',
+        callback_error: 'Enqueue failed: Redis connection refused',
+      });
+      mockPrisma.approvalRequest.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.approvalRequest.update.mockResolvedValue({});
       mockFinanceQueue.add.mockRejectedValue(new Error('Redis connection refused'));
 
       await service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID);
 
-      // First call: the initial update to 'approved' with callback_status: 'pending'
-      // Second call: the error handler update to callback_status: 'failed'
-      expect(mockPrisma.approvalRequest.update).toHaveBeenCalledTimes(2);
-      expect(mockPrisma.approvalRequest.update).toHaveBeenLastCalledWith({
+      expect(mockPrisma.approvalRequest.updateMany).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.approvalRequest.update).toHaveBeenCalledWith({
         where: { id: REQUEST_ID },
         data: {
           callback_status: 'failed',
           callback_error: expect.stringContaining('Redis connection refused'),
         },
       });
+    });
+
+    it('should reject a stale concurrent approval race with ConflictException', async () => {
+      mockPrisma.approvalRequest.findFirst
+        .mockResolvedValueOnce(buildMockRequest({ status: 'pending_approval' }))
+        .mockResolvedValueOnce(buildMockRequest({ status: 'rejected' }));
+      mockPrisma.approvalRequest.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
+
+      expect(mockPayrollQueue.add).not.toHaveBeenCalled();
+      expect(mockFinanceQueue.add).not.toHaveBeenCalled();
+      expect(mockNotificationsQueue.add).not.toHaveBeenCalled();
     });
   });
 
@@ -332,8 +371,9 @@ describe('ApprovalRequestsService', () => {
         },
       };
 
-      mockPrisma.approvalRequest.findFirst.mockResolvedValue(pendingRequest);
-      mockPrisma.approvalRequest.update.mockResolvedValue(rejectedRequest);
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce(pendingRequest);
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce(rejectedRequest);
+      mockPrisma.approvalRequest.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.reject(
         TENANT_ID,
@@ -343,9 +383,9 @@ describe('ApprovalRequestsService', () => {
       );
 
       expect(result.status).toBe('rejected');
-      expect(mockPrisma.approvalRequest.update).toHaveBeenCalledWith(
+      expect(mockPrisma.approvalRequest.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: REQUEST_ID },
+          where: { id: REQUEST_ID, status: 'pending_approval', tenant_id: TENANT_ID },
           data: expect.objectContaining({
             status: 'rejected',
             approver_user_id: APPROVER_USER_ID,
@@ -396,6 +436,17 @@ describe('ApprovalRequestsService', () => {
         NotFoundException,
       );
     });
+
+    it('should reject a stale concurrent rejection race with ConflictException', async () => {
+      mockPrisma.approvalRequest.findFirst
+        .mockResolvedValueOnce(buildMockRequest({ status: 'pending_approval' }))
+        .mockResolvedValueOnce(buildMockRequest({ status: 'approved' }));
+      mockPrisma.approvalRequest.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.reject(TENANT_ID, REQUEST_ID, APPROVER_USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -419,8 +470,9 @@ describe('ApprovalRequestsService', () => {
         approver: null,
       };
 
-      mockPrisma.approvalRequest.findFirst.mockResolvedValue(pendingRequest);
-      mockPrisma.approvalRequest.update.mockResolvedValue(cancelledRequest);
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce(pendingRequest);
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce(cancelledRequest);
+      mockPrisma.approvalRequest.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.cancel(
         TENANT_ID,
@@ -430,9 +482,9 @@ describe('ApprovalRequestsService', () => {
       );
 
       expect(result.status).toBe('cancelled');
-      expect(mockPrisma.approvalRequest.update).toHaveBeenCalledWith(
+      expect(mockPrisma.approvalRequest.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: REQUEST_ID },
+          where: { id: REQUEST_ID, status: 'pending_approval', tenant_id: TENANT_ID },
           data: expect.objectContaining({
             status: 'cancelled',
             decision_comment: 'Changed my mind',
@@ -483,6 +535,17 @@ describe('ApprovalRequestsService', () => {
 
       await expect(service.cancel(TENANT_ID, REQUEST_ID, REQUESTER_USER_ID)).rejects.toThrow(
         NotFoundException,
+      );
+    });
+
+    it('should reject a stale concurrent cancellation race with ConflictException', async () => {
+      mockPrisma.approvalRequest.findFirst
+        .mockResolvedValueOnce(buildMockRequest({ status: 'pending_approval' }))
+        .mockResolvedValueOnce(buildMockRequest({ status: 'approved' }));
+      mockPrisma.approvalRequest.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.cancel(TENANT_ID, REQUEST_ID, REQUESTER_USER_ID)).rejects.toThrow(
+        ConflictException,
       );
     });
   });
