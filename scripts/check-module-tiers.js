@@ -102,6 +102,8 @@ const WHITELISTED_VIOLATIONS = [
   { importer: 'search', imported: 'auth' },
   { importer: 'configuration', imported: 's3' },
   { importer: 'gdpr', imported: 'auth' },
+  // auth → configuration: MFA TOTP encryption uses EncryptionService (S-19)
+  { importer: 'auth', imported: 'configuration' },
 
   // T2 → T3
   { importer: 'policy-engine', imported: 'behaviour' },
