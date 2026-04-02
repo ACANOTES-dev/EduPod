@@ -133,6 +133,12 @@ export async function setupP4ATestData(
   // (admin may not have users.manage permission required by POST /staff-profiles)
   if (!teacherProfile) {
     const ownerToken = await getAuthToken(app, 'owner@alnoor.test', AL_NOOR_DOMAIN);
+    // Get the teacher role ID for role_id (required field)
+    const rolesRes = await authGet(app, '/api/v1/roles', ownerToken, AL_NOOR_DOMAIN).expect(200);
+    const roles: Array<Record<string, unknown>> = rolesRes.body.data ?? rolesRes.body ?? [];
+    const teacherRole = roles.find((r) => r['role_key'] === 'teacher');
+    const roleId = (teacherRole?.['id'] as string) ?? (roles[0]?.['id'] as string);
+
     const createStaffRes = await authPost(
       app,
       '/api/v1/staff-profiles',
@@ -141,6 +147,8 @@ export async function setupP4ATestData(
         email: `test-teacher-${ts}@alnoor.test`,
         first_name: 'Test',
         last_name: `Teacher${ts}`,
+        phone: '+353000000000',
+        role_id: roleId,
         job_title: 'Teacher',
         employment_status: 'active',
         employment_type: 'full_time',
