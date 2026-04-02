@@ -20,6 +20,7 @@ import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 import {
+  allocateAcademicYearBase,
   createTestApp,
   closeTestApp,
   getAuthToken,
@@ -72,14 +73,20 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
 
     // ── Create Cedar's own academic year ────────────────────────────────────
     const cedarTs = Date.now();
-    const cedarBaseYear = 4000 + Math.floor(Math.random() * 5000);
+    const cedarBaseYear = allocateAcademicYearBase(4000);
 
-    const cedarAyRes = await authPost(app, '/api/v1/academic-years', cedarAdminToken, {
-      name: `Cedar RLS Test Year ${cedarTs}`,
-      start_date: `${cedarBaseYear}-09-01`,
-      end_date: `${cedarBaseYear + 1}-06-30`,
-      status: 'active',
-    }, CEDAR_DOMAIN).expect(201);
+    const cedarAyRes = await authPost(
+      app,
+      '/api/v1/academic-years',
+      cedarAdminToken,
+      {
+        name: `Cedar RLS Test Year ${cedarTs}`,
+        start_date: `${cedarBaseYear}-09-01`,
+        end_date: `${cedarBaseYear + 1}-06-30`,
+        status: 'active',
+      },
+      CEDAR_DOMAIN,
+    ).expect(201);
     cedarAcademicYearId = cedarAyRes.body.data.id;
 
     // ── Look up Al Noor tenant_id ──────────────────────────────────────────
@@ -151,14 +158,20 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
     alNoorPreferenceId = preference.id;
 
     // 5. Schedule entry (for pin test) — use the P4A API which works
-    const schedRes = await authPost(app, '/api/v1/schedules', alNoorAdminToken, {
-      class_id: td.classId,
-      room_id: td.roomId,
-      weekday: 2,
-      start_time: '09:00',
-      end_time: '09:45',
-      effective_start_date: td.dateInYear(9, 1),
-    }, AL_NOOR_DOMAIN).expect(201);
+    const schedRes = await authPost(
+      app,
+      '/api/v1/schedules',
+      alNoorAdminToken,
+      {
+        class_id: td.classId,
+        room_id: td.roomId,
+        weekday: 2,
+        start_time: '09:00',
+        end_time: '09:45',
+        effective_start_date: td.dateInYear(9, 1),
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
     alNoorScheduleId = (schedRes.body.data?.data ?? schedRes.body.data ?? schedRes.body).id;
 
     // 6. Scheduling run (created via direct DB insert)
@@ -186,8 +199,8 @@ describe('P4B RLS Leakage Tests (e2e)', () => {
           where: { id: alNoorSchedulingRunId },
           data: { status: 'failed', failure_reason: 'Test cleanup' },
         });
-      } catch {
-        // Best effort
+      } catch (err) {
+        console.error('[p4b-rls cleanup]', err);
       }
       await directPrisma.$disconnect();
     }

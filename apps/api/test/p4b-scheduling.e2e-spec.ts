@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
 import {
+  allocateAcademicYearBase,
   createTestApp,
   closeTestApp,
   getAuthToken,
@@ -238,7 +239,7 @@ describe('P4B Scheduling (e2e)', () => {
 
     it('POST /api/v1/period-grid/copy-day -> 404 (source day empty)', async () => {
       const freshTs = Date.now();
-      const freshBaseYear = 3000 + Math.floor(Math.random() * 5000);
+      const freshBaseYear = allocateAcademicYearBase();
       const freshAyRes = await authPost(
         app,
         '/api/v1/academic-years',

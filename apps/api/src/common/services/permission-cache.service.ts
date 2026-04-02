@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import { runWithRlsContext } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import { RedisService } from '../../modules/redis/redis.service';
 
@@ -19,8 +20,8 @@ import { RedisService } from '../../modules/redis/redis.service';
  * - All memberships for a tenant: call invalidateAllForTenant(tenantId)
  *   (used when roles/permissions are modified at the tenant level)
  *
- * Note: These queries run outside of RLS transaction context as this is a
- * platform-level service. In dev, the Prisma connection uses a superuser.
+ * Cache reads are wrapped in a lightweight RLS context keyed by membership_id
+ * so permission checks stay compatible with FORCE ROW LEVEL SECURITY.
  */
 @Injectable()
 export class PermissionCacheService {
@@ -42,18 +43,23 @@ export class PermissionCacheService {
     }
 
     // Load from DB: membership → membership_roles → roles → role_permissions → permissions
-    const membershipRoles = await this.prisma.membershipRole.findMany({
-      where: { membership_id: membershipId },
-      include: {
-        role: {
+    const membershipRoles = await runWithRlsContext(
+      this.prisma,
+      { membership_id: membershipId },
+      async (tx) =>
+        tx.membershipRole.findMany({
+          where: { membership_id: membershipId },
           include: {
-            role_permissions: {
-              include: { permission: true },
+            role: {
+              include: {
+                role_permissions: {
+                  include: { permission: true },
+                },
+              },
             },
           },
-        },
-      },
-    });
+        }),
+    );
 
     const permissionKeys = new Set<string>();
     for (const mr of membershipRoles) {
@@ -80,10 +86,12 @@ export class PermissionCacheService {
    */
   async invalidateAllForTenant(tenantId: string): Promise<void> {
     // Find all memberships for tenant and invalidate each
-    const memberships = await this.prisma.tenantMembership.findMany({
-      where: { tenant_id: tenantId },
-      select: { id: true },
-    });
+    const memberships = await runWithRlsContext(this.prisma, { tenant_id: tenantId }, async (tx) =>
+      tx.tenantMembership.findMany({
+        where: { tenant_id: tenantId },
+        select: { id: true },
+      }),
+    );
 
     const client = this.redis.getClient();
     const pipeline = client.pipeline();

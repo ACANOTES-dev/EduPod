@@ -29,6 +29,26 @@ export const DEV_PASSWORD = 'Password123!';
 export const AL_NOOR_DOMAIN = 'al-noor.edupod.app';
 export const CEDAR_DOMAIN = 'cedar.edupod.app';
 
+type AcademicYearGlobalState = typeof globalThis & {
+  __edupodAcademicYearBase?: number;
+};
+
+export function allocateAcademicYearBase(startYear = 3000): number {
+  const globals = globalThis as AcademicYearGlobalState;
+
+  if (
+    globals.__edupodAcademicYearBase === undefined ||
+    globals.__edupodAcademicYearBase < startYear
+  ) {
+    globals.__edupodAcademicYearBase = startYear + Math.floor((Date.now() / 1000) % 1000);
+  }
+
+  const baseYear = globals.__edupodAcademicYearBase;
+  globals.__edupodAcademicYearBase += 2;
+
+  return baseYear;
+}
+
 // ─── App bootstrap ─────────────────────────────────────────────────────────────
 
 let _app: INestApplication | null = null;
@@ -46,6 +66,17 @@ export async function createTestApp(): Promise<INestApplication> {
   app.useGlobalInterceptors(new ResponseTransformInterceptor());
   app.use(cookieParser());
   await app.init();
+
+  // Clear volatile Redis auth/cache state so repeated local e2e runs do not
+  // inherit brute-force counters, sessions, or stale tenant-domain caches.
+  await cleanupRedisKeys([
+    'brute_force:*',
+    'session:*',
+    'user_sessions:*',
+    'tenant_domain:*',
+    'permissions:*',
+    'platform_owner_user_ids',
+  ]);
 
   // Ensure Redis platform_owner_user_ids set is populated
   await populatePlatformOwnerRedis();

@@ -28,13 +28,13 @@ export class MeilisearchClient implements OnModuleInit, OnModuleDestroy {
       // If the meilisearch package is not installed, the import will throw and we degrade.
       const meiliPackage = 'meilisearch';
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const { MeiliSearch } = await (Function(
+      const { Meilisearch: MeilisearchSdk } = await (Function(
         'pkg',
         'return import(pkg)',
       )(meiliPackage) as Promise<{
-        MeiliSearch: new (opts: { host: string; apiKey?: string }) => unknown;
+        Meilisearch: new (opts: { host: string; apiKey?: string }) => unknown;
       }>);
-      this.client = new MeiliSearch({ host: url, apiKey });
+      this.client = new MeilisearchSdk({ host: url, apiKey });
       await (this.client as { health(): Promise<unknown> }).health();
       this._available = true;
       this.logger.log('Meilisearch connected');

@@ -353,8 +353,11 @@ describe('RLS Role Integration — Contract (restricted role expectations)', () 
       'utf-8',
     );
 
-    // The RLS middleware must validate tenant_id format before use
+    // The RLS middleware must validate tenant_id format before use.
+    // Keep this contract-level assertion aligned with the shared helper, not
+    // a specific inline implementation shape.
     expect(rlsSource).toContain('UUID_RE');
-    expect(rlsSource).toMatch(/if\s*\(\s*!UUID_RE\.test\(context\.tenant_id\)/);
+    expect(rlsSource).toMatch(/validateUuid\(context\.tenant_id,\s*'tenant_id'\)/);
+    expect(rlsSource).toContain('validateRlsContext(context);');
   });
 });

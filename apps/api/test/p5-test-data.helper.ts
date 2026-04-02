@@ -6,7 +6,15 @@
  */
 import { INestApplication } from '@nestjs/common';
 
-import { authGet, authPost, authPut, authPatch, AL_NOOR_DOMAIN, CEDAR_DOMAIN } from './helpers';
+import {
+  allocateAcademicYearBase,
+  authGet,
+  authPatch,
+  authPost,
+  authPut,
+  AL_NOOR_DOMAIN,
+  CEDAR_DOMAIN,
+} from './helpers';
 
 // ─── Al Noor Test Data ──────────────────────────────────────────────────────
 
@@ -38,8 +46,7 @@ export async function setupP5TestData(
   adminToken: string,
 ): Promise<P5TestData> {
   const ts = Date.now();
-  // Use a random far-future year range to avoid overlapping with existing academic years
-  const baseYear = 3000 + Math.floor(Math.random() * 5000);
+  const baseYear = allocateAcademicYearBase();
 
   const dateInYear = (month: number, day: number): string => {
     // Months 9-12 are in baseYear, months 1-6 are in baseYear+1
@@ -362,7 +369,7 @@ export async function setupCedarP5TestData(
   cedarAdminToken: string,
 ): Promise<CedarP5TestData> {
   const ts = Date.now();
-  const baseYear = 3000 + Math.floor(Math.random() * 5000);
+  const baseYear = allocateAcademicYearBase(4000);
 
   const dateInYear = (month: number, day: number): string => {
     const year = month >= 9 ? baseYear : baseYear + 1;

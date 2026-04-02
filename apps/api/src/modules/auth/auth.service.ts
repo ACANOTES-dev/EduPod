@@ -23,6 +23,7 @@ import {
   type SessionMetadata,
 } from '@school/shared';
 
+import { runWithRlsContext } from '../../common/middleware/rls.middleware';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -218,15 +219,20 @@ export class AuthService {
     // 5. Tenant context checks
     let membershipId: string | null = null;
     if (tenantId) {
-      const membership = await this.prisma.tenantMembership.findUnique({
-        where: {
-          idx_tenant_memberships_tenant_user: {
-            tenant_id: tenantId,
-            user_id: user.id,
-          },
-        },
-        include: { tenant: true },
-      });
+      const membership = await runWithRlsContext(
+        this.prisma,
+        { tenant_id: tenantId, user_id: user.id },
+        async (tx) =>
+          tx.tenantMembership.findUnique({
+            where: {
+              idx_tenant_memberships_tenant_user: {
+                tenant_id: tenantId,
+                user_id: user.id,
+              },
+            },
+            include: { tenant: true },
+          }),
+      );
 
       if (!membership || membership.membership_status !== 'active') {
         await this.securityAuditService.logLoginFailure(
@@ -805,15 +811,20 @@ export class AuthService {
     targetTenantId: string,
   ): Promise<{ access_token: string }> {
     // 1. Find membership for user at target tenant
-    const membership = await this.prisma.tenantMembership.findUnique({
-      where: {
-        idx_tenant_memberships_tenant_user: {
-          tenant_id: targetTenantId,
-          user_id: userId,
-        },
-      },
-      include: { tenant: true },
-    });
+    const membership = await runWithRlsContext(
+      this.prisma,
+      { tenant_id: targetTenantId, user_id: userId },
+      async (tx) =>
+        tx.tenantMembership.findUnique({
+          where: {
+            idx_tenant_memberships_tenant_user: {
+              tenant_id: targetTenantId,
+              user_id: userId,
+            },
+          },
+          include: { tenant: true },
+        }),
+    );
 
     if (!membership || membership.membership_status !== 'active') {
       throw new ForbiddenException({
@@ -898,19 +909,24 @@ export class AuthService {
       membershipWhere.tenant_id = tenantId;
     }
 
-    const memberships = await this.prisma.tenantMembership.findMany({
-      where: membershipWhere,
-      include: {
-        tenant: { select: { id: true, name: true, slug: true } },
-        membership_roles: {
+    const memberships = await runWithRlsContext(
+      this.prisma,
+      tenantId ? { tenant_id: tenantId, user_id: userId } : { user_id: userId },
+      async (tx) =>
+        tx.tenantMembership.findMany({
+          where: membershipWhere,
           include: {
-            role: {
-              select: { id: true, role_key: true, display_name: true },
+            tenant: { select: { id: true, name: true, slug: true } },
+            membership_roles: {
+              include: {
+                role: {
+                  select: { id: true, role_key: true, display_name: true },
+                },
+              },
             },
           },
-        },
-      },
-    });
+        }),
+    );
 
     return {
       user: this.sanitiseUser(user),

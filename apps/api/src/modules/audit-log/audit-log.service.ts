@@ -11,6 +11,8 @@ import type {
 
 import { PrismaService } from '../prisma/prisma.service';
 
+const MAX_AUDIT_ACTION_LENGTH = 100;
+
 @Injectable()
 export class AuditLogService {
   private readonly logger = new Logger(AuditLogService.name);
@@ -30,6 +32,9 @@ export class AuditLogService {
     metadata: Record<string, unknown>,
     ipAddress: string | null,
   ): Promise<void> {
+    const normalizedAction =
+      action.length > MAX_AUDIT_ACTION_LENGTH ? action.slice(0, MAX_AUDIT_ACTION_LENGTH) : action;
+
     try {
       await this.prisma.auditLog.create({
         data: {
@@ -37,7 +42,7 @@ export class AuditLogService {
           actor_user_id: actorUserId ?? undefined,
           entity_type: entityType,
           entity_id: entityId ?? undefined,
-          action,
+          action: normalizedAction,
           metadata_json: metadata as Prisma.InputJsonValue,
           ip_address: ipAddress,
         },

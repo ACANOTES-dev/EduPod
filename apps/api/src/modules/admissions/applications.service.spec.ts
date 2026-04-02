@@ -881,6 +881,20 @@ describe('ApplicationsService', () => {
       );
     });
 
+    it('should reject if the application was already converted', async () => {
+      const app = buildApplication({
+        status: 'accepted',
+        updated_at: new Date('2026-01-01T00:00:00.000Z'),
+      });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.applicationNote.findFirst.mockResolvedValue({ id: 'conversion-note' });
+
+      await expect(service.convert(TENANT_ID, 'app-1', convertDto, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPrisma.application.updateMany).not.toHaveBeenCalled();
+    });
+
     it('should reject if year_group not found', async () => {
       const app = buildApplication({
         status: 'accepted',
@@ -901,7 +915,7 @@ describe('ApplicationsService', () => {
         updated_at: new Date('2026-01-01T00:00:00.000Z'),
       });
       mockPrisma.application.findFirst.mockResolvedValue(app);
-      mockPrisma.application.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.application.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(
         service.convert(

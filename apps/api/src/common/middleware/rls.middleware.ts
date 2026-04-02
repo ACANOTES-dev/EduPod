@@ -18,19 +18,81 @@ import { SYSTEM_USER_SENTINEL } from '@school/shared';
 // UUID v4 format: 8-4-4-4-12 hex chars
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+type TransactionOptions = { timeout?: number; maxWait?: number };
+type RlsPrismaTransaction = PrismaClient & {
+  $executeRawUnsafe: (sql: string, ...args: string[]) => Promise<unknown>;
+};
+
+export type RlsContext = {
+  tenant_id?: string;
+  user_id?: string;
+  membership_id?: string;
+  tenant_domain?: string;
+};
+
+function validateUuid(value: string | undefined, label: string): void {
+  if (value !== undefined && !UUID_RE.test(value)) {
+    throw new Error(`Invalid ${label} format: ${value}`);
+  }
+}
+
+function validateRlsContext(context: RlsContext): void {
+  validateUuid(context.tenant_id, 'tenant_id');
+  validateUuid(context.user_id, 'user_id');
+  validateUuid(context.membership_id, 'membership_id');
+
+  if (!context.tenant_id && !context.user_id && !context.membership_id && !context.tenant_domain) {
+    throw new Error('RLS context requires at least one setting');
+  }
+}
+
+async function applyRlsContext(tx: RlsPrismaTransaction, context: RlsContext): Promise<void> {
+  if (context.tenant_id) {
+    await tx.$executeRawUnsafe(
+      `SELECT set_config('app.current_tenant_id', $1, true)`,
+      context.tenant_id,
+    );
+  }
+
+  const userId = context.user_id ?? (context.tenant_id ? SYSTEM_USER_SENTINEL : undefined);
+  if (userId) {
+    await tx.$executeRawUnsafe(`SELECT set_config('app.current_user_id', $1, true)`, userId);
+  }
+
+  if (context.membership_id) {
+    await tx.$executeRawUnsafe(
+      `SELECT set_config('app.current_membership_id', $1, true)`,
+      context.membership_id,
+    );
+  }
+
+  if (context.tenant_domain) {
+    await tx.$executeRawUnsafe(
+      `SELECT set_config('app.current_tenant_domain', $1, true)`,
+      context.tenant_domain,
+    );
+  }
+}
+
+export async function runWithRlsContext<T>(
+  prisma: PrismaClient,
+  context: RlsContext,
+  fn: (tx: PrismaClient) => Promise<T>,
+  options?: TransactionOptions,
+): Promise<T> {
+  validateRlsContext(context);
+
+  return prisma.$transaction(async (tx) => {
+    await applyRlsContext(tx as unknown as RlsPrismaTransaction, context);
+    return fn(tx as unknown as PrismaClient);
+  }, options);
+}
+
 export function createRlsClient(
   prisma: PrismaClient,
   context: { tenant_id: string; user_id?: string },
 ) {
-  // Validate tenant_id format to prevent SQL injection
-  if (!UUID_RE.test(context.tenant_id)) {
-    throw new Error(`Invalid tenant_id format: ${context.tenant_id}`);
-  }
-
-  // Validate user_id format if provided
-  if (context.user_id !== undefined && !UUID_RE.test(context.user_id)) {
-    throw new Error(`Invalid user_id format: ${context.user_id}`);
-  }
+  validateRlsContext(context);
 
   return prisma.$extends({
     query: {
@@ -42,29 +104,9 @@ export function createRlsClient(
       },
     },
     client: {
-      async $transaction(
-        fn: (tx: PrismaClient) => Promise<unknown>,
-        options?: { timeout?: number; maxWait?: number },
-      ) {
+      async $transaction(fn: (tx: PrismaClient) => Promise<unknown>, options?: TransactionOptions) {
         return prisma.$transaction(async (tx) => {
-          // Set RLS context for this transaction using parameterised set_config()
-          await (
-            tx as unknown as {
-              $executeRawUnsafe: (sql: string, ...args: string[]) => Promise<unknown>;
-            }
-          ).$executeRawUnsafe(
-            `SELECT set_config('app.current_tenant_id', $1, true)`,
-            context.tenant_id,
-          );
-
-          // Set user context — defaults to sentinel for system operations
-          const userId = context.user_id || SYSTEM_USER_SENTINEL;
-          await (
-            tx as unknown as {
-              $executeRawUnsafe: (sql: string, ...args: string[]) => Promise<unknown>;
-            }
-          ).$executeRawUnsafe(`SELECT set_config('app.current_user_id', $1, true)`, userId);
-
+          await applyRlsContext(tx as unknown as RlsPrismaTransaction, context);
           return fn(tx as unknown as PrismaClient);
         }, options);
       },

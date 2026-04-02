@@ -205,9 +205,23 @@ describe('Workflow: Admissions Conversion (e2e)', () => {
 
     const ygBody = ygRes.body.data ?? ygRes.body;
     expect(Array.isArray(ygBody)).toBe(true);
-    expect(ygBody.length).toBeGreaterThan(0);
+    let yearGroupId = ygBody[0]?.id;
+    if (!yearGroupId) {
+      const createYgRes = await authPost(
+        app,
+        '/api/v1/year-groups',
+        ownerToken,
+        {
+          name: `Admissions Workflow Year ${Date.now()}`,
+          display_order: 1,
+        },
+        AL_NOOR_DOMAIN,
+      ).expect(201);
 
-    const yearGroupId = ygBody[0].id;
+      const createYgBody = createYgRes.body.data ?? createYgRes.body;
+      yearGroupId = createYgBody.id;
+    }
+
     const uniqueEmail = `conversion-parent-${Date.now()}@alnoor.test`;
 
     const convertRes = await authPost(
@@ -229,38 +243,31 @@ describe('Workflow: Admissions Conversion (e2e)', () => {
       AL_NOOR_DOMAIN,
     );
 
-    // Conversion may return 201 (success) or 500 (if the 'converting' status
-    // enum value is missing from the Prisma schema — a known migration gap).
-    if (convertRes.status === 201) {
-      const body = convertRes.body.data ?? convertRes.body;
+    expect(convertRes.status).toBe(201);
 
-      // Verify student record was created
-      expect(body.student).toBeDefined();
-      expect(body.student.id).toBeDefined();
+    const body = convertRes.body.data ?? convertRes.body;
 
-      // Verify household was created or linked
-      expect(body.household).toBeDefined();
-      expect(body.household.id).toBeDefined();
+    // Verify student record was created
+    expect(body.student).toBeDefined();
+    expect(body.student.id).toBeDefined();
 
-      // Verify parent was created
-      expect(body.parent1_id).toBeDefined();
+    // Verify household was created or linked
+    expect(body.household).toBeDefined();
+    expect(body.household.id).toBeDefined();
 
-      // Verify the application status is now converted
-      const appRes = await authGet(
-        app,
-        `/api/v1/applications/${applicationId}`,
-        ownerToken,
-        AL_NOOR_DOMAIN,
-      );
+    // Verify parent was created
+    expect(body.parent1_id).toBeDefined();
 
-      const appBody = appRes.body.data ?? appRes.body;
-      // After conversion, application status may remain 'accepted' or
-      // transition to 'converted'/'enrolled' depending on workflow config
-      expect(['accepted', 'converted', 'enrolled']).toContain(appBody.status);
-    } else {
-      // Accept 500 as a known issue with the 'converting' enum status
-      expect(convertRes.status).toBe(500);
-    }
+    // Verify the application status is still in a post-acceptance state
+    const appRes = await authGet(
+      app,
+      `/api/v1/applications/${applicationId}`,
+      ownerToken,
+      AL_NOOR_DOMAIN,
+    );
+
+    const appBody = appRes.body.data ?? appRes.body;
+    expect(['accepted', 'converted', 'enrolled']).toContain(appBody.status);
   });
 
   // ─── 8. Cross-tenant isolation ────────────────────────────────────────

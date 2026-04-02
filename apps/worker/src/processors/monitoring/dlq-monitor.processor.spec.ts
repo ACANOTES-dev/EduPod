@@ -7,23 +7,33 @@ jest.mock('@sentry/nestjs', () => ({
   captureMessage: jest.fn(),
 }));
 
+const mockFailedCounts: Record<string, number> = {};
+const mockQueueClose = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('bullmq', () => {
+  const actual = jest.requireActual('bullmq');
+  return {
+    ...actual,
+    Queue: jest.fn().mockImplementation((name: string) => ({
+      close: mockQueueClose,
+      getFailedCount: jest.fn().mockResolvedValue(mockFailedCounts[name] ?? 0),
+      name,
+    })),
+  };
+});
+
 function buildJob(name: string): Job {
   return { data: {}, name } as Job;
 }
 
 function buildMockQueue(failedCounts: Record<string, number> = {}): Queue {
-  const mockRedisClient = {};
-  const mockQueueClose = jest.fn().mockResolvedValue(undefined);
-
-  // Mock the Queue constructor to return predictable failed counts
-  jest.spyOn(Queue.prototype, 'getFailedCount').mockImplementation(function (this: Queue) {
-    const name = (this as unknown as { name: string }).name;
-    return Promise.resolve(failedCounts[name] ?? 0);
-  });
-  jest.spyOn(Queue.prototype, 'close').mockImplementation(mockQueueClose);
+  for (const key of Object.keys(mockFailedCounts)) {
+    delete mockFailedCounts[key];
+  }
+  Object.assign(mockFailedCounts, failedCounts);
 
   return {
-    client: Promise.resolve(mockRedisClient),
+    client: Promise.resolve({}),
   } as unknown as Queue;
 }
 
@@ -33,7 +43,6 @@ describe('DlqMonitorProcessor', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
-    jest.restoreAllMocks();
   });
 
   it('should skip unrelated jobs', async () => {

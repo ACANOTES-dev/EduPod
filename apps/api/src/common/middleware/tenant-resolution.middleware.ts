@@ -8,6 +8,8 @@ import type { TenantContext } from '@school/shared';
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import { RedisService } from '../../modules/redis/redis.service';
 
+import { runWithRlsContext } from './rls.middleware';
+
 /**
  * Tenant resolution middleware.
  *
@@ -19,11 +21,9 @@ import { RedisService } from '../../modules/redis/redis.service';
  * 5. Check tenant status (active/suspended/archived)
  * 6. Cache result for 60s, inject tenant context into request
  *
- * Note: The tenant_domains query runs outside of an RLS transaction context.
- * In development, the Prisma connection uses a superuser which bypasses RLS.
- * In production, the connection role must be the table owner (which bypasses
- * ENABLE ROW LEVEL SECURITY but not FORCE). If FORCE is used on tenant_domains,
- * ensure the connection role has BYPASSRLS or reconfigure RLS policies.
+ * tenant_domains resolution runs inside a lightweight RLS bootstrap transaction
+ * keyed by the request hostname. This keeps public domain lookup compatible
+ * with FORCE ROW LEVEL SECURITY in production.
  */
 @Injectable()
 export class TenantResolutionMiddleware implements NestMiddleware {
@@ -73,10 +73,7 @@ export class TenantResolutionMiddleware implements NestMiddleware {
           const mutableReq = req as unknown as { tenantContext: TenantContext };
           mutableReq.tenantContext = tenantContext;
         } else {
-          const domainRecord = await this.prisma.tenantDomain.findFirst({
-            where: { domain: hostname, verification_status: 'verified' },
-            include: { tenant: true },
-          });
+          const domainRecord = await this.findDomainRecord(hostname);
 
           if (domainRecord && domainRecord.tenant.status === 'active') {
             const tenantContext: TenantContext = {
@@ -139,11 +136,7 @@ export class TenantResolutionMiddleware implements NestMiddleware {
         return next();
       }
 
-      // Query database — this runs outside RLS transaction context
-      const domainRecord = await this.prisma.tenantDomain.findFirst({
-        where: { domain: hostname, verification_status: 'verified' },
-        include: { tenant: true },
-      });
+      const domainRecord = await this.findDomainRecord(hostname);
 
       if (!domainRecord) {
         // When accessed via the platform domain or localhost, resolve tenant
@@ -208,6 +201,15 @@ export class TenantResolutionMiddleware implements NestMiddleware {
         error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' },
       });
     }
+  }
+
+  private async findDomainRecord(hostname: string) {
+    return runWithRlsContext(this.prisma, { tenant_domain: hostname }, async (tx) =>
+      tx.tenantDomain.findFirst({
+        where: { domain: hostname, verification_status: 'verified' },
+        include: { tenant: true },
+      }),
+    );
   }
 
   /**

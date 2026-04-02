@@ -478,8 +478,24 @@ describe('Applications CRUD & Workflow (e2e)', () => {
 
       const ygBody = ygRes.body.data ?? ygRes.body;
       expect(Array.isArray(ygBody)).toBe(true);
-      expect(ygBody.length).toBeGreaterThan(0);
-      yearGroupId = ygBody[0].id;
+
+      if (ygBody.length > 0) {
+        yearGroupId = ygBody[0].id;
+      } else {
+        const createYgRes = await authPost(
+          app,
+          '/api/v1/year-groups',
+          ownerToken,
+          {
+            name: `Admissions Conversion Year ${Date.now()}`,
+            display_order: 1,
+          },
+          AL_NOOR_DOMAIN,
+        ).expect(201);
+
+        const createYgBody = createYgRes.body.data ?? createYgRes.body;
+        yearGroupId = createYgBody.id;
+      }
     }
 
     const res = await authPost(
@@ -501,19 +517,14 @@ describe('Applications CRUD & Workflow (e2e)', () => {
       AL_NOOR_DOMAIN,
     );
 
-    // Conversion may return 201 (success) or 500 (if the 'converting' status
-    // enum value is missing from the Prisma schema — a known migration gap).
-    if (res.status === 201) {
-      const body = res.body.data ?? res.body;
-      expect(body.student).toBeDefined();
-      expect(body.student.id).toBeDefined();
-      expect(body.household).toBeDefined();
-      expect(body.household.id).toBeDefined();
-      expect(body.parent1_id).toBeDefined();
-    } else {
-      // Accept 500 as a known issue with the 'converting' enum status
-      expect(res.status).toBe(500);
-    }
+    expect(res.status).toBe(201);
+
+    const body = res.body.data ?? res.body;
+    expect(body.student).toBeDefined();
+    expect(body.student.id).toBeDefined();
+    expect(body.household).toBeDefined();
+    expect(body.household.id).toBeDefined();
+    expect(body.parent1_id).toBeDefined();
   });
 
   // ─── 13. Analytics ──────────────────────────────────────────────────────

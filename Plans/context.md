@@ -20,29 +20,29 @@ Bilingual English/Arabic support with full RTL behaviour is foundational for all
 
 ### 2.1 Core Tech Stack
 
-| Layer | Technology | Notes |
-|-------|-----------|-------|
-| **Backend** | NestJS + TypeScript | Modular monolith |
-| **ORM** | Prisma | With RLS middleware for tenant context injection |
-| **Database** | PostgreSQL 16+ | Shared database, shared schema, RLS on all tenant tables |
-| **Cache/Sessions** | Redis 7 | Sessions, caching, rate limiting, queue coordination. **Production: AOF persistence enabled** to survive restarts without losing BullMQ delayed jobs. |
-| **Job Queue** | BullMQ | Background job processing with dead-letter support |
-| **Frontend** | Next.js 14+ (App Router) | Single codebase, role-aware shells |
-| **UI Framework** | React + TypeScript + Tailwind CSS | Logical CSS utilities only (no physical left/right) |
-| **Component Library** | shadcn/ui on Radix primitives | Accessible, composable |
-| **i18n** | next-intl | Locales: `en`, `ar` |
-| **Rich Text** | TipTap | BiDi support, mixed-direction content |
-| **Search** | PostgreSQL full-text + Meilisearch | Fuzzy search with tenant-safe indexes |
-| **Email** | Resend | Transactional email with webhook delivery tracking |
-| **WhatsApp** | Twilio WhatsApp Business API | Pre-approved platform-level templates |
-| **Payments** | Stripe Direct | Per-school Stripe accounts, encrypted key storage |
-| **PDF Rendering** | Puppeteer | On-demand, locale-specific templates, Noto Sans Arabic |
-| **File Storage** | AWS S3 | Logos, website media, temporary import files only |
-| **Hosting** | Hetzner VPS | Frontend, backend, and worker services on single server (multi-environment planned) |
-| **Database Hosting** | PostgreSQL on Hetzner | Single server, automated backups |
-| **CDN/Edge** | Cloudflare for SaaS | Custom domains, SSL, CDN, edge protection |
-| **Monitoring** | Sentry + custom alerts | Error tracking + operational alerts |
-| **CI/CD** | GitHub Actions | Lint → type-check → test → build → deploy |
+| Layer                 | Technology                         | Notes                                                                                                                                                 |
+| --------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Backend**           | NestJS + TypeScript                | Modular monolith                                                                                                                                      |
+| **ORM**               | Prisma                             | With RLS middleware for tenant context injection                                                                                                      |
+| **Database**          | PostgreSQL 16+                     | Shared database, shared schema, RLS on all tenant tables                                                                                              |
+| **Cache/Sessions**    | Redis 7                            | Sessions, caching, rate limiting, queue coordination. **Production: AOF persistence enabled** to survive restarts without losing BullMQ delayed jobs. |
+| **Job Queue**         | BullMQ                             | Background job processing with dead-letter support                                                                                                    |
+| **Frontend**          | Next.js 14+ (App Router)           | Single codebase, role-aware shells                                                                                                                    |
+| **UI Framework**      | React + TypeScript + Tailwind CSS  | Logical CSS utilities only (no physical left/right)                                                                                                   |
+| **Component Library** | shadcn/ui on Radix primitives      | Accessible, composable                                                                                                                                |
+| **i18n**              | next-intl                          | Locales: `en`, `ar`                                                                                                                                   |
+| **Rich Text**         | TipTap                             | BiDi support, mixed-direction content                                                                                                                 |
+| **Search**            | PostgreSQL full-text + Meilisearch | Fuzzy search with tenant-safe indexes                                                                                                                 |
+| **Email**             | Resend                             | Transactional email with webhook delivery tracking                                                                                                    |
+| **WhatsApp**          | Twilio WhatsApp Business API       | Pre-approved platform-level templates                                                                                                                 |
+| **Payments**          | Stripe Direct                      | Per-school Stripe accounts, encrypted key storage                                                                                                     |
+| **PDF Rendering**     | Puppeteer                          | On-demand, locale-specific templates, Noto Sans Arabic                                                                                                |
+| **File Storage**      | AWS S3                             | Logos, website media, temporary import files only                                                                                                     |
+| **Hosting**           | Hetzner VPS                        | Frontend, backend, and worker services on single server (multi-environment planned)                                                                   |
+| **Database Hosting**  | PostgreSQL on Hetzner              | Single server, automated backups                                                                                                                      |
+| **CDN/Edge**          | Cloudflare for SaaS                | Custom domains, SSL, CDN, edge protection                                                                                                             |
+| **Monitoring**        | Sentry + custom alerts             | Error tracking + operational alerts                                                                                                                   |
+| **CI/CD**             | GitHub Actions                     | Lint → type-check → test → build → deploy                                                                                                             |
 
 ### 2.2 Monorepo Package Structure (Turborepo)
 
@@ -126,6 +126,7 @@ PgBouncer in **transaction mode**. RLS context is set via `SET LOCAL app.current
 Prisma manages the schema (tables, columns, indexes, enums) via its standard migration system. However, Prisma does **not** natively manage RLS policies, custom functions, or extensions. These are handled via **companion raw SQL migration files** that run alongside Prisma migrations.
 
 **Migration directory structure**:
+
 ```
 packages/prisma/
 ├── schema.prisma
@@ -143,6 +144,7 @@ packages/prisma/
 ```
 
 **RLS policy convention**: Every table with a `tenant_id` column gets:
+
 ```sql
 ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY;
 CREATE POLICY {table_name}_tenant_isolation ON {table_name}
@@ -150,7 +152,7 @@ CREATE POLICY {table_name}_tenant_isolation ON {table_name}
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
 ```
 
-**Nullable `tenant_id` RLS handling**: Three tables have nullable `tenant_id` (`notification_templates`, `audit_logs`, `role_permissions`). These use a **dual-policy pattern**: tenant-scoped rows use the standard policy; platform-scoped rows (NULL tenant_id) are accessed via queries running outside tenant context.
+**Nullable `tenant_id` RLS handling**: Three tables have nullable `tenant_id` (`notification_templates`, `audit_logs`, `role_permissions`). `notification_templates` and `audit_logs` use the usual dual-policy pattern: tenant-scoped rows use the standard policy, while platform-scoped rows (NULL tenant_id) are read outside tenant context. `role_permissions` is the special case: platform-scoped rows must also remain readable during auth/bootstrap flows via membership-scoped RLS (`app.current_user_id`, `app.current_membership_id`) so login, `/auth/me`, and permission caching can work without bypassing RLS.
 
 **Post-migrate runner**: A custom script (`scripts/post-migrate.ts`) executes all `post_migrate.sql` files after `prisma migrate deploy`. Idempotent — uses `DROP POLICY IF EXISTS` followed by `CREATE POLICY`.
 
@@ -163,8 +165,9 @@ CREATE POLICY {table_name}_tenant_isolation ON {table_name}
 ### 2.6 Tenancy and Request Resolution
 
 Tenant is resolved from hostname via `tenant_domains` lookup:
+
 1. Extract hostname from incoming request
-2. Query `tenant_domains` WHERE `domain = hostname` AND `verification_status = 'verified'`
+2. Run a bootstrap RLS lookup with `app.current_tenant_domain = hostname`, then query `tenant_domains` WHERE `domain = hostname` AND `verification_status = 'verified'`
 3. If no match → return static 404 (never redirect, never leak tenant existence)
 4. If match → load tenant record, check `tenants.status`
 5. If `status = 'suspended'` → return `TENANT_SUSPENDED` error
@@ -177,21 +180,22 @@ Resolved tenant context is propagated to: Prisma RLS, permission guards, cache k
 
 ### 2.7 Authentication and Session Model
 
-| Component | Detail |
-|-----------|--------|
-| **Login** | Email/password |
-| **MFA** | Optional TOTP with 10 recovery codes (hashed, single-use) |
-| **Access Token** | JWT, 15-minute expiry, stored in memory (not localStorage) |
-| **Refresh Token** | 7-day expiry, httpOnly cookie, stored in Redis with session metadata |
-| **Concurrent Sessions** | Allowed (multiple devices) |
-| **Session Revocation** | Delete from Redis → force-check on sensitive operations |
-| **Tenant Switching** | `/auth/switch-tenant` endpoint issues new JWT with target tenant claims |
-| **Staff Onboarding** | Invitation-based (email with time-limited token) |
-| **Parent Onboarding** | Admissions-linked registration OR staff invitation |
-| **Password Reset** | Email-based, 1-hour token, single-use, hashed in DB, all sessions revoked on reset |
-| **Brute Force Protection** | Progressive delay: 5 failures → 30s, 8 → 2min, 10 → 30min lockout |
+| Component                  | Detail                                                                             |
+| -------------------------- | ---------------------------------------------------------------------------------- |
+| **Login**                  | Email/password                                                                     |
+| **MFA**                    | Optional TOTP with 10 recovery codes (hashed, single-use)                          |
+| **Access Token**           | JWT, 15-minute expiry, stored in memory (not localStorage)                         |
+| **Refresh Token**          | 7-day expiry, httpOnly cookie, stored in Redis with session metadata               |
+| **Concurrent Sessions**    | Allowed (multiple devices)                                                         |
+| **Session Revocation**     | Delete from Redis → force-check on sensitive operations                            |
+| **Tenant Switching**       | `/auth/switch-tenant` endpoint issues new JWT with target tenant claims            |
+| **Staff Onboarding**       | Invitation-based (email with time-limited token)                                   |
+| **Parent Onboarding**      | Admissions-linked registration OR staff invitation                                 |
+| **Password Reset**         | Email-based, 1-hour token, single-use, hashed in DB, all sessions revoked on reset |
+| **Brute Force Protection** | Progressive delay: 5 failures → 30s, 8 → 2min, 10 → 30min lockout                  |
 
 **Suspension side-effects**:
+
 - **Tenant suspension** → Redis flag `tenant:{id}:suspended = true`, checked on every request
 - **Membership suspension** → all Redis sessions for `user:{id}:tenant:{id}:*` deleted
 - **Critical permission changes** → Redis permission cache for that membership invalidated
@@ -199,9 +203,16 @@ Resolved tenant context is propagated to: Prisma RLS, permission guards, cache k
 - **User global disable** (`users.global_status → 'disabled'`): Same as suspension plus all `active` memberships transitioned to `disabled` in background job. Permanent — requires platform admin to reverse.
 - **Last school_owner guard**: Every operation that could remove the last school_owner uses `SELECT COUNT(*) ... FOR UPDATE` with serializable isolation. Blocked with `LAST_SCHOOL_OWNER` error if count would drop below 1.
 
+**Bootstrap auth reads**:
+
+- Before a full tenant-scoped session exists, login, tenant switching, `GET /auth/me`, and permission cache refresh run under bootstrap RLS contexts rather than raw bypass queries
+- Bootstrap contexts use one or more of `app.current_tenant_domain`, `app.current_user_id`, and `app.current_membership_id`
+- The bootstrap-readable tables are `tenant_domains`, `tenant_memberships`, `membership_roles`, `roles`, and `role_permissions`
+
 ### 2.8 RBAC Architecture
 
 **Permission tiers** (custom roles can only combine permissions within their tier or below):
+
 - `platform` — platform owner operations (tenant provisioning, cross-tenant monitoring)
 - `admin` — school-level administration (user management, configuration, all data access)
 - `staff` — teacher and staff operations (attendance, grades, assigned classes)
@@ -212,6 +223,7 @@ Resolved tenant context is propagated to: Prisma RLS, permission guards, cache k
 **Multi-role handling**: A user with both parent and staff roles in the same tenant sees a **context switcher** in the UI. Permissions are the union of all roles, but data access is scoped by active context. API endpoints check active context, not just permission set.
 
 **Invariants**:
+
 - At least one active `school_owner` role per tenant at all times
 - Requester cannot approve their own approval requests
 - Custom roles cannot include permissions from a higher tier
@@ -219,17 +231,17 @@ Resolved tenant context is propagated to: Prisma RLS, permission guards, cache k
 
 ### 2.9 i18n and RTL Architecture
 
-| Rule | Detail |
-|------|--------|
-| **Supported locales** | `en`, `ar` |
-| **Platform admin** | English-only |
-| **Locale resolution** | `users.preferred_locale` → `tenants.default_locale` → `en` |
-| **HTML attributes** | `<html lang>` and `<html dir>` set from effective locale |
-| **CSS** | Tailwind logical utilities required; physical `left`/`right` prohibited |
-| **LTR enforcement** | Email addresses, URLs, phone numbers, numeric inputs, enrolment IDs |
-| **Numerals** | Western (0-9) in both locales |
-| **Calendar** | Gregorian in both locales |
-| **Rich text** | TipTap preserves block `dir` attribute, supports mixed-direction content |
+| Rule                  | Detail                                                                   |
+| --------------------- | ------------------------------------------------------------------------ |
+| **Supported locales** | `en`, `ar`                                                               |
+| **Platform admin**    | English-only                                                             |
+| **Locale resolution** | `users.preferred_locale` → `tenants.default_locale` → `en`               |
+| **HTML attributes**   | `<html lang>` and `<html dir>` set from effective locale                 |
+| **CSS**               | Tailwind logical utilities required; physical `left`/`right` prohibited  |
+| **LTR enforcement**   | Email addresses, URLs, phone numbers, numeric inputs, enrolment IDs      |
+| **Numerals**          | Western (0-9) in both locales                                            |
+| **Calendar**          | Gregorian in both locales                                                |
+| **Rich text**         | TipTap preserves block `dir` attribute, supports mixed-direction content |
 
 ### 2.10 Printable Document Rendering
 
@@ -246,11 +258,13 @@ Resolved tenant context is propagated to: Prisma RLS, permission guards, cache k
 **Channels**: email (Resend), WhatsApp (Twilio), in-app notifications
 
 **Parent communication preference model**:
+
 - Captured at registration/invitation: `preferred_contact_channels` = `['email']`, `['whatsapp']`, or `['email','whatsapp']`
 - `whatsapp_phone` field: separate from primary phone, required if WhatsApp selected
 - Primary phone can be used for WhatsApp only with explicit confirmation
 
 **Dispatch chain**:
+
 1. Determine preferred channel(s) from parent record
 2. If WhatsApp: check template exists for locale → check `whatsapp_phone` valid → send
 3. If WhatsApp fails → automatic email fallback
@@ -263,29 +277,28 @@ Resolved tenant context is propagated to: Prisma RLS, permission guards, cache k
 
 ### 2.12 File/Storage Boundary
 
-| Stored | Not Stored |
-|--------|-----------|
-| Logos (S3: `/{tenant_id}/logos/`) | Receipts/invoices/report cards as files |
-| Website media (S3: `/{tenant_id}/media/`) | Parent-uploaded admissions documents |
-| Temporary import files (purged after processing) | Any general-purpose documents |
+| Stored                                           | Not Stored                              |
+| ------------------------------------------------ | --------------------------------------- |
+| Logos (S3: `/{tenant_id}/logos/`)                | Receipts/invoices/report cards as files |
+| Website media (S3: `/{tenant_id}/media/`)        | Parent-uploaded admissions documents    |
+| Temporary import files (purged after processing) | Any general-purpose documents           |
 
 **Constraints**: Logos max 2MB (PNG, JPG, WebP, SVG). Media max 5MB (PNG, JPG, WebP). Served via Cloudflare CDN.
 
 ### 2.13 Security Hardening
 
-| Measure | Implementation |
-|---------|---------------|
-| **CSRF** | Double-submit cookie (SameSite=Lax + CSRF token for mutations) |
-| **CSP** | Strict Content-Security-Policy headers |
-| **Rate Limiting** | Per-tenant and per-user via Redis, configurable per endpoint class |
-| **Input Validation** | Zod schemas on all API inputs |
-| **HTML Sanitization** | DOMPurify server-side on all TipTap HTML before storage |
-| **SQL Injection** | Prisma parameterised queries, raw queries prohibited |
-| **XSS** | React default escaping + CSP + sanitised rich text |
-| **Encryption at Rest** | PostgreSQL encryption, S3 server-side encryption |
+| Measure                   | Implementation                                                          |
+| ------------------------- | ----------------------------------------------------------------------- |
+| **CSRF**                  | Double-submit cookie (SameSite=Lax + CSRF token for mutations)          |
+| **CSP**                   | Strict Content-Security-Policy headers                                  |
+| **Rate Limiting**         | Per-tenant and per-user via Redis, configurable per endpoint class      |
+| **Input Validation**      | Zod schemas on all API inputs                                           |
+| **HTML Sanitization**     | DOMPurify server-side on all TipTap HTML before storage                 |
+| **SQL Injection**         | Prisma parameterised queries, raw queries prohibited                    |
+| **XSS**                   | React default escaping + CSP + sanitised rich text                      |
+| **Encryption at Rest**    | PostgreSQL encryption, S3 server-side encryption                        |
 | **Stripe Key Encryption** | AES-256 with key in AWS Secrets Manager, never exposed in API responses |
-| **Audit** | All security-relevant actions logged to append-only audit_logs |
-
+| **Audit**                 | All security-relevant actions logged to append-only audit_logs          |
 
 ### 2.14 Optimistic Concurrency Control
 
@@ -306,6 +319,7 @@ Entities subject to concurrent editing implement optimistic concurrency via `upd
 **Base URL**: `{API_URL}/api/v1`
 
 **Response envelope**:
+
 ```typescript
 // Success
 { data: T, meta?: { page?: number, pageSize?: number, total?: number } }
@@ -338,7 +352,6 @@ Entities subject to concurrent editing implement optimistic concurrency via `upd
 
 **JSONB evolution strategy**: All keys in Zod schemas use `.default()` values. The API read path parses stored JSONB through the Zod schema, filling missing keys with defaults. No backfill migration needed for new optional settings. Required changes (removing/changing key types) need data migrations.
 
-
 ---
 
 ## DEFERRED FEATURES (NOT YET BUILT)
@@ -356,4 +369,3 @@ Entities subject to concurrent editing implement optimistic concurrency via `upd
 - Payroll-to-accounting export (journal entries, GL integration)
 - Student elective scheduling with capacity constraints
 - Advanced solver algorithms beyond CSP
-

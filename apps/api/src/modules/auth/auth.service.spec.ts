@@ -68,6 +68,7 @@ const MOCK_MEMBERSHIP = {
 // ─── Shared mock setup ──────────────────────────────────────────────────────
 
 const mockPrisma = {
+  $transaction: jest.fn(),
   user: { findUnique: jest.fn(), update: jest.fn() },
   passwordResetToken: {
     create: jest.fn(),
@@ -120,6 +121,14 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    mockPrisma.$transaction.mockImplementation(
+      async (fn: (tx: typeof mockPrisma & { $executeRawUnsafe: jest.Mock }) => Promise<unknown>) =>
+        fn({
+          ...mockPrisma,
+          $executeRawUnsafe: jest.fn().mockResolvedValue(undefined),
+        }),
+    );
 
     redisClient = {
       set: jest.fn().mockResolvedValue('OK'),

@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
-import { createRlsClient } from './rls.middleware';
+import { createRlsClient, runWithRlsContext } from './rls.middleware';
 
 describe('RLS Middleware', () => {
   it('should return extended Prisma client', () => {
@@ -163,5 +163,76 @@ describe('RLS Middleware', () => {
         user_id: 'not-a-uuid',
       }),
     ).toThrow('Invalid user_id format: not-a-uuid');
+  });
+
+  it('should set current_user_id without requiring tenant_id', async () => {
+    const mockTx = {
+      $executeRawUnsafe: jest.fn().mockResolvedValue(undefined),
+    };
+    const mockPrisma = {
+      $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    } as unknown as PrismaClient;
+
+    await runWithRlsContext(
+      mockPrisma,
+      { user_id: '33333333-3333-3333-3333-333333333333' },
+      async () => undefined,
+    );
+
+    expect(mockTx.$executeRawUnsafe).toHaveBeenCalledTimes(1);
+    expect(mockTx.$executeRawUnsafe).toHaveBeenCalledWith(
+      `SELECT set_config('app.current_user_id', $1, true)`,
+      '33333333-3333-3333-3333-333333333333',
+    );
+  });
+
+  it('should set tenant_domain and membership_id when provided', async () => {
+    const mockTx = {
+      $executeRawUnsafe: jest.fn().mockResolvedValue(undefined),
+    };
+    const mockPrisma = {
+      $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    } as unknown as PrismaClient;
+
+    await runWithRlsContext(
+      mockPrisma,
+      {
+        membership_id: '44444444-4444-4444-4444-444444444444',
+        tenant_domain: 'al-noor.edupod.app',
+      },
+      async () => undefined,
+    );
+
+    expect(mockTx.$executeRawUnsafe).toHaveBeenCalledTimes(2);
+    expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
+      1,
+      `SELECT set_config('app.current_membership_id', $1, true)`,
+      '44444444-4444-4444-4444-444444444444',
+    );
+    expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
+      2,
+      `SELECT set_config('app.current_tenant_domain', $1, true)`,
+      'al-noor.edupod.app',
+    );
+  });
+
+  it('should reject empty RLS context', async () => {
+    const mockPrisma = {
+      $transaction: jest.fn(),
+    } as unknown as PrismaClient;
+
+    await expect(runWithRlsContext(mockPrisma, {}, async () => undefined)).rejects.toThrow(
+      'RLS context requires at least one setting',
+    );
+  });
+
+  it('should reject invalid membership_id format', async () => {
+    const mockPrisma = {
+      $transaction: jest.fn(),
+    } as unknown as PrismaClient;
+
+    await expect(
+      runWithRlsContext(mockPrisma, { membership_id: 'not-a-uuid' }, async () => undefined),
+    ).rejects.toThrow('Invalid membership_id format: not-a-uuid');
   });
 });

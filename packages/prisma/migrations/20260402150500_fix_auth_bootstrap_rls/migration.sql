@@ -1,0 +1,1 @@
+-- RLS policy adjustments are applied in post_migrate.sql.

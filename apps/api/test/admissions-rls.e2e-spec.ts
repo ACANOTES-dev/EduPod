@@ -171,7 +171,22 @@ describe('RLS Leakage P3 — Admissions (e2e)', () => {
       200,
     );
     const cedarYgs = cedarYgRes.body.data ?? [];
-    cedarYearGroupId = cedarYgs[0]?.id ?? '00000000-0000-0000-0000-000000000000';
+    if (cedarYgs.length > 0) {
+      cedarYearGroupId = cedarYgs[0].id;
+    } else {
+      const createCedarYgRes = await authPost(
+        app,
+        '/api/v1/year-groups',
+        cedarToken,
+        {
+          name: `Cedar Admissions RLS Year ${Date.now()}`,
+          display_order: 1,
+        },
+        CEDAR_DOMAIN,
+      ).expect(201);
+      const createCedarYgBody = createCedarYgRes.body.data ?? createCedarYgRes.body;
+      cedarYearGroupId = createCedarYgBody.id;
+    }
 
     // ── Table-level RLS setup ─────────────────────────────────────────────
 
@@ -450,7 +465,22 @@ describe('RLS Leakage P3 — Admissions (e2e)', () => {
         200,
       );
       const ygs = ygRes.body.data ?? [];
-      alNoorYearGroupId = ygs[0]?.id ?? '';
+      if (ygs.length > 0) {
+        alNoorYearGroupId = ygs[0].id;
+      } else {
+        const createYgRes = await authPost(
+          app,
+          '/api/v1/year-groups',
+          alNoorToken,
+          {
+            name: `Al Noor Admissions RLS Year ${Date.now()}`,
+            display_order: 1,
+          },
+          AL_NOOR_DOMAIN,
+        ).expect(201);
+        const createYgBody = createYgRes.body.data ?? createYgRes.body;
+        alNoorYearGroupId = createYgBody.id;
+      }
     }, 60000);
 
     it('Convert should not cross-link parents from another tenant', async () => {
@@ -471,15 +501,10 @@ describe('RLS Leakage P3 — Admissions (e2e)', () => {
         AL_NOOR_DOMAIN,
       );
 
-      // Should get 404 (parent not found in Al Noor tenant) or 500
-      // (if the 'converting' enum status is missing from the Prisma schema).
-      // Either way, the conversion must NOT succeed with cross-tenant data.
-      expect([404, 500]).toContain(res.status);
-      if (res.status === 404) {
-        const body = res.body.data ?? res.body;
-        const bodyStr = JSON.stringify(body);
-        expect(bodyStr).toContain('PARENT_NOT_FOUND');
-      }
+      expect(res.status).toBe(404);
+      const body = res.body.data ?? res.body;
+      const bodyStr = JSON.stringify(body);
+      expect(bodyStr).toContain('PARENT_NOT_FOUND');
     });
 
     it('Convert should not cross-link year groups from another tenant', async () => {
@@ -508,15 +533,10 @@ describe('RLS Leakage P3 — Admissions (e2e)', () => {
         AL_NOOR_DOMAIN,
       );
 
-      // Should get 404 (year group not found in Al Noor tenant) or 500
-      // (if the 'converting' enum status is missing from the Prisma schema).
-      // Either way, the conversion must NOT succeed with cross-tenant data.
-      expect([404, 500]).toContain(res.status);
-      if (res.status === 404) {
-        const body = res.body.data ?? res.body;
-        const bodyStr = JSON.stringify(body);
-        expect(bodyStr).toContain('YEAR_GROUP_NOT_FOUND');
-      }
+      expect(res.status).toBe(404);
+      const body = res.body.data ?? res.body;
+      const bodyStr = JSON.stringify(body);
+      expect(bodyStr).toContain('YEAR_GROUP_NOT_FOUND');
     });
   });
 });

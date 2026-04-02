@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
 import type { ConvertApplicationDto } from '@school/shared';
 
@@ -12,6 +13,7 @@ import { SequenceService } from '../sequence/sequence.service';
 @Injectable()
 export class ApplicationConversionService {
   private readonly logger = new Logger(ApplicationConversionService.name);
+  private static readonly CONVERSION_NOTE_PREFIX = 'Converted to student:';
 
   constructor(
     private readonly prisma: PrismaService,
@@ -47,6 +49,25 @@ export class ApplicationConversionService {
           error: {
             code: 'APPLICATION_NOT_FOUND',
             message: `Application with id "${id}" not found`,
+          },
+        });
+      }
+
+      const existingConversion = await db.applicationNote.findFirst({
+        where: {
+          application_id: id,
+          is_internal: true,
+          note: { startsWith: ApplicationConversionService.CONVERSION_NOTE_PREFIX },
+          tenant_id: tenantId,
+        },
+        select: { id: true },
+      });
+
+      if (existingConversion) {
+        throw new BadRequestException({
+          error: {
+            code: 'ALREADY_CONVERTED',
+            message: 'This application has already been converted to a student',
           },
         });
       }
@@ -125,229 +146,7 @@ export class ApplicationConversionService {
   async convert(tenantId: string, id: string, dto: ConvertApplicationDto, userId: string) {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const result = (await prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
-      const application = await db.application.findFirst({
-        where: { id, tenant_id: tenantId },
-      });
-
-      if (!application) {
-        throw new NotFoundException({
-          error: {
-            code: 'APPLICATION_NOT_FOUND',
-            message: `Application with id "${id}" not found`,
-          },
-        });
-      }
-
-      if (application.status !== 'accepted') {
-        throw new BadRequestException({
-          error: {
-            code: 'NOT_ACCEPTED',
-            message: 'Only accepted applications can be converted to students',
-          },
-        });
-      }
-
-      // Atomic double-conversion guard: atomically set status to 'converting' only if still 'accepted'
-      // This prevents two concurrent conversions from both passing the status check
-      const lockResult = await db.application.updateMany({
-        where: { id, tenant_id: tenantId, status: 'accepted' },
-        data: { status: 'converting' as never },
-      });
-      if (lockResult.count === 0) {
-        throw new BadRequestException({
-          error: {
-            code: 'ALREADY_CONVERTED',
-            message: 'This application is already being converted or has been converted',
-          },
-        });
-      }
-
-      // Optimistic concurrency check
-      if (application.updated_at.toISOString() !== dto.expected_updated_at) {
-        throw new BadRequestException({
-          error: {
-            code: 'CONCURRENT_MODIFICATION',
-            message: 'The application has been modified. Please reload and try again.',
-          },
-        });
-      }
-
-      // Verify year group exists
-      const yearGroup = await db.yearGroup.findFirst({
-        where: { id: dto.year_group_id, tenant_id: tenantId },
-      });
-
-      if (!yearGroup) {
-        throw new NotFoundException({
-          error: {
-            code: 'YEAR_GROUP_NOT_FOUND',
-            message: `Year group with id "${dto.year_group_id}" not found`,
-          },
-        });
-      }
-
-      // 1. Create or link parent 1
-      let parent1Id: string;
-
-      if (dto.parent1_link_existing_id) {
-        // Verify existing parent belongs to this tenant
-        const existingParent = await db.parent.findFirst({
-          where: { id: dto.parent1_link_existing_id, tenant_id: tenantId },
-        });
-
-        if (!existingParent) {
-          throw new NotFoundException({
-            error: {
-              code: 'PARENT_NOT_FOUND',
-              message: `Parent with id "${dto.parent1_link_existing_id}" not found`,
-            },
-          });
-        }
-
-        parent1Id = existingParent.id;
-      } else {
-        const newParent = await db.parent.create({
-          data: {
-            tenant_id: tenantId,
-            first_name: dto.parent1_first_name,
-            last_name: dto.parent1_last_name,
-            email: dto.parent1_email ?? null,
-            phone: dto.parent1_phone ?? null,
-            preferred_contact_channels: ['email'],
-            is_primary_contact: true,
-            is_billing_contact: true,
-            status: 'active',
-          },
-        });
-        parent1Id = newParent.id;
-      }
-
-      // 2. Create or link parent 2 (optional)
-      let parent2Id: string | null = null;
-
-      if (dto.parent2_link_existing_id) {
-        const existingParent2 = await db.parent.findFirst({
-          where: { id: dto.parent2_link_existing_id, tenant_id: tenantId },
-        });
-
-        if (!existingParent2) {
-          throw new NotFoundException({
-            error: {
-              code: 'PARENT_NOT_FOUND',
-              message: `Parent with id "${dto.parent2_link_existing_id}" not found`,
-            },
-          });
-        }
-
-        parent2Id = existingParent2.id;
-      } else if (dto.parent2_first_name && dto.parent2_last_name) {
-        const newParent2 = await db.parent.create({
-          data: {
-            tenant_id: tenantId,
-            first_name: dto.parent2_first_name,
-            last_name: dto.parent2_last_name,
-            email: dto.parent2_email ?? null,
-            preferred_contact_channels: ['email'],
-            is_primary_contact: false,
-            is_billing_contact: false,
-            status: 'active',
-          },
-        });
-        parent2Id = newParent2.id;
-      }
-
-      // 3. Create household
-      const householdName = dto.household_name ?? `${dto.student_last_name} Family`;
-
-      const householdNumber = await this.sequenceService.generateHouseholdReference(tenantId, db);
-
-      const household = await db.household.create({
-        data: {
-          tenant_id: tenantId,
-          household_name: householdName,
-          household_number: householdNumber,
-          primary_billing_parent_id: parent1Id,
-          status: 'active',
-          needs_completion: true,
-        },
-      });
-
-      // Link parents to household
-      await db.householdParent.create({
-        data: {
-          tenant_id: tenantId,
-          household_id: household.id,
-          parent_id: parent1Id,
-        },
-      });
-
-      if (parent2Id) {
-        await db.householdParent.create({
-          data: {
-            tenant_id: tenantId,
-            household_id: household.id,
-            parent_id: parent2Id,
-          },
-        });
-      }
-
-      // 4. Create student (full_name is a generated column — do not set it)
-      const student = await db.student.create({
-        data: {
-          tenant_id: tenantId,
-          household_id: household.id,
-          first_name: dto.student_first_name,
-          last_name: dto.student_last_name,
-          date_of_birth: new Date(dto.date_of_birth),
-          national_id: dto.national_id ?? null,
-          nationality: dto.nationality ?? null,
-          status: 'active',
-          year_group_id: dto.year_group_id,
-          entry_date: new Date(),
-        },
-      });
-
-      // 5. Create student-parent junctions
-      await db.studentParent.create({
-        data: {
-          tenant_id: tenantId,
-          student_id: student.id,
-          parent_id: parent1Id,
-        },
-      });
-
-      if (parent2Id) {
-        await db.studentParent.create({
-          data: {
-            tenant_id: tenantId,
-            student_id: student.id,
-            parent_id: parent2Id,
-          },
-        });
-      }
-
-      // 6. Record conversion via internal note (idempotency guard checks for this)
-      await db.applicationNote.create({
-        data: {
-          tenant_id: tenantId,
-          application_id: id,
-          author_user_id: userId,
-          note: `Converted to student: ${student.first_name} ${student.last_name} (ID: ${student.id}). Household: ${household.household_name} (ID: ${household.id}).`,
-          is_internal: true,
-        },
-      });
-
-      return {
-        application_id: id,
-        student,
-        household,
-        parent1_id: parent1Id,
-        parent2_id: parent2Id,
-      };
-    })) as {
+    let result: {
       application_id: string;
       student: {
         id: string;
@@ -361,6 +160,252 @@ export class ApplicationConversionService {
       parent1_id: string;
       parent2_id: string | null;
     };
+
+    try {
+      result = (await prismaWithRls.$transaction(async (tx) => {
+        const db = tx as unknown as PrismaService;
+
+        const application = await db.application.findFirst({
+          where: { id, tenant_id: tenantId },
+        });
+
+        if (!application) {
+          throw new NotFoundException({
+            error: {
+              code: 'APPLICATION_NOT_FOUND',
+              message: `Application with id "${id}" not found`,
+            },
+          });
+        }
+
+        const existingConversion = await db.applicationNote.findFirst({
+          where: {
+            application_id: id,
+            is_internal: true,
+            note: { startsWith: ApplicationConversionService.CONVERSION_NOTE_PREFIX },
+            tenant_id: tenantId,
+          },
+          select: { id: true },
+        });
+
+        if (existingConversion) {
+          throw new BadRequestException({
+            error: {
+              code: 'ALREADY_CONVERTED',
+              message: 'This application has already been converted to a student',
+            },
+          });
+        }
+
+        if (application.status !== 'accepted') {
+          throw new BadRequestException({
+            error: {
+              code: 'NOT_ACCEPTED',
+              message: 'Only accepted applications can be converted to students',
+            },
+          });
+        }
+
+        if (application.updated_at.toISOString() !== dto.expected_updated_at) {
+          throw new BadRequestException({
+            error: {
+              code: 'CONCURRENT_MODIFICATION',
+              message: 'The application has been modified. Please reload and try again.',
+            },
+          });
+        }
+
+        // The stale updated_at check above protects callers from overwriting
+        // a newer application state. A partial unique index on conversion
+        // notes ensures only one conversion can commit per application.
+
+        const yearGroup = await db.yearGroup.findFirst({
+          where: { id: dto.year_group_id, tenant_id: tenantId },
+        });
+
+        if (!yearGroup) {
+          throw new NotFoundException({
+            error: {
+              code: 'YEAR_GROUP_NOT_FOUND',
+              message: `Year group with id "${dto.year_group_id}" not found`,
+            },
+          });
+        }
+
+        let parent1Id: string;
+
+        if (dto.parent1_link_existing_id) {
+          const existingParent = await db.parent.findFirst({
+            where: { id: dto.parent1_link_existing_id, tenant_id: tenantId },
+          });
+
+          if (!existingParent) {
+            throw new NotFoundException({
+              error: {
+                code: 'PARENT_NOT_FOUND',
+                message: `Parent with id "${dto.parent1_link_existing_id}" not found`,
+              },
+            });
+          }
+
+          parent1Id = existingParent.id;
+        } else {
+          const newParent = await db.parent.create({
+            data: {
+              tenant_id: tenantId,
+              first_name: dto.parent1_first_name,
+              last_name: dto.parent1_last_name,
+              email: dto.parent1_email ?? null,
+              phone: dto.parent1_phone ?? null,
+              preferred_contact_channels: ['email'],
+              is_primary_contact: true,
+              is_billing_contact: true,
+              status: 'active',
+            },
+          });
+          parent1Id = newParent.id;
+        }
+
+        let parent2Id: string | null = null;
+
+        if (dto.parent2_link_existing_id) {
+          const existingParent2 = await db.parent.findFirst({
+            where: { id: dto.parent2_link_existing_id, tenant_id: tenantId },
+          });
+
+          if (!existingParent2) {
+            throw new NotFoundException({
+              error: {
+                code: 'PARENT_NOT_FOUND',
+                message: `Parent with id "${dto.parent2_link_existing_id}" not found`,
+              },
+            });
+          }
+
+          parent2Id = existingParent2.id;
+        } else if (dto.parent2_first_name && dto.parent2_last_name) {
+          const newParent2 = await db.parent.create({
+            data: {
+              tenant_id: tenantId,
+              first_name: dto.parent2_first_name,
+              last_name: dto.parent2_last_name,
+              email: dto.parent2_email ?? null,
+              preferred_contact_channels: ['email'],
+              is_primary_contact: false,
+              is_billing_contact: false,
+              status: 'active',
+            },
+          });
+          parent2Id = newParent2.id;
+        }
+
+        const householdName = dto.household_name ?? `${dto.student_last_name} Family`;
+        const householdNumber = await this.sequenceService.generateHouseholdReference(tenantId, db);
+
+        const household = await db.household.create({
+          data: {
+            tenant_id: tenantId,
+            household_name: householdName,
+            household_number: householdNumber,
+            primary_billing_parent_id: parent1Id,
+            status: 'active',
+            needs_completion: true,
+          },
+        });
+
+        await db.householdParent.create({
+          data: {
+            tenant_id: tenantId,
+            household_id: household.id,
+            parent_id: parent1Id,
+          },
+        });
+
+        if (parent2Id) {
+          await db.householdParent.create({
+            data: {
+              tenant_id: tenantId,
+              household_id: household.id,
+              parent_id: parent2Id,
+            },
+          });
+        }
+
+        const student = await db.student.create({
+          data: {
+            tenant_id: tenantId,
+            household_id: household.id,
+            first_name: dto.student_first_name,
+            last_name: dto.student_last_name,
+            date_of_birth: new Date(dto.date_of_birth),
+            national_id: dto.national_id ?? null,
+            nationality: dto.nationality ?? null,
+            status: 'active',
+            year_group_id: dto.year_group_id,
+            entry_date: new Date(),
+          },
+        });
+
+        await db.studentParent.create({
+          data: {
+            tenant_id: tenantId,
+            student_id: student.id,
+            parent_id: parent1Id,
+          },
+        });
+
+        if (parent2Id) {
+          await db.studentParent.create({
+            data: {
+              tenant_id: tenantId,
+              student_id: student.id,
+              parent_id: parent2Id,
+            },
+          });
+        }
+
+        await db.applicationNote.create({
+          data: {
+            tenant_id: tenantId,
+            application_id: id,
+            author_user_id: userId,
+            note: `${ApplicationConversionService.CONVERSION_NOTE_PREFIX} ${student.first_name} ${student.last_name} (ID: ${student.id}). Household: ${household.household_name} (ID: ${household.id}).`,
+            is_internal: true,
+          },
+        });
+
+        return {
+          application_id: id,
+          student,
+          household,
+          parent1_id: parent1Id,
+          parent2_id: parent2Id,
+        };
+      })) as typeof result;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const committedConversion = await this.prisma.applicationNote.findFirst({
+          where: {
+            application_id: id,
+            is_internal: true,
+            note: { startsWith: ApplicationConversionService.CONVERSION_NOTE_PREFIX },
+            tenant_id: tenantId,
+          },
+          select: { id: true },
+        });
+
+        if (committedConversion) {
+          throw new BadRequestException({
+            error: {
+              code: 'ALREADY_CONVERTED',
+              message: 'This application has already been converted to a student',
+            },
+          });
+        }
+      }
+
+      throw error;
+    }
 
     // Enqueue search indexing after transaction
     try {

@@ -5,6 +5,13 @@ import { RedisService } from '../../modules/redis/redis.service';
 
 import { PermissionCacheService } from './permission-cache.service';
 
+const MEMBERSHIP_ID = '11111111-1111-4111-8111-111111111111';
+const SECOND_MEMBERSHIP_ID = '22222222-2222-4222-8222-222222222222';
+const EMPTY_MEMBERSHIP_ID = '33333333-3333-4333-8333-333333333333';
+const TENANT_ID = '44444444-4444-4444-8444-444444444444';
+const EMPTY_TENANT_ID = '55555555-5555-4555-8555-555555555555';
+const OTHER_MEMBERSHIP_ID = '66666666-6666-4666-8666-666666666666';
+
 const mockPipelineInstance = {
   del: jest.fn().mockReturnThis(),
   exec: jest.fn().mockResolvedValue([]),
@@ -18,6 +25,7 @@ const mockRedisClient = {
 };
 
 const mockPrisma = {
+  $transaction: jest.fn(),
   membershipRole: {
     findMany: jest.fn(),
   },
@@ -42,6 +50,14 @@ describe('PermissionCacheService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    mockPrisma.$transaction.mockImplementation(
+      async (fn: (tx: typeof mockPrisma & { $executeRawUnsafe: jest.Mock }) => Promise<unknown>) =>
+        fn({
+          ...mockPrisma,
+          $executeRawUnsafe: jest.fn().mockResolvedValue(undefined),
+        }),
+    );
 
     // Re-attach pipeline mock after clearAllMocks
     mockRedisClient.pipeline.mockReturnValue(mockPipelineInstance);
@@ -68,12 +84,12 @@ describe('PermissionCacheService', () => {
       mockRedisClient.get.mockResolvedValue(null);
       mockPrisma.membershipRole.findMany.mockResolvedValue(membershipRolesWithPermissions);
 
-      const permissions = await service.getPermissions('membership-1');
+      const permissions = await service.getPermissions(MEMBERSHIP_ID);
 
       // DB was queried
       expect(mockPrisma.membershipRole.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { membership_id: 'membership-1' },
+          where: { membership_id: MEMBERSHIP_ID },
         }),
       );
 
@@ -83,7 +99,7 @@ describe('PermissionCacheService', () => {
 
       // setex called with 60-second TTL
       expect(mockRedisClient.setex).toHaveBeenCalledWith(
-        'permissions:membership-1',
+        `permissions:${MEMBERSHIP_ID}`,
         60,
         JSON.stringify(permissions),
       );
@@ -93,7 +109,7 @@ describe('PermissionCacheService', () => {
       const cached = ['users.view', 'users.manage'];
       mockRedisClient.get.mockResolvedValue(JSON.stringify(cached));
 
-      const permissions = await service.getPermissions('membership-1');
+      const permissions = await service.getPermissions(MEMBERSHIP_ID);
 
       // Returned cached data
       expect(permissions).toEqual(cached);
@@ -127,24 +143,26 @@ describe('PermissionCacheService', () => {
         },
       ]);
 
-      const permissions = await service.getPermissions('membership-2');
+      const permissions = await service.getPermissions(SECOND_MEMBERSHIP_ID);
 
       // 'users.view' appears in both roles but should only be present once
       const viewCount = permissions.filter((p) => p === 'users.view').length;
       expect(viewCount).toBe(1);
       expect(permissions).toHaveLength(3);
-      expect(permissions).toEqual(expect.arrayContaining(['users.view', 'users.manage', 'payroll.view']));
+      expect(permissions).toEqual(
+        expect.arrayContaining(['users.view', 'users.manage', 'payroll.view']),
+      );
     });
 
     it('should return empty array when membership has no roles', async () => {
       mockRedisClient.get.mockResolvedValue(null);
       mockPrisma.membershipRole.findMany.mockResolvedValue([]);
 
-      const permissions = await service.getPermissions('membership-no-roles');
+      const permissions = await service.getPermissions(EMPTY_MEMBERSHIP_ID);
 
       expect(permissions).toEqual([]);
       expect(mockRedisClient.setex).toHaveBeenCalledWith(
-        'permissions:membership-no-roles',
+        `permissions:${EMPTY_MEMBERSHIP_ID}`,
         60,
         JSON.stringify([]),
       );
@@ -153,41 +171,47 @@ describe('PermissionCacheService', () => {
 
   describe('invalidate', () => {
     it('should delete the Redis cache key for the given membership', async () => {
-      await service.invalidate('membership-1');
+      await service.invalidate(MEMBERSHIP_ID);
 
-      expect(mockRedisClient.del).toHaveBeenCalledWith('permissions:membership-1');
+      expect(mockRedisClient.del).toHaveBeenCalledWith(`permissions:${MEMBERSHIP_ID}`);
     });
 
     it('should use the correct cache key format', async () => {
-      await service.invalidate('some-uuid-here');
+      await service.invalidate(OTHER_MEMBERSHIP_ID);
 
-      expect(mockRedisClient.del).toHaveBeenCalledWith('permissions:some-uuid-here');
+      expect(mockRedisClient.del).toHaveBeenCalledWith(`permissions:${OTHER_MEMBERSHIP_ID}`);
     });
   });
 
   describe('invalidateAllForTenant', () => {
     it('should invalidate cache for all memberships in the tenant via pipeline', async () => {
       mockPrisma.tenantMembership.findMany.mockResolvedValue([
-        { id: 'membership-a' },
-        { id: 'membership-b' },
-        { id: 'membership-c' },
+        { id: '77777777-7777-4777-8777-777777777777' },
+        { id: '88888888-8888-4888-8888-888888888888' },
+        { id: '99999999-9999-4999-8999-999999999999' },
       ]);
 
-      await service.invalidateAllForTenant('tenant-1');
+      await service.invalidateAllForTenant(TENANT_ID);
 
       // Queried memberships for the right tenant
       expect(mockPrisma.tenantMembership.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { tenant_id: 'tenant-1' },
+          where: { tenant_id: TENANT_ID },
           select: { id: true },
         }),
       );
 
       // Pipeline del called once per membership
       expect(mockPipelineInstance.del).toHaveBeenCalledTimes(3);
-      expect(mockPipelineInstance.del).toHaveBeenCalledWith('permissions:membership-a');
-      expect(mockPipelineInstance.del).toHaveBeenCalledWith('permissions:membership-b');
-      expect(mockPipelineInstance.del).toHaveBeenCalledWith('permissions:membership-c');
+      expect(mockPipelineInstance.del).toHaveBeenCalledWith(
+        'permissions:77777777-7777-4777-8777-777777777777',
+      );
+      expect(mockPipelineInstance.del).toHaveBeenCalledWith(
+        'permissions:88888888-8888-4888-8888-888888888888',
+      );
+      expect(mockPipelineInstance.del).toHaveBeenCalledWith(
+        'permissions:99999999-9999-4999-8999-999999999999',
+      );
 
       // Pipeline executed
       expect(mockPipelineInstance.exec).toHaveBeenCalled();
@@ -196,7 +220,7 @@ describe('PermissionCacheService', () => {
     it('should do nothing (exec with empty pipeline) when tenant has no memberships', async () => {
       mockPrisma.tenantMembership.findMany.mockResolvedValue([]);
 
-      await service.invalidateAllForTenant('empty-tenant');
+      await service.invalidateAllForTenant(EMPTY_TENANT_ID);
 
       expect(mockPipelineInstance.del).not.toHaveBeenCalled();
       expect(mockPipelineInstance.exec).toHaveBeenCalled();

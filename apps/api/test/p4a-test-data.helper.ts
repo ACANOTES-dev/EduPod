@@ -4,7 +4,13 @@
  */
 import { INestApplication } from '@nestjs/common';
 
-import { authGet, authPost, getAuthToken, AL_NOOR_DOMAIN } from './helpers';
+import {
+  allocateAcademicYearBase,
+  authGet,
+  authPost,
+  getAuthToken,
+  AL_NOOR_DOMAIN,
+} from './helpers';
 
 export interface P4ATestData {
   academicYearId: string;
@@ -29,8 +35,7 @@ export async function setupP4ATestData(
   adminToken: string,
 ): Promise<P4ATestData> {
   const ts = Date.now();
-  // Use a random far-future year range to avoid overlapping with existing academic years
-  const baseYear = 3000 + Math.floor(Math.random() * 5000);
+  const baseYear = allocateAcademicYearBase();
 
   const dateInYear = (month: number, day: number): string => {
     // Months 9-12 are in baseYear, months 1-6 are in baseYear+1
