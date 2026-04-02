@@ -100,7 +100,11 @@ describe('Tenants Admin Endpoints (e2e)', () => {
 
   it('should get tenant detail', async () => {
     // First get list to find al-noor's ID (use pageSize=100 and asc order so seed tenants are included)
-    const listRes = await authGet(app, '/api/v1/admin/tenants?pageSize=100&order=asc', platformToken).expect(200);
+    const listRes = await authGet(
+      app,
+      '/api/v1/admin/tenants?pageSize=100&order=asc',
+      platformToken,
+    ).expect(200);
     const alNoor = listRes.body.data.find((t: { slug: string }) => t.slug === 'al-noor');
     expect(alNoor).toBeDefined();
 
@@ -118,17 +122,18 @@ describe('Tenants Admin Endpoints (e2e)', () => {
   // ─── Test 6: Update tenant ───────────────────────────────────────────────────
 
   it('should update tenant name', async () => {
-    const listRes = await authGet(app, '/api/v1/admin/tenants?pageSize=100&order=asc', platformToken).expect(200);
+    const listRes = await authGet(
+      app,
+      '/api/v1/admin/tenants?pageSize=100&order=asc',
+      platformToken,
+    ).expect(200);
     const alNoor = listRes.body.data.find((t: { slug: string }) => t.slug === 'al-noor');
     expect(alNoor).toBeDefined();
 
     const updatedName = 'Al Noor Updated';
-    const res = await authPatch(
-      app,
-      `/api/v1/admin/tenants/${alNoor.id}`,
-      platformToken,
-      { name: updatedName },
-    ).expect(200);
+    const res = await authPatch(app, `/api/v1/admin/tenants/${alNoor.id}`, platformToken, {
+      name: updatedName,
+    }).expect(200);
 
     expect(res.body.data).toBeDefined();
     expect(res.body.data.name).toBe(updatedName);
@@ -240,8 +245,12 @@ describe('Tenants Admin Endpoints (e2e)', () => {
 
   // ─── Test 11: List tenant modules ───────────────────────────────────────────
 
-  it('should list tenant modules and return all 11 modules', async () => {
-    const listRes = await authGet(app, '/api/v1/admin/tenants?pageSize=100&order=asc', platformToken).expect(200);
+  it('should list tenant modules and return all 16 modules', async () => {
+    const listRes = await authGet(
+      app,
+      '/api/v1/admin/tenants?pageSize=100&order=asc',
+      platformToken,
+    ).expect(200);
     const alNoor = listRes.body.data.find((t: { slug: string }) => t.slug === 'al-noor');
     expect(alNoor).toBeDefined();
 
@@ -253,7 +262,7 @@ describe('Tenants Admin Endpoints (e2e)', () => {
 
     expect(res.body.data).toBeDefined();
     expect(Array.isArray(res.body.data)).toBe(true);
-    expect(res.body.data).toHaveLength(11);
+    expect(res.body.data).toHaveLength(16);
 
     const moduleKeys = res.body.data.map((m: { module_key: string }) => m.module_key);
     expect(moduleKeys).toEqual(
@@ -269,6 +278,11 @@ describe('Tenants Admin Endpoints (e2e)', () => {
         'compliance',
         'parent_inquiries',
         'auto_scheduling',
+        'staff_wellbeing',
+        'sen',
+        'behaviour',
+        'pastoral',
+        'ai_functions',
       ]),
     );
   });
@@ -276,7 +290,11 @@ describe('Tenants Admin Endpoints (e2e)', () => {
   // ─── Test 12: Toggle module ──────────────────────────────────────────────────
 
   it('should toggle a module off then back on', async () => {
-    const listRes = await authGet(app, '/api/v1/admin/tenants?pageSize=100&order=asc', platformToken).expect(200);
+    const listRes = await authGet(
+      app,
+      '/api/v1/admin/tenants?pageSize=100&order=asc',
+      platformToken,
+    ).expect(200);
     const alNoor = listRes.body.data.find((t: { slug: string }) => t.slug === 'al-noor');
     expect(alNoor).toBeDefined();
 

@@ -51,12 +51,7 @@ describe('Workflow: Admissions Conversion (e2e)', () => {
   // ─── Helper: get updated_at for an application ───────────────────────────
 
   async function getUpdatedAt(appId: string): Promise<string> {
-    const res = await authGet(
-      app,
-      `/api/v1/applications/${appId}`,
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    );
+    const res = await authGet(app, `/api/v1/applications/${appId}`, ownerToken, AL_NOOR_DOMAIN);
     const body = res.body.data ?? res.body;
     return body.updated_at;
   }
@@ -206,12 +201,7 @@ describe('Workflow: Admissions Conversion (e2e)', () => {
     const updatedAt = await getUpdatedAt(applicationId);
 
     // Get year groups for conversion
-    const ygRes = await authGet(
-      app,
-      '/api/v1/year-groups',
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    );
+    const ygRes = await authGet(app, '/api/v1/year-groups', ownerToken, AL_NOOR_DOMAIN);
 
     const ygBody = ygRes.body.data ?? ygRes.body;
     expect(Array.isArray(ygBody)).toBe(true);
@@ -229,6 +219,8 @@ describe('Workflow: Admissions Conversion (e2e)', () => {
         student_last_name: 'Student',
         date_of_birth: '2017-09-01',
         year_group_id: yearGroupId,
+        national_id: 'CONV-NID-002',
+        nationality: 'Irish',
         parent1_first_name: 'Conversion',
         parent1_last_name: 'Parent',
         parent1_email: uniqueEmail,
@@ -268,20 +260,13 @@ describe('Workflow: Admissions Conversion (e2e)', () => {
 
   describe('Cross-tenant isolation', () => {
     it('should prevent Cedar admin from seeing Al Noor applications', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/applications',
-        cedarOwnerToken,
-        CEDAR_DOMAIN,
-      );
+      const res = await authGet(app, '/api/v1/applications', cedarOwnerToken, CEDAR_DOMAIN);
 
       const body = res.body;
       const applications = body.data ?? [];
 
       // Cedar should not see Al Noor's application
-      const leakedApp = applications.find(
-        (a: { id: string }) => a.id === applicationId,
-      );
+      const leakedApp = applications.find((a: { id: string }) => a.id === applicationId);
       expect(leakedApp).toBeUndefined();
     });
 

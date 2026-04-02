@@ -302,6 +302,8 @@ export class ApplicationConversionService {
           first_name: dto.student_first_name,
           last_name: dto.student_last_name,
           date_of_birth: new Date(dto.date_of_birth),
+          national_id: dto.national_id ?? null,
+          nationality: dto.nationality ?? null,
           status: 'active',
           year_group_id: dto.year_group_id,
           entry_date: new Date(),

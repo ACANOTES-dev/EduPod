@@ -18,6 +18,7 @@ describe('Classes (e2e)', () => {
   let app: INestApplication;
   let ownerToken: string;
   let academicYearId: string;
+  let yearGroupId: string;
   let createdClassId: string;
   let staffProfileId: string;
   let studentId: string;
@@ -52,6 +53,16 @@ describe('Classes (e2e)', () => {
       AL_NOOR_DOMAIN,
     ).expect(201);
     academicYearId = (yearRes.body.data ?? yearRes.body).id;
+
+    // Create a year group
+    const yearGroupRes = await authPost(
+      app,
+      '/api/v1/year-groups',
+      ownerToken,
+      { name: `Class Test YG ${uniqueSuffix}` },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+    yearGroupId = (yearGroupRes.body.data ?? yearGroupRes.body).id;
 
     // Get or create a staff profile for the teacher
     const staffListRes = await authGet(
@@ -106,6 +117,8 @@ describe('Classes (e2e)', () => {
         first_name: 'Class',
         last_name: 'StudentOne',
         date_of_birth: '2015-03-15',
+        national_id: `NID-S1-${uniqueSuffix}`,
+        nationality: 'Irish',
         status: 'active',
       },
       AL_NOOR_DOMAIN,
@@ -121,6 +134,8 @@ describe('Classes (e2e)', () => {
         first_name: 'Class',
         last_name: 'StudentTwo',
         date_of_birth: '2015-06-20',
+        national_id: `NID-S2-${uniqueSuffix}`,
+        nationality: 'Irish',
         status: 'active',
       },
       AL_NOOR_DOMAIN,
@@ -140,6 +155,9 @@ describe('Classes (e2e)', () => {
       {
         name: `Test Class ${uniqueSuffix}`,
         academic_year_id: academicYearId,
+        year_group_id: yearGroupId,
+        max_capacity: 30,
+        class_type: 'floating',
         status: 'active',
       },
       AL_NOOR_DOMAIN,

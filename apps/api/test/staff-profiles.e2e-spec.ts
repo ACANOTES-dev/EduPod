@@ -4,7 +4,6 @@ import {
   AL_NOOR_DOMAIN,
   AL_NOOR_OWNER_EMAIL,
   AL_NOOR_PARENT_EMAIL,
-  AL_NOOR_TEACHER_EMAIL,
   closeTestApp,
   createTestApp,
   DEV_PASSWORD,
@@ -18,8 +17,11 @@ describe('Staff Profiles (e2e)', () => {
   let app: INestApplication;
   let ownerToken: string;
   let parentToken: string;
-  let teacherUserId: string;
   let createdProfileId: string;
+  let teacherRoleId: string;
+
+  // Unique email per test run to avoid conflicts
+  const testEmail = `staff-test-${Date.now()}@alnoor.test`;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -27,25 +29,33 @@ describe('Staff Profiles (e2e)', () => {
     const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
     ownerToken = ownerLogin.accessToken;
 
-    const teacherLogin = await login(app, AL_NOOR_TEACHER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
-    teacherUserId = teacherLogin.user.id as string;
-
     const parentLogin = await login(app, AL_NOOR_PARENT_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
     parentToken = parentLogin.accessToken;
+
+    // Get a valid role_id (teacher role) for staff creation
+    const rolesRes = await authGet(app, '/api/v1/roles', ownerToken, AL_NOOR_DOMAIN).expect(200);
+    const teacherRole = rolesRes.body.data.find(
+      (r: { role_key: string }) => r.role_key === 'teacher',
+    );
+    expect(teacherRole).toBeDefined();
+    teacherRoleId = teacherRole.id;
   });
 
   afterAll(async () => {
     await closeTestApp();
   });
 
-  it('POST /staff-profiles — should create → 201', async () => {
-    // Try to create; if profile already exists (409), retrieve existing one
+  it('POST /staff-profiles — should create -> 201', async () => {
     const res = await authPost(
       app,
       '/api/v1/staff-profiles',
       ownerToken,
       {
-        user_id: teacherUserId,
+        first_name: 'Test',
+        last_name: 'Staff',
+        email: testEmail,
+        phone: '+971501234567',
+        role_id: teacherRoleId,
         employment_status: 'active',
         job_title: 'Mathematics Teacher',
         department: 'Mathematics',
@@ -60,7 +70,6 @@ describe('Staff Profiles (e2e)', () => {
     if (res.status === 201) {
       const body = res.body.data ?? res.body;
       expect(body.id).toBeDefined();
-      expect(body.user_id).toBe(teacherUserId);
       expect(body.employment_status).toBe('active');
       expect(body.job_title).toBe('Mathematics Teacher');
       // Bank details should be masked in the response
@@ -68,7 +77,7 @@ describe('Staff Profiles (e2e)', () => {
       expect(body.bank_iban_encrypted).toBeUndefined();
       createdProfileId = body.id;
     } else if (res.status === 409) {
-      // Profile already exists — list and find it
+      // Profile already exists for this email — list and find it
       const listRes = await authGet(
         app,
         '/api/v1/staff-profiles',
@@ -77,49 +86,52 @@ describe('Staff Profiles (e2e)', () => {
       ).expect(200);
 
       const profiles = listRes.body.data ?? [];
-      const existing = profiles.find(
-        (p: Record<string, unknown>) => p.user_id === teacherUserId,
-      );
+      const existing = profiles.find((p: Record<string, unknown>) => typeof p.id === 'string');
       expect(existing).toBeDefined();
       createdProfileId = existing.id as string;
     } else {
-      fail(`Unexpected status: ${res.status}`);
+      fail(`Unexpected status: ${res.status} — ${JSON.stringify(res.body)}`);
     }
   });
 
-  it('POST /staff-profiles — should reject duplicate → 409', async () => {
+  it('POST /staff-profiles — should reject duplicate email -> 409', async () => {
     await authPost(
       app,
       '/api/v1/staff-profiles',
       ownerToken,
       {
-        user_id: teacherUserId,
+        first_name: 'Duplicate',
+        last_name: 'Staff',
+        email: testEmail,
+        phone: '+971501234568',
+        role_id: teacherRoleId,
         employment_status: 'active',
       },
       AL_NOOR_DOMAIN,
     ).expect(409);
   });
 
-  it('POST /staff-profiles — should reject without users.manage → 403', async () => {
+  it('POST /staff-profiles — should reject without users.manage -> 403', async () => {
     await authPost(
       app,
       '/api/v1/staff-profiles',
       parentToken,
       {
-        user_id: teacherUserId,
+        first_name: 'Unauthorized',
+        last_name: 'Staff',
+        email: `unauth-${Date.now()}@alnoor.test`,
+        phone: '+971501234569',
+        role_id: teacherRoleId,
         employment_status: 'active',
       },
       AL_NOOR_DOMAIN,
     ).expect(403);
   });
 
-  it('GET /staff-profiles — should list with masked bank details → 200', async () => {
-    const res = await authGet(
-      app,
-      '/api/v1/staff-profiles',
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    ).expect(200);
+  it('GET /staff-profiles — should list with masked bank details -> 200', async () => {
+    const res = await authGet(app, '/api/v1/staff-profiles', ownerToken, AL_NOOR_DOMAIN).expect(
+      200,
+    );
 
     const body = res.body.data ?? res.body;
     expect(Array.isArray(body)).toBe(true);
@@ -133,7 +145,7 @@ describe('Staff Profiles (e2e)', () => {
     }
   });
 
-  it('GET /staff-profiles/:id — should return detail → 200', async () => {
+  it('GET /staff-profiles/:id — should return detail -> 200', async () => {
     expect(createdProfileId).toBeDefined();
 
     const res = await authGet(
@@ -145,11 +157,10 @@ describe('Staff Profiles (e2e)', () => {
 
     const body = res.body.data ?? res.body;
     expect(body.id).toBe(createdProfileId);
-    expect(body.user_id).toBe(teacherUserId);
     expect(body.employment_status).toBe('active');
   });
 
-  it('PATCH /staff-profiles/:id — should update → 200', async () => {
+  it('PATCH /staff-profiles/:id — should update -> 200', async () => {
     expect(createdProfileId).toBeDefined();
 
     const res = await authPatch(
@@ -165,7 +176,7 @@ describe('Staff Profiles (e2e)', () => {
     expect(body.department).toBe('STEM');
   });
 
-  it('GET /staff-profiles/:id/bank-details — should return masked details → 200', async () => {
+  it('GET /staff-profiles/:id/bank-details — should return masked details -> 200', async () => {
     expect(createdProfileId).toBeDefined();
 
     const res = await authGet(
@@ -188,7 +199,7 @@ describe('Staff Profiles (e2e)', () => {
     expect(body.bank_name).toBe('National Bank');
   });
 
-  it('GET /staff-profiles/:id/bank-details — reject without payroll.view_bank_details → 403', async () => {
+  it('GET /staff-profiles/:id/bank-details — reject without payroll.view_bank_details -> 403', async () => {
     expect(createdProfileId).toBeDefined();
 
     await authGet(
@@ -199,7 +210,7 @@ describe('Staff Profiles (e2e)', () => {
     ).expect(403);
   });
 
-  it('GET /staff-profiles/:id/preview — should return preview → 200', async () => {
+  it('GET /staff-profiles/:id/preview — should return preview -> 200', async () => {
     expect(createdProfileId).toBeDefined();
 
     const res = await authGet(

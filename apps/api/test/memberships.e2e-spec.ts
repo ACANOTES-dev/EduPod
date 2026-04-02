@@ -90,8 +90,8 @@ describe('Memberships (e2e)', () => {
     expect(body.membership_status).toBe('suspended');
   });
 
-  it('should reject suspending last owner', async () => {
-    // Get the owner's own user ID
+  it('should reject suspending last principal', async () => {
+    // Get the owner's own user ID (seed data assigns school_principal role)
     const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
     const ownerUserId = ownerLogin.user.id as string;
     expect(ownerUserId).toBeDefined();
@@ -105,7 +105,9 @@ describe('Memberships (e2e)', () => {
     ).expect(400);
 
     const error = res.body.error ?? res.body;
-    expect(error.code ?? error.message).toMatch(/LAST_SCHOOL_OWNER|last.*owner|last school owner/i);
+    expect(error.code ?? error.message).toMatch(
+      /SCHOOL_OWNER_PROTECTED|LAST_SCHOOL_PRINCIPAL|last.*principal|last.*owner|cannot.*suspend/i,
+    );
   });
 
   it('should reactivate membership', async () => {

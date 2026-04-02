@@ -27,21 +27,19 @@ describe('Search (e2e)', () => {
   });
 
   it('GET /search?q=test — should return results → 200', async () => {
-    const res = await authGet(
-      app,
-      '/api/v1/search?q=test',
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    ).expect(200);
+    const res = await authGet(app, '/api/v1/search?q=test', ownerToken, AL_NOOR_DOMAIN).expect(200);
 
+    // Controller returns { data: { results, total } }
+    // ResponseTransformInterceptor wraps to { data: { data: { results, total } } }
+    // or passes through if already wrapped — handle both shapes
     const body = res.body.data ?? res.body;
     expect(body).toBeDefined();
-    // Search results should be an object or array
-    if (Array.isArray(body)) {
-      // Each result should have a type indicator
-    } else if (body.data) {
-      expect(Array.isArray(body.data)).toBe(true);
-    }
+
+    // The search response contains { results: [...], total: N }
+    const searchData = body.data ?? body;
+    expect(searchData.results).toBeDefined();
+    expect(Array.isArray(searchData.results)).toBe(true);
+    expect(typeof searchData.total).toBe('number');
   });
 
   it('GET /search — should require authentication → 401', async () => {

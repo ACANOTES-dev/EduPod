@@ -696,6 +696,8 @@ describe('ApplicationsService', () => {
       student_last_name: 'Doe',
       date_of_birth: '2018-05-15',
       year_group_id: 'yg-1',
+      national_id: 'NID-CONV-001',
+      nationality: 'Irish',
       parent1_first_name: 'Jane',
       parent1_last_name: 'Doe',
       parent1_email: 'jane@test.com',

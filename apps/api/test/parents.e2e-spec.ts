@@ -70,12 +70,7 @@ describe('Parents (e2e)', () => {
   });
 
   it('GET /parents — should list parents', async () => {
-    const res = await authGet(
-      app,
-      '/api/v1/parents',
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    ).expect(200);
+    const res = await authGet(app, '/api/v1/parents', ownerToken, AL_NOOR_DOMAIN).expect(200);
 
     expect(res.body.data).toBeDefined();
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -150,6 +145,8 @@ describe('Parents (e2e)', () => {
         last_name: 'Student',
         date_of_birth: '2015-06-15',
         status: 'active',
+        national_id: `NID-PAR-${Date.now()}`,
+        nationality: 'Irish',
       },
       AL_NOOR_DOMAIN,
     ).expect(201);

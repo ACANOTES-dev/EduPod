@@ -45,8 +45,8 @@ import {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const AL_NOOR_TENANT_ID = 'aa08873c-40a5-4bba-a9e3-8bd0f6d5e696';
-const CEDAR_TENANT_ID = 'a032c7be-a0c3-4375-add7-174afa46e046';
+let AL_NOOR_TENANT_ID: string;
+let CEDAR_TENANT_ID: string;
 const SENTINEL_USER_ID = '00000000-0000-0000-0000-000000000000';
 const RLS_TEST_ROLE = 'rls_cp_test_user';
 
@@ -107,6 +107,13 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
       },
     });
     await directPrisma.$connect();
+
+    // Resolve tenant IDs dynamically from seed data
+    const tenants = await directPrisma.$queryRawUnsafe<Array<{ id: string; slug: string }>>(
+      `SELECT id::text, slug FROM tenants WHERE slug IN ('al-noor', 'cedar')`,
+    );
+    AL_NOOR_TENANT_ID = tenants.find((t) => t.slug === 'al-noor')!.id;
+    CEDAR_TENANT_ID = tenants.find((t) => t.slug === 'cedar')!.id;
 
     // Create the RLS test role
     await directPrisma.$executeRawUnsafe(
@@ -227,8 +234,8 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
         );
         await directPrisma.$executeRawUnsafe(`REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
         await directPrisma.$executeRawUnsafe(`DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
-      } catch {
-        // Cleanup is best-effort
+      } catch (err) {
+        console.error('[CP-RLS cleanup]', err);
       }
       await directPrisma.$disconnect();
     }

@@ -335,7 +335,7 @@ describe('RLS Role Integration — Contract (restricted role expectations)', () 
 
   it('should verify FORCE ROW LEVEL SECURITY appears for all tables in policies.sql', () => {
     const policiesSql = readFileSync(
-      resolve(__dirname, '../../packages/prisma/rls/policies.sql'),
+      resolve(__dirname, '../../../packages/prisma/rls/policies.sql'),
       'utf-8',
     );
 

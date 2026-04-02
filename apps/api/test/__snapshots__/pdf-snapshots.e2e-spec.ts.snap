@@ -304,7 +304,6 @@ exports[`PDF Template Snapshots Invoice AR: renders deterministic HTML 1`] = `
           <td style="padding: 6px 0; text-align: left;" dir="ltr">AED 17000.00</td>
         </tr>
         <tr><td style="padding: 6px 0 6px 16px; color: #6b7280;">الخصم:</td><td style="padding: 6px 0; text-align: left; color: #16a34a;" dir="ltr">-AED 500.00</td></tr>
-        
         <tr style="border-top: 2px solid #047857;">
           <td style="padding: 10px 0 6px 16px; font-weight: 700; font-size: 15px;">الإجمالي:</td>
           <td style="padding: 10px 0 6px 0; text-align: left; font-weight: 700; font-size: 15px;" dir="ltr">AED 16500.00</td>
@@ -409,7 +408,6 @@ exports[`PDF Template Snapshots Invoice EN: renders deterministic HTML 1`] = `
           <td style="padding: 6px 0; text-align: right;">AED 17000.00</td>
         </tr>
         <tr><td style="padding: 6px 16px 6px 0; color: #6b7280;">Discount:</td><td style="padding: 6px 0; text-align: right; color: #16a34a;">-AED 500.00</td></tr>
-        
         <tr style="border-top: 2px solid #047857;">
           <td style="padding: 10px 16px 6px 0; font-weight: 700; font-size: 15px;">Total:</td>
           <td style="padding: 10px 0 6px 0; text-align: right; font-weight: 700; font-size: 15px;">AED 16500.00</td>
@@ -1130,7 +1128,7 @@ exports[`PDF Template Snapshots Transcript AR: renders deterministic HTML 1`] = 
       </tr>
       <tr>
         <td style="padding: 4px 0;"><strong>المرحلة:</strong> Year 9</td>
-        <td style="padding: 4px 0;"><strong>تاريخ الإصدار:</strong> <span dir="ltr">17/03/2026</span></td>
+        <td style="padding: 4px 0;"><strong>تاريخ الإصدار:</strong> <span dir="ltr">02/04/2026</span></td>
       </tr>
     </table>
 
@@ -1259,7 +1257,7 @@ exports[`PDF Template Snapshots Transcript EN: renders deterministic HTML 1`] = 
       </tr>
       <tr>
         <td style="padding: 4px 0;"><strong>Year Group:</strong> Year 9</td>
-        <td style="padding: 4px 0;"><strong>Generated:</strong> 17/03/2026</td>
+        <td style="padding: 4px 0;"><strong>Generated:</strong> 02/04/2026</td>
       </tr>
     </table>
 

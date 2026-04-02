@@ -104,6 +104,7 @@ describe('Workflow: Household Merge (e2e)', () => {
   // ─── 3. Add a student to Household B ────────────────────────────────────
 
   it('should create a student in household B', async () => {
+    const ts = Date.now();
     const res = await authPost(
       app,
       '/api/v1/students',
@@ -111,9 +112,11 @@ describe('Workflow: Household Merge (e2e)', () => {
       {
         household_id: householdBId,
         first_name: 'Merge',
-        last_name: `Student ${Date.now()}`,
+        last_name: `Student ${ts}`,
         date_of_birth: '2016-03-15',
         status: 'active',
+        national_id: `NID-MERGE-${ts}`,
+        nationality: 'Irish',
       },
       AL_NOOR_DOMAIN,
     ).expect(201);
@@ -221,9 +224,7 @@ describe('Workflow: Household Merge (e2e)', () => {
 
     // Check if students from B are now in A
     if (data.students && Array.isArray(data.students)) {
-      const movedStudent = data.students.find(
-        (s: { id: string }) => s.id === studentInBId,
-      );
+      const movedStudent = data.students.find((s: { id: string }) => s.id === studentInBId);
       expect(movedStudent).toBeDefined();
     } else {
       // The detail view may not include students inline;
@@ -313,22 +314,15 @@ describe('Workflow: Household Merge (e2e)', () => {
 
   describe('Cross-tenant isolation', () => {
     it('should prevent Cedar from seeing Al Noor merged households', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/households',
-        cedarOwnerToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/households', cedarOwnerToken, CEDAR_DOMAIN).expect(
+        200,
+      );
 
       const households = res.body.data ?? [];
 
       // Cedar should not see Al Noor's households
-      const leakedA = households.find(
-        (h: { id: string }) => h.id === householdAId,
-      );
-      const leakedB = households.find(
-        (h: { id: string }) => h.id === householdBId,
-      );
+      const leakedA = households.find((h: { id: string }) => h.id === householdAId);
+      const leakedB = households.find((h: { id: string }) => h.id === householdBId);
 
       expect(leakedA).toBeUndefined();
       expect(leakedB).toBeUndefined();

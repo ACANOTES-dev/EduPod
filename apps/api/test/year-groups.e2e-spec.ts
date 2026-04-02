@@ -67,6 +67,8 @@ describe('Year Groups (e2e)', () => {
         date_of_birth: '2015-01-01',
         status: 'active',
         year_group_id: inUseYearGroupId,
+        national_id: `NID-YG-${uniqueSuffix}`,
+        nationality: 'Irish',
       },
       AL_NOOR_DOMAIN,
     ).expect(201);
@@ -93,12 +95,7 @@ describe('Year Groups (e2e)', () => {
   });
 
   it('GET /year-groups — should list ordered → 200', async () => {
-    const res = await authGet(
-      app,
-      '/api/v1/year-groups',
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    ).expect(200);
+    const res = await authGet(app, '/api/v1/year-groups', ownerToken, AL_NOOR_DOMAIN).expect(200);
 
     const body = res.body.data ?? res.body;
     expect(Array.isArray(body)).toBe(true);

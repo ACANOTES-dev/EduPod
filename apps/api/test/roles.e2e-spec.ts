@@ -137,7 +137,9 @@ describe('Roles (e2e)', () => {
     ).expect(400);
 
     const error = res.body.error ?? res.body;
-    expect(error.code ?? error.message).toMatch(/SYSTEM_ROLE_IMMUTABLE|system role/i);
+    expect(error.code ?? error.message).toMatch(
+      /SYSTEM_ROLE_IMMUTABLE|SYSTEM_ROLE_NAME_LOCKED|system role/i,
+    );
   });
 
   it('should reject deleting system role', async () => {

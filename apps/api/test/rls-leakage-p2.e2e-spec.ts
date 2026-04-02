@@ -69,20 +69,10 @@ describe('RLS Leakage P2 (e2e)', () => {
     app = await createTestApp();
 
     // Authenticate as both tenants
-    const cedarLogin = await login(
-      app,
-      CEDAR_OWNER_EMAIL,
-      DEV_PASSWORD,
-      CEDAR_DOMAIN,
-    );
+    const cedarLogin = await login(app, CEDAR_OWNER_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
     cedarToken = cedarLogin.accessToken;
 
-    const alNoorLogin = await login(
-      app,
-      AL_NOOR_OWNER_EMAIL,
-      DEV_PASSWORD,
-      AL_NOOR_DOMAIN,
-    );
+    const alNoorLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
     alNoorToken = alNoorLogin.accessToken;
 
     // ── Create test data in Al Noor ───────────────────────────────────────────
@@ -93,18 +83,12 @@ describe('RLS Leakage P2 (e2e)', () => {
       '/api/v1/households',
       alNoorToken,
       {
-        name: `${UNIQUE_SEARCH_TERM} Household`,
-        name_ar: 'عائلة اختبار',
-        phone: '+971501234567',
-        email: 'rls-test-household@alnoor.test',
-        address_line1: '123 Test Street',
-        city: 'Dubai',
-        country: 'AE',
+        household_name: `${UNIQUE_SEARCH_TERM} Household`,
         emergency_contacts: [
           {
-            name: 'Emergency Contact One',
-            relationship: 'uncle',
+            contact_name: 'Emergency Contact One',
             phone: '+971509876543',
+            display_order: 1,
           },
         ],
       },
@@ -132,6 +116,7 @@ describe('RLS Leakage P2 (e2e)', () => {
     alNoorParentId = parentRes.body.data?.id ?? parentRes.body.id;
 
     // 3. Create a student
+    const ts = Date.now();
     const studentRes = await authPost(
       app,
       '/api/v1/students',
@@ -143,7 +128,8 @@ describe('RLS Leakage P2 (e2e)', () => {
         last_name_ar: 'اختبار',
         date_of_birth: '2015-06-15',
         gender: 'male',
-        nationality: 'AE',
+        national_id: `NID-RLS-${ts}`,
+        nationality: 'Irish',
         household_id: alNoorHouseholdId,
       },
       AL_NOOR_DOMAIN,
@@ -162,8 +148,7 @@ describe('RLS Leakage P2 (e2e)', () => {
       },
       AL_NOOR_DOMAIN,
     );
-    alNoorAcademicYearId =
-      academicYearRes.body.data?.id ?? academicYearRes.body.id;
+    alNoorAcademicYearId = academicYearRes.body.data?.id ?? academicYearRes.body.id;
 
     // 5. Create a year group
     const yearGroupRes = await authPost(
@@ -172,7 +157,7 @@ describe('RLS Leakage P2 (e2e)', () => {
       alNoorToken,
       {
         name: `${UNIQUE_SEARCH_TERM} Grade 1`,
-        sort_order: 999,
+        display_order: 999,
       },
       AL_NOOR_DOMAIN,
     );
@@ -200,7 +185,8 @@ describe('RLS Leakage P2 (e2e)', () => {
         name: `${UNIQUE_SEARCH_TERM} Class 1A`,
         academic_year_id: alNoorAcademicYearId,
         year_group_id: alNoorYearGroupId,
-        capacity: 30,
+        max_capacity: 30,
+        class_type: 'floating',
       },
       AL_NOOR_DOMAIN,
     );
@@ -224,9 +210,7 @@ describe('RLS Leakage P2 (e2e)', () => {
     );
 
     // Grant enough privileges for the role to SELECT from tenant tables.
-    await directPrisma.$executeRawUnsafe(
-      `GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`,
-    );
+    await directPrisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
     await directPrisma.$executeRawUnsafe(
       `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
     );
@@ -238,14 +222,10 @@ describe('RLS Leakage P2 (e2e)', () => {
         await directPrisma.$executeRawUnsafe(
           `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${RLS_TEST_ROLE}`,
         );
-        await directPrisma.$executeRawUnsafe(
-          `REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`,
-        );
-        await directPrisma.$executeRawUnsafe(
-          `DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`,
-        );
-      } catch {
-        // Role cleanup is best-effort.
+        await directPrisma.$executeRawUnsafe(`REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
+        await directPrisma.$executeRawUnsafe(`DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
+      } catch (err) {
+        console.error('[RLS-P2 cleanup]', err);
       }
       await directPrisma.$disconnect();
     }
@@ -261,9 +241,7 @@ describe('RLS Leakage P2 (e2e)', () => {
    *
    * Any row whose tenant_id equals AL_NOOR_TENANT_ID is a policy violation.
    */
-  async function queryAsCedar(
-    tableName: string,
-  ): Promise<Array<{ tenant_id: string | null }>> {
+  async function queryAsCedar(tableName: string): Promise<Array<{ tenant_id: string | null }>> {
     return directPrisma.$transaction(async (tx) => {
       await tx.$executeRawUnsafe(
         `SELECT set_config('app.current_tenant_id', '${CEDAR_TENANT_ID}', true)`,
@@ -271,19 +249,16 @@ describe('RLS Leakage P2 (e2e)', () => {
       await tx.$executeRawUnsafe(`SET LOCAL ROLE ${RLS_TEST_ROLE}`);
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return tx.$queryRawUnsafe(
-        `SELECT tenant_id::text FROM "${tableName}"`,
-      ) as Promise<Array<{ tenant_id: string | null }>>;
+      return tx.$queryRawUnsafe(`SELECT tenant_id::text FROM "${tableName}"`) as Promise<
+        Array<{ tenant_id: string | null }>
+      >;
     });
   }
 
   /**
    * Shared assertion: no row in `rows` should carry the Al Noor tenant_id.
    */
-  function assertNoAlNoorRows(
-    rows: Array<{ tenant_id: string | null }>,
-    context: string,
-  ): void {
+  function assertNoAlNoorRows(rows: Array<{ tenant_id: string | null }>, context: string): void {
     const leaks = rows.filter((r) => r.tenant_id === AL_NOOR_TENANT_ID);
     expect(leaks).toHaveLength(0);
     if (leaks.length > 0) {
@@ -300,15 +275,9 @@ describe('RLS Leakage P2 (e2e)', () => {
      * Test 1 — Households
      */
     it('GET /v1/households as Cedar should not return Al Noor households', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/households',
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/households', cedarToken, CEDAR_DOMAIN).expect(200);
 
-      const items: Array<{ id: string; tenant_id?: string }> =
-        res.body.data ?? [];
+      const items: Array<{ id: string; tenant_id?: string }> = res.body.data ?? [];
 
       // No item should have Al Noor's tenant_id
       for (const item of items) {
@@ -323,15 +292,9 @@ describe('RLS Leakage P2 (e2e)', () => {
      * Test 2 — Parents
      */
     it('GET /v1/parents as Cedar should not return Al Noor parents', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/parents',
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/parents', cedarToken, CEDAR_DOMAIN).expect(200);
 
-      const items: Array<{ id: string; tenant_id?: string }> =
-        res.body.data ?? [];
+      const items: Array<{ id: string; tenant_id?: string }> = res.body.data ?? [];
 
       for (const item of items) {
         expect(item.tenant_id).not.toBe(AL_NOOR_TENANT_ID);
@@ -344,15 +307,9 @@ describe('RLS Leakage P2 (e2e)', () => {
      * Test 3 — Students
      */
     it('GET /v1/students as Cedar should not return Al Noor students', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/students',
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/students', cedarToken, CEDAR_DOMAIN).expect(200);
 
-      const items: Array<{ id: string; tenant_id?: string }> =
-        res.body.data ?? [];
+      const items: Array<{ id: string; tenant_id?: string }> = res.body.data ?? [];
 
       for (const item of items) {
         expect(item.tenant_id).not.toBe(AL_NOOR_TENANT_ID);
@@ -365,15 +322,11 @@ describe('RLS Leakage P2 (e2e)', () => {
      * Test 4 — Staff Profiles
      */
     it('GET /v1/staff-profiles as Cedar should not return Al Noor staff', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/staff-profiles',
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/staff-profiles', cedarToken, CEDAR_DOMAIN).expect(
+        200,
+      );
 
-      const items: Array<{ id: string; tenant_id?: string }> =
-        res.body.data ?? [];
+      const items: Array<{ id: string; tenant_id?: string }> = res.body.data ?? [];
 
       for (const item of items) {
         expect(item.tenant_id).not.toBe(AL_NOOR_TENANT_ID);
@@ -386,15 +339,11 @@ describe('RLS Leakage P2 (e2e)', () => {
      * Test 5 — Academic Years
      */
     it('GET /v1/academic-years as Cedar should not return Al Noor academic years', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/academic-years',
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/academic-years', cedarToken, CEDAR_DOMAIN).expect(
+        200,
+      );
 
-      const items: Array<{ id: string; tenant_id?: string }> =
-        res.body.data ?? [];
+      const items: Array<{ id: string; tenant_id?: string }> = res.body.data ?? [];
 
       for (const item of items) {
         expect(item.tenant_id).not.toBe(AL_NOOR_TENANT_ID);
@@ -407,15 +356,9 @@ describe('RLS Leakage P2 (e2e)', () => {
      * Test 6 — Year Groups
      */
     it('GET /v1/year-groups as Cedar should not return Al Noor year groups', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/year-groups',
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/year-groups', cedarToken, CEDAR_DOMAIN).expect(200);
 
-      const items: Array<{ id: string; tenant_id?: string }> =
-        res.body.data ?? [];
+      const items: Array<{ id: string; tenant_id?: string }> = res.body.data ?? [];
 
       for (const item of items) {
         expect(item.tenant_id).not.toBe(AL_NOOR_TENANT_ID);
@@ -428,15 +371,9 @@ describe('RLS Leakage P2 (e2e)', () => {
      * Test 7 — Subjects
      */
     it('GET /v1/subjects as Cedar should not return Al Noor subjects', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/subjects',
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/subjects', cedarToken, CEDAR_DOMAIN).expect(200);
 
-      const items: Array<{ id: string; tenant_id?: string }> =
-        res.body.data ?? [];
+      const items: Array<{ id: string; tenant_id?: string }> = res.body.data ?? [];
 
       for (const item of items) {
         expect(item.tenant_id).not.toBe(AL_NOOR_TENANT_ID);
@@ -449,15 +386,9 @@ describe('RLS Leakage P2 (e2e)', () => {
      * Test 8 — Classes
      */
     it('GET /v1/classes as Cedar should not return Al Noor classes', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/classes',
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/classes', cedarToken, CEDAR_DOMAIN).expect(200);
 
-      const items: Array<{ id: string; tenant_id?: string }> =
-        res.body.data ?? [];
+      const items: Array<{ id: string; tenant_id?: string }> = res.body.data ?? [];
 
       for (const item of items) {
         expect(item.tenant_id).not.toBe(AL_NOOR_TENANT_ID);

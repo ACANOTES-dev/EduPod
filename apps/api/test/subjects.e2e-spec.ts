@@ -8,6 +8,7 @@ import {
   DEV_PASSWORD,
   authDelete,
   authGet,
+  authPatch,
   authPost,
   login,
 } from './helpers';
@@ -55,19 +56,43 @@ describe('Subjects (e2e)', () => {
 
     const yearBody = yearRes.body.data ?? yearRes.body;
 
-    // Create a class that uses the subject
-    await authPost(
+    // Create a year group for the class
+    const ygRes = await authPost(
+      app,
+      '/api/v1/year-groups',
+      ownerToken,
+      { name: `Subject YG ${uniqueSuffix}` },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+
+    const ygBody = ygRes.body.data ?? ygRes.body;
+
+    // Create a class (floating type — no homeroom required)
+    const classRes = await authPost(
       app,
       '/api/v1/classes',
       ownerToken,
       {
         name: `Subject Test Class ${uniqueSuffix}`,
         academic_year_id: yearBody.id,
-        subject_id: inUseSubjectId,
+        year_group_id: ygBody.id,
+        max_capacity: 30,
+        class_type: 'floating',
         status: 'active',
       },
       AL_NOOR_DOMAIN,
     ).expect(201);
+
+    const classBody = classRes.body.data ?? classRes.body;
+
+    // Link the subject to the class via update
+    await authPatch(
+      app,
+      `/api/v1/classes/${classBody.id}`,
+      ownerToken,
+      { subject_id: inUseSubjectId },
+      AL_NOOR_DOMAIN,
+    ).expect(200);
   });
 
   afterAll(async () => {
@@ -116,11 +141,8 @@ describe('Subjects (e2e)', () => {
   it('DELETE /subjects/:id — should block when in use → 400', async () => {
     expect(inUseSubjectId).toBeDefined();
 
-    await authDelete(
-      app,
-      `/api/v1/subjects/${inUseSubjectId}`,
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    ).expect(400);
+    await authDelete(app, `/api/v1/subjects/${inUseSubjectId}`, ownerToken, AL_NOOR_DOMAIN).expect(
+      400,
+    );
   });
 });

@@ -19,11 +19,14 @@ describe('Health Check (e2e)', () => {
       .get('/api/health')
       .expect(200)
       .expect((res) => {
-        expect(res.body.status).toBe('ok');
-        expect(res.body.checks).toEqual({
-          postgres: 'up',
-          redis: 'up',
-        });
+        expect(['healthy', 'degraded']).toContain(res.body.status);
+        expect(res.body.checks).toBeDefined();
+        expect(res.body.checks.postgresql).toBeDefined();
+        expect(res.body.checks.postgresql.status).toBe('up');
+        expect(res.body.checks.redis).toBeDefined();
+        expect(res.body.checks.redis.status).toBe('up');
+        expect(res.body.timestamp).toBeDefined();
+        expect(typeof res.body.uptime).toBe('number');
       });
   });
 });

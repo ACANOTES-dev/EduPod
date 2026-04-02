@@ -21,7 +21,7 @@ describe('Households (e2e)', () => {
   let app: INestApplication;
   let ownerToken: string;
   let parentToken: string;
-  let cedarOwnerToken: string;
+  let _cedarOwnerToken: string;
 
   // IDs populated during tests
   let householdId: string;
@@ -29,8 +29,8 @@ describe('Households (e2e)', () => {
   let parentId: string;
 
   // For merge/split tests
-  let householdId2: string;
-  let studentId: string;
+  let _householdId2: string;
+  let _studentId: string;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -42,7 +42,7 @@ describe('Households (e2e)', () => {
     parentToken = parentLogin.accessToken;
 
     const cedarLogin = await login(app, CEDAR_OWNER_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
-    cedarOwnerToken = cedarLogin.accessToken;
+    _cedarOwnerToken = cedarLogin.accessToken;
   });
 
   afterAll(async () => {
@@ -80,9 +80,7 @@ describe('Households (e2e)', () => {
     expect(data.emergency_contacts[0].contact_name).toBe('Emergency Person 1');
 
     householdId = data.id;
-    emergencyContactIds = data.emergency_contacts.map(
-      (c: { id: string }) => c.id,
-    );
+    emergencyContactIds = data.emergency_contacts.map((c: { id: string }) => c.id);
   });
 
   // ─── 2. POST /households — reject without students.manage ────────────────
@@ -129,12 +127,7 @@ describe('Households (e2e)', () => {
   // ─── 4. GET /households — list households ────────────────────────────────
 
   it('should list households (200)', async () => {
-    const res = await authGet(
-      app,
-      '/api/v1/households',
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    ).expect(200);
+    const res = await authGet(app, '/api/v1/households', ownerToken, AL_NOOR_DOMAIN).expect(200);
 
     const body = res.body;
     expect(body).toBeDefined();
@@ -168,12 +161,7 @@ describe('Households (e2e)', () => {
 
   it('should return 404 for non-existent household', async () => {
     const fakeId = '00000000-0000-4000-a000-000000000000';
-    await authGet(
-      app,
-      `/api/v1/households/${fakeId}`,
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    ).expect(404);
+    await authGet(app, `/api/v1/households/${fakeId}`, ownerToken, AL_NOOR_DOMAIN).expect(404);
   });
 
   // ─── 7. PATCH /households/:id — update name ──────────────────────────────
@@ -512,6 +500,7 @@ describe('Households (e2e)', () => {
     const splitSourceId = hhRes.body.data.id;
 
     // Create a student in that household
+    const splitTs = Date.now();
     const studentRes = await authPost(
       app,
       '/api/v1/students',
@@ -519,8 +508,10 @@ describe('Households (e2e)', () => {
       {
         household_id: splitSourceId,
         first_name: 'Split',
-        last_name: `Student ${Date.now()}`,
+        last_name: `Student ${splitTs}`,
         date_of_birth: '2015-06-15',
+        national_id: `NID-SPLIT-${splitTs}`,
+        nationality: 'Irish',
         status: 'active',
       },
       AL_NOOR_DOMAIN,

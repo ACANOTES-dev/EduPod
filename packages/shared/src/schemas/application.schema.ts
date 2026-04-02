@@ -42,6 +42,8 @@ export const convertApplicationSchema = z.object({
   student_last_name: z.string().min(1).max(100),
   date_of_birth: z.string().date(),
   year_group_id: z.string().uuid(),
+  national_id: z.string().min(1).max(50).nullable().optional(),
+  nationality: z.string().min(1).max(100).nullable().optional(),
   parent1_first_name: z.string().min(1).max(100),
   parent1_last_name: z.string().min(1).max(100),
   parent1_email: z.string().email().nullable().optional(),
@@ -57,10 +59,17 @@ export const convertApplicationSchema = z.object({
 
 // List applications query
 export const listApplicationsSchema = paginationQuerySchema.extend({
-  status: z.enum([
-    'draft', 'submitted', 'under_review',
-    'pending_acceptance_approval', 'accepted', 'rejected', 'withdrawn',
-  ]).optional(),
+  status: z
+    .enum([
+      'draft',
+      'submitted',
+      'under_review',
+      'pending_acceptance_approval',
+      'accepted',
+      'rejected',
+      'withdrawn',
+    ])
+    .optional(),
   form_definition_id: z.string().uuid().optional(),
   search: z.string().max(200).optional(),
 });

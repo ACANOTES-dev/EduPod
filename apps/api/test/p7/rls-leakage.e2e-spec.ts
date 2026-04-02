@@ -16,7 +16,6 @@ import {
   createTestApp,
   closeTestApp,
   login,
-  getAuthToken,
   authGet,
   authPost,
   authPatch,
@@ -71,11 +70,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
   }, 60_000);
 
   afterAll(async () => {
-    await cleanupRedisKeys([
-      'rate:contact:*',
-      'tenant:*:user:*:unread_notifications',
-      'bull:*',
-    ]);
+    await cleanupRedisKeys(['rate:contact:*', 'tenant:*:user:*:unread_notifications', 'bull:*']);
     await closeTestApp();
   });
 
@@ -178,9 +173,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         CEDAR_DOMAIN,
       ).expect(200);
 
-      const cedarTemplateIds = (listRes.body.data || []).map(
-        (t: Record<string, unknown>) => t.id,
-      );
+      const cedarTemplateIds = (listRes.body.data || []).map((t: Record<string, unknown>) => t.id);
       expect(cedarTemplateIds).not.toContain(alNoorCustomTemplateId);
 
       // Cedar admin: GET Al Noor's template by ID → 404
@@ -336,16 +329,11 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
       alNoorInquiryId = inquiryRes.body.data.id;
 
       // Cedar admin: list inquiries — should not contain Al Noor's inquiry
-      const listRes = await authGet(
-        app,
-        '/api/v1/inquiries',
-        cedarAdminToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
-
-      const cedarInquiryIds = (listRes.body.data || []).map(
-        (i: Record<string, unknown>) => i.id,
+      const listRes = await authGet(app, '/api/v1/inquiries', cedarAdminToken, CEDAR_DOMAIN).expect(
+        200,
       );
+
+      const cedarInquiryIds = (listRes.body.data || []).map((i: Record<string, unknown>) => i.id);
       expect(cedarInquiryIds).not.toContain(alNoorInquiryId);
 
       // Cedar admin: GET Al Noor's inquiry by ID → 404
@@ -425,9 +413,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
         CEDAR_DOMAIN,
       ).expect(200);
 
-      const cedarPageIds = (listRes.body.data || []).map(
-        (p: Record<string, unknown>) => p.id,
-      );
+      const cedarPageIds = (listRes.body.data || []).map((p: Record<string, unknown>) => p.id);
       expect(cedarPageIds).not.toContain(alNoorPageId);
 
       // Cedar admin: GET Al Noor's page by ID → 404
@@ -528,9 +514,7 @@ describe('P7 — RLS Leakage Tests (e2e)', () => {
       ).expect(200);
 
       const cedarInquiries = listRes.body.data || [];
-      const cedarInquiryIds = cedarInquiries.map(
-        (i: Record<string, unknown>) => i.id,
-      );
+      const cedarInquiryIds = cedarInquiries.map((i: Record<string, unknown>) => i.id);
       expect(cedarInquiryIds).not.toContain(alNoorInquiryId);
 
       // Verify none of the inquiries have Al Noor's test subject

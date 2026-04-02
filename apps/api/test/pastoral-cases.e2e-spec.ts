@@ -1,3 +1,4 @@
+/* eslint-disable school/no-raw-sql-outside-rls -- e2e test checks table existence via raw SQL */
 /**
  * Pastoral Cases -- RLS Leakage, Permission & Lifecycle Tests (e2e)
  *
@@ -242,8 +243,8 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
             where: { id: alNoorCaseId },
           });
         }
-      } catch {
-        // Cleanup failures are non-fatal in test teardown
+      } catch (err) {
+        console.error('[pastoral-cases cleanup]', err);
       }
       await directPrisma.$disconnect();
     }
@@ -344,7 +345,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
         app,
         `/api/v1/pastoral/cases/${fakeId}/status`,
         cedarAdminToken,
-        { new_status: 'active', reason: 'Test transition.' },
+        { status: 'active', reason: 'Test transition.' },
         CEDAR_DOMAIN,
       );
 
@@ -388,7 +389,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
           `/api/v1/pastoral/cases/${caseId}/status`,
           alNoorAdminToken,
           {
-            new_status: 'active',
+            status: 'active',
             reason: 'Beginning active case management.',
           },
           AL_NOOR_DOMAIN,
@@ -404,7 +405,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
             `/api/v1/pastoral/cases/${caseId}/status`,
             alNoorAdminToken,
             {
-              new_status: 'resolved',
+              status: 'resolved',
               reason: 'Interventions succeeded, issue resolved.',
             },
             AL_NOOR_DOMAIN,
@@ -421,7 +422,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
               `/api/v1/pastoral/cases/${caseId}/status`,
               alNoorAdminToken,
               {
-                new_status: 'closed',
+                status: 'closed',
                 reason: 'No further action required.',
               },
               AL_NOOR_DOMAIN,
@@ -451,8 +452,8 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
           await directPrisma.pastoralCase.delete({
             where: { id: caseId },
           });
-        } catch {
-          // Cleanup failures non-fatal
+        } catch (err) {
+          console.error('[pastoral-cases lifecycle cleanup]', err);
         }
       }
       // If creation returns 403 (module not enabled), that is acceptable

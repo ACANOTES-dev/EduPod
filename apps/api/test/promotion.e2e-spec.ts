@@ -111,6 +111,8 @@ describe('Promotion (e2e)', () => {
         date_of_birth: '2015-01-01',
         status: 'active',
         year_group_id: yearGroupId,
+        national_id: `NID-PR-${uniqueSuffix}-1`,
+        nationality: 'Irish',
       },
       AL_NOOR_DOMAIN,
     ).expect(201);
@@ -127,6 +129,8 @@ describe('Promotion (e2e)', () => {
         date_of_birth: '2010-01-01',
         status: 'active',
         year_group_id: graduateYearGroupId,
+        national_id: `NID-PR-${uniqueSuffix}-2`,
+        nationality: 'Irish',
       },
       AL_NOOR_DOMAIN,
     ).expect(201);

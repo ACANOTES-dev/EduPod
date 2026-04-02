@@ -106,17 +106,28 @@ export async function createTenantFixture(
     },
   });
 
-  // 5. Class
+  // 5. Year Group
+  const yg = await prisma.yearGroup.create({
+    data: {
+      tenant_id: tenantId,
+      name: 'Fixture Year Group',
+      display_order: 1,
+    },
+  });
+
+  // 6. Class
   const cls = await prisma.class.create({
     data: {
       tenant_id: tenantId,
       academic_year_id: ay.id,
+      year_group_id: yg.id,
       name: 'Fixture Class',
+      max_capacity: 30,
       status: 'active',
     },
   });
 
-  // 6. Room
+  // 7. Room
   const room = await prisma.room.create({
     data: {
       tenant_id: tenantId,
@@ -127,7 +138,7 @@ export async function createTenantFixture(
     },
   });
 
-  // 7. Household
+  // 8. Household
   const household = await prisma.household.create({
     data: {
       tenant_id: tenantId,
@@ -136,7 +147,7 @@ export async function createTenantFixture(
     },
   });
 
-  // 8. Student
+  // 9. Student
   const student = await prisma.student.create({
     data: {
       tenant_id: tenantId,
@@ -147,6 +158,8 @@ export async function createTenantFixture(
       date_of_birth: new Date('2015-01-01'),
       status: 'active',
       gender: 'other',
+      national_id: `NID-FIX-${suffix}`,
+      nationality: 'Irish',
     },
   });
 

@@ -52,12 +52,7 @@ describe('Applications CRUD & Workflow (e2e)', () => {
     const id: string = pubBody.id;
 
     // Fetch the detail to get the updated_at
-    const detailRes = await authGet(
-      app,
-      `/api/v1/applications/${id}`,
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    );
+    const detailRes = await authGet(app, `/api/v1/applications/${id}`, ownerToken, AL_NOOR_DOMAIN);
 
     const detail = detailRes.body.data ?? detailRes.body;
     return { id, updated_at: detail.updated_at };
@@ -65,12 +60,7 @@ describe('Applications CRUD & Workflow (e2e)', () => {
 
   // ─── Helper: submit a draft application via parent endpoint ──────────────
   async function submitAsParent(appId: string): Promise<void> {
-    const parentLoginResult = await login(
-      app,
-      AL_NOOR_PARENT_EMAIL,
-      DEV_PASSWORD,
-      AL_NOOR_DOMAIN,
-    );
+    const parentLoginResult = await login(app, AL_NOOR_PARENT_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
 
     const submitRes = await request(app.getHttpServer())
       .post(`/api/v1/parent/applications/${appId}/submit`)
@@ -83,12 +73,7 @@ describe('Applications CRUD & Workflow (e2e)', () => {
 
   // ─── Helper: fetch an application's current updated_at ───────────────────
   async function getUpdatedAt(appId: string): Promise<string> {
-    const res = await authGet(
-      app,
-      `/api/v1/applications/${appId}`,
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    );
+    const res = await authGet(app, `/api/v1/applications/${appId}`, ownerToken, AL_NOOR_DOMAIN);
 
     const body = res.body.data ?? res.body;
     return body.updated_at;
@@ -140,19 +125,10 @@ describe('Applications CRUD & Workflow (e2e)', () => {
   beforeAll(async () => {
     app = await createTestApp();
 
-    const ownerLogin = await login(
-      app,
-      AL_NOOR_OWNER_EMAIL,
-      DEV_PASSWORD,
-      AL_NOOR_DOMAIN,
-    );
+    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
     ownerToken = ownerLogin.accessToken;
 
-    parentToken = await getAuthToken(
-      app,
-      AL_NOOR_PARENT_EMAIL,
-      AL_NOOR_DOMAIN,
-    );
+    parentToken = await getAuthToken(app, AL_NOOR_PARENT_EMAIL, AL_NOOR_DOMAIN);
 
     // 1. Create a form definition
     const formRes = await authPost(
@@ -232,12 +208,7 @@ describe('Applications CRUD & Workflow (e2e)', () => {
   // ─── 1. List applications ────────────────────────────────────────────────
 
   it('should list applications with pagination', async () => {
-    const res = await authGet(
-      app,
-      '/api/v1/applications',
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    );
+    const res = await authGet(app, '/api/v1/applications', ownerToken, AL_NOOR_DOMAIN);
 
     expect(res.body.data).toBeDefined();
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -250,12 +221,7 @@ describe('Applications CRUD & Workflow (e2e)', () => {
   // ─── 2. List with status filter ──────────────────────────────────────────
 
   it('should list applications filtered by status', async () => {
-    const res = await authGet(
-      app,
-      '/api/v1/applications?status=draft',
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    );
+    const res = await authGet(app, '/api/v1/applications?status=draft', ownerToken, AL_NOOR_DOMAIN);
 
     expect(res.body.data).toBeDefined();
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -336,9 +302,7 @@ describe('Applications CRUD & Workflow (e2e)', () => {
     expect(Array.isArray(body)).toBe(true);
     expect(body.length).toBeGreaterThanOrEqual(1);
 
-    const testNote = body.find(
-      (n: { note: string }) => n.note === 'Test internal note',
-    );
+    const testNote = body.find((n: { note: string }) => n.note === 'Test internal note');
     expect(testNote).toBeDefined();
   });
 
@@ -474,8 +438,7 @@ describe('Applications CRUD & Workflow (e2e)', () => {
   // ─── 12. Convert ────────────────────────────────────────────────────────
 
   it('should convert an accepted application to a student', async () => {
-    const { id: acceptedId, updated_at: acceptedUpdatedAt } =
-      await createAcceptedApplication();
+    const { id: acceptedId, updated_at: acceptedUpdatedAt } = await createAcceptedApplication();
 
     // Get year groups for conversion
     const previewRes = await authGet(
@@ -493,12 +456,7 @@ describe('Applications CRUD & Workflow (e2e)', () => {
       yearGroupId = previewBody.year_groups[0].id;
     } else {
       // Fallback: get year groups from the dedicated endpoint
-      const ygRes = await authGet(
-        app,
-        '/api/v1/year-groups',
-        ownerToken,
-        AL_NOOR_DOMAIN,
-      );
+      const ygRes = await authGet(app, '/api/v1/year-groups', ownerToken, AL_NOOR_DOMAIN);
 
       const ygBody = ygRes.body.data ?? ygRes.body;
       expect(Array.isArray(ygBody)).toBe(true);
@@ -515,6 +473,8 @@ describe('Applications CRUD & Workflow (e2e)', () => {
         student_last_name: 'Student',
         date_of_birth: '2018-05-15',
         year_group_id: yearGroupId,
+        national_id: 'CONV-NID-001',
+        nationality: 'Irish',
         parent1_first_name: 'Parent',
         parent1_last_name: 'One',
         parent1_email: 'convert-parent@test.com',
@@ -534,12 +494,7 @@ describe('Applications CRUD & Workflow (e2e)', () => {
   // ─── 13. Analytics ──────────────────────────────────────────────────────
 
   it('should return admissions analytics with funnel data', async () => {
-    const res = await authGet(
-      app,
-      '/api/v1/applications/analytics',
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    );
+    const res = await authGet(app, '/api/v1/applications/analytics', ownerToken, AL_NOOR_DOMAIN);
 
     const body = res.body.data ?? res.body;
     expect(body.funnel).toBeDefined();
@@ -567,11 +522,6 @@ describe('Applications CRUD & Workflow (e2e)', () => {
   // ─── 15. No permission ──────────────────────────────────────────────────
 
   it('should return 403 when parent tries to list applications', async () => {
-    await authGet(
-      app,
-      '/api/v1/applications',
-      parentToken,
-      AL_NOOR_DOMAIN,
-    ).expect(403);
+    await authGet(app, '/api/v1/applications', parentToken, AL_NOOR_DOMAIN).expect(403);
   });
 });

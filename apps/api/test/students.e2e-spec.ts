@@ -32,9 +32,7 @@ describe('Students (e2e)', () => {
       ownerToken,
       {
         household_name: `Test Household ${Date.now()}`,
-        emergency_contacts: [
-          { contact_name: 'Contact', phone: '+1234567', display_order: 1 },
-        ],
+        emergency_contacts: [{ contact_name: 'Contact', phone: '+1234567', display_order: 1 }],
       },
       AL_NOOR_DOMAIN,
     ).expect(201);
@@ -58,6 +56,8 @@ describe('Students (e2e)', () => {
         last_name: 'Student',
         date_of_birth: '2015-06-15',
         status: 'applicant',
+        national_id: `NID-${Date.now()}-create`,
+        nationality: 'Irish',
       },
       AL_NOOR_DOMAIN,
     ).expect(201);
@@ -84,6 +84,8 @@ describe('Students (e2e)', () => {
         last_name: 'Student',
         date_of_birth: '2015-01-01',
         status: 'applicant',
+        national_id: `NID-${Date.now()}-blocked`,
+        nationality: 'Irish',
       },
       AL_NOOR_DOMAIN,
     ).expect(403);
@@ -101,13 +103,14 @@ describe('Students (e2e)', () => {
         date_of_birth: '2015-03-10',
         status: 'applicant',
         has_allergy: true,
+        national_id: `NID-${Date.now()}-allergy`,
+        nationality: 'Irish',
       },
       AL_NOOR_DOMAIN,
     ).expect(400);
 
     const body = res.body.error ?? res.body;
-    const message =
-      typeof body === 'string' ? body : JSON.stringify(body);
+    const message = typeof body === 'string' ? body : JSON.stringify(body);
     expect(message).toMatch(/allergy_details/i);
   });
 
@@ -216,6 +219,8 @@ describe('Students (e2e)', () => {
         last_name: 'Test',
         date_of_birth: '2014-09-01',
         status: 'applicant',
+        national_id: `NID-${Date.now()}-transition`,
+        nationality: 'Irish',
       },
       AL_NOOR_DOMAIN,
     ).expect(201);
@@ -242,6 +247,8 @@ describe('Students (e2e)', () => {
         last_name: 'Test',
         date_of_birth: '2014-08-20',
         status: 'applicant',
+        national_id: `NID-${Date.now()}-noreason`,
+        nationality: 'Irish',
       },
       AL_NOOR_DOMAIN,
     ).expect(201);

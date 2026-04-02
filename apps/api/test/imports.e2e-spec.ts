@@ -44,7 +44,8 @@ describe('Imports (e2e)', () => {
     // This test requires S3 credentials which are not available in the test environment.
     // The upload endpoint creates a DB record then uploads to S3; without S3 config it returns 500.
     it.skip('should return 201 with created import job (requires S3)', async () => {
-      const csvContent = 'first_name,last_name,student_number,date_of_birth,year_group_name,gender,nationality\nJohn,Doe,STU001,2010-01-01,Year 1,male,UAE\n';
+      const csvContent =
+        'first_name,last_name,student_number,date_of_birth,year_group_name,gender,nationality\nJohn,Doe,STU001,2010-01-01,Year 1,male,UAE\n';
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/imports/upload')
@@ -124,12 +125,7 @@ describe('Imports (e2e)', () => {
 
   describe('GET /api/v1/imports', () => {
     it('should return 200 with paginated import jobs', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/imports',
-        ownerToken,
-        AL_NOOR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/imports', ownerToken, AL_NOOR_DOMAIN).expect(200);
 
       // Service returns {data, meta} → interceptor passes through as-is
       expect(res.body.data).toBeInstanceOf(Array);
@@ -148,12 +144,7 @@ describe('Imports (e2e)', () => {
     });
 
     it('should return 403 when user lacks settings.manage', async () => {
-      await authGet(
-        app,
-        '/api/v1/imports',
-        parentToken,
-        AL_NOOR_DOMAIN,
-      ).expect(403);
+      await authGet(app, '/api/v1/imports', parentToken, AL_NOOR_DOMAIN).expect(403);
     });
 
     it('should filter by status query param', async () => {
@@ -175,17 +166,20 @@ describe('Imports (e2e)', () => {
   // ─── GET /api/v1/imports/template ─────────────────────────────────────────────
 
   describe('GET /api/v1/imports/template', () => {
-    it('should return 200 with CSV content-type and header row for students', async () => {
+    it('should return 200 with XLSX content-type and attachment header for students', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/imports/template?import_type=students')
         .set('Authorization', `Bearer ${ownerToken}`)
         .set('Host', AL_NOOR_DOMAIN)
         .expect(200);
 
-      expect(res.headers['content-type']).toContain('text/csv');
-      expect(res.text).toContain('first_name');
-      expect(res.text).toContain('last_name');
-      expect(res.text).toContain('student_number');
+      expect(res.headers['content-type']).toContain(
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      expect(res.headers['content-disposition']).toContain('students_import_template.xlsx');
+      // Response body is binary XLSX — verify it is non-empty
+      expect(res.body).toBeDefined();
+      expect(Buffer.isBuffer(res.body) || res.body.length > 0).toBe(true);
     });
 
     it('should return 400 for invalid import_type', async () => {
@@ -204,12 +198,7 @@ describe('Imports (e2e)', () => {
       // Since upload test is skipped (no S3), fetch an existing job from the list
       // to use in the single-job GET test. If none exist, the test will be skipped.
       if (!importJobId) {
-        const listRes = await authGet(
-          app,
-          '/api/v1/imports',
-          ownerToken,
-          AL_NOOR_DOMAIN,
-        );
+        const listRes = await authGet(app, '/api/v1/imports', ownerToken, AL_NOOR_DOMAIN);
         if (listRes.status === 200 && listRes.body.data?.length > 0) {
           importJobId = listRes.body.data[0].id;
         }
