@@ -19,8 +19,8 @@ import { PrismaClient } from '@prisma/client';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const AL_NOOR_TENANT_ID = 'aa08873c-40a5-4bba-a9e3-8bd0f6d5e696';
-const CEDAR_TENANT_ID = 'a032c7be-a0c3-4375-add7-174afa46e046';
+let AL_NOOR_TENANT_ID = 'aa08873c-40a5-4bba-a9e3-8bd0f6d5e696';
+let CEDAR_TENANT_ID = 'a032c7be-a0c3-4375-add7-174afa46e046';
 const RLS_TEST_ROLE = 'rls_test_user_comprehensive';
 
 /**
@@ -148,6 +148,27 @@ jest.setTimeout(300_000);
 describe('RLS Comprehensive — All Tenant-Scoped Tables (e2e)', () => {
   let directPrisma: PrismaClient;
 
+  /**
+   * Retry a raw SQL statement up to `maxRetries` times to handle
+   * "tuple concurrently updated" errors that occur when parallel test
+   * suites perform GRANT/REVOKE on the same system catalog rows.
+   */
+  async function execWithRetry(prisma: PrismaClient, sql: string, maxRetries = 3): Promise<void> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await prisma.$executeRawUnsafe(sql);
+        return;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('tuple concurrently updated') && attempt < maxRetries) {
+          await new Promise((r) => setTimeout(r, 200 * attempt));
+          continue;
+        }
+        throw err;
+      }
+    }
+  }
+
   beforeAll(async () => {
     directPrisma = new PrismaClient({
       datasources: {
@@ -156,15 +177,26 @@ describe('RLS Comprehensive — All Tenant-Scoped Tables (e2e)', () => {
     });
     await directPrisma.$connect();
 
+    // Resolve actual tenant IDs from seed data (they are auto-generated UUIDs).
+    const tenants = await directPrisma.$queryRawUnsafe<Array<{ id: string; slug: string }>>(
+      `SELECT id, slug FROM tenants WHERE slug IN ('al-noor', 'cedar')`,
+    );
+    for (const t of tenants) {
+      if (t.slug === 'al-noor') AL_NOOR_TENANT_ID = t.id;
+      if (t.slug === 'cedar') CEDAR_TENANT_ID = t.id;
+    }
+
     // Create the non-superuser role for RLS testing (idempotent).
-    await directPrisma.$executeRawUnsafe(
+    await execWithRetry(
+      directPrisma,
       `DO $$ BEGIN
          CREATE ROLE ${RLS_TEST_ROLE} NOLOGIN;
        EXCEPTION WHEN duplicate_object THEN NULL;
        END $$`,
     );
-    await directPrisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
-    await directPrisma.$executeRawUnsafe(
+    await execWithRetry(directPrisma, `GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
+    await execWithRetry(
+      directPrisma,
       `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
     );
   });
@@ -172,13 +204,14 @@ describe('RLS Comprehensive — All Tenant-Scoped Tables (e2e)', () => {
   afterAll(async () => {
     if (directPrisma) {
       try {
-        await directPrisma.$executeRawUnsafe(
+        await execWithRetry(
+          directPrisma,
           `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${RLS_TEST_ROLE}`,
         );
-        await directPrisma.$executeRawUnsafe(`REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
-        await directPrisma.$executeRawUnsafe(`DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
-      } catch {
-        // Role cleanup is best-effort.
+        await execWithRetry(directPrisma, `REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
+        await execWithRetry(directPrisma, `DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
+      } catch (err) {
+        console.error('[rls-comprehensive cleanup]', err);
       }
       await directPrisma.$disconnect();
     }
