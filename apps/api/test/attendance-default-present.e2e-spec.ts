@@ -74,7 +74,7 @@ describe('Attendance Default Present (e2e)', () => {
       teacherToken,
       {
         class_id: td.classId,
-        session_date: td.dateInYear(11, 1),
+        session_date: td.dateInYear(11, 3),
         default_present: true,
       },
       AL_NOOR_DOMAIN,
@@ -106,7 +106,7 @@ describe('Attendance Default Present (e2e)', () => {
       teacherToken,
       {
         class_id: td.classId,
-        session_date: td.dateInYear(11, 2),
+        session_date: td.dateInYear(11, 7),
         default_present: false,
       },
       AL_NOOR_DOMAIN,
@@ -128,14 +128,14 @@ describe('Attendance Default Present (e2e)', () => {
   // ─── Test 3: Quick-Mark Endpoint ──────────────────────────────────────
 
   it('should process quick-mark text and update records (POST /api/v1/attendance/quick-mark)', async () => {
-    // Create a session with default present
+    // Create a session with default present (use day 11 to avoid weekend-shift collision)
     const sessRes = await authPost(
       app,
       '/api/v1/attendance-sessions',
       teacherToken,
       {
         class_id: td.classId,
-        session_date: td.dateInYear(11, 3),
+        session_date: td.dateInYear(11, 11),
         default_present: true,
       },
       AL_NOOR_DOMAIN,
@@ -161,7 +161,7 @@ describe('Attendance Default Present (e2e)', () => {
       '/api/v1/attendance/quick-mark',
       adminToken,
       {
-        session_date: td.dateInYear(11, 3),
+        session_date: td.dateInYear(11, 11),
         text: `${studentNumber} A`,
       },
       AL_NOOR_DOMAIN,
@@ -184,7 +184,7 @@ describe('Attendance Default Present (e2e)', () => {
       teacherToken,
       {
         class_id: td.classId,
-        session_date: td.dateInYear(11, 4),
+        session_date: td.dateInYear(11, 15),
         default_present: true,
       },
       AL_NOOR_DOMAIN,
@@ -208,7 +208,7 @@ describe('Attendance Default Present (e2e)', () => {
       '/api/v1/attendance/quick-mark',
       adminToken,
       {
-        session_date: td.dateInYear(11, 4),
+        session_date: td.dateInYear(11, 15),
         text: `${studentNumber} A`,
       },
       AL_NOOR_DOMAIN,
@@ -288,7 +288,7 @@ describe('Attendance Default Present (e2e)', () => {
       teacherToken,
       {
         class_id: td.classId,
-        session_date: td.dateInYear(11, 5),
+        session_date: td.dateInYear(11, 19),
         default_present: true,
       },
       AL_NOOR_DOMAIN,
@@ -310,7 +310,7 @@ describe('Attendance Default Present (e2e)', () => {
       '/api/v1/attendance/exceptions-upload',
       adminToken,
       {
-        session_date: td.dateInYear(11, 5),
+        session_date: td.dateInYear(11, 19),
         records: [{ student_number: studentNumber, status: 'late', reason: 'Traffic' }],
       },
       AL_NOOR_DOMAIN,
