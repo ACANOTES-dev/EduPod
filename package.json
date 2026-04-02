@@ -15,7 +15,7 @@
     "test:health": "pnpm turbo run lint && pnpm turbo run type-check && pnpm turbo run test && pnpm --filter @school/api run test:integration",
     "test:affected": "bash scripts/test-affected.sh",
     "test:unit": "pnpm turbo run test",
-    "test:integration": "pnpm --filter @school/api test:integration -- --runInBand",
+    "test:integration": "pnpm --filter @school/api test:integration",
     "test:visual": "API_URL=http://localhost:5552 APP_URL=http://localhost:5551 NEXT_PUBLIC_API_URL= pnpm --filter @school/web test:visual",
     "test:changed": "turbo run test:changed",
     "validate": "pnpm lint && pnpm type-check && pnpm test:unit",
