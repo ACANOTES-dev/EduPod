@@ -1,16 +1,15 @@
 'use client';
 
 import { ArrowLeft } from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@school/ui';
 
+import { DiscountForm, type DiscountFormValues } from '../_components/discount-form';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
-import { DiscountForm, type DiscountFormValues } from '../_components/discount-form';
 
 
 export default function NewDiscountPage() {
@@ -24,7 +23,7 @@ export default function NewDiscountPage() {
     const payload = {
       name: values.name,
       discount_type: values.discount_type,
-      value: parseFloat(values.value),
+      value: values.value,
     };
     await apiClient('/api/v1/finance/discounts', {
       method: 'POST',

@@ -1,18 +1,17 @@
 'use client';
 
 import { ArrowLeft } from 'lucide-react';
-import { useRouter, usePathname, useParams } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import type { BillingFrequency } from '@school/shared';
 import { Button } from '@school/ui';
 
+import { FeeStructureForm, type FeeStructureFormValues } from '../_components/fee-structure-form';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
-import { FeeStructureForm, type FeeStructureFormValues } from '../_components/fee-structure-form';
 
 
 interface FeeStructureDetail {
@@ -48,7 +47,7 @@ export default function EditFeeStructurePage() {
   const handleSubmit = async (values: FeeStructureFormValues) => {
     const payload = {
       name: values.name,
-      amount: parseFloat(values.amount),
+      amount: values.amount,
       billing_frequency: values.billing_frequency,
       year_group_id: values.year_group_id || null,
       active: values.active,
@@ -82,7 +81,7 @@ export default function EditFeeStructurePage() {
 
   const initialValues: Partial<FeeStructureFormValues> = {
     name: feeStructure.name,
-    amount: String(feeStructure.amount),
+    amount: feeStructure.amount,
     billing_frequency: feeStructure.billing_frequency,
     year_group_id: feeStructure.year_group_id ?? '',
     active: feeStructure.active,

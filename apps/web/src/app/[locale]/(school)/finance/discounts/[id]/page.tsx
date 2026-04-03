@@ -1,18 +1,17 @@
 'use client';
 
 import { ArrowLeft } from 'lucide-react';
-import { useRouter, usePathname, useParams } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import type { DiscountType } from '@school/shared';
 import { Button } from '@school/ui';
 
+import { DiscountForm, type DiscountFormValues } from '../_components/discount-form';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
-import { DiscountForm, type DiscountFormValues } from '../_components/discount-form';
 
 
 interface DiscountDetail {
@@ -48,7 +47,7 @@ export default function EditDiscountPage() {
     const payload = {
       name: values.name,
       discount_type: values.discount_type,
-      value: parseFloat(values.value),
+      value: values.value,
       active: values.active,
     };
     await apiClient(`/api/v1/finance/discounts/${id}`, {
@@ -81,7 +80,7 @@ export default function EditDiscountPage() {
   const initialValues: Partial<DiscountFormValues> = {
     name: discount.name,
     discount_type: discount.discount_type,
-    value: String(discount.value),
+    value: discount.value,
     active: discount.active,
   };
 

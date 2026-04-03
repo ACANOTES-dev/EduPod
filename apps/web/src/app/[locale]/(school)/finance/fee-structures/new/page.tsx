@@ -1,16 +1,15 @@
 'use client';
 
 import { ArrowLeft } from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@school/ui';
 
+import { FeeStructureForm, type FeeStructureFormValues } from '../_components/fee-structure-form';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
-import { FeeStructureForm, type FeeStructureFormValues } from '../_components/fee-structure-form';
 
 
 export default function NewFeeStructurePage() {
@@ -23,7 +22,7 @@ export default function NewFeeStructurePage() {
   const handleSubmit = async (values: FeeStructureFormValues) => {
     const payload = {
       name: values.name,
-      amount: parseFloat(values.amount),
+      amount: values.amount,
       billing_frequency: values.billing_frequency,
       year_group_id: values.year_group_id || undefined,
     };
