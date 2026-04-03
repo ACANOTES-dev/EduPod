@@ -19,6 +19,7 @@ import { FinanceAuditService } from './finance-audit.service';
 import { FinanceDashboardController } from './finance-dashboard.controller';
 import { FinanceDashboardService } from './finance-dashboard.service';
 import { FinanceEnhancedController } from './finance-enhanced.controller';
+import { FinanceReadFacade } from './finance-read.facade';
 import { FinancialReportsService } from './financial-reports.service';
 import { HouseholdStatementsController } from './household-statements.controller';
 import { HouseholdStatementsService } from './household-statements.service';
@@ -75,6 +76,7 @@ import { StripeService } from './stripe.service';
     PaymentPlansService,
     FinanceAuditService,
     BulkOperationsService,
+    FinanceReadFacade,
   ],
   exports: [
     InvoicesService,
@@ -84,6 +86,7 @@ import { StripeService } from './stripe.service';
     PaymentRemindersService,
     RecurringInvoicesService,
     LateFeesService,
+    FinanceReadFacade,
   ],
 })
 export class FinanceModule {}
