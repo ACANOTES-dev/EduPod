@@ -50,11 +50,10 @@ export class NotificationReconciliationProcessor extends WorkerHost {
   private async reconcile(): Promise<void> {
     const cutoff = new Date(Date.now() - 4 * 60 * 60 * 1000); // 4 hours ago
 
+    // Query tenants table only (no RLS). Avoid relation filters on
+    // tenant_modules — that table has RLS and this is a cross-tenant job.
     const tenants = await this.prisma.tenant.findMany({
-      where: {
-        status: 'active',
-        modules: { some: { module_key: 'behaviour', is_enabled: true } },
-      },
+      where: { status: 'active' },
       select: { id: true },
     });
 

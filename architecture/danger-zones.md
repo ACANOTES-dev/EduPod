@@ -643,7 +643,19 @@ If a migration removes or narrows these bootstrap policies, or if middleware/ser
 
 **Mitigation**: Treat bootstrap-readable RLS policies as an auth contract, not just schema boilerplate. Any change to `tenant_domains`, `tenant_memberships`, `membership_roles`, `roles`, or `role_permissions` policies must be regression-tested with real login, `/auth/me`, permission-cache refresh, and hostname-based tenant resolution.
 
-## DZ-39: Import Processor S3 I/O Was Inside Transaction — RESOLVED
+## DZ-39: Cross-Tenant Cron Jobs Must Not Use Prisma Relation Filters on RLS Tables
+
+**Risk**: Cross-tenant cron dispatchers (no tenant context) that use Prisma relation filters like `modules: { some: { module_key: 'x' } }` generate subqueries against `tenant_modules`, which has RLS. Without `app.current_tenant_id` set, `current_setting()` throws `unrecognized configuration parameter`, crashing the job.
+
+**Location**: Any processor doing `prisma.tenant.findMany({ where: { modules: { some: ... } } })` without prior `SET LOCAL app.current_tenant_id`.
+
+**Rule**: Cross-tenant dispatchers must query only the `tenants` table (no RLS). Module enablement checks belong in the per-tenant jobs that run with RLS context via `TenantAwareJob`. If no data exists for a tenant without the module, the per-tenant job returns zero rows safely.
+
+**Mitigation**: Fixed in pastoral-cron-dispatch, homework-overdue-detection, homework-generate-recurring, and behaviour-notification-reconciliation. Search for `modules: { some:` in `apps/worker/` if adding new cross-tenant dispatchers.
+
+---
+
+## DZ-40: Import Processor S3 I/O Was Inside Transaction — RESOLVED
 
 **Risk**: `ImportProcessingProcessor` and `ImportValidationProcessor` performed S3 downloads and deletes inside the `TenantAwareJob` Prisma transaction. S3 network failures could deadlock the transaction, and inconsistent rollback could leave orphan S3 files or missing data.
 

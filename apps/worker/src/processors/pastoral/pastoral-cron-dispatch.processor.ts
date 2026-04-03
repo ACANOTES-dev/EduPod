@@ -48,15 +48,14 @@ export class PastoralCronDispatchProcessor extends WorkerHost {
    * logged so a single failure does not block remaining tenants.
    */
   private async dispatchOverdueActions(): Promise<void> {
-    this.logger.log(
-      'Starting pastoral overdue-actions dispatch — scanning active pastoral tenants',
-    );
+    this.logger.log('Starting pastoral overdue-actions dispatch — scanning active tenants');
 
+    // Query tenants table only (no RLS). Do NOT use relation filters on
+    // tenant_modules here — that table has RLS, and this is a cross-tenant
+    // job with no tenant context. The per-tenant overdue-actions processor
+    // handles RLS correctly and returns zero rows for tenants without data.
     const tenants = await this.prisma.tenant.findMany({
-      where: {
-        status: 'active',
-        modules: { some: { module_key: 'pastoral', is_enabled: true } },
-      },
+      where: { status: 'active' },
       select: { id: true },
     });
 

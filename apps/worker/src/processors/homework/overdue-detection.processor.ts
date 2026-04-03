@@ -31,11 +31,10 @@ export class HomeworkOverdueDetectionProcessor extends WorkerHost {
 
     this.logger.log(`Processing ${HOMEWORK_OVERDUE_DETECTION_JOB} — cross-tenant cron run`);
 
+    // Query tenants table only (no RLS). Avoid relation filters on
+    // tenant_modules — that table has RLS and this is a cross-tenant job.
     const tenants = await this.prisma.tenant.findMany({
-      where: {
-        status: 'active',
-        modules: { some: { module_key: 'homework', is_enabled: true } },
-      },
+      where: { status: 'active' },
       select: { id: true },
     });
 
