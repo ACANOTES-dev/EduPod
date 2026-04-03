@@ -5,6 +5,8 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 jest.mock('../../common/middleware/rls.middleware');
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 
+import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
+import { FinanceReadFacade } from '../finance/finance-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { RetentionPoliciesService } from './retention-policies.service';
@@ -75,11 +77,9 @@ const buildMockPrisma = () => ({
   },
   student: { count: jest.fn() },
   application: { count: jest.fn() },
-  invoice: { count: jest.fn() },
   payrollRun: { count: jest.fn() },
   staffProfile: { count: jest.fn() },
   attendanceRecord: { count: jest.fn() },
-  behaviourIncident: { count: jest.fn() },
   notification: { count: jest.fn() },
   auditLog: { count: jest.fn() },
   contactFormSubmission: { count: jest.fn() },
@@ -87,6 +87,14 @@ const buildMockPrisma = () => ({
   nlQueryHistory: { count: jest.fn() },
   gdprTokenUsageLog: { count: jest.fn() },
   complianceRequest: { count: jest.fn() },
+});
+
+const buildMockFinanceFacade = () => ({
+  countInvoicesBeforeDate: jest.fn(),
+});
+
+const buildMockBehaviourFacade = () => ({
+  countIncidentsBeforeDate: jest.fn(),
 });
 
 // ─── RLS Mock Setup ─────────────────────────────────────────────────────────
@@ -100,14 +108,20 @@ const mockRlsTransaction = jest.fn().mockImplementation(async (fn) => fn(mockTx)
 describe('RetentionPoliciesService', () => {
   let service: RetentionPoliciesService;
   let prisma: ReturnType<typeof buildMockPrisma>;
+  let financeFacade: ReturnType<typeof buildMockFinanceFacade>;
+  let behaviourFacade: ReturnType<typeof buildMockBehaviourFacade>;
 
   beforeEach(async () => {
     prisma = buildMockPrisma();
+    financeFacade = buildMockFinanceFacade();
+    behaviourFacade = buildMockBehaviourFacade();
 
     const module = await Test.createTestingModule({
       providers: [
         RetentionPoliciesService,
         { provide: PrismaService, useValue: prisma },
+        { provide: FinanceReadFacade, useValue: financeFacade },
+        { provide: BehaviourReadFacade, useValue: behaviourFacade },
       ],
     }).compile();
 
@@ -135,9 +149,7 @@ describe('RetentionPoliciesService', () => {
       expect(result.data).toHaveLength(2);
 
       // attendance_records should use tenant override
-      const attendance = result.data.find(
-        (p) => p.data_category === 'attendance_records',
-      );
+      const attendance = result.data.find((p) => p.data_category === 'attendance_records');
       expect(attendance).toBeDefined();
       expect(attendance!.retention_months).toBe(36);
       expect(attendance!.is_override).toBe(true);
@@ -145,9 +157,7 @@ describe('RetentionPoliciesService', () => {
       expect(attendance!.tenant_id).toBe(TENANT_ID);
 
       // audit_logs should use platform default
-      const auditLogs = result.data.find(
-        (p) => p.data_category === 'audit_logs',
-      );
+      const auditLogs = result.data.find((p) => p.data_category === 'audit_logs');
       expect(auditLogs).toBeDefined();
       expect(auditLogs!.retention_months).toBe(84);
       expect(auditLogs!.is_override).toBe(false);
@@ -239,11 +249,9 @@ describe('RetentionPoliciesService', () => {
     });
 
     it('should throw POLICY_NOT_OVERRIDABLE for non-overridable policies', async () => {
-      const lockedPolicy = makePlatformDefault(
-        'child_protection_safeguarding',
-        0,
-        { is_overridable: false },
-      );
+      const lockedPolicy = makePlatformDefault('child_protection_safeguarding', 0, {
+        is_overridable: false,
+      });
       prisma.retentionPolicy.findFirst.mockResolvedValue(lockedPolicy);
 
       await expect(
@@ -303,9 +311,7 @@ describe('RetentionPoliciesService', () => {
 
       expect(result.data).toHaveLength(2);
 
-      const attendance = result.data.find(
-        (r) => r.data_category === 'attendance_records',
-      );
+      const attendance = result.data.find((r) => r.data_category === 'attendance_records');
       expect(attendance).toEqual({
         data_category: 'attendance_records',
         retention_months: 24,
@@ -313,9 +319,7 @@ describe('RetentionPoliciesService', () => {
         affected_count: 150,
       });
 
-      const audit = result.data.find(
-        (r) => r.data_category === 'audit_logs',
-      );
+      const audit = result.data.find((r) => r.data_category === 'audit_logs');
       expect(audit).toEqual({
         data_category: 'audit_logs',
         retention_months: 84,
@@ -332,9 +336,7 @@ describe('RetentionPoliciesService', () => {
         }),
       ];
 
-      prisma.retentionPolicy.findMany
-        .mockResolvedValueOnce(policies)
-        .mockResolvedValueOnce([]);
+      prisma.retentionPolicy.findMany.mockResolvedValueOnce(policies).mockResolvedValueOnce([]);
 
       prisma.attendanceRecord.count.mockResolvedValue(150);
 
@@ -354,9 +356,7 @@ describe('RetentionPoliciesService', () => {
         }),
       ];
 
-      prisma.retentionPolicy.findMany
-        .mockResolvedValueOnce(policies)
-        .mockResolvedValueOnce([]);
+      prisma.retentionPolicy.findMany.mockResolvedValueOnce(policies).mockResolvedValueOnce([]);
 
       const result = await service.previewRetention(TENANT_ID);
 
@@ -413,13 +413,11 @@ describe('RetentionPoliciesService', () => {
         released_at: null,
       });
 
-      await expect(
-        service.createHold(TENANT_ID, USER_ID, holdDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.createHold(TENANT_ID, USER_ID, holdDto)).rejects.toThrow(
+        BadRequestException,
+      );
 
-      await expect(
-        service.createHold(TENANT_ID, USER_ID, holdDto),
-      ).rejects.toMatchObject({
+      await expect(service.createHold(TENANT_ID, USER_ID, holdDto)).rejects.toMatchObject({
         response: expect.objectContaining({ code: 'HOLD_ALREADY_ACTIVE' }),
       });
     });
@@ -445,7 +443,9 @@ describe('RetentionPoliciesService', () => {
       const releasedHold = { ...activeHold, released_at: new Date() };
       mockTx.retentionHold.update.mockResolvedValue(releasedHold);
 
-      const result = await service.releaseHold(TENANT_ID, HOLD_ID) as { released_at: Date | null };
+      const result = (await service.releaseHold(TENANT_ID, HOLD_ID)) as {
+        released_at: Date | null;
+      };
 
       expect(result).toEqual(releasedHold);
       expect(result.released_at).toBeDefined();
@@ -458,13 +458,9 @@ describe('RetentionPoliciesService', () => {
     it('should throw HOLD_NOT_FOUND when hold does not exist', async () => {
       prisma.retentionHold.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.releaseHold(TENANT_ID, HOLD_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.releaseHold(TENANT_ID, HOLD_ID)).rejects.toThrow(NotFoundException);
 
-      await expect(
-        service.releaseHold(TENANT_ID, HOLD_ID),
-      ).rejects.toMatchObject({
+      await expect(service.releaseHold(TENANT_ID, HOLD_ID)).rejects.toMatchObject({
         response: expect.objectContaining({ code: 'HOLD_NOT_FOUND' }),
       });
     });
@@ -482,13 +478,9 @@ describe('RetentionPoliciesService', () => {
         created_at: new Date('2026-01-01'),
       });
 
-      await expect(
-        service.releaseHold(TENANT_ID, HOLD_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.releaseHold(TENANT_ID, HOLD_ID)).rejects.toThrow(BadRequestException);
 
-      await expect(
-        service.releaseHold(TENANT_ID, HOLD_ID),
-      ).rejects.toMatchObject({
+      await expect(service.releaseHold(TENANT_ID, HOLD_ID)).rejects.toMatchObject({
         response: expect.objectContaining({ code: 'HOLD_ALREADY_RELEASED' }),
       });
     });

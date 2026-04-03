@@ -10,6 +10,8 @@ import type {
 } from '@school/shared/gdpr';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
+import { FinanceReadFacade } from '../finance/finance-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 type TransactionClient = PrismaService;
@@ -20,7 +22,11 @@ type TransactionClient = PrismaService;
 export class RetentionPoliciesService {
   private readonly logger = new Logger(RetentionPoliciesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly financeReadFacade: FinanceReadFacade,
+    private readonly behaviourReadFacade: BehaviourReadFacade,
+  ) {}
 
   // ─── Get Effective Policies ───────────────────────────────────────────────
 
@@ -335,12 +341,7 @@ export class RetentionPoliciesService {
           });
 
         case 'financial_records':
-          return this.prisma.invoice.count({
-            where: {
-              tenant_id: tenantId,
-              created_at: { lt: cutoffDate },
-            },
-          });
+          return this.financeReadFacade.countInvoicesBeforeDate(tenantId, cutoffDate);
 
         case 'payroll_records':
           return this.prisma.payrollRun.count({
@@ -368,12 +369,7 @@ export class RetentionPoliciesService {
           });
 
         case 'behaviour_records':
-          return this.prisma.behaviourIncident.count({
-            where: {
-              tenant_id: tenantId,
-              created_at: { lt: cutoffDate },
-            },
-          });
+          return this.behaviourReadFacade.countIncidentsBeforeDate(tenantId, cutoffDate);
 
         case 'child_protection_safeguarding':
           // Never expires — indefinite retention

@@ -326,7 +326,7 @@ export class GradebookReadFacade {
   /**
    * Active and acknowledged risk alerts for a student.
    * Excludes resolved alerts — those are historical and not actionable.
-   * Used by DSAR (all statuses) and early-warning (active only).
+   * Used by early-warning (active only).
    */
   async findRiskAlertsForStudent(tenantId: string, studentId: string): Promise<RiskAlertRow[]> {
     return this.prisma.studentAcademicRiskAlert.findMany({
@@ -334,6 +334,21 @@ export class GradebookReadFacade {
         tenant_id: tenantId,
         student_id: studentId,
         status: { in: ['active', 'acknowledged'] },
+      },
+      select: RISK_ALERT_SELECT,
+      orderBy: [{ detected_date: 'desc' }, { created_at: 'desc' }],
+    });
+  }
+
+  /**
+   * ALL risk alerts for a student — no status filter.
+   * Used by DSAR traversal, which must return the complete data picture.
+   */
+  async findAllRiskAlertsForStudent(tenantId: string, studentId: string): Promise<RiskAlertRow[]> {
+    return this.prisma.studentAcademicRiskAlert.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
       },
       select: RISK_ALERT_SELECT,
       orderBy: [{ detected_date: 'desc' }, { created_at: 'desc' }],

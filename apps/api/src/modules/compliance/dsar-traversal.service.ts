@@ -1,5 +1,8 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 
+import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
+import { FinanceReadFacade } from '../finance/finance-read.facade';
+import { GradebookReadFacade } from '../gradebook/gradebook-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -17,7 +20,12 @@ interface DsarDataPackage {
 export class DsarTraversalService {
   private readonly logger = new Logger(DsarTraversalService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly financeReadFacade: FinanceReadFacade,
+    private readonly gradebookReadFacade: GradebookReadFacade,
+    private readonly behaviourReadFacade: BehaviourReadFacade,
+  ) {}
 
   /**
    * Collects ALL data held about a given subject across every module.
@@ -28,9 +36,7 @@ export class DsarTraversalService {
     subjectType: string,
     subjectId: string,
   ): Promise<DsarDataPackage> {
-    this.logger.log(
-      `Collecting DSAR data for ${subjectType}:${subjectId} in tenant ${tenantId}`,
-    );
+    this.logger.log(`Collecting DSAR data for ${subjectType}:${subjectId} in tenant ${tenantId}`);
 
     let categories: Record<string, unknown>;
 
@@ -107,6 +113,7 @@ export class DsarTraversalService {
     }
 
     // Phase 2: All remaining queries in parallel
+    // Foreign-table reads use facades; own-table reads remain direct Prisma.
     const [
       attendanceRecords,
       attendancePatternAlerts,
@@ -130,92 +137,35 @@ export class DsarTraversalService {
       auditLogs,
       notifications,
     ] = await Promise.all([
-      // Attendance — ALL records, no limit
+      // Attendance — own module, direct Prisma (ALL records, no limit)
       this.prisma.attendanceRecord.findMany({
         where: { student_id: studentId, ...where },
         orderBy: { marked_at: 'desc' },
       }),
 
-      // Attendance pattern alerts
+      // Attendance pattern alerts — own module, direct Prisma
       this.prisma.attendancePatternAlert.findMany({
         where: { student_id: studentId, ...where },
         orderBy: { detected_date: 'desc' },
       }),
 
-      // Grades — ALL records
-      this.prisma.grade.findMany({
-        where: { student_id: studentId, ...where },
-        orderBy: { created_at: 'desc' },
-      }),
+      // Gradebook reads via facade
+      this.gradebookReadFacade.findGradesForStudent(tenantId, studentId),
+      this.gradebookReadFacade.findPeriodSnapshotsForStudent(tenantId, studentId),
+      this.gradebookReadFacade.findCompetencySnapshotsForStudent(tenantId, studentId),
+      this.gradebookReadFacade.findGpaSnapshotsForStudent(tenantId, studentId),
+      this.gradebookReadFacade.findAllRiskAlertsForStudent(tenantId, studentId),
+      this.gradebookReadFacade.findProgressReportsForStudent(tenantId, studentId),
+      this.gradebookReadFacade.findReportCardsForStudent(tenantId, studentId),
 
-      // Period grade snapshots
-      this.prisma.periodGradeSnapshot.findMany({
-        where: { student_id: studentId, ...where },
-        orderBy: { snapshot_at: 'desc' },
-      }),
+      // Behaviour reads via facade
+      this.behaviourReadFacade.findIncidentsForStudent(tenantId, studentId),
+      this.behaviourReadFacade.findSanctionsForStudent(tenantId, studentId),
+      this.behaviourReadFacade.findAppealsForStudent(tenantId, studentId),
+      this.behaviourReadFacade.findExclusionCasesForStudent(tenantId, studentId),
+      this.behaviourReadFacade.findRecognitionAwardsForStudent(tenantId, studentId),
 
-      // Competency snapshots
-      this.prisma.studentCompetencySnapshot.findMany({
-        where: { student_id: studentId, ...where },
-        orderBy: { last_updated: 'desc' },
-      }),
-
-      // GPA snapshots
-      this.prisma.gpaSnapshot.findMany({
-        where: { student_id: studentId, ...where },
-        orderBy: { snapshot_at: 'desc' },
-      }),
-
-      // Academic risk alerts
-      this.prisma.studentAcademicRiskAlert.findMany({
-        where: { student_id: studentId, ...where },
-        orderBy: [{ detected_date: 'desc' }, { created_at: 'desc' }],
-      }),
-
-      // Progress reports + entries
-      this.prisma.progressReport.findMany({
-        where: { student_id: studentId, ...where },
-        include: { entries: true },
-        orderBy: { created_at: 'desc' },
-      }),
-
-      // Report cards — including snapshot payload
-      this.prisma.reportCard.findMany({
-        where: { student_id: studentId, ...where },
-        orderBy: { created_at: 'desc' },
-      }),
-
-      // Behaviour — via participant join
-      this.prisma.behaviourIncidentParticipant.findMany({
-        where: { student_id: studentId, ...where },
-        include: { incident: true },
-      }),
-
-      // Behaviour sanctions
-      this.prisma.behaviourSanction.findMany({
-        where: { student_id: studentId, ...where },
-        orderBy: { created_at: 'desc' },
-      }),
-
-      // Behaviour appeals
-      this.prisma.behaviourAppeal.findMany({
-        where: { student_id: studentId, ...where },
-        orderBy: { created_at: 'desc' },
-      }),
-
-      // Behaviour exclusion cases
-      this.prisma.behaviourExclusionCase.findMany({
-        where: { student_id: studentId, ...where },
-        orderBy: { created_at: 'desc' },
-      }),
-
-      // Behaviour recognition awards
-      this.prisma.behaviourRecognitionAward.findMany({
-        where: { student_id: studentId, ...where },
-        orderBy: { awarded_at: 'desc' },
-      }),
-
-      // Admissions — applications submitted by student's parents or matching student name
+      // Admissions — own module, direct Prisma
       applicationOrClauses.length > 0
         ? this.prisma.application.findMany({
             where: { ...where, OR: applicationOrClauses },
@@ -223,7 +173,7 @@ export class DsarTraversalService {
           })
         : Promise.resolve([]),
 
-      // Class enrolments with class name
+      // Class enrolments — own module, direct Prisma
       this.prisma.classEnrolment.findMany({
         where: { student_id: studentId, ...where },
         include: {
@@ -233,29 +183,29 @@ export class DsarTraversalService {
         },
       }),
 
-      // Consent records
+      // Consent records — compliance-owned, direct Prisma
       this.prisma.consentRecord.findMany({
         where: { subject_type: 'student', subject_id: studentId, ...where },
       }),
 
-      // GDPR token usage logs referencing the student's tokens
+      // GDPR token usage logs — compliance-owned, direct Prisma
       this.prisma.gdprTokenUsageLog.findMany({
         where: { ...where },
       }),
 
-      // AI processing logs
+      // AI processing logs — compliance-owned, direct Prisma
       this.prisma.aiProcessingLog.findMany({
         where: { subject_type: 'student', subject_id: studentId, ...where },
         orderBy: { created_at: 'desc' },
       }),
 
-      // Audit logs about this student
+      // Audit logs — compliance-owned, direct Prisma
       this.prisma.auditLog.findMany({
         where: { entity_id: studentId, tenant_id: tenantId },
         orderBy: { created_at: 'desc' },
       }),
 
-      // Notifications about the student
+      // Notifications — compliance-owned, direct Prisma
       this.prisma.notification.findMany({
         where: {
           source_entity_type: 'student',
@@ -272,9 +222,7 @@ export class DsarTraversalService {
         ? gdprTokenUsageLogs.filter(
             (log) =>
               Array.isArray(log.tokens_used) &&
-              log.tokens_used.some((tokenId) =>
-                studentTokenIds.includes(tokenId as string),
-              ),
+              log.tokens_used.some((tokenId) => studentTokenIds.includes(tokenId as string)),
           )
         : [];
 
@@ -315,108 +263,99 @@ export class DsarTraversalService {
   ): Promise<Record<string, unknown>> {
     const where = { tenant_id: tenantId };
 
-    const [
-      profile,
-      studentLinks,
-      householdLinks,
-      inquiries,
-      consentRecords,
-      auditLogs,
-    ] = await Promise.all([
-      // Profile — ALL fields
-      this.prisma.parent.findFirst({
-        where: { id: parentId, ...where },
-      }),
+    const [profile, studentLinks, householdLinks, inquiries, consentRecords, auditLogs] =
+      await Promise.all([
+        // Profile — ALL fields
+        this.prisma.parent.findFirst({
+          where: { id: parentId, ...where },
+        }),
 
-      // Linked students
-      this.prisma.studentParent.findMany({
-        where: { parent_id: parentId, ...where },
-        include: {
-          student: {
-            select: { id: true, first_name: true, last_name: true, student_number: true },
+        // Linked students
+        this.prisma.studentParent.findMany({
+          where: { parent_id: parentId, ...where },
+          include: {
+            student: {
+              select: { id: true, first_name: true, last_name: true, student_number: true },
+            },
           },
-        },
-      }),
+        }),
 
-      // Household memberships
-      this.prisma.householdParent.findMany({
-        where: { parent_id: parentId, ...where },
-        include: {
-          household: {
-            select: { id: true, household_name: true },
+        // Household memberships
+        this.prisma.householdParent.findMany({
+          where: { parent_id: parentId, ...where },
+          include: {
+            household: {
+              select: { id: true, household_name: true },
+            },
           },
-        },
-      }),
+        }),
 
-      // Parent inquiries + messages
-      this.prisma.parentInquiry.findMany({
-        where: { parent_id: parentId, ...where },
-        include: { messages: true },
-        orderBy: { created_at: 'desc' },
-      }),
+        // Parent inquiries + messages
+        this.prisma.parentInquiry.findMany({
+          where: { parent_id: parentId, ...where },
+          include: { messages: true },
+          orderBy: { created_at: 'desc' },
+        }),
 
-      // Consent records
-      this.prisma.consentRecord.findMany({
-        where: { subject_type: 'parent', subject_id: parentId, ...where },
-      }),
+        // Consent records
+        this.prisma.consentRecord.findMany({
+          where: { subject_type: 'parent', subject_id: parentId, ...where },
+        }),
 
-      // Audit logs
-      this.prisma.auditLog.findMany({
-        where: { entity_id: parentId, tenant_id: tenantId },
-        orderBy: { created_at: 'desc' },
-      }),
-    ]);
+        // Audit logs
+        this.prisma.auditLog.findMany({
+          where: { entity_id: parentId, tenant_id: tenantId },
+          orderBy: { created_at: 'desc' },
+        }),
+      ]);
 
     // Gather household IDs for financial data
     const householdIds = householdLinks.map((hl) => hl.household_id);
 
-    // Financial data — ALL records, no limits
-    const [invoices, payments, refunds, creditNotes, paymentPlanRequests, scholarships, notifications] =
-      await Promise.all([
-        this.prisma.invoice.findMany({
-          where: { household_id: { in: householdIds }, ...where },
-          orderBy: { created_at: 'desc' },
-        }),
+    // Financial data via facade — ALL records, no limits.
+    // Facade methods are single-household; fan out across all households.
+    const invoiceArrays = await Promise.all(
+      householdIds.map((hhId) => this.financeReadFacade.findInvoicesByHousehold(tenantId, hhId)),
+    );
+    const paymentArrays = await Promise.all(
+      householdIds.map((hhId) => this.financeReadFacade.findPaymentsByHousehold(tenantId, hhId)),
+    );
+    const refundArrays = await Promise.all(
+      householdIds.map((hhId) => this.financeReadFacade.findRefundsByHousehold(tenantId, hhId)),
+    );
+    const creditNoteArrays = await Promise.all(
+      householdIds.map((hhId) => this.financeReadFacade.findCreditNotesByHousehold(tenantId, hhId)),
+    );
+    const paymentPlanRequestArrays = await Promise.all(
+      householdIds.map((hhId) =>
+        this.financeReadFacade.findPaymentPlanRequestsByHousehold(tenantId, hhId),
+      ),
+    );
 
-        this.prisma.payment.findMany({
-          where: { household_id: { in: householdIds }, ...where },
-          orderBy: { created_at: 'desc' },
-        }),
+    const [
+      invoices,
+      payments,
+      refunds,
+      creditNotes,
+      paymentPlanRequests,
+      scholarships,
+      notifications,
+    ] = await Promise.all([
+      Promise.resolve(invoiceArrays.flat()),
+      Promise.resolve(paymentArrays.flat()),
+      Promise.resolve(refundArrays.flat()),
+      Promise.resolve(creditNoteArrays.flat()),
+      Promise.resolve(paymentPlanRequestArrays.flat()),
+      this.financeReadFacade.findScholarshipsByHouseholds(tenantId, householdIds),
 
-        this.prisma.refund.findMany({
-          where: {
-            ...where,
-            payment: { household_id: { in: householdIds } },
-          },
-          orderBy: { created_at: 'desc' },
-        }),
-
-        this.prisma.creditNote.findMany({
-          where: { household_id: { in: householdIds }, ...where },
-          orderBy: { created_at: 'desc' },
-        }),
-
-        this.prisma.paymentPlanRequest.findMany({
-          where: { household_id: { in: householdIds }, ...where },
-          orderBy: { created_at: 'desc' },
-        }),
-
-        this.prisma.scholarship.findMany({
-          where: {
-            ...where,
-            student: { household_id: { in: householdIds } },
-          },
-          orderBy: { created_at: 'desc' },
-        }),
-
-        // Notifications sent to parent's user account
-        profile?.user_id
-          ? this.prisma.notification.findMany({
-              where: { recipient_user_id: profile.user_id, ...where },
-              orderBy: { created_at: 'desc' },
-            })
-          : Promise.resolve([]),
-      ]);
+      // Notifications sent to parent's user account — compliance-owned, direct Prisma
+      profile?.user_id
+        ? this.prisma.notification.findMany({
+            where: { recipient_user_id: profile.user_id, ...where },
+            orderBy: { created_at: 'desc' },
+          })
+        : Promise.resolve([]),
+    ]);
 
     return {
       profile,
@@ -530,9 +469,7 @@ export class DsarTraversalService {
             account_number: profile.bank_account_number_encrypted
               ? '[encrypted — available via DPO request]'
               : null,
-            iban: profile.bank_iban_encrypted
-              ? '[encrypted — available via DPO request]'
-              : null,
+            iban: profile.bank_iban_encrypted ? '[encrypted — available via DPO request]' : null,
           },
         }
       : null;
@@ -557,30 +494,29 @@ export class DsarTraversalService {
   ): Promise<Record<string, unknown>> {
     const where = { tenant_id: tenantId };
 
-    const [application, applicationNotes, consentRecords, auditLogs] =
-      await Promise.all([
-        // Application record with payload
-        this.prisma.application.findFirst({
-          where: { id: applicationId, ...where },
-        }),
+    const [application, applicationNotes, consentRecords, auditLogs] = await Promise.all([
+      // Application record with payload
+      this.prisma.application.findFirst({
+        where: { id: applicationId, ...where },
+      }),
 
-        // Application notes
-        this.prisma.applicationNote.findMany({
-          where: { application_id: applicationId, ...where },
-          orderBy: { created_at: 'desc' },
-        }),
+      // Application notes
+      this.prisma.applicationNote.findMany({
+        where: { application_id: applicationId, ...where },
+        orderBy: { created_at: 'desc' },
+      }),
 
-        // Consent records
-        this.prisma.consentRecord.findMany({
-          where: { subject_type: 'applicant', subject_id: applicationId, ...where },
-        }),
+      // Consent records
+      this.prisma.consentRecord.findMany({
+        where: { subject_type: 'applicant', subject_id: applicationId, ...where },
+      }),
 
-        // Audit logs
-        this.prisma.auditLog.findMany({
-          where: { entity_id: applicationId, tenant_id: tenantId },
-          orderBy: { created_at: 'desc' },
-        }),
-      ]);
+      // Audit logs
+      this.prisma.auditLog.findMany({
+        where: { entity_id: applicationId, tenant_id: tenantId },
+        orderBy: { created_at: 'desc' },
+      }),
+    ]);
 
     return {
       application,
@@ -609,12 +545,12 @@ export class DsarTraversalService {
       refunds,
       creditNotes,
     ] = await Promise.all([
-      // Profile — ALL fields
+      // Profile — ALL fields (compliance-owned, direct Prisma)
       this.prisma.household.findFirst({
         where: { id: householdId, ...where },
       }),
 
-      // Linked parents
+      // Linked parents (compliance-owned, direct Prisma)
       this.prisma.householdParent.findMany({
         where: { household_id: householdId, ...where },
         include: {
@@ -624,7 +560,7 @@ export class DsarTraversalService {
         },
       }),
 
-      // Linked students
+      // Linked students (compliance-owned, direct Prisma)
       this.prisma.student.findMany({
         where: { household_id: householdId, ...where },
         select: {
@@ -635,44 +571,23 @@ export class DsarTraversalService {
         },
       }),
 
-      // Emergency contacts
+      // Emergency contacts (compliance-owned, direct Prisma)
       this.prisma.householdEmergencyContact.findMany({
         where: { household_id: householdId, ...where },
         orderBy: { display_order: 'asc' },
       }),
 
-      // Fee assignments
+      // Fee assignments (compliance-owned, direct Prisma)
       this.prisma.householdFeeAssignment.findMany({
         where: { household_id: householdId, ...where },
         orderBy: { effective_from: 'desc' },
       }),
 
-      // Invoices — ALL, no limit
-      this.prisma.invoice.findMany({
-        where: { household_id: householdId, ...where },
-        orderBy: { created_at: 'desc' },
-      }),
-
-      // Payments — ALL, no limit
-      this.prisma.payment.findMany({
-        where: { household_id: householdId, ...where },
-        orderBy: { created_at: 'desc' },
-      }),
-
-      // Refunds
-      this.prisma.refund.findMany({
-        where: {
-          ...where,
-          payment: { household_id: householdId },
-        },
-        orderBy: { created_at: 'desc' },
-      }),
-
-      // Credit notes
-      this.prisma.creditNote.findMany({
-        where: { household_id: householdId, ...where },
-        orderBy: { created_at: 'desc' },
-      }),
+      // Finance reads via facade
+      this.financeReadFacade.findInvoicesByHousehold(tenantId, householdId),
+      this.financeReadFacade.findPaymentsByHousehold(tenantId, householdId),
+      this.financeReadFacade.findRefundsByHousehold(tenantId, householdId),
+      this.financeReadFacade.findCreditNotesByHousehold(tenantId, householdId),
     ]);
 
     return {
@@ -692,9 +607,7 @@ export class DsarTraversalService {
 
   // ─── User (platform-level) ────────────────────────────────────────────────
 
-  private async collectUserData(
-    userId: string,
-  ): Promise<Record<string, unknown>> {
+  private async collectUserData(userId: string): Promise<Record<string, unknown>> {
     const [profile, memberships] = await Promise.all([
       // User record — basic fields only (platform-level, no tenant_id)
       this.prisma.user.findFirst({

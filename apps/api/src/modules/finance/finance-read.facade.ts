@@ -343,6 +343,27 @@ export class FinanceReadFacade {
   }
 
   /**
+   * All scholarships for students belonging to any of the given households.
+   * Used by DSAR traversal when collecting parent-level financial data
+   * (scholarships are linked to students, not households directly).
+   */
+  async findScholarshipsByHouseholds(
+    tenantId: string,
+    householdIds: string[],
+  ): Promise<ScholarshipRow[]> {
+    if (householdIds.length === 0) return [];
+
+    return this.prisma.scholarship.findMany({
+      where: {
+        tenant_id: tenantId,
+        student: { household_id: { in: householdIds } },
+      },
+      select: SCHOLARSHIP_SELECT,
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  /**
    * Active fee structures for a tenant, optionally filtered by year group.
    * Used by registration to resolve applicable fees when enrolling a student.
    */
