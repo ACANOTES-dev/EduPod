@@ -2,7 +2,7 @@
 
 > **Purpose**: Complete inventory of every feature, mapped to its code location. This is the single source of truth for "what does this product do and where does it live."
 > **Maintenance**: Updated only on user confirmation that a feature change is final. See `.claude/rules/feature-map-maintenance.md`.
-> **Last verified**: 2026-03-31
+> **Last verified**: 2026-04-03
 
 ---
 
@@ -26,7 +26,7 @@
 | [Parent Inquiries](#14-parent-inquiries)                | `modules/parent-inquiries/`                                                                                                                                                                                                               | 8             | 3              | 2           |
 | [Engagement](#29-engagement)                            | `modules/engagement/`                                                                                                                                                                                                                     | 64            | 22             | 8           |
 | [Admissions](#15-admissions)                            | `modules/admissions/`                                                                                                                                                                                                                     | 21            | 4              | 1           |
-| [Approvals](#16-approvals)                              | `modules/approvals/`                                                                                                                                                                                                                      | 9             | —              | —           |
+| [Approvals](#16-approvals)                              | `modules/approvals/`                                                                                                                                                                                                                      | 12            | —              | —           |
 | [Reports & Analytics](#17-reports--analytics)           | `modules/reports/`                                                                                                                                                                                                                        | 66            | 20             | —           |
 | [Website CMS](#18-website-cms)                          | `modules/website/`                                                                                                                                                                                                                        | 13            | 4              | —           |
 | [Search](#19-search)                                    | `modules/search/`                                                                                                                                                                                                                         | 1             | —              | 2           |
@@ -527,12 +527,13 @@ Plus 2 more from other modules that use the notifications queue.
 
 ## 16. Approvals
 
-**What it does**: Generic approval workflow engine. Configurable workflows with steps. Used by announcements (publish), invoices (issue), payroll (finalise). Central dispatch hub for approval callbacks via BullMQ.
+**What it does**: Generic approval workflow engine. Configurable workflows with steps. Used by announcements (publish), invoices (issue), payroll (finalise). Central dispatch hub for approval callbacks via BullMQ. Includes operational tooling for stuck callback recovery.
 
 **Backend**: `apps/api/src/modules/approvals/`
 
-- 2 controllers (workflows, requests), 9 endpoints
+- 2 controllers (workflows, requests), 12 endpoints
 - **Critical**: `MODE_A_CALLBACKS` mapping dispatches approved requests to domain-specific worker queues
+- **Operational**: `POST /bulk-retry-callbacks` (batch retry stuck callbacks), `GET /callback-health` (pending/failed/executed counts), `POST /:id/retry-callback` (single retry with idempotency guard)
 
 **Frontend**: Approval actions are embedded in the domain pages (communications, finance, payroll, report cards), not a standalone page.
 
