@@ -8,11 +8,10 @@ import * as React from 'react';
 import type { DiscountType } from '@school/shared';
 import { Button } from '@school/ui';
 
-import { DiscountForm, type DiscountFormValues } from '../_components/discount-form';
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { DiscountForm, type DiscountFormValues } from '../_components/discount-form';
 
 interface DiscountDetail {
   id: string;
