@@ -7,13 +7,13 @@ Multi-tenant school management SaaS. Single PostgreSQL database, shared schema, 
 ## Reference Documents
 
 ```
-Plans/
+docs/plans/
 ├── context.md                    # Architecture, RLS, auth, RBAC — ALWAYS LOAD
 ├── ui-design-brief.md            # Visual language, components — LOAD FOR ANY FRONTEND WORK
 ├── deployment-architecture.md    # Deployment setup and environment plan
-└── archive/                      # Historical phase plans, results, testing (P0–P9)
+└── phases-plan/                  # Active phase implementation plans
 
-architecture/
+docs/architecture/
 ├── feature-map.md                # COMPLETE feature inventory — what exists and where it lives
 ├── module-blast-radius.md        # Cross-module dependencies — what breaks if you change X
 ├── event-job-catalog.md          # BullMQ job flows and side-effect chains
@@ -21,6 +21,25 @@ architecture/
 ├── danger-zones.md               # Non-obvious coupling and risks
 └── pre-flight-checklist.md       # Before/after checklist for every code change
 ```
+
+## Documentation Index
+
+All non-code documentation lives under `docs/`. Use this index to find what you need:
+
+| I need...                          | Look in                         |
+| ---------------------------------- | ------------------------------- |
+| Architecture, RLS, auth context    | `docs/plans/context.md`         |
+| UI/component design language       | `docs/plans/ui-design-brief.md` |
+| Blast radius, danger zones         | `docs/architecture/`            |
+| Feature specs (behaviour, GDPR...) | `docs/features/`                |
+| Health governance, backlog, KPIs   | `docs/governance/`              |
+| Runbooks, deployment, operations   | `docs/operations/`              |
+| Audit reports (Claude, GPT)        | `docs/audits/`                  |
+| Roadmap phases, expansion plans    | `docs/roadmap/`                 |
+| Release targets (9.5 gate)         | `docs/targets/`                 |
+| Code review reports, QA framework  | `docs/reviews/`                 |
+| Archived/superseded specs          | `docs/archive/`                 |
+| Getting started, conventions       | `docs/`                         |
 
 ---
 

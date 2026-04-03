@@ -1,0 +1,455 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "Module Ownership Registry — maps NestJS modules to their owned Prisma models and read facades. Used by scripts/check-module-boundaries.ts to enforce boundary constraints.",
+  "lastVerified": "2026-04-02",
+  "modules": {
+    "students": {
+      "path": "apps/api/src/modules/students",
+      "ownedModels": ["student", "studentParent"],
+      "readFacade": "StudentReadFacade"
+    },
+    "staff-profiles": {
+      "path": "apps/api/src/modules/staff-profiles",
+      "ownedModels": ["staffProfile"],
+      "readFacade": "StaffProfileReadFacade"
+    },
+    "academics": {
+      "path": "apps/api/src/modules/academics",
+      "ownedModels": ["academicYear", "academicPeriod", "yearGroup", "subject"],
+      "readFacade": "AcademicReadFacade"
+    },
+    "attendance": {
+      "path": "apps/api/src/modules/attendance",
+      "ownedModels": [
+        "attendanceSession",
+        "attendanceRecord",
+        "dailyAttendanceSummary",
+        "attendancePatternAlert"
+      ],
+      "readFacade": "AttendanceReadFacade"
+    },
+    "classes": {
+      "path": "apps/api/src/modules/classes",
+      "ownedModels": ["class", "classStaff", "classEnrolment"],
+      "readFacade": null
+    },
+    "tenants": {
+      "path": "apps/api/src/modules/tenants",
+      "ownedModels": ["tenant", "tenantDomain", "tenantModule", "tenantBranding", "tenantSequence"],
+      "readFacade": null
+    },
+    "configuration": {
+      "path": "apps/api/src/modules/configuration",
+      "ownedModels": [
+        "tenantSetting",
+        "tenantModuleSetting",
+        "tenantNotificationSetting",
+        "tenantStripeConfig"
+      ],
+      "readFacade": null
+    },
+    "auth": {
+      "path": "apps/api/src/modules/auth",
+      "ownedModels": ["user", "mfaRecoveryCode", "passwordResetToken"],
+      "readFacade": null
+    },
+    "rbac": {
+      "path": "apps/api/src/modules/rbac",
+      "ownedModels": [
+        "tenantMembership",
+        "role",
+        "permission",
+        "rolePermission",
+        "membershipRole",
+        "invitation"
+      ],
+      "readFacade": null
+    },
+    "approvals": {
+      "path": "apps/api/src/modules/approvals",
+      "ownedModels": ["approvalWorkflow", "approvalRequest"],
+      "readFacade": null
+    },
+    "preferences": {
+      "path": "apps/api/src/modules/preferences",
+      "ownedModels": ["userUiPreference"],
+      "readFacade": null
+    },
+    "households": {
+      "path": "apps/api/src/modules/households",
+      "ownedModels": ["household", "householdEmergencyContact", "householdParent"],
+      "readFacade": null
+    },
+    "parents": {
+      "path": "apps/api/src/modules/parents",
+      "ownedModels": ["parent"],
+      "readFacade": null
+    },
+    "admissions": {
+      "path": "apps/api/src/modules/admissions",
+      "ownedModels": [
+        "admissionFormDefinition",
+        "admissionFormField",
+        "application",
+        "applicationNote"
+      ],
+      "readFacade": null
+    },
+    "rooms": {
+      "path": "apps/api/src/modules/rooms",
+      "ownedModels": ["room", "roomClosure"],
+      "readFacade": null
+    },
+    "schedules": {
+      "path": "apps/api/src/modules/schedules",
+      "ownedModels": ["schedule"],
+      "readFacade": null
+    },
+    "school-closures": {
+      "path": "apps/api/src/modules/school-closures",
+      "ownedModels": ["schoolClosure"],
+      "readFacade": null
+    },
+    "scheduling": {
+      "path": "apps/api/src/modules/scheduling",
+      "ownedModels": [
+        "schedulePeriodTemplate",
+        "classSchedulingRequirement",
+        "curriculumRequirement",
+        "teacherCompetency",
+        "breakGroup",
+        "breakGroupYearGroup",
+        "teacherSchedulingConfig",
+        "teacherAbsence",
+        "substitutionRecord",
+        "calendarSubscriptionToken",
+        "examSession",
+        "examSlot",
+        "examInvigilation",
+        "rotationConfig"
+      ],
+      "readFacade": null
+    },
+    "scheduling-runs": {
+      "path": "apps/api/src/modules/scheduling-runs",
+      "ownedModels": ["schedulingRun", "schedulingScenario"],
+      "readFacade": null
+    },
+    "staff-availability": {
+      "path": "apps/api/src/modules/staff-availability",
+      "ownedModels": ["staffAvailability"],
+      "readFacade": null
+    },
+    "staff-preferences": {
+      "path": "apps/api/src/modules/staff-preferences",
+      "ownedModels": ["staffSchedulingPreference"],
+      "readFacade": null
+    },
+    "gradebook": {
+      "path": "apps/api/src/modules/gradebook",
+      "ownedModels": [
+        "gradingScale",
+        "assessmentCategory",
+        "classSubjectGradeConfig",
+        "assessment",
+        "grade",
+        "periodGradeSnapshot",
+        "yearGroupGradeWeight",
+        "reportCard",
+        "rubricTemplate",
+        "rubricGrade",
+        "curriculumStandard",
+        "assessmentStandardMapping",
+        "competencyScale",
+        "studentCompetencySnapshot",
+        "gpaSnapshot",
+        "gradeCurveAudit",
+        "assessmentTemplate",
+        "aiGradingInstruction",
+        "aiGradingReference",
+        "studentAcademicRiskAlert",
+        "progressReport",
+        "progressReportEntry",
+        "nlQueryHistory",
+        "reportCardTemplate",
+        "reportCardApprovalConfig",
+        "reportCardApproval",
+        "reportCardDelivery",
+        "reportCardBatchJob",
+        "reportCardCustomFieldDef",
+        "reportCardCustomFieldValue",
+        "gradeThresholdConfig",
+        "reportCardAcknowledgment",
+        "reportCardVerificationToken"
+      ],
+      "readFacade": null
+    },
+    "finance": {
+      "path": "apps/api/src/modules/finance",
+      "ownedModels": [
+        "feeStructure",
+        "discount",
+        "householdFeeAssignment",
+        "invoice",
+        "invoiceLine",
+        "installment",
+        "payment",
+        "paymentAllocation",
+        "receipt",
+        "refund",
+        "invoiceReminder",
+        "recurringInvoiceConfig",
+        "creditNote",
+        "creditNoteApplication",
+        "lateFeeConfig",
+        "lateFeeApplication",
+        "paymentPlanRequest",
+        "scholarship"
+      ],
+      "readFacade": null
+    },
+    "payroll": {
+      "path": "apps/api/src/modules/payroll",
+      "ownedModels": [
+        "staffCompensation",
+        "payrollRun",
+        "payrollEntry",
+        "payslip",
+        "staffAttendanceRecord",
+        "classDeliveryRecord",
+        "payrollAdjustment",
+        "payrollExportTemplate",
+        "payrollExportLog",
+        "payrollApprovalConfig",
+        "payrollAllowanceType",
+        "staffAllowance",
+        "payrollOneOffItem",
+        "staffRecurringDeduction"
+      ],
+      "readFacade": null
+    },
+    "communications": {
+      "path": "apps/api/src/modules/communications",
+      "ownedModels": ["announcement", "notificationTemplate", "notification"],
+      "readFacade": null
+    },
+    "parent-inquiries": {
+      "path": "apps/api/src/modules/parent-inquiries",
+      "ownedModels": ["parentInquiry", "parentInquiryMessage"],
+      "readFacade": null
+    },
+    "website": {
+      "path": "apps/api/src/modules/website",
+      "ownedModels": ["websitePage", "contactFormSubmission"],
+      "readFacade": null
+    },
+    "audit-log": {
+      "path": "apps/api/src/modules/audit-log",
+      "ownedModels": ["auditLog", "cronExecutionLog"],
+      "readFacade": null
+    },
+    "compliance": {
+      "path": "apps/api/src/modules/compliance",
+      "ownedModels": ["complianceRequest"],
+      "readFacade": null
+    },
+    "imports": {
+      "path": "apps/api/src/modules/imports",
+      "ownedModels": ["importJob", "importJobRecord"],
+      "readFacade": null
+    },
+    "search": {
+      "path": "apps/api/src/modules/search",
+      "ownedModels": ["searchIndexStatus"],
+      "readFacade": null
+    },
+    "behaviour": {
+      "path": "apps/api/src/modules/behaviour",
+      "ownedModels": [
+        "behaviourCategory",
+        "behaviourIncident",
+        "behaviourIncidentParticipant",
+        "behaviourDescriptionTemplate",
+        "behaviourEntityHistory",
+        "behaviourTask",
+        "behaviourParentAcknowledgement",
+        "behaviourSanction",
+        "behaviourAppeal",
+        "behaviourAmendmentNotice",
+        "behaviourExclusionCase",
+        "behaviourAttachment",
+        "behaviourIntervention",
+        "behaviourInterventionIncident",
+        "behaviourInterventionReview",
+        "behaviourRecognitionAward",
+        "behaviourAwardType",
+        "behaviourHouseTeam",
+        "behaviourHouseMembership",
+        "behaviourPolicyRule",
+        "behaviourPolicyRuleAction",
+        "behaviourPolicyRuleVersion",
+        "behaviourPolicyEvaluation",
+        "behaviourPolicyActionExecution",
+        "behaviourAlert",
+        "behaviourAlertRecipient",
+        "behaviourDocument",
+        "behaviourDocumentTemplate",
+        "behaviourGuardianRestriction",
+        "behaviourPublicationApproval",
+        "behaviourLegalHold",
+        "safeguardingConcern",
+        "safeguardingAction",
+        "safeguardingConcernIncident",
+        "safeguardingBreakGlassGrant"
+      ],
+      "readFacade": null
+    },
+    "pastoral": {
+      "path": "apps/api/src/modules/pastoral",
+      "ownedModels": [
+        "pastoralConcern",
+        "pastoralConcernInvolvedStudent",
+        "pastoralConcernVersion",
+        "pastoralCase",
+        "pastoralCaseStudent",
+        "pastoralIntervention",
+        "pastoralInterventionAction",
+        "pastoralInterventionProgress",
+        "pastoralReferral",
+        "pastoralReferralRecommendation",
+        "pastoralNepsVisit",
+        "pastoralNepsVisitStudent",
+        "sstMember",
+        "sstMeeting",
+        "sstMeetingAgendaItem",
+        "sstMeetingAction",
+        "pastoralParentContact",
+        "pastoralEvent",
+        "pastoralDsarReview",
+        "criticalIncident",
+        "criticalIncidentAffected",
+        "studentCheckin"
+      ],
+      "readFacade": null
+    },
+    "child-protection": {
+      "path": "apps/api/src/modules/child-protection",
+      "ownedModels": ["cpRecord", "cpAccessGrant"],
+      "readFacade": null
+    },
+    "sen": {
+      "path": "apps/api/src/modules/sen",
+      "ownedModels": [
+        "senProfile",
+        "senSupportPlan",
+        "senGoal",
+        "senGoalStrategy",
+        "senGoalProgress",
+        "senResourceAllocation",
+        "senStudentHours",
+        "senSnaAssignment",
+        "senProfessionalInvolvement",
+        "senAccommodation",
+        "senTransitionNote"
+      ],
+      "readFacade": null
+    },
+    "staff-wellbeing": {
+      "path": "apps/api/src/modules/staff-wellbeing",
+      "ownedModels": [
+        "staffSurvey",
+        "surveyQuestion",
+        "surveyResponse",
+        "surveyParticipationToken"
+      ],
+      "readFacade": null
+    },
+    "gdpr": {
+      "path": "apps/api/src/modules/gdpr",
+      "ownedModels": [
+        "gdprAnonymisationToken",
+        "gdprExportPolicy",
+        "gdprTokenUsageLog",
+        "dataProcessingAgreement",
+        "dpaVersion",
+        "privacyNoticeVersion",
+        "privacyNoticeAcknowledgement",
+        "consentRecord",
+        "aiProcessingLog",
+        "subProcessorRegisterVersion",
+        "subProcessorRegisterEntry",
+        "retentionPolicy",
+        "retentionHold"
+      ],
+      "readFacade": null
+    },
+    "regulatory": {
+      "path": "apps/api/src/modules/regulatory",
+      "ownedModels": [
+        "regulatoryCalendarEvent",
+        "regulatorySubmission",
+        "tuslaAbsenceCodeMapping",
+        "reducedSchoolDay",
+        "desSubjectCodeMapping",
+        "ppodStudentMapping",
+        "ppodSyncLog",
+        "ppodCbaSyncRecord",
+        "interSchoolTransfer"
+      ],
+      "readFacade": null
+    },
+    "early-warning": {
+      "path": "apps/api/src/modules/early-warning",
+      "ownedModels": [
+        "studentRiskProfile",
+        "studentRiskSignal",
+        "earlyWarningTierTransition",
+        "earlyWarningConfig"
+      ],
+      "readFacade": null
+    },
+    "homework": {
+      "path": "apps/api/src/modules/homework",
+      "ownedModels": [
+        "homeworkAssignment",
+        "homeworkAttachment",
+        "homeworkCompletion",
+        "homeworkRecurrenceRule",
+        "diaryNote",
+        "diaryParentNote"
+      ],
+      "readFacade": null
+    },
+    "engagement": {
+      "path": "apps/api/src/modules/engagement",
+      "ownedModels": [
+        "engagementFormTemplate",
+        "engagementFormSubmission",
+        "engagementConsentRecord",
+        "engagementEvent",
+        "engagementEventStaff",
+        "engagementEventParticipant",
+        "conferenceTimeSlot",
+        "conferenceBooking",
+        "engagementIncidentReport"
+      ],
+      "readFacade": null
+    },
+    "reports": {
+      "path": "apps/api/src/modules/reports",
+      "ownedModels": [
+        "savedReport",
+        "boardReport",
+        "complianceReportTemplate",
+        "scheduledReport",
+        "reportAlert"
+      ],
+      "readFacade": null
+    },
+    "security-incidents": {
+      "path": "apps/api/src/modules/security-incidents",
+      "ownedModels": ["securityIncident", "securityIncidentEvent"],
+      "readFacade": null
+    }
+  }
+}

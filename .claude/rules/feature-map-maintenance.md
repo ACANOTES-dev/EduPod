@@ -1,6 +1,6 @@
 # Feature Map Maintenance — Ask Before Updating
 
-The `architecture/feature-map.md` is the single source of truth for what the product does and where the code lives. It must stay accurate — but it must not thrash during iterative work.
+The `docs/architecture/feature-map.md` is the single source of truth for what the product does and where the code lives. It must stay accurate — but it must not thrash during iterative work.
 
 ## Rule: Never Auto-Update the Feature Map
 
