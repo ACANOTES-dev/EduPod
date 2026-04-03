@@ -11,6 +11,14 @@
  *   3. No Puppeteer/Chromium required for snapshot comparison
  */
 
+// Pin Date.now to a fixed point so templates that render `new Date()` produce deterministic output
+beforeAll(() => {
+  jest.useFakeTimers({ now: new Date('2026-01-15T12:00:00Z') });
+});
+afterAll(() => {
+  jest.useRealTimers();
+});
+
 import { renderHouseholdStatementAr } from '../src/modules/pdf-rendering/templates/household-statement-ar.template';
 import { renderHouseholdStatementEn } from '../src/modules/pdf-rendering/templates/household-statement-en.template';
 import { renderInvoiceAr } from '../src/modules/pdf-rendering/templates/invoice-ar.template';

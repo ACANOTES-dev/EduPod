@@ -1128,7 +1128,7 @@ exports[`PDF Template Snapshots Transcript AR: renders deterministic HTML 1`] = 
       </tr>
       <tr>
         <td style="padding: 4px 0;"><strong>المرحلة:</strong> Year 9</td>
-        <td style="padding: 4px 0;"><strong>تاريخ الإصدار:</strong> <span dir="ltr">02/04/2026</span></td>
+        <td style="padding: 4px 0;"><strong>تاريخ الإصدار:</strong> <span dir="ltr">15/01/2026</span></td>
       </tr>
     </table>
 
@@ -1257,7 +1257,7 @@ exports[`PDF Template Snapshots Transcript EN: renders deterministic HTML 1`] = 
       </tr>
       <tr>
         <td style="padding: 4px 0;"><strong>Year Group:</strong> Year 9</td>
-        <td style="padding: 4px 0;"><strong>Generated:</strong> 02/04/2026</td>
+        <td style="padding: 4px 0;"><strong>Generated:</strong> 15/01/2026</td>
       </tr>
     </table>
 
