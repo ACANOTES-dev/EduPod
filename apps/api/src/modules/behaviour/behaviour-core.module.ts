@@ -14,6 +14,7 @@ import { BehaviourDocumentTemplateService } from './behaviour-document-template.
 import { BehaviourHistoryService } from './behaviour-history.service';
 import { BehaviourPointsService } from './behaviour-points.service';
 import { BehaviourQuickLogService } from './behaviour-quick-log.service';
+import { BehaviourReadFacade } from './behaviour-read.facade';
 import { BehaviourScopeService } from './behaviour-scope.service';
 import { BehaviourSideEffectsService } from './behaviour-side-effects.service';
 import { BehaviourTasksController } from './behaviour-tasks.controller';
@@ -30,9 +31,15 @@ import { BehaviourService } from './behaviour.service';
     BullModule.registerQueue({ name: 'behaviour' }),
     BullModule.registerQueue({ name: 'search-sync' }),
   ],
-  controllers: [BehaviourAlertsController, BehaviourController, BehaviourConfigController, BehaviourTasksController],
+  controllers: [
+    BehaviourAlertsController,
+    BehaviourController,
+    BehaviourConfigController,
+    BehaviourTasksController,
+  ],
   providers: [
     BehaviourAlertsService,
+    BehaviourReadFacade,
     BehaviourService,
     BehaviourQuickLogService,
     BehaviourHistoryService,
@@ -46,6 +53,7 @@ import { BehaviourService } from './behaviour.service';
   ],
   exports: [
     BehaviourAlertsService,
+    BehaviourReadFacade,
     BehaviourDocumentTemplateService,
     BehaviourService,
     BehaviourHistoryService,

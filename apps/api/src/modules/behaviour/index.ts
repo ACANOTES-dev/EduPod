@@ -4,6 +4,7 @@
  * Only services in the module's `exports` array are re-exported here.
  */
 export { BehaviourModule } from './behaviour.module';
+export { BehaviourReadFacade } from './behaviour-read.facade';
 export { BehaviourAnalyticsService } from './behaviour-analytics.service';
 export { BehaviourConfigService } from './behaviour-config.service';
 export { BehaviourExportService } from './behaviour-export.service';
