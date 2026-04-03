@@ -186,11 +186,24 @@ If the schema is still compatible, prefer an application rollback first:
 If the database itself must be restored:
 
 1. stop or isolate writes to production
-2. restore the chosen dump into a temporary PostgreSQL target
-3. validate the restore with the queries above
-4. cut services over only after validation succeeds
-5. restart `api`, `web`, and `worker` against the restored database
-6. verify `/api/health/ready`, worker health, and tenant logins
+2. create the target database and required extensions:
+   ```bash
+   psql "$DATABASE_MIGRATE_URL" -c "CREATE DATABASE edupod_restore;"
+   RESTORE_URL="${DATABASE_MIGRATE_URL%/*}/edupod_restore"
+   psql "$RESTORE_URL" -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"; CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+   ```
+3. restore the chosen dump into the target:
+   ```bash
+   pg_restore --no-owner --no-privileges -d "$RESTORE_URL" /path/to/backup.dump
+   ```
+4. apply RLS policies directly (post-migrate tracking survives the dump, so the post-migrate script will skip them):
+   ```bash
+   psql "$RESTORE_URL" -f packages/prisma/rls/policies.sql
+   ```
+5. validate the restore with the queries above
+6. cut services over only after validation succeeds
+7. restart `api`, `web`, and `worker` against the restored database
+8. verify `/api/health/ready`, worker health, and tenant logins
 
 Do not restore blindly over the live production database without a validated dry run.
 

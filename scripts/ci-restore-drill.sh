@@ -43,13 +43,19 @@ psql "$DB_URL" -c "DROP DATABASE IF EXISTS $RESTORE_DB;" 2>/dev/null || true
 psql "$DB_URL" -c "CREATE DATABASE $RESTORE_DB;" 2>/dev/null
 
 # ─── 4. Restore into the target ─────────────────────────────────────────────
-echo "[3/5] Restoring into $RESTORE_DB..."
+echo "[3/6] Restoring into $RESTORE_DB..."
 pg_restore --no-owner --no-privileges -d "$BASE_URL" "$DUMP_FILE" 2>/dev/null || true
 echo "  Restore complete"
 echo ""
 
+# ─── 4b. Apply RLS policies directly (post-migrate tracking survives dump) ──
+echo "[4/6] Applying RLS policies..."
+psql "$BASE_URL" -f "$REPO_ROOT/packages/prisma/rls/policies.sql" 2>/dev/null | tail -1
+echo "  RLS policies applied"
+echo ""
+
 # ─── 5. Verify the restored database ────────────────────────────────────────
-echo "[4/5] Verifying restored database..."
+echo "[5/6] Verifying restored database..."
 ERRORS=0
 
 # 5a. Check RLS is enabled on tenant-scoped tables
@@ -124,7 +130,7 @@ fi
 echo ""
 
 # ─── 6. Cleanup ─────────────────────────────────────────────────────────────
-echo "[5/5] Cleaning up..."
+echo "[6/6] Cleaning up..."
 psql "$DB_URL" -c "DROP DATABASE IF EXISTS $RESTORE_DB;" 2>/dev/null || true
 rm -f "$DUMP_FILE"
 
