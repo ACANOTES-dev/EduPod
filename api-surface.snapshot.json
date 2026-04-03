@@ -522,7 +522,7 @@
     "path": "/v1/approval-requests/:id",
     "controller": "ApprovalRequestsController",
     "module": "approvals",
-    "permission": "approvals.view"
+    "permission": "approvals.manage"
   },
   {
     "method": "POST",
@@ -551,6 +551,20 @@
     "controller": "ApprovalRequestsController",
     "module": "approvals",
     "permission": "approvals.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/approval-requests/bulk-retry-callbacks",
+    "controller": "ApprovalRequestsController",
+    "module": "approvals",
+    "permission": "approvals.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/approval-requests/callback-health",
+    "controller": "ApprovalRequestsController",
+    "module": "approvals",
+    "permission": "approvals.view"
   },
   {
     "method": "GET",
