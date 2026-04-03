@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying a module's public service API, check here to know what else breaks.
 > **Maintenance**: Update when adding new cross-module imports or changing module exports.
-> **Last verified**: 2026-04-01
+> **Last verified**: 2026-04-03
 
 ---
 
@@ -139,9 +139,9 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 ### AuthService (AuthModule)
 
-- **Change cost**: MEDIUM -- recently decomposed into 5 sub-services + facade; 3-layer rate limiting and bootstrap RLS policies are fragile (DZ-38)
+- **Change cost**: LOW -- fully decomposed into 5 sub-services (TokenService, SessionService, RateLimitService, MfaService, PasswordResetService) with thin delegation facade. AuthService is ~690 lines, down from ~1,220.
 - **Imports**: ConfigurationModule (EncryptionService for MFA TOTP secret encryption/decryption)
-- **Consumed by**: TenantsModule
+- **Consumed by**: TenantsModule (via TokenService for impersonation tokens)
 - **Blast radius**: LOW (only tenant provisioning uses it directly; auth flow is middleware-based)
 
 ### StaffProfilesService (StaffProfilesModule)
@@ -157,10 +157,34 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 - **Consumed by**: No direct importers, but class data is READ by gradebook, attendance, scheduling, finance, report cards
 - **Danger**: Same pattern as StaffProfiles — other modules query classes/class_enrolments via Prisma directly.
 
+### FinanceReadFacade (FinanceModule)
+
+- **Change cost**: LOW -- read-only facade for cross-module finance reads
+- **Exports**: `FinanceReadFacade`
+- **Consumed by**: ComplianceModule (DSAR traversal, retention policies)
+- **Blast radius**: LOW. Read-only; changes to select shapes only affect consumer display, not data integrity.
+- **Methods**: findInvoicesByHousehold, findPaymentsByHousehold, findRefundsByHousehold, findCreditNotesByHousehold, findPaymentPlanRequestsByHousehold, findScholarshipsByStudent, findScholarshipsByHouseholds, findActiveFeeStructures, findActiveDiscounts, countInvoicesBeforeDate
+
 ### InvoicesService (FinanceModule)
 
 - **Consumed by**: RegistrationModule (creates registration invoices)
 - **Blast radius**: LOW direct, but invoice status changes trigger payment cascades.
+
+### GradebookReadFacade (GradebookModule)
+
+- **Change cost**: LOW -- read-only facade for cross-module gradebook reads
+- **Exports**: `GradebookReadFacade`
+- **Consumed by**: ComplianceModule (DSAR traversal)
+- **Blast radius**: LOW. Read-only; changes to select shapes only affect consumer display.
+- **Methods**: findGradesForStudent, findRecentGrades, findPeriodSnapshotsForStudent, findGpaSnapshotsForStudent, findRiskAlertsForStudent, findAllRiskAlertsForStudent, findReportCardsForStudent, findCompetencySnapshotsForStudent, findProgressReportsForStudent
+
+### BehaviourReadFacade (BehaviourModule)
+
+- **Change cost**: LOW -- read-only facade for cross-module behaviour reads
+- **Exports**: `BehaviourReadFacade`
+- **Consumed by**: ComplianceModule (DSAR traversal, retention policies)
+- **Blast radius**: LOW. Read-only; changes to select shapes only affect consumer display.
+- **Methods**: findIncidentsForStudent, findSanctionsForStudent, findAppealsForStudent, findExclusionCasesForStudent, findRecognitionAwardsForStudent, findRecentIncidents, findRecentSanctions, findInterventionsForStudent, findParentAcknowledgements, countIncidentsBeforeDate, findSuspensionsForStudent, findPolicyRules, findPolicyEvaluationsForIncident
 
 ### NotificationsService + NotificationDispatchService (CommunicationsModule)
 
