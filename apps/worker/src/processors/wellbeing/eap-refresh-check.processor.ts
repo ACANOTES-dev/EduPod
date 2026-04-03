@@ -25,7 +25,11 @@ const WELLBEING_MANAGE_RESOURCES_PERMISSION = 'wellbeing.manage_resources';
  * the past 90 days. If not, sends in-app notifications to all users with the
  * `wellbeing.manage_resources` permission.
  */
-@Processor(QUEUE_NAMES.WELLBEING)
+@Processor(QUEUE_NAMES.WELLBEING, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class EapRefreshCheckProcessor extends WorkerHost {
   private readonly logger = new Logger(EapRefreshCheckProcessor.name);
 
@@ -52,9 +56,7 @@ export class EapRefreshCheckProcessor extends WorkerHost {
       return;
     }
 
-    this.logger.log(
-      `Found ${enabledModules.length} tenant(s) with staff_wellbeing enabled`,
-    );
+    this.logger.log(`Found ${enabledModules.length} tenant(s) with staff_wellbeing enabled`);
 
     const now = Date.now();
     const staleThreshold = now - EAP_STALE_MS;
@@ -77,9 +79,7 @@ export class EapRefreshCheckProcessor extends WorkerHost {
         const isStale = this.isEapStale(rawDate, staleThreshold);
 
         if (!isStale) {
-          this.logger.debug(
-            `Tenant ${tenantId}: EAP details are current — skipping`,
-          );
+          this.logger.debug(`Tenant ${tenantId}: EAP details are current — skipping`);
           return;
         }
 

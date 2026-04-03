@@ -401,7 +401,8 @@ export class ApprovalRequestsService {
   /**
    * Manually retry a permanently-failed approval callback.
    * Resets callback_attempts to 0, re-enqueues the domain job.
-   * Only valid for approved requests with callback_status = 'failed'.
+   * Only valid for approved requests whose callback is stuck (failed or stale pending).
+   * Returns early with a message if the callback has already completed successfully.
    */
   async retryCallback(tenantId: string, requestId: string) {
     const request = await this.prisma.approvalRequest.findFirst({
@@ -422,11 +423,33 @@ export class ApprovalRequestsService {
       });
     }
 
-    if (request.callback_status !== 'failed') {
+    // ─── Idempotency guard ────────────────────────────────────────────────────
+    if (request.callback_status === 'executed') {
+      return {
+        message: 'Callback already executed successfully — no retry needed',
+        id: requestId,
+        callback_status: 'executed' as const,
+      };
+    }
+
+    if (request.callback_status !== 'failed' && request.callback_status !== 'pending') {
       throw new BadRequestException({
-        code: 'CALLBACK_NOT_FAILED',
-        message: `Cannot retry callback with status "${request.callback_status}" — must be "failed"`,
+        code: 'CALLBACK_NOT_RETRYABLE',
+        message: `Cannot retry callback with status "${request.callback_status}" — must be "failed" or "pending"`,
       });
+    }
+
+    // For pending callbacks, only allow retry if stale (> 30 minutes old)
+    if (request.callback_status === 'pending' && request.decided_at) {
+      const staleThresholdMs = 30 * 60 * 1000;
+      const decidedAt = new Date(request.decided_at).getTime();
+      if (Date.now() - decidedAt < staleThresholdMs) {
+        throw new BadRequestException({
+          code: 'CALLBACK_NOT_STALE',
+          message:
+            'Callback is still pending and not yet past the stale threshold (30 minutes) — retry not allowed',
+        });
+      }
     }
 
     const mapping = this.modeACallbacks[request.action_type];
@@ -474,6 +497,113 @@ export class ApprovalRequestsService {
     this.logger.log(`Manual callback retry for approval ${requestId} (${request.action_type})`);
 
     return this.getRequest(tenantId, requestId);
+  }
+
+  // ─── Bulk retry for stuck callbacks ───────────────────────────────────────
+
+  /**
+   * Bulk-retry stuck approval callbacks.
+   * Finds approved requests with failed or pending (stale) callback_status,
+   * re-enqueues each one, and returns a summary.
+   */
+  async bulkRetryCallbacks(
+    tenantId: string,
+    statusFilter?: 'failed' | 'pending',
+    maxCount = 50,
+  ): Promise<{ retried: number; skipped: number }> {
+    const staleThreshold = new Date(Date.now() - 30 * 60 * 1000);
+
+    const callbackStatusFilter = statusFilter ? [statusFilter] : ['failed', 'pending'];
+
+    const stuckRequests = await this.prisma.approvalRequest.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: 'approved',
+        callback_status: { in: callbackStatusFilter },
+        decided_at: { lt: staleThreshold },
+      },
+      select: {
+        id: true,
+        action_type: true,
+        target_entity_id: true,
+        approver_user_id: true,
+        callback_status: true,
+      },
+      orderBy: { decided_at: 'asc' },
+      take: maxCount,
+    });
+
+    let retried = 0;
+    let skipped = 0;
+
+    for (const req of stuckRequests) {
+      const mapping = this.modeACallbacks[req.action_type];
+      if (!mapping) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        await this.prisma.approvalRequest.update({
+          where: { id: req.id },
+          data: {
+            callback_status: 'pending',
+            callback_attempts: 0,
+            callback_error: null,
+          },
+        });
+
+        await mapping.queue.add(mapping.jobName, {
+          tenant_id: tenantId,
+          approval_request_id: req.id,
+          target_entity_id: req.target_entity_id,
+          approver_user_id: req.approver_user_id,
+        });
+
+        retried++;
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        this.logger.error(`Bulk retry failed for approval ${req.id}: ${errorMessage}`);
+        await this.prisma.approvalRequest.update({
+          where: { id: req.id },
+          data: {
+            callback_status: 'failed',
+            callback_error: `Bulk retry enqueue failed: ${errorMessage}`,
+          },
+        });
+        skipped++;
+      }
+    }
+
+    this.logger.log(`Bulk callback retry: ${retried} retried, ${skipped} skipped`);
+
+    return { retried, skipped };
+  }
+
+  // ─── Callback health summary ──────────────────────────────────────────────
+
+  /**
+   * Returns a summary of callback statuses for approved requests in this tenant.
+   */
+  async getCallbackHealth(
+    tenantId: string,
+  ): Promise<{ pending: number; failed: number; executed: number; total: number }> {
+    const [pending, failed, executed, total] = await Promise.all([
+      this.prisma.approvalRequest.count({
+        where: { tenant_id: tenantId, status: 'approved', callback_status: 'pending' },
+      }),
+      this.prisma.approvalRequest.count({
+        where: { tenant_id: tenantId, status: 'approved', callback_status: 'failed' },
+      }),
+      this.prisma.approvalRequest.count({
+        where: { tenant_id: tenantId, status: 'approved', callback_status: 'executed' },
+      }),
+      this.prisma.approvalRequest.count({
+        where: { tenant_id: tenantId, status: 'approved', callback_status: { not: null } },
+      }),
+    ]);
+
+    return { pending, failed, executed, total };
   }
 
   /**

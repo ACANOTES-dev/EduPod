@@ -144,7 +144,11 @@ export const DISPATCH_NOTIFICATIONS_JOB = 'communications:dispatch-notifications
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.NOTIFICATIONS)
+@Processor(QUEUE_NAMES.NOTIFICATIONS, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class DispatchNotificationsProcessor extends WorkerHost {
   private readonly logger = new Logger(DispatchNotificationsProcessor.name);
 

@@ -25,13 +25,15 @@ export const INTERVENTION_REVIEW_REMINDER_JOB = 'pastoral:intervention-review-re
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PASTORAL)
+@Processor(QUEUE_NAMES.PASTORAL, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class InterventionReviewReminderProcessor extends WorkerHost {
   private readonly logger = new Logger(InterventionReviewReminderProcessor.name);
 
-  constructor(
-    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
-  ) {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();
   }
 
@@ -138,9 +140,7 @@ class InterventionReviewReminderTenantJob extends TenantAwareJob<InterventionRev
     // 5a. Log notification for each recipient
     // The notification infrastructure may not be fully wired yet, so log the message
     for (const userId of recipientUserIds) {
-      this.logger.log(
-        `[Notification] Recipient ${userId}: ${message}`,
-      );
+      this.logger.log(`[Notification] Recipient ${userId}: ${message}`);
     }
 
     // 6. Write pastoral_events entry

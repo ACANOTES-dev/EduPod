@@ -19,7 +19,11 @@ export interface RetentionCheckPayload extends TenantJobPayload {
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR)
+@Processor(QUEUE_NAMES.BEHAVIOUR, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class RetentionCheckProcessor extends WorkerHost {
   private readonly logger = new Logger(RetentionCheckProcessor.name);
 

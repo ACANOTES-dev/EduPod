@@ -25,7 +25,11 @@ export const DISPATCH_QUEUED_JOB = 'notifications:dispatch-queued';
  * 3. Group by tenant_id and enqueue dispatch jobs
  * 4. Log summary
  */
-@Processor(QUEUE_NAMES.NOTIFICATIONS)
+@Processor(QUEUE_NAMES.NOTIFICATIONS, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class DispatchQueuedProcessor extends WorkerHost {
   private readonly logger = new Logger(DispatchQueuedProcessor.name);
 
@@ -54,10 +58,7 @@ export class DispatchQueuedProcessor extends WorkerHost {
       where: {
         status: 'queued',
         channel: { not: 'in_app' }, // in_app are delivered immediately
-        OR: [
-          { next_retry_at: null },
-          { next_retry_at: { lte: now } },
-        ],
+        OR: [{ next_retry_at: null }, { next_retry_at: { lte: now } }],
       },
       select: {
         id: true,

@@ -37,7 +37,11 @@ const PARTITIONED_TABLES: PartitionConfig[] = [
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR, { lockDuration: 300_000 })
+@Processor(QUEUE_NAMES.BEHAVIOUR, {
+  lockDuration: 300_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class PartitionMaintenanceProcessor extends WorkerHost {
   private readonly logger = new Logger(PartitionMaintenanceProcessor.name);
 

@@ -53,7 +53,11 @@ const DEFAULT_CRITICAL_TIMEOUT_MINUTES = 30;
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PASTORAL)
+@Processor(QUEUE_NAMES.PASTORAL, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class NotifyConcernProcessor extends WorkerHost {
   private readonly logger = new Logger(NotifyConcernProcessor.name);
 

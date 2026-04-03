@@ -20,7 +20,11 @@ export const SURVEY_CLOSING_REMINDER_JOB = 'wellbeing:survey-closing-reminder';
  *
  * Registered by CronSchedulerService to run daily at 08:00 UTC.
  */
-@Processor(QUEUE_NAMES.WELLBEING)
+@Processor(QUEUE_NAMES.WELLBEING, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class SurveyClosingReminderProcessor extends WorkerHost {
   private readonly logger = new Logger(SurveyClosingReminderProcessor.name);
 
@@ -51,9 +55,7 @@ export class SurveyClosingReminderProcessor extends WorkerHost {
       return;
     }
 
-    this.logger.log(
-      `Found ${closingSurveys.length} survey(s) closing within 24 hours`,
-    );
+    this.logger.log(`Found ${closingSurveys.length} survey(s) closing within 24 hours`);
 
     let totalNotifications = 0;
 
@@ -73,10 +75,7 @@ export class SurveyClosingReminderProcessor extends WorkerHost {
    *
    * Returns the number of notifications created.
    */
-  private async processTenantSurvey(
-    tenantId: string,
-    surveyId: string,
-  ): Promise<number> {
+  private async processTenantSurvey(tenantId: string, surveyId: string): Promise<number> {
     try {
       let count = 0;
 

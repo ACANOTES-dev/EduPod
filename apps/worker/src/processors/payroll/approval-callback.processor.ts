@@ -21,7 +21,11 @@ export const PAYROLL_APPROVAL_CALLBACK_JOB = 'payroll:on-approval';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PAYROLL)
+@Processor(QUEUE_NAMES.PAYROLL, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class PayrollApprovalCallbackProcessor extends WorkerHost {
   private readonly logger = new Logger(PayrollApprovalCallbackProcessor.name);
 
@@ -54,10 +58,7 @@ export class PayrollApprovalCallbackProcessor extends WorkerHost {
 class PayrollApprovalCallbackJob extends TenantAwareJob<ApprovalCallbackPayload> {
   private readonly logger = new Logger(PayrollApprovalCallbackJob.name);
 
-  protected async processJob(
-    data: ApprovalCallbackPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: ApprovalCallbackPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, approval_request_id, target_entity_id, approver_user_id } = data;
 
     // 1. Fetch the payroll run and verify it is pending_approval
@@ -265,10 +266,16 @@ class PayrollApprovalCallbackJob extends TenantAwareJob<ApprovalCallbackPayload>
         compensation: {
           type: entry.compensation_type,
           base_salary: entry.snapshot_base_salary ? Number(entry.snapshot_base_salary) : null,
-          per_class_rate: entry.snapshot_per_class_rate ? Number(entry.snapshot_per_class_rate) : null,
+          per_class_rate: entry.snapshot_per_class_rate
+            ? Number(entry.snapshot_per_class_rate)
+            : null,
           assigned_class_count: entry.snapshot_assigned_class_count,
-          bonus_class_rate: entry.snapshot_bonus_class_rate ? Number(entry.snapshot_bonus_class_rate) : null,
-          bonus_day_multiplier: entry.snapshot_bonus_day_multiplier ? Number(entry.snapshot_bonus_day_multiplier) : null,
+          bonus_class_rate: entry.snapshot_bonus_class_rate
+            ? Number(entry.snapshot_bonus_class_rate)
+            : null,
+          bonus_day_multiplier: entry.snapshot_bonus_day_multiplier
+            ? Number(entry.snapshot_bonus_day_multiplier)
+            : null,
         },
         inputs: {
           days_worked: updatedEntry.days_worked,

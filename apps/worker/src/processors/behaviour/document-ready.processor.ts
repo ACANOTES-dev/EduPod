@@ -22,7 +22,11 @@ export interface DocumentReadyPayload extends TenantJobPayload {
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR, { lockDuration: 300_000 })
+@Processor(QUEUE_NAMES.BEHAVIOUR, {
+  lockDuration: 300_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class DocumentReadyProcessor extends WorkerHost {
   private readonly logger = new Logger(DocumentReadyProcessor.name);
 

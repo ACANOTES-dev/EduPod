@@ -50,7 +50,11 @@ class IpCleanupJob extends CrossTenantSystemJob {
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.NOTIFICATIONS)
+@Processor(QUEUE_NAMES.NOTIFICATIONS, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class IpCleanupProcessor extends WorkerHost {
   constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();

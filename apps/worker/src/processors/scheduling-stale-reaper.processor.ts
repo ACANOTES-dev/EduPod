@@ -7,7 +7,11 @@ import { QUEUE_NAMES } from '../base/queue.constants';
 
 export const SCHEDULING_REAP_STALE_JOB = 'scheduling:reap-stale-runs';
 
-@Processor(QUEUE_NAMES.SCHEDULING)
+@Processor(QUEUE_NAMES.SCHEDULING, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class SchedulingStaleReaperProcessor extends WorkerHost {
   private readonly logger = new Logger(SchedulingStaleReaperProcessor.name);
 
@@ -60,7 +64,9 @@ export class SchedulingStaleReaperProcessor extends WorkerHost {
             },
           });
           reaped++;
-          this.logger.warn(`Reaped stale run ${run.id} (tenant: ${tenantId}, stale for ${Math.round((now - run.updated_at.getTime()) / 1000)}s)`);
+          this.logger.warn(
+            `Reaped stale run ${run.id} (tenant: ${tenantId}, stale for ${Math.round((now - run.updated_at.getTime()) / 1000)}s)`,
+          );
         }
       });
     }

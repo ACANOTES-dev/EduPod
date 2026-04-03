@@ -18,7 +18,11 @@ export const REGULATORY_DES_GENERATE_JOB = 'regulatory:generate-des-files';
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.REGULATORY, { lockDuration: 120_000 })
+@Processor(QUEUE_NAMES.REGULATORY, {
+  lockDuration: 120_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class RegulatoryDesGenerateProcessor extends WorkerHost {
   private readonly logger = new Logger(RegulatoryDesGenerateProcessor.name);
 

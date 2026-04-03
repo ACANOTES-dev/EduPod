@@ -64,7 +64,11 @@ interface EnforcementSummary {
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.COMPLIANCE, { lockDuration: 120_000 })
+@Processor(QUEUE_NAMES.COMPLIANCE, {
+  lockDuration: 120_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class RetentionEnforcementProcessor extends WorkerHost {
   private readonly logger = new Logger(RetentionEnforcementProcessor.name);
 

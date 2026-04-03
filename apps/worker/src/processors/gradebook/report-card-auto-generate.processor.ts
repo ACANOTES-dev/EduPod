@@ -17,7 +17,11 @@ export const REPORT_CARD_AUTO_GENERATE_JOB = 'report-cards:auto-generate';
  * within the last 24 hours. For each such period, creates draft report cards
  * for all enrolled students who do not already have one.
  */
-@Processor(QUEUE_NAMES.GRADEBOOK, { lockDuration: 60_000 })
+@Processor(QUEUE_NAMES.GRADEBOOK, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class ReportCardAutoGenerateProcessor extends WorkerHost {
   private readonly logger = new Logger(ReportCardAutoGenerateProcessor.name);
 

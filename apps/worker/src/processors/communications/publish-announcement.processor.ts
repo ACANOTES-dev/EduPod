@@ -18,7 +18,11 @@ export const PUBLISH_ANNOUNCEMENT_JOB = 'communications:publish-announcement';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.NOTIFICATIONS)
+@Processor(QUEUE_NAMES.NOTIFICATIONS, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class PublishAnnouncementProcessor extends WorkerHost {
   private readonly logger = new Logger(PublishAnnouncementProcessor.name);
 
@@ -51,10 +55,7 @@ export class PublishAnnouncementProcessor extends WorkerHost {
 class PublishAnnouncementJob extends TenantAwareJob<PublishAnnouncementPayload> {
   private readonly logger = new Logger(PublishAnnouncementJob.name);
 
-  protected async processJob(
-    data: PublishAnnouncementPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: PublishAnnouncementPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, announcement_id } = data;
 
     const announcement = await tx.announcement.findFirst({
@@ -142,7 +143,11 @@ class PublishAnnouncementJob extends TenantAwareJob<PublishAnnouncementPayload> 
           where: { tenant_id: tenantId, year_group_id: { in: yearGroupIds }, status: 'active' },
           select: { id: true },
         });
-        return this.getParentUserIds(tx, tenantId, students.map((s: { id: string }) => s.id));
+        return this.getParentUserIds(
+          tx,
+          tenantId,
+          students.map((s: { id: string }) => s.id),
+        );
       }
 
       case 'class': {
@@ -151,7 +156,9 @@ class PublishAnnouncementJob extends TenantAwareJob<PublishAnnouncementPayload> 
           where: { tenant_id: tenantId, class_id: { in: classIds }, status: 'active' },
           select: { student_id: true },
         });
-        const studentIds: string[] = Array.from(new Set(enrolments.map((e: { student_id: string }) => e.student_id)));
+        const studentIds: string[] = Array.from(
+          new Set(enrolments.map((e: { student_id: string }) => e.student_id)),
+        );
         return this.getParentUserIds(tx, tenantId, studentIds);
       }
 
@@ -196,6 +203,8 @@ class PublishAnnouncementJob extends TenantAwareJob<PublishAnnouncementPayload> 
       where: { id: { in: parentIds }, tenant_id: tenantId, user_id: { not: null } },
       select: { user_id: true },
     });
-    return Array.from(new Set(parents.map((p: { user_id: string | null }) => p.user_id!).filter(Boolean)));
+    return Array.from(
+      new Set(parents.map((p: { user_id: string | null }) => p.user_id!).filter(Boolean)),
+    );
   }
 }

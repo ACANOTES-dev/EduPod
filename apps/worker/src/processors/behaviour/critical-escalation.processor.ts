@@ -19,7 +19,11 @@ export const CRITICAL_ESCALATION_JOB = 'safeguarding:critical-escalation';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR)
+@Processor(QUEUE_NAMES.BEHAVIOUR, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class CriticalEscalationProcessor extends WorkerHost {
   private readonly logger = new Logger(CriticalEscalationProcessor.name);
 
@@ -80,10 +84,7 @@ class CriticalEscalationJob extends TenantAwareJob<CriticalEscalationPayload> {
    */
   public nextEscalationStep: number | null = null;
 
-  protected async processJob(
-    data: CriticalEscalationPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: CriticalEscalationPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, concern_id, escalation_step } = data;
 
     // 1. Load the concern
@@ -92,9 +93,7 @@ class CriticalEscalationJob extends TenantAwareJob<CriticalEscalationPayload> {
     });
 
     if (!concern) {
-      this.logger.warn(
-        `Concern ${concern_id} not found for tenant ${tenant_id} — skipping`,
-      );
+      this.logger.warn(`Concern ${concern_id} not found for tenant ${tenant_id} — skipping`);
       return;
     }
 
@@ -112,20 +111,14 @@ class CriticalEscalationJob extends TenantAwareJob<CriticalEscalationPayload> {
       select: { settings: true },
     });
 
-    const settings =
-      (tenantSettings?.settings as Record<string, unknown>) ?? {};
-    const behaviourSettings =
-      (settings?.behaviour as Record<string, unknown>) ?? {};
+    const settings = (tenantSettings?.settings as Record<string, unknown>) ?? {};
+    const behaviourSettings = (settings?.behaviour as Record<string, unknown>) ?? {};
 
     const designatedLiaisonUserId =
-      (behaviourSettings?.designated_liaison_user_id as string | undefined) ??
-      null;
+      (behaviourSettings?.designated_liaison_user_id as string | undefined) ?? null;
     const deputyDesignatedLiaisonUserId =
-      (behaviourSettings?.deputy_designated_liaison_user_id as
-        | string
-        | undefined) ?? null;
-    const dlpFallbackChain =
-      (behaviourSettings?.dlp_fallback_chain as string[] | undefined) ?? [];
+      (behaviourSettings?.deputy_designated_liaison_user_id as string | undefined) ?? null;
+    const dlpFallbackChain = (behaviourSettings?.dlp_fallback_chain as string[] | undefined) ?? [];
 
     // 4. Build escalation chain
     const escalationChain = [

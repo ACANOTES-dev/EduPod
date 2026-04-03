@@ -18,7 +18,11 @@ export const SURVEY_OPEN_NOTIFY_JOB = 'wellbeing:survey-open-notify';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.WELLBEING)
+@Processor(QUEUE_NAMES.WELLBEING, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class SurveyOpenNotifyProcessor extends WorkerHost {
   private readonly logger = new Logger(SurveyOpenNotifyProcessor.name);
 
@@ -49,10 +53,7 @@ export class SurveyOpenNotifyProcessor extends WorkerHost {
 export class SurveyOpenNotifyJob extends TenantAwareJob<SurveyOpenNotifyPayload> {
   private readonly logger = new Logger(SurveyOpenNotifyJob.name);
 
-  protected async processJob(
-    data: SurveyOpenNotifyPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: SurveyOpenNotifyPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, survey_id } = data;
 
     // 1. Query all active tenant memberships
@@ -90,8 +91,6 @@ export class SurveyOpenNotifyJob extends TenantAwareJob<SurveyOpenNotifyPayload>
       })),
     });
 
-    this.logger.log(
-      `Created ${members.length} in-app notification(s) for survey ${survey_id}`,
-    );
+    this.logger.log(`Created ${members.length} in-app notification(s) for survey ${survey_id}`);
   }
 }

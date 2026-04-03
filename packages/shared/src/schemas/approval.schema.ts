@@ -42,3 +42,10 @@ export const approvalRequestFilterSchema = z.object({
 });
 
 export type ApprovalRequestFilterDto = z.infer<typeof approvalRequestFilterSchema>;
+
+export const bulkRetryCallbacksSchema = z.object({
+  status_filter: z.enum(['failed', 'pending']).optional(),
+  max_count: z.coerce.number().int().min(1).max(200).default(50),
+});
+
+export type BulkRetryCallbacksDto = z.infer<typeof bulkRetryCallbacksSchema>;

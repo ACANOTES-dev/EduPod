@@ -15,7 +15,11 @@ export interface SchedulingSolverV2Payload extends TenantJobPayload {
 
 export const SCHEDULING_SOLVE_V2_JOB = 'scheduling:solve-v2';
 
-@Processor(QUEUE_NAMES.SCHEDULING, { lockDuration: 300_000 })
+@Processor(QUEUE_NAMES.SCHEDULING, {
+  lockDuration: 300_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class SchedulingSolverV2Processor extends WorkerHost {
   private readonly logger = new Logger(SchedulingSolverV2Processor.name);
 

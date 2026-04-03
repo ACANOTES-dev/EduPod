@@ -41,6 +41,9 @@ type MockTx = ReturnType<typeof buildMockTx>;
 function buildMockPrisma(mockTx: MockTx) {
   return {
     $transaction: jest.fn(async (callback: (tx: MockTx) => Promise<unknown>) => callback(mockTx)),
+    importJob: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
   };
 }
 
@@ -96,7 +99,10 @@ describe('ImportValidationProcessor', () => {
       id: IMPORT_JOB_ID,
       import_type: 'students',
     });
-    const processor = new ImportValidationProcessor(buildMockPrisma(mockTx) as never);
+    // Top-level prisma.importJob.findFirst returns null file_key
+    const mockPrisma = buildMockPrisma(mockTx);
+    mockPrisma.importJob.findFirst.mockResolvedValue({ file_key: null });
+    const processor = new ImportValidationProcessor(mockPrisma as never);
 
     await processor.process(buildJob());
 
@@ -117,7 +123,10 @@ describe('ImportValidationProcessor', () => {
       id: IMPORT_JOB_ID,
       import_type: 'unknown-type',
     });
-    const processor = new ImportValidationProcessor(buildMockPrisma(mockTx) as never);
+    // Top-level prisma returns file_key so the download proceeds
+    const mockPrisma = buildMockPrisma(mockTx);
+    mockPrisma.importJob.findFirst.mockResolvedValue({ file_key: 'imports/job.csv' });
+    const processor = new ImportValidationProcessor(mockPrisma as never);
 
     await processor.process(buildJob());
 
@@ -140,7 +149,9 @@ describe('ImportValidationProcessor', () => {
     mockDownloadBufferFromS3.mockResolvedValue(
       Buffer.from('first_name,last_name,date_of_birth,gender\nAisha,Al-Mansour,2010-03-15,female'),
     );
-    const processor = new ImportValidationProcessor(buildMockPrisma(mockTx) as never);
+    const mockPrisma = buildMockPrisma(mockTx);
+    mockPrisma.importJob.findFirst.mockResolvedValue({ file_key: 'imports/students.csv' });
+    const processor = new ImportValidationProcessor(mockPrisma as never);
 
     await processor.process(buildJob());
 
@@ -166,7 +177,9 @@ describe('ImportValidationProcessor', () => {
       import_type: 'students',
     });
     mockTx.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
-    const processor = new ImportValidationProcessor(buildMockPrisma(mockTx) as never);
+    const mockPrisma = buildMockPrisma(mockTx);
+    mockPrisma.importJob.findFirst.mockResolvedValue({ file_key: 'imports/students.csv' });
+    const processor = new ImportValidationProcessor(mockPrisma as never);
 
     await processor.process(buildJob());
 

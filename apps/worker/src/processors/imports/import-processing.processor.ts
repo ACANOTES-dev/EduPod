@@ -20,7 +20,11 @@ export const IMPORT_PROCESSING_JOB = 'imports:process';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.IMPORTS, { lockDuration: 120_000 })
+@Processor(QUEUE_NAMES.IMPORTS, {
+  lockDuration: 120_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class ImportProcessingProcessor extends WorkerHost {
   private readonly logger = new Logger(ImportProcessingProcessor.name);
 
@@ -33,18 +37,52 @@ export class ImportProcessingProcessor extends WorkerHost {
       return;
     }
 
-    const { tenant_id } = job.data;
+    const { tenant_id, import_job_id } = job.data;
 
     if (!tenant_id) {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
     this.logger.log(
-      `Processing ${IMPORT_PROCESSING_JOB} — tenant ${tenant_id}, import_job ${job.data.import_job_id}`,
+      `Processing ${IMPORT_PROCESSING_JOB} — tenant ${tenant_id}, import_job ${import_job_id}`,
     );
 
-    const processingJob = new ImportProcessingJob(this.prisma);
+    // 1. Fetch import job metadata (outside transaction) to get file_key
+    const importJob = await this.prisma.importJob.findFirst({
+      where: { id: import_job_id, tenant_id },
+      select: { file_key: true },
+    });
+
+    if (!importJob?.file_key) {
+      // Let the transactional job handle the missing file_key / missing job case
+      const processingJob = new ImportProcessingJob(this.prisma, null);
+      await processingJob.execute(job.data);
+      return;
+    }
+
+    // 2. Download file from S3 BEFORE entering the transaction
+    let fileBuffer: Buffer | null = null;
+    try {
+      fileBuffer = await downloadBufferFromS3(importJob.file_key);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown S3 download error';
+      this.logger.error(`Failed to download S3 file ${importJob.file_key}: ${message}`);
+      // Pass null buffer — processJob will mark the import as failed
+    }
+
+    // 3. Run DB operations inside the RLS-scoped transaction
+    const processingJob = new ImportProcessingJob(this.prisma, fileBuffer);
     await processingJob.execute(job.data);
+
+    // 4. Delete S3 file AFTER the transaction completes successfully
+    try {
+      await deleteFromS3(importJob.file_key);
+      this.logger.log(`Deleted S3 file ${importJob.file_key} after processing`);
+    } catch (err) {
+      this.logger.warn(
+        `Failed to delete S3 file ${importJob.file_key}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 }
 
@@ -152,6 +190,14 @@ function getField(headers: string[], row: string[], fieldName: string): string |
 class ImportProcessingJob extends TenantAwareJob<ImportProcessingPayload> {
   private readonly logger = new Logger(ImportProcessingJob.name);
 
+  /** Pre-fetched file buffer — S3 download happens outside the transaction */
+  private readonly fileBuffer: Buffer | null;
+
+  constructor(prisma: PrismaClient, fileBuffer: Buffer | null) {
+    super(prisma);
+    this.fileBuffer = fileBuffer;
+  }
+
   protected async processJob(data: ImportProcessingPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, import_job_id } = data;
 
@@ -184,25 +230,20 @@ class ImportProcessingJob extends TenantAwareJob<ImportProcessingPayload> {
       data: { status: 'processing' },
     });
 
-    // 2. Download file from S3
-    let fileBuffer: Buffer;
-    try {
-      fileBuffer = await downloadBufferFromS3(importJob.file_key);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown S3 download error';
-      this.logger.error(`Failed to download S3 file ${importJob.file_key}: ${message}`);
+    // 2. Check pre-fetched buffer (S3 download already happened outside the transaction)
+    if (!this.fileBuffer) {
       await tx.importJob.update({
         where: { id: import_job_id },
         data: {
           status: 'failed',
-          summary_json: { error: `Failed to download file: ${message}` },
+          summary_json: { error: 'Failed to download file from storage.' },
         },
       });
       return;
     }
 
     // 3. Parse file (XLSX or CSV)
-    const { headers, rows } = parseFile(fileBuffer, importJob.file_key);
+    const { headers, rows } = parseFile(this.fileBuffer, importJob.file_key);
 
     if (rows.length === 0) {
       await tx.importJob.update({
@@ -265,16 +306,6 @@ class ImportProcessingJob extends TenantAwareJob<ImportProcessingPayload> {
         summary_json: summary,
       },
     });
-
-    // 6. Delete S3 file after processing
-    try {
-      await deleteFromS3(importJob.file_key);
-      this.logger.log(`Deleted S3 file ${importJob.file_key} after processing`);
-    } catch (err) {
-      this.logger.warn(
-        `Failed to delete S3 file ${importJob.file_key}: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
 
     this.logger.log(
       `Import processing complete for job ${import_job_id}: ${successCount} succeeded, ${failureCount} failed out of ${rows.length} rows, tenant ${tenant_id}`,

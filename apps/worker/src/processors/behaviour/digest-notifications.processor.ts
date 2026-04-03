@@ -18,7 +18,11 @@ export const BEHAVIOUR_DIGEST_NOTIFICATIONS_JOB = 'behaviour:digest-notification
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.NOTIFICATIONS)
+@Processor(QUEUE_NAMES.NOTIFICATIONS, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class DigestNotificationsProcessor extends WorkerHost {
   private readonly logger = new Logger(DigestNotificationsProcessor.name);
 
@@ -37,9 +41,7 @@ export class DigestNotificationsProcessor extends WorkerHost {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
-    this.logger.log(
-      `Processing ${BEHAVIOUR_DIGEST_NOTIFICATIONS_JOB} for tenant ${tenant_id}`,
-    );
+    this.logger.log(`Processing ${BEHAVIOUR_DIGEST_NOTIFICATIONS_JOB} for tenant ${tenant_id}`);
 
     const digestJob = new DigestNotificationsJob(this.prisma);
     await digestJob.execute(job.data);
@@ -114,10 +116,7 @@ function resolveChannels(preferredRaw: unknown): $Enums.NotificationChannel[] {
 class DigestNotificationsJob extends TenantAwareJob<DigestNotificationsPayload> {
   private readonly logger = new Logger(DigestNotificationsJob.name);
 
-  protected async processJob(
-    data: DigestNotificationsPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: DigestNotificationsPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id } = data;
     const now = new Date();
     const twentyFourHoursAgo = new Date(now);
@@ -142,7 +141,7 @@ class DigestNotificationsJob extends TenantAwareJob<DigestNotificationsPayload> 
       },
     });
     const pendingIncidents = rawPendingIncidents as Array<
-      typeof rawPendingIncidents[0] & {
+      (typeof rawPendingIncidents)[0] & {
         category: { name: string } | null;
         participants: Array<{ student_id: string }>;
       }
@@ -225,14 +224,14 @@ class DigestNotificationsJob extends TenantAwareJob<DigestNotificationsPayload> 
             student_id: studentId,
             parent_id: parentInfo.parent_id,
             restriction_type: {
-              in: ['no_behaviour_visibility', 'no_behaviour_notifications'] as $Enums.RestrictionType[],
+              in: [
+                'no_behaviour_visibility',
+                'no_behaviour_notifications',
+              ] as $Enums.RestrictionType[],
             },
             status: 'active_restriction' as $Enums.RestrictionStatus,
             effective_from: { lte: now },
-            OR: [
-              { effective_until: null },
-              { effective_until: { gte: now } },
-            ],
+            OR: [{ effective_until: null }, { effective_until: { gte: now } }],
           },
         });
 

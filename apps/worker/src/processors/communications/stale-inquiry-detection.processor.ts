@@ -20,7 +20,11 @@ const DEFAULT_STALE_HOURS = 48;
  * Iterates over all active tenants, reads their inquiry stale threshold
  * from tenant settings, and counts inquiries with no recent activity.
  */
-@Processor(QUEUE_NAMES.NOTIFICATIONS)
+@Processor(QUEUE_NAMES.NOTIFICATIONS, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class StaleInquiryDetectionProcessor extends WorkerHost {
   private readonly logger = new Logger(StaleInquiryDetectionProcessor.name);
 
@@ -85,9 +89,7 @@ export class StaleInquiryDetectionProcessor extends WorkerHost {
     const count = staleInquiries.length;
 
     if (count > 0) {
-      this.logger.log(
-        `Tenant ${tenantId}: ${count} stale inquiries (threshold: ${staleHours}h)`,
-      );
+      this.logger.log(`Tenant ${tenantId}: ${count} stale inquiries (threshold: ${staleHours}h)`);
       // Cache result in Redis for dashboard quick-display (future enhancement).
       // For now, the API endpoint handles real-time queries.
     }

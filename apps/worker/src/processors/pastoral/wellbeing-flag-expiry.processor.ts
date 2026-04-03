@@ -20,13 +20,15 @@ export const WELLBEING_FLAG_EXPIRY_JOB = 'pastoral:wellbeing-flag-expiry';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PASTORAL)
+@Processor(QUEUE_NAMES.PASTORAL, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class WellbeingFlagExpiryProcessor extends WorkerHost {
   private readonly logger = new Logger(WellbeingFlagExpiryProcessor.name);
 
-  constructor(
-    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
-  ) {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();
   }
 
@@ -41,9 +43,7 @@ export class WellbeingFlagExpiryProcessor extends WorkerHost {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
-    this.logger.log(
-      `Processing ${WELLBEING_FLAG_EXPIRY_JOB} — tenant ${tenant_id}`,
-    );
+    this.logger.log(`Processing ${WELLBEING_FLAG_EXPIRY_JOB} — tenant ${tenant_id}`);
 
     const tenantJob = new WellbeingFlagExpiryTenantJob(this.prisma);
     await tenantJob.execute(job.data);
@@ -63,10 +63,7 @@ class WellbeingFlagExpiryTenantJob extends TenantAwareJob<WellbeingFlagExpiryPay
   /** Count of flags expired (read after execute). */
   public expiredCount = 0;
 
-  protected async processJob(
-    data: WellbeingFlagExpiryPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: WellbeingFlagExpiryPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id } = data;
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
@@ -86,9 +83,7 @@ class WellbeingFlagExpiryTenantJob extends TenantAwareJob<WellbeingFlagExpiryPay
     });
 
     if (expiredFlags.length === 0) {
-      this.logger.log(
-        `No expired wellbeing flags found for tenant ${tenant_id}`,
-      );
+      this.logger.log(`No expired wellbeing flags found for tenant ${tenant_id}`);
       return;
     }
 
@@ -123,8 +118,6 @@ class WellbeingFlagExpiryTenantJob extends TenantAwareJob<WellbeingFlagExpiryPay
 
     this.expiredCount = expiredFlags.length;
 
-    this.logger.log(
-      `Expired ${expiredFlags.length} wellbeing flag(s) for tenant ${tenant_id}`,
-    );
+    this.logger.log(`Expired ${expiredFlags.length} wellbeing flag(s) for tenant ${tenant_id}`);
   }
 }

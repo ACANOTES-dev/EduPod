@@ -22,7 +22,11 @@ const ackKey = (canaryId: string, queue: string) => `${CANARY_PREFIX}ack:${canar
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.NOTIFICATIONS)
+@Processor(QUEUE_NAMES.NOTIFICATIONS, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class CanaryProcessor extends WorkerHost {
   private readonly logger = new Logger(CanaryProcessor.name);
 

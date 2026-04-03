@@ -14,7 +14,11 @@ export const HOMEWORK_OVERDUE_DETECTION_JOB = 'homework:overdue-detection';
 
 // ─── Processor ────────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.HOMEWORK)
+@Processor(QUEUE_NAMES.HOMEWORK, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class HomeworkOverdueDetectionProcessor extends WorkerHost {
   private readonly logger = new Logger(HomeworkOverdueDetectionProcessor.name);
 

@@ -14,7 +14,11 @@ export const HOMEWORK_GENERATE_RECURRING_JOB = 'homework:generate-recurring';
 
 // ─── Processor ────────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.HOMEWORK)
+@Processor(QUEUE_NAMES.HOMEWORK, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class HomeworkGenerateRecurringProcessor extends WorkerHost {
   private readonly logger = new Logger(HomeworkGenerateRecurringProcessor.name);
 

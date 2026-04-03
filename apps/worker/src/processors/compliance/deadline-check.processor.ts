@@ -184,7 +184,11 @@ class DeadlineCheckJob extends CrossTenantSystemJob {
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.COMPLIANCE, { lockDuration: 120_000 })
+@Processor(QUEUE_NAMES.COMPLIANCE, {
+  lockDuration: 120_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class DeadlineCheckProcessor extends WorkerHost {
   constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();

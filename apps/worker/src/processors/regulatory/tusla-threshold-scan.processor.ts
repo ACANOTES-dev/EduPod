@@ -6,8 +6,7 @@ import { Job } from 'bullmq';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 
 // ─── Job name ───────────────────────────────────────────────────────────────
-export const REGULATORY_TUSLA_THRESHOLD_SCAN_JOB =
-  'regulatory:scan-tusla-thresholds';
+export const REGULATORY_TUSLA_THRESHOLD_SCAN_JOB = 'regulatory:scan-tusla-thresholds';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 const TUSLA_DEFAULT_THRESHOLD_DAYS = 20;
@@ -15,15 +14,15 @@ const APPROACHING_RATIO = 0.8; // 80% of threshold = "approaching"
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.REGULATORY)
+@Processor(QUEUE_NAMES.REGULATORY, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class RegulatoryTuslaThresholdScanProcessor extends WorkerHost {
-  private readonly logger = new Logger(
-    RegulatoryTuslaThresholdScanProcessor.name,
-  );
+  private readonly logger = new Logger(RegulatoryTuslaThresholdScanProcessor.name);
 
-  constructor(
-    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
-  ) {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();
   }
 
@@ -47,9 +46,7 @@ export class RegulatoryTuslaThresholdScanProcessor extends WorkerHost {
       }
     }
 
-    this.logger.log(
-      `TUSLA threshold scan complete — processed ${tenants.length} tenants`,
-    );
+    this.logger.log(`TUSLA threshold scan complete — processed ${tenants.length} tenants`);
   }
 
   // ─── Per-tenant threshold scan ──────────────────────────────────────────
@@ -141,11 +138,7 @@ export class RegulatoryTuslaThresholdScanProcessor extends WorkerHost {
     threshold: number,
     status: 'approaching' | 'exceeded',
   ): Promise<number> {
-    const detectedDate = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-    );
+    const detectedDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const academicYearStart = this.getAcademicYearStart(today);
 
     try {

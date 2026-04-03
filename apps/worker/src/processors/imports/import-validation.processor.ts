@@ -40,7 +40,11 @@ const REQUIRED_FIELDS: Record<string, string[]> = {
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.IMPORTS, { lockDuration: 120_000 })
+@Processor(QUEUE_NAMES.IMPORTS, {
+  lockDuration: 120_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class ImportValidationProcessor extends WorkerHost {
   private readonly logger = new Logger(ImportValidationProcessor.name);
 
@@ -53,17 +57,41 @@ export class ImportValidationProcessor extends WorkerHost {
       return;
     }
 
-    const { tenant_id } = job.data;
+    const { tenant_id, import_job_id } = job.data;
 
     if (!tenant_id) {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
     this.logger.log(
-      `Processing ${IMPORT_VALIDATION_JOB} — tenant ${tenant_id}, import_job ${job.data.import_job_id}`,
+      `Processing ${IMPORT_VALIDATION_JOB} — tenant ${tenant_id}, import_job ${import_job_id}`,
     );
 
-    const validationJob = new ImportValidationJob(this.prisma);
+    // 1. Fetch import job metadata (outside transaction) to get file_key
+    const importJob = await this.prisma.importJob.findFirst({
+      where: { id: import_job_id, tenant_id },
+      select: { file_key: true },
+    });
+
+    if (!importJob?.file_key) {
+      // Let the transactional job handle the missing file_key / missing job case
+      const validationJob = new ImportValidationJob(this.prisma, null);
+      await validationJob.execute(job.data);
+      return;
+    }
+
+    // 2. Download file from S3 BEFORE entering the transaction
+    let fileBuffer: Buffer | null = null;
+    try {
+      fileBuffer = await downloadBufferFromS3(importJob.file_key);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown S3 download error';
+      this.logger.error(`Failed to download S3 file ${importJob.file_key}: ${message}`);
+      // Pass null buffer — processJob will mark the import as failed
+    }
+
+    // 3. Run DB operations inside the RLS-scoped transaction
+    const validationJob = new ImportValidationJob(this.prisma, fileBuffer);
     await validationJob.execute(job.data);
   }
 }
@@ -209,6 +237,14 @@ function isExampleRow(headers: string[], row: string[]): boolean {
 class ImportValidationJob extends TenantAwareJob<ImportValidationPayload> {
   private readonly logger = new Logger(ImportValidationJob.name);
 
+  /** Pre-fetched file buffer — S3 download happens outside the transaction */
+  private readonly fileBuffer: Buffer | null;
+
+  constructor(prisma: PrismaClient, fileBuffer: Buffer | null) {
+    super(prisma);
+    this.fileBuffer = fileBuffer;
+  }
+
   protected async processJob(data: ImportValidationPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, import_job_id } = data;
 
@@ -250,25 +286,20 @@ class ImportValidationJob extends TenantAwareJob<ImportValidationPayload> {
       return;
     }
 
-    // 2. Download file from S3 as Buffer
-    let fileBuffer: Buffer;
-    try {
-      fileBuffer = await downloadBufferFromS3(importJob.file_key);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown S3 download error';
-      this.logger.error(`Failed to download S3 file ${importJob.file_key}: ${message}`);
+    // 2. Check pre-fetched buffer (S3 download already happened outside the transaction)
+    if (!this.fileBuffer) {
       await tx.importJob.update({
         where: { id: import_job_id },
         data: {
           status: 'failed',
-          summary_json: { error: `Failed to download file: ${message}` },
+          summary_json: { error: 'Failed to download file from storage.' },
         },
       });
       return;
     }
 
     // 3. Parse file (XLSX or CSV based on extension)
-    const { headers, rows: allRows } = parseFile(fileBuffer, importJob.file_key);
+    const { headers, rows: allRows } = parseFile(this.fileBuffer, importJob.file_key);
 
     if (headers.length === 0) {
       await tx.importJob.update({

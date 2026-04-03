@@ -28,7 +28,11 @@ interface DlqAlert {
  * Uses the injected notifications queue's ioredis client to create temporary
  * Queue instances for each queue name, avoiding the need to inject all 20 queues.
  */
-@Processor(QUEUE_NAMES.NOTIFICATIONS)
+@Processor(QUEUE_NAMES.NOTIFICATIONS, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class DlqMonitorProcessor extends WorkerHost {
   private readonly logger = new Logger(DlqMonitorProcessor.name);
 

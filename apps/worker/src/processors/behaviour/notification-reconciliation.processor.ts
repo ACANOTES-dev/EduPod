@@ -25,7 +25,11 @@ export const BEHAVIOUR_NOTIFICATION_RECONCILIATION_JOB = 'behaviour:notification
  * transaction needed for reads per project convention). Enqueues are to the
  * notifications queue, which sets RLS context in the target processor.
  */
-@Processor(QUEUE_NAMES.BEHAVIOUR)
+@Processor(QUEUE_NAMES.BEHAVIOUR, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class NotificationReconciliationProcessor extends WorkerHost {
   private readonly logger = new Logger(NotificationReconciliationProcessor.name);
 

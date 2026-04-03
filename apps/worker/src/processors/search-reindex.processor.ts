@@ -17,7 +17,11 @@ export const SEARCH_FULL_REINDEX_JOB = 'search:full-reindex';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.SEARCH_SYNC, { lockDuration: 120_000 })
+@Processor(QUEUE_NAMES.SEARCH_SYNC, {
+  lockDuration: 120_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class SearchReindexProcessor extends WorkerHost {
   private readonly logger = new Logger(SearchReindexProcessor.name);
 

@@ -16,7 +16,11 @@ export const BEHAVIOUR_TASK_REMINDERS_JOB = 'behaviour:task-reminders';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR)
+@Processor(QUEUE_NAMES.BEHAVIOUR, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class BehaviourTaskRemindersProcessor extends WorkerHost {
   private readonly logger = new Logger(BehaviourTaskRemindersProcessor.name);
 
@@ -35,9 +39,7 @@ export class BehaviourTaskRemindersProcessor extends WorkerHost {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
-    this.logger.log(
-      `Processing ${BEHAVIOUR_TASK_REMINDERS_JOB} — tenant ${tenant_id}`,
-    );
+    this.logger.log(`Processing ${BEHAVIOUR_TASK_REMINDERS_JOB} — tenant ${tenant_id}`);
 
     const reminderJob = new BehaviourTaskRemindersJob(this.prisma);
     await reminderJob.execute(job.data);
@@ -49,10 +51,7 @@ export class BehaviourTaskRemindersProcessor extends WorkerHost {
 class BehaviourTaskRemindersJob extends TenantAwareJob<BehaviourTaskRemindersPayload> {
   private readonly logger = new Logger(BehaviourTaskRemindersJob.name);
 
-  protected async processJob(
-    data: BehaviourTaskRemindersPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: BehaviourTaskRemindersPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id } = data;
     const now = new Date();
 
@@ -76,9 +75,7 @@ class BehaviourTaskRemindersJob extends TenantAwareJob<BehaviourTaskRemindersPay
       select: { id: true, title: true, assigned_to_id: true },
     });
 
-    this.logger.log(
-      `Found ${dueForReminder.length} tasks due for reminder in tenant ${tenant_id}`,
-    );
+    this.logger.log(`Found ${dueForReminder.length} tasks due for reminder in tenant ${tenant_id}`);
 
     // 2. Mark reminder as sent for each
     for (const task of dueForReminder) {
@@ -88,7 +85,11 @@ class BehaviourTaskRemindersJob extends TenantAwareJob<BehaviourTaskRemindersPay
       });
 
       // Staff-facing: in_app (delivered) + email (queued)
-      const reminderChannels: Array<{ channel: $Enums.NotificationChannel; status: $Enums.NotificationStatus; delivered_at: Date | undefined }> = [
+      const reminderChannels: Array<{
+        channel: $Enums.NotificationChannel;
+        status: $Enums.NotificationStatus;
+        delivered_at: Date | undefined;
+      }> = [
         { channel: 'in_app', status: 'delivered', delivered_at: now },
         { channel: 'email', status: 'queued', delivered_at: undefined },
       ];
@@ -125,9 +126,7 @@ class BehaviourTaskRemindersJob extends TenantAwareJob<BehaviourTaskRemindersPay
       select: { id: true, title: true, assigned_to_id: true, task_type: true, priority: true },
     });
 
-    this.logger.log(
-      `Found ${overdueForNotification.length} overdue tasks in tenant ${tenant_id}`,
-    );
+    this.logger.log(`Found ${overdueForNotification.length} overdue tasks in tenant ${tenant_id}`);
 
     // 4. Update status to overdue and set overdue_notified_at
     for (const task of overdueForNotification) {
@@ -155,7 +154,11 @@ class BehaviourTaskRemindersJob extends TenantAwareJob<BehaviourTaskRemindersPay
       }
 
       // Staff-facing: in_app (delivered) + email (queued)
-      const overdueChannels: Array<{ channel: $Enums.NotificationChannel; status: $Enums.NotificationStatus; delivered_at: Date | undefined }> = [
+      const overdueChannels: Array<{
+        channel: $Enums.NotificationChannel;
+        status: $Enums.NotificationStatus;
+        delivered_at: Date | undefined;
+      }> = [
         { channel: 'in_app', status: 'delivered', delivered_at: now },
         { channel: 'email', status: 'queued', delivered_at: undefined },
       ];

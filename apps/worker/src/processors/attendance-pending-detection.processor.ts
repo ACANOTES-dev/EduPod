@@ -18,7 +18,11 @@ export const ATTENDANCE_DETECT_PENDING_JOB = 'attendance:detect-pending';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.ATTENDANCE)
+@Processor(QUEUE_NAMES.ATTENDANCE, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class AttendancePendingDetectionProcessor extends WorkerHost {
   private readonly logger = new Logger(AttendancePendingDetectionProcessor.name);
 
@@ -67,9 +71,7 @@ class AttendancePendingDetectionJob extends TenantAwareJob<AttendancePendingDete
       },
     });
 
-    this.logger.log(
-      `Tenant ${tenant_id}: ${pendingCount} pending attendance sessions for ${date}`,
-    );
+    this.logger.log(`Tenant ${tenant_id}: ${pendingCount} pending attendance sessions for ${date}`);
 
     // Cache count in Redis for dashboard quick-display (future enhancement).
     // For now, just log — the exception dashboard endpoint handles real-time queries.

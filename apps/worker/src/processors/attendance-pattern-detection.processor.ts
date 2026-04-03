@@ -54,7 +54,11 @@ const DEFAULT_CONFIG: PatternDetectionConfig = {
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.ATTENDANCE, { lockDuration: 180_000 })
+@Processor(QUEUE_NAMES.ATTENDANCE, {
+  lockDuration: 180_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class AttendancePatternDetectionProcessor extends WorkerHost {
   private readonly logger = new Logger(AttendancePatternDetectionProcessor.name);
 

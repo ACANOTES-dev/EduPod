@@ -19,7 +19,11 @@ export const IMPORT_FILE_CLEANUP_JOB = 'imports:file-cleanup';
  * Deletes S3 files for completed/failed import jobs, and any imports
  * older than 24 hours that still have a file_key.
  */
-@Processor(QUEUE_NAMES.IMPORTS)
+@Processor(QUEUE_NAMES.IMPORTS, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class ImportFileCleanupProcessor extends WorkerHost {
   private readonly logger = new Logger(ImportFileCleanupProcessor.name);
 

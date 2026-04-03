@@ -20,7 +20,11 @@ export const ANNOUNCEMENT_APPROVAL_CALLBACK_JOB = 'communications:on-approval';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.NOTIFICATIONS)
+@Processor(QUEUE_NAMES.NOTIFICATIONS, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class AnnouncementApprovalCallbackProcessor extends WorkerHost {
   private readonly logger = new Logger(AnnouncementApprovalCallbackProcessor.name);
 

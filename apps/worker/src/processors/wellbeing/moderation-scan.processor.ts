@@ -19,7 +19,11 @@ export const MODERATION_SCAN_JOB = 'wellbeing:moderation-scan';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.WELLBEING)
+@Processor(QUEUE_NAMES.WELLBEING, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class ModerationScanProcessor extends WorkerHost {
   private readonly logger = new Logger(ModerationScanProcessor.name);
 
@@ -113,10 +117,7 @@ function hasMatch(text: string, patterns: RegExp[]): boolean {
 class ModerationScanJob extends TenantAwareJob<ModerationScanPayload> {
   private readonly logger = new Logger(ModerationScanJob.name);
 
-  protected async processJob(
-    data: ModerationScanPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: ModerationScanPayload, tx: PrismaClient): Promise<void> {
     const { response_id } = data;
 
     // 1. Load the response (no RLS — use base prisma client)
@@ -125,9 +126,7 @@ class ModerationScanJob extends TenantAwareJob<ModerationScanPayload> {
     });
 
     if (!response) {
-      this.logger.warn(
-        `Response ${response_id} not found — skipping`,
-      );
+      this.logger.warn(`Response ${response_id} not found — skipping`);
       return;
     }
 
@@ -155,9 +154,7 @@ class ModerationScanJob extends TenantAwareJob<ModerationScanPayload> {
     // 4. Get the answer text to scan
     const answerText = response.answer_text;
     if (!answerText || answerText.trim().length === 0) {
-      this.logger.log(
-        `Response ${response_id} has no answer_text — skipping`,
-      );
+      this.logger.log(`Response ${response_id} has no answer_text — skipping`);
       return;
     }
 
@@ -211,13 +208,9 @@ class ModerationScanJob extends TenantAwareJob<ModerationScanPayload> {
         data: { moderation_status: 'flagged' },
       });
 
-      this.logger.log(
-        `Response ${response_id} flagged — identifying information detected`,
-      );
+      this.logger.log(`Response ${response_id} flagged — identifying information detected`);
     } else {
-      this.logger.log(
-        `Response ${response_id} scan complete — no matches found, stays pending`,
-      );
+      this.logger.log(`Response ${response_id} scan complete — no matches found, stays pending`);
     }
   }
 }

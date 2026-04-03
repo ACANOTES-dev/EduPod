@@ -76,30 +76,20 @@ class BreachDeadlineJob extends CrossTenantSystemJob {
     let escalationsApplied = 0;
 
     for (const incident of incidents) {
-      const hoursElapsed =
-        (Date.now() - incident.detected_at.getTime()) / (1000 * 60 * 60);
+      const hoursElapsed = (Date.now() - incident.detected_at.getTime()) / (1000 * 60 * 60);
 
       const existingEscalations = await this.incidentEvents.findMany({
         where: { incident_id: incident.id, event_type: 'escalation' },
       });
 
-      const has12h = existingEscalations.some((e) =>
-        e.description.includes('12-hour'),
-      );
-      const has48h = existingEscalations.some((e) =>
-        e.description.includes('48-hour'),
-      );
-      const has72h = existingEscalations.some((e) =>
-        e.description.includes('72-hour'),
-      );
+      const has12h = existingEscalations.some((e) => e.description.includes('12-hour'));
+      const has48h = existingEscalations.some((e) => e.description.includes('48-hour'));
+      const has72h = existingEscalations.some((e) => e.description.includes('72-hour'));
 
       // ─── 12-hour checkpoint ───────────────────────────────────────────
 
       if (hoursElapsed >= ESCALATION_12H && !has12h) {
-        await this.addEscalation(
-          incident.id,
-          '12-hour mark: incident not yet acknowledged',
-        );
+        await this.addEscalation(incident.id, '12-hour mark: incident not yet acknowledged');
         escalationsApplied++;
       }
 
@@ -115,11 +105,7 @@ class BreachDeadlineJob extends CrossTenantSystemJob {
 
       // ─── 72-hour checkpoint ───────────────────────────────────────────
 
-      if (
-        hoursElapsed >= ESCALATION_72H &&
-        !has72h &&
-        incident.reported_to_dpc_at === null
-      ) {
+      if (hoursElapsed >= ESCALATION_72H && !has72h && incident.reported_to_dpc_at === null) {
         await this.addEscalation(
           incident.id,
           'CRITICAL: 72-hour DPC notification deadline reached',
@@ -135,10 +121,7 @@ class BreachDeadlineJob extends CrossTenantSystemJob {
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  private async addEscalation(
-    incidentId: string,
-    description: string,
-  ): Promise<void> {
+  private async addEscalation(incidentId: string, description: string): Promise<void> {
     await this.incidentEvents.create({
       data: {
         incident_id: incidentId,
@@ -152,7 +135,11 @@ class BreachDeadlineJob extends CrossTenantSystemJob {
 
 // ─── Processor ────────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.SECURITY)
+@Processor(QUEUE_NAMES.SECURITY, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class BreachDeadlineProcessor extends WorkerHost {
   constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();

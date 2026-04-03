@@ -20,7 +20,11 @@ export const EXPIRE_PENDING_JOB = 'engagement:expire-pending';
  * 2. Transitions pending participants to consent_declined
  * 3. Transitions pending form submissions to expired
  */
-@Processor(QUEUE_NAMES.ENGAGEMENT)
+@Processor(QUEUE_NAMES.ENGAGEMENT, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class ExpirePendingProcessor extends WorkerHost {
   private readonly logger = new Logger(ExpirePendingProcessor.name);
 

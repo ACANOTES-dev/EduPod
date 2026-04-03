@@ -43,9 +43,13 @@ function buildMockTx() {
 
 type MockTx = ReturnType<typeof buildMockTx>;
 
-function buildMockPrisma(mockTx: MockTx) {
+function buildMockPrisma(mockTx: MockTx, topLevelOverrides: Record<string, unknown> = {}) {
   return {
     $transaction: jest.fn(async (callback: (tx: MockTx) => Promise<unknown>) => callback(mockTx)),
+    importJob: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
+    ...topLevelOverrides,
   };
 }
 
@@ -103,7 +107,10 @@ describe('ImportProcessingProcessor', () => {
       id: IMPORT_JOB_ID,
       import_type: 'students',
     });
-    const processor = new ImportProcessingProcessor(buildMockPrisma(mockTx) as never);
+    // Top-level prisma.importJob.findFirst returns null file_key so processor takes the null-buffer path
+    const mockPrisma = buildMockPrisma(mockTx);
+    mockPrisma.importJob.findFirst.mockResolvedValue({ file_key: null });
+    const processor = new ImportProcessingProcessor(mockPrisma as never);
 
     await processor.process(buildJob());
 
@@ -123,7 +130,10 @@ describe('ImportProcessingProcessor', () => {
       id: IMPORT_JOB_ID,
       import_type: 'students',
     });
-    const processor = new ImportProcessingProcessor(buildMockPrisma(mockTx) as never);
+    // Top-level prisma.importJob.findFirst must return file_key for the pre-download
+    const mockPrisma = buildMockPrisma(mockTx);
+    mockPrisma.importJob.findFirst.mockResolvedValue({ file_key: 'imports/students.csv' });
+    const processor = new ImportProcessingProcessor(mockPrisma as never);
 
     await processor.process(buildJob());
 
@@ -174,7 +184,9 @@ describe('ImportProcessingProcessor', () => {
       ),
     );
     mockTx.parent.findFirst.mockResolvedValue({ id: PARENT_ID });
-    const processor = new ImportProcessingProcessor(buildMockPrisma(mockTx) as never);
+    const mockPrisma = buildMockPrisma(mockTx);
+    mockPrisma.importJob.findFirst.mockResolvedValue({ file_key: 'imports/parents.csv' });
+    const processor = new ImportProcessingProcessor(mockPrisma as never);
 
     await processor.process(buildJob());
 
@@ -207,15 +219,19 @@ describe('ImportProcessingProcessor', () => {
       import_type: 'students',
     });
     mockDownloadBufferFromS3.mockRejectedValue(new Error('network down'));
-    const processor = new ImportProcessingProcessor(buildMockPrisma(mockTx) as never);
+    // Top-level prisma returns file_key so the processor attempts the S3 download
+    const mockPrisma = buildMockPrisma(mockTx);
+    mockPrisma.importJob.findFirst.mockResolvedValue({ file_key: 'imports/students.csv' });
+    const processor = new ImportProcessingProcessor(mockPrisma as never);
 
     await processor.process(buildJob());
 
+    // S3 download fails outside the transaction; processJob sees a null buffer
     expect(mockTx.importJob.update).toHaveBeenLastCalledWith({
       where: { id: IMPORT_JOB_ID },
       data: {
         status: 'failed',
-        summary_json: { error: 'Failed to download file: network down' },
+        summary_json: { error: 'Failed to download file from storage.' },
       },
     });
   });

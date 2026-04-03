@@ -20,7 +20,11 @@ export const INVOICE_APPROVAL_CALLBACK_JOB = 'finance:on-approval';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.FINANCE)
+@Processor(QUEUE_NAMES.FINANCE, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class InvoiceApprovalCallbackProcessor extends WorkerHost {
   private readonly logger = new Logger(InvoiceApprovalCallbackProcessor.name);
 

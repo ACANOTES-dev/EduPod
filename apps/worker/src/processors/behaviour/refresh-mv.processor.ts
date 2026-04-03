@@ -88,7 +88,11 @@ class RefreshExposureRatesJob extends CrossTenantSystemJob {
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR, { lockDuration: 300_000 })
+@Processor(QUEUE_NAMES.BEHAVIOUR, {
+  lockDuration: 300_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class RefreshMVProcessor extends WorkerHost {
   constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();

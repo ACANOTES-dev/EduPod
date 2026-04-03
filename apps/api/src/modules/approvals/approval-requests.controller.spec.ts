@@ -38,6 +38,9 @@ describe('ApprovalRequestsController', () => {
     approve: jest.Mock;
     reject: jest.Mock;
     cancel: jest.Mock;
+    retryCallback: jest.Mock;
+    bulkRetryCallbacks: jest.Mock;
+    getCallbackHealth: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -47,6 +50,9 @@ describe('ApprovalRequestsController', () => {
       approve: jest.fn(),
       reject: jest.fn(),
       cancel: jest.fn(),
+      retryCallback: jest.fn(),
+      bulkRetryCallbacks: jest.fn(),
+      getCallbackHealth: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -79,6 +85,7 @@ describe('ApprovalRequestsController', () => {
       page: 1,
       pageSize: 20,
       status: undefined,
+      callback_status: undefined,
     });
   });
 
@@ -136,5 +143,38 @@ describe('ApprovalRequestsController', () => {
       USER_ID,
       'No longer needed',
     );
+  });
+
+  it('should retry a callback', async () => {
+    const expected = { id: REQUEST_ID, status: 'approved', callback_status: 'pending' };
+    mockService.retryCallback.mockResolvedValue(expected);
+
+    const result = await controller.retryCallback(mockTenant, REQUEST_ID);
+
+    expect(result).toEqual(expected);
+    expect(mockService.retryCallback).toHaveBeenCalledWith(TENANT_ID, REQUEST_ID);
+  });
+
+  it('should bulk retry callbacks', async () => {
+    const expected = { retried: 3, skipped: 1 };
+    mockService.bulkRetryCallbacks.mockResolvedValue(expected);
+
+    const result = await controller.bulkRetryCallbacks(mockTenant, {
+      status_filter: 'failed',
+      max_count: 50,
+    });
+
+    expect(result).toEqual(expected);
+    expect(mockService.bulkRetryCallbacks).toHaveBeenCalledWith(TENANT_ID, 'failed', 50);
+  });
+
+  it('should get callback health summary', async () => {
+    const expected = { pending: 2, failed: 1, executed: 10, total: 13 };
+    mockService.getCallbackHealth.mockResolvedValue(expected);
+
+    const result = await controller.getCallbackHealth(mockTenant);
+
+    expect(result).toEqual(expected);
+    expect(mockService.getCallbackHealth).toHaveBeenCalledWith(TENANT_ID);
   });
 });

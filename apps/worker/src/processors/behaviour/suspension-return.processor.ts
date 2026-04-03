@@ -18,7 +18,11 @@ export const BEHAVIOUR_SUSPENSION_RETURN_JOB = 'behaviour:suspension-return';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR)
+@Processor(QUEUE_NAMES.BEHAVIOUR, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class BehaviourSuspensionReturnProcessor extends WorkerHost {
   private readonly logger = new Logger(BehaviourSuspensionReturnProcessor.name);
 

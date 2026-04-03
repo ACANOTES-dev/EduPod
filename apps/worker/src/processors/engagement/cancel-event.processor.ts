@@ -18,7 +18,11 @@ export interface CancelEventPayload extends TenantJobPayload {
 
 // ─── Processor ────────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.ENGAGEMENT)
+@Processor(QUEUE_NAMES.ENGAGEMENT, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class CancelEventProcessor extends WorkerHost {
   private readonly logger = new Logger(CancelEventProcessor.name);
 

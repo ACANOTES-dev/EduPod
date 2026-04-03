@@ -47,7 +47,11 @@ interface StaffProfileRow {
  *
  * Triggered manually via an admin API endpoint, not on a cron schedule.
  */
-@Processor(QUEUE_NAMES.SECURITY, { lockDuration: 300_000 })
+@Processor(QUEUE_NAMES.SECURITY, {
+  lockDuration: 300_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class KeyRotationProcessor extends WorkerHost {
   private readonly logger = new Logger(KeyRotationProcessor.name);
 

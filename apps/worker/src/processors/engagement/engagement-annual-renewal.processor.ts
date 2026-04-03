@@ -38,7 +38,11 @@ interface RenewalCandidate {
  * Expires annual consent records from the previous academic year and creates
  * fresh pending submissions for the current active academic year.
  */
-@Processor(QUEUE_NAMES.ENGAGEMENT)
+@Processor(QUEUE_NAMES.ENGAGEMENT, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class EngagementAnnualRenewalProcessor extends WorkerHost {
   private readonly logger = new Logger(EngagementAnnualRenewalProcessor.name);
 

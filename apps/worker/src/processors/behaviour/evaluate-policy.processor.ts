@@ -37,7 +37,11 @@ const STAGE_ORDER: $Enums.PolicyStage[] = [
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR)
+@Processor(QUEUE_NAMES.BEHAVIOUR, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class EvaluatePolicyProcessor extends WorkerHost {
   private readonly logger = new Logger(EvaluatePolicyProcessor.name);
 

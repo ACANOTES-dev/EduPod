@@ -20,7 +20,11 @@ export const SEARCH_INDEX_ENTITY_JOB = 'search:index-entity';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.SEARCH_SYNC)
+@Processor(QUEUE_NAMES.SEARCH_SYNC, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class SearchIndexProcessor extends WorkerHost {
   private readonly logger = new Logger(SearchIndexProcessor.name);
 
@@ -55,10 +59,7 @@ export class SearchIndexProcessor extends WorkerHost {
 class SearchIndexEntityJob extends TenantAwareJob<SearchIndexEntityPayload> {
   private readonly logger = new Logger(SearchIndexEntityJob.name);
 
-  protected async processJob(
-    data: SearchIndexEntityPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: SearchIndexEntityPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, entity_type, entity_id, action } = data;
 
     if (action === 'upsert') {
@@ -236,7 +237,8 @@ class SearchIndexEntityJob extends TenantAwareJob<SearchIndexEntityPayload> {
           homework_type: assignment.homework_type,
           class_name: assignment.class_entity?.name ?? null,
           subject_name: assignment.subject?.name ?? null,
-          teacher_name: `${assignment.assigned_by.first_name} ${assignment.assigned_by.last_name}`.trim(),
+          teacher_name:
+            `${assignment.assigned_by.first_name} ${assignment.assigned_by.last_name}`.trim(),
           status: assignment.status,
         };
       }

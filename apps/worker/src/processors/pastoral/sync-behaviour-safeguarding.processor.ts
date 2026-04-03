@@ -18,8 +18,7 @@ export interface SyncBehaviourSafeguardingPayload extends TenantJobPayload {
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
 
-export const SYNC_BEHAVIOUR_SAFEGUARDING_JOB =
-  'pastoral:sync-behaviour-safeguarding';
+export const SYNC_BEHAVIOUR_SAFEGUARDING_JOB = 'pastoral:sync-behaviour-safeguarding';
 
 // ─── Severity mapping: behaviour safeguarding (Prisma enum) -> pastoral ──────
 
@@ -38,15 +37,15 @@ const SEVERITY_MAP: Record<string, $Enums.PastoralConcernSeverity> = {
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PASTORAL)
+@Processor(QUEUE_NAMES.PASTORAL, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class SyncBehaviourSafeguardingProcessor extends WorkerHost {
-  private readonly logger = new Logger(
-    SyncBehaviourSafeguardingProcessor.name,
-  );
+  private readonly logger = new Logger(SyncBehaviourSafeguardingProcessor.name);
 
-  constructor(
-    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
-  ) {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();
   }
 
@@ -73,9 +72,7 @@ export class SyncBehaviourSafeguardingProcessor extends WorkerHost {
 // ─── TenantAwareJob implementation ───────────────────────────────────────────
 
 class SyncBehaviourSafeguardingTenantJob extends TenantAwareJob<SyncBehaviourSafeguardingPayload> {
-  private readonly logger = new Logger(
-    SyncBehaviourSafeguardingTenantJob.name,
-  );
+  private readonly logger = new Logger(SyncBehaviourSafeguardingTenantJob.name);
 
   protected async processJob(
     data: SyncBehaviourSafeguardingPayload,

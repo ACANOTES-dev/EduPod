@@ -44,13 +44,15 @@ interface AgendaSourceItem {
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PASTORAL)
+@Processor(QUEUE_NAMES.PASTORAL, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class PrecomputeAgendaProcessor extends WorkerHost {
   private readonly logger = new Logger(PrecomputeAgendaProcessor.name);
 
-  constructor(
-    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
-  ) {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();
   }
 
@@ -90,10 +92,7 @@ class PrecomputeAgendaTenantJob extends TenantAwareJob<PrecomputeAgendaPayload> 
   /** Sources that were queried (read after execute). */
   public sourcesQueried: string[] = [];
 
-  protected async processJob(
-    data: PrecomputeAgendaPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: PrecomputeAgendaPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, meeting_id } = data;
     const actorUserId = data.user_id ?? SYSTEM_USER_SENTINEL;
 
@@ -103,9 +102,7 @@ class PrecomputeAgendaTenantJob extends TenantAwareJob<PrecomputeAgendaPayload> 
     });
 
     if (!meeting) {
-      this.logger.warn(
-        `Meeting ${meeting_id} not found for tenant ${tenant_id} — skipping`,
-      );
+      this.logger.warn(`Meeting ${meeting_id} not found for tenant ${tenant_id} — skipping`);
       return;
     }
 
@@ -120,9 +117,7 @@ class PrecomputeAgendaTenantJob extends TenantAwareJob<PrecomputeAgendaPayload> 
     // 3. Idempotency: skip if agenda_precomputed_at is within 5 min of now
     const now = new Date();
     if (meeting.agenda_precomputed_at) {
-      const elapsed = Math.abs(
-        now.getTime() - meeting.agenda_precomputed_at.getTime(),
-      );
+      const elapsed = Math.abs(now.getTime() - meeting.agenda_precomputed_at.getTime());
       if (elapsed < IDEMPOTENCY_WINDOW_MS) {
         this.logger.log(
           `Meeting ${meeting_id} agenda already precomputed at ${meeting.agenda_precomputed_at.toISOString()} ` +
@@ -176,11 +171,7 @@ class PrecomputeAgendaTenantJob extends TenantAwareJob<PrecomputeAgendaPayload> 
 
     if (enabledSources.includes('case_reviews')) {
       this.sourcesQueried.push('auto_case_review');
-      const items = await this.queryCasesRequiringReview(
-        tx,
-        tenant_id,
-        meetingDate,
-      );
+      const items = await this.queryCasesRequiringReview(tx, tenant_id, meetingDate);
       newItems.push(...items);
     }
 
@@ -197,21 +188,13 @@ class PrecomputeAgendaTenantJob extends TenantAwareJob<PrecomputeAgendaPayload> 
 
     if (enabledSources.includes('neps')) {
       this.sourcesQueried.push('auto_neps');
-      const items = await this.queryUpcomingNepsAppointments(
-        tx,
-        tenant_id,
-        meetingDate,
-      );
+      const items = await this.queryUpcomingNepsAppointments(tx, tenant_id, meetingDate);
       newItems.push(...items);
     }
 
     if (enabledSources.includes('intervention_reviews')) {
       this.sourcesQueried.push('auto_intervention_review');
-      const items = await this.queryInterventionReviewDates(
-        tx,
-        tenant_id,
-        meetingDate,
-      );
+      const items = await this.queryInterventionReviewDates(tx, tenant_id, meetingDate);
       newItems.push(...items);
     }
 
@@ -219,16 +202,17 @@ class PrecomputeAgendaTenantJob extends TenantAwareJob<PrecomputeAgendaPayload> 
     const deduped = this.deduplicateItems(existingItems, newItems);
 
     // 9. Assign display_order — group by source, start from max existing order + 1
-    const maxExistingOrder = existingItems.length > 0
-      ? Math.max(
-          ...await tx.sstMeetingAgendaItem
-            .findMany({
-              where: { tenant_id, meeting_id },
-              select: { display_order: true },
-            })
-            .then((items) => items.map((i) => i.display_order)),
-        )
-      : -1;
+    const maxExistingOrder =
+      existingItems.length > 0
+        ? Math.max(
+            ...(await tx.sstMeetingAgendaItem
+              .findMany({
+                where: { tenant_id, meeting_id },
+                select: { display_order: true },
+              })
+              .then((items) => items.map((i) => i.display_order))),
+          )
+        : -1;
 
     let nextOrder = maxExistingOrder + 1;
 
@@ -379,25 +363,24 @@ class PrecomputeAgendaTenantJob extends TenantAwareJob<PrecomputeAgendaPayload> 
     }
 
     // Intervention actions with overdue status
-    const overdueInterventionActions =
-      await tx.pastoralInterventionAction.findMany({
-        where: {
-          tenant_id: tenantId,
-          status: 'pc_overdue',
-        },
-        select: {
-          id: true,
-          description: true,
-          intervention: {
-            select: {
-              student_id: true,
-              case_id: true,
-              student: { select: { first_name: true, last_name: true } },
-            },
+    const overdueInterventionActions = await tx.pastoralInterventionAction.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: 'pc_overdue',
+      },
+      select: {
+        id: true,
+        description: true,
+        intervention: {
+          select: {
+            student_id: true,
+            case_id: true,
+            student: { select: { first_name: true, last_name: true } },
           },
-          assigned_to: { select: { first_name: true, last_name: true } },
         },
-      });
+        assigned_to: { select: { first_name: true, last_name: true } },
+      },
+    });
 
     for (const a of overdueInterventionActions) {
       items.push({

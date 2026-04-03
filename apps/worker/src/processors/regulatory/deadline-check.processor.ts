@@ -17,13 +17,15 @@ const TERMINAL_STATUSES: RegulatorySubmissionStatus[] = [
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.REGULATORY)
+@Processor(QUEUE_NAMES.REGULATORY, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class RegulatoryDeadlineCheckProcessor extends WorkerHost {
   private readonly logger = new Logger(RegulatoryDeadlineCheckProcessor.name);
 
-  constructor(
-    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
-  ) {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();
   }
 
@@ -47,9 +49,7 @@ export class RegulatoryDeadlineCheckProcessor extends WorkerHost {
       }
     }
 
-    this.logger.log(
-      `Regulatory deadline check complete — processed ${tenants.length} tenants`,
-    );
+    this.logger.log(`Regulatory deadline check complete — processed ${tenants.length} tenants`);
   }
 
   // ─── Per-tenant deadline check ──────────────────────────────────────────
@@ -92,9 +92,7 @@ export class RegulatoryDeadlineCheckProcessor extends WorkerHost {
     const adminUserIds = await this.getAdminUserIds(tenantId);
 
     if (adminUserIds.length === 0) {
-      this.logger.warn(
-        `Tenant ${tenantId}: no admin users found, skipping notifications`,
-      );
+      this.logger.warn(`Tenant ${tenantId}: no admin users found, skipping notifications`);
       return;
     }
 
@@ -103,9 +101,7 @@ export class RegulatoryDeadlineCheckProcessor extends WorkerHost {
 
     // Check upcoming events for reminder_days match
     for (const event of events) {
-      const daysUntil = Math.ceil(
-        (event.due_date.getTime() - now.getTime()) / MS_PER_DAY,
-      );
+      const daysUntil = Math.ceil((event.due_date.getTime() - now.getTime()) / MS_PER_DAY);
 
       if (event.reminder_days.includes(daysUntil)) {
         for (const userId of adminUserIds) {
@@ -123,9 +119,7 @@ export class RegulatoryDeadlineCheckProcessor extends WorkerHost {
 
     // Check overdue events
     for (const event of overdueEvents) {
-      const daysUntil = Math.ceil(
-        (event.due_date.getTime() - now.getTime()) / MS_PER_DAY,
-      );
+      const daysUntil = Math.ceil((event.due_date.getTime() - now.getTime()) / MS_PER_DAY);
 
       for (const userId of adminUserIds) {
         await this.sendNotificationIfNew(

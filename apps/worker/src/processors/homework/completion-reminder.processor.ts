@@ -20,7 +20,11 @@ export const HOMEWORK_COMPLETION_REMINDER_JOB = 'homework:completion-reminder';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.HOMEWORK)
+@Processor(QUEUE_NAMES.HOMEWORK, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class HomeworkCompletionReminderProcessor extends WorkerHost {
   private readonly logger = new Logger(HomeworkCompletionReminderProcessor.name);
 

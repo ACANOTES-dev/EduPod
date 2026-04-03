@@ -23,7 +23,11 @@ export const BULK_IMPORT_PROCESS_JOB = 'gradebook:bulk-import-process';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.GRADEBOOK, { lockDuration: 60_000 })
+@Processor(QUEUE_NAMES.GRADEBOOK, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class BulkImportProcessor extends WorkerHost {
   private readonly logger = new Logger(BulkImportProcessor.name);
 

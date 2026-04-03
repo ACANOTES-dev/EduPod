@@ -20,7 +20,11 @@ const EXCLUDED_STATUSES: $Enums.IncidentStatus[] = [
 
 // ─── Processor ──────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR)
+@Processor(QUEUE_NAMES.BEHAVIOUR, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class DetectPatternsProcessor extends WorkerHost {
   private readonly logger = new Logger(DetectPatternsProcessor.name);
 
@@ -48,10 +52,7 @@ export class DetectPatternsProcessor extends WorkerHost {
 class PatternDetectorJob extends TenantAwareJob<DetectPatternsPayload> {
   private readonly logger = new Logger(PatternDetectorJob.name);
 
-  protected async processJob(
-    data: DetectPatternsPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: DetectPatternsPayload, tx: PrismaClient): Promise<void> {
     const tenantId = data.tenant_id;
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -285,10 +286,21 @@ class PatternDetectorJob extends TenantAwareJob<DetectPatternsPayload> {
     const approachingCompletion = await tx.behaviourIntervention.findMany({
       where: {
         tenant_id: tenantId,
-        status: { in: ['active_intervention' as $Enums.InterventionStatus, 'monitoring' as $Enums.InterventionStatus] },
+        status: {
+          in: [
+            'active_intervention' as $Enums.InterventionStatus,
+            'monitoring' as $Enums.InterventionStatus,
+          ],
+        },
         target_end_date: { gte: sevenDaysFromNow, lt: eightDaysFromNow },
       },
-      select: { id: true, intervention_number: true, student_id: true, assigned_to_id: true, target_end_date: true },
+      select: {
+        id: true,
+        intervention_number: true,
+        student_id: true,
+        assigned_to_id: true,
+        target_end_date: true,
+      },
     });
 
     for (const iv of approachingCompletion) {
@@ -546,12 +558,7 @@ class PatternDetectorJob extends TenantAwareJob<DetectPatternsPayload> {
     });
 
     // Determine recipients based on alert type
-    const recipientIds = await this.determineRecipients(
-      tx,
-      tenantId,
-      data.alert_type,
-      data,
-    );
+    const recipientIds = await this.determineRecipients(tx, tenantId, data.alert_type, data);
 
     if (recipientIds.length > 0) {
       await tx.behaviourAlertRecipient.createMany({

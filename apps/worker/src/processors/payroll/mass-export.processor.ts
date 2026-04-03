@@ -101,7 +101,11 @@ function getTemplateRenderer(locale: 'en' | 'ar'): TemplateRenderFn {
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PAYROLL, { lockDuration: 300_000 })
+@Processor(QUEUE_NAMES.PAYROLL, {
+  lockDuration: 300_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class PayrollMassExportProcessor extends WorkerHost {
   private readonly logger = new Logger(PayrollMassExportProcessor.name);
 

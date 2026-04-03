@@ -20,13 +20,15 @@ export const OVERDUE_ACTIONS_JOB = 'pastoral:overdue-actions';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PASTORAL)
+@Processor(QUEUE_NAMES.PASTORAL, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class OverdueActionsProcessor extends WorkerHost {
   private readonly logger = new Logger(OverdueActionsProcessor.name);
 
-  constructor(
-    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
-  ) {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();
   }
 
@@ -41,9 +43,7 @@ export class OverdueActionsProcessor extends WorkerHost {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
-    this.logger.log(
-      `Processing ${OVERDUE_ACTIONS_JOB} — tenant ${tenant_id}`,
-    );
+    this.logger.log(`Processing ${OVERDUE_ACTIONS_JOB} — tenant ${tenant_id}`);
 
     const tenantJob = new OverdueActionsTenantJob(this.prisma);
     await tenantJob.execute(job.data);
@@ -67,10 +67,7 @@ class OverdueActionsTenantJob extends TenantAwareJob<OverdueActionsPayload> {
   /** Count of intervention actions marked overdue (read after execute). */
   public interventionActionsMarked = 0;
 
-  protected async processJob(
-    data: OverdueActionsPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: OverdueActionsPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id } = data;
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
@@ -135,22 +132,21 @@ class OverdueActionsTenantJob extends TenantAwareJob<OverdueActionsPayload> {
     // Shared with SW-2B. If SW-2B is not yet implemented, the table exists
     // but has no data — this query safely returns zero rows.
 
-    const overdueInterventionActions =
-      await tx.pastoralInterventionAction.findMany({
-        where: {
-          tenant_id,
-          status: { in: ['pc_pending', 'pc_in_progress'] },
-          due_date: { lt: today },
+    const overdueInterventionActions = await tx.pastoralInterventionAction.findMany({
+      where: {
+        tenant_id,
+        status: { in: ['pc_pending', 'pc_in_progress'] },
+        due_date: { lt: today },
+      },
+      select: {
+        id: true,
+        assigned_to_user_id: true,
+        due_date: true,
+        intervention: {
+          select: { student_id: true },
         },
-        select: {
-          id: true,
-          assigned_to_user_id: true,
-          due_date: true,
-          intervention: {
-            select: { student_id: true },
-          },
-        },
-      });
+      },
+    });
 
     for (const action of overdueInterventionActions) {
       // Update status to overdue
@@ -164,9 +160,7 @@ class OverdueActionsTenantJob extends TenantAwareJob<OverdueActionsPayload> {
       const dueDate = action.due_date;
       if (!dueDate) continue;
 
-      const daysOverdue = Math.floor(
-        (today.getTime() - dueDate.getTime()) / (24 * 60 * 60 * 1000),
-      );
+      const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (24 * 60 * 60 * 1000));
 
       // Write pastoral_event: action_overdue
       await tx.pastoralEvent.create({

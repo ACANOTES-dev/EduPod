@@ -16,7 +16,11 @@ export const ADMISSIONS_AUTO_EXPIRY_JOB = 'admissions:auto-expiry';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.ADMISSIONS)
+@Processor(QUEUE_NAMES.ADMISSIONS, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class AdmissionsAutoExpiryProcessor extends WorkerHost {
   private readonly logger = new Logger(AdmissionsAutoExpiryProcessor.name);
 
@@ -35,9 +39,7 @@ export class AdmissionsAutoExpiryProcessor extends WorkerHost {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
-    this.logger.log(
-      `Processing ${ADMISSIONS_AUTO_EXPIRY_JOB} — tenant ${tenant_id}`,
-    );
+    this.logger.log(`Processing ${ADMISSIONS_AUTO_EXPIRY_JOB} — tenant ${tenant_id}`);
 
     const expiryJob = new AdmissionsAutoExpiryJob(this.prisma);
     await expiryJob.execute(job.data);
@@ -49,10 +51,7 @@ export class AdmissionsAutoExpiryProcessor extends WorkerHost {
 class AdmissionsAutoExpiryJob extends TenantAwareJob<AdmissionsAutoExpiryPayload> {
   private readonly logger = new Logger(AdmissionsAutoExpiryJob.name);
 
-  protected async processJob(
-    data: AdmissionsAutoExpiryPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: AdmissionsAutoExpiryPayload, tx: PrismaClient): Promise<void> {
     const now = new Date();
 
     // Find all draft applications with expired payment deadline

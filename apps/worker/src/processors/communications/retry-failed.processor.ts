@@ -18,7 +18,11 @@ export const RETRY_FAILED_NOTIFICATIONS_JOB = 'communications:retry-failed-notif
  * Finds failed notifications eligible for retry across all tenants,
  * groups them by tenant, and re-enqueues dispatch jobs.
  */
-@Processor(QUEUE_NAMES.NOTIFICATIONS)
+@Processor(QUEUE_NAMES.NOTIFICATIONS, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class RetryFailedNotificationsProcessor extends WorkerHost {
   private readonly logger = new Logger(RetryFailedNotificationsProcessor.name);
 
@@ -54,7 +58,10 @@ export class RetryFailedNotificationsProcessor extends WorkerHost {
     });
 
     // Filter to respect per-row max_attempts
-    const eligible = failedNotifications.filter((n: { attempt_count: number; max_attempts: number; id: string; tenant_id: string }) => n.attempt_count < n.max_attempts);
+    const eligible = failedNotifications.filter(
+      (n: { attempt_count: number; max_attempts: number; id: string; tenant_id: string }) =>
+        n.attempt_count < n.max_attempts,
+    );
 
     if (eligible.length === 0) {
       this.logger.log('No failed notifications eligible for retry');
@@ -95,9 +102,7 @@ export class RetryFailedNotificationsProcessor extends WorkerHost {
       }
 
       reenqueued += ids.length;
-      this.logger.log(
-        `Re-enqueued ${ids.length} notifications for retry — tenant ${tenantId}`,
-      );
+      this.logger.log(`Re-enqueued ${ids.length} notifications for retry — tenant ${tenantId}`);
     }
 
     this.logger.log(

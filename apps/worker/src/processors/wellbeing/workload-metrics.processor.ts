@@ -45,14 +45,16 @@ interface StaffCoverCount {
  * For each tenant with the staff_wellbeing module enabled, computes all
  * aggregate workload metrics and stores them in Redis with a 24-hour TTL.
  */
-@Processor(QUEUE_NAMES.WELLBEING)
+@Processor(QUEUE_NAMES.WELLBEING, {
+  lockDuration: 120_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class WorkloadMetricsProcessor extends WorkerHost {
   private readonly logger = new Logger(WorkloadMetricsProcessor.name);
   private redis: Redis | null = null;
 
-  constructor(
-    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
-  ) {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();
   }
 
@@ -136,7 +138,8 @@ export class WorkloadMetricsProcessor extends WorkerHost {
       });
       const settings = (tenantSetting?.settings ?? {}) as Record<string, unknown>;
       const wellbeingSettings = (settings['staff_wellbeing'] ?? {}) as Record<string, unknown>;
-      const periodThreshold = (wellbeingSettings['workload_high_threshold_periods'] as number) ?? 22;
+      const periodThreshold =
+        (wellbeingSettings['workload_high_threshold_periods'] as number) ?? 22;
       const coverThreshold = (wellbeingSettings['workload_high_threshold_covers'] as number) ?? 8;
 
       // 4. Fetch all teaching schedules for the active academic year
@@ -169,7 +172,8 @@ export class WorkloadMetricsProcessor extends WorkerHost {
 
       // Filter to teaching periods only
       const teachingSchedules = schedules.filter(
-        (s) => s.schedule_period_template_id && teachingTemplateIds.has(s.schedule_period_template_id),
+        (s) =>
+          s.schedule_period_template_id && teachingTemplateIds.has(s.schedule_period_template_id),
       );
 
       // 5. Count teaching periods per staff
@@ -199,9 +203,7 @@ export class WorkloadMetricsProcessor extends WorkerHost {
           const staffId = sub.substitute_staff_id;
           coversPerStaff.set(staffId, (coversPerStaff.get(staffId) ?? 0) + 1);
         }
-        coverCounts = [...coversPerStaff.entries()].map(
-          ([staffId, count]) => ({ staffId, count }),
-        );
+        coverCounts = [...coversPerStaff.entries()].map(([staffId, count]) => ({ staffId, count }));
       }
 
       // 7. Absence data
@@ -216,13 +218,19 @@ export class WorkloadMetricsProcessor extends WorkerHost {
 
       // 8. Compute aggregate metrics
       const workloadSummary = this.computeWorkloadSummary(
-        periodCounts, coverCounts, periodThreshold, coverThreshold,
+        periodCounts,
+        coverCounts,
+        periodThreshold,
+        coverThreshold,
       );
       const coverFairness = this.computeCoverFairness(coverCounts);
       const timetableQuality = this.computeTimetableQuality(schedules, teachingTemplateIds);
       const absenceTrends = this.computeAbsenceTrends(absences, totalStaff);
       const substitutionPressure = this.computeSubstitutionPressure(
-        absences, coverCounts, totalStaff, currentPeriod,
+        absences,
+        coverCounts,
+        totalStaff,
+        currentPeriod,
       );
       const correlation = this.computeCorrelation(absences, coverCounts);
 
@@ -236,7 +244,7 @@ export class WorkloadMetricsProcessor extends WorkerHost {
         'timetable-quality': timetableQuality,
         'absence-trends': absenceTrends,
         'substitution-pressure': substitutionPressure,
-        'correlation': correlation,
+        correlation: correlation,
       };
 
       for (const [metricType, data] of Object.entries(metrics)) {
@@ -277,9 +285,7 @@ export class WorkloadMetricsProcessor extends WorkerHost {
     };
   }
 
-  private computeCoverFairness(
-    coverCounts: StaffCoverCount[],
-  ): Record<string, unknown> {
+  private computeCoverFairness(coverCounts: StaffCoverCount[]): Record<string, unknown> {
     const counts = coverCounts.map((c) => c.count).sort((a, b) => a - b);
 
     const distribution = new Map<number, number>();
@@ -292,7 +298,7 @@ export class WorkloadMetricsProcessor extends WorkerHost {
 
     let assessment: string;
     if (gini < 0.15) assessment = 'Well distributed';
-    else if (gini <= 0.30) assessment = 'Moderate concentration';
+    else if (gini <= 0.3) assessment = 'Moderate concentration';
     else assessment = 'Significant concentration — review recommended';
 
     return {
@@ -448,12 +454,13 @@ export class WorkloadMetricsProcessor extends WorkerHost {
       monthly_rates: monthlyRates,
       day_of_week_pattern: dayOfWeekPattern,
       term_comparison: null,
-      seasonal_pattern: monthlyRates.length >= 12
-        ? monthlyRates.map((mr) => ({
-            month: parseInt(mr.month.split('-')[1] ?? '1', 10),
-            average_rate: mr.rate,
-          }))
-        : null,
+      seasonal_pattern:
+        monthlyRates.length >= 12
+          ? monthlyRates.map((mr) => ({
+              month: parseInt(mr.month.split('-')[1] ?? '1', 10),
+              average_rate: mr.rate,
+            }))
+          : null,
     };
   }
 
@@ -468,15 +475,14 @@ export class WorkloadMetricsProcessor extends WorkerHost {
 
     const absenceRate = totalStaff > 0 ? totalAbsences / totalStaff : 0;
     const coverDifficulty = totalAbsences > 0 ? totalCovers / totalAbsences : 0;
-    const unfilledRate = totalAbsences > 0
-      ? Math.max(0, (totalAbsences - totalCovers) / totalAbsences)
-      : 0;
+    const unfilledRate =
+      totalAbsences > 0 ? Math.max(0, (totalAbsences - totalCovers) / totalAbsences) : 0;
 
     const composite = round(absenceRate * 0.4 + coverDifficulty * 0.3 + unfilledRate * 0.3);
 
     let assessment: string;
     if (composite < 0.25) assessment = 'Low';
-    else if (composite < 0.50) assessment = 'Moderate';
+    else if (composite < 0.5) assessment = 'Moderate';
     else if (composite < 0.75) assessment = 'High';
     else assessment = 'Critical';
 

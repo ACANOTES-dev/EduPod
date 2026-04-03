@@ -21,7 +21,11 @@ export const BEHAVIOUR_CHECK_AWARDS_JOB = 'behaviour:check-awards';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR)
+@Processor(QUEUE_NAMES.BEHAVIOUR, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class BehaviourCheckAwardsProcessor extends WorkerHost {
   private readonly logger = new Logger(BehaviourCheckAwardsProcessor.name);
 
@@ -73,17 +77,8 @@ function resolveChannels(preferredRaw: unknown): $Enums.NotificationChannel[] {
 class BehaviourCheckAwardsJob extends TenantAwareJob<BehaviourCheckAwardsPayload> {
   private readonly logger = new Logger(BehaviourCheckAwardsJob.name);
 
-  protected async processJob(
-    data: BehaviourCheckAwardsPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
-    const {
-      tenant_id,
-      incident_id,
-      student_ids,
-      academic_year_id,
-      academic_period_id,
-    } = data;
+  protected async processJob(data: BehaviourCheckAwardsPayload, tx: PrismaClient): Promise<void> {
+    const { tenant_id, incident_id, student_ids, academic_year_id, academic_period_id } = data;
 
     // Load active award types with auto-trigger thresholds
     const awardTypes = await tx.behaviourAwardType.findMany({
@@ -92,10 +87,7 @@ class BehaviourCheckAwardsJob extends TenantAwareJob<BehaviourCheckAwardsPayload
         is_active: true,
         points_threshold: { not: null },
       },
-      orderBy: [
-        { tier_level: { sort: 'desc', nulls: 'last' } },
-        { points_threshold: 'desc' },
-      ],
+      orderBy: [{ tier_level: { sort: 'desc', nulls: 'last' } }, { points_threshold: 'desc' }],
     });
 
     if (awardTypes.length === 0) {
@@ -108,12 +100,9 @@ class BehaviourCheckAwardsJob extends TenantAwareJob<BehaviourCheckAwardsPayload
       where: { tenant_id },
       select: { settings: true },
     });
-    const settings =
-      (tenantSettings?.settings as Record<string, unknown>) ?? {};
-    const behaviourSettings =
-      (settings?.behaviour as Record<string, unknown>) ?? {};
-    const autoPopulate =
-      (behaviourSettings?.recognition_wall_auto_populate as boolean) ?? true;
+    const settings = (tenantSettings?.settings as Record<string, unknown>) ?? {};
+    const behaviourSettings = (settings?.behaviour as Record<string, unknown>) ?? {};
+    const autoPopulate = (behaviourSettings?.recognition_wall_auto_populate as boolean) ?? true;
     const requiresConsent =
       (behaviourSettings?.recognition_wall_requires_consent as boolean) ?? true;
     const requiresAdminApproval =
@@ -141,10 +130,7 @@ class BehaviourCheckAwardsJob extends TenantAwareJob<BehaviourCheckAwardsPayload
           student_id: studentId,
           incident: {
             status: {
-              notIn: [
-                'draft' as $Enums.IncidentStatus,
-                'withdrawn' as $Enums.IncidentStatus,
-              ],
+              notIn: ['draft' as $Enums.IncidentStatus, 'withdrawn' as $Enums.IncidentStatus],
             },
             retention_status: 'active' as $Enums.RetentionStatus,
           },
@@ -154,24 +140,21 @@ class BehaviourCheckAwardsJob extends TenantAwareJob<BehaviourCheckAwardsPayload
 
       const totalPoints = pointsResult._sum.points_awarded ?? 0;
 
-      this.logger.log(
-        `Student ${studentId}: total points = ${totalPoints}`,
-      );
+      this.logger.log(`Student ${studentId}: total points = ${totalPoints}`);
 
       for (const awardType of awardTypes) {
         if (awardType.points_threshold === null) continue;
         if (totalPoints < awardType.points_threshold) continue;
 
         // Dedup guard: same incident + award type
-        const existingForIncident =
-          await tx.behaviourRecognitionAward.findFirst({
-            where: {
-              tenant_id,
-              student_id: studentId,
-              award_type_id: awardType.id,
-              triggered_by_incident_id: incident_id,
-            },
-          });
+        const existingForIncident = await tx.behaviourRecognitionAward.findFirst({
+          where: {
+            tenant_id,
+            student_id: studentId,
+            award_type_id: awardType.id,
+            triggered_by_incident_id: incident_id,
+          },
+        });
 
         if (existingForIncident) {
           this.logger.log(
@@ -192,9 +175,7 @@ class BehaviourCheckAwardsJob extends TenantAwareJob<BehaviourCheckAwardsPayload
         );
 
         if (!eligible) {
-          this.logger.log(
-            `Repeat check failed: ${awardType.name} for student ${studentId}`,
-          );
+          this.logger.log(`Repeat check failed: ${awardType.name} for student ${studentId}`);
           continue;
         }
 
@@ -205,12 +186,13 @@ class BehaviourCheckAwardsJob extends TenantAwareJob<BehaviourCheckAwardsPayload
             student_id: studentId,
             award_type_id: awardType.id,
             points_at_award: totalPoints,
-            awarded_by_id: (
-              await tx.behaviourIncident.findUnique({
-                where: { id: incident_id },
-                select: { reported_by_id: true },
-              })
-            )?.reported_by_id ?? studentId,
+            awarded_by_id:
+              (
+                await tx.behaviourIncident.findUnique({
+                  where: { id: incident_id },
+                  select: { reported_by_id: true },
+                })
+              )?.reported_by_id ?? studentId,
             awarded_at: new Date(),
             academic_year_id,
             triggered_by_incident_id: incident_id,
@@ -253,27 +235,22 @@ class BehaviourCheckAwardsJob extends TenantAwareJob<BehaviourCheckAwardsPayload
           if (sp.parent.status !== 'active' || !sp.parent.user_id) continue;
 
           // Check guardian restrictions before sending notification
-          const hasRestriction =
-            await tx.behaviourGuardianRestriction.findFirst({
-              where: {
-                tenant_id,
-                student_id: studentId,
-                parent_id: sp.parent.id,
-                restriction_type: {
-                  in: [
-                    'no_behaviour_notifications' as $Enums.RestrictionType,
-                    'no_communications' as $Enums.RestrictionType,
-                  ],
-                },
-                status:
-                  'active_restriction' as $Enums.RestrictionStatus,
-                effective_from: { lte: new Date() },
-                OR: [
-                  { effective_until: null },
-                  { effective_until: { gte: new Date() } },
+          const hasRestriction = await tx.behaviourGuardianRestriction.findFirst({
+            where: {
+              tenant_id,
+              student_id: studentId,
+              parent_id: sp.parent.id,
+              restriction_type: {
+                in: [
+                  'no_behaviour_notifications' as $Enums.RestrictionType,
+                  'no_communications' as $Enums.RestrictionType,
                 ],
               },
-            });
+              status: 'active_restriction' as $Enums.RestrictionStatus,
+              effective_from: { lte: new Date() },
+              OR: [{ effective_until: null }, { effective_until: { gte: new Date() } }],
+            },
+          });
 
           if (hasRestriction) {
             this.logger.log(
@@ -320,8 +297,7 @@ class BehaviourCheckAwardsJob extends TenantAwareJob<BehaviourCheckAwardsPayload
           await tx.behaviourPublicationApproval.create({
             data: {
               tenant_id,
-              publication_type:
-                'recognition_wall_website' as $Enums.PublicationType,
+              publication_type: 'recognition_wall_website' as $Enums.PublicationType,
               entity_type: 'award' as $Enums.PublicationEntityType,
               entity_id: award.id,
               student_id: studentId,

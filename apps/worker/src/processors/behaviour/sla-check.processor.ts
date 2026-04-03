@@ -18,7 +18,11 @@ export const SLA_CHECK_JOB = 'safeguarding:sla-check';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR)
+@Processor(QUEUE_NAMES.BEHAVIOUR, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class SlaCheckProcessor extends WorkerHost {
   private readonly logger = new Logger(SlaCheckProcessor.name);
 
@@ -54,10 +58,7 @@ const STAFF_CHANNELS: $Enums.NotificationChannel[] = ['in_app', 'email'];
 class SlaCheckJob extends TenantAwareJob<SlaCheckPayload> {
   private readonly logger = new Logger(SlaCheckJob.name);
 
-  protected async processJob(
-    data: SlaCheckPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: SlaCheckPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id } = data;
 
     // 1. Find all concerns with breached SLA (first response overdue)
@@ -91,15 +92,12 @@ class SlaCheckJob extends TenantAwareJob<SlaCheckPayload> {
       });
 
       if (existingTask) {
-        this.logger.log(
-          `SLA breach task already exists for concern ${concern.id} — skipping`,
-        );
+        this.logger.log(`SLA breach task already exists for concern ${concern.id} — skipping`);
         continue;
       }
 
       // 2b. Create breach task
-      const assigneeId =
-        concern.designated_liaison_id ?? concern.reported_by_id;
+      const assigneeId = concern.designated_liaison_id ?? concern.reported_by_id;
       await tx.behaviourTask.create({
         data: {
           tenant_id,

@@ -28,7 +28,11 @@ const STALE_THRESHOLD_MINUTES = 30;
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.APPROVALS)
+@Processor(QUEUE_NAMES.APPROVALS, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class ApprovalCallbackReconciliationProcessor extends WorkerHost {
   private readonly logger = new Logger(ApprovalCallbackReconciliationProcessor.name);
 
@@ -49,7 +53,10 @@ export class ApprovalCallbackReconciliationProcessor extends WorkerHost {
     this.logger.log('Starting approval callback reconciliation scan');
 
     const callbackMap: Record<string, CallbackMapping> = {
-      announcement_publish: { queue: this.notificationsQueue, jobName: 'communications:on-approval' },
+      announcement_publish: {
+        queue: this.notificationsQueue,
+        jobName: 'communications:on-approval',
+      },
       invoice_issue: { queue: this.financeQueue, jobName: 'finance:on-approval' },
       payroll_finalise: { queue: this.payrollQueue, jobName: 'payroll:on-approval' },
     };
@@ -86,9 +93,7 @@ export class ApprovalCallbackReconciliationProcessor extends WorkerHost {
       return;
     }
 
-    this.logger.warn(
-      `Found ${stuckRequests.length} stuck approval callback(s) — retrying`,
-    );
+    this.logger.warn(`Found ${stuckRequests.length} stuck approval callback(s) — retrying`);
 
     let retriedCount = 0;
     let maxedOutCount = 0;

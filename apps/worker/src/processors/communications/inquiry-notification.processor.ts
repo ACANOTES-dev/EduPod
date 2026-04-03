@@ -20,7 +20,11 @@ export const INQUIRY_NOTIFICATION_JOB = 'communications:inquiry-notification';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.NOTIFICATIONS)
+@Processor(QUEUE_NAMES.NOTIFICATIONS, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class InquiryNotificationProcessor extends WorkerHost {
   private readonly logger = new Logger(InquiryNotificationProcessor.name);
 
@@ -53,10 +57,7 @@ export class InquiryNotificationProcessor extends WorkerHost {
 class InquiryNotificationJob extends TenantAwareJob<InquiryNotificationPayload> {
   private readonly logger = new Logger(InquiryNotificationJob.name);
 
-  protected async processJob(
-    data: InquiryNotificationPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: InquiryNotificationPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, inquiry_id, message_id, notify_type } = data;
 
     const inquiry = await tx.parentInquiry.findFirst({
@@ -110,7 +111,9 @@ class InquiryNotificationJob extends TenantAwareJob<InquiryNotificationPayload> 
         return;
       }
 
-      const preferredChannels = (inquiry.parent.preferred_contact_channels as string[]) ?? ['in_app'];
+      const preferredChannels = (inquiry.parent.preferred_contact_channels as string[]) ?? [
+        'in_app',
+      ];
 
       for (const channel of preferredChannels) {
         const normalizedChannel = channel as 'in_app' | 'email' | 'whatsapp';
@@ -177,6 +180,10 @@ class InquiryNotificationJob extends TenantAwareJob<InquiryNotificationPayload> 
       select: { membership: { select: { user_id: true } } },
     });
 
-    return Array.from(new Set(membershipRoles.map((mr: { membership: { user_id: string } }) => mr.membership.user_id)));
+    return Array.from(
+      new Set(
+        membershipRoles.map((mr: { membership: { user_id: string } }) => mr.membership.user_id),
+      ),
+    );
   }
 }

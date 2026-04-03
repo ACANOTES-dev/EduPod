@@ -15,16 +15,17 @@ export interface BehaviourParentNotificationPayload extends TenantJobPayload {
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
 
-export const BEHAVIOUR_PARENT_NOTIFICATION_JOB =
-  'behaviour:parent-notification';
+export const BEHAVIOUR_PARENT_NOTIFICATION_JOB = 'behaviour:parent-notification';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.NOTIFICATIONS)
+@Processor(QUEUE_NAMES.NOTIFICATIONS, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class BehaviourParentNotificationProcessor extends WorkerHost {
-  private readonly logger = new Logger(
-    BehaviourParentNotificationProcessor.name,
-  );
+  private readonly logger = new Logger(BehaviourParentNotificationProcessor.name);
 
   constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();
@@ -87,9 +88,7 @@ class BehaviourParentNotificationJob extends TenantAwareJob<BehaviourParentNotif
     });
 
     if (!incident) {
-      this.logger.warn(
-        `Incident ${incident_id} not found for tenant ${tenant_id} — skipping`,
-      );
+      this.logger.warn(`Incident ${incident_id} not found for tenant ${tenant_id} — skipping`);
       return;
     }
 
@@ -99,18 +98,12 @@ class BehaviourParentNotificationJob extends TenantAwareJob<BehaviourParentNotif
       select: { settings: true },
     });
 
-    const settings =
-      (tenantSettings?.settings as Record<string, unknown>) ?? {};
-    const behaviourSettings =
-      (settings?.behaviour as Record<string, unknown>) ?? {};
+    const settings = (tenantSettings?.settings as Record<string, unknown>) ?? {};
+    const behaviourSettings = (settings?.behaviour as Record<string, unknown>) ?? {};
     const sendGateSeverity =
-      (behaviourSettings?.parent_notification_send_gate_severity as
-        | number
-        | undefined) ?? null;
+      (behaviourSettings?.parent_notification_send_gate_severity as number | undefined) ?? null;
     const autoLockOnSend =
-      (behaviourSettings?.parent_description_auto_lock_on_send as
-        | boolean
-        | undefined) ?? false;
+      (behaviourSettings?.parent_description_auto_lock_on_send as boolean | undefined) ?? false;
 
     const now = new Date();
     let anyBlocked = false;
@@ -124,10 +117,7 @@ class BehaviourParentNotificationJob extends TenantAwareJob<BehaviourParentNotif
         incident.severity >= sendGateSeverity
       ) {
         // Verify parent_description exists before sending
-        if (
-          !incident.parent_description ||
-          incident.parent_description.trim() === ''
-        ) {
+        if (!incident.parent_description || incident.parent_description.trim() === '') {
           this.logger.log(
             `Send-gate blocked: incident ${incident_id} severity ${incident.severity} >= gate ${sendGateSeverity} but no parent_description — skipping student ${studentId}`,
           );
@@ -152,9 +142,7 @@ class BehaviourParentNotificationJob extends TenantAwareJob<BehaviourParentNotif
       });
 
       if (studentParents.length === 0) {
-        this.logger.log(
-          `No parents found for student ${studentId} — skipping`,
-        );
+        this.logger.log(`No parents found for student ${studentId} — skipping`);
         continue;
       }
 
@@ -186,7 +174,10 @@ class BehaviourParentNotificationJob extends TenantAwareJob<BehaviourParentNotif
                 tenant_id,
                 recipient_user_id: sp.parent.user_id,
                 channel,
-                template_key: incident.polarity === 'positive' ? 'behaviour_positive_parent' : 'behaviour_negative_parent',
+                template_key:
+                  incident.polarity === 'positive'
+                    ? 'behaviour_positive_parent'
+                    : 'behaviour_negative_parent',
                 locale: 'en',
                 status: isInApp ? 'delivered' : 'queued',
                 payload_json: {
@@ -217,9 +208,7 @@ class BehaviourParentNotificationJob extends TenantAwareJob<BehaviourParentNotif
         where: { id: incident_id },
         data: { parent_description_locked: true },
       });
-      this.logger.log(
-        `Auto-locked parent_description on incident ${incident_id}`,
-      );
+      this.logger.log(`Auto-locked parent_description on incident ${incident_id}`);
     }
 
     // 5. Update incident parent_notification_status
@@ -228,9 +217,7 @@ class BehaviourParentNotificationJob extends TenantAwareJob<BehaviourParentNotif
         where: { id: incident_id },
         data: { parent_notification_status: 'sent' },
       });
-      this.logger.log(
-        `Updated incident ${incident_id} parent_notification_status to sent`,
-      );
+      this.logger.log(`Updated incident ${incident_id} parent_notification_status to sent`);
     } else {
       this.logger.log(
         `Incident ${incident_id} has blocked students — parent_notification_status remains pending`,

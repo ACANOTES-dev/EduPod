@@ -18,7 +18,11 @@ export const ATTENDANCE_GENERATE_SESSIONS_JOB = 'attendance:generate-sessions';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.ATTENDANCE)
+@Processor(QUEUE_NAMES.ATTENDANCE, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class AttendanceSessionGenerationProcessor extends WorkerHost {
   private readonly logger = new Logger(AttendanceSessionGenerationProcessor.name);
 
@@ -65,12 +69,9 @@ class AttendanceSessionGenerationJob extends TenantAwareJob<AttendanceSessionGen
       where: { tenant_id },
       select: { settings: true },
     });
-    const settings =
-      (tenantSettings?.settings as Record<string, unknown>) ?? {};
-    const attendanceSettings =
-      (settings.attendance as Record<string, unknown>) ?? {};
-    const defaultPresentEnabled =
-      attendanceSettings.defaultPresentEnabled === true;
+    const settings = (tenantSettings?.settings as Record<string, unknown>) ?? {};
+    const attendanceSettings = (settings.attendance as Record<string, unknown>) ?? {};
+    const defaultPresentEnabled = attendanceSettings.defaultPresentEnabled === true;
 
     // JavaScript getDay(): 0=Sunday, 1=Monday, ..., 6=Saturday
     // Schema uses 0=Monday, 1=Tuesday, ..., 6=Sunday
@@ -83,10 +84,7 @@ class AttendanceSessionGenerationJob extends TenantAwareJob<AttendanceSessionGen
         tenant_id,
         weekday: planWeekday,
         effective_start_date: { lte: targetDate },
-        OR: [
-          { effective_end_date: null },
-          { effective_end_date: { gte: targetDate } },
-        ],
+        OR: [{ effective_end_date: null }, { effective_end_date: { gte: targetDate } }],
       },
       include: {
         class_entity: {
@@ -114,9 +112,7 @@ class AttendanceSessionGenerationJob extends TenantAwareJob<AttendanceSessionGen
       if (targetDate < ayStart || targetDate > ayEnd) continue;
 
       // Check for school closure affecting this class
-      const closureWhere: Record<string, unknown>[] = [
-        { affects_scope: 'all' },
-      ];
+      const closureWhere: Record<string, unknown>[] = [{ affects_scope: 'all' }];
 
       if (schedule.class_entity.year_group_id) {
         closureWhere.push({

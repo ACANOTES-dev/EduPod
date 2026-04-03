@@ -12,24 +12,23 @@ export type BehaviourGuardianRestrictionCheckPayload = TenantJobPayload;
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
 
-export const BEHAVIOUR_GUARDIAN_RESTRICTION_CHECK_JOB =
-  'behaviour:guardian-restriction-check';
+export const BEHAVIOUR_GUARDIAN_RESTRICTION_CHECK_JOB = 'behaviour:guardian-restriction-check';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR)
+@Processor(QUEUE_NAMES.BEHAVIOUR, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class BehaviourGuardianRestrictionCheckProcessor extends WorkerHost {
-  private readonly logger = new Logger(
-    BehaviourGuardianRestrictionCheckProcessor.name,
-  );
+  private readonly logger = new Logger(BehaviourGuardianRestrictionCheckProcessor.name);
 
   constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();
   }
 
-  async process(
-    job: Job<BehaviourGuardianRestrictionCheckPayload>,
-  ): Promise<void> {
+  async process(job: Job<BehaviourGuardianRestrictionCheckPayload>): Promise<void> {
     if (job.name !== BEHAVIOUR_GUARDIAN_RESTRICTION_CHECK_JOB) {
       return;
     }
@@ -40,9 +39,7 @@ export class BehaviourGuardianRestrictionCheckProcessor extends WorkerHost {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
-    this.logger.log(
-      `Processing ${BEHAVIOUR_GUARDIAN_RESTRICTION_CHECK_JOB} — tenant ${tenant_id}`,
-    );
+    this.logger.log(`Processing ${BEHAVIOUR_GUARDIAN_RESTRICTION_CHECK_JOB} — tenant ${tenant_id}`);
 
     const checkJob = new BehaviourGuardianRestrictionCheckJob(this.prisma);
     await checkJob.execute(job.data);
@@ -52,9 +49,7 @@ export class BehaviourGuardianRestrictionCheckProcessor extends WorkerHost {
 // ─── TenantAwareJob implementation ───────────────────────────────────────────
 
 class BehaviourGuardianRestrictionCheckJob extends TenantAwareJob<BehaviourGuardianRestrictionCheckPayload> {
-  private readonly logger = new Logger(
-    BehaviourGuardianRestrictionCheckJob.name,
-  );
+  private readonly logger = new Logger(BehaviourGuardianRestrictionCheckJob.name);
 
   protected async processJob(
     data: BehaviourGuardianRestrictionCheckPayload,
@@ -68,16 +63,14 @@ class BehaviourGuardianRestrictionCheckJob extends TenantAwareJob<BehaviourGuard
 
     // ─── Step 1: Expire ended restrictions ──────────────────────────────────
 
-    const expiredRestrictions =
-      await tx.behaviourGuardianRestriction.findMany({
-        where: {
-          tenant_id,
-          status:
-            'active_restriction' as $Enums.RestrictionStatus,
-          effective_until: { not: null, lt: todayDate },
-        },
-        select: { id: true, student_id: true, parent_id: true },
-      });
+    const expiredRestrictions = await tx.behaviourGuardianRestriction.findMany({
+      where: {
+        tenant_id,
+        status: 'active_restriction' as $Enums.RestrictionStatus,
+        effective_until: { not: null, lt: todayDate },
+      },
+      select: { id: true, student_id: true, parent_id: true },
+    });
 
     this.logger.log(
       `Found ${expiredRestrictions.length} restrictions to expire in tenant ${tenant_id}`,
@@ -95,8 +88,7 @@ class BehaviourGuardianRestrictionCheckJob extends TenantAwareJob<BehaviourGuard
       await tx.behaviourEntityHistory.create({
         data: {
           tenant_id,
-          entity_type:
-            'guardian_restriction' as $Enums.BehaviourEntityType,
+          entity_type: 'guardian_restriction' as $Enums.BehaviourEntityType,
           entity_id: restriction.id,
           changed_by_id: restriction.parent_id, // System action, use parent as reference
           change_type: 'status_changed',
@@ -112,20 +104,18 @@ class BehaviourGuardianRestrictionCheckJob extends TenantAwareJob<BehaviourGuard
     const fourteenDaysFromNow = new Date(todayDate);
     fourteenDaysFromNow.setUTCDate(fourteenDaysFromNow.getUTCDate() + 14);
 
-    const upcomingReviews =
-      await tx.behaviourGuardianRestriction.findMany({
-        where: {
-          tenant_id,
-          status:
-            'active_restriction' as $Enums.RestrictionStatus,
-          review_date: { not: null, lte: fourteenDaysFromNow },
+    const upcomingReviews = await tx.behaviourGuardianRestriction.findMany({
+      where: {
+        tenant_id,
+        status: 'active_restriction' as $Enums.RestrictionStatus,
+        review_date: { not: null, lte: fourteenDaysFromNow },
+      },
+      include: {
+        student: {
+          select: { first_name: true, last_name: true },
         },
-        include: {
-          student: {
-            select: { first_name: true, last_name: true },
-          },
-        },
-      });
+      },
+    });
 
     this.logger.log(
       `Found ${upcomingReviews.length} restrictions with upcoming review dates in tenant ${tenant_id}`,
@@ -138,11 +128,9 @@ class BehaviourGuardianRestrictionCheckJob extends TenantAwareJob<BehaviourGuard
       const existingTask = await tx.behaviourTask.findFirst({
         where: {
           tenant_id,
-          entity_type:
-            'guardian_restriction' as $Enums.BehaviourTaskEntityType,
+          entity_type: 'guardian_restriction' as $Enums.BehaviourTaskEntityType,
           entity_id: restriction.id,
-          task_type:
-            'guardian_restriction_review' as $Enums.BehaviourTaskType,
+          task_type: 'guardian_restriction_review' as $Enums.BehaviourTaskType,
           status: {
             in: [
               'pending' as $Enums.BehaviourTaskStatus,
@@ -162,19 +150,15 @@ class BehaviourGuardianRestrictionCheckJob extends TenantAwareJob<BehaviourGuard
         (reviewDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24),
       );
       const priority: $Enums.TaskPriority =
-        daysUntilReview <= 3
-          ? ('high' as $Enums.TaskPriority)
-          : ('medium' as $Enums.TaskPriority);
+        daysUntilReview <= 3 ? ('high' as $Enums.TaskPriority) : ('medium' as $Enums.TaskPriority);
 
       const studentName = `${restriction.student.first_name} ${restriction.student.last_name}`;
 
       await tx.behaviourTask.create({
         data: {
           tenant_id,
-          task_type:
-            'guardian_restriction_review' as $Enums.BehaviourTaskType,
-          entity_type:
-            'guardian_restriction' as $Enums.BehaviourTaskEntityType,
+          task_type: 'guardian_restriction_review' as $Enums.BehaviourTaskType,
+          entity_type: 'guardian_restriction' as $Enums.BehaviourTaskEntityType,
           entity_id: restriction.id,
           title: `Guardian restriction review due: ${studentName}`,
           description: `Review the guardian restriction for ${studentName}. Review date: ${restriction.review_date.toISOString().split('T')[0]}.`,

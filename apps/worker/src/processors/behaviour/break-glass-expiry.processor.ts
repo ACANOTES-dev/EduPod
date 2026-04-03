@@ -18,7 +18,11 @@ export const BREAK_GLASS_EXPIRY_JOB = 'behaviour:break-glass-expiry';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR)
+@Processor(QUEUE_NAMES.BEHAVIOUR, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class BreakGlassExpiryProcessor extends WorkerHost {
   private readonly logger = new Logger(BreakGlassExpiryProcessor.name);
 
@@ -37,9 +41,7 @@ export class BreakGlassExpiryProcessor extends WorkerHost {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
-    this.logger.log(
-      `Processing ${BREAK_GLASS_EXPIRY_JOB} — tenant ${tenant_id}`,
-    );
+    this.logger.log(`Processing ${BREAK_GLASS_EXPIRY_JOB} — tenant ${tenant_id}`);
 
     const expiryJob = new BreakGlassExpiryJob(this.prisma);
     await expiryJob.execute(job.data);
@@ -56,10 +58,7 @@ const STAFF_CHANNELS: $Enums.NotificationChannel[] = ['in_app', 'email'];
 class BreakGlassExpiryJob extends TenantAwareJob<BreakGlassExpiryPayload> {
   private readonly logger = new Logger(BreakGlassExpiryJob.name);
 
-  protected async processJob(
-    data: BreakGlassExpiryPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: BreakGlassExpiryPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id } = data;
 
     // 1. Find all expired, un-revoked grants
@@ -72,9 +71,7 @@ class BreakGlassExpiryJob extends TenantAwareJob<BreakGlassExpiryPayload> {
     });
 
     if (expiredGrants.length === 0) {
-      this.logger.log(
-        `No expired break-glass grants found for tenant ${tenant_id}`,
-      );
+      this.logger.log(`No expired break-glass grants found for tenant ${tenant_id}`);
       return;
     }
 
@@ -131,9 +128,7 @@ class BreakGlassExpiryJob extends TenantAwareJob<BreakGlassExpiryPayload> {
         });
       }
 
-      this.logger.log(
-        `Revoked expired break-glass grant ${grant.id} and created review task`,
-      );
+      this.logger.log(`Revoked expired break-glass grant ${grant.id} and created review task`);
     }
 
     this.logger.log(

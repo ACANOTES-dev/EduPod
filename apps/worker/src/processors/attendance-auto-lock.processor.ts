@@ -16,7 +16,11 @@ export const ATTENDANCE_AUTO_LOCK_JOB = 'attendance:auto-lock';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.ATTENDANCE)
+@Processor(QUEUE_NAMES.ATTENDANCE, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class AttendanceAutoLockProcessor extends WorkerHost {
   private readonly logger = new Logger(AttendanceAutoLockProcessor.name);
 
@@ -37,9 +41,7 @@ export class AttendanceAutoLockProcessor extends WorkerHost {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
-    this.logger.log(
-      `Processing ${ATTENDANCE_AUTO_LOCK_JOB} — tenant ${tenant_id}`,
-    );
+    this.logger.log(`Processing ${ATTENDANCE_AUTO_LOCK_JOB} — tenant ${tenant_id}`);
 
     const lockJob = new AttendanceAutoLockJob(this.prisma);
     await lockJob.execute(job.data);
@@ -51,10 +53,7 @@ export class AttendanceAutoLockProcessor extends WorkerHost {
 class AttendanceAutoLockJob extends TenantAwareJob<AttendanceAutoLockPayload> {
   private readonly logger = new Logger(AttendanceAutoLockJob.name);
 
-  protected async processJob(
-    data: AttendanceAutoLockPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: AttendanceAutoLockPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id } = data;
 
     // Read tenant settings for autoLockAfterDays

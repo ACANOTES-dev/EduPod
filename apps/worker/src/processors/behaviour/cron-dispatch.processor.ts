@@ -46,7 +46,11 @@ interface ActiveBehaviourTenant {
  * - SLA: runs every 5 min, enqueues safeguarding SLA checks per tenant
  * - Monthly: runs on the 1st, enqueues retention checks per tenant
  */
-@Processor(QUEUE_NAMES.BEHAVIOUR)
+@Processor(QUEUE_NAMES.BEHAVIOUR, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class BehaviourCronDispatchProcessor extends WorkerHost {
   private readonly logger = new Logger(BehaviourCronDispatchProcessor.name);
 

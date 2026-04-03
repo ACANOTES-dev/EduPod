@@ -21,13 +21,15 @@ export const CHECKIN_ALERT_JOB = 'pastoral:checkin-alert';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PASTORAL)
+@Processor(QUEUE_NAMES.PASTORAL, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class CheckinAlertProcessor extends WorkerHost {
   private readonly logger = new Logger(CheckinAlertProcessor.name);
 
-  constructor(
-    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
-  ) {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();
   }
 
@@ -56,10 +58,7 @@ export class CheckinAlertProcessor extends WorkerHost {
 class CheckinAlertTenantJob extends TenantAwareJob<CheckinAlertPayload> {
   private readonly logger = new Logger(CheckinAlertTenantJob.name);
 
-  protected async processJob(
-    data: CheckinAlertPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: CheckinAlertPayload, tx: PrismaClient): Promise<void> {
     // 1. Load the check-in record
     const checkin = await tx.studentCheckin.findFirst({
       where: { id: data.checkin_id },
@@ -73,9 +72,7 @@ class CheckinAlertTenantJob extends TenantAwareJob<CheckinAlertPayload> {
     });
 
     if (!checkin) {
-      this.logger.warn(
-        `Check-in ${data.checkin_id} not found — skipping alert`,
-      );
+      this.logger.warn(`Check-in ${data.checkin_id} not found — skipping alert`);
       return;
     }
 

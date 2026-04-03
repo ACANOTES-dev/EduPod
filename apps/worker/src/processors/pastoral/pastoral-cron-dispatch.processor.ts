@@ -20,7 +20,11 @@ export const PASTORAL_CRON_DISPATCH_OVERDUE_JOB = 'pastoral:cron-dispatch-overdu
  * and enqueues a `pastoral:overdue-actions` job per tenant. This ensures
  * safeguarding escalations are never missed even if the primary trigger fails.
  */
-@Processor(QUEUE_NAMES.PASTORAL)
+@Processor(QUEUE_NAMES.PASTORAL, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class PastoralCronDispatchProcessor extends WorkerHost {
   private readonly logger = new Logger(PastoralCronDispatchProcessor.name);
 

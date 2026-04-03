@@ -19,7 +19,11 @@ export const OVERDUE_DETECTION_JOB = 'finance:overdue-detection';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.FINANCE)
+@Processor(QUEUE_NAMES.FINANCE, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class OverdueDetectionProcessor extends WorkerHost {
   private readonly logger = new Logger(OverdueDetectionProcessor.name);
 
@@ -38,9 +42,7 @@ export class OverdueDetectionProcessor extends WorkerHost {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
-    this.logger.log(
-      `Processing ${OVERDUE_DETECTION_JOB} — tenant ${tenant_id}`,
-    );
+    this.logger.log(`Processing ${OVERDUE_DETECTION_JOB} — tenant ${tenant_id}`);
 
     const overdueJob = new OverdueDetectionJob(this.prisma);
     await overdueJob.execute(job.data);
@@ -52,10 +54,7 @@ export class OverdueDetectionProcessor extends WorkerHost {
 class OverdueDetectionJob extends TenantAwareJob<OverdueDetectionPayload> {
   private readonly logger = new Logger(OverdueDetectionJob.name);
 
-  protected async processJob(
-    data: OverdueDetectionPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: OverdueDetectionPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, as_of_date } = data;
     const cutoffDate = as_of_date ? new Date(as_of_date) : new Date();
 
@@ -74,9 +73,7 @@ class OverdueDetectionJob extends TenantAwareJob<OverdueDetectionPayload> {
       },
     });
 
-    this.logger.log(
-      `Found ${overdueInvoices.length} overdue invoices for tenant ${tenant_id}`,
-    );
+    this.logger.log(`Found ${overdueInvoices.length} overdue invoices for tenant ${tenant_id}`);
 
     // 2. Update each invoice to overdue status
     for (const invoice of overdueInvoices) {

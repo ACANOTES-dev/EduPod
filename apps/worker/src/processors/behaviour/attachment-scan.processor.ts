@@ -21,7 +21,11 @@ export const ATTACHMENT_SCAN_JOB = 'behaviour:attachment-scan';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.BEHAVIOUR)
+@Processor(QUEUE_NAMES.BEHAVIOUR, {
+  lockDuration: 30_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class AttachmentScanProcessor extends WorkerHost {
   private readonly logger = new Logger(AttachmentScanProcessor.name);
 
@@ -54,10 +58,7 @@ export class AttachmentScanProcessor extends WorkerHost {
 class AttachmentScanJob extends TenantAwareJob<AttachmentScanPayload> {
   private readonly logger = new Logger(AttachmentScanJob.name);
 
-  protected async processJob(
-    data: AttachmentScanPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: AttachmentScanPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, attachment_id } = data;
 
     // 1. Load attachment record
@@ -66,9 +67,7 @@ class AttachmentScanJob extends TenantAwareJob<AttachmentScanPayload> {
     });
 
     if (!attachment) {
-      this.logger.warn(
-        `Attachment ${attachment_id} not found for tenant ${tenant_id} — skipping`,
-      );
+      this.logger.warn(`Attachment ${attachment_id} not found for tenant ${tenant_id} — skipping`);
       return;
     }
 
@@ -97,9 +96,7 @@ class AttachmentScanJob extends TenantAwareJob<AttachmentScanPayload> {
         },
       });
 
-      this.logger.log(
-        `Attachment ${attachment_id} marked as clean (ClamAV unavailable)`,
-      );
+      this.logger.log(`Attachment ${attachment_id} marked as clean (ClamAV unavailable)`);
       return;
     }
 

@@ -20,7 +20,11 @@ export const PARENT_DAILY_DIGEST_JOB = 'notifications:parent-daily-digest';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.NOTIFICATIONS)
+@Processor(QUEUE_NAMES.NOTIFICATIONS, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class ParentDailyDigestProcessor extends WorkerHost {
   private readonly logger = new Logger(ParentDailyDigestProcessor.name);
 

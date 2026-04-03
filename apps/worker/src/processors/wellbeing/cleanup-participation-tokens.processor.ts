@@ -22,7 +22,11 @@ export const CLEANUP_PARTICIPATION_TOKENS_JOB = 'wellbeing:cleanup-participation
  * directly on the base prisma client. The surveys table DOES have tenant_id and
  * is queried without RLS context (cross-tenant sweep).
  */
-@Processor(QUEUE_NAMES.WELLBEING)
+@Processor(QUEUE_NAMES.WELLBEING, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class CleanupParticipationTokensProcessor extends WorkerHost {
   private readonly logger = new Logger(CleanupParticipationTokensProcessor.name);
 
@@ -51,9 +55,7 @@ export class CleanupParticipationTokensProcessor extends WorkerHost {
       return;
     }
 
-    this.logger.log(
-      `Found ${closedSurveys.length} closed survey(s) eligible for token cleanup`,
-    );
+    this.logger.log(`Found ${closedSurveys.length} closed survey(s) eligible for token cleanup`);
 
     // Group by tenant to process each in its own transaction with RLS context
     const byTenant = new Map<string, string[]>();

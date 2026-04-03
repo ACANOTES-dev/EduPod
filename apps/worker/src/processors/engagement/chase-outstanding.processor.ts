@@ -19,7 +19,11 @@ export const CHASE_OUTSTANDING_JOB = 'engagement:chase-outstanding';
  * and creates reminder notifications for pending consent/form submissions
  * approaching their deadlines.
  */
-@Processor(QUEUE_NAMES.ENGAGEMENT)
+@Processor(QUEUE_NAMES.ENGAGEMENT, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class ChaseOutstandingProcessor extends WorkerHost {
   private readonly logger = new Logger(ChaseOutstandingProcessor.name);
 

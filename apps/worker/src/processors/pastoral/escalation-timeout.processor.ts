@@ -51,18 +51,13 @@ interface PastoralEscalationSettings {
   escalation_critical_recipients: string[];
 }
 
-function extractPastoralSettings(
-  settingsJson: unknown,
-): PastoralEscalationSettings {
+function extractPastoralSettings(settingsJson: unknown): PastoralEscalationSettings {
   const settings = (settingsJson as Record<string, unknown>) ?? {};
   const pastoral = (settings?.pastoral as Record<string, unknown>) ?? {};
   const escalation = (pastoral?.escalation as Record<string, unknown>) ?? {};
 
   // Master switch — default to true if not explicitly set
-  const escalationEnabled =
-    typeof escalation?.enabled === 'boolean'
-      ? escalation.enabled
-      : true;
+  const escalationEnabled = typeof escalation?.enabled === 'boolean' ? escalation.enabled : true;
 
   const urgentTimeoutMinutes =
     typeof escalation?.urgent_timeout_minutes === 'number'
@@ -115,21 +110,15 @@ function extractCriticalRecipients(
   // Fall back to notification_recipients.critical from tenant settings
   const settings = (settingsJson as Record<string, unknown>) ?? {};
   const pastoral = (settings?.pastoral as Record<string, unknown>) ?? {};
-  const notifRecipients =
-    (pastoral?.notification_recipients as Record<string, unknown>) ?? {};
-  const criticalConfig =
-    (notifRecipients?.critical as Record<string, unknown>) ?? {};
+  const notifRecipients = (pastoral?.notification_recipients as Record<string, unknown>) ?? {};
+  const criticalConfig = (notifRecipients?.critical as Record<string, unknown>) ?? {};
 
   const userIds = Array.isArray(criticalConfig?.user_ids)
-    ? (criticalConfig.user_ids as string[]).filter(
-        (id): id is string => typeof id === 'string',
-      )
+    ? (criticalConfig.user_ids as string[]).filter((id): id is string => typeof id === 'string')
     : [];
 
   const fallbackRoles = Array.isArray(criticalConfig?.fallback_roles)
-    ? (criticalConfig.fallback_roles as string[]).filter(
-        (r): r is string => typeof r === 'string',
-      )
+    ? (criticalConfig.fallback_roles as string[]).filter((r): r is string => typeof r === 'string')
     : ['dlp', 'principal'];
 
   return { user_ids: userIds, fallback_roles: fallbackRoles };
@@ -137,7 +126,11 @@ function extractCriticalRecipients(
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.PASTORAL)
+@Processor(QUEUE_NAMES.PASTORAL, {
+  lockDuration: 60_000,
+  stalledInterval: 60_000,
+  maxStalledCount: 2,
+})
 export class EscalationTimeoutProcessor extends WorkerHost {
   private readonly logger = new Logger(EscalationTimeoutProcessor.name);
 
@@ -174,20 +167,12 @@ export class EscalationTimeoutProcessor extends WorkerHost {
     // critical_second_round terminates the chain — no further escalation.
     const followUp = tenantJob.followUpJob;
     if (followUp) {
-      const jobId = buildEscalationJobId(
-        tenant_id,
-        concern_id,
-        followUp.escalation_type,
-      );
+      const jobId = buildEscalationJobId(tenant_id, concern_id, followUp.escalation_type);
 
-      await this.pastoralQueue.add(
-        ESCALATION_TIMEOUT_JOB,
-        followUp,
-        {
-          delay: followUp.delay_ms,
-          jobId,
-        },
-      );
+      await this.pastoralQueue.add(ESCALATION_TIMEOUT_JOB, followUp, {
+        delay: followUp.delay_ms,
+        jobId,
+      });
 
       this.logger.log(
         `Enqueued follow-up escalation ${followUp.escalation_type} for concern ${concern_id} ` +
@@ -233,10 +218,7 @@ class EscalationTimeoutTenantJob extends TenantAwareJob<EscalationTimeoutPayload
    */
   public createdNotificationIds: string[] = [];
 
-  protected async processJob(
-    data: EscalationTimeoutPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: EscalationTimeoutPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, concern_id, escalation_type } = data;
 
     // 1. Load tenant settings first to check escalation_enabled
@@ -266,9 +248,7 @@ class EscalationTimeoutTenantJob extends TenantAwareJob<EscalationTimeoutPayload
     });
 
     if (!concern) {
-      this.logger.warn(
-        `Concern ${concern_id} not found for tenant ${tenant_id} — skipping`,
-      );
+      this.logger.warn(`Concern ${concern_id} not found for tenant ${tenant_id} — skipping`);
       return;
     }
 
@@ -281,9 +261,21 @@ class EscalationTimeoutTenantJob extends TenantAwareJob<EscalationTimeoutPayload
     }
 
     if (escalation_type === 'urgent_to_critical') {
-      await this.handleUrgentToCritical(tx, data, concern, pastoralSettings, tenantSettings?.settings);
+      await this.handleUrgentToCritical(
+        tx,
+        data,
+        concern,
+        pastoralSettings,
+        tenantSettings?.settings,
+      );
     } else if (escalation_type === 'critical_second_round') {
-      await this.handleCriticalSecondRound(tx, data, concern, pastoralSettings, tenantSettings?.settings);
+      await this.handleCriticalSecondRound(
+        tx,
+        data,
+        concern,
+        pastoralSettings,
+        tenantSettings?.settings,
+      );
     }
   }
 
@@ -423,9 +415,7 @@ class EscalationTimeoutTenantJob extends TenantAwareJob<EscalationTimeoutPayload
       return;
     }
 
-    const minutesElapsed = Math.round(
-      (now.getTime() - concern.created_at.getTime()) / 60_000,
-    );
+    const minutesElapsed = Math.round((now.getTime() - concern.created_at.getTime()) / 60_000);
 
     // a. Write pastoral_event: critical_concern_unacknowledged
     await tx.pastoralEvent.create({
@@ -456,11 +446,7 @@ class EscalationTimeoutTenantJob extends TenantAwareJob<EscalationTimeoutPayload
     if (pastoralSettings.escalation_critical_recipients.length > 0) {
       recipients = [...new Set(pastoralSettings.escalation_critical_recipients)];
     } else {
-      recipients = await this.resolvePrincipalRecipient(
-        tx,
-        tenant_id,
-        rawSettings,
-      );
+      recipients = await this.resolvePrincipalRecipient(tx, tenant_id, rawSettings);
     }
 
     if (recipients.length === 0) {
@@ -528,9 +514,7 @@ class EscalationTimeoutTenantJob extends TenantAwareJob<EscalationTimeoutPayload
     }
 
     // Deduplicate and exclude the author
-    const unique = [...new Set(recipientIds)].filter(
-      (id) => id !== excludeUserId,
-    );
+    const unique = [...new Set(recipientIds)].filter((id) => id !== excludeUserId);
 
     return unique;
   }
