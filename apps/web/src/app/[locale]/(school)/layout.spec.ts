@@ -6,8 +6,7 @@
  */
 
 import { filterNavForRoles, navSectionConfigs } from '@/lib/nav-config';
-import type { NavItemConfig, NavSectionConfig } from '@/lib/nav-config';
-import { ADMIN_ROLES, STAFF_ROLES } from '@/lib/route-roles';
+import type { NavItemConfig } from '@/lib/nav-config';
 
 export {}; // Module boundary — prevents global scope collisions with other spec files
 
