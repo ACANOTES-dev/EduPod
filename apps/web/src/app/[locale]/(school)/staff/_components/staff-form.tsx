@@ -1,9 +1,13 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
 import { RefreshCw } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+import { Controller, useForm } from 'react-hook-form';
 
+import { createStaffProfileSchema, updateStaffProfileSchema } from '@school/shared';
+import type { CreateStaffProfileDto } from '@school/shared';
 import {
   Button,
   Input,
@@ -62,22 +66,6 @@ function generateStaffNumber(): string {
   return `${letterPart}${numberPart}-${lastDigit}`;
 }
 
-const DEFAULT_VALUES: StaffFormValues = {
-  first_name: '',
-  last_name: '',
-  email: '',
-  phone: '',
-  role_id: '',
-  staff_number: '',
-  job_title: '',
-  employment_status: 'active',
-  department: '',
-  employment_type: 'full_time',
-  bank_name: '',
-  bank_account_number: '',
-  bank_iban: '',
-};
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function StaffForm({
@@ -91,14 +79,41 @@ export function StaffForm({
   const t = useTranslations('staff');
   const tc = useTranslations('common');
 
-  const [values, setValues] = React.useState<StaffFormValues>(() => ({
-    ...DEFAULT_VALUES,
-    staff_number: generateStaffNumber(),
-    ...initialValues,
-  }));
+  // staff_number is not in the Zod schema (it is auto-generated and sent separately by the
+  // parent caller). Keep it as local state so it can be regenerated without touching the form.
+  const [staffNumber, setStaffNumber] = React.useState<string>(
+    () => initialValues?.staff_number ?? generateStaffNumber(),
+  );
   const [roles, setRoles] = React.useState<RoleOption[]>([]);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState('');
+  const [apiError, setApiError] = React.useState('');
+
+  // ─── Form setup ─────────────────────────────────────────────────────────────
+
+  // Edit mode uses updateStaffProfileSchema (all fields optional).
+  // Create mode uses createStaffProfileSchema (required fields enforced).
+  const schema = isEdit ? updateStaffProfileSchema : createStaffProfileSchema;
+
+  const form = useForm<CreateStaffProfileDto>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      first_name: initialValues?.first_name ?? '',
+      last_name: initialValues?.last_name ?? '',
+      email: initialValues?.email ?? '',
+      phone: initialValues?.phone ?? '',
+      role_id: initialValues?.role_id ?? '',
+      job_title: initialValues?.job_title ?? '',
+      employment_status: (initialValues?.employment_status as 'active' | 'inactive') ?? 'active',
+      department: initialValues?.department ?? '',
+      employment_type:
+        (initialValues?.employment_type as 'full_time' | 'part_time' | 'contract' | 'substitute') ??
+        'full_time',
+      bank_name: initialValues?.bank_name ?? '',
+      bank_account_number: initialValues?.bank_account_number ?? '',
+      bank_iban: initialValues?.bank_iban ?? '',
+    },
+  });
+
+  // ─── Data fetching ───────────────────────────────────────────────────────────
 
   React.useEffect(() => {
     apiClient<{ data: RoleOption[] }>('/api/v1/roles')
@@ -109,29 +124,30 @@ export function StaffForm({
       .catch(() => setRoles([]));
   }, []);
 
-  const set = (field: keyof StaffFormValues) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setValues((prev) => ({ ...prev, [field]: e.target.value }));
+  // ─── Staff number regeneration ───────────────────────────────────────────────
 
   const regenerateStaffNumber = () => {
-    setValues((prev) => ({ ...prev, staff_number: generateStaffNumber() }));
+    setStaffNumber(generateStaffNumber());
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+  // ─── Submit ──────────────────────────────────────────────────────────────────
+
+  const handleSubmit = form.handleSubmit(async (values) => {
+    setApiError('');
     try {
-      await onSubmit(values);
+      // Merge staff_number (local state) back into the values passed to the parent.
+      // The parent is typed against StaffFormValues which includes staff_number.
+      await onSubmit({ ...values, staff_number: staffNumber } as unknown as StaffFormValues);
     } catch (err: unknown) {
       const ex = err as { error?: { message?: string } };
-      setError(ex?.error?.message ?? tc('errorGeneric'));
-    } finally {
-      setLoading(false);
+      setApiError(ex?.error?.message ?? tc('errorGeneric'));
     }
-  };
+  });
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
       {/* Personal Information — only shown on create */}
       {!isEdit && (
         <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
@@ -139,16 +155,21 @@ export function StaffForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="first_name">{t('fieldFirstName')}</Label>
-              <Input
-                id="first_name"
-                value={values.first_name}
-                onChange={set('first_name')}
-                required
-              />
+              <Input id="first_name" {...form.register('first_name')} className="text-base" />
+              {form.formState.errors.first_name && (
+                <p className="text-xs text-danger-text">
+                  {form.formState.errors.first_name.message}
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="last_name">{t('fieldLastName')}</Label>
-              <Input id="last_name" value={values.last_name} onChange={set('last_name')} required />
+              <Input id="last_name" {...form.register('last_name')} className="text-base" />
+              {form.formState.errors.last_name && (
+                <p className="text-xs text-danger-text">
+                  {form.formState.errors.last_name.message}
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="email">{t('fieldEmail')}</Label>
@@ -156,10 +177,12 @@ export function StaffForm({
                 id="email"
                 type="email"
                 dir="ltr"
-                value={values.email}
-                onChange={set('email')}
-                required
+                {...form.register('email')}
+                className="text-base"
               />
+              {form.formState.errors.email && (
+                <p className="text-xs text-danger-text">{form.formState.errors.email.message}</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="phone">{t('fieldPhone')}</Label>
@@ -167,40 +190,49 @@ export function StaffForm({
                 id="phone"
                 type="tel"
                 dir="ltr"
-                value={values.phone}
-                onChange={set('phone')}
-                required
+                {...form.register('phone')}
+                className="text-base"
               />
+              {form.formState.errors.phone && (
+                <p className="text-xs text-danger-text">{form.formState.errors.phone.message}</p>
+              )}
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="role_id">{t('fieldRole')}</Label>
-              <Select
-                value={values.role_id}
-                onValueChange={(v) => setValues((p) => ({ ...p, role_id: v }))}
-              >
-                <SelectTrigger id="role_id">
-                  <SelectValue placeholder={t('selectRole')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {roles.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      {r.display_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Controller
+                control={form.control}
+                name="role_id"
+                render={({ field }) => (
+                  <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                    <SelectTrigger id="role_id" className="text-base">
+                      <SelectValue placeholder={t('selectRole')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roles.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>
+                          {r.display_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {form.formState.errors.role_id && (
+                <p className="text-xs text-danger-text">{form.formState.errors.role_id.message}</p>
+              )}
             </div>
 
+            {/* staff_number lives outside the Zod schema — managed as local state */}
             <div className="space-y-1.5">
               <Label htmlFor="staff_number">{t('staffNumber')}</Label>
               <div className="flex gap-2">
                 <Input
                   id="staff_number"
                   dir="ltr"
-                  value={values.staff_number}
+                  value={staffNumber}
                   readOnly
-                  className="font-mono tracking-wider bg-surface-secondary"
+                  className="font-mono tracking-wider bg-surface-secondary text-base"
                 />
                 <Button
                   type="button"
@@ -224,45 +256,51 @@ export function StaffForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="job_title">{t('fieldJobTitle')}</Label>
-            <Input id="job_title" value={values.job_title} onChange={set('job_title')} />
+            <Input id="job_title" {...form.register('job_title')} className="text-base" />
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="department">{t('fieldDepartment')}</Label>
-            <Input id="department" value={values.department} onChange={set('department')} />
+            <Input id="department" {...form.register('department')} className="text-base" />
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="employment_status">{t('fieldEmploymentStatus')}</Label>
-            <Select
-              value={values.employment_status}
-              onValueChange={(v) => setValues((p) => ({ ...p, employment_status: v }))}
-            >
-              <SelectTrigger id="employment_status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">{t('statusActive')}</SelectItem>
-                <SelectItem value="inactive">{t('statusInactive')}</SelectItem>
-              </SelectContent>
-            </Select>
+            <Controller
+              control={form.control}
+              name="employment_status"
+              render={({ field }) => (
+                <Select value={field.value ?? 'active'} onValueChange={field.onChange}>
+                  <SelectTrigger id="employment_status" className="text-base">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">{t('statusActive')}</SelectItem>
+                    <SelectItem value="inactive">{t('statusInactive')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="employment_type">{t('fieldEmploymentType')}</Label>
-            <Select
-              value={values.employment_type}
-              onValueChange={(v) => setValues((p) => ({ ...p, employment_type: v }))}
-            >
-              <SelectTrigger id="employment_type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="full_time">{t('typeFullTime')}</SelectItem>
-                <SelectItem value="part_time">{t('typePartTime')}</SelectItem>
-                <SelectItem value="contract">{t('typeContract')}</SelectItem>
-              </SelectContent>
-            </Select>
+            <Controller
+              control={form.control}
+              name="employment_type"
+              render={({ field }) => (
+                <Select value={field.value ?? 'full_time'} onValueChange={field.onChange}>
+                  <SelectTrigger id="employment_type" className="text-base">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="full_time">{t('typeFullTime')}</SelectItem>
+                    <SelectItem value="part_time">{t('typePartTime')}</SelectItem>
+                    <SelectItem value="contract">{t('typeContract')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
         </div>
       </div>
@@ -274,40 +312,45 @@ export function StaffForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="bank_name">{t('fieldBankName')}</Label>
-              <Input id="bank_name" value={values.bank_name} onChange={set('bank_name')} />
+              <Input id="bank_name" {...form.register('bank_name')} className="text-base" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="bank_account_number">{t('fieldBankAccountNumber')}</Label>
               <Input
                 id="bank_account_number"
-                value={values.bank_account_number}
-                onChange={set('bank_account_number')}
+                {...form.register('bank_account_number')}
                 dir="ltr"
+                className="text-base"
               />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="bank_iban">{t('fieldBankIban')}</Label>
               <Input
                 id="bank_iban"
-                value={values.bank_iban}
-                onChange={set('bank_iban')}
+                {...form.register('bank_iban')}
                 dir="ltr"
+                className="text-base"
               />
             </div>
           </div>
         </div>
       )}
 
-      {error && <p className="text-sm text-danger-text">{error}</p>}
+      {apiError && <p className="text-sm text-danger-text">{apiError}</p>}
 
       <div className="flex items-center justify-end gap-3">
         {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={form.formState.isSubmitting}
+          >
             {tc('cancel')}
           </Button>
         )}
-        <Button type="submit" disabled={loading}>
-          {loading ? tc('loading') : (submitLabel ?? tc('save'))}
+        <Button type="submit" disabled={form.formState.isSubmitting}>
+          {form.formState.isSubmitting ? tc('loading') : (submitLabel ?? tc('save'))}
         </Button>
       </div>
     </form>

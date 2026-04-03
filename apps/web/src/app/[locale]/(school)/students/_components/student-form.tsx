@@ -1,31 +1,37 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import * as React from 'react';
+import { Controller, useForm } from 'react-hook-form';
 
+import { createStudentSchema, updateStudentSchema } from '@school/shared';
+import type { CreateStudentDto } from '@school/shared';
 import {
   Button,
+  Checkbox,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
   Input,
   Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
   Textarea,
-  Checkbox,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Command,
-  CommandInput,
-  CommandList,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
 } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface YearGroup {
   id: string;
@@ -44,6 +50,7 @@ interface Household {
   } | null;
 }
 
+// StudentFormData kept for backward-compat with parent components that pass initialData
 export interface StudentFormData {
   first_name: string;
   middle_name: string;
@@ -67,30 +74,43 @@ interface StudentFormProps {
   isEditMode?: boolean;
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export function StudentForm({ initialData, onSubmit, isEditMode = false }: StudentFormProps) {
   const [yearGroups, setYearGroups] = React.useState<YearGroup[]>([]);
   const [households, setHouseholds] = React.useState<Household[]>([]);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [errors, setErrors] = React.useState<Record<string, string>>({});
-
   const [householdOpen, setHouseholdOpen] = React.useState(false);
 
-  const [formData, setFormData] = React.useState<StudentFormData>({
-    first_name: initialData?.first_name ?? '',
-    middle_name: initialData?.middle_name ?? '',
-    last_name: initialData?.last_name ?? '',
-    date_of_birth: initialData?.date_of_birth ?? '',
-    gender: initialData?.gender ?? '',
-    household_id: initialData?.household_id ?? '',
-    year_group_id: initialData?.year_group_id ?? '',
-    status: initialData?.status ?? 'applicant',
-    national_id: initialData?.national_id ?? '',
-    nationality: initialData?.nationality ?? '',
-    city_of_birth: initialData?.city_of_birth ?? '',
-    medical_notes: initialData?.medical_notes ?? '',
-    has_allergy: initialData?.has_allergy ?? false,
-    allergy_details: initialData?.allergy_details ?? '',
+  // ─── Form setup ─────────────────────────────────────────────────────────────
+
+  // Edit mode uses updateStudentSchema (all fields optional).
+  // Create mode uses createStudentSchema (required fields enforced).
+  const schema = isEditMode ? updateStudentSchema : createStudentSchema;
+
+  const form = useForm<CreateStudentDto>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      first_name: initialData?.first_name ?? '',
+      middle_name: initialData?.middle_name ?? '',
+      last_name: initialData?.last_name ?? '',
+      date_of_birth: initialData?.date_of_birth ?? '',
+      gender: (initialData?.gender as CreateStudentDto['gender']) ?? undefined,
+      household_id: initialData?.household_id ?? '',
+      year_group_id: initialData?.year_group_id ?? '',
+      status: (initialData?.status as 'applicant' | 'active') ?? 'applicant',
+      national_id: initialData?.national_id ?? '',
+      nationality: initialData?.nationality ?? '',
+      city_of_birth: initialData?.city_of_birth ?? '',
+      medical_notes: initialData?.medical_notes ?? '',
+      has_allergy: initialData?.has_allergy ?? false,
+      allergy_details: initialData?.allergy_details ?? '',
+    },
   });
+
+  const watchHasAllergy = form.watch('has_allergy');
+  const watchHouseholdId = form.watch('household_id');
+
+  // ─── Data fetching ───────────────────────────────────────────────────────────
 
   React.useEffect(() => {
     const fetchOptions = async () => {
@@ -102,45 +122,20 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
         setYearGroups(ygRes.data);
         setHouseholds(hhRes.data);
       } catch (err) {
-        // ignore fetch failures — dropdowns will be empty
-        console.error('[setHouseholds]', err);
+        console.error('[StudentForm fetchOptions]', err);
       }
     };
     void fetchOptions();
   }, []);
 
-  const set = (field: keyof StudentFormData, value: string | boolean) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: '' }));
-  };
+  // ─── Submit ──────────────────────────────────────────────────────────────────
 
-  const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    if (!formData.first_name.trim()) newErrors.first_name = 'First name is required';
-    if (!formData.last_name.trim()) newErrors.last_name = 'Last name is required';
-    if (!formData.date_of_birth) newErrors.date_of_birth = 'Date of birth is required';
-    if (!formData.gender) newErrors.gender = 'Gender is required';
-    if (!formData.household_id) newErrors.household_id = 'Household is required';
-    if (!formData.year_group_id) newErrors.year_group_id = 'Year group is required';
-    if (!formData.national_id.trim()) newErrors.national_id = 'National ID is required';
-    if (!formData.nationality.trim()) newErrors.nationality = 'Nationality is required';
-    if (formData.has_allergy && !formData.allergy_details?.trim()) {
-      newErrors.allergy_details = 'Allergy details are required when has_allergy is checked';
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  const handleSubmit = form.handleSubmit(async (values) => {
+    // Cast to StudentFormData so the parent's onSubmit signature is satisfied
+    await onSubmit(values as unknown as StudentFormData);
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-    setIsSubmitting(true);
-    try {
-      await onSubmit(formData);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6 max-w-2xl">
@@ -150,30 +145,34 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
           <Label htmlFor="first_name">First Name *</Label>
           <Input
             id="first_name"
-            value={formData.first_name}
-            onChange={(e) => set('first_name', e.target.value)}
+            {...form.register('first_name')}
             placeholder="First name"
+            className="text-base"
           />
-          {errors.first_name && <p className="text-xs text-danger-text">{errors.first_name}</p>}
+          {form.formState.errors.first_name && (
+            <p className="text-xs text-danger-text">{form.formState.errors.first_name.message}</p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="middle_name">Middle Name</Label>
           <Input
             id="middle_name"
-            value={formData.middle_name}
-            onChange={(e) => set('middle_name', e.target.value)}
+            {...form.register('middle_name')}
             placeholder="Middle name"
+            className="text-base"
           />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="last_name">Last Name *</Label>
           <Input
             id="last_name"
-            value={formData.last_name}
-            onChange={(e) => set('last_name', e.target.value)}
+            {...form.register('last_name')}
             placeholder="Last name"
+            className="text-base"
           />
-          {errors.last_name && <p className="text-xs text-danger-text">{errors.last_name}</p>}
+          {form.formState.errors.last_name && (
+            <p className="text-xs text-danger-text">{form.formState.errors.last_name.message}</p>
+          )}
         </div>
       </div>
 
@@ -185,27 +184,37 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
             id="date_of_birth"
             type="date"
             dir="ltr"
-            value={formData.date_of_birth}
-            onChange={(e) => set('date_of_birth', e.target.value)}
+            {...form.register('date_of_birth')}
+            className="text-base"
           />
-          {errors.date_of_birth && (
-            <p className="text-xs text-danger-text">{errors.date_of_birth}</p>
+          {form.formState.errors.date_of_birth && (
+            <p className="text-xs text-danger-text">
+              {form.formState.errors.date_of_birth.message}
+            </p>
           )}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="gender">Gender *</Label>
-          <Select value={formData.gender} onValueChange={(v) => set('gender', v)}>
-            <SelectTrigger id="gender">
-              <SelectValue placeholder="Select gender" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="male">Male</SelectItem>
-              <SelectItem value="female">Female</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
-              <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
-            </SelectContent>
-          </Select>
-          {errors.gender && <p className="text-xs text-danger-text">{errors.gender}</p>}
+          <Controller
+            control={form.control}
+            name="gender"
+            render={({ field }) => (
+              <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                <SelectTrigger id="gender" className="text-base">
+                  <SelectValue placeholder="Select gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {form.formState.errors.gender && (
+            <p className="text-xs text-danger-text">{form.formState.errors.gender.message}</p>
+          )}
         </div>
       </div>
 
@@ -213,80 +222,96 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label htmlFor="household_id">Household *</Label>
-          <Popover open={householdOpen} onOpenChange={setHouseholdOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={householdOpen}
-                className="w-full justify-between font-normal"
-              >
-                {formData.household_id
-                  ? (households.find((h) => h.id === formData.household_id)?.household_name ??
-                    households.find((h) => h.id === formData.household_id)?.name ??
-                    'Select household')
-                  : 'Select household'}
-                <ChevronsUpDown className="ms-2 h-4 w-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-              <Command>
-                <CommandInput placeholder="Search households..." />
-                <CommandList>
-                  <CommandEmpty>No household found.</CommandEmpty>
-                  <CommandGroup>
-                    {households.map((hh) => (
-                      <CommandItem
-                        key={hh.id}
-                        value={`${hh.household_name ?? hh.name ?? ''} ${hh.household_number ?? ''} ${hh.primary_billing_parent ? `${hh.primary_billing_parent.first_name} ${hh.primary_billing_parent.last_name}` : ''}`}
-                        onSelect={() => {
-                          set('household_id', hh.id);
-                          setHouseholdOpen(false);
-                        }}
-                      >
-                        <Check
-                          className={`me-2 h-4 w-4 ${formData.household_id === hh.id ? 'opacity-100' : 'opacity-0'}`}
-                        />
-                        <div>
-                          <p className="text-sm font-medium">
-                            {hh.household_name ?? hh.name ?? 'Unnamed'}
-                          </p>
-                          <p className="text-xs text-text-tertiary">
-                            {[
-                              hh.household_number,
-                              hh.primary_billing_parent
-                                ? `${hh.primary_billing_parent.first_name} ${hh.primary_billing_parent.last_name}`
-                                : null,
-                            ]
-                              .filter(Boolean)
-                              .join(' · ') || 'No details'}
-                          </p>
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-          {errors.household_id && <p className="text-xs text-danger-text">{errors.household_id}</p>}
+          <Controller
+            control={form.control}
+            name="household_id"
+            render={({ field }) => (
+              <Popover open={householdOpen} onOpenChange={setHouseholdOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={householdOpen}
+                    className="w-full justify-between font-normal text-base"
+                  >
+                    {watchHouseholdId
+                      ? (households.find((h) => h.id === watchHouseholdId)?.household_name ??
+                        households.find((h) => h.id === watchHouseholdId)?.name ??
+                        'Select household')
+                      : 'Select household'}
+                    <ChevronsUpDown className="ms-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search households..." />
+                    <CommandList>
+                      <CommandEmpty>No household found.</CommandEmpty>
+                      <CommandGroup>
+                        {households.map((hh) => (
+                          <CommandItem
+                            key={hh.id}
+                            value={`${hh.household_name ?? hh.name ?? ''} ${hh.household_number ?? ''} ${hh.primary_billing_parent ? `${hh.primary_billing_parent.first_name} ${hh.primary_billing_parent.last_name}` : ''}`}
+                            onSelect={() => {
+                              field.onChange(hh.id);
+                              setHouseholdOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={`me-2 h-4 w-4 ${field.value === hh.id ? 'opacity-100' : 'opacity-0'}`}
+                            />
+                            <div>
+                              <p className="text-sm font-medium">
+                                {hh.household_name ?? hh.name ?? 'Unnamed'}
+                              </p>
+                              <p className="text-xs text-text-tertiary">
+                                {[
+                                  hh.household_number,
+                                  hh.primary_billing_parent
+                                    ? `${hh.primary_billing_parent.first_name} ${hh.primary_billing_parent.last_name}`
+                                    : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ') || 'No details'}
+                              </p>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            )}
+          />
+          {form.formState.errors.household_id && (
+            <p className="text-xs text-danger-text">{form.formState.errors.household_id.message}</p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="year_group_id">Year Group *</Label>
-          <Select value={formData.year_group_id} onValueChange={(v) => set('year_group_id', v)}>
-            <SelectTrigger id="year_group_id">
-              <SelectValue placeholder="Select year group" />
-            </SelectTrigger>
-            <SelectContent>
-              {yearGroups.map((yg) => (
-                <SelectItem key={yg.id} value={yg.id}>
-                  {yg.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.year_group_id && (
-            <p className="text-xs text-danger-text">{errors.year_group_id}</p>
+          <Controller
+            control={form.control}
+            name="year_group_id"
+            render={({ field }) => (
+              <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                <SelectTrigger id="year_group_id" className="text-base">
+                  <SelectValue placeholder="Select year group" />
+                </SelectTrigger>
+                <SelectContent>
+                  {yearGroups.map((yg) => (
+                    <SelectItem key={yg.id} value={yg.id}>
+                      {yg.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {form.formState.errors.year_group_id && (
+            <p className="text-xs text-danger-text">
+              {form.formState.errors.year_group_id.message}
+            </p>
           )}
         </div>
       </div>
@@ -298,24 +323,32 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
           <Input
             id="national_id"
             dir="ltr"
-            value={formData.national_id}
-            onChange={(e) => set('national_id', e.target.value)}
+            {...form.register('national_id')}
             placeholder="e.g. 1234567890"
+            className="text-base"
           />
-          {errors.national_id && <p className="text-xs text-danger-text">{errors.national_id}</p>}
+          {form.formState.errors.national_id && (
+            <p className="text-xs text-danger-text">{form.formState.errors.national_id.message}</p>
+          )}
         </div>
         {!isEditMode && (
           <div className="space-y-1.5">
             <Label htmlFor="status">Status</Label>
-            <Select value={formData.status} onValueChange={(v) => set('status', v)}>
-              <SelectTrigger id="status">
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="applicant">Applicant</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-              </SelectContent>
-            </Select>
+            <Controller
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <Select value={field.value ?? 'applicant'} onValueChange={field.onChange}>
+                  <SelectTrigger id="status" className="text-base">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="applicant">Applicant</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
         )}
       </div>
@@ -326,19 +359,21 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
           <Label htmlFor="nationality">Nationality *</Label>
           <Input
             id="nationality"
-            value={formData.nationality}
-            onChange={(e) => set('nationality', e.target.value)}
+            {...form.register('nationality')}
             placeholder="e.g. Irish, British, Emirati"
+            className="text-base"
           />
-          {errors.nationality && <p className="text-xs text-danger-text">{errors.nationality}</p>}
+          {form.formState.errors.nationality && (
+            <p className="text-xs text-danger-text">{form.formState.errors.nationality.message}</p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="city_of_birth">City of Birth</Label>
           <Input
             id="city_of_birth"
-            value={formData.city_of_birth}
-            onChange={(e) => set('city_of_birth', e.target.value)}
+            {...form.register('city_of_birth')}
             placeholder="e.g. Dublin, London"
+            className="text-base"
           />
         </div>
       </div>
@@ -348,44 +383,56 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
         <Label htmlFor="medical_notes">Medical Notes</Label>
         <Textarea
           id="medical_notes"
-          value={formData.medical_notes}
-          onChange={(e) => set('medical_notes', e.target.value)}
+          {...form.register('medical_notes')}
           placeholder="Any relevant medical information..."
           rows={3}
+          className="text-base"
         />
       </div>
 
       {/* Allergy */}
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Checkbox
-            id="has_allergy"
-            checked={formData.has_allergy}
-            onCheckedChange={(checked) => set('has_allergy', !!checked)}
+          <Controller
+            control={form.control}
+            name="has_allergy"
+            render={({ field }) => (
+              <Checkbox
+                id="has_allergy"
+                checked={field.value ?? false}
+                onCheckedChange={(checked) => field.onChange(!!checked)}
+              />
+            )}
           />
           <Label htmlFor="has_allergy">Student has known allergies</Label>
         </div>
 
-        {formData.has_allergy && (
+        {watchHasAllergy && (
           <div className="space-y-1.5 ps-6">
             <Label htmlFor="allergy_details">Allergy Details *</Label>
             <Textarea
               id="allergy_details"
-              value={formData.allergy_details}
-              onChange={(e) => set('allergy_details', e.target.value)}
+              {...form.register('allergy_details')}
               placeholder="Describe the allergies and any required emergency treatment..."
               rows={3}
+              className="text-base"
             />
-            {errors.allergy_details && (
-              <p className="text-xs text-danger-text">{errors.allergy_details}</p>
+            {form.formState.errors.allergy_details && (
+              <p className="text-xs text-danger-text">
+                {form.formState.errors.allergy_details.message}
+              </p>
             )}
           </div>
         )}
       </div>
 
       <div className="flex items-center gap-3 pt-2">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Saving...' : isEditMode ? 'Save Changes' : 'Create Student'}
+        <Button type="submit" disabled={form.formState.isSubmitting}>
+          {form.formState.isSubmitting
+            ? 'Saving...'
+            : isEditMode
+              ? 'Save Changes'
+              : 'Create Student'}
         </Button>
       </div>
     </form>
