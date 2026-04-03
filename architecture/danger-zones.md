@@ -642,3 +642,9 @@ If a migration removes or narrows these bootstrap policies, or if middleware/ser
 - authenticated users lose permissions because the cache refresh path cannot read role grants
 
 **Mitigation**: Treat bootstrap-readable RLS policies as an auth contract, not just schema boilerplate. Any change to `tenant_domains`, `tenant_memberships`, `membership_roles`, `roles`, or `role_permissions` policies must be regression-tested with real login, `/auth/me`, permission-cache refresh, and hostname-based tenant resolution.
+
+## DZ-39: Import Processor S3 I/O Was Inside Transaction — RESOLVED
+
+**Risk**: `ImportProcessingProcessor` and `ImportValidationProcessor` performed S3 downloads and deletes inside the `TenantAwareJob` Prisma transaction. S3 network failures could deadlock the transaction, and inconsistent rollback could leave orphan S3 files or missing data.
+
+**Resolution**: S3 download now runs before the transaction; S3 delete runs after the transaction commits. `processJob()` receives a pre-fetched buffer. If S3 download fails, no transaction is opened. If S3 delete fails after commit, the import data is safely persisted and the file can be cleaned up later by the file cleanup cron.

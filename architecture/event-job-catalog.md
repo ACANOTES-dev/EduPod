@@ -425,7 +425,7 @@ Cron fires daily at 08:00 tenant TZ
 
 1. **Compliance shares the imports queue** — `compliance:execute` jobs go through the `imports` queue. If the imports queue is backed up, compliance actions (GDPR erasure) are delayed.
 
-2. **Approval callbacks are now tracked (MITIGATED)** — `callback_status` (`pending`/`executed`/`failed`) and `callback_attempts` fields track callback lifecycle. Daily reconciliation cron (`approvals:callback-reconciliation`, 04:30 UTC) retries stuck callbacks up to 5 attempts. After 5 attempts, manual intervention required.
+2. **Approval callbacks are now tracked (MITIGATED)** — `callback_status` (`pending`/`executed`/`failed`) and `callback_attempts` fields track callback lifecycle. Daily reconciliation cron (`approvals:callback-reconciliation`, 04:30 UTC) retries stuck callbacks up to 5 attempts. After 5 attempts, manual intervention via `POST /v1/approval-requests/:id/retry-callback` (single) or `POST /v1/approval-requests/bulk-retry-callbacks` (bulk). Callback health visible at `GET /v1/approval-requests/callback-health`. Retry has idempotency guard — already-executed callbacks are rejected.
 
 3. **Cron jobs iterate ALL tenants** — Risk detection and report card auto-generation loop through every active tenant. Adding a tenant increases job duration linearly.
 
@@ -454,6 +454,8 @@ Cron fires daily at 08:00 tenant TZ
 15. **Check-awards queue failure is swallowed** — When `BehaviourService.createIncident()` enqueues `behaviour:check-awards`, the queue add is wrapped in try/catch with an empty catch block. If the queue is down, no auto-awards are checked and no error is surfaced to the user or logged.
 
 16. **ClamAV scanning is a TODO** — `AttachmentScanProcessor` has a development fallback that marks all attachments as `clean` when ClamAV is unavailable. Even when ClamAV IS available, the actual scanning integration is a TODO — it currently marks files as clean unconditionally.
+
+17. **All processors have explicit lock discipline** — Every `@Processor()` decorator specifies `lockDuration`, `stalledInterval: 60_000`, and `maxStalledCount: 2`. Lock durations are classified by workload: 30s (simple), 60s (medium), 120s (heavy), 300s (critical/long-running). Stalled jobs are detected every 60s and marked failed after 2 stalled detections. Do not add new processors without explicit lock settings.
 
 ---
 
