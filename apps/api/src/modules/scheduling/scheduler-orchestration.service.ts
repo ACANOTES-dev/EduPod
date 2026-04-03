@@ -9,22 +9,22 @@ import {
 import { Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 
-import type {
-  TriggerSolverRunDto,
-  SolverInputV2,
-  YearGroupInput,
-  CurriculumEntry,
-  TeacherInputV2,
-  RoomInfoV2,
-  RoomClosureInput,
-  BreakGroupInput,
-  PinnedEntryV2,
-  StudentOverlapV2,
-  PeriodSlotV2,
-  SolverSettingsV2,
-  SolverAssignmentV2,
-} from '@school/shared';
-import { validateSchedule } from '@school/shared';
+import type { TriggerSolverRunDto } from '@school/shared';
+import {
+  type SolverInputV2,
+  type YearGroupInput,
+  type CurriculumEntry,
+  type TeacherInputV2,
+  type RoomInfoV2,
+  type RoomClosureInput,
+  type BreakGroupInput,
+  type PinnedEntryV2,
+  type StudentOverlapV2,
+  type PeriodSlotV2,
+  type SolverSettingsV2,
+  type SolverAssignmentV2,
+  validateSchedule,
+} from '@school/shared/scheduler';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

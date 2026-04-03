@@ -1,5 +1,4 @@
-import { cohortQuerySchema } from '@school/shared';
-import type { CohortQuery } from '@school/shared';
+import { cohortQuerySchema, type CohortQuery } from '@school/shared/early-warning';
 
 export { cohortQuerySchema };
 export type { CohortQuery };

@@ -9,7 +9,7 @@ import {
   SECURITY_INCIDENT_SEVERITIES,
   SECURITY_INCIDENT_STATUSES,
   SECURITY_INCIDENT_TYPES,
-} from '@school/shared';
+} from '@school/shared/security';
 import {
   Badge,
   Button,

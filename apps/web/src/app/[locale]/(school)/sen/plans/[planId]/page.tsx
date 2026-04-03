@@ -5,8 +5,12 @@ import { useParams, useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { getValidGoalStatusTransitions, getValidSupportPlanTransitions } from '@school/shared';
-import type { SenGoalStatus, SupportPlanStatus } from '@school/shared';
+import {
+  getValidGoalStatusTransitions,
+  getValidSupportPlanTransitions,
+  type SenGoalStatus,
+  type SupportPlanStatus,
+} from '@school/shared/sen';
 import {
   Button,
   Dialog,

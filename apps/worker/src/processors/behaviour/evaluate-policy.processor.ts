@@ -4,11 +4,11 @@ import { $Enums, Prisma, PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
 import {
-  EARLY_WARNING_COMPUTE_STUDENT_JOB,
   EvaluatedInputSchema,
   PolicyCondition,
   PolicyConditionSchema,
-} from '@school/shared';
+} from '@school/shared/behaviour';
+import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared/early-warning';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';

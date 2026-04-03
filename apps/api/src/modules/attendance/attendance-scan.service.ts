@@ -7,7 +7,8 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 
-import type { GdprOutboundData, ScanResultEntry } from '@school/shared';
+import type { ScanResultEntry } from '@school/shared';
+import type { GdprOutboundData } from '@school/shared/gdpr';
 
 import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { SettingsService } from '../configuration/settings.service';

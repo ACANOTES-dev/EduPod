@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 
-import { pastoralTenantSettingsSchema } from '@school/shared';
+import { pastoralTenantSettingsSchema } from '@school/shared/pastoral';
 
 import { PrismaService } from '../../prisma/prisma.service';
 

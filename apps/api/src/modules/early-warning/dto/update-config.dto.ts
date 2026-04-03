@@ -1,5 +1,7 @@
-import { updateEarlyWarningConfigSchema } from '@school/shared';
-import type { UpdateEarlyWarningConfigDto } from '@school/shared';
+import {
+  updateEarlyWarningConfigSchema,
+  type UpdateEarlyWarningConfigDto,
+} from '@school/shared/early-warning';
 
 export { updateEarlyWarningConfigSchema };
 export type { UpdateEarlyWarningConfigDto };

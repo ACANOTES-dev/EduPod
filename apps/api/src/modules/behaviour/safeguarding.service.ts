@@ -13,7 +13,7 @@ import type {
   SafeguardingStatusTransitionDto,
   TuslaReferralDto,
   UpdateSafeguardingConcernDto,
-} from '@school/shared';
+} from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
 

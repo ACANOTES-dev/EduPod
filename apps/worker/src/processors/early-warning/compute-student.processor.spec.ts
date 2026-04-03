@@ -1,6 +1,9 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
-import type { RiskAssessment, SignalResult } from '@school/shared';
-import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
+import {
+  type RiskAssessment,
+  type SignalResult,
+  EARLY_WARNING_COMPUTE_STUDENT_JOB,
+} from '@school/shared/early-warning';
 import { Job } from 'bullmq';
 
 jest.mock('./early-warning-action.utils', () => ({

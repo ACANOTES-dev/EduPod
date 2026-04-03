@@ -8,8 +8,12 @@ import {
 } from '@nestjs/common';
 import type { TimeSlotStatus } from '@prisma/client';
 
-import type { CreateBookingDto, GenerateTimeSlotsDto } from '@school/shared';
-import { BOOKING_VALID_TRANSITIONS, SLOT_VALID_TRANSITIONS } from '@school/shared';
+import {
+  type CreateBookingDto,
+  type GenerateTimeSlotsDto,
+  BOOKING_VALID_TRANSITIONS,
+  SLOT_VALID_TRANSITIONS,
+} from '@school/shared/engagement';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

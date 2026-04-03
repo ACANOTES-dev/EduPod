@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Notification, NotificationChannel } from '@prisma/client';
 
-import { CONSENT_TYPES } from '@school/shared';
+import { CONSENT_TYPES } from '@school/shared/gdpr';
 
 import { ConsentService } from '../gdpr/consent.service';
 import { PrismaService } from '../prisma/prisma.service';

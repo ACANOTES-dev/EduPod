@@ -3,8 +3,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 
-import { SANCTION_PARENT_VISIBLE_FIELDS } from '@school/shared';
-import type { AmendmentListQuery } from '@school/shared';
+import { SANCTION_PARENT_VISIBLE_FIELDS, type AmendmentListQuery } from '@school/shared/behaviour';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

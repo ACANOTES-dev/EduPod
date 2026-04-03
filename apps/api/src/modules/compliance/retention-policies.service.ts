@@ -7,7 +7,7 @@ import type {
   RetentionPreviewRequestDto,
   RetentionPreviewResultDto,
   UpdateRetentionPolicyDto,
-} from '@school/shared';
+} from '@school/shared/gdpr';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

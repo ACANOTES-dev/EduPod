@@ -7,7 +7,7 @@ import type {
   CreateEngagementFormTemplateDto,
   DistributeFormDto,
   UpdateEngagementFormTemplateDto,
-} from '@school/shared';
+} from '@school/shared/engagement';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

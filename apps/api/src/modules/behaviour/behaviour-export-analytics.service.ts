@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
 
-import type { BehaviourAnalyticsQuery, CsvExportQuery } from '@school/shared';
+import type { BehaviourAnalyticsQuery, CsvExportQuery } from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
 

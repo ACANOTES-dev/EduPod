@@ -1,5 +1,4 @@
-import { updateSenStudentHoursSchema } from '@school/shared';
-import type { UpdateSenStudentHoursDto } from '@school/shared';
+import { updateSenStudentHoursSchema, type UpdateSenStudentHoursDto } from '@school/shared/sen';
 
 export { updateSenStudentHoursSchema };
 export type { UpdateSenStudentHoursDto };

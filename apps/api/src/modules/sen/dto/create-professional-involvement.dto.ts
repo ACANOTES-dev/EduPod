@@ -1,5 +1,7 @@
-import { createProfessionalInvolvementSchema } from '@school/shared';
-import type { CreateProfessionalInvolvementDto } from '@school/shared';
+import {
+  createProfessionalInvolvementSchema,
+  type CreateProfessionalInvolvementDto,
+} from '@school/shared/sen';
 
 export const createProfessionalInvolvementBodySchema = createProfessionalInvolvementSchema.omit({
   sen_profile_id: true,

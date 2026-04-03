@@ -1,5 +1,5 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
-import { EARLY_WARNING_WEEKLY_DIGEST_JOB } from '@school/shared';
+import { EARLY_WARNING_WEEKLY_DIGEST_JOB } from '@school/shared/early-warning';
 import { Job } from 'bullmq';
 
 jest.mock('./early-warning-action.utils', () => ({

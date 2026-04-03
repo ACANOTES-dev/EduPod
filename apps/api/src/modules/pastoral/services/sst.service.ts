@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
-import type { AddSstMemberDto, UpdateSstMemberDto } from '@school/shared';
+import type { AddSstMemberDto, UpdateSstMemberDto } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';

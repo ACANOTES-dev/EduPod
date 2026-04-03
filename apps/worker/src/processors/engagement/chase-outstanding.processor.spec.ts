@@ -1,11 +1,11 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
-jest.mock('@school/shared', () => ({
+jest.mock('@school/shared/engagement', () => ({
   engagementConfigSchema: {
     parse: jest.fn(),
   },
 }));
 
-import { engagementConfigSchema } from '@school/shared';
+import { engagementConfigSchema } from '@school/shared/engagement';
 import { Job } from 'bullmq';
 
 import { CHASE_OUTSTANDING_JOB, ChaseOutstandingProcessor } from './chase-outstanding.processor';

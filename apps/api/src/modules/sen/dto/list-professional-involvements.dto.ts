@@ -1,5 +1,7 @@
-import { listProfessionalInvolvementsQuerySchema } from '@school/shared';
-import type { ListProfessionalInvolvementsQuery } from '@school/shared';
+import {
+  listProfessionalInvolvementsQuerySchema,
+  type ListProfessionalInvolvementsQuery,
+} from '@school/shared/sen';
 
 export { listProfessionalInvolvementsQuerySchema };
 export type { ListProfessionalInvolvementsQuery };

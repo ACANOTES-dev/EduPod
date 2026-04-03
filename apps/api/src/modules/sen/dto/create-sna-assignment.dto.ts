@@ -1,5 +1,4 @@
-import { createSnaAssignmentSchema } from '@school/shared';
-import type { CreateSnaAssignmentDto } from '@school/shared';
+import { createSnaAssignmentSchema, type CreateSnaAssignmentDto } from '@school/shared/sen';
 
 export { createSnaAssignmentSchema };
 export type { CreateSnaAssignmentDto };

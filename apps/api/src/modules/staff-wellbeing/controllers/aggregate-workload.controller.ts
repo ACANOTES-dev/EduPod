@@ -1,5 +1,6 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 
+import type { TenantContext } from '@school/shared';
 import type {
   AbsenceTrends,
   AggregateTimetableQuality,
@@ -7,8 +8,7 @@ import type {
   CorrelationResult,
   CoverFairnessResult,
   SubstitutionPressure,
-  TenantContext,
-} from '@school/shared';
+} from '@school/shared/staff-wellbeing';
 
 import { BlockImpersonation } from '../../../common/decorators/block-impersonation.decorator';
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';

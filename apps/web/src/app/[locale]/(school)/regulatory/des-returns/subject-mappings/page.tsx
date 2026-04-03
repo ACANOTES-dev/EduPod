@@ -6,8 +6,11 @@ import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
-import type { CreateDesSubjectCodeMappingDto } from '@school/shared';
-import { createDesSubjectCodeMappingSchema, DES_SUBJECT_CODES } from '@school/shared';
+import {
+  type CreateDesSubjectCodeMappingDto,
+  createDesSubjectCodeMappingSchema,
+  DES_SUBJECT_CODES,
+} from '@school/shared/regulatory';
 import {
   Button,
   Checkbox,
@@ -27,14 +30,12 @@ import {
   toast,
 } from '@school/ui';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 import { RegulatoryNav } from '../../_components/regulatory-nav';
 import { SubjectMappingTable } from '../_components/subject-mapping-table';
 import type { SubjectMapping } from '../_components/subject-mapping-table';
-
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 

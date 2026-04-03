@@ -3,7 +3,7 @@ import { Inject, Logger } from '@nestjs/common';
 import { $Enums, Prisma, type PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { behaviourSettingsSchema } from '@school/shared';
+import { behaviourSettingsSchema } from '@school/shared/behaviour';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, type TenantJobPayload } from '../../base/tenant-aware-job';

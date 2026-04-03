@@ -1,5 +1,4 @@
-import { updateSenProfileSchema } from '@school/shared';
-import type { UpdateSenProfileDto } from '@school/shared';
+import { updateSenProfileSchema, type UpdateSenProfileDto } from '@school/shared/sen';
 
 export { updateSenProfileSchema };
 export type { UpdateSenProfileDto };

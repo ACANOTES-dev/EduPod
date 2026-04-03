@@ -1,5 +1,7 @@
-import { supportPlanStatusTransitionSchema } from '@school/shared';
-import type { SupportPlanStatusTransitionDto } from '@school/shared';
+import {
+  supportPlanStatusTransitionSchema,
+  type SupportPlanStatusTransitionDto,
+} from '@school/shared/sen';
 
 export { supportPlanStatusTransitionSchema };
 export type { SupportPlanStatusTransitionDto };

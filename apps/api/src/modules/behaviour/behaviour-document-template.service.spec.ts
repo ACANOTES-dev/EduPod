@@ -5,7 +5,7 @@ import type {
   CreateDocumentTemplateDto,
   ListDocumentTemplatesQuery,
   UpdateDocumentTemplateDto,
-} from '@school/shared';
+} from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
 

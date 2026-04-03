@@ -5,7 +5,7 @@ import type {
   FamilyRegistrationDto,
   PreviewFeesDto,
 } from '@school/shared';
-import { CONSENT_TYPES, mapConsentCaptureToTypes } from '@school/shared';
+import { CONSENT_TYPES, mapConsentCaptureToTypes } from '@school/shared/gdpr';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { roundMoney } from '../finance/helpers/invoice-status.helper';

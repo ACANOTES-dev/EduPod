@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
 
-import type { PulseDimension, PulseResult } from '@school/shared';
+import type { PulseDimension, PulseResult } from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';

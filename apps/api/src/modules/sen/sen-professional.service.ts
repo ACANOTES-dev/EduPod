@@ -1,13 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-import { isValidReferralTransition } from '@school/shared';
-import type {
-  CreateProfessionalInvolvementDto,
-  ListProfessionalInvolvementsQuery,
-  SenReferralStatus,
-  UpdateProfessionalInvolvementDto,
-} from '@school/shared';
+import {
+  isValidReferralTransition,
+  type CreateProfessionalInvolvementDto,
+  type ListProfessionalInvolvementsQuery,
+  type SenReferralStatus,
+  type UpdateProfessionalInvolvementDto,
+} from '@school/shared/sen';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

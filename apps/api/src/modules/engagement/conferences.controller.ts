@@ -14,13 +14,13 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 
-import { createBookingSchema, generateTimeSlotsSchema } from '@school/shared';
-import type {
-  CreateBookingDto,
-  GenerateTimeSlotsDto,
-  JwtPayload,
-  TenantContext,
-} from '@school/shared';
+import type { JwtPayload, TenantContext } from '@school/shared';
+import {
+  createBookingSchema,
+  generateTimeSlotsSchema,
+  type CreateBookingDto,
+  type GenerateTimeSlotsDto,
+} from '@school/shared/engagement';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

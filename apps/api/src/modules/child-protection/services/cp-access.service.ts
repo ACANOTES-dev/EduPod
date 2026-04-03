@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
-import type { GrantCpAccessDto, RevokeCpAccessDto } from '@school/shared';
+import type { GrantCpAccessDto, RevokeCpAccessDto } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PastoralEventService } from '../../pastoral/services/pastoral-event.service';

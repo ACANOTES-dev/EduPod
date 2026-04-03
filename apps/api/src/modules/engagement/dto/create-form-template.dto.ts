@@ -1,5 +1,7 @@
-import { createEngagementFormTemplateSchema } from '@school/shared';
-import type { CreateEngagementFormTemplateDto } from '@school/shared';
+import {
+  createEngagementFormTemplateSchema,
+  type CreateEngagementFormTemplateDto,
+} from '@school/shared/engagement';
 
 export { createEngagementFormTemplateSchema };
 export type { CreateEngagementFormTemplateDto };

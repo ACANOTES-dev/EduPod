@@ -1,5 +1,4 @@
-import { assignStudentSchema } from '@school/shared';
-import type { AssignStudentDto } from '@school/shared';
+import { assignStudentSchema, type AssignStudentDto } from '@school/shared/early-warning';
 
 export { assignStudentSchema };
 export type { AssignStudentDto };

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 
-import type { EngagementFormField } from '@school/shared';
+import type { EngagementFormField } from '@school/shared/engagement';
 import {
   Checkbox,
   Input,

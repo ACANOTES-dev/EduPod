@@ -169,6 +169,32 @@ export class AttendanceReadFacade {
     return alerts;
   }
 
+  // ─── Session Status Counts ────────────────────────────────────────────────
+
+  /**
+   * Return attendance record counts grouped by status for a given session.
+   * Useful for dashboards and session summary views.
+   */
+  async getAttendanceStatusCounts(
+    tenantId: string,
+    sessionId: string,
+  ): Promise<Record<string, number>> {
+    const records = await this.prisma.attendanceRecord.findMany({
+      where: {
+        tenant_id: tenantId,
+        attendance_session_id: sessionId,
+      },
+      select: { status: true },
+    });
+
+    const counts: Record<string, number> = {};
+    for (const r of records) {
+      counts[r.status] = (counts[r.status] ?? 0) + 1;
+    }
+
+    return counts;
+  }
+
   // ─── Daily Records ────────────────────────────────────────────────────────
 
   /**

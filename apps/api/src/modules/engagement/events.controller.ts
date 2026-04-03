@@ -15,22 +15,19 @@ import {
 import type { EventStaffRole } from '@prisma/client';
 import { z } from 'zod';
 
+import type { JwtPayload, TenantContext } from '@school/shared';
 import {
   createEngagementEventSchema,
   createIncidentReportSchema,
   headcountSchema,
   eventMarkAttendanceSchema,
   updateEngagementEventSchema,
-} from '@school/shared';
-import type {
-  CreateEngagementEventDto,
-  CreateIncidentReportDto,
-  HeadcountDto,
-  JwtPayload,
-  EventMarkAttendanceDto,
-  TenantContext,
-  UpdateEngagementEventDto,
-} from '@school/shared';
+  type CreateEngagementEventDto,
+  type CreateIncidentReportDto,
+  type HeadcountDto,
+  type EventMarkAttendanceDto,
+  type UpdateEngagementEventDto,
+} from '@school/shared/engagement';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

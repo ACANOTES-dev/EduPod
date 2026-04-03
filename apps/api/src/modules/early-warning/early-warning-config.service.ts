@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import type { UpdateEarlyWarningConfigDto } from '@school/shared';
+import type { UpdateEarlyWarningConfigDto } from '@school/shared/early-warning';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
 
+import type { JwtPayload } from '@school/shared';
 import type {
   CreateEngagementFormTemplateDto,
   DistributeFormDto,
-  JwtPayload,
   UpdateEngagementFormTemplateDto,
-} from '@school/shared';
+} from '@school/shared/engagement';
 
 import { FormTemplatesController } from './form-templates.controller';
 import { FormTemplatesService } from './form-templates.service';

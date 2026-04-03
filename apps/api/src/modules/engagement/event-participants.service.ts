@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import type { Queue } from 'bullmq';
 
-import type { EventTargetConfig } from '@school/shared';
+import type { EventTargetConfig } from '@school/shared/engagement';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

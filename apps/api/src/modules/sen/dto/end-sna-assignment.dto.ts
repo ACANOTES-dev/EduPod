@@ -1,5 +1,4 @@
-import { endSnaAssignmentSchema } from '@school/shared';
-import type { EndSnaAssignmentDto } from '@school/shared';
+import { endSnaAssignmentSchema, type EndSnaAssignmentDto } from '@school/shared/sen';
 
 export { endSnaAssignmentSchema };
 export type { EndSnaAssignmentDto };

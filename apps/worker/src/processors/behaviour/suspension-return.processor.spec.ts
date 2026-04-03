@@ -12,7 +12,7 @@ const PRINCIPAL_ID = 'principal-1';
 
 const mockAddSchoolDays = jest.fn();
 
-jest.mock('@school/shared', () => ({
+jest.mock('@school/shared/behaviour', () => ({
   addSchoolDays: (...args: unknown[]) => mockAddSchoolDays(...args),
 }));
 

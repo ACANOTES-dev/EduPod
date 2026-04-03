@@ -1,5 +1,4 @@
-import { listSenStudentHoursQuerySchema } from '@school/shared';
-import type { ListSenStudentHoursQuery } from '@school/shared';
+import { listSenStudentHoursQuerySchema, type ListSenStudentHoursQuery } from '@school/shared/sen';
 
 export { listSenStudentHoursQuerySchema };
 export type { ListSenStudentHoursQuery };

@@ -1,5 +1,7 @@
-import { updateEngagementEventSchema } from '@school/shared';
-import type { UpdateEngagementEventDto } from '@school/shared';
+import {
+  updateEngagementEventSchema,
+  type UpdateEngagementEventDto,
+} from '@school/shared/engagement';
 
 export { updateEngagementEventSchema };
 export type { UpdateEngagementEventDto };

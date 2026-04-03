@@ -1,14 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ApplicationFieldType, Prisma } from '@prisma/client';
 
-import { detectSpecialCategoryFields } from '@school/shared';
 import type {
   CreateFormDefinitionDto,
-  DataMinimisationWarning,
   FormFieldInput,
   ListFormDefinitionsQuery,
   UpdateFormDefinitionDto,
 } from '@school/shared';
+import { detectSpecialCategoryFields, type DataMinimisationWarning } from '@school/shared/gdpr';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

@@ -6,7 +6,7 @@ import type {
   PlanComplianceQuery,
   ResourceUtilisationQuery,
   SenOverviewReportQuery,
-} from '@school/shared';
+} from '@school/shared/sen';
 
 import { PrismaService } from '../prisma/prisma.service';
 

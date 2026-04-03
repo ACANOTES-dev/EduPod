@@ -19,7 +19,7 @@ import type {
   TaskCompletionResult,
   TeacherAnalyticsResult,
   TrendResult,
-} from '@school/shared';
+} from '@school/shared/behaviour';
 
 import { BehaviourComparisonAnalyticsService } from './behaviour-comparison-analytics.service';
 import { BehaviourExportAnalyticsService } from './behaviour-export-analytics.service';

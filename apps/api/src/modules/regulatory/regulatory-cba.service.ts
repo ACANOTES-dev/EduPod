@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CbaSyncStatus } from '@prisma/client';
 
-import { CBA_GRADE_DESCRIPTORS } from '@school/shared';
-import type { CbaSyncDto } from '@school/shared';
+import { CBA_GRADE_DESCRIPTORS, type CbaSyncDto } from '@school/shared/regulatory';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

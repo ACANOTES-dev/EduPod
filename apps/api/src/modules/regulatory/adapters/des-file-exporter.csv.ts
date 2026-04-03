@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import type { DesFileType } from '@school/shared';
+import type { DesFileType } from '@school/shared/regulatory';
 
 import type {
   DesColumnDef,

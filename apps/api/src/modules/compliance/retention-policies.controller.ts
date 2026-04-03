@@ -13,20 +13,17 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
+import type { JwtPayload, TenantContext } from '@school/shared';
 import {
   createRetentionHoldSchema,
   retentionHoldsQuerySchema,
   retentionPreviewRequestSchema,
   updateRetentionPolicySchema,
-} from '@school/shared';
-import type {
-  CreateRetentionHoldDto,
-  JwtPayload,
-  RetentionHoldsQueryDto,
-  RetentionPreviewRequestDto,
-  TenantContext,
-  UpdateRetentionPolicyDto,
-} from '@school/shared';
+  type CreateRetentionHoldDto,
+  type RetentionHoldsQueryDto,
+  type RetentionPreviewRequestDto,
+  type UpdateRetentionPolicyDto,
+} from '@school/shared/gdpr';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

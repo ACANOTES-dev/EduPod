@@ -16,7 +16,7 @@ import {
   type StatusTransitionDto,
   type UpdateIncidentDto,
   type WithdrawIncidentDto,
-} from '@school/shared';
+} from '@school/shared/behaviour';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

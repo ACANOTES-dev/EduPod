@@ -10,8 +10,8 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 
-import { moderateResponseSchema, surveyResultsQuerySchema } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
+import { moderateResponseSchema, surveyResultsQuerySchema } from '@school/shared/staff-wellbeing';
 
 import { BlockImpersonation } from '../../../common/decorators/block-impersonation.decorator';
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';

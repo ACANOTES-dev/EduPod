@@ -1,5 +1,7 @@
-import { createEngagementEventSchema } from '@school/shared';
-import type { CreateEngagementEventDto } from '@school/shared';
+import {
+  createEngagementEventSchema,
+  type CreateEngagementEventDto,
+} from '@school/shared/engagement';
 
 export { createEngagementEventSchema };
 export type { CreateEngagementEventDto };

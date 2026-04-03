@@ -11,12 +11,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
+import type { JwtPayload, TenantContext } from '@school/shared';
 import {
   parentBehaviourIncidentsQuerySchema,
   parentBehaviourStudentQuerySchema,
   parentSubmitAppealSchema,
-} from '@school/shared';
-import type { JwtPayload, ParentSubmitAppealDto, TenantContext } from '@school/shared';
+  type ParentSubmitAppealDto,
+} from '@school/shared/behaviour';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

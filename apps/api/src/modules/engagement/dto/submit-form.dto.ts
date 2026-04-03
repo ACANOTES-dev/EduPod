@@ -1,5 +1,4 @@
-import { submitFormSchema } from '@school/shared';
-import type { SubmitFormDto } from '@school/shared';
+import { submitFormSchema, type SubmitFormDto } from '@school/shared/engagement';
 
 export { submitFormSchema };
 export type { SubmitFormDto };

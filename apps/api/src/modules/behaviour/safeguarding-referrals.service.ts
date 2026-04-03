@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 
-import type { GardaReferralDto, TuslaReferralDto } from '@school/shared';
+import type { GardaReferralDto, TuslaReferralDto } from '@school/shared/behaviour';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

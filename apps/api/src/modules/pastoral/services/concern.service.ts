@@ -18,7 +18,7 @@ import type {
   EscalateConcernTierDto,
   ShareConcernWithParentDto,
   UpdateConcernMetadataDto,
-} from '@school/shared';
+} from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';

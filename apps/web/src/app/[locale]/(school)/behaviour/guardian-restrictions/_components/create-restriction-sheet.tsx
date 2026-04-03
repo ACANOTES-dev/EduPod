@@ -5,8 +5,10 @@ import { Search, X } from 'lucide-react';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
-import type { CreateGuardianRestrictionDto } from '@school/shared';
-import { createGuardianRestrictionSchema } from '@school/shared';
+import {
+  type CreateGuardianRestrictionDto,
+  createGuardianRestrictionSchema,
+} from '@school/shared/behaviour';
 import {
   Button,
   Input,
@@ -25,12 +27,10 @@ import {
   Textarea,
 } from '@school/ui';
 
-
 import { apiClient } from '@/lib/api-client';
 
 import { RESTRICTION_TYPE_LABELS, RESTRICTION_TYPES } from './restriction-types';
 import type { ParentOption, StudentDetailResponse, StudentOption } from './restriction-types';
-
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 

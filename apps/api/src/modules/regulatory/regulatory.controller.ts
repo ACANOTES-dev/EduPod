@@ -16,6 +16,7 @@ import {
 import { PodDatabaseType } from '@prisma/client';
 import { z } from 'zod';
 
+import type { JwtPayload, TenantContext } from '@school/shared';
 import {
   cbaSyncSchema,
   createCalendarEventSchema,
@@ -39,32 +40,28 @@ import {
   updateReducedSchoolDaySchema,
   updateSubmissionSchema,
   updateTransferSchema,
-} from '@school/shared';
-import type {
-  CbaSyncDto,
-  CreateCalendarEventDto,
-  CreateDesSubjectCodeMappingDto,
-  CreateReducedSchoolDayDto,
-  CreateSubmissionDto,
-  CreateTransferDto,
-  CreateTuslaAbsenceCodeMappingDto,
-  DesFileType,
-  DesReadinessCheckDto,
-  GenerateTuslaAarDto,
-  GenerateTuslaSarDto,
-  JwtPayload,
-  ListCalendarEventsQueryDto,
-  ListSubmissionsQueryDto,
-  ListTransfersQueryDto,
-  OctoberReturnsReadinessDto,
-  PpodExportDto,
-  PpodImportDto,
-  TenantContext,
-  UpdateCalendarEventDto,
-  UpdateReducedSchoolDayDto,
-  UpdateSubmissionDto,
-  UpdateTransferDto,
-} from '@school/shared';
+  type CbaSyncDto,
+  type CreateCalendarEventDto,
+  type CreateDesSubjectCodeMappingDto,
+  type CreateReducedSchoolDayDto,
+  type CreateSubmissionDto,
+  type CreateTransferDto,
+  type CreateTuslaAbsenceCodeMappingDto,
+  type DesFileType,
+  type DesReadinessCheckDto,
+  type GenerateTuslaAarDto,
+  type GenerateTuslaSarDto,
+  type ListCalendarEventsQueryDto,
+  type ListSubmissionsQueryDto,
+  type ListTransfersQueryDto,
+  type OctoberReturnsReadinessDto,
+  type PpodExportDto,
+  type PpodImportDto,
+  type UpdateCalendarEventDto,
+  type UpdateReducedSchoolDayDto,
+  type UpdateSubmissionDto,
+  type UpdateTransferDto,
+} from '@school/shared/regulatory';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

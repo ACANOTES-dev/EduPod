@@ -9,7 +9,7 @@ import type {
   SubjectResult,
   TrendPoint,
   TrendResult,
-} from '@school/shared';
+} from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
 

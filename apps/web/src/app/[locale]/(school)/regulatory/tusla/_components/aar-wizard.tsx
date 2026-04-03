@@ -8,8 +8,7 @@ import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
-import type { GenerateTuslaAarDto } from '@school/shared';
-import { generateTuslaAarSchema } from '@school/shared';
+import { type GenerateTuslaAarDto, generateTuslaAarSchema } from '@school/shared/regulatory';
 import { Button, Input, Label } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';

@@ -7,8 +7,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
-import { createSenGoalSchema } from '@school/shared';
-import type { CreateSenGoalDto } from '@school/shared';
+import { createSenGoalSchema, type CreateSenGoalDto } from '@school/shared/sen';
 import { Button, Input, Label, Textarea, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';

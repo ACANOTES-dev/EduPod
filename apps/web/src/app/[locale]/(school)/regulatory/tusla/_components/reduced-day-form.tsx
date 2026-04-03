@@ -6,8 +6,12 @@ import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
-import type { CreateReducedSchoolDayDto, UpdateReducedSchoolDayDto } from '@school/shared';
-import { createReducedSchoolDaySchema, updateReducedSchoolDaySchema } from '@school/shared';
+import {
+  type CreateReducedSchoolDayDto,
+  type UpdateReducedSchoolDayDto,
+  createReducedSchoolDaySchema,
+  updateReducedSchoolDaySchema,
+} from '@school/shared/regulatory';
 import {
   Button,
   Checkbox,

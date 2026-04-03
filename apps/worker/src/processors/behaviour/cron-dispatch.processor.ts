@@ -3,7 +3,7 @@ import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
-import { behaviourSettingsSchema } from '@school/shared';
+import { behaviourSettingsSchema } from '@school/shared/behaviour';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { HOMEWORK_COMPLETION_REMINDER_JOB } from '../homework/completion-reminder.processor';

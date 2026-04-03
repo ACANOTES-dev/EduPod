@@ -3,13 +3,11 @@ import {
   planComplianceQuerySchema,
   professionalInvolvementReportQuerySchema,
   senOverviewReportQuerySchema,
-} from '@school/shared';
-import type {
-  NcseReturnQuery,
-  PlanComplianceQuery,
-  ProfessionalInvolvementReportQuery,
-  SenOverviewReportQuery,
-} from '@school/shared';
+  type NcseReturnQuery,
+  type PlanComplianceQuery,
+  type ProfessionalInvolvementReportQuery,
+  type SenOverviewReportQuery,
+} from '@school/shared/sen';
 
 export {
   ncseReturnQuerySchema,

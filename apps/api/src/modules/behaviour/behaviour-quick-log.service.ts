@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import type { BulkPositiveDto, CreateIncidentDto, QuickLogDto } from '@school/shared';
+import type { BulkPositiveDto, CreateIncidentDto, QuickLogDto } from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
 

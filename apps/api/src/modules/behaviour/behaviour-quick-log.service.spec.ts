@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import type { BulkPositiveDto, QuickLogDto } from '@school/shared';
+import type { BulkPositiveDto, QuickLogDto } from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
 

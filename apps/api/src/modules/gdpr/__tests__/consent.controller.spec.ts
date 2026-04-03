@@ -1,13 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import type {
-  BulkGrantConsentsDto,
-  GetConsentsByTypeQueryDto,
-  GrantConsentDto,
-  JwtPayload,
-  TenantContext,
-} from '@school/shared';
-import { CONSENT_TYPES } from '@school/shared';
+import type { JwtPayload, TenantContext } from '@school/shared';
+import {
+  type BulkGrantConsentsDto,
+  type GetConsentsByTypeQueryDto,
+  type GrantConsentDto,
+  CONSENT_TYPES,
+} from '@school/shared/gdpr';
 
 import { REQUIRES_PERMISSION_KEY } from '../../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../../common/guards/auth.guard';

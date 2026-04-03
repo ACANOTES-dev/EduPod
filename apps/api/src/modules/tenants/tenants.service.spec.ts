@@ -1,23 +1,10 @@
-// otplib uses an ESM-only dependency (@scure/base) that cannot be transformed
-// by ts-jest. Mock it at the module level so the transitive import chain from
-// TenantsService → AuthService → otplib is intercepted before Jest tries to
-// load the real ESM package.
-jest.mock('otplib', () => ({
-  generateSecret: jest.fn().mockReturnValue('TESTSECRET123'),
-  generateURI: jest.fn().mockReturnValue('otpauth://totp/test'),
-  verify: jest.fn(),
-}));
-jest.mock('qrcode', () => ({
-  toDataURL: jest.fn().mockResolvedValue('data:image/png;base64,test'),
-}));
-
 import { ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { MODULE_KEYS, NOTIFICATION_TYPES, SEQUENCE_TYPES } from '@school/shared';
 
 import { SecurityAuditService } from '../audit-log/security-audit.service';
-import { AuthService } from '../auth/auth.service';
+import { TokenService } from '../auth/auth-token.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -38,7 +25,7 @@ const mockRedis = {
   getClient: jest.fn().mockReturnValue(mockRedisClient),
 };
 
-const mockAuthService = {
+const mockTokenService = {
   signAccessToken: jest.fn(),
 };
 
@@ -115,7 +102,7 @@ describe('TenantsService', () => {
         TenantsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
-        { provide: AuthService, useValue: mockAuthService },
+        { provide: TokenService, useValue: mockTokenService },
         { provide: SecurityAuditService, useValue: mockSecurityAuditService },
       ],
     }).compile();

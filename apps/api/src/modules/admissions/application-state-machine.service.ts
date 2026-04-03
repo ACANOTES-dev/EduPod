@@ -6,8 +6,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import type { ConsentCaptureDto, ReviewApplicationDto } from '@school/shared';
-import { CONSENT_TYPES, consentCaptureSchema, mapConsentCaptureToTypes } from '@school/shared';
+import type { ReviewApplicationDto } from '@school/shared';
+import {
+  type ConsentCaptureDto,
+  CONSENT_TYPES,
+  consentCaptureSchema,
+  mapConsentCaptureToTypes,
+} from '@school/shared/gdpr';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';

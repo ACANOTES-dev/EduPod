@@ -2,8 +2,7 @@ import { createHash } from 'crypto';
 
 import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 
-import type { DesFileType } from '@school/shared';
-import { DES_FILE_TYPES } from '@school/shared';
+import { type DesFileType, DES_FILE_TYPES } from '@school/shared/regulatory';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';

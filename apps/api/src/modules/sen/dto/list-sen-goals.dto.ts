@@ -1,5 +1,4 @@
-import { listSenGoalsQuerySchema } from '@school/shared';
-import type { ListSenGoalsQuery } from '@school/shared';
+import { listSenGoalsQuerySchema, type ListSenGoalsQuery } from '@school/shared/sen';
 
 export { listSenGoalsQuerySchema };
 export type { ListSenGoalsQuery };

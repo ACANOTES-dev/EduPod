@@ -4,14 +4,17 @@ import { AuthModule } from '../auth/auth.module';
 import { ChildProtectionModule } from '../child-protection/child-protection.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
 
-import { ParentPastoralController } from './controllers/parent-pastoral.controller';
 import { PastoralAdminController } from './controllers/pastoral-admin.controller';
 import { PastoralImportController } from './controllers/pastoral-import.controller';
 import { PastoralReportsController } from './controllers/pastoral-reports.controller';
 import { PastoralCoreModule } from './pastoral-core.module';
-import { ParentPastoralService } from './services/parent-pastoral.service';
 import { PastoralExportService } from './services/pastoral-export.service';
 import { PastoralImportService } from './services/pastoral-import.service';
+import { PastoralReportDesInspectionService } from './services/pastoral-report-des-inspection.service';
+import { PastoralReportSafeguardingService } from './services/pastoral-report-safeguarding.service';
+import { PastoralReportSstActivityService } from './services/pastoral-report-sst-activity.service';
+import { PastoralReportStudentSummaryService } from './services/pastoral-report-student-summary.service';
+import { PastoralReportWellbeingService } from './services/pastoral-report-wellbeing.service';
 import { PastoralReportService } from './services/pastoral-report.service';
 
 // ─── PastoralAdminModule ───────────────────────────────────────────────────────
@@ -22,16 +25,19 @@ import { PastoralReportService } from './services/pastoral-report.service';
 @Module({
   imports: [AuthModule, ChildProtectionModule, PastoralCoreModule, PdfRenderingModule],
   controllers: [
-    ParentPastoralController,
     PastoralAdminController,
     PastoralImportController,
     PastoralReportsController,
   ],
   providers: [
-    ParentPastoralService,
     PastoralExportService,
     PastoralImportService,
+    PastoralReportDesInspectionService,
+    PastoralReportSafeguardingService,
     PastoralReportService,
+    PastoralReportSstActivityService,
+    PastoralReportStudentSummaryService,
+    PastoralReportWellbeingService,
   ],
   exports: [PastoralReportService],
 })

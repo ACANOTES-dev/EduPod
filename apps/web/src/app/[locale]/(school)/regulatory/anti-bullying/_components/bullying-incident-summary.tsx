@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { ANTI_BULLYING_CATEGORIES } from '@school/shared';
+import { ANTI_BULLYING_CATEGORIES } from '@school/shared/regulatory';
 import { cn } from '@school/ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

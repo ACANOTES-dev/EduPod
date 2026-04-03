@@ -6,7 +6,7 @@ import {
   EvaluatedInputSchema,
   PolicyCondition,
   PolicyConditionSchema,
-} from '@school/shared';
+} from '@school/shared/behaviour';
 
 import { BehaviourHistoryService } from '../behaviour/behaviour-history.service';
 import { PrismaService } from '../prisma/prisma.service';

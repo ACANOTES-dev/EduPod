@@ -14,7 +14,7 @@ import {
 } from '@school/shared';
 
 import { SecurityAuditService } from '../audit-log/security-audit.service';
-import { AuthService } from '../auth/auth.service';
+import { TokenService } from '../auth/auth-token.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -124,7 +124,7 @@ export class TenantsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    private readonly authService: AuthService,
+    private readonly tokenService: TokenService,
     private readonly securityAuditService: SecurityAuditService,
   ) {}
 
@@ -551,7 +551,7 @@ export class TenantsService {
     }
 
     // Generate a special impersonation JWT
-    const accessToken = this.authService.signAccessToken({
+    const accessToken = this.tokenService.signAccessToken({
       sub: targetUserId,
       email: membership.user.email,
       tenant_id: targetTenantId,

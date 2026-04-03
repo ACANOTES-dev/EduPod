@@ -5,9 +5,8 @@ import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
-import type { EngagementFormField } from '@school/shared';
+import type { EngagementFormField } from '@school/shared/engagement';
 import { Button, toast } from '@school/ui';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -20,7 +19,6 @@ import {
   type SignatureValue,
 } from '../../../_components/engagement-types';
 import { FormFieldRenderer } from '../../../_components/form-field-renderer';
-
 
 interface ParentFormValues {
   responses: Record<string, unknown>;

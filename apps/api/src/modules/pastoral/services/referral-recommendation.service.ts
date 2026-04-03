@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
 
-import type { CreateRecommendationDto, UpdateRecommendationDto } from '@school/shared';
+import type { CreateRecommendationDto, UpdateRecommendationDto } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';

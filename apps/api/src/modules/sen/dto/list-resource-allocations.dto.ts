@@ -1,5 +1,7 @@
-import { listResourceAllocationsQuerySchema } from '@school/shared';
-import type { ListResourceAllocationsQuery } from '@school/shared';
+import {
+  listResourceAllocationsQuerySchema,
+  type ListResourceAllocationsQuery,
+} from '@school/shared/sen';
 
 export { listResourceAllocationsQuerySchema };
 export type { ListResourceAllocationsQuery };

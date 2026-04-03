@@ -9,7 +9,7 @@ import type {
   PolicyEffectivenessResult,
   SanctionSummaryResult,
   TaskCompletionResult,
-} from '@school/shared';
+} from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
 

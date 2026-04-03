@@ -13,18 +13,14 @@ import { z } from 'zod';
 import {
   amendAttendanceRecordSchema,
   bulkUpsertGradesSchema,
-  caseFiltersSchema,
   confirmAllocationsSchema,
   createAcademicPeriodSchema,
   createAcademicYearSchema,
   createAnnouncementSchema,
   createAssessmentSchema,
   createAttendanceSessionSchema,
-  createCaseSchema,
-  createConcernSchema,
   createFeeStructureSchema,
   createHouseholdSchema,
-  createIncidentSchema,
   createInvitationSchema,
   createInvoiceSchema,
   createParentSchema,
@@ -39,8 +35,6 @@ import {
   invoiceQuerySchema,
   listAcademicYearsQuerySchema,
   listAnnouncementsSchema,
-  listConcernsQuerySchema,
-  listIncidentsQuerySchema,
   listSubjectsQuerySchema,
   loginSchema,
   paginationQuerySchema,
@@ -51,15 +45,25 @@ import {
   reportCardSnapshotSchema,
   saveAttendanceRecordsSchema,
   staffProfileQuerySchema,
-  statusTransitionSchema,
   switchTenantSchema,
   updateAcademicYearStatusSchema,
-  updateIncidentSchema,
   updateStaffProfileSchema,
   updateStudentSchema,
   updateStudentStatusSchema,
   userListQuerySchema,
 } from '@school/shared';
+import {
+  createIncidentSchema,
+  listIncidentsQuerySchema,
+  statusTransitionSchema,
+  updateIncidentSchema,
+} from '@school/shared/behaviour';
+import {
+  caseFiltersSchema,
+  createCaseSchema,
+  createConcernSchema,
+  listConcernsQuerySchema,
+} from '@school/shared/pastoral';
 
 // ─── Shared fixtures ──────────────────────────────────────────────────────────
 

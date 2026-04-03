@@ -12,18 +12,15 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
+import type { JwtPayload, TenantContext } from '@school/shared';
 import {
   bulkGrantConsentsSchema,
   getConsentsByTypeQuerySchema,
   grantConsentSchema,
-} from '@school/shared';
-import type {
-  BulkGrantConsentsDto,
-  GetConsentsByTypeQueryDto,
-  GrantConsentDto,
-  JwtPayload,
-  TenantContext,
-} from '@school/shared';
+  type BulkGrantConsentsDto,
+  type GetConsentsByTypeQueryDto,
+  type GrantConsentDto,
+} from '@school/shared/gdpr';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

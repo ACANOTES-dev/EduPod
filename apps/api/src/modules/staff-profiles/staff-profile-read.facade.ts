@@ -13,7 +13,7 @@
  * Convention: read-only queries do NOT use an RLS transaction. Tenant isolation is
  * enforced by always including `tenant_id` in the `where` clause.
  */
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -188,5 +188,42 @@ export class StaffProfileReadFacade {
       where: { id: { in: staffProfileIds }, tenant_id: tenantId },
       select: SCHEDULING_SELECT,
     }) as Promise<StaffProfileWithScheduling[]>;
+  }
+
+  /**
+   * Resolve a staff profile ID from a user ID. Returns the profile's primary key.
+   * Throws NotFoundException if no staff profile exists for the user at this tenant.
+   */
+  async resolveProfileId(tenantId: string, userId: string): Promise<string> {
+    const profile = await this.prisma.staffProfile.findFirst({
+      where: { user_id: userId, tenant_id: tenantId },
+      select: { id: true },
+    });
+
+    if (!profile) {
+      throw new NotFoundException({
+        code: 'STAFF_PROFILE_NOT_FOUND',
+        message: `No staff profile found for user "${userId}" at this tenant`,
+      });
+    }
+
+    return profile.id;
+  }
+
+  /**
+   * Assert that a staff profile exists for the given tenant. Throws NotFoundException if not.
+   */
+  async existsOrThrow(tenantId: string, profileId: string): Promise<void> {
+    const profile = await this.prisma.staffProfile.findFirst({
+      where: { id: profileId, tenant_id: tenantId },
+      select: { id: true },
+    });
+
+    if (!profile) {
+      throw new NotFoundException({
+        code: 'STAFF_PROFILE_NOT_FOUND',
+        message: `Staff profile with id "${profileId}" not found`,
+      });
+    }
   }
 }

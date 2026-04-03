@@ -1,7 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
 
-import type { BehaviourAnalyticsQuery, StaffResult, TeacherAnalyticsResult } from '@school/shared';
+import type {
+  BehaviourAnalyticsQuery,
+  StaffResult,
+  TeacherAnalyticsResult,
+} from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
 

@@ -1,5 +1,7 @@
-import { createResourceAllocationSchema } from '@school/shared';
-import type { CreateResourceAllocationDto } from '@school/shared';
+import {
+  createResourceAllocationSchema,
+  type CreateResourceAllocationDto,
+} from '@school/shared/sen';
 
 export { createResourceAllocationSchema };
 export type { CreateResourceAllocationDto };

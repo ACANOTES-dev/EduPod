@@ -1,5 +1,4 @@
-import { updateSnaAssignmentSchema } from '@school/shared';
-import type { UpdateSnaAssignmentDto } from '@school/shared';
+import { updateSnaAssignmentSchema, type UpdateSnaAssignmentDto } from '@school/shared/sen';
 
 export { updateSnaAssignmentSchema };
 export type { UpdateSnaAssignmentDto };

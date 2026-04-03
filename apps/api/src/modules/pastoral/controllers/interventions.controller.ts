@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 
+import type { JwtPayload, TenantContext } from '@school/shared';
 import {
   createInterventionActionSchema,
   createPastoralInterventionProgressSchema,
@@ -23,8 +24,7 @@ import {
   recordReviewSchema,
   updateInterventionActionSchema,
   updatePastoralInterventionSchema,
-} from '@school/shared';
-import type { JwtPayload, TenantContext } from '@school/shared';
+} from '@school/shared/pastoral';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';

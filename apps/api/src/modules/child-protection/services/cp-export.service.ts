@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import type { ExportPurpose } from '@school/shared';
+import type { ExportPurpose } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PastoralEventService } from '../../pastoral/services/pastoral-event.service';

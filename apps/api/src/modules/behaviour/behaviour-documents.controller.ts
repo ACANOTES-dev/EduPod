@@ -12,13 +12,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
+import type { JwtPayload, TenantContext } from '@school/shared';
 import {
   finaliseDocumentSchema,
   generateDocumentSchema,
   listDocumentsQuerySchema,
   sendDocumentSchema,
-} from '@school/shared';
-import type { JwtPayload, TenantContext } from '@school/shared';
+} from '@school/shared/behaviour';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

@@ -1,7 +1,11 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-import type { CreateCpRecordDto, ListCpRecordsQuery, UpdateCpRecordDto } from '@school/shared';
+import type {
+  CreateCpRecordDto,
+  ListCpRecordsQuery,
+  UpdateCpRecordDto,
+} from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PastoralEventService } from '../../pastoral/services/pastoral-event.service';

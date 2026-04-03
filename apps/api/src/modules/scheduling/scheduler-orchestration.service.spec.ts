@@ -35,8 +35,8 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
-// Mock validateSchedule from @school/shared
-jest.mock('@school/shared', () => ({
+// Mock validateSchedule from @school/shared/scheduler
+jest.mock('@school/shared/scheduler', () => ({
   validateSchedule: jest.fn().mockReturnValue({
     violations: [],
     health_score: 100,

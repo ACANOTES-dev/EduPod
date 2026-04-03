@@ -10,7 +10,7 @@ import {
   createPrivacyNoticeSchema,
   type CreatePrivacyNoticeDto,
   type PrivacyNoticeVersion,
-} from '@school/shared';
+} from '@school/shared/gdpr';
 import { Button, Input, Label, TipTapEditor, toast } from '@school/ui';
 
 import { LegalDocument } from '@/components/legal/legal-document';

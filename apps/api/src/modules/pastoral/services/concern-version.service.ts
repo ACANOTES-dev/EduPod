@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, PastoralConcernVersion } from '@prisma/client';
 
-import { type AmendNarrativeDto } from '@school/shared';
+import type { AmendNarrativeDto } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';

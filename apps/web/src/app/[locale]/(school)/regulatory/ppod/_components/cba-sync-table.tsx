@@ -4,7 +4,7 @@ import { AlertCircle, RefreshCw } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { CBA_GRADE_DESCRIPTORS } from '@school/shared';
+import { CBA_GRADE_DESCRIPTORS } from '@school/shared/regulatory';
 import {
   Badge,
   Button,

@@ -1,12 +1,11 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import type { JwtPayload, TenantContext } from '@school/shared';
 import type {
-  JwtPayload,
   PersonalTimetableQuality,
   PersonalWorkloadSummary,
-  TenantContext,
-} from '@school/shared';
+} from '@school/shared/staff-wellbeing';
 
 import { BLOCK_IMPERSONATION_KEY } from '../../../common/decorators/block-impersonation.decorator';
 import { MODULE_ENABLED_KEY } from '../../../common/decorators/module-enabled.decorator';

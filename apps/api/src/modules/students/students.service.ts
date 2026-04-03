@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Prisma } from '@prisma/client';
 
 import type { PreviewResponse } from '@school/shared';
-import { CONSENT_TYPES } from '@school/shared';
+import { CONSENT_TYPES } from '@school/shared/gdpr';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

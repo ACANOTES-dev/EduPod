@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { TUSLA_DEFAULT_THRESHOLD_DAYS } from '@school/shared';
+import { TUSLA_DEFAULT_THRESHOLD_DAYS } from '@school/shared/regulatory';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -14,9 +14,6 @@ import { apiClient } from '@/lib/api-client';
 import { RegulatoryNav } from '../_components/regulatory-nav';
 
 import { ThresholdMonitorTable } from './_components/threshold-monitor-table';
-
-
-
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

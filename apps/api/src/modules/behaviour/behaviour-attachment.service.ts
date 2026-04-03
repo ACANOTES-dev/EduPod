@@ -14,7 +14,7 @@ import {
 import { $Enums } from '@prisma/client';
 import { Queue } from 'bullmq';
 
-import type { RecordFollowUpDto } from '@school/shared';
+import type { RecordFollowUpDto } from '@school/shared/behaviour';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AuditLogService } from '../audit-log/audit-log.service';

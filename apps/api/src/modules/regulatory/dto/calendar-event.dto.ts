@@ -2,7 +2,7 @@ import type {
   CreateCalendarEventDto,
   UpdateCalendarEventDto,
   ListCalendarEventsQueryDto,
-} from '@school/shared';
+} from '@school/shared/regulatory';
 
 export type {
   CreateCalendarEventDto,

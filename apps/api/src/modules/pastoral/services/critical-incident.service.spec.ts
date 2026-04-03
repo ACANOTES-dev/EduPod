@@ -5,6 +5,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SequenceService } from '../../sequence/sequence.service';
 
+import { CriticalIncidentResponseService } from './critical-incident-response.service';
 import { CriticalIncidentService } from './critical-incident.service';
 import type {
   AddExternalSupportDto,
@@ -132,6 +133,14 @@ describe('CriticalIncidentService', () => {
   let service: CriticalIncidentService;
   let mockPastoralEventService: { write: jest.Mock };
   let mockSequenceService: { nextNumber: jest.Mock };
+  let mockResponseService: {
+    updateResponsePlanItem: jest.Mock;
+    addResponsePlanItem: jest.Mock;
+    getResponsePlanProgress: jest.Mock;
+    addExternalSupport: jest.Mock;
+    updateExternalSupport: jest.Mock;
+    listExternalSupport: jest.Mock;
+  };
   let mockPastoralQueue: { add: jest.Mock };
 
   beforeEach(async () => {
@@ -141,6 +150,15 @@ describe('CriticalIncidentService', () => {
 
     mockSequenceService = {
       nextNumber: jest.fn().mockResolvedValue('CI-202603-000001'),
+    };
+
+    mockResponseService = {
+      updateResponsePlanItem: jest.fn(),
+      addResponsePlanItem: jest.fn(),
+      getResponsePlanProgress: jest.fn(),
+      addExternalSupport: jest.fn(),
+      updateExternalSupport: jest.fn(),
+      listExternalSupport: jest.fn(),
     };
 
     mockPastoralQueue = {
@@ -160,6 +178,7 @@ describe('CriticalIncidentService', () => {
         { provide: PrismaService, useValue: {} },
         { provide: SequenceService, useValue: mockSequenceService },
         { provide: PastoralEventService, useValue: mockPastoralEventService },
+        { provide: CriticalIncidentResponseService, useValue: mockResponseService },
         { provide: getQueueToken('pastoral'), useValue: mockPastoralQueue },
       ],
     }).compile();
@@ -572,11 +591,9 @@ describe('CriticalIncidentService', () => {
   // ─── RESPONSE PLAN ITEM: UPDATE ──────────────────────────────────────────
 
   describe('updateResponsePlanItem', () => {
-    it('should mark item as done and set completed_at/completed_by', async () => {
+    it('should delegate to CriticalIncidentResponseService.updateResponsePlanItem', async () => {
       const plan = makeResponsePlan();
-      const incident = makeIncident({ response_plan: plan });
-      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
-      mockRlsTx.criticalIncident.update.mockResolvedValue(incident);
+      mockResponseService.updateResponsePlanItem.mockResolvedValue(plan);
 
       const dto: UpdateResponsePlanItemDto = {
         phase: 'immediate',
@@ -586,131 +603,19 @@ describe('CriticalIncidentService', () => {
 
       const result = await service.updateResponsePlanItem(TENANT_ID, INCIDENT_ID, USER_ID, dto);
 
-      expect(result.data).toBeDefined();
-
-      // Verify the update call has the plan with the item marked done
-      const updateCall = mockRlsTx.criticalIncident.update.mock.calls[0][0] as {
-        data: { response_plan: ResponsePlan };
-      };
-      const updatedPlan = updateCall.data.response_plan;
-      const updatedItem = updatedPlan.immediate[0] as NonNullable<
-        (typeof updatedPlan.immediate)[0]
-      >;
-
-      expect(updatedItem.is_done).toBe(true);
-      expect(updatedItem.completed_at).toBeDefined();
-      expect(updatedItem.completed_by_id).toBe(USER_ID);
-    });
-
-    it('should record response_plan_item_updated audit event', async () => {
-      const plan = makeResponsePlan();
-      const incident = makeIncident({ response_plan: plan });
-      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
-      mockRlsTx.criticalIncident.update.mockResolvedValue(incident);
-
-      const dto: UpdateResponsePlanItemDto = {
-        phase: 'immediate',
-        item_id: '11111111-1111-1111-1111-111111111111',
-        is_done: true,
-      };
-
-      await service.updateResponsePlanItem(TENANT_ID, INCIDENT_ID, USER_ID, dto);
-
-      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
-        expect.objectContaining({
-          event_type: 'response_plan_item_updated',
-          payload: expect.objectContaining({
-            phase: 'immediate',
-            item_id: '11111111-1111-1111-1111-111111111111',
-            is_done: true,
-          }),
-        }),
+      expect(result.data).toEqual(plan);
+      expect(mockResponseService.updateResponsePlanItem).toHaveBeenCalledWith(
+        mockRlsTx, TENANT_ID, INCIDENT_ID, USER_ID, dto,
       );
-    });
-
-    it('should enqueue pastoral:notify-assigned-staff job when assigned_to_id is provided', async () => {
-      const plan = makeResponsePlan();
-      const incident = makeIncident({ response_plan: plan });
-      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
-      mockRlsTx.criticalIncident.update.mockResolvedValue(incident);
-
-      const dto: UpdateResponsePlanItemDto = {
-        phase: 'immediate',
-        item_id: '11111111-1111-1111-1111-111111111111',
-        assigned_to_id: USER_ID,
-      };
-
-      await service.updateResponsePlanItem(TENANT_ID, INCIDENT_ID, USER_ID, dto);
-
-      expect(mockPastoralQueue.add).toHaveBeenCalledWith(
-        'pastoral:notify-assigned-staff',
-        expect.objectContaining({
-          tenant_id: TENANT_ID,
-          incident_id: INCIDENT_ID,
-          item_id: dto.item_id,
-          assigned_to_id: USER_ID,
-        }),
-        expect.any(Object),
-      );
-    });
-
-    it('should throw NotFoundException when item not found in phase', async () => {
-      const plan = makeResponsePlan();
-      const incident = makeIncident({ response_plan: plan });
-      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
-
-      const dto: UpdateResponsePlanItemDto = {
-        phase: 'immediate',
-        item_id: 'non-existent-uuid',
-        is_done: true,
-      };
-
-      await expect(
-        service.updateResponsePlanItem(TENANT_ID, INCIDENT_ID, USER_ID, dto),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('should clear completed_at/by when marking item undone', async () => {
-      const plan = makeResponsePlan();
-      // Mark item as already done
-      const firstItem = plan.immediate[0] as NonNullable<(typeof plan.immediate)[0]>;
-      firstItem.is_done = true;
-      firstItem.completed_at = '2026-03-16T10:00:00Z';
-      firstItem.completed_by_id = USER_ID;
-
-      const incident = makeIncident({ response_plan: plan });
-      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
-      mockRlsTx.criticalIncident.update.mockResolvedValue(incident);
-
-      const dto: UpdateResponsePlanItemDto = {
-        phase: 'immediate',
-        item_id: '11111111-1111-1111-1111-111111111111',
-        is_done: false,
-      };
-
-      await service.updateResponsePlanItem(TENANT_ID, INCIDENT_ID, USER_ID, dto);
-
-      const updateCall = mockRlsTx.criticalIncident.update.mock.calls[0][0] as {
-        data: { response_plan: ResponsePlan };
-      };
-      const updatedItem = updateCall.data.response_plan.immediate[0] as NonNullable<
-        (typeof updateCall.data.response_plan.immediate)[0]
-      >;
-
-      expect(updatedItem.is_done).toBe(false);
-      expect(updatedItem.completed_at).toBeNull();
-      expect(updatedItem.completed_by_id).toBeNull();
     });
   });
 
   // ─── RESPONSE PLAN ITEM: ADD ─────────────────────────────────────────────
 
   describe('addResponsePlanItem', () => {
-    it('should add new item to correct phase with generated UUID', async () => {
+    it('should delegate to CriticalIncidentResponseService.addResponsePlanItem', async () => {
       const plan = makeResponsePlan();
-      const incident = makeIncident({ response_plan: plan });
-      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
-      mockRlsTx.criticalIncident.update.mockResolvedValue(incident);
+      mockResponseService.addResponsePlanItem.mockResolvedValue(plan);
 
       const dto: AddResponsePlanItemDto = {
         phase: 'immediate',
@@ -720,44 +625,9 @@ describe('CriticalIncidentService', () => {
 
       const result = await service.addResponsePlanItem(TENANT_ID, INCIDENT_ID, USER_ID, dto);
 
-      expect(result.data).toBeDefined();
-
-      const updateCall = mockRlsTx.criticalIncident.update.mock.calls[0][0] as {
-        data: { response_plan: ResponsePlan };
-      };
-      const updatedPlan = updateCall.data.response_plan;
-
-      // Original 2 items + 1 new
-      expect(updatedPlan.immediate.length).toBe(3);
-
-      const newItem = updatedPlan.immediate[2] as NonNullable<(typeof updatedPlan.immediate)[2]>;
-      expect(newItem.label).toBe('Notify board of management');
-      expect(newItem.description).toBe('Contact board chair immediately');
-      expect(newItem.id).toBeDefined();
-      expect(newItem.is_done).toBe(false);
-    });
-
-    it('should record response_plan_item_added audit event', async () => {
-      const plan = makeResponsePlan();
-      const incident = makeIncident({ response_plan: plan });
-      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
-      mockRlsTx.criticalIncident.update.mockResolvedValue(incident);
-
-      const dto: AddResponsePlanItemDto = {
-        phase: 'short_term',
-        label: 'Contact educational psychologist',
-      };
-
-      await service.addResponsePlanItem(TENANT_ID, INCIDENT_ID, USER_ID, dto);
-
-      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
-        expect.objectContaining({
-          event_type: 'response_plan_item_added',
-          payload: expect.objectContaining({
-            phase: 'short_term',
-            label: 'Contact educational psychologist',
-          }),
-        }),
+      expect(result.data).toEqual(plan);
+      expect(mockResponseService.addResponsePlanItem).toHaveBeenCalledWith(
+        mockRlsTx, TENANT_ID, INCIDENT_ID, USER_ID, dto,
       );
     });
   });
@@ -765,45 +635,20 @@ describe('CriticalIncidentService', () => {
   // ─── RESPONSE PLAN PROGRESS ──────────────────────────────────────────────
 
   describe('getResponsePlanProgress', () => {
-    it('should return correct counts per phase', async () => {
-      const plan = makeResponsePlan();
-      const incident = makeIncident({ response_plan: plan });
-      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
+    it('should delegate to CriticalIncidentResponseService.getResponsePlanProgress', async () => {
+      const progress = [
+        { phase: 'immediate', total: 2, completed: 0, percentage: 0 },
+        { phase: 'short_term', total: 1, completed: 0, percentage: 0 },
+        { phase: 'medium_term', total: 1, completed: 1, percentage: 100 },
+        { phase: 'long_term', total: 0, completed: 0, percentage: 0 },
+      ];
+      mockResponseService.getResponsePlanProgress.mockResolvedValue(progress);
 
       const result = await service.getResponsePlanProgress(TENANT_ID, INCIDENT_ID);
 
-      expect(result.data).toHaveLength(4);
-
-      const immediate = result.data.find((p) => p.phase === 'immediate');
-      expect(immediate).toEqual({
-        phase: 'immediate',
-        total: 2,
-        completed: 0,
-        percentage: 0,
-      });
-
-      const mediumTerm = result.data.find((p) => p.phase === 'medium_term');
-      expect(mediumTerm).toEqual({
-        phase: 'medium_term',
-        total: 1,
-        completed: 1,
-        percentage: 100,
-      });
-
-      const longTerm = result.data.find((p) => p.phase === 'long_term');
-      expect(longTerm).toEqual({
-        phase: 'long_term',
-        total: 0,
-        completed: 0,
-        percentage: 0,
-      });
-    });
-
-    it('should throw NotFoundException for non-existent incident', async () => {
-      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(null);
-
-      await expect(service.getResponsePlanProgress(TENANT_ID, INCIDENT_ID)).rejects.toThrow(
-        NotFoundException,
+      expect(result.data).toEqual(progress);
+      expect(mockResponseService.getResponsePlanProgress).toHaveBeenCalledWith(
+        mockRlsTx, TENANT_ID, INCIDENT_ID,
       );
     });
   });
@@ -811,10 +656,15 @@ describe('CriticalIncidentService', () => {
   // ─── EXTERNAL SUPPORT: ADD ────────────────────────────────────────────────
 
   describe('addExternalSupport', () => {
-    it('should store entry in JSONB array with generated UUID', async () => {
-      const incident = makeIncident({ external_support_log: [] });
-      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
-      mockRlsTx.criticalIncident.update.mockResolvedValue(incident);
+    it('should delegate to CriticalIncidentResponseService.addExternalSupport', async () => {
+      const entry = {
+        id: 'entry-1',
+        provider_type: 'neps_ci_team',
+        provider_name: 'NEPS Regional Team',
+        recorded_by_id: USER_ID,
+        recorded_at: '2026-03-16T10:00:00Z',
+      };
+      mockResponseService.addExternalSupport.mockResolvedValue(entry);
 
       const dto: AddExternalSupportDto = {
         provider_type: 'neps_ci_team',
@@ -825,40 +675,9 @@ describe('CriticalIncidentService', () => {
 
       const result = await service.addExternalSupport(TENANT_ID, INCIDENT_ID, USER_ID, dto);
 
-      expect(result.data).toBeDefined();
-      expect(result.data.id).toBeDefined();
-      expect(result.data.provider_type).toBe('neps_ci_team');
-      expect(result.data.provider_name).toBe('NEPS Regional Team');
-      expect(result.data.recorded_by_id).toBe(USER_ID);
-      expect(result.data.recorded_at).toBeDefined();
-
-      // Verify the JSONB was updated with one entry
-      const updateCall = mockRlsTx.criticalIncident.update.mock.calls[0][0] as {
-        data: { external_support_log: unknown[] };
-      };
-      expect(updateCall.data.external_support_log).toHaveLength(1);
-    });
-
-    it('should record external_support_added audit event', async () => {
-      const incident = makeIncident({ external_support_log: [] });
-      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
-      mockRlsTx.criticalIncident.update.mockResolvedValue(incident);
-
-      const dto: AddExternalSupportDto = {
-        provider_type: 'external_counsellor',
-        provider_name: 'Counselling Services Ltd',
-      };
-
-      await service.addExternalSupport(TENANT_ID, INCIDENT_ID, USER_ID, dto);
-
-      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
-        expect.objectContaining({
-          event_type: 'external_support_added',
-          payload: expect.objectContaining({
-            provider_type: 'external_counsellor',
-            provider_name: 'Counselling Services Ltd',
-          }),
-        }),
+      expect(result.data).toEqual(entry);
+      expect(mockResponseService.addExternalSupport).toHaveBeenCalledWith(
+        mockRlsTx, TENANT_ID, INCIDENT_ID, USER_ID, dto,
       );
     });
   });
@@ -866,47 +685,24 @@ describe('CriticalIncidentService', () => {
   // ─── EXTERNAL SUPPORT: UPDATE ─────────────────────────────────────────────
 
   describe('updateExternalSupport', () => {
-    it('should update entry in JSONB array', async () => {
+    it('should delegate to CriticalIncidentResponseService.updateExternalSupport', async () => {
       const entryId = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
-      const existingLog = [
-        {
-          id: entryId,
-          provider_type: 'neps_ci_team',
-          provider_name: 'NEPS Regional Team',
-          contact_person: null,
-          contact_details: null,
-          visit_date: '2026-03-16',
-          visit_time_start: null,
-          visit_time_end: null,
-          availability_notes: null,
-          students_seen: [],
-          outcome_notes: null,
-          recorded_by_id: USER_ID,
-          recorded_at: '2026-03-16T10:00:00Z',
-        },
-      ];
-
-      const incident = makeIncident({ external_support_log: existingLog });
-      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
-      mockRlsTx.criticalIncident.update.mockResolvedValue(incident);
-
-      const result = await service.updateExternalSupport(TENANT_ID, INCIDENT_ID, entryId, USER_ID, {
+      const updatedEntry = {
+        id: entryId,
+        provider_type: 'neps_ci_team',
+        provider_name: 'NEPS Regional Team',
         outcome_notes: 'Supported 5 students, follow-up scheduled',
-      });
+      };
+      mockResponseService.updateExternalSupport.mockResolvedValue(updatedEntry);
 
-      expect(result.data).toBeDefined();
-      expect(result.data.outcome_notes).toBe('Supported 5 students, follow-up scheduled');
-    });
+      const dto = { outcome_notes: 'Supported 5 students, follow-up scheduled' };
 
-    it('should throw NotFoundException for non-existent entry', async () => {
-      const incident = makeIncident({ external_support_log: [] });
-      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
+      const result = await service.updateExternalSupport(TENANT_ID, INCIDENT_ID, entryId, USER_ID, dto);
 
-      await expect(
-        service.updateExternalSupport(TENANT_ID, INCIDENT_ID, 'non-existent', USER_ID, {
-          outcome_notes: 'Test',
-        }),
-      ).rejects.toThrow(NotFoundException);
+      expect(result.data).toEqual(updatedEntry);
+      expect(mockResponseService.updateExternalSupport).toHaveBeenCalledWith(
+        mockRlsTx, TENANT_ID, INCIDENT_ID, entryId, USER_ID, dto,
+      );
     });
   });
 
@@ -973,51 +769,19 @@ describe('CriticalIncidentService', () => {
   // ─── LIST EXTERNAL SUPPORT ────────────────────────────────────────────────
 
   describe('listExternalSupport', () => {
-    it('should return sorted entries', async () => {
-      const log = [
-        {
-          id: 'aaa',
-          provider_type: 'neps_ci_team',
-          provider_name: 'NEPS',
-          contact_person: null,
-          contact_details: null,
-          visit_date: '2026-03-16',
-          visit_time_start: null,
-          visit_time_end: null,
-          availability_notes: null,
-          students_seen: [],
-          outcome_notes: null,
-          recorded_by_id: USER_ID,
-          recorded_at: '2026-03-16T08:00:00Z',
-        },
-        {
-          id: 'bbb',
-          provider_type: 'external_counsellor',
-          provider_name: 'Counsellor',
-          contact_person: null,
-          contact_details: null,
-          visit_date: '2026-03-17',
-          visit_time_start: null,
-          visit_time_end: null,
-          availability_notes: null,
-          students_seen: [],
-          outcome_notes: null,
-          recorded_by_id: USER_ID,
-          recorded_at: '2026-03-17T08:00:00Z',
-        },
+    it('should delegate to CriticalIncidentResponseService.listExternalSupport', async () => {
+      const entries = [
+        { id: 'bbb', visit_date: '2026-03-17', recorded_at: '2026-03-17T08:00:00Z' },
+        { id: 'aaa', visit_date: '2026-03-16', recorded_at: '2026-03-16T08:00:00Z' },
       ];
-
-      const incident = makeIncident({ external_support_log: log });
-      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
+      mockResponseService.listExternalSupport.mockResolvedValue(entries);
 
       const result = await service.listExternalSupport(TENANT_ID, INCIDENT_ID);
 
-      expect(result.data).toHaveLength(2);
-      // Should be sorted by visit_date DESC
-      const first = result.data[0] as NonNullable<(typeof result.data)[0]>;
-      const second = result.data[1] as NonNullable<(typeof result.data)[1]>;
-      expect(first.visit_date).toBe('2026-03-17');
-      expect(second.visit_date).toBe('2026-03-16');
+      expect(result.data).toEqual(entries);
+      expect(mockResponseService.listExternalSupport).toHaveBeenCalledWith(
+        mockRlsTx, TENANT_ID, INCIDENT_ID,
+      );
     });
   });
 });

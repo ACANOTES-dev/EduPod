@@ -9,15 +9,15 @@ import {
 import { $Enums, Prisma } from '@prisma/client';
 import type { Queue } from 'bullmq';
 
-import type {
-  CreatePastoralInterventionDto,
-  CreatePastoralInterventionProgressDto,
-  PastoralInterventionFilters,
-  PastoralInterventionStatusTransitionDto,
-  RecordReviewDto,
-  UpdatePastoralInterventionDto,
-} from '@school/shared';
-import { pastoralTenantSettingsSchema } from '@school/shared';
+import {
+  type CreatePastoralInterventionDto,
+  type CreatePastoralInterventionProgressDto,
+  type PastoralInterventionFilters,
+  type PastoralInterventionStatusTransitionDto,
+  type RecordReviewDto,
+  type UpdatePastoralInterventionDto,
+  pastoralTenantSettingsSchema,
+} from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';

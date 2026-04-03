@@ -2,13 +2,14 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Prisma } from '@prisma/client';
 import { ZodError } from 'zod';
 
-import { senDailyScheduleSchema, senWeeklyScheduleSchema } from '@school/shared';
-import type {
-  CreateSnaAssignmentDto,
-  EndSnaAssignmentDto,
-  ListSnaAssignmentsQuery,
-  UpdateSnaAssignmentDto,
-} from '@school/shared';
+import {
+  senDailyScheduleSchema,
+  senWeeklyScheduleSchema,
+  type CreateSnaAssignmentDto,
+  type EndSnaAssignmentDto,
+  type ListSnaAssignmentsQuery,
+  type UpdateSnaAssignmentDto,
+} from '@school/shared/sen';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { SettingsService } from '../configuration/settings.service';

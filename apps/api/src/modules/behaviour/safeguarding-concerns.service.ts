@@ -9,20 +9,20 @@ import {
 import { $Enums, Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 
-import type {
-  AssignSafeguardingConcernDto,
-  BehaviourSettings,
-  CreateConcernDto,
-  CreateCpRecordDto,
-  ListSafeguardingActionsQuery,
-  ListSafeguardingConcernsQuery,
-  MyReportsQuery,
-  RecordSafeguardingActionDto,
-  ReportSafeguardingConcernDto,
-  SafeguardingStatusTransitionDto,
-  UpdateSafeguardingConcernDto,
-} from '@school/shared';
-import { behaviourSettingsSchema, isValidSafeguardingTransition } from '@school/shared';
+import {
+  type AssignSafeguardingConcernDto,
+  type BehaviourSettings,
+  type ListSafeguardingActionsQuery,
+  type ListSafeguardingConcernsQuery,
+  type MyReportsQuery,
+  type RecordSafeguardingActionDto,
+  type ReportSafeguardingConcernDto,
+  type SafeguardingStatusTransitionDto,
+  type UpdateSafeguardingConcernDto,
+  behaviourSettingsSchema,
+  isValidSafeguardingTransition,
+} from '@school/shared/behaviour';
+import type { CreateConcernDto, CreateCpRecordDto } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AuditLogService } from '../audit-log/audit-log.service';

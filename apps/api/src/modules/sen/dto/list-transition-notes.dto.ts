@@ -1,5 +1,4 @@
-import { listTransitionNotesQuerySchema } from '@school/shared';
-import type { ListTransitionNotesQuery } from '@school/shared';
+import { listTransitionNotesQuerySchema, type ListTransitionNotesQuery } from '@school/shared/sen';
 
 export { listTransitionNotesQuerySchema };
 export type { ListTransitionNotesQuery };

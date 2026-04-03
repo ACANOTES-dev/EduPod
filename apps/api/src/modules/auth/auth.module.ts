@@ -2,13 +2,25 @@ import { Module } from '@nestjs/common';
 
 import { ConfigurationModule } from '../configuration/configuration.module';
 
+import { MfaService } from './auth-mfa.service';
+import { PasswordResetService } from './auth-password-reset.service';
+import { RateLimitService } from './auth-rate-limit.service';
+import { SessionService } from './auth-session.service';
+import { TokenService } from './auth-token.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 
 @Module({
   imports: [ConfigurationModule],
   controllers: [AuthController],
-  providers: [AuthService],
-  exports: [AuthService],
+  providers: [
+    AuthService,
+    TokenService,
+    SessionService,
+    RateLimitService,
+    PasswordResetService,
+    MfaService,
+  ],
+  exports: [AuthService, TokenService],
 })
 export class AuthModule {}

@@ -8,9 +8,11 @@ import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
-import { updateEarlyWarningConfigSchema, type UpdateEarlyWarningConfigDto } from '@school/shared';
+import {
+  updateEarlyWarningConfigSchema,
+  type UpdateEarlyWarningConfigDto,
+} from '@school/shared/early-warning';
 import { Button, toast } from '@school/ui';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -20,7 +22,6 @@ import { DigestConfig } from './_components/digest-config';
 import { RoutingRulesConfig } from './_components/routing-rules-config';
 import { ThresholdConfig } from './_components/threshold-config';
 import { WeightSliders } from './_components/weight-sliders';
-
 
 const DEFAULT_WEIGHTS: Record<SignalDomain, number> = {
   attendance: 25,

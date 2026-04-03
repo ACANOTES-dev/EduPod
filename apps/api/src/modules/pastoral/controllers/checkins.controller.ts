@@ -10,8 +10,8 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 
-import { submitCheckinSchema } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
+import { submitCheckinSchema } from '@school/shared/pastoral';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';

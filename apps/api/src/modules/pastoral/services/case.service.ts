@@ -1,16 +1,17 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 
-import type {
-  AddStudentToCaseDto,
-  CaseOwnershipTransferDto,
-  CaseStatus,
-  CaseStatusTransitionDto,
-  CreateCaseDto,
-  LinkConcernToCaseDto,
-  UpdateCaseDto,
-} from '@school/shared';
-import { getValidCaseTransitions, isValidCaseTransition } from '@school/shared';
+import {
+  type AddStudentToCaseDto,
+  type CaseOwnershipTransferDto,
+  type CaseStatus,
+  type CaseStatusTransitionDto,
+  type CreateCaseDto,
+  type LinkConcernToCaseDto,
+  type UpdateCaseDto,
+  getValidCaseTransitions,
+  isValidCaseTransition,
+} from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';

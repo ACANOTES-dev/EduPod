@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 
-import type { ListConcernsQuery } from '@school/shared';
+import type { ListConcernsQuery } from '@school/shared/pastoral';
 
 import type { ConcernDetailDto, ConcernListItemDto, ConcernRow } from './concern.service';
 

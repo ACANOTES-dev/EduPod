@@ -6,7 +6,7 @@ import type {
   ClassComparisonResult,
   ComparisonResult,
   RatioResult,
-} from '@school/shared';
+} from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
 

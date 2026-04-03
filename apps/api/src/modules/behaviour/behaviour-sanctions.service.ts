@@ -8,6 +8,7 @@ import {
 import { $Enums, Prisma } from '@prisma/client';
 
 import {
+  addSchoolDays,
   type BulkMarkServedDto,
   type CreateSanctionDto,
   EXCLUSION_SUSPENSION_DAY_THRESHOLD,
@@ -18,13 +19,12 @@ import {
   type SanctionListQuery,
   SUSPENSION_TYPES,
   type UpdateSanctionDto,
-  addSchoolDays,
   behaviourSettingsSchema,
   type BehaviourSettings,
   type ClosureChecker,
   isValidSanctionTransition,
   type SanctionStatusKey,
-} from '@school/shared';
+} from '@school/shared/behaviour';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

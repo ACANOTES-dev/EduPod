@@ -1,5 +1,4 @@
-import { distributeFormSchema } from '@school/shared';
-import type { DistributeFormDto } from '@school/shared';
+import { distributeFormSchema, type DistributeFormDto } from '@school/shared/engagement';
 
 export { distributeFormSchema };
 export type { DistributeFormDto };

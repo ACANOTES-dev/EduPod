@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
-import type { CreateDesSubjectCodeMappingDto } from '@school/shared';
+import type { CreateDesSubjectCodeMappingDto } from '@school/shared/regulatory';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

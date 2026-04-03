@@ -16,8 +16,11 @@ import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
-import type { GenerateTuslaSarDto } from '@school/shared';
-import { generateTuslaSarSchema, TUSLA_SAR_PERIODS } from '@school/shared';
+import {
+  type GenerateTuslaSarDto,
+  generateTuslaSarSchema,
+  TUSLA_SAR_PERIODS,
+} from '@school/shared/regulatory';
 import {
   Button,
   Input,

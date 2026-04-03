@@ -5,6 +5,8 @@ import { AuthModule } from '../auth/auth.module';
 import { PolicyEngineModule } from '../policy-engine/policy-engine.module';
 import { SequenceModule } from '../sequence/sequence.module';
 
+import { BehaviourAlertsController } from './behaviour-alerts.controller';
+import { BehaviourAlertsService } from './behaviour-alerts.service';
 import { BehaviourAttachmentService } from './behaviour-attachment.service';
 import { BehaviourConfigController } from './behaviour-config.controller';
 import { BehaviourConfigService } from './behaviour-config.service';
@@ -28,8 +30,9 @@ import { BehaviourService } from './behaviour.service';
     BullModule.registerQueue({ name: 'behaviour' }),
     BullModule.registerQueue({ name: 'search-sync' }),
   ],
-  controllers: [BehaviourController, BehaviourConfigController, BehaviourTasksController],
+  controllers: [BehaviourAlertsController, BehaviourController, BehaviourConfigController, BehaviourTasksController],
   providers: [
+    BehaviourAlertsService,
     BehaviourService,
     BehaviourQuickLogService,
     BehaviourHistoryService,
@@ -42,6 +45,7 @@ import { BehaviourService } from './behaviour.service';
     BehaviourSideEffectsService,
   ],
   exports: [
+    BehaviourAlertsService,
     BehaviourDocumentTemplateService,
     BehaviourService,
     BehaviourHistoryService,

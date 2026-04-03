@@ -1,5 +1,4 @@
-import { createAccommodationSchema } from '@school/shared';
-import type { CreateAccommodationDto } from '@school/shared';
+import { createAccommodationSchema, type CreateAccommodationDto } from '@school/shared/sen';
 
 export const createAccommodationBodySchema = createAccommodationSchema.omit({
   sen_profile_id: true,

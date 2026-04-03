@@ -1,5 +1,4 @@
-import { createSupportPlanSchema } from '@school/shared';
-import type { CreateSupportPlanDto } from '@school/shared';
+import { createSupportPlanSchema, type CreateSupportPlanDto } from '@school/shared/sen';
 
 export { createSupportPlanSchema };
 export type { CreateSupportPlanDto };

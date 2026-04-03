@@ -3,7 +3,7 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { CONSENT_TYPES } from '@school/shared';
+import { CONSENT_TYPES } from '@school/shared/gdpr';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';

@@ -1,5 +1,4 @@
-import type { DetectedSignal } from '@school/shared';
-import type { SignalSeverity } from '@school/shared';
+import type { DetectedSignal, SignalSeverity } from '@school/shared/early-warning';
 
 // ─── Severity Mapper ────────────────────────────────────────────────────────
 

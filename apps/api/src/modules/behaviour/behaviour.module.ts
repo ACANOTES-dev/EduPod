@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
 
-import { BehaviourAdminModule } from './behaviour-admin.module';
 import { BehaviourAnalyticsModule } from './behaviour-analytics.module';
 import { BehaviourCoreModule } from './behaviour-core.module';
 import { BehaviourDisciplineModule } from './behaviour-discipline.module';
+import { BehaviourOpsModule } from './behaviour-ops.module';
+import { BehaviourPortalModule } from './behaviour-portal.module';
 import { BehaviourRecognitionModule } from './behaviour-recognition.module';
 import { BehaviourSafeguardingModule } from './behaviour-safeguarding.module';
 
@@ -14,7 +15,8 @@ import { BehaviourSafeguardingModule } from './behaviour-safeguarding.module';
     BehaviourDisciplineModule,
     BehaviourRecognitionModule,
     BehaviourAnalyticsModule,
-    BehaviourAdminModule,
+    BehaviourOpsModule,
+    BehaviourPortalModule,
   ],
   exports: [
     BehaviourCoreModule,
@@ -22,7 +24,8 @@ import { BehaviourSafeguardingModule } from './behaviour-safeguarding.module';
     BehaviourDisciplineModule,
     BehaviourRecognitionModule,
     BehaviourAnalyticsModule,
-    BehaviourAdminModule,
+    BehaviourOpsModule,
+    BehaviourPortalModule,
   ],
 })
 export class BehaviourModule {}

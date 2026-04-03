@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import type { PrivacyNoticeCurrent } from '@school/shared';
+import type { PrivacyNoticeCurrent } from '@school/shared/gdpr';
 import { Button, StatusBadge, toast } from '@school/ui';
 
 import { LegalDocument } from '@/components/legal/legal-document';

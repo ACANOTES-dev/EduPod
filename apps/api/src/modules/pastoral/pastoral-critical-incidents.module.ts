@@ -6,6 +6,7 @@ import { SequenceModule } from '../sequence/sequence.module';
 
 import { CriticalIncidentsController } from './controllers/critical-incidents.controller';
 import { PastoralCoreModule } from './pastoral-core.module';
+import { CriticalIncidentResponseService } from './services/critical-incident-response.service';
 import { CriticalIncidentService } from './services/critical-incident.service';
 
 // ─── PastoralCriticalIncidentsModule ───────────────────────────────────────────
@@ -19,7 +20,7 @@ import { CriticalIncidentService } from './services/critical-incident.service';
     SequenceModule,
   ],
   controllers: [CriticalIncidentsController],
-  providers: [CriticalIncidentService],
-  exports: [CriticalIncidentService],
+  providers: [CriticalIncidentResponseService, CriticalIncidentService],
+  exports: [CriticalIncidentResponseService, CriticalIncidentService],
 })
 export class PastoralCriticalIncidentsModule {}

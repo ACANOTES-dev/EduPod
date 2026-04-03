@@ -5,7 +5,7 @@ import type {
   CreateSenProfileDto,
   ListSenProfilesQuery,
   UpdateSenProfileDto,
-} from '@school/shared';
+} from '@school/shared/sen';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-import type { CreatePrivacyNoticeDto, UpdatePrivacyNoticeDto } from '@school/shared';
+import type { CreatePrivacyNoticeDto, UpdatePrivacyNoticeDto } from '@school/shared/gdpr';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

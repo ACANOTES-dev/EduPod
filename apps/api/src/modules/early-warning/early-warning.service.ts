@@ -6,7 +6,7 @@ import type {
   EarlyWarningSummary,
   EarlyWarningSummaryQuery,
   ListEarlyWarningsQuery,
-} from '@school/shared';
+} from '@school/shared/early-warning';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

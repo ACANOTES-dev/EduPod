@@ -5,20 +5,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import type {
-  BulkGrantConsentsDto,
-  ConsentEvidenceType,
-  ConsentSubjectType,
-  ConsentType,
-  GetConsentsByTypeQueryDto,
-  ParentPortalConsentItemDto,
-} from '@school/shared';
 import {
+  type BulkGrantConsentsDto,
+  type ConsentEvidenceType,
+  type ConsentSubjectType,
+  type ConsentType,
+  type GetConsentsByTypeQueryDto,
+  type ParentPortalConsentItemDto,
   CONSENT_CATEGORIES,
   CONSENT_TYPE_CATEGORY_MAP,
   CONSENT_TYPES,
   STUDENT_PARENT_PORTAL_CONSENT_TYPES,
-} from '@school/shared';
+} from '@school/shared/gdpr';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

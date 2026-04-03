@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
-import { OCTOBER_RETURNS_FIELDS } from '@school/shared';
+import { OCTOBER_RETURNS_FIELDS } from '@school/shared/regulatory';
 
 import { PrismaService } from '../prisma/prisma.service';
 

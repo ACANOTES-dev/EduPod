@@ -16,6 +16,7 @@ import type { Prisma } from '@prisma/client';
 import type { Request } from 'express';
 import { z } from 'zod';
 
+import type { JwtPayload, TenantContext } from '@school/shared';
 import {
   amendNarrativeSchema,
   createConcernSchema,
@@ -24,8 +25,7 @@ import {
   pastoralEventFiltersSchema,
   shareConcernWithParentSchema,
   updateConcernMetadataSchema,
-} from '@school/shared';
-import type { JwtPayload, TenantContext } from '@school/shared';
+} from '@school/shared/pastoral';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';

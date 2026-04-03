@@ -2,8 +2,8 @@
 import { ForbiddenException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-jest.mock('@school/shared', () => {
-  const original = jest.requireActual('@school/shared');
+jest.mock('@school/shared/ai', () => {
+  const original = jest.requireActual('@school/shared/ai');
   return {
     ...original,
     anonymiseForAI: jest.fn().mockReturnValue({
@@ -16,7 +16,7 @@ jest.mock('@school/shared', () => {
   };
 });
 
-import { anonymiseForAI, deAnonymiseFromAI } from '@school/shared';
+import { anonymiseForAI, deAnonymiseFromAI } from '@school/shared/ai';
 
 import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { AiAuditService } from '../gdpr/ai-audit.service';

@@ -2,7 +2,7 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import type { z } from 'zod';
 
 import type { TenantContext } from '@school/shared';
-import { gdprTokenUsageQuerySchema, gdprTokenUsageStatsQuerySchema } from '@school/shared';
+import { gdprTokenUsageQuerySchema, gdprTokenUsageStatsQuerySchema } from '@school/shared/gdpr';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';

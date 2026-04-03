@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-import type { GdprOutboundData } from '@school/shared';
+import type { GdprOutboundData } from '@school/shared/gdpr';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { AnthropicClientService } from '../../ai/anthropic-client.service';

@@ -1,8 +1,11 @@
 import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 
-import { pastoralTenantSettingsSchema } from '@school/shared';
 import type { TenantContext } from '@school/shared';
+import {
+  pastoralTenantSettingsSchema,
+  updateEscalationSettingsSchema,
+} from '@school/shared/pastoral';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { ModuleEnabled } from '../../../common/decorators/module-enabled.decorator';
@@ -14,17 +17,7 @@ import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Validation Schema ──────────────────────────────────────────────────────
-// Mirrors packages/shared/src/pastoral/schemas/escalation-settings.schema.ts.
-// Defined inline because the shared barrel export does not yet re-export it.
-// Once the full SW-2D ships, replace with: import { updateEscalationSettingsSchema } from '@school/shared';
-
-const updateEscalationSettingsSchema = z.object({
-  escalation_enabled: z.boolean().optional(),
-  escalation_urgent_timeout_minutes: z.number().int().min(15).max(1440).optional(),
-  escalation_critical_timeout_minutes: z.number().int().min(5).max(480).optional(),
-  escalation_urgent_recipients: z.array(z.string().uuid()).optional(),
-  escalation_critical_recipients: z.array(z.string().uuid()).optional(),
-});
+// updateEscalationSettingsSchema is now imported from @school/shared/pastoral
 
 // ─── Response Types ──────────────────────────────────────────────────────────
 

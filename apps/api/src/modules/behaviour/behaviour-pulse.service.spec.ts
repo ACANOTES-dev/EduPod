@@ -1,4 +1,4 @@
-import type { PulseDimension } from '@school/shared';
+import type { PulseDimension } from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
 

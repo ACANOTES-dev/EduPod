@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -121,6 +121,26 @@ export class AcademicReadFacade {
     });
   }
 
+  /**
+   * Return the ID of the current (active) academic year for a tenant.
+   * Throws NotFoundException if no active academic year exists.
+   */
+  async findCurrentYearId(tenantId: string): Promise<string> {
+    const year = await this.prisma.academicYear.findFirst({
+      where: { tenant_id: tenantId, status: 'active' },
+      select: { id: true },
+    });
+
+    if (!year) {
+      throw new NotFoundException({
+        code: 'ACADEMIC_YEAR_NOT_FOUND',
+        message: 'No active academic year found for this tenant',
+      });
+    }
+
+    return year.id;
+  }
+
   // ─── Class enrolments ───────────────────────────────────────────────────────
 
   /**
@@ -195,6 +215,23 @@ export class AcademicReadFacade {
         },
       },
     });
+  }
+
+  /**
+   * Return the student IDs for all active enrolments in a given class.
+   * Useful for bulk operations that only need IDs (e.g. attendance seeding, grade init).
+   */
+  async findStudentIdsForClass(tenantId: string, classId: string): Promise<string[]> {
+    const enrolments = await this.prisma.classEnrolment.findMany({
+      where: {
+        tenant_id: tenantId,
+        class_id: classId,
+        status: 'active',
+      },
+      select: { student_id: true },
+    });
+
+    return enrolments.map((e) => e.student_id);
   }
 
   // ─── Private helpers ────────────────────────────────────────────────────────

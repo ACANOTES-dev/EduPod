@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import type { SubProcessorRegisterVersion } from '@school/shared';
+import type { SubProcessorRegisterVersion } from '@school/shared/gdpr';
 import { Button } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';

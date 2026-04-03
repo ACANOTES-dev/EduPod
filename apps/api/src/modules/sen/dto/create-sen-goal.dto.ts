@@ -1,5 +1,4 @@
-import { createSenGoalSchema } from '@school/shared';
-import type { CreateSenGoalDto } from '@school/shared';
+import { createSenGoalSchema, type CreateSenGoalDto } from '@school/shared/sen';
 
 export { createSenGoalSchema };
 export type { CreateSenGoalDto };

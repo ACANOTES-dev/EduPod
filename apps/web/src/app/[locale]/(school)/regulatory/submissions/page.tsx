@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { REGULATORY_DOMAINS } from '@school/shared';
+import { REGULATORY_DOMAINS } from '@school/shared/regulatory';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
@@ -11,8 +11,6 @@ import { apiClient } from '@/lib/api-client';
 
 import { RegulatoryNav } from '../_components/regulatory-nav';
 import { SubmissionHistoryTable } from '../_components/submission-history-table';
-
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

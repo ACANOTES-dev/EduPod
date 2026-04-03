@@ -2,7 +2,7 @@ import crypto from 'crypto';
 
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 
-import { GdprOutboundData } from '@school/shared';
+import { GdprOutboundData } from '@school/shared/gdpr';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

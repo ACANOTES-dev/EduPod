@@ -3,8 +3,12 @@ import { ConflictException, Injectable, Logger, NotFoundException } from '@nestj
 import { $Enums, Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 
-import type { CreateMeetingDto, MeetingAttendeeDto, MeetingFilterDto } from '@school/shared';
-import { pastoralTenantSettingsSchema } from '@school/shared';
+import {
+  type CreateMeetingDto,
+  type MeetingAttendeeDto,
+  type MeetingFilterDto,
+  pastoralTenantSettingsSchema,
+} from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';

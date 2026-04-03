@@ -1,8 +1,8 @@
 import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 
-import { checkinAggregateQuerySchema, checkinFiltersSchema } from '@school/shared';
 import type { TenantContext } from '@school/shared';
+import { checkinAggregateQuerySchema, checkinFiltersSchema } from '@school/shared/pastoral';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { ModuleEnabled } from '../../../common/decorators/module-enabled.decorator';

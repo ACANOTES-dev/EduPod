@@ -14,8 +14,7 @@ import { useRouter, usePathname, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import type { DataMinimisationWarning } from '@school/shared';
-import { detectSpecialCategoryFields } from '@school/shared';
+import { type DataMinimisationWarning, detectSpecialCategoryFields } from '@school/shared/gdpr';
 import {
   Button,
   Checkbox,

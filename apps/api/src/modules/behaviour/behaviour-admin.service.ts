@@ -3,16 +3,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 
-import {
-  type AdminHealthResponse,
-  type AdminPreviewResponse,
-  type BackfillTasksDto,
-  type DeadLetterItem,
-  type RebuildAwardsDto,
-  type RecomputePointsDto,
-  type ResendNotificationDto,
-  type RetentionPreviewResponse,
-} from '@school/shared';
+import type {
+  AdminHealthResponse,
+  AdminPreviewResponse,
+  BackfillTasksDto,
+  DeadLetterItem,
+  RebuildAwardsDto,
+  RecomputePointsDto,
+  ResendNotificationDto,
+  RetentionPreviewResponse,
+} from '@school/shared/behaviour';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PolicyReplayService } from '../policy-engine/policy-replay.service';

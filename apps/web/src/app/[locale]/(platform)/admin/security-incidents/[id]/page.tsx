@@ -7,7 +7,7 @@ import * as React from 'react';
 import {
   SECURITY_INCIDENT_EVENT_TYPES,
   SECURITY_INCIDENT_STATUS_TRANSITIONS,
-} from '@school/shared';
+} from '@school/shared/security';
 import {
   Badge,
   Button,

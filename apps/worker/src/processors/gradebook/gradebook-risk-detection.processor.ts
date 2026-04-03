@@ -3,7 +3,7 @@ import { Inject, Logger } from '@nestjs/common';
 import { AcademicAlertType, AcademicRiskLevel, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { CONSENT_TYPES } from '@school/shared';
+import { CONSENT_TYPES } from '@school/shared/gdpr';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';

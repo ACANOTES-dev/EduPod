@@ -10,8 +10,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
-import { notifyControllersSchema, notifyDpcSchema } from '@school/shared';
-import type { JwtPayload, NotifyControllersDto, NotifyDpcDto } from '@school/shared';
+import type { JwtPayload } from '@school/shared';
+import {
+  notifyControllersSchema,
+  notifyDpcSchema,
+  type NotifyControllersDto,
+  type NotifyDpcDto,
+} from '@school/shared/security';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';

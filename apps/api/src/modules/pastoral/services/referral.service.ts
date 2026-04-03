@@ -1,7 +1,11 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 
-import type { CreateReferralDto, ReferralFilters, UpdateReferralDto } from '@school/shared';
+import type {
+  CreateReferralDto,
+  ReferralFilters,
+  UpdateReferralDto,
+} from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';

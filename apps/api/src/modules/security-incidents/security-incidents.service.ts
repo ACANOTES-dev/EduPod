@@ -1,16 +1,16 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 
-import { SECURITY_INCIDENT_STATUS_TRANSITIONS } from '@school/shared';
-import type {
-  CreateIncidentEventDto,
-  CreateSecurityIncidentDto,
-  ListSecurityIncidentsDto,
-  NotifyControllersDto,
-  NotifyDpcDto,
-  SecurityIncidentStatus,
-  UpdateSecurityIncidentDto,
-} from '@school/shared';
+import {
+  SECURITY_INCIDENT_STATUS_TRANSITIONS,
+  type CreateIncidentEventDto,
+  type CreateSecurityIncidentDto,
+  type ListSecurityIncidentsDto,
+  type NotifyControllersDto,
+  type NotifyDpcDto,
+  type SecurityIncidentStatus,
+  type UpdateSecurityIncidentDto,
+} from '@school/shared/security';
 
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';

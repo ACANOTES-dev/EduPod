@@ -11,8 +11,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
-import { createBookingSchema } from '@school/shared';
-import type { CreateBookingDto, JwtPayload, TenantContext } from '@school/shared';
+import type { JwtPayload, TenantContext } from '@school/shared';
+import { createBookingSchema, type CreateBookingDto } from '@school/shared/engagement';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

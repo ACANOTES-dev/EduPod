@@ -3,7 +3,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { $Enums, Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 
-import type { CompleteBreakGlassReviewDto, GrantBreakGlassDto } from '@school/shared';
+import type { CompleteBreakGlassReviewDto, GrantBreakGlassDto } from '@school/shared/behaviour';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AuditLogService } from '../audit-log/audit-log.service';

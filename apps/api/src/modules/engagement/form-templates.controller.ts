@@ -14,18 +14,15 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 
+import { paginationQuerySchema, type JwtPayload } from '@school/shared';
 import {
   createEngagementFormTemplateSchema,
   distributeFormSchema,
-  paginationQuerySchema,
   updateEngagementFormTemplateSchema,
-} from '@school/shared';
-import type {
-  CreateEngagementFormTemplateDto,
-  DistributeFormDto,
-  JwtPayload,
-  UpdateEngagementFormTemplateDto,
-} from '@school/shared';
+  type CreateEngagementFormTemplateDto,
+  type DistributeFormDto,
+  type UpdateEngagementFormTemplateDto,
+} from '@school/shared/engagement';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

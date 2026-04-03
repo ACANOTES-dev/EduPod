@@ -5,7 +5,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 
 jest.mock('../../common/middleware/rls.middleware');
 
-import { EVENT_VALID_TRANSITIONS } from '@school/shared';
+import { EVENT_VALID_TRANSITIONS } from '@school/shared/engagement';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

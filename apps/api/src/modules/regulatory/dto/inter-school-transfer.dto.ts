@@ -2,7 +2,7 @@ import type {
   CreateTransferDto,
   UpdateTransferDto,
   ListTransfersQueryDto,
-} from '@school/shared';
+} from '@school/shared/regulatory';
 
 export type {
   CreateTransferDto,

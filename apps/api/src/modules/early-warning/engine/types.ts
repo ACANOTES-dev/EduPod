@@ -1,22 +1,24 @@
-// ─── Re-exports from @school/shared (Phase 01) ─────────────────────────────
+// ─── Re-exports from @school/shared/early-warning ──────────────────────────
 
-import type { EarlyWarningThresholds, EarlyWarningWeights, SignalDomain } from '@school/shared';
-import { CROSS_DOMAIN_BOOST, SIGNAL_DOMAINS } from '@school/shared';
+import {
+  type EarlyWarningThresholds,
+  type EarlyWarningWeights,
+  type SignalDomain,
+  CROSS_DOMAIN_BOOST,
+  SIGNAL_DOMAINS,
+} from '@school/shared/early-warning';
 
 export type {
   DetectedSignal,
   DomainScores,
   RiskAssessment,
   RiskTier,
+  SignalDomain,
   SignalSeverity,
-} from '@school/shared';
+  SignalResult,
+} from '@school/shared/early-warning';
 
-export type { SignalDomain } from '@school/shared';
-
-export { DEFAULT_HYSTERESIS_BUFFER, DEFAULT_THRESHOLDS, DEFAULT_WEIGHTS } from '@school/shared';
-
-// Re-export SignalResult — domain field uses SignalDomain (= DomainKey)
-export type { SignalResult } from '@school/shared';
+export { DEFAULT_HYSTERESIS_BUFFER, DEFAULT_THRESHOLDS, DEFAULT_WEIGHTS } from '@school/shared/early-warning';
 
 // ─── Engine-specific aliases ────────────────────────────────────────────────
 

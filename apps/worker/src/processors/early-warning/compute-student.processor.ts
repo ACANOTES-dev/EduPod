@@ -3,8 +3,12 @@ import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import type { RiskTier, SignalResult, TrendJson } from '@school/shared';
-import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
+import {
+  type RiskTier,
+  type SignalResult,
+  type TrendJson,
+  EARLY_WARNING_COMPUTE_STUDENT_JOB,
+} from '@school/shared/early-warning';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';

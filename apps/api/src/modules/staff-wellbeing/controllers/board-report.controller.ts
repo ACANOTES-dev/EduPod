@@ -1,6 +1,7 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 
-import type { BoardReportSummary, TenantContext } from '@school/shared';
+import type { TenantContext } from '@school/shared';
+import type { BoardReportSummary } from '@school/shared/staff-wellbeing';
 
 import { BlockImpersonation } from '../../../common/decorators/block-impersonation.decorator';
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';

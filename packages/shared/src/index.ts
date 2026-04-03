@@ -142,35 +142,20 @@ export * from './schemas/scheduling-enhanced.schema';
 // Reports World-Class Enhancement Schemas
 export * from './schemas/reports-enhanced.schema';
 
-// AI Utilities
-export * from './ai';
-
-// Behaviour Management
-export * from './behaviour';
-
-// Pastoral Care
-export * from './pastoral';
-
-// SEN
-export * from './sen';
-
-// Staff Wellbeing
-export * from './staff-wellbeing';
-
-// GDPR
-export * from './gdpr';
-
-// Security Incidents (Phase J)
-export * from './security';
-
-// Regulatory Portal
-export * from './regulatory';
-
-// Early Warning System
-export * from './early-warning';
-
-// Engagement
-export * from './engagement';
+// ─── Domain modules ───────────────────────────────────────────────────────
+// These are available via subpath imports:
+//   @school/shared/behaviour
+//   @school/shared/pastoral
+//   @school/shared/sen
+//   @school/shared/staff-wellbeing
+//   @school/shared/gdpr
+//   @school/shared/security
+//   @school/shared/regulatory
+//   @school/shared/early-warning
+//   @school/shared/engagement
+//   @school/shared/scheduler
+//   @school/shared/ai
+// See package.json "exports" and "typesVersions" for resolution.
 
 // Parent Daily Digest
 export * from './schemas/parent-digest.schema';
@@ -184,9 +169,3 @@ export * from './types/homework';
 
 // Helpers
 export * from './helpers/notification';
-
-// Scheduling v2 Solver Types & Functions
-export * from './scheduler/types-v2';
-export { validateSchedule } from './scheduler/validation';
-export { solveV2 } from './scheduler/solver-v2';
-export { checkHardConstraintsV2 } from './scheduler/constraints-v2';

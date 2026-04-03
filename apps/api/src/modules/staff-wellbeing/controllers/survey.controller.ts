@@ -15,8 +15,12 @@ import {
 import type { Response } from 'express';
 import { z } from 'zod';
 
-import { createSurveySchema, submitSurveyResponseSchema, updateSurveySchema } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
+import {
+  createSurveySchema,
+  submitSurveyResponseSchema,
+  updateSurveySchema,
+} from '@school/shared/staff-wellbeing';
 
 import { BlockImpersonation } from '../../../common/decorators/block-impersonation.decorator';
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';

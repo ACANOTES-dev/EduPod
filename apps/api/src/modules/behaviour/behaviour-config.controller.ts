@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 
+import type { JwtPayload, TenantContext } from '@school/shared';
 import {
   createCategorySchema,
   createDocumentTemplateSchema,
@@ -30,8 +31,7 @@ import {
   updatePolicyPrioritySchema,
   updatePolicyRuleSchema,
   updateTemplateSchema,
-} from '@school/shared';
-import type { JwtPayload, TenantContext } from '@school/shared';
+} from '@school/shared/behaviour';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

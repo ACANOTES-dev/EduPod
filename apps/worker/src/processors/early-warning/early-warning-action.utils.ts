@@ -1,23 +1,21 @@
 import { $Enums, Prisma, PrismaClient } from '@prisma/client';
 
-import type {
-  DetectedSignal,
-  EarlyWarningRoutingRules,
-  EarlyWarningThresholds,
-  EarlyWarningWeights,
-  RiskAssessment,
-  RiskTier,
-  SignalResult,
-  SignalSummaryJson,
-  TrendJson,
-  TriggerSignalsJson,
-} from '@school/shared';
 import {
+  type DetectedSignal,
+  type EarlyWarningRoutingRules,
+  type EarlyWarningThresholds,
+  type EarlyWarningWeights,
+  type RiskAssessment,
+  type RiskTier,
+  type SignalResult,
+  type SignalSummaryJson,
+  type TrendJson,
+  type TriggerSignalsJson,
   CROSS_DOMAIN_BOOST,
   DEFAULT_HYSTERESIS_BUFFER,
   DEFAULT_THRESHOLDS,
   DEFAULT_WEIGHTS,
-} from '@school/shared';
+} from '@school/shared/early-warning';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 

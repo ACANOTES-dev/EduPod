@@ -1,7 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 
-import type { SolverInputV2, SolverAssignmentV2, ValidationResult } from '@school/shared';
-import { validateSchedule } from '@school/shared';
+import {
+  type SolverInputV2,
+  type SolverAssignmentV2,
+  type ValidationResult,
+  validateSchedule,
+} from '@school/shared/scheduler';
 
 import { PrismaService } from '../prisma/prisma.service';
 

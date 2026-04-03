@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 
-import { type BehaviourScope, type IncidentScopeFilter, buildScopeFilter } from '@school/shared';
+import {
+  type BehaviourScope,
+  type IncidentScopeFilter,
+  buildScopeFilter,
+} from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
 

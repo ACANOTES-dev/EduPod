@@ -5,17 +5,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { isValidComplianceTransition } from '@school/shared';
-import type {
-  ClassifyComplianceRequestDto,
-  ComplianceDecisionDto,
-  ComplianceFilterDto,
-  ComplianceRequestStatus,
-  CreateComplianceRequestDto,
-  ExtendComplianceRequestDto,
-  GdprEntityType,
-  GdprOutboundData,
+import {
+  isValidComplianceTransition,
+  type ClassifyComplianceRequestDto,
+  type ComplianceDecisionDto,
+  type ComplianceFilterDto,
+  type ComplianceRequestStatus,
+  type CreateComplianceRequestDto,
+  type ExtendComplianceRequestDto,
 } from '@school/shared';
+import type { GdprEntityType, GdprOutboundData } from '@school/shared/gdpr';
 
 import { AgeGateService } from '../gdpr/age-gate.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';

@@ -1,13 +1,12 @@
 import { Controller, Get, NotFoundException, Query, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 
-import { coverHistoryQuerySchema } from '@school/shared';
-import type {
-  JwtPayload,
-  PersonalTimetableQuality,
-  PersonalWorkloadSummary,
-  TenantContext,
-} from '@school/shared';
+import type { JwtPayload, TenantContext } from '@school/shared';
+import {
+  coverHistoryQuerySchema,
+  type PersonalTimetableQuality,
+  type PersonalWorkloadSummary,
+} from '@school/shared/staff-wellbeing';
 
 import { BlockImpersonation } from '../../../common/decorators/block-impersonation.decorator';
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';

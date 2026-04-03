@@ -5,7 +5,11 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { $Enums, Prisma, PrismaClient } from '@prisma/client';
 import type { Queue } from 'bullmq';
 
-import type { GenerateDocumentDto, ListDocumentsQuery, SendDocumentDto } from '@school/shared';
+import type {
+  GenerateDocumentDto,
+  ListDocumentsQuery,
+  SendDocumentDto,
+} from '@school/shared/behaviour';
 // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports -- Handlebars requires CommonJS import
 const Handlebars = require('handlebars') as {
   compile: (

@@ -1,8 +1,7 @@
-import { createPrivacyNoticeSchema } from '@school/shared';
-import type { CreatePrivacyNoticeDto } from '@school/shared';
+import { createPrivacyNoticeSchema, type CreatePrivacyNoticeDto } from '@school/shared/gdpr';
 
 export { createPrivacyNoticeSchema };
 export type { CreatePrivacyNoticeDto };
 
-export { updatePrivacyNoticeSchema } from '@school/shared';
-export type { UpdatePrivacyNoticeDto } from '@school/shared';
+export { updatePrivacyNoticeSchema } from '@school/shared/gdpr';
+export type { UpdatePrivacyNoticeDto } from '@school/shared/gdpr';

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { AttendanceRecordStatus, TuslaAbsenceCategory } from '@prisma/client';
 
-import type { CreateTuslaAbsenceCodeMappingDto } from '@school/shared';
+import type { CreateTuslaAbsenceCodeMappingDto } from '@school/shared/regulatory';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

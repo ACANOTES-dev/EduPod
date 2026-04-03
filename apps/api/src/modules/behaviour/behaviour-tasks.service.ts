@@ -1,14 +1,14 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 
-import type {
-  BehaviourTaskStatus,
-  CancelTaskDto,
-  CompleteTaskDto,
-  ListTasksQuery,
-  UpdateTaskDto,
-} from '@school/shared';
-import { isValidTaskTransition } from '@school/shared';
+import {
+  type BehaviourTaskStatus,
+  type CancelTaskDto,
+  type CompleteTaskDto,
+  type ListTasksQuery,
+  type UpdateTaskDto,
+  isValidTaskTransition,
+} from '@school/shared/behaviour';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

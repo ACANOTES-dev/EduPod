@@ -6,8 +6,11 @@ import {
   TuslaAbsenceCategory,
 } from '@prisma/client';
 
-import type { GenerateTuslaAarDto, GenerateTuslaSarDto } from '@school/shared';
-import { TUSLA_DEFAULT_THRESHOLD_DAYS } from '@school/shared';
+import {
+  type GenerateTuslaAarDto,
+  type GenerateTuslaSarDto,
+  TUSLA_DEFAULT_THRESHOLD_DAYS,
+} from '@school/shared/regulatory';
 
 import { PrismaService } from '../prisma/prisma.service';
 

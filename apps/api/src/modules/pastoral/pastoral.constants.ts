@@ -1,7 +1,4 @@
-import {
-  DEFAULT_CONCERN_CATEGORIES,
-  DEFAULT_INTERVENTION_TYPES,
-} from '@school/shared';
+import { DEFAULT_CONCERN_CATEGORIES, DEFAULT_INTERVENTION_TYPES } from '@school/shared/pastoral';
 
 // ─── Re-export shared defaults for use in the API layer ──────────────────────
 

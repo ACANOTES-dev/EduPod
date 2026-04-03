@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 
-import type { ExportPurpose, ReportFilterDto } from '@school/shared';
+import type { ExportPurpose, ReportFilterDto } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { CpExportService } from '../../child-protection/services/cp-export.service';

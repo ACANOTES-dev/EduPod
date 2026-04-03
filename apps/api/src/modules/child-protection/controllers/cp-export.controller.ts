@@ -13,7 +13,7 @@ import {
 import type { Request, Response } from 'express';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
-import { cpExportGenerateSchema, cpExportPreviewSchema } from '@school/shared';
+import { cpExportGenerateSchema, cpExportPreviewSchema } from '@school/shared/pastoral';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';

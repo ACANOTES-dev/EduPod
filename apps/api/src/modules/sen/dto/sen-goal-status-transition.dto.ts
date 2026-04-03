@@ -1,5 +1,4 @@
-import { senGoalStatusTransitionSchema } from '@school/shared';
-import type { SenGoalStatusTransitionDto } from '@school/shared';
+import { senGoalStatusTransitionSchema, type SenGoalStatusTransitionDto } from '@school/shared/sen';
 
 export { senGoalStatusTransitionSchema };
 export type { SenGoalStatusTransitionDto };

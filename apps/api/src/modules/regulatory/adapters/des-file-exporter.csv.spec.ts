@@ -1,4 +1,4 @@
-import type { DesFileType } from '@school/shared';
+import type { DesFileType } from '@school/shared/regulatory';
 
 import { DesFileExporterCsv } from './des-file-exporter.csv';
 import type { DesColumnDef, DesFileRow } from './des-file-exporter.interface';

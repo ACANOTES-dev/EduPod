@@ -1,5 +1,4 @@
-import { createIncidentEventSchema } from '@school/shared';
-import type { CreateIncidentEventDto } from '@school/shared';
+import { createIncidentEventSchema, type CreateIncidentEventDto } from '@school/shared/security';
 
 export { createIncidentEventSchema };
 export type { CreateIncidentEventDto };

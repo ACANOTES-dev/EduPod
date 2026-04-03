@@ -7,10 +7,11 @@ import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
-import type { CreateIncidentReportDto } from '@school/shared';
-import { createIncidentReportSchema } from '@school/shared';
+import {
+  type CreateIncidentReportDto,
+  createIncidentReportSchema,
+} from '@school/shared/engagement';
 import { Button, Input, Label, Textarea, toast } from '@school/ui';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -21,7 +22,6 @@ import {
   type EngagementIncidentReport,
   type EventRecord,
 } from '../../../_components/engagement-types';
-
 
 export default function EngagementEventIncidentsPage() {
   const params = useParams<{ id: string }>();

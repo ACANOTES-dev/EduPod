@@ -3,7 +3,7 @@ import { createHash } from 'crypto';
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PodDatabaseType, PodSyncLogStatus, PodSyncStatus, PodSyncType } from '@prisma/client';
 
-import type { PpodExportDto, PpodImportDto } from '@school/shared';
+import type { PpodExportDto, PpodImportDto } from '@school/shared/regulatory';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

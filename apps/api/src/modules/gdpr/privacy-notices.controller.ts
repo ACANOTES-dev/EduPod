@@ -13,8 +13,8 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 
-import { createPrivacyNoticeSchema, updatePrivacyNoticeSchema } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
+import { createPrivacyNoticeSchema, updatePrivacyNoticeSchema } from '@school/shared/gdpr';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

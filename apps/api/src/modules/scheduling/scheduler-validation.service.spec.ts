@@ -1,14 +1,14 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { validateSchedule } from '@school/shared';
+import { validateSchedule } from '@school/shared/scheduler';
 
 import { PrismaService } from '../prisma/prisma.service';
 
 import { SchedulerOrchestrationService } from './scheduler-orchestration.service';
 import { SchedulerValidationService } from './scheduler-validation.service';
 
-jest.mock('@school/shared', () => ({
+jest.mock('@school/shared/scheduler', () => ({
   validateSchedule: jest.fn(),
 }));
 

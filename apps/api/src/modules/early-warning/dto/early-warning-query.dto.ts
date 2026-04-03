@@ -1,11 +1,9 @@
 import {
   earlyWarningSummaryQuerySchema,
   listEarlyWarningsQuerySchema,
-} from '@school/shared';
-import type {
-  EarlyWarningSummaryQuery,
-  ListEarlyWarningsQuery,
-} from '@school/shared';
+  type EarlyWarningSummaryQuery,
+  type ListEarlyWarningsQuery,
+} from '@school/shared/early-warning';
 
 export { earlyWarningSummaryQuerySchema, listEarlyWarningsQuerySchema };
 export type { EarlyWarningSummaryQuery, ListEarlyWarningsQuery };

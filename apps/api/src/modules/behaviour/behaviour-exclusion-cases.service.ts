@@ -10,17 +10,17 @@ import { $Enums, Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 
 import {
+  addSchoolDays,
   type CreateExclusionCaseDto,
   type ExclusionCaseListQuery,
   type ExclusionStatusKey,
   type RecordExclusionDecisionDto,
   type UpdateExclusionCaseDto,
-  addSchoolDays,
   buildStatutoryTimeline,
   type ClosureChecker,
   computeTimelineStatuses,
   isValidExclusionTransition,
-} from '@school/shared';
+} from '@school/shared/behaviour';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

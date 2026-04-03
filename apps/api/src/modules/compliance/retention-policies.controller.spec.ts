@@ -1,14 +1,13 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
 
+import type { JwtPayload, TenantContext } from '@school/shared';
 import type {
   CreateRetentionHoldDto,
-  JwtPayload,
   RetentionHoldsQueryDto,
   RetentionPreviewRequestDto,
-  TenantContext,
   UpdateRetentionPolicyDto,
-} from '@school/shared';
+} from '@school/shared/gdpr';
 
 import {
   RetentionHoldsController,

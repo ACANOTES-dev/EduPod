@@ -1,6 +1,6 @@
 import type { $Enums, Prisma } from '@prisma/client';
 
-import type { BehaviourAnalyticsQuery, DataQuality } from '@school/shared';
+import type { BehaviourAnalyticsQuery, DataQuality } from '@school/shared/behaviour';
 
 import type { BehaviourScopeService, ScopeResult } from './behaviour-scope.service';
 

@@ -18,7 +18,7 @@ import {
   type SubmitAppealDto,
   type UpdateAppealDto,
   type WithdrawAppealDto,
-} from '@school/shared';
+} from '@school/shared/behaviour';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

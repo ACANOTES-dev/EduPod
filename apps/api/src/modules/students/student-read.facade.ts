@@ -26,7 +26,7 @@
  * - Returns `null` when a record is not found (callers decide whether to throw).
  * - Batch methods return arrays (empty array = nothing found).
  */
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -196,6 +196,60 @@ export class StudentReadFacade {
           },
         },
       },
+    });
+  }
+
+  /**
+   * Assert that a student exists for the given tenant. Throws NotFoundException if not.
+   */
+  async existsOrThrow(tenantId: string, studentId: string): Promise<void> {
+    const student = await this.prisma.student.findFirst({
+      where: { id: studentId, tenant_id: tenantId },
+      select: { id: true },
+    });
+
+    if (!student) {
+      throw new NotFoundException({
+        code: 'STUDENT_NOT_FOUND',
+        message: `Student with id "${studentId}" not found`,
+      });
+    }
+  }
+
+  /**
+   * Batch lookup of student display names. Returns a Map of student id to "first last" string.
+   * Missing IDs are silently excluded from the result.
+   */
+  async findDisplayNames(tenantId: string, studentIds: string[]): Promise<Map<string, string>> {
+    if (studentIds.length === 0) return new Map();
+
+    const students = await this.prisma.student.findMany({
+      where: { id: { in: studentIds }, tenant_id: tenantId },
+      select: { id: true, first_name: true, last_name: true },
+    });
+
+    const map = new Map<string, string>();
+    for (const s of students) {
+      map.set(s.id, `${s.first_name} ${s.last_name}`);
+    }
+    return map;
+  }
+
+  /**
+   * Return active students belonging to a specific year group.
+   */
+  async findActiveByYearGroup(
+    tenantId: string,
+    yearGroupId: string,
+  ): Promise<{ id: string; first_name: string; last_name: string }[]> {
+    return this.prisma.student.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: 'active',
+        year_group_id: yearGroupId,
+      },
+      select: { id: true, first_name: true, last_name: true },
+      orderBy: [{ first_name: 'asc' }, { last_name: 'asc' }],
     });
   }
 }

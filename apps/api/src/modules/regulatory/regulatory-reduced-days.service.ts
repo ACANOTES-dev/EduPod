@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, ReducedSchoolDayReason } from '@prisma/client';
 
-import type { CreateReducedSchoolDayDto, UpdateReducedSchoolDayDto } from '@school/shared';
+import type {
+  CreateReducedSchoolDayDto,
+  UpdateReducedSchoolDayDto,
+} from '@school/shared/regulatory';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

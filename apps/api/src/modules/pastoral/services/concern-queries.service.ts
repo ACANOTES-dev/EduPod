@@ -1,8 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-import type { ListConcernsQuery } from '@school/shared';
-import { pastoralTenantSettingsSchema } from '@school/shared';
+import { type ListConcernsQuery, pastoralTenantSettingsSchema } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';

@@ -11,7 +11,7 @@ import {
   ReplayPolicyRuleDto,
   ReplayResult,
   ReplaySampleMatch,
-} from '@school/shared';
+} from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
 

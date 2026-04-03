@@ -1,5 +1,4 @@
-import { listSnaAssignmentsQuerySchema } from '@school/shared';
-import type { ListSnaAssignmentsQuery } from '@school/shared';
+import { listSnaAssignmentsQuerySchema, type ListSnaAssignmentsQuery } from '@school/shared/sen';
 
 export { listSnaAssignmentsQuerySchema };
 export type { ListSnaAssignmentsQuery };

@@ -8,10 +8,8 @@ import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
-import type { GenerateTimeSlotsDto } from '@school/shared';
-import { generateTimeSlotsSchema } from '@school/shared';
+import { type GenerateTimeSlotsDto, generateTimeSlotsSchema } from '@school/shared/engagement';
 import { Button, Checkbox, Input, Label, toast } from '@school/ui';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -23,7 +21,6 @@ import {
   type PaginatedResponse,
   type StaffOption,
 } from '../../../_components/engagement-types';
-
 
 function calculateSlotsPerTeacher(values: Partial<GenerateTimeSlotsDto>): number {
   if (

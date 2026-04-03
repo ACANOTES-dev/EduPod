@@ -24,6 +24,11 @@ import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
+import { MfaService } from './auth-mfa.service';
+import { PasswordResetService } from './auth-password-reset.service';
+import { RateLimitService } from './auth-rate-limit.service';
+import { SessionService } from './auth-session.service';
+import { TokenService } from './auth-token.service';
 import { AuthService } from './auth.service';
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
@@ -167,6 +172,11 @@ describe('AuthService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SecurityAuditService, useValue: mockSecurityAuditService },
         { provide: EncryptionService, useValue: mockEncryptionService },
+        { provide: TokenService, useValue: {} },
+        { provide: SessionService, useValue: {} },
+        { provide: RateLimitService, useValue: {} },
+        { provide: PasswordResetService, useValue: {} },
+        { provide: MfaService, useValue: {} },
       ],
     }).compile();
 

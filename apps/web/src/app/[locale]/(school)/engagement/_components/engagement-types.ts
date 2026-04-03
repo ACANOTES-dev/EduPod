@@ -2,7 +2,7 @@ import type {
   CreateEngagementEventDto,
   CreateEngagementFormTemplateDto,
   EngagementFormField,
-} from '@school/shared';
+} from '@school/shared/engagement';
 
 export type EngagementTemplateStatus = 'draft' | 'published' | 'archived';
 export type EngagementSubmissionStatus =

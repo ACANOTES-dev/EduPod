@@ -6,8 +6,11 @@ import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
-import type { CreateTransferDto } from '@school/shared';
-import { createTransferSchema, PPOD_EARLY_LEAVING_REASONS } from '@school/shared';
+import {
+  type CreateTransferDto,
+  createTransferSchema,
+  PPOD_EARLY_LEAVING_REASONS,
+} from '@school/shared/regulatory';
 import {
   Button,
   Input,

@@ -7,7 +7,10 @@ import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
-import { createEngagementEventSchema, type CreateEngagementEventDto } from '@school/shared';
+import {
+  createEngagementEventSchema,
+  type CreateEngagementEventDto,
+} from '@school/shared/engagement';
 import {
   Button,
   Checkbox,
@@ -38,8 +41,6 @@ import {
   type StudentOption,
   type YearGroupOption,
 } from './engagement-types';
-
-
 
 const STEP_KEYS = ['basicInfo', 'schedule', 'compliance', 'fees', 'staff', 'targeting'] as const;
 

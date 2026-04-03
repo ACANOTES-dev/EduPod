@@ -1,5 +1,7 @@
-import { createSecurityIncidentSchema } from '@school/shared';
-import type { CreateSecurityIncidentDto } from '@school/shared';
+import {
+  createSecurityIncidentSchema,
+  type CreateSecurityIncidentDto,
+} from '@school/shared/security';
 
 export { createSecurityIncidentSchema };
 export type { CreateSecurityIncidentDto };

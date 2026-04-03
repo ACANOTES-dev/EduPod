@@ -3,7 +3,7 @@ import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { addSchoolDays, type ClosureChecker } from '@school/shared';
+import { addSchoolDays, type ClosureChecker } from '@school/shared/behaviour';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';

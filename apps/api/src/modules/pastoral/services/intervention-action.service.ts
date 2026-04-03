@@ -11,7 +11,7 @@ import type {
   CreateInterventionActionDto,
   InterventionActionFilters,
   UpdateInterventionActionDto,
-} from '@school/shared';
+} from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';

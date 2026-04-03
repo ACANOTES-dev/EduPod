@@ -20,7 +20,7 @@ import {
   createEngagementFormTemplateSchema,
   type CreateEngagementFormTemplateDto,
   type EngagementFormField,
-} from '@school/shared';
+} from '@school/shared/engagement';
 import {
   Button,
   Checkbox,
@@ -35,7 +35,6 @@ import {
   toast,
 } from '@school/ui';
 
-
 import { apiClient } from '@/lib/api-client';
 
 import {
@@ -47,7 +46,6 @@ import {
   type PaginatedResponse,
 } from './engagement-types';
 import { FormFieldRenderer } from './form-field-renderer';
-
 
 function normaliseField(field: EngagementFormField, index: number): EngagementFormField {
   return {

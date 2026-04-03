@@ -1,5 +1,4 @@
-import { createBookingSchema } from '@school/shared';
-import type { CreateBookingDto } from '@school/shared';
+import { createBookingSchema, type CreateBookingDto } from '@school/shared/engagement';
 
 export { createBookingSchema };
 export type { CreateBookingDto };

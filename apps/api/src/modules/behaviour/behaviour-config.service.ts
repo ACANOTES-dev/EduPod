@@ -6,7 +6,7 @@ import type {
   CreateTemplateDto,
   UpdateCategoryDto,
   UpdateTemplateDto,
-} from '@school/shared';
+} from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
 

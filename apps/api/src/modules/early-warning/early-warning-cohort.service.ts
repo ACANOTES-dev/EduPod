@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
-import type { CohortQuery } from '@school/shared';
+import type { CohortQuery } from '@school/shared/early-warning';
 
 import { PrismaService } from '../prisma/prisma.service';
 

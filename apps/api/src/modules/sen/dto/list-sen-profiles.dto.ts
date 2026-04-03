@@ -1,5 +1,4 @@
-import { listSenProfilesQuerySchema } from '@school/shared';
-import type { ListSenProfilesQuery } from '@school/shared';
+import { listSenProfilesQuerySchema, type ListSenProfilesQuery } from '@school/shared/sen';
 
 export { listSenProfilesQuerySchema };
 export type { ListSenProfilesQuery };

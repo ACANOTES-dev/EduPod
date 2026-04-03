@@ -1,4 +1,4 @@
-import type { DesFileType } from '@school/shared';
+import type { DesFileType } from '@school/shared/regulatory';
 
 // ─── DI Token ─────────────────────────────────────────────────────────────────
 

@@ -5,14 +5,13 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 
-import { AI_BEHAVIOUR_SYSTEM_PROMPT, anonymiseForAI } from '@school/shared';
-import type {
-  AIQueryHistoryResult,
-  AIQueryInput,
-  AIQueryResult,
-  AnonymiseOptions,
-  GdprOutboundData,
-} from '@school/shared';
+import {
+  AI_BEHAVIOUR_SYSTEM_PROMPT,
+  anonymiseForAI,
+  type AnonymiseOptions,
+} from '@school/shared/ai';
+import type { AIQueryHistoryResult, AIQueryInput, AIQueryResult } from '@school/shared/behaviour';
+import type { GdprOutboundData } from '@school/shared/gdpr';
 
 import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { AiAuditService } from '../gdpr/ai-audit.service';

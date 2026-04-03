@@ -10,7 +10,11 @@ import {
 import { Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 
-import type { CreateSurveyDto, SubmitSurveyResponseDto, UpdateSurveyDto } from '@school/shared';
+import type {
+  CreateSurveyDto,
+  SubmitSurveyResponseDto,
+  UpdateSurveyDto,
+} from '@school/shared/staff-wellbeing';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';

@@ -13,8 +13,8 @@ import {
 import type { Request } from 'express';
 import { z } from 'zod';
 
-import { submitFormSchema } from '@school/shared';
-import type { JwtPayload, SubmitFormDto, TenantContext } from '@school/shared';
+import type { JwtPayload, TenantContext } from '@school/shared';
+import { submitFormSchema, type SubmitFormDto } from '@school/shared/engagement';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

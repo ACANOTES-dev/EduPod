@@ -9,7 +9,7 @@ import {
 import { $Enums, Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 
-import type { CreateManualAwardDto, ListAwardsQuery } from '@school/shared';
+import type { CreateManualAwardDto, ListAwardsQuery } from '@school/shared/behaviour';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

@@ -1,7 +1,7 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { CONSENT_TYPES } from '@school/shared';
+import { CONSENT_TYPES } from '@school/shared/gdpr';
 
 jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn(),

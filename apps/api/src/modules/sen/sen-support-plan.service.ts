@@ -8,7 +8,7 @@ import {
   type ListSupportPlansQuery,
   type SupportPlanStatusTransitionDto,
   type UpdateSupportPlanDto,
-} from '@school/shared';
+} from '@school/shared/sen';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { SettingsService } from '../configuration/settings.service';

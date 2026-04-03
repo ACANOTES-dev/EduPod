@@ -3,7 +3,7 @@ import { Inject, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { engagementConfigSchema } from '@school/shared';
+import { engagementConfigSchema } from '@school/shared/engagement';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 

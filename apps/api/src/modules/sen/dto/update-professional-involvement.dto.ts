@@ -1,5 +1,7 @@
-import { updateProfessionalInvolvementSchema } from '@school/shared';
-import type { UpdateProfessionalInvolvementDto } from '@school/shared';
+import {
+  updateProfessionalInvolvementSchema,
+  type UpdateProfessionalInvolvementDto,
+} from '@school/shared/sen';
 
 export { updateProfessionalInvolvementSchema };
 export type { UpdateProfessionalInvolvementDto };

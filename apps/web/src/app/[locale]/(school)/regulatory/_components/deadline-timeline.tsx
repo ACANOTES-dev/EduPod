@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { REGULATORY_DOMAINS } from '@school/shared';
+import { REGULATORY_DOMAINS } from '@school/shared/regulatory';
 import { Badge, cn } from '@school/ui';
 
 import { formatDate } from '@/lib/format-date';

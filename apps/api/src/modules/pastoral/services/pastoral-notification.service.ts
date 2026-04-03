@@ -3,7 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PastoralConcernSeverity } from '@prisma/client';
 import { Queue } from 'bullmq';
 
-import { pastoralTenantSettingsSchema } from '@school/shared';
+import { pastoralTenantSettingsSchema } from '@school/shared/pastoral';
 
 import { NotificationsService } from '../../communications/notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';

@@ -77,8 +77,8 @@
       "default": "./dist/ai/index.js"
     },
     "./scheduler": {
-      "types": "./src/scheduler/types-v2.ts",
-      "default": "./dist/scheduler/types-v2.js"
+      "types": "./src/scheduler/index.ts",
+      "default": "./dist/scheduler/index.js"
     }
   },
   "scripts": {

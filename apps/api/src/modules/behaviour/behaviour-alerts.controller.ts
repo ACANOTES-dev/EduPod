@@ -12,8 +12,12 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 
-import { alertListQuerySchema, dismissAlertSchema, snoozeAlertSchema } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
+import {
+  alertListQuerySchema,
+  dismissAlertSchema,
+  snoozeAlertSchema,
+} from '@school/shared/behaviour';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

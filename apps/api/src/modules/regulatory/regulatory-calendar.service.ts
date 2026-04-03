@@ -1,8 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, RegulatorySubmissionStatus } from '@prisma/client';
 
-import { DEFAULT_CALENDAR_EVENTS } from '@school/shared';
-import type { CreateCalendarEventDto, UpdateCalendarEventDto } from '@school/shared';
+import {
+  DEFAULT_CALENDAR_EVENTS,
+  type CreateCalendarEventDto,
+  type UpdateCalendarEventDto,
+} from '@school/shared/regulatory';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

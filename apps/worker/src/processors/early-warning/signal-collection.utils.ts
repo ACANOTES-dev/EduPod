@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 
-import type { DetectedSignal, SignalResult, SignalSeverity } from '@school/shared';
+import type { DetectedSignal, SignalResult, SignalSeverity } from '@school/shared/early-warning';
 
 /**
  * Signal collection utilities for the worker.

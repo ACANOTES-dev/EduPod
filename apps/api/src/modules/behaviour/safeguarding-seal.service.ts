@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 
-import type { InitiateSealDto } from '@school/shared';
+import type { InitiateSealDto } from '@school/shared/behaviour';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AuditLogService } from '../audit-log/audit-log.service';

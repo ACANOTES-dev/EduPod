@@ -13,14 +13,15 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 
+import type { JwtPayload, TenantContext } from '@school/shared';
 import {
   createExclusionCaseSchema,
   exclusionCaseListQuerySchema,
   exclusionStatusTransitionSchema,
   recordExclusionDecisionSchema,
   updateExclusionCaseSchema,
-} from '@school/shared';
-import type { ExclusionStatusKey, JwtPayload, TenantContext } from '@school/shared';
+  type ExclusionStatusKey,
+} from '@school/shared/behaviour';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

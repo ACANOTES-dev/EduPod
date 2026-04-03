@@ -8,7 +8,7 @@ import type {
   CoverFairnessResult,
   CorrelationResult,
   SubstitutionPressure,
-} from '@school/shared';
+} from '@school/shared/staff-wellbeing';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
