@@ -67,6 +67,12 @@ jobs:
       - name: Check hotspot complexity budgets
         run: pnpm hotspots:check
 
+      - name: RLS catalogue audit
+        run: npx tsx scripts/audit-rls.ts
+
+      - name: Raw SQL governance check
+        run: node scripts/check-raw-sql-governance.js
+
       - name: Lint
         run: pnpm turbo run lint
 
@@ -76,8 +82,7 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=8192'
 
       - name: Module cohesion check
-        run: node scripts/check-module-cohesion.js
-        continue-on-error: true
+        run: node scripts/check-module-cohesion.js --max-errors 3
 
       - name: Module tier dependency check
         run: node scripts/check-module-tiers.js
@@ -217,6 +222,9 @@ jobs:
 
       - name: Run integration tests
         run: pnpm test:integration
+
+      - name: Restore drill verification
+        run: bash scripts/ci-restore-drill.sh
 
   visual:
     needs: [ci]

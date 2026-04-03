@@ -28,8 +28,7 @@ else
   echo "The following service files were modified without spec changes:"
   printf '  %s\n' "${MISSING_SPECS[@]}"
   echo ""
-  echo "If these files have <50% coverage, add tests before merging."
+  echo "Service/controller files must have corresponding spec changes."
   echo "To check coverage: pnpm --filter @school/api test:coverage"
-  # Warning only for now — switch to exit 1 when team is ready
-  exit 0
+  exit 1
 fi

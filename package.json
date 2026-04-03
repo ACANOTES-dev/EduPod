@@ -41,6 +41,7 @@
     "check:characterization": "bash scripts/check-characterization-tests.sh",
     "check:boundaries": "npx tsx scripts/check-module-boundaries.ts",
     "check:test-gate": "bash scripts/check-test-coverage-gate.sh",
+    "drill:restore": "bash scripts/ci-restore-drill.sh",
     "prepare": "husky"
   },
   "lint-staged": {

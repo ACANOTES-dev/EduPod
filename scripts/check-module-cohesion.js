@@ -30,6 +30,10 @@ const ERROR_LOC = 15_000;
 
 const STRICT = process.argv.includes('--strict');
 
+// --max-errors N : allow up to N known errors (for tracked hotspots being decomposed)
+const maxErrorsIdx = process.argv.indexOf('--max-errors');
+const MAX_ERRORS = maxErrorsIdx !== -1 ? parseInt(process.argv[maxErrorsIdx + 1], 10) : 0;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
@@ -245,9 +249,15 @@ if (STRICT) {
   console.log('\n--strict mode: warnings are treated as errors.\n');
 }
 
-if (errors > 0 || (STRICT && warnings > 0)) {
+if (MAX_ERRORS > 0 && errors <= MAX_ERRORS) {
   console.log(
-    `\n[check-module-cohesion] FAILED — ${errors} error(s)${STRICT && warnings > 0 ? `, ${warnings} warning(s) (strict)` : ''}.\n`,
+    `\n[check-module-cohesion] PASSED (${errors} known error(s) within --max-errors ${MAX_ERRORS})\n`,
+  );
+  process.exit(0);
+} else if (errors > 0 || (STRICT && warnings > 0)) {
+  const detail = MAX_ERRORS > 0 ? ` (allowed: ${MAX_ERRORS})` : '';
+  console.log(
+    `\n[check-module-cohesion] FAILED — ${errors} error(s)${detail}${STRICT && warnings > 0 ? `, ${warnings} warning(s) (strict)` : ''}.\n`,
   );
   process.exit(1);
 } else {
