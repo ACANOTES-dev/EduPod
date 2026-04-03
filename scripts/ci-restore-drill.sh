@@ -38,9 +38,12 @@ echo "  Dump size: $DUMP_SIZE"
 echo ""
 
 # ─── 3. Create the restore target database ──────────────────────────────────
-echo "[2/5] Creating restore target database..."
+echo "[2/6] Creating restore target database..."
 psql "$DB_URL" -c "DROP DATABASE IF EXISTS $RESTORE_DB;" 2>/dev/null || true
 psql "$DB_URL" -c "CREATE DATABASE $RESTORE_DB;" 2>/dev/null
+
+# Create extensions before restore (pg_restore --no-privileges skips them)
+psql "$BASE_URL" -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"; CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pgcrypto;" 2>/dev/null
 
 # ─── 4. Restore into the target ─────────────────────────────────────────────
 echo "[3/6] Restoring into $RESTORE_DB..."
