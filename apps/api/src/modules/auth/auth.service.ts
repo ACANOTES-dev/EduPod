@@ -1,27 +1,13 @@
 import * as crypto from 'crypto';
 
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  Logger,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
-import { generateSecret as otpGenerateSecret, generateURI, verify as otpVerify } from 'otplib';
-import * as QRCode from 'qrcode';
 
 import {
   ACCOUNT_LOCKOUT_DURATION_MINUTES,
   ACCOUNT_LOCKOUT_THRESHOLD,
-  BRUTE_FORCE_THRESHOLDS,
-  BRUTE_FORCE_WINDOW_SECONDS,
-  IP_LOGIN_THROTTLE_MAX_ATTEMPTS,
-  IP_LOGIN_THROTTLE_WINDOW_SECONDS,
-  JWT_EXPIRY,
-  REFRESH_EXPIRY,
   type JwtPayload,
   type RefreshTokenPayload,
   type SessionMetadata,
@@ -29,176 +15,88 @@ import {
 
 import { runWithRlsContext } from '../../common/middleware/rls.middleware';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
-import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
-export interface LoginResult {
-  access_token: string;
-  refresh_token: string;
-  user: SanitisedUser;
-}
+import { MfaService } from './auth-mfa.service';
+import { PasswordResetService } from './auth-password-reset.service';
+import { RateLimitService } from './auth-rate-limit.service';
+import { SessionService } from './auth-session.service';
+import { TokenService } from './auth-token.service';
+import type {
+  LoginResult,
+  MfaRequiredResult,
+  MfaSetupResult,
+  SanitisedUser,
+  SessionInfo,
+} from './auth.types';
 
-export interface MfaRequiredResult {
-  mfa_required: true;
-  mfa_token: string;
-}
-
-export interface SanitisedUser {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  phone: string | null;
-  preferred_locale: string | null;
-  global_status: string;
-  mfa_enabled: boolean;
-  last_login_at: Date | null;
-  created_at: Date;
-}
-
-export interface MfaSetupResult {
-  secret: string;
-  qr_code_url: string;
-  otpauth_uri: string;
-}
-
-export interface SessionInfo {
-  session_id: string;
-  ip_address: string;
-  user_agent: string;
-  created_at: string;
-  last_active_at: string;
-  tenant_id: string | null;
-}
+export type { LoginResult, MfaRequiredResult, MfaSetupResult, SanitisedUser, SessionInfo };
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
-    private configService: ConfigService,
-    private redis: RedisService,
-    private prisma: PrismaService,
+    private readonly tokenService: TokenService,
+    private readonly sessionService: SessionService,
+    private readonly rateLimitService: RateLimitService,
+    private readonly mfaService: MfaService,
+    private readonly passwordResetService: PasswordResetService,
+    private readonly configService: ConfigService,
+    private readonly redis: RedisService,
+    private readonly prisma: PrismaService,
     private readonly securityAuditService: SecurityAuditService,
-    private readonly encryptionService: EncryptionService,
   ) {}
 
-  // ─── Token signing / verification ──────────────────────────────────────────
+  // ─── Token signing / verification (delegates to TokenService) ──────────────
 
   signAccessToken(payload: Omit<JwtPayload, 'iat' | 'exp' | 'type'>): string {
-    const secret = this.configService.get<string>('JWT_SECRET');
-    if (!secret) throw new Error('JWT_SECRET not configured');
-
-    return jwt.sign({ ...payload, type: 'access' }, secret, {
-      expiresIn: JWT_EXPIRY,
-    });
+    return this.tokenService.signAccessToken(payload);
   }
 
   signRefreshToken(payload: Omit<RefreshTokenPayload, 'iat' | 'exp' | 'type'>): string {
-    const secret = this.configService.get<string>('JWT_REFRESH_SECRET');
-    if (!secret) throw new Error('JWT_REFRESH_SECRET not configured');
-
-    return jwt.sign({ ...payload, type: 'refresh' }, secret, {
-      expiresIn: REFRESH_EXPIRY,
-    });
+    return this.tokenService.signRefreshToken(payload);
   }
 
   verifyAccessToken(token: string): JwtPayload {
-    const secret = this.configService.get<string>('JWT_SECRET');
-    if (!secret) throw new Error('JWT_SECRET not configured');
-
-    return jwt.verify(token, secret) as JwtPayload;
+    return this.tokenService.verifyAccessToken(token);
   }
 
   verifyRefreshToken(token: string): RefreshTokenPayload {
-    const secret = this.configService.get<string>('JWT_REFRESH_SECRET');
-    if (!secret) throw new Error('JWT_REFRESH_SECRET not configured');
-
-    return jwt.verify(token, secret) as RefreshTokenPayload;
+    return this.tokenService.verifyRefreshToken(token);
   }
 
-  // ─── Session CRUD in Redis ────────────────────────────────────────────────
+  // ─── Session CRUD (delegates to SessionService) ───────────────────────────
 
   async createSession(session: SessionMetadata): Promise<void> {
-    const key = `session:${session.session_id}`;
-    const client = this.redis.getClient();
-    await client.set(key, JSON.stringify(session), 'EX', 7 * 24 * 60 * 60);
-
-    // Index by user for session listing/revocation
-    const userKey = `user_sessions:${session.user_id}`;
-    await client.sadd(userKey, session.session_id);
-    await client.expire(userKey, 7 * 24 * 60 * 60);
+    return this.sessionService.createSession(session);
   }
 
   async getSession(sessionId: string): Promise<SessionMetadata | null> {
-    const client = this.redis.getClient();
-    const data = await client.get(`session:${sessionId}`);
-    if (!data) return null;
-    return JSON.parse(data) as SessionMetadata;
+    return this.sessionService.getSession(sessionId);
   }
 
   async deleteSession(sessionId: string, userId: string): Promise<void> {
-    const client = this.redis.getClient();
-    await client.del(`session:${sessionId}`);
-    await client.srem(`user_sessions:${userId}`, sessionId);
+    return this.sessionService.deleteSession(sessionId, userId);
   }
 
   async deleteAllUserSessions(userId: string): Promise<void> {
-    const client = this.redis.getClient();
-    const sessionIds = await client.smembers(`user_sessions:${userId}`);
-    if (sessionIds.length > 0) {
-      const keys = sessionIds.map((id) => `session:${id}`);
-      await client.del(...keys);
-    }
-    await client.del(`user_sessions:${userId}`);
+    return this.sessionService.deleteAllUserSessions(userId);
   }
 
-  // ─── Brute Force Protection ───────────────────────────────────────────────
+  // ─── Brute Force Protection (delegates to RateLimitService) ───────────────
 
   async checkBruteForce(email: string): Promise<{ blocked: boolean; retryAfterSeconds: number }> {
-    const client = this.redis.getClient();
-    const key = `brute_force:${email}`;
-    const failureCount = parseInt((await client.get(key)) || '0', 10);
-
-    for (let i = BRUTE_FORCE_THRESHOLDS.length - 1; i >= 0; i--) {
-      const threshold = BRUTE_FORCE_THRESHOLDS[i];
-      if (threshold && failureCount >= threshold.failures) {
-        return { blocked: true, retryAfterSeconds: threshold.delaySeconds };
-      }
-    }
-
-    return { blocked: false, retryAfterSeconds: 0 };
+    return this.rateLimitService.checkBruteForce(email);
   }
 
   async recordFailedLogin(email: string, ipAddress?: string, userAgent?: string): Promise<void> {
-    const client = this.redis.getClient();
-    const key = `brute_force:${email}`;
-    const failureCount = await client.incr(key);
-    await client.expire(key, BRUTE_FORCE_WINDOW_SECONDS);
-
-    if (!ipAddress) {
-      return;
-    }
-
-    const threshold = BRUTE_FORCE_THRESHOLDS.find(
-      (candidate) => candidate.failures === failureCount,
-    );
-
-    if (threshold) {
-      await this.securityAuditService.logBruteForceLockout(
-        email,
-        ipAddress,
-        threshold.delaySeconds / 60,
-        null,
-        userAgent,
-      );
-    }
+    return this.rateLimitService.recordFailedLogin(email, ipAddress, userAgent);
   }
 
   async clearBruteForce(email: string): Promise<void> {
-    const client = this.redis.getClient();
-    await client.del(`brute_force:${email}`);
+    return this.rateLimitService.clearBruteForce(email);
   }
 
   // ─── Core Auth Methods ────────────────────────────────────────────────────
@@ -320,14 +218,12 @@ export class AuthService {
         });
       }
 
-      // Decrypt the stored secret before TOTP verification
-      const decryptedSecret = this.decryptMfaSecret(user.mfa_secret, user.mfa_secret_key_ref);
-
-      const verifyResult = await otpVerify({
-        token: mfaCode,
-        secret: decryptedSecret,
-      });
-      const isValid = verifyResult.valid;
+      // Delegate TOTP verification to MfaService
+      const isValid = await this.mfaService.verifyTotp(
+        mfaCode,
+        user.mfa_secret,
+        user.mfa_secret_key_ref,
+      );
 
       if (!isValid) {
         await this.securityAuditService.logLoginFailure(
@@ -489,237 +385,28 @@ export class AuthService {
     await this.deleteSession(sessionId, userId);
   }
 
+  // ─── Password Reset (delegates to PasswordResetService) ───────────────────
+
   async requestPasswordReset(email: string): Promise<{ message: string }> {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    // Always return success to avoid leaking user existence
-    if (!user) {
-      await this.securityAuditService.logPasswordReset(null, 'email', email);
-      return { message: 'If email exists, reset link sent' };
-    }
-
-    // Check count of active (unexpired, unused) tokens - max 3
-    const activeTokenCount = await this.prisma.passwordResetToken.count({
-      where: {
-        user_id: user.id,
-        used_at: null,
-        expires_at: { gt: new Date() },
-      },
-    });
-
-    if (activeTokenCount >= 3) {
-      await this.securityAuditService.logPasswordReset(user.id, 'email', email);
-      return { message: 'If email exists, reset link sent' };
-    }
-
-    // Generate random token
-    const rawToken = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-
-    // Store with 1-hour expiry
-    await this.prisma.passwordResetToken.create({
-      data: {
-        user_id: user.id,
-        token_hash: tokenHash,
-        expires_at: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
-      },
-    });
-
-    await this.securityAuditService.logPasswordReset(user.id, 'email', email);
-
-    // Note: actual email sending deferred to Phase 7
-    // In a real implementation, rawToken would be sent via email
-    return { message: 'If email exists, reset link sent' };
+    return this.passwordResetService.requestPasswordReset(email);
   }
 
   async confirmPasswordReset(token: string, newPassword: string): Promise<{ message: string }> {
-    // 1. Hash the provided token
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-
-    // 2. Find matching token
-    const resetToken = await this.prisma.passwordResetToken.findFirst({
-      where: {
-        token_hash: tokenHash,
-        used_at: null,
-        expires_at: { gt: new Date() },
-      },
-    });
-
-    if (!resetToken) {
-      throw new BadRequestException({
-        code: 'INVALID_RESET_TOKEN',
-        message: 'Invalid or expired reset token',
-      });
-    }
-
-    // 3. Hash new password
-    const passwordHash = await bcrypt.hash(newPassword, 12);
-
-    // 4. Update user's password_hash
-    await this.prisma.user.update({
-      where: { id: resetToken.user_id },
-      data: { password_hash: passwordHash },
-    });
-
-    // 5. Mark token as used
-    await this.prisma.passwordResetToken.update({
-      where: { id: resetToken.id },
-      data: { used_at: new Date() },
-    });
-
-    // 6. Invalidate all other active tokens for this user
-    await this.prisma.passwordResetToken.updateMany({
-      where: {
-        user_id: resetToken.user_id,
-        used_at: null,
-        id: { not: resetToken.id },
-      },
-      data: { used_at: new Date() },
-    });
-
-    // 7. Delete all Redis sessions for this user
-    await this.deleteAllUserSessions(resetToken.user_id);
-    await this.securityAuditService.logPasswordChange(resetToken.user_id);
-
-    return { message: 'Password reset successfully' };
+    return this.passwordResetService.confirmPasswordReset(token, newPassword);
   }
 
+  // ─── MFA (delegates to MfaService) ────────────────────────────────────────
+
   async setupMfa(userId: string): Promise<MfaSetupResult> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException({
-        code: 'USER_NOT_FOUND',
-        message: 'User not found',
-      });
-    }
-
-    // Generate TOTP secret
-    const secret = otpGenerateSecret();
-
-    // Encrypt the secret before storing
-    const { encrypted, keyRef } = this.encryptionService.encrypt(secret);
-
-    // Store encrypted secret temporarily (don't enable MFA yet)
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { mfa_secret: encrypted, mfa_secret_key_ref: keyRef },
-    });
-
-    // Generate otpauth URI
-    const issuer = this.configService.get<string>('MFA_ISSUER') || 'SchoolOS';
-    const otpauthUri = generateURI({
-      issuer,
-      label: user.email,
-      secret,
-    });
-
-    // Generate QR code data URL
-    const qrCodeUrl = await QRCode.toDataURL(otpauthUri);
-
-    return {
-      secret,
-      qr_code_url: qrCodeUrl,
-      otpauth_uri: otpauthUri,
-    };
+    return this.mfaService.setupMfa(userId);
   }
 
   async verifyMfaSetup(userId: string, code: string): Promise<{ recovery_codes: string[] }> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException({
-        code: 'USER_NOT_FOUND',
-        message: 'User not found',
-      });
-    }
-
-    if (!user.mfa_secret) {
-      throw new BadRequestException({
-        code: 'MFA_NOT_SETUP',
-        message: 'MFA setup has not been initiated. Call /mfa/setup first.',
-      });
-    }
-
-    // Decrypt the stored secret before TOTP verification
-    const decryptedSecret = this.decryptMfaSecret(user.mfa_secret, user.mfa_secret_key_ref);
-
-    // Verify TOTP code against secret
-    const verifyResult = await otpVerify({
-      token: code,
-      secret: decryptedSecret,
-    });
-    const isValid = verifyResult.valid;
-
-    if (!isValid) {
-      throw new UnauthorizedException({
-        code: 'INVALID_MFA_CODE',
-        message: 'Invalid MFA code. Please try again.',
-      });
-    }
-
-    // Enable MFA on user
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { mfa_enabled: true },
-    });
-
-    // Generate 10 recovery codes
-    const recoveryCodes: string[] = [];
-    const codeHashes: Array<{ user_id: string; code_hash: string }> = [];
-
-    for (let i = 0; i < 10; i++) {
-      const code = crypto.randomBytes(4).toString('hex');
-      recoveryCodes.push(code);
-      codeHashes.push({
-        user_id: userId,
-        code_hash: crypto.createHash('sha256').update(code).digest('hex'),
-      });
-    }
-
-    // Delete any existing recovery codes
-    await this.prisma.mfaRecoveryCode.deleteMany({
-      where: { user_id: userId },
-    });
-
-    // Store hashed codes
-    await this.prisma.mfaRecoveryCode.createMany({
-      data: codeHashes,
-    });
-
-    await this.securityAuditService.logMfaSetup(userId);
-
-    return { recovery_codes: recoveryCodes };
+    return this.mfaService.verifyMfaSetup(userId, code);
   }
 
   async useRecoveryCode(userId: string, code: string): Promise<void> {
-    // Get all unused recovery codes for user
-    const recoveryCodes = await this.prisma.mfaRecoveryCode.findMany({
-      where: { user_id: userId, used_at: null },
-    });
-
-    const codeHash = crypto.createHash('sha256').update(code).digest('hex');
-
-    const matchingCode = recoveryCodes.find((rc) => rc.code_hash === codeHash);
-
-    if (!matchingCode) {
-      throw new UnauthorizedException({
-        code: 'INVALID_RECOVERY_CODE',
-        message: 'Invalid recovery code',
-      });
-    }
-
-    // Mark as used
-    await this.prisma.mfaRecoveryCode.update({
-      where: { id: matchingCode.id },
-      data: { used_at: new Date() },
-    });
+    return this.mfaService.useRecoveryCode(userId, code);
   }
 
   async loginWithRecoveryCode(
@@ -950,55 +637,19 @@ export class AuthService {
   }
 
   async listSessions(userId: string): Promise<SessionInfo[]> {
-    const client = this.redis.getClient();
-    const sessionIds = await client.smembers(`user_sessions:${userId}`);
-
-    if (sessionIds.length === 0) {
-      return [];
-    }
-
-    const sessions: SessionInfo[] = [];
-    for (const sessionId of sessionIds) {
-      const data = await client.get(`session:${sessionId}`);
-      if (data) {
-        const session = JSON.parse(data) as SessionMetadata;
-        sessions.push({
-          session_id: session.session_id,
-          ip_address: session.ip_address,
-          user_agent: session.user_agent,
-          created_at: session.created_at,
-          last_active_at: session.last_active_at,
-          tenant_id: session.tenant_id,
-        });
-      } else {
-        // Clean up stale session reference
-        await client.srem(`user_sessions:${userId}`, sessionId);
-      }
-    }
-
-    return sessions;
+    return this.sessionService.listSessions(userId);
   }
 
   async revokeSession(userId: string, sessionId: string): Promise<void> {
-    // Verify session belongs to user
-    const session = await this.getSession(sessionId);
-    if (!session || session.user_id !== userId) {
-      throw new BadRequestException({
-        code: 'SESSION_NOT_FOUND',
-        message: 'Session not found or does not belong to you',
-      });
-    }
-
-    await this.deleteSession(sessionId, userId);
-    await this.securityAuditService.logSessionRevocation(userId, userId, sessionId);
+    return this.sessionService.revokeSession(userId, sessionId);
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   /**
    * Validates credentials and user status for login flows.
-   * Checks brute force, user existence, password, and global_status.
-   * Throws on failure with appropriate security audit logging.
+   * Checks IP throttle, brute force, user existence, password, account lockout,
+   * and global_status. Throws on failure with appropriate security audit logging.
    */
   private async validateCredentialsAndStatus(
     email: string,
@@ -1008,7 +659,20 @@ export class AuthService {
     tenantId: string | null,
   ) {
     // ─── Layer 1: IP-based throttle (before any DB lookup) ─────────────────
-    await this.checkIpThrottle(ipAddress, email, tenantId, userAgent);
+    const ipThrottle = await this.rateLimitService.checkIpThrottle(ipAddress);
+    if (ipThrottle.blocked) {
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'IP_THROTTLED',
+        tenantId,
+        userAgent,
+      );
+      throw new UnauthorizedException({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password',
+      });
+    }
 
     // 2. Check email brute force protection (Layer 3 — existing)
     const bruteForce = await this.checkBruteForce(email);
@@ -1034,7 +698,7 @@ export class AuthService {
 
     if (!user) {
       await this.recordFailedLogin(email, ipAddress, userAgent);
-      await this.recordIpFailure(ipAddress);
+      await this.rateLimitService.recordIpFailedLogin(ipAddress);
       await this.securityAuditService.logLoginFailure(
         email,
         ipAddress,
@@ -1050,7 +714,7 @@ export class AuthService {
 
     // ─── Layer 2: Account lockout check (after user found) ─────────────────
     if (user.locked_until && user.locked_until > new Date()) {
-      await this.recordIpFailure(ipAddress);
+      await this.rateLimitService.recordIpFailedLogin(ipAddress);
       await this.securityAuditService.logLoginFailure(
         email,
         ipAddress,
@@ -1068,7 +732,7 @@ export class AuthService {
     const passwordValid = await bcrypt.compare(password, user.password_hash);
     if (!passwordValid) {
       await this.recordFailedLogin(email, ipAddress, userAgent);
-      await this.recordIpFailure(ipAddress);
+      await this.rateLimitService.recordIpFailedLogin(ipAddress);
 
       // Increment account-level failed attempts
       const newFailedAttempts = user.failed_login_attempts + 1;
@@ -1135,61 +799,6 @@ export class AuthService {
     }
 
     return user;
-  }
-
-  // ─── IP Throttle Helpers ────────────────────────────────────────────────────
-
-  /**
-   * Layer 1: Check IP-based throttle. Blocks login attempts from IPs
-   * that have exceeded the failure threshold within the window.
-   * Returns a generic INVALID_CREDENTIALS to prevent account enumeration.
-   */
-  private async checkIpThrottle(
-    ipAddress: string,
-    email: string,
-    tenantId: string | null,
-    userAgent: string,
-  ): Promise<void> {
-    const client = this.redis.getClient();
-    const key = `ip_throttle:${ipAddress}`;
-    const count = parseInt((await client.get(key)) || '0', 10);
-
-    if (count >= IP_LOGIN_THROTTLE_MAX_ATTEMPTS) {
-      await this.securityAuditService.logLoginFailure(
-        email,
-        ipAddress,
-        'IP_THROTTLED',
-        tenantId,
-        userAgent,
-      );
-      throw new UnauthorizedException({
-        code: 'INVALID_CREDENTIALS',
-        message: 'Invalid email or password',
-      });
-    }
-  }
-
-  /**
-   * Record an IP-based login failure. Increments the counter and sets
-   * the TTL to the configured window.
-   */
-  private async recordIpFailure(ipAddress: string): Promise<void> {
-    const client = this.redis.getClient();
-    const key = `ip_throttle:${ipAddress}`;
-    await client.incr(key);
-    await client.expire(key, IP_LOGIN_THROTTLE_WINDOW_SECONDS);
-  }
-
-  /**
-   * Decrypt an MFA TOTP secret. Handles both legacy plaintext secrets
-   * (where keyRef is null, pre-encryption migration) and encrypted secrets.
-   */
-  private decryptMfaSecret(encrypted: string, keyRef: string | null): string {
-    if (!keyRef) {
-      // Legacy plaintext — return as-is (pre-migration data)
-      return encrypted;
-    }
-    return this.encryptionService.decrypt(encrypted, keyRef);
   }
 
   private sanitiseUser(user: {

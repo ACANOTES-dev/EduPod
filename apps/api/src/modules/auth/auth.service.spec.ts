@@ -17,10 +17,7 @@ jest.mock('qrcode', () => ({
   toDataURL: jest.fn().mockResolvedValue('data:image/png;base64,test'),
 }));
 
-import { verify as otpVerify } from 'otplib';
-
 import { SecurityAuditService } from '../audit-log/security-audit.service';
-import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -72,6 +69,9 @@ const MOCK_MEMBERSHIP = {
   },
 };
 
+const JWT_SECRET = 'test-jwt-secret-that-is-at-least-32-chars-long!!';
+const JWT_REFRESH_SECRET = 'test-refresh-secret-that-is-at-least-32-chars!!';
+
 // ─── Shared mock setup ──────────────────────────────────────────────────────
 
 const mockPrisma = {
@@ -105,13 +105,48 @@ const mockSecurityAuditService = {
   logSessionRevocation: jest.fn(),
 };
 
-const mockEncryptionService = {
-  encrypt: jest.fn().mockReturnValue({ encrypted: 'iv:tag:ciphertext', keyRef: 'v1' }),
-  decrypt: jest.fn().mockReturnValue('TESTSECRET123'),
+// ─── Sub-service mocks ──────────────────────────────────────────────────────
+
+const mockTokenService = {
+  signAccessToken: jest.fn(),
+  signRefreshToken: jest.fn(),
+  verifyAccessToken: jest.fn(),
+  verifyRefreshToken: jest.fn(),
 };
 
-const JWT_SECRET = 'test-jwt-secret-that-is-at-least-32-chars-long!!';
-const JWT_REFRESH_SECRET = 'test-refresh-secret-that-is-at-least-32-chars!!';
+const mockSessionService = {
+  createSession: jest.fn().mockResolvedValue(undefined),
+  getSession: jest.fn().mockResolvedValue(null),
+  deleteSession: jest.fn().mockResolvedValue(undefined),
+  deleteAllUserSessions: jest.fn().mockResolvedValue(undefined),
+  listSessions: jest.fn().mockResolvedValue([]),
+  revokeSession: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockRateLimitService = {
+  checkBruteForce: jest.fn().mockResolvedValue({ blocked: false, retryAfterSeconds: 0 }),
+  recordFailedLogin: jest.fn().mockResolvedValue(undefined),
+  clearBruteForce: jest.fn().mockResolvedValue(undefined),
+  checkIpThrottle: jest.fn().mockResolvedValue({ blocked: false }),
+  recordIpFailedLogin: jest.fn().mockResolvedValue(undefined),
+  clearIpThrottle: jest.fn().mockResolvedValue(undefined),
+  isAccountLocked: jest.fn().mockResolvedValue(false),
+  recordAccountFailedLogin: jest.fn().mockResolvedValue(undefined),
+  clearAccountLockout: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockMfaService = {
+  setupMfa: jest.fn(),
+  verifyMfaSetup: jest.fn(),
+  useRecoveryCode: jest.fn(),
+  verifyTotp: jest.fn().mockResolvedValue(false),
+  decryptMfaSecret: jest.fn(),
+};
+
+const mockPasswordResetService = {
+  requestPasswordReset: jest.fn(),
+  confirmPasswordReset: jest.fn(),
+};
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -148,9 +183,29 @@ describe('AuthService', () => {
       incr: jest.fn().mockResolvedValue(1),
     };
 
+    // Configure real token signing via mockTokenService (using real JWT)
+    const jwt = await import('jsonwebtoken');
+    mockTokenService.signAccessToken.mockImplementation((payload: Record<string, unknown>) =>
+      jwt.sign({ ...payload, type: 'access' }, JWT_SECRET, { expiresIn: '15m' }),
+    );
+    mockTokenService.signRefreshToken.mockImplementation((payload: Record<string, unknown>) =>
+      jwt.sign({ ...payload, type: 'refresh' }, JWT_REFRESH_SECRET, { expiresIn: '7d' }),
+    );
+    mockTokenService.verifyAccessToken.mockImplementation((token: string) =>
+      jwt.verify(token, JWT_SECRET),
+    );
+    mockTokenService.verifyRefreshToken.mockImplementation((token: string) =>
+      jwt.verify(token, JWT_REFRESH_SECRET),
+    );
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
+        { provide: TokenService, useValue: mockTokenService },
+        { provide: SessionService, useValue: mockSessionService },
+        { provide: RateLimitService, useValue: mockRateLimitService },
+        { provide: MfaService, useValue: mockMfaService },
+        { provide: PasswordResetService, useValue: mockPasswordResetService },
         {
           provide: ConfigService,
           useValue: {
@@ -171,12 +226,6 @@ describe('AuthService', () => {
         },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SecurityAuditService, useValue: mockSecurityAuditService },
-        { provide: EncryptionService, useValue: mockEncryptionService },
-        { provide: TokenService, useValue: {} },
-        { provide: SessionService, useValue: {} },
-        { provide: RateLimitService, useValue: {} },
-        { provide: PasswordResetService, useValue: {} },
-        { provide: MfaService, useValue: {} },
       ],
     }).compile();
 
@@ -298,8 +347,8 @@ describe('AuthService', () => {
   // ─── createSession ────────────────────────────────────────────────────────
 
   describe('AuthService -- createSession', () => {
-    it('should store session in Redis with 7-day TTL and index by user', async () => {
-      await service.createSession({
+    it('should delegate to SessionService', async () => {
+      const session = {
         user_id: USER_ID,
         session_id: SESSION_ID,
         tenant_id: TENANT_ID,
@@ -308,23 +357,18 @@ describe('AuthService', () => {
         user_agent: 'test-agent',
         created_at: new Date().toISOString(),
         last_active_at: new Date().toISOString(),
-      });
+      };
 
-      expect(redisClient.set).toHaveBeenCalledWith(
-        `session:${SESSION_ID}`,
-        expect.any(String),
-        'EX',
-        604800,
-      );
-      expect(redisClient.sadd).toHaveBeenCalledWith(`user_sessions:${USER_ID}`, SESSION_ID);
-      expect(redisClient.expire).toHaveBeenCalledWith(`user_sessions:${USER_ID}`, 604800);
+      await service.createSession(session);
+
+      expect(mockSessionService.createSession).toHaveBeenCalledWith(session);
     });
   });
 
   // ─── getSession ───────────────────────────────────────────────────────────
 
   describe('AuthService -- getSession', () => {
-    it('should return parsed session when found in Redis', async () => {
+    it('should return parsed session when found via SessionService', async () => {
       const sessionData = {
         user_id: USER_ID,
         session_id: SESSION_ID,
@@ -335,16 +379,16 @@ describe('AuthService', () => {
         created_at: '2026-01-01T00:00:00.000Z',
         last_active_at: '2026-01-01T00:00:00.000Z',
       };
-      redisClient.get.mockResolvedValue(JSON.stringify(sessionData));
+      mockSessionService.getSession.mockResolvedValue(sessionData);
 
       const result = await service.getSession(SESSION_ID);
 
       expect(result).toEqual(sessionData);
-      expect(redisClient.get).toHaveBeenCalledWith(`session:${SESSION_ID}`);
+      expect(mockSessionService.getSession).toHaveBeenCalledWith(SESSION_ID);
     });
 
     it('should return null when session not found', async () => {
-      redisClient.get.mockResolvedValue(null);
+      mockSessionService.getSession.mockResolvedValue(null);
 
       const result = await service.getSession('nonexistent-session');
 
@@ -355,39 +399,20 @@ describe('AuthService', () => {
   // ─── deleteSession ────────────────────────────────────────────────────────
 
   describe('AuthService -- deleteSession', () => {
-    it('should remove session key and user index entry from Redis', async () => {
+    it('should delegate to SessionService', async () => {
       await service.deleteSession(SESSION_ID, USER_ID);
 
-      expect(redisClient.del).toHaveBeenCalledWith(`session:${SESSION_ID}`);
-      expect(redisClient.srem).toHaveBeenCalledWith(`user_sessions:${USER_ID}`, SESSION_ID);
+      expect(mockSessionService.deleteSession).toHaveBeenCalledWith(SESSION_ID, USER_ID);
     });
   });
 
   // ─── deleteAllUserSessions ────────────────────────────────────────────────
 
   describe('AuthService -- deleteAllUserSessions', () => {
-    it('should delete all session keys and the user index', async () => {
-      redisClient.smembers.mockResolvedValue(['sess-1', 'sess-2', 'sess-3']);
-
+    it('should delegate to SessionService', async () => {
       await service.deleteAllUserSessions(USER_ID);
 
-      expect(redisClient.smembers).toHaveBeenCalledWith(`user_sessions:${USER_ID}`);
-      expect(redisClient.del).toHaveBeenCalledWith(
-        'session:sess-1',
-        'session:sess-2',
-        'session:sess-3',
-      );
-      expect(redisClient.del).toHaveBeenCalledWith(`user_sessions:${USER_ID}`);
-    });
-
-    it('should only delete the user index when no sessions exist', async () => {
-      redisClient.smembers.mockResolvedValue([]);
-
-      await service.deleteAllUserSessions(USER_ID);
-
-      // del called once for the user_sessions key, not for individual sessions
-      expect(redisClient.del).toHaveBeenCalledTimes(1);
-      expect(redisClient.del).toHaveBeenCalledWith(`user_sessions:${USER_ID}`);
+      expect(mockSessionService.deleteAllUserSessions).toHaveBeenCalledWith(USER_ID);
     });
   });
 
@@ -395,47 +420,68 @@ describe('AuthService', () => {
 
   describe('AuthService -- checkBruteForce', () => {
     it('should not be blocked below first threshold (4 attempts)', async () => {
-      redisClient.get.mockResolvedValue('4');
+      mockRateLimitService.checkBruteForce.mockResolvedValue({
+        blocked: false,
+        retryAfterSeconds: 0,
+      });
       const result = await service.checkBruteForce('test@school.com');
       expect(result.blocked).toBe(false);
       expect(result.retryAfterSeconds).toBe(0);
     });
 
     it('should not be blocked at 0 attempts', async () => {
-      redisClient.get.mockResolvedValue('0');
+      mockRateLimitService.checkBruteForce.mockResolvedValue({
+        blocked: false,
+        retryAfterSeconds: 0,
+      });
       const result = await service.checkBruteForce('test@school.com');
       expect(result.blocked).toBe(false);
     });
 
     it('should not be blocked when key does not exist (null)', async () => {
-      redisClient.get.mockResolvedValue(null);
+      mockRateLimitService.checkBruteForce.mockResolvedValue({
+        blocked: false,
+        retryAfterSeconds: 0,
+      });
       const result = await service.checkBruteForce('test@school.com');
       expect(result.blocked).toBe(false);
     });
 
     it('should lock at first threshold (5 attempts) for 30 seconds', async () => {
-      redisClient.get.mockResolvedValue('5');
+      mockRateLimitService.checkBruteForce.mockResolvedValue({
+        blocked: true,
+        retryAfterSeconds: 30,
+      });
       const result = await service.checkBruteForce('test@school.com');
       expect(result.blocked).toBe(true);
       expect(result.retryAfterSeconds).toBe(30);
     });
 
     it('should lock at second threshold (8 attempts) for 120 seconds', async () => {
-      redisClient.get.mockResolvedValue('8');
+      mockRateLimitService.checkBruteForce.mockResolvedValue({
+        blocked: true,
+        retryAfterSeconds: 120,
+      });
       const result = await service.checkBruteForce('test@school.com');
       expect(result.blocked).toBe(true);
       expect(result.retryAfterSeconds).toBe(120);
     });
 
     it('should lock at third threshold (10 attempts) for 1800 seconds', async () => {
-      redisClient.get.mockResolvedValue('10');
+      mockRateLimitService.checkBruteForce.mockResolvedValue({
+        blocked: true,
+        retryAfterSeconds: 1800,
+      });
       const result = await service.checkBruteForce('test@school.com');
       expect(result.blocked).toBe(true);
       expect(result.retryAfterSeconds).toBe(1800);
     });
 
     it('should apply highest matching threshold (15 attempts still 1800s)', async () => {
-      redisClient.get.mockResolvedValue('15');
+      mockRateLimitService.checkBruteForce.mockResolvedValue({
+        blocked: true,
+        retryAfterSeconds: 1800,
+      });
       const result = await service.checkBruteForce('test@school.com');
       expect(result.blocked).toBe(true);
       expect(result.retryAfterSeconds).toBe(1800);
@@ -445,49 +491,31 @@ describe('AuthService', () => {
   // ─── recordFailedLogin ────────────────────────────────────────────────────
 
   describe('AuthService -- recordFailedLogin', () => {
-    it('should increment brute force counter and set expiry window', async () => {
+    it('should delegate to RateLimitService', async () => {
       await service.recordFailedLogin('test@school.com');
-      expect(redisClient.incr).toHaveBeenCalledWith('brute_force:test@school.com');
-      expect(redisClient.expire).toHaveBeenCalledWith('brute_force:test@school.com', 3600);
-    });
-
-    it('should log lockout when a threshold is reached', async () => {
-      redisClient.incr.mockResolvedValue(5);
-
-      await service.recordFailedLogin('test@school.com', '1.2.3.4', 'jest-agent');
-
-      expect(mockSecurityAuditService.logBruteForceLockout).toHaveBeenCalledWith(
+      expect(mockRateLimitService.recordFailedLogin).toHaveBeenCalledWith(
         'test@school.com',
-        '1.2.3.4',
-        0.5,
-        null,
-        'jest-agent',
+        undefined,
+        undefined,
       );
     });
 
-    it('should not log lockout when no threshold is reached', async () => {
-      redisClient.incr.mockResolvedValue(3); // Not a threshold
-
+    it('should pass ip and userAgent to RateLimitService', async () => {
       await service.recordFailedLogin('test@school.com', '1.2.3.4', 'jest-agent');
-
-      expect(mockSecurityAuditService.logBruteForceLockout).not.toHaveBeenCalled();
-    });
-
-    it('should not log lockout when no ipAddress is provided', async () => {
-      redisClient.incr.mockResolvedValue(5);
-
-      await service.recordFailedLogin('test@school.com');
-
-      expect(mockSecurityAuditService.logBruteForceLockout).not.toHaveBeenCalled();
+      expect(mockRateLimitService.recordFailedLogin).toHaveBeenCalledWith(
+        'test@school.com',
+        '1.2.3.4',
+        'jest-agent',
+      );
     });
   });
 
   // ─── clearBruteForce ──────────────────────────────────────────────────────
 
   describe('AuthService -- clearBruteForce', () => {
-    it('should delete the brute force counter from Redis', async () => {
+    it('should delegate to RateLimitService', async () => {
       await service.clearBruteForce('test@school.com');
-      expect(redisClient.del).toHaveBeenCalledWith('brute_force:test@school.com');
+      expect(mockRateLimitService.clearBruteForce).toHaveBeenCalledWith('test@school.com');
     });
   });
 
@@ -495,7 +523,11 @@ describe('AuthService', () => {
 
   describe('AuthService -- login', () => {
     beforeEach(() => {
-      redisClient.get.mockResolvedValue('0'); // No brute force
+      mockRateLimitService.checkBruteForce.mockResolvedValue({
+        blocked: false,
+        retryAfterSeconds: 0,
+      });
+      mockRateLimitService.checkIpThrottle.mockResolvedValue({ blocked: false });
     });
 
     it('should return access_token, refresh_token, and sanitised user on happy path', async () => {
@@ -531,17 +563,18 @@ describe('AuthService', () => {
       expect(loginResult.user).not.toHaveProperty('password_hash');
     });
 
-    it('should create a Redis session on successful login', async () => {
+    it('should create a session via SessionService on successful login', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
       mockPrisma.user.update.mockResolvedValue({ ...MOCK_USER });
 
       await service.login(MOCK_USER.email, PASSWORD_PLAIN, '127.0.0.1', 'jest-agent');
 
-      expect(redisClient.set).toHaveBeenCalledWith(
-        expect.stringMatching(/^session:/),
-        expect.any(String),
-        'EX',
-        604800,
+      expect(mockSessionService.createSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: USER_ID,
+          ip_address: '127.0.0.1',
+          user_agent: 'jest-agent',
+        }),
       );
     });
 
@@ -565,7 +598,7 @@ describe('AuthService', () => {
 
       await service.login(MOCK_USER.email, PASSWORD_PLAIN, '127.0.0.1', 'jest-agent');
 
-      expect(redisClient.del).toHaveBeenCalledWith(`brute_force:${MOCK_USER.email}`);
+      expect(mockRateLimitService.clearBruteForce).toHaveBeenCalledWith(MOCK_USER.email);
     });
 
     it('should log successful login via security audit service', async () => {
@@ -622,14 +655,17 @@ describe('AuthService', () => {
         service.login('bad@email.com', 'password', '127.0.0.1', 'jest-agent'),
       ).rejects.toThrow(UnauthorizedException);
 
-      expect(redisClient.incr).toHaveBeenCalledWith('brute_force:bad@email.com');
+      expect(mockRateLimitService.recordFailedLogin).toHaveBeenCalledWith(
+        'bad@email.com',
+        '127.0.0.1',
+        'jest-agent',
+      );
     });
 
     it('should throw UnauthorizedException when brute force blocked', async () => {
-      redisClient.get.mockImplementation(async (key: string) => {
-        if (key.startsWith('ip_throttle:')) return '0'; // IP throttle not hit
-        if (key.startsWith('brute_force:')) return '10'; // Above brute force threshold
-        return null;
+      mockRateLimitService.checkBruteForce.mockResolvedValue({
+        blocked: true,
+        retryAfterSeconds: 1800,
       });
 
       await expect(
@@ -820,7 +856,7 @@ describe('AuthService', () => {
         mfa_enabled: true,
         mfa_secret: 'TESTSECRET123',
       });
-      (otpVerify as jest.Mock).mockResolvedValue({ valid: true });
+      mockMfaService.verifyTotp.mockResolvedValue(true);
       mockPrisma.user.update.mockResolvedValue({ ...MOCK_USER });
 
       const result = await service.login(
@@ -836,15 +872,14 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('refresh_token');
     });
 
-    it('should decrypt encrypted MFA secret during login', async () => {
+    it('should delegate MFA verification to MfaService during login', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({
         ...MOCK_USER,
         mfa_enabled: true,
         mfa_secret: 'iv:tag:ciphertext',
         mfa_secret_key_ref: 'v1',
       });
-      mockEncryptionService.decrypt.mockReturnValue('DECRYPTED_SECRET');
-      (otpVerify as jest.Mock).mockResolvedValue({ valid: true });
+      mockMfaService.verifyTotp.mockResolvedValue(true);
       mockPrisma.user.update.mockResolvedValue({ ...MOCK_USER });
 
       await service.login(
@@ -856,10 +891,7 @@ describe('AuthService', () => {
         '123456',
       );
 
-      expect(mockEncryptionService.decrypt).toHaveBeenCalledWith('iv:tag:ciphertext', 'v1');
-      expect(otpVerify).toHaveBeenCalledWith(
-        expect.objectContaining({ secret: 'DECRYPTED_SECRET' }),
-      );
+      expect(mockMfaService.verifyTotp).toHaveBeenCalledWith('123456', 'iv:tag:ciphertext', 'v1');
     });
 
     it('should throw UnauthorizedException when MFA code is invalid', async () => {
@@ -868,7 +900,7 @@ describe('AuthService', () => {
         mfa_enabled: true,
         mfa_secret: 'TESTSECRET123',
       });
-      (otpVerify as jest.Mock).mockResolvedValue({ valid: false });
+      mockMfaService.verifyTotp.mockResolvedValue(false);
 
       await expect(
         service.login(
@@ -928,7 +960,7 @@ describe('AuthService', () => {
         session_id: SESSION_ID,
       });
 
-      // Session exists in Redis
+      // Session exists via SessionService
       const sessionData = {
         user_id: USER_ID,
         session_id: SESSION_ID,
@@ -939,9 +971,8 @@ describe('AuthService', () => {
         created_at: '2026-01-01T00:00:00.000Z',
         last_active_at: '2026-01-01T00:00:00.000Z',
       };
-      redisClient.get
-        .mockResolvedValueOnce(JSON.stringify(sessionData)) // getSession
-        .mockResolvedValueOnce(null); // tenant suspended check
+      mockSessionService.getSession.mockResolvedValue(sessionData);
+      redisClient.get.mockResolvedValueOnce(null); // tenant suspended check
 
       mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
       mockPrisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, status: 'active' });
@@ -973,7 +1004,7 @@ describe('AuthService', () => {
         created_at: '2026-01-01T00:00:00.000Z',
         last_active_at: '2026-01-01T00:00:00.000Z',
       };
-      redisClient.get.mockResolvedValueOnce(JSON.stringify(sessionData));
+      mockSessionService.getSession.mockResolvedValue(sessionData);
       mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
 
       await service.refresh(refreshToken);
@@ -1004,12 +1035,12 @@ describe('AuthService', () => {
       await expect(service.refresh(expiredToken)).rejects.toThrow(UnauthorizedException);
     });
 
-    it('should throw UnauthorizedException when session not found in Redis', async () => {
+    it('should throw UnauthorizedException when session not found', async () => {
       const refreshToken = service.signRefreshToken({
         sub: USER_ID,
         session_id: SESSION_ID,
       });
-      redisClient.get.mockResolvedValue(null); // No session
+      mockSessionService.getSession.mockResolvedValue(null);
 
       await expect(service.refresh(refreshToken)).rejects.toThrow(UnauthorizedException);
     });
@@ -1030,7 +1061,7 @@ describe('AuthService', () => {
         created_at: '2026-01-01T00:00:00.000Z',
         last_active_at: '2026-01-01T00:00:00.000Z',
       };
-      redisClient.get.mockResolvedValueOnce(JSON.stringify(sessionData));
+      mockSessionService.getSession.mockResolvedValue(sessionData);
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
       await expect(service.refresh(refreshToken)).rejects.toThrow(UnauthorizedException);
@@ -1052,9 +1083,7 @@ describe('AuthService', () => {
         created_at: '2026-01-01T00:00:00.000Z',
         last_active_at: '2026-01-01T00:00:00.000Z',
       };
-      redisClient.get.mockResolvedValueOnce(JSON.stringify(sessionData));
-      // smembers for deleteAllUserSessions
-      redisClient.smembers.mockResolvedValue([SESSION_ID]);
+      mockSessionService.getSession.mockResolvedValue(sessionData);
 
       mockPrisma.user.findUnique.mockResolvedValue({
         ...MOCK_USER,
@@ -1063,8 +1092,8 @@ describe('AuthService', () => {
 
       await expect(service.refresh(refreshToken)).rejects.toThrow(ForbiddenException);
 
-      // All sessions should be deleted
-      expect(redisClient.del).toHaveBeenCalledWith(`session:${SESSION_ID}`);
+      // All sessions should be deleted via SessionService
+      expect(mockSessionService.deleteAllUserSessions).toHaveBeenCalledWith(USER_ID);
     });
 
     it('should throw ForbiddenException when tenant is suspended (Redis cache)', async () => {
@@ -1083,9 +1112,8 @@ describe('AuthService', () => {
         created_at: '2026-01-01T00:00:00.000Z',
         last_active_at: '2026-01-01T00:00:00.000Z',
       };
-      redisClient.get
-        .mockResolvedValueOnce(JSON.stringify(sessionData)) // getSession
-        .mockResolvedValueOnce('true'); // tenant:TENANT_ID:suspended
+      mockSessionService.getSession.mockResolvedValue(sessionData);
+      redisClient.get.mockResolvedValueOnce('true'); // tenant:TENANT_ID:suspended
 
       mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
 
@@ -1108,9 +1136,8 @@ describe('AuthService', () => {
         created_at: '2026-01-01T00:00:00.000Z',
         last_active_at: '2026-01-01T00:00:00.000Z',
       };
-      redisClient.get
-        .mockResolvedValueOnce(JSON.stringify(sessionData)) // getSession
-        .mockResolvedValueOnce(null); // tenant:TENANT_ID:suspended (not cached)
+      mockSessionService.getSession.mockResolvedValue(sessionData);
+      redisClient.get.mockResolvedValueOnce(null); // tenant:TENANT_ID:suspended (not cached)
 
       mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
       mockPrisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, status: 'suspended' });
@@ -1122,140 +1149,62 @@ describe('AuthService', () => {
   // ─── logout ───────────────────────────────────────────────────────────────
 
   describe('AuthService -- logout', () => {
-    it('should delete the session from Redis', async () => {
+    it('should delete the session via SessionService', async () => {
       await service.logout(SESSION_ID, USER_ID);
 
-      expect(redisClient.del).toHaveBeenCalledWith(`session:${SESSION_ID}`);
-      expect(redisClient.srem).toHaveBeenCalledWith(`user_sessions:${USER_ID}`, SESSION_ID);
+      expect(mockSessionService.deleteSession).toHaveBeenCalledWith(SESSION_ID, USER_ID);
     });
   });
 
   // ─── requestPasswordReset ─────────────────────────────────────────────────
 
   describe('AuthService -- requestPasswordReset', () => {
-    it('should create a token with SHA-256 hash and 1-hour expiry', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
-      mockPrisma.passwordResetToken.count.mockResolvedValue(0);
-      mockPrisma.passwordResetToken.create.mockResolvedValue({ id: 'token-1' });
+    it('should delegate to PasswordResetService', async () => {
+      mockPasswordResetService.requestPasswordReset.mockResolvedValue({
+        message: 'If email exists, reset link sent',
+      });
 
       const result = await service.requestPasswordReset(MOCK_USER.email);
 
       expect(result).toEqual({ message: 'If email exists, reset link sent' });
-      expect(mockPrisma.passwordResetToken.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            user_id: USER_ID,
-            token_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
-            expires_at: expect.any(Date),
-          }),
-        }),
-      );
+      expect(mockPasswordResetService.requestPasswordReset).toHaveBeenCalledWith(MOCK_USER.email);
     });
 
     it('should return same message when user does not exist (no info leakage)', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPasswordResetService.requestPasswordReset.mockResolvedValue({
+        message: 'If email exists, reset link sent',
+      });
 
       const result = await service.requestPasswordReset('nobody@school.com');
 
       expect(result).toEqual({ message: 'If email exists, reset link sent' });
-      expect(mockPrisma.passwordResetToken.create).not.toHaveBeenCalled();
-    });
-
-    it('should not create a new token when 3 active tokens already exist', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
-      mockPrisma.passwordResetToken.count.mockResolvedValue(3);
-
-      const result = await service.requestPasswordReset(MOCK_USER.email);
-
-      expect(result).toEqual({ message: 'If email exists, reset link sent' });
-      expect(mockPrisma.passwordResetToken.create).not.toHaveBeenCalled();
-    });
-
-    it('should log the password reset request via security audit service', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
-      mockPrisma.passwordResetToken.count.mockResolvedValue(0);
-      mockPrisma.passwordResetToken.create.mockResolvedValue({ id: 'token-1' });
-
-      await service.requestPasswordReset(MOCK_USER.email);
-
-      expect(mockSecurityAuditService.logPasswordReset).toHaveBeenCalledWith(
-        USER_ID,
-        'email',
-        MOCK_USER.email,
-      );
     });
   });
 
   // ─── confirmPasswordReset ─────────────────────────────────────────────────
 
   describe('AuthService -- confirmPasswordReset', () => {
-    const RAW_TOKEN = 'valid-raw-token-abc123';
-    const TOKEN_HASH = crypto.createHash('sha256').update(RAW_TOKEN).digest('hex');
+    it('should delegate to PasswordResetService', async () => {
+      mockPasswordResetService.confirmPasswordReset.mockResolvedValue({
+        message: 'Password reset successfully',
+      });
 
-    const resetTokenRecord = {
-      id: 'reset-token-id-1',
-      user_id: USER_ID,
-      token_hash: TOKEN_HASH,
-      expires_at: new Date(Date.now() + 3600_000),
-      used_at: null,
-    };
-
-    it('should update password, mark token as used, invalidate other tokens', async () => {
-      mockPrisma.passwordResetToken.findFirst.mockResolvedValue({ ...resetTokenRecord });
-      mockPrisma.user.update.mockResolvedValue({});
-      mockPrisma.passwordResetToken.update.mockResolvedValue({});
-      mockPrisma.passwordResetToken.updateMany.mockResolvedValue({ count: 0 });
-      redisClient.smembers.mockResolvedValue([]);
-
-      const result = await service.confirmPasswordReset(RAW_TOKEN, 'NewPassword123!');
+      const result = await service.confirmPasswordReset('some-token', 'NewPassword123!');
 
       expect(result).toEqual({ message: 'Password reset successfully' });
-
-      // Password updated with a bcrypt hash
-      expect(mockPrisma.user.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: USER_ID },
-          data: expect.objectContaining({
-            password_hash: expect.stringMatching(/^\$2[ab]\$/),
-          }),
-        }),
+      expect(mockPasswordResetService.confirmPasswordReset).toHaveBeenCalledWith(
+        'some-token',
+        'NewPassword123!',
       );
-
-      // Token marked as used
-      expect(mockPrisma.passwordResetToken.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 'reset-token-id-1' },
-          data: { used_at: expect.any(Date) },
-        }),
-      );
-
-      // Other tokens invalidated
-      expect(mockPrisma.passwordResetToken.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            user_id: USER_ID,
-            used_at: null,
-            id: { not: 'reset-token-id-1' },
-          }),
-        }),
-      );
-    });
-
-    it('should delete all user sessions after password reset', async () => {
-      mockPrisma.passwordResetToken.findFirst.mockResolvedValue({ ...resetTokenRecord });
-      mockPrisma.user.update.mockResolvedValue({});
-      mockPrisma.passwordResetToken.update.mockResolvedValue({});
-      mockPrisma.passwordResetToken.updateMany.mockResolvedValue({ count: 0 });
-      redisClient.smembers.mockResolvedValue(['sess-a', 'sess-b']);
-
-      await service.confirmPasswordReset(RAW_TOKEN, 'NewPassword123!');
-
-      expect(redisClient.del).toHaveBeenCalledWith('session:sess-a', 'session:sess-b');
-      expect(mockSecurityAuditService.logPasswordChange).toHaveBeenCalledWith(USER_ID);
     });
 
     it('should throw BadRequestException for invalid or expired token', async () => {
-      mockPrisma.passwordResetToken.findFirst.mockResolvedValue(null);
+      mockPasswordResetService.confirmPasswordReset.mockRejectedValue(
+        new BadRequestException({
+          code: 'INVALID_RESET_TOKEN',
+          message: 'Invalid or expired reset token',
+        }),
+      );
 
       await expect(
         service.confirmPasswordReset('expired-token', 'NewPassword123!'),
@@ -1263,7 +1212,12 @@ describe('AuthService', () => {
     });
 
     it('should throw with INVALID_RESET_TOKEN error code', async () => {
-      mockPrisma.passwordResetToken.findFirst.mockResolvedValue(null);
+      mockPasswordResetService.confirmPasswordReset.mockRejectedValue(
+        new BadRequestException({
+          code: 'INVALID_RESET_TOKEN',
+          message: 'Invalid or expired reset token',
+        }),
+      );
 
       await expect(
         service.confirmPasswordReset('used-token', 'NewPassword123!'),
@@ -1276,12 +1230,11 @@ describe('AuthService', () => {
   // ─── setupMfa ─────────────────────────────────────────────────────────────
 
   describe('AuthService -- setupMfa', () => {
-    it('should generate TOTP secret, encrypt it, store it, and return QR code', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
-      mockPrisma.user.update.mockResolvedValue({
-        ...MOCK_USER,
-        mfa_secret: 'iv:tag:ciphertext',
-        mfa_secret_key_ref: 'v1',
+    it('should delegate to MfaService and return MFA setup result', async () => {
+      mockMfaService.setupMfa.mockResolvedValue({
+        secret: 'TESTSECRET123',
+        qr_code_url: 'data:image/png;base64,test',
+        otpauth_uri: 'otpauth://totp/test',
       });
 
       const result = await service.setupMfa(USER_ID);
@@ -1289,20 +1242,16 @@ describe('AuthService', () => {
       expect(result.secret).toBe('TESTSECRET123');
       expect(result.qr_code_url).toBe('data:image/png;base64,test');
       expect(result.otpauth_uri).toBe('otpauth://totp/test');
-
-      // Should encrypt the secret before storing
-      expect(mockEncryptionService.encrypt).toHaveBeenCalledWith('TESTSECRET123');
-
-      expect(mockPrisma.user.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: USER_ID },
-          data: { mfa_secret: 'iv:tag:ciphertext', mfa_secret_key_ref: 'v1' },
-        }),
-      );
+      expect(mockMfaService.setupMfa).toHaveBeenCalledWith(USER_ID);
     });
 
     it('should throw UnauthorizedException when user not found', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockMfaService.setupMfa.mockRejectedValue(
+        new UnauthorizedException({
+          code: 'USER_NOT_FOUND',
+          message: 'User not found',
+        }),
+      );
 
       await expect(service.setupMfa('nonexistent-user')).rejects.toThrow(UnauthorizedException);
     });
@@ -1311,14 +1260,9 @@ describe('AuthService', () => {
   // ─── verifyMfaSetup ──────────────────────────────────────────────────────
 
   describe('AuthService -- verifyMfaSetup', () => {
-    const userWithSecret = { ...MOCK_USER, mfa_secret: 'TESTSECRET123' };
-
-    it('should enable MFA and return 10 recovery codes on valid TOTP', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ ...userWithSecret });
-      (otpVerify as jest.Mock).mockResolvedValue({ valid: true });
-      mockPrisma.user.update.mockResolvedValue({ ...userWithSecret, mfa_enabled: true });
-      mockPrisma.mfaRecoveryCode.deleteMany.mockResolvedValue({ count: 0 });
-      mockPrisma.mfaRecoveryCode.createMany.mockResolvedValue({ count: 10 });
+    it('should delegate to MfaService and return recovery codes', async () => {
+      const recoveryCodes = Array.from({ length: 10 }, () => crypto.randomBytes(4).toString('hex'));
+      mockMfaService.verifyMfaSetup.mockResolvedValue({ recovery_codes: recoveryCodes });
 
       const result = await service.verifyMfaSetup(USER_ID, '123456');
 
@@ -1327,63 +1271,43 @@ describe('AuthService', () => {
         expect(typeof code).toBe('string');
         expect(code.length).toBeGreaterThan(0);
       }
-
-      expect(mockPrisma.user.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: { mfa_enabled: true } }),
-      );
-
-      expect(mockPrisma.mfaRecoveryCode.deleteMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { user_id: USER_ID } }),
-      );
-
-      const createManyCall = (mockPrisma.mfaRecoveryCode.createMany as jest.Mock).mock.calls[0][0];
-      expect(createManyCall.data).toHaveLength(10);
-
-      expect(mockSecurityAuditService.logMfaSetup).toHaveBeenCalledWith(USER_ID);
+      expect(mockMfaService.verifyMfaSetup).toHaveBeenCalledWith(USER_ID, '123456');
     });
 
     it('should reject incorrect TOTP code with UnauthorizedException', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ ...userWithSecret });
-      (otpVerify as jest.Mock).mockResolvedValue({ valid: false });
+      mockMfaService.verifyMfaSetup.mockRejectedValue(
+        new UnauthorizedException({
+          code: 'INVALID_MFA_CODE',
+          message: 'Invalid MFA code. Please try again.',
+        }),
+      );
 
       await expect(service.verifyMfaSetup(USER_ID, '000000')).rejects.toThrow(
         UnauthorizedException,
       );
-      expect(mockPrisma.user.update).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException when mfa_secret not yet set', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER, mfa_secret: null });
+      mockMfaService.verifyMfaSetup.mockRejectedValue(
+        new BadRequestException({
+          code: 'MFA_NOT_SETUP',
+          message: 'MFA setup has not been initiated. Call /mfa/setup first.',
+        }),
+      );
 
       await expect(service.verifyMfaSetup(USER_ID, '123456')).rejects.toThrow(BadRequestException);
     });
 
     it('should throw UnauthorizedException when user not found', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockMfaService.verifyMfaSetup.mockRejectedValue(
+        new UnauthorizedException({
+          code: 'USER_NOT_FOUND',
+          message: 'User not found',
+        }),
+      );
 
       await expect(service.verifyMfaSetup('nonexistent', '123456')).rejects.toThrow(
         UnauthorizedException,
-      );
-    });
-
-    it('should decrypt encrypted MFA secret during verification', async () => {
-      const encryptedUser = {
-        ...MOCK_USER,
-        mfa_secret: 'iv:tag:ciphertext',
-        mfa_secret_key_ref: 'v1',
-      };
-      mockPrisma.user.findUnique.mockResolvedValue({ ...encryptedUser });
-      mockEncryptionService.decrypt.mockReturnValue('DECRYPTED_SECRET');
-      (otpVerify as jest.Mock).mockResolvedValue({ valid: true });
-      mockPrisma.user.update.mockResolvedValue({ ...encryptedUser, mfa_enabled: true });
-      mockPrisma.mfaRecoveryCode.deleteMany.mockResolvedValue({ count: 0 });
-      mockPrisma.mfaRecoveryCode.createMany.mockResolvedValue({ count: 10 });
-
-      await service.verifyMfaSetup(USER_ID, '123456');
-
-      expect(mockEncryptionService.decrypt).toHaveBeenCalledWith('iv:tag:ciphertext', 'v1');
-      expect(otpVerify).toHaveBeenCalledWith(
-        expect.objectContaining({ secret: 'DECRYPTED_SECRET' }),
       );
     });
   });
@@ -1391,40 +1315,33 @@ describe('AuthService', () => {
   // ─── useRecoveryCode ──────────────────────────────────────────────────────
 
   describe('AuthService -- useRecoveryCode', () => {
-    it('should accept a valid unused recovery code and mark it as used', async () => {
-      const rawCode = 'abcd1234';
-      const codeHash = crypto.createHash('sha256').update(rawCode).digest('hex');
+    it('should delegate to MfaService for a valid recovery code', async () => {
+      mockMfaService.useRecoveryCode.mockResolvedValue(undefined);
 
-      mockPrisma.mfaRecoveryCode.findMany.mockResolvedValue([
-        { id: 'rc-1', user_id: USER_ID, code_hash: codeHash, used_at: null },
-      ]);
-      mockPrisma.mfaRecoveryCode.update.mockResolvedValue({});
-
-      await expect(service.useRecoveryCode(USER_ID, rawCode)).resolves.toBeUndefined();
-
-      expect(mockPrisma.mfaRecoveryCode.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 'rc-1' },
-          data: { used_at: expect.any(Date) },
-        }),
-      );
+      await expect(service.useRecoveryCode(USER_ID, 'abcd1234')).resolves.toBeUndefined();
+      expect(mockMfaService.useRecoveryCode).toHaveBeenCalledWith(USER_ID, 'abcd1234');
     });
 
     it('should reject a code that does not match any hash', async () => {
-      const differentHash = crypto.createHash('sha256').update('correct-code').digest('hex');
-
-      mockPrisma.mfaRecoveryCode.findMany.mockResolvedValue([
-        { id: 'rc-1', user_id: USER_ID, code_hash: differentHash, used_at: null },
-      ]);
+      mockMfaService.useRecoveryCode.mockRejectedValue(
+        new UnauthorizedException({
+          code: 'INVALID_RECOVERY_CODE',
+          message: 'Invalid recovery code',
+        }),
+      );
 
       await expect(service.useRecoveryCode(USER_ID, 'wrong-code')).rejects.toThrow(
         UnauthorizedException,
       );
-      expect(mockPrisma.mfaRecoveryCode.update).not.toHaveBeenCalled();
     });
 
     it('should reject when no unused codes exist', async () => {
-      mockPrisma.mfaRecoveryCode.findMany.mockResolvedValue([]);
+      mockMfaService.useRecoveryCode.mockRejectedValue(
+        new UnauthorizedException({
+          code: 'INVALID_RECOVERY_CODE',
+          message: 'Invalid recovery code',
+        }),
+      );
 
       await expect(service.useRecoveryCode(USER_ID, 'any-code')).rejects.toThrow(
         UnauthorizedException,
@@ -1436,10 +1353,13 @@ describe('AuthService', () => {
 
   describe('AuthService -- loginWithRecoveryCode', () => {
     const rawCode = 'recovery1';
-    const codeHash = crypto.createHash('sha256').update(rawCode).digest('hex');
 
     beforeEach(() => {
-      redisClient.get.mockResolvedValue('0'); // No brute force
+      mockRateLimitService.checkBruteForce.mockResolvedValue({
+        blocked: false,
+        retryAfterSeconds: 0,
+      });
+      mockRateLimitService.checkIpThrottle.mockResolvedValue({ blocked: false });
     });
 
     it('should login, disable MFA, delete recovery codes, and return tokens', async () => {
@@ -1448,10 +1368,7 @@ describe('AuthService', () => {
         mfa_enabled: true,
         mfa_secret: 'TESTSECRET123',
       });
-      mockPrisma.mfaRecoveryCode.findMany.mockResolvedValue([
-        { id: 'rc-1', user_id: USER_ID, code_hash: codeHash, used_at: null },
-      ]);
-      mockPrisma.mfaRecoveryCode.update.mockResolvedValue({});
+      mockMfaService.useRecoveryCode.mockResolvedValue(undefined);
       mockPrisma.user.update.mockResolvedValue({ ...MOCK_USER });
       mockPrisma.mfaRecoveryCode.deleteMany.mockResolvedValue({ count: 10 });
 
@@ -1538,7 +1455,12 @@ describe('AuthService', () => {
         mfa_enabled: true,
         mfa_secret: 'TESTSECRET123',
       });
-      mockPrisma.mfaRecoveryCode.findMany.mockResolvedValue([]); // No matching codes
+      mockMfaService.useRecoveryCode.mockRejectedValue(
+        new UnauthorizedException({
+          code: 'INVALID_RECOVERY_CODE',
+          message: 'Invalid recovery code',
+        }),
+      );
 
       await expect(
         service.loginWithRecoveryCode(
@@ -1560,10 +1482,9 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException when brute force blocked', async () => {
-      redisClient.get.mockImplementation(async (key: string) => {
-        if (key.startsWith('ip_throttle:')) return '0';
-        if (key.startsWith('brute_force:')) return '10';
-        return null;
+      mockRateLimitService.checkBruteForce.mockResolvedValue({
+        blocked: true,
+        retryAfterSeconds: 1800,
       });
 
       await expect(
@@ -1753,32 +1674,26 @@ describe('AuthService', () => {
   // ─── listSessions ────────────────────────────────────────────────────────
 
   describe('AuthService -- listSessions', () => {
-    it('should return all active sessions for a user', async () => {
-      const session1 = {
-        user_id: USER_ID,
-        session_id: 'sess-1',
-        tenant_id: null,
-        membership_id: null,
-        ip_address: '127.0.0.1',
-        user_agent: 'Chrome',
-        created_at: '2026-01-01T00:00:00.000Z',
-        last_active_at: '2026-01-01T01:00:00.000Z',
-      };
-      const session2 = {
-        user_id: USER_ID,
-        session_id: 'sess-2',
-        tenant_id: TENANT_ID,
-        membership_id: MEMBERSHIP_ID,
-        ip_address: '10.0.0.1',
-        user_agent: 'Firefox',
-        created_at: '2026-01-01T02:00:00.000Z',
-        last_active_at: '2026-01-01T03:00:00.000Z',
-      };
-
-      redisClient.smembers.mockResolvedValue(['sess-1', 'sess-2']);
-      redisClient.get
-        .mockResolvedValueOnce(JSON.stringify(session1))
-        .mockResolvedValueOnce(JSON.stringify(session2));
+    it('should delegate to SessionService', async () => {
+      const sessions = [
+        {
+          session_id: 'sess-1',
+          ip_address: '127.0.0.1',
+          user_agent: 'Chrome',
+          created_at: '2026-01-01T00:00:00.000Z',
+          last_active_at: '2026-01-01T01:00:00.000Z',
+          tenant_id: null,
+        },
+        {
+          session_id: 'sess-2',
+          ip_address: '10.0.0.1',
+          user_agent: 'Firefox',
+          created_at: '2026-01-01T02:00:00.000Z',
+          last_active_at: '2026-01-01T03:00:00.000Z',
+          tenant_id: TENANT_ID,
+        },
+      ];
+      mockSessionService.listSessions.mockResolvedValue(sessions);
 
       const result = await service.listSessions(USER_ID);
 
@@ -1796,67 +1711,34 @@ describe('AuthService', () => {
           tenant_id: TENANT_ID,
         }),
       );
+      expect(mockSessionService.listSessions).toHaveBeenCalledWith(USER_ID);
     });
 
     it('should return empty array when user has no sessions', async () => {
-      redisClient.smembers.mockResolvedValue([]);
+      mockSessionService.listSessions.mockResolvedValue([]);
 
       const result = await service.listSessions(USER_ID);
 
       expect(result).toEqual([]);
-    });
-
-    it('should clean up stale session references from the user index', async () => {
-      redisClient.smembers.mockResolvedValue(['sess-valid', 'sess-stale']);
-      redisClient.get
-        .mockResolvedValueOnce(
-          JSON.stringify({
-            user_id: USER_ID,
-            session_id: 'sess-valid',
-            tenant_id: null,
-            membership_id: null,
-            ip_address: '127.0.0.1',
-            user_agent: 'Chrome',
-            created_at: '2026-01-01T00:00:00.000Z',
-            last_active_at: '2026-01-01T00:00:00.000Z',
-          }),
-        )
-        .mockResolvedValueOnce(null); // sess-stale not in Redis
-
-      const result = await service.listSessions(USER_ID);
-
-      expect(result).toHaveLength(1);
-      expect(redisClient.srem).toHaveBeenCalledWith(`user_sessions:${USER_ID}`, 'sess-stale');
     });
   });
 
   // ─── revokeSession ────────────────────────────────────────────────────────
 
   describe('AuthService -- revokeSession', () => {
-    it('should delete the session and log revocation when session belongs to user', async () => {
-      jest.spyOn(service, 'getSession').mockResolvedValue({
-        user_id: USER_ID,
-        session_id: SESSION_ID,
-        tenant_id: null,
-        membership_id: null,
-        ip_address: '127.0.0.1',
-        user_agent: 'jest-agent',
-        created_at: new Date().toISOString(),
-        last_active_at: new Date().toISOString(),
-      });
-
+    it('should delegate to SessionService', async () => {
       await service.revokeSession(USER_ID, SESSION_ID);
 
-      expect(redisClient.del).toHaveBeenCalledWith(`session:${SESSION_ID}`);
-      expect(mockSecurityAuditService.logSessionRevocation).toHaveBeenCalledWith(
-        USER_ID,
-        USER_ID,
-        SESSION_ID,
-      );
+      expect(mockSessionService.revokeSession).toHaveBeenCalledWith(USER_ID, SESSION_ID);
     });
 
     it('should throw BadRequestException when session not found', async () => {
-      jest.spyOn(service, 'getSession').mockResolvedValue(null);
+      mockSessionService.revokeSession.mockRejectedValue(
+        new BadRequestException({
+          code: 'SESSION_NOT_FOUND',
+          message: 'Session not found or does not belong to you',
+        }),
+      );
 
       await expect(service.revokeSession(USER_ID, 'nonexistent')).rejects.toThrow(
         BadRequestException,
@@ -1864,16 +1746,12 @@ describe('AuthService', () => {
     });
 
     it('should throw BadRequestException when session belongs to a different user', async () => {
-      jest.spyOn(service, 'getSession').mockResolvedValue({
-        user_id: 'other-user-id',
-        session_id: SESSION_ID,
-        tenant_id: null,
-        membership_id: null,
-        ip_address: '127.0.0.1',
-        user_agent: 'jest-agent',
-        created_at: new Date().toISOString(),
-        last_active_at: new Date().toISOString(),
-      });
+      mockSessionService.revokeSession.mockRejectedValue(
+        new BadRequestException({
+          code: 'SESSION_NOT_FOUND',
+          message: 'Session not found or does not belong to you',
+        }),
+      );
 
       await expect(service.revokeSession(USER_ID, SESSION_ID)).rejects.toThrow(BadRequestException);
     });
@@ -1882,13 +1760,15 @@ describe('AuthService', () => {
   // ─── IP Throttle (Layer 1) ──────────────────────────────────────────────────
 
   describe('AuthService -- IP throttle', () => {
-    it('should block login after IP exceeds max attempts', async () => {
-      // IP throttle key returns count at threshold
-      redisClient.get.mockImplementation(async (key: string) => {
-        if (key === 'ip_throttle:10.0.0.99') return '10';
-        if (key.startsWith('brute_force:')) return '0';
-        return null;
+    beforeEach(() => {
+      mockRateLimitService.checkBruteForce.mockResolvedValue({
+        blocked: false,
+        retryAfterSeconds: 0,
       });
+    });
+
+    it('should block login after IP exceeds max attempts', async () => {
+      mockRateLimitService.checkIpThrottle.mockResolvedValue({ blocked: true });
 
       await expect(
         service.login(MOCK_USER.email, PASSWORD_PLAIN, '10.0.0.99', 'jest-agent'),
@@ -1908,11 +1788,7 @@ describe('AuthService', () => {
     });
 
     it('should allow login when IP is below max attempts', async () => {
-      redisClient.get.mockImplementation(async (key: string) => {
-        if (key === 'ip_throttle:10.0.0.1') return '5'; // Below 10
-        if (key.startsWith('brute_force:')) return '0';
-        return null;
-      });
+      mockRateLimitService.checkIpThrottle.mockResolvedValue({ blocked: false });
       mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
       mockPrisma.user.update.mockResolvedValue({ ...MOCK_USER });
 
@@ -1922,28 +1798,19 @@ describe('AuthService', () => {
     });
 
     it('should increment IP failure counter on failed login', async () => {
-      redisClient.get.mockImplementation(async (key: string) => {
-        if (key.startsWith('ip_throttle:')) return '0';
-        if (key.startsWith('brute_force:')) return '0';
-        return null;
-      });
+      mockRateLimitService.checkIpThrottle.mockResolvedValue({ blocked: false });
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
       await expect(
         service.login('bad@email.com', 'password', '10.0.0.50', 'jest-agent'),
       ).rejects.toThrow(UnauthorizedException);
 
-      // IP failure counter should be incremented
-      expect(redisClient.incr).toHaveBeenCalledWith('ip_throttle:10.0.0.50');
-      expect(redisClient.expire).toHaveBeenCalledWith('ip_throttle:10.0.0.50', 900);
+      // IP failure counter should be incremented via RateLimitService
+      expect(mockRateLimitService.recordIpFailedLogin).toHaveBeenCalledWith('10.0.0.50');
     });
 
     it('should return generic INVALID_CREDENTIALS error code when IP throttled', async () => {
-      redisClient.get.mockImplementation(async (key: string) => {
-        if (key === 'ip_throttle:10.0.0.99') return '15';
-        if (key.startsWith('brute_force:')) return '0';
-        return null;
-      });
+      mockRateLimitService.checkIpThrottle.mockResolvedValue({ blocked: true });
 
       try {
         await service.login(MOCK_USER.email, PASSWORD_PLAIN, '10.0.0.99', 'jest-agent');
@@ -1961,11 +1828,10 @@ describe('AuthService', () => {
 
   describe('AuthService -- Account lockout', () => {
     beforeEach(() => {
-      // Default: no IP throttle, no brute force
-      redisClient.get.mockImplementation(async (key: string) => {
-        if (key.startsWith('ip_throttle:')) return '0';
-        if (key.startsWith('brute_force:')) return '0';
-        return null;
+      mockRateLimitService.checkIpThrottle.mockResolvedValue({ blocked: false });
+      mockRateLimitService.checkBruteForce.mockResolvedValue({
+        blocked: false,
+        retryAfterSeconds: 0,
       });
     });
 
@@ -2115,10 +1981,10 @@ describe('AuthService', () => {
       }
 
       jest.clearAllMocks();
-      redisClient.get.mockImplementation(async (key: string) => {
-        if (key.startsWith('ip_throttle:')) return '0';
-        if (key.startsWith('brute_force:')) return '0';
-        return null;
+      mockRateLimitService.checkIpThrottle.mockResolvedValue({ blocked: false });
+      mockRateLimitService.checkBruteForce.mockResolvedValue({
+        blocked: false,
+        retryAfterSeconds: 0,
       });
 
       // Test 2: Wrong password
@@ -2134,10 +2000,10 @@ describe('AuthService', () => {
       }
 
       jest.clearAllMocks();
-      redisClient.get.mockImplementation(async (key: string) => {
-        if (key.startsWith('ip_throttle:')) return '0';
-        if (key.startsWith('brute_force:')) return '0';
-        return null;
+      mockRateLimitService.checkIpThrottle.mockResolvedValue({ blocked: false });
+      mockRateLimitService.checkBruteForce.mockResolvedValue({
+        blocked: false,
+        retryAfterSeconds: 0,
       });
 
       // Test 3: Account locked
