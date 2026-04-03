@@ -23,6 +23,7 @@ import { BulkImportService } from './bulk-import.service';
 import { ClassGradeConfigsService } from './class-grade-configs.service';
 import { GradebookAdvancedController } from './gradebook-advanced.controller';
 import { GradebookInsightsController } from './gradebook-insights.controller';
+import { GradebookReadFacade } from './gradebook-read.facade';
 import { GradebookController } from './gradebook.controller';
 import { GradesService } from './grades.service';
 import { CompetencyScaleService } from './grading/competency-scale.service';
@@ -96,7 +97,10 @@ import { YearGroupGradeWeightsService } from './year-group-grade-weights.service
     // ─── Parent Experience ───────────────────────────────────────────────────
     GradePublishingService,
     ProgressReportService,
+
+    // ─── Cross-module Read Facade ────────────────────────────────────────────
+    GradebookReadFacade,
   ],
-  exports: [ReportCardModule, TranscriptsService],
+  exports: [GradebookReadFacade, ReportCardModule, TranscriptsService],
 })
 export class GradebookModule {}
