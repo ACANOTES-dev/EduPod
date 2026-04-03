@@ -740,8 +740,6 @@ describe('KeyRotationProcessor', () => {
       process.env.ENCRYPTION_KEY_V3 = HEX_KEY_V3;
       process.env.ENCRYPTION_CURRENT_VERSION = '3';
 
-      const KEY_V3_BUF = Buffer.from(HEX_KEY_V3, 'hex');
-
       const prisma = buildMockPrisma();
       const rowV1 = makeStripeRow({
         id: 'stripe-v1',

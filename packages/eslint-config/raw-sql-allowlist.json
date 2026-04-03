@@ -246,6 +246,48 @@
       "methods": ["$executeRaw", "$queryRaw"],
       "category": "rls-infrastructure",
       "reason": "RLS context-setting via set_config() and sequence lock SELECT FOR UPDATE within transaction"
+    },
+    {
+      "file": "apps/worker/src/processors/security/rules/auth-spike.rule.ts",
+      "methods": ["$queryRaw"],
+      "category": "anomaly-detection",
+      "reason": "Security anomaly rule — aggregation query over audit_logs for auth spike detection"
+    },
+    {
+      "file": "apps/worker/src/processors/security/rules/brute-force-cluster.rule.ts",
+      "methods": ["$queryRaw"],
+      "category": "anomaly-detection",
+      "reason": "Security anomaly rule — aggregation query over audit_logs for brute force cluster detection"
+    },
+    {
+      "file": "apps/worker/src/processors/security/rules/cross-tenant-attempt.rule.ts",
+      "methods": ["$queryRaw"],
+      "category": "anomaly-detection",
+      "reason": "Security anomaly rule — aggregation query over audit_logs for cross-tenant access attempts"
+    },
+    {
+      "file": "apps/worker/src/processors/security/rules/data-export-spike.rule.ts",
+      "methods": ["$queryRaw"],
+      "category": "anomaly-detection",
+      "reason": "Security anomaly rule — aggregation query over audit_logs for data export spike detection"
+    },
+    {
+      "file": "apps/worker/src/processors/security/rules/off-hours-bulk-access.rule.ts",
+      "methods": ["$queryRaw"],
+      "category": "anomaly-detection",
+      "reason": "Security anomaly rule — aggregation query over audit_logs for off-hours bulk access detection"
+    },
+    {
+      "file": "apps/worker/src/processors/security/rules/permission-probe.rule.ts",
+      "methods": ["$queryRaw"],
+      "category": "anomaly-detection",
+      "reason": "Security anomaly rule — aggregation query over audit_logs for permission probe detection"
+    },
+    {
+      "file": "apps/worker/src/processors/security/rules/unusual-access.rule.ts",
+      "methods": ["$queryRaw"],
+      "category": "anomaly-detection",
+      "reason": "Security anomaly rule — aggregation query over audit_logs for unusual access pattern detection"
     }
   ]
 }

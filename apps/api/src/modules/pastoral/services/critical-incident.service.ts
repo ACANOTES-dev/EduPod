@@ -120,10 +120,6 @@ export interface CriticalIncidentFilters {
   date_to?: string;
 }
 
-type ResponsePlanPhase = 'immediate' | 'short_term' | 'medium_term' | 'long_term';
-
-const VALID_PHASES: ResponsePlanPhase[] = ['immediate', 'short_term', 'medium_term', 'long_term'];
-
 // ─── Default Response Plan Template ─────────────────────────────────────────
 
 const DEFAULT_RESPONSE_PLAN_TEMPLATE = {
