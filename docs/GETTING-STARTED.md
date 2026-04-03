@@ -103,8 +103,8 @@ pnpm hotspots:check
 
 ## 10. Day-to-Day Development Workflow
 
-1. Read `Plans/context.md` and `architecture/pre-flight-checklist.md` before meaningful changes.
-2. Check `architecture/module-blast-radius.md` and `architecture/danger-zones.md` for touched modules.
+1. Read `docs/plans/context.md` and `docs/architecture/pre-flight-checklist.md` before meaningful changes.
+2. Check `docs/architecture/module-blast-radius.md` and `docs/architecture/danger-zones.md` for touched modules.
 3. Make focused changes without drifting beyond the request.
 4. Run targeted tests while iterating.
 5. Run the full verification set before pushing or opening a PR.

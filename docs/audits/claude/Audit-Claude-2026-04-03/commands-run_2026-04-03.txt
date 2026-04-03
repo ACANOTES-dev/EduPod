@@ -1,0 +1,79 @@
+# Commands Run — Audit 2026-04-03
+# Main orchestrator session, Phase 1
+
+## Repository Discovery
+find . -maxdepth 2 -type d | sort
+ls -la
+find apps packages -maxdepth 2 -type d | sort
+find apps packages \( -name "*.ts" -o -name "*.tsx" \) | wc -l
+  -> 3,458
+
+find apps packages \( -name "*.spec.ts" -o -name "*.spec.tsx" -o -name "*.test.ts" -o -name "*.test.tsx" \) | wc -l
+  -> 733
+
+find apps packages \( -name "*.ts" -o -name "*.tsx" \) ! -name "*.spec.*" ! -name "*.test.*" ... | xargs wc -l | sort -rn | head -60
+  -> 427,141 total lines
+
+## Backend Module Inventory
+find apps/api/src/modules -maxdepth 1 -mindepth 1 -type d | sort
+  -> 58 modules
+
+Per-module file/line counts (for d in apps/api/src/modules/*/; ...)
+  -> Top: behaviour 74/24104, pastoral 66/19810, gradebook 49/15635
+
+Cross-module import hotspots (grep -rh "from '../../" ...)
+  -> Top: gradebook 32, pastoral 23, staff-wellbeing 21
+
+## Frontend & Worker Inventory
+find apps/web/src/app -name "page.tsx" | wc -l -> 337
+find apps/web/src/components -name "*.tsx" | wc -l -> 36
+find apps/web/src/app -path "*/_components/*.tsx" | wc -l -> 179
+find apps/web -name "*.spec.*" -o -name "*.test.*" | wc -l -> 35
+find apps/worker/src -name "*.processor.ts" | wc -l -> 93
+find apps/api -name "*.spec.ts" | wc -l -> 572
+find apps/worker -name "*.spec.ts" | wc -l -> 100
+find packages -name "*.spec.ts" -o -name "*.test.ts" | wc -l -> 29
+
+## Test Execution
+cd apps/api && pnpm test
+  -> 567 suites, 7785 tests, ALL PASS, 50.824s
+
+cd apps/worker && pnpm test
+  -> 100 suites, 666 tests, ALL PASS, 6.792s
+
+cd packages/shared && pnpm test
+  -> 28 suites, 746 tests, ALL PASS, 5.358s
+
+## Build / Lint / Type-Check
+pnpm turbo run lint
+  -> 6 tasks, ALL PASS (warnings only: i18n hardcoded strings, 1 max-lines)
+
+pnpm turbo run type-check
+  -> 8 tasks, ALL PASS (FULL TURBO cache)
+
+## Security / RLS Inventory
+grep -c "^model " packages/prisma/schema.prisma -> 265
+grep -c "tenant_id" packages/prisma/schema.prisma -> 952
+grep -c "ENABLE ROW LEVEL SECURITY" packages/prisma/rls/policies.sql -> 254
+awk '/^model /{model=$2} /tenant_id/{print model}' packages/prisma/schema.prisma | sort -u | wc -l -> 253
+
+## Code Quality
+grep -rn ": any\|as any" (non-spec source) | wc -l -> 0
+grep -rn "@ts-ignore\|@ts-expect-error" (source) | wc -l -> 0
+grep -rcn "TODO\|FIXME\|HACK\|XXX\|TEMP\|WORKAROUND" (source) -> 0
+
+## Operational Readiness
+cat .github/workflows/ci.yml -> Single workflow, 4 jobs (ci, deploy, integration, visual)
+cat ecosystem.config.cjs -> PM2: api (cluster), web (cluster), worker (fork)
+grep Sentry apps/api/src/instrument.ts -> Sentry initialized with DSN, scrubbing
+cat docker-compose.yml -> postgres:16, pgbouncer, redis:7, meilisearch
+
+## Files Explicitly Read
+CLAUDE.md (from system prompt)
+docs/architecture/danger-zones.md (lines 1-299)
+docs/architecture/module-blast-radius.md (lines 1-299)
+docs/architecture/state-machines.md (lines 1-200)
+docs/architecture/event-job-catalog.md (lines 1-200)
+turbo.json
+package.json
+.github/workflows/ci.yml
