@@ -2111,10 +2111,7 @@
     "path": "/v1/behaviour/tasks/:id/cancel",
     "controller": "BehaviourTasksController",
     "module": "behaviour",
-    "permission": [
-      "behaviour.view",
-      "behaviour.manage"
-    ]
+    "permission": ["behaviour.view", "behaviour.manage"]
   },
   {
     "method": "POST",
@@ -6797,20 +6794,14 @@
     "path": "/v1/period-grid",
     "controller": "PeriodGridController",
     "module": "period-grid",
-    "permission": [
-      "schedule.configure_period_grid",
-      "schedule.view_own"
-    ]
+    "permission": ["schedule.configure_period_grid", "schedule.view_own"]
   },
   {
     "method": "POST",
     "path": "/v1/period-grid",
     "controller": "PeriodGridController",
     "module": "period-grid",
-    "permission": [
-      "schedule.configure_period_grid",
-      "schedule.view_own"
-    ]
+    "permission": ["schedule.configure_period_grid", "schedule.view_own"]
   },
   {
     "method": "DELETE",
@@ -9190,7 +9181,7 @@
     "path": "/v1/search",
     "controller": "SearchController",
     "module": "search",
-    "permission": null
+    "permission": "search.view"
   },
   {
     "method": "DELETE",

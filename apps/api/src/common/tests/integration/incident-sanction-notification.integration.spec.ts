@@ -10,8 +10,14 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
 }));
 
 import { MOCK_FACADE_PROVIDERS } from '../mock-facades';
+import { BehaviourIncidentsService } from '../../../modules/behaviour/behaviour-incidents.service';
+import { BehaviourParticipantsService } from '../../../modules/behaviour/behaviour-participants.service';
+import { BehaviourSanctionsCrudService } from '../../../modules/behaviour/behaviour-sanctions-crud.service';
+import { BehaviourSanctionsLifecycleService } from '../../../modules/behaviour/behaviour-sanctions-lifecycle.service';
+import { BehaviourSanctionsMeetingsService } from '../../../modules/behaviour/behaviour-sanctions-meetings.service';
 import { BehaviourSanctionsService } from '../../../modules/behaviour/behaviour-sanctions.service';
 import { BehaviourService } from '../../../modules/behaviour/behaviour.service';
+import { BehaviourStatusService } from '../../../modules/behaviour/behaviour-status.service';
 import { BehaviourDocumentService } from '../../../modules/behaviour/behaviour-document.service';
 import { BehaviourHistoryService } from '../../../modules/behaviour/behaviour-history.service';
 import { BehaviourScopeService } from '../../../modules/behaviour/behaviour-scope.service';
@@ -127,7 +133,13 @@ describe('Incident -> Sanction -> Notification flow', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         BehaviourService,
+        BehaviourIncidentsService,
+        BehaviourStatusService,
+        BehaviourParticipantsService,
         BehaviourSanctionsService,
+        BehaviourSanctionsCrudService,
+        BehaviourSanctionsLifecycleService,
+        BehaviourSanctionsMeetingsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SequenceService, useValue: mockSequenceService },
         { provide: BehaviourHistoryService, useValue: mockHistoryService },
