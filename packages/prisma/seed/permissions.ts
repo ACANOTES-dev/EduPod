@@ -430,6 +430,11 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
     permission_tier: 'admin',
   },
   {
+    permission_key: 'search.view',
+    description: 'Search across students, staff, parents, and admissions',
+    permission_tier: 'admin',
+  },
+  {
     permission_key: 'compliance.manage',
     description: 'Manage compliance and GDPR settings',
     permission_tier: 'admin',
