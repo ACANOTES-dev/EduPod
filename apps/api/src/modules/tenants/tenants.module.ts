@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 
-import { AuthModule } from '../auth/auth.module';
-import { RbacModule } from '../rbac/rbac.module';
+import { TokenService } from '../auth/auth-token.service';
 import { SequenceModule } from '../sequence/sequence.module';
 
 import { DomainsController } from './domains.controller';
@@ -11,9 +10,9 @@ import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
 
 @Module({
-  imports: [AuthModule, RbacModule, SequenceModule],
+  imports: [SequenceModule],
   controllers: [TenantsController, DomainsController],
-  providers: [TenantsService, DomainsService, TenantReadFacade],
+  providers: [TenantsService, DomainsService, TenantReadFacade, TokenService],
   exports: [TenantsService, SequenceModule, TenantReadFacade],
 })
 export class TenantsModule {}

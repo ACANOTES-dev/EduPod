@@ -1,0 +1,81 @@
+import { Global, Module } from '@nestjs/common';
+
+import { AcademicReadFacade } from '../modules/academics/academic-read.facade';
+import { AdmissionsReadFacade } from '../modules/admissions/admissions-read.facade';
+import { ApprovalsReadFacade } from '../modules/approvals/approvals-read.facade';
+import { AttendanceReadFacade } from '../modules/attendance/attendance-read.facade';
+import { AuditLogReadFacade } from '../modules/audit-log/audit-log-read.facade';
+import { AuthReadFacade } from '../modules/auth/auth-read.facade';
+import { BehaviourReadFacade } from '../modules/behaviour/behaviour-read.facade';
+import { ChildProtectionReadFacade } from '../modules/child-protection/child-protection-read.facade';
+import { ClassesReadFacade } from '../modules/classes/classes-read.facade';
+import { CommunicationsReadFacade } from '../modules/communications/communications-read.facade';
+import { ConfigurationReadFacade } from '../modules/configuration/configuration-read.facade';
+import { FinanceReadFacade } from '../modules/finance/finance-read.facade';
+import { GdprReadFacade } from '../modules/gdpr/gdpr-read.facade';
+import { GradebookReadFacade } from '../modules/gradebook/gradebook-read.facade';
+import { HouseholdReadFacade } from '../modules/households/household-read.facade';
+import { ParentInquiriesReadFacade } from '../modules/parent-inquiries/parent-inquiries-read.facade';
+import { ParentReadFacade } from '../modules/parents/parent-read.facade';
+import { PastoralReadFacade } from '../modules/pastoral/pastoral-read.facade';
+import { PayrollReadFacade } from '../modules/payroll/payroll-read.facade';
+import { RbacReadFacade } from '../modules/rbac/rbac-read.facade';
+import { RoomsReadFacade } from '../modules/rooms/rooms-read.facade';
+import { SchedulesReadFacade } from '../modules/schedules/schedules-read.facade';
+import { SchedulingReadFacade } from '../modules/scheduling/scheduling-read.facade';
+import { SchedulingRunsReadFacade } from '../modules/scheduling-runs/scheduling-runs-read.facade';
+import { SchoolClosuresReadFacade } from '../modules/school-closures/school-closures-read.facade';
+import { StaffAvailabilityReadFacade } from '../modules/staff-availability/staff-availability-read.facade';
+import { StaffPreferencesReadFacade } from '../modules/staff-preferences/staff-preferences-read.facade';
+import { StaffProfileReadFacade } from '../modules/staff-profiles/staff-profile-read.facade';
+import { StudentReadFacade } from '../modules/students/student-read.facade';
+import { TenantReadFacade } from '../modules/tenants/tenant-read.facade';
+import { WebsiteReadFacade } from '../modules/website/website-read.facade';
+
+// ─── Global ReadFacades Module ──────────────────────────────────────────────
+//
+// All ReadFacade classes depend only on PrismaService (global) and optionally
+// on other ReadFacades. By providing them globally, we eliminate the need for
+// every module to import foreign modules just to access read-only facades —
+// which was the root cause of circular dependency chains.
+
+const FACADES = [
+  AcademicReadFacade,
+  AdmissionsReadFacade,
+  ApprovalsReadFacade,
+  AttendanceReadFacade,
+  AuditLogReadFacade,
+  AuthReadFacade,
+  BehaviourReadFacade,
+  ChildProtectionReadFacade,
+  ClassesReadFacade,
+  CommunicationsReadFacade,
+  ConfigurationReadFacade,
+  FinanceReadFacade,
+  GdprReadFacade,
+  GradebookReadFacade,
+  HouseholdReadFacade,
+  ParentInquiriesReadFacade,
+  ParentReadFacade,
+  PastoralReadFacade,
+  PayrollReadFacade,
+  RbacReadFacade,
+  RoomsReadFacade,
+  SchedulesReadFacade,
+  SchedulingReadFacade,
+  SchedulingRunsReadFacade,
+  SchoolClosuresReadFacade,
+  StaffAvailabilityReadFacade,
+  StaffPreferencesReadFacade,
+  StaffProfileReadFacade,
+  StudentReadFacade,
+  TenantReadFacade,
+  WebsiteReadFacade,
+];
+
+@Global()
+@Module({
+  providers: FACADES,
+  exports: FACADES,
+})
+export class ReadFacadesModule {}

@@ -9,6 +9,7 @@ import { CommonModule } from './common/common.module';
 import { CorrelationMiddleware } from './common/middleware/correlation.middleware';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 import { TenantResolutionMiddleware } from './common/middleware/tenant-resolution.middleware';
+import { ReadFacadesModule } from './common/read-facades.module';
 import { AcademicsModule } from './modules/academics/academics.module';
 import { AdmissionsModule } from './modules/admissions/admissions.module';
 import { ApprovalsModule } from './modules/approvals/approvals.module';
@@ -101,6 +102,7 @@ import { WebsiteModule } from './modules/website/website.module';
     PrismaModule,
     RedisModule,
     CommonModule,
+    ReadFacadesModule,
     HealthModule,
     AuthModule,
     S3Module,

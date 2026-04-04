@@ -1,8 +1,6 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 
-import { AttendanceModule } from '../attendance/attendance.module';
 import { AuthModule } from '../auth/auth.module';
-import { ClassesModule } from '../classes/classes.module';
 import { RoomsModule } from '../rooms/rooms.module';
 import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 
@@ -14,13 +12,7 @@ import { TimetablesController } from './timetables.controller';
 import { TimetablesService } from './timetables.service';
 
 @Module({
-  imports: [
-    forwardRef(() => AttendanceModule),
-    AuthModule,
-    ClassesModule,
-    RoomsModule,
-    StaffProfilesModule,
-  ],
+  imports: [AuthModule, RoomsModule, StaffProfilesModule],
   controllers: [SchedulesController, TimetablesController],
   providers: [SchedulesService, ConflictDetectionService, TimetablesService, SchedulesReadFacade],
   exports: [SchedulesService, SchedulesReadFacade],
