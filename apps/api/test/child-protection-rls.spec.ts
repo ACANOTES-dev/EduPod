@@ -228,9 +228,16 @@ describe('Child Protection RLS — Dual-layer isolation (integration)', () => {
     if (directPrisma) {
       try {
         // Clean up test data in reverse dependency order
+        // Temporarily disable the immutability trigger for test cleanup
+        await directPrisma.$executeRawUnsafe(
+          `ALTER TABLE pastoral_events DISABLE TRIGGER trg_immutable_pastoral_events`,
+        );
         await directPrisma.$executeRawUnsafe(
           `DELETE FROM pastoral_events WHERE payload::text LIKE $1`,
           `%${UNIQUE_MARKER}%`,
+        );
+        await directPrisma.$executeRawUnsafe(
+          `ALTER TABLE pastoral_events ENABLE TRIGGER trg_immutable_pastoral_events`,
         );
         await directPrisma.$executeRawUnsafe(
           `DELETE FROM cp_records WHERE narrative LIKE $1`,
