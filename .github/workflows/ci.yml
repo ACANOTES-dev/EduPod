@@ -56,11 +56,11 @@ jobs:
           # Blocking — high-severity vulns fail the pipeline.
           # pnpm.auditConfig.ignoreCves handles CVE-based ignores.
           # GHSA-only advisories (no CVE assigned) are filtered here.
-          IGNORED_GHSAS="GHSA-h25m-26qc-wcjf"
+          export IGNORED_GHSAS="GHSA-h25m-26qc-wcjf"
           pnpm audit --audit-level=high --ignore-registry-errors --json 2>/dev/null | \
             node -e "
               const data = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-              const ignored = new Set(process.env.IGNORED_GHSAS.split(','));
+              const ignored = new Set((process.env.IGNORED_GHSAS || '').split(','));
               const advisories = data.advisories || {};
               const unignored = Object.values(advisories).filter(a =>
                 a.severity === 'high' && !ignored.has(a.github_advisory_id)
