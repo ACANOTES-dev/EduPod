@@ -90,11 +90,56 @@
 
 ## Wave 3: Architecture + Modularity
 
-> Not yet started. See source plan for details.
+### Bucket 3A — ReadFacades for High-Exposure Tables
 
-## Wave 4: Operational Hardening
+| ID   | Item                                            | Status | Date       | Notes                                                                                                                                                                                                                                                                                                                             |
+| ---- | ----------------------------------------------- | ------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 3A.1 | Implement ReadFacade for 6 high-exposure tables | DONE   | 2026-04-04 | 31 `*-read.facade.ts` files created across all modules including the 6 critical tables (staff_profiles, students, classes, academic_periods, invoices, attendance). Facade code is complete. Most facades NOT yet exported from module barrel files. Consumer migration <10% — facades exist but callers still use direct Prisma. |
 
-> Not yet started. See source plan for details.
+### Bucket 3B — Prisma Model Access Lint Rule
+
+| ID   | Item                                                    | Status | Date       | Notes                                                                                                                                                                                                                                                                                                                  |
+| ---- | ------------------------------------------------------- | ------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 3B.1 | Custom ESLint rule for cross-module Prisma model access | DONE   | 2026-04-04 | `no-cross-module-prisma-access` rule in `packages/eslint-config/rules/`. Reads module ownership from `docs/architecture/module-ownership.json`. Detects `this.prisma.<foreignModel>` patterns. Exempts spec files. Set to `warn` mode — 697 violations currently. Will switch to `error` after 3D migration completes. |
+
+### Bucket 3C — Extract Safeguarding Module
+
+| ID   | Item                                               | Status      | Date | Notes                                                                                                                                                                                |
+| ---- | -------------------------------------------------- | ----------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 3C.1 | Extract safeguarding into a separate NestJS module | NOT STARTED | —    | Placeholder `safeguarding/index.ts` exists but all services remain in `behaviour/behaviour-safeguarding.module.ts`. Not registered in `app.module.ts`. No code physically moved yet. |
+
+### Bucket 3D — Remaining Facade Migration
+
+| ID   | Item                                                   | Status      | Date | Notes                                                                                                                                                        |
+| ---- | ------------------------------------------------------ | ----------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 3D.1 | Migrate remaining cross-module Prisma reads to facades | IN PROGRESS | —    | **PAUSED.** Lint rule detects 697 violations across 120+ files. <5% of consumers migrated. Module barrel exports needed before consumers can import facades. |
+
+---
+
+## Wave 4: Reliability Hardening
+
+### Bucket 4A — Danger Zone Mitigations
+
+| ID   | Item                                           | Status  | Date       | Notes                                                                                                                                                                                                                                                               |
+| ---- | ---------------------------------------------- | ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4A.1 | Parent notification stuck-alert (DZ-14)        | DONE    | 2026-04-04 | `stuck-notification-alert.processor.ts` in worker. Detects incidents with `parent_notification_status = 'pending'` >24h. Creates in-app notification to incident creator via `behaviour_stuck_parent_notification` template. Idempotency check prevents duplicates. |
+| 4A.2 | Academic period pre-closure validation (DZ-06) | PENDING | —          | `academic-periods.service.ts` `updateStatus()` only checks valid transitions. No pre-closure validation for pending attendance sessions or open assessments.                                                                                                        |
+| 4A.3 | Appeal decision transaction timeout (DZ-17)    | PARTIAL | 2026-04-04 | `decide()` uses `timeout: 30000` (plan specifies 15000). Notification enqueuing not wired post-transaction.                                                                                                                                                         |
+| 4A.4 | Legal hold release logic (DZ-18)               | DONE    | 2026-04-04 | `releaseHold()` in `behaviour-legal-hold.service.ts` with `released_at`, `release_reason`, `released_by_id` fields.                                                                                                                                                 |
+| 4A.5 | Safeguarding status projection (DZ-13)         | DONE    | 2026-04-04 | 620-line integration test `safeguarding-projection.spec.ts`. Covers all incident-status-returning endpoints. Source-level consistency check verifies all behaviour services are projection-aware.                                                                   |
+
+### Bucket 4B — Worker Reliability
+
+| ID   | Item                                          | Status | Date       | Notes                                                                                                                          |
+| ---- | --------------------------------------------- | ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 4B.1 | Retry/backoff configuration integration tests | DONE   | 2026-04-04 | `queue-config.spec.ts` asserts `attempts`, `backoff.type`, `backoff.delay`, `removeOnComplete`, `removeOnFail` for all queues. |
+| 4B.2 | Worker health endpoint integration test       | DONE   | 2026-04-04 | `worker-health.controller.spec.ts` tests 200 for healthy/degraded, 503 for unhealthy. Covers Redis/Postgres failure scenarios. |
+
+### Bucket 4C — Production File Scanning
+
+| ID   | Item                                  | Status  | Date       | Notes                                                                                                                                                                                                                 |
+| ---- | ------------------------------------- | ------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4C.1 | Deploy ClamAV for production scanning | PARTIAL | 2026-04-04 | `ClamavScannerService` exists (`apps/worker/src/services/clamav-scanner.service.ts`, 188 lines) with INSTREAM protocol, chunking, timeout. BUT `attachment-scan.processor.ts` does NOT call it — still auto-approves. |
 
 ## Wave 5: Operational Maturity
 
