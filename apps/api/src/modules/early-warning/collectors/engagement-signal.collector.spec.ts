@@ -1,5 +1,14 @@
 import { Test } from '@nestjs/testing';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  ParentReadFacade,
+  CommunicationsReadFacade,
+  AuthReadFacade,
+  AcademicReadFacade,
+  ParentInquiriesReadFacade,
+  BehaviourReadFacade,
+} from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { EngagementSignalCollector } from './engagement-signal.collector';
@@ -83,8 +92,51 @@ describe('EngagementSignalCollector', () => {
 
     const module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         EngagementSignalCollector,
         { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: ParentReadFacade,
+          useValue: {
+            findParentUserIdsForStudent: jest.fn().mockImplementation(
+              async () => {
+                // Delegate to mockPrisma.studentParent.findMany and extract parent
+                const rows = await mockPrisma.studentParent.findMany();
+                return rows.map((r: { parent: { id: string; user_id: string | null } }) => r.parent);
+              },
+            ),
+          },
+        },
+        {
+          provide: CommunicationsReadFacade,
+          useValue: {
+            findInAppNotificationsForUsers: mockPrisma.notification.findMany,
+          },
+        },
+        {
+          provide: AuthReadFacade,
+          useValue: {
+            findUsersWithLoginInfo: mockPrisma.user.findMany,
+          },
+        },
+        {
+          provide: AcademicReadFacade,
+          useValue: {
+            findYearById: mockPrisma.academicYear.findFirst,
+          },
+        },
+        {
+          provide: ParentInquiriesReadFacade,
+          useValue: {
+            findByParentIds: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: BehaviourReadFacade,
+          useValue: {
+            findParentAcknowledgements: mockPrisma.behaviourParentAcknowledgement.findMany,
+          },
+        },
       ],
     }).compile();
 

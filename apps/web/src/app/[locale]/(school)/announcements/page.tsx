@@ -40,7 +40,7 @@ function AnnouncementCard({ announcement }: { announcement: Announcement }) {
       </div>
       <p className="text-sm text-text-secondary leading-relaxed">{preview}</p>
       <p className="text-xs text-text-tertiary">
-        {t('publishedAt')} by {announcement.author_name}
+        {t('publishedAt')}{t('by')}{announcement.author_name}
       </p>
     </article>
   );
@@ -59,7 +59,8 @@ export default function ParentAnnouncementsPage() {
     try {
       const res = await apiClient<{ data: Announcement[] }>('/api/v1/announcements/my');
       setAnnouncements(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[AnnouncementsPage]', err);
       setAnnouncements([]);
     } finally {
       setIsLoading(false);

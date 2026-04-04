@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { validateSchedule } from '@school/shared/scheduler';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
@@ -76,6 +77,7 @@ const mockResultJson = {
 
 describe('SchedulerValidationService', () => {
   let service: SchedulerValidationService;
+  let module: TestingModule;
   let mockPrisma: {
     schedulingRun: { findFirst: jest.Mock };
   };
@@ -94,8 +96,9 @@ describe('SchedulerValidationService', () => {
 
     (validateSchedule as jest.Mock).mockReturnValue(mockValidationResult);
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         {
           provide: AcademicReadFacade,
           useValue: {
@@ -238,7 +241,8 @@ describe('SchedulerValidationService', () => {
 
   describe('validateRun', () => {
     it('should validate a completed run using config_snapshot', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
         id: RUN_ID,
         status: 'completed',
         academic_year_id: AY_ID,
@@ -255,7 +259,8 @@ describe('SchedulerValidationService', () => {
     });
 
     it('should fall back to assembleSolverInput when config_snapshot is null', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
         id: RUN_ID,
         status: 'completed',
         academic_year_id: AY_ID,
@@ -270,7 +275,8 @@ describe('SchedulerValidationService', () => {
     });
 
     it('should also accept applied runs for validation', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
         id: RUN_ID,
         status: 'applied',
         academic_year_id: AY_ID,
@@ -293,7 +299,8 @@ describe('SchedulerValidationService', () => {
     });
 
     it('should throw BadRequestException when run is not completed or applied', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
         id: RUN_ID,
         status: 'running',
       });
@@ -302,7 +309,8 @@ describe('SchedulerValidationService', () => {
     });
 
     it('should throw BadRequestException when run has no result_json', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
         id: RUN_ID,
         status: 'completed',
         result_json: null,
@@ -321,7 +329,8 @@ describe('SchedulerValidationService', () => {
       };
       (validateSchedule as jest.Mock).mockReturnValue(adjustedValidation);
 
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
         id: RUN_ID,
         status: 'completed',
         academic_year_id: AY_ID,
@@ -352,7 +361,8 @@ describe('SchedulerValidationService', () => {
 
   describe('validateAdjustments', () => {
     it('should validate a run with new adjustments', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
         id: RUN_ID,
         status: 'completed',
         academic_year_id: AY_ID,
@@ -380,7 +390,8 @@ describe('SchedulerValidationService', () => {
     });
 
     it('should combine existing proposed_adjustments with new ones', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
         id: RUN_ID,
         status: 'completed',
         academic_year_id: AY_ID,
@@ -443,7 +454,8 @@ describe('SchedulerValidationService', () => {
     });
 
     it('should throw BadRequestException when run has no result_json', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
         id: RUN_ID,
         status: 'completed',
         result_json: null,
@@ -457,7 +469,8 @@ describe('SchedulerValidationService', () => {
     });
 
     it('should handle move adjustment type', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
         id: RUN_ID,
         status: 'completed',
         academic_year_id: AY_ID,
@@ -506,7 +519,8 @@ describe('SchedulerValidationService', () => {
         unassigned: [],
       };
 
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
         id: RUN_ID,
         status: 'completed',
         academic_year_id: AY_ID,

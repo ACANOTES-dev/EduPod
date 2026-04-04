@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PrismaService } from '../prisma/prisma.service';
@@ -87,6 +88,7 @@ describe('AdminHealthController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AdminHealthController],
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: HealthService, useValue: mockService },
         { provide: RedisService, useValue: {} },
         { provide: PrismaService, useValue: {} },

@@ -104,6 +104,7 @@ const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function WorkloadHeatmap({ academicYearId }: { academicYearId: string }) {
   const t = useTranslations('scheduling.auto');
+  const tCommon = useTranslations('common');
   const [cells, setCells] = React.useState<WorkloadCell[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -112,22 +113,20 @@ function WorkloadHeatmap({ academicYearId }: { academicYearId: string }) {
       `/api/v1/scheduling-dashboard/workload?academic_year_id=${academicYearId}`,
     )
       .then((res) => setCells(res.data ?? []))
-      .catch(() => setCells([]))
+      .catch((err) => { console.error('[SchedulingDashboardPage]', err); return setCells([]); })
       .finally(() => setLoading(false));
   }, [academicYearId]);
 
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-8 text-sm text-text-secondary">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading...
-      </div>
+        <Loader2 className="h-4 w-4 animate-spin" />{tCommon('loading')}</div>
     );
   }
 
   if (cells.length === 0) {
     return (
-      <p className="py-8 text-center text-sm text-text-secondary">No workload data available.</p>
+      <p className="py-8 text-center text-sm text-text-secondary">{t('noWorkloadDataAvailable')}</p>
     );
   }
 
@@ -213,7 +212,7 @@ function WorkloadHeatmap({ academicYearId }: { academicYearId: string }) {
 
       {/* Legend */}
       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-text-secondary">
-        <span className="font-medium">Load:</span>
+        <span className="font-medium">{t('load')}</span>
         {[
           { label: 'Free', cls: 'bg-surface-secondary' },
           { label: 'Light (<40%)', cls: 'bg-green-100' },
@@ -234,6 +233,7 @@ function WorkloadHeatmap({ academicYearId }: { academicYearId: string }) {
 // ─── Room Utilisation ─────────────────────────────────────────────────────────
 
 function RoomUtilisationTab({ academicYearId }: { academicYearId: string }) {
+  const tCommon = useTranslations('common');
   const t = useTranslations('scheduling.auto');
   const [rooms, setRooms] = React.useState<RoomUtilisation[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -243,21 +243,19 @@ function RoomUtilisationTab({ academicYearId }: { academicYearId: string }) {
       `/api/v1/scheduling-dashboard/room-utilisation?academic_year_id=${academicYearId}`,
     )
       .then((res) => setRooms(res.data ?? []))
-      .catch(() => setRooms([]))
+      .catch((err) => { console.error('[SchedulingDashboardPage]', err); return setRooms([]); })
       .finally(() => setLoading(false));
   }, [academicYearId]);
 
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-8 text-sm text-text-secondary">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading...
-      </div>
+        <Loader2 className="h-4 w-4 animate-spin" />{tCommon('loading')}</div>
     );
   }
 
   if (rooms.length === 0) {
-    return <p className="py-8 text-center text-sm text-text-secondary">No room data available.</p>;
+    return <p className="py-8 text-center text-sm text-text-secondary">{t('noRoomDataAvailable')}</p>;
   }
 
   return (
@@ -297,13 +295,13 @@ function RoomUtilisationTab({ academicYearId }: { academicYearId: string }) {
               />
             </div>
             {pct >= 90 && (
-              <p className="text-xs text-red-600 font-medium">⚠ Bottleneck — high demand</p>
+              <p className="text-xs text-red-600 font-medium">{t('bottleneckHighDemand')}</p>
             )}
             {pct < 30 && (
-              <p className="text-xs text-blue-600">💡 Underutilised — consider reassigning</p>
+              <p className="text-xs text-blue-600">{t('underutilisedConsiderReassigning')}</p>
             )}
             {room.peak_period && (
-              <p className="text-xs text-text-tertiary">Peak: {room.peak_period}</p>
+              <p className="text-xs text-text-tertiary">{t('peak')}{room.peak_period}</p>
             )}
           </div>
         );
@@ -315,6 +313,7 @@ function RoomUtilisationTab({ academicYearId }: { academicYearId: string }) {
 // ─── Trends Tab ───────────────────────────────────────────────────────────────
 
 function TrendsTab({ academicYearId }: { academicYearId: string }) {
+  const tCommon = useTranslations('common');
   const [trends, setTrends] = React.useState<TrendPoint[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -323,28 +322,26 @@ function TrendsTab({ academicYearId }: { academicYearId: string }) {
       `/api/v1/scheduling-dashboard/trends?academic_year_id=${academicYearId}`,
     )
       .then((res) => setTrends(res.data ?? []))
-      .catch(() => setTrends([]))
+      .catch((err) => { console.error('[SchedulingDashboardPage]', err); return setTrends([]); })
       .finally(() => setLoading(false));
   }, [academicYearId]);
 
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-8 text-sm text-text-secondary">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading...
-      </div>
+        <Loader2 className="h-4 w-4 animate-spin" />{tCommon('loading')}</div>
     );
   }
 
   if (trends.length === 0) {
-    return <p className="py-8 text-center text-sm text-text-secondary">No trend data available.</p>;
+    return <p className="py-8 text-center text-sm text-text-secondary">{t('noTrendDataAvailable')}</p>;
   }
 
   return (
     <div className="space-y-6">
       {/* Utilisation trends */}
       <div className="rounded-2xl border border-border bg-surface p-5">
-        <h3 className="mb-4 text-sm font-semibold text-text-primary">Utilisation Over Time</h3>
+        <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('utilisationOverTime')}</h3>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={trends} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
@@ -381,7 +378,7 @@ function TrendsTab({ academicYearId }: { academicYearId: string }) {
 
       {/* Gaps & preference score */}
       <div className="rounded-2xl border border-border bg-surface p-5">
-        <h3 className="mb-4 text-sm font-semibold text-text-primary">Quality Metrics</h3>
+        <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('qualityMetrics')}</h3>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={trends} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
@@ -430,6 +427,7 @@ function OverviewTab({
   loading: boolean;
   locale: string;
 }) {
+  const tCommon = useTranslations('common');
   const t = useTranslations('scheduling.auto');
   const router = useRouter();
 
@@ -442,9 +440,7 @@ function OverviewTab({
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-sm text-text-secondary py-8">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading...
-      </div>
+        <Loader2 className="h-4 w-4 animate-spin" />{tCommon('loading')}</div>
     );
   }
 
@@ -492,28 +488,28 @@ function OverviewTab({
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {overview.room_utilisation_pct != null && (
             <KpiCard
-              label="Room Utilisation"
+              label={t('roomUtilisation')}
               value={`${Math.round(overview.room_utilisation_pct)}%`}
               icon={<BarChart3 className="h-5 w-5" />}
             />
           )}
           {overview.teacher_utilisation_pct != null && (
             <KpiCard
-              label="Teacher Utilisation"
+              label={t('teacherUtilisation')}
               value={`${Math.round(overview.teacher_utilisation_pct)}%`}
               icon={<BarChart3 className="h-5 w-5" />}
             />
           )}
           {overview.avg_gaps != null && (
             <KpiCard
-              label="Avg Teacher Gaps"
+              label={t('avgTeacherGaps')}
               value={overview.avg_gaps.toFixed(1)}
               icon={<BarChart3 className="h-5 w-5" />}
             />
           )}
           {overview.preference_score != null && (
             <KpiCard
-              label="Preference Score"
+              label={t('preferenceScore')}
               value={`${Math.round(overview.preference_score)}%`}
               icon={<Sparkles className="h-5 w-5" />}
               highlight
@@ -559,11 +555,7 @@ function OverviewTab({
       {/* Quick status info */}
       <div className="rounded-2xl border border-border bg-surface p-5 space-y-2">
         <h2 className="text-base font-semibold text-text-primary">{t('schedulingStatus')}</h2>
-        <p className="text-sm text-text-secondary">
-          Use the sidebar to configure scheduling: set up the period grid, curriculum requirements,
-          teacher competencies, and more. Once all prerequisites are met, use the Auto Scheduler to
-          generate timetables.
-        </p>
+        <p className="text-sm text-text-secondary">{t('useTheSidebarToConfigure')}</p>
       </div>
     </div>
   );
@@ -599,7 +591,7 @@ export default function SchedulingDashboardPage() {
           { silent: true },
         ).then((ov) => setOverview(ov));
       })
-      .catch(() => undefined)
+      .catch((err) => { console.error('[SchedulingDashboardPage]', err); })
       .finally(() => setLoading(false));
   }, []);
 

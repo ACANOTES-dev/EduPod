@@ -92,7 +92,8 @@ export default function InterventionDetailPage() {
         `/api/v1/behaviour/interventions/${interventionId}`,
       );
       setIntervention(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourInterventionsPage]', err);
       setIntervention(null);
     } finally {
       setLoading(false);
@@ -114,7 +115,7 @@ export default function InterventionDetailPage() {
         `/api/v1/behaviour/interventions/${interventionId}/reviews`,
       )
         .then((res) => setReviews(res.data ?? []))
-        .catch(() => setReviews([]))
+        .catch((err) => { console.error('[BehaviourInterventionsPage]', err); return setReviews([]); })
         .finally(() => setReviewsLoading(false));
     }
 
@@ -124,7 +125,7 @@ export default function InterventionDetailPage() {
         `/api/v1/behaviour/tasks?entity_type=intervention&entity_id=${interventionId}`,
       )
         .then((res) => setTasks(res.data ?? []))
-        .catch(() => setTasks([]))
+        .catch((err) => { console.error('[BehaviourInterventionsPage]', err); return setTasks([]); })
         .finally(() => setTasksLoading(false));
     }
 
@@ -134,7 +135,7 @@ export default function InterventionDetailPage() {
         `/api/v1/behaviour/interventions/${interventionId}/incidents`,
       )
         .then((res) => setLinkedIncidents(res.data ?? []))
-        .catch(() => setLinkedIncidents([]))
+        .catch((err) => { console.error('[BehaviourInterventionsPage]', err); return setLinkedIncidents([]); })
         .finally(() => setIncidentsLoading(false));
     }
 
@@ -144,7 +145,7 @@ export default function InterventionDetailPage() {
         `/api/v1/behaviour/interventions/${interventionId}/history`,
       )
         .then((res) => setHistory(res.data ?? []))
-        .catch(() => setHistory([]))
+        .catch((err) => { console.error('[BehaviourInterventionsPage]', err); return setHistory([]); })
         .finally(() => setHistoryLoading(false));
     }
   }, [
@@ -177,7 +178,8 @@ export default function InterventionDetailPage() {
           notes: '',
         })),
       });
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourInterventionsPage]', err);
       setReviewForm({
         progress: 'on_track',
         notes: '',

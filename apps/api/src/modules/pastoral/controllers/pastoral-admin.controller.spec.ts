@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { TenantContext } from '@school/shared';
 
+import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade } from '../../../common/tests/mock-facades';
 import { AuthGuard } from '../../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
@@ -40,6 +41,13 @@ const mockPrisma = {
   pastoralEvent: {
     count: jest.fn(),
   },
+  $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+    fn(mockPrisma),
+  ),
+};
+
+const mockConfigurationReadFacade = {
+  findSettings: jest.fn(),
 };
 
 // ─── Test Suite ─────────────────────────────────────────────────────────────
@@ -50,7 +58,11 @@ describe('PastoralAdminController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PastoralAdminController],
-      providers: [{ provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: ConfigurationReadFacade, useValue: mockConfigurationReadFacade },
+      ],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -69,7 +81,7 @@ describe('PastoralAdminController', () => {
 
   describe('getEscalationSettings', () => {
     it('should return default escalation settings when no settings exist', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(null);
+      mockConfigurationReadFacade.findSettings.mockResolvedValue(null);
 
       const result = await controller.getEscalationSettings(TENANT);
 
@@ -81,13 +93,11 @@ describe('PastoralAdminController', () => {
         escalation_critical_recipients: [],
       });
 
-      expect(mockPrisma.tenantSetting.findUnique).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT_ID },
-      });
+      expect(mockConfigurationReadFacade.findSettings).toHaveBeenCalledWith(TENANT_ID);
     });
 
     it('should return stored escalation settings when they exist', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+      mockConfigurationReadFacade.findSettings.mockResolvedValue({
         id: 'settings-1',
         tenant_id: TENANT_ID,
         settings: {
@@ -119,7 +129,7 @@ describe('PastoralAdminController', () => {
 
   describe('updateEscalationSettings', () => {
     it('should merge and persist updated escalation settings', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+      mockConfigurationReadFacade.findSettings.mockResolvedValue({
         id: 'settings-1',
         tenant_id: TENANT_ID,
         settings: {
@@ -179,7 +189,7 @@ describe('PastoralAdminController', () => {
     });
 
     it('should create settings when none exist', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(null);
+      mockConfigurationReadFacade.findSettings.mockResolvedValue(null);
       mockPrisma.tenantSetting.upsert.mockResolvedValue({});
 
       const dto = {

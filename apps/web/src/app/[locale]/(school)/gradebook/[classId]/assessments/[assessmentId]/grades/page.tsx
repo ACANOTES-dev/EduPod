@@ -46,6 +46,7 @@ const STATUS_VARIANT: Record<string, 'warning' | 'info' | 'success' | 'neutral'>
 
 export default function GradeEntryPage() {
   const t = useTranslations('gradebook');
+  const tCommon = useTranslations('common');
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
@@ -72,7 +73,8 @@ export default function GradeEntryPage() {
         );
         setAssessment(res.data.assessment);
         setGrades(res.data.grades);
-      } catch {
+      } catch (err) {
+        console.error('[AssessmentsGradesPage]', err);
         setAssessment(null);
         setGrades([]);
       } finally {
@@ -121,7 +123,8 @@ export default function GradeEntryPage() {
         }),
       });
       toast.success('Grades saved');
-    } catch {
+    } catch (err) {
+      console.error('[AssessmentsGradesPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setSaving(false);
@@ -155,7 +158,7 @@ export default function GradeEntryPage() {
   }
 
   if (!assessment) {
-    return <div className="py-12 text-center text-text-tertiary">Assessment not found</div>;
+    return <div className="py-12 text-center text-text-tertiary">{t('assessmentNotFound')}</div>;
   }
 
   return (
@@ -206,18 +209,14 @@ export default function GradeEntryPage() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-border bg-surface-secondary">
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                Student
-              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{tCommon('student')}</th>
               <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
                 {t('score')}
               </th>
               <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
                 {t('missing')}
               </th>
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                Comment
-              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('comment')}</th>
             </tr>
           </thead>
           <tbody>

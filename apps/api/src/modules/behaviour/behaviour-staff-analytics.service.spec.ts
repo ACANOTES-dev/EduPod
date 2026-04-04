@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, RbacReadFacade, AuthReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourStaffAnalyticsService } from './behaviour-staff-analytics.service';
@@ -33,8 +34,21 @@ describe('BehaviourStaffAnalyticsService', () => {
   beforeEach(async () => {
     mockPrisma = makeMockPrisma();
 
+    const mockRbacReadFacade = {
+      findMembershipsWithPermissionAndUser: mockPrisma.tenantMembership.findMany,
+    };
+    const mockAuthReadFacade = {
+      findUsersByIds: mockPrisma.user.findMany,
+    };
+
     const module: TestingModule = await Test.createTestingModule({
-      providers: [BehaviourStaffAnalyticsService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        BehaviourStaffAnalyticsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RbacReadFacade, useValue: mockRbacReadFacade },
+        { provide: AuthReadFacade, useValue: mockAuthReadFacade },
+      ],
     }).compile();
 
     service = module.get<BehaviourStaffAnalyticsService>(BehaviourStaffAnalyticsService);

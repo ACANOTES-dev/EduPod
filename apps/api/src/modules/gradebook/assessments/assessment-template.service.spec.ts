@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ClassesReadFacade, AcademicReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { AssessmentTemplateService } from './assessment-template.service';
@@ -70,6 +71,7 @@ const baseTemplate = {
 describe('AssessmentTemplateService — create', () => {
   let service: AssessmentTemplateService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  const mockAcademicFacadeForCreate = { findSubjectByIdOrThrow: jest.fn() };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
@@ -77,10 +79,12 @@ describe('AssessmentTemplateService — create', () => {
     mockRlsTx.assessmentTemplate.create.mockReset().mockResolvedValue(baseTemplate);
 
     mockPrisma.assessmentCategory.findFirst.mockResolvedValue({ id: CATEGORY_ID });
-    mockPrisma.subject.findFirst.mockResolvedValue({ id: SUBJECT_ID });
+    mockAcademicFacadeForCreate.findSubjectByIdOrThrow.mockResolvedValue({ id: SUBJECT_ID });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: AcademicReadFacade, useValue: mockAcademicFacadeForCreate },
         AssessmentTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -105,7 +109,7 @@ describe('AssessmentTemplateService — create', () => {
   });
 
   it('should throw NotFoundException when subject does not exist', async () => {
-    mockPrisma.subject.findFirst.mockResolvedValue(null);
+    mockAcademicFacadeForCreate.findSubjectByIdOrThrow.mockRejectedValue(new NotFoundException('subject not found'));
 
     await expect(
       service.create(TENANT_ID, USER_ID, {
@@ -149,6 +153,7 @@ describe('AssessmentTemplateService — list', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AssessmentTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -184,6 +189,7 @@ describe('AssessmentTemplateService — findOne', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AssessmentTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -225,6 +231,7 @@ describe('AssessmentTemplateService — delete', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AssessmentTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -259,6 +266,8 @@ describe('AssessmentTemplateService — delete', () => {
 describe('AssessmentTemplateService — createAssessmentFromTemplate', () => {
   let service: AssessmentTemplateService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  const mockClassesFacade = { findById: jest.fn() };
+  const mockAcademicFacade = { findPeriodById: jest.fn() };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
@@ -267,13 +276,16 @@ describe('AssessmentTemplateService — createAssessmentFromTemplate', () => {
     mockRlsTx.assessmentStandardMapping.createMany.mockReset().mockResolvedValue({ count: 0 });
 
     mockPrisma.assessmentTemplate.findFirst.mockResolvedValue(baseTemplate);
-    mockPrisma.class.findFirst.mockResolvedValue({ id: 'class-1', subject_id: SUBJECT_ID });
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue({ id: 'period-1' });
+    mockClassesFacade.findById.mockResolvedValue({ id: 'class-1', subject_id: SUBJECT_ID });
+    mockAcademicFacade.findPeriodById.mockResolvedValue({ id: 'period-1' });
     mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue({ id: 'config-1' });
     mockPrisma.curriculumStandard.findMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
         AssessmentTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -296,7 +308,7 @@ describe('AssessmentTemplateService — createAssessmentFromTemplate', () => {
   });
 
   it('should throw NotFoundException when class does not exist', async () => {
-    mockPrisma.class.findFirst.mockResolvedValue(null);
+    mockClassesFacade.findById.mockResolvedValue(null);
 
     await expect(
       service.createAssessmentFromTemplate(TENANT_ID, TEMPLATE_ID, USER_ID, {

@@ -38,6 +38,7 @@ export function HouseholdSelector({
   disabled = false,
 }: HouseholdSelectorProps) {
   const t = useTranslations('finance');
+  const tCommon = useTranslations('common');
   const [open, setOpen] = React.useState(false);
   const [households, setHouseholds] = React.useState<Household[]>([]);
   const [search, setSearch] = React.useState('');
@@ -50,7 +51,8 @@ export function HouseholdSelector({
       if (query) params.set('search', query);
       const res = await apiClient<{ data: Household[] }>(`/api/v1/households?${params.toString()}`);
       setHouseholds(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[HouseholdSelector]', err);
       setHouseholds([]);
     } finally {
       setIsLoading(false);
@@ -92,7 +94,7 @@ export function HouseholdSelector({
           />
           <CommandList>
             {isLoading ? (
-              <div className="px-4 py-3 text-sm text-text-tertiary">Loading...</div>
+              <div className="px-4 py-3 text-sm text-text-tertiary">{tCommon('loading')}</div>
             ) : (
               <>
                 <CommandEmpty>{t('noHouseholdsFound')}</CommandEmpty>

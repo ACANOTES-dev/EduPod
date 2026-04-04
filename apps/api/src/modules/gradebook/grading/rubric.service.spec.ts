@@ -10,6 +10,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+import { MOCK_FACADE_PROVIDERS, AcademicReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { RubricService } from './rubric.service';
@@ -57,6 +58,8 @@ function buildMockPrisma() {
 
 // ─── createTemplate Tests ────────────────────────────────────────────────────
 
+const mockAcademicFacade = { findSubjectById: jest.fn() };
+
 describe('RubricService — createTemplate', () => {
   let service: RubricService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
@@ -68,7 +71,12 @@ describe('RubricService — createTemplate', () => {
       .mockResolvedValue({ id: TEMPLATE_ID, name: 'Test Rubric' });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [RubricService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
+        RubricService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
     }).compile();
 
     service = module.get<RubricService>(RubricService);
@@ -87,7 +95,7 @@ describe('RubricService — createTemplate', () => {
   });
 
   it('should throw NotFoundException when subject_id is invalid', async () => {
-    mockPrisma.subject.findFirst.mockResolvedValue(null);
+    mockAcademicFacade.findSubjectById.mockResolvedValue(null);
 
     await expect(
       service.createTemplate(TENANT_ID, USER_ID, {
@@ -99,7 +107,7 @@ describe('RubricService — createTemplate', () => {
   });
 
   it('should validate subject exists when subject_id is provided', async () => {
-    mockPrisma.subject.findFirst.mockResolvedValue({ id: SUBJECT_ID });
+    mockAcademicFacade.findSubjectById.mockResolvedValue({ id: SUBJECT_ID });
 
     await service.createTemplate(TENANT_ID, USER_ID, {
       name: 'Test Rubric',
@@ -107,10 +115,7 @@ describe('RubricService — createTemplate', () => {
       criteria: [{ id: 'c1', name: 'Clarity', max_points: 10, levels: [] }],
     });
 
-    expect(mockPrisma.subject.findFirst).toHaveBeenCalledWith({
-      where: { id: SUBJECT_ID, tenant_id: TENANT_ID },
-      select: { id: true },
-    });
+    expect(mockAcademicFacade.findSubjectById).toHaveBeenCalledWith(TENANT_ID, SUBJECT_ID);
   });
 });
 
@@ -127,7 +132,12 @@ describe('RubricService — updateTemplate', () => {
       .mockResolvedValue({ id: TEMPLATE_ID, name: 'Updated' });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [RubricService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
+        RubricService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
     }).compile();
 
     service = module.get<RubricService>(RubricService);
@@ -156,7 +166,7 @@ describe('RubricService — updateTemplate', () => {
 
   it('should throw NotFoundException when updating subject_id to invalid value', async () => {
     mockPrisma.rubricTemplate.findFirst.mockResolvedValue({ id: TEMPLATE_ID });
-    mockPrisma.subject.findFirst.mockResolvedValue(null);
+    mockAcademicFacade.findSubjectById.mockResolvedValue(null);
 
     await expect(
       service.updateTemplate(TENANT_ID, TEMPLATE_ID, { subject_id: 'invalid' }),
@@ -175,7 +185,7 @@ describe('RubricService — deleteTemplate', () => {
     mockRlsTx.rubricTemplate.delete.mockReset().mockResolvedValue({ id: TEMPLATE_ID });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [RubricService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [...MOCK_FACADE_PROVIDERS, RubricService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<RubricService>(RubricService);
@@ -216,7 +226,7 @@ describe('RubricService — listTemplates', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [RubricService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [...MOCK_FACADE_PROVIDERS, RubricService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<RubricService>(RubricService);
@@ -267,7 +277,7 @@ describe('RubricService — getTemplate', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [RubricService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [...MOCK_FACADE_PROVIDERS, RubricService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<RubricService>(RubricService);
@@ -309,7 +319,7 @@ describe('RubricService — saveRubricGrades', () => {
     mockRlsTx.grade.update.mockReset().mockResolvedValue({ id: GRADE_ID, raw_score: 15 });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [RubricService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [...MOCK_FACADE_PROVIDERS, RubricService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<RubricService>(RubricService);

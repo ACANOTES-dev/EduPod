@@ -1,5 +1,7 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import {
   Button,
   Checkbox,
@@ -47,21 +49,23 @@ export function DryRunDialog({
   result,
   onRun,
 }: DryRunDialogProps) {
+  const t = useTranslations('behaviourSettings.policies');
+  const tCommon = useTranslations('common');
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Test a Hypothetical Incident</DialogTitle>
+          <DialogTitle>{t('testAHypotheticalIncident')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label>Category *</Label>
+            <Label>{t('category')}</Label>
             <Select
               value={form.category_id}
               onValueChange={(v) => onFormChange((f) => ({ ...f, category_id: v }))}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select category" />
+                <SelectValue placeholder={t('selectCategory')} />
               </SelectTrigger>
               <SelectContent>
                 {categories.map((c) => (
@@ -74,7 +78,7 @@ export function DryRunDialog({
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Polarity</Label>
+              <Label>{t('polarity')}</Label>
               <Select
                 value={form.polarity}
                 onValueChange={(v) => onFormChange((f) => ({ ...f, polarity: v }))}
@@ -83,14 +87,14 @@ export function DryRunDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="positive">Positive</SelectItem>
-                  <SelectItem value="negative">Negative</SelectItem>
-                  <SelectItem value="neutral">Neutral</SelectItem>
+                  <SelectItem value="positive">{t('positive')}</SelectItem>
+                  <SelectItem value="negative">{t('negative')}</SelectItem>
+                  <SelectItem value="neutral">{t('neutral')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Severity (1{'\u2013'}10)</Label>
+              <Label>{t('severity1')}{'\u2013'}{t('phonePlaceholder')}</Label>
               <Input
                 type="number"
                 min={1}
@@ -108,7 +112,7 @@ export function DryRunDialog({
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Context Type</Label>
+              <Label>{t('contextType')}</Label>
               <Select
                 value={form.context_type}
                 onValueChange={(v) => onFormChange((f) => ({ ...f, context_type: v }))}
@@ -126,13 +130,13 @@ export function DryRunDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Year Group</Label>
+              <Label>{t('yearGroup')}</Label>
               <Select
                 value={form.student_year_group_id}
                 onValueChange={(v) => onFormChange((f) => ({ ...f, student_year_group_id: v }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Any" />
+                  <SelectValue placeholder={t('any')} />
                 </SelectTrigger>
                 <SelectContent>
                   {yearGroups.map((yg) => (
@@ -150,7 +154,7 @@ export function DryRunDialog({
                 checked={form.student_has_send}
                 onCheckedChange={(v) => onFormChange((f) => ({ ...f, student_has_send: !!v }))}
               />
-              <Label className="text-sm">Student has SEND</Label>
+              <Label className="text-sm">{t('studentHasSend')}</Label>
             </div>
             <div className="flex items-center gap-2">
               <Checkbox
@@ -159,11 +163,11 @@ export function DryRunDialog({
                   onFormChange((f) => ({ ...f, student_has_active_intervention: !!v }))
                 }
               />
-              <Label className="text-sm">Has Active Intervention</Label>
+              <Label className="text-sm">{t('hasActiveIntervention')}</Label>
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label>Past Similar Incidents (repeat count)</Label>
+            <Label>{t('pastSimilarIncidentsRepeatCount')}</Label>
             <Input
               type="number"
               min={0}
@@ -180,11 +184,11 @@ export function DryRunDialog({
 
           {result && (
             <div className="rounded-lg border border-border bg-surface-secondary p-4 text-sm">
-              <p className="font-medium">Dry-Run Results</p>
+              <p className="font-medium">{t('dryRunResults')}</p>
               {result.stage_results.map((sr) => (
                 <div key={sr.stage} className="mt-2">
                   <p className="text-xs font-semibold uppercase text-text-tertiary">{sr.stage}</p>
-                  <p className="text-text-secondary">{sr.rules_evaluated} rules evaluated</p>
+                  <p className="text-text-secondary">{sr.rules_evaluated}{t('rulesEvaluated')}</p>
                   {sr.matched_rules.length > 0 ? (
                     <ul className="ms-4 list-disc">
                       {sr.matched_rules.map((mr) => (
@@ -196,7 +200,7 @@ export function DryRunDialog({
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-text-tertiary">No rules matched</p>
+                    <p className="text-text-tertiary">{t('noRulesMatched')}</p>
                   )}
                 </div>
               ))}
@@ -204,9 +208,7 @@ export function DryRunDialog({
           )}
         </div>
         <DialogFooter>
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>{tCommon('close')}</Button>
           <Button onClick={onRun} disabled={loading || !form.category_id}>
             {loading ? 'Testing...' : 'Run Test'}
           </Button>

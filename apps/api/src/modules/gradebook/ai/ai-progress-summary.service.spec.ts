@@ -1,6 +1,12 @@
 import { ForbiddenException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  StudentReadFacade,
+  AcademicReadFacade,
+  AttendanceReadFacade,
+} from '../../../common/tests/mock-facades';
 import { AnthropicClientService } from '../../ai/anthropic-client.service';
 import { SettingsService } from '../../configuration/settings.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
@@ -92,6 +98,16 @@ const baseAttendance = [
 
 // ─── generateSummary ──────────────────────────────────────────────────────────
 
+const mockStudentFacade = {
+  findById: jest.fn(),
+};
+const mockAcademicFacade = {
+  findPeriodById: jest.fn(),
+};
+const mockAttendanceFacade = {
+  findAllRecordsForStudent: jest.fn(),
+};
+
 describe('AiProgressSummaryService — generateSummary', () => {
   let service: AiProgressSummaryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
@@ -99,10 +115,10 @@ describe('AiProgressSummaryService — generateSummary', () => {
   let mockConsentService: ReturnType<typeof buildMockConsentService>;
 
   function setupMocks() {
-    mockPrisma.student.findFirst.mockResolvedValue(baseStudent);
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue(basePeriod);
+    mockStudentFacade.findById.mockResolvedValue(baseStudent);
+    mockAcademicFacade.findPeriodById.mockResolvedValue(basePeriod);
     mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue(baseSnapshots);
-    mockPrisma.attendanceRecord.findMany.mockResolvedValue(baseAttendance);
+    mockAttendanceFacade.findAllRecordsForStudent.mockResolvedValue(baseAttendance);
   }
 
   beforeEach(async () => {
@@ -112,6 +128,10 @@ describe('AiProgressSummaryService — generateSummary', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
+        { provide: AttendanceReadFacade, useValue: mockAttendanceFacade },
         AiProgressSummaryService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -152,6 +172,10 @@ describe('AiProgressSummaryService — generateSummary', () => {
   it('should throw ServiceUnavailableException when AI feature is disabled for tenant', async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
+        { provide: AttendanceReadFacade, useValue: mockAttendanceFacade },
         AiProgressSummaryService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -196,6 +220,10 @@ describe('AiProgressSummaryService — generateSummary', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
+        { provide: AttendanceReadFacade, useValue: mockAttendanceFacade },
         AiProgressSummaryService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -233,7 +261,7 @@ describe('AiProgressSummaryService — generateSummary', () => {
 
   it('should throw NotFoundException when student is not found in DB', async () => {
     setupMocks();
-    mockPrisma.student.findFirst.mockResolvedValue(null);
+    mockStudentFacade.findById.mockResolvedValue(null);
 
     await expect(service.generateSummary(TENANT_ID, STUDENT_ID, PERIOD_ID, 'en')).rejects.toThrow(
       NotFoundException,
@@ -334,6 +362,7 @@ describe('AiProgressSummaryService — invalidateCache', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AiProgressSummaryService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },

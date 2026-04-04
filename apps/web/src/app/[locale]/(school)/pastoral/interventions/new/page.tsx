@@ -93,7 +93,7 @@ export default function NewPastoralInterventionPage() {
           setInterventionType(firstActive.key);
         }
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[InterventionsNewPage]', err); });
 
     return () => {
       cancelled = true;
@@ -123,7 +123,8 @@ export default function NewPastoralInterventionPage() {
         setAvailableStudents(response.data.students);
         setStudentId((current) => current || response.data.student_id);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[InterventionsNewPage]', err);
         if (!cancelled) {
           setAvailableStudents([]);
           setStudentId('');

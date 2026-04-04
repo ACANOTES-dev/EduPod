@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AttendanceReadFacade, MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { RegulatoryDashboardService } from './regulatory-dashboard.service';
@@ -36,14 +37,24 @@ const buildMockPrisma = () => ({
 describe('RegulatoryDashboardService', () => {
   let service: RegulatoryDashboardService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockAttendanceReadFacade: {
+    countActivePatternAlerts: jest.Mock;
+    findActiveAlertsByType: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockAttendanceReadFacade = {
+      countActivePatternAlerts: jest.fn().mockResolvedValue(0),
+      findActiveAlertsByType: jest.fn().mockResolvedValue([]),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         RegulatoryDashboardService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: AttendanceReadFacade, useValue: mockAttendanceReadFacade },
       ],
     }).compile();
 
@@ -97,8 +108,8 @@ describe('RegulatoryDashboardService', () => {
     });
 
     it('should count Tusla alerts and categorise by threshold status', async () => {
-      mockPrisma.attendancePatternAlert.count.mockResolvedValue(5);
-      mockPrisma.attendancePatternAlert.findMany.mockResolvedValue([
+      mockAttendanceReadFacade.countActivePatternAlerts.mockResolvedValue(5);
+      mockAttendanceReadFacade.findActiveAlertsByType.mockResolvedValue([
         { student_id: 's1', details_json: { source: 'tusla_threshold_scan', status: 'exceeded' } },
         { student_id: 's2', details_json: { source: 'tusla_threshold_scan', status: 'approaching' } },
         { student_id: 's3', details_json: { source: 'tusla_threshold_scan', status: 'approaching' } },
@@ -112,8 +123,8 @@ describe('RegulatoryDashboardService', () => {
     });
 
     it('should deduplicate students with multiple Tusla alerts', async () => {
-      mockPrisma.attendancePatternAlert.count.mockResolvedValue(4);
-      mockPrisma.attendancePatternAlert.findMany.mockResolvedValue([
+      mockAttendanceReadFacade.countActivePatternAlerts.mockResolvedValue(4);
+      mockAttendanceReadFacade.findActiveAlertsByType.mockResolvedValue([
         { student_id: 's1', details_json: { source: 'tusla_threshold_scan', status: 'exceeded' } },
         { student_id: 's1', details_json: { source: 'tusla_threshold_scan', status: 'exceeded' } },
         { student_id: 's2', details_json: { source: 'tusla_threshold_scan', status: 'approaching' } },
@@ -127,8 +138,8 @@ describe('RegulatoryDashboardService', () => {
     });
 
     it('should exclude non-Tusla alerts from threshold counts', async () => {
-      mockPrisma.attendancePatternAlert.count.mockResolvedValue(3);
-      mockPrisma.attendancePatternAlert.findMany.mockResolvedValue([
+      mockAttendanceReadFacade.countActivePatternAlerts.mockResolvedValue(3);
+      mockAttendanceReadFacade.findActiveAlertsByType.mockResolvedValue([
         { student_id: 's1', details_json: { source: 'tusla_threshold_scan', status: 'exceeded' } },
         { student_id: 's2', details_json: { source: 'other_source', status: 'exceeded' } },
         { student_id: 's3', details_json: { source: 'manual', status: 'approaching' } },

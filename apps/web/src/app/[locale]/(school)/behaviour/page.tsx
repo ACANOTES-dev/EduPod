@@ -61,14 +61,14 @@ export default function BehaviourDashboardPage() {
     setFeedLoading(true);
     apiClient<FeedResponse>('/api/v1/behaviour/incidents?pageSize=10&sort=occurred_at&order=desc')
       .then((res) => setFeed(res.data ?? []))
-      .catch(() => setFeed([]))
+      .catch((err) => { console.error('[BehaviourPage]', err); return setFeed([]); })
       .finally(() => setFeedLoading(false));
 
     apiClient<PulseStats>('/api/v1/behaviour/incidents/stats')
       .then((res) => {
         if (res.data) setStats(res.data);
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[BehaviourPage]', err); });
 
     apiClient<TaskStats>('/api/v1/behaviour/tasks/stats')
       .then((res) => {
@@ -80,7 +80,7 @@ export default function BehaviourDashboardPage() {
           }));
         }
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[BehaviourPage]', err); });
   }, []);
 
   const ratio =

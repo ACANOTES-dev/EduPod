@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -36,6 +37,7 @@ describe('PayrollReportsService', () => {
 
     const module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         PayrollReportsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PdfRenderingService, useValue: mockPdfRenderingService },

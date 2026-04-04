@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, RbacReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { ApprovalWorkflowsService } from './approval-workflows.service';
@@ -48,6 +49,7 @@ describe('ApprovalWorkflowsService', () => {
       findFirst: jest.Mock;
     };
   };
+  let mockRbacReadFacade: { findRoleById: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -66,10 +68,14 @@ describe('ApprovalWorkflowsService', () => {
       },
     };
 
+    mockRbacReadFacade = { findRoleById: jest.fn() };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ApprovalWorkflowsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: RbacReadFacade, useValue: mockRbacReadFacade },
       ],
     }).compile();
 
@@ -106,7 +112,7 @@ describe('ApprovalWorkflowsService', () => {
   describe('createWorkflow', () => {
     it('should create a workflow when role exists and no duplicate', async () => {
       const role = { id: ROLE_ID, role_key: 'admin' };
-      mockPrisma.role.findFirst.mockResolvedValue(role);
+      mockRbacReadFacade.findRoleById.mockResolvedValue(role);
       mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(null);
       const created = buildMockWorkflow();
       mockPrisma.approvalWorkflow.create.mockResolvedValue(created);
@@ -122,7 +128,7 @@ describe('ApprovalWorkflowsService', () => {
     });
 
     it('should throw NotFoundException when role does not exist', async () => {
-      mockPrisma.role.findFirst.mockResolvedValue(null);
+      mockRbacReadFacade.findRoleById.mockResolvedValue(null);
 
       await expect(
         service.createWorkflow(TENANT_ID, {
@@ -135,7 +141,7 @@ describe('ApprovalWorkflowsService', () => {
 
     it('should throw BadRequestException when workflow already exists for action type', async () => {
       const role = { id: ROLE_ID, role_key: 'admin' };
-      mockPrisma.role.findFirst.mockResolvedValue(role);
+      mockRbacReadFacade.findRoleById.mockResolvedValue(role);
       mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(
         buildMockWorkflow(),
       );
@@ -179,7 +185,7 @@ describe('ApprovalWorkflowsService', () => {
       mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(
         buildMockWorkflow(),
       );
-      mockPrisma.role.findFirst.mockResolvedValue(null);
+      mockRbacReadFacade.findRoleById.mockResolvedValue(null);
 
       await expect(
         service.updateWorkflow(TENANT_ID, WORKFLOW_ID, {

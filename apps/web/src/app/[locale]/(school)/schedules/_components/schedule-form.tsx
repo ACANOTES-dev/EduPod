@@ -112,7 +112,7 @@ export function ScheduleForm({
         );
         setRooms(roomsRes.data);
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[ScheduleForm]', err); });
   }, [open]);
 
   React.useEffect(() => {
@@ -183,10 +183,10 @@ export function ScheduleForm({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Class</Label>
+              <Label>{t('scopeClass')}</Label>
               <Select value={classId} onValueChange={setClassId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select class" />
+                  <SelectValue placeholder={t('selectClass')} />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
@@ -202,7 +202,7 @@ export function ScheduleForm({
               <Label>{t('teacher')}</Label>
               <Select value={teacherId} onValueChange={setTeacherId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select teacher" />
+                  <SelectValue placeholder={t('selectTeacher')} />
                 </SelectTrigger>
                 <SelectContent>
                   {teachers.map((tr) => (
@@ -218,7 +218,7 @@ export function ScheduleForm({
               <Label>{t('room')}</Label>
               <Select value={roomId} onValueChange={setRoomId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select room" />
+                  <SelectValue placeholder={t('selectRoom')} />
                 </SelectTrigger>
                 <SelectContent>
                   {rooms.map((r) => (

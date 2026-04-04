@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, GradebookReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { GradesSignalCollector } from './grades-signal.collector';
@@ -61,8 +62,18 @@ describe('GradesSignalCollector', () => {
 
     const module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         GradesSignalCollector,
         { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: GradebookReadFacade,
+          useValue: {
+            findRiskAlertsForStudent: mockPrisma.studentAcademicRiskAlert.findMany,
+            findPeriodSnapshotsForStudent: mockPrisma.periodGradeSnapshot.findMany,
+            findGradesForStudent: mockPrisma.grade.findMany,
+            findProgressReportsForStudent: mockPrisma.progressReportEntry.findMany,
+          },
+        },
       ],
     }).compile();
 
@@ -136,9 +147,9 @@ describe('GradesSignalCollector', () => {
 
   it('should detect missing_assessments with score 10 for 3 missing grades', async () => {
     mockPrisma.grade.findMany.mockResolvedValue([
-      { id: GRADE_ID_1 },
-      { id: `${GRADE_ID_1}-2` },
-      { id: `${GRADE_ID_1}-3` },
+      { id: GRADE_ID_1, is_missing: true },
+      { id: `${GRADE_ID_1}-2`, is_missing: true },
+      { id: `${GRADE_ID_1}-3`, is_missing: true },
     ]);
 
     const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
@@ -234,7 +245,7 @@ describe('GradesSignalCollector', () => {
 
     // 6 missing grades => +20
     mockPrisma.grade.findMany.mockResolvedValue(
-      Array.from({ length: 6 }, (_, i) => ({ id: `grade-${i}` })),
+      Array.from({ length: 6 }, (_, i) => ({ id: `grade-${i}`, is_missing: true })),
     );
 
     // 5 subjects declining => grade_trajectory +25, multi_subject +30
@@ -265,10 +276,10 @@ describe('GradesSignalCollector', () => {
     ]);
 
     mockPrisma.grade.findMany.mockResolvedValue([
-      { id: GRADE_ID_1 },
-      { id: `${GRADE_ID_1}-2` },
-      { id: `${GRADE_ID_1}-3` },
-      { id: `${GRADE_ID_1}-4` },
+      { id: GRADE_ID_1, is_missing: true },
+      { id: `${GRADE_ID_1}-2`, is_missing: true },
+      { id: `${GRADE_ID_1}-3`, is_missing: true },
+      { id: `${GRADE_ID_1}-4`, is_missing: true },
     ]);
 
     const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);

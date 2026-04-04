@@ -71,6 +71,7 @@ function CompletionBar({ pct, graded, total }: { pct: number; graded: number; to
 
 export default function GradePublishingPage() {
   const t = useTranslations('gradebook');
+  const tCommon = useTranslations('common');
   const tc = useTranslations('common');
 
   const [periods, setPeriods] = React.useState<SelectOption[]>([]);
@@ -93,10 +94,10 @@ export default function GradePublishingPage() {
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradebookPublishingPage]', err); });
     apiClient<ListResponse<SelectOption>>('/api/v1/classes?pageSize=100')
       .then((res) => setClasses(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradebookPublishingPage]', err); });
   }, []);
 
   const fetchRows = React.useCallback(async (p: number, periodId: string, classId: string) => {
@@ -110,7 +111,8 @@ export default function GradePublishingPage() {
       );
       setRows(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[GradebookPublishingPage]', err);
       setRows([]);
       setTotal(0);
     } finally {
@@ -157,7 +159,8 @@ export default function GradePublishingPage() {
       toast.success(t('publishingSuccess', { count: selected.size }));
       setSelected(new Set());
       void fetchRows(page, periodFilter, classFilter);
-    } catch {
+    } catch (err) {
+      console.error('[GradebookPublishingPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setPublishing(false);
@@ -177,7 +180,8 @@ export default function GradePublishingPage() {
       });
       toast.success(t('publishingPeriodSuccess'));
       void fetchRows(page, periodFilter, classFilter);
-    } catch {
+    } catch (err) {
+      console.error('[GradebookPublishingPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setBulkPublishing(false);
@@ -363,7 +367,7 @@ export default function GradePublishingPage() {
               size="icon"
               disabled={page <= 1}
               onClick={() => setPage((p) => p - 1)}
-              aria-label="Previous"
+              aria-label={tCommon('previous')}
             >
               {'‹'}
             </Button>
@@ -375,7 +379,7 @@ export default function GradePublishingPage() {
               size="icon"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
-              aria-label="Next"
+              aria-label={tCommon('next')}
             >
               {'›'}
             </Button>

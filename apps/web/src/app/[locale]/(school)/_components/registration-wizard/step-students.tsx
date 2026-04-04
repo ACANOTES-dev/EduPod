@@ -64,7 +64,7 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
   React.useEffect(() => {
     apiClient<{ data: { id: string; name: string }[] }>('/api/v1/year-groups?pageSize=100')
       .then((res) => setYearGroups(res.data))
-      .catch(() => {});
+      .catch((err) => { console.error('[StepStudents]', err); });
   }, []);
 
   const handleFieldChange = React.useCallback(
@@ -301,7 +301,7 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
                       id={`student-${index}-nationality`}
                       value={student.nationality}
                       onChange={(e) => handleFieldChange(index, 'nationality', e.target.value)}
-                      placeholder="e.g. Irish, British"
+                      placeholder={t('eGIrishBritish')}
                     />
                   </div>
 
@@ -312,7 +312,7 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
                       id={`student-${index}-city-of-birth`}
                       value={student.city_of_birth}
                       onChange={(e) => handleFieldChange(index, 'city_of_birth', e.target.value)}
-                      placeholder="e.g. Dublin, London"
+                      placeholder={t('eGDublinLondon')}
                     />
                   </div>
                 </div>

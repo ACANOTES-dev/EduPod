@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AcademicReadFacade, MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { RubricService } from './grading/rubric.service';
@@ -86,16 +87,20 @@ const baseTemplate = {
 describe('RubricService — createTemplate', () => {
   let service: RubricService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockAcademicFacade: { findSubjectById: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockAcademicFacade = { findSubjectById: jest.fn().mockResolvedValue(null) };
 
     mockRlsTx.rubricTemplate.create.mockReset().mockResolvedValue(baseTemplate);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         RubricService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
       ],
     }).compile();
 
@@ -122,7 +127,7 @@ describe('RubricService — createTemplate', () => {
   });
 
   it('should validate subject_id when provided', async () => {
-    mockPrisma.subject.findFirst.mockResolvedValue({ id: SUBJECT_ID });
+    mockAcademicFacade.findSubjectById.mockResolvedValue({ id: SUBJECT_ID });
 
     await service.createTemplate(TENANT_ID, USER_ID, {
       name: 'Math Rubric',
@@ -130,14 +135,11 @@ describe('RubricService — createTemplate', () => {
       subject_id: SUBJECT_ID,
     });
 
-    expect(mockPrisma.subject.findFirst).toHaveBeenCalledWith({
-      where: { id: SUBJECT_ID, tenant_id: TENANT_ID },
-      select: { id: true },
-    });
+    expect(mockAcademicFacade.findSubjectById).toHaveBeenCalledWith(TENANT_ID, SUBJECT_ID);
   });
 
   it('should throw NotFoundException when subject_id does not exist', async () => {
-    mockPrisma.subject.findFirst.mockResolvedValue(null);
+    mockAcademicFacade.findSubjectById.mockResolvedValue(null);
 
     await expect(
       service.createTemplate(TENANT_ID, USER_ID, {
@@ -162,6 +164,7 @@ describe('RubricService — deleteTemplate', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         RubricService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -212,6 +215,7 @@ describe('RubricService — getTemplate', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         RubricService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -255,6 +259,7 @@ describe('RubricService — listTemplates', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         RubricService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -324,6 +329,7 @@ describe('RubricService — saveRubricGrades', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         RubricService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

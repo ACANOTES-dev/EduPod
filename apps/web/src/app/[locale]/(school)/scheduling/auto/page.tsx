@@ -76,6 +76,7 @@ interface RunProgress {
 
 export default function AutoSchedulerPage() {
   const t = useTranslations('scheduling.auto');
+  const tCommon = useTranslations('common');
   const router = useRouter();
 
   const [years, setYears] = React.useState<AcademicYear[]>([]);
@@ -97,7 +98,7 @@ export default function AutoSchedulerPage() {
   React.useEffect(() => {
     apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years')
       .then((res) => setYears(res.data ?? []))
-      .catch(() => {});
+      .catch((err) => { console.error('[SchedulingAutoPage]', err); });
   }, []);
 
   // Load prerequisites when year changes
@@ -111,7 +112,7 @@ export default function AutoSchedulerPage() {
       `/api/v1/scheduling-runs/prerequisites?academic_year_id=${selectedYear}`,
     )
       .then((res) => setPrerequisites(res))
-      .catch(() => setPrerequisites(null))
+      .catch((err) => { console.error('[SchedulingAutoPage]', err); return setPrerequisites(null); })
       .finally(() => setPrereqLoading(false));
   }, [selectedYear]);
 
@@ -124,7 +125,7 @@ export default function AutoSchedulerPage() {
     setRunsLoading(true);
     apiClient<{ data: SchedulingRun[] }>(`/api/v1/scheduling-runs?academic_year_id=${selectedYear}`)
       .then((res) => setRuns(res.data ?? []))
-      .catch(() => setRuns([]))
+      .catch((err) => { console.error('[SchedulingAutoPage]', err); return setRuns([]); })
       .finally(() => setRunsLoading(false));
   }, [selectedYear]);
 
@@ -147,7 +148,8 @@ export default function AutoSchedulerPage() {
           setProgressOpen(false);
           setActiveRunId(null);
         }
-      } catch {
+      } catch (err) {
+        console.error('[SchedulingAutoPage]', err);
         clearInterval(pollRef.current!);
         setProgressOpen(false);
         setActiveRunId(null);
@@ -181,9 +183,7 @@ export default function AutoSchedulerPage() {
   async function handleCancelSolve() {
     if (!activeRunId) return;
     clearInterval(pollRef.current!);
-    await apiClient(`/api/v1/scheduling-runs/${activeRunId}/cancel`, { method: 'POST' }).catch(
-      () => {},
-    );
+    await apiClient(`/api/v1/scheduling-runs/${activeRunId}/cancel`, { method: 'POST' }).catch((err) => { console.error('[SchedulingAutoPage]', err); });
     setProgressOpen(false);
     setActiveRunId(null);
     setProgress(null);
@@ -214,7 +214,7 @@ export default function AutoSchedulerPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Select value={selectedYear} onValueChange={setSelectedYear}>
               <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Select year..." />
+                <SelectValue placeholder={t('selectYear')} />
               </SelectTrigger>
               <SelectContent>
                 {years.map((y) => (
@@ -239,7 +239,7 @@ export default function AutoSchedulerPage() {
           {prereqLoading ? (
             <div className="flex items-center gap-2 text-sm text-text-secondary">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Checking prerequisites...</span>
+              <span>{t('checkingPrerequisites')}</span>
             </div>
           ) : prerequisites ? (
             <>
@@ -257,9 +257,7 @@ export default function AutoSchedulerPage() {
                     <a
                       href={check.fix_href}
                       className="flex items-center gap-1 text-xs text-brand hover:underline shrink-0"
-                    >
-                      Fix
-                      <ChevronRight className="h-3 w-3 rtl:rotate-180" />
+                    >{t('fix')}<ChevronRight className="h-3 w-3 rtl:rotate-180" />
                     </a>
                   )}
                   <Badge variant={check.passed ? 'default' : 'danger'} className="text-xs shrink-0">
@@ -291,9 +289,7 @@ export default function AutoSchedulerPage() {
               )}
             </>
           ) : (
-            <p className="text-sm text-text-secondary">
-              Select an academic year to check prerequisites.
-            </p>
+            <p className="text-sm text-text-secondary">{t('selectAnAcademicYearTo')}</p>
           )}
         </div>
       )}
@@ -304,9 +300,7 @@ export default function AutoSchedulerPage() {
 
         {runsLoading ? (
           <div className="flex items-center gap-2 text-sm text-text-secondary">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading...
-          </div>
+            <Loader2 className="h-4 w-4 animate-spin" />{tCommon('loading')}</div>
         ) : runs.length === 0 ? (
           <p className="text-sm text-text-secondary">{t('noRuns')}</p>
         ) : (
@@ -329,9 +323,7 @@ export default function AutoSchedulerPage() {
                   <th className="px-3 py-2 text-start text-xs font-semibold text-text-tertiary uppercase">
                     {t('entriesGenerated')}
                   </th>
-                  <th className="px-3 py-2 text-start text-xs font-semibold text-text-tertiary uppercase">
-                    Actions
-                  </th>
+                  <th className="px-3 py-2 text-start text-xs font-semibold text-text-tertiary uppercase">{tCommon('actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -379,9 +371,7 @@ export default function AutoSchedulerPage() {
           <p className="text-sm text-text-secondary">{t('confirmGenerate')}</p>
           <p className="text-sm text-text-tertiary mt-1">{modeLabel}</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>{t('cancelSolve')}</Button>
             <Button onClick={handleGenerate} disabled={submitting}>
               {submitting && <Loader2 className="h-4 w-4 animate-spin me-2" />}
               {t('generateTimetable')}

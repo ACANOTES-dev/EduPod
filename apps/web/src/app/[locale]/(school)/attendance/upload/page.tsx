@@ -559,7 +559,7 @@ export default function AttendanceUploadPage() {
                   <Label className="text-base font-medium">{t('quickMark')}</Label>
                   <p className="text-sm text-text-secondary">{t('quickMarkDescription')}</p>
                   <Textarea
-                    placeholder={'1045 A\n1032 L\n1078 AE sick'}
+                    placeholder={t('1045AN1032LN1078')}
                     value={quickMarkText}
                     onChange={(e) => setQuickMarkText(e.target.value)}
                     rows={8}

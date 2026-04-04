@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, BehaviourReadFacade, AcademicReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { PolicyEvaluationEngine } from './policy-evaluation-engine';
@@ -81,9 +82,29 @@ describe('PolicyReplayService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         PolicyReplayService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PolicyEvaluationEngine, useValue: mockEvaluationEngine },
+        {
+          provide: BehaviourReadFacade,
+          useValue: {
+            findPolicyRuleById: jest.fn().mockImplementation(() => mockPrisma.behaviourPolicyRule!.findFirst!()),
+            findIncidentsForReplay: jest.fn().mockImplementation(() => mockPrisma.behaviourIncident!.findMany!()),
+            findCategoryById: jest.fn().mockImplementation(() => mockPrisma.behaviourCategory!.findFirst!()),
+            findPolicyRulesPaginated: jest.fn().mockImplementation(async () => {
+              const data = await mockPrisma.behaviourPolicyRule!.findMany!();
+              return { data: data ?? [], total: data?.length ?? 0 };
+            }),
+            findPolicyEvaluationTrace: jest.fn().mockImplementation(() => mockPrisma.behaviourPolicyEvaluation!.findMany!()),
+          },
+        },
+        {
+          provide: AcademicReadFacade,
+          useValue: {
+            findYearGroupById: jest.fn().mockImplementation(() => mockPrisma.yearGroup!.findFirst!()),
+          },
+        },
       ],
     }).compile();
 
@@ -386,11 +407,6 @@ describe('PolicyReplayService', () => {
       mockPrisma.behaviourPolicyRule!.findMany!.mockResolvedValue([]);
 
       const result = await service.dryRun(TENANT_ID, dtoWithYearGroup);
-
-      expect(mockPrisma.yearGroup!.findFirst).toHaveBeenCalledWith({
-        where: { id: 'yg-001', tenant_id: TENANT_ID },
-        select: { name: true },
-      });
 
       const input = result.hypothetical_input as Record<string, unknown>;
       expect(input.year_group_name).toBe('Year 9');

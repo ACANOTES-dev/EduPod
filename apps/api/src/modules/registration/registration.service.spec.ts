@@ -6,6 +6,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn(),
 }));
 
+import { MOCK_FACADE_PROVIDERS, AuthReadFacade } from '../../common/tests/mock-facades';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { InvoicesService } from '../finance/invoices.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -28,6 +29,7 @@ describe('RegistrationService', () => {
   let mockInvoicesService: {
     issue: jest.Mock;
   };
+  let mockAuthReadFacade: { findUserByEmail: jest.Mock };
   const mockCreateRlsClient = createRlsClient as jest.Mock;
 
   beforeEach(async () => {
@@ -47,10 +49,12 @@ describe('RegistrationService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         RegistrationService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SequenceService, useValue: mockSequenceService },
         { provide: InvoicesService, useValue: mockInvoicesService },
+        { provide: AuthReadFacade, useValue: (mockAuthReadFacade = { findUserByEmail: jest.fn().mockResolvedValue(null) }) },
       ],
     }).compile();
 
@@ -480,16 +484,16 @@ describe('RegistrationService', () => {
         ...dto.primary_parent,
         email: 'john@example.com',
       } as typeof dto.primary_parent & { email: string };
-      mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-existing' });
+      mockAuthReadFacade.findUserByEmail.mockResolvedValue({ id: 'user-existing' });
       const mockTx = buildMockTx();
       setupMockTransaction(mockTx);
 
       await service.registerFamily(TENANT_ID, USER_ID, dto as never);
 
-      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
-        where: { email: 'john@example.com' },
-        select: { id: true },
-      });
+      expect(mockAuthReadFacade.findUserByEmail).toHaveBeenCalledWith(
+        TENANT_ID,
+        'john@example.com',
+      );
     });
 
     it('should throw BadRequestException for invalid student_index in fee_assignments', async () => {

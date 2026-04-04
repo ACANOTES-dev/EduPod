@@ -1,6 +1,7 @@
 'use client';
 
 import { Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import type { InvoiceStatus, InstallmentStatus } from '@school/shared';
@@ -53,6 +54,7 @@ export function InvoiceInstallmentsTab({
   invoiceStatus,
   onInstallmentsCreated,
 }: InvoiceInstallmentsTabProps) {
+  const t = useTranslations('finance');
   const [showForm, setShowForm] = React.useState(false);
 
   const canCreateInstallments =
@@ -63,28 +65,20 @@ export function InvoiceInstallmentsTab({
       {canCreateInstallments && (
         <div className="flex justify-end">
           <Button variant="outline" onClick={() => setShowForm(true)}>
-            <Plus className="me-2 h-4 w-4" />
-            Create Installment Plan
-          </Button>
+            <Plus className="me-2 h-4 w-4" />{t('createInstallmentPlan')}</Button>
         </div>
       )}
 
       {installments.length === 0 ? (
-        <p className="text-sm text-text-tertiary">No installment plan for this invoice.</p>
+        <p className="text-sm text-text-tertiary">{t('noInstallmentPlanForThis')}</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-surface-secondary">
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Due Date
-                </th>
-                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Amount
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Status
-                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('dueDate')}</th>
+                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('amount')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('status')}</th>
               </tr>
             </thead>
             <tbody>

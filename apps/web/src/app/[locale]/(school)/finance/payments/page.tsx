@@ -86,7 +86,7 @@ export default function PaymentsPage() {
   React.useEffect(() => {
     apiClient<{ data: StaffOption[] }>('/api/v1/finance/payments/staff')
       .then((res) => setStaffOptions(res.data))
-      .catch(() => setStaffOptions([]));
+      .catch((err) => { console.error('[FinancePaymentsPage]', err); return setStaffOptions([]); });
   }, []);
 
   const fetchPayments = React.useCallback(async () => {
@@ -108,7 +108,8 @@ export default function PaymentsPage() {
       );
       setPayments(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[FinancePaymentsPage]', err);
       setPayments([]);
       setTotal(0);
     } finally {
@@ -206,26 +207,26 @@ export default function PaymentsPage() {
           <SelectValue placeholder={t('status')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Statuses</SelectItem>
-          <SelectItem value="pending">Pending</SelectItem>
-          <SelectItem value="posted">Posted</SelectItem>
-          <SelectItem value="failed">Failed</SelectItem>
-          <SelectItem value="voided">Voided</SelectItem>
-          <SelectItem value="refunded_partial">Partially Refunded</SelectItem>
-          <SelectItem value="refunded_full">Fully Refunded</SelectItem>
+          <SelectItem value="all">{t('allStatuses')}</SelectItem>
+          <SelectItem value="pending">{t('pending')}</SelectItem>
+          <SelectItem value="posted">{t('posted')}</SelectItem>
+          <SelectItem value="failed">{t('failed')}</SelectItem>
+          <SelectItem value="voided">{t('voided')}</SelectItem>
+          <SelectItem value="refunded_partial">{t('partiallyRefunded')}</SelectItem>
+          <SelectItem value="refunded_full">{t('fullyRefunded')}</SelectItem>
         </SelectContent>
       </Select>
 
       <Select value={methodFilter} onValueChange={setMethodFilter}>
         <SelectTrigger className="w-full sm:w-[150px]">
-          <SelectValue placeholder="Method" />
+          <SelectValue placeholder={t('method')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Methods</SelectItem>
-          <SelectItem value="cash">Cash</SelectItem>
-          <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-          <SelectItem value="card_manual">Card (Manual)</SelectItem>
-          <SelectItem value="stripe">Stripe</SelectItem>
+          <SelectItem value="all">{t('allMethods')}</SelectItem>
+          <SelectItem value="cash">{t('cash')}</SelectItem>
+          <SelectItem value="bank_transfer">{t('bankTransfer')}</SelectItem>
+          <SelectItem value="card_manual">{t('cardManual')}</SelectItem>
+          <SelectItem value="stripe">{t('stripe')}</SelectItem>
         </SelectContent>
       </Select>
 
@@ -245,7 +246,7 @@ export default function PaymentsPage() {
 
       <Input
         type="date"
-        placeholder="From"
+        placeholder={t('from')}
         value={dateFrom}
         onChange={(e) => setDateFrom(e.target.value)}
         className="w-full sm:w-[150px]"
@@ -253,7 +254,7 @@ export default function PaymentsPage() {
 
       <Input
         type="date"
-        placeholder="To"
+        placeholder={t('to')}
         value={dateTo}
         onChange={(e) => setDateTo(e.target.value)}
         className="w-full sm:w-[150px]"
@@ -272,14 +273,12 @@ export default function PaymentsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Payments"
+        title={t('navPayments')}
         description="View and manage incoming payments"
         actions={
           canManage ? (
             <Button onClick={() => router.push('/finance/payments/new')}>
-              <Plus className="me-2 h-4 w-4" />
-              Record Payment
-            </Button>
+              <Plus className="me-2 h-4 w-4" />{t('newPayment')}</Button>
           ) : undefined
         }
       />
@@ -287,7 +286,7 @@ export default function PaymentsPage() {
       {!isLoading && payments.length === 0 && !hasActiveFilters ? (
         <EmptyState
           icon={Banknote}
-          title="No payments yet"
+          title={t('noPaymentsYet')}
           description="Record your first payment to get started."
           action={
             canManage

@@ -38,6 +38,7 @@ interface CategoriesResponse {
 
 export default function AssessmentCategoriesPage() {
   const t = useTranslations('gradebook');
+  const tCommon = useTranslations('common');
   const tc = useTranslations('common');
   const ts = useTranslations('settings');
 
@@ -65,7 +66,8 @@ export default function AssessmentCategoriesPage() {
       const items = Array.isArray(res.data) ? res.data : [];
       setData(items);
       setTotal(res.meta?.total ?? items.length);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsAssessmentCategoriesPage]', err);
       setData([]);
       setTotal(0);
     } finally {
@@ -115,7 +117,8 @@ export default function AssessmentCategoriesPage() {
       }
       setDialogOpen(false);
       void fetchCategories(page);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsAssessmentCategoriesPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setSaving(false);
@@ -127,7 +130,8 @@ export default function AssessmentCategoriesPage() {
     try {
       await apiClient(`/api/v1/gradebook/assessment-categories/${cat.id}`, { method: 'DELETE' });
       void fetchCategories(page);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsAssessmentCategoriesPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -218,17 +222,17 @@ export default function AssessmentCategoriesPage() {
 
           <div className="space-y-4">
             <div>
-              <Label htmlFor="cat-name">Name</Label>
+              <Label htmlFor="cat-name">{tCommon('name')}</Label>
               <Input
                 id="cat-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Homework"
+                placeholder={t('eGHomework')}
               />
             </div>
 
             <div>
-              <Label htmlFor="cat-weight">Default Weight (%)</Label>
+              <Label htmlFor="cat-weight">{t('defaultWeight')}</Label>
               <Input
                 id="cat-weight"
                 type="number"
@@ -236,7 +240,7 @@ export default function AssessmentCategoriesPage() {
                 max={100}
                 value={defaultWeight}
                 onChange={(e) => setDefaultWeight(e.target.value)}
-                placeholder="e.g. 25"
+                placeholder={t('eG25')}
               />
             </div>
           </div>

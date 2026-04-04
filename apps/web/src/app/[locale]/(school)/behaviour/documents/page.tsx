@@ -248,7 +248,7 @@ export default function DocumentsPage() {
             {row.generated_by_user.first_name} {row.generated_by_user.last_name}
           </span>
         ) : (
-          <span className="text-text-tertiary">\u2014</span>
+          <span className="text-text-tertiary">{t('u2014')}</span>
         ),
     },
     {

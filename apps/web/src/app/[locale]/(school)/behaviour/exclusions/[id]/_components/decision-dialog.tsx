@@ -61,6 +61,7 @@ export function DecisionDialog({
   onSubmit,
 }: DecisionDialogProps) {
   const t = useTranslations('behaviour.exclusionDetail');
+  const tCommon = useTranslations('common');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -70,35 +71,35 @@ export function DecisionDialog({
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-text-primary">Decision</label>
+            <label className="text-sm font-medium text-text-primary">{t('decision')}</label>
             <Select value={decisionValue} onValueChange={onDecisionValueChange}>
               <SelectTrigger>
-                <SelectValue placeholder="Select decision..." />
+                <SelectValue placeholder={t('selectDecision')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="exclusion_confirmed">Exclusion Confirmed</SelectItem>
-                <SelectItem value="exclusion_modified">Exclusion Modified</SelectItem>
-                <SelectItem value="exclusion_reversed">Exclusion Reversed</SelectItem>
-                <SelectItem value="alternative_consequence">Alternative Consequence</SelectItem>
+                <SelectItem value="exclusion_confirmed">{t('exclusionConfirmed')}</SelectItem>
+                <SelectItem value="exclusion_modified">{t('exclusionModified')}</SelectItem>
+                <SelectItem value="exclusion_reversed">{t('exclusionReversed')}</SelectItem>
+                <SelectItem value="alternative_consequence">{t('alternativeConsequence')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-text-primary">Reasoning *</label>
+            <label className="text-sm font-medium text-text-primary">{t('reasoning')}</label>
             <Textarea
               value={decisionReasoning}
               onChange={(e) => onDecisionReasoningChange(e.target.value)}
-              placeholder="Explain the reasoning for this decision (min 10 characters)..."
+              placeholder={t('explainTheReasoningForThis')}
               rows={4}
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-text-primary">Decided By</label>
+            <label className="text-sm font-medium text-text-primary">{t('decidedBy')}</label>
             <Select value={decidedById} onValueChange={onDecidedByIdChange}>
               <SelectTrigger>
-                <SelectValue placeholder="Select staff member..." />
+                <SelectValue placeholder={t('selectStaffMember')} />
               </SelectTrigger>
               <SelectContent>
                 {staffOptions.map((s) => {
@@ -118,21 +119,21 @@ export function DecisionDialog({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-text-primary">Conditions for Return</label>
+            <label className="text-sm font-medium text-text-primary">{t('conditions')}</label>
             <Textarea
               value={conditionsReturn}
               onChange={(e) => onConditionsReturnChange(e.target.value)}
-              placeholder="Conditions the student must meet to return..."
+              placeholder={t('conditionsTheStudentMustMeet')}
               rows={2}
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-text-primary">Conditions for Transfer</label>
+            <label className="text-sm font-medium text-text-primary">{t('conditionsForTransfer')}</label>
             <Textarea
               value={conditionsTransfer}
               onChange={(e) => onConditionsTransferChange(e.target.value)}
-              placeholder="Conditions for managed move / transfer..."
+              placeholder={t('conditionsForManagedMoveTransfer')}
               rows={2}
             />
           </div>
@@ -140,9 +141,7 @@ export function DecisionDialog({
           {actionError && <p className="text-sm text-red-600 dark:text-red-400">{actionError}</p>}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
-            Cancel
-          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>{tCommon('cancel')}</Button>
           <Button
             onClick={onSubmit}
             disabled={submitting || !decisionValue || decisionReasoning.length < 10 || !decidedById}

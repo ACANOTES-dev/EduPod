@@ -143,17 +143,17 @@ export default function StudentBehaviourProfilePage() {
     Promise.all([
       apiClient<{ data: StudentProfile }>(`/api/v1/behaviour/students/${studentId}`)
         .then((res) => setProfile(res.data))
-        .catch(() => setProfile(null)),
+        .catch((err) => { console.error('[BehaviourStudentsPage]', err); return setProfile(null); }),
       apiClient<{ data: IncidentCardData[] }>(
         `/api/v1/behaviour/incidents?student_id=${studentId}&pageSize=50&sort=occurred_at&order=desc`,
       )
         .then((res) => setIncidents(res.data ?? []))
-        .catch(() => setIncidents([])),
+        .catch((err) => { console.error('[BehaviourStudentsPage]', err); return setIncidents([]); }),
       apiClient<{ data: StudentTask[] }>(
         `/api/v1/behaviour/tasks?entity_type=incident&pageSize=50&student_id=${studentId}`,
       )
         .then((res) => setTasks(res.data ?? []))
-        .catch(() => setTasks([])),
+        .catch((err) => { console.error('[BehaviourStudentsPage]', err); return setTasks([]); }),
     ]).finally(() => setLoading(false));
   }, [studentId]);
 
@@ -167,7 +167,7 @@ export default function StudentBehaviourProfilePage() {
         `/api/v1/behaviour/students/${studentId}/interventions?pageSize=50`,
       )
         .then((res) => setInterventions(res.data ?? []))
-        .catch(() => setInterventions([]))
+        .catch((err) => { console.error('[BehaviourStudentsPage]', err); return setInterventions([]); })
         .finally(() => setTabLoading((prev) => ({ ...prev, interventions: false })));
     }
 
@@ -177,7 +177,7 @@ export default function StudentBehaviourProfilePage() {
         `/api/v1/behaviour/students/${studentId}/sanctions?pageSize=50`,
       )
         .then((res) => setSanctions(res.data ?? []))
-        .catch(() => setSanctions([]))
+        .catch((err) => { console.error('[BehaviourStudentsPage]', err); return setSanctions([]); })
         .finally(() => setTabLoading((prev) => ({ ...prev, sanctions: false })));
     }
 
@@ -187,7 +187,7 @@ export default function StudentBehaviourProfilePage() {
         `/api/v1/behaviour/students/${studentId}/awards?pageSize=50`,
       )
         .then((res) => setAwards(res.data ?? []))
-        .catch(() => setAwards([]))
+        .catch((err) => { console.error('[BehaviourStudentsPage]', err); return setAwards([]); })
         .finally(() => setTabLoading((prev) => ({ ...prev, awards: false })));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -98,7 +98,7 @@ export function PromotionWizard() {
       '/api/v1/academic-years?pageSize=100&sort=start_date&order=desc',
     )
       .then((res) => setAcademicYears(res.data))
-      .catch(() => setAcademicYears([]));
+      .catch((err) => { console.error('[PromotionWizard]', err); return setAcademicYears([]); });
   }, []);
 
   const handleOverride = (studentId: string, action: string) => {

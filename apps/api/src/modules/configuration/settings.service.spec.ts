@@ -7,6 +7,8 @@ import type { TenantSettingsDto } from '@school/shared';
 jest.mock('../../common/middleware/rls.middleware');
 
 // eslint-disable-next-line import/order
+
+import { MOCK_FACADE_PROVIDERS, TenantReadFacade } from '../../common/tests/mock-facades';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 
 import { SecurityAuditService } from '../audit-log/security-audit.service';
@@ -90,6 +92,7 @@ describe('SettingsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         SettingsService,
         {
           provide: PrismaService,
@@ -98,6 +101,10 @@ describe('SettingsService', () => {
         {
           provide: SecurityAuditService,
           useValue: mockSecurityAuditService,
+        },
+        {
+          provide: TenantReadFacade,
+          useValue: { findModules: mockPrisma.tenantModule.findMany },
         },
       ],
     }).compile();

@@ -74,7 +74,7 @@ export function CompensationForm({ open, onOpenChange, record, onSuccess }: Comp
         '/api/v1/staff-profiles?pageSize=100&fields=id,full_name',
       )
         .then((res) => setStaffOptions(res.data))
-        .catch(() => {});
+        .catch((err) => { console.error('[CompensationForm]', err); });
     }
   }, [open]);
 
@@ -224,7 +224,7 @@ export function CompensationForm({ open, onOpenChange, record, onSuccess }: Comp
                   min="0"
                   value={bonusClassRate}
                   onChange={(e) => setBonusClassRate(e.target.value)}
-                  placeholder="Rate for extra classes"
+                  placeholder={t('rateForExtraClasses')}
                 />
               </div>
             </>

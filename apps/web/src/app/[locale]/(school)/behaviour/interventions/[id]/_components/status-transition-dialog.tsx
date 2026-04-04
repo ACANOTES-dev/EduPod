@@ -90,8 +90,7 @@ export function StatusTransitionDialog({
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div>
-            <p className="mb-1 text-xs text-text-tertiary">
-              Current:{' '}
+            <p className="mb-1 text-xs text-text-tertiary">{t('current')}{' '}
               <Badge
                 variant="secondary"
                 className={`capitalize ${STATUS_COLORS[currentStatus] ?? ''}`}
@@ -101,10 +100,10 @@ export function StatusTransitionDialog({
             </p>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-text-primary">New Status</label>
+            <label className="text-sm font-medium text-text-primary">{t('newStatus')}</label>
             <Select value={newStatus} onValueChange={setNewStatus}>
               <SelectTrigger>
-                <SelectValue placeholder="Select status..." />
+                <SelectValue placeholder={t('selectStatus')} />
               </SelectTrigger>
               <SelectContent>
                 {availableTransitions.map((opt) => (
@@ -116,11 +115,11 @@ export function StatusTransitionDialog({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-text-primary">Reason (optional)</label>
+            <label className="text-sm font-medium text-text-primary">{t('reasonOptional')}</label>
             <Textarea
               value={transitionReason}
               onChange={(e) => setTransitionReason(e.target.value)}
-              placeholder="Why is this changing?"
+              placeholder={t('whyIsThisChanging')}
               rows={2}
             />
           </div>

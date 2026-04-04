@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
+import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { CheckinAlertService } from './checkin-alert.service';
@@ -78,9 +79,8 @@ describe('CheckinAlertService', () => {
   let service: CheckinAlertService;
   let mockPastoralEventService: { write: jest.Mock };
   let mockNotificationsQueue: { add: jest.Mock };
-  let mockPrisma: {
-    tenantSetting: { findUnique: jest.Mock };
-  };
+  let mockPrisma: Record<string, unknown>;
+  let mockConfigFacade: { findSettings: jest.Mock };
 
   beforeEach(async () => {
     mockPastoralEventService = {
@@ -89,10 +89,10 @@ describe('CheckinAlertService', () => {
 
     mockNotificationsQueue = { add: jest.fn().mockResolvedValue(undefined) };
 
-    mockPrisma = {
-      tenantSetting: {
-        findUnique: jest.fn().mockResolvedValue(makeTenantSettingsRecord()),
-      },
+    mockPrisma = {};
+
+    mockConfigFacade = {
+      findSettings: jest.fn().mockResolvedValue(makeTenantSettingsRecord()),
     };
 
     // Reset all RLS tx mocks
@@ -104,6 +104,7 @@ describe('CheckinAlertService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         CheckinAlertService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PastoralEventService, useValue: mockPastoralEventService },
@@ -111,6 +112,7 @@ describe('CheckinAlertService', () => {
           provide: getQueueToken('notifications'),
           useValue: mockNotificationsQueue,
         },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
       ],
     }).compile();
 

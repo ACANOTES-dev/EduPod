@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { ConfigurationReadFacade, MOCK_FACADE_PROVIDERS } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { ResourceService } from './resource.service';
@@ -30,8 +31,13 @@ describe('ResourceService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ResourceService,
         { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: ConfigurationReadFacade,
+          useValue: { findSettings: mockPrisma.tenantSetting.findUnique },
+        },
       ],
     }).compile();
 
@@ -75,9 +81,7 @@ describe('ResourceService', () => {
       ],
     });
 
-    expect(mockPrisma.tenantSetting.findUnique).toHaveBeenCalledWith({
-      where: { tenant_id: TENANT_ID },
-    });
+    expect(mockPrisma.tenantSetting.findUnique).toHaveBeenCalledWith(TENANT_ID);
   });
 
   it('should coerce empty-string EAP fields to null', async () => {

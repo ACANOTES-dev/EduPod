@@ -13,6 +13,7 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ParentReadFacade } from '../../../../common/tests/mock-facades';
 import { PrismaService } from '../../../../modules/prisma/prisma.service';
 import { BehaviourAppealsService } from '../../behaviour-appeals.service';
 import { BehaviourParentService } from '../../behaviour-parent.service';
@@ -177,6 +178,7 @@ function setupBaseGetIncidents() {
 describe('Release Gate 15-4: Parent-Safe Rendering', () => {
   let service: BehaviourParentService;
   let mockPrisma: { parent: { findFirst: jest.Mock } };
+  let mockParentReadFacade: { findActiveByUserIdWithLocale: jest.Mock };
 
   beforeEach(async () => {
     resetAllMocks();
@@ -185,11 +187,17 @@ describe('Release Gate 15-4: Parent-Safe Rendering', () => {
       parent: { findFirst: jest.fn() },
     };
 
+    mockParentReadFacade = {
+      findActiveByUserIdWithLocale: jest.fn().mockResolvedValue(null),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         BehaviourParentService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: BehaviourAppealsService, useValue: { submit: jest.fn() } },
+        { provide: ParentReadFacade, useValue: mockParentReadFacade },
       ],
     }).compile();
 
@@ -203,7 +211,7 @@ describe('Release Gate 15-4: Parent-Safe Rendering', () => {
   describe('parent portal never shows raw description field', () => {
     it('should not expose raw description in parent incident view', async () => {
       // Arrange
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       setupBaseGetIncidents();
       mockRlsTx.behaviourIncident.findMany.mockResolvedValue([
         makeIncident({
@@ -227,7 +235,7 @@ describe('Release Gate 15-4: Parent-Safe Rendering', () => {
 
     it('should not expose context_notes to parent', async () => {
       // Arrange
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       setupBaseGetIncidents();
       mockRlsTx.behaviourIncident.findMany.mockResolvedValue([
         makeIncident({
@@ -254,7 +262,7 @@ describe('Release Gate 15-4: Parent-Safe Rendering', () => {
   describe('parent portal uses parent_description when available', () => {
     it('should return parent_description as incident_description', async () => {
       // Arrange
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       setupBaseGetIncidents();
       mockRlsTx.behaviourIncident.findMany.mockResolvedValue([
         makeIncident({
@@ -275,7 +283,7 @@ describe('Release Gate 15-4: Parent-Safe Rendering', () => {
 
     it('should prefer parent_description_ar for Arabic locale parent', async () => {
       // Arrange
-      mockPrisma.parent.findFirst.mockResolvedValue(
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(
         makeParent({ user: { preferred_locale: 'ar' } }),
       );
       setupBaseGetIncidents();
@@ -301,7 +309,7 @@ describe('Release Gate 15-4: Parent-Safe Rendering', () => {
   describe('parent portal falls back to template text when parent_description is null', () => {
     it('should use description_template_text from context_snapshot', async () => {
       // Arrange
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       setupBaseGetIncidents();
       mockRlsTx.behaviourIncident.findMany.mockResolvedValue([
         makeIncident({
@@ -329,7 +337,7 @@ describe('Release Gate 15-4: Parent-Safe Rendering', () => {
   describe('parent portal falls back to category name when both are null', () => {
     it('should use category name with date as last resort', async () => {
       // Arrange
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       setupBaseGetIncidents();
       mockRlsTx.behaviourIncident.findMany.mockResolvedValue([
         makeIncident({
@@ -353,7 +361,7 @@ describe('Release Gate 15-4: Parent-Safe Rendering', () => {
 
     it('should use category name_ar for Arabic locale parent in fallback', async () => {
       // Arrange
-      mockPrisma.parent.findFirst.mockResolvedValue(
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(
         makeParent({ user: { preferred_locale: 'ar' } }),
       );
       setupBaseGetIncidents();
@@ -382,7 +390,7 @@ describe('Release Gate 15-4: Parent-Safe Rendering', () => {
   describe('parent portal never shows other participant names', () => {
     it('should not expose witness or other student names in parent incident view', async () => {
       // Arrange
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       setupBaseGetIncidents();
       mockRlsTx.behaviourIncident.findMany.mockResolvedValue([
         makeIncident({
@@ -536,7 +544,7 @@ describe('Release Gate 15-4: Parent-Safe Rendering', () => {
   describe('guardian restriction blocks portal visibility', () => {
     it('should return empty incidents for restricted student', async () => {
       // Arrange
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue({
         id: 'restriction-1',
@@ -558,7 +566,7 @@ describe('Release Gate 15-4: Parent-Safe Rendering', () => {
 
     it('should return zero summary data for restricted child without revealing restriction', async () => {
       // Arrange
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue({
         id: 'restriction-1',
@@ -587,7 +595,7 @@ describe('Release Gate 15-4: Parent-Safe Rendering', () => {
 
     it('should throw ForbiddenException for student not linked to parent', async () => {
       // Arrange
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findFirst.mockResolvedValue(null); // No link
 
       // Act & Assert
@@ -598,7 +606,7 @@ describe('Release Gate 15-4: Parent-Safe Rendering', () => {
 
     it('should throw NotFoundException when parent profile does not exist', async () => {
       // Arrange
-      mockPrisma.parent.findFirst.mockResolvedValue(null);
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(null);
 
       // Act & Assert
       await expect(

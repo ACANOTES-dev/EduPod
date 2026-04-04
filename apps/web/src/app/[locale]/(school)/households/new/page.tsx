@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { toast } from '@school/ui';
@@ -13,6 +14,7 @@ import { HouseholdForm, type HouseholdFormData } from '../_components/household-
 
 
 export default function NewHouseholdPage() {
+  const t = useTranslations('households');
   const router = useRouter();
 
   const handleSubmit = async (data: HouseholdFormData) => {
@@ -26,7 +28,7 @@ export default function NewHouseholdPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="New Household" description="Create a new family household record" />
+      <PageHeader title={t('newHousehold')} description="Create a new family household record" />
       <HouseholdForm onSubmit={handleSubmit} />
     </div>
   );

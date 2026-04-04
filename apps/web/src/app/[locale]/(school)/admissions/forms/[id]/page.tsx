@@ -149,9 +149,7 @@ function FieldCard({
         </span>
         {warning && (
           <span className="flex items-center gap-1 rounded-full bg-warning-surface px-2 py-0.5 text-xs text-warning-text">
-            <ShieldAlert className="h-3 w-3" />
-            DPC Warning
-          </span>
+            <ShieldAlert className="h-3 w-3" />{t('dpcWarning')}</span>
         )}
         <span className="text-xs text-text-tertiary">{field.field_type}</span>
 
@@ -186,19 +184,12 @@ function FieldCard({
               <div className="flex items-start gap-2">
                 <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning-text" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-warning-text">Data Minimisation Warning</p>
-                  <p className="mt-1 text-xs text-warning-text/80">
-                    The DPC advises against collecting {warning.category.replace('_', ' ')} data at
-                    the pre-enrolment stage. This type of information should only be collected
-                    post-enrolment with explicit consent.
-                  </p>
-                  <p className="mt-1 text-xs text-text-tertiary">
-                    Matched keyword: &quot;{warning.matched_keyword}&quot;
+                  <p className="text-sm font-medium text-warning-text">{t('dataMinimisationWarning')}</p>
+                  <p className="mt-1 text-xs text-warning-text/80">{t('theDpcAdvisesAgainstCollecting')}{warning.category.replace('_', ' ')}{t('dataAtThePreEnrolment')}</p>
+                  <p className="mt-1 text-xs text-text-tertiary">{t('matchedKeyword')}{warning.matched_keyword}&quot;
                   </p>
                   <div className="mt-2 flex gap-2">
-                    <Button variant="outline" size="sm" onClick={onRemove}>
-                      Remove Field
-                    </Button>
+                    <Button variant="outline" size="sm" onClick={onRemove}>{t('removeField')}</Button>
                     <Button variant="outline" size="sm" onClick={onJustify}>
                       {justification ? 'Edit Justification' : 'Keep with Justification'}
                     </Button>
@@ -206,7 +197,7 @@ function FieldCard({
                   {justification && (
                     <div className="mt-2 rounded bg-surface-secondary p-2">
                       <p className="text-xs text-text-secondary">
-                        <span className="font-medium">Justification:</span> {justification}
+                        <span className="font-medium">{t('justification')}</span> {justification}
                       </p>
                     </div>
                   )}
@@ -217,15 +208,15 @@ function FieldCard({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Label</Label>
+              <Label>{t('label')}</Label>
               <Input
                 value={field.label}
                 onChange={(e) => onUpdate({ ...field, label: e.target.value })}
-                placeholder="Field label"
+                placeholder={t('fieldLabel')}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Field Type</Label>
+              <Label>{t('fieldType')}</Label>
               <Select
                 value={field.field_type}
                 onValueChange={(val) => onUpdate({ ...field, field_type: val })}
@@ -245,11 +236,11 @@ function FieldCard({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Help Text</Label>
+            <Label>{t('helpText')}</Label>
             <Input
               value={field.help_text}
               onChange={(e) => onUpdate({ ...field, help_text: e.target.value })}
-              placeholder="Optional help text"
+              placeholder={t('optionalHelpText')}
             />
           </div>
 
@@ -259,14 +250,12 @@ function FieldCard({
               checked={field.required}
               onCheckedChange={(checked) => onUpdate({ ...field, required: Boolean(checked) })}
             />
-            <Label htmlFor={`required-${field.id}`} className="text-sm">
-              Required
-            </Label>
+            <Label htmlFor={`required-${field.id}`} className="text-sm">{t('required')}</Label>
           </div>
 
           {showOptions && (
             <div className="space-y-2">
-              <Label>Options</Label>
+              <Label>{t('options')}</Label>
               {field.options_json.map((opt, idx) => (
                 <div key={idx} className="flex items-center gap-2">
                   <Input
@@ -304,9 +293,7 @@ function FieldCard({
                   })
                 }
               >
-                <Plus className="me-1 h-3.5 w-3.5" />
-                Add Option
-              </Button>
+                <Plus className="me-1 h-3.5 w-3.5" />{t('addOption')}</Button>
             </div>
           )}
 
@@ -324,14 +311,12 @@ function FieldCard({
                   })
                 }
               />
-              <Label htmlFor={`conditional-${field.id}`} className="text-sm">
-                Conditional visibility
-              </Label>
+              <Label htmlFor={`conditional-${field.id}`} className="text-sm">{t('conditionalVisibility')}</Label>
             </div>
             {field.conditional_visibility_json && (
               <div className="ms-6 grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Depends on field</Label>
+                  <Label className="text-xs">{t('dependsOnField')}</Label>
                   <Select
                     value={field.conditional_visibility_json.depends_on_field_key}
                     onValueChange={(val) =>
@@ -345,7 +330,7 @@ function FieldCard({
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select field" />
+                      <SelectValue placeholder={t('selectField')} />
                     </SelectTrigger>
                     <SelectContent>
                       {otherFields.map((f) => (
@@ -357,7 +342,7 @@ function FieldCard({
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Show when value is</Label>
+                  <Label className="text-xs">{t('showWhenValueIs')}</Label>
                   <Input
                     value={field.conditional_visibility_json.show_when_value}
                     onChange={(e) =>
@@ -369,7 +354,7 @@ function FieldCard({
                         },
                       })
                     }
-                    placeholder="Value"
+                    placeholder={t('value')}
                   />
                 </div>
               </div>
@@ -384,6 +369,7 @@ function FieldCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EditAdmissionFormPage() {
+  const tCommon = useTranslations('common');
   const params = useParams<{ id: string }>();
   const id = params?.id ?? '';
   const t = useTranslations('admissions');
@@ -437,7 +423,8 @@ export default function EditAdmissionFormPage() {
             })),
         );
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[AdmissionsFormsPage]', err);
         toast.error('Failed to load form');
       })
       .finally(() => setLoading(false));
@@ -514,7 +501,8 @@ export default function EditAdmissionFormPage() {
       });
       toast.success('Form saved');
       router.push(`/${locale}/admissions/forms`);
-    } catch {
+    } catch (err) {
+      console.error('[AdmissionsFormsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setSaving(false);
@@ -580,7 +568,7 @@ export default function EditAdmissionFormPage() {
           <Input
             value={formName}
             onChange={(e) => setFormName(e.target.value)}
-            placeholder="e.g. General Admission 2026-27"
+            placeholder={t('eGGeneralAdmission2026')}
           />
         </div>
       </div>
@@ -588,7 +576,7 @@ export default function EditAdmissionFormPage() {
       {/* Fields */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-text-primary">Fields</h2>
+          <h2 className="text-lg font-semibold text-text-primary">{t('fields')}</h2>
           <Button variant="outline" onClick={handleAddField}>
             <Plus className="me-2 h-4 w-4" />
             {t('addField')}
@@ -597,9 +585,7 @@ export default function EditAdmissionFormPage() {
 
         {fields.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-surface-secondary p-12 text-center">
-            <p className="text-sm text-text-tertiary">
-              No fields yet. Click &quot;Add Field&quot; to start building your form.
-            </p>
+            <p className="text-sm text-text-tertiary">{t('noFieldsYetClickAdd')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -632,10 +618,7 @@ export default function EditAdmissionFormPage() {
           <div className="flex items-start gap-3">
             <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-warning-text" />
             <div>
-              <p className="text-sm font-medium text-warning-text">
-                This form contains {dataMinWarnings.length} field
-                {dataMinWarnings.length !== 1 ? 's' : ''} flagged for data minimisation review:
-              </p>
+              <p className="text-sm font-medium text-warning-text">{t('thisFormContains')}{dataMinWarnings.length}{t('field2')}{dataMinWarnings.length !== 1 ? 's' : ''}{t('flaggedForDataMinimisationReview')}</p>
               <ul className="mt-2 space-y-1">
                 {dataMinWarnings.map((w) => (
                   <li
@@ -643,11 +626,10 @@ export default function EditAdmissionFormPage() {
                     className="flex items-center gap-2 text-xs text-warning-text/80"
                   >
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-text" />
-                    &quot;{w.field_label}&quot; ({w.category.replace('_', ' ')} data)
-                    {justifications[w.field_key] ? (
-                      <span className="text-success-text">— justified</span>
+                    &quot;{w.field_label}&quot; ({w.category.replace('_', ' ')}{t('data')}{justifications[w.field_key] ? (
+                      <span className="text-success-text">{t('justified')}</span>
                     ) : (
-                      <span className="text-danger-text">— needs justification</span>
+                      <span className="text-danger-text">{t('needsJustification')}</span>
                     )}
                   </li>
                 ))}
@@ -666,26 +648,21 @@ export default function EditAdmissionFormPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Justify Special Category Field</DialogTitle>
-            <DialogDescription>
-              Field &quot;{justificationDialogField?.field_label}&quot; contains a{' '}
-              {justificationDialogField?.category.replace('_', ' ')} keyword. Please provide a
-              justification for including this field in the pre-enrolment form.
-            </DialogDescription>
+            <DialogTitle>{t('justifySpecialCategoryField')}</DialogTitle>
+            <DialogDescription>{t('field')}{justificationDialogField?.field_label}{t('containsA')}{' '}
+              {justificationDialogField?.category.replace('_', ' ')}{t('keywordPleaseProvideAJustification')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label>Justification (required)</Label>
+            <Label>{t('justificationRequired')}</Label>
             <Textarea
               value={justificationText}
               onChange={(e) => setJustificationText(e.target.value)}
-              placeholder="Explain why this field is necessary at the pre-enrolment stage..."
+              placeholder={t('explainWhyThisFieldIs')}
               rows={4}
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setJustificationDialogField(null)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setJustificationDialogField(null)}>{tCommon('cancel')}</Button>
             <Button
               disabled={!justificationText.trim()}
               onClick={() => {
@@ -698,9 +675,7 @@ export default function EditAdmissionFormPage() {
                   setJustificationText('');
                 }
               }}
-            >
-              Save Justification
-            </Button>
+            >{t('saveJustification')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

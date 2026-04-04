@@ -110,11 +110,11 @@ function AlertTypeBadge({ type, t }: { type: string; t: (key: string) => string 
 function AlertStatusBadge({ status }: { status: string }) {
   switch (status) {
     case 'active':
-      return <Badge variant="danger">Active</Badge>;
+      return <Badge variant="danger">{t('filterActive')}</Badge>;
     case 'acknowledged':
-      return <Badge variant="info">Acknowledged</Badge>;
+      return <Badge variant="info">{t('filterAcknowledged')}</Badge>;
     case 'resolved':
-      return <Badge variant="success">Resolved</Badge>;
+      return <Badge variant="success">{t('filterResolved')}</Badge>;
     default:
       return <Badge variant="secondary">{status}</Badge>;
   }
@@ -153,7 +153,7 @@ export default function ExceptionsPage() {
         setPendingSessions(res.pending_sessions ?? []);
         setExcessiveAbsences(res.excessive_absences ?? []);
       })
-      .catch(() => undefined)
+      .catch((err) => { console.error('[AttendanceExceptionsPage]', err); })
       .finally(() => setPendingLoading(false));
   }, []);
 
@@ -173,7 +173,8 @@ export default function ExceptionsPage() {
       );
       setAlerts(res.data);
       setAlertsTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[AttendanceExceptionsPage]', err);
       setAlerts([]);
       setAlertsTotal(0);
     } finally {
@@ -202,7 +203,8 @@ export default function ExceptionsPage() {
       });
       toast.success(t('acknowledge') + ' - OK');
       void fetchAlerts();
-    } catch {
+    } catch (err) {
+      console.error('[AttendanceExceptionsPage]', err);
       toast.error(t('acknowledge') + ' - Failed');
     } finally {
       setActionLoading(null);
@@ -218,7 +220,8 @@ export default function ExceptionsPage() {
       });
       toast.success(t('resolve') + ' - OK');
       void fetchAlerts();
-    } catch {
+    } catch (err) {
+      console.error('[AttendanceExceptionsPage]', err);
       toast.error(t('resolve') + ' - Failed');
     } finally {
       setActionLoading(null);
@@ -234,7 +237,8 @@ export default function ExceptionsPage() {
       });
       toast.success(t('notifyParent') + ' - OK');
       void fetchAlerts();
-    } catch {
+    } catch (err) {
+      console.error('[AttendanceExceptionsPage]', err);
       toast.error(t('notifyParent') + ' - Failed');
     } finally {
       setActionLoading(null);
@@ -280,7 +284,7 @@ export default function ExceptionsPage() {
 
         {pendingSessions.length === 0 ? (
           <div className="rounded-xl border border-border bg-surface p-8 text-center">
-            <p className="text-sm text-text-tertiary">No pending sessions</p>
+            <p className="text-sm text-text-tertiary">{t('noPendingSessions')}</p>
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -318,28 +322,18 @@ export default function ExceptionsPage() {
 
         {excessiveAbsences.length === 0 ? (
           <div className="rounded-xl border border-border bg-surface p-8 text-center">
-            <p className="text-sm text-text-tertiary">No excessive absences detected</p>
+            <p className="text-sm text-text-tertiary">{t('noExcessiveAbsencesDetected')}</p>
           </div>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-border bg-surface">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                    Student
-                  </th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                    Class
-                  </th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                    Absences
-                  </th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                    Threshold
-                  </th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                    Status
-                  </th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('student')}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('sessionClass')}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('absences')}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('threshold')}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('statusLabel')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -413,7 +407,7 @@ export default function ExceptionsPage() {
           size="icon"
           disabled={alertsPage <= 1}
           onClick={() => setAlertsPage(alertsPage - 1)}
-          aria-label="Previous page"
+          aria-label={t('previousPage')}
         >
           <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
         </Button>
@@ -425,7 +419,7 @@ export default function ExceptionsPage() {
           size="icon"
           disabled={alertsPage >= totalPages}
           onClick={() => setAlertsPage(alertsPage + 1)}
-          aria-label="Next page"
+          aria-label={t('nextPage')}
         >
           <ChevronRight className="h-4 w-4 rtl:rotate-180" />
         </Button>

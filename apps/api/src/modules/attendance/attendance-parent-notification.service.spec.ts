@@ -1,6 +1,12 @@
 import { getQueueToken } from '@nestjs/bullmq';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  CommunicationsReadFacade,
+  ParentReadFacade,
+  StudentReadFacade,
+} from '../../common/tests/mock-facades';
 import { NotificationsService } from '../communications/notifications.service';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -59,6 +65,9 @@ describe('AttendanceParentNotificationService', () => {
   let mockSettings: { getSettings: jest.Mock };
   let mockNotifications: { createBatch: jest.Mock };
   let mockQueue: { add: jest.Mock };
+  let mockCommsFacade: { hasNotificationForSourceEntity: jest.Mock };
+  let mockParentFacade: { findParentContactsForStudent: jest.Mock };
+  let mockStudentFacade: { findById: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -70,14 +79,21 @@ describe('AttendanceParentNotificationService', () => {
     mockSettings = { getSettings: jest.fn().mockResolvedValue(enabledSettings) };
     mockNotifications = { createBatch: jest.fn().mockResolvedValue([]) };
     mockQueue = { add: jest.fn().mockResolvedValue({ id: 'job-1' }) };
+    mockCommsFacade = { hasNotificationForSourceEntity: jest.fn().mockResolvedValue(false) };
+    mockParentFacade = { findParentContactsForStudent: jest.fn().mockResolvedValue([parentWithUser]) };
+    mockStudentFacade = { findById: jest.fn().mockResolvedValue(studentRecord) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AttendanceParentNotificationService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettings },
         { provide: NotificationsService, useValue: mockNotifications },
         { provide: getQueueToken('notifications'), useValue: mockQueue },
+        { provide: CommunicationsReadFacade, useValue: mockCommsFacade },
+        { provide: ParentReadFacade, useValue: mockParentFacade },
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
       ],
     }).compile();
 
@@ -133,8 +149,7 @@ describe('AttendanceParentNotificationService', () => {
 
   // ─── 4. Deduplication: notification already exists ──────────────────────
   it('should skip notification when one already exists for the same record', async () => {
-    mockPrisma.notification.findFirst.mockResolvedValue({ id: 'notif-existing' });
-    mockPrisma.studentParent.findMany.mockResolvedValue([parentWithUser]);
+    mockCommsFacade.hasNotificationForSourceEntity.mockResolvedValue(true);
 
     await service.triggerAbsenceNotification(
       TENANT_ID,
@@ -149,7 +164,7 @@ describe('AttendanceParentNotificationService', () => {
 
   // ─── 5. No parent users — skips silently ────────────────────────────────
   it('should skip notification when no parent users are found', async () => {
-    mockPrisma.studentParent.findMany.mockResolvedValue([
+    mockParentFacade.findParentContactsForStudent.mockResolvedValue([
       { parent: { user_id: null, whatsapp_phone: null, phone: null, preferred_contact_channels: [] } },
     ]);
 
@@ -166,7 +181,7 @@ describe('AttendanceParentNotificationService', () => {
 
   // ─── 6. Happy path: in-app notification created ─────────────────────────
   it('should create an in-app notification for each parent user', async () => {
-    mockPrisma.studentParent.findMany.mockResolvedValue([parentWithUser]);
+    mockParentFacade.findParentContactsForStudent.mockResolvedValue([parentWithUser]);
 
     await service.triggerAbsenceNotification(
       TENANT_ID,
@@ -192,7 +207,7 @@ describe('AttendanceParentNotificationService', () => {
 
   // ─── 7. External queue job enqueued when parent has WhatsApp ────────────
   it('should enqueue an external notification job when parent has WhatsApp', async () => {
-    mockPrisma.studentParent.findMany.mockResolvedValue([parentWithWhatsApp]);
+    mockParentFacade.findParentContactsForStudent.mockResolvedValue([parentWithWhatsApp]);
 
     await service.triggerAbsenceNotification(
       TENANT_ID,
@@ -215,7 +230,7 @@ describe('AttendanceParentNotificationService', () => {
 
   // ─── 8. left_early maps to attendance.left_early template ───────────────
   it('should use the attendance.left_early template for left_early status', async () => {
-    mockPrisma.studentParent.findMany.mockResolvedValue([parentWithUser]);
+    mockParentFacade.findParentContactsForStudent.mockResolvedValue([parentWithUser]);
 
     await service.triggerAbsenceNotification(
       TENANT_ID,

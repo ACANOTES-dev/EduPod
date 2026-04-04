@@ -1,6 +1,7 @@
 'use client';
 
 import { Download, Loader2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -131,6 +132,8 @@ export function StudentExportDialog({
   exporting,
   onExport,
 }: StudentExportDialogProps) {
+  const t = useTranslations('students');
+  const tCommon = useTranslations('common');
   const [presets, setPresets] = React.useState<ExportPreset[]>([]);
   const [presetName, setPresetName] = React.useState('');
 
@@ -198,7 +201,7 @@ export function StudentExportDialog({
           {/* Preview table */}
           {activeColumns.length > 0 && (
             <div>
-              <h3 className="mb-2 text-sm font-semibold text-text-primary">Preview</h3>
+              <h3 className="mb-2 text-sm font-semibold text-text-primary">{t('preview')}</h3>
               <div className="overflow-x-auto rounded-lg border border-border">
                 <table className="w-full text-xs">
                   <thead>
@@ -235,7 +238,7 @@ export function StudentExportDialog({
 
         {/* Presets */}
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-secondary p-3">
-          <span className="text-xs font-medium text-text-primary">Presets:</span>
+          <span className="text-xs font-medium text-text-primary">{t('presets')}</span>
           {presets.map((p) => (
             <div key={p.name} className="flex items-center gap-1">
               <Button
@@ -259,7 +262,7 @@ export function StudentExportDialog({
             <Input
               value={presetName}
               onChange={(e) => setPresetName(e.target.value)}
-              placeholder="Preset name..."
+              placeholder={t('presetName')}
               className="h-7 w-32 text-xs"
             />
             <Button
@@ -268,16 +271,12 @@ export function StudentExportDialog({
               className="h-7 text-xs"
               onClick={handleSavePreset}
               disabled={!presetName.trim()}
-            >
-              Save
-            </Button>
+            >{tCommon('save')}</Button>
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{tCommon('cancel')}</Button>
           <Button disabled={activeColumns.length === 0 || exporting} onClick={onExport}>
             {exporting ? (
               <Loader2 className="me-2 h-4 w-4 animate-spin" />

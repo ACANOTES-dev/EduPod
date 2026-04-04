@@ -7,6 +7,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn(),
 }));
 
+import { MOCK_FACADE_PROVIDERS, ParentReadFacade } from '../../../common/tests/mock-facades';
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -62,7 +63,19 @@ describe('ConsentService', () => {
     });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ConsentService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ConsentService,
+        { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: ParentReadFacade,
+          useValue: {
+            findActiveByUserId: mockPrisma.parent.findFirst,
+            findStudentLinksForParent: mockPrisma.studentParent.findMany,
+            isLinkedToStudent: mockPrisma.studentParent.findFirst,
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<ConsentService>(ConsentService);

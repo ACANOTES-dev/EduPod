@@ -58,6 +58,7 @@ interface ListResponse<T> {
 
 export default function AttendancePage() {
   const t = useTranslations('attendance');
+  const tCommon = useTranslations('common');
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
@@ -79,7 +80,7 @@ export default function AttendancePage() {
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/classes?pageSize=100')
       .then((res) => setClasses(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[AttendancePage]', err); });
     apiClient<{
       data?: { attendance?: { defaultPresentEnabled?: boolean } };
       attendance?: { defaultPresentEnabled?: boolean };
@@ -90,7 +91,7 @@ export default function AttendancePage() {
           setDefaultPresentEnabled(true);
         }
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[AttendancePage]', err); });
   }, []);
 
   const fetchSessions = React.useCallback(
@@ -107,7 +108,8 @@ export default function AttendancePage() {
         );
         setData(res.data ?? []);
         setTotal(res.meta?.total ?? 0);
-      } catch {
+      } catch (err) {
+        console.error('[AttendancePage]', err);
         setData([]);
         setTotal(0);
       } finally {
@@ -218,7 +220,7 @@ export default function AttendancePage() {
           setPage(1);
         }}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary sm:w-auto"
-        aria-label="Date from"
+        aria-label={t('dateFrom')}
       />
       <input
         type="date"
@@ -228,7 +230,7 @@ export default function AttendancePage() {
           setPage(1);
         }}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary sm:w-auto"
-        aria-label="Date to"
+        aria-label={t('dateTo')}
       />
       <Select
         value={classFilter}
@@ -238,10 +240,10 @@ export default function AttendancePage() {
         }}
       >
         <SelectTrigger className="w-full sm:w-40">
-          <SelectValue placeholder="Class" />
+          <SelectValue placeholder={t('sessionClass')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Classes</SelectItem>
+          <SelectItem value="all">{t('allClasses')}</SelectItem>
           {classes.map((c) => (
             <SelectItem key={c.id} value={c.id}>
               {c.name}
@@ -257,10 +259,10 @@ export default function AttendancePage() {
         }}
       >
         <SelectTrigger className="w-full sm:w-36">
-          <SelectValue placeholder="Status" />
+          <SelectValue placeholder={t('statusLabel')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All</SelectItem>
+          <SelectItem value="all">{tCommon('all')}</SelectItem>
           <SelectItem value="open">{t('open')}</SelectItem>
           <SelectItem value="submitted">{t('submitted')}</SelectItem>
           <SelectItem value="locked">{t('locked')}</SelectItem>

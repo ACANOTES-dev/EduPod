@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, StudentReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourPointsService } from './behaviour-points.service';
@@ -119,6 +120,7 @@ describe('BehaviourStudentsService', () => {
   };
   let mockScope: { getUserScope: jest.Mock };
   let mockPoints: { getStudentPoints: jest.Mock };
+  let mockStudentReadFacade: { findManyGeneric: jest.Mock; count: jest.Mock; findById: jest.Mock; exists: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -168,12 +170,21 @@ describe('BehaviourStudentsService', () => {
       getStudentPoints: jest.fn().mockResolvedValue({ total: 0, fromCache: false }),
     };
 
+    mockStudentReadFacade = {
+      findManyGeneric: mockPrisma.student.findMany,
+      count: mockPrisma.student.count,
+      findById: mockPrisma.student.findFirst,
+      exists: jest.fn().mockResolvedValue(false),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         BehaviourStudentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: BehaviourScopeService, useValue: mockScope },
         { provide: BehaviourPointsService, useValue: mockPoints },
+        { provide: StudentReadFacade, useValue: mockStudentReadFacade },
       ],
     }).compile();
 
@@ -209,16 +220,11 @@ describe('BehaviourStudentsService', () => {
 
       await service.listStudents(TENANT_ID, USER_ID, ['behaviour.admin'], 1, 20);
 
-      expect(mockPrisma.student.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            tenant_id: TENANT_ID,
-            status: 'active',
-          }),
-        }),
-      );
+      // findManyGeneric is called with (tenantId, options)
+      const callArgs = mockStudentReadFacade.findManyGeneric.mock.calls[0] as [string, { where?: Record<string, unknown> }];
+      expect(callArgs[0]).toBe(TENANT_ID);
+      const callWhere = callArgs[1].where ?? {};
       // 'all' scope means no id or year_group_id filter
-      const callWhere = mockPrisma.student.findMany.mock.calls[0][0].where;
       expect(callWhere.id).toBeUndefined();
       expect(callWhere.year_group_id).toBeUndefined();
     });
@@ -233,7 +239,8 @@ describe('BehaviourStudentsService', () => {
 
       await service.listStudents(TENANT_ID, USER_ID, ['behaviour.view'], 1, 20);
 
-      const callWhere = mockPrisma.student.findMany.mock.calls[0][0].where;
+      const callArgs = mockStudentReadFacade.findManyGeneric.mock.calls[0] as [string, { where?: Record<string, unknown> }];
+      const callWhere = callArgs[1].where ?? {};
       expect(callWhere.id).toEqual({ in: ['s-1', 's-2'] });
     });
 
@@ -247,7 +254,8 @@ describe('BehaviourStudentsService', () => {
 
       await service.listStudents(TENANT_ID, USER_ID, ['behaviour.view'], 1, 20);
 
-      const callWhere = mockPrisma.student.findMany.mock.calls[0][0].where;
+      const callArgs = mockStudentReadFacade.findManyGeneric.mock.calls[0] as [string, { where?: Record<string, unknown> }];
+      const callWhere = callArgs[1].where ?? {};
       expect(callWhere.year_group_id).toEqual({ in: ['yg-1', 'yg-2'] });
     });
 
@@ -273,7 +281,8 @@ describe('BehaviourStudentsService', () => {
           }),
         }),
       );
-      const callWhere = mockPrisma.student.findMany.mock.calls[0][0].where;
+      const callArgs = mockStudentReadFacade.findManyGeneric.mock.calls[0] as [string, { where?: Record<string, unknown> }];
+      const callWhere = callArgs[1].where ?? {};
       expect(callWhere.id).toEqual({ in: ['s-1', 's-2'] });
     });
 
@@ -533,6 +542,7 @@ describe('BehaviourStudentsService', () => {
 
   describe('getStudentAnalytics', () => {
     it('should return summary with trend and breakdowns', async () => {
+      mockStudentReadFacade.exists.mockResolvedValue(true);
       mockPrisma.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
 
       // MV query returns empty -> fallback to direct queries

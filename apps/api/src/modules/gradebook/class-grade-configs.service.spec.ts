@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ClassesReadFacade, AcademicReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { ClassGradeConfigsService } from './class-grade-configs.service';
@@ -69,14 +70,21 @@ const validDto = {
 describe('ClassGradeConfigsService', () => {
   let service: ClassGradeConfigsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  const mockClassesFacade = { existsOrThrow: jest.fn() };
+  const mockAcademicFacade = { findSubjectsGeneric: jest.fn() };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRlsTx.classSubjectGradeConfig.upsert.mockReset();
     mockRlsTx.classSubjectGradeConfig.delete.mockReset();
+    mockClassesFacade.existsOrThrow.mockResolvedValue(true);
+    mockAcademicFacade.findSubjectsGeneric.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
         ClassGradeConfigsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -91,7 +99,7 @@ describe('ClassGradeConfigsService', () => {
 
   describe('upsert', () => {
     it('should throw NotFoundException when class does not exist', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue(null);
+      mockClassesFacade.existsOrThrow.mockRejectedValue(new NotFoundException('class not found'));
 
       await expect(
         service.upsert(TENANT_ID, CLASS_ID, SUBJECT_ID, validDto),
@@ -99,8 +107,7 @@ describe('ClassGradeConfigsService', () => {
     });
 
     it('should throw NotFoundException when subject does not exist', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue({ id: CLASS_ID });
-      mockPrisma.subject.findFirst.mockResolvedValue(null);
+      mockAcademicFacade.findSubjectsGeneric.mockResolvedValue([]);
 
       await expect(
         service.upsert(TENANT_ID, CLASS_ID, SUBJECT_ID, validDto),
@@ -108,8 +115,7 @@ describe('ClassGradeConfigsService', () => {
     });
 
     it('should throw BadRequestException when subject is not academic', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue({ id: CLASS_ID });
-      mockPrisma.subject.findFirst.mockResolvedValue({ id: SUBJECT_ID, subject_type: 'extracurricular' });
+      mockAcademicFacade.findSubjectsGeneric.mockResolvedValue([{ id: SUBJECT_ID, subject_type: 'extracurricular' }]);
 
       await expect(
         service.upsert(TENANT_ID, CLASS_ID, SUBJECT_ID, validDto),
@@ -117,8 +123,7 @@ describe('ClassGradeConfigsService', () => {
     });
 
     it('should throw NotFoundException when grading scale does not exist', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue({ id: CLASS_ID });
-      mockPrisma.subject.findFirst.mockResolvedValue({ id: SUBJECT_ID, subject_type: 'academic' });
+      mockAcademicFacade.findSubjectsGeneric.mockResolvedValue([{ id: SUBJECT_ID, subject_type: 'academic' }]);
       mockPrisma.gradingScale.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -127,8 +132,7 @@ describe('ClassGradeConfigsService', () => {
     });
 
     it('should throw NotFoundException when a category_id does not exist', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue({ id: CLASS_ID });
-      mockPrisma.subject.findFirst.mockResolvedValue({ id: SUBJECT_ID, subject_type: 'academic' });
+      mockAcademicFacade.findSubjectsGeneric.mockResolvedValue([{ id: SUBJECT_ID, subject_type: 'academic' }]);
       mockPrisma.gradingScale.findFirst.mockResolvedValue({ id: SCALE_ID });
       mockPrisma.assessmentCategory.findMany.mockResolvedValue([]); // none found
 
@@ -138,8 +142,7 @@ describe('ClassGradeConfigsService', () => {
     });
 
     it('should upsert and return config when all validations pass', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue({ id: CLASS_ID });
-      mockPrisma.subject.findFirst.mockResolvedValue({ id: SUBJECT_ID, subject_type: 'academic' });
+      mockAcademicFacade.findSubjectsGeneric.mockResolvedValue([{ id: SUBJECT_ID, subject_type: 'academic' }]);
       mockPrisma.gradingScale.findFirst.mockResolvedValue({ id: SCALE_ID });
       mockPrisma.assessmentCategory.findMany.mockResolvedValue([{ id: CATEGORY_ID }]);
       mockRlsTx.classSubjectGradeConfig.upsert.mockResolvedValue(sampleConfig);

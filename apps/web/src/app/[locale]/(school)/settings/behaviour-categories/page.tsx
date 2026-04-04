@@ -106,6 +106,7 @@ const DEFAULT_FORM: FormValues = {
 
 export default function BehaviourCategoriesPage() {
   const t = useTranslations('behaviourSettings.categories');
+  const tCommon = useTranslations('common');
   const [categories, setCategories] = React.useState<Category[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -126,7 +127,8 @@ export default function BehaviourCategoriesPage() {
         '/api/v1/behaviour/categories?pageSize=100&sort=display_order&order=asc',
       );
       setCategories(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsBehaviourCategoriesPage]', err);
       setCategories([]);
     } finally {
       setLoading(false);
@@ -260,36 +262,20 @@ export default function BehaviourCategoriesPage() {
           ))}
         </div>
       ) : categories.length === 0 ? (
-        <p className="text-sm text-text-tertiary">No categories configured yet.</p>
+        <p className="text-sm text-text-tertiary">{t('noCategoriesConfiguredYet')}</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Polarity
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Severity
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Points
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Color
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Benchmark
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Active
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Actions
-                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{tCommon('name')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('polarity')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('severity')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('points')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('color')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('benchmark')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('active')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{tCommon('actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -342,7 +328,7 @@ export default function BehaviourCategoriesPage() {
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="sm" onClick={() => openEdit(cat)}>
                         <Pencil className="h-4 w-4" />
-                        <span className="sr-only">Edit</span>
+                        <span className="sr-only">{tCommon('edit')}</span>
                       </Button>
                       <Button
                         variant="ghost"
@@ -354,7 +340,7 @@ export default function BehaviourCategoriesPage() {
                         }}
                       >
                         <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete</span>
+                        <span className="sr-only">{tCommon('delete')}</span>
                       </Button>
                     </div>
                   </td>
@@ -373,27 +359,27 @@ export default function BehaviourCategoriesPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Name *</Label>
+              <Label>{t('name')}</Label>
               <Input
                 value={form.name}
                 onChange={(e) => updateForm('name', e.target.value)}
-                placeholder="e.g. Good Effort"
+                placeholder={t('eGGoodEffort')}
                 className="text-base"
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Name (Arabic)</Label>
+              <Label>{t('nameArabic')}</Label>
               <Input
                 value={form.name_ar}
                 onChange={(e) => updateForm('name_ar', e.target.value)}
-                placeholder="Arabic name"
+                placeholder={t('arabicName')}
                 dir="rtl"
                 className="text-base"
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Polarity</Label>
+                <Label>{t('polarity')}</Label>
                 <Select value={form.polarity} onValueChange={(v) => updateForm('polarity', v)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -408,7 +394,7 @@ export default function BehaviourCategoriesPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Severity (1-10)</Label>
+                <Label>{t('severity110')}</Label>
                 <Input
                   type="number"
                   min={1}
@@ -421,7 +407,7 @@ export default function BehaviourCategoriesPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Points</Label>
+                <Label>{t('points')}</Label>
                 <Input
                   type="number"
                   value={form.point_value}
@@ -430,7 +416,7 @@ export default function BehaviourCategoriesPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Color</Label>
+                <Label>{t('color')}</Label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
@@ -441,7 +427,7 @@ export default function BehaviourCategoriesPage() {
                   <Input
                     value={form.color}
                     onChange={(e) => updateForm('color', e.target.value)}
-                    placeholder="#10B981"
+                    placeholder={t('10b981')}
                     className="flex-1 text-sm"
                   />
                 </div>
@@ -449,7 +435,7 @@ export default function BehaviourCategoriesPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Benchmark Category</Label>
+                <Label>{t('benchmarkCategory')}</Label>
                 <Select
                   value={form.benchmark_category}
                   onValueChange={(v) => updateForm('benchmark_category', v)}
@@ -467,7 +453,7 @@ export default function BehaviourCategoriesPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Display Order</Label>
+                <Label>{t('displayOrder')}</Label>
                 <Input
                   type="number"
                   min={0}
@@ -479,21 +465,21 @@ export default function BehaviourCategoriesPage() {
             </div>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label>Requires Follow-Up</Label>
+                <Label>{t('requiresFollowUp')}</Label>
                 <Switch
                   checked={form.requires_follow_up}
                   onCheckedChange={(v) => updateForm('requires_follow_up', v)}
                 />
               </div>
               <div className="flex items-center justify-between">
-                <Label>Requires Parent Notification</Label>
+                <Label>{t('requiresParentNotification')}</Label>
                 <Switch
                   checked={form.requires_parent_notification}
                   onCheckedChange={(v) => updateForm('requires_parent_notification', v)}
                 />
               </div>
               <div className="flex items-center justify-between">
-                <Label>Visible to Parents</Label>
+                <Label>{t('visibleToParents')}</Label>
                 <Switch
                   checked={form.parent_visible}
                   onCheckedChange={(v) => updateForm('parent_visible', v)}
@@ -503,9 +489,7 @@ export default function BehaviourCategoriesPage() {
             {saveError && <p className="text-sm text-danger-text">{saveError}</p>}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>{tCommon('cancel')}</Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? 'Saving...' : editTarget ? 'Update' : 'Create'}
             </Button>
@@ -522,21 +506,16 @@ export default function BehaviourCategoriesPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Category</DialogTitle>
+            <DialogTitle>{t('deleteCategory')}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-text-secondary">
-            Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This cannot be
-            undone if there are no linked incidents.
-          </p>
+          <p className="text-sm text-text-secondary">{t('areYouSureYouWant')}<strong>{deleteTarget?.name}</strong>{t('thisCannotBeUndoneIf')}</p>
           {deleteError && <p className="text-sm text-danger-text">{deleteError}</p>}
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => setDeleteTarget(null)}
               disabled={deleteLoading}
-            >
-              Cancel
-            </Button>
+            >{tCommon('cancel')}</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>
               {deleteLoading ? 'Deleting...' : 'Delete'}
             </Button>

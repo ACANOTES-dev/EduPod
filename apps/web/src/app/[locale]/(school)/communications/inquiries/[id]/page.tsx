@@ -83,7 +83,8 @@ export default function InquiryAdminDetailPage() {
     try {
       const res = await apiClient<{ data: InquiryDetail }>(`/api/v1/inquiries/${id}`);
       setInquiry(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[CommunicationsInquiriesPage]', err);
       toast.error('Failed to load inquiry');
     } finally {
       setLoading(false);
@@ -109,7 +110,8 @@ export default function InquiryAdminDetailPage() {
       setReply('');
       toast.success(t('inquiry.replySuccess'));
       void fetchInquiry();
-    } catch {
+    } catch (err) {
+      console.error('[CommunicationsInquiriesPage]', err);
       toast.error(t('inquiry.replyError'));
     } finally {
       setIsSending(false);
@@ -122,7 +124,8 @@ export default function InquiryAdminDetailPage() {
       await apiClient(`/api/v1/inquiries/${id}/close`, { method: 'POST' });
       toast.success(t('inquiry.closeSuccess'));
       void fetchInquiry();
-    } catch {
+    } catch (err) {
+      console.error('[CommunicationsInquiriesPage]', err);
       toast.error(t('inquiry.closeError'));
     } finally {
       setIsClosing(false);
@@ -184,8 +187,7 @@ export default function InquiryAdminDetailPage() {
             ? 'In Progress'
             : inquiry.status.charAt(0).toUpperCase() + inquiry.status.slice(1)}
         </StatusBadge>
-        <span className="text-sm text-text-tertiary">
-          Opened {new Date(inquiry.created_at).toLocaleDateString()}
+        <span className="text-sm text-text-tertiary">{t('opened')}{new Date(inquiry.created_at).toLocaleDateString()}
         </span>
       </div>
 
@@ -193,7 +195,7 @@ export default function InquiryAdminDetailPage() {
       <div className="rounded-xl border border-border bg-surface shadow-sm">
         <div className="min-h-[320px] max-h-[560px] overflow-y-auto p-6 space-y-4">
           {inquiry.messages.length === 0 ? (
-            <p className="py-8 text-center text-sm text-text-tertiary">No messages yet.</p>
+            <p className="py-8 text-center text-sm text-text-tertiary">{t('noMessagesYet')}</p>
           ) : (
             inquiry.messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)
           )}

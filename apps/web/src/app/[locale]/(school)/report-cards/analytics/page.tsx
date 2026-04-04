@@ -73,7 +73,7 @@ export default function ReportCardAnalyticsPage() {
   React.useEffect(() => {
     apiClient<ListResponse<AcademicPeriod>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[ReportCardsAnalyticsPage]', err); });
   }, []);
 
   const fetchAnalytics = React.useCallback(async (periodId: string) => {
@@ -85,7 +85,8 @@ export default function ReportCardAnalyticsPage() {
         `/api/v1/report-cards/analytics?${params.toString()}`,
       );
       setAnalytics(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsAnalyticsPage]', err);
       setAnalytics(null);
     } finally {
       setIsLoading(false);

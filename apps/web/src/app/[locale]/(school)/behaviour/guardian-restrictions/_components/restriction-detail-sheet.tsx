@@ -1,6 +1,7 @@
 'use client';
 
 import { Ban } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -51,12 +52,14 @@ export function RestrictionDetailSheet({
   data,
   onRevokeClick,
 }: RestrictionDetailSheetProps) {
+  const t = useTranslations('behaviour');
+  const tCommon = useTranslations('common');
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="end" className="w-full overflow-y-auto sm:max-w-lg">
         <SheetHeader>
-          <SheetTitle>Restriction Details</SheetTitle>
-          <SheetDescription>View guardian restriction information and history.</SheetDescription>
+          <SheetTitle>{t('restrictionDetails')}</SheetTitle>
+          <SheetDescription>{t('viewGuardianRestrictionInformationAnd')}</SheetDescription>
         </SheetHeader>
 
         {loading ? (
@@ -64,7 +67,7 @@ export function RestrictionDetailSheet({
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           </div>
         ) : !data ? (
-          <div className="mt-8 text-center text-text-tertiary">Restriction not found.</div>
+          <div className="mt-8 text-center text-text-tertiary">{t('restrictionNotFound')}</div>
         ) : (
           <div className="mt-6 space-y-6">
             {/* Status + Type */}
@@ -76,54 +79,51 @@ export function RestrictionDetailSheet({
             {/* Key Details */}
             <div className="space-y-3 rounded-lg border border-border p-4">
               <DetailField
-                label="Student"
+                label={tCommon('student')}
                 value={
                   data.student ? `${data.student.first_name} ${data.student.last_name}` : '\u2014'
                 }
               />
-              <DetailField label="Guardian" value={getParentDisplayName(data.parent)} />
-              <DetailField label="Reason" value={data.reason} />
-              {data.legal_basis && <DetailField label="Legal Basis" value={data.legal_basis} />}
-              <DetailField label="Effective From" value={formatDate(data.effective_from)} />
+              <DetailField label={t('guardian2')} value={getParentDisplayName(data.parent)} />
+              <DetailField label={t('reason3')} value={data.reason} />
+              {data.legal_basis && <DetailField label={t('legalBasis')} value={data.legal_basis} />}
+              <DetailField label={t('effectiveFrom2')} value={formatDate(data.effective_from)} />
               <DetailField
-                label="Effective Until"
+                label={t('effectiveUntil')}
                 value={data.effective_until ? formatDate(data.effective_until) : 'Indefinite'}
               />
               {data.review_date && (
-                <DetailField label="Review Date" value={formatDate(data.review_date)} />
+                <DetailField label={t('reviewDate')} value={formatDate(data.review_date)} />
               )}
               {data.set_by && (
                 <DetailField
-                  label="Set By"
+                  label={t('setBy')}
                   value={`${data.set_by.first_name} ${data.set_by.last_name}`}
                 />
               )}
               {data.approved_by && (
                 <DetailField
-                  label="Approved By"
+                  label={t('approvedBy')}
                   value={`${data.approved_by.first_name} ${data.approved_by.last_name}`}
                 />
               )}
-              <DetailField label="Created" value={formatDate(data.created_at)} />
+              <DetailField label={t('created')} value={formatDate(data.created_at)} />
             </div>
 
             {/* Revoke info if revoked */}
             {data.status === 'revoked' && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Revoked</p>
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">{t('revoked')}</p>
                 {data.revoked_by && (
-                  <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
-                    By: {data.revoked_by.first_name} {data.revoked_by.last_name}
+                  <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">{t('by')}{data.revoked_by.first_name} {data.revoked_by.last_name}
                   </p>
                 )}
                 {data.revoked_at && (
-                  <p className="text-sm text-amber-700 dark:text-amber-400">
-                    Date: {formatDate(data.revoked_at)}
+                  <p className="text-sm text-amber-700 dark:text-amber-400">{t('date')}{formatDate(data.revoked_at)}
                   </p>
                 )}
                 {data.revoke_reason && (
-                  <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
-                    Reason: {data.revoke_reason}
+                  <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">{t('reason2')}{data.revoke_reason}
                   </p>
                 )}
               </div>
@@ -132,7 +132,7 @@ export function RestrictionDetailSheet({
             {/* History */}
             {data.history && data.history.length > 0 && (
               <div>
-                <h4 className="mb-3 text-sm font-medium text-text-primary">History</h4>
+                <h4 className="mb-3 text-sm font-medium text-text-primary">{t('history')}</h4>
                 <div className="space-y-2">
                   {data.history.map((entry) => (
                     <div key={entry.id} className="rounded-lg border border-border p-3">
@@ -160,9 +160,7 @@ export function RestrictionDetailSheet({
                 className="w-full text-red-600 hover:text-red-700"
                 onClick={() => onRevokeClick(data.id)}
               >
-                <Ban className="me-1.5 h-4 w-4" />
-                Revoke Restriction
-              </Button>
+                <Ban className="me-1.5 h-4 w-4" />{t('revokeRestriction')}</Button>
             )}
           </div>
         )}

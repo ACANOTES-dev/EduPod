@@ -2,6 +2,7 @@
 
 import { Download, FileSpreadsheet, GraduationCap, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -60,6 +61,8 @@ const statusVariantMap: Record<
 };
 
 export default function StudentsPage() {
+  const t = useTranslations('students');
+  const tCommon = useTranslations('common');
   const router = useRouter();
 
   const [students, setStudents] = React.useState<Student[]>([]);
@@ -125,7 +128,8 @@ export default function StudentsPage() {
 
       toast.success('Export downloaded');
       setExportModalOpen(false);
-    } catch {
+    } catch (err) {
+      console.error('[StudentsPage]', err);
       toast.error('Export failed');
     } finally {
       setExporting(false);
@@ -151,7 +155,8 @@ export default function StudentsPage() {
       );
       setStudents(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[StudentsPage]', err);
       setStudents([]);
       setTotal(0);
     } finally {
@@ -241,7 +246,7 @@ export default function StudentsPage() {
       <div className="relative flex-1 min-w-[200px]">
         <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
         <Input
-          placeholder="Search students..."
+          placeholder={t('searchStudents')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="ps-9"
@@ -250,24 +255,24 @@ export default function StudentsPage() {
 
       <Select value={statusFilter} onValueChange={setStatusFilter}>
         <SelectTrigger className="w-full sm:w-[140px]">
-          <SelectValue placeholder="Status" />
+          <SelectValue placeholder={t('status')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Statuses</SelectItem>
-          <SelectItem value="applicant">Applicant</SelectItem>
-          <SelectItem value="active">Active</SelectItem>
-          <SelectItem value="withdrawn">Withdrawn</SelectItem>
-          <SelectItem value="graduated">Graduated</SelectItem>
-          <SelectItem value="archived">Archived</SelectItem>
+          <SelectItem value="all">{t('allStatuses')}</SelectItem>
+          <SelectItem value="applicant">{t('applicant')}</SelectItem>
+          <SelectItem value="active">{t('active')}</SelectItem>
+          <SelectItem value="withdrawn">{t('withdrawn')}</SelectItem>
+          <SelectItem value="graduated">{t('graduated')}</SelectItem>
+          <SelectItem value="archived">{t('archived')}</SelectItem>
         </SelectContent>
       </Select>
 
       <Select value={yearGroupFilter} onValueChange={setYearGroupFilter}>
         <SelectTrigger className="w-full sm:w-[140px]">
-          <SelectValue placeholder="Year Group" />
+          <SelectValue placeholder={t('yearGroup')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Year Groups</SelectItem>
+          <SelectItem value="all">{t('allYearGroups')}</SelectItem>
           {yearGroups.map((yg) => (
             <SelectItem key={yg.id} value={yg.id}>
               {yg.name}
@@ -278,12 +283,12 @@ export default function StudentsPage() {
 
       <Select value={allergyFilter} onValueChange={setAllergyFilter}>
         <SelectTrigger className="w-full sm:w-[130px]">
-          <SelectValue placeholder="Allergy" />
+          <SelectValue placeholder={t('allergy')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All</SelectItem>
-          <SelectItem value="yes">Has Allergy</SelectItem>
-          <SelectItem value="no">No Allergy</SelectItem>
+          <SelectItem value="all">{tCommon('all')}</SelectItem>
+          <SelectItem value="yes">{t('hasAllergy')}</SelectItem>
+          <SelectItem value="no">{t('noAllergy')}</SelectItem>
         </SelectContent>
       </Select>
     </div>
@@ -292,18 +297,14 @@ export default function StudentsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Students"
+        title={t('title')}
         description="Manage student records and enrolments"
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => openExportModal('xlsx')}>
-              <FileSpreadsheet className="me-2 h-4 w-4" />
-              Excel
-            </Button>
+              <FileSpreadsheet className="me-2 h-4 w-4" />{t('excel')}</Button>
             <Button variant="outline" size="sm" onClick={() => openExportModal('pdf')}>
-              <Download className="me-2 h-4 w-4" />
-              PDF
-            </Button>
+              <Download className="me-2 h-4 w-4" />{tCommon('pdfFormat')}</Button>
           </div>
         }
       />
@@ -311,7 +312,7 @@ export default function StudentsPage() {
       {!isLoading && students.length === 0 && !search && statusFilter === 'all' ? (
         <EmptyState
           icon={GraduationCap}
-          title="No students yet"
+          title={t('noStudentsYet')}
           description="Register a new family using the wizard, or add a student from an existing household."
         />
       ) : (

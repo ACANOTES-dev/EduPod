@@ -49,6 +49,7 @@ interface RoomsResponse {
 
 export default function RoomsPage() {
   const t = useTranslations('scheduling');
+  const tCommon = useTranslations('common');
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
@@ -75,7 +76,8 @@ export default function RoomsPage() {
       const res = await apiClient<RoomsResponse>(`/api/v1/rooms?${params.toString()}`);
       setData(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[RoomsPage]', err);
       setData([]);
       setTotal(0);
     } finally {
@@ -122,7 +124,8 @@ export default function RoomsPage() {
       await apiClient(`/api/v1/rooms/${room.id}`, { method: 'DELETE' });
       toast.success(t('room') + ' deleted');
       void fetchRooms(page, typeFilter, activeFilter);
-    } catch {
+    } catch (err) {
+      console.error('[RoomsPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -159,13 +162,9 @@ export default function RoomsPage() {
       header: t('active'),
       render: (row: Room) =>
         row.active ? (
-          <StatusBadge status="success" dot>
-            Active
-          </StatusBadge>
+          <StatusBadge status="success" dot>{t('active')}</StatusBadge>
         ) : (
-          <StatusBadge status="neutral" dot>
-            Inactive
-          </StatusBadge>
+          <StatusBadge status="neutral" dot>{t('inactive')}</StatusBadge>
         ),
     },
     {
@@ -217,7 +216,7 @@ export default function RoomsPage() {
           <SelectValue placeholder={t('roomType')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Types</SelectItem>
+          <SelectItem value="all">{t('allTypes')}</SelectItem>
           {['classroom', 'lab', 'library', 'hall', 'gym', 'office', 'other'].map((type) => (
             <SelectItem key={type} value={type}>
               {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -237,9 +236,9 @@ export default function RoomsPage() {
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All</SelectItem>
-          <SelectItem value="true">Active</SelectItem>
-          <SelectItem value="false">Inactive</SelectItem>
+          <SelectItem value="all">{tCommon('all')}</SelectItem>
+          <SelectItem value="true">{t('active')}</SelectItem>
+          <SelectItem value="false">{t('inactive')}</SelectItem>
         </SelectContent>
       </Select>
     </div>

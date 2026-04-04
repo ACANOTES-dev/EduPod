@@ -34,7 +34,7 @@ export function AppealSidebar({ exclusion, locale, onMarkFinalised }: AppealSide
 
       {exclusion.appeal_deadline && (
         <div className="mb-3">
-          <p className="text-xs text-text-tertiary">Appeal Deadline</p>
+          <p className="text-xs text-text-tertiary">{t('appealDeadline')}</p>
           <p className="text-sm font-medium text-text-primary">
             {formatDate(exclusion.appeal_deadline)}
           </p>
@@ -72,14 +72,12 @@ export function AppealSidebar({ exclusion, locale, onMarkFinalised }: AppealSide
               {formatLabel(exclusion.appeal.status)}
             </span>
           </div>
-          <p className="text-xs text-text-tertiary">
-            Grounds: {formatLabel(exclusion.appeal.grounds_category)}
+          <p className="text-xs text-text-tertiary">{t('grounds')}{formatLabel(exclusion.appeal.grounds_category)}
           </p>
           <Link
             href={`/${locale}/behaviour/appeals/${exclusion.appeal.id}`}
             className="flex items-center gap-1 text-xs text-primary-600 hover:underline"
-          >
-            View Appeal <ExternalLink className="h-3 w-3" />
+          >{t('viewAppeal')}<ExternalLink className="h-3 w-3" />
           </Link>
         </div>
       ) : (
@@ -112,22 +110,22 @@ export function CaseMetaSidebar({ exclusion }: CaseMetaSidebarProps) {
         <div className="flex items-start gap-2">
           <Clock className="mt-0.5 h-4 w-4 shrink-0 text-text-tertiary" />
           <div>
-            <dt className="text-xs text-text-tertiary">Created</dt>
+            <dt className="text-xs text-text-tertiary">{t('created')}</dt>
             <dd className="text-text-primary">{formatDateTime(exclusion.created_at)}</dd>
           </div>
         </div>
         {exclusion.incident?.category && (
           <div>
-            <dt className="text-xs text-text-tertiary">Incident Category</dt>
+            <dt className="text-xs text-text-tertiary">{t('incidentCategory')}</dt>
             <dd className="text-text-primary">
-              {exclusion.incident.category.name} (Severity: {exclusion.incident.category.severity}
+              {exclusion.incident.category.name}{t('severity')}{exclusion.incident.category.severity}
               /10)
             </dd>
           </div>
         )}
         {exclusion.student?.year_group && (
           <div>
-            <dt className="text-xs text-text-tertiary">Year Group</dt>
+            <dt className="text-xs text-text-tertiary">{t('yearGroup')}</dt>
             <dd className="text-text-primary">{exclusion.student.year_group.name}</dd>
           </div>
         )}

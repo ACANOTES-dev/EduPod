@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { $Enums } from '@prisma/client';
 
+import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade, AcademicReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -40,6 +41,14 @@ describe('BehaviourPointsService', () => {
     mockRedisDel = jest.fn();
     mockRedisKeys = jest.fn();
 
+    const mockConfigFacade = {
+      findSettingsJson: mockTenantSettingFindFirst,
+    };
+    const mockAcademicFacade = {
+      findCurrentYear: mockAcademicYearFindFirst,
+      findCurrentPeriod: mockAcademicPeriodFindFirst,
+    };
+
     const mockPrisma = {
       behaviourIncidentParticipant: { aggregate: mockAggregate },
       tenantSetting: { findFirst: mockTenantSettingFindFirst },
@@ -60,9 +69,12 @@ describe('BehaviourPointsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         BehaviourPointsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedisService },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
       ],
     }).compile();
 
@@ -129,9 +141,7 @@ describe('BehaviourPointsService', () => {
 
     // Tenant settings with academic_year reset
     mockTenantSettingFindFirst.mockResolvedValue({
-      settings: {
-        behaviour: { points_reset_frequency: 'academic_year' },
-      },
+      behaviour: { points_reset_frequency: 'academic_year' },
     });
 
     mockAcademicYearFindFirst.mockResolvedValue({ id: 'year-123' });
@@ -158,9 +168,7 @@ describe('BehaviourPointsService', () => {
 
     // Tenant settings with academic_period reset
     mockTenantSettingFindFirst.mockResolvedValue({
-      settings: {
-        behaviour: { points_reset_frequency: 'academic_period' },
-      },
+      behaviour: { points_reset_frequency: 'academic_period' },
     });
 
     mockAcademicPeriodFindFirst.mockResolvedValue({ id: 'period-456' });

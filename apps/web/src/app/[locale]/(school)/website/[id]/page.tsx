@@ -2,6 +2,7 @@
 
 import { Eye, Trash2 } from 'lucide-react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -59,6 +60,8 @@ function StatusBadge({ status }: { status: string }) {
 export default function WebsitePageEditorPage() {
   const _params = useParams<{ id: string }>();
   const id = _params?.id ?? '';
+  const t = useTranslations('website');
+  const tCommon = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -95,7 +98,8 @@ export default function WebsitePageEditorPage() {
         setShowInNav(p.show_in_nav);
         setNavOrder(p.nav_order ?? 0);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[WebsitePage]', err);
         toast.error('Failed to load page');
         router.push(`/${locale}/website`);
       })
@@ -122,7 +126,8 @@ export default function WebsitePageEditorPage() {
       });
       setPage(res.data);
       toast.success('Page saved');
-    } catch {
+    } catch (err) {
+      console.error('[WebsitePage]', err);
       toast.error('Failed to save page');
     } finally {
       setSaving(false);
@@ -137,7 +142,8 @@ export default function WebsitePageEditorPage() {
       });
       setPage(res.data);
       toast.success('Page published');
-    } catch {
+    } catch (err) {
+      console.error('[WebsitePage]', err);
       toast.error('Failed to publish page');
     } finally {
       setPublishing(false);
@@ -152,7 +158,8 @@ export default function WebsitePageEditorPage() {
       });
       setPage(res.data);
       toast.success('Page unpublished');
-    } catch {
+    } catch (err) {
+      console.error('[WebsitePage]', err);
       toast.error('Failed to unpublish page');
     } finally {
       setPublishing(false);
@@ -165,7 +172,8 @@ export default function WebsitePageEditorPage() {
       await apiClient(`/api/v1/website/pages/${id}`, { method: 'DELETE' });
       toast.success('Page deleted');
       router.push(`/${locale}/website`);
-    } catch {
+    } catch (err) {
+      console.error('[WebsitePage]', err);
       toast.error('Failed to delete page');
       setDeleting(false);
       setShowDeleteDialog(false);
@@ -204,13 +212,11 @@ export default function WebsitePageEditorPage() {
               variant="ghost"
               size="icon"
               onClick={() => setShowPreviewDialog(true)}
-              aria-label="Preview"
+              aria-label={t('preview')}
             >
               <Eye className="h-4 w-4" />
             </Button>
-            <Button variant="outline" onClick={() => router.push(`/${locale}/website`)}>
-              Back
-            </Button>
+            <Button variant="outline" onClick={() => router.push(`/${locale}/website`)}>{tCommon('back')}</Button>
             <Button variant="outline" onClick={handleSave} disabled={saving}>
               {saving ? 'Saving...' : 'Save'}
             </Button>
@@ -227,7 +233,7 @@ export default function WebsitePageEditorPage() {
               variant="destructive"
               size="icon"
               onClick={() => setShowDeleteDialog(true)}
-              aria-label="Delete page"
+              aria-label={t('deletePage2')}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -240,17 +246,16 @@ export default function WebsitePageEditorPage() {
         <div className="space-y-6 lg:col-span-2">
           {/* Basic info */}
           <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-            <h2 className="mb-4 text-base font-semibold text-text-primary">Page Details</h2>
+            <h2 className="mb-4 text-base font-semibold text-text-primary">{t('pageDetails')}</h2>
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="title">
-                  Title <span className="text-error-text">*</span>
+                <Label htmlFor="title">{t('titleField')}<span className="text-error-text">*</span>
                 </Label>
                 <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
               </div>
 
               <div className="space-y-1.5">
-                <Label>Slug</Label>
+                <Label>{t('slug')}</Label>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-text-tertiary">/</span>
                   <Input
@@ -260,31 +265,31 @@ export default function WebsitePageEditorPage() {
                     className="font-mono text-sm text-text-tertiary"
                   />
                 </div>
-                <p className="text-xs text-text-tertiary">Slug cannot be changed after creation</p>
+                <p className="text-xs text-text-tertiary">{t('slugCannotBeChangedAfter')}</p>
               </div>
 
               <div className="space-y-1.5">
-                <Label>Page Type</Label>
+                <Label>{t('pageType')}</Label>
                 <div className="rounded-lg bg-surface-secondary px-3 py-2">
                   <span className="text-sm font-medium text-text-secondary capitalize">
                     {pageTypeLabel}
                   </span>
                 </div>
-                <p className="text-xs text-text-tertiary">Page type is fixed after creation</p>
+                <p className="text-xs text-text-tertiary">{t('pageTypeIsFixedAfter')}</p>
               </div>
             </div>
           </div>
 
           {/* Body content */}
           <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-            <h2 className="mb-4 text-base font-semibold text-text-primary">Page Content</h2>
+            <h2 className="mb-4 text-base font-semibold text-text-primary">{t('pageContent')}</h2>
             <div className="space-y-1.5">
-              <Label htmlFor="body_html">Body HTML</Label>
+              <Label htmlFor="body_html">{t('bodyHtml')}</Label>
               <Textarea
                 id="body_html"
                 value={bodyHtml}
                 onChange={(e) => setBodyHtml(e.target.value)}
-                placeholder="<p>Enter your page content here...</p>"
+                placeholder={t('pEnterYourPageContent')}
                 className="min-h-[300px] font-mono text-sm"
               />
             </div>
@@ -292,24 +297,24 @@ export default function WebsitePageEditorPage() {
 
           {/* SEO */}
           <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-            <h2 className="mb-4 text-base font-semibold text-text-primary">SEO Settings</h2>
+            <h2 className="mb-4 text-base font-semibold text-text-primary">{t('seoSettings')}</h2>
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="meta_title">Meta Title</Label>
+                <Label htmlFor="meta_title">{t('metaTitle')}</Label>
                 <Input
                   id="meta_title"
                   value={metaTitle}
                   onChange={(e) => setMetaTitle(e.target.value)}
-                  placeholder="Leave blank to use page title"
+                  placeholder={t('leaveBlankToUsePage')}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="meta_description">Meta Description</Label>
+                <Label htmlFor="meta_description">{t('metaDescription')}</Label>
                 <Textarea
                   id="meta_description"
                   value={metaDescription}
                   onChange={(e) => setMetaDescription(e.target.value)}
-                  placeholder="Brief description for search engines"
+                  placeholder={t('briefDescriptionForSearchEngines')}
                   className="min-h-[80px]"
                 />
                 <p className="text-xs text-text-tertiary">
@@ -324,15 +329,15 @@ export default function WebsitePageEditorPage() {
         <div className="space-y-6">
           {/* Status info */}
           <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-            <h2 className="mb-4 text-base font-semibold text-text-primary">Status</h2>
+            <h2 className="mb-4 text-base font-semibold text-text-primary">{t('status')}</h2>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-text-secondary">Current status</span>
+                <span className="text-sm text-text-secondary">{t('currentStatus')}</span>
                 <StatusBadge status={page.status} />
               </div>
               {page.published_at && (
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-text-secondary">Published</span>
+                  <span className="text-sm text-text-secondary">{t('publishedAt')}</span>
                   <span className="text-sm text-text-primary">
                     {new Date(page.published_at).toLocaleDateString()}
                   </span>
@@ -343,19 +348,19 @@ export default function WebsitePageEditorPage() {
 
           {/* Navigation */}
           <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-            <h2 className="mb-4 text-base font-semibold text-text-primary">Navigation</h2>
+            <h2 className="mb-4 text-base font-semibold text-text-primary">{t('navigation')}</h2>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-text-primary">Show in Navigation</p>
-                  <p className="text-xs text-text-tertiary">Display in site menu</p>
+                  <p className="text-sm font-medium text-text-primary">{t('showInNav')}</p>
+                  <p className="text-xs text-text-tertiary">{t('displayInSiteMenu')}</p>
                 </div>
                 <Switch checked={showInNav} onCheckedChange={setShowInNav} />
               </div>
 
               {showInNav && (
                 <div className="space-y-1.5">
-                  <Label htmlFor="nav_order">Navigation Order</Label>
+                  <Label htmlFor="nav_order">{t('navOrder')}</Label>
                   <Input
                     id="nav_order"
                     type="number"
@@ -364,7 +369,7 @@ export default function WebsitePageEditorPage() {
                     value={navOrder}
                     onChange={(e) => setNavOrder(Number(e.target.value))}
                   />
-                  <p className="text-xs text-text-tertiary">Lower numbers appear first</p>
+                  <p className="text-xs text-text-tertiary">{t('lowerNumbersAppearFirst')}</p>
                 </div>
               )}
             </div>
@@ -376,21 +381,14 @@ export default function WebsitePageEditorPage() {
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Page</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete &quot;{page.title}&quot;? This action cannot be
-              undone.
-              {page.status === 'published' && (
-                <span className="mt-2 block font-medium text-error-text">
-                  This page is currently published and visible to the public.
-                </span>
+            <DialogTitle>{t('deletePage')}</DialogTitle>
+            <DialogDescription>{t('areYouSureYouWant')}{page.title}{t('thisActionCannotBeUndone')}{page.status === 'published' && (
+                <span className="mt-2 block font-medium text-error-text">{t('thisPageIsCurrentlyPublished')}</span>
               )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>{tCommon('cancel')}</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
               {deleting ? 'Deleting...' : 'Delete Page'}
             </Button>
@@ -402,8 +400,8 @@ export default function WebsitePageEditorPage() {
       <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Preview: {page.title}</DialogTitle>
-            <DialogDescription>Rendered preview of the page body HTML</DialogDescription>
+            <DialogTitle>{t('preview2')}{page.title}</DialogTitle>
+            <DialogDescription>{t('renderedPreviewOfThePage')}</DialogDescription>
           </DialogHeader>
           <div
             className="prose prose-sm max-h-[60vh] max-w-none overflow-y-auto rounded-lg border border-border bg-surface p-4 text-text-primary"
@@ -412,9 +410,7 @@ export default function WebsitePageEditorPage() {
             }}
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPreviewDialog(false)}>
-              Close
-            </Button>
+            <Button variant="outline" onClick={() => setShowPreviewDialog(false)}>{t('close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

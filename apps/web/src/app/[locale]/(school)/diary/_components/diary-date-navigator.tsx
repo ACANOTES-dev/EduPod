@@ -56,13 +56,13 @@ export function DiaryDateNavigator({
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-2">
-      <Button variant="outline" size="icon" onClick={() => shiftDay(-1)} aria-label="Previous day">
+      <Button variant="outline" size="icon" onClick={() => shiftDay(-1)} aria-label={t('previousDay')}>
         <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
       </Button>
 
       <span className="min-w-0 px-2 text-center text-sm font-medium sm:text-base">{formatted}</span>
 
-      <Button variant="outline" size="icon" onClick={() => shiftDay(1)} aria-label="Next day">
+      <Button variant="outline" size="icon" onClick={() => shiftDay(1)} aria-label={t('nextDay')}>
         <ChevronRight className="h-4 w-4 rtl:rotate-180" />
       </Button>
 

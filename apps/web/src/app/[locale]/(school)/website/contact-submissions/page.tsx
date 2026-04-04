@@ -2,6 +2,7 @@
 
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, MessageSquare } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { Badge, Button, EmptyState, TableWrapper, toast } from '@school/ui';
@@ -42,6 +43,8 @@ function SubmissionStatusBadge({ status }: { status: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ContactSubmissionsPage() {
+  const t = useTranslations('website');
+  const tCommon = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -69,7 +72,8 @@ export default function ContactSubmissionsPage() {
       );
       setSubmissions(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[WebsiteContactSubmissionsPage]', err);
       setSubmissions([]);
       setTotal(0);
     } finally {
@@ -99,7 +103,8 @@ export default function ContactSubmissionsPage() {
           s.id === id ? { ...s, status: newStatus as ContactSubmission['status'] } : s,
         ),
       );
-    } catch {
+    } catch (err) {
+      console.error('[WebsiteContactSubmissionsPage]', err);
       toast.error('Failed to update status');
     } finally {
       setUpdatingId(null);
@@ -145,7 +150,7 @@ export default function ContactSubmissionsPage() {
           size="icon"
           disabled={page <= 1}
           onClick={() => setPage(page - 1)}
-          aria-label="Previous page"
+          aria-label={t('previousPage')}
         >
           <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
         </Button>
@@ -157,7 +162,7 @@ export default function ContactSubmissionsPage() {
           size="icon"
           disabled={page >= totalPages}
           onClick={() => setPage(page + 1)}
-          aria-label="Next page"
+          aria-label={t('nextPage')}
         >
           <ChevronRight className="h-4 w-4 rtl:rotate-180" />
         </Button>
@@ -168,19 +173,17 @@ export default function ContactSubmissionsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Contact Submissions"
+        title={t('contactSubmissions')}
         description="Messages submitted through the public contact form"
         actions={
-          <Button variant="outline" onClick={() => router.push(`/${locale}/website`)}>
-            Back to Pages
-          </Button>
+          <Button variant="outline" onClick={() => router.push(`/${locale}/website`)}>{t('backToPages')}</Button>
         }
       />
 
       {!isLoading && submissions.length === 0 && statusFilter === 'new' ? (
         <EmptyState
           icon={MessageSquare}
-          title="No new submissions"
+          title={t('noNewSubmissions')}
           description="Contact form submissions will appear here."
         />
       ) : (
@@ -189,21 +192,11 @@ export default function ContactSubmissionsPage() {
             <thead>
               <tr className="border-b border-border">
                 <th className="w-10 px-4 py-3" />
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Email
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Phone
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Submitted
-                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('submissionName')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('submissionEmail')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('submissionPhone')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('status')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('submitted')}</th>
               </tr>
             </thead>
             <tbody>
@@ -219,9 +212,7 @@ export default function ContactSubmissionsPage() {
                 ))
               ) : submissions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-sm text-text-tertiary">
-                    No results found
-                  </td>
+                  <td colSpan={6} className="px-4 py-12 text-center text-sm text-text-tertiary">{tCommon('noResults')}</td>
                 </tr>
               ) : (
                 submissions.map((row) => (
@@ -273,9 +264,7 @@ export default function ContactSubmissionsPage() {
                                     void handleStatusChange(row.id, 'reviewed');
                                   }}
                                   disabled={updatingId !== null}
-                                >
-                                  Mark Reviewed
-                                </Button>
+                                >{t('markReviewed')}</Button>
                               )}
                               {row.status !== 'closed' && row.status !== 'spam' && (
                                 <Button
@@ -286,9 +275,7 @@ export default function ContactSubmissionsPage() {
                                     void handleStatusChange(row.id, 'closed');
                                   }}
                                   disabled={updatingId !== null}
-                                >
-                                  Close
-                                </Button>
+                                >{t('close')}</Button>
                               )}
                               {row.status !== 'spam' && (
                                 <Button
@@ -299,9 +286,7 @@ export default function ContactSubmissionsPage() {
                                     void handleStatusChange(row.id, 'spam');
                                   }}
                                   disabled={updatingId !== null}
-                                >
-                                  Mark Spam
-                                </Button>
+                                >{t('markSpam')}</Button>
                               )}
                               {row.status === 'spam' && (
                                 <Button
@@ -312,9 +297,7 @@ export default function ContactSubmissionsPage() {
                                     void handleStatusChange(row.id, 'new');
                                   }}
                                   disabled={updatingId !== null}
-                                >
-                                  Not Spam
-                                </Button>
+                                >{t('notSpam')}</Button>
                               )}
                             </div>
                           </div>

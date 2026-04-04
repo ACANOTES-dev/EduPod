@@ -63,7 +63,7 @@ export function GenerateDialog({ open, onOpenChange, onGenerated }: GenerateDial
     if (!open) return;
     apiClient<ListResponse<AcademicPeriod>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GenerateDialog]', err); });
   }, [open]);
 
   React.useEffect(() => {
@@ -78,7 +78,7 @@ export function GenerateDialog({ open, onOpenChange, onGenerated }: GenerateDial
         setStudents(res.data);
         setSelectedStudents(new Set(res.data.map((s) => s.id)));
       })
-      .catch(() => setStudents([]));
+      .catch((err) => { console.error('[GenerateDialog]', err); return setStudents([]); });
   }, [selectedPeriod]);
 
   const toggleStudent = (id: string) => {
@@ -123,7 +123,8 @@ export function GenerateDialog({ open, onOpenChange, onGenerated }: GenerateDial
       onOpenChange(false);
       onGenerated();
       toast.success(`${selectedCount} report cards generated`);
-    } catch {
+    } catch (err) {
+      console.error('[GenerateDialog]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setGenerating(false);
@@ -182,13 +183,12 @@ export function GenerateDialog({ open, onOpenChange, onGenerated }: GenerateDial
           {studentsWithoutGrades.length > 0 && (
             <div className="flex items-start gap-2 rounded-xl border border-warning-fill bg-warning-fill/10 p-3 text-sm text-warning-text">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{studentsWithoutGrades.length} student(s) do not have period grades yet.</span>
+              <span>{studentsWithoutGrades.length}{t('studentSDoNotHave')}</span>
             </div>
           )}
 
           <p className="text-sm text-text-secondary">
-            {selectedCount} report card(s) will be generated.
-          </p>
+            {selectedCount}{t('reportCardSWillBe')}</p>
         </div>
 
         <DialogFooter>

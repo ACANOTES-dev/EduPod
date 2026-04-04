@@ -115,7 +115,8 @@ export default function ScholarshipsPage() {
       );
       setScholarships(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[FinanceScholarshipsPage]', err);
       setScholarships([]);
       setTotal(0);
     } finally {
@@ -141,7 +142,8 @@ export default function ScholarshipsPage() {
           setStudents(studRes.data);
           setFeeStructures(fsRes.data);
         })
-        .catch(() => {
+        .catch((err) => {
+          console.error('[FinanceScholarshipsPage]', err);
           setStudents([]);
           setFeeStructures([]);
         });
@@ -179,7 +181,8 @@ export default function ScholarshipsPage() {
         renewal_date: '',
       });
       void fetchScholarships();
-    } catch {
+    } catch (err) {
+      console.error('[FinanceScholarshipsPage]', err);
       toast.error(t('scholarships.createFailed'));
     } finally {
       setCreating(false);
@@ -202,7 +205,8 @@ export default function ScholarshipsPage() {
       setRevokeTarget(null);
       setRevokeReason('');
       void fetchScholarships();
-    } catch {
+    } catch (err) {
+      console.error('[FinanceScholarshipsPage]', err);
       toast.error(t('scholarships.revokeFailed'));
     } finally {
       setRevoking(false);

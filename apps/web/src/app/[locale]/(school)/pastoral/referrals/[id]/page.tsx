@@ -107,7 +107,8 @@ export default function PastoralReferralDetailPage() {
   }, [populateForm, referralId]);
 
   React.useEffect(() => {
-    void refresh().catch(() => {
+    void refresh().catch((err) => {
+      console.error('[PastoralReferralsPage]', err);
       setReferral(null);
     });
   }, [refresh]);

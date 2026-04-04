@@ -68,7 +68,8 @@ export default function PastoralReferralsPage() {
 
       setRecords(response.data ?? []);
       setTotal(response.meta?.total ?? 0);
-    } catch {
+    } catch (err) {
+      console.error('[PastoralReferralsPage]', err);
       setRecords([]);
       setTotal(0);
     } finally {

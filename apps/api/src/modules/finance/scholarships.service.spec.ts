@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, StudentReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { ScholarshipsService } from './scholarships.service';
@@ -28,11 +29,19 @@ const mockPrisma = {
 describe('ScholarshipsService', () => {
   let service: ScholarshipsService;
 
+  let mockStudentReadFacade: { findById: jest.Mock };
+
   beforeEach(async () => {
+    mockStudentReadFacade = {
+      findById: jest.fn().mockResolvedValue({ id: STUDENT_ID }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ScholarshipsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: StudentReadFacade, useValue: mockStudentReadFacade },
       ],
     }).compile();
 
@@ -76,7 +85,7 @@ describe('ScholarshipsService', () => {
     });
 
     it('should throw NotFoundException when student not found', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue(null);
+      mockStudentReadFacade.findById.mockResolvedValue(null);
 
       await expect(
         service.create(TENANT_ID, USER_ID, {

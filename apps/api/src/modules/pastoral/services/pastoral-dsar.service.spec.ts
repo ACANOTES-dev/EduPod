@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ChildProtectionReadFacade } from '../../../common/tests/mock-facades';
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -111,14 +112,17 @@ const makeReview = (overrides: Record<string, unknown> = {}) => ({
 
 describe('PastoralDsarService', () => {
   let service: PastoralDsarService;
-  let mockPrisma: { cpAccessGrant: { findFirst: jest.Mock } };
+  let mockPrisma: Record<string, unknown>;
+  let mockCpFacade: { hasActiveCpAccess: jest.Mock; findFallbackGrantUserId: jest.Mock; findDlpUserIds: jest.Mock };
   let mockPastoralEventService: { write: jest.Mock };
 
   beforeEach(async () => {
-    mockPrisma = {
-      cpAccessGrant: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
+    mockPrisma = {};
+
+    mockCpFacade = {
+      hasActiveCpAccess: jest.fn().mockResolvedValue(false),
+      findFallbackGrantUserId: jest.fn().mockResolvedValue(ACTOR_USER_ID),
+      findDlpUserIds: jest.fn().mockResolvedValue([]),
     };
 
     mockPastoralEventService = {
@@ -141,9 +145,11 @@ describe('PastoralDsarService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         PastoralDsarService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PastoralEventService, useValue: mockPastoralEventService },
+        { provide: ChildProtectionReadFacade, useValue: mockCpFacade },
       ],
     }).compile();
 
@@ -273,12 +279,7 @@ describe('PastoralDsarService', () => {
 
     it('should include CP records when routing user has cp_access', async () => {
       // Grant cp_access
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue({
-        id: 'grant-1',
-        tenant_id: TENANT_ID,
-        user_id: ACTOR_USER_ID,
-        revoked_at: null,
-      });
+      mockCpFacade.hasActiveCpAccess.mockResolvedValue(true);
 
       const concern = makeConcern({ id: 'c1', tier: 1 });
       const cpRecord = makeCpRecord({ id: 'cp1' });
@@ -424,7 +425,7 @@ describe('PastoralDsarService', () => {
     });
 
     it('should throw NotFoundException if tier 3 and no cp_access', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
+      mockCpFacade.hasActiveCpAccess.mockResolvedValue(false);
       mockRlsTx.pastoralDsarReview.findFirst.mockResolvedValue(makeReview({ tier: 3 }));
       await expect(service.getReview(TENANT_ID, ACTOR_USER_ID, 'r-t3')).rejects.toThrow();
     });

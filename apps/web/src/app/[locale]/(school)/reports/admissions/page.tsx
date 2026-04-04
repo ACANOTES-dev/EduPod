@@ -79,8 +79,7 @@ function FunnelViz({ data }: { data: typeof FUNNEL_DATA }) {
           <div key={stage.stage} className="space-y-1">
             {i > 0 && (
               <div className="flex justify-center text-xs text-text-tertiary">
-                ↓ {conversion}% conversion
-              </div>
+                ↓ {conversion}{t('conversion')}</div>
             )}
             <div
               className="relative flex items-center justify-center"

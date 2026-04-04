@@ -68,8 +68,8 @@ export default function ParentTeacherNotesPage() {
         );
         setNotes(res.data ?? []);
         setTotal(res.meta?.total ?? 0);
-      } catch {
-        console.error('[ParentNotes] Failed to load notes');
+      } catch (err) {
+        console.error('[ParentNotes] Failed to load notes', err);
       } finally {
         setLoading(false);
       }
@@ -101,7 +101,8 @@ export default function ParentTeacherNotesPage() {
       setShowCompose(false);
       setPage(1);
       void fetchNotes(1);
-    } catch {
+    } catch (err) {
+      console.error('[ParentNotesPage]', err);
       toast.error(t('common.errorGeneric'));
     } finally {
       setSending(false);
@@ -125,7 +126,8 @@ export default function ParentTeacherNotesPage() {
           ),
         );
         toast.success(t('parent.notes.acknowledgeSuccess'));
-      } catch {
+      } catch (err) {
+        console.error('[ParentNotesPage]', err);
         toast.error(t('common.errorGeneric'));
       } finally {
         setAcknowledgingId(null);

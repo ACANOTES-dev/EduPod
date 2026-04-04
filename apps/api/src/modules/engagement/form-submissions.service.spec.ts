@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ParentReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { FormSubmissionsService } from './form-submissions.service';
@@ -125,7 +126,21 @@ describe('FormSubmissionsService', () => {
     mockRlsTx.engagementEvent.findFirst.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [FormSubmissionsService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        FormSubmissionsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: ParentReadFacade,
+          useValue: {
+            findByUserId: mockPrisma.parent.findFirst,
+            findLinkedStudentIds: jest.fn().mockImplementation(async () => {
+              const links = await mockPrisma.studentParent.findMany();
+              return (links as Array<{ student_id: string }>).map((l) => l.student_id);
+            }),
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<FormSubmissionsService>(FormSubmissionsService);

@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -34,6 +35,8 @@ function slugify(text: string): string {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function NewWebsitePagePage() {
+  const t = useTranslations('website');
+  const tCommon = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -104,13 +107,11 @@ export default function NewWebsitePagePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="New Website Page"
+        title={t('newWebsitePage')}
         description="Create a new page for your public school website"
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => router.push(`/${locale}/website`)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => router.push(`/${locale}/website`)}>{tCommon('cancel')}</Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? 'Saving...' : 'Save as Draft'}
             </Button>
@@ -123,23 +124,21 @@ export default function NewWebsitePagePage() {
         <div className="space-y-6 lg:col-span-2">
           {/* Basic info */}
           <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-            <h2 className="mb-4 text-base font-semibold text-text-primary">Page Details</h2>
+            <h2 className="mb-4 text-base font-semibold text-text-primary">{t('pageDetails')}</h2>
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="title">
-                  Title <span className="text-error-text">*</span>
+                <Label htmlFor="title">{t('titleField')}<span className="text-error-text">*</span>
                 </Label>
                 <Input
                   id="title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. About Our School"
+                  placeholder={t('eGAboutOurSchool')}
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="slug">
-                  Slug <span className="text-error-text">*</span>
+                <Label htmlFor="slug">{t('slug')}<span className="text-error-text">*</span>
                 </Label>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-text-tertiary">/</span>
@@ -152,21 +151,21 @@ export default function NewWebsitePagePage() {
                     className="font-mono text-sm"
                   />
                 </div>
-                <p className="text-xs text-text-tertiary">This will be the URL path for the page</p>
+                <p className="text-xs text-text-tertiary">{t('thisWillBeTheUrl')}</p>
               </div>
 
               <div className="space-y-1.5">
-                <Label>Page Type</Label>
+                <Label>{t('pageType')}</Label>
                 <Select value={pageType} onValueChange={setPageType}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="home">Home</SelectItem>
-                    <SelectItem value="about">About</SelectItem>
-                    <SelectItem value="admissions">Admissions</SelectItem>
-                    <SelectItem value="contact">Contact</SelectItem>
-                    <SelectItem value="custom">Custom</SelectItem>
+                    <SelectItem value="home">{t('home')}</SelectItem>
+                    <SelectItem value="about">{t('about')}</SelectItem>
+                    <SelectItem value="admissions">{t('admissions')}</SelectItem>
+                    <SelectItem value="contact">{t('contact')}</SelectItem>
+                    <SelectItem value="custom">{t('custom')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -175,40 +174,40 @@ export default function NewWebsitePagePage() {
 
           {/* Body content */}
           <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-            <h2 className="mb-4 text-base font-semibold text-text-primary">Page Content</h2>
+            <h2 className="mb-4 text-base font-semibold text-text-primary">{t('pageContent')}</h2>
             <div className="space-y-1.5">
-              <Label htmlFor="body_html">Body HTML</Label>
+              <Label htmlFor="body_html">{t('bodyHtml')}</Label>
               <Textarea
                 id="body_html"
                 value={bodyHtml}
                 onChange={(e) => setBodyHtml(e.target.value)}
-                placeholder="<p>Enter your page content here...</p>"
+                placeholder={t('pEnterYourPageContent')}
                 className="min-h-[300px] font-mono text-sm"
               />
-              <p className="text-xs text-text-tertiary">HTML content rendered on the public page</p>
+              <p className="text-xs text-text-tertiary">{t('htmlContentRenderedOnThe')}</p>
             </div>
           </div>
 
           {/* SEO */}
           <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-            <h2 className="mb-4 text-base font-semibold text-text-primary">SEO Settings</h2>
+            <h2 className="mb-4 text-base font-semibold text-text-primary">{t('seoSettings')}</h2>
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="meta_title">Meta Title</Label>
+                <Label htmlFor="meta_title">{t('metaTitle')}</Label>
                 <Input
                   id="meta_title"
                   value={metaTitle}
                   onChange={(e) => setMetaTitle(e.target.value)}
-                  placeholder="Leave blank to use page title"
+                  placeholder={t('leaveBlankToUsePage')}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="meta_description">Meta Description</Label>
+                <Label htmlFor="meta_description">{t('metaDescription')}</Label>
                 <Textarea
                   id="meta_description"
                   value={metaDescription}
                   onChange={(e) => setMetaDescription(e.target.value)}
-                  placeholder="Brief description for search engines (150–160 characters)"
+                  placeholder={t('briefDescriptionForSearchEngines2')}
                   className="min-h-[80px]"
                 />
                 <p className="text-xs text-text-tertiary">
@@ -222,19 +221,19 @@ export default function NewWebsitePagePage() {
         {/* Sidebar */}
         <div className="space-y-6">
           <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-            <h2 className="mb-4 text-base font-semibold text-text-primary">Navigation</h2>
+            <h2 className="mb-4 text-base font-semibold text-text-primary">{t('navigation')}</h2>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-text-primary">Show in Navigation</p>
-                  <p className="text-xs text-text-tertiary">Display this page in the site menu</p>
+                  <p className="text-sm font-medium text-text-primary">{t('showInNav')}</p>
+                  <p className="text-xs text-text-tertiary">{t('displayThisPageInThe')}</p>
                 </div>
                 <Switch checked={showInNav} onCheckedChange={setShowInNav} />
               </div>
 
               {showInNav && (
                 <div className="space-y-1.5">
-                  <Label htmlFor="nav_order">Navigation Order</Label>
+                  <Label htmlFor="nav_order">{t('navOrder')}</Label>
                   <Input
                     id="nav_order"
                     type="number"
@@ -243,19 +242,17 @@ export default function NewWebsitePagePage() {
                     value={navOrder}
                     onChange={(e) => setNavOrder(Number(e.target.value))}
                   />
-                  <p className="text-xs text-text-tertiary">Lower numbers appear first</p>
+                  <p className="text-xs text-text-tertiary">{t('lowerNumbersAppearFirst')}</p>
                 </div>
               )}
             </div>
           </div>
 
           <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-            <h2 className="mb-4 text-base font-semibold text-text-primary">Status</h2>
+            <h2 className="mb-4 text-base font-semibold text-text-primary">{t('status')}</h2>
             <div className="rounded-lg bg-surface-secondary px-3 py-2">
-              <span className="text-sm font-medium text-text-secondary">Draft</span>
-              <p className="mt-0.5 text-xs text-text-tertiary">
-                Save as draft — publish from the edit page
-              </p>
+              <span className="text-sm font-medium text-text-secondary">{t('draft')}</span>
+              <p className="mt-0.5 text-xs text-text-tertiary">{t('saveAsDraftPublishFrom')}</p>
             </div>
           </div>
         </div>

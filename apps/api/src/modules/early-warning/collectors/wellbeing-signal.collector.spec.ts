@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, PastoralReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { WellbeingSignalCollector } from './wellbeing-signal.collector';
@@ -56,8 +57,19 @@ describe('WellbeingSignalCollector', () => {
 
     const module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         WellbeingSignalCollector,
         { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: PastoralReadFacade,
+          useValue: {
+            findRecentCheckins: mockPrisma.studentCheckin.findMany,
+            findRecentConcerns: mockPrisma.pastoralConcern.findMany,
+            findActiveCases: mockPrisma.pastoralCase.findMany,
+            findActiveReferrals: mockPrisma.pastoralReferral.findMany,
+            findActiveWellbeingFlags: mockPrisma.criticalIncidentAffected.findMany,
+          },
+        },
       ],
     }).compile();
 

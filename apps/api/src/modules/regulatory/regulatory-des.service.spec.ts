@@ -8,6 +8,14 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+import {
+  AcademicReadFacade,
+  ClassesReadFacade,
+  MOCK_FACADE_PROVIDERS,
+  SchedulesReadFacade,
+  StaffProfileReadFacade,
+  StudentReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
 
@@ -124,6 +132,11 @@ describe('RegulatoryDesService', () => {
   let mockS3: ReturnType<typeof buildMockS3>;
   let mockSubmissionService: ReturnType<typeof buildMockSubmissionService>;
   let mockExporter: DesFileExporter;
+  let mockStaffProfileReadFacade: Record<string, jest.Mock>;
+  let mockClassesReadFacade: Record<string, jest.Mock>;
+  let mockStudentReadFacade: Record<string, jest.Mock>;
+  let mockAcademicReadFacade: Record<string, jest.Mock>;
+  let mockSchedulesReadFacade: Record<string, jest.Mock>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
@@ -131,13 +144,42 @@ describe('RegulatoryDesService', () => {
     mockSubmissionService = buildMockSubmissionService();
     mockExporter = buildMockExporter();
 
+    // Facade mocks that delegate to mockPrisma for backward-compatible test data setup
+    mockStaffProfileReadFacade = {
+      count: mockPrisma.staffProfile.count,
+      findAllWithUser: mockPrisma.staffProfile.findMany,
+    };
+    mockClassesReadFacade = {
+      countClassesGeneric: mockPrisma.class.count,
+      findClassesWithYearGroupAndEnrolmentCount: mockPrisma.class.findMany,
+    };
+    mockStudentReadFacade = {
+      count: mockPrisma.student.count,
+      findManyGeneric: mockPrisma.student.findMany,
+    };
+    mockAcademicReadFacade = {
+      countSubjects: mockPrisma.subject.count,
+      findSubjectsGeneric: mockPrisma.subject.findMany,
+      findYearByName: mockPrisma.academicYear.findFirst,
+    };
+    mockSchedulesReadFacade = {
+      count: mockPrisma.schedule.count,
+      findTeachingLoadEntries: mockPrisma.schedule.findMany,
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         RegulatoryDesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
         { provide: RegulatorySubmissionService, useValue: mockSubmissionService },
         { provide: DES_FILE_EXPORTER, useValue: mockExporter },
+        { provide: StaffProfileReadFacade, useValue: mockStaffProfileReadFacade },
+        { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
+        { provide: StudentReadFacade, useValue: mockStudentReadFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
+        { provide: SchedulesReadFacade, useValue: mockSchedulesReadFacade },
       ],
     }).compile();
 

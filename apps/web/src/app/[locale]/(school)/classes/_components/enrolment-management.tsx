@@ -70,7 +70,7 @@ function EnrolDialog({ classId, open, onOpenChange, onSuccess }: EnrolDialogProp
     if (!open) return;
     apiClient<{ data: Student[] }>('/api/v1/students?pageSize=100&status=active')
       .then((res) => setStudents(res.data))
-      .catch(() => setStudents([]));
+      .catch((err) => { console.error('[EnrolmentManagement]', err); return setStudents([]); });
   }, [open]);
 
   const handleSubmit = async () => {
@@ -167,7 +167,7 @@ function BulkEnrolDialog({ classId, open, onOpenChange, onSuccess }: BulkEnrolDi
     if (!open) return;
     apiClient<{ data: Student[] }>('/api/v1/students?pageSize=100&status=active')
       .then((res) => setStudents(res.data))
-      .catch(() => setStudents([]));
+      .catch((err) => { console.error('[EnrolmentManagement]', err); return setStudents([]); });
   }, [open]);
 
   const toggleStudent = (id: string) =>
@@ -276,7 +276,8 @@ export function EnrolmentManagement({ classId }: EnrolmentManagementProps) {
         const data = res.data ?? [];
         setEnrolments(data);
         setTotal(res.meta?.total ?? data.length);
-      } catch {
+      } catch (err) {
+        console.error('[EnrolmentManagement]', err);
         setEnrolments([]);
       } finally {
         setIsLoading(false);

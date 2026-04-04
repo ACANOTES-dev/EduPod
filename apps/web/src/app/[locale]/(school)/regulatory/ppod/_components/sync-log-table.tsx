@@ -189,20 +189,20 @@ export function SyncLogTable({ databaseType }: SyncLogTableProps) {
         header: t('ppod.columnRecords'),
         render: (row: SyncLogEntry) => (
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
-            <span title="Pushed">
+            <span title={t('pushed')}>
               <span className="text-text-tertiary">{t('ppod.pushed')}: </span>
               <span className="font-medium">{row.records_pushed}</span>
             </span>
-            <span title="Created">
+            <span title={t('created')}>
               <span className="text-text-tertiary">{t('ppod.created')}: </span>
               <span className="font-medium text-success-text">{row.records_created}</span>
             </span>
-            <span title="Updated">
+            <span title={t('updated')}>
               <span className="text-text-tertiary">{t('ppod.updated')}: </span>
               <span className="font-medium text-info-text">{row.records_updated}</span>
             </span>
             {row.records_failed > 0 && (
-              <span title="Failed">
+              <span title={t('failed2')}>
                 <span className="text-text-tertiary">{t('ppod.failed')}: </span>
                 <span className="font-medium text-danger-text">{row.records_failed}</span>
               </span>
@@ -285,6 +285,7 @@ interface ExpandedErrorDetailsProps {
 }
 
 function ExpandedErrorDetails({ entry, onClose }: ExpandedErrorDetailsProps) {
+  const tCommon = useTranslations('common');
   const t = useTranslations('regulatory');
 
   if (!entry?.error_details) return null;
@@ -307,7 +308,7 @@ function ExpandedErrorDetails({ entry, onClose }: ExpandedErrorDetailsProps) {
           type="button"
           onClick={onClose}
           className="text-text-tertiary hover:text-text-primary"
-          aria-label="Close"
+          aria-label={tCommon('close')}
         >
           &times;
         </button>

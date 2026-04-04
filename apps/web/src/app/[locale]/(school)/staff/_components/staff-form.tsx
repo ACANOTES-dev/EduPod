@@ -121,7 +121,7 @@ export function StaffForm({
         const filtered = res.data.filter((r) => r.role_tier !== 'platform');
         setRoles(filtered);
       })
-      .catch(() => setRoles([]));
+      .catch((err) => { console.error('[StaffForm]', err); return setRoles([]); });
   }, []);
 
   // ─── Staff number regeneration ───────────────────────────────────────────────

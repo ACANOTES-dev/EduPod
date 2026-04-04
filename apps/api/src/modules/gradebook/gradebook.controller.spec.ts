@@ -2,6 +2,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ClassesReadFacade, StaffProfileReadFacade } from '../../common/tests/mock-facades';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -82,6 +83,9 @@ const mockPermissionCacheService = {
   getPermissions: jest.fn(),
 };
 
+const mockStaffProfileFacade = { findByUserId: jest.fn() };
+const mockClassesFacade = { findClassesByStaff: jest.fn() };
+
 const mockPrisma = {
   classStaff: { findMany: jest.fn() },
   staffProfile: { findFirst: jest.fn() },
@@ -103,6 +107,9 @@ describe('GradebookController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [GradebookController],
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: StaffProfileReadFacade, useValue: mockStaffProfileFacade },
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
         { provide: ClassGradeConfigsService, useValue: mockClassGradeConfigsService },
         { provide: AssessmentsService, useValue: mockAssessmentsService },
         { provide: GradesService, useValue: mockGradesService },
@@ -187,8 +194,8 @@ describe('GradebookController', () => {
     const assignedClasses = [{ class_id: CLASS_ID }];
 
     mockPermissionCacheService.getPermissions.mockResolvedValue(permissions);
-    mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: staffProfileId });
-    mockPrisma.classStaff.findMany.mockResolvedValue(assignedClasses);
+    mockStaffProfileFacade.findByUserId.mockResolvedValue({ id: staffProfileId });
+    mockClassesFacade.findClassesByStaff.mockResolvedValue(assignedClasses);
     mockAssessmentsService.findAll.mockResolvedValue({
       data: [],
       meta: { page: 1, pageSize: 20, total: 0 },
@@ -208,7 +215,7 @@ describe('GradebookController', () => {
     const permissions = ['gradebook.manage'];
 
     mockPermissionCacheService.getPermissions.mockResolvedValue(permissions);
-    mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: 'sp-id' });
+    mockStaffProfileFacade.findByUserId.mockResolvedValue({ id: 'sp-id' });
     mockAssessmentsService.findAll.mockResolvedValue({
       data: [],
       meta: { page: 1, pageSize: 20, total: 0 },

@@ -166,8 +166,7 @@ export default function BehaviourAIQueryPage() {
               <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
                 {t('aiDisclaimer')}
               </span>
-              <span className="text-xs text-muted-foreground">
-                Data as of {new Date(result.data_as_of).toLocaleString()}
+              <span className="text-xs text-muted-foreground">{t('dataAsOf2')}{new Date(result.data_as_of).toLocaleString()}
               </span>
               <span className="text-xs text-muted-foreground">
                 {t('scope')}: {result.scope_applied}

@@ -50,7 +50,8 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
       });
       toast.success('Invoice issued successfully');
       onActionComplete();
-    } catch {
+    } catch (err) {
+      console.error('[InvoiceActions]', err);
       toast.error('Failed to issue invoice');
     } finally {
       setIsSubmitting(false);
@@ -66,7 +67,8 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
       toast.success('Invoice voided successfully');
       setShowVoidConfirm(false);
       onActionComplete();
-    } catch {
+    } catch (err) {
+      console.error('[InvoiceActions]', err);
       toast.error('Failed to void invoice');
     } finally {
       setIsSubmitting(false);
@@ -82,7 +84,8 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
       toast.success('Invoice cancelled successfully');
       setShowCancelConfirm(false);
       onActionComplete();
-    } catch {
+    } catch (err) {
+      console.error('[InvoiceActions]', err);
       toast.error('Failed to cancel invoice');
     } finally {
       setIsSubmitting(false);
@@ -104,7 +107,8 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
       setShowWriteOff(false);
       setWriteOffReason('');
       onActionComplete();
-    } catch {
+    } catch (err) {
+      console.error('[InvoiceActions]', err);
       toast.error('Failed to write off invoice');
     } finally {
       setIsSubmitting(false);
@@ -116,9 +120,7 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
       <div className="flex flex-wrap items-center gap-2">
         {canIssue && (
           <Button onClick={() => void handleIssue()} disabled={isSubmitting}>
-            <Send className="me-2 h-4 w-4" />
-            Issue
-          </Button>
+            <Send className="me-2 h-4 w-4" />{t('issue2')}</Button>
         )}
 
         {canVoid && (
@@ -127,9 +129,7 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
             onClick={() => setShowVoidConfirm(true)}
             disabled={isSubmitting}
           >
-            <Ban className="me-2 h-4 w-4" />
-            Void
-          </Button>
+            <Ban className="me-2 h-4 w-4" />{t('void')}</Button>
         )}
 
         {canCancel && (
@@ -138,16 +138,12 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
             onClick={() => setShowCancelConfirm(true)}
             disabled={isSubmitting}
           >
-            <XCircle className="me-2 h-4 w-4" />
-            Cancel
-          </Button>
+            <XCircle className="me-2 h-4 w-4" />{t('cancel')}</Button>
         )}
 
         {canWriteOff && (
           <Button variant="outline" onClick={() => setShowWriteOff(true)} disabled={isSubmitting}>
-            <FileX className="me-2 h-4 w-4" />
-            Write Off
-          </Button>
+            <FileX className="me-2 h-4 w-4" />{t('writeOff')}</Button>
         )}
 
         {canPrint && (
@@ -170,7 +166,7 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
       <Modal
         open={showVoidConfirm}
         onOpenChange={setShowVoidConfirm}
-        title="Void Invoice"
+        title={t('voidInvoice')}
         description="This will void the invoice. This action cannot be undone. Are you sure?"
         confirmLabel="Void Invoice"
         variant="destructive"
@@ -182,7 +178,7 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
       <Modal
         open={showCancelConfirm}
         onOpenChange={setShowCancelConfirm}
-        title="Cancel Invoice"
+        title={t('cancelInvoice')}
         description="This will cancel the invoice. This action cannot be undone. Are you sure?"
         confirmLabel="Cancel Invoice"
         variant="destructive"
@@ -197,7 +193,7 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
           setShowWriteOff(open);
           if (!open) setWriteOffReason('');
         }}
-        title="Write Off Invoice"
+        title={t('writeOffInvoice')}
         description="Provide a reason for writing off this invoice. This action cannot be undone."
         confirmLabel="Write Off"
         variant="destructive"
@@ -206,7 +202,7 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
       >
         <div className="space-y-2">
           <Textarea
-            placeholder="Enter write-off reason..."
+            placeholder={t('enterWriteOffReason')}
             value={writeOffReason}
             onChange={(e) => setWriteOffReason(e.target.value)}
             rows={3}

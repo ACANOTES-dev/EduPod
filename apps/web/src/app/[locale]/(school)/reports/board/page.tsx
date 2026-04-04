@@ -63,7 +63,7 @@ export default function BoardReportPage() {
   React.useEffect(() => {
     apiClient<HistoryResponse>('/api/v1/reports/board?pageSize=10')
       .then((res) => setHistory(res.data))
-      .catch(() => undefined)
+      .catch((err) => { console.error('[ReportsBoardPage]', err); })
       .finally(() => setLoadingHistory(false));
   }, []);
 
@@ -89,7 +89,8 @@ export default function BoardReportPage() {
       });
       setPreview(res.data);
       setHistory((prev) => [res.data, ...prev]);
-    } catch {
+    } catch (err) {
+      console.error('[ReportsBoardPage]', err);
       // Mock preview for now
       const mock: BoardReport = {
         id: crypto.randomUUID(),

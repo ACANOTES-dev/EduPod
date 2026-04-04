@@ -65,7 +65,8 @@ export default function SubjectsPage() {
       const res = await apiClient<SubjectsResponse>(`/api/v1/subjects?${params.toString()}`);
       setData(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[SubjectsPage]', err);
       setData([]);
       setTotal(0);
     } finally {

@@ -95,6 +95,7 @@ function PreferenceTabPanel({
   onChangeSentiment,
   onChangePriority,
 }: TabPanelProps) {
+  const tCommon = useTranslations('common');
   const [newEntityId, setNewEntityId] = React.useState('');
   const [newSentiment, setNewSentiment] = React.useState<PreferenceSentiment>('prefer');
 
@@ -149,8 +150,8 @@ function PreferenceTabPanel({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="prefer">Prefer</SelectItem>
-            <SelectItem value="avoid">Avoid</SelectItem>
+            <SelectItem value="prefer">{t('prefer')}</SelectItem>
+            <SelectItem value="avoid">{t('avoid')}</SelectItem>
           </SelectContent>
         </Select>
         <Button
@@ -162,16 +163,12 @@ function PreferenceTabPanel({
             setNewEntityId('');
           }}
         >
-          <Plus className="me-1.5 h-3.5 w-3.5" />
-          Add
-        </Button>
+          <Plus className="me-1.5 h-3.5 w-3.5" />{t('add')}</Button>
       </div>
 
       {/* Preference list */}
       {kindPrefs.length === 0 ? (
-        <div className="rounded-lg border border-border py-8 text-center text-sm text-text-tertiary">
-          No {kind.replace('_', ' ')} preferences set
-        </div>
+        <div className="rounded-lg border border-border py-8 text-center text-sm text-text-tertiary">{tCommon('no')}{kind.replace('_', ' ')}{t('preferencesSet')}</div>
       ) : (
         <div className="space-y-2">
           {kindPrefs.map((pref) => (
@@ -199,15 +196,15 @@ function PreferenceTabPanel({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">Low</SelectItem>
-                  <SelectItem value="2">Medium</SelectItem>
-                  <SelectItem value="3">High</SelectItem>
+                  <SelectItem value="1">{t('low')}</SelectItem>
+                  <SelectItem value="2">{t('medium')}</SelectItem>
+                  <SelectItem value="3">{t('high')}</SelectItem>
                 </SelectContent>
               </Select>
               <button
                 className="rounded p-1 text-text-tertiary hover:bg-red-50 hover:text-red-500"
                 onClick={() => onDelete(pref.id)}
-                aria-label="Remove"
+                aria-label={tCommon('remove')}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -261,7 +258,7 @@ export default function PreferencesPage() {
           setSelectedYear(yearsRes.data[0].id);
         }
       })
-      .catch(() => toast.error('Failed to load reference data'));
+      .catch((err) => { console.error('[SchedulingPreferencesPage]', err); return toast.error('Failed to load reference data'); });
   }, []);
 
   // Load period slots when year is selected
@@ -271,7 +268,7 @@ export default function PreferencesPage() {
       .then((res) =>
         setPeriodSlots(res.data.filter((p) => p.period_type === 'teaching') as PeriodSlot[]),
       )
-      .catch(() => undefined);
+      .catch((err) => { console.error('[SchedulingPreferencesPage]', err); });
   }, [selectedYear]);
 
   // Load preferences when staff + year selected
@@ -282,7 +279,8 @@ export default function PreferencesPage() {
       `/api/v1/staff-preferences?staff_profile_id=${selectedStaff}&academic_year_id=${selectedYear}&pageSize=100`,
     )
       .then((res) => setPreferences(res.data))
-      .catch(() => {
+      .catch((err) => {
+        console.error('[SchedulingPreferencesPage]', err);
         setPreferences([]);
         toast.error('Failed to load preferences');
       })
@@ -311,7 +309,8 @@ export default function PreferencesPage() {
         body: JSON.stringify(payload),
       });
       setPreferences((prev) => [...prev, created]);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingPreferencesPage]', err);
       toast.error('Failed to add preference');
     }
   };
@@ -320,7 +319,8 @@ export default function PreferencesPage() {
     try {
       await apiClient(`/api/v1/staff-preferences/${id}`, { method: 'DELETE' });
       setPreferences((prev) => prev.filter((p) => p.id !== id));
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingPreferencesPage]', err);
       toast.error('Failed to delete preference');
     }
   };
@@ -332,7 +332,8 @@ export default function PreferencesPage() {
         body: JSON.stringify({ sentiment }),
       });
       setPreferences((prev) => prev.map((p) => (p.id === id ? updated : p)));
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingPreferencesPage]', err);
       toast.error('Failed to update preference');
     }
   };
@@ -344,7 +345,8 @@ export default function PreferencesPage() {
         body: JSON.stringify({ priority }),
       });
       setPreferences((prev) => prev.map((p) => (p.id === id ? updated : p)));
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingPreferencesPage]', err);
       toast.error('Failed to update preference');
     }
   };
@@ -364,7 +366,7 @@ export default function PreferencesPage() {
           <div className="flex flex-wrap items-center gap-3">
             <Select value={selectedYear} onValueChange={setSelectedYear}>
               <SelectTrigger className="w-full sm:w-44">
-                <SelectValue placeholder="Academic Year" />
+                <SelectValue placeholder={t('academicYear2')} />
               </SelectTrigger>
               <SelectContent>
                 {academicYears.map((y) => (
@@ -376,7 +378,7 @@ export default function PreferencesPage() {
             </Select>
             <Select value={selectedStaff} onValueChange={setSelectedStaff}>
               <SelectTrigger className="w-full sm:w-52">
-                <SelectValue placeholder="Select staff member…" />
+                <SelectValue placeholder={t('selectStaffMember')} />
               </SelectTrigger>
               <SelectContent>
                 {staff.map((s) => (
@@ -393,16 +395,11 @@ export default function PreferencesPage() {
       {/* Best-effort banner */}
       <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>
-          Preferences are best-effort. The scheduler will try to honour them but may not always be
-          able to satisfy all preferences when constraints conflict.
-        </span>
+        <span>{t('preferencesAreBestEffortThe')}</span>
       </div>
 
       {!selectedStaff ? (
-        <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border text-sm text-text-tertiary">
-          Select a staff member to manage preferences
-        </div>
+        <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border text-sm text-text-tertiary">{t('selectAStaffMemberTo2')}</div>
       ) : isLoading ? (
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (

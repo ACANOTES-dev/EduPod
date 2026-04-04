@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, AuthReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { DashboardService } from './dashboard.service';
@@ -84,14 +85,27 @@ describe('DashboardService', () => {
   let mockPrisma: {
     user: { findUnique: jest.Mock };
   };
+  let mockAuthFacade: {
+    findUserSummary: jest.Mock;
+    findUserById: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockPrisma = {
       user: { findUnique: jest.fn() },
     };
+    mockAuthFacade = {
+      findUserSummary: jest.fn(),
+      findUserById: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [DashboardService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        DashboardService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuthReadFacade, useValue: mockAuthFacade },
+      ],
     }).compile();
 
     service = module.get<DashboardService>(DashboardService);
@@ -103,13 +117,13 @@ describe('DashboardService', () => {
 
   describe('schoolAdmin', () => {
     it('should throw NotFoundException if user not found', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockAuthFacade.findUserSummary.mockResolvedValue(null);
 
       await expect(service.schoolAdmin(TENANT_ID, USER_ID)).rejects.toThrow(NotFoundException);
     });
 
     it('should return school admin dashboard with stats and greeting', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Alice' });
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Alice' });
       buildAdminStats();
 
       const result = await service.schoolAdmin(TENANT_ID, USER_ID);
@@ -133,7 +147,7 @@ describe('DashboardService', () => {
     });
 
     it('should flag missing_billing_parent issue in incomplete_households', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Bob' });
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Bob' });
 
       mockRlsTx.student.count
         .mockResolvedValueOnce(0)
@@ -165,7 +179,7 @@ describe('DashboardService', () => {
     });
 
     it('should flag missing_emergency_contact when count is 0', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Carol' });
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Carol' });
 
       mockRlsTx.student.count
         .mockResolvedValueOnce(0)
@@ -196,7 +210,7 @@ describe('DashboardService', () => {
     });
 
     it('should return null active_academic_year_name when no active year exists', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Dave' });
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Dave' });
 
       mockRlsTx.student.count
         .mockResolvedValueOnce(0)
@@ -218,7 +232,7 @@ describe('DashboardService', () => {
     });
 
     it('should return correct summary format with staff and class counts', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Eve' });
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Eve' });
       buildAdminStats();
 
       const result = await service.schoolAdmin(TENANT_ID, USER_ID);
@@ -227,7 +241,7 @@ describe('DashboardService', () => {
     });
 
     it('should return empty recent_activity array', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Zara' });
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Zara' });
       buildAdminStats();
 
       const result = await service.schoolAdmin(TENANT_ID, USER_ID);
@@ -236,7 +250,7 @@ describe('DashboardService', () => {
     });
 
     it('should flag both issues when household is missing billing parent and contacts', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Multi' });
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Multi' });
 
       mockRlsTx.student.count
         .mockResolvedValueOnce(0)
@@ -273,7 +287,7 @@ describe('DashboardService', () => {
 
   describe('schoolAdmin — data shape', () => {
     it('should return stats object with all expected numeric fields', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Shape' });
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Shape' });
       buildAdminStats();
 
       const result = await service.schoolAdmin(TENANT_ID, USER_ID);
@@ -287,7 +301,7 @@ describe('DashboardService', () => {
     });
 
     it('should return admissions object with all expected fields', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Admissions' });
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Admissions' });
       buildAdminStats();
 
       const result = await service.schoolAdmin(TENANT_ID, USER_ID);
@@ -307,13 +321,13 @@ describe('DashboardService', () => {
 
   describe('parent', () => {
     it('should throw NotFoundException if user not found', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockAuthFacade.findUserById.mockResolvedValue(null);
 
       await expect(service.parent(TENANT_ID, USER_ID)).rejects.toThrow(NotFoundException);
     });
 
     it('should return parent dashboard with linked students', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Eva', preferred_locale: 'en' });
+      mockAuthFacade.findUserById.mockResolvedValue({ first_name: 'Eva', preferred_locale: 'en' });
       mockRlsTx.parent.findFirst.mockResolvedValue({ id: 'parent-id' });
       mockRlsTx.studentParent.findMany.mockResolvedValue([
         {
@@ -346,7 +360,7 @@ describe('DashboardService', () => {
     });
 
     it('should return parent dashboard with empty students if no parent record', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Frank', preferred_locale: null });
+      mockAuthFacade.findUserById.mockResolvedValue({ first_name: 'Frank', preferred_locale: null });
       mockRlsTx.parent.findFirst.mockResolvedValue(null);
 
       const result = await service.parent(TENANT_ID, USER_ID);
@@ -356,7 +370,7 @@ describe('DashboardService', () => {
     });
 
     it('should use Arabic greeting when preferred_locale is ar', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'فاطمة', preferred_locale: 'ar' });
+      mockAuthFacade.findUserById.mockResolvedValue({ first_name: 'فاطمة', preferred_locale: 'ar' });
       mockRlsTx.parent.findFirst.mockResolvedValue(null);
 
       const result = await service.parent(TENANT_ID, USER_ID);
@@ -366,7 +380,7 @@ describe('DashboardService', () => {
     });
 
     it('should map null year_group and homeroom_class to null', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Grace', preferred_locale: 'en' });
+      mockAuthFacade.findUserById.mockResolvedValue({ first_name: 'Grace', preferred_locale: 'en' });
       mockRlsTx.parent.findFirst.mockResolvedValue({ id: 'parent-id-2' });
       mockRlsTx.studentParent.findMany.mockResolvedValue([
         {
@@ -389,7 +403,7 @@ describe('DashboardService', () => {
     });
 
     it('should return multiple students when parent has multiple children', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Karen', preferred_locale: 'en' });
+      mockAuthFacade.findUserById.mockResolvedValue({ first_name: 'Karen', preferred_locale: 'en' });
       mockRlsTx.parent.findFirst.mockResolvedValue({ id: 'parent-multi' });
       mockRlsTx.studentParent.findMany.mockResolvedValue([
         {
@@ -424,7 +438,7 @@ describe('DashboardService', () => {
     });
 
     it('should return empty announcements array', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Ann', preferred_locale: null });
+      mockAuthFacade.findUserById.mockResolvedValue({ first_name: 'Ann', preferred_locale: null });
       mockRlsTx.parent.findFirst.mockResolvedValue(null);
 
       const result = await service.parent(TENANT_ID, USER_ID);
@@ -437,7 +451,7 @@ describe('DashboardService', () => {
 
   describe('parent — data shape', () => {
     it('should return student objects with all required fields', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Shape', preferred_locale: 'en' });
+      mockAuthFacade.findUserById.mockResolvedValue({ first_name: 'Shape', preferred_locale: 'en' });
       mockRlsTx.parent.findFirst.mockResolvedValue({ id: 'parent-shape' });
       mockRlsTx.studentParent.findMany.mockResolvedValue([
         {
@@ -466,7 +480,7 @@ describe('DashboardService', () => {
     });
 
     it('should NOT include admin-level stats in parent dashboard', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockAuthFacade.findUserById.mockResolvedValue({
         first_name: 'Parent',
         preferred_locale: 'en',
       });
@@ -486,13 +500,13 @@ describe('DashboardService', () => {
 
   describe('teacher', () => {
     it('should throw NotFoundException if user not found', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockAuthFacade.findUserSummary.mockResolvedValue(null);
 
       await expect(service.teacher(TENANT_ID, USER_ID)).rejects.toThrow(NotFoundException);
     });
 
     it('should return teacher dashboard with empty schedule if no staff profile', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Henry' });
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Henry' });
       mockRlsTx.staffProfile.findFirst.mockResolvedValue(null);
 
       const result = await service.teacher(TENANT_ID, USER_ID);
@@ -504,7 +518,7 @@ describe('DashboardService', () => {
     });
 
     it('should return teacher dashboard with schedule and sessions for staff profile', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Irene' });
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Irene' });
       mockRlsTx.staffProfile.findFirst.mockResolvedValue({ id: 'staff-id' });
 
       const fakeTime = new Date('2026-03-24T09:00:00');
@@ -556,7 +570,7 @@ describe('DashboardService', () => {
     });
 
     it('should count pending_submissions as sessions with status open', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Jack' });
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Jack' });
       mockRlsTx.staffProfile.findFirst.mockResolvedValue({ id: 'staff-id-2' });
       mockRlsTx.schedule.findMany.mockResolvedValue([]);
       mockRlsTx.classStaff.findMany.mockResolvedValue([]);
@@ -585,7 +599,7 @@ describe('DashboardService', () => {
     });
 
     it('should handle schedule entries without room', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'NoRoom' });
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'NoRoom' });
       mockRlsTx.staffProfile.findFirst.mockResolvedValue({ id: 'staff-noroom' });
       mockRlsTx.schedule.findMany.mockResolvedValue([
         {
@@ -615,7 +629,7 @@ describe('DashboardService', () => {
 
   describe('teacher — data shape', () => {
     it('should return schedule entries with all required fields', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Shape' });
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Shape' });
       mockRlsTx.staffProfile.findFirst.mockResolvedValue({ id: 'staff-shape' });
       mockRlsTx.schedule.findMany.mockResolvedValue([
         {
@@ -647,7 +661,7 @@ describe('DashboardService', () => {
     });
 
     it('should NOT include admin-level stats in teacher dashboard', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Teacher' });
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Teacher' });
       mockRlsTx.staffProfile.findFirst.mockResolvedValue(null);
 
       const result = await service.teacher(TENANT_ID, USER_ID);
@@ -662,7 +676,7 @@ describe('DashboardService', () => {
     });
 
     it('should NOT include parent-level fields in teacher dashboard', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Teacher' });
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Teacher' });
       mockRlsTx.staffProfile.findFirst.mockResolvedValue(null);
 
       const result = await service.teacher(TENANT_ID, USER_ID);
@@ -675,69 +689,57 @@ describe('DashboardService', () => {
   // ─── greeting time-of-day logic ───────────────────────────────────────────
 
   describe('greeting — time-of-day', () => {
-    it('should produce morning greeting before 12:00', async () => {
-      const realDate = globalThis.Date;
-      const mockDate = new Date('2026-03-31T09:00:00');
-      jest.spyOn(globalThis, 'Date').mockImplementation((...args: unknown[]) => {
-        if (args.length === 0) return mockDate;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Date constructor overload
-        return new realDate(...(args as [any]));
-      });
+    // Capture the real Date constructor once at describe-time, before any spies
+    const RealDate = globalThis.Date;
 
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Morning' });
+    afterEach(() => {
+      // Restore only the Date spy, not all mocks (which would break RLS mock)
+      globalThis.Date = RealDate;
+    });
+
+    function mockDateHour(isoString: string) {
+      const mockDate = new RealDate(isoString);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Date constructor overload
+      globalThis.Date = function (...args: any[]) {
+        if (args.length === 0) return mockDate;
+        return new RealDate(...args);
+      } as unknown as DateConstructor;
+      globalThis.Date.prototype = RealDate.prototype;
+      globalThis.Date.now = RealDate.now;
+    }
+
+    it('should produce morning greeting before 12:00', async () => {
+      mockDateHour('2026-03-31T09:00:00');
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Morning' });
       buildZeroAdminStats();
 
       const result = await service.schoolAdmin(TENANT_ID, USER_ID);
 
       expect(result.greeting).toBe('Good morning, Morning');
-
-      jest.restoreAllMocks();
-      // Re-setup mockPrisma after restoreAllMocks
-      mockPrisma = { user: { findUnique: jest.fn() } };
     });
 
     it('should produce afternoon greeting between 12:00 and 17:00', async () => {
-      const realDate = globalThis.Date;
-      const mockDate = new Date('2026-03-31T14:00:00');
-      jest.spyOn(globalThis, 'Date').mockImplementation((...args: unknown[]) => {
-        if (args.length === 0) return mockDate;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Date constructor overload
-        return new realDate(...(args as [any]));
-      });
-
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Afternoon' });
+      mockDateHour('2026-03-31T14:00:00');
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Afternoon' });
       buildZeroAdminStats();
 
       const result = await service.schoolAdmin(TENANT_ID, USER_ID);
 
       expect(result.greeting).toBe('Good afternoon, Afternoon');
-
-      jest.restoreAllMocks();
-      mockPrisma = { user: { findUnique: jest.fn() } };
     });
 
     it('should produce evening greeting after 17:00', async () => {
-      const realDate = globalThis.Date;
-      const mockDate = new Date('2026-03-31T20:00:00');
-      jest.spyOn(globalThis, 'Date').mockImplementation((...args: unknown[]) => {
-        if (args.length === 0) return mockDate;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Date constructor overload
-        return new realDate(...(args as [any]));
-      });
-
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Evening' });
+      mockDateHour('2026-03-31T20:00:00');
+      mockAuthFacade.findUserSummary.mockResolvedValue({ first_name: 'Evening' });
       buildZeroAdminStats();
 
       const result = await service.schoolAdmin(TENANT_ID, USER_ID);
 
       expect(result.greeting).toBe('Good evening, Evening');
-
-      jest.restoreAllMocks();
-      mockPrisma = { user: { findUnique: jest.fn() } };
     });
 
     it('should produce Arabic greeting for parent with ar locale', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'احمد', preferred_locale: 'ar' });
+      mockAuthFacade.findUserById.mockResolvedValue({ first_name: 'احمد', preferred_locale: 'ar' });
       mockRlsTx.parent.findFirst.mockResolvedValue(null);
 
       const result = await service.parent(TENANT_ID, USER_ID);

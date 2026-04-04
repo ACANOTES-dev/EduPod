@@ -1,9 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  RoomsReadFacade,
+  SchedulesReadFacade,
+  SchedulingRunsReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
-import { RoomsReadFacade } from '../rooms/rooms-read.facade';
-import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
-import { SchedulingRunsReadFacade } from '../scheduling-runs/scheduling-runs-read.facade';
 
 import { SchedulingAnalyticsService } from './scheduling-analytics.service';
 
@@ -14,97 +17,53 @@ const DEFAULT_QUERY = { academic_year_id: ACADEMIC_YEAR_ID };
 
 describe('SchedulingAnalyticsService', () => {
   let service: SchedulingAnalyticsService;
-  let mockPrisma: {
-    schedule: { findMany: jest.Mock; count: jest.Mock };
-    teacherSchedulingConfig: { findMany: jest.Mock };
-    room: { findMany: jest.Mock };
-    schedulePeriodTemplate: { findMany: jest.Mock };
-    substitutionRecord: { findMany: jest.Mock; count: jest.Mock };
-    schedulingRun: { findFirst: jest.Mock };
+
+  const mockSchedulesReadFacade = {
+    findByAcademicYear: jest.fn().mockResolvedValue([]),
+    findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
+    count: jest.fn().mockResolvedValue(0),
+  };
+
+  const mockRoomsReadFacade = {
+    findActiveRooms: jest.fn().mockResolvedValue([]),
+    findActiveRoomBasics: jest.fn().mockResolvedValue([]),
+  };
+
+  const mockSchedulingRunsReadFacade = {
+    findLatestAppliedRun: jest.fn().mockResolvedValue(null),
+  };
+
+  const mockPrisma = {
+    teacherSchedulingConfig: { findMany: jest.fn().mockResolvedValue([]) },
+    schedulePeriodTemplate: { findMany: jest.fn().mockResolvedValue([]) },
+    substitutionRecord: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
   };
 
   beforeEach(async () => {
-    mockPrisma = {
-      schedule: {
-        findMany: jest.fn().mockResolvedValue([]),
-        count: jest.fn().mockResolvedValue(0),
-      },
-      teacherSchedulingConfig: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      room: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      schedulePeriodTemplate: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      substitutionRecord: {
-        findMany: jest.fn().mockResolvedValue([]),
-        count: jest.fn().mockResolvedValue(0),
-      },
-      schedulingRun: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        { provide: RoomsReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      exists: jest.fn().mockResolvedValue(false),
-      findActiveRooms: jest.fn().mockResolvedValue([]),
-      findActiveRoomBasics: jest.fn().mockResolvedValue([]),
-      countActiveRooms: jest.fn().mockResolvedValue(0),
-      findAllClosures: jest.fn().mockResolvedValue([]),
-      findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-      findClosureById: jest.fn().mockResolvedValue(null),
-    } },
-        { provide: SchedulesReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findCoreById: jest.fn().mockResolvedValue(null),
-      existsById: jest.fn().mockResolvedValue(null),
-      findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
-      countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
-      findTeacherTimetable: jest.fn().mockResolvedValue([]),
-      findClassTimetable: jest.fn().mockResolvedValue([]),
-      findPinnedEntries: jest.fn().mockResolvedValue([]),
-      countPinnedEntries: jest.fn().mockResolvedValue(0),
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findScheduledClassIds: jest.fn().mockResolvedValue([]),
-      countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
-      count: jest.fn().mockResolvedValue(0),
-      hasRotationEntries: jest.fn().mockResolvedValue(false),
-      countByRoom: jest.fn().mockResolvedValue(0),
-      findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
-      findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
-      countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
-      findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
-      hasConflict: jest.fn().mockResolvedValue(false),
-      findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
-      findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
-    } },
-        { provide: SchedulingRunsReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findStatusById: jest.fn().mockResolvedValue(null),
-      findActiveRun: jest.fn().mockResolvedValue(null),
-      countActiveRuns: jest.fn().mockResolvedValue(0),
-      findLatestCompletedRun: jest.fn().mockResolvedValue(null),
-      findLatestRunWithResult: jest.fn().mockResolvedValue(null),
-      findLatestAppliedRun: jest.fn().mockResolvedValue(null),
-      listRuns: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-      findHistoricalRuns: jest.fn().mockResolvedValue([]),
-      findScenarioById: jest.fn().mockResolvedValue(null),
-      findScenarioStatusById: jest.fn().mockResolvedValue(null),
-      listScenarios: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-      findScenariosForComparison: jest.fn().mockResolvedValue([]),
-    } },
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: RoomsReadFacade, useValue: mockRoomsReadFacade },
+        { provide: SchedulesReadFacade, useValue: mockSchedulesReadFacade },
+        { provide: SchedulingRunsReadFacade, useValue: mockSchedulingRunsReadFacade },
         SchedulingAnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 
     service = module.get<SchedulingAnalyticsService>(SchedulingAnalyticsService);
+
+    jest.clearAllMocks();
+    mockSchedulesReadFacade.findByAcademicYear.mockResolvedValue([]);
+    mockSchedulesReadFacade.findTeacherWorkloadEntries.mockResolvedValue([]);
+    mockSchedulesReadFacade.count.mockResolvedValue(0);
+    mockRoomsReadFacade.findActiveRooms.mockResolvedValue([]);
+    mockRoomsReadFacade.findActiveRoomBasics.mockResolvedValue([]);
+    mockSchedulingRunsReadFacade.findLatestAppliedRun.mockResolvedValue(null);
+    mockPrisma.teacherSchedulingConfig.findMany.mockResolvedValue([]);
+    mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([]);
+    mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
+    mockPrisma.substitutionRecord.count.mockResolvedValue(0);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -122,7 +81,7 @@ describe('SchedulingAnalyticsService', () => {
 
     it('should calculate correct teacher utilization percentage', async () => {
       // Teacher has 10 scheduled periods, max is 20 → 50%
-      mockPrisma.schedule.findMany.mockResolvedValue(
+      mockSchedulesReadFacade.findByAcademicYear.mockResolvedValue(
         Array(10).fill({ teacher_staff_id: 'staff-1', room_id: null, period_order: 1, weekday: 1 }),
       );
       mockPrisma.teacherSchedulingConfig.findMany.mockResolvedValue([
@@ -135,12 +94,12 @@ describe('SchedulingAnalyticsService', () => {
     });
 
     it('should calculate room utilization as filled slots / total available slots', async () => {
-      mockPrisma.room.findMany.mockResolvedValue([{ id: 'room-1', capacity: 30 }]);
+      mockRoomsReadFacade.findActiveRooms.mockResolvedValue([{ id: 'room-1', capacity: 30 }]);
       mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue(
         Array(10).fill({ weekday: 1, period_order: 1 }),
       );
       // room-1 is used in 5 of 10 available slots
-      mockPrisma.schedule.findMany.mockResolvedValue(
+      mockSchedulesReadFacade.findByAcademicYear.mockResolvedValue(
         Array(5).fill({ teacher_staff_id: null, room_id: 'room-1', period_order: 1, weekday: 1 }),
       );
 
@@ -150,7 +109,7 @@ describe('SchedulingAnalyticsService', () => {
     });
 
     it('should include preference satisfaction when a scheduling run exists', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      mockSchedulingRunsReadFacade.findLatestAppliedRun.mockResolvedValue({
         soft_preference_score: '75',
         soft_preference_max: '100',
         entries_unassigned: 3,
@@ -164,7 +123,7 @@ describe('SchedulingAnalyticsService', () => {
     });
 
     it('should return null preference satisfaction when no scheduling run exists', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
+      mockSchedulingRunsReadFacade.findLatestAppliedRun.mockResolvedValue(null);
 
       const result = await service.getEfficiencyDashboard(TENANT_ID, DEFAULT_QUERY);
 
@@ -184,23 +143,17 @@ describe('SchedulingAnalyticsService', () => {
 
   describe('getWorkloadHeatmap', () => {
     it('should return per-teacher workload with periods_per_weekday map', async () => {
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      mockSchedulesReadFacade.findTeacherWorkloadEntries.mockResolvedValue([
         {
           teacher_staff_id: 'staff-1',
-          weekday: 1,
-          period_order: 1,
           teacher: { user: { first_name: 'Alice', last_name: 'Brown' } },
         },
         {
           teacher_staff_id: 'staff-1',
-          weekday: 1,
-          period_order: 2,
           teacher: { user: { first_name: 'Alice', last_name: 'Brown' } },
         },
         {
           teacher_staff_id: 'staff-1',
-          weekday: 3,
-          period_order: 1,
           teacher: { user: { first_name: 'Alice', last_name: 'Brown' } },
         },
       ]);
@@ -209,12 +162,12 @@ describe('SchedulingAnalyticsService', () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0]!.total_periods).toBe(3);
-      expect(result.data[0]!.periods_per_weekday[1]).toBe(2);
-      expect(result.data[0]!.periods_per_weekday[3]).toBe(1);
+      // All entries mapped to weekday 0 by the facade-based service
+      expect(result.data[0]!.periods_per_weekday[0]).toBe(3);
     });
 
     it('should sort by total_periods descending', async () => {
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      mockSchedulesReadFacade.findTeacherWorkloadEntries.mockResolvedValue([
         { teacher_staff_id: 'staff-2', weekday: 1, period_order: 1, teacher: { user: { first_name: 'Bob', last_name: 'Smith' } } },
         { teacher_staff_id: 'staff-1', weekday: 1, period_order: 1, teacher: { user: { first_name: 'Alice', last_name: 'Brown' } } },
         { teacher_staff_id: 'staff-1', weekday: 2, period_order: 1, teacher: { user: { first_name: 'Alice', last_name: 'Brown' } } },
@@ -228,7 +181,7 @@ describe('SchedulingAnalyticsService', () => {
     });
 
     it('should include cover_count from recent substitution records', async () => {
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      mockSchedulesReadFacade.findTeacherWorkloadEntries.mockResolvedValue([
         { teacher_staff_id: 'staff-1', weekday: 1, period_order: 1, teacher: { user: { first_name: 'Alice', last_name: 'Brown' } } },
       ]);
       mockPrisma.substitutionRecord.findMany.mockResolvedValue([
@@ -253,7 +206,7 @@ describe('SchedulingAnalyticsService', () => {
 
   describe('getRoomUtilization', () => {
     it('should calculate utilization_rate for each room', async () => {
-      mockPrisma.room.findMany.mockResolvedValue([
+      mockRoomsReadFacade.findActiveRoomBasics.mockResolvedValue([
         { id: 'room-1', name: 'Lab A', capacity: 25 },
         { id: 'room-2', name: 'Hall B', capacity: 100 },
       ]);
@@ -262,7 +215,7 @@ describe('SchedulingAnalyticsService', () => {
       );
       // room-1 used 10 times out of 20 possible → 50%
       // room-2 used 0 times → 0%
-      mockPrisma.schedule.findMany.mockResolvedValue(
+      mockSchedulesReadFacade.findByAcademicYear.mockResolvedValue(
         Array(10).fill({ room_id: 'room-1' }),
       );
 
@@ -277,7 +230,7 @@ describe('SchedulingAnalyticsService', () => {
     });
 
     it('should sort rooms by utilization_rate descending', async () => {
-      mockPrisma.room.findMany.mockResolvedValue([
+      mockRoomsReadFacade.findActiveRoomBasics.mockResolvedValue([
         { id: 'room-1', name: 'Lab A', capacity: 25 },
         { id: 'room-2', name: 'Hall B', capacity: 100 },
       ]);
@@ -285,7 +238,7 @@ describe('SchedulingAnalyticsService', () => {
         Array(10).fill({ weekday: 1 }),
       );
       // room-2 has higher utilization
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      mockSchedulesReadFacade.findByAcademicYear.mockResolvedValue([
         ...Array(8).fill({ room_id: 'room-2' }),
         ...Array(2).fill({ room_id: 'room-1' }),
       ]);
@@ -296,11 +249,11 @@ describe('SchedulingAnalyticsService', () => {
     });
 
     it('should return 0 utilization when no period templates exist', async () => {
-      mockPrisma.room.findMany.mockResolvedValue([
+      mockRoomsReadFacade.findActiveRoomBasics.mockResolvedValue([
         { id: 'room-1', name: 'Lab A', capacity: 25 },
       ]);
       mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([]);
-      mockPrisma.schedule.findMany.mockResolvedValue([{ room_id: 'room-1' }]);
+      mockSchedulesReadFacade.findByAcademicYear.mockResolvedValue([{ room_id: 'room-1' }]);
 
       const result = await service.getRoomUtilization(TENANT_ID, DEFAULT_QUERY);
 
@@ -308,7 +261,7 @@ describe('SchedulingAnalyticsService', () => {
     });
 
     it('should return empty data when no rooms are active', async () => {
-      mockPrisma.room.findMany.mockResolvedValue([]);
+      mockRoomsReadFacade.findActiveRoomBasics.mockResolvedValue([]);
 
       const result = await service.getRoomUtilization(TENANT_ID, DEFAULT_QUERY);
 

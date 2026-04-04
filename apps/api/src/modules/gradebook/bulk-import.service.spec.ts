@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, StudentReadFacade, AcademicReadFacade, ClassesReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BulkImportService } from './bulk-import.service';
@@ -49,13 +50,23 @@ function makeCsvBuffer(rows: string[]): Buffer {
 describe('BulkImportService', () => {
   let service: BulkImportService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  const mockStudentFacade = { findManyGeneric: jest.fn() };
+  const mockAcademicFacade = { findAllSubjects: jest.fn() };
+  const mockClassesFacade = { findEnrolmentsGeneric: jest.fn() };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRlsTx.grade.upsert.mockReset();
+    mockStudentFacade.findManyGeneric.mockResolvedValue([]);
+    mockAcademicFacade.findAllSubjects.mockResolvedValue([]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
         BulkImportService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -82,8 +93,8 @@ describe('BulkImportService', () => {
     });
 
     it('should return validation result with error when student is not found', async () => {
-      mockPrisma.student.findMany.mockResolvedValue([]);
-      mockPrisma.subject.findMany.mockResolvedValue([
+      mockStudentFacade.findManyGeneric.mockResolvedValue([]);
+      mockAcademicFacade.findAllSubjects.mockResolvedValue([
         { id: SUBJECT_ID, name: 'Math', code: 'MATH' },
       ]);
 
@@ -95,10 +106,10 @@ describe('BulkImportService', () => {
     });
 
     it('should return validation result with error when subject is not found', async () => {
-      mockPrisma.student.findMany.mockResolvedValue([
+      mockStudentFacade.findManyGeneric.mockResolvedValue([
         { id: STUDENT_ID, student_number: 'S001', first_name: 'Alice', last_name: 'Smith' },
       ]);
-      mockPrisma.subject.findMany.mockResolvedValue([]);
+      mockAcademicFacade.findAllSubjects.mockResolvedValue([]);
 
       const csv = makeCsvBuffer(['S001,MATH,Quiz 1,85']);
       const result = await service.validateCsv(TENANT_ID, csv);
@@ -108,13 +119,13 @@ describe('BulkImportService', () => {
     });
 
     it('should return valid result when all identifiers match and score is within max', async () => {
-      mockPrisma.student.findMany.mockResolvedValue([
+      mockStudentFacade.findManyGeneric.mockResolvedValue([
         { id: STUDENT_ID, student_number: 'S001', first_name: 'Alice', last_name: 'Smith' },
       ]);
-      mockPrisma.subject.findMany.mockResolvedValue([
+      mockAcademicFacade.findAllSubjects.mockResolvedValue([
         { id: SUBJECT_ID, name: 'Math', code: 'MATH' },
       ]);
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([{ class_id: CLASS_ID }]);
+      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ class_id: CLASS_ID }]);
       mockPrisma.assessment.findFirst.mockResolvedValue({
         id: ASSESSMENT_ID,
         max_score: 100,
@@ -131,13 +142,13 @@ describe('BulkImportService', () => {
     });
 
     it('should report error when score exceeds assessment max_score', async () => {
-      mockPrisma.student.findMany.mockResolvedValue([
+      mockStudentFacade.findManyGeneric.mockResolvedValue([
         { id: STUDENT_ID, student_number: 'S001', first_name: 'Alice', last_name: 'Smith' },
       ]);
-      mockPrisma.subject.findMany.mockResolvedValue([
+      mockAcademicFacade.findAllSubjects.mockResolvedValue([
         { id: SUBJECT_ID, name: 'Math', code: 'MATH' },
       ]);
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([{ class_id: CLASS_ID }]);
+      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ class_id: CLASS_ID }]);
       mockPrisma.assessment.findFirst.mockResolvedValue({
         id: ASSESSMENT_ID,
         max_score: 50,
@@ -151,13 +162,13 @@ describe('BulkImportService', () => {
     });
 
     it('should report error when score is invalid (non-numeric)', async () => {
-      mockPrisma.student.findMany.mockResolvedValue([
+      mockStudentFacade.findManyGeneric.mockResolvedValue([
         { id: STUDENT_ID, student_number: 'S001', first_name: 'Alice', last_name: 'Smith' },
       ]);
-      mockPrisma.subject.findMany.mockResolvedValue([
+      mockAcademicFacade.findAllSubjects.mockResolvedValue([
         { id: SUBJECT_ID, name: 'Math', code: 'MATH' },
       ]);
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([{ class_id: CLASS_ID }]);
+      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ class_id: CLASS_ID }]);
       mockPrisma.assessment.findFirst.mockResolvedValue({
         id: ASSESSMENT_ID,
         max_score: 100,
@@ -234,7 +245,7 @@ describe('BulkImportService', () => {
 
   describe('generateTemplate', () => {
     it('should return a CSV template with header row when no students or assessments exist', async () => {
-      mockPrisma.student.findMany.mockResolvedValue([]);
+      mockStudentFacade.findManyGeneric.mockResolvedValue([]);
       mockPrisma.assessment.findMany.mockResolvedValue([]);
 
       const result = await service.generateTemplate(TENANT_ID);
@@ -244,7 +255,7 @@ describe('BulkImportService', () => {
     });
 
     it('should include student-assessment rows in the template', async () => {
-      mockPrisma.student.findMany.mockResolvedValue([
+      mockStudentFacade.findManyGeneric.mockResolvedValue([
         { student_number: 'S001', first_name: 'Alice', last_name: 'Smith' },
       ]);
       mockPrisma.assessment.findMany.mockResolvedValue([
@@ -261,20 +272,20 @@ describe('BulkImportService', () => {
     });
 
     it('should filter students by classId when provided', async () => {
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
+      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([
         { student_id: STUDENT_ID },
       ]);
-      mockPrisma.student.findMany.mockResolvedValue([
+      mockStudentFacade.findManyGeneric.mockResolvedValue([
         { student_number: 'S001', first_name: 'Alice', last_name: 'Smith' },
       ]);
       mockPrisma.assessment.findMany.mockResolvedValue([]);
 
       await service.generateTemplate(TENANT_ID, CLASS_ID);
 
-      expect(mockPrisma.classEnrolment.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ class_id: CLASS_ID }),
-        }),
+      expect(mockClassesFacade.findEnrolmentsGeneric).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({ class_id: CLASS_ID }),
+        expect.anything(),
       );
     });
   });

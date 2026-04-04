@@ -162,7 +162,8 @@ export default function AppealsListPage() {
       );
       setData(res.data ?? []);
       setTotal(res.meta?.total ?? 0);
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourAppealsPage]', err);
       setData([]);
       setTotal(0);
     } finally {
@@ -186,7 +187,8 @@ export default function AppealsListPage() {
     try {
       const res = await apiClient<{ data: StaffOption[] }>('/api/v1/staff?pageSize=200');
       setStaffList(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourAppealsPage]', err);
       setStaffList([]);
     }
   }, []);
@@ -209,7 +211,8 @@ export default function AppealsListPage() {
       toast.success(t('reviewerAssigned'));
       setAssignOpen(false);
       void fetchAppeals();
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourAppealsPage]', err);
       toast.error(t('failedToAssign'));
     } finally {
       setAssignLoading(false);

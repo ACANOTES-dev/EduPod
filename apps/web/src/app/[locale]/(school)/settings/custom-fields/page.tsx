@@ -57,7 +57,8 @@ export default function CustomFieldsPage() {
         '/api/v1/report-card-custom-field-defs',
       );
       setFields(res.data.sort((a, b) => a.display_order - b.display_order));
-    } catch {
+    } catch (err) {
+      console.error('[SettingsCustomFieldsPage]', err);
       setFields([]);
     } finally {
       setIsLoading(false);
@@ -93,7 +94,8 @@ export default function CustomFieldsPage() {
       await apiClient(`/api/v1/report-card-custom-field-defs/${id}`, { method: 'DELETE' });
       toast.success(tc('deleted'));
       void fetchFields();
-    } catch {
+    } catch (err) {
+      console.error('[SettingsCustomFieldsPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -126,7 +128,8 @@ export default function CustomFieldsPage() {
           order: ordered.map((f, i) => ({ id: f.id, display_order: i + 1 })),
         }),
       });
-    } catch {
+    } catch (err) {
+      console.error('[SettingsCustomFieldsPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -166,7 +169,8 @@ export default function CustomFieldsPage() {
             toast.success(tc('saved'));
             setEditing(null);
             void fetchFields();
-          } catch {
+          } catch (err) {
+            console.error('[SettingsCustomFieldsPage]', err);
             toast.error(tc('errorGeneric'));
           }
         }}
@@ -216,7 +220,7 @@ export default function CustomFieldsPage() {
                   disabled={idx === 0}
                   onClick={() => void handleMoveUp(idx)}
                   className="rounded p-0.5 text-text-tertiary hover:text-text-secondary disabled:opacity-30"
-                  aria-label="Move up"
+                  aria-label={t('moveUp')}
                 >
                   <ArrowUp className="h-3 w-3" />
                 </button>
@@ -225,7 +229,7 @@ export default function CustomFieldsPage() {
                   disabled={idx === fields.length - 1}
                   onClick={() => void handleMoveDown(idx)}
                   className="rounded p-0.5 text-text-tertiary hover:text-text-secondary disabled:opacity-30"
-                  aria-label="Move down"
+                  aria-label={t('moveDown')}
                 >
                   <ArrowDown className="h-3 w-3" />
                 </button>
@@ -337,7 +341,7 @@ function FieldEditor({ field, isNew, onSave, onCancel }: FieldEditorProps) {
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. conduct_rating"
+              placeholder={t('eGConductRating')}
               dir="ltr"
             />
             <p className="text-xs text-text-tertiary">{tr('fieldNameHint')}</p>
@@ -349,7 +353,7 @@ function FieldEditor({ field, isNew, onSave, onCancel }: FieldEditorProps) {
           <Input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g. Conduct"
+            placeholder={t('eGConduct')}
           />
         </div>
 
@@ -409,7 +413,7 @@ function FieldEditor({ field, isNew, onSave, onCancel }: FieldEditorProps) {
                       type="button"
                       onClick={() => handleRemoveOption(idx)}
                       className="shrink-0 rounded p-1 text-text-tertiary hover:text-error-600"
-                      aria-label="Remove option"
+                      aria-label={t('removeOption')}
                     >
                       <X className="h-4 w-4" />
                     </button>

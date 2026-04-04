@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertTriangle, XCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { cn } from '@school/ui';
@@ -43,7 +44,7 @@ const FILE_TYPE_LABELS: Record<string, string> = {
 
 function PreviewSkeleton() {
   return (
-    <div className="space-y-4" aria-busy="true" aria-label="Loading preview">
+    <div className="space-y-4" aria-busy="true" aria-label={t('loadingPreview')}>
       {/* Header skeleton */}
       <div className="animate-pulse rounded-xl border border-border bg-surface-primary p-4">
         <div className="flex items-center justify-between">
@@ -82,8 +83,7 @@ function ValidationWarnings({
       {errors.length > 0 && (
         <div className="rounded-xl border border-danger-200 bg-danger-50 p-3">
           <p className="mb-1.5 text-sm font-medium text-danger-800">
-            {errors.length} error{errors.length !== 1 ? 's' : ''} found
-          </p>
+            {errors.length}{t('error')}{errors.length !== 1 ? 's' : ''}{t('found')}</p>
           <ul className="space-y-1">
             {errors.map((err, idx) => (
               <li key={idx} className="flex items-start gap-2 text-sm text-danger-700">
@@ -100,7 +100,7 @@ function ValidationWarnings({
       {warningItems.length > 0 && (
         <div className="rounded-xl border border-warning-200 bg-warning-50 p-3">
           <p className="mb-1.5 text-sm font-medium text-warning-800">
-            {warningItems.length} warning{warningItems.length !== 1 ? 's' : ''}
+            {warningItems.length}{t('warning')}{warningItems.length !== 1 ? 's' : ''}
           </p>
           <ul className="space-y-1">
             {warningItems.map((warn, idx) => (
@@ -121,15 +121,14 @@ function ValidationWarnings({
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function FilePreview({ preview, isLoading }: FilePreviewProps) {
+  const t = useTranslations('regulatory');
   if (isLoading) {
     return <PreviewSkeleton />;
   }
 
   if (!preview) {
     return (
-      <div className="rounded-xl border border-border bg-surface-secondary p-6 text-center text-sm text-text-secondary">
-        No preview data available.
-      </div>
+      <div className="rounded-xl border border-border bg-surface-secondary p-6 text-center text-sm text-text-secondary">{t('noPreviewDataAvailable')}</div>
     );
   }
 
@@ -148,7 +147,7 @@ export function FilePreview({ preview, isLoading }: FilePreviewProps) {
           {FILE_TYPE_LABELS[preview.file_type] ?? preview.file_type}
         </p>
         <p className="text-sm text-text-secondary">
-          {rowCount} row{rowCount !== 1 ? 's' : ''}
+          {rowCount}{t('row')}{rowCount !== 1 ? 's' : ''}
         </p>
       </div>
 
@@ -191,15 +190,11 @@ export function FilePreview({ preview, isLoading }: FilePreviewProps) {
           </table>
         </div>
       ) : (
-        <div className="rounded-xl border border-border bg-surface-secondary p-6 text-center text-sm text-text-secondary">
-          No sample data to display.
-        </div>
+        <div className="rounded-xl border border-border bg-surface-secondary p-6 text-center text-sm text-text-secondary">{t('noSampleDataToDisplay')}</div>
       )}
 
       {sampleRows.length > 0 && rowCount > sampleRows.length && (
-        <p className="text-xs text-text-tertiary">
-          Showing {sampleRows.length} of {rowCount} rows.
-        </p>
+        <p className="text-xs text-text-tertiary">{t('showing')}{sampleRows.length}{t('of')}{rowCount}{t('rows')}</p>
       )}
     </div>
   );

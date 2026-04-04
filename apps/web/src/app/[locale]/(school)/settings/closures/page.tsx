@@ -51,7 +51,8 @@ export default function ClosuresPage() {
       const res = await apiClient<ClosuresResponse>(`/api/v1/school-closures?${params.toString()}`);
       setData(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsClosuresPage]', err);
       setData([]);
       setTotal(0);
     } finally {
@@ -68,7 +69,8 @@ export default function ClosuresPage() {
       await apiClient(`/api/v1/school-closures/${closure.id}`, { method: 'DELETE' });
       toast.success('Closure deleted');
       void fetchClosures(page);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsClosuresPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };

@@ -66,7 +66,8 @@ const STORAGE_KEY = 'staff-export-presets';
 export function getPresets(): ExportPreset[] {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]') as ExportPreset[];
-  } catch {
+  } catch (err) {
+    console.error('[ExportUtils]', err);
     return [];
   }
 }

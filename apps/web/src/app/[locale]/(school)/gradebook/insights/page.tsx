@@ -138,7 +138,7 @@ function TeacherConsistencyTab({
       `/api/v1/gradebook/insights/teacher-consistency?${params.toString()}`,
     )
       .then((res) => setData(res.data))
-      .catch(() => setData([]))
+      .catch((err) => { console.error('[GradebookInsightsPage]', err); return setData([]); })
       .finally(() => setIsLoading(false));
   }, [subjectId, periodId]);
 
@@ -298,7 +298,7 @@ function BenchmarkingTab({
         setData(res.data);
         setSubjectName(res.subject_name);
       })
-      .catch(() => setData([]))
+      .catch((err) => { console.error('[GradebookInsightsPage]', err); return setData([]); })
       .finally(() => setIsLoading(false));
   }, [subjectId, yearGroupId, periodId]);
 
@@ -486,7 +486,8 @@ function AtRiskTab({ subjects, periods }: { subjects: SelectOption[]; periods: S
         );
         setData(res.data);
         setTotal(res.meta.total);
-      } catch {
+      } catch (err) {
+        console.error('[GradebookInsightsPage]', err);
         setData([]);
         setTotal(0);
       } finally {
@@ -507,7 +508,8 @@ function AtRiskTab({ subjects, periods }: { subjects: SelectOption[]; periods: S
         body: JSON.stringify({ status: action }),
       });
       void fetchAlerts(page, subjectId, periodId, riskLevel);
-    } catch {
+    } catch (err) {
+      console.error('[GradebookInsightsPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -529,7 +531,7 @@ function AtRiskTab({ subjects, periods }: { subjects: SelectOption[]; periods: S
             <SelectValue placeholder={t('riskLevel')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All levels</SelectItem>
+            <SelectItem value="all">{t('allLevels')}</SelectItem>
             <SelectItem value="high">{t('riskHigh')}</SelectItem>
             <SelectItem value="medium">{t('riskMedium')}</SelectItem>
             <SelectItem value="low">{t('riskLow')}</SelectItem>
@@ -546,7 +548,7 @@ function AtRiskTab({ subjects, periods }: { subjects: SelectOption[]; periods: S
             <SelectValue placeholder={t('subject')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All subjects</SelectItem>
+            <SelectItem value="all">{t('allSubjects2')}</SelectItem>
             {subjects.map((s) => (
               <SelectItem key={s.id} value={s.id}>
                 {s.name}
@@ -565,7 +567,7 @@ function AtRiskTab({ subjects, periods }: { subjects: SelectOption[]; periods: S
             <SelectValue placeholder={t('period')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All periods</SelectItem>
+            <SelectItem value="all">{t('allPeriods2')}</SelectItem>
             {periods.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.name}
@@ -707,13 +709,13 @@ export default function GradingInsightsPage() {
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/subjects?pageSize=100&subject_type=academic')
       .then((res) => setSubjects(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradebookInsightsPage]', err); });
     apiClient<ListResponse<SelectOption>>('/api/v1/year-groups?pageSize=100')
       .then((res) => setYearGroups(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradebookInsightsPage]', err); });
     apiClient<ListResponse<SelectOption>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradebookInsightsPage]', err); });
   }, []);
 
   const tabs: { key: InsightsTab; label: string }[] = [
@@ -732,7 +734,7 @@ export default function GradingInsightsPage() {
       </div>
 
       {/* Tabs */}
-      <nav className="flex gap-1 overflow-x-auto border-b border-border" aria-label="Insights tabs">
+      <nav className="flex gap-1 overflow-x-auto border-b border-border" aria-label={t('insightsTabs')}>
         {tabs.map((tab) => (
           <button
             key={tab.key}

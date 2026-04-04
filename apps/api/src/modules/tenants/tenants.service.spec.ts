@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { MODULE_KEYS, NOTIFICATION_TYPES, SEQUENCE_TYPES } from '@school/shared';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { TokenService } from '../auth/auth-token.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -81,6 +82,10 @@ const mockPrisma = {
   mfaRecoveryCode: {
     deleteMany: jest.fn(),
   },
+  $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+    // Pass mockPrisma itself as the tx to simulate Prisma interactive transaction
+    return fn(mockPrisma);
+  }),
 };
 
 describe('TenantsService', () => {
@@ -99,6 +104,7 @@ describe('TenantsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         TenantsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },

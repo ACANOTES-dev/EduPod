@@ -87,6 +87,7 @@ type TabKey = (typeof TABS)[number]['key'];
 
 export default function BehaviourHousesPage() {
   const t = useTranslations('behaviourSettings.houses');
+
   const [activeTab, setActiveTab] = React.useState<TabKey>('houses');
 
   return (
@@ -122,6 +123,7 @@ export default function BehaviourHousesPage() {
 // ─── Houses Tab ───────────────────────────────────────────────────────────────
 
 function HousesTab() {
+  const tCommon = useTranslations('common');
   const [houses, setHouses] = React.useState<HouseTeam[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -142,7 +144,8 @@ function HousesTab() {
         '/api/v1/behaviour/houses?pageSize=100&sort=display_order&order=asc&include_count=true',
       );
       setHouses(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsBehaviourHousesPage]', err);
       setHouses([]);
     } finally {
       setLoading(false);
@@ -236,9 +239,7 @@ function HousesTab() {
       <div className="space-y-4">
         <div className="flex justify-end">
           <Button onClick={openCreate}>
-            <Plus className="me-2 h-4 w-4" />
-            Add House
-          </Button>
+            <Plus className="me-2 h-4 w-4" />{t('addHouse')}</Button>
         </div>
 
         {loading ? (
@@ -250,9 +251,7 @@ function HousesTab() {
         ) : houses.length === 0 ? (
           <div className="py-12 text-center">
             <Shield className="mx-auto h-12 w-12 text-text-tertiary/30" />
-            <p className="mt-3 text-sm text-text-tertiary">
-              No house teams configured yet. Add your first house team to get started.
-            </p>
+            <p className="mt-3 text-sm text-text-tertiary">{t('noHouseTeamsConfiguredYet')}</p>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -302,7 +301,7 @@ function HousesTab() {
                 <div className="mt-3 flex items-center gap-3 text-xs text-text-secondary">
                   <div className="flex items-center gap-1">
                     <Users className="h-3.5 w-3.5" />
-                    <span>{house._count?.members ?? 0} members</span>
+                    <span>{house._count?.members ?? 0}{t('members')}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <span
@@ -315,9 +314,7 @@ function HousesTab() {
 
                 <div className="mt-3 flex items-center gap-1 border-t border-border pt-3">
                   <Button variant="ghost" size="sm" onClick={() => openEdit(house)}>
-                    <Pencil className="me-1 h-3.5 w-3.5" />
-                    Edit
-                  </Button>
+                    <Pencil className="me-1 h-3.5 w-3.5" />{tCommon('edit')}</Button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -327,9 +324,7 @@ function HousesTab() {
                       setDeleteTarget(house);
                     }}
                   >
-                    <Trash2 className="me-1 h-3.5 w-3.5" />
-                    Delete
-                  </Button>
+                    <Trash2 className="me-1 h-3.5 w-3.5" />{tCommon('delete')}</Button>
                 </div>
               </div>
             ))}
@@ -345,26 +340,26 @@ function HousesTab() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Name *</Label>
+              <Label>{t('name')}</Label>
               <Input
                 value={form.name}
                 onChange={(e) => updateForm('name', e.target.value)}
-                placeholder="e.g. Phoenix"
+                placeholder={t('eGPhoenix')}
                 className="text-base"
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Name (Arabic)</Label>
+              <Label>{t('nameArabic')}</Label>
               <Input
                 value={form.name_ar}
                 onChange={(e) => updateForm('name_ar', e.target.value)}
-                placeholder="Arabic name"
+                placeholder={t('arabicName')}
                 dir="rtl"
                 className="text-base"
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Color *</Label>
+              <Label>{t('color')}</Label>
               <div className="flex items-center gap-2">
                 <input
                   type="color"
@@ -375,23 +370,23 @@ function HousesTab() {
                 <Input
                   value={form.color}
                   onChange={(e) => updateForm('color', e.target.value)}
-                  placeholder="#3B82F6"
+                  placeholder={t('3b82f6')}
                   className="flex-1 text-sm"
                 />
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Icon</Label>
+                <Label>{t('icon')}</Label>
                 <Input
                   value={form.icon}
                   onChange={(e) => updateForm('icon', e.target.value)}
-                  placeholder="e.g. shield, flame"
+                  placeholder={t('eGShieldFlame')}
                   className="text-base"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Display Order</Label>
+                <Label>{t('displayOrder')}</Label>
                 <Input
                   type="number"
                   min={0}
@@ -402,7 +397,7 @@ function HousesTab() {
               </div>
             </div>
             <div className="flex items-center justify-between">
-              <Label>Active</Label>
+              <Label>{t('active')}</Label>
               <Switch
                 checked={form.is_active}
                 onCheckedChange={(v) => updateForm('is_active', v)}
@@ -411,9 +406,7 @@ function HousesTab() {
             {saveError && <p className="text-sm text-danger-text">{saveError}</p>}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>{tCommon('cancel')}</Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? 'Saving...' : editTarget ? 'Update' : 'Create'}
             </Button>
@@ -430,21 +423,16 @@ function HousesTab() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete House</DialogTitle>
+            <DialogTitle>{t('deleteHouse')}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-text-secondary">
-            Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? All member
-            assignments will be removed.
-          </p>
+          <p className="text-sm text-text-secondary">{t('areYouSureYouWant')}<strong>{deleteTarget?.name}</strong>{t('allMemberAssignmentsWillBe')}</p>
           {deleteError && <p className="text-sm text-danger-text">{deleteError}</p>}
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => setDeleteTarget(null)}
               disabled={deleteLoading}
-            >
-              Cancel
-            </Button>
+            >{tCommon('cancel')}</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>
               {deleteLoading ? 'Deleting...' : 'Delete'}
             </Button>
@@ -458,6 +446,7 @@ function HousesTab() {
 // ─── Membership Tab ───────────────────────────────────────────────────────────
 
 function MembershipTab() {
+  const tCommon = useTranslations('common');
   const [houses, setHouses] = React.useState<HouseTeam[]>([]);
   const [selectedHouse, setSelectedHouse] = React.useState<string | null>(null);
   const [members, setMembers] = React.useState<HouseMember[]>([]);
@@ -488,7 +477,7 @@ function MembershipTab() {
           setSelectedHouse(data[0].id);
         }
       })
-      .catch(() => setHouses([]))
+      .catch((err) => { console.error('[SettingsBehaviourHousesPage]', err); return setHouses([]); })
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -501,7 +490,8 @@ function MembershipTab() {
         `/api/v1/behaviour/houses/${houseId}/members?pageSize=100`,
       );
       setMembers(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsBehaviourHousesPage]', err);
       setMembers([]);
     } finally {
       setMembersLoading(false);
@@ -526,7 +516,8 @@ function MembershipTab() {
         `/api/v1/behaviour/houses/${selectedHouse}/available-students?pageSize=100`,
       );
       setAvailableStudents(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsBehaviourHousesPage]', err);
       setAvailableStudents([]);
     } finally {
       setStudentsLoading(false);
@@ -593,9 +584,7 @@ function MembershipTab() {
         {loading ? (
           <div className="h-10 w-48 animate-pulse rounded-lg bg-surface-secondary" />
         ) : houses.length === 0 ? (
-          <p className="text-sm text-text-tertiary">
-            No active house teams. Create house teams in the Houses tab first.
-          </p>
+          <p className="text-sm text-text-tertiary">{t('noActiveHouseTeamsCreate')}</p>
         ) : (
           <>
             {/* House selector + bulk assign */}
@@ -621,9 +610,7 @@ function MembershipTab() {
                 ))}
               </div>
               <Button size="sm" onClick={() => void openBulkAssign()} disabled={!selectedHouse}>
-                <Users className="me-1.5 h-4 w-4" />
-                Assign Students
-              </Button>
+                <Users className="me-1.5 h-4 w-4" />{t('assignStudents')}</Button>
             </div>
 
             {/* Member roster */}
@@ -636,24 +623,16 @@ function MembershipTab() {
             ) : members.length === 0 ? (
               <div className="py-12 text-center">
                 <Users className="mx-auto h-10 w-10 text-text-tertiary/30" />
-                <p className="mt-2 text-sm text-text-tertiary">
-                  No students assigned to {activeHouse?.name ?? 'this house'} yet.
-                </p>
+                <p className="mt-2 text-sm text-text-tertiary">{t('noStudentsAssignedTo')}{activeHouse?.name ?? 'this house'}{t('yet')}</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                        Student
-                      </th>
-                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                        Year Group
-                      </th>
-                      <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                        Actions
-                      </th>
+                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{tCommon('student')}</th>
+                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('yearGroup')}</th>
+                      <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{tCommon('actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -694,7 +673,7 @@ function MembershipTab() {
       <Sheet open={assignOpen} onOpenChange={setAssignOpen}>
         <SheetContent className="flex w-full flex-col sm:max-w-md">
           <SheetHeader>
-            <SheetTitle>Assign Students to {activeHouse?.name ?? 'House'}</SheetTitle>
+            <SheetTitle>{t('assignStudentsTo')}{activeHouse?.name ?? 'House'}</SheetTitle>
           </SheetHeader>
 
           <div className="flex-1 space-y-3 overflow-y-auto py-3">
@@ -702,13 +681,13 @@ function MembershipTab() {
             <Input
               value={studentSearch}
               onChange={(e) => setStudentSearch(e.target.value)}
-              placeholder="Search students..."
+              placeholder={t('searchStudents')}
               className="text-base"
             />
 
             {/* Select all / count */}
             <div className="flex items-center justify-between text-xs text-text-secondary">
-              <span>{selectedStudents.size} selected</span>
+              <span>{selectedStudents.size}{t('selected')}</span>
               {filteredStudents.length > 0 && (
                 <button
                   type="button"
@@ -767,9 +746,7 @@ function MembershipTab() {
           </div>
 
           <SheetFooter className="border-t border-border pt-3">
-            <Button variant="outline" onClick={() => setAssignOpen(false)} disabled={assignSaving}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setAssignOpen(false)} disabled={assignSaving}>{tCommon('cancel')}</Button>
             <Button
               onClick={() => void handleBulkAssign()}
               disabled={assignSaving || selectedStudents.size === 0}

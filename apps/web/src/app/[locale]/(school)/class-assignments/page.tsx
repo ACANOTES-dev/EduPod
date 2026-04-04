@@ -65,7 +65,7 @@ export default function ClassAssignmentsPage() {
         setYearGroups(res.data.year_groups);
         // Do NOT auto-expand — start collapsed
       })
-      .catch(() => undefined)
+      .catch((err) => { console.error('[ClassAssignmentsPage]', err); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -336,7 +336,8 @@ ${data.class_lists
       printWindow.onload = () => {
         printWindow.print();
       };
-    } catch {
+    } catch (err) {
+      console.error('[ClassAssignmentsPage]', err);
       toast.error(t('exportError'));
     }
   };
@@ -428,7 +429,8 @@ ${data.class_lists
       }
       toast.success(t('exportSuccess'));
       setExportModalOpen(false);
-    } catch {
+    } catch (err) {
+      console.error('[ClassAssignmentsPage]', err);
       toast.error(t('exportError'));
     } finally {
       setExporting(false);

@@ -8,6 +8,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+import { MOCK_FACADE_PROVIDERS, TenantReadFacade } from '../../common/tests/mock-facades';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
@@ -72,10 +73,18 @@ describe('FeeGenerationService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         FeeGenerationService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SequenceService, useValue: mockSequenceService },
         { provide: AuditLogService, useValue: mockAuditLogService },
+        {
+          provide: TenantReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue({ id: TENANT_ID, currency_code: 'EUR' }),
+            findBranding: jest.fn().mockResolvedValue({ invoice_prefix: 'INV' }),
+          },
+        },
       ],
     }).compile();
 

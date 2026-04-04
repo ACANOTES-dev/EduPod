@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, TenantReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
 
@@ -36,16 +37,23 @@ describe('BrandingService', () => {
         findUnique: jest.fn(),
         upsert: jest.fn(),
       },
-    };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(mockPrisma)),
+    } as unknown as typeof mockPrisma;
     mockS3 = {
       upload: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         BrandingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
+        {
+          provide: TenantReadFacade,
+          useValue: { findBranding: mockPrisma.tenantBranding.findUnique },
+        },
       ],
     }).compile();
 
@@ -60,9 +68,7 @@ describe('BrandingService', () => {
 
       const result = await service.getBranding(TENANT_ID);
 
-      expect(mockPrisma.tenantBranding.findUnique).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT_ID },
-      });
+      expect(mockPrisma.tenantBranding.findUnique).toHaveBeenCalledWith(TENANT_ID);
       expect(result).toEqual(mockBranding);
     });
 

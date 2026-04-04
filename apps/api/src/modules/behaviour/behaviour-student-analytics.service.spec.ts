@@ -1,3 +1,5 @@
+
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -36,16 +38,24 @@ describe('BehaviourStudentAnalyticsService', () => {
   let service: BehaviourStudentAnalyticsService;
   let mockPrisma: MockPrisma;
 
+  let mockAttendanceFacade: {
+    countAllDailySummariesForStudent: jest.Mock;
+    findAllDailySummariesForStudent: jest.Mock;
+    findDailySummariesForStudent: jest.Mock;
+    countDailySummariesForStudent: jest.Mock;
+  };
+
   beforeEach(() => {
     mockPrisma = makeMockPrisma();
+    mockAttendanceFacade = {
+      countAllDailySummariesForStudent: jest.fn().mockResolvedValue(0),
+      findAllDailySummariesForStudent: jest.fn().mockResolvedValue([]),
+      findDailySummariesForStudent: jest.fn().mockResolvedValue([]),
+      countDailySummariesForStudent: jest.fn().mockResolvedValue(0),
+    };
     service = new BehaviourStudentAnalyticsService(
       mockPrisma as unknown as PrismaService,
-      {
-        countAllDailySummariesForStudent: jest.fn().mockResolvedValue(0),
-        findAllDailySummariesForStudent: jest.fn().mockResolvedValue([]),
-        findDailySummariesForStudent: jest.fn().mockResolvedValue([]),
-        countDailySummariesForStudent: jest.fn().mockResolvedValue(0),
-      } as unknown as AttendanceReadFacade,
+      mockAttendanceFacade as unknown as AttendanceReadFacade,
     );
   });
 
@@ -237,8 +247,8 @@ describe('BehaviourStudentAnalyticsService', () => {
     });
 
     it('should correlate incidents with attendance days', async () => {
-      mockPrisma.dailyAttendanceSummary.count.mockResolvedValue(5);
-      mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue([
+      mockAttendanceFacade.countAllDailySummariesForStudent.mockResolvedValue(5);
+      mockAttendanceFacade.findAllDailySummariesForStudent.mockResolvedValue([
         { summary_date: new Date('2026-03-10'), derived_status: 'present' },
         { summary_date: new Date('2026-03-11'), derived_status: 'absent' },
         { summary_date: new Date('2026-03-12'), derived_status: 'present' },

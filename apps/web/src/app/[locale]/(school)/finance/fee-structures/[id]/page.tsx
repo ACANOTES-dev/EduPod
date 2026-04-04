@@ -39,7 +39,7 @@ export default function EditFeeStructurePage() {
     if (!id) return;
     apiClient<{ data: FeeStructureDetail }>(`/api/v1/finance/fee-structures/${id}`)
       .then((res) => setFeeStructure(res.data))
-      .catch(() => setError(t('feeStructures.loadError')))
+      .catch((err) => { console.error('[FinanceFeeStructuresPage]', err); return setError(t('feeStructures.loadError')); })
       .finally(() => setLoading(false));
   }, [id, t]);
 

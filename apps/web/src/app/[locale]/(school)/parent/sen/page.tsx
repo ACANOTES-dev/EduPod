@@ -65,7 +65,8 @@ export default function ParentSenOverviewPage() {
                 { silent: true },
               );
               return { student, profile: profileRes.data };
-            } catch {
+            } catch (err) {
+              console.error('[ParentSenPage]', err);
               return { student, profile: null };
             }
           }),
@@ -74,8 +75,8 @@ export default function ParentSenOverviewPage() {
         if (!cancelled) {
           setStudentData(results);
         }
-      } catch {
-        console.error('[ParentSenOverview] Failed to load student data');
+      } catch (err) {
+        console.error('[ParentSenOverview] Failed to load student data', err);
       } finally {
         if (!cancelled) {
           setLoading(false);

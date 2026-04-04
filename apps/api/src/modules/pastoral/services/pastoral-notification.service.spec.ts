@@ -1,6 +1,13 @@
 import { getQueueToken } from '@nestjs/bullmq';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  ConfigurationReadFacade,
+  ChildProtectionReadFacade,
+  RbacReadFacade,
+  StudentReadFacade,
+} from '../../../common/tests/mock-facades';
 import { NotificationsService } from '../../communications/notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -70,13 +77,11 @@ const makeSettings = (pastoralOverrides: Record<string, unknown> = {}) => ({
 describe('PastoralNotificationService', () => {
   let service: PastoralNotificationService;
   let mockNotificationsService: { createBatch: jest.Mock };
-  let mockPrisma: {
-    tenantSetting: { findUnique: jest.Mock };
-    cpAccessGrant: { findMany: jest.Mock };
-    membershipRole: { findMany: jest.Mock };
-    student: { findUnique: jest.Mock };
-    notification: { findFirst: jest.Mock };
-  };
+  let mockPrisma: Record<string, unknown>;
+  let mockConfigFacade: { findSettings: jest.Mock };
+  let mockCpFacade: { findDlpUserIds: jest.Mock; hasActiveCpAccess: jest.Mock };
+  let mockRbacFacade: { findActiveUserIdsByRoleKey: jest.Mock };
+  let mockStudentFacade: { findById: jest.Mock };
   let mockNotificationsQueue: { add: jest.Mock };
   let mockPastoralQueue: {
     add: jest.Mock;
@@ -88,27 +93,23 @@ describe('PastoralNotificationService', () => {
       createBatch: jest.fn().mockResolvedValue(undefined),
     };
 
-    mockPrisma = {
-      tenantSetting: {
-        findUnique: jest.fn().mockResolvedValue(makeSettings()),
-      },
-      cpAccessGrant: {
-        // Used by resolveRecipients for 'dlp' role fallback
-        findMany: jest.fn().mockResolvedValue([{ user_id: DLP_USER_ID }]),
-      },
-      membershipRole: {
-        // Used by resolveUsersByRoleKey for generic role fallback
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      student: {
-        // Used by resolveYearHeadForStudent
-        findUnique: jest.fn().mockResolvedValue({
-          year_group_id: YEAR_GROUP_ID,
-        }),
-      },
-      notification: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
+    mockPrisma = {};
+
+    mockConfigFacade = {
+      findSettings: jest.fn().mockResolvedValue(makeSettings()),
+    };
+
+    mockCpFacade = {
+      findDlpUserIds: jest.fn().mockResolvedValue([DLP_USER_ID]),
+      hasActiveCpAccess: jest.fn().mockResolvedValue(false),
+    };
+
+    mockRbacFacade = {
+      findActiveUserIdsByRoleKey: jest.fn().mockResolvedValue([]),
+    };
+
+    mockStudentFacade = {
+      findById: jest.fn().mockResolvedValue({ year_group_id: YEAR_GROUP_ID }),
     };
 
     mockNotificationsQueue = {
@@ -122,11 +123,16 @@ describe('PastoralNotificationService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         PastoralNotificationService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: getQueueToken('notifications'), useValue: mockNotificationsQueue },
         { provide: getQueueToken('pastoral'), useValue: mockPastoralQueue },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
+        { provide: ChildProtectionReadFacade, useValue: mockCpFacade },
+        { provide: RbacReadFacade, useValue: mockRbacFacade },
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
       ],
     }).compile();
 
@@ -174,9 +180,9 @@ describe('PastoralNotificationService', () => {
     it('should create in-app and email notifications for elevated concerns', async () => {
       // Elevated: no explicit IDs, fallback roles = ['year_head', 'pastoral_coordinator']
       // Mock role resolution to return users
-      mockPrisma.membershipRole.findMany
-        .mockResolvedValueOnce([{ membership: { user_id: YEAR_HEAD_ID } }]) // year_head
-        .mockResolvedValueOnce([{ membership: { user_id: DEPUTY_ID } }]); // pastoral_coordinator
+      mockRbacFacade.findActiveUserIdsByRoleKey
+        .mockResolvedValueOnce([YEAR_HEAD_ID]) // year_head
+        .mockResolvedValueOnce([DEPUTY_ID]); // pastoral_coordinator
 
       const concern = makeConcern({ severity: 'elevated', tier: 1 });
 
@@ -292,7 +298,7 @@ describe('PastoralNotificationService', () => {
 
     it('should fall back to role-based recipients when explicit user IDs are empty', async () => {
       // Configure settings with empty urgent/critical arrays
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeSettings({
           notification_recipients: {
             urgent: [],
@@ -301,13 +307,11 @@ describe('PastoralNotificationService', () => {
         }),
       );
 
-      // Mock role resolution: 'dlp' fallback resolves via cpAccessGrant
-      mockPrisma.cpAccessGrant.findMany.mockResolvedValue([{ user_id: DLP_USER_ID }]);
+      // Mock role resolution: 'dlp' fallback resolves via cpFacade
+      mockCpFacade.findDlpUserIds.mockResolvedValue([DLP_USER_ID]);
 
-      // Mock 'deputy_principal' role resolution via membershipRole
-      mockPrisma.membershipRole.findMany.mockResolvedValue([
-        { membership: { user_id: DEPUTY_ID } },
-      ]);
+      // Mock 'deputy_principal' role resolution via rbacFacade
+      mockRbacFacade.findActiveUserIdsByRoleKey.mockResolvedValue([DEPUTY_ID]);
 
       const concern = makeConcern({ severity: 'urgent', tier: 2 });
 
@@ -319,7 +323,7 @@ describe('PastoralNotificationService', () => {
 
     it('should exclude the logging user from recipient list', async () => {
       // Configure settings where the author is also in the urgent recipients
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeSettings({
           notification_recipients: {
             urgent: [AUTHOR_ID, DLP_USER_ID, DEPUTY_ID],
@@ -347,7 +351,7 @@ describe('PastoralNotificationService', () => {
 
     it('should deduplicate recipients appearing multiple times', async () => {
       // DLP user appears twice in the array
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeSettings({
           notification_recipients: {
             urgent: [DLP_USER_ID, DLP_USER_ID, DEPUTY_ID],
@@ -383,7 +387,7 @@ describe('PastoralNotificationService', () => {
 
   describe('escalation timeout configuration', () => {
     it('should use tenant-configured timeout for urgent escalation delay', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeSettings({
           escalation: {
             urgent_timeout_minutes: 60,
@@ -410,7 +414,7 @@ describe('PastoralNotificationService', () => {
 
     it('should use default timeout of 120 minutes when tenant escalation setting is missing', async () => {
       // Settings without escalation config — Zod defaults apply
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+      mockConfigFacade.findSettings.mockResolvedValue({
         id: 'settings-1',
         tenant_id: TENANT_ID,
         settings: {
@@ -440,7 +444,7 @@ describe('PastoralNotificationService', () => {
     });
 
     it('should use tenant-configured timeout for critical escalation delay', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeSettings({
           escalation: {
             urgent_timeout_minutes: 120,

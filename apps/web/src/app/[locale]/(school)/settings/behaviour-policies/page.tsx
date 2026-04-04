@@ -72,7 +72,8 @@ export default function BehaviourPoliciesPage() {
         '/api/v1/behaviour/policies?pageSize=100',
       );
       setRules(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsBehaviourPoliciesPage]', err);
       setRules([]);
     } finally {
       setLoading(false);

@@ -2,6 +2,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchedulingRunsReadFacade } from '../scheduling-runs/scheduling-runs-read.facade';
@@ -45,6 +46,7 @@ const makeDraftScenario = (status = 'draft') => ({
 
 describe('ScenarioService', () => {
   let service: ScenarioService;
+  let module: TestingModule;
   let mockPrisma: {
     academicYear: { findFirst: jest.Mock };
     schedulingRun: { findFirst: jest.Mock };
@@ -82,8 +84,9 @@ describe('ScenarioService', () => {
     });
     mockTx.schedulingScenario.delete.mockResolvedValue({});
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         {
           provide: AcademicReadFacade,
           useValue: {
@@ -156,7 +159,8 @@ describe('ScenarioService', () => {
     });
 
     it('should throw NotFoundException when academic year does not exist', async () => {
-      mockPrisma.academicYear.findFirst.mockResolvedValue(null);
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Year not found'));
 
       await expect(
         service.createScenario(TENANT_ID, USER_ID, {
@@ -168,7 +172,8 @@ describe('ScenarioService', () => {
     });
 
     it('should throw NotFoundException when base_run_id does not exist', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findStatusById as jest.Mock).mockResolvedValue(null);
 
       await expect(
         service.createScenario(TENANT_ID, USER_ID, {
@@ -185,7 +190,8 @@ describe('ScenarioService', () => {
 
   describe('getScenario', () => {
     it('should return a formatted scenario', async () => {
-      mockPrisma.schedulingScenario.findFirst.mockResolvedValue(makeDraftScenario());
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findScenarioById as jest.Mock).mockResolvedValue(makeDraftScenario());
 
       const result = await service.getScenario(TENANT_ID, SCENARIO_ID);
 
@@ -195,7 +201,7 @@ describe('ScenarioService', () => {
     });
 
     it('should throw NotFoundException when scenario does not exist', async () => {
-      mockPrisma.schedulingScenario.findFirst.mockResolvedValue(null);
+      // findScenarioById returns null by default from mock
 
       await expect(service.getScenario(TENANT_ID, 'nonexistent')).rejects.toThrow(
         NotFoundException,
@@ -207,7 +213,8 @@ describe('ScenarioService', () => {
         ...makeDraftScenario('solved'),
         solver_result_json: { entries_generated: 100, entries_unassigned: 0 },
       };
-      mockPrisma.schedulingScenario.findFirst.mockResolvedValue(scenarioWithResult);
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findScenarioById as jest.Mock).mockResolvedValue(scenarioWithResult);
 
       const result = await service.getScenario(TENANT_ID, SCENARIO_ID);
 
@@ -219,7 +226,8 @@ describe('ScenarioService', () => {
 
   describe('updateScenario', () => {
     it('should update a draft scenario', async () => {
-      mockPrisma.schedulingScenario.findFirst.mockResolvedValue(makeDraftScenario('draft'));
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findScenarioStatusById as jest.Mock).mockResolvedValue({ status: 'draft' });
 
       const result = await service.updateScenario(TENANT_ID, SCENARIO_ID, { name: 'Updated' });
 
@@ -228,7 +236,8 @@ describe('ScenarioService', () => {
     });
 
     it('should throw BadRequestException when scenario is approved', async () => {
-      mockPrisma.schedulingScenario.findFirst.mockResolvedValue(makeDraftScenario('approved'));
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findScenarioStatusById as jest.Mock).mockResolvedValue({ status: 'approved' });
 
       await expect(
         service.updateScenario(TENANT_ID, SCENARIO_ID, { name: 'Updated' }),
@@ -236,7 +245,7 @@ describe('ScenarioService', () => {
     });
 
     it('should throw NotFoundException when scenario does not exist', async () => {
-      mockPrisma.schedulingScenario.findFirst.mockResolvedValue(null);
+      // findScenarioStatusById returns null by default from mock
 
       await expect(
         service.updateScenario(TENANT_ID, 'nonexistent', { name: 'Updated' }),
@@ -248,7 +257,8 @@ describe('ScenarioService', () => {
 
   describe('deleteScenario', () => {
     it('should delete a draft scenario', async () => {
-      mockPrisma.schedulingScenario.findFirst.mockResolvedValue(makeDraftScenario('draft'));
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findScenarioStatusById as jest.Mock).mockResolvedValue({ status: 'draft' });
 
       const result = await service.deleteScenario(TENANT_ID, SCENARIO_ID);
 
@@ -257,7 +267,8 @@ describe('ScenarioService', () => {
     });
 
     it('should throw BadRequestException when scenario is approved', async () => {
-      mockPrisma.schedulingScenario.findFirst.mockResolvedValue(makeDraftScenario('approved'));
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findScenarioStatusById as jest.Mock).mockResolvedValue({ status: 'approved' });
 
       await expect(service.deleteScenario(TENANT_ID, SCENARIO_ID)).rejects.toThrow(
         BadRequestException,
@@ -269,7 +280,8 @@ describe('ScenarioService', () => {
 
   describe('compareScenarios', () => {
     it('should return comparison data for all provided scenario IDs', async () => {
-      mockPrisma.schedulingScenario.findMany.mockResolvedValue([
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findScenariosForComparison as jest.Mock).mockResolvedValue([
         makeDraftScenario('draft'),
         {
           ...makeDraftScenario('solved'),
@@ -290,8 +302,9 @@ describe('ScenarioService', () => {
     });
 
     it('should throw NotFoundException when one or more scenarios are missing', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
       // Only returns 1 of the 2 requested IDs
-      mockPrisma.schedulingScenario.findMany.mockResolvedValue([makeDraftScenario()]);
+      (runsFacade.findScenariosForComparison as jest.Mock).mockResolvedValue([makeDraftScenario()]);
 
       await expect(
         service.compareScenarios(TENANT_ID, {
@@ -301,7 +314,8 @@ describe('ScenarioService', () => {
     });
 
     it('should extract metrics from solver_result_json', async () => {
-      mockPrisma.schedulingScenario.findMany.mockResolvedValue([
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findScenariosForComparison as jest.Mock).mockResolvedValue([
         {
           ...makeDraftScenario('solved'),
           solver_result_json: {
@@ -327,7 +341,8 @@ describe('ScenarioService', () => {
 
   describe('runScenarioSolver', () => {
     it('should enqueue a solver job and return queued=true', async () => {
-      mockPrisma.schedulingScenario.findFirst.mockResolvedValue(makeDraftScenario());
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findScenarioById as jest.Mock).mockResolvedValue(makeDraftScenario());
 
       const result = await service.runScenarioSolver(TENANT_ID, SCENARIO_ID);
 
@@ -339,7 +354,7 @@ describe('ScenarioService', () => {
     });
 
     it('should throw NotFoundException when scenario does not exist', async () => {
-      mockPrisma.schedulingScenario.findFirst.mockResolvedValue(null);
+      // findScenarioById returns null by default from mock
 
       await expect(service.runScenarioSolver(TENANT_ID, 'nonexistent')).rejects.toThrow(
         NotFoundException,

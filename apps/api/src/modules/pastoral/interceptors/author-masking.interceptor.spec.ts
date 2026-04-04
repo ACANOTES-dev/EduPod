@@ -2,6 +2,11 @@ import { CallHandler, ExecutionContext } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { lastValueFrom, of } from 'rxjs';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  ChildProtectionReadFacade,
+  RbacReadFacade,
+} from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { AuthorMaskingInterceptor } from './author-masking.interceptor';
@@ -123,25 +128,31 @@ const makeParentRoles = () => [
 
 describe('AuthorMaskingInterceptor', () => {
   let interceptor: AuthorMaskingInterceptor;
-  let mockPrisma: {
-    cpAccessGrant: { findFirst: jest.Mock };
-    membershipRole: { findMany: jest.Mock };
-  };
+  let mockChildProtectionReadFacade: { hasActiveCpAccess: jest.Mock };
+  let mockRbacReadFacade: { findMembershipWithPermissions: jest.Mock };
+  let mockPrisma: Record<string, unknown>;
 
   beforeEach(async () => {
-    mockPrisma = {
-      cpAccessGrant: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-      membershipRole: {
-        findMany: jest.fn().mockResolvedValue(makeStaffRoles()),
-      },
+    mockChildProtectionReadFacade = {
+      hasActiveCpAccess: jest.fn().mockResolvedValue(false),
     };
+
+    mockRbacReadFacade = {
+      findMembershipWithPermissions: jest.fn().mockResolvedValue({
+        id: MEMBERSHIP_STAFF,
+        membership_roles: makeStaffRoles(),
+      }),
+    };
+
+    mockPrisma = {};
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AuthorMaskingInterceptor,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: ChildProtectionReadFacade, useValue: mockChildProtectionReadFacade },
+        { provide: RbacReadFacade, useValue: mockRbacReadFacade },
       ],
     }).compile();
 
@@ -157,8 +168,11 @@ describe('AuthorMaskingInterceptor', () => {
   describe('non-DLP staff viewer', () => {
     it('author_masked=false, viewer=staff: sees author name', async () => {
       // No CP access
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
-      mockPrisma.membershipRole.findMany.mockResolvedValue(makeStaffRoles());
+      mockChildProtectionReadFacade.hasActiveCpAccess.mockResolvedValue(false);
+      mockRbacReadFacade.findMembershipWithPermissions.mockResolvedValue({
+        id: MEMBERSHIP_STAFF,
+        membership_roles: makeStaffRoles(),
+      });
 
       const concern = makeConcernResponse({ author_masked: false });
       const ctx = makeExecutionContext(
@@ -176,8 +190,11 @@ describe('AuthorMaskingInterceptor', () => {
     });
 
     it('author_masked=true, viewer=staff without CP access: author masked', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
-      mockPrisma.membershipRole.findMany.mockResolvedValue(makeStaffRoles());
+      mockChildProtectionReadFacade.hasActiveCpAccess.mockResolvedValue(false);
+      mockRbacReadFacade.findMembershipWithPermissions.mockResolvedValue({
+        id: MEMBERSHIP_STAFF,
+        membership_roles: makeStaffRoles(),
+      });
 
       const concern = makeConcernResponse({ author_masked: true });
       const ctx = makeExecutionContext(
@@ -200,10 +217,11 @@ describe('AuthorMaskingInterceptor', () => {
   describe('DLP viewer', () => {
     it('author_masked=true, viewer=DLP: sees author name (DLP bypass)', async () => {
       // DLP has active CP access grant
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue({
-        id: 'grant-1',
+      mockChildProtectionReadFacade.hasActiveCpAccess.mockResolvedValue(true);
+      mockRbacReadFacade.findMembershipWithPermissions.mockResolvedValue({
+        id: MEMBERSHIP_STAFF,
+        membership_roles: makeStaffRoles(),
       });
-      mockPrisma.membershipRole.findMany.mockResolvedValue(makeStaffRoles());
 
       const concern = makeConcernResponse({ author_masked: true });
       const ctx = makeExecutionContext(
@@ -221,10 +239,11 @@ describe('AuthorMaskingInterceptor', () => {
     });
 
     it('author_masked=false, viewer=DLP: sees author name', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue({
-        id: 'grant-1',
+      mockChildProtectionReadFacade.hasActiveCpAccess.mockResolvedValue(true);
+      mockRbacReadFacade.findMembershipWithPermissions.mockResolvedValue({
+        id: MEMBERSHIP_STAFF,
+        membership_roles: makeStaffRoles(),
       });
-      mockPrisma.membershipRole.findMany.mockResolvedValue(makeStaffRoles());
 
       const concern = makeConcernResponse({ author_masked: false });
       const ctx = makeExecutionContext(
@@ -244,8 +263,11 @@ describe('AuthorMaskingInterceptor', () => {
 
   describe('parent viewer', () => {
     it('author_masked=true, viewer=parent: author masked (parents never see)', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
-      mockPrisma.membershipRole.findMany.mockResolvedValue(makeParentRoles());
+      mockChildProtectionReadFacade.hasActiveCpAccess.mockResolvedValue(false);
+      mockRbacReadFacade.findMembershipWithPermissions.mockResolvedValue({
+        id: MEMBERSHIP_PARENT,
+        membership_roles: makeParentRoles(),
+      });
 
       const concern = makeConcernResponse({ author_masked: true });
       const ctx = makeExecutionContext(
@@ -263,8 +285,11 @@ describe('AuthorMaskingInterceptor', () => {
     });
 
     it('author_masked=false, viewer=parent: author STILL masked (parents never see)', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
-      mockPrisma.membershipRole.findMany.mockResolvedValue(makeParentRoles());
+      mockChildProtectionReadFacade.hasActiveCpAccess.mockResolvedValue(false);
+      mockRbacReadFacade.findMembershipWithPermissions.mockResolvedValue({
+        id: MEMBERSHIP_PARENT,
+        membership_roles: makeParentRoles(),
+      });
 
       const concern = makeConcernResponse({ author_masked: false });
       const ctx = makeExecutionContext(
@@ -286,8 +311,11 @@ describe('AuthorMaskingInterceptor', () => {
 
   describe('nested objects', () => {
     it('should handle nested objects (concern with versions)', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
-      mockPrisma.membershipRole.findMany.mockResolvedValue(makeStaffRoles());
+      mockChildProtectionReadFacade.hasActiveCpAccess.mockResolvedValue(false);
+      mockRbacReadFacade.findMembershipWithPermissions.mockResolvedValue({
+        id: MEMBERSHIP_STAFF,
+        membership_roles: makeStaffRoles(),
+      });
 
       const concernWithVersions = makeConcernResponse({
         author_masked: true,
@@ -322,8 +350,11 @@ describe('AuthorMaskingInterceptor', () => {
 
   describe('paginated responses', () => {
     it('should apply masking to paginated responses', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
-      mockPrisma.membershipRole.findMany.mockResolvedValue(makeStaffRoles());
+      mockChildProtectionReadFacade.hasActiveCpAccess.mockResolvedValue(false);
+      mockRbacReadFacade.findMembershipWithPermissions.mockResolvedValue({
+        id: MEMBERSHIP_STAFF,
+        membership_roles: makeStaffRoles(),
+      });
 
       const paginatedResponse = {
         data: [
@@ -357,8 +388,11 @@ describe('AuthorMaskingInterceptor', () => {
     });
 
     it('should apply masking to chronology entries', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
-      mockPrisma.membershipRole.findMany.mockResolvedValue(makeStaffRoles());
+      mockChildProtectionReadFacade.hasActiveCpAccess.mockResolvedValue(false);
+      mockRbacReadFacade.findMembershipWithPermissions.mockResolvedValue({
+        id: MEMBERSHIP_STAFF,
+        membership_roles: makeStaffRoles(),
+      });
 
       const chronologyResponse = {
         data: [
@@ -401,8 +435,11 @@ describe('AuthorMaskingInterceptor', () => {
 
   describe('graceful handling', () => {
     it('should be a no-op when author fields do not exist on the object', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
-      mockPrisma.membershipRole.findMany.mockResolvedValue(makeStaffRoles());
+      mockChildProtectionReadFacade.hasActiveCpAccess.mockResolvedValue(false);
+      mockRbacReadFacade.findMembershipWithPermissions.mockResolvedValue({
+        id: MEMBERSHIP_STAFF,
+        membership_roles: makeStaffRoles(),
+      });
 
       // Object without any author-related fields
       const nonAuthorData = {
@@ -428,8 +465,11 @@ describe('AuthorMaskingInterceptor', () => {
     });
 
     it('should handle null response gracefully', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
-      mockPrisma.membershipRole.findMany.mockResolvedValue(makeStaffRoles());
+      mockChildProtectionReadFacade.hasActiveCpAccess.mockResolvedValue(false);
+      mockRbacReadFacade.findMembershipWithPermissions.mockResolvedValue({
+        id: MEMBERSHIP_STAFF,
+        membership_roles: makeStaffRoles(),
+      });
 
       const ctx = makeExecutionContext(
         makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF),

@@ -100,7 +100,7 @@ export function ClassForm({ initialValues, onSubmit, submitLabel, onCancel }: Cl
         setRooms(roomsRes.data);
         setStaffProfiles(staff.data);
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[ClassForm]', err); });
   }, []);
 
   // Filter rooms: exclude already-assigned rooms, and filter by capacity
@@ -219,7 +219,7 @@ export function ClassForm({ initialValues, onSubmit, submitLabel, onCancel }: Cl
 
           {/* Class Type */}
           <div className="space-y-1.5">
-            <Label>Class Type *</Label>
+            <Label>{t('classType')}</Label>
             <Select
               value={values.class_type}
               onValueChange={(v) =>
@@ -232,11 +232,11 @@ export function ClassForm({ initialValues, onSubmit, submitLabel, onCancel }: Cl
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select class type" />
+                <SelectValue placeholder={t('selectClassType')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="fixed">Fixed</SelectItem>
-                <SelectItem value="floating">Floating</SelectItem>
+                <SelectItem value="fixed">{t('fixed')}</SelectItem>
+                <SelectItem value="floating">{t('floating')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -244,13 +244,13 @@ export function ClassForm({ initialValues, onSubmit, submitLabel, onCancel }: Cl
           {/* Assigned Classroom (only for Fixed) */}
           {isFixed && (
             <div className="space-y-1.5">
-              <Label>Assigned Classroom *</Label>
+              <Label>{t('assignedClassroom')}</Label>
               <Select
                 value={values.homeroom_id}
                 onValueChange={(v) => setValues((p) => ({ ...p, homeroom_id: v }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select classroom" />
+                  <SelectValue placeholder={t('selectClassroom')} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableRooms.map((r) => (

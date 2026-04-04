@@ -62,11 +62,11 @@ export function EarlyWarningList() {
   React.useEffect(() => {
     apiClient<{ data: YearGroupOption[] }>('/api/v1/year-groups', { silent: true })
       .then((res) => setYearGroups(res.data ?? []))
-      .catch(() => setYearGroups([]));
+      .catch((err) => { console.error('[EarlyWarningList]', err); return setYearGroups([]); });
 
     apiClient<{ data: ClassOption[] }>('/api/v1/classes?pageSize=200', { silent: true })
       .then((res) => setClasses(res.data ?? []))
-      .catch(() => setClasses([]));
+      .catch((err) => { console.error('[EarlyWarningList]', err); return setClasses([]); });
   }, []);
 
   // ─── Fetch list data ───────────────────────────────────────────────────────

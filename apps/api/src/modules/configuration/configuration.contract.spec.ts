@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -37,6 +38,7 @@ describe('ConfigurationModule — contract', () => {
   it('should resolve SettingsService via DI', async () => {
     const module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         SettingsService,
         { provide: PrismaService, useValue: MOCK_PRISMA },
         { provide: SecurityAuditService, useValue: { logSettingsAccess: jest.fn() } },
@@ -51,6 +53,7 @@ describe('ConfigurationModule — contract', () => {
   it('should resolve EncryptionService via DI', async () => {
     const module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         EncryptionService,
         { provide: ConfigService, useValue: { get: (key: string) => MOCK_CONFIG[key] } },
       ],

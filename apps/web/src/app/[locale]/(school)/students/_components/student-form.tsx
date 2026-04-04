@@ -2,6 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, ChevronsUpDown } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
@@ -77,6 +78,7 @@ interface StudentFormProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function StudentForm({ initialData, onSubmit, isEditMode = false }: StudentFormProps) {
+  const t = useTranslations('students');
   const [yearGroups, setYearGroups] = React.useState<YearGroup[]>([]);
   const [households, setHouseholds] = React.useState<Household[]>([]);
   const [householdOpen, setHouseholdOpen] = React.useState(false);
@@ -142,11 +144,11 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
       {/* Name */}
       <div className="grid grid-cols-3 gap-4">
         <div className="space-y-1.5">
-          <Label htmlFor="first_name">First Name *</Label>
+          <Label htmlFor="first_name">{t('firstName3')}</Label>
           <Input
             id="first_name"
             {...form.register('first_name')}
-            placeholder="First name"
+            placeholder={t('firstName2')}
             className="text-base"
           />
           {form.formState.errors.first_name && (
@@ -154,20 +156,20 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
           )}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="middle_name">Middle Name</Label>
+          <Label htmlFor="middle_name">{t('middleName2')}</Label>
           <Input
             id="middle_name"
             {...form.register('middle_name')}
-            placeholder="Middle name"
+            placeholder={t('middleName')}
             className="text-base"
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="last_name">Last Name *</Label>
+          <Label htmlFor="last_name">{t('lastName3')}</Label>
           <Input
             id="last_name"
             {...form.register('last_name')}
-            placeholder="Last name"
+            placeholder={t('lastName2')}
             className="text-base"
           />
           {form.formState.errors.last_name && (
@@ -179,7 +181,7 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
       {/* DOB + Gender */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label htmlFor="date_of_birth">Date of Birth *</Label>
+          <Label htmlFor="date_of_birth">{t('dateOfBirth2')}</Label>
           <Input
             id="date_of_birth"
             type="date"
@@ -194,20 +196,20 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
           )}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="gender">Gender *</Label>
+          <Label htmlFor="gender">{t('gender2')}</Label>
           <Controller
             control={form.control}
             name="gender"
             render={({ field }) => (
               <Select value={field.value ?? ''} onValueChange={field.onChange}>
                 <SelectTrigger id="gender" className="text-base">
-                  <SelectValue placeholder="Select gender" />
+                  <SelectValue placeholder={t('selectGender')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="male">Male</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                  <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                  <SelectItem value="male">{t('male')}</SelectItem>
+                  <SelectItem value="female">{t('female')}</SelectItem>
+                  <SelectItem value="other">{t('other')}</SelectItem>
+                  <SelectItem value="prefer_not_to_say">{t('preferNotToSay')}</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -221,7 +223,7 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
       {/* Household + Year Group */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label htmlFor="household_id">Household *</Label>
+          <Label htmlFor="household_id">{t('household2')}</Label>
           <Controller
             control={form.control}
             name="household_id"
@@ -244,9 +246,9 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                   <Command>
-                    <CommandInput placeholder="Search households..." />
+                    <CommandInput placeholder={t('searchHouseholds')} />
                     <CommandList>
-                      <CommandEmpty>No household found.</CommandEmpty>
+                      <CommandEmpty>{t('noHouseholdFound')}</CommandEmpty>
                       <CommandGroup>
                         {households.map((hh) => (
                           <CommandItem
@@ -289,14 +291,14 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
           )}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="year_group_id">Year Group *</Label>
+          <Label htmlFor="year_group_id">{t('yearGroup2')}</Label>
           <Controller
             control={form.control}
             name="year_group_id"
             render={({ field }) => (
               <Select value={field.value ?? ''} onValueChange={field.onChange}>
                 <SelectTrigger id="year_group_id" className="text-base">
-                  <SelectValue placeholder="Select year group" />
+                  <SelectValue placeholder={t('selectYearGroup')} />
                 </SelectTrigger>
                 <SelectContent>
                   {yearGroups.map((yg) => (
@@ -319,12 +321,12 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
       {/* National ID + Status */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label htmlFor="national_id">National ID *</Label>
+          <Label htmlFor="national_id">{t('nationalId')}</Label>
           <Input
             id="national_id"
             dir="ltr"
             {...form.register('national_id')}
-            placeholder="e.g. 1234567890"
+            placeholder={t('eG1234567890')}
             className="text-base"
           />
           {form.formState.errors.national_id && (
@@ -333,18 +335,18 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
         </div>
         {!isEditMode && (
           <div className="space-y-1.5">
-            <Label htmlFor="status">Status</Label>
+            <Label htmlFor="status">{t('status')}</Label>
             <Controller
               control={form.control}
               name="status"
               render={({ field }) => (
                 <Select value={field.value ?? 'applicant'} onValueChange={field.onChange}>
                   <SelectTrigger id="status" className="text-base">
-                    <SelectValue placeholder="Select status" />
+                    <SelectValue placeholder={t('selectStatus')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="applicant">Applicant</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="applicant">{t('applicant')}</SelectItem>
+                    <SelectItem value="active">{t('active')}</SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -356,11 +358,11 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
       {/* Nationality + City of Birth */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label htmlFor="nationality">Nationality *</Label>
+          <Label htmlFor="nationality">{t('nationality2')}</Label>
           <Input
             id="nationality"
             {...form.register('nationality')}
-            placeholder="e.g. Irish, British, Emirati"
+            placeholder={t('eGIrishBritishEmirati')}
             className="text-base"
           />
           {form.formState.errors.nationality && (
@@ -368,11 +370,11 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
           )}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="city_of_birth">City of Birth</Label>
+          <Label htmlFor="city_of_birth">{t('cityOfBirth')}</Label>
           <Input
             id="city_of_birth"
             {...form.register('city_of_birth')}
-            placeholder="e.g. Dublin, London"
+            placeholder={t('eGDublinLondon')}
             className="text-base"
           />
         </div>
@@ -380,11 +382,11 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
 
       {/* Medical */}
       <div className="space-y-1.5">
-        <Label htmlFor="medical_notes">Medical Notes</Label>
+        <Label htmlFor="medical_notes">{t('medicalNotes')}</Label>
         <Textarea
           id="medical_notes"
           {...form.register('medical_notes')}
-          placeholder="Any relevant medical information..."
+          placeholder={t('anyRelevantMedicalInformation')}
           rows={3}
           className="text-base"
         />
@@ -404,16 +406,16 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
               />
             )}
           />
-          <Label htmlFor="has_allergy">Student has known allergies</Label>
+          <Label htmlFor="has_allergy">{t('studentHasKnownAllergies')}</Label>
         </div>
 
         {watchHasAllergy && (
           <div className="space-y-1.5 ps-6">
-            <Label htmlFor="allergy_details">Allergy Details *</Label>
+            <Label htmlFor="allergy_details">{t('allergyDetails2')}</Label>
             <Textarea
               id="allergy_details"
               {...form.register('allergy_details')}
-              placeholder="Describe the allergies and any required emergency treatment..."
+              placeholder={t('describeTheAllergiesAndAny')}
               rows={3}
               className="text-base"
             />

@@ -9,6 +9,13 @@ import { Test } from '@nestjs/testing';
 
 jest.mock('../../common/middleware/rls.middleware');
 
+import {
+  ConfigurationReadFacade,
+  MOCK_FACADE_PROVIDERS,
+  ParentReadFacade,
+  ClassesReadFacade,
+  StaffProfileReadFacade,
+} from '../../common/tests/mock-facades';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -129,7 +136,48 @@ describe('ConferencesService', () => {
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
-      providers: [ConferencesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ConferencesService,
+        { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: ParentReadFacade,
+          useValue: {
+            findByUserId: mockPrisma.parent.findFirst,
+            findLinkedStudentIds: jest.fn().mockImplementation(async () => {
+              const links = await mockPrisma.studentParent.findMany();
+              return (links as Array<{ student_id: string }>).map((l) => l.student_id);
+            }),
+            isLinkedToStudent: jest.fn().mockImplementation(
+              async (_tenantId: string, _parentId: string, studentId: string) => {
+                const link = await mockPrisma.studentParent.findUnique();
+                return link?.student_id === studentId;
+              },
+            ),
+          },
+        },
+        {
+          provide: StaffProfileReadFacade,
+          useValue: { findByUserId: mockPrisma.staffProfile.findFirst },
+        },
+        {
+          provide: ClassesReadFacade,
+          useValue: {
+            findClassIdsByStudentIds: jest.fn().mockImplementation(async () => {
+              const enrolments = await mockPrisma.classEnrolment.findMany();
+              return (enrolments as Array<{ class_id: string }>).map((e) => e.class_id);
+            }),
+            findStaffProfileIdsByClassIds: jest.fn().mockImplementation(async () => {
+              const staff = await mockPrisma.classStaff.findMany();
+              return (staff as Array<{ staff_profile_id: string }>).map((s) => s.staff_profile_id);
+            }),
+          },
+        },
+        {
+          provide: ConfigurationReadFacade,
+          useValue: { findSettings: mockPrisma.tenantSetting.findUnique },
+        },
+      ],
     }).compile();
 
     service = module.get<ConferencesService>(ConferencesService);

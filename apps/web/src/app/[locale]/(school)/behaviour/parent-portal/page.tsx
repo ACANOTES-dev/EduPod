@@ -91,7 +91,7 @@ export default function ParentBehaviourPortalPage() {
           setActiveChildId(children[0].student_id);
         }
       })
-      .catch(() => setSummary([]))
+      .catch((err) => { console.error('[BehaviourParentPortalPage]', err); return setSummary([]); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -126,7 +126,7 @@ export default function ParentBehaviourPortalPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Behaviour Portal"
+        title={t('title')}
         description="Stay informed about your child's behaviour"
       />
 
@@ -187,7 +187,8 @@ function ChildPanel({ child }: { child: ChildSummary }) {
       ]);
       setIncidents(incRes.data ?? []);
       setSanctions(sanRes.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourParentPortalPage]', err);
       setIncidents([]);
       setSanctions([]);
     } finally {
@@ -239,8 +240,7 @@ function ChildPanel({ child }: { child: ChildSummary }) {
             <div className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 dark:bg-amber-900/20">
               <Bell className="h-3.5 w-3.5 text-amber-600" />
               <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
-                {child.pending_acknowledgements} pending
-                {child.pending_acknowledgements === 1 ? ' acknowledgement' : ' acknowledgements'}
+                {child.pending_acknowledgements}{t('pending')}{child.pending_acknowledgements === 1 ? ' acknowledgement' : ' acknowledgements'}
               </span>
             </div>
           )}
@@ -432,9 +432,7 @@ function ChildPanel({ child }: { child: ChildSummary }) {
                             SANCTION_STATUS_CLASSES[s.status] ??
                             'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
                           }`}
-                        >
-                          Scheduled
-                        </span>
+                        >{t('scheduled')}</span>
                       </div>
                       <p className="mt-1 text-xs text-text-tertiary">
                         {formatDate(s.scheduled_date)}

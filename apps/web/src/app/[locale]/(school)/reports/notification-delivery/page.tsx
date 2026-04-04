@@ -63,7 +63,7 @@ export default function NotificationDeliveryPage() {
     setIsLoading(true);
     apiClient<DeliveryReport>(`/api/v1/reports/notification-delivery?${params.toString()}`)
       .then((res) => setReport(res))
-      .catch(() => setReport(null))
+      .catch((err) => { console.error('[ReportsNotificationDeliveryPage]', err); return setReport(null); })
       .finally(() => setIsLoading(false));
   }, [startDate, endDate, channelFilter]);
 

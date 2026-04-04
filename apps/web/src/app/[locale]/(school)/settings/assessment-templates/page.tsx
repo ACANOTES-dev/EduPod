@@ -92,13 +92,13 @@ export default function AssessmentTemplatesPage() {
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/subjects?pageSize=100&subject_type=academic')
       .then((res) => setSubjects(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[SettingsAssessmentTemplatesPage]', err); });
     apiClient<ListResponse<SelectOption>>('/api/v1/gradebook/assessment-categories?pageSize=100')
       .then((res) => setCategories(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[SettingsAssessmentTemplatesPage]', err); });
     apiClient<ListResponse<SelectOption>>('/api/v1/gradebook/rubric-templates?pageSize=100')
       .then((res) => setRubricTemplates(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[SettingsAssessmentTemplatesPage]', err); });
   }, []);
 
   const fetchTemplates = React.useCallback(async (p: number, subject: string) => {
@@ -111,7 +111,8 @@ export default function AssessmentTemplatesPage() {
       );
       setData(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsAssessmentTemplatesPage]', err);
       setData([]);
       setTotal(0);
     } finally {
@@ -174,7 +175,8 @@ export default function AssessmentTemplatesPage() {
       }
       setDialogOpen(false);
       void fetchTemplates(page, subjectFilter);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsAssessmentTemplatesPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setSaving(false);
@@ -186,7 +188,8 @@ export default function AssessmentTemplatesPage() {
       await apiClient(`/api/v1/gradebook/assessment-templates/${id}`, { method: 'DELETE' });
       setConfirmDeleteId(null);
       void fetchTemplates(page, subjectFilter);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsAssessmentTemplatesPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -295,7 +298,7 @@ export default function AssessmentTemplatesPage() {
             <SelectValue placeholder={t('subject')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Subjects</SelectItem>
+            <SelectItem value="all">{t('allSubjects')}</SelectItem>
             {subjects.map((s) => (
               <SelectItem key={s.id} value={s.id}>
                 {s.name}
@@ -336,20 +339,20 @@ export default function AssessmentTemplatesPage() {
                 id="tpl-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Mid-Term Exam"
+                placeholder={t('eGMidTermExam')}
               />
             </div>
 
             <div>
               <Label>
-                {t('subject')} <span className="text-text-tertiary text-xs">(optional)</span>
+                {t('subject')} <span className="text-text-tertiary text-xs">{t('optional')}</span>
               </Label>
               <Select value={subjectId} onValueChange={setSubjectId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Any subject" />
+                  <SelectValue placeholder={t('anySubject')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Any subject</SelectItem>
+                  <SelectItem value="none">{t('anySubject')}</SelectItem>
                   {subjects.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.name}
@@ -389,14 +392,14 @@ export default function AssessmentTemplatesPage() {
 
             <div>
               <Label>
-                {t('rubricTemplate')} <span className="text-text-tertiary text-xs">(optional)</span>
+                {t('rubricTemplate')} <span className="text-text-tertiary text-xs">{t('optional')}</span>
               </Label>
               <Select value={rubricTemplateId} onValueChange={setRubricTemplateId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="No rubric" />
+                  <SelectValue placeholder={t('noRubric')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No rubric</SelectItem>
+                  <SelectItem value="none">{t('noRubric')}</SelectItem>
                   {rubricTemplates.map((r) => (
                     <SelectItem key={r.id} value={r.id}>
                       {r.name}

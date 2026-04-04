@@ -6,6 +6,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import type { CompensationType } from '@prisma/client';
 import type { Queue } from 'bullmq';
 
 import {
@@ -16,6 +17,7 @@ import type {
   CreatePayrollRunDto,
   FinaliseRunDto,
   PayrollRunStatus,
+  TenantSettingsDto,
   UpdatePayrollRunDto,
 } from '@school/shared';
 
@@ -27,7 +29,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
 import { CalculationService } from './calculation.service';
-import type { CalcInput } from './calculation.service';
+import type { CalcInput, CalcResult } from './calculation.service';
 import { PayslipsService } from './payslips.service';
 
 interface RunFilters {
@@ -37,6 +39,16 @@ interface RunFilters {
   period_year?: number;
   sort?: string;
   order?: 'asc' | 'desc';
+}
+
+// ─── Compensation snapshot shape shared by StaffCompensation query results ────
+interface CompensationSnapshot {
+  compensation_type: CompensationType;
+  base_salary: { toNumber?: () => number } | number | null;
+  per_class_rate: { toNumber?: () => number } | number | null;
+  assigned_class_count: number | null;
+  bonus_class_rate: { toNumber?: () => number } | number | null;
+  bonus_day_multiplier: { toNumber?: () => number } | number | null;
 }
 
 @Injectable()
@@ -241,24 +253,12 @@ export class PayrollRunsService {
       });
 
       // Get tenant settings for auto-populate class counts
-      let autoPopulateClassCounts = true;
-      try {
-        const settings = await this.settingsService.getSettings(tenantId);
-        autoPopulateClassCounts = settings.payroll.autoPopulateClassCounts;
-      } catch (err) {
-        if (
-          err &&
-          typeof err === 'object' &&
-          'status' in err &&
-          (err as { status: number }).status === 404
-        ) {
-          this.logger.warn(
-            `Tenant ${tenantId} has no settings configured, using defaults for payroll`,
-          );
-        } else {
-          throw err;
-        }
-      }
+      const autoPopulateClassCounts = await this.getPayrollSetting(
+        tenantId,
+        (s) => s.payroll.autoPopulateClassCounts,
+        true,
+        'using defaults for payroll',
+      );
 
       const firstDayOfMonth = new Date(dto.period_year, dto.period_month - 1, 1);
       const lastDayOfMonth = new Date(dto.period_year, dto.period_month, 0);
@@ -303,26 +303,15 @@ export class PayrollRunsService {
         const result = this.calculationService.calculate(calcInput);
 
         await db.payrollEntry.create({
-          data: {
-            tenant_id: tenantId,
-            payroll_run_id: run.id,
-            staff_profile_id: staffProfileId,
-            compensation_type: comp.compensation_type,
-            snapshot_base_salary: comp.base_salary !== null ? Number(comp.base_salary) : null,
-            snapshot_per_class_rate:
-              comp.per_class_rate !== null ? Number(comp.per_class_rate) : null,
-            snapshot_assigned_class_count: comp.assigned_class_count,
-            snapshot_bonus_class_rate:
-              comp.bonus_class_rate !== null ? Number(comp.bonus_class_rate) : null,
-            snapshot_bonus_day_multiplier:
-              comp.bonus_day_multiplier !== null ? Number(comp.bonus_day_multiplier) : null,
-            days_worked: comp.compensation_type === 'salaried' ? dto.total_working_days : null,
-            classes_taught: autoPopulatedClassCount,
-            auto_populated_class_count: autoPopulatedClassCount,
-            basic_pay: result.basic_pay,
-            bonus_pay: result.bonus_pay,
-            total_pay: result.total_pay,
-          },
+          data: this.buildPayrollEntryData({
+            tenantId,
+            payrollRunId: run.id,
+            staffProfileId,
+            comp,
+            daysWorked: comp.compensation_type === 'salaried' ? dto.total_working_days : null,
+            autoPopulatedClassCount,
+            result,
+          }),
         });
       }
 
@@ -469,24 +458,12 @@ export class PayrollRunsService {
 
       const existingStaffIds = new Set(existingEntries.map((e) => e.staff_profile_id));
 
-      let autoPopulateClassCounts = true;
-      try {
-        const settings = await this.settingsService.getSettings(tenantId);
-        autoPopulateClassCounts = settings.payroll.autoPopulateClassCounts;
-      } catch (err) {
-        if (
-          err &&
-          typeof err === 'object' &&
-          'status' in err &&
-          (err as { status: number }).status === 404
-        ) {
-          this.logger.warn(
-            `Tenant ${tenantId} has no settings configured, using defaults for refresh`,
-          );
-        } else {
-          throw err;
-        }
-      }
+      const autoPopulateClassCounts = await this.getPayrollSetting(
+        tenantId,
+        (s) => s.payroll.autoPopulateClassCounts,
+        true,
+        'using defaults for refresh',
+      );
 
       const firstDayOfMonth = new Date(run.period_year, run.period_month - 1, 1);
       const lastDayOfMonth = new Date(run.period_year, run.period_month, 0);
@@ -589,26 +566,15 @@ export class PayrollRunsService {
         const result = this.calculationService.calculate(calcInput);
 
         await db.payrollEntry.create({
-          data: {
-            tenant_id: tenantId,
-            payroll_run_id: runId,
-            staff_profile_id: comp.staff_profile_id,
-            compensation_type: comp.compensation_type,
-            snapshot_base_salary: comp.base_salary !== null ? Number(comp.base_salary) : null,
-            snapshot_per_class_rate:
-              comp.per_class_rate !== null ? Number(comp.per_class_rate) : null,
-            snapshot_assigned_class_count: comp.assigned_class_count,
-            snapshot_bonus_class_rate:
-              comp.bonus_class_rate !== null ? Number(comp.bonus_class_rate) : null,
-            snapshot_bonus_day_multiplier:
-              comp.bonus_day_multiplier !== null ? Number(comp.bonus_day_multiplier) : null,
-            days_worked: comp.compensation_type === 'salaried' ? run.total_working_days : null,
-            classes_taught: autoPopulatedClassCount,
-            auto_populated_class_count: autoPopulatedClassCount,
-            basic_pay: result.basic_pay,
-            bonus_pay: result.bonus_pay,
-            total_pay: result.total_pay,
-          },
+          data: this.buildPayrollEntryData({
+            tenantId,
+            payrollRunId: runId,
+            staffProfileId: comp.staff_profile_id,
+            comp,
+            daysWorked: comp.compensation_type === 'salaried' ? run.total_working_days : null,
+            autoPopulatedClassCount,
+            result,
+          }),
         });
       }
 
@@ -731,24 +697,12 @@ export class PayrollRunsService {
     }
 
     // Check if approval is required
-    let requireApproval = true;
-    try {
-      const settings = await this.settingsService.getSettings(tenantId);
-      requireApproval = settings.payroll.requireApprovalForNonPrincipal;
-    } catch (err) {
-      if (
-        err &&
-        typeof err === 'object' &&
-        'status' in err &&
-        (err as { status: number }).status === 404
-      ) {
-        this.logger.warn(
-          `Tenant ${tenantId} has no settings configured, defaulting to requireApproval=true`,
-        );
-      } else {
-        throw err;
-      }
-    }
+    const requireApproval = await this.getPayrollSetting(
+      tenantId,
+      (s) => s.payroll.requireApprovalForNonPrincipal,
+      true,
+      'defaulting to requireApproval=true',
+    );
 
     if (run.status === 'draft' && requireApproval && !isSchoolOwner) {
       // R-21: Approval creation + entity status change must be atomic
@@ -896,6 +850,73 @@ export class PayrollRunsService {
 
     return { id: runId, status: 'cancelled' };
   }
+
+  // ─── Shared helpers ────────────────────────────────────────────────────────
+
+  /**
+   * Build the `data` object for a `payrollEntry.create` call.
+   * Used by both `createRun` and `refreshEntries` to avoid duplicate field mapping.
+   */
+  private buildPayrollEntryData(params: {
+    tenantId: string;
+    payrollRunId: string;
+    staffProfileId: string;
+    comp: CompensationSnapshot;
+    daysWorked: number | null;
+    autoPopulatedClassCount: number | null;
+    result: CalcResult;
+  }) {
+    return {
+      tenant_id: params.tenantId,
+      payroll_run_id: params.payrollRunId,
+      staff_profile_id: params.staffProfileId,
+      compensation_type: params.comp.compensation_type,
+      snapshot_base_salary:
+        params.comp.base_salary !== null ? Number(params.comp.base_salary) : null,
+      snapshot_per_class_rate:
+        params.comp.per_class_rate !== null ? Number(params.comp.per_class_rate) : null,
+      snapshot_assigned_class_count: params.comp.assigned_class_count,
+      snapshot_bonus_class_rate:
+        params.comp.bonus_class_rate !== null ? Number(params.comp.bonus_class_rate) : null,
+      snapshot_bonus_day_multiplier:
+        params.comp.bonus_day_multiplier !== null ? Number(params.comp.bonus_day_multiplier) : null,
+      days_worked: params.daysWorked,
+      classes_taught: params.autoPopulatedClassCount,
+      auto_populated_class_count: params.autoPopulatedClassCount,
+      basic_pay: params.result.basic_pay,
+      bonus_pay: params.result.bonus_pay,
+      total_pay: params.result.total_pay,
+    };
+  }
+
+  /**
+   * Retrieve a payroll-related tenant setting with a graceful fallback when
+   * the tenant has no settings row (404). Re-throws all other errors.
+   */
+  private async getPayrollSetting<T>(
+    tenantId: string,
+    extractor: (settings: TenantSettingsDto) => T,
+    defaultValue: T,
+    context: string,
+  ): Promise<T> {
+    try {
+      const settings = await this.settingsService.getSettings(tenantId);
+      return extractor(settings);
+    } catch (err) {
+      if (
+        err &&
+        typeof err === 'object' &&
+        'status' in err &&
+        (err as { status: number }).status === 404
+      ) {
+        this.logger.warn(`Tenant ${tenantId} has no settings configured, ${context}`);
+        return defaultValue;
+      }
+      throw err;
+    }
+  }
+
+  // ─── Serialisation ────────────────────────────────────────────────────────
 
   private serializeRun(run: Record<string, unknown>): Record<string, unknown> {
     const serialized: Record<string, unknown> = { ...run };

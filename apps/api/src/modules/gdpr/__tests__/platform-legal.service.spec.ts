@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, RbacReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { PLATFORM_DPA_VERSIONS, PLATFORM_SUB_PROCESSOR_REGISTER_VERSIONS } from '../legal-content';
@@ -17,7 +18,7 @@ const USER_ID_3 = '33333333-3333-3333-3333-333333333333';
 // ─── Mock Factory ───────────────────────────────────────────────────────────
 
 function buildMockPrisma() {
-  return {
+  const prisma = {
     dpaVersion: {
       upsert: jest.fn().mockResolvedValue({}),
     },
@@ -32,7 +33,11 @@ function buildMockPrisma() {
     notification: {
       createMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
+    $transaction: jest.fn(),
   };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  prisma.$transaction.mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(prisma));
+  return prisma;
 }
 
 function buildMockRedis() {
@@ -56,9 +61,16 @@ describe('PlatformLegalService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         PlatformLegalService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
+        {
+          provide: RbacReadFacade,
+          useValue: {
+            findActiveMembershipsByRoleKeys: mockPrisma.tenantMembership.findMany,
+          },
+        },
       ],
     }).compile();
 
@@ -364,29 +376,9 @@ describe('PlatformLegalService', () => {
 
       await service.ensureSeeded();
 
-      expect(mockPrisma.tenantMembership.findMany).toHaveBeenCalledWith({
-        where: {
-          membership_status: 'active',
-          membership_roles: {
-            some: {
-              role: {
-                role_key: {
-                  in: ['school_owner', 'school_principal', 'school_vice_principal', 'admin'],
-                },
-              },
-            },
-          },
-        },
-        select: {
-          tenant_id: true,
-          user_id: true,
-          user: {
-            select: {
-              preferred_locale: true,
-            },
-          },
-        },
-      });
+      expect(mockPrisma.tenantMembership.findMany).toHaveBeenCalledWith(
+        ['school_owner', 'school_principal', 'school_vice_principal', 'admin'],
+      );
     });
 
     it('should invalidate Redis unread_notifications cache for each recipient', async () => {

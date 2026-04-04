@@ -97,7 +97,8 @@ export default function CoverReportsPage() {
         `/api/v1/scheduling/cover-reports?from=${fromDate}&to=${toDate}`,
       );
       setData(res);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingCoverReportsPage]', err);
       setData(null);
     } finally {
       setLoading(false);

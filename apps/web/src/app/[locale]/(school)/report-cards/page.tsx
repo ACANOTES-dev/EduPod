@@ -74,10 +74,10 @@ export default function ReportCardsPage() {
   React.useEffect(() => {
     apiClient<ListResponse<AcademicPeriod>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[ReportCardsPage]', err); });
     apiClient<ListResponse<SchoolClass>>('/api/v1/classes?pageSize=100')
       .then((res) => setClasses(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[ReportCardsPage]', err); });
   }, []);
 
   const tabs = [
@@ -90,7 +90,7 @@ export default function ReportCardsPage() {
       <PageHeader title={t('title')} />
 
       {/* Tabs */}
-      <nav className="flex gap-1 border-b border-border" aria-label="Report cards tabs">
+      <nav className="flex gap-1 border-b border-border" aria-label={t('reportCardsTabs')}>
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -128,6 +128,7 @@ interface TabProps {
 }
 
 function OverviewTab({ periods, classes, t, tc }: TabProps) {
+  const tCommon = useTranslations('common');
   const [data, setData] = React.useState<OverviewRow[]>([]);
   const [total, setTotal] = React.useState(0);
   const [page, setPage] = React.useState(1);
@@ -149,7 +150,8 @@ function OverviewTab({ periods, classes, t, tc }: TabProps) {
       );
       setData(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsPage]', err);
       setData([]);
       setTotal(0);
     } finally {
@@ -211,7 +213,8 @@ function OverviewTab({ periods, classes, t, tc }: TabProps) {
         const { exportToPdf } = await import('@/lib/export-utils');
         exportToPdf(options);
       }
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -228,7 +231,8 @@ function OverviewTab({ periods, classes, t, tc }: TabProps) {
         body: JSON.stringify({ class_id: classFilter, academic_period_id: periodFilter }),
       });
       toast.success(t('aiGenerateAllSuccess'));
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setGeneratingAllComments(false);
@@ -333,8 +337,8 @@ function OverviewTab({ periods, classes, t, tc }: TabProps) {
           </div>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
-          <SelectItem value="pdf">PDF</SelectItem>
+          <SelectItem value="xlsx">{tCommon('excelFormat')}</SelectItem>
+          <SelectItem value="pdf">{tCommon('pdfFormat')}</SelectItem>
         </SelectContent>
       </Select>
       <Button
@@ -413,7 +417,8 @@ function GenerateTab({ periods, classes, t, tc }: TabProps) {
       setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
 
       toast.success(t('generated'));
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setGenerating(false);

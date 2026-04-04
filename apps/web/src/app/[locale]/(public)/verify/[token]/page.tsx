@@ -25,7 +25,8 @@ async function verifyToken(token: string): Promise<VerificationResult | null> {
     if (!res.ok) return null;
     const data = await res.json() as { data: VerificationResult };
     return data.data;
-  } catch {
+  } catch (err) {
+    console.error('[VerifyPage]', err);
     return null;
   }
 }

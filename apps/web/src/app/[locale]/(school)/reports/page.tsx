@@ -325,7 +325,8 @@ export default function ReportsDashboardPage() {
         setData(res.data);
         setLastRefresh(new Date());
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[ReportsPage]', err);
         // Use mock data for now — backend not yet connected
         setData({
           kpis: {
@@ -360,7 +361,8 @@ export default function ReportsDashboardPage() {
         method: 'POST',
       });
       setAiSummary(res.summary);
-    } catch {
+    } catch (err) {
+      console.error('[ReportsPage]', err);
       setAiSummary(t('analytics.aiSummaryFallback'));
     } finally {
       setAiLoading(false);

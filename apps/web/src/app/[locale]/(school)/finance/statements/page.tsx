@@ -64,7 +64,8 @@ export default function StatementsIndexPage() {
         })),
       );
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[FinanceStatementsPage]', err);
       setHouseholds([]);
       setTotal(0);
     } finally {

@@ -24,7 +24,7 @@ export function TasksTab({ tasks, tasksLoading }: TasksTabProps) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold text-text-primary">Related Tasks ({tasks.length})</h3>
+      <h3 className="text-sm font-semibold text-text-primary">{t('relatedTasks')}{tasks.length})</h3>
 
       {tasksLoading ? (
         <div className="space-y-3">
@@ -49,7 +49,7 @@ export function TasksTab({ tasks, tasksLoading }: TasksTabProps) {
                       {task.assigned_to_user.first_name} {task.assigned_to_user.last_name}
                     </span>
                   )}
-                  {task.due_date && <span>Due: {formatDate(task.due_date)}</span>}
+                  {task.due_date && <span>{t('due')}{formatDate(task.due_date)}</span>}
                 </div>
               </div>
               <Badge

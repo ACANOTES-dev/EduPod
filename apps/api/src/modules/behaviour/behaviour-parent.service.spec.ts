@@ -1,6 +1,7 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ParentReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourAppealsService } from './behaviour-appeals.service';
@@ -134,10 +135,15 @@ describe('BehaviourParentService', () => {
   let mockPrisma: {
     parent: { findFirst: jest.Mock };
   };
+  let mockParentReadFacade: { findActiveByUserIdWithLocale: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
       parent: { findFirst: jest.fn() },
+    };
+
+    mockParentReadFacade = {
+      findActiveByUserIdWithLocale: jest.fn().mockResolvedValue(null),
     };
 
     // Reset all RLS tx mocks
@@ -149,9 +155,11 @@ describe('BehaviourParentService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         BehaviourParentService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: BehaviourAppealsService, useValue: { submit: jest.fn() } },
+        { provide: ParentReadFacade, useValue: mockParentReadFacade },
       ],
     }).compile();
 
@@ -164,7 +172,7 @@ describe('BehaviourParentService', () => {
 
   describe('getSummary', () => {
     it('should return per-child summary with counts for authenticated parent', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
       // No restriction
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
@@ -195,7 +203,7 @@ describe('BehaviourParentService', () => {
     });
 
     it('should return zero data for restricted children without revealing restriction', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
       // Restriction is active
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue({
@@ -222,7 +230,7 @@ describe('BehaviourParentService', () => {
     });
 
     it('should throw NotFoundException when parent profile is not found', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(null);
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(null);
 
       await expect(service.getSummary(TENANT_ID, USER_ID)).rejects.toThrow(NotFoundException);
     });
@@ -232,7 +240,7 @@ describe('BehaviourParentService', () => {
 
   describe('getIncidents', () => {
     it('should return parent-safe incidents with no raw description exposed', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       // Link exists
       mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
       // No restriction
@@ -261,7 +269,7 @@ describe('BehaviourParentService', () => {
     });
 
     it('should return empty array for restricted students', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue({
         id: 'restriction-1',
@@ -283,7 +291,7 @@ describe('BehaviourParentService', () => {
     });
 
     it('should throw ForbiddenException when student is not linked to parent', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       // No link found
       mockRlsTx.studentParent.findFirst.mockResolvedValue(null);
 
@@ -297,7 +305,7 @@ describe('BehaviourParentService', () => {
 
   describe('renderIncidentForParent priority chain', () => {
     const setupBaseGetIncidents = () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
       mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: { behaviour: {} } });
@@ -370,7 +378,7 @@ describe('BehaviourParentService', () => {
     });
 
     it('priority 1 (ar): returns parent_description_ar for Arabic locale parent', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(
         makeParent({ user: { preferred_locale: 'ar' } }),
       );
       mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
@@ -397,7 +405,7 @@ describe('BehaviourParentService', () => {
     });
 
     it('priority 1 (ar fallback): returns parent_description when parent_description_ar is null for Arabic locale', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(
         makeParent({ user: { preferred_locale: 'ar' } }),
       );
       mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
@@ -424,7 +432,7 @@ describe('BehaviourParentService', () => {
     });
 
     it('priority 3 (ar): returns category name_ar for Arabic locale in fallback', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(
         makeParent({ user: { preferred_locale: 'ar' } }),
       );
       mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
@@ -458,7 +466,7 @@ describe('BehaviourParentService', () => {
 
   describe('acknowledge', () => {
     it('should set acknowledged_at and method on the acknowledgement', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       mockRlsTx.behaviourParentAcknowledgement.findFirst.mockResolvedValue({
         id: ACK_ID,
         tenant_id: TENANT_ID,
@@ -488,7 +496,7 @@ describe('BehaviourParentService', () => {
     });
 
     it('should update amendment notice parent_reacknowledged_at when amendment_notice_id is present', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       mockRlsTx.behaviourParentAcknowledgement.findFirst.mockResolvedValue({
         id: ACK_ID,
         tenant_id: TENANT_ID,
@@ -511,7 +519,7 @@ describe('BehaviourParentService', () => {
     });
 
     it('should return already_acknowledged when acknowledgement was already done', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       mockRlsTx.behaviourParentAcknowledgement.findFirst.mockResolvedValue({
         id: ACK_ID,
         tenant_id: TENANT_ID,
@@ -532,7 +540,7 @@ describe('BehaviourParentService', () => {
     });
 
     it('should throw NotFoundException when acknowledgement is not found or does not belong to parent', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       mockRlsTx.behaviourParentAcknowledgement.findFirst.mockResolvedValue(null);
 
       await expect(service.acknowledge(TENANT_ID, USER_ID, 'no-such-ack')).rejects.toThrow(
@@ -541,7 +549,7 @@ describe('BehaviourParentService', () => {
     });
 
     it('should update incident parent_notification_status to acknowledged when all acks are done', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       mockRlsTx.behaviourParentAcknowledgement.findFirst.mockResolvedValue({
         id: ACK_ID,
         tenant_id: TENANT_ID,
@@ -564,7 +572,7 @@ describe('BehaviourParentService', () => {
     });
 
     it('should NOT update incident status when unacknowledged acks remain', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       mockRlsTx.behaviourParentAcknowledgement.findFirst.mockResolvedValue({
         id: ACK_ID,
         tenant_id: TENANT_ID,
@@ -597,7 +605,7 @@ describe('BehaviourParentService', () => {
     });
 
     it('should filter awards by consent when recognition_wall_requires_consent is true', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       mockRlsTx.tenantSetting.findFirst.mockResolvedValue({
         settings: { behaviour: { recognition_wall_requires_consent: true } },
       });
@@ -617,7 +625,7 @@ describe('BehaviourParentService', () => {
     });
 
     it('should return all awards when recognition_wall_requires_consent is false', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       mockRlsTx.tenantSetting.findFirst.mockResolvedValue({
         settings: { behaviour: { recognition_wall_requires_consent: false } },
       });
@@ -634,7 +642,7 @@ describe('BehaviourParentService', () => {
     });
 
     it('should return empty when consent is required and no awards are approved', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
       mockRlsTx.tenantSetting.findFirst.mockResolvedValue({
         settings: { behaviour: { recognition_wall_requires_consent: true } },
       });

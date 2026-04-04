@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, StudentReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { RegulatoryTransfersService } from './regulatory-transfers.service';
@@ -47,8 +48,25 @@ describe('RegulatoryTransfersService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         RegulatoryTransfersService,
         { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: StudentReadFacade,
+          useValue: {
+            existsOrThrow: jest.fn().mockImplementation(
+              async (_tenantId: string, studentId: string) => {
+                const student = await mockPrisma.student.findFirst({ where: { id: studentId } });
+                if (!student) {
+                  throw new NotFoundException({
+                    code: 'STUDENT_NOT_FOUND',
+                    message: `Student "${studentId}" not found`,
+                  });
+                }
+              },
+            ),
+          },
+        },
       ],
     }).compile();
 

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, StudentReadFacade, AcademicReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourIncidentAnalyticsService } from './behaviour-incident-analytics.service';
@@ -51,9 +52,12 @@ describe('BehaviourIncidentAnalyticsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         BehaviourIncidentAnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: BehaviourScopeService, useValue: makeMockScope() },
+        { provide: StudentReadFacade, useValue: { count: mockPrisma.student.count } },
+        { provide: AcademicReadFacade, useValue: { findSubjectsByIds: mockPrisma.subject.findMany } },
       ],
     }).compile();
 

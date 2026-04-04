@@ -43,7 +43,8 @@ export default function GradeThresholdsPage() {
     try {
       const res = await apiClient<ListResponse<ThresholdConfig>>('/api/v1/grade-threshold-configs');
       setConfigs(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsGradeThresholdsPage]', err);
       setConfigs([]);
     } finally {
       setIsLoading(false);
@@ -79,7 +80,8 @@ export default function GradeThresholdsPage() {
       await apiClient(`/api/v1/grade-threshold-configs/${id}`, { method: 'DELETE' });
       toast.success(tc('deleted'));
       void fetchConfigs();
-    } catch {
+    } catch (err) {
+      console.error('[SettingsGradeThresholdsPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -89,7 +91,8 @@ export default function GradeThresholdsPage() {
       await apiClient(`/api/v1/grade-threshold-configs/${id}/set-default`, { method: 'POST' });
       toast.success(tr('thresholdSetAsDefault'));
       void fetchConfigs();
-    } catch {
+    } catch (err) {
+      console.error('[SettingsGradeThresholdsPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -116,7 +119,8 @@ export default function GradeThresholdsPage() {
       }
       toast.success(tc('saved'));
       void fetchConfigs();
-    } catch {
+    } catch (err) {
+      console.error('[SettingsGradeThresholdsPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -191,6 +195,7 @@ function ThresholdConfigCard({
   tr,
   tc,
 }: ThresholdConfigCardProps) {
+  const tCommon = useTranslations('common');
   const [saving, setSaving] = React.useState(false);
 
   const handleNameChange = (v: string) => {
@@ -311,7 +316,7 @@ function ThresholdConfigCard({
                 <Input
                   value={threshold.label}
                   onChange={(e) => handleThresholdChange(origIdx, 'label', e.target.value)}
-                  placeholder="e.g. Merit"
+                  placeholder={t('eGMerit')}
                 />
                 <Input
                   value={threshold.label_ar}
@@ -323,7 +328,7 @@ function ThresholdConfigCard({
                   type="button"
                   onClick={() => handleRemoveThreshold(origIdx)}
                   className="rounded p-1 text-text-tertiary hover:text-error-600"
-                  aria-label="Remove"
+                  aria-label={tCommon('remove')}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

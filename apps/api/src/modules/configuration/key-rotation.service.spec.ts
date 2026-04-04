@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { EncryptionService } from './encryption.service';
@@ -82,7 +83,9 @@ describe('KeyRotationService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn().mockResolvedValue({}),
       },
-    };
+    } as unknown as typeof mockPrisma;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (mockPrisma as any).$transaction = jest.fn().mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(mockPrisma));
 
     mockEncryption = {
       getCurrentVersion: jest.fn().mockReturnValue(CURRENT_VERSION),
@@ -99,6 +102,7 @@ describe('KeyRotationService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         KeyRotationService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EncryptionService, useValue: mockEncryption },

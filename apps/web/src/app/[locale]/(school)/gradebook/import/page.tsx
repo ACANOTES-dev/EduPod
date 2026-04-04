@@ -44,6 +44,7 @@ type Step = 1 | 2 | 3 | 4;
 
 export default function GradebookImportPage() {
   const t = useTranslations('import');
+  const tCommon = useTranslations('common');
   const tg = useTranslations('gradebook');
   const tc = useTranslations('common');
   const router = useRouter();
@@ -65,10 +66,10 @@ export default function GradebookImportPage() {
   React.useEffect(() => {
     apiClient<{ data: { id: string; name: string }[] }>('/api/v1/classes?pageSize=100')
       .then((res) => setClasses(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradebookImportPage]', err); });
     apiClient<{ data: { id: string; name: string }[] }>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradebookImportPage]', err); });
   }, []);
 
   const templateUrl = React.useMemo(() => {
@@ -112,7 +113,8 @@ export default function GradebookImportPage() {
       const data = (await res.json()) as { data: ValidationResult };
       setValidation(data.data);
       setStep(2);
-    } catch {
+    } catch (err) {
+      console.error('[GradebookImportPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setIsValidating(false);
@@ -135,7 +137,8 @@ export default function GradebookImportPage() {
       });
       setStep(4);
       toast.success('Import completed');
-    } catch {
+    } catch (err) {
+      console.error('[GradebookImportPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setIsProcessing(false);
@@ -185,10 +188,10 @@ export default function GradebookImportPage() {
           <div className="flex flex-wrap items-center gap-3">
             <Select value={templateClassId} onValueChange={setTemplateClassId}>
               <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Class" />
+                <SelectValue placeholder={t('class')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Classes</SelectItem>
+                <SelectItem value="all">{t('allClasses')}</SelectItem>
                 {classes.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
@@ -201,7 +204,7 @@ export default function GradebookImportPage() {
                 <SelectValue placeholder={tg('period')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Periods</SelectItem>
+                <SelectItem value="all">{t('allPeriods')}</SelectItem>
                 {periods.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name}
@@ -256,18 +259,10 @@ export default function GradebookImportPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-surface-secondary">
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
-                    Row
-                  </th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
-                    Student
-                  </th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
-                    Details
-                  </th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">{t('row')}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">{tCommon('student')}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">{t('status')}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">{tCommon('details')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -313,19 +308,14 @@ export default function GradebookImportPage() {
       {step === 3 && validation && (
         <div className="space-y-4">
           <p className="text-sm text-text-secondary">
-            {validation.matched} rows will be imported. Review and confirm.
-          </p>
+            {validation.matched}{t('rowsWillBeImportedReview')}</p>
 
           <div className="overflow-x-auto rounded-xl border border-border">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-surface-secondary">
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
-                    Student
-                  </th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
-                    Score
-                  </th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">{tCommon('student')}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">{t('score')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -357,12 +347,11 @@ export default function GradebookImportPage() {
       {step === 4 && (
         <div className="flex flex-col items-center py-12 text-center">
           <CheckCircle className="h-12 w-12 text-success-text" />
-          <h3 className="mt-4 text-lg font-semibold text-text-primary">Import Complete</h3>
+          <h3 className="mt-4 text-lg font-semibold text-text-primary">{t('importComplete')}</h3>
           <p className="mt-1 text-sm text-text-secondary">
-            {validation?.matched ?? 0} grades were successfully imported.
-          </p>
+            {validation?.matched ?? 0}{t('gradesWereSuccessfullyImported')}</p>
           <Button className="mt-6" onClick={() => router.push(`/${locale}/gradebook`)}>
-            {tc('back')} to {tg('title')}
+            {tc('back')}{t('to')}{tg('title')}
           </Button>
         </div>
       )}

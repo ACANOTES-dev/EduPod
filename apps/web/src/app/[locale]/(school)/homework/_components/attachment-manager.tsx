@@ -54,6 +54,7 @@ export function AttachmentManager({
   disabled,
 }: AttachmentManagerProps) {
   const t = useTranslations('homework');
+  const tCommon = useTranslations('common');
   const [open, setOpen] = React.useState(false);
   const [type, setType] = React.useState<'file' | 'link' | 'video'>('link');
   const [value, setValue] = React.useState('');
@@ -123,12 +124,8 @@ export function AttachmentManager({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAdd} disabled={!value.trim()}>
-              Add
-            </Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>{tCommon('cancel')}</Button>
+            <Button onClick={handleAdd} disabled={!value.trim()}>{t('add')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

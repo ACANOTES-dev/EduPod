@@ -25,7 +25,7 @@ interface AnalyticsResponse {
 function FunnelChart({ data }: { data: Array<{ stage: string; count: number }> }) {
   return (
     <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-      <h3 className="mb-4 text-base font-semibold text-text-primary">Admissions Funnel</h3>
+      <h3 className="mb-4 text-base font-semibold text-text-primary">{t('funnel')}</h3>
       <div className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
@@ -58,7 +58,8 @@ export default function AdmissionsAnalyticsPage() {
   React.useEffect(() => {
     apiClient<{ data: AnalyticsResponse }>('/api/v1/applications/analytics')
       .then((res) => setAnalytics(res.data))
-      .catch(() => {
+      .catch((err) => {
+        console.error('[AdmissionsAnalyticsPage]', err);
         // ignore
       })
       .finally(() => setLoading(false));

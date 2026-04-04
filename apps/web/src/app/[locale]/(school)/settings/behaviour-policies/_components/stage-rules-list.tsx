@@ -12,6 +12,7 @@ import {
   Shield,
   Trash2,
 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 import { Badge, Button, Switch } from '@school/ui';
 
@@ -53,6 +54,7 @@ export function StageRulesList({
   onPriorityMove,
   onViewHistory,
 }: StageRulesListProps) {
+  const t = useTranslations('behaviourSettings.policies');
   const stage = STAGES.find((s) => s.key === activeStage);
   if (!stage) return null;
 
@@ -67,9 +69,7 @@ export function StageRulesList({
           ))}
         </div>
       ) : stageRules.length === 0 ? (
-        <div className="rounded-xl border border-border bg-surface py-8 text-center text-sm text-text-tertiary">
-          No rules configured for this stage.
-        </div>
+        <div className="rounded-xl border border-border bg-surface py-8 text-center text-sm text-text-tertiary">{t('noRulesConfiguredForThis')}</div>
       ) : (
         <div className="space-y-2">
           {stageRules.map((rule, idx) => (
@@ -106,9 +106,7 @@ export function StageRulesList({
                       {rule.match_strategy === 'first_match' ? 'FIRST MATCH' : 'ALL MATCHING'}
                     </Badge>
                     {rule.stop_processing_stage && (
-                      <Badge variant="danger" className="text-[10px]">
-                        STOPS STAGE
-                      </Badge>
+                      <Badge variant="danger" className="text-[10px]">{t('stopsStage')}</Badge>
                     )}
                     <span className="text-xs text-text-tertiary">P{rule.priority}</span>
                   </div>

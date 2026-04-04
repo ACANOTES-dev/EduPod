@@ -75,10 +75,9 @@ export function StatutoryTimeline({
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-text-primary">{step.step}</p>
                 <div className="mt-1 flex flex-wrap gap-3 text-xs text-text-tertiary">
-                  {step.required_by && <span>Due: {formatDate(step.required_by)}</span>}
+                  {step.required_by && <span>{t('due')}{formatDate(step.required_by)}</span>}
                   {step.completed_at && (
-                    <span className="text-green-600 dark:text-green-400">
-                      Completed: {formatDateTime(step.completed_at)}
+                    <span className="text-green-600 dark:text-green-400">{t('completed')}{formatDateTime(step.completed_at)}
                     </span>
                   )}
                 </div>
@@ -94,9 +93,7 @@ export function StatutoryTimeline({
                     t('saving')
                   ) : (
                     <>
-                      <CheckCircle2 className="me-1 h-3.5 w-3.5" />
-                      Complete
-                    </>
+                      <CheckCircle2 className="me-1 h-3.5 w-3.5" />{t('complete')}</>
                   )}
                 </Button>
               )}
@@ -130,8 +127,7 @@ export function FormalNoticeSection({ issuedAt, generating, onGenerate }: Formal
           <Badge
             variant="secondary"
             className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-          >
-            Issued: {formatDateTime(issuedAt)}
+          >{t('issued')}{formatDateTime(issuedAt)}
           </Badge>
         ) : (
           <Badge
@@ -176,6 +172,7 @@ export function HearingSection({
   onSaveHearing,
   onMarkHearingHeld,
 }: HearingSectionProps) {
+  const tCommon = useTranslations('common');
   const t = useTranslations('behaviour.exclusionDetail');
 
   const addAttendee = () => {
@@ -215,11 +212,9 @@ export function HearingSection({
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-text-primary">Attendees</label>
+            <label className="text-sm font-medium text-text-primary">{t('attendees')}</label>
             <Button variant="ghost" size="sm" onClick={addAttendee}>
-              <Plus className="me-1 h-3.5 w-3.5" />
-              Add
-            </Button>
+              <Plus className="me-1 h-3.5 w-3.5" />{t('add')}</Button>
           </div>
           {attendees.length === 0 ? (
             <p className="text-xs text-text-tertiary">{t('noAttendees')}</p>
@@ -231,19 +226,19 @@ export function HearingSection({
                   className="flex flex-wrap items-center gap-2 rounded-lg bg-surface-secondary p-2"
                 >
                   <Input
-                    placeholder="Name"
+                    placeholder={tCommon('name')}
                     value={att.name}
                     onChange={(e) => updateAttendee(idx, 'name', e.target.value)}
                     className="w-full text-sm sm:w-36"
                   />
                   <Input
-                    placeholder="Role"
+                    placeholder={t('role')}
                     value={att.role}
                     onChange={(e) => updateAttendee(idx, 'role', e.target.value)}
                     className="w-full text-sm sm:w-36"
                   />
                   <Input
-                    placeholder="Relationship"
+                    placeholder={t('relationship')}
                     value={att.relationship ?? ''}
                     onChange={(e) => updateAttendee(idx, 'relationship', e.target.value)}
                     className="w-full text-sm sm:w-36"
@@ -269,7 +264,7 @@ export function HearingSection({
           <Textarea
             value={representation}
             onChange={(e) => onRepresentationChange(e.target.value)}
-            placeholder="Notes on student's representation at the hearing..."
+            placeholder={t('notesOnStudentSRepresentation')}
             rows={3}
           />
         </div>
@@ -311,8 +306,7 @@ export function BoardPackSection({ generatedAt, generating, onGenerate }: BoardP
           <Badge
             variant="secondary"
             className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-          >
-            Generated: {formatDateTime(generatedAt)}
+          >{t('generated')}{formatDateTime(generatedAt)}
           </Badge>
         ) : (
           <Badge
@@ -357,19 +351,17 @@ export function DecisionSection({ exclusion, onOpenDecisionDialog }: DecisionSec
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant="secondary">{formatLabel(exclusion.decision)}</Badge>
             {exclusion.decision_date && (
-              <span className="text-xs text-text-tertiary">
-                Decided: {formatDate(exclusion.decision_date)}
+              <span className="text-xs text-text-tertiary">{t('decided')}{formatDate(exclusion.decision_date)}
               </span>
             )}
             {exclusion.decided_by && (
-              <span className="text-xs text-text-tertiary">
-                by {exclusion.decided_by.first_name} {exclusion.decided_by.last_name}
+              <span className="text-xs text-text-tertiary">{t('by')}{exclusion.decided_by.first_name} {exclusion.decided_by.last_name}
               </span>
             )}
           </div>
           {exclusion.decision_reasoning && (
             <div>
-              <p className="text-xs font-medium text-text-tertiary">Reasoning</p>
+              <p className="text-xs font-medium text-text-tertiary">{t('reasoning2')}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary">
                 {exclusion.decision_reasoning}
               </p>
@@ -377,7 +369,7 @@ export function DecisionSection({ exclusion, onOpenDecisionDialog }: DecisionSec
           )}
           {exclusion.conditions_for_return && (
             <div>
-              <p className="text-xs font-medium text-text-tertiary">Conditions for Return</p>
+              <p className="text-xs font-medium text-text-tertiary">{t('conditions')}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary">
                 {exclusion.conditions_for_return}
               </p>
@@ -385,7 +377,7 @@ export function DecisionSection({ exclusion, onOpenDecisionDialog }: DecisionSec
           )}
           {exclusion.conditions_for_transfer && (
             <div>
-              <p className="text-xs font-medium text-text-tertiary">Conditions for Transfer</p>
+              <p className="text-xs font-medium text-text-tertiary">{t('conditionsForTransfer')}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary">
                 {exclusion.conditions_for_transfer}
               </p>
@@ -443,8 +435,7 @@ export function ExclusionHistorySection({ history, historyLoading }: HistorySect
                     {entry.action.replace(/_/g, ' ')}
                   </span>
                   {entry.performed_by_user && (
-                    <span className="text-xs text-text-tertiary">
-                      by {entry.performed_by_user.first_name} {entry.performed_by_user.last_name}
+                    <span className="text-xs text-text-tertiary">{t('by')}{entry.performed_by_user.first_name} {entry.performed_by_user.last_name}
                     </span>
                   )}
                 </div>

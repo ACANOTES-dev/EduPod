@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, StaffProfileReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { PayrollAnalyticsService } from './payroll-analytics.service';
@@ -68,8 +69,15 @@ describe('PayrollAnalyticsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         PayrollAnalyticsService,
         { provide: PrismaService, useValue: prisma },
+        {
+          provide: StaffProfileReadFacade,
+          useValue: {
+            count: jest.fn().mockResolvedValue(10),
+          },
+        },
       ],
     }).compile();
 

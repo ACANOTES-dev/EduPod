@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { ClassesReadFacade, MOCK_FACADE_PROVIDERS, StudentReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 
@@ -110,7 +111,7 @@ describe('ReportCardsQueriesService — findAll', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [...MOCK_FACADE_PROVIDERS, ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
@@ -189,7 +190,7 @@ describe('ReportCardsQueriesService — findOne', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [...MOCK_FACADE_PROVIDERS, ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
@@ -224,6 +225,7 @@ describe('ReportCardsService — update', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ReportCardsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: buildMockRedis() },
@@ -313,6 +315,7 @@ describe('ReportCardsService — publish', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ReportCardsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -386,6 +389,7 @@ describe('ReportCardsService — revise', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ReportCardsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: buildMockRedis() },
@@ -435,7 +439,7 @@ describe('ReportCardsQueriesService — gradeOverview', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [...MOCK_FACADE_PROVIDERS, ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
@@ -507,6 +511,7 @@ describe('ReportCardsService — publishBulk', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ReportCardsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -546,12 +551,19 @@ describe('ReportCardsService — publishBulk', () => {
 describe('ReportCardsQueriesService — generateTranscript', () => {
   let service: ReportCardsQueriesService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockStudentFacade: { findOneGeneric: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockStudentFacade = { findOneGeneric: jest.fn().mockResolvedValue(null) };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ReportCardsQueriesService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
+      ],
     }).compile();
 
     service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
@@ -560,7 +572,7 @@ describe('ReportCardsQueriesService — generateTranscript', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should throw NotFoundException when student does not exist', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue(null);
+    mockStudentFacade.findOneGeneric.mockResolvedValue(null);
 
     await expect(service.generateTranscript(TENANT_ID, STUDENT_ID)).rejects.toThrow(
       NotFoundException,
@@ -568,7 +580,7 @@ describe('ReportCardsQueriesService — generateTranscript', () => {
   });
 
   it('should return transcript with student details and empty academic_years when no snapshots', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({
+    mockStudentFacade.findOneGeneric.mockResolvedValue({
       id: STUDENT_ID,
       first_name: 'Ali',
       last_name: 'Hassan',
@@ -587,7 +599,7 @@ describe('ReportCardsQueriesService — generateTranscript', () => {
   });
 
   it('should group snapshots by year and period', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({
+    mockStudentFacade.findOneGeneric.mockResolvedValue({
       id: STUDENT_ID,
       first_name: 'Ali',
       last_name: 'Hassan',
@@ -628,15 +640,19 @@ describe('ReportCardsQueriesService — generateTranscript', () => {
 describe('ReportCardsService — generateBulkDrafts', () => {
   let service: ReportCardsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockClassesFacade: { findEnrolmentsGeneric: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockClassesFacade = { findEnrolmentsGeneric: jest.fn().mockResolvedValue([]) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ReportCardsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: buildMockRedis() },
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
       ],
     }).compile();
 
@@ -646,7 +662,7 @@ describe('ReportCardsService — generateBulkDrafts', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should return empty result when no active enrolments in class', async () => {
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([]);
 
     const result = await service.generateBulkDrafts(TENANT_ID, 'class-1', PERIOD_ID);
 
@@ -654,7 +670,7 @@ describe('ReportCardsService — generateBulkDrafts', () => {
   });
 
   it('should skip students who already have a non-revised report card', async () => {
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: STUDENT_ID }]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_ID }]);
     mockPrisma.reportCard.findMany.mockResolvedValue([{ student_id: STUDENT_ID }]);
 
     const result = await service.generateBulkDrafts(TENANT_ID, 'class-1', PERIOD_ID);

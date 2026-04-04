@@ -102,7 +102,8 @@ export default function InvoicesPage() {
       );
       setInvoices(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[FinanceInvoicesPage]', err);
       setInvoices([]);
       setTotal(0);
     } finally {
@@ -166,7 +167,8 @@ export default function InvoicesPage() {
         setSelectedIds(new Set());
         void fetchInvoices();
       }
-    } catch {
+    } catch (err) {
+      console.error('[FinanceInvoicesPage]', err);
       toast.error(t('bulkOps.failed'));
     } finally {
       setBulkProcessing(false);
@@ -312,7 +314,7 @@ export default function InvoicesPage() {
             <Checkbox
               checked={allPageSelected}
               onCheckedChange={toggleSelectAll}
-              aria-label="Select all on page"
+              aria-label={t('selectAllOnPage')}
             />
           </div>
         )}
@@ -337,7 +339,7 @@ export default function InvoicesPage() {
         <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
           <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
           <Input
-            placeholder="Search invoices..."
+            placeholder={t('searchInvoices')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="ps-9"
@@ -346,7 +348,7 @@ export default function InvoicesPage() {
 
         <Input
           type="date"
-          placeholder="From"
+          placeholder={t('from')}
           value={dateFrom}
           onChange={(e) => setDateFrom(e.target.value)}
           className="w-full sm:w-[150px]"
@@ -354,7 +356,7 @@ export default function InvoicesPage() {
 
         <Input
           type="date"
-          placeholder="To"
+          placeholder={t('to')}
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
           className="w-full sm:w-[150px]"
@@ -368,12 +370,12 @@ export default function InvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Invoices" description="View and manage invoices for all households" />
+      <PageHeader title={t('navInvoices')} description="View and manage invoices for all households" />
 
       {!isLoading && invoices.length === 0 && !hasActiveFilters ? (
         <EmptyState
           icon={FileText}
-          title="No invoices yet"
+          title={t('noInvoicesYet')}
           description="No invoices this term -- create fee assignments first, then run the fee generation wizard."
         />
       ) : (

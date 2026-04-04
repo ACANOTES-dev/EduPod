@@ -38,7 +38,7 @@ export default function EditDiscountPage() {
     if (!id) return;
     apiClient<{ data: DiscountDetail }>(`/api/v1/finance/discounts/${id}`)
       .then((res) => setDiscount(res.data))
-      .catch(() => setError(t('discounts.loadError')))
+      .catch((err) => { console.error('[FinanceDiscountsPage]', err); return setError(t('discounts.loadError')); })
       .finally(() => setLoading(false));
   }, [id, t]);
 

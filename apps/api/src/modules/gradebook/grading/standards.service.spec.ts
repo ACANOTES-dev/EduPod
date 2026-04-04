@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, AcademicReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { StandardsService } from './standards.service';
@@ -64,6 +65,11 @@ const baseStandard = {
 
 // ─── createStandard Tests ─────────────────────────────────────────────────────
 
+const mockAcademicFacade = {
+  findSubjectByIdOrThrow: jest.fn(),
+  findYearGroupByIdOrThrow: jest.fn(),
+};
+
 describe('StandardsService — createStandard', () => {
   let service: StandardsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
@@ -73,11 +79,13 @@ describe('StandardsService — createStandard', () => {
 
     mockRlsTx.curriculumStandard.create.mockReset().mockResolvedValue(baseStandard);
 
-    mockPrisma.subject.findFirst.mockResolvedValue({ id: SUBJECT_ID });
-    mockPrisma.yearGroup.findFirst.mockResolvedValue({ id: YEAR_GROUP_ID });
+    mockAcademicFacade.findSubjectByIdOrThrow.mockResolvedValue({ id: SUBJECT_ID });
+    mockAcademicFacade.findYearGroupByIdOrThrow.mockResolvedValue({ id: YEAR_GROUP_ID });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
         StandardsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -89,7 +97,7 @@ describe('StandardsService — createStandard', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should throw NotFoundException when subject does not exist', async () => {
-    mockPrisma.subject.findFirst.mockResolvedValue(null);
+    mockAcademicFacade.findSubjectByIdOrThrow.mockRejectedValue(new NotFoundException('subject not found'));
 
     await expect(
       service.createStandard(TENANT_ID, { subject_id: SUBJECT_ID, year_group_id: YEAR_GROUP_ID, code: 'X', description: 'Y' }),
@@ -97,7 +105,7 @@ describe('StandardsService — createStandard', () => {
   });
 
   it('should throw NotFoundException when year group does not exist', async () => {
-    mockPrisma.yearGroup.findFirst.mockResolvedValue(null);
+    mockAcademicFacade.findYearGroupByIdOrThrow.mockRejectedValue(new NotFoundException('year group not found'));
 
     await expect(
       service.createStandard(TENANT_ID, { subject_id: SUBJECT_ID, year_group_id: YEAR_GROUP_ID, code: 'X', description: 'Y' }),
@@ -134,6 +142,7 @@ describe('StandardsService — listStandards', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         StandardsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -178,6 +187,7 @@ describe('StandardsService — deleteStandard', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         StandardsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -221,6 +231,7 @@ describe('StandardsService — mapAssessmentStandards', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         StandardsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -288,6 +299,7 @@ describe('StandardsService — computeCompetencySnapshots', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         StandardsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

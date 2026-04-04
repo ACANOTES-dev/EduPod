@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { ClassesReadFacade, MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { ResultsMatrixService } from './results-matrix.service';
@@ -45,15 +46,22 @@ function buildMockPrisma() {
 describe('ResultsMatrixService', () => {
   let service: ResultsMatrixService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockClassesFacade: { existsOrThrow: jest.Mock; findEnrolmentsGeneric: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRlsTx.grade.upsert.mockReset();
+    mockClassesFacade = {
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+      findEnrolmentsGeneric: jest.fn().mockResolvedValue([]),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ResultsMatrixService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
       ],
     }).compile();
 
@@ -66,7 +74,9 @@ describe('ResultsMatrixService', () => {
 
   describe('getMatrix', () => {
     it('should throw NotFoundException when class does not exist', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue(null);
+      mockClassesFacade.existsOrThrow.mockRejectedValue(
+        new NotFoundException({ code: 'CLASS_NOT_FOUND', message: 'Class not found' }),
+      );
 
       await expect(
         service.getMatrix(TENANT_ID, CLASS_ID, PERIOD_ID),
@@ -74,8 +84,7 @@ describe('ResultsMatrixService', () => {
     });
 
     it('should return an empty matrix when no students are enrolled', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue({ id: CLASS_ID, name: 'Class A' });
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([]);
       mockPrisma.assessment.findMany.mockResolvedValue([]);
 
       const result = await service.getMatrix(TENANT_ID, CLASS_ID, PERIOD_ID);
@@ -86,8 +95,7 @@ describe('ResultsMatrixService', () => {
     });
 
     it('should return students from active enrolments', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue({ id: CLASS_ID, name: 'Class A' });
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
+      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([
         {
           student: {
             id: STUDENT_ID,
@@ -106,8 +114,7 @@ describe('ResultsMatrixService', () => {
     });
 
     it('should group assessments by subject and include grades', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue({ id: CLASS_ID, name: 'Class A' });
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
+      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([
         {
           student: {
             id: STUDENT_ID,
@@ -145,8 +152,7 @@ describe('ResultsMatrixService', () => {
     });
 
     it('should not query grades when there are no assessments', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue({ id: CLASS_ID, name: 'Class A' });
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
+      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([
         {
           student: {
             id: STUDENT_ID,
@@ -193,7 +199,7 @@ describe('ResultsMatrixService', () => {
         { id: ASSESSMENT_ID, max_score: 100 },
       ]);
       // No active enrolments
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([]);
 
       const result = await service.saveMatrix(TENANT_ID, CLASS_ID, USER_ID, [
         {
@@ -212,7 +218,7 @@ describe('ResultsMatrixService', () => {
       mockPrisma.assessment.findMany.mockResolvedValue([
         { id: ASSESSMENT_ID, max_score: 50 },
       ]);
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
+      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([
         { student_id: STUDENT_ID },
       ]);
       mockRlsTx.grade.upsert.mockResolvedValue({ id: 'grade-1' });
@@ -237,7 +243,7 @@ describe('ResultsMatrixService', () => {
       mockPrisma.assessment.findMany.mockResolvedValue([
         { id: ASSESSMENT_ID, max_score: 100 },
       ]);
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
+      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([
         { student_id: STUDENT_ID },
       ]);
       mockRlsTx.grade.upsert.mockResolvedValue({ id: 'grade-1' });

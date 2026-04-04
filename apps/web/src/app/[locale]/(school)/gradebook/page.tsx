@@ -77,16 +77,16 @@ export default function GradebookPage() {
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/academic-years?pageSize=50')
       .then((res) => setAcademicYears(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradebookPage]', err); });
     apiClient<ListResponse<SelectOption>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setAcademicPeriods(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradebookPage]', err); });
     apiClient<ListResponse<SelectOption>>('/api/v1/classes?pageSize=100')
       .then((res) => setClasses(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradebookPage]', err); });
     apiClient<ListResponse<SelectOption>>('/api/v1/subjects?pageSize=100&subject_type=academic')
       .then((res) => setSubjects(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradebookPage]', err); });
   }, []);
 
   const fetchAssessments = React.useCallback(
@@ -122,7 +122,8 @@ export default function GradebookPage() {
         setClassGroups(
           Array.from(grouped.values()).sort((a, b) => a.class_name.localeCompare(b.class_name)),
         );
-      } catch {
+      } catch (err) {
+        console.error('[GradebookPage]', err);
         setClassGroups([]);
       } finally {
         setIsLoading(false);
@@ -143,10 +144,10 @@ export default function GradebookPage() {
       <div className="flex flex-wrap items-center gap-3">
         <Select value={yearFilter} onValueChange={setYearFilter}>
           <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Academic Year" />
+            <SelectValue placeholder={t('academicYear')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Years</SelectItem>
+            <SelectItem value="all">{t('allYears')}</SelectItem>
             {academicYears.map((y) => (
               <SelectItem key={y.id} value={y.id}>
                 {y.name}
@@ -160,7 +161,7 @@ export default function GradebookPage() {
             <SelectValue placeholder={t('period')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Periods</SelectItem>
+            <SelectItem value="all">{t('allPeriods')}</SelectItem>
             {academicPeriods.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.name}
@@ -171,10 +172,10 @@ export default function GradebookPage() {
 
         <Select value={classFilter} onValueChange={setClassFilter}>
           <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Class" />
+            <SelectValue placeholder={t('class')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Classes</SelectItem>
+            <SelectItem value="all">{t('allClasses')}</SelectItem>
             {classes.map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name}
@@ -188,7 +189,7 @@ export default function GradebookPage() {
             <SelectValue placeholder={t('subject')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Subjects</SelectItem>
+            <SelectItem value="all">{t('allSubjects')}</SelectItem>
             {subjects.map((s) => (
               <SelectItem key={s.id} value={s.id}>
                 {s.name}

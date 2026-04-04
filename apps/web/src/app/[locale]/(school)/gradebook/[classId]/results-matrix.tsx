@@ -101,7 +101,7 @@ export function ResultsMatrix({ classId }: { classId: string }) {
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[ResultsMatrix]', err); });
   }, []);
 
   // Fetch matrix when period changes
@@ -116,7 +116,8 @@ export function ResultsMatrix({ classId }: { classId: string }) {
         setMatrix(res);
         setLocalGrades(res.grades);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[ResultsMatrix]', err);
         setMatrix(null);
         setLocalGrades({});
       })
@@ -207,7 +208,8 @@ export function ResultsMatrix({ classId }: { classId: string }) {
       });
       setDirtyGrades(new Map());
       toast.success(t('save'));
-    } catch {
+    } catch (err) {
+      console.error('[ResultsMatrix]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setIsSaving(false);
@@ -264,7 +266,7 @@ export function ResultsMatrix({ classId }: { classId: string }) {
               <SelectValue placeholder={t('subject')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Subjects</SelectItem>
+              <SelectItem value="all">{t('allSubjects')}</SelectItem>
               {matrix.subjects.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   {s.name}
@@ -277,9 +279,7 @@ export function ResultsMatrix({ classId }: { classId: string }) {
 
       {/* No period selected */}
       {!periodId && (
-        <p className="py-12 text-center text-sm text-text-tertiary">
-          Select a period to view the results matrix.
-        </p>
+        <p className="py-12 text-center text-sm text-text-tertiary">{t('selectAPeriodToView')}</p>
       )}
 
       {/* Loading */}
@@ -440,10 +440,9 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                   {tc('student').toLowerCase()}s{' · '}
                   <strong className="text-text-primary">{displaySubjects.length}</strong>{' '}
                   {t('subject').toLowerCase()}s{' · '}
-                  <strong className="text-text-primary">{filledCells}</strong> of{' '}
-                  <strong className="text-text-primary">{totalCells}</strong> grades entered
-                  {dirtyGrades.size > 0 && (
-                    <span className="ms-2 text-warning-text">({dirtyGrades.size} unsaved)</span>
+                  <strong className="text-text-primary">{filledCells}</strong>{t('of')}{' '}
+                  <strong className="text-text-primary">{totalCells}</strong>{t('gradesEntered')}{dirtyGrades.size > 0 && (
+                    <span className="ms-2 text-warning-text">({dirtyGrades.size}{t('unsaved')}</span>
                   )}
                 </p>
                 <div className="flex items-center gap-2">
@@ -466,7 +465,7 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                           min={0}
                           value={defaultScoreInput}
                           onChange={(e) => setDefaultScoreInput(e.target.value)}
-                          placeholder="Score"
+                          placeholder={t('score')}
                           className="flex-1"
                           dir="ltr"
                         />
@@ -477,9 +476,7 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                             if (!isNaN(val) && val >= 0) applyDefaultScore(val);
                           }}
                           disabled={!defaultScoreInput}
-                        >
-                          Apply
-                        </Button>
+                        >{t('apply')}</Button>
                       </div>
                     </PopoverContent>
                   </Popover>

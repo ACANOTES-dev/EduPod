@@ -88,10 +88,10 @@ export default function ProgressReportsPage() {
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradebookProgressReportsPage]', err); });
     apiClient<ListResponse<SelectOption>>('/api/v1/classes?pageSize=100')
       .then((res) => setClasses(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradebookProgressReportsPage]', err); });
   }, []);
 
   const tabs = [
@@ -104,7 +104,7 @@ export default function ProgressReportsPage() {
       <PageHeader title={t('progressReportsTitle')} description={t('progressReportsDescription')} />
 
       {/* Tabs */}
-      <nav className="flex gap-1 border-b border-border" aria-label="Progress reports tabs">
+      <nav className="flex gap-1 border-b border-border" aria-label={t('progressReportsTabs')}>
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -167,7 +167,8 @@ function GenerateTab({ periods, classes, t }: TabProps) {
         noteMap[d.student_id] = subjectNotes;
       }
       setNotes(noteMap);
-    } catch {
+    } catch (err) {
+      console.error('[GradebookProgressReportsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setGenerating(false);
@@ -196,7 +197,8 @@ function GenerateTab({ periods, classes, t }: TabProps) {
       });
       toast.success(t('progressReportsSentSuccess'));
       setDrafts([]);
-    } catch {
+    } catch (err) {
+      console.error('[GradebookProgressReportsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setSending(false);
@@ -346,6 +348,7 @@ function GenerateTab({ periods, classes, t }: TabProps) {
 // ─── History Tab ──────────────────────────────────────────────────────────────
 
 function HistoryTab({ periods, classes, t }: TabProps) {
+  const tCommon = useTranslations('common');
   const tc = useTranslations('common');
   const [classFilter, setClassFilter] = React.useState('all');
   const [periodFilter, setPeriodFilter] = React.useState('all');
@@ -366,7 +369,8 @@ function HistoryTab({ periods, classes, t }: TabProps) {
       );
       setRows(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[GradebookProgressReportsPage]', err);
       setRows([]);
       setTotal(0);
     } finally {
@@ -502,7 +506,7 @@ function HistoryTab({ periods, classes, t }: TabProps) {
               size="icon"
               disabled={page <= 1}
               onClick={() => setPage((p) => p - 1)}
-              aria-label="Previous"
+              aria-label={tCommon('previous')}
             >
               {'‹'}
             </Button>
@@ -514,7 +518,7 @@ function HistoryTab({ periods, classes, t }: TabProps) {
               size="icon"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
-              aria-label="Next"
+              aria-label={tCommon('next')}
             >
               {'›'}
             </Button>

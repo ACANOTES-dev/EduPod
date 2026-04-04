@@ -81,20 +81,18 @@ export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDi
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>CSV File</Label>
+            <Label>{t('csvFile')}</Label>
             <Input ref={fileRef} type="file" accept=".csv" onChange={handleFileChange} />
           </div>
 
           {result && (
             <div className="space-y-2">
-              <p className="text-sm text-text-primary">
-                Imported: <span className="font-semibold">{result.imported}</span>
+              <p className="text-sm text-text-primary">{t('imported')}<span className="font-semibold">{result.imported}</span>
               </p>
               {result.errors.length > 0 && (
                 <div className="max-h-40 overflow-y-auto rounded-lg border border-danger-border bg-danger-50 p-3">
                   {result.errors.map((err, i) => (
-                    <p key={i} className="text-xs text-danger-text">
-                      Row {err.row}: {err.message}
+                    <p key={i} className="text-xs text-danger-text">{t('row')}{err.row}: {err.message}
                     </p>
                   ))}
                 </div>

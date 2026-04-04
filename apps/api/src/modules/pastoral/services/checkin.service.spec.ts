@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
+import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { CheckinAlertService } from './checkin-alert.service';
@@ -89,9 +90,8 @@ describe('CheckinService', () => {
   let mockAlertService: {
     evaluateCheckin: jest.Mock;
   };
-  let mockPrisma: {
-    tenantSetting: { findUnique: jest.Mock };
-  };
+  let mockPrisma: Record<string, unknown>;
+  let mockConfigFacade: { findSettings: jest.Mock };
 
   beforeEach(async () => {
     mockAlertService = {
@@ -102,10 +102,10 @@ describe('CheckinService', () => {
       }),
     };
 
-    mockPrisma = {
-      tenantSetting: {
-        findUnique: jest.fn().mockResolvedValue(makeTenantSettingsRecord()),
-      },
+    mockPrisma = {};
+
+    mockConfigFacade = {
+      findSettings: jest.fn().mockResolvedValue(makeTenantSettingsRecord()),
     };
 
     // Reset RLS tx mocks
@@ -117,9 +117,11 @@ describe('CheckinService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         CheckinService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: CheckinAlertService, useValue: mockAlertService },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
       ],
     }).compile();
 
@@ -221,7 +223,7 @@ describe('CheckinService', () => {
     });
 
     it('should return 409 when weekly frequency and second in same week', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeTenantSettingsRecord({ frequency: 'weekly' }),
       );
 
@@ -246,7 +248,7 @@ describe('CheckinService', () => {
     });
 
     it('should succeed when weekly frequency and new week', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeTenantSettingsRecord({ frequency: 'weekly' }),
       );
 
@@ -290,7 +292,7 @@ describe('CheckinService', () => {
     });
 
     it('should reject when checkins are disabled (403)', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeTenantSettingsRecord({ enabled: false }),
       );
 
@@ -487,7 +489,7 @@ describe('CheckinService', () => {
 
   describe('getCheckinStatus', () => {
     it('should return enabled=false when checkins are disabled', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeTenantSettingsRecord({ enabled: false }),
       );
 
@@ -520,7 +522,7 @@ describe('CheckinService', () => {
     });
 
     it('should return can_submit_today=false when checkin exists in same week (weekly)', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeTenantSettingsRecord({ frequency: 'weekly' }),
       );
 

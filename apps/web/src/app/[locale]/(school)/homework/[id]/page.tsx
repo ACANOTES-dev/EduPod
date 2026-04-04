@@ -75,6 +75,7 @@ const ATTACH_ICON: Record<string, React.ReactNode> = {
 
 export default function HomeworkDetailPage() {
   const t = useTranslations('homework');
+  const tCommon = useTranslations('common');
   const params = useParams<{ id: string }>();
   const id = params?.id ?? '';
   const pathname = usePathname();
@@ -92,18 +93,16 @@ export default function HomeworkDetailPage() {
     try {
       const [hwRes, rateRes, compRes] = await Promise.all([
         apiClient<{ data: HomeworkDetail }>(`/api/v1/homework/${id}`),
-        apiClient<CompletionRate>(`/api/v1/homework/${id}/completion-rate`, { silent: true }).catch(
-          () => null,
-        ),
+        apiClient<CompletionRate>(`/api/v1/homework/${id}/completion-rate`, { silent: true }).catch((err) => { console.error('[HomeworkPage]', err); return null; }),
         apiClient<{ data: CompletionPreview[] }>(`/api/v1/homework/${id}/completions?pageSize=10`, {
           silent: true,
-        }).catch(() => ({ data: [] })),
+        }).catch((err) => { console.error('[HomeworkPage]', err); return ({ data: [] }); }),
       ]);
       setHw(hwRes.data);
       setRate(rateRes);
       setCompletions(compRes.data ?? []);
-    } catch {
-      console.error('[HomeworkDetail] Failed to load');
+    } catch (err) {
+      console.error('[HomeworkDetail] Failed to load', err);
     } finally {
       setLoading(false);
     }
@@ -123,7 +122,8 @@ export default function HomeworkDetailPage() {
       });
       toast.success(t('homeworkCopied'));
       router.push(`/${locale}/homework/${res.data.id}`);
-    } catch {
+    } catch (err) {
+      console.error('[HomeworkPage]', err);
       toast.error('Failed to copy');
     }
   };
@@ -136,7 +136,8 @@ export default function HomeworkDetailPage() {
       });
       toast.success(t('statusUpdated'));
       void fetchData();
-    } catch {
+    } catch (err) {
+      console.error('[HomeworkPage]', err);
       toast.error('Failed to update status');
     }
   };
@@ -146,7 +147,8 @@ export default function HomeworkDetailPage() {
       await apiClient(`/api/v1/homework/${id}`, { method: 'DELETE' });
       toast.success(t('homeworkDeleted'));
       router.push(`/${locale}/homework`);
-    } catch {
+    } catch (err) {
+      console.error('[HomeworkPage]', err);
       toast.error('Failed to delete');
     }
   };
@@ -331,9 +333,7 @@ export default function HomeworkDetailPage() {
           </DialogHeader>
           <p className="text-sm text-text-secondary py-2">{t('confirmDeleteDesc')}</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>{tCommon('cancel')}</Button>
             <Button variant="destructive" onClick={handleDelete}>
               {t('delete')}
             </Button>

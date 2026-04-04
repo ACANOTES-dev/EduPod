@@ -253,7 +253,7 @@ function AddExamSlotModal({
           setSubjects(sRes.data ?? []);
           setYearGroups(ygRes.data ?? []);
         })
-        .catch(() => {});
+        .catch((err) => { console.error('[SchedulingExamsPage]', err); });
     }
   }, [open, sessionId]);
 
@@ -405,7 +405,8 @@ function SessionDetail({ session, onBack }: { session: ExamSession; onBack: () =
         `/api/v1/scheduling/exam-sessions/${session.id}/slots`,
       );
       setSlots(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingExamsPage]', err);
       setSlots([]);
     } finally {
       setLoading(false);
@@ -439,7 +440,8 @@ function SessionDetail({ session, onBack }: { session: ExamSession; onBack: () =
         method: 'POST',
       });
       toast.success(t('solverStarted'));
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingExamsPage]', err);
       toast.error(t('solverFailed'));
     } finally {
       setSolving(false);
@@ -454,7 +456,8 @@ function SessionDetail({ session, onBack }: { session: ExamSession; onBack: () =
       });
       toast.success(t('invigilatorsAssigned'));
       void fetchSlots();
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingExamsPage]', err);
       toast.error(t('invigilatorsFailed'));
     } finally {
       setAssigningInvig(false);
@@ -467,7 +470,8 @@ function SessionDetail({ session, onBack }: { session: ExamSession; onBack: () =
       await apiClient(`/api/v1/scheduling/exam-sessions/${session.id}/publish`, { method: 'POST' });
       toast.success(t('published'));
       onBack();
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingExamsPage]', err);
       toast.error(t('publishFailed'));
     } finally {
       setPublishing(false);
@@ -628,7 +632,8 @@ export default function ExamsPage() {
         '/api/v1/scheduling/exam-sessions?pageSize=50',
       );
       setSessions(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingExamsPage]', err);
       setSessions([]);
     } finally {
       setLoading(false);
@@ -639,7 +644,7 @@ export default function ExamsPage() {
     void fetchSessions();
     apiClient<{ data: AcademicPeriod[] }>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data ?? []))
-      .catch(() => setPeriods([]));
+      .catch((err) => { console.error('[SchedulingExamsPage]', err); return setPeriods([]); });
   }, [fetchSessions]);
 
   const handleCreateSession = async (values: {

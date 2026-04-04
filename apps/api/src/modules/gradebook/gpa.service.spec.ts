@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, StudentReadFacade, AcademicReadFacade, ConfigurationReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { GpaService } from './grading/gpa.service';
@@ -43,6 +44,10 @@ const basePeriod = { id: PERIOD_ID };
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
+const mockStudentFacade = { existsOrThrow: jest.fn(), findOneGeneric: jest.fn() };
+const mockAcademicFacade = { findPeriodById: jest.fn() };
+const mockConfigFacade = { findSettings: jest.fn() };
+
 describe('GpaService — computeGpa', () => {
   let service: GpaService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
@@ -58,12 +63,16 @@ describe('GpaService — computeGpa', () => {
       snapshot_at: new Date(),
     });
 
-    mockPrisma.student.findFirst.mockResolvedValue(baseStudent);
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue(basePeriod);
-    mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
+    mockStudentFacade.existsOrThrow.mockResolvedValue(true);
+    mockAcademicFacade.findPeriodById.mockResolvedValue(basePeriod);
+    mockConfigFacade.findSettings.mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
         GpaService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -75,7 +84,7 @@ describe('GpaService — computeGpa', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should throw NotFoundException when student does not exist', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue(null);
+    mockStudentFacade.existsOrThrow.mockRejectedValue(new NotFoundException('student not found'));
 
     await expect(
       service.computeGpa(TENANT_ID, STUDENT_ID, PERIOD_ID),
@@ -83,7 +92,7 @@ describe('GpaService — computeGpa', () => {
   });
 
   it('should throw NotFoundException when academic period does not exist', async () => {
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue(null);
+    mockAcademicFacade.findPeriodById.mockResolvedValue(null);
 
     await expect(
       service.computeGpa(TENANT_ID, STUDENT_ID, PERIOD_ID),
@@ -267,10 +276,14 @@ describe('GpaService — getCumulativeGpa', () => {
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
 
-    mockPrisma.student.findFirst.mockResolvedValue(baseStudent);
+    mockStudentFacade.findOneGeneric.mockResolvedValue(baseStudent);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
         GpaService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -314,7 +327,7 @@ describe('GpaService — getCumulativeGpa', () => {
   });
 
   it('should throw NotFoundException when student does not exist', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue(null);
+    mockStudentFacade.findOneGeneric.mockResolvedValue(null);
 
     await expect(
       service.getCumulativeGpa(TENANT_ID, STUDENT_ID),
@@ -331,6 +344,7 @@ describe('GpaService — getGpaSnapshot', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         GpaService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

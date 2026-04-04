@@ -75,7 +75,7 @@ export default function CompetencyCoveragePage() {
         setAcademicYears(res.data);
         if (res.data[0]) setSelectedYear(res.data[0].id);
       })
-      .catch(() => toast.error(tc('errorGeneric')));
+      .catch((err) => { console.error('[SchedulingCompetencyCoveragePage]', err); return toast.error(tc('errorGeneric')); });
   }, [tc]);
 
   // Fetch coverage data
@@ -87,7 +87,7 @@ export default function CompetencyCoveragePage() {
       { silent: true },
     )
       .then((res) => setCoverage(res.data))
-      .catch(() => setCoverage(null))
+      .catch((err) => { console.error('[SchedulingCompetencyCoveragePage]', err); return setCoverage(null); })
       .finally(() => setIsLoading(false));
   }, [selectedYear]);
 

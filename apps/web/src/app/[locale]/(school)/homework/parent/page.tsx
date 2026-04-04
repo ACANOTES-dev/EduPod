@@ -79,8 +79,8 @@ export default function ParentHomeworkPage() {
           setActiveChildId((prev) => prev ?? overdueStudents[0]!.student.id);
         }
       }
-    } catch {
-      console.error('[ParentHomework] Failed to load homework data');
+    } catch (err) {
+      console.error('[ParentHomework] Failed to load homework data', err);
     } finally {
       setLoading(false);
     }
@@ -158,7 +158,8 @@ export default function ParentHomeworkPage() {
         });
         toast.success(t('parent.markAsDoneSuccess'));
         void fetchData();
-      } catch {
+      } catch (err) {
+        console.error('[HomeworkParentPage]', err);
         toast.error(t('common.errorGeneric'));
       } finally {
         setMarkingId(null);

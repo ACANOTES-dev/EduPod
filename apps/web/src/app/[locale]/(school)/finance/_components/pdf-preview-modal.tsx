@@ -48,7 +48,8 @@ export function PdfPreviewModal({ open, onOpenChange, title, pdfUrl }: PdfPrevie
         const url = URL.createObjectURL(blob);
         setBlobUrl(url);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[PdfPreviewModal]', err);
         if (!cancelled) setError(t('pdfLoadError'));
       })
       .finally(() => {

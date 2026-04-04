@@ -84,7 +84,7 @@ function InviteDialog({ open, onOpenChange, onSuccess }: InviteDialogProps) {
     if (!open) return;
     apiClient<RolesResponse>('/api/v1/roles')
       .then((res) => setRoles(res.data))
-      .catch(() => setRoles([]));
+      .catch((err) => { console.error('[SettingsUsersPage]', err); return setRoles([]); });
   }, [open]);
 
   const handleClose = () => {
@@ -261,7 +261,7 @@ export default function UsersPage() {
   React.useEffect(() => {
     apiClient<RolesResponse>('/api/v1/roles')
       .then((res) => setRoles(res.data))
-      .catch(() => setRoles([]));
+      .catch((err) => { console.error('[SettingsUsersPage]', err); return setRoles([]); });
   }, []);
 
   // Debounce search input

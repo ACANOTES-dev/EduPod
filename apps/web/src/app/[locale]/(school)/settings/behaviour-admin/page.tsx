@@ -99,6 +99,7 @@ interface ScopeAuditResult {
 
 export default function BehaviourAdminPage() {
   const t = useTranslations('behaviourSettings.admin');
+
   const [activeTab, setActiveTab] = React.useState('health');
 
   return (
@@ -164,7 +165,7 @@ function SystemHealthTab() {
   }, [loadHealth]);
 
   if (loading || !health) {
-    return <div className="py-8 text-center text-muted-foreground">Loading health data...</div>;
+    return <div className="py-8 text-center text-muted-foreground">{t('loadingHealthData')}</div>;
   }
 
   const getQueueColor = (depth: number) => {
@@ -185,7 +186,7 @@ function SystemHealthTab() {
             <div className="flex items-center gap-2">
               <div className={`h-3 w-3 rounded-full ${getQueueColor(depth)}`} />
               <span className="text-2xl font-bold">{depth}</span>
-              <span className="text-sm text-muted-foreground">jobs</span>
+              <span className="text-sm text-muted-foreground">{t('jobs')}</span>
             </div>
           </div>
         </div>
@@ -194,7 +195,7 @@ function SystemHealthTab() {
       {/* Dead Letter */}
       <div className="rounded-lg border bg-card">
         <div className="pb-2">
-          <p className="text-sm font-medium">Dead-Letter Queue</p>
+          <p className="text-sm font-medium">{t('deadLetterQueue2')}</p>
         </div>
         <div className="p-4 pt-0">
           <div className="flex items-center gap-2">
@@ -202,7 +203,7 @@ function SystemHealthTab() {
               className={`h-3 w-3 rounded-full ${health.dead_letter_depth > 0 ? 'bg-red-500' : 'bg-green-500'}`}
             />
             <span className="text-2xl font-bold">{health.dead_letter_depth}</span>
-            <span className="text-sm text-muted-foreground">failed</span>
+            <span className="text-sm text-muted-foreground">{t('failed')}</span>
           </div>
         </div>
       </div>
@@ -210,7 +211,7 @@ function SystemHealthTab() {
       {/* Cache Hit Rate */}
       <div className="rounded-lg border bg-card">
         <div className="pb-2">
-          <p className="text-sm font-medium">Redis Cache Hit Rate</p>
+          <p className="text-sm font-medium">{t('redisCacheHitRate')}</p>
         </div>
         <div className="p-4 pt-0">
           <span className="text-2xl font-bold">{(health.cache_hit_rate * 100).toFixed(1)}%</span>
@@ -220,7 +221,7 @@ function SystemHealthTab() {
       {/* View Freshness */}
       <div className="rounded-lg border bg-card md:col-span-2 lg:col-span-3">
         <div className="pb-2">
-          <p className="text-sm font-medium">Materialised View Freshness</p>
+          <p className="text-sm font-medium">{t('materialisedViewFreshness')}</p>
         </div>
         <div className="p-4 pt-0">
           <div className="space-y-2">
@@ -239,18 +240,18 @@ function SystemHealthTab() {
       {/* Scan Backlog */}
       <div className="rounded-lg border bg-card">
         <div className="pb-2">
-          <p className="text-sm font-medium">Attachment Scan Backlog</p>
+          <p className="text-sm font-medium">{t('attachmentScanBacklog')}</p>
         </div>
         <div className="p-4 pt-0">
           <span className="text-2xl font-bold">{health.scan_backlog}</span>
-          <span className="ms-2 text-sm text-muted-foreground">pending</span>
+          <span className="ms-2 text-sm text-muted-foreground">{t('pending')}</span>
         </div>
       </div>
 
       {/* Active Legal Holds */}
       <div className="rounded-lg border bg-card">
         <div className="pb-2">
-          <p className="text-sm font-medium">Active Legal Holds</p>
+          <p className="text-sm font-medium">{t('activeLegalHolds')}</p>
         </div>
         <div className="p-4 pt-0">
           <div className="flex items-center gap-2">
@@ -262,9 +263,7 @@ function SystemHealthTab() {
 
       <div className="md:col-span-2 lg:col-span-3">
         <Button variant="secondary" onClick={loadHealth}>
-          <RefreshCw className="me-2 h-4 w-4" />
-          Refresh
-        </Button>
+          <RefreshCw className="me-2 h-4 w-4" />{t('refresh')}</Button>
       </div>
     </div>
   );
@@ -273,6 +272,7 @@ function SystemHealthTab() {
 // ─── Tab 2: Dead-Letter Queue ───────────────────────────────────────────────
 
 function DeadLetterTab() {
+  const tCommon = useTranslations('common');
   const [jobs, setJobs] = React.useState<DeadLetterItem[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -304,7 +304,7 @@ function DeadLetterTab() {
   };
 
   if (loading) {
-    return <div className="py-8 text-center text-muted-foreground">Loading...</div>;
+    return <div className="py-8 text-center text-muted-foreground">{tCommon('loading')}</div>;
   }
 
   if (jobs.length === 0) {
@@ -312,8 +312,8 @@ function DeadLetterTab() {
       <div className="rounded-lg border bg-card">
         <div className="p-4 py-12 text-center">
           <Activity className="mx-auto mb-4 h-8 w-8 text-green-500" />
-          <p className="font-medium">No failed jobs</p>
-          <p className="text-sm text-muted-foreground">All queues healthy</p>
+          <p className="font-medium">{t('noFailedJobs')}</p>
+          <p className="text-sm text-muted-foreground">{t('allQueuesHealthy')}</p>
         </div>
       </div>
     );
@@ -325,12 +325,12 @@ function DeadLetterTab() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b">
-              <th className="pb-2 text-start font-medium">Job</th>
-              <th className="pb-2 text-start font-medium">Queue</th>
-              <th className="pb-2 text-start font-medium">Failed At</th>
-              <th className="pb-2 text-start font-medium">Reason</th>
-              <th className="pb-2 text-start font-medium">Retries</th>
-              <th className="pb-2 text-end font-medium">Action</th>
+              <th className="pb-2 text-start font-medium">{t('job')}</th>
+              <th className="pb-2 text-start font-medium">{t('queue')}</th>
+              <th className="pb-2 text-start font-medium">{t('failedAt')}</th>
+              <th className="pb-2 text-start font-medium">{t('reason')}</th>
+              <th className="pb-2 text-start font-medium">{t('retries')}</th>
+              <th className="pb-2 text-end font-medium">{t('action')}</th>
             </tr>
           </thead>
           <tbody>
@@ -352,9 +352,7 @@ function DeadLetterTab() {
                 <td className="py-2">{job.retry_count}</td>
                 <td className="py-2 text-end">
                   <Button size="sm" variant="secondary" onClick={() => retryJob(job.job_id)}>
-                    <RotateCcw className="me-1 h-3 w-3" />
-                    Retry
-                  </Button>
+                    <RotateCcw className="me-1 h-3 w-3" />{t('retry')}</Button>
                 </td>
               </tr>
             ))}
@@ -368,6 +366,7 @@ function DeadLetterTab() {
 // ─── Tab 3: Operations ──────────────────────────────────────────────────────
 
 function OperationsTab() {
+  const tCommon = useTranslations('common');
   const [previewData, setPreviewData] = React.useState<PreviewResponse | null>(null);
   const [previewOp, setPreviewOp] = React.useState<string | null>(null);
   const [scope, setScope] = React.useState('tenant');
@@ -476,26 +475,22 @@ function OperationsTab() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="student">Student</SelectItem>
-                    <SelectItem value="year_group">Year Group</SelectItem>
-                    <SelectItem value="tenant">Entire School</SelectItem>
+                    <SelectItem value="student">{tCommon('student')}</SelectItem>
+                    <SelectItem value="year_group">{t('yearGroup')}</SelectItem>
+                    <SelectItem value="tenant">{t('entireSchool')}</SelectItem>
                   </SelectContent>
                 </Select>
               )}
               {!op.noPreview && (
                 <Button variant="secondary" onClick={() => preview(op.key)}>
-                  <Eye className="me-2 h-4 w-4" />
-                  Preview Impact
-                </Button>
+                  <Eye className="me-2 h-4 w-4" />{t('previewImpact')}</Button>
               )}
               <Button
                 variant={op.noPreview ? 'default' : 'outline'}
                 onClick={() => execute(op.key)}
                 disabled={!op.noPreview && previewOp !== op.key}
               >
-                <Play className="me-2 h-4 w-4" />
-                Execute
-              </Button>
+                <Play className="me-2 h-4 w-4" />{t('execute')}</Button>
             </div>
           </div>
         </div>
@@ -505,24 +500,24 @@ function OperationsTab() {
       <Dialog open={!!previewData} onOpenChange={() => setPreviewData(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Impact Preview</DialogTitle>
+            <DialogTitle>{t('impactPreview')}</DialogTitle>
           </DialogHeader>
           {previewData && (
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
-                <span>Affected records:</span>
+                <span>{t('affectedRecords')}</span>
                 <span className="font-bold">{previewData.affected_records}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span>Affected students:</span>
+                <span>{t('affectedStudents')}</span>
                 <span className="font-bold">{previewData.affected_students}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span>Estimated duration:</span>
+                <span>{t('estimatedDuration')}</span>
                 <span className="font-bold">{previewData.estimated_duration}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span>Reversible:</span>
+                <span>{t('reversible')}</span>
                 <span className="font-bold">{previewData.reversible ? 'Yes' : 'No'}</span>
               </div>
               {previewData.warnings.length > 0 && (
@@ -537,10 +532,8 @@ function OperationsTab() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setPreviewData(null)}>
-              Cancel
-            </Button>
-            <Button onClick={() => previewOp && execute(previewOp)}>Confirm Execute</Button>
+            <Button variant="secondary" onClick={() => setPreviewData(null)}>{tCommon('cancel')}</Button>
+            <Button onClick={() => previewOp && execute(previewOp)}>{t('confirmExecute')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -575,23 +568,19 @@ function ScopeAuditTab() {
     <div className="space-y-4">
       <div className="rounded-lg border bg-card">
         <div className="p-4 pb-2">
-          <p className="text-base font-semibold">Staff Scope Audit</p>
-          <p className="text-sm text-muted-foreground">
-            Check which students a specific staff member can see in the behaviour module.
-          </p>
+          <p className="text-base font-semibold">{t('staffScopeAudit')}</p>
+          <p className="text-sm text-muted-foreground">{t('checkWhichStudentsASpecific')}</p>
         </div>
         <div className="p-4 pt-0 space-y-4">
           <div className="flex flex-col gap-2 sm:flex-row">
             <Input
-              placeholder="Enter staff user ID"
+              placeholder={t('enterStaffUserId')}
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
               className="flex-1"
             />
             <Button onClick={runAudit} disabled={loading || !userId.trim()}>
-              <Search className="me-2 h-4 w-4" />
-              Run Audit
-            </Button>
+              <Search className="me-2 h-4 w-4" />{t('runAudit')}</Button>
           </div>
 
           {result && (
@@ -600,13 +589,12 @@ function ScopeAuditTab() {
                 <Badge variant="secondary" className="capitalize">
                   {result.scope_level}
                 </Badge>
-                <span className="text-sm text-muted-foreground">
-                  Can see {result.student_count} student{result.student_count !== 1 ? 's' : ''}
+                <span className="text-sm text-muted-foreground">{t('canSee')}{result.student_count}{t('student')}{result.student_count !== 1 ? 's' : ''}
                 </span>
               </div>
               {result.student_ids.length > 0 && (
                 <div className="max-h-48 overflow-y-auto">
-                  <p className="mb-1 text-xs font-medium text-muted-foreground">Student IDs:</p>
+                  <p className="mb-1 text-xs font-medium text-muted-foreground">{t('studentIds')}</p>
                   <div className="space-y-1">
                     {result.student_ids.slice(0, 50).map((id) => (
                       <code key={id} className="block text-xs">
@@ -614,9 +602,7 @@ function ScopeAuditTab() {
                       </code>
                     ))}
                     {result.student_ids.length > 50 && (
-                      <p className="text-xs text-muted-foreground">
-                        ...and {result.student_ids.length - 50} more
-                      </p>
+                      <p className="text-xs text-muted-foreground">{t('and')}{result.student_ids.length - 50}{t('more')}</p>
                     )}
                   </div>
                 </div>
@@ -632,6 +618,7 @@ function ScopeAuditTab() {
 // ─── Tab 5: Retention ───────────────────────────────────────────────────────
 
 function RetentionTab() {
+  const tCommon = useTranslations('common');
   const [holds, setHolds] = React.useState<LegalHold[]>([]);
   const [retentionPreview, setRetentionPreview] = React.useState<RetentionPreview | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -724,7 +711,7 @@ function RetentionTab() {
   };
 
   if (loading) {
-    return <div className="py-8 text-center text-muted-foreground">Loading...</div>;
+    return <div className="py-8 text-center text-muted-foreground">{tCommon('loading')}</div>;
   }
 
   return (
@@ -732,36 +719,30 @@ function RetentionTab() {
       {/* Retention Preview */}
       <div className="rounded-lg border bg-card">
         <div className="p-4 pb-2">
-          <p className="text-base font-semibold">Retention Preview</p>
-          <p className="text-sm text-muted-foreground">
-            Preview which records would be affected by the next retention run.
-          </p>
+          <p className="text-base font-semibold">{t('retentionPreview')}</p>
+          <p className="text-sm text-muted-foreground">{t('previewWhichRecordsWouldBe')}</p>
         </div>
         <div className="p-4 pt-0 space-y-4">
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={previewRetention}>
-              <Eye className="me-2 h-4 w-4" />
-              Preview Next Run
-            </Button>
+              <Eye className="me-2 h-4 w-4" />{t('previewNextRun')}</Button>
             <Button variant="destructive" onClick={executeRetention}>
-              <Play className="me-2 h-4 w-4" />
-              Execute Retention Now
-            </Button>
+              <Play className="me-2 h-4 w-4" />{t('executeRetentionNow')}</Button>
           </div>
 
           {retentionPreview && (
             <div className="rounded-md border p-4">
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <div>
-                  <p className="text-sm text-muted-foreground">To Archive</p>
+                  <p className="text-sm text-muted-foreground">{t('toArchive')}</p>
                   <p className="text-2xl font-bold">{retentionPreview.to_archive}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">To Anonymise</p>
+                  <p className="text-sm text-muted-foreground">{t('toAnonymise')}</p>
                   <p className="text-2xl font-bold">{retentionPreview.to_anonymise}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Held (Skipped)</p>
+                  <p className="text-sm text-muted-foreground">{t('heldSkipped')}</p>
                   <p className="text-2xl font-bold text-amber-600">
                     {retentionPreview.held_by_legal_hold}
                   </p>
@@ -777,31 +758,27 @@ function RetentionTab() {
         <div className="p-4 pb-2">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-base font-semibold">Active Legal Holds</p>
-              <p className="text-sm text-muted-foreground">
-                Records under legal hold are protected from archival and anonymisation.
-              </p>
+              <p className="text-base font-semibold">{t('activeLegalHolds')}</p>
+              <p className="text-sm text-muted-foreground">{t('recordsUnderLegalHoldAre')}</p>
             </div>
             <Button size="sm" onClick={() => setCreateDialog(true)}>
-              <Lock className="me-2 h-4 w-4" />
-              Create Hold
-            </Button>
+              <Lock className="me-2 h-4 w-4" />{t('createHold')}</Button>
           </div>
         </div>
         <div className="p-4 pt-0">
           {holds.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No active legal holds</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">{t('noActiveLegalHolds')}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="pb-2 text-start font-medium">Entity</th>
-                    <th className="pb-2 text-start font-medium">Reason</th>
-                    <th className="pb-2 text-start font-medium">Legal Basis</th>
-                    <th className="pb-2 text-start font-medium">Set By</th>
-                    <th className="pb-2 text-start font-medium">Set At</th>
-                    <th className="pb-2 text-end font-medium">Action</th>
+                    <th className="pb-2 text-start font-medium">{t('entity')}</th>
+                    <th className="pb-2 text-start font-medium">{t('reason')}</th>
+                    <th className="pb-2 text-start font-medium">{t('legalBasis')}</th>
+                    <th className="pb-2 text-start font-medium">{t('setBy')}</th>
+                    <th className="pb-2 text-start font-medium">{t('setAt')}</th>
+                    <th className="pb-2 text-end font-medium">{t('action')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -828,9 +805,7 @@ function RetentionTab() {
                           size="sm"
                           variant="secondary"
                           onClick={() => setReleaseDialog(hold.id)}
-                        >
-                          Release
-                        </Button>
+                        >{t('release')}</Button>
                       </td>
                     </tr>
                   ))}
@@ -845,26 +820,22 @@ function RetentionTab() {
       <Dialog open={!!releaseDialog} onOpenChange={() => setReleaseDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Release Legal Hold</DialogTitle>
+            <DialogTitle>{t('releaseLegalHold')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <Label>Release Reason</Label>
+            <Label>{t('releaseReason')}</Label>
             <Textarea
               value={releaseReason}
               onChange={(e) => setReleaseReason(e.target.value)}
-              placeholder="Enter the reason for releasing this hold..."
+              placeholder={t('enterTheReasonForReleasing')}
             />
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setReleaseDialog(null)}>
-              Cancel
-            </Button>
+            <Button variant="secondary" onClick={() => setReleaseDialog(null)}>{tCommon('cancel')}</Button>
             <Button
               onClick={() => releaseDialog && releaseHold(releaseDialog)}
               disabled={!releaseReason.trim()}
-            >
-              Release Hold
-            </Button>
+            >{t('releaseHold')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -873,11 +844,11 @@ function RetentionTab() {
       <Dialog open={createDialog} onOpenChange={setCreateDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Legal Hold</DialogTitle>
+            <DialogTitle>{t('createLegalHold')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Entity Type</Label>
+              <Label>{t('entityType')}</Label>
               <Select
                 value={newHold.entity_type}
                 onValueChange={(v) => setNewHold((p) => ({ ...p, entity_type: v }))}
@@ -886,49 +857,45 @@ function RetentionTab() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="incident">Incident</SelectItem>
-                  <SelectItem value="sanction">Sanction</SelectItem>
-                  <SelectItem value="intervention">Intervention</SelectItem>
-                  <SelectItem value="appeal">Appeal</SelectItem>
-                  <SelectItem value="exclusion_case">Exclusion Case</SelectItem>
+                  <SelectItem value="incident">{t('incident')}</SelectItem>
+                  <SelectItem value="sanction">{t('sanction')}</SelectItem>
+                  <SelectItem value="intervention">{t('intervention')}</SelectItem>
+                  <SelectItem value="appeal">{t('appeal')}</SelectItem>
+                  <SelectItem value="exclusion_case">{t('exclusionCase')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Entity ID</Label>
+              <Label>{t('entityId')}</Label>
               <Input
                 value={newHold.entity_id}
                 onChange={(e) => setNewHold((p) => ({ ...p, entity_id: e.target.value }))}
-                placeholder="UUID of the entity"
+                placeholder={t('uuidOfTheEntity')}
               />
             </div>
             <div>
-              <Label>Hold Reason</Label>
+              <Label>{t('holdReason')}</Label>
               <Textarea
                 value={newHold.hold_reason}
                 onChange={(e) => setNewHold((p) => ({ ...p, hold_reason: e.target.value }))}
-                placeholder="Why is this hold being placed?"
+                placeholder={t('whyIsThisHoldBeing')}
               />
             </div>
             <div>
-              <Label>Legal Basis (optional)</Label>
+              <Label>{t('legalBasisOptional')}</Label>
               <Input
                 value={newHold.legal_basis}
                 onChange={(e) => setNewHold((p) => ({ ...p, legal_basis: e.target.value }))}
-                placeholder='e.g. "Appeal AP-000042"'
+                placeholder={t('eGAppealAp000042')}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setCreateDialog(false)}>
-              Cancel
-            </Button>
+            <Button variant="secondary" onClick={() => setCreateDialog(false)}>{tCommon('cancel')}</Button>
             <Button
               onClick={createHold}
               disabled={!newHold.entity_id.trim() || !newHold.hold_reason.trim()}
-            >
-              Create Hold
-            </Button>
+            >{t('createHold')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

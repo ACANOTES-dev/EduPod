@@ -171,7 +171,8 @@ function UploadSection({ onUploadComplete }: UploadSectionProps) {
     setDownloading(true);
     try {
       await downloadXlsxTemplate(importType as ImportType);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsImportsPage]', err);
       setError(t('templateDownloadFailed'));
     } finally {
       setDownloading(false);
@@ -393,11 +394,11 @@ function ValidationResults({ job, onConfirm, onDismiss }: ValidationResultsProps
       {job.preview_json && (
         <div className="space-y-3">
           {/* Summary cards */}
-          <h3 className="text-sm font-semibold text-text-primary">Preview</h3>
+          <h3 className="text-sm font-semibold text-text-primary">{t('preview')}</h3>
           <div className="flex flex-wrap gap-3">
             {job.preview_json.summary.by_year_group && (
               <div className="rounded-lg border border-border bg-surface-secondary p-3">
-                <p className="text-xs font-medium text-text-tertiary mb-1">By Year Group</p>
+                <p className="text-xs font-medium text-text-tertiary mb-1">{t('byYearGroup')}</p>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(job.preview_json.summary.by_year_group).map(([yg, count]) => (
                     <span key={yg} className="text-xs text-text-secondary">
@@ -409,7 +410,7 @@ function ValidationResults({ job, onConfirm, onDismiss }: ValidationResultsProps
             )}
             {job.preview_json.summary.by_gender && (
               <div className="rounded-lg border border-border bg-surface-secondary p-3">
-                <p className="text-xs font-medium text-text-tertiary mb-1">By Gender</p>
+                <p className="text-xs font-medium text-text-tertiary mb-1">{t('byGender')}</p>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(job.preview_json.summary.by_gender).map(([g, count]) => (
                     <span key={g} className="text-xs text-text-secondary capitalize">
@@ -421,7 +422,7 @@ function ValidationResults({ job, onConfirm, onDismiss }: ValidationResultsProps
             )}
             {job.preview_json.summary.household_count != null && (
               <div className="rounded-lg border border-border bg-surface-secondary p-3">
-                <p className="text-xs font-medium text-text-tertiary mb-1">Households</p>
+                <p className="text-xs font-medium text-text-tertiary mb-1">{t('households')}</p>
                 <div className="flex items-center gap-1">
                   <Home className="h-3.5 w-3.5 text-text-tertiary" />
                   <span className="text-sm font-medium text-text-primary">
@@ -435,10 +436,8 @@ function ValidationResults({ job, onConfirm, onDismiss }: ValidationResultsProps
           {/* Sample table */}
           {job.preview_json.sample_rows.length > 0 && (
             <div>
-              <p className="text-xs text-text-tertiary mb-1">
-                Showing {job.preview_json.sample_rows.length} of{' '}
-                {job.preview_json.summary.total_rows} rows
-              </p>
+              <p className="text-xs text-text-tertiary mb-1">{t('showing')}{job.preview_json.sample_rows.length}{t('of')}{' '}
+                {job.preview_json.summary.total_rows}{t('rows')}</p>
               <div className="max-h-72 overflow-auto rounded-lg border border-border">
                 <table className="w-full text-xs">
                   <thead>
@@ -506,6 +505,7 @@ function ValidationResults({ job, onConfirm, onDismiss }: ValidationResultsProps
 // ─── Rollback Button ─────────────────────────────────────────────────────────
 
 function RollbackButton({ jobId, onRollback }: { jobId: string; onRollback: () => void }) {
+  const tCommon = useTranslations('common');
   const [confirming, setConfirming] = React.useState(false);
   const [rolling, setRolling] = React.useState(false);
   const [result, setResult] = React.useState<RollbackSummary | null>(null);
@@ -535,9 +535,9 @@ function RollbackButton({ jobId, onRollback }: { jobId: string; onRollback: () =
   if (result) {
     return (
       <div className="text-xs">
-        <span className="text-success-text">{result.deleted_count} deleted</span>
+        <span className="text-success-text">{result.deleted_count}{t('deleted')}</span>
         {result.skipped_count > 0 && (
-          <span className="text-warning-text ms-2">{result.skipped_count} kept</span>
+          <span className="text-warning-text ms-2">{result.skipped_count}{t('kept')}</span>
         )}
       </div>
     );
@@ -546,9 +546,7 @@ function RollbackButton({ jobId, onRollback }: { jobId: string; onRollback: () =
   if (confirming) {
     return (
       <div className="flex items-center gap-1">
-        <Button size="sm" variant="outline" onClick={() => setConfirming(false)} disabled={rolling}>
-          Cancel
-        </Button>
+        <Button size="sm" variant="outline" onClick={() => setConfirming(false)} disabled={rolling}>{tCommon('cancel')}</Button>
         <Button
           size="sm"
           variant="outline"
@@ -564,9 +562,7 @@ function RollbackButton({ jobId, onRollback }: { jobId: string; onRollback: () =
 
   return (
     <Button size="sm" variant="ghost" onClick={() => setConfirming(true)}>
-      <Undo2 className="me-1 h-3.5 w-3.5" />
-      Rollback
-    </Button>
+      <Undo2 className="me-1 h-3.5 w-3.5" />{t('rollback')}</Button>
   );
 }
 
@@ -618,7 +614,8 @@ export default function ImportsPage() {
           if (pollingRef.current) clearInterval(pollingRef.current);
           void fetchHistory(page);
         }
-      } catch {
+      } catch (err) {
+        console.error('[SettingsImportsPage]', err);
         if (pollingRef.current) clearInterval(pollingRef.current);
       }
     }, 2000);
@@ -695,9 +692,9 @@ export default function ImportsPage() {
         row.status === 'completed' ? (
           <RollbackButton jobId={row.id} onRollback={() => void fetchHistory(page)} />
         ) : row.status === 'rolled_back' ? (
-          <span className="text-xs text-text-tertiary">Rolled back</span>
+          <span className="text-xs text-text-tertiary">{t('rolledBack')}</span>
         ) : row.status === 'partially_rolled_back' ? (
-          <span className="text-xs text-warning-text">Partial rollback</span>
+          <span className="text-xs text-warning-text">{t('partialRollback')}</span>
         ) : null,
     },
   ];

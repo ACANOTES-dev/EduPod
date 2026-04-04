@@ -66,6 +66,7 @@ const FREEFORM_MAX_CHARS = 2000;
 
 export default function SurveyPage() {
   const t = useTranslations('wellbeing.survey');
+  const tCommon = useTranslations('common');
 
   const [survey, setSurvey] = React.useState<ActiveSurveyResult | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -111,7 +112,8 @@ export default function SurveyPage() {
         if (data.hasResponded) {
           setHasResponded(true);
         }
-      } catch {
+      } catch (err) {
+        console.error('[WellbeingSurveyPage]', err);
         if (!cancelled) {
           setSurvey(null);
         }
@@ -452,9 +454,7 @@ export default function SurveyPage() {
             <DialogDescription>{t('confirmMessage')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConfirm(false)} disabled={isSubmitting}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setShowConfirm(false)} disabled={isSubmitting}>{tCommon('cancel')}</Button>
             <Button onClick={() => void handleConfirmSubmit()} disabled={isSubmitting}>
               {isSubmitting ? t('submitting') : t('submitAnonymous')}
             </Button>

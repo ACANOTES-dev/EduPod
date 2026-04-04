@@ -8,6 +8,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+import { MOCK_FACADE_PROVIDERS, StudentReadFacade } from '../mock-facades';
 import { AccessExportService } from '../../../modules/compliance/access-export.service';
 import { AnonymisationService } from '../../../modules/compliance/anonymisation.service';
 import { ComplianceService } from '../../../modules/compliance/compliance.service';
@@ -27,27 +28,32 @@ const PARENT_ID = 'parent-uuid-integration-005';
 
 // ─── Mock factories ──────────────────────────────────────────────────────────
 
-const buildMockPrisma = () => ({
-  complianceRequest: {
-    findFirst: jest.fn(),
-    findMany: jest.fn(),
-    count: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-  },
-  student: {
-    findFirst: jest.fn(),
-  },
-  parent: {
-    findFirst: jest.fn(),
-  },
-  consentRecord: {
-    deleteMany: jest.fn(),
-  },
-  gdprAnonymisationToken: {
-    deleteMany: jest.fn(),
-  },
-});
+const buildMockPrisma = () => {
+  const prisma: Record<string, Record<string, jest.Mock>> & { $transaction: jest.Mock } = {
+    complianceRequest: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+    student: {
+      findFirst: jest.fn(),
+    },
+    parent: {
+      findFirst: jest.fn(),
+    },
+    consentRecord: {
+      deleteMany: jest.fn(),
+    },
+    gdprAnonymisationToken: {
+      deleteMany: jest.fn(),
+    },
+    $transaction: jest.fn(),
+  };
+  prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma));
+  return prisma;
+};
 
 const makeRequest = (overrides: Record<string, unknown> = {}) => ({
   id: REQUEST_ID,
@@ -111,6 +117,7 @@ describe('DSAR -> Export -> Anonymisation flow', () => {
 
     const module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ComplianceService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AnonymisationService, useValue: mockAnonymisationService },
@@ -119,6 +126,15 @@ describe('DSAR -> Export -> Anonymisation flow', () => {
         { provide: PastoralDsarService, useValue: mockPastoralDsarService },
         { provide: AgeGateService, useValue: mockAgeGateService },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
+        {
+          provide: StudentReadFacade,
+          useValue: {
+            exists: jest.fn().mockImplementation(async (_t: string, id: string) => {
+              const s = await mockPrisma.student.findFirst();
+              return !!s && (s as Record<string, unknown>).id === id;
+            }),
+          },
+        },
       ],
     }).compile();
 

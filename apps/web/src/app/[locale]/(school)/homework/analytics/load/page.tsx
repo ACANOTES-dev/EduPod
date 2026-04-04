@@ -70,8 +70,8 @@ export default function HomeworkLoadHeatmapPage() {
         });
         setInsights(newInsights.sort((a, b) => b.load - a.load).slice(0, 5));
       }
-    } catch {
-      console.error('[LoadHeatmap] Failed to fetch data');
+    } catch (err) {
+      console.error('[LoadHeatmap] Failed to fetch data', err);
       setHeatmapData(null);
       setInsights([]);
     } finally {

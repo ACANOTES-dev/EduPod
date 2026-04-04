@@ -1,6 +1,11 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  HouseholdReadFacade,
+  TenantReadFacade,
+} from '../../common/tests/mock-facades';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -37,12 +42,35 @@ const mockPdfRenderingService = {
 describe('HouseholdStatementsService', () => {
   let service: HouseholdStatementsService;
 
+  let mockHouseholdReadFacade: { findByIdWithBillingParent: jest.Mock };
+  let mockTenantReadFacade: { findById: jest.Mock; findBranding: jest.Mock };
+
   beforeEach(async () => {
+    mockHouseholdReadFacade = {
+      findByIdWithBillingParent: jest.fn().mockResolvedValue({
+        id: HOUSEHOLD_ID,
+        household_name: 'Smith Family',
+        billing_parent: { id: 'parent-1', first_name: 'Jane', last_name: 'Smith' },
+      }),
+    };
+    mockTenantReadFacade = {
+      findById: jest.fn().mockResolvedValue({ id: TENANT_ID, name: 'Test School', currency_code: 'EUR' }),
+      findBranding: jest.fn().mockResolvedValue({
+        school_name_display: 'Test School',
+        school_name_ar: null,
+        logo_url: null,
+        primary_color: null,
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HouseholdStatementsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PdfRenderingService, useValue: mockPdfRenderingService },
+        { provide: HouseholdReadFacade, useValue: mockHouseholdReadFacade },
+        { provide: TenantReadFacade, useValue: mockTenantReadFacade },
       ],
     }).compile();
 
@@ -52,12 +80,6 @@ describe('HouseholdStatementsService', () => {
 
   describe('getStatement', () => {
     it('should return a statement with invoices and payments', async () => {
-      mockPrisma.household.findFirst.mockResolvedValue({
-        id: HOUSEHOLD_ID,
-        household_name: 'Smith Family',
-        billing_parent: { id: 'parent-1', first_name: 'Jane', last_name: 'Smith' },
-      });
-      mockPrisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, currency_code: 'EUR' });
       mockPrisma.invoice.findMany.mockResolvedValue([
         {
           id: 'inv-1',
@@ -90,7 +112,7 @@ describe('HouseholdStatementsService', () => {
     });
 
     it('should throw NotFoundException when household not found', async () => {
-      mockPrisma.household.findFirst.mockResolvedValue(null);
+      mockHouseholdReadFacade.findByIdWithBillingParent.mockResolvedValue(null);
 
       await expect(
         service.getStatement(TENANT_ID, 'bad-id', {}),
@@ -98,12 +120,11 @@ describe('HouseholdStatementsService', () => {
     });
 
     it('should handle refund entries correctly', async () => {
-      mockPrisma.household.findFirst.mockResolvedValue({
+      mockHouseholdReadFacade.findByIdWithBillingParent.mockResolvedValue({
         id: HOUSEHOLD_ID,
         household_name: 'Smith',
         billing_parent: null,
       });
-      mockPrisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, currency_code: 'EUR' });
       mockPrisma.invoice.findMany.mockResolvedValue([]);
       mockPrisma.payment.findMany.mockResolvedValue([
         {
@@ -132,12 +153,11 @@ describe('HouseholdStatementsService', () => {
     });
 
     it('should include write-off entries', async () => {
-      mockPrisma.household.findFirst.mockResolvedValue({
+      mockHouseholdReadFacade.findByIdWithBillingParent.mockResolvedValue({
         id: HOUSEHOLD_ID,
         household_name: 'Smith',
         billing_parent: null,
       });
-      mockPrisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, currency_code: 'EUR' });
       mockPrisma.invoice.findMany.mockResolvedValue([
         {
           id: 'inv-1',
@@ -160,12 +180,12 @@ describe('HouseholdStatementsService', () => {
     });
 
     it('should handle null billing parent gracefully', async () => {
-      mockPrisma.household.findFirst.mockResolvedValue({
+      mockHouseholdReadFacade.findByIdWithBillingParent.mockResolvedValue({
         id: HOUSEHOLD_ID,
         household_name: 'Orphan Household',
         billing_parent: null,
       });
-      mockPrisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, currency_code: 'USD' });
+      mockTenantReadFacade.findById.mockResolvedValue({ id: TENANT_ID, currency_code: 'USD' });
       mockPrisma.invoice.findMany.mockResolvedValue([]);
       mockPrisma.payment.findMany.mockResolvedValue([]);
       mockPrisma.refund.findMany.mockResolvedValue([]);
@@ -180,22 +200,15 @@ describe('HouseholdStatementsService', () => {
   describe('renderPdf', () => {
     it('should render a statement PDF', async () => {
       const pdfBuffer = Buffer.from('fake-pdf');
-      // getStatement prerequisites
-      mockPrisma.household.findFirst.mockResolvedValue({
+      // getStatement prerequisites — facade mocks already provide household + tenant
+      mockHouseholdReadFacade.findByIdWithBillingParent.mockResolvedValue({
         id: HOUSEHOLD_ID,
         household_name: 'Smith',
         billing_parent: null,
       });
-      mockPrisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, name: 'Test School', currency_code: 'EUR' });
       mockPrisma.invoice.findMany.mockResolvedValue([]);
       mockPrisma.payment.findMany.mockResolvedValue([]);
       mockPrisma.refund.findMany.mockResolvedValue([]);
-      mockPrisma.tenantBranding.findUnique.mockResolvedValue({
-        school_name_display: 'Test School',
-        school_name_ar: null,
-        logo_url: null,
-        primary_color: null,
-      });
       mockPdfRenderingService.renderPdf.mockResolvedValue(pdfBuffer);
 
       const result = await service.renderPdf(TENANT_ID, HOUSEHOLD_ID, 'en', {});

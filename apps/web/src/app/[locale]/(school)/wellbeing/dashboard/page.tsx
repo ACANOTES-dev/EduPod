@@ -270,7 +270,8 @@ export default function WellbeingDashboardPage() {
           });
         },
       )
-      .catch(() => {
+      .catch((err) => {
+        console.error('[WellbeingDashboardPage]', err);
         setError(true);
       })
       .finally(() => {

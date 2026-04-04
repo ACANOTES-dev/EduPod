@@ -80,7 +80,7 @@ export default function BehaviourTasksPage() {
       .then((res) => {
         if (res.data) setStats(res.data);
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[BehaviourTasksPage]', err); });
   }, []);
 
   // Fetch tasks
@@ -92,7 +92,8 @@ export default function BehaviourTasksPage() {
       const res = await apiClient<TasksResponse>(`/api/v1/behaviour/tasks?${params.toString()}`);
       setTasks(res.data ?? []);
       setTotal(res.meta?.total ?? 0);
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourTasksPage]', err);
       setTasks([]);
       setTotal(0);
     } finally {

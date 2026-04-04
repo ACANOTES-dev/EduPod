@@ -74,7 +74,8 @@ export default function AdmissionsPage() {
       );
       setApplications(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[AdmissionsPage]', err);
       setApplications([]);
       setTotal(0);
     } finally {
@@ -176,7 +177,7 @@ export default function AdmissionsPage() {
       <div className="relative max-w-sm">
         <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
         <Input
-          placeholder="Search applications..."
+          placeholder={t('searchApplications')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="ps-9"

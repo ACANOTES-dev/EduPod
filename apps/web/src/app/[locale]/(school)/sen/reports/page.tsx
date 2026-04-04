@@ -58,7 +58,7 @@ export default function SenReportsPage() {
 
       {/* Tab navigation */}
       <div className="overflow-x-auto border-b border-border">
-        <nav className="-mb-px flex gap-1" aria-label="Report tabs">
+        <nav className="-mb-px flex gap-1" aria-label={t('reportTabs')}>
           {TABS.map((tab) => {
             const Icon = TAB_ICONS[tab];
             const isActive = activeTab === tab;

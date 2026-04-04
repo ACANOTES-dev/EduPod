@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
@@ -41,6 +42,7 @@ const mockUser: JwtPayload = {
 
 describe('TimetablesController', () => {
   let controller: TimetablesController;
+  let module: TestingModule;
   let mockService: {
     getTeacherTimetable: jest.Mock;
     getRoomTimetable: jest.Mock;
@@ -66,9 +68,10 @@ describe('TimetablesController', () => {
       staffProfile: { findFirst: jest.fn() },
     };
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       controllers: [TimetablesController],
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         {
           provide: ClassesReadFacade,
           useValue: {
@@ -131,7 +134,8 @@ describe('TimetablesController', () => {
 
     it('should allow view_own when viewing own profile', async () => {
       mockPermissionCache.getPermissions.mockResolvedValue(['schedule.view_own']);
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findByUserId as jest.Mock).mockResolvedValue({
         id: STAFF_PROFILE_ID,
       });
       mockService.getTeacherTimetable.mockResolvedValue([]);

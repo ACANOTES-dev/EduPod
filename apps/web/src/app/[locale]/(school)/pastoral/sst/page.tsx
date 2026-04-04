@@ -68,7 +68,8 @@ export default function SstMeetingsPage() {
 
       setMeetings(response.data ?? []);
       setTotal(response.meta?.total ?? 0);
-    } catch {
+    } catch (err) {
+      console.error('[PastoralSstPage]', err);
       setMeetings([]);
       setTotal(0);
     } finally {

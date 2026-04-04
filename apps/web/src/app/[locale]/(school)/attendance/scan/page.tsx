@@ -351,7 +351,7 @@ export default function AttendanceScanPage() {
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={preview}
-                          alt="Selected photo"
+                          alt={t('selectedPhoto')}
                           className="mx-auto max-h-48 rounded-lg object-contain"
                         />
                         <p className="text-sm text-text-secondary">{file?.name}</p>

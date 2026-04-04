@@ -82,7 +82,7 @@ export default function BulkOperationsPage() {
         setPeriods(periodsRes.data);
         setClasses(classesRes.data);
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[ReportCardsBulkPage]', err); });
   }, []);
 
   const fetchStatus = React.useCallback(async (classId: string, periodId: string) => {
@@ -93,7 +93,8 @@ export default function BulkOperationsPage() {
         `/api/v1/report-cards/bulk-status?${params.toString()}`,
       );
       setStatusData(res);
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsBulkPage]', err);
       setStatusData(null);
     } finally {
       setLoadingStatus(false);
@@ -117,7 +118,8 @@ export default function BulkOperationsPage() {
       toast.success(t('bulkGenerateStarted'));
       setCurrentStep('review');
       void fetchStatus(selectedClass, selectedPeriod);
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsBulkPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setGenerating(false);
@@ -140,7 +142,8 @@ export default function BulkOperationsPage() {
       toast.success(t('bulkSubmittedForApproval'));
       setCurrentStep('approve');
       void fetchStatus(selectedClass, selectedPeriod);
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsBulkPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setActioning(false);
@@ -163,7 +166,8 @@ export default function BulkOperationsPage() {
       toast.success(t('bulkPublished'));
       setCurrentStep('notify');
       void fetchStatus(selectedClass, selectedPeriod);
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsBulkPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setActioning(false);
@@ -185,7 +189,8 @@ export default function BulkOperationsPage() {
         body: JSON.stringify({ report_card_ids: ids }),
       });
       toast.success(t('bulkNotified'));
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsBulkPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setActioning(false);
@@ -481,7 +486,7 @@ function ReviewStep({
                     checked={allSelected}
                     onChange={onToggleAll}
                     className="rounded border-border"
-                    aria-label="Select all"
+                    aria-label={t('selectAll')}
                   />
                 </th>
                 <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">

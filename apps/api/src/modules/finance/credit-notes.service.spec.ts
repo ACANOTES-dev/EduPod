@@ -8,6 +8,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+import { MOCK_FACADE_PROVIDERS, HouseholdReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
 
@@ -51,13 +52,21 @@ const CN_ID = 'cn-uuid-1111';
 describe('CreditNotesService', () => {
   let service: CreditNotesService;
 
+  let mockHouseholdReadFacade: { existsOrThrow: jest.Mock };
+
   beforeEach(async () => {
+    mockHouseholdReadFacade = {
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         CreditNotesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SequenceService, useValue: mockSequenceService },
         { provide: InvoicesService, useValue: mockInvoicesService },
+        { provide: HouseholdReadFacade, useValue: mockHouseholdReadFacade },
       ],
     }).compile();
 
@@ -116,7 +125,9 @@ describe('CreditNotesService', () => {
     });
 
     it('should throw NotFoundException when household not found', async () => {
-      mockPrisma.household.findFirst.mockResolvedValue(null);
+      mockHouseholdReadFacade.existsOrThrow.mockRejectedValue(
+        new NotFoundException({ code: 'HOUSEHOLD_NOT_FOUND', message: 'Not found' }),
+      );
 
       await expect(
         service.create(TENANT_ID, USER_ID, {

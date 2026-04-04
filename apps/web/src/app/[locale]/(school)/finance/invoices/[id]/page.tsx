@@ -1,6 +1,7 @@
 'use client';
 
 import { useParams, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import type { InvoiceStatus } from '@school/shared';
@@ -109,6 +110,7 @@ const invoiceStatusLabelMap: Record<InvoiceStatus, string> = {
 export default function InvoiceDetailPage() {
   const _params = useParams<{ id: string }>();
   const id = _params?.id ?? '';
+  const t = useTranslations('finance');
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
@@ -144,9 +146,7 @@ export default function InvoiceDetailPage() {
 
   if (!invoice) {
     return (
-      <div className="flex h-64 items-center justify-center text-text-tertiary">
-        Invoice not found.
-      </div>
+      <div className="flex h-64 items-center justify-center text-text-tertiary">{t('invoiceNotFound')}</div>
     );
   }
 
@@ -272,9 +272,8 @@ export default function InvoiceDetailPage() {
       {/* Approval info for pending_approval */}
       {invoice.status === 'pending_approval' && invoice.approval && (
         <div className="rounded-xl border border-warning-border bg-warning-surface px-6 py-4">
-          <p className="text-sm font-semibold text-warning-text">Pending Approval</p>
-          <p className="mt-1 text-sm text-text-secondary">
-            Requested by {invoice.approval.requested_by_name ?? 'Unknown'}{' '}
+          <p className="text-sm font-semibold text-warning-text">{t('pendingApproval')}</p>
+          <p className="mt-1 text-sm text-text-secondary">{t('requestedBy2')}{invoice.approval.requested_by_name ?? 'Unknown'}{' '}
             {invoice.approval.requested_at ? `on ${formatDate(invoice.approval.requested_at)}` : ''}
           </p>
         </div>
@@ -283,7 +282,7 @@ export default function InvoiceDetailPage() {
       {/* Write-off reason */}
       {invoice.status === 'written_off' && invoice.write_off_reason && (
         <div className="rounded-xl border border-border bg-surface-secondary px-6 py-4">
-          <p className="text-sm font-semibold text-text-primary">Write-off Reason</p>
+          <p className="text-sm font-semibold text-text-primary">{t('writeOffReason')}</p>
           <p className="mt-1 text-sm text-text-secondary">{invoice.write_off_reason}</p>
         </div>
       )}

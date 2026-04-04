@@ -39,7 +39,8 @@ export default function ResetPasswordPage() {
       });
       // Always show success (don't reveal whether email exists)
       setStep('confirm');
-    } catch {
+    } catch (err) {
+      console.error('[ResetPasswordPage]', err);
       // Still show the confirm step — don't reveal whether the email exists
       setStep('confirm');
     } finally {

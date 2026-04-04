@@ -76,7 +76,8 @@ export default function RefundsPage() {
       );
       setRefunds(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[FinanceRefundsPage]', err);
       setRefunds([]);
       setTotal(0);
     } finally {

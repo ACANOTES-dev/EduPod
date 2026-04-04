@@ -2,6 +2,7 @@
 
 import { Globe, Plus } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { Badge, Button, EmptyState } from '@school/ui';
@@ -55,6 +56,7 @@ function StatusBadge({ status }: { status: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function WebsitePagesPage() {
+  const t = useTranslations('website');
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -80,7 +82,8 @@ export default function WebsitePagesPage() {
       );
       setPages(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[WebsitePage]', err);
       setPages([]);
       setTotal(0);
     } finally {
@@ -167,20 +170,16 @@ export default function WebsitePagesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Website Pages"
+        title={t('websitePages')}
         description="Manage the public-facing pages of your school website"
         actions={
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               onClick={() => router.push(`/${locale}/website/contact-submissions`)}
-            >
-              Contact Submissions
-            </Button>
+            >{t('contactSubmissions')}</Button>
             <Button onClick={() => router.push(`/${locale}/website/new`)}>
-              <Plus className="me-2 h-4 w-4" />
-              New Page
-            </Button>
+              <Plus className="me-2 h-4 w-4" />{t('newPage')}</Button>
           </div>
         }
       />
@@ -188,7 +187,7 @@ export default function WebsitePagesPage() {
       {!isLoading && pages.length === 0 && statusFilter === 'all' ? (
         <EmptyState
           icon={Globe}
-          title="No pages yet"
+          title={t('noPagesYet')}
           description="Create your first website page to get started."
         />
       ) : (

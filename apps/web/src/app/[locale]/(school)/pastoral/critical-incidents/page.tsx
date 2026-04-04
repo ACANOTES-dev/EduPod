@@ -62,7 +62,8 @@ export default function PastoralCriticalIncidentsPage() {
 
       setRecords(response.data ?? []);
       setTotal(response.meta?.total ?? 0);
-    } catch {
+    } catch (err) {
+      console.error('[PastoralCriticalIncidentsPage]', err);
       setRecords([]);
       setTotal(0);
     } finally {

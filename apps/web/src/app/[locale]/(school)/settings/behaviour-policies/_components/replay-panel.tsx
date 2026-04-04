@@ -1,6 +1,7 @@
 'use client';
 
 import { Play } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 import {
   Button,
@@ -44,15 +45,16 @@ export function ReplayPanel({
   replayResult,
   onReplay,
 }: ReplayPanelProps) {
+  const t = useTranslations('behaviourSettings.policies');
   return (
     <div className="mt-6 rounded-xl border border-border bg-surface">
       <div className="border-b border-border px-4 py-3">
-        <h3 className="text-sm font-medium">Test this stage against past data</h3>
+        <h3 className="text-sm font-medium">{t('testThisStageAgainstPast')}</h3>
       </div>
       <div className="space-y-3 p-4">
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1.5">
-            <Label className="text-xs">From</Label>
+            <Label className="text-xs">{t('from')}</Label>
             <Input
               type="date"
               value={replayFrom}
@@ -61,7 +63,7 @@ export function ReplayPanel({
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">To</Label>
+            <Label className="text-xs">{t('to')}</Label>
             <Input
               type="date"
               value={replayTo}
@@ -70,10 +72,10 @@ export function ReplayPanel({
             />
           </div>
           <div className="min-w-[200px] space-y-1.5">
-            <Label className="text-xs">Rule</Label>
+            <Label className="text-xs">{t('rule')}</Label>
             <Select value={replayRuleId} onValueChange={onReplayRuleIdChange}>
               <SelectTrigger>
-                <SelectValue placeholder="Select a rule" />
+                <SelectValue placeholder={t('selectARule')} />
               </SelectTrigger>
               <SelectContent>
                 {stageRules.map((r) => (
@@ -98,19 +100,19 @@ export function ReplayPanel({
             </p>
             <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
               <div>
-                <span className="text-text-tertiary">Evaluated</span>
+                <span className="text-text-tertiary">{t('evaluated')}</span>
                 <p className="text-lg font-semibold">{replayResult.incidents_evaluated}</p>
               </div>
               <div>
-                <span className="text-text-tertiary">Matched</span>
+                <span className="text-text-tertiary">{t('matched')}</span>
                 <p className="text-lg font-semibold">{replayResult.incidents_matched}</p>
               </div>
               <div>
-                <span className="text-text-tertiary">Students</span>
+                <span className="text-text-tertiary">{t('students')}</span>
                 <p className="text-lg font-semibold">{replayResult.students_affected}</p>
               </div>
               <div>
-                <span className="text-text-tertiary">Year Groups</span>
+                <span className="text-text-tertiary">{t('yearGroups')}</span>
                 <p className="text-lg font-semibold">
                   {replayResult.affected_year_groups.join(', ') || '\u2014'}
                 </p>
@@ -118,12 +120,11 @@ export function ReplayPanel({
             </div>
             {Object.keys(replayResult.actions_that_would_fire).length > 0 && (
               <div className="mt-2">
-                <span className="text-text-tertiary">Actions:</span>
+                <span className="text-text-tertiary">{t('actions')}</span>
                 <ul className="ms-4 mt-1 list-disc">
                   {Object.entries(replayResult.actions_that_would_fire).map(([action, count]) => (
                     <li key={action}>
-                      {action}: {count} times
-                    </li>
+                      {action}: {count}{t('times')}</li>
                   ))}
                 </ul>
               </div>

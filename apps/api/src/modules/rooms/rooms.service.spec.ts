@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
+import { MOCK_FACADE_PROVIDERS, SchedulesReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { RoomsService } from './rooms.service';
@@ -17,6 +18,7 @@ const ROOM_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 
 describe('RoomsService', () => {
   let service: RoomsService;
+  let mockSchedulesFacade: { countByRoom: jest.Mock };
   let mockPrisma: {
     room: {
       findMany: jest.Mock;
@@ -42,10 +44,14 @@ describe('RoomsService', () => {
       schedule: { count: jest.fn().mockResolvedValue(0) },
     };
 
+    mockSchedulesFacade = { countByRoom: jest.fn().mockResolvedValue(0) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         RoomsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: SchedulesReadFacade, useValue: mockSchedulesFacade },
       ],
     }).compile();
 
@@ -144,7 +150,7 @@ describe('RoomsService', () => {
 
   it('should throw ConflictException when room is in use by schedules', async () => {
     mockPrisma.room.findFirst.mockResolvedValue({ id: ROOM_ID });
-    mockPrisma.schedule.count.mockResolvedValue(3);
+    mockSchedulesFacade.countByRoom.mockResolvedValue(3);
 
     await expect(service.remove(TENANT_ID, ROOM_ID)).rejects.toThrow(ConflictException);
   });

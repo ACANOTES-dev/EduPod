@@ -146,7 +146,8 @@ export default function MyWorkloadPage() {
         setCoverHistory(coverRes);
         setQuality(qualityRes);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[WellbeingMyWorkloadPage]', err);
         setError(true);
       })
       .finally(() => {
@@ -168,15 +169,13 @@ export default function MyWorkloadPage() {
         <PageHeader title={t('title')} />
         <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-surface p-8 text-center">
           <AlertCircle className="h-8 w-8 text-text-tertiary" />
-          <p className="text-sm text-text-secondary">Unable to load workload data</p>
+          <p className="text-sm text-text-secondary">{t('unableToLoadWorkloadData')}</p>
           <button
             type="button"
             onClick={fetchData}
             className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand/90"
           >
-            <RefreshCw className="h-4 w-4" />
-            Retry
-          </button>
+            <RefreshCw className="h-4 w-4" />{t('retry')}</button>
         </div>
       </div>
     );

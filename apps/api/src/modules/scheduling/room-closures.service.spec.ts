@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { RoomsReadFacade } from '../rooms/rooms-read.facade';
 
@@ -26,6 +27,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 
 describe('RoomClosuresService', () => {
   let service: RoomClosuresService;
+  let module: TestingModule;
   let mockPrisma: {
     roomClosure: {
       findMany: jest.Mock;
@@ -45,8 +47,9 @@ describe('RoomClosuresService', () => {
       room: { findFirst: jest.fn() },
     };
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: RoomsReadFacade, useValue: {
       findById: jest.fn().mockResolvedValue(null),
       existsOrThrow: jest.fn().mockResolvedValue(undefined),
@@ -84,8 +87,8 @@ describe('RoomClosuresService', () => {
           created_by: { id: USER_ID, first_name: 'John', last_name: 'Doe' },
         },
       ];
-      mockPrisma.roomClosure.findMany.mockResolvedValue(records);
-      mockPrisma.roomClosure.count.mockResolvedValue(1);
+      const roomsFacade = module.get(RoomsReadFacade);
+      (roomsFacade.findClosuresPaginated as jest.Mock).mockResolvedValue({ data: records, total: 1 });
 
       const result = await service.list(TENANT_ID, { page: 1, pageSize: 20 });
 
@@ -97,12 +100,13 @@ describe('RoomClosuresService', () => {
     });
 
     it('should filter by room_id', async () => {
-      mockPrisma.roomClosure.findMany.mockResolvedValue([]);
-      mockPrisma.roomClosure.count.mockResolvedValue(0);
+      const roomsFacade = module.get(RoomsReadFacade);
+      (roomsFacade.findClosuresPaginated as jest.Mock).mockResolvedValue({ data: [], total: 0 });
 
       await service.list(TENANT_ID, { page: 1, pageSize: 20, room_id: ROOM_ID });
 
-      expect(mockPrisma.roomClosure.findMany).toHaveBeenCalledWith(
+      expect(roomsFacade.findClosuresPaginated).toHaveBeenCalledWith(
+        TENANT_ID,
         expect.objectContaining({
           where: expect.objectContaining({ room_id: ROOM_ID }),
         }),
@@ -110,8 +114,8 @@ describe('RoomClosuresService', () => {
     });
 
     it('should filter by date range', async () => {
-      mockPrisma.roomClosure.findMany.mockResolvedValue([]);
-      mockPrisma.roomClosure.count.mockResolvedValue(0);
+      const roomsFacade = module.get(RoomsReadFacade);
+      (roomsFacade.findClosuresPaginated as jest.Mock).mockResolvedValue({ data: [], total: 0 });
 
       await service.list(TENANT_ID, {
         page: 1,
@@ -120,7 +124,8 @@ describe('RoomClosuresService', () => {
         date_to: '2026-04-30',
       });
 
-      expect(mockPrisma.roomClosure.findMany).toHaveBeenCalledWith(
+      expect(roomsFacade.findClosuresPaginated).toHaveBeenCalledWith(
+        TENANT_ID,
         expect.objectContaining({
           where: expect.objectContaining({
             AND: expect.arrayContaining([
@@ -174,7 +179,8 @@ describe('RoomClosuresService', () => {
     });
 
     it('should throw NotFoundException when room does not exist', async () => {
-      mockPrisma.room.findFirst.mockResolvedValue(null);
+      const roomsFacade = module.get(RoomsReadFacade);
+      (roomsFacade.existsOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Room not found'));
 
       await expect(service.create(TENANT_ID, USER_ID, dto)).rejects.toThrow(NotFoundException);
     });
@@ -184,7 +190,8 @@ describe('RoomClosuresService', () => {
 
   describe('delete', () => {
     it('should delete a room closure', async () => {
-      mockPrisma.roomClosure.findFirst.mockResolvedValue({ id: CLOSURE_ID });
+      const roomsFacade = module.get(RoomsReadFacade);
+      (roomsFacade.findClosureById as jest.Mock).mockResolvedValue({ id: CLOSURE_ID });
       mockTx.roomClosure.delete.mockResolvedValue({ id: CLOSURE_ID });
 
       const result = await service.delete(TENANT_ID, CLOSURE_ID);

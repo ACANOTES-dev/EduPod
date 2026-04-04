@@ -173,7 +173,8 @@ export default function SanctionListPage() {
         );
         setData(res.data ?? []);
         setTotal(res.meta?.total ?? 0);
-      } catch {
+      } catch (err) {
+        console.error('[BehaviourSanctionsPage]', err);
         setData([]);
         setTotal(0);
       } finally {

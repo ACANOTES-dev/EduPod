@@ -1,5 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  RbacReadFacade,
+  AuthReadFacade,
+  AcademicReadFacade,
+  StudentReadFacade,
+  ClassesReadFacade,
+  ConfigurationReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourAnalyticsService } from './behaviour-analytics.service';
@@ -78,6 +87,8 @@ describe('BehaviourAnalyticsService', () => {
   let service: BehaviourAnalyticsService;
   let mockPrisma: MockPrisma;
   let mockScope: { getUserScope: jest.Mock; buildScopeFilter: jest.Mock };
+  let mockStudentCountByYearGroup: jest.Mock;
+  let mockClassEnrolmentCounts: jest.Mock;
 
   beforeEach(async () => {
     mockPrisma = makeMockPrisma();
@@ -88,6 +99,7 @@ describe('BehaviourAnalyticsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         BehaviourAnalyticsService,
         BehaviourIncidentAnalyticsService,
         BehaviourComparisonAnalyticsService,
@@ -96,6 +108,12 @@ describe('BehaviourAnalyticsService', () => {
         BehaviourExportAnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: BehaviourScopeService, useValue: mockScope },
+        { provide: RbacReadFacade, useValue: { findMembershipsWithPermissionAndUser: mockPrisma.tenantMembership.findMany } },
+        { provide: AuthReadFacade, useValue: { findUsersByIds: mockPrisma.user.findMany } },
+        { provide: AcademicReadFacade, useValue: { findAllYearGroups: mockPrisma.yearGroup.findMany, findSubjectsByIds: mockPrisma.subject.findMany } },
+        { provide: StudentReadFacade, useValue: { count: mockPrisma.student.count, countByYearGroup: (mockStudentCountByYearGroup = jest.fn().mockResolvedValue(new Map())) } },
+        { provide: ClassesReadFacade, useValue: { findEnrolmentCountsByClasses: (mockClassEnrolmentCounts = jest.fn().mockResolvedValue(new Map())) } },
+        { provide: ConfigurationReadFacade, useValue: { findSettingsJson: mockPrisma.tenantSetting.findFirst } },
       ],
     }).compile();
 
@@ -778,9 +796,7 @@ describe('BehaviourAnalyticsService', () => {
 
     it('should return MV data when benchmarking is enabled', async () => {
       mockPrisma.tenantSetting.findFirst.mockResolvedValueOnce({
-        settings: {
-          behaviour: { cross_school_benchmarking_enabled: true },
-        },
+        behaviour: { cross_school_benchmarking_enabled: true },
       });
       mockPrisma.$queryRaw.mockResolvedValueOnce([
         {
@@ -804,9 +820,7 @@ describe('BehaviourAnalyticsService', () => {
 
     it('should return empty when benchmarking is disabled', async () => {
       mockPrisma.tenantSetting.findFirst.mockResolvedValueOnce({
-        settings: {
-          behaviour: { cross_school_benchmarking_enabled: false },
-        },
+        behaviour: { cross_school_benchmarking_enabled: false },
       });
 
       const result = await service.getBenchmarks(TENANT_ID, baseQuery);
@@ -935,10 +949,9 @@ describe('BehaviourAnalyticsService', () => {
           ],
         },
       ]);
-      mockPrisma.classEnrolment.groupBy.mockResolvedValueOnce([
-        { class_id: 'class-1', _count: 25 },
-        { class_id: 'class-2', _count: 20 },
-      ]);
+      mockClassEnrolmentCounts.mockResolvedValueOnce(
+        new Map([['class-1', 25], ['class-2', 20]]),
+      );
 
       const result = await service.getClassComparisons(
         TENANT_ID,

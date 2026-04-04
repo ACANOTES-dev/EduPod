@@ -248,7 +248,7 @@ export default function ResourcesPage() {
   React.useEffect(() => {
     apiClient<ResourcesResult>('/api/v1/staff-wellbeing/resources')
       .then((res) => setData(res))
-      .catch(() => undefined)
+      .catch((err) => { console.error('[WellbeingResourcesPage]', err); })
       .finally(() => setIsLoading(false));
   }, []);
 

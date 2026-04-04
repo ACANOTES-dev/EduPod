@@ -114,7 +114,7 @@ function CriterionEditor({
             disabled={index === 0}
             onClick={() => onMove(index, 'up')}
             className="h-5 w-5 p-0"
-            aria-label="Move up"
+            aria-label={t('moveUp')}
           >
             <ChevronUp className="h-3 w-3" />
           </Button>
@@ -124,7 +124,7 @@ function CriterionEditor({
             disabled={index === total - 1}
             onClick={() => onMove(index, 'down')}
             className="h-5 w-5 p-0"
-            aria-label="Move down"
+            aria-label={t('moveDown')}
           >
             <ChevronDown className="h-3 w-3" />
           </Button>
@@ -134,11 +134,11 @@ function CriterionEditor({
             <Input
               value={criterion.name}
               onChange={(e) => onChange({ ...criterion, name: e.target.value })}
-              placeholder="Criterion name"
+              placeholder={t('criterionName')}
               className="flex-1"
             />
             <div className="flex items-center gap-1">
-              <Label className="text-xs text-text-secondary whitespace-nowrap">Max pts</Label>
+              <Label className="text-xs text-text-secondary whitespace-nowrap">{t('maxPts')}</Label>
               <Input
                 type="number"
                 min={0}
@@ -151,7 +151,7 @@ function CriterionEditor({
               variant="ghost"
               size="sm"
               onClick={() => onRemove(index)}
-              aria-label="Remove criterion"
+              aria-label={t('removeCriterion')}
             >
               <Trash2 className="h-3.5 w-3.5 text-danger-text" />
             </Button>
@@ -164,7 +164,7 @@ function CriterionEditor({
                 <Input
                   value={lv.label}
                   onChange={(e) => updateLevel(li, 'label', e.target.value)}
-                  placeholder="Level label"
+                  placeholder={t('levelLabel')}
                   className="w-32"
                 />
                 <Input
@@ -173,12 +173,12 @@ function CriterionEditor({
                   value={String(lv.points)}
                   onChange={(e) => updateLevel(li, 'points', e.target.value)}
                   className="w-20"
-                  placeholder="Pts"
+                  placeholder={t('pts2')}
                 />
                 <Input
                   value={lv.description}
                   onChange={(e) => updateLevel(li, 'description', e.target.value)}
-                  placeholder="Description (optional)"
+                  placeholder={t('descriptionOptional')}
                   className="flex-1 min-w-0"
                 />
                 {criterion.levels.length > 1 && (
@@ -189,9 +189,7 @@ function CriterionEditor({
               </div>
             ))}
             <Button variant="ghost" size="sm" onClick={addLevel}>
-              <Plus className="me-1 h-3 w-3" />
-              Add level
-            </Button>
+              <Plus className="me-1 h-3 w-3" />{t('addLevel')}</Button>
           </div>
         </div>
       </div>
@@ -229,7 +227,8 @@ export default function RubricTemplatesPage() {
       );
       setData(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsRubricTemplatesPage]', err);
       setData([]);
       setTotal(0);
     } finally {
@@ -277,7 +276,8 @@ export default function RubricTemplatesPage() {
       }
       setDialogOpen(false);
       void fetchTemplates(page);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsRubricTemplatesPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setSaving(false);
@@ -289,7 +289,8 @@ export default function RubricTemplatesPage() {
       await apiClient(`/api/v1/gradebook/rubric-templates/${id}`, { method: 'DELETE' });
       setConfirmDeleteId(null);
       void fetchTemplates(page);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsRubricTemplatesPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -358,13 +359,11 @@ export default function RubricTemplatesPage() {
                         key={c.id}
                         className="rounded-full bg-primary-100 px-2 py-0.5 text-xs text-primary-700"
                       >
-                        {c.name || '—'} ({c.max_points}pts)
-                      </span>
+                        {c.name || '—'} ({c.max_points}{t('pts')}</span>
                     ))}
                     {tpl.criteria.length > 5 && (
                       <span className="rounded-full bg-surface-secondary px-2 py-0.5 text-xs text-text-secondary">
-                        +{tpl.criteria.length - 5} more
-                      </span>
+                        +{tpl.criteria.length - 5}{t('more')}</span>
                     )}
                   </div>
                 )}
@@ -423,7 +422,7 @@ export default function RubricTemplatesPage() {
                 id="rubric-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Essay Rubric"
+                placeholder={t('eGEssayRubric')}
               />
             </div>
 
@@ -435,15 +434,11 @@ export default function RubricTemplatesPage() {
                   size="sm"
                   onClick={() => setCriteria((prev) => [...prev, defaultCriterion()])}
                 >
-                  <Plus className="me-1 h-3 w-3" />
-                  Add criterion
-                </Button>
+                  <Plus className="me-1 h-3 w-3" />{t('addCriterion')}</Button>
               </div>
 
               {criteria.length === 0 ? (
-                <p className="py-4 text-center text-sm text-text-tertiary">
-                  No criteria yet. Add one above.
-                </p>
+                <p className="py-4 text-center text-sm text-text-tertiary">{t('noCriteriaYetAddOne')}</p>
               ) : (
                 criteria.map((c, i) => (
                   <CriterionEditor

@@ -72,15 +72,15 @@ export default function NewAssessmentPage() {
   React.useEffect(() => {
     apiClient<ListResponse<Subject>>('/api/v1/subjects?pageSize=100&subject_type=academic')
       .then((res) => setSubjects(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[AssessmentsNewPage]', err); });
     apiClient<ListResponse<AcademicPeriod>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[AssessmentsNewPage]', err); });
     apiClient<ListResponse<AssessmentCategory>>(
       '/api/v1/gradebook/assessment-categories?pageSize=50',
     )
       .then((res) => setCategories(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[AssessmentsNewPage]', err); });
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,7 +103,8 @@ export default function NewAssessmentPage() {
         }),
       });
       router.push(`/${locale}/gradebook/${classId}`);
-    } catch {
+    } catch (err) {
+      console.error('[AssessmentsNewPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setSaving(false);
@@ -125,12 +126,12 @@ export default function NewAssessmentPage() {
 
       <form onSubmit={handleSubmit} className="max-w-lg space-y-5">
         <div>
-          <Label htmlFor="assessment-title">Title</Label>
+          <Label htmlFor="assessment-title">{t('title2')}</Label>
           <Input
             id="assessment-title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Midterm Exam"
+            placeholder={t('eGMidtermExam')}
             required
           />
         </div>

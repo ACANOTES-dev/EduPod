@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, AttendanceReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { AttendanceSignalCollector } from './attendance-signal.collector';
@@ -110,8 +111,16 @@ describe('AttendanceSignalCollector', () => {
 
     const module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AttendanceSignalCollector,
         { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: AttendanceReadFacade,
+          useValue: {
+            findDailySummariesSince: mockPrisma.dailyAttendanceSummary.findMany,
+            findActivePatternAlerts: mockPrisma.attendancePatternAlert.findMany,
+          },
+        },
       ],
     }).compile();
 

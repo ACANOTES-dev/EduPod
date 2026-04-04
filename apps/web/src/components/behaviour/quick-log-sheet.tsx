@@ -65,10 +65,10 @@ export function QuickLogSheet({ open, onOpenChange }: QuickLogSheetProps) {
       '/api/v1/behaviour/categories?pageSize=100&is_active=true',
     )
       .then((res) => setCategories(res.data ?? []))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[QuickLogSheet]', err); });
     apiClient<{ data: TemplateOption[] }>('/api/v1/behaviour/templates?pageSize=50')
       .then((res) => setTemplates(res.data ?? []))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[QuickLogSheet]', err); });
   }, [open]);
 
   // Student search with debounce
@@ -83,7 +83,7 @@ export function QuickLogSheet({ open, onOpenChange }: QuickLogSheetProps) {
         `/api/v1/students?search=${encodeURIComponent(studentSearch)}&pageSize=10`,
       )
         .then((res) => setStudentResults(res.data ?? []))
-        .catch(() => undefined);
+        .catch((err) => { console.error('[QuickLogSheet]', err); });
     }, 300);
     return () => {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);

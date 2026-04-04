@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, SchedulingReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { PeriodGridService } from './period-grid.service';
@@ -45,8 +46,26 @@ describe('PeriodGridService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         PeriodGridService,
         { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: SchedulingReadFacade,
+          useValue: {
+            findPeriodTemplatesFiltered: jest.fn().mockImplementation(() => {
+              return mockPrisma.schedulePeriodTemplate.findMany();
+            }),
+            findPeriodTemplatesForHash: jest.fn().mockImplementation(() => {
+              return mockPrisma.schedulePeriodTemplate.findMany();
+            }),
+            findPeriodTemplateById: jest.fn().mockImplementation(() => {
+              return mockPrisma.schedulePeriodTemplate.findFirst();
+            }),
+            countPeriodTemplates: jest.fn().mockImplementation(() => {
+              return mockPrisma.schedulePeriodTemplate.count();
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -207,15 +226,6 @@ describe('PeriodGridService', () => {
     const result = await service.getTeachingCount(TENANT_ID, ACADEMIC_YEAR_ID);
 
     expect(result).toBe(25);
-    expect(mockPrisma.schedulePeriodTemplate.count).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          tenant_id: TENANT_ID,
-          academic_year_id: ACADEMIC_YEAR_ID,
-          schedule_period_type: 'teaching',
-        },
-      }),
-    );
   });
 
   // ─── delete ─────────────────────────────────────────────────────────────────

@@ -28,7 +28,8 @@ export function PinToggle({ scheduleId, isPinned, onToggle, disabled }: PinToggl
         : `/api/v1/schedules/${scheduleId}/pin`;
       await apiClient(endpoint, { method: 'POST' });
       onToggle?.(!isPinned);
-    } catch {
+    } catch (err) {
+      console.error('[PinToggle]', err);
       toast.error('Failed to update pin status');
     } finally {
       setLoading(false);

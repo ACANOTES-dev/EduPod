@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { CurrencyDisplay } from '../../../_components/currency-display';
@@ -22,9 +23,11 @@ interface InvoiceLinesTabProps {
 }
 
 export function InvoiceLinesTab({ lines, currencyCode }: InvoiceLinesTabProps) {
+  const t = useTranslations('finance');
+  const tCommon = useTranslations('common');
   if (lines.length === 0) {
     return (
-      <p className="text-sm text-text-tertiary">No invoice lines.</p>
+      <p className="text-sm text-text-tertiary">{t('noInvoiceLines')}</p>
     );
   }
 
@@ -33,24 +36,12 @@ export function InvoiceLinesTab({ lines, currencyCode }: InvoiceLinesTabProps) {
       <table className="w-full">
         <thead>
           <tr className="border-b border-border bg-surface-secondary">
-            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-              Description
-            </th>
-            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-              Student
-            </th>
-            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-              Fee Structure
-            </th>
-            <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-              Qty
-            </th>
-            <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-              Unit Amount
-            </th>
-            <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-              Line Total
-            </th>
+            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('description')}</th>
+            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{tCommon('student')}</th>
+            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('feeStructure')}</th>
+            <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('qty')}</th>
+            <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('unitAmount')}</th>
+            <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('lineTotal')}</th>
           </tr>
         </thead>
         <tbody>

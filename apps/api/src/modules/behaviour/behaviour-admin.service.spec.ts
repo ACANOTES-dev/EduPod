@@ -1,6 +1,7 @@
 import { getQueueToken } from '@nestjs/bullmq';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PolicyReplayService } from '../policy-engine/policy-replay.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -89,6 +90,7 @@ describe('BehaviourAdminService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         BehaviourAdminService,
         { provide: PrismaService, useValue: { $executeRaw: jest.fn() } },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },

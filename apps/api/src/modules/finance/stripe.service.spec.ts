@@ -34,6 +34,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { CircuitBreakerRegistry } from '../../common/services/circuit-breaker-registry';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -94,6 +95,7 @@ describe('StripeService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         StripeService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EncryptionService, useValue: mockEncryptionService },

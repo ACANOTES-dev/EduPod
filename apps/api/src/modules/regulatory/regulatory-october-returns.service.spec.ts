@@ -1,6 +1,11 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  AcademicReadFacade,
+  MOCK_FACADE_PROVIDERS,
+  StudentReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { RegulatoryOctoberReturnsService } from './regulatory-october-returns.service';
@@ -51,6 +56,8 @@ describe('RegulatoryOctoberReturnsService', () => {
     academicYear: { findFirst: jest.Mock };
     student: { findMany: jest.Mock; findFirst: jest.Mock; count: jest.Mock };
   };
+  let mockStudentReadFacade: Record<string, jest.Mock>;
+  let mockAcademicReadFacade: Record<string, jest.Mock>;
 
   beforeEach(async () => {
     mockPrisma = {
@@ -64,10 +71,23 @@ describe('RegulatoryOctoberReturnsService', () => {
       },
     };
 
+    // Delegate to mockPrisma for backward-compatible test data setup
+    mockStudentReadFacade = {
+      findManyGeneric: mockPrisma.student.findMany,
+      findOneGeneric: mockPrisma.student.findFirst,
+      count: mockPrisma.student.count,
+    };
+    mockAcademicReadFacade = {
+      findYearByName: mockPrisma.academicYear.findFirst,
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         RegulatoryOctoberReturnsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: StudentReadFacade, useValue: mockStudentReadFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
       ],
     }).compile();
 

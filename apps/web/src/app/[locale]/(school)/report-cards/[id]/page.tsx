@@ -134,9 +134,7 @@ export default function ReportCardDetailPage() {
     try {
       const [rcRes, defsRes] = await Promise.all([
         apiClient<{ data: ReportCardDetail }>(`/api/v1/report-cards/${id}`),
-        apiClient<{ data: CustomFieldDef[] }>('/api/v1/report-card-custom-field-defs').catch(
-          () => ({ data: [] }),
-        ),
+        apiClient<{ data: CustomFieldDef[] }>('/api/v1/report-card-custom-field-defs').catch((err) => { console.error('[ReportCardsPage]', err); return ({ data: [] }); }),
       ]);
       setReportCard(rcRes.data);
       setTeacherComment(rcRes.data.teacher_comment ?? '');
@@ -148,7 +146,8 @@ export default function ReportCardDetailPage() {
         valMap[cv.field_def_id] = cv.value;
       }
       setCustomValues(valMap);
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsPage]', err);
       setReportCard(null);
     } finally {
       setIsLoading(false);
@@ -176,7 +175,8 @@ export default function ReportCardDetailPage() {
       });
       toast.success(tc('saved'));
       void fetchReportCard();
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setSaving(false);
@@ -187,7 +187,8 @@ export default function ReportCardDetailPage() {
     try {
       await apiClient(`/api/v1/report-cards/${id}/publish`, { method: 'POST' });
       void fetchReportCard();
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -196,7 +197,8 @@ export default function ReportCardDetailPage() {
     try {
       await apiClient(`/api/v1/report-cards/${id}/revise`, { method: 'POST' });
       void fetchReportCard();
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -206,7 +208,8 @@ export default function ReportCardDetailPage() {
       await apiClient(`/api/v1/report-cards/${id}/submit-approval`, { method: 'POST' });
       toast.success(t('submittedForApproval'));
       void fetchReportCard();
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -217,7 +220,8 @@ export default function ReportCardDetailPage() {
       await apiClient(`/api/v1/report-cards/${id}/deliver`, { method: 'POST' });
       toast.success(t('deliveredToParents'));
       void fetchReportCard();
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setDelivering(false);
@@ -244,7 +248,8 @@ export default function ReportCardDetailPage() {
         { method: 'POST', body: JSON.stringify({ comment_type: commentType }) },
       );
       setter(res.data.comment);
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setGenerating(false);

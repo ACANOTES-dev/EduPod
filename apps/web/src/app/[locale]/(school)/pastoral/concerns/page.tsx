@@ -78,7 +78,8 @@ export default function PastoralConcernListPage() {
 
       setData(response.data ?? []);
       setTotal(response.meta?.total ?? 0);
-    } catch {
+    } catch (err) {
+      console.error('[PastoralConcernsPage]', err);
       setData([]);
       setTotal(0);
     } finally {

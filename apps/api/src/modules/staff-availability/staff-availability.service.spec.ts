@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, StaffProfileReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { StaffAvailabilityService } from './staff-availability.service';
@@ -18,6 +19,7 @@ const AVAIL_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 
 describe('StaffAvailabilityService', () => {
   let service: StaffAvailabilityService;
+  let mockStaffProfileFacade: { existsOrThrow: jest.Mock };
   let mockPrisma: {
     staffAvailability: {
       findMany: jest.Mock;
@@ -45,8 +47,10 @@ describe('StaffAvailabilityService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         StaffAvailabilityService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: StaffProfileReadFacade, useValue: (mockStaffProfileFacade = { existsOrThrow: jest.fn().mockResolvedValue(undefined) }) },
       ],
     }).compile();
 
@@ -100,7 +104,7 @@ describe('StaffAvailabilityService', () => {
   // ─── replaceForStaff ───────────────────────────────────────────────────────
 
   it('should throw NotFoundException when staff profile does not exist', async () => {
-    mockPrisma.staffProfile.findFirst.mockResolvedValue(null);
+    mockStaffProfileFacade.existsOrThrow.mockRejectedValue(new NotFoundException({ code: 'STAFF_PROFILE_NOT_FOUND', message: 'Not found' }));
 
     await expect(
       service.replaceForStaff(TENANT_ID, STAFF_ID, ACADEMIC_YEAR_ID, []),

@@ -193,7 +193,8 @@ export default function InsightsPage() {
         body: JSON.stringify({ section: `insights_${activeTab}` }),
       });
       setAiSummary(res.summary);
-    } catch {
+    } catch (err) {
+      console.error('[ReportsInsightsPage]', err);
       setAiSummary(t('analytics.aiSummaryFallback'));
     } finally {
       setAiLoading(false);
@@ -277,8 +278,8 @@ export default function InsightsPage() {
                     return (
                       <div className="rounded-lg border border-border bg-surface p-2 text-xs shadow-lg">
                         <p className="font-semibold text-text-primary">{d.name}</p>
-                        <p className="text-text-secondary">Attendance: {d.attendance}%</p>
-                        <p className="text-text-secondary">Grade: {d.grade}%</p>
+                        <p className="text-text-secondary">{t('attendance2')}{d.attendance}%</p>
+                        <p className="text-text-secondary">{t('grade2')}{d.grade}%</p>
                       </div>
                     );
                   }}

@@ -82,8 +82,7 @@ export function CategoryPicker({
                 )}
               >
                 {cat.point_value > 0 ? '+' : ''}
-                {cat.point_value} pts
-              </span>
+                {cat.point_value}{t('pts')}</span>
             )}
           </button>
         );

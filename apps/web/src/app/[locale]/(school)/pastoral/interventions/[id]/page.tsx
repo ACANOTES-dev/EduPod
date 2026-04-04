@@ -112,7 +112,8 @@ export default function PastoralInterventionDetailPage() {
   }, [interventionId, populateForm]);
 
   React.useEffect(() => {
-    void refresh().catch(() => {
+    void refresh().catch((err) => {
+      console.error('[PastoralInterventionsPage]', err);
       setIntervention(null);
     });
   }, [refresh]);

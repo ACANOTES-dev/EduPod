@@ -147,7 +147,8 @@ export default function PastoralCriticalIncidentDetailPage() {
   }, [incidentId, syncAffectedEdits, syncPlanNotes]);
 
   React.useEffect(() => {
-    void refresh().catch(() => {
+    void refresh().catch((err) => {
+      console.error('[PastoralCriticalIncidentsPage]', err);
       setIncident(null);
       setProgress([]);
       setAffectedSummary(null);

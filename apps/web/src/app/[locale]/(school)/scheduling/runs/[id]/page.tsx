@@ -107,7 +107,8 @@ export default function RunDetailPage() {
       if (res.year_groups.length > 0 && !activeTab) {
         setActiveTab(res.year_groups[0]!.year_group_id);
       }
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingRunsPage]', err);
       setData(null);
     } finally {
       setLoading(false);
@@ -139,7 +140,8 @@ export default function RunDetailPage() {
         method: 'POST',
       });
       setValidationResult(result);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingRunsPage]', err);
       toast.error(t('runs.validateFailed'));
     } finally {
       setValidating(false);
@@ -153,7 +155,8 @@ export default function RunDetailPage() {
       toast.success(t('runs.applySuccess'));
       setApplyOpen(false);
       void fetchData();
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingRunsPage]', err);
       toast.error(t('runs.applyFailed'));
     } finally {
       setActioning(false);
@@ -167,7 +170,8 @@ export default function RunDetailPage() {
       toast.success(t('runs.discardSuccess'));
       setDiscardOpen(false);
       router.push(`/${locale}/scheduling/runs`);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingRunsPage]', err);
       toast.error(t('runs.discardFailed'));
     } finally {
       setActioning(false);
@@ -190,7 +194,8 @@ export default function RunDetailPage() {
       setData(res);
       // Clear validation (user should re-validate after changes)
       setValidationResult(null);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingRunsPage]', err);
       toast.error(t('runs.moveFailed'));
     }
   }

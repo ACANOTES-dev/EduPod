@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PrismaService } from '../prisma/prisma.service';
+import {
+  ClassesReadFacade,
+  MOCK_FACADE_PROVIDERS,
+  StaffProfileReadFacade,
+} from '../../common/tests/mock-facades';
 
 import { SenScopeService } from './sen-scope.service';
 
@@ -10,21 +14,24 @@ const STAFF_PROFILE_ID = 'staff-1';
 
 describe('SenScopeService', () => {
   let service: SenScopeService;
-  let mockPrisma: {
-    staffProfile: { findFirst: jest.Mock };
-    classStaff: { findMany: jest.Mock };
-    classEnrolment: { findMany: jest.Mock };
+
+  const mockStaffProfileReadFacade = {
+    findByUserId: jest.fn(),
+  };
+
+  const mockClassesReadFacade = {
+    findClassIdsByStaff: jest.fn(),
+    findEnrolledStudentIds: jest.fn(),
   };
 
   beforeEach(async () => {
-    mockPrisma = {
-      staffProfile: { findFirst: jest.fn() },
-      classStaff: { findMany: jest.fn() },
-      classEnrolment: { findMany: jest.fn() },
-    };
-
     const module: TestingModule = await Test.createTestingModule({
-      providers: [SenScopeService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        SenScopeService,
+        { provide: StaffProfileReadFacade, useValue: mockStaffProfileReadFacade },
+        { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
+      ],
     }).compile();
 
     service = module.get<SenScopeService>(SenScopeService);
@@ -39,7 +46,7 @@ describe('SenScopeService', () => {
       const result = await service.getUserScope(TENANT_ID, USER_ID, ['sen.admin']);
 
       expect(result).toEqual({ scope: 'all' });
-      expect(mockPrisma.staffProfile.findFirst).not.toHaveBeenCalled();
+      expect(mockStaffProfileReadFacade.findByUserId).not.toHaveBeenCalled();
     });
 
     it('should return "all" scope for sen.manage permission', async () => {
@@ -49,15 +56,11 @@ describe('SenScopeService', () => {
     });
 
     it('should return "class" scope with student IDs for sen.view with staff profile', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_PROFILE_ID });
-      mockPrisma.classStaff.findMany.mockResolvedValue([
-        { class_id: 'class-1' },
-        { class_id: 'class-2' },
-      ]);
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
-        { student_id: 'student-1' },
-        { student_id: 'student-2' },
-        { student_id: 'student-1' }, // Duplicate — should be deduplicated
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: STAFF_PROFILE_ID });
+      mockClassesReadFacade.findClassIdsByStaff.mockResolvedValue(['class-1', 'class-2']);
+      mockClassesReadFacade.findEnrolledStudentIds.mockResolvedValue([
+        'student-1',
+        'student-2',
       ]);
 
       const result = await service.getUserScope(TENANT_ID, USER_ID, ['sen.view']);
@@ -69,8 +72,8 @@ describe('SenScopeService', () => {
     });
 
     it('should return "none" scope for sen.view with staff profile but no class assignments', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_PROFILE_ID });
-      mockPrisma.classStaff.findMany.mockResolvedValue([]);
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: STAFF_PROFILE_ID });
+      mockClassesReadFacade.findClassIdsByStaff.mockResolvedValue([]);
 
       const result = await service.getUserScope(TENANT_ID, USER_ID, ['sen.view']);
 
@@ -78,7 +81,7 @@ describe('SenScopeService', () => {
     });
 
     it('should return "none" scope for sen.view with no staff profile', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue(null);
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue(null);
 
       const result = await service.getUserScope(TENANT_ID, USER_ID, ['sen.view']);
 
@@ -101,36 +104,25 @@ describe('SenScopeService', () => {
     });
 
     it('should query class enrolments with active status filter', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_PROFILE_ID });
-      mockPrisma.classStaff.findMany.mockResolvedValue([{ class_id: 'class-1' }]);
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: 'student-1' }]);
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: STAFF_PROFILE_ID });
+      mockClassesReadFacade.findClassIdsByStaff.mockResolvedValue(['class-1']);
+      mockClassesReadFacade.findEnrolledStudentIds.mockResolvedValue(['student-1']);
 
       await service.getUserScope(TENANT_ID, USER_ID, ['sen.view']);
 
-      expect(mockPrisma.classEnrolment.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            class_id: { in: ['class-1'] },
-            tenant_id: TENANT_ID,
-            status: 'active',
-          }),
-        }),
+      expect(mockClassesReadFacade.findEnrolledStudentIds).toHaveBeenCalledWith(
+        TENANT_ID,
+        'class-1',
       );
     });
 
     it('should deduplicate studentIds across multiple classes', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_PROFILE_ID });
-      mockPrisma.classStaff.findMany.mockResolvedValue([
-        { class_id: 'class-1' },
-        { class_id: 'class-2' },
-      ]);
-      // Same student in both classes
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
-        { student_id: 'student-1' },
-        { student_id: 'student-1' },
-        { student_id: 'student-2' },
-        { student_id: 'student-1' },
-      ]);
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: STAFF_PROFILE_ID });
+      mockClassesReadFacade.findClassIdsByStaff.mockResolvedValue(['class-1', 'class-2']);
+      // Same student in both classes — facade is called per class, each returns overlapping IDs
+      mockClassesReadFacade.findEnrolledStudentIds
+        .mockResolvedValueOnce(['student-1', 'student-2'])
+        .mockResolvedValueOnce(['student-1']);
 
       const result = await service.getUserScope(TENANT_ID, USER_ID, ['sen.view']);
 
@@ -143,7 +135,7 @@ describe('SenScopeService', () => {
       const result = await service.getUserScope(TENANT_ID, USER_ID, ['sen.view', 'sen.admin']);
 
       expect(result).toEqual({ scope: 'all' });
-      expect(mockPrisma.staffProfile.findFirst).not.toHaveBeenCalled();
+      expect(mockStaffProfileReadFacade.findByUserId).not.toHaveBeenCalled();
     });
   });
 });

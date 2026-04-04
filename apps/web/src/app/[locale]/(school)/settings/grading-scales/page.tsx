@@ -63,6 +63,7 @@ interface GradingScalesResponse {
 
 export default function GradingScalesPage() {
   const t = useTranslations('gradebook');
+  const tCommon = useTranslations('common');
   const tc = useTranslations('common');
   const ts = useTranslations('settings');
 
@@ -97,7 +98,8 @@ export default function GradingScalesPage() {
       );
       setData(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsGradingScalesPage]', err);
       setData([]);
       setTotal(0);
     } finally {
@@ -163,7 +165,8 @@ export default function GradingScalesPage() {
       }
       setDialogOpen(false);
       void fetchScales(page);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsGradingScalesPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setSaving(false);
@@ -175,7 +178,8 @@ export default function GradingScalesPage() {
     try {
       await apiClient(`/api/v1/gradebook/grading-scales/${scale.id}`, { method: 'DELETE' });
       void fetchScales(page);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsGradingScalesPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -304,25 +308,25 @@ export default function GradingScalesPage() {
 
           <div className="space-y-4">
             <div>
-              <Label htmlFor="scale-name">Name</Label>
+              <Label htmlFor="scale-name">{tCommon('name')}</Label>
               <Input
                 id="scale-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Standard Numeric"
+                placeholder={t('eGStandardNumeric')}
               />
             </div>
 
             <div>
-              <Label>Type</Label>
+              <Label>{t('type')}</Label>
               <Select value={scaleType} onValueChange={setScaleType} disabled={!!editTarget}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="numeric">Numeric</SelectItem>
-                  <SelectItem value="letter">Letter</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
+                  <SelectItem value="numeric">{t('numeric')}</SelectItem>
+                  <SelectItem value="letter">{t('letter')}</SelectItem>
+                  <SelectItem value="custom">{t('custom')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -330,11 +334,9 @@ export default function GradingScalesPage() {
             {scaleType === 'numeric' ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Ranges</Label>
+                  <Label>{t('ranges')}</Label>
                   <Button variant="ghost" size="sm" onClick={addRange}>
-                    <Plus className="me-1 h-3 w-3" />
-                    Add
-                  </Button>
+                    <Plus className="me-1 h-3 w-3" />{t('add')}</Button>
                 </div>
                 {ranges.map((r, idx) => (
                   <div key={idx} className="flex items-center gap-2">
@@ -343,7 +345,7 @@ export default function GradingScalesPage() {
                       value={String(r.min)}
                       onChange={(e) => updateRange(idx, 'min', e.target.value)}
                       className="w-20"
-                      placeholder="Min"
+                      placeholder={t('analyticsMin')}
                     />
                     <span className="text-text-tertiary">–</span>
                     <Input
@@ -351,13 +353,13 @@ export default function GradingScalesPage() {
                       value={String(r.max)}
                       onChange={(e) => updateRange(idx, 'max', e.target.value)}
                       className="w-20"
-                      placeholder="Max"
+                      placeholder={t('analyticsMax')}
                     />
                     <Input
                       value={r.label}
                       onChange={(e) => updateRange(idx, 'label', e.target.value)}
                       className="flex-1"
-                      placeholder="Label (e.g. A)"
+                      placeholder={t('labelEGA')}
                     />
                     {ranges.length > 1 && (
                       <Button variant="ghost" size="sm" onClick={() => removeRange(idx)}>
@@ -370,11 +372,9 @@ export default function GradingScalesPage() {
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Grades</Label>
+                  <Label>{t('grades')}</Label>
                   <Button variant="ghost" size="sm" onClick={addGrade}>
-                    <Plus className="me-1 h-3 w-3" />
-                    Add
-                  </Button>
+                    <Plus className="me-1 h-3 w-3" />{t('add')}</Button>
                 </div>
                 {grades.map((g, idx) => (
                   <div key={idx} className="flex items-center gap-2">
@@ -382,7 +382,7 @@ export default function GradingScalesPage() {
                       value={g.label}
                       onChange={(e) => updateGrade(idx, e.target.value)}
                       className="flex-1"
-                      placeholder="Grade label (e.g. Excellent)"
+                      placeholder={t('gradeLabelEGExcellent')}
                     />
                     {grades.length > 1 && (
                       <Button variant="ghost" size="sm" onClick={() => removeGrade(idx)}>

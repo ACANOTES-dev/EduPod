@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, AuditLogReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { FinanceAuditService } from './finance-audit.service';
@@ -15,12 +16,23 @@ const mockPrisma = {
 
 describe('FinanceAuditService', () => {
   let service: FinanceAuditService;
+  let mockAuditLogReadFacade: {
+    findManyWithActor: jest.Mock;
+    countWithFilters: jest.Mock;
+  };
 
   beforeEach(async () => {
+    mockAuditLogReadFacade = {
+      findManyWithActor: jest.fn().mockResolvedValue([]),
+      countWithFilters: jest.fn().mockResolvedValue(0),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         FinanceAuditService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditLogReadFacade, useValue: mockAuditLogReadFacade },
       ],
     }).compile();
 
@@ -38,8 +50,8 @@ describe('FinanceAuditService', () => {
         created_at: new Date(),
       };
 
-      mockPrisma.auditLog.findMany.mockResolvedValue([logEntry]);
-      mockPrisma.auditLog.count.mockResolvedValue(1);
+      mockAuditLogReadFacade.findManyWithActor.mockResolvedValue([logEntry]);
+      mockAuditLogReadFacade.countWithFilters.mockResolvedValue(1);
 
       const result = await service.getAuditTrail(TENANT_ID, { page: 1, pageSize: 20 });
 
@@ -48,22 +60,15 @@ describe('FinanceAuditService', () => {
     });
 
     it('should filter by entity_type when provided', async () => {
-      mockPrisma.auditLog.findMany.mockResolvedValue([]);
-      mockPrisma.auditLog.count.mockResolvedValue(0);
-
       await service.getAuditTrail(TENANT_ID, { page: 1, pageSize: 20, entity_type: 'payment' });
 
-      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ entity_type: 'payment' }),
-        }),
+      expect(mockAuditLogReadFacade.findManyWithActor).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({ entityType: 'payment' }),
       );
     });
 
     it('should filter by date range when provided', async () => {
-      mockPrisma.auditLog.findMany.mockResolvedValue([]);
-      mockPrisma.auditLog.count.mockResolvedValue(0);
-
       await service.getAuditTrail(TENANT_ID, {
         page: 1,
         pageSize: 20,
@@ -71,42 +76,31 @@ describe('FinanceAuditService', () => {
         date_to: '2026-03-31',
       });
 
-      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
+      expect(mockAuditLogReadFacade.findManyWithActor).toHaveBeenCalledWith(
+        TENANT_ID,
         expect.objectContaining({
-          where: expect.objectContaining({
-            created_at: expect.objectContaining({
-              gte: expect.any(Date),
-              lte: expect.any(Date),
-            }),
-          }),
+          dateFrom: expect.any(Date),
+          dateTo: expect.any(Date),
         }),
       );
     });
 
     it('should filter by entity_id when provided', async () => {
-      mockPrisma.auditLog.findMany.mockResolvedValue([]);
-      mockPrisma.auditLog.count.mockResolvedValue(0);
-
       const entityId = 'invoice-uuid-1111';
       await service.getAuditTrail(TENANT_ID, { page: 1, pageSize: 20, entity_id: entityId });
 
-      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ entity_id: entityId }),
-        }),
+      expect(mockAuditLogReadFacade.findManyWithActor).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({ entityId }),
       );
     });
 
     it('should add search filter when search provided', async () => {
-      mockPrisma.auditLog.findMany.mockResolvedValue([]);
-      mockPrisma.auditLog.count.mockResolvedValue(0);
-
       await service.getAuditTrail(TENANT_ID, { page: 1, pageSize: 20, search: 'INV-2026' });
 
-      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ OR: expect.any(Array) }),
-        }),
+      expect(mockAuditLogReadFacade.findManyWithActor).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({ search: 'INV-2026' }),
       );
     });
   });

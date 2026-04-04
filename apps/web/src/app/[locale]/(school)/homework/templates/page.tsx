@@ -69,8 +69,8 @@ export default function HomeworkTemplatesPage() {
       ]);
       setClasses(classesRes.data ?? []);
       setSubjects(subjectsRes.data ?? []);
-    } catch {
-      console.error('[Templates] Failed to fetch filters');
+    } catch (err) {
+      console.error('[Templates] Failed to fetch filters', err);
     }
   }, []);
 
@@ -87,8 +87,8 @@ export default function HomeworkTemplatesPage() {
         { silent: true },
       );
       setTemplates(res.data ?? []);
-    } catch {
-      console.error('[Templates] Failed to fetch templates');
+    } catch (err) {
+      console.error('[Templates] Failed to fetch templates', err);
     } finally {
       setLoading(false);
     }

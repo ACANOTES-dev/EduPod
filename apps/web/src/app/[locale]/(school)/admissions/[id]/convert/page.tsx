@@ -118,7 +118,7 @@ export default function ConversionPage() {
           );
         }
       })
-      .catch(() => toast.error('Failed to load conversion preview'))
+      .catch((err) => { console.error('[AdmissionsConvertPage]', err); return toast.error('Failed to load conversion preview'); })
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -144,7 +144,8 @@ export default function ConversionPage() {
       });
       toast.success(t('conversionSuccess'));
       router.push(`/${locale}/admissions`);
-    } catch {
+    } catch (err) {
+      console.error('[AdmissionsConvertPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setSubmitting(false);
@@ -166,7 +167,7 @@ export default function ConversionPage() {
         <Button variant="ghost" onClick={() => router.back()}>
           <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" /> {tc('back')}
         </Button>
-        <p className="text-sm text-danger-text">Failed to load conversion data.</p>
+        <p className="text-sm text-danger-text">{t('failedToLoadConversionData')}</p>
       </div>
     );
   }
@@ -195,14 +196,12 @@ export default function ConversionPage() {
         <h3 className="mb-4 text-base font-semibold text-text-primary">{t('studentName')}</h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label>
-              First Name <span className="text-emerald-600">*</span>
+            <Label>{t('firstName')}<span className="text-emerald-600">*</span>
             </Label>
             <Input value={studentFirstName} onChange={(e) => setStudentFirstName(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label>
-              Last Name <span className="text-emerald-600">*</span>
+            <Label>{t('lastName')}<span className="text-emerald-600">*</span>
             </Label>
             <Input value={studentLastName} onChange={(e) => setStudentLastName(e.target.value)} />
           </div>
@@ -229,7 +228,7 @@ export default function ConversionPage() {
             </Label>
             <Select value={yearGroupId} onValueChange={setYearGroupId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select year group" />
+                <SelectValue placeholder={t('selectYearGroup')} />
               </SelectTrigger>
               <SelectContent>
                 {(preview.year_groups ?? []).map((yg) => (
@@ -247,7 +246,7 @@ export default function ConversionPage() {
       <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
         <h3 className="mb-4 text-base font-semibold text-text-primary">{t('household')}</h3>
         <div className="space-y-1.5">
-          <Label>Household Name</Label>
+          <Label>{t('householdName')}</Label>
           <Input value={householdName} onChange={(e) => setHouseholdName(e.target.value)} />
         </div>
       </div>
@@ -272,9 +271,7 @@ export default function ConversionPage() {
                   checked={parent1LinkId === null}
                   onChange={() => setParent1LinkId(null)}
                 />
-                <label htmlFor="parent1-new" className="text-sm text-text-secondary">
-                  Create new parent record
-                </label>
+                <label htmlFor="parent1-new" className="text-sm text-text-secondary">{t('createNewParentRecord')}</label>
               </div>
               {preview.matching_parents.map((match) => (
                 <div key={match.id} className="flex items-center gap-2">
@@ -285,8 +282,7 @@ export default function ConversionPage() {
                     checked={parent1LinkId === match.id}
                     onChange={() => setParent1LinkId(match.id)}
                   />
-                  <label htmlFor={`parent1-${match.id}`} className="text-sm text-text-secondary">
-                    Link to {match.first_name} {match.last_name}
+                  <label htmlFor={`parent1-${match.id}`} className="text-sm text-text-secondary">{t('linkTo')}{match.first_name} {match.last_name}
                     {match.email && (
                       <span className="ms-1 text-xs text-text-tertiary" dir="ltr">
                         ({match.email})
@@ -303,8 +299,7 @@ export default function ConversionPage() {
         {parent1LinkId === null && (
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>
-                First Name <span className="text-emerald-600">*</span>
+              <Label>{t('firstName')}<span className="text-emerald-600">*</span>
               </Label>
               <Input
                 value={parent1FirstName}
@@ -312,13 +307,12 @@ export default function ConversionPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>
-                Last Name <span className="text-emerald-600">*</span>
+              <Label>{t('lastName')}<span className="text-emerald-600">*</span>
               </Label>
               <Input value={parent1LastName} onChange={(e) => setParent1LastName(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label>Email</Label>
+              <Label>{t('email')}</Label>
               <Input
                 type="email"
                 dir="ltr"
@@ -327,7 +321,7 @@ export default function ConversionPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Phone</Label>
+              <Label>{t('phone')}</Label>
               <Input
                 type="tel"
                 dir="ltr"

@@ -340,7 +340,8 @@ export default function ScenariosPage() {
     try {
       const res = await apiClient<{ data: Scenario[] }>('/api/v1/scheduling/scenarios?pageSize=50');
       setScenarios(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingScenariosPage]', err);
       setScenarios([]);
     } finally {
       setLoading(false);
@@ -351,7 +352,7 @@ export default function ScenariosPage() {
     void fetchScenarios();
     apiClient<{ data: SchedulingRun[] }>('/api/v1/scheduling-runs?status=applied&pageSize=50')
       .then((res) => setRuns(res.data ?? []))
-      .catch(() => setRuns([]));
+      .catch((err) => { console.error('[SchedulingScenariosPage]', err); return setRuns([]); });
   }, [fetchScenarios]);
 
   const handleCreate = async (values: {
@@ -377,7 +378,8 @@ export default function ScenariosPage() {
       await apiClient(`/api/v1/scheduling/scenarios/${scenarioId}/solve`, { method: 'POST' });
       toast.success(t('solverStarted'));
       void fetchScenarios();
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingScenariosPage]', err);
       toast.error(t('solverFailed'));
     } finally {
       setSolvingId(null);

@@ -104,7 +104,7 @@ export default function ChildHomeworkDetailPage() {
         const studentEntry = (listRes.data ?? []).find((s) => s.student.id === studentId);
         setAllAssignments(studentEntry?.assignments ?? summaryRes.data.recent ?? []);
       })
-      .catch(() => console.error('[ChildHomeworkDetail] Failed to load data'))
+      .catch((err) => console.error('[ChildHomeworkDetail] Failed to load data', err))
       .finally(() => setLoading(false));
   }, [studentId]);
 

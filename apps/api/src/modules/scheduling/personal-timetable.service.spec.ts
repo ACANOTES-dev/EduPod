@@ -1,6 +1,7 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
@@ -43,6 +44,7 @@ function makeSchedule(weekday: number, periodOrder: number) {
 
 describe('PersonalTimetableService', () => {
   let service: PersonalTimetableService;
+  let module: TestingModule;
   let mockPrisma: {
     schedule: { findMany: jest.Mock };
     staffProfile: { findFirst: jest.Mock };
@@ -70,8 +72,9 @@ describe('PersonalTimetableService', () => {
       created_at: new Date('2026-03-01T00:00:00Z'),
     });
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: SchedulesReadFacade, useValue: {
       findById: jest.fn().mockResolvedValue(null),
       findCoreById: jest.fn().mockResolvedValue(null),
@@ -118,7 +121,8 @@ describe('PersonalTimetableService', () => {
 
   describe('getTeacherTimetable', () => {
     it('should return formatted timetable entries for a teacher', async () => {
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findTeacherTimetable as jest.Mock).mockResolvedValue([
         makeSchedule(1, 1),
         makeSchedule(2, 2),
       ]);
@@ -134,7 +138,8 @@ describe('PersonalTimetableService', () => {
     });
 
     it('should format start_time and end_time as HH:MM strings', async () => {
-      mockPrisma.schedule.findMany.mockResolvedValue([makeSchedule(1, 1)]);
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findTeacherTimetable as jest.Mock).mockResolvedValue([makeSchedule(1, 1)]);
 
       const result = await service.getTeacherTimetable(TENANT_ID, STAFF_ID, {});
 
@@ -143,7 +148,7 @@ describe('PersonalTimetableService', () => {
     });
 
     it('should return empty array when teacher has no schedules', async () => {
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      // findTeacherTimetable returns [] by default
 
       const result = await service.getTeacherTimetable(TENANT_ID, STAFF_ID, {});
 
@@ -151,14 +156,15 @@ describe('PersonalTimetableService', () => {
     });
 
     it('should filter by rotation_week when provided', async () => {
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      // findTeacherTimetable returns [] by default
 
       await service.getTeacherTimetable(TENANT_ID, STAFF_ID, { rotation_week: 2 });
 
-      expect(mockPrisma.schedule.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ rotation_week: 2 }),
-        }),
+      const schedFacade = module.get(SchedulesReadFacade);
+      expect(schedFacade.findTeacherTimetable).toHaveBeenCalledWith(
+        TENANT_ID,
+        STAFF_ID,
+        expect.objectContaining({ rotationWeek: 2 }),
       );
     });
   });
@@ -167,7 +173,8 @@ describe('PersonalTimetableService', () => {
 
   describe('getClassTimetable', () => {
     it('should return formatted timetable entries for a class', async () => {
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findClassTimetable as jest.Mock).mockResolvedValue([
         makeSchedule(1, 1),
         makeSchedule(3, 2),
       ]);
@@ -179,7 +186,8 @@ describe('PersonalTimetableService', () => {
     });
 
     it('should include teacher_name in class timetable entries', async () => {
-      mockPrisma.schedule.findMany.mockResolvedValue([makeSchedule(1, 1)]);
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findClassTimetable as jest.Mock).mockResolvedValue([makeSchedule(1, 1)]);
 
       const result = await service.getClassTimetable(TENANT_ID, CLASS_ID, {});
 
@@ -190,10 +198,11 @@ describe('PersonalTimetableService', () => {
     it('should query by class_id not teacher_staff_id', async () => {
       await service.getClassTimetable(TENANT_ID, CLASS_ID, {});
 
-      expect(mockPrisma.schedule.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ class_id: CLASS_ID }),
-        }),
+      const schedFacade = module.get(SchedulesReadFacade);
+      expect(schedFacade.findClassTimetable).toHaveBeenCalledWith(
+        TENANT_ID,
+        CLASS_ID,
+        expect.any(Object),
       );
     });
   });
@@ -207,7 +216,8 @@ describe('PersonalTimetableService', () => {
         entity_id: STAFF_ID,
         tenant: { name: 'Test School' },
       });
-      mockPrisma.schedule.findMany.mockResolvedValue([makeSchedule(1, 1)]);
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findTeacherTimetable as jest.Mock).mockResolvedValue([makeSchedule(1, 1)]);
 
       const ics = await service.generateIcsCalendar(TENANT_ID, TOKEN);
 
@@ -223,7 +233,8 @@ describe('PersonalTimetableService', () => {
         entity_id: STAFF_ID,
         tenant: { name: 'Test School' },
       });
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findTeacherTimetable as jest.Mock).mockResolvedValue([
         makeSchedule(1, 1),
         makeSchedule(3, 2),
       ]);
@@ -240,7 +251,8 @@ describe('PersonalTimetableService', () => {
         entity_id: STAFF_ID,
         tenant: { name: 'Test School' },
       });
-      mockPrisma.schedule.findMany.mockResolvedValue([makeSchedule(1, 1)]);
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findTeacherTimetable as jest.Mock).mockResolvedValue([makeSchedule(1, 1)]);
 
       const ics = await service.generateIcsCalendar(TENANT_ID, TOKEN);
 
@@ -261,14 +273,14 @@ describe('PersonalTimetableService', () => {
         entity_id: CLASS_ID,
         tenant: { name: 'Test School' },
       });
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
 
       await service.generateIcsCalendar(TENANT_ID, TOKEN);
 
-      expect(mockPrisma.schedule.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ class_id: CLASS_ID }),
-        }),
+      const schedFacade = module.get(SchedulesReadFacade);
+      expect(schedFacade.findClassTimetable).toHaveBeenCalledWith(
+        TENANT_ID,
+        CLASS_ID,
+        expect.any(Object),
       );
     });
   });

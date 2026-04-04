@@ -76,13 +76,13 @@ export default function GradingWeightsPage() {
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/year-groups?pageSize=100')
       .then((res) => setYearGroups(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[SettingsGradingWeightsPage]', err); });
     apiClient<ListResponse<SelectOption>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[SettingsGradingWeightsPage]', err); });
     apiClient<ListResponse<SelectOption>>('/api/v1/gradebook/assessment-categories?pageSize=50')
       .then((res) => setCategories(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[SettingsGradingWeightsPage]', err); });
   }, []);
 
   // Fetch configs when year group changes
@@ -100,7 +100,8 @@ export default function GradingWeightsPage() {
         weights[config.academic_period_id] = config.category_weights;
       }
       setEditWeights(weights);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsGradingWeightsPage]', err);
       setConfigs([]);
       setEditWeights({});
     } finally {
@@ -154,7 +155,8 @@ export default function GradingWeightsPage() {
       });
       toast.success(tc('saved'));
       void fetchConfigs(selectedYearGroup);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsGradingWeightsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setIsSaving(false);
@@ -175,7 +177,8 @@ export default function GradingWeightsPage() {
       toast.success(tc('saved'));
       setCopyDialogOpen(false);
       setCopyTarget('');
-    } catch {
+    } catch (err) {
+      console.error('[SettingsGradingWeightsPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };

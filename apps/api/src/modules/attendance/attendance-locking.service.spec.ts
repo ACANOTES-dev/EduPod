@@ -1,6 +1,7 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -32,14 +33,22 @@ describe('AttendanceLockingService', () => {
   let mockPrisma: {
     tenantSetting: { findFirst: jest.Mock };
   };
+  let mockConfigFacade: { findSettingsJson: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
       tenantSetting: { findFirst: jest.fn() },
     };
 
+    mockConfigFacade = { findSettingsJson: jest.fn().mockResolvedValue(null) };
+
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AttendanceLockingService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        AttendanceLockingService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
+      ],
     }).compile();
 
     service = module.get<AttendanceLockingService>(AttendanceLockingService);
@@ -51,7 +60,7 @@ describe('AttendanceLockingService', () => {
 
   describe('AttendanceLockingService — lockExpiredSessions', () => {
     it('should return locked_count 0 when autoLockAfterDays is not configured', async () => {
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
+      mockConfigFacade.findSettingsJson.mockResolvedValue(null);
 
       const result = await service.lockExpiredSessions(TENANT_ID);
 
@@ -60,9 +69,7 @@ describe('AttendanceLockingService', () => {
     });
 
     it('should return locked_count 0 when attendance settings exist but autoLockAfterDays is absent', async () => {
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue({
-        settings: { attendance: {} },
-      });
+      mockConfigFacade.findSettingsJson.mockResolvedValue({ attendance: {} });
 
       const result = await service.lockExpiredSessions(TENANT_ID);
 
@@ -71,9 +78,7 @@ describe('AttendanceLockingService', () => {
     });
 
     it('should lock submitted sessions older than the configured threshold', async () => {
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue({
-        settings: { attendance: { autoLockAfterDays: 7 } },
-      });
+      mockConfigFacade.findSettingsJson.mockResolvedValue({ attendance: { autoLockAfterDays: 7 } });
       mockRlsTx.attendanceSession.updateMany.mockResolvedValue({ count: 5 });
 
       const result = await service.lockExpiredSessions(TENANT_ID);
@@ -91,9 +96,7 @@ describe('AttendanceLockingService', () => {
 
     it('should compute correct cutoff date from autoLockAfterDays', async () => {
       const autoLockDays = 14;
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue({
-        settings: { attendance: { autoLockAfterDays: autoLockDays } },
-      });
+      mockConfigFacade.findSettingsJson.mockResolvedValue({ attendance: { autoLockAfterDays: autoLockDays } });
       mockRlsTx.attendanceSession.updateMany.mockResolvedValue({ count: 0 });
 
       const beforeCall = new Date();
@@ -112,9 +115,7 @@ describe('AttendanceLockingService', () => {
     });
 
     it('should return locked_count 0 when no sessions match the criteria', async () => {
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue({
-        settings: { attendance: { autoLockAfterDays: 7 } },
-      });
+      mockConfigFacade.findSettingsJson.mockResolvedValue({ attendance: { autoLockAfterDays: 7 } });
       mockRlsTx.attendanceSession.updateMany.mockResolvedValue({ count: 0 });
 
       const result = await service.lockExpiredSessions(TENANT_ID);
@@ -123,14 +124,11 @@ describe('AttendanceLockingService', () => {
     });
 
     it('should read tenant settings with correct query', async () => {
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
+      mockConfigFacade.findSettingsJson.mockResolvedValue(null);
 
       await service.lockExpiredSessions(TENANT_ID);
 
-      expect(mockPrisma.tenantSetting.findFirst).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT_ID },
-        select: { settings: true },
-      });
+      expect(mockConfigFacade.findSettingsJson).toHaveBeenCalledWith(TENANT_ID);
     });
   });
 });

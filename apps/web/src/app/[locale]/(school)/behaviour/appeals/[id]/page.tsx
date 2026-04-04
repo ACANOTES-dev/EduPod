@@ -214,6 +214,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 
 export default function AppealDetailPage() {
   const t = useTranslations('behaviour.appealDetail');
+  const tCommon = useTranslations('common');
   const params = useParams<{ id: string }>();
   const id = params?.id ?? '';
   const router = useRouter();
@@ -256,7 +257,8 @@ export default function AppealDetailPage() {
       if (res.hearing_notes) setHearingNotes(res.hearing_notes);
       if (res.hearing_attendees) setAttendees(res.hearing_attendees);
       if (res.reviewer) setSelectedReviewerId(res.reviewer.id);
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourAppealsPage]', err);
       toast.error('Failed to load appeal');
     } finally {
       setLoading(false);
@@ -270,7 +272,8 @@ export default function AppealDetailPage() {
         `/api/v1/behaviour/incidents/${appeal?.incident?.id ?? id}/history?pageSize=50`,
       );
       setHistory(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourAppealsPage]', err);
       setHistory([]);
     }
   }, [id, appeal?.incident?.id]);
@@ -279,7 +282,8 @@ export default function AppealDetailPage() {
     try {
       const res = await apiClient<{ data: StaffOption[] }>('/api/v1/staff?pageSize=200');
       setStaffList(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourAppealsPage]', err);
       setStaffList([]);
     }
   }, []);
@@ -306,7 +310,8 @@ export default function AppealDetailPage() {
       });
       toast.success('Appeal updated');
       void fetchAppeal();
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourAppealsPage]', err);
       toast.error('Failed to update appeal');
     } finally {
       setActionLoading(false);
@@ -335,7 +340,8 @@ export default function AppealDetailPage() {
       });
       toast.success('Decision recorded');
       void fetchAppeal();
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourAppealsPage]', err);
       toast.error('Failed to record decision');
     } finally {
       setActionLoading(false);
@@ -356,7 +362,8 @@ export default function AppealDetailPage() {
       toast.success('Appeal withdrawn');
       setShowWithdraw(false);
       void fetchAppeal();
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourAppealsPage]', err);
       toast.error('Failed to withdraw appeal');
     } finally {
       setActionLoading(false);
@@ -369,7 +376,8 @@ export default function AppealDetailPage() {
         method: 'POST',
       });
       toast.success('Decision letter generated (stub)');
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourAppealsPage]', err);
       toast.error('Failed to generate decision letter');
     }
   };
@@ -422,8 +430,7 @@ export default function AppealDetailPage() {
     return (
       <div className="space-y-4">
         <Button variant="ghost" onClick={() => router.back()}>
-          <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" /> Back
-        </Button>
+          <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />{t('back')}</Button>
         <p className="text-sm text-danger-text">{t('notFound')}</p>
       </div>
     );
@@ -470,7 +477,7 @@ export default function AppealDetailPage() {
               {studentName}
             </Link>
             <span className="text-text-tertiary">|</span>
-            <span className="capitalize">{appeal.entity_type} appeal</span>
+            <span className="capitalize">{appeal.entity_type}{t('appeal')}</span>
             {appeal.incident && (
               <>
                 <span className="text-text-tertiary">|</span>
@@ -515,7 +522,7 @@ export default function AppealDetailPage() {
           <Textarea
             value={withdrawReason}
             onChange={(e) => setWithdrawReason(e.target.value)}
-            placeholder="Reason for withdrawal (min 5 characters)..."
+            placeholder={t('reasonForWithdrawalMin5')}
             rows={3}
           />
           <div className="mt-3 flex gap-2">
@@ -541,26 +548,26 @@ export default function AppealDetailPage() {
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <span className="block text-xs text-text-tertiary">Appellant</span>
+            <span className="block text-xs text-text-tertiary">{t('appellant')}</span>
             <span className="text-sm font-medium text-text-primary">{studentName}</span>
           </div>
           <div>
-            <span className="block text-xs text-text-tertiary">Appellant Type</span>
+            <span className="block text-xs text-text-tertiary">{t('appellantType')}</span>
             <Badge variant="secondary" className="mt-0.5 capitalize text-xs">
               {(appeal.appellant_type ?? '').replace(/_/g, ' ')}
             </Badge>
           </div>
           <div>
-            <span className="block text-xs text-text-tertiary">Submitted</span>
+            <span className="block text-xs text-text-tertiary">{t('submitted')}</span>
             <span className="text-sm text-text-primary">{formatDateTime(appeal.submitted_at)}</span>
           </div>
           <div>
-            <span className="block text-xs text-text-tertiary">Grounds Category</span>
+            <span className="block text-xs text-text-tertiary">{t('groundsCategory')}</span>
             <InlineBadge value={appeal.grounds_category} colorMap={GROUNDS_COLORS} />
           </div>
         </div>
         <div className="mt-4">
-          <span className="block text-xs text-text-tertiary">Grounds</span>
+          <span className="block text-xs text-text-tertiary">{t('grounds')}</span>
           <p className="mt-1 whitespace-pre-wrap text-sm text-text-primary">{appeal.grounds}</p>
         </div>
       </div>
@@ -589,7 +596,7 @@ export default function AppealDetailPage() {
               </Label>
               <Select value={selectedReviewerId} onValueChange={setSelectedReviewerId}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select staff..." />
+                  <SelectValue placeholder={t('selectStaff')} />
                 </SelectTrigger>
                 <SelectContent>
                   {staffList.map((s) => (
@@ -618,7 +625,7 @@ export default function AppealDetailPage() {
         </h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <Label className="mb-1 text-xs">Hearing Date</Label>
+            <Label className="mb-1 text-xs">{t('hearingDate')}</Label>
             {isTerminal ? (
               <p className="text-sm text-text-primary">{formatDate(appeal.hearing_date) || '--'}</p>
             ) : (
@@ -635,9 +642,7 @@ export default function AppealDetailPage() {
                   disabled={!hearingDate || actionLoading}
                   onClick={() => handleUpdateAppeal({ hearing_date: hearingDate })}
                 >
-                  <Calendar className="me-1 h-3.5 w-3.5" />
-                  Schedule
-                </Button>
+                  <Calendar className="me-1 h-3.5 w-3.5" />{t('schedule')}</Button>
               </div>
             )}
           </div>
@@ -646,12 +651,10 @@ export default function AppealDetailPage() {
         {/* Attendees */}
         <div className="mt-4">
           <div className="mb-2 flex items-center justify-between">
-            <Label className="text-xs">Attendees</Label>
+            <Label className="text-xs">{t('attendees')}</Label>
             {!isTerminal && (
               <Button variant="ghost" size="sm" onClick={addAttendee}>
-                <Plus className="me-1 h-3.5 w-3.5" />
-                Add
-              </Button>
+                <Plus className="me-1 h-3.5 w-3.5" />{t('add')}</Button>
             )}
           </div>
           {attendees.length === 0 ? (
@@ -663,14 +666,14 @@ export default function AppealDetailPage() {
                   <Input
                     value={att.name}
                     onChange={(e) => updateAttendee(i, 'name', e.target.value)}
-                    placeholder="Name"
+                    placeholder={tCommon('name')}
                     className="w-full sm:flex-1"
                     disabled={isTerminal}
                   />
                   <Input
                     value={att.role}
                     onChange={(e) => updateAttendee(i, 'role', e.target.value)}
-                    placeholder="Role"
+                    placeholder={t('role')}
                     className="w-full sm:w-40"
                     disabled={isTerminal}
                   />
@@ -702,18 +705,18 @@ export default function AppealDetailPage() {
         {/* Hearing Notes */}
         {!isTerminal && (
           <div className="mt-4">
-            <Label className="mb-1 text-xs">Hearing Notes</Label>
+            <Label className="mb-1 text-xs">{t('hearingNotes')}</Label>
             <Textarea
               value={hearingNotes}
               onChange={(e) => setHearingNotes(e.target.value)}
-              placeholder="Notes from the hearing..."
+              placeholder={t('notesFromTheHearing')}
               rows={4}
             />
           </div>
         )}
         {isTerminal && appeal.hearing_notes && (
           <div className="mt-4">
-            <Label className="mb-1 text-xs">Hearing Notes</Label>
+            <Label className="mb-1 text-xs">{t('hearingNotes')}</Label>
             <p className="whitespace-pre-wrap text-sm text-text-primary">{appeal.hearing_notes}</p>
           </div>
         )}
@@ -727,10 +730,10 @@ export default function AppealDetailPage() {
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label className="mb-1 text-xs">Decision</Label>
+              <Label className="mb-1 text-xs">{t('decision')}</Label>
               <Select value={decisionValue} onValueChange={setDecisionValue}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select decision..." />
+                  <SelectValue placeholder={t('selectDecision')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="upheld_original">{t('decisions.upheld')}</SelectItem>
@@ -742,11 +745,11 @@ export default function AppealDetailPage() {
           </div>
 
           <div className="mt-4">
-            <Label className="mb-1 text-xs">Decision Reasoning</Label>
+            <Label className="mb-1 text-xs">{t('decisionReasoning')}</Label>
             <Textarea
               value={decisionReasoning}
               onChange={(e) => setDecisionReasoning(e.target.value)}
-              placeholder="Explain the reasoning behind this decision (min 10 characters)..."
+              placeholder={t('explainTheReasoningBehindThis')}
               rows={4}
             />
           </div>
@@ -755,7 +758,7 @@ export default function AppealDetailPage() {
           {decisionValue === 'modified' && (
             <div className="mt-4">
               <div className="mb-2 flex items-center justify-between">
-                <Label className="text-xs">Amendments</Label>
+                <Label className="text-xs">{t('amendments')}</Label>
                 <Button variant="ghost" size="sm" onClick={addAmendmentRow}>
                   <Plus className="me-1 h-3.5 w-3.5" />
                   {t('addAmendment')}
@@ -775,29 +778,29 @@ export default function AppealDetailPage() {
                         onValueChange={(v) => updateAmendmentRow(i, 'entity_type', v)}
                       >
                         <SelectTrigger className="w-full sm:w-32">
-                          <SelectValue placeholder="Type" />
+                          <SelectValue placeholder={t('type')} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="incident">Incident</SelectItem>
-                          <SelectItem value="sanction">Sanction</SelectItem>
+                          <SelectItem value="incident">{t('incident')}</SelectItem>
+                          <SelectItem value="sanction">{t('sanction')}</SelectItem>
                         </SelectContent>
                       </Select>
                       <Input
                         value={row.entity_id}
                         onChange={(e) => updateAmendmentRow(i, 'entity_id', e.target.value)}
-                        placeholder="Entity ID"
+                        placeholder={t('entityId')}
                         className="w-full sm:flex-1"
                       />
                       <Input
                         value={row.field}
                         onChange={(e) => updateAmendmentRow(i, 'field', e.target.value)}
-                        placeholder="Field name"
+                        placeholder={t('fieldName')}
                         className="w-full sm:w-36"
                       />
                       <Input
                         value={row.new_value}
                         onChange={(e) => updateAmendmentRow(i, 'new_value', e.target.value)}
-                        placeholder="New value"
+                        placeholder={t('newValue2')}
                         className="w-full sm:flex-1"
                       />
                       <Button variant="ghost" size="icon" onClick={() => removeAmendmentRow(i)}>
@@ -831,13 +834,11 @@ export default function AppealDetailPage() {
           <div className="mb-3 flex flex-wrap items-center gap-3">
             <InlineBadge value={appeal.decision} colorMap={DECISION_COLORS} />
             {appeal.decided_by && (
-              <span className="text-sm text-text-secondary">
-                by {appeal.decided_by.first_name} {appeal.decided_by.last_name}
+              <span className="text-sm text-text-secondary">{t('by')}{appeal.decided_by.first_name} {appeal.decided_by.last_name}
               </span>
             )}
             {appeal.decided_at && (
-              <span className="text-xs text-text-tertiary">
-                on {formatDateTime(appeal.decided_at)}
+              <span className="text-xs text-text-tertiary">{t('on')}{formatDateTime(appeal.decided_at)}
               </span>
             )}
           </div>
@@ -857,15 +858,9 @@ export default function AppealDetailPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary">
-                        Entity
-                      </th>
-                      <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary">
-                        Field
-                      </th>
-                      <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary">
-                        New Value
-                      </th>
+                      <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary">{t('entity')}</th>
+                      <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary">{t('field')}</th>
+                      <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary">{t('newValue')}</th>
                     </tr>
                   </thead>
                   <tbody>

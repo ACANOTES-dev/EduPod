@@ -2,6 +2,7 @@
 
 import { Edit, Plus, Pencil, Trash2, AlertTriangle, FileText, Loader2 } from 'lucide-react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import type { InvoiceStatus } from '@school/shared';
@@ -114,6 +115,8 @@ interface ContactFormState {
 export default function HouseholdHubPage() {
   const _params = useParams<{ id: string }>();
   const id = _params?.id ?? '';
+  const t = useTranslations('households');
+  const tCommon = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -175,14 +178,14 @@ export default function HouseholdHubPage() {
     if (!id) return;
     apiClient<{ data: Invoice[] }>(`/api/v1/finance/invoices?household_id=${id}&pageSize=50`)
       .then((res) => setInvoices(Array.isArray(res.data) ? res.data : []))
-      .catch(() => setInvoices([]));
+      .catch((err) => { console.error('[HouseholdsPage]', err); return setInvoices([]); });
   }, [id]);
 
   // Fetch year groups for add-student form
   React.useEffect(() => {
     apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=50')
       .then((res) => setYearGroups(Array.isArray(res.data) ? res.data : []))
-      .catch(() => setYearGroups([]));
+      .catch((err) => { console.error('[HouseholdsPage]', err); return setYearGroups([]); });
   }, []);
 
   const openAddStudent = () => {
@@ -233,8 +236,9 @@ export default function HouseholdHubPage() {
       // Refresh invoices
       apiClient<{ data: Invoice[] }>(`/api/v1/finance/invoices?household_id=${id}&pageSize=50`)
         .then((res) => setInvoices(Array.isArray(res.data) ? res.data : []))
-        .catch(() => undefined);
-    } catch {
+        .catch((err) => { console.error('[HouseholdsPage]', err); });
+    } catch (err) {
+      console.error('[HouseholdsPage]', err);
       toast.error('Failed to add student');
     } finally {
       setIsSavingStudent(false);
@@ -276,7 +280,8 @@ export default function HouseholdHubPage() {
       }
       setContactDialogOpen(false);
       await fetchHousehold();
-    } catch {
+    } catch (err) {
+      console.error('[HouseholdsPage]', err);
       toast.error('Failed to save contact');
     } finally {
       setIsSavingContact(false);
@@ -290,7 +295,8 @@ export default function HouseholdHubPage() {
       });
       toast.success('Contact removed');
       await fetchHousehold();
-    } catch {
+    } catch (err) {
+      console.error('[HouseholdsPage]', err);
       toast.error('Failed to remove contact');
     }
   };
@@ -303,7 +309,8 @@ export default function HouseholdHubPage() {
       });
       toast.success('Billing parent updated');
       await fetchHousehold();
-    } catch {
+    } catch (err) {
+      console.error('[HouseholdsPage]', err);
       toast.error('Failed to update billing parent');
     }
   };
@@ -320,9 +327,7 @@ export default function HouseholdHubPage() {
 
   if (!household) {
     return (
-      <div className="flex h-64 items-center justify-center text-text-tertiary">
-        Household not found.
-      </div>
+      <div className="flex h-64 items-center justify-center text-text-tertiary">{t('householdNotFound')}</div>
     );
   }
 
@@ -339,15 +344,9 @@ export default function HouseholdHubPage() {
   const actions = (
     <>
       <Button variant="outline" onClick={() => router.push(`/households/${id}/edit`)}>
-        <Edit className="me-2 h-4 w-4" />
-        Edit
-      </Button>
-      <Button variant="outline" onClick={() => setMergeOpen(true)}>
-        Merge
-      </Button>
-      <Button variant="outline" onClick={() => setSplitOpen(true)}>
-        Split
-      </Button>
+        <Edit className="me-2 h-4 w-4" />{tCommon('edit')}</Button>
+      <Button variant="outline" onClick={() => setMergeOpen(true)}>{t('merge2')}</Button>
+      <Button variant="outline" onClick={() => setSplitOpen(true)}>{t('split2')}</Button>
     </>
   );
 
@@ -372,17 +371,17 @@ export default function HouseholdHubPage() {
     <div className="space-y-6">
       {/* Address */}
       <div>
-        <h3 className="mb-1 text-sm font-semibold text-text-primary">Address</h3>
+        <h3 className="mb-1 text-sm font-semibold text-text-primary">{t('address')}</h3>
         {addressParts.length > 0 ? (
           <p className="text-sm text-text-secondary">{addressParts.join(', ')}</p>
         ) : (
-          <p className="text-sm text-text-tertiary">No address on file</p>
+          <p className="text-sm text-text-tertiary">{t('noAddressOnFile')}</p>
         )}
       </div>
 
       {/* Billing parent */}
       <div>
-        <h3 className="mb-1 text-sm font-semibold text-text-primary">Billing Parent</h3>
+        <h3 className="mb-1 text-sm font-semibold text-text-primary">{t('billingParent')}</h3>
         {billingParent ? (
           <EntityLink
             entityType="parent"
@@ -391,7 +390,7 @@ export default function HouseholdHubPage() {
             href={`/parents/${billingParent.id}`}
           />
         ) : (
-          <p className="text-sm text-text-tertiary">Not set</p>
+          <p className="text-sm text-text-tertiary">{t('notSet')}</p>
         )}
       </div>
     </div>
@@ -404,13 +403,11 @@ export default function HouseholdHubPage() {
           {students.length} {students.length === 1 ? 'Student' : 'Students'}
         </h3>
         <Button size="sm" onClick={openAddStudent}>
-          <Plus className="me-2 h-4 w-4" />
-          Add Student
-        </Button>
+          <Plus className="me-2 h-4 w-4" />{t('addStudent')}</Button>
       </div>
 
       {students.length === 0 ? (
-        <p className="text-sm text-text-tertiary">No students in this household.</p>
+        <p className="text-sm text-text-tertiary">{t('noStudentsInThisHousehold')}</p>
       ) : (
         <ul className="divide-y divide-border rounded-xl border border-border">
           {students.map((student) => (
@@ -448,7 +445,7 @@ export default function HouseholdHubPage() {
   const parentsTab = (
     <div>
       {parents.length === 0 ? (
-        <p className="text-sm text-text-tertiary">No parents in this household.</p>
+        <p className="text-sm text-text-tertiary">{t('noParentsInThisHousehold')}</p>
       ) : (
         <ul className="divide-y divide-border rounded-xl border border-border">
           {parents.map((parent) => (
@@ -465,16 +462,14 @@ export default function HouseholdHubPage() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {parent.is_primary_contact && <StatusBadge status="info">Primary</StatusBadge>}
-                {parent.is_billing_contact && <StatusBadge status="neutral">Billing</StatusBadge>}
+                {parent.is_primary_contact && <StatusBadge status="info">{t('primary')}</StatusBadge>}
+                {parent.is_billing_contact && <StatusBadge status="neutral">{t('billing')}</StatusBadge>}
                 {parent.id !== household.primary_billing_parent_id && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => void handleSetBillingParent(parent.id)}
-                  >
-                    Set Billing
-                  </Button>
+                  >{t('setBilling')}</Button>
                 )}
               </div>
             </li>
@@ -487,7 +482,7 @@ export default function HouseholdHubPage() {
   const contactsTab = (
     <div className="space-y-4">
       {contacts.length === 0 ? (
-        <p className="text-sm text-text-tertiary">No emergency contacts on file.</p>
+        <p className="text-sm text-text-tertiary">{t('noEmergencyContactsOnFile')}</p>
       ) : (
         <ul className="divide-y divide-border rounded-xl border border-border">
           {contacts
@@ -506,14 +501,14 @@ export default function HouseholdHubPage() {
                   <button
                     onClick={() => openEditContact(contact)}
                     className="p-1.5 text-text-tertiary hover:text-text-primary transition-colors rounded"
-                    aria-label="Edit contact"
+                    aria-label={t('editContact')}
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button
                     onClick={() => void handleRemoveContact(contact.id)}
                     className="p-1.5 text-text-tertiary hover:text-danger-text transition-colors rounded"
-                    aria-label="Remove contact"
+                    aria-label={t('removeContact')}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -525,9 +520,7 @@ export default function HouseholdHubPage() {
 
       {contacts.length < 3 && (
         <Button variant="outline" size="sm" onClick={openAddContact}>
-          <Plus className="me-1 h-3.5 w-3.5" />
-          Add Contact
-        </Button>
+          <Plus className="me-1 h-3.5 w-3.5" />{t('addContact')}</Button>
       )}
     </div>
   );
@@ -539,7 +532,7 @@ export default function HouseholdHubPage() {
         <EntityLink
           entityType="household"
           entityId={id}
-          label="View Statement"
+          label={t('viewStatement')}
           href={`/${locale}/finance/statements/${id}`}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-primary-700 hover:underline"
         />
@@ -548,22 +541,18 @@ export default function HouseholdHubPage() {
       {invoices.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border py-12 text-center">
           <FileText className="h-8 w-8 text-text-tertiary" />
-          <p className="text-sm text-text-tertiary">No invoices for this household.</p>
+          <p className="text-sm text-text-tertiary">{t('noInvoicesForThisHousehold')}</p>
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-secondary">
-                <th className="px-4 py-2.5 text-start font-medium text-text-secondary">
-                  Invoice #
-                </th>
-                <th className="px-4 py-2.5 text-start font-medium text-text-secondary">Status</th>
-                <th className="px-4 py-2.5 text-end font-medium text-text-secondary">
-                  Total Amount
-                </th>
-                <th className="px-4 py-2.5 text-end font-medium text-text-secondary">Balance</th>
-                <th className="px-4 py-2.5 text-start font-medium text-text-secondary">Due Date</th>
+                <th className="px-4 py-2.5 text-start font-medium text-text-secondary">{t('invoice')}</th>
+                <th className="px-4 py-2.5 text-start font-medium text-text-secondary">{t('status')}</th>
+                <th className="px-4 py-2.5 text-end font-medium text-text-secondary">{t('totalAmount')}</th>
+                <th className="px-4 py-2.5 text-end font-medium text-text-secondary">{t('balance')}</th>
+                <th className="px-4 py-2.5 text-start font-medium text-text-secondary">{t('dueDate')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -632,16 +621,16 @@ export default function HouseholdHubPage() {
           <div className="flex items-start gap-2 rounded-xl border border-warning-border bg-warning-surface px-4 py-3">
             <AlertTriangle className="h-4 w-4 shrink-0 text-warning-text mt-0.5" />
             <div className="text-sm text-warning-text">
-              <p className="font-medium">This household is incomplete:</p>
+              <p className="font-medium">{t('thisHouseholdIsIncomplete')}</p>
               <ul className="mt-1 list-disc ps-4 space-y-0.5">
                 {(household.completion_issues ?? []).includes('missing_emergency_contact') && (
-                  <li>No emergency contact on file</li>
+                  <li>{t('noEmergencyContactOnFile')}</li>
                 )}
                 {(household.completion_issues ?? []).includes('missing_billing_parent') && (
-                  <li>No billing parent assigned</li>
+                  <li>{t('noBillingParentAssigned')}</li>
                 )}
                 {(household.completion_issues ?? []).length === 0 && (
-                  <li>Please add missing information</li>
+                  <li>{t('pleaseAddMissingInformation')}</li>
                 )}
               </ul>
             </div>
@@ -659,7 +648,7 @@ export default function HouseholdHubPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="ec_contact_name">Contact Name</Label>
+              <Label htmlFor="ec_contact_name">{t('contactName')}</Label>
               <Input
                 id="ec_contact_name"
                 value={contactForm.contact_name}
@@ -669,7 +658,7 @@ export default function HouseholdHubPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ec_phone">Phone</Label>
+              <Label htmlFor="ec_phone">{t('phone')}</Label>
               <Input
                 id="ec_phone"
                 dir="ltr"
@@ -679,7 +668,7 @@ export default function HouseholdHubPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ec_relationship">Relationship</Label>
+              <Label htmlFor="ec_relationship">{t('relationship')}</Label>
               <Input
                 id="ec_relationship"
                 value={contactForm.relationship_label}
@@ -690,9 +679,7 @@ export default function HouseholdHubPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setContactDialogOpen(false)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setContactDialogOpen(false)}>{tCommon('cancel')}</Button>
             <Button onClick={() => void handleSaveContact()} disabled={isSavingContact}>
               {isSavingContact ? 'Saving...' : 'Save'}
             </Button>
@@ -720,13 +707,13 @@ export default function HouseholdHubPage() {
       <Dialog open={addStudentOpen} onOpenChange={setAddStudentOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add Student to {household.household_name}</DialogTitle>
+            <DialogTitle>{t('addStudentTo')}{household.household_name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {/* Name row */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="stu_first">First Name *</Label>
+                <Label htmlFor="stu_first">{t('firstName')}</Label>
                 <Input
                   id="stu_first"
                   value={studentForm.first_name}
@@ -735,7 +722,7 @@ export default function HouseholdHubPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="stu_middle">Middle Name</Label>
+                <Label htmlFor="stu_middle">{t('middleName')}</Label>
                 <Input
                   id="stu_middle"
                   value={studentForm.middle_name}
@@ -744,7 +731,7 @@ export default function HouseholdHubPage() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="stu_last">Last Name (defaults to family name)</Label>
+              <Label htmlFor="stu_last">{t('lastNameDefaultsToFamily')}</Label>
               <Input
                 id="stu_last"
                 placeholder={household.household_name
@@ -758,7 +745,7 @@ export default function HouseholdHubPage() {
             {/* DOB + Gender */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="stu_dob">Date of Birth *</Label>
+                <Label htmlFor="stu_dob">{t('dateOfBirth')}</Label>
                 <Input
                   id="stu_dob"
                   type="date"
@@ -769,19 +756,19 @@ export default function HouseholdHubPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Gender *</Label>
+                <Label>{t('gender')}</Label>
                 <Select
                   value={studentForm.gender}
                   onValueChange={(v) => setStudentForm((p) => ({ ...p, gender: v }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select gender" />
+                    <SelectValue placeholder={t('selectGender')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                    <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                    <SelectItem value="male">{t('male')}</SelectItem>
+                    <SelectItem value="female">{t('female')}</SelectItem>
+                    <SelectItem value="other">{t('other')}</SelectItem>
+                    <SelectItem value="prefer_not_to_say">{t('preferNotToSay')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -789,13 +776,13 @@ export default function HouseholdHubPage() {
 
             {/* Year Group */}
             <div className="space-y-1.5">
-              <Label>Year Group *</Label>
+              <Label>{t('yearGroup')}</Label>
               <Select
                 value={studentForm.year_group_id}
                 onValueChange={(v) => setStudentForm((p) => ({ ...p, year_group_id: v }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select year group" />
+                  <SelectValue placeholder={t('selectYearGroup')} />
                 </SelectTrigger>
                 <SelectContent>
                   {yearGroups.map((yg) => (
@@ -810,7 +797,7 @@ export default function HouseholdHubPage() {
             {/* National ID + Nationality */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="stu_nid">National ID *</Label>
+                <Label htmlFor="stu_nid">{t('nationalId')}</Label>
                 <Input
                   id="stu_nid"
                   dir="ltr"
@@ -820,7 +807,7 @@ export default function HouseholdHubPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="stu_nationality">Nationality</Label>
+                <Label htmlFor="stu_nationality">{t('nationality')}</Label>
                 <Input
                   id="stu_nationality"
                   value={studentForm.nationality}
@@ -831,7 +818,7 @@ export default function HouseholdHubPage() {
 
             {/* City of Birth */}
             <div className="space-y-1.5">
-              <Label htmlFor="stu_cob">City of Birth</Label>
+              <Label htmlFor="stu_cob">{t('cityOfBirth')}</Label>
               <Input
                 id="stu_cob"
                 value={studentForm.city_of_birth}
@@ -845,9 +832,7 @@ export default function HouseholdHubPage() {
               variant="outline"
               onClick={() => setAddStudentOpen(false)}
               disabled={isSavingStudent}
-            >
-              Cancel
-            </Button>
+            >{tCommon('cancel')}</Button>
             <Button onClick={() => void handleSaveStudent()} disabled={isSavingStudent}>
               {isSavingStudent && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
               {isSavingStudent ? 'Adding...' : 'Add Student & Assign Fees'}

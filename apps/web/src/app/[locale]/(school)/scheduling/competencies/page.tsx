@@ -173,7 +173,7 @@ export default function CompetenciesPage() {
         );
         if (yearsRes.data[0]) setSelectedYear(yearsRes.data[0].id);
       })
-      .catch(() => toast.error(tc('errorGeneric')));
+      .catch((err) => { console.error('[SchedulingCompetenciesPage]', err); return toast.error(tc('errorGeneric')); });
   }, [tc]);
 
   // Fetch subjects assigned to classes in this year group
@@ -189,7 +189,7 @@ export default function CompetenciesPage() {
       .then((res) => {
         setCurriculumSubjectIds(new Set(res.data.map((r) => r.subject.id)));
       })
-      .catch(() => setCurriculumSubjectIds(new Set()));
+      .catch((err) => { console.error('[SchedulingCompetenciesPage]', err); return setCurriculumSubjectIds(new Set()); });
   }, [selectedYear, selectedTeacherTabYg]);
 
   // Fetch competencies
@@ -205,7 +205,8 @@ export default function CompetenciesPage() {
       }
       const res = await apiClient<{ data: Competency[] }>(url, { silent: true });
       setCompetencies(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingCompetenciesPage]', err);
       setCompetencies([]);
     } finally {
       setIsLoading(false);
@@ -254,7 +255,8 @@ export default function CompetenciesPage() {
         );
         setCompetencies((prev) => [...prev, res.data]);
       }
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingCompetenciesPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -269,7 +271,8 @@ export default function CompetenciesPage() {
       setCompetencies((prev) =>
         prev.map((c) => (c.id === competency.id ? { ...c, is_primary: !c.is_primary } : c)),
       );
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingCompetenciesPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -285,7 +288,8 @@ export default function CompetenciesPage() {
       });
       toast.success(tv('copiedFromYear'));
       void fetchCompetencies();
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingCompetenciesPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -344,7 +348,8 @@ export default function CompetenciesPage() {
       setWizardTargetSubjects(targetSubMap);
       setWizardSelections(selections);
       setWizardStep(2);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingCompetenciesPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setWizardLoading(false);
@@ -410,7 +415,8 @@ export default function CompetenciesPage() {
       toast.success(tv('copiedToYears', { copied: res.data.copied, skipped: res.data.skipped }));
       setWizardOpen(false);
       void fetchCompetencies();
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingCompetenciesPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setWizardLoading(false);

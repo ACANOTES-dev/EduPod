@@ -64,7 +64,7 @@ export default function PromotionRolloverPage() {
           setYearFilter(first.id);
         }
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[ReportsPromotionRolloverPage]', err); });
   }, []);
 
   React.useEffect(() => {
@@ -74,7 +74,7 @@ export default function PromotionRolloverPage() {
       `/api/v1/reports/promotion-rollover?academic_year_id=${yearFilter}`,
     )
       .then((res) => setReport(res.data))
-      .catch(() => setReport(null))
+      .catch((err) => { console.error('[ReportsPromotionRolloverPage]', err); return setReport(null); })
       .finally(() => setIsLoading(false));
   }, [yearFilter]);
 

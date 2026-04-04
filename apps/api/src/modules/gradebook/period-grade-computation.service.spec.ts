@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ClassesReadFacade, ConfigurationReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { GpaService } from './grading/gpa.service';
@@ -65,6 +66,9 @@ function makeFormativeAssessment(id: string, grades: Array<{ student_id: string;
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
+const mockClassesFacade = { findClassesGeneric: jest.fn(), findEnrolmentsGeneric: jest.fn() };
+const mockConfigFacade = { findSettings: jest.fn() };
+
 describe('PeriodGradeComputationService', () => {
   let service: PeriodGradeComputationService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
@@ -97,21 +101,24 @@ describe('PeriodGradeComputationService', () => {
     mockRlsTx.periodGradeSnapshot.upsert.mockResolvedValue({ id: 'snap-1' });
 
     // Default setup: class exists, no year-group weights, config with weights
-    mockPrisma.class.findFirst.mockResolvedValue({ year_group_id: null });
+    mockClassesFacade.findClassesGeneric.mockResolvedValue([{ year_group_id: null }]);
     mockPrisma.yearGroupGradeWeight.findFirst.mockResolvedValue(null);
     mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue({
       category_weight_json: { weights: baseClassWeights },
       grading_scale: baseGradingScale,
       credit_hours: null,
     });
-    mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([
+    mockConfigFacade.findSettings.mockResolvedValue(null);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([
       { student_id: STUDENT_A },
       { student_id: STUDENT_B },
     ]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
         PeriodGradeComputationService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GpaService, useValue: mockGpaService },
@@ -192,7 +199,7 @@ describe('PeriodGradeComputationService', () => {
     };
 
     mockPrisma.assessment.findMany.mockResolvedValue([assessment1, assessment2]);
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: STUDENT_A }]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_A }]);
 
     await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
 
@@ -209,7 +216,7 @@ describe('PeriodGradeComputationService', () => {
   });
 
   it('should apply missing grade policy "exclude" — exclude ungraded assessments', async () => {
-    mockPrisma.tenantSetting.findFirst.mockResolvedValue({
+    mockConfigFacade.findSettings.mockResolvedValue({
       settings: { gradebook: { defaultMissingGradePolicy: 'exclude' } },
     });
 
@@ -242,7 +249,7 @@ describe('PeriodGradeComputationService', () => {
         grades: [], // No grade for Student A
       },
     ]);
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: STUDENT_A }]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_A }]);
 
     await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
 
@@ -260,7 +267,7 @@ describe('PeriodGradeComputationService', () => {
   });
 
   it('should apply missing grade policy "zero" — count missing as 0', async () => {
-    mockPrisma.tenantSetting.findFirst.mockResolvedValue({
+    mockConfigFacade.findSettings.mockResolvedValue({
       settings: { gradebook: { defaultMissingGradePolicy: 'zero' } },
     });
 
@@ -269,7 +276,7 @@ describe('PeriodGradeComputationService', () => {
         { student_id: STUDENT_A, raw_score: null }, // missing
       ]),
     ]);
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: STUDENT_A }]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_A }]);
 
     await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
 
@@ -284,7 +291,7 @@ describe('PeriodGradeComputationService', () => {
   });
 
   it('should apply formative weight cap when configured', async () => {
-    mockPrisma.tenantSetting.findFirst.mockResolvedValue({
+    mockConfigFacade.findSettings.mockResolvedValue({
       settings: {
         gradebook: {
           formativeWeightCap: 20,
@@ -309,7 +316,7 @@ describe('PeriodGradeComputationService', () => {
       makeSummativeAssessment('a1', [{ student_id: STUDENT_A, raw_score: 80 }]),
       makeFormativeAssessment('a2', [{ student_id: STUDENT_A, raw_score: 50 }]),
     ]);
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: STUDENT_A }]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_A }]);
 
     const result = await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
 
@@ -332,7 +339,7 @@ describe('PeriodGradeComputationService', () => {
     mockPrisma.assessment.findMany.mockResolvedValue([
       makeSummativeAssessment('a1', [{ student_id: STUDENT_A, raw_score: 80 }]),
     ]);
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: STUDENT_A }]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_A }]);
 
     const result = await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
 
@@ -361,7 +368,7 @@ describe('PeriodGradeComputationService', () => {
     mockPrisma.assessment.findMany.mockResolvedValue([
       makeSummativeAssessment('a1', [{ student_id: STUDENT_A, raw_score: 80 }]),
     ]);
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([]);
 
     await expect(
       service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID),
@@ -369,7 +376,7 @@ describe('PeriodGradeComputationService', () => {
   });
 
   it('should throw BadRequestException when formative is excluded and no summative assessments remain', async () => {
-    mockPrisma.tenantSetting.findFirst.mockResolvedValue({
+    mockConfigFacade.findSettings.mockResolvedValue({
       settings: {
         gradebook: {
           formativeIncludedInPeriodGrade: false,
@@ -381,7 +388,7 @@ describe('PeriodGradeComputationService', () => {
     mockPrisma.assessment.findMany.mockResolvedValue([
       makeFormativeAssessment('a1', [{ student_id: STUDENT_A, raw_score: 40 }]),
     ]);
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: STUDENT_A }]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_A }]);
 
     await expect(
       service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID),
@@ -389,7 +396,7 @@ describe('PeriodGradeComputationService', () => {
   });
 
   it('should prefer year-group weights over class-subject weights when available', async () => {
-    mockPrisma.class.findFirst.mockResolvedValue({ year_group_id: 'yg-1' });
+    mockClassesFacade.findClassesGeneric.mockResolvedValue([{ year_group_id: 'yg-1' }]);
 
     const YEAR_GROUP_CATEGORY = 'yg-cat';
     mockPrisma.yearGroupGradeWeight.findFirst.mockResolvedValue({
@@ -407,7 +414,7 @@ describe('PeriodGradeComputationService', () => {
         grades: [{ student_id: STUDENT_A, raw_score: 90 }],
       },
     ]);
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: STUDENT_A }]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_A }]);
 
     await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
 
@@ -442,7 +449,7 @@ describe('PeriodGradeComputationService', () => {
     mockPrisma.assessment.findMany.mockResolvedValue([
       makeSummativeAssessment('a1', [{ student_id: STUDENT_A, raw_score: 85 }]),
     ]);
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: STUDENT_A }]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_A }]);
 
     await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
 
@@ -457,7 +464,7 @@ describe('PeriodGradeComputationService', () => {
   });
 
   it('edge: student with no grades in any category gets computed_value of 0 (exclude policy)', async () => {
-    mockPrisma.tenantSetting.findFirst.mockResolvedValue({
+    mockConfigFacade.findSettings.mockResolvedValue({
       settings: { gradebook: { defaultMissingGradePolicy: 'exclude' } },
     });
 
@@ -467,7 +474,7 @@ describe('PeriodGradeComputationService', () => {
         { student_id: STUDENT_B, raw_score: 80 },
       ]),
     ]);
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: STUDENT_A }]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_A }]);
 
     await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
 
@@ -494,7 +501,7 @@ describe('PeriodGradeComputationService', () => {
     mockPrisma.assessment.findMany.mockResolvedValue([
       makeSummativeAssessment('a1', [{ student_id: STUDENT_A, raw_score: 80 }]),
     ]);
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: STUDENT_A }]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_A }]);
 
     await expect(
       service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID),

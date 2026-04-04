@@ -56,7 +56,8 @@ export default function BehaviourStudentsPage() {
         const res = await apiClient<StudentsResponse>(`/api/v1/behaviour/students?${params.toString()}`);
         setData(res.data ?? []);
         setTotal(res.meta?.total ?? 0);
-      } catch {
+      } catch (err) {
+        console.error('[BehaviourStudentsPage]', err);
         setData([]);
         setTotal(0);
       } finally {

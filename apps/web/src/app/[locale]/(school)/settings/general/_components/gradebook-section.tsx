@@ -61,7 +61,7 @@ export function GradebookSection({ settings, onChange }: GradebookSectionProps) 
         description={t('gpaScaleLabelDesc')}
         value={settings.gpaScaleLabel}
         onChange={(v) => onChange({ gpaScaleLabel: v })}
-        placeholder="GPA"
+        placeholder={t('gpa')}
       />
 
       <SubSectionCard title={t('atRiskDetection')} description={t('atRiskDetectionDesc')}>

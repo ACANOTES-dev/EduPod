@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, RbacReadFacade } from '../../../common/tests/mock-facades';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -60,9 +61,8 @@ describe('SstService', () => {
   let service: SstService;
   let mockPastoralEventService: { write: jest.Mock };
   let mockPermissionCacheService: { getPermissions: jest.Mock };
-  let mockPrisma: {
-    tenantMembership: { findFirst: jest.Mock };
-  };
+  let mockPrisma: Record<string, unknown>;
+  let mockRbacFacade: { findMembershipSummary: jest.Mock };
 
   beforeEach(async () => {
     mockPastoralEventService = {
@@ -73,10 +73,10 @@ describe('SstService', () => {
       getPermissions: jest.fn().mockResolvedValue([]),
     };
 
-    mockPrisma = {
-      tenantMembership: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
+    mockPrisma = {};
+
+    mockRbacFacade = {
+      findMembershipSummary: jest.fn().mockResolvedValue(null),
     };
 
     // Reset all RLS tx mocks
@@ -88,10 +88,12 @@ describe('SstService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         SstService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PastoralEventService, useValue: mockPastoralEventService },
         { provide: PermissionCacheService, useValue: mockPermissionCacheService },
+        { provide: RbacReadFacade, useValue: mockRbacFacade },
       ],
     }).compile();
 
@@ -456,7 +458,7 @@ describe('SstService', () => {
 
   describe('ensureTierAccess', () => {
     it('should return both true when user has tier1 and tier2 permissions', async () => {
-      mockPrisma.tenantMembership.findFirst.mockResolvedValue({
+      mockRbacFacade.findMembershipSummary.mockResolvedValue({
         id: MEMBERSHIP_ID,
       });
       mockPermissionCacheService.getPermissions.mockResolvedValue([
@@ -472,7 +474,7 @@ describe('SstService', () => {
     });
 
     it('should return hasTier1=false when missing pastoral.view_tier1', async () => {
-      mockPrisma.tenantMembership.findFirst.mockResolvedValue({
+      mockRbacFacade.findMembershipSummary.mockResolvedValue({
         id: MEMBERSHIP_ID,
       });
       mockPermissionCacheService.getPermissions.mockResolvedValue(['pastoral.view_tier2']);
@@ -494,7 +496,7 @@ describe('SstService', () => {
     });
 
     it('should return hasTier2=false when missing pastoral.view_tier2', async () => {
-      mockPrisma.tenantMembership.findFirst.mockResolvedValue({
+      mockRbacFacade.findMembershipSummary.mockResolvedValue({
         id: MEMBERSHIP_ID,
       });
       mockPermissionCacheService.getPermissions.mockResolvedValue(['pastoral.view_tier1']);
@@ -514,7 +516,7 @@ describe('SstService', () => {
     });
 
     it('should return both false when both permissions missing', async () => {
-      mockPrisma.tenantMembership.findFirst.mockResolvedValue({
+      mockRbacFacade.findMembershipSummary.mockResolvedValue({
         id: MEMBERSHIP_ID,
       });
       mockPermissionCacheService.getPermissions.mockResolvedValue([]);
@@ -533,7 +535,7 @@ describe('SstService', () => {
     });
 
     it('should return both false when user has no membership in tenant', async () => {
-      mockPrisma.tenantMembership.findFirst.mockResolvedValue(null);
+      mockRbacFacade.findMembershipSummary.mockResolvedValue(null);
 
       const result = await service.ensureTierAccess(TENANT_ID, USER_ID_A);
 

@@ -87,10 +87,10 @@ export function AnalyticsTab({ classId }: { classId: string }) {
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[AnalyticsTab]', err); });
     apiClient<ListResponse<SelectOption>>('/api/v1/subjects?pageSize=100&subject_type=academic')
       .then((res) => setSubjects(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[AnalyticsTab]', err); });
   }, []);
 
   // Fetch analytics when filters change
@@ -105,7 +105,7 @@ export function AnalyticsTab({ classId }: { classId: string }) {
       `/api/v1/gradebook/classes/${classId}/analytics?${params.toString()}`,
     )
       .then((res) => setAnalytics(res))
-      .catch(() => setAnalytics(null))
+      .catch((err) => { console.error('[AnalyticsTab]', err); return setAnalytics(null); })
       .finally(() => setIsLoading(false));
   }, [classId, periodId, subjectId]);
 

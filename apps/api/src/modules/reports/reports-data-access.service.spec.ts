@@ -1,5 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  StudentReadFacade,
+  StaffProfileReadFacade,
+  ClassesReadFacade,
+  AttendanceReadFacade,
+  GradebookReadFacade,
+  FinanceReadFacade,
+  AuditLogReadFacade,
+  HouseholdReadFacade,
+  SchedulesReadFacade,
+  ApprovalsReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { ReportsDataAccessService } from './reports-data-access.service';
@@ -76,7 +89,95 @@ describe('ReportsDataAccessService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ReportsDataAccessService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ReportsDataAccessService,
+        { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: StudentReadFacade,
+          useValue: {
+            count: jest.fn().mockImplementation((_t: string, where?: Record<string, unknown>) => {
+              return mockPrisma.student.count({ where: { tenant_id: _t, ...where } });
+            }),
+            findManyGeneric: jest.fn().mockImplementation((_t: string, opts: Record<string, unknown>) => {
+              return mockPrisma.student.findMany({ ...opts, where: { tenant_id: _t, ...(opts.where as Record<string, unknown> ?? {}) } });
+            }),
+            findOneGeneric: jest.fn().mockImplementation((_t: string, id: string) => {
+              return mockPrisma.student.findFirst({ where: { id, tenant_id: _t } });
+            }),
+            groupBy: jest.fn().mockImplementation(() => mockPrisma.student.groupBy()),
+          },
+        },
+        {
+          provide: StaffProfileReadFacade,
+          useValue: {
+            count: jest.fn().mockImplementation((_t: string, where?: Record<string, unknown>) => {
+              return mockPrisma.staffProfile.count({ where: { tenant_id: _t, ...where } });
+            }),
+            findManyGeneric: jest.fn().mockImplementation(() => mockPrisma.staffProfile.findMany()),
+            groupBy: jest.fn().mockImplementation(() => mockPrisma.staffProfile.groupBy()),
+          },
+        },
+        {
+          provide: ClassesReadFacade,
+          useValue: {
+            countClassesGeneric: jest.fn().mockImplementation(() => mockPrisma.class.count()),
+            findClassesGeneric: jest.fn().mockImplementation((_t: string, where?: Record<string, unknown>) => {
+              return mockPrisma.class.findMany({ where: { tenant_id: _t, ...where } });
+            }),
+            findClassStaffGeneric: jest.fn().mockImplementation(() => mockPrisma.classStaff.findMany()),
+            countClassStaffGeneric: jest.fn().mockImplementation(() => mockPrisma.classStaff.count()),
+            countEnrolmentsGeneric: jest.fn().mockImplementation(() => mockPrisma.classEnrolment.count()),
+            findEnrolmentsGeneric: jest.fn().mockImplementation(() => mockPrisma.classEnrolment.findMany()),
+          },
+        },
+        {
+          provide: AttendanceReadFacade,
+          useValue: {
+            groupRecordsBy: jest.fn().mockImplementation(() => mockPrisma.attendanceRecord.groupBy()),
+            countRecordsGeneric: jest.fn().mockImplementation(() => mockPrisma.attendanceRecord.count()),
+            countSessionsGeneric: jest.fn().mockImplementation(() => mockPrisma.attendanceSession.count()),
+          },
+        },
+        {
+          provide: GradebookReadFacade,
+          useValue: {
+            aggregateGrades: jest.fn().mockImplementation(() => mockPrisma.grade.aggregate()),
+          },
+        },
+        {
+          provide: FinanceReadFacade,
+          useValue: {
+            countInvoices: jest.fn().mockImplementation(() => mockPrisma.invoice.count()),
+          },
+        },
+        {
+          provide: AuditLogReadFacade,
+          useValue: {
+            count: jest.fn().mockImplementation(() => mockPrisma.auditLog.count()),
+          },
+        },
+        {
+          provide: HouseholdReadFacade,
+          useValue: {
+            findByIdGeneric: jest.fn().mockImplementation((_t: string, id: string) => {
+              return mockPrisma.household.findFirst({ where: { id, tenant_id: _t } });
+            }),
+          },
+        },
+        {
+          provide: SchedulesReadFacade,
+          useValue: {
+            count: jest.fn().mockImplementation(() => mockPrisma.schedule.count()),
+          },
+        },
+        {
+          provide: ApprovalsReadFacade,
+          useValue: {
+            countRequestsGeneric: jest.fn().mockImplementation(() => mockPrisma.approvalRequest.count()),
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<ReportsDataAccessService>(ReportsDataAccessService);

@@ -113,7 +113,8 @@ export default function CreditNotesPage() {
       );
       setCreditNotes(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[FinanceCreditNotesPage]', err);
       setCreditNotes([]);
       setTotal(0);
     } finally {
@@ -129,7 +130,7 @@ export default function CreditNotesPage() {
     if (showCreate) {
       apiClient<{ data: HouseholdOption[] }>('/api/v1/households?pageSize=200')
         .then((res) => setHouseholds(res.data))
-        .catch(() => setHouseholds([]));
+        .catch((err) => { console.error('[FinanceCreditNotesPage]', err); return setHouseholds([]); });
     }
   }, [showCreate]);
 
@@ -152,7 +153,8 @@ export default function CreditNotesPage() {
       setShowCreate(false);
       setCreateForm({ household_id: '', amount: '', reason: '' });
       void fetchCreditNotes();
-    } catch {
+    } catch (err) {
+      console.error('[FinanceCreditNotesPage]', err);
       toast.error(t('creditNotes.createFailed'));
     } finally {
       setCreating(false);
@@ -169,7 +171,8 @@ export default function CreditNotesPage() {
         `/api/v1/finance/invoices?household_id=${cn.household_id}&status=issued,partially_paid,overdue&pageSize=100`,
       );
       setOpenInvoices(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[FinanceCreditNotesPage]', err);
       setOpenInvoices([]);
     }
     setShowApply(true);
@@ -192,7 +195,8 @@ export default function CreditNotesPage() {
       toast.success(t('creditNotes.applied'));
       setShowApply(false);
       void fetchCreditNotes();
-    } catch {
+    } catch (err) {
+      console.error('[FinanceCreditNotesPage]', err);
       toast.error(t('creditNotes.applyFailed'));
     } finally {
       setApplying(false);

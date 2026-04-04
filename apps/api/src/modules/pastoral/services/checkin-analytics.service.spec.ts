@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { CheckinAnalyticsService } from './checkin-analytics.service';
@@ -95,6 +96,7 @@ describe('CheckinAnalyticsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         CheckinAnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

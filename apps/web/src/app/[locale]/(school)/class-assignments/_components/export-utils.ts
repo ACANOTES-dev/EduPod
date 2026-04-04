@@ -114,7 +114,8 @@ export async function loadImageAsDataUrl(url: string): Promise<string | null> {
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(blob);
     });
-  } catch {
+  } catch (err) {
+    console.error('[ExportUtils]', err);
     return null;
   }
 }
@@ -362,7 +363,8 @@ export type ExportPreset = { name: string; columns: string[]; grouping: 'subclas
 export function getPresets(): ExportPreset[] {
   try {
     return JSON.parse(localStorage.getItem('class-export-presets') ?? '[]') as ExportPreset[];
-  } catch {
+  } catch (err) {
+    console.error('[ExportUtils]', err);
     return [];
   }
 }

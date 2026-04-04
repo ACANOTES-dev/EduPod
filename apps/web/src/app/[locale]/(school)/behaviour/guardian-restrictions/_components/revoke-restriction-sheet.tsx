@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -33,6 +34,8 @@ export function RevokeRestrictionSheet({
   revokeId,
   onRevoked,
 }: RevokeRestrictionSheetProps) {
+  const t = useTranslations('behaviour');
+  const tCommon = useTranslations('common');
   const [revokeReason, setRevokeReason] = React.useState('');
   const [revoking, setRevoking] = React.useState(false);
 
@@ -63,19 +66,17 @@ export function RevokeRestrictionSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="end" className="w-full sm:max-w-md">
         <SheetHeader>
-          <SheetTitle>Revoke Restriction</SheetTitle>
-          <SheetDescription>
-            Provide a reason for revoking this guardian restriction.
-          </SheetDescription>
+          <SheetTitle>{t('revokeRestriction')}</SheetTitle>
+          <SheetDescription>{t('provideAReasonForRevoking')}</SheetDescription>
         </SheetHeader>
 
         <div className="mt-6 space-y-4">
           <div className="space-y-2">
-            <Label>Reason for Revocation *</Label>
+            <Label>{t('reasonForRevocation')}</Label>
             <Textarea
               value={revokeReason}
               onChange={(e) => setRevokeReason(e.target.value)}
-              placeholder="Explain why this restriction is being revoked..."
+              placeholder={t('explainWhyThisRestrictionIs')}
               rows={4}
               className="text-base sm:text-sm"
             />
@@ -83,9 +84,7 @@ export function RevokeRestrictionSheet({
         </div>
 
         <SheetFooter className="mt-6">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={revoking}>
-            Cancel
-          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={revoking}>{tCommon('cancel')}</Button>
           <Button
             variant="default"
             onClick={() => void handleRevoke()}

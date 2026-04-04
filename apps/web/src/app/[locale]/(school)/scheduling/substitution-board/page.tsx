@@ -113,7 +113,7 @@ export default function SubstitutionBoardPage() {
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={data.school_logo_url}
-                alt="School logo"
+                alt={t('schoolLogo')}
                 className="h-10 w-auto object-contain"
               />
             )}

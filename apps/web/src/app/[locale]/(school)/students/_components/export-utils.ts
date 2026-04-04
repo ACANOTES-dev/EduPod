@@ -265,7 +265,8 @@ const PRESET_STORAGE_KEY = 'student-export-presets';
 export function getPresets(): ExportPreset[] {
   try {
     return JSON.parse(localStorage.getItem(PRESET_STORAGE_KEY) ?? '[]') as ExportPreset[];
-  } catch {
+  } catch (err) {
+    console.error('[ExportUtils]', err);
     return [];
   }
 }

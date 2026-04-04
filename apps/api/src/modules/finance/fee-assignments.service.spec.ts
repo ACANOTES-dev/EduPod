@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, HouseholdReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { FeeAssignmentsService } from './fee-assignments.service';
@@ -59,11 +60,19 @@ const makeAssignment = (overrides: Record<string, unknown> = {}) => ({
 describe('FeeAssignmentsService', () => {
   let service: FeeAssignmentsService;
 
+  let mockHouseholdReadFacade: { findById: jest.Mock };
+
   beforeEach(async () => {
+    mockHouseholdReadFacade = {
+      findById: jest.fn().mockResolvedValue({ id: HOUSEHOLD_ID }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         FeeAssignmentsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: HouseholdReadFacade, useValue: mockHouseholdReadFacade },
       ],
     }).compile();
 
@@ -143,7 +152,7 @@ describe('FeeAssignmentsService', () => {
     });
 
     it('should throw BadRequestException when household not found', async () => {
-      mockPrisma.household.findFirst.mockResolvedValue(null);
+      mockHouseholdReadFacade.findById.mockResolvedValue(null);
 
       await expect(
         service.create(TENANT_ID, {
@@ -155,7 +164,6 @@ describe('FeeAssignmentsService', () => {
     });
 
     it('should throw BadRequestException when fee structure inactive', async () => {
-      mockPrisma.household.findFirst.mockResolvedValue({ id: HOUSEHOLD_ID });
       mockPrisma.feeStructure.findFirst.mockResolvedValue({ id: FEE_STRUCTURE_ID, active: false });
 
       await expect(

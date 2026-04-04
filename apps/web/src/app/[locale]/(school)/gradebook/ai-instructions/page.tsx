@@ -69,6 +69,7 @@ const STATUS_VARIANT: Record<InstructionStatus, 'neutral' | 'warning' | 'success
 
 export default function AiInstructionsPage() {
   const t = useTranslations('gradebook');
+  const tCommon = useTranslations('common');
   const tc = useTranslations('common');
 
   const [classes, setClasses] = React.useState<SelectOption[]>([]);
@@ -99,10 +100,10 @@ export default function AiInstructionsPage() {
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/classes?pageSize=100')
       .then((res) => setClasses(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradebookAiInstructionsPage]', err); });
     apiClient<ListResponse<SelectOption>>('/api/v1/subjects?pageSize=100&subject_type=academic')
       .then((res) => setSubjects(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradebookAiInstructionsPage]', err); });
   }, []);
 
   const fetchRows = React.useCallback(async (p: number) => {
@@ -114,7 +115,8 @@ export default function AiInstructionsPage() {
       );
       setRows(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[GradebookAiInstructionsPage]', err);
       setRows([]);
       setTotal(0);
     } finally {
@@ -163,7 +165,8 @@ export default function AiInstructionsPage() {
       toast.success(tc('saved'));
       setModalOpen(false);
       void fetchRows(page);
-    } catch {
+    } catch (err) {
+      console.error('[GradebookAiInstructionsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setSaving(false);
@@ -178,7 +181,8 @@ export default function AiInstructionsPage() {
       });
       toast.success(t('aiInstructionSubmitted'));
       void fetchRows(page);
-    } catch {
+    } catch (err) {
+      console.error('[GradebookAiInstructionsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setActioning(null);
@@ -193,7 +197,8 @@ export default function AiInstructionsPage() {
       });
       toast.success(t('aiInstructionApproved'));
       void fetchRows(page);
-    } catch {
+    } catch (err) {
+      console.error('[GradebookAiInstructionsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setActioning(null);
@@ -217,7 +222,8 @@ export default function AiInstructionsPage() {
       toast.success(t('aiInstructionRejected'));
       setRejectModalOpen(false);
       void fetchRows(page);
-    } catch {
+    } catch (err) {
+      console.error('[GradebookAiInstructionsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setRejecting(false);
@@ -358,7 +364,7 @@ export default function AiInstructionsPage() {
               size="icon"
               disabled={page <= 1}
               onClick={() => setPage((p) => p - 1)}
-              aria-label="Previous"
+              aria-label={tCommon('previous')}
             >
               {'‹'}
             </Button>
@@ -370,7 +376,7 @@ export default function AiInstructionsPage() {
               size="icon"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
-              aria-label="Next"
+              aria-label={tCommon('next')}
             >
               {'›'}
             </Button>

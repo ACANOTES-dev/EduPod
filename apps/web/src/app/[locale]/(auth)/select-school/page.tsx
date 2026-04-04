@@ -39,7 +39,8 @@ export default function SelectSchoolPage() {
     try {
       await switchTenant(tenantId);
       router.replace(`/${locale}/dashboard`);
-    } catch {
+    } catch (err) {
+      console.error('[SelectSchoolPage]', err);
       setSwitchingId(null);
     }
   }

@@ -97,7 +97,8 @@ export default function PastoralCaseDetailPage() {
     try {
       const detail = await loadCase();
       await loadCandidateConcerns(detail);
-    } catch {
+    } catch (err) {
+      console.error('[PastoralCasesPage]', err);
       setCaseRecord(null);
       setCandidateConcerns([]);
     }

@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, StudentReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -72,16 +73,20 @@ describe('TranscriptsService', () => {
   let service: TranscriptsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockStudentFacade: { findOneGeneric: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRedis = buildMockRedis();
+    mockStudentFacade = { findOneGeneric: jest.fn().mockResolvedValue(null) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         TranscriptsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
       ],
     }).compile();
 
@@ -102,9 +107,11 @@ describe('TranscriptsService', () => {
 
       const module: TestingModule = await Test.createTestingModule({
         providers: [
+        ...MOCK_FACADE_PROVIDERS,
           TranscriptsService,
           { provide: PrismaService, useValue: mockPrisma },
           { provide: RedisService, useValue: mockRedis },
+          { provide: StudentReadFacade, useValue: mockStudentFacade },
         ],
       }).compile();
       service = module.get<TranscriptsService>(TranscriptsService);
@@ -112,11 +119,11 @@ describe('TranscriptsService', () => {
       const result = await service.getTranscriptData(TENANT_ID, STUDENT_ID);
 
       expect(result).toEqual(cachedData);
-      expect(mockPrisma.student.findFirst).not.toHaveBeenCalled();
+      expect(mockStudentFacade.findOneGeneric).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when student does not exist', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue(null);
+      mockStudentFacade.findOneGeneric.mockResolvedValue(null);
 
       await expect(
         service.getTranscriptData(TENANT_ID, STUDENT_ID),
@@ -124,7 +131,7 @@ describe('TranscriptsService', () => {
     });
 
     it('should return transcript with empty academic years when no snapshots exist', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue(sampleStudent);
+      mockStudentFacade.findOneGeneric.mockResolvedValue(sampleStudent);
       mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
 
       const result = await service.getTranscriptData(TENANT_ID, STUDENT_ID);
@@ -134,7 +141,7 @@ describe('TranscriptsService', () => {
     });
 
     it('should group snapshots by academic year and period', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue(sampleStudent);
+      mockStudentFacade.findOneGeneric.mockResolvedValue(sampleStudent);
       mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([makePeriodSnapshot()]);
 
       const result = await service.getTranscriptData(TENANT_ID, STUDENT_ID);
@@ -147,7 +154,7 @@ describe('TranscriptsService', () => {
     });
 
     it('should write the result to Redis cache after computing', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue(sampleStudent);
+      mockStudentFacade.findOneGeneric.mockResolvedValue(sampleStudent);
       mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
 
       await service.getTranscriptData(TENANT_ID, STUDENT_ID);
@@ -161,7 +168,7 @@ describe('TranscriptsService', () => {
     });
 
     it('should include student year_group name in the response', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue(sampleStudent);
+      mockStudentFacade.findOneGeneric.mockResolvedValue(sampleStudent);
       mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
 
       const result = await service.getTranscriptData(TENANT_ID, STUDENT_ID);
@@ -170,7 +177,7 @@ describe('TranscriptsService', () => {
     });
 
     it('should handle students with no year group gracefully', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue({ ...sampleStudent, year_group: null });
+      mockStudentFacade.findOneGeneric.mockResolvedValue({ ...sampleStudent, year_group: null });
       mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
 
       const result = await service.getTranscriptData(TENANT_ID, STUDENT_ID);
@@ -180,7 +187,7 @@ describe('TranscriptsService', () => {
 
     it('should still compute transcript when Redis get throws an error', async () => {
       mockRedis._client.get.mockRejectedValue(new Error('Redis connection error'));
-      mockPrisma.student.findFirst.mockResolvedValue(sampleStudent);
+      mockStudentFacade.findOneGeneric.mockResolvedValue(sampleStudent);
       mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
 
       const result = await service.getTranscriptData(TENANT_ID, STUDENT_ID);

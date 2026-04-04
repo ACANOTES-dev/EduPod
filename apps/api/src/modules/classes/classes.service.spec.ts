@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
+import { MOCK_FACADE_PROVIDERS, AcademicReadFacade, StaffProfileReadFacade } from '../../common/tests/mock-facades';
 import { buildMockPrisma, buildMockRedis } from '../../../test/mock-factories';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -78,6 +79,7 @@ describe('ClassesService — create', () => {
   let service: ClassesService;
   let mockPrisma: ReturnType<typeof createMockPrisma>;
   let mockRedis: ReturnType<typeof createMockRedis>;
+  let createAcademicFacade: { findYearByIdOrThrow: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = createMockPrisma();
@@ -90,13 +92,19 @@ describe('ClassesService — create', () => {
       subject: null,
     });
 
+    createAcademicFacade = {
+      findYearByIdOrThrow: jest.fn().mockResolvedValue({ id: ACADEMIC_YEAR_ID }),
+    };
+
     mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
+        { provide: AcademicReadFacade, useValue: createAcademicFacade },
       ],
     }).compile();
 
@@ -120,7 +128,7 @@ describe('ClassesService — create', () => {
   });
 
   it('should throw NotFoundException when academic year does not exist', async () => {
-    mockPrisma.academicYear.findFirst.mockResolvedValue(null);
+    createAcademicFacade.findYearByIdOrThrow.mockRejectedValue(new NotFoundException({ code: 'ACADEMIC_YEAR_NOT_FOUND', message: 'Not found' }));
 
     await expect(service.create(TENANT_ID, baseCreateDto)).rejects.toThrow(NotFoundException);
   });
@@ -151,6 +159,7 @@ describe('ClassesService — findAll', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -238,6 +247,7 @@ describe('ClassesService — findOne', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -276,6 +286,7 @@ describe('ClassesService — update', () => {
   let service: ClassesService;
   let mockPrisma: ReturnType<typeof createMockPrisma>;
   let mockRedis: ReturnType<typeof createMockRedis>;
+  let updAcademicFacade: { findYearGroupByIdOrThrow: jest.Mock; findSubjectByIdOrThrow: jest.Mock; findYearByIdOrThrow: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = createMockPrisma();
@@ -286,11 +297,19 @@ describe('ClassesService — update', () => {
     // assertExists calls findFirst
     mockPrisma.class.findFirst.mockResolvedValue(baseClass);
 
+    updAcademicFacade = {
+      findYearGroupByIdOrThrow: jest.fn().mockResolvedValue(undefined),
+      findSubjectByIdOrThrow: jest.fn().mockResolvedValue(undefined),
+      findYearByIdOrThrow: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
+        { provide: AcademicReadFacade, useValue: updAcademicFacade },
       ],
     }).compile();
 
@@ -311,7 +330,7 @@ describe('ClassesService — update', () => {
   });
 
   it('should throw NotFoundException when year_group_id FK not found', async () => {
-    mockPrisma.yearGroup.findFirst.mockResolvedValue(null);
+    updAcademicFacade.findYearGroupByIdOrThrow.mockRejectedValue(new NotFoundException({ code: 'YEAR_GROUP_NOT_FOUND', message: 'Not found' }));
 
     await expect(
       service.update(TENANT_ID, CLASS_ID, { year_group_id: 'nonexistent' }),
@@ -365,6 +384,7 @@ describe('ClassesService — assignStaff', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -424,6 +444,7 @@ describe('ClassesService — removeStaff', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -487,6 +508,7 @@ describe('ClassesService — updateStatus', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -566,6 +588,7 @@ describe('ClassesService — findStaff', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -639,6 +662,7 @@ describe('ClassesService — preview', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -747,6 +771,7 @@ describe('ClassesService — create (room validation)', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -794,6 +819,8 @@ describe('ClassesService — update (FK validation)', () => {
   let service: ClassesService;
   let mockPrisma: ReturnType<typeof createMockPrisma>;
   let mockRedis: ReturnType<typeof createMockRedis>;
+  let fkAcademicFacade: { findSubjectByIdOrThrow: jest.Mock; findYearGroupByIdOrThrow: jest.Mock; findYearByIdOrThrow: jest.Mock };
+  let fkStaffProfileFacade: { existsOrThrow: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = createMockPrisma();
@@ -804,11 +831,23 @@ describe('ClassesService — update (FK validation)', () => {
     // assertExists calls findFirst
     mockPrisma.class.findFirst.mockResolvedValue(baseClass);
 
+    fkAcademicFacade = {
+      findSubjectByIdOrThrow: jest.fn().mockResolvedValue(undefined),
+      findYearGroupByIdOrThrow: jest.fn().mockResolvedValue(undefined),
+      findYearByIdOrThrow: jest.fn().mockResolvedValue(undefined),
+    };
+    fkStaffProfileFacade = {
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
+        { provide: AcademicReadFacade, useValue: fkAcademicFacade },
+        { provide: StaffProfileReadFacade, useValue: fkStaffProfileFacade },
       ],
     }).compile();
 
@@ -818,7 +857,7 @@ describe('ClassesService — update (FK validation)', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should throw NotFoundException when subject_id FK not found', async () => {
-    mockPrisma.subject.findFirst.mockResolvedValue(null);
+    fkAcademicFacade.findSubjectByIdOrThrow.mockRejectedValue(new NotFoundException({ code: 'SUBJECT_NOT_FOUND', message: 'Subject not found' }));
 
     await expect(
       service.update(TENANT_ID, CLASS_ID, { subject_id: 'nonexistent-subject' }),
@@ -826,7 +865,7 @@ describe('ClassesService — update (FK validation)', () => {
   });
 
   it('should throw NotFoundException when homeroom_teacher_staff_id FK not found', async () => {
-    mockPrisma.staffProfile.findFirst.mockResolvedValue(null);
+    fkStaffProfileFacade.existsOrThrow.mockRejectedValue(new NotFoundException({ code: 'STAFF_NOT_FOUND', message: 'Staff not found' }));
 
     await expect(
       service.update(TENANT_ID, CLASS_ID, { homeroom_teacher_staff_id: 'nonexistent-staff' }),
@@ -834,7 +873,6 @@ describe('ClassesService — update (FK validation)', () => {
   });
 
   it('should allow update when subject_id FK exists', async () => {
-    mockPrisma.subject.findFirst.mockResolvedValue({ id: 'subject-1' });
 
     await service.update(TENANT_ID, CLASS_ID, { subject_id: 'subject-1' });
 
@@ -848,8 +886,6 @@ describe('ClassesService — update (FK validation)', () => {
   });
 
   it('should allow update when homeroom_teacher_staff_id FK exists', async () => {
-    mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: 'staff-1' });
-
     await service.update(TENANT_ID, CLASS_ID, { homeroom_teacher_staff_id: 'staff-1' });
 
     expect(mockRlsTx.class.update).toHaveBeenCalledWith(

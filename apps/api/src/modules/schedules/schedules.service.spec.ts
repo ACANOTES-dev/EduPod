@@ -6,11 +6,14 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  AttendanceReadFacade,
+  ClassesReadFacade,
+  MOCK_FACADE_PROVIDERS,
+  RoomsReadFacade,
+  StaffProfileReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
-import { RoomsReadFacade } from '../rooms/rooms-read.facade';
-import { ClassesReadFacade } from '../classes/classes-read.facade';
-import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
-import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
 
 const TENANT_ID = 'tenant-uuid-1';
 const USER_ID = 'user-uuid-1';
@@ -62,29 +65,38 @@ import { SchedulesService } from './schedules.service';
 describe('SchedulesService', () => {
   let service: SchedulesService;
   let mockPrisma: {
-    class: { findFirst: jest.Mock };
-    room: { findFirst: jest.Mock };
-    staffProfile: { findFirst: jest.Mock };
     schedule: {
       findFirst: jest.Mock;
       findMany: jest.Mock;
       count: jest.Mock;
     };
-    attendanceSession: { count: jest.Mock };
   };
   let mockConflictDetection: { detectConflicts: jest.Mock };
 
+  const mockClassesReadFacade = {
+    findById: jest.fn().mockResolvedValue(null),
+    existsOrThrow: jest.fn().mockResolvedValue(undefined),
+  };
+
+  const mockRoomsReadFacade = {
+    existsOrThrow: jest.fn().mockResolvedValue(undefined),
+  };
+
+  const mockStaffProfileReadFacade = {
+    existsOrThrow: jest.fn().mockResolvedValue(undefined),
+  };
+
+  const mockAttendanceReadFacade = {
+    countSessions: jest.fn().mockResolvedValue(0),
+  };
+
   beforeEach(async () => {
     mockPrisma = {
-      class: { findFirst: jest.fn() },
-      room: { findFirst: jest.fn() },
-      staffProfile: { findFirst: jest.fn() },
       schedule: {
         findFirst: jest.fn(),
         findMany: jest.fn(),
         count: jest.fn(),
       },
-      attendanceSession: { count: jest.fn() },
     };
 
     mockConflictDetection = {
@@ -93,42 +105,11 @@ describe('SchedulesService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        { provide: RoomsReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      exists: jest.fn().mockResolvedValue(false),
-      findActiveRooms: jest.fn().mockResolvedValue([]),
-      findActiveRoomBasics: jest.fn().mockResolvedValue([]),
-      countActiveRooms: jest.fn().mockResolvedValue(0),
-      findAllClosures: jest.fn().mockResolvedValue([]),
-      findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-      findClosureById: jest.fn().mockResolvedValue(null),
-    } },
-        { provide: ClassesReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
-      countEnrolledStudents: jest.fn().mockResolvedValue(0),
-      findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findByYearGroup: jest.fn().mockResolvedValue([]),
-      findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
-      countByAcademicYear: jest.fn().mockResolvedValue(0),
-      findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
-      findClassIdsForStudent: jest.fn().mockResolvedValue([]),
-      findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
-    } },
-        { provide: StaffProfileReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findByIds: jest.fn().mockResolvedValue([]),
-      findByUserId: jest.fn().mockResolvedValue(null),
-      findActiveStaff: jest.fn().mockResolvedValue([]),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
-    } },
-        { provide: AttendanceReadFacade, useValue: {
-      countSessions: jest.fn().mockResolvedValue(0),
-    } },
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
+        { provide: RoomsReadFacade, useValue: mockRoomsReadFacade },
+        { provide: StaffProfileReadFacade, useValue: mockStaffProfileReadFacade },
+        { provide: AttendanceReadFacade, useValue: mockAttendanceReadFacade },
         SchedulesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: ConflictDetectionService, useValue: mockConflictDetection },
@@ -136,6 +117,14 @@ describe('SchedulesService', () => {
     }).compile();
 
     service = module.get<SchedulesService>(SchedulesService);
+
+    jest.clearAllMocks();
+    // Re-set defaults after clearAllMocks
+    mockClassesReadFacade.findById.mockResolvedValue(null);
+    mockClassesReadFacade.existsOrThrow.mockResolvedValue(undefined);
+    mockRoomsReadFacade.existsOrThrow.mockResolvedValue(undefined);
+    mockStaffProfileReadFacade.existsOrThrow.mockResolvedValue(undefined);
+    mockAttendanceReadFacade.countSessions.mockResolvedValue(0);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -152,12 +141,10 @@ describe('SchedulesService', () => {
     };
 
     it('should create a schedule when no conflicts', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue({
+      mockClassesReadFacade.findById.mockResolvedValue({
         id: CLASS_ID,
         academic_year_id: AY_ID,
       });
-      mockPrisma.room.findFirst.mockResolvedValue({ id: ROOM_ID });
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: TEACHER_ID });
       mockConflictDetection.detectConflicts.mockResolvedValue({
         hard: [],
         soft: [],
@@ -175,7 +162,7 @@ describe('SchedulesService', () => {
     });
 
     it('should throw NotFoundException when class does not exist', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue(null);
+      mockClassesReadFacade.findById.mockResolvedValue(null);
 
       await expect(
         service.create(TENANT_ID, USER_ID, createDto, []),
@@ -183,11 +170,13 @@ describe('SchedulesService', () => {
     });
 
     it('should throw NotFoundException when room does not exist', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue({
+      mockClassesReadFacade.findById.mockResolvedValue({
         id: CLASS_ID,
         academic_year_id: AY_ID,
       });
-      mockPrisma.room.findFirst.mockResolvedValue(null);
+      mockRoomsReadFacade.existsOrThrow.mockRejectedValue(
+        new NotFoundException({ code: 'ROOM_NOT_FOUND', message: 'Room not found' }),
+      );
 
       await expect(
         service.create(TENANT_ID, USER_ID, createDto, []),
@@ -195,12 +184,13 @@ describe('SchedulesService', () => {
     });
 
     it('should throw NotFoundException when teacher does not exist', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue({
+      mockClassesReadFacade.findById.mockResolvedValue({
         id: CLASS_ID,
         academic_year_id: AY_ID,
       });
-      mockPrisma.room.findFirst.mockResolvedValue({ id: ROOM_ID });
-      mockPrisma.staffProfile.findFirst.mockResolvedValue(null);
+      mockStaffProfileReadFacade.existsOrThrow.mockRejectedValue(
+        new NotFoundException({ code: 'STAFF_PROFILE_NOT_FOUND', message: 'Staff not found' }),
+      );
 
       await expect(
         service.create(TENANT_ID, USER_ID, createDto, []),
@@ -208,12 +198,10 @@ describe('SchedulesService', () => {
     });
 
     it('should throw ConflictException when hard conflicts and no override', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue({
+      mockClassesReadFacade.findById.mockResolvedValue({
         id: CLASS_ID,
         academic_year_id: AY_ID,
       });
-      mockPrisma.room.findFirst.mockResolvedValue({ id: ROOM_ID });
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: TEACHER_ID });
       mockConflictDetection.detectConflicts.mockResolvedValue({
         hard: [{ type: 'room_double_book', severity: 'hard', message: 'Room conflict' }],
         soft: [],
@@ -225,12 +213,10 @@ describe('SchedulesService', () => {
     });
 
     it('should throw ForbiddenException when override requested but no permission', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue({
+      mockClassesReadFacade.findById.mockResolvedValue({
         id: CLASS_ID,
         academic_year_id: AY_ID,
       });
-      mockPrisma.room.findFirst.mockResolvedValue({ id: ROOM_ID });
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: TEACHER_ID });
       mockConflictDetection.detectConflicts.mockResolvedValue({
         hard: [{ type: 'room_double_book', severity: 'hard', message: 'Room conflict' }],
         soft: [],
@@ -286,7 +272,7 @@ describe('SchedulesService', () => {
   describe('remove', () => {
     it('should hard delete when no attendance sessions reference the schedule', async () => {
       mockPrisma.schedule.findFirst.mockResolvedValue({ id: SCHEDULE_ID });
-      mockPrisma.attendanceSession.count.mockResolvedValue(0);
+      mockAttendanceReadFacade.countSessions.mockResolvedValue(0);
 
       const result = await service.remove(TENANT_ID, SCHEDULE_ID);
 
@@ -295,7 +281,7 @@ describe('SchedulesService', () => {
 
     it('should end-date when attendance sessions reference the schedule', async () => {
       mockPrisma.schedule.findFirst.mockResolvedValue({ id: SCHEDULE_ID });
-      mockPrisma.attendanceSession.count.mockResolvedValue(5);
+      mockAttendanceReadFacade.countSessions.mockResolvedValue(5);
       mockTx.schedule.update.mockResolvedValue(mockScheduleRecord);
 
       const result = await service.remove(TENANT_ID, SCHEDULE_ID);

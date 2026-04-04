@@ -2,6 +2,12 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  ConfigurationReadFacade,
+  ChildProtectionReadFacade,
+  RbacReadFacade,
+} from '../../../common/tests/mock-facades';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -140,6 +146,8 @@ describe('ConcernService', () => {
     cpAccessGrant: { findFirst: jest.Mock };
     membershipRole: { findFirst: jest.Mock };
   };
+  let mockConfigFacade: { findSettings: jest.Mock };
+  let mockCpFacade: { hasActiveCpAccess: jest.Mock };
 
   beforeEach(async () => {
     mockPastoralEventService = {
@@ -177,6 +185,14 @@ describe('ConcernService', () => {
       },
     };
 
+    mockConfigFacade = {
+      findSettings: jest.fn().mockResolvedValue(makeTenantSettingsRecord()),
+    };
+
+    mockCpFacade = {
+      hasActiveCpAccess: jest.fn().mockResolvedValue(false),
+    };
+
     // Reset all RLS tx mocks
     for (const model of Object.values(mockRlsTx)) {
       for (const fn of Object.values(model)) {
@@ -189,6 +205,7 @@ describe('ConcernService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ConcernService,
         ConcernQueriesService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -210,6 +227,20 @@ describe('ConcernService', () => {
           useValue: {
             add: jest.fn().mockResolvedValue(undefined),
             getJob: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: ConfigurationReadFacade,
+          useValue: mockConfigFacade,
+        },
+        {
+          provide: ChildProtectionReadFacade,
+          useValue: mockCpFacade,
+        },
+        {
+          provide: RbacReadFacade,
+          useValue: {
+            findMembershipsByRoleKey: jest.fn().mockResolvedValue([]),
           },
         },
       ],
@@ -424,7 +455,7 @@ describe('ConcernService', () => {
     });
 
     it('rejects author_masked when tenant disables it', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeTenantSettingsRecord({ masked_authorship_enabled: false }),
       );
 
@@ -480,9 +511,7 @@ describe('ConcernService', () => {
       mockRlsTx.pastoralConcern.findMany.mockResolvedValue([maskedConcern]);
       mockRlsTx.pastoralConcern.count.mockResolvedValue(1);
       // DLP user has an active cp_access_grant
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue({
-        id: 'grant-1',
-      });
+      mockCpFacade.hasActiveCpAccess.mockResolvedValue(true);
 
       const result = await queriesService.list(
         TENANT_ID,
@@ -919,7 +948,7 @@ describe('ConcernService', () => {
         }),
       );
       // Tenant setting has parent_share_default_level = 'category_only' (Zod default)
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeTenantSettingsRecord({ parent_share_default_level: 'category_only' }),
       );
       mockPermissionCacheService.getPermissions.mockResolvedValue(['pastoral.view_tier1']);

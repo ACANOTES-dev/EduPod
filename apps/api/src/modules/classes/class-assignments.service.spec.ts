@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, AcademicReadFacade, StudentReadFacade, TenantReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { ClassAssignmentService } from './class-assignments.service';
@@ -45,7 +46,21 @@ function buildMockPrisma() {
   };
 }
 
-const activeAcademicYear = { id: YEAR_ID };
+const activeAcademicYear = { id: YEAR_ID, name: '2025/2026' };
+
+const mockAcademicReadFacade = {
+  findCurrentYear: jest.fn(),
+  findAllYearGroupsWithOrder: jest.fn(),
+};
+
+const mockStudentReadFacade = {
+  findManyGeneric: jest.fn(),
+};
+
+const mockTenantReadFacade = {
+  findBranding: jest.fn().mockResolvedValue(null),
+  findNameById: jest.fn().mockResolvedValue(null),
+};
 
 const baseStudent = {
   id: STUDENT_ID,
@@ -84,7 +99,14 @@ describe('ClassAssignmentService — getAssignments', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ClassAssignmentService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ClassAssignmentService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
+        { provide: StudentReadFacade, useValue: mockStudentReadFacade },
+        { provide: TenantReadFacade, useValue: mockTenantReadFacade },
+      ],
     }).compile();
 
     service = module.get<ClassAssignmentService>(ClassAssignmentService);
@@ -93,14 +115,14 @@ describe('ClassAssignmentService — getAssignments', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should throw NotFoundException if no active academic year', async () => {
-    mockPrisma.academicYear.findFirst.mockResolvedValue(null);
+    mockAcademicReadFacade.findCurrentYear.mockResolvedValue(null);
 
     await expect(service.getAssignments(TENANT_ID)).rejects.toThrow(NotFoundException);
   });
 
   it('should return year groups with students and classes', async () => {
-    mockPrisma.academicYear.findFirst.mockResolvedValue(activeAcademicYear);
-    mockPrisma.student.findMany.mockResolvedValue([
+    mockAcademicReadFacade.findCurrentYear.mockResolvedValue(activeAcademicYear);
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([
       {
         ...baseStudent,
         class_homeroom_id: CLASS_ID,
@@ -108,7 +130,7 @@ describe('ClassAssignmentService — getAssignments', () => {
       },
     ]);
     mockPrisma.class.findMany.mockResolvedValue([baseClass]);
-    mockPrisma.yearGroup.findMany.mockResolvedValue([baseYearGroup]);
+    mockAcademicReadFacade.findAllYearGroupsWithOrder.mockResolvedValue([baseYearGroup]);
 
     const result = await service.getAssignments(TENANT_ID);
 
@@ -119,9 +141,9 @@ describe('ClassAssignmentService — getAssignments', () => {
   });
 
   it('should count unassigned students correctly', async () => {
-    mockPrisma.academicYear.findFirst.mockResolvedValue(activeAcademicYear);
+    mockAcademicReadFacade.findCurrentYear.mockResolvedValue(activeAcademicYear);
     // Two students: one assigned, one unassigned
-    mockPrisma.student.findMany.mockResolvedValue([
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([
       {
         ...baseStudent,
         id: STUDENT_ID,
@@ -131,7 +153,7 @@ describe('ClassAssignmentService — getAssignments', () => {
       { ...baseStudent, id: 'student-2', class_homeroom_id: null, homeroom_class: null },
     ]);
     mockPrisma.class.findMany.mockResolvedValue([baseClass]);
-    mockPrisma.yearGroup.findMany.mockResolvedValue([baseYearGroup]);
+    mockAcademicReadFacade.findAllYearGroupsWithOrder.mockResolvedValue([baseYearGroup]);
 
     const result = await service.getAssignments(TENANT_ID);
 
@@ -139,10 +161,10 @@ describe('ClassAssignmentService — getAssignments', () => {
   });
 
   it('should return empty year_groups when no students or classes for a year group', async () => {
-    mockPrisma.academicYear.findFirst.mockResolvedValue(activeAcademicYear);
-    mockPrisma.student.findMany.mockResolvedValue([]);
+    mockAcademicReadFacade.findCurrentYear.mockResolvedValue(activeAcademicYear);
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([]);
     mockPrisma.class.findMany.mockResolvedValue([]);
-    mockPrisma.yearGroup.findMany.mockResolvedValue([baseYearGroup]);
+    mockAcademicReadFacade.findAllYearGroupsWithOrder.mockResolvedValue([baseYearGroup]);
 
     const result = await service.getAssignments(TENANT_ID);
 
@@ -152,8 +174,8 @@ describe('ClassAssignmentService — getAssignments', () => {
   });
 
   it('should map enrolled_count from _count on homeroom classes', async () => {
-    mockPrisma.academicYear.findFirst.mockResolvedValue(activeAcademicYear);
-    mockPrisma.student.findMany.mockResolvedValue([
+    mockAcademicReadFacade.findCurrentYear.mockResolvedValue(activeAcademicYear);
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([
       {
         ...baseStudent,
         class_homeroom_id: CLASS_ID,
@@ -163,7 +185,7 @@ describe('ClassAssignmentService — getAssignments', () => {
     mockPrisma.class.findMany.mockResolvedValue([
       { ...baseClass, _count: { class_enrolments: 12 } },
     ]);
-    mockPrisma.yearGroup.findMany.mockResolvedValue([baseYearGroup]);
+    mockAcademicReadFacade.findAllYearGroupsWithOrder.mockResolvedValue([baseYearGroup]);
 
     const result = await service.getAssignments(TENANT_ID);
 
@@ -187,7 +209,14 @@ describe('ClassAssignmentService — bulkAssign', () => {
     mockRlsTx.student.update.mockReset().mockResolvedValue({});
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ClassAssignmentService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ClassAssignmentService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
+        { provide: StudentReadFacade, useValue: mockStudentReadFacade },
+        { provide: TenantReadFacade, useValue: mockTenantReadFacade },
+      ],
     }).compile();
 
     service = module.get<ClassAssignmentService>(ClassAssignmentService);
@@ -427,7 +456,14 @@ describe('ClassAssignmentService — getExportData', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ClassAssignmentService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ClassAssignmentService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
+        { provide: StudentReadFacade, useValue: mockStudentReadFacade },
+        { provide: TenantReadFacade, useValue: mockTenantReadFacade },
+      ],
     }).compile();
 
     service = module.get<ClassAssignmentService>(ClassAssignmentService);
@@ -436,14 +472,14 @@ describe('ClassAssignmentService — getExportData', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should throw NotFoundException if no active academic year', async () => {
-    mockPrisma.academicYear.findFirst.mockResolvedValue(null);
+    mockAcademicReadFacade.findCurrentYear.mockResolvedValue(null);
 
     await expect(service.getExportData(TENANT_ID)).rejects.toThrow(NotFoundException);
   });
 
   it('should return class lists with students grouped by class', async () => {
-    mockPrisma.academicYear.findFirst.mockResolvedValue({ id: YEAR_ID, name: '2025/2026' });
-    mockPrisma.student.findMany.mockResolvedValue([
+    mockAcademicReadFacade.findCurrentYear.mockResolvedValue({ id: YEAR_ID, name: '2025/2026' });
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([
       {
         id: STUDENT_ID,
         first_name: 'Alice',
@@ -471,12 +507,12 @@ describe('ClassAssignmentService — getExportData', () => {
         year_group: { name: 'Year 10', display_order: 1 },
       },
     ]);
-    mockPrisma.tenantBranding.findUnique.mockResolvedValue({
+    mockTenantReadFacade.findBranding.mockResolvedValue({
       school_name_display: 'Test School',
       school_name_ar: null,
       logo_url: 'https://example.com/logo.png',
     });
-    mockPrisma.tenant.findUnique.mockResolvedValue({ name: 'Test School' });
+    mockTenantReadFacade.findNameById.mockResolvedValue('Test School');
 
     const result = await service.getExportData(TENANT_ID);
 

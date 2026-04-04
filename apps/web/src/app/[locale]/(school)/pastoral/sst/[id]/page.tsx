@@ -59,7 +59,8 @@ export default function SstMeetingDetailPage() {
   }, [meetingId]);
 
   React.useEffect(() => {
-    void loadMeeting().catch(() => {
+    void loadMeeting().catch((err) => {
+      console.error('[PastoralSstPage]', err);
       setMeeting(null);
     });
   }, [loadMeeting]);

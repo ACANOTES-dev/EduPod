@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, AcademicReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourHouseService } from './behaviour-house.service';
@@ -110,9 +111,11 @@ describe('BehaviourHouseService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         BehaviourHouseService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: BehaviourPointsService, useValue: mockPointsService },
+        { provide: AcademicReadFacade, useValue: { findCurrentYear: mockPrisma.academicYear.findFirst } },
       ],
     }).compile();
 

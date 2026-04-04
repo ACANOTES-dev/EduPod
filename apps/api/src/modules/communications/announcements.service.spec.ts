@@ -2,6 +2,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade } from '../../common/tests/mock-facades';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -87,6 +88,9 @@ describe('AnnouncementsService', () => {
   let mockQueue: {
     add: jest.Mock;
   };
+  let mockConfigFacade: {
+    findSettings: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -128,14 +132,20 @@ describe('AnnouncementsService', () => {
       add: jest.fn(),
     };
 
+    mockConfigFacade = {
+      findSettings: jest.fn().mockResolvedValue(null),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AnnouncementsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: ApprovalRequestsService, useValue: mockApprovalService },
         { provide: AudienceResolutionService, useValue: mockAudienceService },
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: getQueueToken('notifications'), useValue: mockQueue },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
       ],
     }).compile();
 
@@ -380,7 +390,7 @@ describe('AnnouncementsService', () => {
     it('should publish immediately when no approval and no schedule', async () => {
       const draftAnnouncement = buildMockAnnouncement();
       mockPrisma.announcement.findFirst.mockResolvedValue(draftAnnouncement);
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue({
+      mockConfigFacade.findSettings.mockResolvedValue({
         settings: { communications: { requireApprovalForAnnouncements: false } },
       });
 
@@ -403,7 +413,7 @@ describe('AnnouncementsService', () => {
     it('should schedule when scheduled_publish_at is in the future', async () => {
       const draftAnnouncement = buildMockAnnouncement();
       mockPrisma.announcement.findFirst.mockResolvedValue(draftAnnouncement);
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue({
+      mockConfigFacade.findSettings.mockResolvedValue({
         settings: { communications: { requireApprovalForAnnouncements: false } },
       });
 

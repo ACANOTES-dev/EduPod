@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -38,6 +39,8 @@ export function MergeDialog({
   currentHouseholdId,
   onMerged,
 }: MergeDialogProps) {
+  const t = useTranslations('households');
+  const tCommon = useTranslations('common');
   const [households, setHouseholds] = React.useState<Household[]>([]);
   const [targetId, setTargetId] = React.useState('');
   const [isMerging, setIsMerging] = React.useState(false);
@@ -74,7 +77,8 @@ export function MergeDialog({
           data: { students_count: number; parents_count: number; target_name: string };
         }>(`/api/v1/households/${currentHouseholdId}/merge-preview?target_id=${targetId}`);
         setPreview(res.data);
-      } catch {
+      } catch (err) {
+        console.error('[MergeDialog]', err);
         setPreview(null);
       }
     };
@@ -95,7 +99,8 @@ export function MergeDialog({
       toast.success('Households merged successfully');
       onOpenChange(false);
       onMerged();
-    } catch {
+    } catch (err) {
+      console.error('[MergeDialog]', err);
       toast.error('Failed to merge households');
     } finally {
       setIsMerging(false);
@@ -106,19 +111,16 @@ export function MergeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Merge Household</DialogTitle>
-          <DialogDescription>
-            All students, parents, and emergency contacts from this household will be moved to the
-            target household. This action cannot be undone.
-          </DialogDescription>
+          <DialogTitle>{t('mergeHousehold')}</DialogTitle>
+          <DialogDescription>{t('allStudentsParentsAndEmergency')}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-text-primary">Merge into</label>
+            <label className="text-sm font-medium text-text-primary">{t('mergeInto')}</label>
             <Select value={targetId} onValueChange={setTargetId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select target household..." />
+                <SelectValue placeholder={t('selectTargetHousehold')} />
               </SelectTrigger>
               <SelectContent>
                 {households.map((h) => (
@@ -132,23 +134,20 @@ export function MergeDialog({
 
           {preview && (
             <div className="rounded-xl border border-border bg-surface-secondary p-4 space-y-2">
-              <p className="text-sm font-semibold text-text-primary">What will be moved:</p>
+              <p className="text-sm font-semibold text-text-primary">{t('whatWillBeMoved')}</p>
               <ul className="space-y-1 text-sm text-text-secondary">
-                <li>{preview.students_count} student(s)</li>
-                <li>{preview.parents_count} parent(s)</li>
-                <li>All emergency contacts</li>
+                <li>{preview.students_count}{t('studentS')}</li>
+                <li>{preview.parents_count}{t('parentS')}</li>
+                <li>{t('allEmergencyContacts')}</li>
               </ul>
-              <p className="text-xs text-text-tertiary">
-                Destination: <strong>{preview.target_name}</strong>
+              <p className="text-xs text-text-tertiary">{t('destination')}<strong>{preview.target_name}</strong>
               </p>
             </div>
           )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{tCommon('cancel')}</Button>
           <Button
             variant="destructive"
             disabled={!targetId || isMerging}

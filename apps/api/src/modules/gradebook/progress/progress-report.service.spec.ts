@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ClassesReadFacade, AcademicReadFacade } from '../../../common/tests/mock-facades';
 import { NotificationsService } from '../../communications/notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -74,6 +75,9 @@ const baseEntryFromTx = {
 
 // ─── generate Tests ───────────────────────────────────────────────────────────
 
+const mockClassesFacade = { existsOrThrow: jest.fn(), findEnrolmentsGeneric: jest.fn() };
+const mockAcademicFacade = { findPeriodById: jest.fn(), findSubjectsByIds: jest.fn() };
+
 describe('ProgressReportService — generate', () => {
   let service: ProgressReportService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
@@ -86,15 +90,18 @@ describe('ProgressReportService — generate', () => {
     mockRlsTx.progressReport.create.mockReset().mockResolvedValue(baseReportFromTx);
     mockRlsTx.progressReportEntry.create.mockReset().mockResolvedValue(baseEntryFromTx);
 
-    mockPrisma.class.findFirst.mockResolvedValue(baseClass);
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue(basePeriod);
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([baseEnrolment]);
+    mockClassesFacade.existsOrThrow.mockResolvedValue(true);
+    mockAcademicFacade.findPeriodById.mockResolvedValue(basePeriod);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([baseEnrolment]);
     mockPrisma.assessment.findMany.mockResolvedValue([]);
-    mockPrisma.subject.findMany.mockResolvedValue([baseSubject]);
+    mockAcademicFacade.findSubjectsByIds.mockResolvedValue([baseSubject]);
     mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
         ProgressReportService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: NotificationsService, useValue: mockNotifications },
@@ -107,7 +114,7 @@ describe('ProgressReportService — generate', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should throw NotFoundException when class does not exist', async () => {
-    mockPrisma.class.findFirst.mockResolvedValue(null);
+    mockClassesFacade.existsOrThrow.mockRejectedValue(new NotFoundException('class not found'));
 
     await expect(
       service.generate(TENANT_ID, USER_ID, { class_id: CLASS_ID, academic_period_id: PERIOD_ID }),
@@ -115,7 +122,7 @@ describe('ProgressReportService — generate', () => {
   });
 
   it('should throw NotFoundException when period does not exist', async () => {
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue(null);
+    mockAcademicFacade.findPeriodById.mockResolvedValue(null);
 
     await expect(
       service.generate(TENANT_ID, USER_ID, { class_id: CLASS_ID, academic_period_id: PERIOD_ID }),
@@ -123,7 +130,7 @@ describe('ProgressReportService — generate', () => {
   });
 
   it('should return generated:0 when no students are enrolled', async () => {
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([]);
 
     const result = await service.generate(TENANT_ID, USER_ID, {
       class_id: CLASS_ID,
@@ -206,6 +213,7 @@ describe('ProgressReportService — send', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ProgressReportService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: NotificationsService, useValue: mockNotifications },
@@ -296,6 +304,7 @@ describe('ProgressReportService — updateEntry', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ProgressReportService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: NotificationsService, useValue: buildMockNotificationsService() },
@@ -344,6 +353,7 @@ describe('ProgressReportService — list', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ProgressReportService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: NotificationsService, useValue: buildMockNotificationsService() },

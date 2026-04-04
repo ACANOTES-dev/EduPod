@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ParentReadFacade, ClassesReadFacade, TenantReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { HomeworkCompletionsService } from './homework-completions.service';
@@ -83,6 +84,7 @@ describe('HomeworkCompletionsService — listCompletions', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkCompletionsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -149,6 +151,9 @@ describe('HomeworkCompletionsService — studentSelfReport', () => {
   let module: TestingModule;
   let service: HomeworkCompletionsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockParentFacade: { findActiveByUserId: jest.Mock; findLinkedStudentIds: jest.Mock };
+  let mockClassesFacade: { findClassIdsForStudent: jest.Mock };
+  let mockTenantFacade: { findSettings: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
@@ -156,10 +161,25 @@ describe('HomeworkCompletionsService — studentSelfReport', () => {
       Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
     );
 
+    mockParentFacade = {
+      findActiveByUserId: jest.fn().mockResolvedValue({ id: 'parent-1' }),
+      findLinkedStudentIds: jest.fn().mockResolvedValue([STUDENT_ID]),
+    };
+    mockClassesFacade = {
+      findClassIdsForStudent: jest.fn().mockResolvedValue([CLASS_ID]),
+    };
+    mockTenantFacade = {
+      findSettings: jest.fn().mockResolvedValue({ homework: { allow_student_self_report: true } }),
+    };
+
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkCompletionsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: ParentReadFacade, useValue: mockParentFacade },
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: TenantReadFacade, useValue: mockTenantFacade },
       ],
     }).compile();
 
@@ -175,17 +195,6 @@ describe('HomeworkCompletionsService — studentSelfReport', () => {
 
   it('should upsert completion via RLS transaction', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(publishedAssignment);
-    mockPrisma.parent.findFirst.mockResolvedValue({
-      student_parents: [
-        {
-          student_id: STUDENT_ID,
-          student: {
-            id: STUDENT_ID,
-            class_enrolments: [{ id: 'enrol-1' }],
-          },
-        },
-      ],
-    });
     const upserted = {
       id: 'comp-1',
       student_id: STUDENT_ID,
@@ -208,17 +217,6 @@ describe('HomeworkCompletionsService — studentSelfReport', () => {
 
   it('should set completed_at to null when status is not completed', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(publishedAssignment);
-    mockPrisma.parent.findFirst.mockResolvedValue({
-      student_parents: [
-        {
-          student_id: STUDENT_ID,
-          student: {
-            id: STUDENT_ID,
-            class_enrolments: [{ id: 'enrol-1' }],
-          },
-        },
-      ],
-    });
     mockRlsTx.homeworkCompletion.upsert.mockResolvedValue({
       id: 'comp-1',
       status: 'in_progress',
@@ -235,17 +233,8 @@ describe('HomeworkCompletionsService — studentSelfReport', () => {
 
   it('should throw NotFoundException when no enrolled student found', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(publishedAssignment);
-    mockPrisma.parent.findFirst.mockResolvedValue({
-      student_parents: [
-        {
-          student_id: STUDENT_ID,
-          student: {
-            id: STUDENT_ID,
-            class_enrolments: [], // not enrolled
-          },
-        },
-      ],
-    });
+    // Student is not enrolled in the assignment's class
+    mockClassesFacade.findClassIdsForStudent.mockResolvedValue([]);
 
     await expect(
       service.studentSelfReport(TENANT_ID, HOMEWORK_ID, USER_ID, {
@@ -256,7 +245,7 @@ describe('HomeworkCompletionsService — studentSelfReport', () => {
 
   it('should throw NotFoundException when parent not found', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(publishedAssignment);
-    mockPrisma.parent.findFirst.mockResolvedValue(null);
+    mockParentFacade.findActiveByUserId.mockResolvedValue(null);
 
     await expect(
       service.studentSelfReport(TENANT_ID, HOMEWORK_ID, USER_ID, {
@@ -289,6 +278,7 @@ describe('HomeworkCompletionsService — teacherUpdate', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkCompletionsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -376,6 +366,7 @@ describe('HomeworkCompletionsService — bulkMark', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkCompletionsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -441,6 +432,7 @@ describe('HomeworkCompletionsService — getCompletionRate', () => {
   let module: TestingModule;
   let service: HomeworkCompletionsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockClassesFacadeRate: { countEnrolledStudents: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
@@ -448,10 +440,16 @@ describe('HomeworkCompletionsService — getCompletionRate', () => {
       Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
     );
 
+    mockClassesFacadeRate = {
+      countEnrolledStudents: jest.fn().mockResolvedValue(0),
+    };
+
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkCompletionsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: ClassesReadFacade, useValue: mockClassesFacadeRate },
       ],
     }).compile();
 
@@ -467,7 +465,7 @@ describe('HomeworkCompletionsService — getCompletionRate', () => {
 
   it('should calculate correct completion rate', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(publishedAssignment);
-    mockPrisma.classEnrolment.count.mockResolvedValue(20);
+    mockClassesFacadeRate.countEnrolledStudents.mockResolvedValue(20);
     mockPrisma.homeworkCompletion.findMany.mockResolvedValue([
       { status: 'completed' },
       { status: 'completed' },
@@ -490,7 +488,7 @@ describe('HomeworkCompletionsService — getCompletionRate', () => {
 
   it('should handle 0 students without division error', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(publishedAssignment);
-    mockPrisma.classEnrolment.count.mockResolvedValue(0);
+    mockClassesFacadeRate.countEnrolledStudents.mockResolvedValue(0);
     mockPrisma.homeworkCompletion.findMany.mockResolvedValue([]);
 
     const result = await service.getCompletionRate(TENANT_ID, HOMEWORK_ID);
@@ -510,7 +508,7 @@ describe('HomeworkCompletionsService — getCompletionRate', () => {
 
   it('should count all status types correctly', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(publishedAssignment);
-    mockPrisma.classEnrolment.count.mockResolvedValue(10);
+    mockClassesFacadeRate.countEnrolledStudents.mockResolvedValue(10);
     mockPrisma.homeworkCompletion.findMany.mockResolvedValue([
       { status: 'completed' },
       { status: 'completed' },

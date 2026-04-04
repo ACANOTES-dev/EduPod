@@ -7,6 +7,7 @@ import type {
   PersonalWorkloadSummary,
 } from '@school/shared/staff-wellbeing';
 
+import { MOCK_FACADE_PROVIDERS, StaffProfileReadFacade } from '../../../common/tests/mock-facades';
 import { BLOCK_IMPERSONATION_KEY } from '../../../common/decorators/block-impersonation.decorator';
 import { MODULE_ENABLED_KEY } from '../../../common/decorators/module-enabled.decorator';
 import { AuthGuard } from '../../../common/guards/auth.guard';
@@ -135,9 +136,14 @@ describe('PersonalWorkloadController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PersonalWorkloadController],
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: WorkloadComputeService, useValue: mockComputeService },
         { provide: WorkloadCacheService, useValue: mockCacheService },
         { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: StaffProfileReadFacade,
+          useValue: { findByUserId: mockPrisma.staffProfile.findUnique },
+        },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -228,15 +234,10 @@ describe('PersonalWorkloadController', () => {
 
       await controller.getSummary(TENANT, USER);
 
-      expect(mockPrisma.staffProfile.findUnique).toHaveBeenCalledWith({
-        where: {
-          idx_staff_profiles_tenant_user: {
-            tenant_id: TENANT_ID,
-            user_id: USER_ID,
-          },
-        },
-        select: { id: true },
-      });
+      expect(mockPrisma.staffProfile.findUnique).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+      );
       expect(mockComputeService.getPersonalWorkloadSummary).toHaveBeenCalledWith(
         TENANT_ID,
         STAFF_PROFILE_ID,

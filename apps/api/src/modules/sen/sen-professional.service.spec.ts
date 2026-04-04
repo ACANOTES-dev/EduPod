@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, PastoralReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { SenProfessionalService } from './sen-professional.service';
@@ -71,7 +72,12 @@ describe('SenProfessionalService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [SenProfessionalService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        SenProfessionalService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: PastoralReadFacade, useValue: { findReferralById: pastoralReferralMock.findFirst } },
+      ],
     }).compile();
 
     service = module.get<SenProfessionalService>(SenProfessionalService);
@@ -143,10 +149,10 @@ describe('SenProfessionalService', () => {
       });
 
       expect(result.pastoral_referral_id).toBe(PASTORAL_REFERRAL_ID);
-      expect(pastoralReferralMock.findFirst).toHaveBeenCalledWith({
-        where: { id: PASTORAL_REFERRAL_ID, tenant_id: TENANT_ID },
-        select: { id: true },
-      });
+      expect(pastoralReferralMock.findFirst).toHaveBeenCalledWith(
+        TENANT_ID,
+        PASTORAL_REFERRAL_ID,
+      );
     });
 
     it('should throw NotFoundException when pastoral referral does not exist', async () => {

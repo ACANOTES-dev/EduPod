@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AcademicReadFacade, AttendanceReadFacade, ClassesReadFacade, MOCK_FACADE_PROVIDERS, StudentReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { ReportCardsQueriesService } from './report-cards-queries.service';
@@ -32,6 +33,24 @@ function buildMockPrisma() {
   };
 }
 
+function buildMockAcademicReadFacade() {
+  return {
+    findPeriodById: jest.fn().mockResolvedValue(null),
+  };
+}
+
+function buildMockClassesReadFacade() {
+  return {
+    findEnrolmentsGeneric: jest.fn().mockResolvedValue([]),
+  };
+}
+
+function buildMockStudentReadFacade() {
+  return {
+    findOneGeneric: jest.fn().mockResolvedValue(null),
+  };
+}
+
 // ─── findAll Tests ───────────────────────────────────────────────────────────
 
 describe('ReportCardsQueriesService — findAll', () => {
@@ -42,7 +61,7 @@ describe('ReportCardsQueriesService — findAll', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [...MOCK_FACADE_PROVIDERS, ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
@@ -163,7 +182,7 @@ describe('ReportCardsQueriesService — findOne', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [...MOCK_FACADE_PROVIDERS, ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
@@ -207,7 +226,7 @@ describe('ReportCardsQueriesService — gradeOverview', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [...MOCK_FACADE_PROVIDERS, ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
@@ -303,12 +322,25 @@ describe('ReportCardsQueriesService — gradeOverview', () => {
 describe('ReportCardsQueriesService — buildBatchSnapshots', () => {
   let service: ReportCardsQueriesService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockAcademicFacade: ReturnType<typeof buildMockAcademicReadFacade>;
+  let mockClassesFacade: ReturnType<typeof buildMockClassesReadFacade>;
+  let mockAttendanceFacade: { groupSummariesByStatus: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockAcademicFacade = buildMockAcademicReadFacade();
+    mockClassesFacade = buildMockClassesReadFacade();
+    mockAttendanceFacade = { groupSummariesByStatus: jest.fn().mockResolvedValue([]) };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ReportCardsQueriesService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: AttendanceReadFacade, useValue: mockAttendanceFacade },
+      ],
     }).compile();
 
     service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
@@ -317,7 +349,7 @@ describe('ReportCardsQueriesService — buildBatchSnapshots', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should throw NotFoundException when period not found', async () => {
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue(null);
+    mockAcademicFacade.findPeriodById.mockResolvedValue(null);
 
     await expect(service.buildBatchSnapshots(TENANT_ID, CLASS_ID, PERIOD_ID)).rejects.toThrow(
       NotFoundException,
@@ -325,14 +357,14 @@ describe('ReportCardsQueriesService — buildBatchSnapshots', () => {
   });
 
   it('should return empty array when no enrolments', async () => {
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue({
+    mockAcademicFacade.findPeriodById.mockResolvedValue({
       id: PERIOD_ID,
       name: 'Term 1',
       start_date: new Date('2026-01-01'),
       end_date: new Date('2026-03-31'),
       academic_year: { id: 'ay-1', name: '2025-2026' },
     });
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([]);
 
     const result = await service.buildBatchSnapshots(TENANT_ID, CLASS_ID, PERIOD_ID);
 
@@ -340,14 +372,14 @@ describe('ReportCardsQueriesService — buildBatchSnapshots', () => {
   });
 
   it('should build payloads for each enrolled student', async () => {
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue({
+    mockAcademicFacade.findPeriodById.mockResolvedValue({
       id: PERIOD_ID,
       name: 'Term 1',
       start_date: new Date('2026-01-01'),
       end_date: new Date('2026-03-31'),
       academic_year: { id: 'ay-1', name: '2025-2026' },
     });
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([
       {
         student: {
           id: STUDENT_ID,
@@ -369,9 +401,9 @@ describe('ReportCardsQueriesService — buildBatchSnapshots', () => {
         subject: { id: 's1', name: 'Math', code: 'MATH' },
       },
     ]);
-    mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue([
-      { derived_status: 'present', _count: { id: 40 } },
-      { derived_status: 'absent', _count: { id: 5 } },
+    mockAttendanceFacade.groupSummariesByStatus.mockResolvedValue([
+      { derived_status: 'present', _count: { _all: 40 } },
+      { derived_status: 'absent', _count: { _all: 5 } },
     ]);
 
     const result = await service.buildBatchSnapshots(TENANT_ID, CLASS_ID, PERIOD_ID);
@@ -395,12 +427,19 @@ describe('ReportCardsQueriesService — buildBatchSnapshots', () => {
 describe('ReportCardsQueriesService — generateTranscript', () => {
   let service: ReportCardsQueriesService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockStudentFacade: ReturnType<typeof buildMockStudentReadFacade>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockStudentFacade = buildMockStudentReadFacade();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ReportCardsQueriesService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
+      ],
     }).compile();
 
     service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
@@ -409,7 +448,7 @@ describe('ReportCardsQueriesService — generateTranscript', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should throw NotFoundException when student not found', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue(null);
+    mockStudentFacade.findOneGeneric.mockResolvedValue(null);
 
     await expect(service.generateTranscript(TENANT_ID, STUDENT_ID)).rejects.toThrow(
       NotFoundException,
@@ -417,7 +456,7 @@ describe('ReportCardsQueriesService — generateTranscript', () => {
   });
 
   it('should return structured transcript with years and periods', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({
+    mockStudentFacade.findOneGeneric.mockResolvedValue({
       id: STUDENT_ID,
       first_name: 'Ali',
       last_name: 'Hassan',
@@ -463,7 +502,7 @@ describe('ReportCardsQueriesService — generateTranscript', () => {
   });
 
   it('should return empty academic_years when no snapshots', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({
+    mockStudentFacade.findOneGeneric.mockResolvedValue({
       id: STUDENT_ID,
       first_name: 'Ali',
       last_name: 'Hassan',

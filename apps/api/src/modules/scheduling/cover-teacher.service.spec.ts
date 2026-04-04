@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 import { StaffAvailabilityReadFacade } from '../staff-availability/staff-availability-read.facade';
@@ -19,6 +20,7 @@ const PERIOD_TEMPLATE = {
 
 describe('CoverTeacherService', () => {
   let service: CoverTeacherService;
+  let module: TestingModule;
   let mockPrisma: {
     schedulePeriodTemplate: { findFirst: jest.Mock };
     schedule: { findMany: jest.Mock };
@@ -36,8 +38,9 @@ describe('CoverTeacherService', () => {
       staffAvailability: { findMany: jest.fn().mockResolvedValue([]) },
     };
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: SchedulesReadFacade, useValue: {
       findById: jest.fn().mockResolvedValue(null),
       findCoreById: jest.fn().mockResolvedValue(null),
@@ -98,15 +101,16 @@ describe('CoverTeacherService', () => {
 
     it('should return available teachers excluding busy ones', async () => {
       mockPrisma.schedulePeriodTemplate.findFirst.mockResolvedValue(PERIOD_TEMPLATE);
-      // staff-1 is busy at this time
-      mockPrisma.schedule.findMany
-        .mockResolvedValueOnce([{ teacher_staff_id: 'staff-1' }]) // busy teachers
-        .mockResolvedValueOnce([]); // weekly schedules for period count
-      mockPrisma.staffProfile.findMany.mockResolvedValue([
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set(['staff-1']));
+      (schedFacade.countWeeklyPeriodsPerTeacher as jest.Mock).mockResolvedValue(new Map());
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
         { id: 'staff-1', user: { first_name: 'Alice', last_name: 'Busy' } },
         { id: 'staff-2', user: { first_name: 'Bob', last_name: 'Free' } },
       ]);
-      mockPrisma.staffAvailability.findMany.mockResolvedValue([]);
+      const availFacade = module.get(StaffAvailabilityReadFacade);
+      (availFacade.findByWeekday as jest.Mock).mockResolvedValue([]);
 
       const result = await service.findCoverTeacher(TENANT_ID, AY_ID, 1, 1);
 
@@ -117,10 +121,11 @@ describe('CoverTeacherService', () => {
 
     it('should rank competent teachers higher than non-competent ones', async () => {
       mockPrisma.schedulePeriodTemplate.findFirst.mockResolvedValue(PERIOD_TEMPLATE);
-      mockPrisma.schedule.findMany
-        .mockResolvedValueOnce([]) // no busy teachers
-        .mockResolvedValueOnce([]); // no weekly schedules
-      mockPrisma.staffProfile.findMany.mockResolvedValue([
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set());
+      (schedFacade.countWeeklyPeriodsPerTeacher as jest.Mock).mockResolvedValue(new Map());
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
         { id: 'staff-1', user: { first_name: 'Non', last_name: 'Competent' } },
         { id: 'staff-2', user: { first_name: 'Is', last_name: 'Competent' } },
       ]);
@@ -128,7 +133,8 @@ describe('CoverTeacherService', () => {
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([
         { staff_profile_id: 'staff-2', is_primary: false },
       ]);
-      mockPrisma.staffAvailability.findMany.mockResolvedValue([]);
+      const availFacade = module.get(StaffAvailabilityReadFacade);
+      (availFacade.findByWeekday as jest.Mock).mockResolvedValue([]);
 
       const result = await service.findCoverTeacher(
         TENANT_ID, AY_ID, 1, 1, SUBJECT_ID, YG_ID,
@@ -143,10 +149,11 @@ describe('CoverTeacherService', () => {
 
     it('should rank primary competent teachers higher than secondary', async () => {
       mockPrisma.schedulePeriodTemplate.findFirst.mockResolvedValue(PERIOD_TEMPLATE);
-      mockPrisma.schedule.findMany
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([]);
-      mockPrisma.staffProfile.findMany.mockResolvedValue([
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set());
+      (schedFacade.countWeeklyPeriodsPerTeacher as jest.Mock).mockResolvedValue(new Map());
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
         { id: 'staff-1', user: { first_name: 'Secondary', last_name: 'Teacher' } },
         { id: 'staff-2', user: { first_name: 'Primary', last_name: 'Teacher' } },
       ]);
@@ -154,7 +161,8 @@ describe('CoverTeacherService', () => {
         { staff_profile_id: 'staff-1', is_primary: false },
         { staff_profile_id: 'staff-2', is_primary: true },
       ]);
-      mockPrisma.staffAvailability.findMany.mockResolvedValue([]);
+      const availFacade = module.get(StaffAvailabilityReadFacade);
+      (availFacade.findByWeekday as jest.Mock).mockResolvedValue([]);
 
       const result = await service.findCoverTeacher(
         TENANT_ID, AY_ID, 1, 1, SUBJECT_ID, YG_ID,
@@ -169,19 +177,19 @@ describe('CoverTeacherService', () => {
 
     it('should penalise teachers with higher workload (fairness scoring)', async () => {
       mockPrisma.schedulePeriodTemplate.findFirst.mockResolvedValue(PERIOD_TEMPLATE);
-      mockPrisma.schedule.findMany
-        .mockResolvedValueOnce([]) // no busy teachers
-        .mockResolvedValueOnce([
-          // staff-1 has 20 periods, staff-2 has 5
-          ...Array.from({ length: 20 }, () => ({ teacher_staff_id: 'staff-1' })),
-          ...Array.from({ length: 5 }, () => ({ teacher_staff_id: 'staff-2' })),
-        ]);
-      mockPrisma.staffProfile.findMany.mockResolvedValue([
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set());
+      (schedFacade.countWeeklyPeriodsPerTeacher as jest.Mock).mockResolvedValue(
+        new Map([['staff-1', 20], ['staff-2', 5]]),
+      );
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
         { id: 'staff-1', user: { first_name: 'Overloaded', last_name: 'Teacher' } },
         { id: 'staff-2', user: { first_name: 'Light', last_name: 'Teacher' } },
       ]);
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
-      mockPrisma.staffAvailability.findMany.mockResolvedValue([]);
+      const availFacade = module.get(StaffAvailabilityReadFacade);
+      (availFacade.findByWeekday as jest.Mock).mockResolvedValue([]);
 
       const result = await service.findCoverTeacher(TENANT_ID, AY_ID, 1, 1);
 
@@ -194,16 +202,18 @@ describe('CoverTeacherService', () => {
 
     it('should mark teachers as unavailable based on availability records', async () => {
       mockPrisma.schedulePeriodTemplate.findFirst.mockResolvedValue(PERIOD_TEMPLATE);
-      mockPrisma.schedule.findMany
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([]);
-      mockPrisma.staffProfile.findMany.mockResolvedValue([
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set());
+      (schedFacade.countWeeklyPeriodsPerTeacher as jest.Mock).mockResolvedValue(new Map());
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
         { id: 'staff-1', user: { first_name: 'Available', last_name: 'Teacher' } },
         { id: 'staff-2', user: { first_name: 'Unavailable', last_name: 'Teacher' } },
       ]);
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
       // staff-2 is only available in the afternoon (period is 9-10 AM)
-      mockPrisma.staffAvailability.findMany.mockResolvedValue([
+      const availFacade = module.get(StaffAvailabilityReadFacade);
+      (availFacade.findByWeekday as jest.Mock).mockResolvedValue([
         {
           staff_profile_id: 'staff-2',
           available_from: new Date('1970-01-01T13:00:00Z'),
@@ -222,17 +232,19 @@ describe('CoverTeacherService', () => {
 
     it('should sort results by rank_score descending', async () => {
       mockPrisma.schedulePeriodTemplate.findFirst.mockResolvedValue(PERIOD_TEMPLATE);
-      mockPrisma.schedule.findMany
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([
-          ...Array.from({ length: 10 }, () => ({ teacher_staff_id: 'staff-1' })),
-        ]);
-      mockPrisma.staffProfile.findMany.mockResolvedValue([
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set());
+      (schedFacade.countWeeklyPeriodsPerTeacher as jest.Mock).mockResolvedValue(
+        new Map([['staff-1', 10]]),
+      );
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
         { id: 'staff-1', user: { first_name: 'Low', last_name: 'Rank' } },
         { id: 'staff-2', user: { first_name: 'High', last_name: 'Rank' } },
       ]);
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
-      mockPrisma.staffAvailability.findMany.mockResolvedValue([]);
+      const availFacade = module.get(StaffAvailabilityReadFacade);
+      (availFacade.findByWeekday as jest.Mock).mockResolvedValue([]);
 
       const result = await service.findCoverTeacher(TENANT_ID, AY_ID, 1, 1);
 

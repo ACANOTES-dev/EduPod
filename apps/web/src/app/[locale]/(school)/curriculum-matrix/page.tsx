@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertTriangle, Check, Loader2, Lock, Plus, Save, Unlock } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -74,6 +75,8 @@ type YearGroupState = 'all' | 'none' | 'mixed';
 
 export default function CurriculumMatrixPage() {
   const { user } = useAuth();
+  const t = useTranslations('gradebook');
+  const tCommon = useTranslations('common');
   const [matrix, setMatrix] = React.useState<MatrixData | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [togglingCells, setTogglingCells] = React.useState<Set<string>>(new Set());
@@ -134,7 +137,7 @@ export default function CurriculumMatrixPage() {
   React.useEffect(() => {
     apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=50')
       .then((res) => setAcademicYears(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[CurriculumMatrixPage]', err); });
   }, []);
 
   const fetchMatrix = React.useCallback(async () => {
@@ -146,7 +149,8 @@ export default function CurriculumMatrixPage() {
         `/api/v1/curriculum-matrix?${params.toString()}`,
       );
       setMatrix(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[CurriculumMatrixPage]', err);
       setMatrix(null);
     } finally {
       setIsLoading(false);
@@ -234,10 +238,10 @@ export default function CurriculumMatrixPage() {
     // Load periods and categories
     apiClient<{ data: AcademicPeriod[] }>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[CurriculumMatrixPage]', err); });
     apiClient<{ data: AssessmentCategory[] }>('/api/v1/gradebook/assessment-categories')
       .then((res) => setCategories(Array.isArray(res.data) ? res.data : []))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[CurriculumMatrixPage]', err); });
     setBulkForm({
       title: '',
       academic_period_id: '',
@@ -459,7 +463,7 @@ export default function CurriculumMatrixPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Curriculum Matrix" />
+        <PageHeader title={t('curriculumMatrix')} />
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-text-tertiary" />
         </div>
@@ -470,10 +474,8 @@ export default function CurriculumMatrixPage() {
   if (!matrix || matrix.classes.length === 0) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Curriculum Matrix" />
-        <div className="text-center py-20 text-text-tertiary">
-          No classes found. Create classes first, then assign subjects here.
-        </div>
+        <PageHeader title={t('curriculumMatrix')} />
+        <div className="text-center py-20 text-text-tertiary">{t('noClassesFoundCreateClasses')}</div>
       </div>
     );
   }
@@ -481,28 +483,21 @@ export default function CurriculumMatrixPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Curriculum Matrix"
+        title={t('curriculumMatrix')}
         actions={
           <div className="flex items-center gap-2">
             {viewMode === 'class' && !isLocked && isSelecting ? (
               <>
-                <span className="text-sm text-text-secondary">{selectedCells.size} selected</span>
-                <Button size="sm" variant="outline" onClick={selectAllAssigned}>
-                  Select All
-                </Button>
-                <Button size="sm" variant="outline" onClick={clearSelection}>
-                  Cancel
-                </Button>
+                <span className="text-sm text-text-secondary">{selectedCells.size}{t('selected')}</span>
+                <Button size="sm" variant="outline" onClick={selectAllAssigned}>{tCommon('selectAll')}</Button>
+                <Button size="sm" variant="outline" onClick={clearSelection}>{tCommon('cancel')}</Button>
                 <Button size="sm" disabled={selectedCells.size === 0} onClick={openBulkDialog}>
-                  <Plus className="me-2 h-4 w-4" />
-                  Create Assessments ({selectedCells.size})
+                  <Plus className="me-2 h-4 w-4" />{t('createAssessments')}{selectedCells.size})
                 </Button>
               </>
             ) : viewMode === 'class' && !isLocked ? (
               <Button size="sm" variant="outline" onClick={() => setIsSelecting(true)}>
-                <Plus className="me-2 h-4 w-4" />
-                Bulk Create Assessments
-              </Button>
+                <Plus className="me-2 h-4 w-4" />{t('bulkCreateAssessments')}</Button>
             ) : null}
 
             {viewMode === 'year' && yearLevelChanges.size > 0 && (
@@ -528,10 +523,10 @@ export default function CurriculumMatrixPage() {
         <div className="flex items-center gap-3">
           <Select value={yearFilter} onValueChange={setYearFilter}>
             <SelectTrigger className="w-full sm:w-56">
-              <SelectValue placeholder="Academic Year" />
+              <SelectValue placeholder={t('academicYear')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Academic Years</SelectItem>
+              <SelectItem value="all">{t('allAcademicYears')}</SelectItem>
               {academicYears.map((y) => (
                 <SelectItem key={y.id} value={y.id}>
                   {y.name}
@@ -550,9 +545,7 @@ export default function CurriculumMatrixPage() {
                   ? 'bg-primary-500 text-white'
                   : 'bg-surface-secondary text-text-secondary hover:bg-surface-secondary/80'
               }`}
-            >
-              Class Level
-            </button>
+            >{t('classLevel')}</button>
             <button
               type="button"
               onClick={() => handleViewModeChange('year')}
@@ -561,9 +554,7 @@ export default function CurriculumMatrixPage() {
                   ? 'bg-primary-500 text-white'
                   : 'bg-surface-secondary text-text-secondary hover:bg-surface-secondary/80'
               }`}
-            >
-              Year Level
-            </button>
+            >{t('yearLevel')}</button>
           </div>
         </div>
 
@@ -579,12 +570,12 @@ export default function CurriculumMatrixPage() {
           {isLocked ? (
             <>
               <Lock className="h-4 w-4" />
-              <span>Locked</span>
+              <span>{t('statusLocked')}</span>
             </>
           ) : (
             <>
               <Unlock className="h-4 w-4" />
-              <span>Unlocked — click to lock</span>
+              <span>{t('unlockedClickToLock')}</span>
             </>
           )}
         </button>
@@ -701,7 +692,7 @@ export default function CurriculumMatrixPage() {
                       <td className="sticky start-0 z-10 bg-surface px-4 py-2 text-sm font-medium text-text-primary border-e border-border">
                         <div>{group.yearGroup}</div>
                         <div className="text-[10px] text-text-tertiary">
-                          {group.classes.length} class{group.classes.length !== 1 ? 'es' : ''}
+                          {group.classes.length}{t('class2')}{group.classes.length !== 1 ? 'es' : ''}
                         </div>
                       </td>
                       {matrix.subjects.map((subject) => {
@@ -757,18 +748,15 @@ export default function CurriculumMatrixPage() {
       <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Assessments in Bulk</DialogTitle>
+            <DialogTitle>{t('createAssessmentsInBulk')}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-text-secondary">
-            This will create one assessment for each assigned class+subject combination in your
-            selection ({selectedCells.size} cells selected).
-          </p>
+          <p className="text-sm text-text-secondary">{t('thisWillCreateOneAssessment')}{selectedCells.size}{t('cellsSelected')}</p>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="bulk-title">Assessment Title *</Label>
+              <Label htmlFor="bulk-title">{t('assessmentTitle')}</Label>
               <Input
                 id="bulk-title"
-                placeholder="e.g. Midterm Exam"
+                placeholder={t('eGMidtermExam')}
                 value={bulkForm.title}
                 onChange={(e) => setBulkForm((p) => ({ ...p, title: e.target.value }))}
               />
@@ -776,13 +764,13 @@ export default function CurriculumMatrixPage() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Academic Period *</Label>
+                <Label>{t('academicPeriod')}</Label>
                 <Select
                   value={bulkForm.academic_period_id}
                   onValueChange={(v) => setBulkForm((p) => ({ ...p, academic_period_id: v }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select period" />
+                    <SelectValue placeholder={t('selectPeriod2')} />
                   </SelectTrigger>
                   <SelectContent>
                     {periods.map((p) => (
@@ -794,13 +782,13 @@ export default function CurriculumMatrixPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Category *</Label>
+                <Label>{t('category2')}</Label>
                 <Select
                   value={bulkForm.category_id}
                   onValueChange={(v) => setBulkForm((p) => ({ ...p, category_id: v }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
+                    <SelectValue placeholder={t('selectCategory')} />
                   </SelectTrigger>
                   <SelectContent>
                     {categories.map((c) => (
@@ -815,7 +803,7 @@ export default function CurriculumMatrixPage() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="bulk-max">Max Score *</Label>
+                <Label htmlFor="bulk-max">{t('maxScore2')}</Label>
                 <Input
                   id="bulk-max"
                   type="number"
@@ -826,7 +814,7 @@ export default function CurriculumMatrixPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="bulk-due">Due Date</Label>
+                <Label htmlFor="bulk-due">{t('dueDate')}</Label>
                 <Input
                   id="bulk-due"
                   type="date"
@@ -842,9 +830,7 @@ export default function CurriculumMatrixPage() {
               variant="outline"
               onClick={() => setBulkDialogOpen(false)}
               disabled={isBulkCreating}
-            >
-              Cancel
-            </Button>
+            >{tCommon('cancel')}</Button>
             <Button onClick={() => void handleBulkCreate()} disabled={isBulkCreating}>
               {isBulkCreating && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
               {isBulkCreating ? 'Creating...' : 'Create Assessments'}

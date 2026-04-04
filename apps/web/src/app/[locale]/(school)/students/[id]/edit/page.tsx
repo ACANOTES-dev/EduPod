@@ -1,6 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { Skeleton, toast } from '@school/ui';
@@ -32,6 +33,7 @@ interface StudentDetail {
 export default function EditStudentPage() {
   const _params = useParams<{ id: string }>();
   const id = _params?.id ?? '';
+  const t = useTranslations('students');
   const router = useRouter();
 
   const [student, setStudent] = React.useState<StudentDetail | null>(null);
@@ -43,7 +45,8 @@ export default function EditStudentPage() {
       try {
         const res = await apiClient<{ data: StudentDetail }>(`/api/v1/students/${id}`);
         setStudent(res.data);
-      } catch {
+      } catch (err) {
+        console.error('[StudentsEditPage]', err);
         toast.error('Failed to load student');
       } finally {
         setIsLoading(false);
@@ -72,9 +75,7 @@ export default function EditStudentPage() {
 
   if (!student) {
     return (
-      <div className="flex h-64 items-center justify-center text-text-tertiary">
-        Student not found.
-      </div>
+      <div className="flex h-64 items-center justify-center text-text-tertiary">{t('studentNotFound')}</div>
     );
   }
 
@@ -98,7 +99,7 @@ export default function EditStudentPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Edit Student"
+        title={t('edit')}
         description={`Editing record for ${student.first_name} ${student.last_name}`}
       />
       <StudentForm initialData={initialData} onSubmit={handleSubmit} isEditMode />

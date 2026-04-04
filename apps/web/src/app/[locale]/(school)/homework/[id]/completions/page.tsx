@@ -57,8 +57,8 @@ export default function CompletionsPage() {
       setHw(hwRes.data);
       setRecords(compRes.data ?? []);
       setChanges(new Map());
-    } catch {
-      console.error('[Completions] Failed to load');
+    } catch (err) {
+      console.error('[Completions] Failed to load', err);
     } finally {
       setLoading(false);
     }
@@ -134,7 +134,8 @@ export default function CompletionsPage() {
       });
       toast.success(t('changesSaved'));
       void fetchData();
-    } catch {
+    } catch (err) {
+      console.error('[HomeworkCompletionsPage]', err);
       toast.error('Failed to save');
     } finally {
       setSaving(false);

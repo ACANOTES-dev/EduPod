@@ -54,7 +54,8 @@ export default function YearGroupsPage() {
         '/api/v1/year-groups?pageSize=100&sort=display_order&order=asc',
       );
       setGroups(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsYearGroupsPage]', err);
       setGroups([]);
     } finally {
       setLoading(false);

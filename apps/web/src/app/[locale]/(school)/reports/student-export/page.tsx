@@ -55,7 +55,7 @@ export default function StudentExportPage() {
       `/api/v1/students?search=${encodeURIComponent(q)}&pageSize=10`,
     )
       .then((res) => setResults(res.data))
-      .catch(() => setResults([]))
+      .catch((err) => { console.error('[ReportsStudentExportPage]', err); return setResults([]); })
       .finally(() => setIsSearching(false));
   }, []);
 
@@ -73,7 +73,7 @@ export default function StudentExportPage() {
     setIsLoadingPreview(true);
     apiClient<StudentExportPreview>(`/api/v1/reports/student-export/${id}`)
       .then((res) => setPreview(res))
-      .catch(() => setPreview(null))
+      .catch((err) => { console.error('[ReportsStudentExportPage]', err); return setPreview(null); })
       .finally(() => setIsLoadingPreview(false));
   };
 

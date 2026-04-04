@@ -145,7 +145,7 @@ function WallTab() {
   React.useEffect(() => {
     apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=20')
       .then((res) => setAcademicYears(res.data ?? []))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[BehaviourRecognitionPage]', err); });
   }, []);
 
   const fetchWall = React.useCallback(async (year: string) => {
@@ -157,7 +157,8 @@ function WallTab() {
         `/api/v1/behaviour/recognition?${params.toString()}`,
       );
       setItems(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourRecognitionPage]', err);
       setItems([]);
     } finally {
       setLoading(false);
@@ -179,7 +180,7 @@ function WallTab() {
       <div className="flex flex-wrap items-center gap-3">
         <Select value={yearFilter} onValueChange={setYearFilter}>
           <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Academic Year" />
+            <SelectValue placeholder={t('academicYear')} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="current">{t('filters.currentYear')}</SelectItem>
@@ -282,7 +283,8 @@ function LeaderboardTab() {
         `/api/v1/behaviour/recognition/leaderboard?${params.toString()}`,
       );
       setEntries(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourRecognitionPage]', err);
       setEntries([]);
     } finally {
       setLoading(false);
@@ -306,7 +308,7 @@ function LeaderboardTab() {
       <div className="flex flex-wrap items-center gap-3">
         <Select value={period} onValueChange={setPeriod}>
           <SelectTrigger className="w-full sm:w-44">
-            <SelectValue placeholder="Period" />
+            <SelectValue placeholder={t('period')} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="year">{t('filters.thisYear')}</SelectItem>
@@ -389,7 +391,7 @@ function HousesTab() {
     setLoading(true);
     apiClient<{ data: HouseStanding[] }>('/api/v1/behaviour/houses/standings')
       .then((res) => setHouses(res.data ?? []))
-      .catch(() => setHouses([]))
+      .catch((err) => { console.error('[BehaviourRecognitionPage]', err); return setHouses([]); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -451,7 +453,7 @@ function HousesTab() {
                 <span className="text-2xl font-bold text-text-primary">
                   {house.total_points.toLocaleString()}
                 </span>
-                <span className="text-xs text-text-tertiary">pts</span>
+                <span className="text-xs text-text-tertiary">{t('pts')}</span>
               </div>
             </div>
           ))}
@@ -476,7 +478,8 @@ function PendingApprovalsTab() {
         '/api/v1/behaviour/recognition?status=pending_approval&pageSize=50',
       );
       setItems(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourRecognitionPage]', err);
       setItems([]);
     } finally {
       setLoading(false);
@@ -543,8 +546,7 @@ function PendingApprovalsTab() {
                     )}
                     {item.points > 0 && (
                       <span className="text-xs font-semibold text-green-600">
-                        +{item.points} pts
-                      </span>
+                        +{item.points}{t('pts')}</span>
                     )}
                   </div>
 
@@ -552,8 +554,7 @@ function PendingApprovalsTab() {
                     <p className="line-clamp-1 text-xs text-text-secondary">{item.message}</p>
                   )}
 
-                  <p className="text-[11px] text-text-tertiary">
-                    By{' '}
+                  <p className="text-[11px] text-text-tertiary">{t('by')}{' '}
                     {item.awarded_by_user
                       ? `${item.awarded_by_user.first_name} ${item.awarded_by_user.last_name}`
                       : 'Unknown'}{' '}

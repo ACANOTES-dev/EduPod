@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
@@ -45,6 +46,7 @@ const makeSavedConfig = (
 
 describe('RotationService', () => {
   let service: RotationService;
+  let module: TestingModule;
   let mockPrisma: {
     academicYear: { findFirst: jest.Mock };
     rotationConfig: { findFirst: jest.Mock };
@@ -68,8 +70,9 @@ describe('RotationService', () => {
     mockTx.rotationConfig.update.mockResolvedValue(makeSavedConfig());
     mockTx.rotationConfig.delete.mockResolvedValue({});
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         {
           provide: AcademicReadFacade,
           useValue: {
@@ -162,7 +165,8 @@ describe('RotationService', () => {
     });
 
     it('should throw NotFoundException when academic year does not exist', async () => {
-      mockPrisma.academicYear.findFirst.mockResolvedValue(null);
+      const facade = module.get(AcademicReadFacade);
+      (facade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Year not found'));
 
       await expect(
         service.upsertRotationConfig(TENANT_ID, {
@@ -305,7 +309,8 @@ describe('RotationService', () => {
   describe('deleteRotationConfig', () => {
     it('should throw ConflictException when schedules reference rotation weeks', async () => {
       mockPrisma.rotationConfig.findFirst.mockResolvedValue({ id: 'config-1' });
-      mockPrisma.schedule.findFirst.mockResolvedValue({ id: 'schedule-1' });
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.hasRotationEntries as jest.Mock).mockResolvedValue(true);
 
       await expect(service.deleteRotationConfig(TENANT_ID, ACADEMIC_YEAR_ID)).rejects.toThrow(
         ConflictException,

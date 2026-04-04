@@ -274,7 +274,8 @@ export default function MyTimetablePage() {
         `/api/v1/scheduling/my-timetable?week_offset=${weekOffset}`,
       );
       setData(res);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingMyTimetablePage]', err);
       setData(null);
     } finally {
       setLoading(false);
@@ -290,7 +291,8 @@ export default function MyTimetablePage() {
       const res = await apiClient<{ url: string }>('/api/v1/calendar/subscription-url');
       setCalUrl(res.url);
       setCalOpen(true);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingMyTimetablePage]', err);
       toast.error(t('calendarError'));
     }
   };

@@ -61,6 +61,7 @@ const DEFAULT_CRON = FREQUENCIES[0].value;
 
 export default function ScheduledReportsPage() {
   const t = useTranslations('reports');
+  const tCommon = useTranslations('common');
   const [schedules, setSchedules] = React.useState<ScheduledReport[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [showCreate, setShowCreate] = React.useState(false);
@@ -86,7 +87,7 @@ export default function ScheduledReportsPage() {
   React.useEffect(() => {
     apiClient<ScheduledResponse>('/api/v1/reports/scheduled?pageSize=20')
       .then((res) => setSchedules(res.data))
-      .catch(() => undefined)
+      .catch((err) => { console.error('[ReportsScheduledPage]', err); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -97,7 +98,8 @@ export default function ScheduledReportsPage() {
         method: 'PATCH',
         body: JSON.stringify({ active }),
       });
-    } catch {
+    } catch (err) {
+      console.error('[ReportsScheduledPage]', err);
       // revert
       setSchedules((prev) => prev.map((s) => (s.id === id ? { ...s, active: !active } : s)));
     }
@@ -118,7 +120,8 @@ export default function ScheduledReportsPage() {
         body: JSON.stringify(payload),
       });
       setSchedules((prev) => [res.data, ...prev]);
-    } catch {
+    } catch (err) {
+      console.error('[ReportsScheduledPage]', err);
       // Mock add
       const mock: ScheduledReport = {
         id: crypto.randomUUID(),
@@ -225,9 +228,9 @@ export default function ScheduledReportsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="pdf">PDF</SelectItem>
-                        <SelectItem value="csv">CSV</SelectItem>
-                        <SelectItem value="xlsx">Excel</SelectItem>
+                        <SelectItem value="pdf">{tCommon('pdfFormat')}</SelectItem>
+                        <SelectItem value="csv">{t('csv')}</SelectItem>
+                        <SelectItem value="xlsx">{t('excel')}</SelectItem>
                       </SelectContent>
                     </Select>
                   )}

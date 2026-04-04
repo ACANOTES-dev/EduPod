@@ -54,7 +54,7 @@ export default function NewCriticalIncidentPage() {
         setYearGroups(nextYearGroups);
         setClasses(nextClasses);
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[CriticalIncidentsNewPage]', err); });
   }, []);
 
   const handleSubmit = async (event: React.FormEvent) => {

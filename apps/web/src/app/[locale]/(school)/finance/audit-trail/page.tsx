@@ -80,7 +80,8 @@ export default function FinanceAuditTrailPage() {
       );
       setEntries(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[FinanceAuditTrailPage]', err);
       setEntries([]);
       setTotal(0);
     } finally {

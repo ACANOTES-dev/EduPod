@@ -80,7 +80,7 @@ export function CoverTeacherDialog({
       `/api/v1/scheduling-runs/${runId}/cover-candidates?${params.toString()}`,
     )
       .then((res) => setCandidates(res.data ?? []))
-      .catch(() => setCandidates([]))
+      .catch((err) => { console.error('[CoverTeacherDialog]', err); return setCandidates([]); })
       .finally(() => setLoading(false));
   }, [open, slotDetails, runId]);
 
@@ -101,7 +101,8 @@ export function CoverTeacherDialog({
       toast.success(t('runs.coverAssigned'));
       onAssign?.(staffProfileId);
       onOpenChange(false);
-    } catch {
+    } catch (err) {
+      console.error('[CoverTeacherDialog]', err);
       toast.error(t('runs.coverFailed'));
     } finally {
       setAssigning(null);
@@ -180,7 +181,7 @@ export function CoverTeacherDialog({
                       week: candidate.current_week_load,
                     })}
                     {candidate.max_periods_per_week != null && (
-                      <span className="opacity-60"> (max {candidate.max_periods_per_week}/w)</span>
+                      <span className="opacity-60">{t('max')}{candidate.max_periods_per_week}/w)</span>
                     )}
                   </div>
                 </div>

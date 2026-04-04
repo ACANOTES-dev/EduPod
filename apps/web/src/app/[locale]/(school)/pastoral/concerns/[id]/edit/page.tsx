@@ -79,7 +79,8 @@ export default function EditPastoralConcernPage() {
           })),
         );
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[ConcernsEditPage]', err);
         if (!cancelled) {
           setConcern(null);
         }
@@ -108,7 +109,8 @@ export default function EditPastoralConcernPage() {
           setLinkedCases(response.data ?? []);
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[ConcernsEditPage]', err);
         if (!cancelled) {
           setLinkedCases([]);
         }

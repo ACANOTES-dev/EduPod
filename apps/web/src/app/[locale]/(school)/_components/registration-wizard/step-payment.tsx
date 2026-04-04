@@ -105,7 +105,8 @@ export function StepPayment({ state, dispatch }: StepPaymentProps) {
         },
       });
       dispatch({ type: 'SET_STEP', step: 5 });
-    } catch {
+    } catch (err) {
+      console.error('[StepPayment]', err);
       toast.error(t('paymentFailed'));
     } finally {
       setIsSubmitting(false);

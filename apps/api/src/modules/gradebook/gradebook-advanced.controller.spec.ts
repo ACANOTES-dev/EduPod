@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AssessmentTemplateService } from './assessments/assessment-template.service';
@@ -97,6 +98,7 @@ describe('GradebookAdvancedController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [GradebookAdvancedController],
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: RubricService, useValue: mockRubricService },
         { provide: StandardsService, useValue: mockStandardsService },
         { provide: CompetencyScaleService, useValue: mockCompetencyScaleService },

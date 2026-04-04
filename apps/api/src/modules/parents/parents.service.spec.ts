@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
+import { MOCK_FACADE_PROVIDERS, AuthReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { ParentsService } from './parents.service';
@@ -82,17 +83,21 @@ const baseCreateDto = {
 describe('ParentsService — create', () => {
   let service: ParentsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockAuthFacade: { findUserByEmail: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockAuthFacade = { findUserByEmail: jest.fn().mockResolvedValue(null) };
 
     mockRlsTx.parent.create.mockReset().mockResolvedValue(baseParent);
     mockRlsTx.householdParent.create.mockReset().mockResolvedValue({});
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ParentsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuthReadFacade, useValue: mockAuthFacade },
       ],
     }).compile();
 
@@ -103,14 +108,9 @@ describe('ParentsService — create', () => {
 
   it('should create a parent and link to user by email when user exists', async () => {
     const USER_ID = 'user-uuid-0001';
-    mockPrisma.user.findUnique.mockResolvedValue({ id: USER_ID });
+    mockAuthFacade.findUserByEmail.mockResolvedValue({ id: USER_ID });
 
     const result = await service.create(TENANT_ID, baseCreateDto);
-
-    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
-      where: { email: 'alice@example.com' },
-      select: { id: true },
-    });
     expect(mockRlsTx.parent.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -195,6 +195,7 @@ describe('ParentsService — findAll', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ParentsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -258,6 +259,7 @@ describe('ParentsService — findOne', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ParentsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -308,6 +310,7 @@ describe('ParentsService — update', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ParentsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -376,6 +379,7 @@ describe('ParentsService — linkStudent', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ParentsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -442,6 +446,7 @@ describe('ParentsService — unlinkStudent', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ParentsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

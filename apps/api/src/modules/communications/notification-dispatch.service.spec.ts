@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, AuthReadFacade, ParentReadFacade } from '../../common/tests/mock-facades';
 import { ConsentService } from '../gdpr/consent.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -13,6 +14,7 @@ import { TemplateRendererService } from './template-renderer.service';
 
 describe('NotificationDispatchService', () => {
   let service: NotificationDispatchService;
+  let mockParentFacade: { findContactByUserId: jest.Mock; resolveIdByUserId: jest.Mock };
   let prisma: {
     parent: {
       findFirst: jest.Mock;
@@ -61,6 +63,7 @@ describe('NotificationDispatchService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         NotificationDispatchService,
         { provide: PrismaService, useValue: prisma },
         { provide: ConsentService, useValue: consentService },
@@ -84,6 +87,17 @@ describe('NotificationDispatchService', () => {
         {
           provide: TwilioSmsProvider,
           useValue: { send: jest.fn().mockResolvedValue({ messageSid: 'sid-2' }) },
+        },
+        {
+          provide: AuthReadFacade,
+          useValue: { findUserSummary: jest.fn().mockResolvedValue({ id: 'user-1', email: 'test@example.com' }) },
+        },
+        {
+          provide: ParentReadFacade,
+          useValue: (mockParentFacade = {
+            findContactByUserId: jest.fn().mockResolvedValue({ id: 'parent-1', phone: '+353851234567', whatsapp_phone: '+353851234567' }),
+            resolveIdByUserId: jest.fn().mockResolvedValue('parent-1'),
+          }),
         },
         {
           provide: NotificationRateLimitService,
@@ -458,7 +472,7 @@ describe('NotificationDispatchService', () => {
         body_template: 'Hello {{name}}',
       });
       // Mock parent without phone — resolveRecipientContact will return null
-      prisma.parent.findFirst.mockResolvedValue({ phone: null, whatsapp_phone: null });
+      mockParentFacade.findContactByUserId.mockResolvedValue({ phone: null, whatsapp_phone: null });
       prisma.notification.update.mockResolvedValue({});
       prisma.notification.create.mockResolvedValue({});
 
@@ -525,6 +539,7 @@ describe('NotificationDispatchService', () => {
       const { Test: NestTest } = await import('@nestjs/testing');
       const module = await NestTest.createTestingModule({
         providers: [
+        ...MOCK_FACADE_PROVIDERS,
           NotificationDispatchService,
           { provide: PrismaService, useValue: prisma },
           { provide: ConsentService, useValue: consentService },

@@ -71,7 +71,7 @@ export default function TeacherConfigPage() {
         setAcademicYears(res.data);
         if (res.data[0]) setSelectedYear(res.data[0].id);
       })
-      .catch(() => toast.error(tc('errorGeneric')));
+      .catch((err) => { console.error('[SchedulingTeacherConfigPage]', err); return toast.error(tc('errorGeneric')); });
   }, [tc]);
 
   // Fetch teacher configs merged with all staff profiles
@@ -128,7 +128,8 @@ export default function TeacherConfigPage() {
       });
 
       setRows(merged);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingTeacherConfigPage]', err);
       setRows([]);
     } finally {
       setIsLoading(false);
@@ -172,7 +173,8 @@ export default function TeacherConfigPage() {
       toast.success(tc('save'));
       // Refetch to get the new config IDs for newly created rows
       void fetchData();
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingTeacherConfigPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setIsSaving(false);
@@ -190,7 +192,8 @@ export default function TeacherConfigPage() {
       });
       toast.success(tv('copiedFromYear'));
       void fetchData();
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingTeacherConfigPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };

@@ -1,6 +1,11 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  SchedulesReadFacade,
+  SchoolClosuresReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { ClassDeliveryService } from './class-delivery.service';
@@ -69,8 +74,21 @@ describe('ClassDeliveryService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ClassDeliveryService,
         { provide: PrismaService, useValue: prisma },
+        {
+          provide: SchedulesReadFacade,
+          useValue: {
+            findEffectiveInRange: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: SchoolClosuresReadFacade,
+          useValue: {
+            getClosureDateSet: jest.fn().mockResolvedValue(new Set<string>()),
+          },
+        },
       ],
     }).compile();
 

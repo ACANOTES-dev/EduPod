@@ -82,6 +82,7 @@ const PRIORITY_LABELS: Record<number, string> = {
 
 export default function MyPreferencesPage() {
   const t = useTranslations('scheduling');
+  const tCommon = useTranslations('common');
 
   const [academicYears, setAcademicYears] = React.useState<AcademicYear[]>([]);
   const [selectedYear, setSelectedYear] = React.useState('');
@@ -112,7 +113,7 @@ export default function MyPreferencesPage() {
           setSelectedYear(yearsRes.data[0].id);
         }
       })
-      .catch(() => toast.error('Failed to load data'));
+      .catch((err) => { console.error('[SchedulingMyPreferencesPage]', err); return toast.error('Failed to load data'); });
   }, []);
 
   // Load period slots when year changes
@@ -120,7 +121,7 @@ export default function MyPreferencesPage() {
     if (!selectedYear) return;
     apiClient<{ data: PeriodSlot[] }>(`/api/v1/period-grid?academic_year_id=${selectedYear}`)
       .then((res) => setPeriodSlots(res.data.filter((p) => p.period_type === 'teaching')))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[SchedulingMyPreferencesPage]', err); });
   }, [selectedYear]);
 
   // Load own preferences when year changes
@@ -131,7 +132,8 @@ export default function MyPreferencesPage() {
       `/api/v1/staff-scheduling-preferences/own?academic_year_id=${selectedYear}&pageSize=100`,
     )
       .then((res) => setPreferences(res.data))
-      .catch(() => {
+      .catch((err) => {
+        console.error('[SchedulingMyPreferencesPage]', err);
         setPreferences([]);
         toast.error('Failed to load preferences');
       })
@@ -188,7 +190,8 @@ export default function MyPreferencesPage() {
       });
       setPreferences((prev) => [...prev, created]);
       setNewEntityId('');
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingMyPreferencesPage]', err);
       toast.error('Failed to add preference');
     }
   };
@@ -197,7 +200,8 @@ export default function MyPreferencesPage() {
     try {
       await apiClient(`/api/v1/staff-scheduling-preferences/own/${id}`, { method: 'DELETE' });
       setPreferences((prev) => prev.filter((p) => p.id !== id));
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingMyPreferencesPage]', err);
       toast.error('Failed to delete preference');
     }
   };
@@ -213,7 +217,8 @@ export default function MyPreferencesPage() {
         },
       );
       setPreferences((prev) => prev.map((p) => (p.id === id ? updated : p)));
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingMyPreferencesPage]', err);
       toast.error('Failed to update preference');
     }
   };
@@ -228,7 +233,8 @@ export default function MyPreferencesPage() {
         },
       );
       setPreferences((prev) => prev.map((p) => (p.id === id ? updated : p)));
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingMyPreferencesPage]', err);
       toast.error('Failed to update preference');
     }
   };
@@ -243,7 +249,7 @@ export default function MyPreferencesPage() {
         actions={
           <Select value={selectedYear} onValueChange={setSelectedYear}>
             <SelectTrigger className="w-44">
-              <SelectValue placeholder="Academic Year" />
+              <SelectValue placeholder={t('academicYear2')} />
             </SelectTrigger>
             <SelectContent>
               {academicYears.map((y) => (
@@ -259,10 +265,7 @@ export default function MyPreferencesPage() {
       {/* Info banner */}
       <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>
-          These preferences are best-effort. The scheduler will try to honour them but cannot
-          guarantee satisfaction when they conflict with other constraints or teacher assignments.
-        </span>
+        <span>{t('thesePreferencesAreBestEffort')}</span>
       </div>
 
       {isLoading ? (
@@ -321,21 +324,17 @@ export default function MyPreferencesPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="prefer">Prefer</SelectItem>
-                  <SelectItem value="avoid">Avoid</SelectItem>
+                  <SelectItem value="prefer">{t('prefer')}</SelectItem>
+                  <SelectItem value="avoid">{t('avoid')}</SelectItem>
                 </SelectContent>
               </Select>
               <Button size="sm" disabled={!newEntityId} onClick={() => void handleAdd()}>
-                <Plus className="me-1.5 h-3.5 w-3.5" />
-                Add
-              </Button>
+                <Plus className="me-1.5 h-3.5 w-3.5" />{t('add')}</Button>
             </div>
 
             {/* Preference list */}
             {tabPrefs.length === 0 ? (
-              <div className="rounded-lg border border-border py-8 text-center text-sm text-text-tertiary">
-                No {TAB_LABELS[activeTab].toLowerCase()} preferences set
-              </div>
+              <div className="rounded-lg border border-border py-8 text-center text-sm text-text-tertiary">{tCommon('no')}{TAB_LABELS[activeTab].toLowerCase()}{t('preferencesSet')}</div>
             ) : (
               <div className="space-y-2">
                 {tabPrefs.map((pref) => (
@@ -373,7 +372,7 @@ export default function MyPreferencesPage() {
                     <button
                       className="rounded p-1 text-text-tertiary hover:bg-red-50 hover:text-red-500"
                       onClick={() => void handleDelete(pref.id)}
-                      aria-label="Remove preference"
+                      aria-label={t('removePreference')}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

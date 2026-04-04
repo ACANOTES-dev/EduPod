@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
 
@@ -137,6 +138,7 @@ describe('HomeworkService — create', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
@@ -210,6 +212,7 @@ describe('HomeworkService — list', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
@@ -317,6 +320,7 @@ describe('HomeworkService — findOne', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
@@ -380,6 +384,7 @@ describe('HomeworkService — update', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
@@ -468,6 +473,7 @@ describe('HomeworkService — updateStatus (state machine)', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
@@ -598,6 +604,7 @@ describe('HomeworkService — copy', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
@@ -710,6 +717,7 @@ describe('HomeworkService — remove', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
@@ -809,6 +817,7 @@ describe('HomeworkService — addAttachment', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
@@ -948,6 +957,7 @@ describe('HomeworkService — removeAttachment', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
@@ -1033,6 +1043,7 @@ describe('HomeworkService — findByClass', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
@@ -1083,6 +1094,7 @@ describe('HomeworkService — findToday', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
@@ -1132,6 +1144,7 @@ describe('HomeworkService — findTemplates', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
@@ -1194,6 +1207,7 @@ describe('HomeworkService — createRecurrenceRule', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
@@ -1256,6 +1270,7 @@ describe('HomeworkService — updateRecurrenceRule', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
@@ -1317,6 +1332,7 @@ describe('HomeworkService — deleteRecurrenceRule', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
@@ -1365,6 +1381,7 @@ describe('HomeworkService — bulkCreate', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
@@ -1551,6 +1568,7 @@ describe('HomeworkService — findByClassWeek', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },

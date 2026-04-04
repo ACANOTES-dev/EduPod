@@ -1,6 +1,7 @@
 'use client';
 
 import { useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { Skeleton, StatusBadge } from '@school/ui';
@@ -52,6 +53,7 @@ export default function ParentDetailPage() {
   const _params = useParams<{ id: string }>();
   const id = _params?.id ?? '';
 
+  const t = useTranslations('parents');
   const [parent, setParent] = React.useState<ParentDetail | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
@@ -83,9 +85,7 @@ export default function ParentDetailPage() {
 
   if (!parent) {
     return (
-      <div className="flex h-64 items-center justify-center text-text-tertiary">
-        Parent not found.
-      </div>
+      <div className="flex h-64 items-center justify-center text-text-tertiary">{t('parentNotFound')}</div>
     );
   }
 
@@ -113,13 +113,13 @@ export default function ParentDetailPage() {
       {/* Contact info */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <div>
-          <dt className="text-xs text-text-tertiary">Primary Contact</dt>
+          <dt className="text-xs text-text-tertiary">{t('isPrimaryContact')}</dt>
           <dd className="text-sm font-medium text-text-primary">
             {parent.is_primary_contact ? 'Yes' : 'No'}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-text-tertiary">Billing Contact</dt>
+          <dt className="text-xs text-text-tertiary">{t('isBillingContact')}</dt>
           <dd className="text-sm font-medium text-text-primary">
             {parent.is_billing_contact ? 'Yes' : 'No'}
           </dd>
@@ -129,7 +129,7 @@ export default function ParentDetailPage() {
       {/* Households */}
       {parent.household_parents.length > 0 && (
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-text-primary">Households</h3>
+          <h3 className="mb-2 text-sm font-semibold text-text-primary">{t('households')}</h3>
           <ul className="space-y-2">
             {parent.household_parents.map((hp) => (
               <li key={hp.household.id} className="flex items-center gap-2">
@@ -151,7 +151,7 @@ export default function ParentDetailPage() {
       {/* Students */}
       {parent.student_parents.length > 0 && (
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-text-primary">Children</h3>
+          <h3 className="mb-2 text-sm font-semibold text-text-primary">{t('children')}</h3>
           <ul className="divide-y divide-border rounded-xl border border-border">
             {parent.student_parents.map((sp) => (
               <li key={sp.student.id} className="flex items-center justify-between px-4 py-3">

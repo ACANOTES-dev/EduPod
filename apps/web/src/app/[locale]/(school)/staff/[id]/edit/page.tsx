@@ -41,7 +41,7 @@ export default function EditStaffPage() {
     if (!id) return;
     apiClient<{ data: StaffDetail }>(`/api/v1/staff-profiles/${id}`)
       .then((res) => setStaff(res.data))
-      .catch(() => setError(t('loadError')))
+      .catch((err) => { console.error('[StaffEditPage]', err); return setError(t('loadError')); })
       .finally(() => setLoading(false));
   }, [id, t]);
 

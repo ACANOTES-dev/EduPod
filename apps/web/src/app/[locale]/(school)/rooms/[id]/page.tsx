@@ -76,7 +76,7 @@ function TimetableTab({ roomId }: { roomId: string }) {
   React.useEffect(() => {
     apiClient<TimetableResponse>(`/api/v1/timetables/room/${roomId}`)
       .then((res) => setEntries(res.data))
-      .catch(() => setEntries([]))
+      .catch((err) => { console.error('[RoomsPage]', err); return setEntries([]); })
       .finally(() => setLoading(false));
   }, [roomId]);
 
@@ -106,7 +106,7 @@ export default function RoomDetailPage() {
     if (!id) return;
     apiClient<{ data: RoomDetail }>(`/api/v1/rooms/${id}`)
       .then((res) => setRoom(res.data))
-      .catch(() => setError('Failed to load room'))
+      .catch((err) => { console.error('[RoomsPage]', err); return setError('Failed to load room'); })
       .finally(() => setLoading(false));
   }, [id]);
 

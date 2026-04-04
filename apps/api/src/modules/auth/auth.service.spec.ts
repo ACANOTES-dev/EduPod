@@ -17,6 +17,7 @@ jest.mock('qrcode', () => ({
   toDataURL: jest.fn().mockResolvedValue('data:image/png;base64,test'),
 }));
 
+import { MOCK_FACADE_PROVIDERS, TenantReadFacade } from '../../common/tests/mock-facades';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -148,6 +149,10 @@ const mockPasswordResetService = {
   confirmPasswordReset: jest.fn(),
 };
 
+const mockTenantReadFacade = {
+  findById: jest.fn().mockResolvedValue(null),
+};
+
 describe('AuthService', () => {
   let service: AuthService;
   let redisClient: {
@@ -200,6 +205,7 @@ describe('AuthService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AuthService,
         { provide: TokenService, useValue: mockTokenService },
         { provide: SessionService, useValue: mockSessionService },
@@ -226,6 +232,7 @@ describe('AuthService', () => {
         },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SecurityAuditService, useValue: mockSecurityAuditService },
+        { provide: TenantReadFacade, useValue: mockTenantReadFacade },
       ],
     }).compile();
 
@@ -1141,6 +1148,7 @@ describe('AuthService', () => {
 
       mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
       mockPrisma.tenant.findUnique.mockResolvedValue({ id: TENANT_ID, status: 'suspended' });
+      mockTenantReadFacade.findById.mockResolvedValue({ id: TENANT_ID, status: 'suspended' });
 
       await expect(service.refresh(refreshToken)).rejects.toThrow(ForbiddenException);
     });

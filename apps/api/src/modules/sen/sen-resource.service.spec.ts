@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
+import { AcademicReadFacade, MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { SenResourceService } from './sen-resource.service';
@@ -38,8 +39,8 @@ describe('SenResourceService', () => {
     update: jest.fn(),
   };
 
-  const academicYearMock = {
-    findFirst: jest.fn(),
+  const mockAcademicReadFacade = {
+    findYearById: jest.fn().mockResolvedValue(null),
   };
 
   const senProfileMock = {
@@ -47,7 +48,6 @@ describe('SenResourceService', () => {
   };
 
   const mockPrisma = {
-    academicYear: academicYearMock,
     senProfile: senProfileMock,
     senResourceAllocation: resourceAllocationMock,
     senStudentHours: studentHoursMock,
@@ -65,9 +65,11 @@ describe('SenResourceService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         SenResourceService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SenScopeService, useValue: mockScopeService },
+        { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
       ],
     }).compile();
 
@@ -143,7 +145,7 @@ describe('SenResourceService', () => {
 
   describe('createAllocation', () => {
     it('should create an allocation successfully', async () => {
-      academicYearMock.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
+      mockAcademicReadFacade.findYearById.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
       resourceAllocationMock.create.mockResolvedValue(createAllocationRecord());
 
       const result = await service.createAllocation(TENANT_ID, {
@@ -167,7 +169,7 @@ describe('SenResourceService', () => {
     });
 
     it('should reject duplicates for the same academic year and source', async () => {
-      academicYearMock.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
+      mockAcademicReadFacade.findYearById.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
 
       const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint violation', {
         code: 'P2002',

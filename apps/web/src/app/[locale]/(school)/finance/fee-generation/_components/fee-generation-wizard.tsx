@@ -110,13 +110,13 @@ export function FeeGenerationWizard() {
   React.useEffect(() => {
     apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=100')
       .then((res) => setYearGroups(res.data))
-      .catch(() => setYearGroups([]));
+      .catch((err) => { console.error('[FeeGenerationWizard]', err); return setYearGroups([]); });
 
     apiClient<{ data: FeeStructureOption[] }>(
       '/api/v1/finance/fee-structures?pageSize=100&active=true',
     )
       .then((res) => setFeeStructures(res.data))
-      .catch(() => setFeeStructures([]));
+      .catch((err) => { console.error('[FeeGenerationWizard]', err); return setFeeStructures([]); });
   }, []);
 
   const toggleYearGroup = (id: string) => {

@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, AuthReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SequenceService } from '../../sequence/sequence.service';
 
@@ -143,11 +144,13 @@ describe('CaseService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         CaseService,
         CaseQueriesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SequenceService, useValue: mockSequenceService },
         { provide: PastoralEventService, useValue: mockPastoralEventService },
+        { provide: AuthReadFacade, useValue: { findUserSummary: jest.fn().mockResolvedValue({ id: USER_ID_B }) } },
       ],
     }).compile();
 

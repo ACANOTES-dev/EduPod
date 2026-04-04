@@ -10,6 +10,7 @@
  */
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, StaffProfileReadFacade, ClassesReadFacade } from '../../../../common/tests/mock-facades';
 import { PrismaService } from '../../../../modules/prisma/prisma.service';
 import { BehaviourScopeService } from '../../behaviour-scope.service';
 
@@ -30,6 +31,8 @@ describe('Release Gate 15-2: Scope Enforcement', () => {
     classStaff: { findMany: jest.Mock };
     classEnrolment: { findMany: jest.Mock };
   };
+  let mockStaffProfileReadFacade: { findByUserId: jest.Mock };
+  let mockClassesReadFacade: { findClassIdsByStaff: jest.Mock; findEnrolledStudentIds: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -38,10 +41,22 @@ describe('Release Gate 15-2: Scope Enforcement', () => {
       classEnrolment: { findMany: jest.fn() },
     };
 
+    mockStaffProfileReadFacade = {
+      findByUserId: jest.fn().mockResolvedValue(null),
+    };
+
+    mockClassesReadFacade = {
+      findClassIdsByStaff: jest.fn().mockResolvedValue([]),
+      findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         BehaviourScopeService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: StaffProfileReadFacade, useValue: mockStaffProfileReadFacade },
+        { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
       ],
     }).compile();
 
@@ -55,16 +70,11 @@ describe('Release Gate 15-2: Scope Enforcement', () => {
   describe('class-scope teacher only sees incidents for students in their classes', () => {
     it('should resolve to class scope with only their class student IDs', async () => {
       // Arrange
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_PROFILE_TEACHER });
-      mockPrisma.classStaff.findMany.mockResolvedValue([
-        { class_id: 'class-7A' },
-        { class_id: 'class-7B' },
-      ]);
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
-        { student_id: 'student-1' },
-        { student_id: 'student-2' },
-        { student_id: 'student-3' },
-      ]);
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: STAFF_PROFILE_TEACHER });
+      mockClassesReadFacade.findClassIdsByStaff.mockResolvedValue(['class-7A', 'class-7B']);
+      mockClassesReadFacade.findEnrolledStudentIds
+        .mockResolvedValueOnce(['student-1', 'student-2'])
+        .mockResolvedValueOnce(['student-3']);
 
       // Act
       const result = await service.getUserScope(TENANT_A, USER_TEACHER, ['behaviour.view']);
@@ -101,14 +111,9 @@ describe('Release Gate 15-2: Scope Enforcement', () => {
 
     it('should NOT include students from classes they do not teach', async () => {
       // Arrange — teacher only assigned to class-7A
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_PROFILE_TEACHER });
-      mockPrisma.classStaff.findMany.mockResolvedValue([
-        { class_id: 'class-7A' },
-      ]);
-      // Only students from class-7A returned
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
-        { student_id: 'student-1' },
-      ]);
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: STAFF_PROFILE_TEACHER });
+      mockClassesReadFacade.findClassIdsByStaff.mockResolvedValue(['class-7A']);
+      mockClassesReadFacade.findEnrolledStudentIds.mockResolvedValue(['student-1']);
 
       // Act
       const result = await service.getUserScope(TENANT_A, USER_TEACHER, ['behaviour.view']);
@@ -122,17 +127,11 @@ describe('Release Gate 15-2: Scope Enforcement', () => {
 
     it('should deduplicate students enrolled in multiple classes taught by same teacher', async () => {
       // Arrange
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_PROFILE_TEACHER });
-      mockPrisma.classStaff.findMany.mockResolvedValue([
-        { class_id: 'class-7A' },
-        { class_id: 'class-7B' },
-      ]);
-      // student-1 appears in both classes
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
-        { student_id: 'student-1' },
-        { student_id: 'student-2' },
-        { student_id: 'student-1' }, // duplicate
-      ]);
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: STAFF_PROFILE_TEACHER });
+      mockClassesReadFacade.findClassIdsByStaff.mockResolvedValue(['class-7A', 'class-7B']);
+      mockClassesReadFacade.findEnrolledStudentIds
+        .mockResolvedValueOnce(['student-1', 'student-2'])
+        .mockResolvedValueOnce(['student-1']); // duplicate
 
       // Act
       const result = await service.getUserScope(TENANT_A, USER_TEACHER, ['behaviour.view']);
@@ -215,7 +214,7 @@ describe('Release Gate 15-2: Scope Enforcement', () => {
 
     it('should resolve to own scope when teacher has view permission but no class assignments', async () => {
       // Arrange
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_PROFILE_TEACHER });
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: STAFF_PROFILE_TEACHER });
       mockPrisma.classStaff.findMany.mockResolvedValue([]); // No classes
 
       // Act
@@ -227,7 +226,7 @@ describe('Release Gate 15-2: Scope Enforcement', () => {
 
     it('should resolve to own scope when teacher has view permission but no staff profile', async () => {
       // Arrange
-      mockPrisma.staffProfile.findFirst.mockResolvedValue(null); // No staff profile
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue(null); // No staff profile
 
       // Act
       const result = await service.getUserScope(TENANT_A, USER_TEACHER, ['behaviour.view']);
@@ -325,35 +324,17 @@ describe('Release Gate 15-2: Scope Enforcement', () => {
 
     it('should enforce scope isolation between tenants via tenant_id in queries', async () => {
       // Arrange — teacher in Tenant A
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_PROFILE_TEACHER });
-      mockPrisma.classStaff.findMany.mockResolvedValue([{ class_id: 'class-7A' }]);
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: 'student-1' }]);
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: STAFF_PROFILE_TEACHER });
+      mockClassesReadFacade.findClassIdsByStaff.mockResolvedValue(['class-7A']);
+      mockClassesReadFacade.findEnrolledStudentIds.mockResolvedValue(['student-1']);
 
       // Act
       await service.getUserScope(TENANT_A, USER_TEACHER, ['behaviour.view']);
 
-      // Assert — all queries include tenant_id for RLS enforcement
-      expect(mockPrisma.staffProfile.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            tenant_id: TENANT_A,
-          }),
-        }),
-      );
-      expect(mockPrisma.classStaff.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            tenant_id: TENANT_A,
-          }),
-        }),
-      );
-      expect(mockPrisma.classEnrolment.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            tenant_id: TENANT_A,
-          }),
-        }),
-      );
+      // Assert — all facade calls include tenant_id
+      expect(mockStaffProfileReadFacade.findByUserId).toHaveBeenCalledWith(TENANT_A, USER_TEACHER);
+      expect(mockClassesReadFacade.findClassIdsByStaff).toHaveBeenCalledWith(TENANT_A, STAFF_PROFILE_TEACHER);
+      expect(mockClassesReadFacade.findEnrolledStudentIds).toHaveBeenCalledWith(TENANT_A, 'class-7A');
 
       // Tenant B data is never queried
       const allCalls = [

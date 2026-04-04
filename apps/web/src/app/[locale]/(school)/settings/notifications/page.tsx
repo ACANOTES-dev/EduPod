@@ -132,7 +132,8 @@ export default function NotificationsPage() {
         );
         const list = Array.isArray(data) ? data : data.data;
         setSettings(list);
-      } catch {
+      } catch (err) {
+        console.error('[SettingsNotificationsPage]', err);
         toast.error(t('loadFailed'));
       } finally {
         setLoading(false);

@@ -4,6 +4,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  SchedulesReadFacade,
+  StaffProfileReadFacade,
+} from '../../../common/tests/mock-facades';
 import { AnthropicClientService } from '../../ai/anthropic-client.service';
 import { SettingsService } from '../../configuration/settings.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
@@ -82,6 +87,7 @@ describe('AI Comments GDPR Integration', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AiCommentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettingsService },
@@ -236,6 +242,7 @@ describe('AI Comments GDPR Integration', () => {
   it('should not call GDPR gateway when AI service is unavailable', async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AiCommentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettingsService },
@@ -295,11 +302,32 @@ describe('AI Substitution GDPR Integration', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AiSubstitutionService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettingsService },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
         { provide: AiAuditService, useValue: mockAiAuditService },
+        {
+          provide: SchedulesReadFacade,
+          useValue: {
+            findByIdWithSubstitutionContext: mockPrisma.schedule.findFirst,
+            findBusyTeacherIds: jest.fn().mockImplementation(async () => {
+              const schedules = await mockPrisma.schedule.findMany();
+              return new Set(
+                (schedules as Array<{ teacher_staff_id: string }>).map(
+                  (s) => s.teacher_staff_id,
+                ),
+              );
+            }),
+          },
+        },
+        {
+          provide: StaffProfileReadFacade,
+          useValue: {
+            findActiveStaff: mockPrisma.staffProfile.findMany,
+          },
+        },
         {
           provide: AnthropicClientService,
           useValue: {

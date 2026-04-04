@@ -121,7 +121,7 @@ export function DiaryHomeworkSection({ classId, date }: DiaryHomeworkSectionProp
                   {t(`homeworkType.${hw.homework_type}` as Parameters<typeof t>[0])}
                 </Badge>
                 {hw.max_points != null && (
-                  <span className="text-muted-foreground text-xs">{hw.max_points} pts</span>
+                  <span className="text-muted-foreground text-xs">{hw.max_points}{t('pts')}</span>
                 )}
               </li>
             ))}

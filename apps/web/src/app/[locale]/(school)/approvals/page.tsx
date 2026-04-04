@@ -51,6 +51,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 export default function ApprovalsPage() {
   const t = useTranslations();
+  const tCommon = useTranslations('common');
   const router = useRouter();
   const [requests, setRequests] = React.useState<ApprovalRequest[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -79,7 +80,8 @@ export default function ApprovalsPage() {
       }>(`/api/v1/approval-requests?${params}`);
       setRequests(result.data);
       setTotal(result.meta?.total ?? result.data.length);
-    } catch {
+    } catch (err) {
+      console.error('[ApprovalsPage]', err);
       setRequests([]);
       setTotal(0);
     } finally {
@@ -157,12 +159,12 @@ export default function ApprovalsPage() {
             }}
             className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text-primary"
           >
-            <option value="pending_approval">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="">All</option>
-            <option value="callback_failed">Failed Callbacks</option>
+            <option value="pending_approval">{t('pending')}</option>
+            <option value="approved">{t('approved')}</option>
+            <option value="rejected">{t('rejected')}</option>
+            <option value="cancelled">{t('cancelled')}</option>
+            <option value="">{tCommon('all')}</option>
+            <option value="callback_failed">{t('failedCallbacks')}</option>
           </select>
         }
       />
@@ -170,7 +172,7 @@ export default function ApprovalsPage() {
       {!loading && requests.length === 0 && (
         <EmptyState
           icon={ShieldCheck}
-          title="No approval requests"
+          title={t('noApprovalRequests')}
           description={
             statusFilter === 'pending_approval'
               ? 'There are no pending approvals right now.'

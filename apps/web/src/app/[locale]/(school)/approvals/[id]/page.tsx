@@ -97,7 +97,8 @@ export default function ApprovalDetailPage() {
     try {
       const res = await apiClient<ApprovalRequestDetail>(`/api/v1/approval-requests/${id}`);
       setRequest(res);
-    } catch {
+    } catch (err) {
+      console.error('[ApprovalsPage]', err);
       toast.error(t('detail.loadError'));
     } finally {
       setLoading(false);
@@ -118,7 +119,8 @@ export default function ApprovalDetailPage() {
       toast.success(t('detail.approveSuccess'));
       void fetchRequest();
       setComment('');
-    } catch {
+    } catch (err) {
+      console.error('[ApprovalsPage]', err);
       toast.error(t('detail.approveError'));
     } finally {
       setActionLoading(false);
@@ -135,7 +137,8 @@ export default function ApprovalDetailPage() {
       toast.success(t('detail.rejectSuccess'));
       void fetchRequest();
       setComment('');
-    } catch {
+    } catch (err) {
+      console.error('[ApprovalsPage]', err);
       toast.error(t('detail.rejectError'));
     } finally {
       setActionLoading(false);
@@ -150,7 +153,8 @@ export default function ApprovalDetailPage() {
       });
       toast.success(t('detail.callbackRetryQueued'));
       void fetchRequest();
-    } catch {
+    } catch (err) {
+      console.error('[ApprovalsPage]', err);
       toast.error(t('detail.callbackRetryError'));
     } finally {
       setIsRetrying(false);
@@ -244,7 +248,7 @@ export default function ApprovalDetailPage() {
                   minute: '2-digit',
                 })}
               </p>
-              {approverName && <p className="text-xs text-text-secondary">by {approverName}</p>}
+              {approverName && <p className="text-xs text-text-secondary">{t('by')}{approverName}</p>}
             </div>
           )}
         </div>

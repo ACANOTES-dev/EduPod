@@ -64,7 +64,7 @@ function AssignDialog({ classId, open, onOpenChange, onSuccess }: AssignDialogPr
       '/api/v1/staff-profiles?pageSize=100&employment_status=active',
     )
       .then((res) => setStaffProfiles(res.data))
-      .catch(() => setStaffProfiles([]));
+      .catch((err) => { console.error('[StaffAssignment]', err); return setStaffProfiles([]); });
   }, [open]);
 
   const handleSubmit = async () => {
@@ -157,7 +157,8 @@ export function StaffAssignment({ classId }: StaffAssignmentProps) {
     try {
       const res = await apiClient<{ data: ClassStaff[] }>(`/api/v1/classes/${classId}/staff`);
       setAssignments(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[StaffAssignment]', err);
       setAssignments([]);
     } finally {
       setIsLoading(false);

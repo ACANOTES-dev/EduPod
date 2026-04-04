@@ -52,7 +52,7 @@ export default function ReportsAskAiPage() {
   React.useEffect(() => {
     apiClient<HistoryResponse>('/api/v1/reports/ai-query/history?pageSize=10')
       .then((res) => setHistory(res.data))
-      .catch(() => undefined)
+      .catch((err) => { console.error('[ReportsAskAiPage]', err); })
       .finally(() => setLoadingHistory(false));
   }, []);
 
@@ -69,7 +69,8 @@ export default function ReportsAskAiPage() {
       setResult(res.data);
       const hist = await apiClient<HistoryResponse>('/api/v1/reports/ai-query/history?pageSize=10');
       setHistory(hist.data);
-    } catch {
+    } catch (err) {
+      console.error('[ReportsAskAiPage]', err);
       // Show a fallback mock result
       setResult({
         columns: ['result'],

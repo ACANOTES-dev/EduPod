@@ -79,8 +79,8 @@ export default function TeacherDashboardPage() {
         today: todayRes.data ?? [],
         unverified: unverifiedRes.count ?? 0,
       });
-    } catch {
-      console.error('[Dashboard] Failed to fetch homework');
+    } catch (err) {
+      console.error('[Dashboard] Failed to fetch homework', err);
     } finally {
       setHomeworkLoading(false);
     }

@@ -113,7 +113,8 @@ function NotesTab({
       setNewNote('');
       onNoteAdded();
       toast.success('Note added');
-    } catch {
+    } catch (err) {
+      console.error('[AdmissionsPage]', err);
       toast.error('Failed to add note');
     } finally {
       setSubmitting(false);
@@ -139,7 +140,7 @@ function NotesTab({
 
       {/* Existing notes */}
       {notes.length === 0 ? (
-        <p className="py-4 text-center text-sm text-text-tertiary">No notes yet.</p>
+        <p className="py-4 text-center text-sm text-text-tertiary">{t('noNotesYet')}</p>
       ) : (
         <div className="space-y-3">
           {notes.map((note) => (
@@ -181,7 +182,8 @@ export default function ApplicationDetailPage() {
     try {
       const res = await apiClient<{ data: ApplicationDetail }>(`/api/v1/applications/${id}`);
       setApplication(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[AdmissionsPage]', err);
       toast.error('Failed to load application');
     } finally {
       setLoading(false);
@@ -214,7 +216,8 @@ export default function ApplicationDetailPage() {
       setShowRejectForm(false);
       setRejectionReason('');
       void fetchApplication();
-    } catch {
+    } catch (err) {
+      console.error('[AdmissionsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setActionLoading(false);
@@ -229,7 +232,8 @@ export default function ApplicationDetailPage() {
       });
       toast.success(t('statusUpdateSuccess'));
       void fetchApplication();
-    } catch {
+    } catch (err) {
+      console.error('[AdmissionsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setActionLoading(false);
@@ -252,7 +256,7 @@ export default function ApplicationDetailPage() {
         <Button variant="ghost" onClick={() => router.back()}>
           <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" /> {tc('back')}
         </Button>
-        <p className="text-sm text-danger-text">Application not found.</p>
+        <p className="text-sm text-danger-text">{t('applicationNotFound')}</p>
       </div>
     );
   }

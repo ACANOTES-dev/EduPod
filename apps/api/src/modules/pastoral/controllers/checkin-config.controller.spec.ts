@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { TenantContext } from '@school/shared';
 
+import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade } from '../../../common/tests/mock-facades';
 import { MODULE_ENABLED_KEY } from '../../../common/decorators/module-enabled.decorator';
 import { REQUIRES_PERMISSION_KEY } from '../../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../../common/guards/auth.guard';
@@ -32,6 +33,13 @@ const mockPrisma = {
     findUnique: jest.fn(),
     upsert: jest.fn(),
   },
+  $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+    fn(mockPrisma),
+  ),
+};
+
+const mockConfigurationReadFacade = {
+  findSettings: jest.fn(),
 };
 
 const mockPrerequisiteService = {
@@ -48,8 +56,10 @@ describe('CheckinConfigController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CheckinConfigController],
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: CheckinPrerequisiteService, useValue: mockPrerequisiteService },
+        { provide: ConfigurationReadFacade, useValue: mockConfigurationReadFacade },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -103,18 +113,16 @@ describe('CheckinConfigController', () => {
 
   describe('getConfig', () => {
     it('should return default checkin config when no settings exist', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(null);
+      mockConfigurationReadFacade.findSettings.mockResolvedValue(null);
 
       const result = await controller.getConfig(TENANT);
 
-      expect(mockPrisma.tenantSetting.findUnique).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT_ID },
-      });
+      expect(mockConfigurationReadFacade.findSettings).toHaveBeenCalledWith(TENANT_ID);
       expect(result).toHaveProperty('data');
     });
 
     it('should return stored checkin config when settings exist', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+      mockConfigurationReadFacade.findSettings.mockResolvedValue({
         id: 'settings-1',
         tenant_id: TENANT_ID,
         settings: {
@@ -152,7 +160,7 @@ describe('CheckinConfigController', () => {
   describe('updateConfig', () => {
     it('should validate prerequisites when enabling check-ins', async () => {
       mockPrerequisiteService.validatePrerequisites.mockResolvedValue(undefined);
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(null);
+      mockConfigurationReadFacade.findSettings.mockResolvedValue(null);
       mockPrisma.tenantSetting.upsert.mockResolvedValue({});
 
       const dto = { enabled: true };
@@ -163,7 +171,7 @@ describe('CheckinConfigController', () => {
     });
 
     it('should NOT validate prerequisites when not enabling', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(null);
+      mockConfigurationReadFacade.findSettings.mockResolvedValue(null);
       mockPrisma.tenantSetting.upsert.mockResolvedValue({});
 
       const dto = { frequency: 'weekly' as const };
@@ -174,7 +182,7 @@ describe('CheckinConfigController', () => {
     });
 
     it('should NOT validate prerequisites when enabled is false', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(null);
+      mockConfigurationReadFacade.findSettings.mockResolvedValue(null);
       mockPrisma.tenantSetting.upsert.mockResolvedValue({});
 
       const dto = { enabled: false };
@@ -185,7 +193,7 @@ describe('CheckinConfigController', () => {
     });
 
     it('should merge only provided fields into existing settings', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+      mockConfigurationReadFacade.findSettings.mockResolvedValue({
         id: 'settings-1',
         tenant_id: TENANT_ID,
         settings: {
@@ -215,7 +223,7 @@ describe('CheckinConfigController', () => {
     });
 
     it('should upsert settings when none exist', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(null);
+      mockConfigurationReadFacade.findSettings.mockResolvedValue(null);
       mockPrisma.tenantSetting.upsert.mockResolvedValue({});
 
       const dto = { enabled: false, frequency: 'daily' as const };

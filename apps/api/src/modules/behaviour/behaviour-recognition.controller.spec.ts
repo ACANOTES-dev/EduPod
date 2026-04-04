@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 
+import { MOCK_FACADE_PROVIDERS, AcademicReadFacade, ConfigurationReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourAwardService } from './behaviour-award.service';
@@ -71,6 +72,14 @@ const mockPrisma = {
   },
 };
 
+const mockAcademicReadFacade = {
+  findCurrentYear: jest.fn(),
+};
+
+const mockConfigurationReadFacade = {
+  findSettingsJson: jest.fn().mockResolvedValue(null),
+};
+
 describe('BehaviourRecognitionController', () => {
   let controller: BehaviourRecognitionController;
 
@@ -78,11 +87,14 @@ describe('BehaviourRecognitionController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BehaviourRecognitionController],
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: BehaviourRecognitionService, useValue: mockRecognitionService },
         { provide: BehaviourAwardService, useValue: mockAwardService },
         { provide: BehaviourHouseService, useValue: mockHouseService },
         { provide: BehaviourPointsService, useValue: mockPointsService },
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
+        { provide: ConfigurationReadFacade, useValue: mockConfigurationReadFacade },
       ],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
@@ -94,14 +106,12 @@ describe('BehaviourRecognitionController', () => {
     controller = module.get<BehaviourRecognitionController>(BehaviourRecognitionController);
 
     // Default: active academic year exists
-    mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
+    mockAcademicReadFacade.findCurrentYear.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
     // Default: behaviour settings
-    mockPrisma.tenantSetting.findFirst.mockResolvedValue({
-      settings: {
-        behaviour: {
-          recognition_wall_requires_consent: false,
-          recognition_wall_admin_approval_required: false,
-        },
+    mockConfigurationReadFacade.findSettingsJson.mockResolvedValue({
+      behaviour: {
+        recognition_wall_requires_consent: false,
+        recognition_wall_admin_approval_required: false,
       },
     });
   });
@@ -139,16 +149,13 @@ describe('BehaviourRecognitionController', () => {
 
     const result = await controller.getHouseStandings(TENANT);
 
-    expect(mockPrisma.academicYear.findFirst).toHaveBeenCalledWith({
-      where: { tenant_id: TENANT_ID, status: 'active' },
-      select: { id: true },
-    });
+    expect(mockAcademicReadFacade.findCurrentYear).toHaveBeenCalledWith(TENANT_ID);
     expect(mockPointsService.getHouseStandings).toHaveBeenCalledWith(TENANT_ID, ACADEMIC_YEAR_ID);
     expect(result).toEqual([{ house: 'Red', points: 500 }]);
   });
 
   it('should throw BadRequestException when no active academic year for getHouseStandings', async () => {
-    mockPrisma.academicYear.findFirst.mockResolvedValue(null);
+    mockAcademicReadFacade.findCurrentYear.mockResolvedValue(null);
 
     await expect(controller.getHouseStandings(TENANT)).rejects.toThrow(BadRequestException);
   });

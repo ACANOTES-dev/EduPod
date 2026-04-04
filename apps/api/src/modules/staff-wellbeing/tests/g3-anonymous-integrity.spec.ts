@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
+import { ConfigurationReadFacade, MOCK_FACADE_PROVIDERS } from '../../../common/tests/mock-facades';
 import { EncryptionService } from '../../configuration/encryption.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { HmacService } from '../services/hmac.service';
@@ -157,6 +158,8 @@ describe('G3 — Anonymous Submission Integrity', () => {
           }),
           update: jest.fn(),
         },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        $transaction: jest.fn().mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(mockPrisma)),
       };
 
       mockEncryption = {
@@ -169,9 +172,14 @@ describe('G3 — Anonymous Submission Integrity', () => {
 
       const module: TestingModule = await Test.createTestingModule({
         providers: [
+          ...MOCK_FACADE_PROVIDERS,
           HmacService,
           { provide: PrismaService, useValue: mockPrisma },
           { provide: EncryptionService, useValue: mockEncryption },
+          {
+            provide: ConfigurationReadFacade,
+            useValue: { findSettings: mockPrisma.tenantSetting.findUnique },
+          },
         ],
       }).compile();
 

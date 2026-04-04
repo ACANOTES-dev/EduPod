@@ -55,7 +55,8 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
         `/api/v1/search?q=${encodeURIComponent(q)}&types=students,parents,staff,households`,
       );
       setResults(Array.isArray(response.data) ? response.data : []);
-    } catch {
+    } catch (err) {
+      console.error('[GlobalSearch]', err);
       setResults([]);
     } finally {
       setLoading(false);

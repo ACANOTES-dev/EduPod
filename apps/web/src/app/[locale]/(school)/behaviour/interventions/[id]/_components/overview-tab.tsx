@@ -72,13 +72,11 @@ export function InterventionOverviewTab({ intervention, onOpenTransition }: Over
                         <p className="text-sm font-medium text-text-primary">{goal.goal_text}</p>
                       </div>
                       {goal.measurable_target && (
-                        <p className="mt-1 ps-6 text-xs text-text-tertiary">
-                          Target: {goal.measurable_target}
+                        <p className="mt-1 ps-6 text-xs text-text-tertiary">{t('target')}{goal.measurable_target}
                         </p>
                       )}
                       {goal.deadline && (
-                        <p className="mt-0.5 ps-6 text-xs text-text-tertiary">
-                          Deadline: {formatDate(goal.deadline)}
+                        <p className="mt-0.5 ps-6 text-xs text-text-tertiary">{t('deadline2')}{formatDate(goal.deadline)}
                         </p>
                       )}
                     </div>
@@ -204,7 +202,7 @@ export function InterventionOverviewTab({ intervention, onOpenTransition }: Over
             <div className="flex items-start gap-2">
               <User className="mt-0.5 h-4 w-4 shrink-0 text-text-tertiary" />
               <div>
-                <dt className="text-xs text-text-tertiary">Student</dt>
+                <dt className="text-xs text-text-tertiary">{t('student')}</dt>
                 <dd className="text-text-primary">
                   {intervention.student
                     ? `${intervention.student.first_name} ${intervention.student.last_name}`
@@ -215,7 +213,7 @@ export function InterventionOverviewTab({ intervention, onOpenTransition }: Over
             <div className="flex items-start gap-2">
               <User className="mt-0.5 h-4 w-4 shrink-0 text-text-tertiary" />
               <div>
-                <dt className="text-xs text-text-tertiary">Assigned To</dt>
+                <dt className="text-xs text-text-tertiary">{t('assignedTo')}</dt>
                 <dd className="text-text-primary">
                   {intervention.assigned_to_user
                     ? `${intervention.assigned_to_user.first_name} ${intervention.assigned_to_user.last_name}`
@@ -226,7 +224,7 @@ export function InterventionOverviewTab({ intervention, onOpenTransition }: Over
             <div className="flex items-start gap-2">
               <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-text-tertiary" />
               <div>
-                <dt className="text-xs text-text-tertiary">Start Date</dt>
+                <dt className="text-xs text-text-tertiary">{t('startDate')}</dt>
                 <dd className="text-text-primary">{formatDate(intervention.start_date)}</dd>
               </div>
             </div>
@@ -234,7 +232,7 @@ export function InterventionOverviewTab({ intervention, onOpenTransition }: Over
               <div className="flex items-start gap-2">
                 <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-text-tertiary" />
                 <div>
-                  <dt className="text-xs text-text-tertiary">Target End</dt>
+                  <dt className="text-xs text-text-tertiary">{t('targetEnd')}</dt>
                   <dd className="text-text-primary">{formatDate(intervention.target_end_date)}</dd>
                 </div>
               </div>
@@ -242,16 +240,14 @@ export function InterventionOverviewTab({ intervention, onOpenTransition }: Over
             <div className="flex items-start gap-2">
               <Clock className="mt-0.5 h-4 w-4 shrink-0 text-text-tertiary" />
               <div>
-                <dt className="text-xs text-text-tertiary">Review Frequency</dt>
-                <dd className="text-text-primary">
-                  Every {intervention.review_frequency_days} days
-                </dd>
+                <dt className="text-xs text-text-tertiary">{t('reviewFrequency')}</dt>
+                <dd className="text-text-primary">{t('every')}{intervention.review_frequency_days}{t('days')}</dd>
               </div>
             </div>
             <div className="flex items-start gap-2">
               <Clock className="mt-0.5 h-4 w-4 shrink-0 text-text-tertiary" />
               <div>
-                <dt className="text-xs text-text-tertiary">Created</dt>
+                <dt className="text-xs text-text-tertiary">{t('created')}</dt>
                 <dd className="text-text-primary">{formatDateTime(intervention.created_at)}</dd>
               </div>
             </div>
@@ -285,7 +281,7 @@ export function InterventionOverviewTab({ intervention, onOpenTransition }: Over
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
             <div className="flex items-center gap-2">
               <Shield className="h-4 w-4 text-amber-600" />
-              <span className="text-sm font-medium text-amber-800">SEND Awareness</span>
+              <span className="text-sm font-medium text-amber-800">{t('sendAwareness')}</span>
             </div>
           </div>
         )}

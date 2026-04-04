@@ -45,7 +45,7 @@ export default function FeeGenerationReportPage() {
         setRuns(res.data);
         setTotal(res.meta?.total ?? 0);
       })
-      .catch(() => setRuns([]))
+      .catch((err) => { console.error('[ReportsFeeGenerationPage]', err); return setRuns([]); })
       .finally(() => setIsLoading(false));
   }, [page]);
 

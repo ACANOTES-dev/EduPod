@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
+import { MOCK_FACADE_PROVIDERS, StudentReadFacade, ParentReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { HomeworkDiaryService } from './homework-diary.service';
@@ -62,6 +63,7 @@ describe('HomeworkDiaryService — listNotes', () => {
   let module: TestingModule;
   let service: HomeworkDiaryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockStudentFacadeLN: { existsOrThrow: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
@@ -69,10 +71,14 @@ describe('HomeworkDiaryService — listNotes', () => {
       Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
     );
 
+    mockStudentFacadeLN = { existsOrThrow: jest.fn().mockResolvedValue(undefined) };
+
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkDiaryService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: StudentReadFacade, useValue: mockStudentFacadeLN },
       ],
     }).compile();
 
@@ -85,7 +91,6 @@ describe('HomeworkDiaryService — listNotes', () => {
   });
 
   it('should return paginated diary notes for a student', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
     const notes = [
       { id: NOTE_ID, student_id: STUDENT_ID, note_date: new Date('2026-04-01'), content: 'Note 1' },
     ];
@@ -108,7 +113,6 @@ describe('HomeworkDiaryService — listNotes', () => {
   });
 
   it('should calculate skip correctly for page 2', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
     mockPrisma.diaryNote.findMany.mockResolvedValue([]);
     mockPrisma.diaryNote.count.mockResolvedValue(0);
 
@@ -123,7 +127,9 @@ describe('HomeworkDiaryService — listNotes', () => {
   });
 
   it('should throw NotFoundException when student not found', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue(null);
+    mockStudentFacadeLN.existsOrThrow.mockRejectedValue(
+      new NotFoundException({ code: 'STUDENT_NOT_FOUND', message: 'Student not found' }),
+    );
 
     await expect(
       service.listNotes(TENANT_ID, STUDENT_ID, { page: 1, pageSize: 20 }),
@@ -135,6 +141,7 @@ describe('HomeworkDiaryService — createNote', () => {
   let module: TestingModule;
   let service: HomeworkDiaryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockStudentFacadeCN: { existsOrThrow: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
@@ -142,10 +149,14 @@ describe('HomeworkDiaryService — createNote', () => {
       Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
     );
 
+    mockStudentFacadeCN = { existsOrThrow: jest.fn().mockResolvedValue(undefined) };
+
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkDiaryService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: StudentReadFacade, useValue: mockStudentFacadeCN },
       ],
     }).compile();
 
@@ -158,7 +169,6 @@ describe('HomeworkDiaryService — createNote', () => {
   });
 
   it('should create a diary note via RLS transaction', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
     const created = {
       id: NOTE_ID,
       tenant_id: TENANT_ID,
@@ -185,7 +195,6 @@ describe('HomeworkDiaryService — createNote', () => {
   });
 
   it('should throw BadRequestException on duplicate date (P2002)', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
     const p2002Error = new Prisma.PrismaClientKnownRequestError(
       'Unique constraint failed',
       { code: 'P2002', clientVersion: '5.0.0' },
@@ -201,7 +210,6 @@ describe('HomeworkDiaryService — createNote', () => {
   });
 
   it('should re-throw non-P2002 Prisma errors', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
     const genericError = new Error('Database connection lost');
     mockRlsTx.diaryNote.create.mockRejectedValue(genericError);
 
@@ -214,7 +222,9 @@ describe('HomeworkDiaryService — createNote', () => {
   });
 
   it('should throw NotFoundException when student not found', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue(null);
+    mockStudentFacadeCN.existsOrThrow.mockRejectedValue(
+      new NotFoundException({ code: 'STUDENT_NOT_FOUND', message: 'Student not found' }),
+    );
 
     await expect(
       service.createNote(TENANT_ID, STUDENT_ID, {
@@ -238,6 +248,7 @@ describe('HomeworkDiaryService — updateNote', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkDiaryService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -307,6 +318,7 @@ describe('HomeworkDiaryService — listParentNotes', () => {
   let module: TestingModule;
   let service: HomeworkDiaryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockStudentFacade: { existsOrThrow: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
@@ -314,10 +326,14 @@ describe('HomeworkDiaryService — listParentNotes', () => {
       Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
     );
 
+    mockStudentFacade = { existsOrThrow: jest.fn().mockResolvedValue(undefined) };
+
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkDiaryService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
       ],
     }).compile();
 
@@ -330,7 +346,6 @@ describe('HomeworkDiaryService — listParentNotes', () => {
   });
 
   it('should return paginated parent notes with includes', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
     const notes = [
       {
         id: NOTE_ID,
@@ -360,7 +375,9 @@ describe('HomeworkDiaryService — listParentNotes', () => {
   });
 
   it('should throw NotFoundException when student not found', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue(null);
+    mockStudentFacade.existsOrThrow.mockRejectedValue(
+      new NotFoundException({ code: 'STUDENT_NOT_FOUND', message: 'Student not found' }),
+    );
 
     await expect(
       service.listParentNotes(TENANT_ID, STUDENT_ID, {
@@ -375,6 +392,8 @@ describe('HomeworkDiaryService — createParentNote', () => {
   let module: TestingModule;
   let service: HomeworkDiaryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockStudentFacadePN: { existsOrThrow: jest.Mock };
+  let mockParentFacadePN: { resolveIdByUserId: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
@@ -382,10 +401,16 @@ describe('HomeworkDiaryService — createParentNote', () => {
       Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
     );
 
+    mockStudentFacadePN = { existsOrThrow: jest.fn().mockResolvedValue(undefined) };
+    mockParentFacadePN = { resolveIdByUserId: jest.fn().mockResolvedValue(null) };
+
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkDiaryService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: StudentReadFacade, useValue: mockStudentFacadePN },
+        { provide: ParentReadFacade, useValue: mockParentFacadePN },
       ],
     }).compile();
 
@@ -398,8 +423,7 @@ describe('HomeworkDiaryService — createParentNote', () => {
   });
 
   it('should create parent note with resolved parent_id', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
-    mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID });
+    mockParentFacadePN.resolveIdByUserId.mockResolvedValue(PARENT_ID);
     const created = {
       id: NOTE_ID,
       content: 'Parent feedback',
@@ -438,8 +462,7 @@ describe('HomeworkDiaryService — createParentNote', () => {
   });
 
   it('should set parent_id to null when user has no parent record', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
-    mockPrisma.parent.findFirst.mockResolvedValue(null);
+    mockParentFacadePN.resolveIdByUserId.mockResolvedValue(null);
     mockRlsTx.diaryParentNote.create.mockResolvedValue({
       id: NOTE_ID,
       parent_id: null,
@@ -456,7 +479,9 @@ describe('HomeworkDiaryService — createParentNote', () => {
   });
 
   it('should throw NotFoundException when student not found', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue(null);
+    mockStudentFacadePN.existsOrThrow.mockRejectedValue(
+      new NotFoundException({ code: 'STUDENT_NOT_FOUND', message: 'Student not found' }),
+    );
 
     await expect(
       service.createParentNote(TENANT_ID, STUDENT_ID, USER_ID, {
@@ -481,6 +506,7 @@ describe('HomeworkDiaryService — acknowledgeNote', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkDiaryService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

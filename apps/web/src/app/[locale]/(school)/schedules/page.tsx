@@ -122,7 +122,7 @@ export default function SchedulesPage() {
         );
         setRooms(roomsRes.data);
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[SchedulesPage]', err); });
   }, []);
 
   const fetchSchedules = React.useCallback(
@@ -138,7 +138,8 @@ export default function SchedulesPage() {
         const res = await apiClient<SchedulesResponse>(`/api/v1/schedules?${params.toString()}`);
         setData(res.data);
         setTotal(res.meta.total);
-      } catch {
+      } catch (err) {
+        console.error('[SchedulesPage]', err);
         setData([]);
         setTotal(0);
       } finally {
@@ -221,10 +222,10 @@ export default function SchedulesPage() {
         }}
       >
         <SelectTrigger className="w-full sm:w-40">
-          <SelectValue placeholder="Academic Year" />
+          <SelectValue placeholder={t('academicYear2')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Years</SelectItem>
+          <SelectItem value="all">{t('allYears')}</SelectItem>
           {academicYears.map((y) => (
             <SelectItem key={y.id} value={y.id}>
               {y.name}
@@ -241,10 +242,10 @@ export default function SchedulesPage() {
         }}
       >
         <SelectTrigger className="w-full sm:w-40">
-          <SelectValue placeholder="Class" />
+          <SelectValue placeholder={t('scopeClass')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Classes</SelectItem>
+          <SelectItem value="all">{t('allClasses')}</SelectItem>
           {classes.map((c) => (
             <SelectItem key={c.id} value={c.id}>
               {c.name}
@@ -261,10 +262,10 @@ export default function SchedulesPage() {
         }}
       >
         <SelectTrigger className="w-full sm:w-40">
-          <SelectValue placeholder="Teacher" />
+          <SelectValue placeholder={t('teacher')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Teachers</SelectItem>
+          <SelectItem value="all">{t('allTeachers')}</SelectItem>
           {teachers.map((tr) => (
             <SelectItem key={tr.id} value={tr.id}>
               {tr.name}
@@ -281,10 +282,10 @@ export default function SchedulesPage() {
         }}
       >
         <SelectTrigger className="w-full sm:w-36">
-          <SelectValue placeholder="Room" />
+          <SelectValue placeholder={t('room')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Rooms</SelectItem>
+          <SelectItem value="all">{t('allRooms')}</SelectItem>
           {rooms.map((r) => (
             <SelectItem key={r.id} value={r.id}>
               {r.name}
@@ -301,10 +302,10 @@ export default function SchedulesPage() {
         }}
       >
         <SelectTrigger className="w-full sm:w-36">
-          <SelectValue placeholder="Day" />
+          <SelectValue placeholder={t('day')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Days</SelectItem>
+          <SelectItem value="all">{t('allDays')}</SelectItem>
           <SelectItem value="1">{t('monday')}</SelectItem>
           <SelectItem value="2">{t('tuesday')}</SelectItem>
           <SelectItem value="3">{t('wednesday')}</SelectItem>

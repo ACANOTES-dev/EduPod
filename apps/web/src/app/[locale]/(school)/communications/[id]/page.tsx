@@ -103,7 +103,8 @@ export default function AnnouncementDetailPage() {
       setAnnouncement(res.data);
       setTitle(res.data.title);
       setBody(res.data.body ?? '');
-    } catch {
+    } catch (err) {
+      console.error('[CommunicationsPage]', err);
       toast.error('Failed to load announcement');
     } finally {
       setLoading(false);
@@ -123,7 +124,8 @@ export default function AnnouncementDetailPage() {
       });
       toast.success(t('detail.saveSuccess'));
       void fetchAnnouncement();
-    } catch {
+    } catch (err) {
+      console.error('[CommunicationsPage]', err);
       toast.error(t('detail.saveError'));
     } finally {
       setActionLoading(false);
@@ -136,7 +138,8 @@ export default function AnnouncementDetailPage() {
       await apiClient(`/api/v1/announcements/${id}/publish`, { method: 'POST' });
       toast.success(t('detail.publishSuccess'));
       void fetchAnnouncement();
-    } catch {
+    } catch (err) {
+      console.error('[CommunicationsPage]', err);
       toast.error(t('detail.publishError'));
     } finally {
       setActionLoading(false);
@@ -149,7 +152,8 @@ export default function AnnouncementDetailPage() {
       await apiClient(`/api/v1/announcements/${id}/archive`, { method: 'POST' });
       toast.success(t('detail.archiveSuccess'));
       router.push('/communications');
-    } catch {
+    } catch (err) {
+      console.error('[CommunicationsPage]', err);
       toast.error(t('detail.archiveError'));
     } finally {
       setActionLoading(false);
@@ -198,9 +202,7 @@ export default function AnnouncementDetailPage() {
             </Button>
             {!isArchived && (
               <Button variant="outline" onClick={handleArchive} disabled={actionLoading}>
-                <Archive className="me-2 h-4 w-4" />
-                Archive
-              </Button>
+                <Archive className="me-2 h-4 w-4" />{t('archive')}</Button>
             )}
             {isDraft && (
               <>
@@ -226,13 +228,11 @@ export default function AnnouncementDetailPage() {
           {announcement.status.charAt(0).toUpperCase() + announcement.status.slice(1)}
         </StatusBadge>
         {announcement.published_at && (
-          <span className="text-sm text-text-secondary">
-            Published {new Date(announcement.published_at).toLocaleString()}
+          <span className="text-sm text-text-secondary">{t('published')}{new Date(announcement.published_at).toLocaleString()}
           </span>
         )}
         {announcement.scheduled_at && !announcement.published_at && (
-          <span className="text-sm text-text-secondary">
-            Scheduled for {new Date(announcement.scheduled_at).toLocaleString()}
+          <span className="text-sm text-text-secondary">{t('scheduledFor')}{new Date(announcement.scheduled_at).toLocaleString()}
           </span>
         )}
         <span className="text-sm text-text-secondary capitalize">

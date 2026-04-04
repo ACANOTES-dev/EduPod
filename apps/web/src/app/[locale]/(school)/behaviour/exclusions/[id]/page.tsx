@@ -81,7 +81,8 @@ export default function ExclusionDetailPage() {
       if (res.hearing_date) setHearingDate(res.hearing_date.split('T')[0] ?? '');
       if (res.hearing_attendees) setAttendees(res.hearing_attendees as HearingAttendee[]);
       if (res.student_representation) setRepresentation(res.student_representation);
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourExclusionsPage]', err);
       setExclusion(null);
     }
   }, [exclusionId]);
@@ -95,7 +96,7 @@ export default function ExclusionDetailPage() {
     if (!exclusionId) return;
     apiClient<{ data: TimelineStep[] }>(`/api/v1/behaviour/exclusion-cases/${exclusionId}/timeline`)
       .then((res) => setTimeline(res.data ?? []))
-      .catch(() => setTimeline([]));
+      .catch((err) => { console.error('[BehaviourExclusionsPage]', err); return setTimeline([]); });
   }, [exclusionId]);
 
   React.useEffect(() => {
@@ -103,14 +104,14 @@ export default function ExclusionDetailPage() {
     setHistoryLoading(true);
     apiClient<{ data: HistoryEntry[] }>(`/api/v1/behaviour/incidents/${exclusionId}/history`)
       .then((res) => setHistory(res.data ?? []))
-      .catch(() => setHistory([]))
+      .catch((err) => { console.error('[BehaviourExclusionsPage]', err); return setHistory([]); })
       .finally(() => setHistoryLoading(false));
   }, [exclusionId]);
 
   React.useEffect(() => {
     apiClient<{ data: StaffOption[] }>('/api/v1/staff-profiles?pageSize=100')
       .then((res) => setStaffOptions(res.data ?? []))
-      .catch(() => setStaffOptions([]));
+      .catch((err) => { console.error('[BehaviourExclusionsPage]', err); return setStaffOptions([]); });
   }, []);
 
   // ─── Actions ────────────────────────────────────────────────────────────
@@ -328,8 +329,7 @@ export default function ExclusionDetailPage() {
           <Link
             href={`/${locale}/behaviour/sanctions/${exclusion.sanction.id}`}
             className="flex items-center gap-1 text-xs text-text-secondary hover:text-primary-600"
-          >
-            Sanction: {exclusion.sanction.sanction_number}
+          >{t('sanction')}{exclusion.sanction.sanction_number}
             <ExternalLink className="h-3 w-3" />
           </Link>
         )}
@@ -337,8 +337,7 @@ export default function ExclusionDetailPage() {
           <Link
             href={`/${locale}/behaviour/incidents/${exclusion.incident.id}`}
             className="flex items-center gap-1 text-xs text-text-secondary hover:text-primary-600"
-          >
-            Incident: {exclusion.incident.incident_number}
+          >{t('incident')}{exclusion.incident.incident_number}
             <ExternalLink className="h-3 w-3" />
           </Link>
         )}

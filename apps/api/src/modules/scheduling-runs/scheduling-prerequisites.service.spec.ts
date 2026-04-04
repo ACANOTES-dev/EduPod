@@ -1,10 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { ClassesReadFacade } from '../classes/classes-read.facade';
+import {
+  ClassesReadFacade,
+  MOCK_FACADE_PROVIDERS,
+  SchedulesReadFacade,
+  SchedulingReadFacade,
+  StaffAvailabilityReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
-import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
-import { SchedulingReadFacade } from '../scheduling/scheduling-read.facade';
-import { StaffAvailabilityReadFacade } from '../staff-availability/staff-availability-read.facade';
 
 import { SchedulingPrerequisitesService } from './scheduling-prerequisites.service';
 
@@ -13,98 +16,49 @@ const AY_ID = 'ay-uuid-0001';
 
 describe('SchedulingPrerequisitesService', () => {
   let service: SchedulingPrerequisitesService;
-  let mockPrisma: {
-    schedulePeriodTemplate: { count: jest.Mock };
-    class: { count: jest.Mock; findMany: jest.Mock };
-    classSchedulingRequirement: { count: jest.Mock };
-    schedule: { findMany: jest.Mock };
-    staffAvailability: { findMany: jest.Mock };
+
+  const mockSchedulingReadFacade = {
+    countTeachingPeriods: jest.fn().mockResolvedValue(0),
+    countClassRequirements: jest.fn().mockResolvedValue(0),
   };
 
-  beforeEach(async () => {
-    mockPrisma = {
-      schedulePeriodTemplate: { count: jest.fn().mockResolvedValue(0) },
-      class: {
-        count: jest.fn().mockResolvedValue(0),
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      classSchedulingRequirement: { count: jest.fn().mockResolvedValue(0) },
-      schedule: { findMany: jest.fn().mockResolvedValue([]) },
-      staffAvailability: { findMany: jest.fn().mockResolvedValue([]) },
-    };
+  const mockClassesReadFacade = {
+    countByAcademicYear: jest.fn().mockResolvedValue(0),
+    findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
+  };
 
+  const mockSchedulesReadFacade = {
+    findPinnedEntries: jest.fn().mockResolvedValue([]),
+  };
+
+  const mockStaffAvailabilityReadFacade = {
+    findByStaffIds: jest.fn().mockResolvedValue([]),
+  };
+
+  const mockPrisma = {};
+
+  beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        {
-          provide: ClassesReadFacade,
-          useValue: {
-            findById: jest.fn().mockResolvedValue(null),
-            existsOrThrow: jest.fn().mockResolvedValue(undefined),
-            findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
-            countEnrolledStudents: jest.fn().mockResolvedValue(0),
-            findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
-            findByAcademicYear: jest.fn().mockResolvedValue([]),
-            findByYearGroup: jest.fn().mockResolvedValue([]),
-            findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
-            countByAcademicYear: jest.fn().mockResolvedValue(0),
-            findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
-            findClassIdsForStudent: jest.fn().mockResolvedValue([]),
-            findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
-          },
-        },
-        {
-          provide: SchedulesReadFacade,
-          useValue: {
-            findById: jest.fn().mockResolvedValue(null),
-            findCoreById: jest.fn().mockResolvedValue(null),
-            existsById: jest.fn().mockResolvedValue(null),
-            findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
-            countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
-            findTeacherTimetable: jest.fn().mockResolvedValue([]),
-            findClassTimetable: jest.fn().mockResolvedValue([]),
-            findPinnedEntries: jest.fn().mockResolvedValue([]),
-            countPinnedEntries: jest.fn().mockResolvedValue(0),
-            findByAcademicYear: jest.fn().mockResolvedValue([]),
-            findScheduledClassIds: jest.fn().mockResolvedValue([]),
-            countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
-            count: jest.fn().mockResolvedValue(0),
-            hasRotationEntries: jest.fn().mockResolvedValue(false),
-            countByRoom: jest.fn().mockResolvedValue(0),
-            findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
-            findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
-            countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
-            findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
-            hasConflict: jest.fn().mockResolvedValue(false),
-            findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
-            findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
-          },
-        },
-        {
-          provide: SchedulingReadFacade,
-          useValue: {
-            findPeriodTemplate: jest.fn().mockResolvedValue(null),
-            countTeachingPeriods: jest.fn().mockResolvedValue(0),
-            findPeriodTemplates: jest.fn().mockResolvedValue([]),
-            countClassRequirements: jest.fn().mockResolvedValue(0),
-            findClassRequirementsWithDetails: jest.fn().mockResolvedValue([]),
-            findTeacherCompetencies: jest.fn().mockResolvedValue([]),
-            findTeacherConfigs: jest.fn().mockResolvedValue([]),
-          },
-        },
-        {
-          provide: StaffAvailabilityReadFacade,
-          useValue: {
-            findByAcademicYear: jest.fn().mockResolvedValue([]),
-            findByStaffIds: jest.fn().mockResolvedValue([]),
-            findByWeekday: jest.fn().mockResolvedValue([]),
-          },
-        },
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
+        { provide: SchedulesReadFacade, useValue: mockSchedulesReadFacade },
+        { provide: SchedulingReadFacade, useValue: mockSchedulingReadFacade },
+        { provide: StaffAvailabilityReadFacade, useValue: mockStaffAvailabilityReadFacade },
         SchedulingPrerequisitesService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 
     service = module.get<SchedulingPrerequisitesService>(SchedulingPrerequisitesService);
+
+    jest.clearAllMocks();
+    mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(0);
+    mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(0);
+    mockClassesReadFacade.countByAcademicYear.mockResolvedValue(0);
+    mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
+    mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([]);
+    mockStaffAvailabilityReadFacade.findByStaffIds.mockResolvedValue([]);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -114,14 +68,14 @@ describe('SchedulingPrerequisitesService', () => {
   describe('check (all pass)', () => {
     it('should return ready:true when all prerequisites are satisfied', async () => {
       // Period grid exists
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(10);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
       // All classes have requirements
-      mockPrisma.class.count.mockResolvedValue(5);
-      mockPrisma.classSchedulingRequirement.count.mockResolvedValue(5);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
       // All classes have teachers
-      mockPrisma.class.findMany.mockResolvedValue([]);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
       // No pinned entries (so no conflicts)
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([]);
 
       const result = await service.check(TENANT_ID, AY_ID);
 
@@ -135,11 +89,11 @@ describe('SchedulingPrerequisitesService', () => {
 
   describe('check (missing period grid)', () => {
     it('should fail when no teaching periods are configured', async () => {
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(0);
-      mockPrisma.class.count.mockResolvedValue(5);
-      mockPrisma.classSchedulingRequirement.count.mockResolvedValue(5);
-      mockPrisma.class.findMany.mockResolvedValue([]);
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(0);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([]);
 
       const result = await service.check(TENANT_ID, AY_ID);
 
@@ -154,15 +108,15 @@ describe('SchedulingPrerequisitesService', () => {
 
   describe('check (missing teachers)', () => {
     it('should fail when classes have no assigned teachers', async () => {
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(10);
-      mockPrisma.class.count.mockResolvedValue(5);
-      mockPrisma.classSchedulingRequirement.count.mockResolvedValue(5);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
       // 2 classes without teachers
-      mockPrisma.class.findMany.mockResolvedValue([
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([
         { id: 'cls-1', name: 'Math 1A' },
         { id: 'cls-2', name: 'Science 2B' },
       ]);
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([]);
 
       const result = await service.check(TENANT_ID, AY_ID);
 
@@ -177,11 +131,11 @@ describe('SchedulingPrerequisitesService', () => {
 
   describe('check (unconfigured classes)', () => {
     it('should fail when classes are missing scheduling requirements', async () => {
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(10);
-      mockPrisma.class.count.mockResolvedValue(5);
-      mockPrisma.classSchedulingRequirement.count.mockResolvedValue(3);
-      mockPrisma.class.findMany.mockResolvedValue([]);
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(3);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([]);
 
       const result = await service.check(TENANT_ID, AY_ID);
 
@@ -196,13 +150,13 @@ describe('SchedulingPrerequisitesService', () => {
 
   describe('check (pinned conflicts)', () => {
     it('should fail when pinned entries have teacher double-booking', async () => {
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(10);
-      mockPrisma.class.count.mockResolvedValue(5);
-      mockPrisma.classSchedulingRequirement.count.mockResolvedValue(5);
-      mockPrisma.class.findMany.mockResolvedValue([]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
 
       // Two pinned entries for the same teacher on the same day with overlapping times
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([
         {
           id: 'sched-1',
           teacher_staff_id: 'staff-1',
@@ -230,12 +184,12 @@ describe('SchedulingPrerequisitesService', () => {
     });
 
     it('should fail when pinned entries have room double-booking', async () => {
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(10);
-      mockPrisma.class.count.mockResolvedValue(5);
-      mockPrisma.classSchedulingRequirement.count.mockResolvedValue(5);
-      mockPrisma.class.findMany.mockResolvedValue([]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
 
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([
         {
           id: 'sched-1',
           teacher_staff_id: 'staff-1',
@@ -262,12 +216,12 @@ describe('SchedulingPrerequisitesService', () => {
     });
 
     it('should pass when pinned entries have no conflicts (different days)', async () => {
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(10);
-      mockPrisma.class.count.mockResolvedValue(5);
-      mockPrisma.classSchedulingRequirement.count.mockResolvedValue(5);
-      mockPrisma.class.findMany.mockResolvedValue([]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
 
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([
         {
           id: 'sched-1',
           teacher_staff_id: 'staff-1',
@@ -297,13 +251,13 @@ describe('SchedulingPrerequisitesService', () => {
 
   describe('check (pinned availability violations)', () => {
     it('should fail when a pinned entry falls outside teacher availability', async () => {
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(10);
-      mockPrisma.class.count.mockResolvedValue(5);
-      mockPrisma.classSchedulingRequirement.count.mockResolvedValue(5);
-      mockPrisma.class.findMany.mockResolvedValue([]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
 
       // Pinned entry for staff-1 on weekday 1, 09:00-09:45
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([
         {
           id: 'sched-1',
           teacher_staff_id: 'staff-1',
@@ -315,7 +269,7 @@ describe('SchedulingPrerequisitesService', () => {
       ]);
 
       // Staff-1 availability is only from 10:00-14:00 on weekday 1
-      mockPrisma.staffAvailability.findMany.mockResolvedValue([
+      mockStaffAvailabilityReadFacade.findByStaffIds.mockResolvedValue([
         {
           staff_profile_id: 'staff-1',
           weekday: 1,
@@ -336,11 +290,11 @@ describe('SchedulingPrerequisitesService', () => {
 
   describe('check (result structure)', () => {
     it('should always return 5 checks', async () => {
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(10);
-      mockPrisma.class.count.mockResolvedValue(5);
-      mockPrisma.classSchedulingRequirement.count.mockResolvedValue(5);
-      mockPrisma.class.findMany.mockResolvedValue([]);
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([]);
 
       const result = await service.check(TENANT_ID, AY_ID);
 

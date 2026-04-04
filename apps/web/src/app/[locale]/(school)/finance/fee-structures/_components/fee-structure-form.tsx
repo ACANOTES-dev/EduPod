@@ -61,7 +61,7 @@ export function FeeStructureForm({
   React.useEffect(() => {
     apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=100')
       .then((res) => setYearGroups(res.data))
-      .catch(() => setYearGroups([]));
+      .catch((err) => { console.error('[FeeStructureForm]', err); return setYearGroups([]); });
   }, []);
 
   const form = useForm<FeeStructureFormValues>({

@@ -10,6 +10,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+import { MOCK_FACADE_PROVIDERS, StudentReadFacade, AcademicReadFacade, ConfigurationReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { GpaService } from './gpa.service';
@@ -63,6 +64,10 @@ function buildMockPrisma() {
 
 // ─── computeGpa Tests ────────────────────────────────────────────────────────
 
+const mockStudentFacade = { existsOrThrow: jest.fn(), findOneGeneric: jest.fn() };
+const mockAcademicFacade = { findPeriodById: jest.fn() };
+const mockConfigFacade = { findSettings: jest.fn() };
+
 describe('GpaService — computeGpa', () => {
   let service: GpaService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
@@ -74,9 +79,19 @@ describe('GpaService — computeGpa', () => {
       gpa_value: 3.5,
       credit_hours_total: 6,
     });
+    mockStudentFacade.existsOrThrow.mockResolvedValue(true);
+    mockAcademicFacade.findPeriodById.mockResolvedValue({ id: PERIOD_ID });
+    mockConfigFacade.findSettings.mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [GpaService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
+        GpaService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
     }).compile();
 
     service = module.get<GpaService>(GpaService);
@@ -85,7 +100,7 @@ describe('GpaService — computeGpa', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should throw NotFoundException when student not found', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue(null);
+    mockStudentFacade.existsOrThrow.mockRejectedValue(new NotFoundException('student not found'));
 
     await expect(service.computeGpa(TENANT_ID, STUDENT_ID, PERIOD_ID)).rejects.toThrow(
       NotFoundException,
@@ -93,12 +108,7 @@ describe('GpaService — computeGpa', () => {
   });
 
   it('should throw NotFoundException when period not found', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({
-      id: STUDENT_ID,
-      first_name: 'Ali',
-      last_name: 'Hassan',
-    });
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue(null);
+    mockAcademicFacade.findPeriodById.mockResolvedValue(null);
 
     await expect(service.computeGpa(TENANT_ID, STUDENT_ID, PERIOD_ID)).rejects.toThrow(
       NotFoundException,
@@ -106,12 +116,6 @@ describe('GpaService — computeGpa', () => {
   });
 
   it('should return null GPA when no snapshots exist', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({
-      id: STUDENT_ID,
-      first_name: 'Ali',
-      last_name: 'Hassan',
-    });
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue({ id: PERIOD_ID });
     mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
 
     const result = await service.computeGpa(TENANT_ID, STUDENT_ID, PERIOD_ID);
@@ -121,12 +125,6 @@ describe('GpaService — computeGpa', () => {
   });
 
   it('should use equal weighting when no credit_hours configured', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({
-      id: STUDENT_ID,
-      first_name: 'Ali',
-      last_name: 'Hassan',
-    });
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue({ id: PERIOD_ID });
     mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
       {
         class_id: 'c1',
@@ -270,9 +268,21 @@ describe('GpaService — getCumulativeGpa', () => {
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockStudentFacade.findOneGeneric.mockResolvedValue({
+      id: STUDENT_ID,
+      first_name: 'Ali',
+      last_name: 'Hassan',
+    });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [GpaService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
+        GpaService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
     }).compile();
 
     service = module.get<GpaService>(GpaService);
@@ -281,7 +291,7 @@ describe('GpaService — getCumulativeGpa', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should throw NotFoundException when student not found', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue(null);
+    mockStudentFacade.findOneGeneric.mockResolvedValue(null);
 
     await expect(service.getCumulativeGpa(TENANT_ID, STUDENT_ID)).rejects.toThrow(
       NotFoundException,
@@ -289,11 +299,6 @@ describe('GpaService — getCumulativeGpa', () => {
   });
 
   it('should return null cumulative GPA when no snapshots', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({
-      id: STUDENT_ID,
-      first_name: 'Ali',
-      last_name: 'Hassan',
-    });
     mockPrisma.gpaSnapshot.findMany.mockResolvedValue([]);
 
     const result = await service.getCumulativeGpa(TENANT_ID, STUDENT_ID);
@@ -303,11 +308,6 @@ describe('GpaService — getCumulativeGpa', () => {
   });
 
   it('should compute weighted cumulative GPA across periods', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({
-      id: STUDENT_ID,
-      first_name: 'Ali',
-      last_name: 'Hassan',
-    });
     mockPrisma.gpaSnapshot.findMany.mockResolvedValue([
       {
         gpa_value: 3.5,
@@ -341,7 +341,7 @@ describe('GpaService — getGpaSnapshot', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [GpaService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [...MOCK_FACADE_PROVIDERS, GpaService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<GpaService>(GpaService);

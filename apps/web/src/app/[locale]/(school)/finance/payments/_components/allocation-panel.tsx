@@ -1,6 +1,7 @@
 'use client';
 
 import { Sparkles, Check } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import type { AllocationSuggestion } from '@school/shared';
@@ -34,6 +35,7 @@ export function AllocationPanel({
   currencyCode,
   onAllocationComplete,
 }: AllocationPanelProps) {
+  const t = useTranslations('finance');
   const [rows, setRows] = React.useState<AllocationRow[]>([]);
   const [isSuggesting, setIsSuggesting] = React.useState(false);
   const [isConfirming, setIsConfirming] = React.useState(false);
@@ -78,7 +80,8 @@ export function AllocationPanel({
         })),
       );
       setHasSuggested(true);
-    } catch {
+    } catch (err) {
+      console.error('[AllocationPanel]', err);
       toast.error('Failed to fetch allocation suggestions');
     } finally {
       setIsSuggesting(false);
@@ -108,7 +111,8 @@ export function AllocationPanel({
 
       toast.success('Allocations confirmed');
       onAllocationComplete();
-    } catch {
+    } catch (err) {
+      console.error('[AllocationPanel]', err);
       toast.error('Failed to confirm allocations');
     } finally {
       setIsConfirming(false);
@@ -118,7 +122,7 @@ export function AllocationPanel({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-text-primary">Allocate Payment</h3>
+        <h3 className="text-sm font-semibold text-text-primary">{t('allocatePayment')}</h3>
         <Button
           variant="outline"
           size="sm"
@@ -132,10 +136,7 @@ export function AllocationPanel({
 
       {!hasSuggested && rows.length === 0 && (
         <div className="rounded-xl border border-dashed border-border p-8 text-center">
-          <p className="text-sm text-text-tertiary">
-            Click &quot;Suggest Allocations&quot; to auto-fill using FIFO (oldest invoices first),
-            or manually enter amounts below.
-          </p>
+          <p className="text-sm text-text-tertiary">{t('clickSuggestAllocationsToAuto')}</p>
         </div>
       )}
 
@@ -145,18 +146,10 @@ export function AllocationPanel({
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-surface-secondary">
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                    Invoice
-                  </th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                    Due Date
-                  </th>
-                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                    Balance
-                  </th>
-                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                    Allocate
-                  </th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('invoice')}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('dueDate')}</th>
+                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('balanceAmount')}</th>
+                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('allocate')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -191,7 +184,7 @@ export function AllocationPanel({
                             className="w-32 text-end"
                           />
                           {exceedsBalance && (
-                            <span className="text-xs text-danger-text">Exceeds balance</span>
+                            <span className="text-xs text-danger-text">{t('exceedsBalance')}</span>
                           )}
                         </div>
                       </td>
@@ -205,7 +198,7 @@ export function AllocationPanel({
           {/* Running total */}
           <div className="flex flex-wrap items-center justify-between rounded-xl border border-border px-6 py-4">
             <div className="flex flex-col gap-0.5">
-              <span className="text-xs text-text-tertiary">Payment Amount</span>
+              <span className="text-xs text-text-tertiary">{t('paymentAmount')}</span>
               <CurrencyDisplay
                 amount={paymentAmount}
                 currency_code={currencyCode}
@@ -213,7 +206,7 @@ export function AllocationPanel({
               />
             </div>
             <div className="flex flex-col items-end gap-0.5">
-              <span className="text-xs text-text-tertiary">Total Allocated</span>
+              <span className="text-xs text-text-tertiary">{t('totalAllocated')}</span>
               <CurrencyDisplay
                 amount={totalAllocated}
                 currency_code={currencyCode}
@@ -221,7 +214,7 @@ export function AllocationPanel({
               />
             </div>
             <div className="flex flex-col items-end gap-0.5">
-              <span className="text-xs text-text-tertiary">Remaining</span>
+              <span className="text-xs text-text-tertiary">{t('remaining')}</span>
               <CurrencyDisplay
                 amount={Math.max(0, remaining)}
                 currency_code={currencyCode}
@@ -231,9 +224,7 @@ export function AllocationPanel({
           </div>
 
           {totalAllocated > paymentAmount + 0.01 && (
-            <p className="text-xs text-danger-text">
-              Total allocations cannot exceed the payment amount.
-            </p>
+            <p className="text-xs text-danger-text">{t('totalAllocationsCannotExceedThe')}</p>
           )}
 
           <div className="flex justify-end">

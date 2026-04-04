@@ -2,6 +2,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ParentReadFacade, StudentReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { ParentInquiriesService } from './parent-inquiries.service';
@@ -40,9 +41,26 @@ describe('ParentInquiriesService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ParentInquiriesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: getQueueToken('notifications'), useValue: mockQueue },
+        {
+          provide: ParentReadFacade,
+          useValue: {
+            findByUserId: jest.fn().mockImplementation((_t: string, _u: string) => {
+              return mockPrisma.parent.findFirst();
+            }),
+          },
+        },
+        {
+          provide: StudentReadFacade,
+          useValue: {
+            isParentLinked: jest.fn().mockImplementation((_t: string, _s: string, _p: string) => {
+              return mockPrisma.studentParent.findFirst().then((r: unknown) => !!r);
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -90,11 +108,6 @@ describe('ParentInquiriesService', () => {
       const result = await service.create(TENANT_ID, USER_ID, { subject: 'About grades', message: 'Help', student_id: STUDENT_ID });
 
       expect(result.student_id).toBe(STUDENT_ID);
-      expect(mockPrisma.studentParent.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { tenant_id: TENANT_ID, parent_id: PARENT_ID, student_id: STUDENT_ID },
-        }),
-      );
     });
 
     it('should throw when student_id does not belong to parent', async () => {

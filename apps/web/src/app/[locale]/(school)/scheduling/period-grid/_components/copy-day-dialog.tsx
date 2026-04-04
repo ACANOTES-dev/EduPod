@@ -88,7 +88,8 @@ export function CopyDayDialog({
       toast.success(tv('daysCopied'));
       onOpenChange(false);
       onCopied();
-    } catch {
+    } catch (err) {
+      console.error('[CopyDayDialog]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setIsCopying(false);

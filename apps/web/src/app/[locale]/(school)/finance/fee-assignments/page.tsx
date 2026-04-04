@@ -54,7 +54,8 @@ export default function FeeAssignmentsPage() {
       );
       setAssignments(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[FinanceFeeAssignmentsPage]', err);
       setAssignments([]);
       setTotal(0);
     } finally {
@@ -77,7 +78,8 @@ export default function FeeAssignmentsPage() {
         month: 'short',
         year: 'numeric',
       });
-    } catch {
+    } catch (err) {
+      console.error('[FinanceFeeAssignmentsPage]', err);
       return dateStr;
     }
   };

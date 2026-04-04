@@ -9,6 +9,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   })),
 }));
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { EncryptionService } from '../configuration/encryption.service';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -72,6 +73,7 @@ describe('AdmissionsPaymentService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AdmissionsPaymentService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EncryptionService, useValue: mockEncryption },

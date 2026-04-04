@@ -77,7 +77,7 @@ export default function AlertsPage() {
   React.useEffect(() => {
     apiClient<AlertsResponse>('/api/v1/reports/alerts?pageSize=20')
       .then((res) => setAlerts(res.data))
-      .catch(() => undefined)
+      .catch((err) => { console.error('[ReportsAlertsPage]', err); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -88,7 +88,8 @@ export default function AlertsPage() {
         method: 'PATCH',
         body: JSON.stringify({ active }),
       });
-    } catch {
+    } catch (err) {
+      console.error('[ReportsAlertsPage]', err);
       setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, active: !active } : a)));
     }
   };
@@ -108,7 +109,8 @@ export default function AlertsPage() {
         body: JSON.stringify(payload),
       });
       setAlerts((prev) => [res.data, ...prev]);
-    } catch {
+    } catch (err) {
+      console.error('[ReportsAlertsPage]', err);
       const mock: ReportAlert = {
         id: crypto.randomUUID(),
         name: values.name,
@@ -206,7 +208,7 @@ export default function AlertsPage() {
                   id="alert-threshold"
                   type="number"
                   {...form.register('threshold', { valueAsNumber: true })}
-                  placeholder="e.g. 80"
+                  placeholder={t('eG80')}
                   className="mt-1"
                 />
               </div>

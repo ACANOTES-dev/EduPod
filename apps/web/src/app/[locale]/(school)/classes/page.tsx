@@ -85,7 +85,7 @@ export default function ClassesPage() {
         setAcademicYears(yearsRes.data);
         setYearGroups(groupsRes.data);
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[ClassesPage]', err); });
   }, []);
 
   const fetchClasses = React.useCallback(
@@ -99,7 +99,8 @@ export default function ClassesPage() {
         const res = await apiClient<ClassesResponse>(`/api/v1/classes?${params.toString()}`);
         setData(res.data);
         setTotal(res.meta.total);
-      } catch {
+      } catch (err) {
+        console.error('[ClassesPage]', err);
         setData([]);
         setTotal(0);
       } finally {

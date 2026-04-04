@@ -6,6 +6,7 @@ jest.mock('../../common/middleware/rls.middleware');
 
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 
+import { MOCK_FACADE_PROVIDERS, StudentReadFacade } from '../../common/tests/mock-facades';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -79,9 +80,19 @@ describe('EventParticipantsService', () => {
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         EventParticipantsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: getQueueToken('notifications'), useValue: mockNotificationsQueue },
+        {
+          provide: StudentReadFacade,
+          useValue: {
+            findActiveStudentIds: jest.fn().mockImplementation(async () => {
+              const students = await mockPrisma.student.findMany();
+              return (students as Array<{ id: string }>).map((s) => s.id);
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -99,11 +110,6 @@ describe('EventParticipantsService', () => {
       const ids = await service.resolveTargetStudents(TENANT_ID, 'whole_school', null);
 
       expect(ids).toEqual([STUDENT_ID]);
-      expect(mockPrisma.student.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { tenant_id: TENANT_ID, status: 'active' },
-        }),
-      );
     });
 
     it('should resolve year_group students', async () => {

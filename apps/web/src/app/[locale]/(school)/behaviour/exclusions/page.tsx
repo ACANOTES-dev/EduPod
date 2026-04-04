@@ -139,7 +139,8 @@ export default function ExclusionListPage() {
       );
       setData(res.data ?? []);
       setTotal(res.meta?.total ?? 0);
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourExclusionsPage]', err);
       setData([]);
       setTotal(0);
     } finally {

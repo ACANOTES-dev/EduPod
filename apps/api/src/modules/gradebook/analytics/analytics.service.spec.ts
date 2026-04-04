@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ClassesReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 
@@ -66,6 +67,7 @@ describe('AnalyticsService — getGradeDistribution', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -176,6 +178,7 @@ describe('AnalyticsService — getPeriodDistribution', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -225,6 +228,7 @@ describe('AnalyticsService — getStudentTrend', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -313,6 +317,7 @@ describe('AnalyticsService — getClassTrend', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -369,6 +374,7 @@ describe('AnalyticsService — getBenchmark', () => {
   let service: AnalyticsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockRedis: ReturnType<typeof buildMockRedis>;
+  const mockClassesFacade = { findByYearGroup: jest.fn() };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
@@ -376,6 +382,8 @@ describe('AnalyticsService — getBenchmark', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
         AnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -388,7 +396,7 @@ describe('AnalyticsService — getBenchmark', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should return empty array when no classes in year group', async () => {
-    mockPrisma.class.findMany.mockResolvedValue([]);
+    mockClassesFacade.findByYearGroup.mockResolvedValue([]);
 
     const result = await service.getBenchmark(TENANT_ID, YEAR_GROUP_ID);
 
@@ -396,7 +404,7 @@ describe('AnalyticsService — getBenchmark', () => {
   });
 
   it('should group benchmarks by class, subject, and period', async () => {
-    mockPrisma.class.findMany.mockResolvedValue([{ id: CLASS_ID, name: 'Grade 5A' }]);
+    mockClassesFacade.findByYearGroup.mockResolvedValue([{ id: CLASS_ID, name: 'Grade 5A' }]);
     mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
       {
         class_id: CLASS_ID,
@@ -436,6 +444,7 @@ describe('AnalyticsService — invalidateAssessmentCache', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AnalyticsService,
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },

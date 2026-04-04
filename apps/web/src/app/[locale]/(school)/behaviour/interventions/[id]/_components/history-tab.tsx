@@ -45,8 +45,7 @@ export function HistoryTab({ history, historyLoading }: HistoryTabProps) {
                     {entry.action.replace(/_/g, ' ')}
                   </span>
                   {entry.performed_by_user && (
-                    <span className="text-xs text-text-tertiary">
-                      by {entry.performed_by_user.first_name} {entry.performed_by_user.last_name}
+                    <span className="text-xs text-text-tertiary">{t('by')}{entry.performed_by_user.first_name} {entry.performed_by_user.last_name}
                     </span>
                   )}
                 </div>

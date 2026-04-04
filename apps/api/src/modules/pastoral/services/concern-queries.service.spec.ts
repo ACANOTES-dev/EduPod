@@ -2,6 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { ListConcernsQuery } from '@school/shared/pastoral';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  ConfigurationReadFacade,
+  ChildProtectionReadFacade,
+} from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { ConcernQueriesService } from './concern-queries.service';
@@ -105,14 +110,26 @@ const buildMockPrisma = () => ({
   },
 });
 
+const buildMockConfigFacade = () => ({
+  findSettings: jest.fn(),
+});
+
+const buildMockCpFacade = () => ({
+  hasActiveCpAccess: jest.fn().mockResolvedValue(false),
+});
+
 // ─── Test Suite ────────────────────────────────────────────────────────────
 
 describe('ConcernQueriesService', () => {
   let service: ConcernQueriesService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockConfigFacade: ReturnType<typeof buildMockConfigFacade>;
+  let mockCpFacade: ReturnType<typeof buildMockCpFacade>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockConfigFacade = buildMockConfigFacade();
+    mockCpFacade = buildMockCpFacade();
 
     // Reset RLS mocks
     for (const model of Object.values(mockRlsTx)) {
@@ -122,7 +139,13 @@ describe('ConcernQueriesService', () => {
     }
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ConcernQueriesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ConcernQueriesService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
+        { provide: ChildProtectionReadFacade, useValue: mockCpFacade },
+      ],
     }).compile();
 
     service = module.get<ConcernQueriesService>(ConcernQueriesService);
@@ -134,7 +157,7 @@ describe('ConcernQueriesService', () => {
 
   describe('ConcernQueriesService — list', () => {
     it('should return paginated results', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
+      mockCpFacade.hasActiveCpAccess.mockResolvedValue(false);
       mockRlsTx.pastoralConcern.findMany.mockResolvedValue([makeConcernRow()]);
       mockRlsTx.pastoralConcern.count.mockResolvedValue(1);
 
@@ -154,7 +177,7 @@ describe('ConcernQueriesService', () => {
     });
 
     it('should filter by tier when caller max tier < 2', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
+      mockCpFacade.hasActiveCpAccess.mockResolvedValue(false);
       mockRlsTx.pastoralConcern.findMany.mockResolvedValue([]);
       mockRlsTx.pastoralConcern.count.mockResolvedValue(0);
 
@@ -169,7 +192,7 @@ describe('ConcernQueriesService', () => {
     });
 
     it('should return empty when requested tier exceeds access', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
+      mockCpFacade.hasActiveCpAccess.mockResolvedValue(false);
 
       const result = await service.list(
         TENANT_ID,
@@ -185,7 +208,7 @@ describe('ConcernQueriesService', () => {
     });
 
     it('should filter by student_id with OR clause', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
+      mockCpFacade.hasActiveCpAccess.mockResolvedValue(false);
       mockRlsTx.pastoralConcern.findMany.mockResolvedValue([]);
       mockRlsTx.pastoralConcern.count.mockResolvedValue(0);
 
@@ -213,7 +236,7 @@ describe('ConcernQueriesService', () => {
     });
 
     it('should filter by category', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
+      mockCpFacade.hasActiveCpAccess.mockResolvedValue(false);
       mockRlsTx.pastoralConcern.findMany.mockResolvedValue([]);
       mockRlsTx.pastoralConcern.count.mockResolvedValue(0);
 
@@ -232,7 +255,7 @@ describe('ConcernQueriesService', () => {
     });
 
     it('should filter by severity', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
+      mockCpFacade.hasActiveCpAccess.mockResolvedValue(false);
       mockRlsTx.pastoralConcern.findMany.mockResolvedValue([]);
       mockRlsTx.pastoralConcern.count.mockResolvedValue(0);
 
@@ -251,7 +274,7 @@ describe('ConcernQueriesService', () => {
     });
 
     it('should filter by date range', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
+      mockCpFacade.hasActiveCpAccess.mockResolvedValue(false);
       mockRlsTx.pastoralConcern.findMany.mockResolvedValue([]);
       mockRlsTx.pastoralConcern.count.mockResolvedValue(0);
 
@@ -275,7 +298,7 @@ describe('ConcernQueriesService', () => {
     });
 
     it('should sort by occurred_at when specified', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
+      mockCpFacade.hasActiveCpAccess.mockResolvedValue(false);
       mockRlsTx.pastoralConcern.findMany.mockResolvedValue([]);
       mockRlsTx.pastoralConcern.count.mockResolvedValue(0);
 
@@ -294,7 +317,7 @@ describe('ConcernQueriesService', () => {
     });
 
     it('should sort by severity when specified', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
+      mockCpFacade.hasActiveCpAccess.mockResolvedValue(false);
       mockRlsTx.pastoralConcern.findMany.mockResolvedValue([]);
       mockRlsTx.pastoralConcern.count.mockResolvedValue(0);
 
@@ -317,7 +340,7 @@ describe('ConcernQueriesService', () => {
 
   describe('ConcernQueriesService — getCategories', () => {
     it('should return only active categories', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(makeTenantSettingsRecord());
+      mockConfigFacade.findSettings.mockResolvedValue(makeTenantSettingsRecord());
 
       const result = await service.getCategories(TENANT_ID);
 
@@ -327,7 +350,7 @@ describe('ConcernQueriesService', () => {
     });
 
     it('should handle missing settings by returning defaults', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(null);
+      mockConfigFacade.findSettings.mockResolvedValue(null);
 
       const result = await service.getCategories(TENANT_ID);
 

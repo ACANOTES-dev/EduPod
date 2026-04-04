@@ -72,8 +72,8 @@ function GoalCard({ goal, t }: { goal: SenGoal; t: ReturnType<typeof useTranslat
       .then((res) => {
         if (!cancelled) setProgress(res.data ?? []);
       })
-      .catch(() => {
-        console.error('[GoalCard] Failed to load progress for goal', goal.id);
+      .catch((err) => {
+        console.error('[GoalCard] Failed to load progress for goal', goal.id, err);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -185,8 +185,8 @@ export default function ParentPlanViewPage() {
           setGoals(goalsRes.data ?? []);
           setParentInput(planRes.data.parent_input ?? '');
         }
-      } catch {
-        console.error('[ParentPlanView] Failed to load plan', planId);
+      } catch (err) {
+        console.error('[ParentPlanView] Failed to load plan', planId, err);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -210,7 +210,8 @@ export default function ParentPlanViewPage() {
       });
       setInputDirty(false);
       toast.success(t('parent.inputSaved'));
-    } catch {
+    } catch (err) {
+      console.error('[ParentSenPage]', err);
       toast.error(t('parent.inputSaveFailed'));
     } finally {
       setIsSaving(false);

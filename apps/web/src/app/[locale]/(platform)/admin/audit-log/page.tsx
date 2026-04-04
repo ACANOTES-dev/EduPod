@@ -91,7 +91,7 @@ export default function PlatformAuditLogPage() {
   React.useEffect(() => {
     apiClient<TenantListResponse>('/api/v1/admin/tenants?pageSize=100')
       .then((res) => setTenants(res.data))
-      .catch(() => setTenants([]));
+      .catch((err) => { console.error('[AdminAuditLogPage]', err); return setTenants([]); });
   }, []);
 
   const fetchLogs = React.useCallback(

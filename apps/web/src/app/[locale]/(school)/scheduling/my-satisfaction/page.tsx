@@ -50,9 +50,9 @@ export default function MySatisfactionPage() {
           `/api/v1/scheduling-dashboard/preferences?academic_year_id=${yearId}`,
         )
           .then((res) => setData(res))
-          .catch(() => setError(true));
+          .catch((err) => { console.error('[SchedulingMySatisfactionPage]', err); return setError(true); });
       })
-      .catch(() => setError(true))
+      .catch((err) => { console.error('[SchedulingMySatisfactionPage]', err); return setError(true); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -69,9 +69,7 @@ export default function MySatisfactionPage() {
       <div className="space-y-6">
         <PageHeader title={t('mySatisfaction')} />
         <div className="rounded-xl border border-border bg-surface p-6">
-          <p className="text-sm text-text-secondary">
-            No satisfaction data available. Run the auto-scheduler first.
-          </p>
+          <p className="text-sm text-text-secondary">{t('noSatisfactionDataAvailableRun')}</p>
         </div>
       </div>
     );
@@ -98,9 +96,7 @@ export default function MySatisfactionPage() {
         <div className="rounded-xl border border-border bg-surface p-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-text-tertiary uppercase tracking-wide">
-                Total Preferences
-              </p>
+              <p className="text-xs text-text-tertiary uppercase tracking-wide">{t('totalPreferences')}</p>
               <p className="mt-1 text-3xl font-bold text-text-primary">{data.total_preferences}</p>
             </div>
             <Star className="h-6 w-6 text-text-tertiary" />
@@ -110,7 +106,7 @@ export default function MySatisfactionPage() {
         <div className="rounded-xl border border-border bg-surface p-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-text-tertiary uppercase tracking-wide">Satisfied</p>
+              <p className="text-xs text-text-tertiary uppercase tracking-wide">{t('satisfied')}</p>
               <p className="mt-1 text-3xl font-bold text-green-600 dark:text-green-400">
                 {data.satisfied_count}
               </p>
@@ -124,8 +120,7 @@ export default function MySatisfactionPage() {
       <div className="rounded-xl border border-border bg-surface p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-text-primary">
-            {data.satisfied_count} of {data.total_preferences} preferences satisfied
-          </span>
+            {data.satisfied_count}{t('of')}{data.total_preferences}{t('preferencesSatisfied')}</span>
           <span className="text-sm font-bold text-brand">{data.overall_pct}%</span>
         </div>
         <div className="w-full bg-surface-secondary rounded-full h-3">
@@ -137,15 +132,14 @@ export default function MySatisfactionPage() {
       </div>
 
       {data.last_run_at && (
-        <p className="text-xs text-text-tertiary">
-          Based on run: {new Date(data.last_run_at).toLocaleString()}
+        <p className="text-xs text-text-tertiary">{t('basedOnRun')}{new Date(data.last_run_at).toLocaleString()}
         </p>
       )}
 
       {/* Preference Details */}
       {data.details.length > 0 && (
         <div className="rounded-xl border border-border bg-surface p-6 space-y-3">
-          <h2 className="text-sm font-semibold text-text-primary">Preference Details</h2>
+          <h2 className="text-sm font-semibold text-text-primary">{t('preferenceDetails')}</h2>
           <div className="space-y-2">
             {data.details.map((detail, idx) => (
               <div

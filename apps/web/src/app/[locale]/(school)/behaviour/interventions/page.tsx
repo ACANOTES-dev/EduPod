@@ -105,7 +105,8 @@ export default function InterventionListPage() {
       );
       setData(res.data ?? []);
       setTotal(res.meta?.total ?? 0);
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourInterventionsPage]', err);
       setData([]);
       setTotal(0);
     } finally {

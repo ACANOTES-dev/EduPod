@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { CheckinPrerequisiteService } from './checkin-prerequisite.service';
@@ -69,15 +70,14 @@ const makeFullyConfiguredSettings = () =>
 
 describe('CheckinPrerequisiteService', () => {
   let service: CheckinPrerequisiteService;
-  let mockPrisma: {
-    tenantSetting: { findUnique: jest.Mock };
-  };
+  let mockPrisma: Record<string, unknown>;
+  let mockConfigFacade: { findSettings: jest.Mock };
 
   beforeEach(async () => {
-    mockPrisma = {
-      tenantSetting: {
-        findUnique: jest.fn().mockResolvedValue(makeTenantSettingsRecord()),
-      },
+    mockPrisma = {};
+
+    mockConfigFacade = {
+      findSettings: jest.fn().mockResolvedValue(makeTenantSettingsRecord()),
     };
 
     // Reset RLS tx mocks
@@ -89,8 +89,10 @@ describe('CheckinPrerequisiteService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         CheckinPrerequisiteService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
       ],
     }).compile();
 
@@ -117,7 +119,7 @@ describe('CheckinPrerequisiteService', () => {
     });
 
     it('should return monitoring_ownership_defined = true when owners assigned', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeTenantSettingsRecord({
           monitoring_owner_user_ids: [USER_ID_A],
         }),
@@ -130,7 +132,7 @@ describe('CheckinPrerequisiteService', () => {
     });
 
     it('should return monitoring_hours_defined = false when hours are empty strings', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeTenantSettingsRecord({
           monitoring_hours_start: '',
           monitoring_hours_end: '',
@@ -143,7 +145,7 @@ describe('CheckinPrerequisiteService', () => {
     });
 
     it('should return prerequisites_acknowledged = true when acknowledged', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeTenantSettingsRecord({
           prerequisites_acknowledged: true,
         }),
@@ -155,7 +157,7 @@ describe('CheckinPrerequisiteService', () => {
     });
 
     it('should return all_met = true when all prerequisites are satisfied', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeFullyConfiguredSettings(),
       );
 
@@ -169,7 +171,7 @@ describe('CheckinPrerequisiteService', () => {
     });
 
     it('should handle missing tenant settings gracefully (defaults)', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(null);
+      mockConfigFacade.findSettings.mockResolvedValue(null);
 
       const result = await service.getPrerequisiteStatus(TENANT_ID);
 
@@ -207,7 +209,7 @@ describe('CheckinPrerequisiteService', () => {
     });
 
     it('should throw 400 when acknowledgement is false', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeTenantSettingsRecord({
           monitoring_owner_user_ids: [USER_ID_A],
           prerequisites_acknowledged: false,
@@ -233,7 +235,7 @@ describe('CheckinPrerequisiteService', () => {
     });
 
     it('should throw 400 when monitoring hours are empty', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeTenantSettingsRecord({
           monitoring_owner_user_ids: [USER_ID_A],
           monitoring_hours_start: '',
@@ -248,7 +250,7 @@ describe('CheckinPrerequisiteService', () => {
     });
 
     it('should pass when all prerequisites are met', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeFullyConfiguredSettings(),
       );
 

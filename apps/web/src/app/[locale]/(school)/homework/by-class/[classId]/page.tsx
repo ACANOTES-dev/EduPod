@@ -74,7 +74,7 @@ export default function ClassHomeworkPage() {
       silent: true,
     })
       .then((res) => setClassName(res.data?.name ?? ''))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[HomeworkByClassPage]', err); });
   }, [classId]);
 
   const fetchList = React.useCallback(
@@ -89,7 +89,8 @@ export default function ClassHomeworkPage() {
         );
         setData(res.data ?? []);
         setTotal(res.meta?.total ?? 0);
-      } catch {
+      } catch (err) {
+        console.error('[HomeworkByClassPage]', err);
         setData([]);
         setTotal(0);
       } finally {
@@ -107,7 +108,8 @@ export default function ClassHomeworkPage() {
           { silent: true },
         );
         setWeekData(res.data ?? []);
-      } catch {
+      } catch (err) {
+        console.error('[HomeworkByClassPage]', err);
         setWeekData([]);
       }
     },
@@ -217,9 +219,9 @@ export default function ClassHomeworkPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('filterAll')}</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="published">Published</SelectItem>
-              <SelectItem value="archived">Archived</SelectItem>
+              <SelectItem value="draft">{t('draft')}</SelectItem>
+              <SelectItem value="published">{t('published')}</SelectItem>
+              <SelectItem value="archived">{t('archived')}</SelectItem>
             </SelectContent>
           </Select>
           <Select
@@ -234,12 +236,12 @@ export default function ClassHomeworkPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('filterAll')}</SelectItem>
-              <SelectItem value="written">Written</SelectItem>
-              <SelectItem value="reading">Reading</SelectItem>
-              <SelectItem value="research">Research</SelectItem>
-              <SelectItem value="revision">Revision</SelectItem>
-              <SelectItem value="project_work">Project</SelectItem>
-              <SelectItem value="online_activity">Online</SelectItem>
+              <SelectItem value="written">{t('written')}</SelectItem>
+              <SelectItem value="reading">{t('reading')}</SelectItem>
+              <SelectItem value="research">{t('research')}</SelectItem>
+              <SelectItem value="revision">{t('revision')}</SelectItem>
+              <SelectItem value="project_work">{t('project')}</SelectItem>
+              <SelectItem value="online_activity">{t('online')}</SelectItem>
             </SelectContent>
           </Select>
         </>

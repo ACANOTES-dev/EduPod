@@ -90,7 +90,8 @@ export default function NewPastoralConcernPage() {
         );
         setLinkedCases(openCases);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[ConcernsNewPage]', err);
         if (!cancelled) {
           setLinkedCases([]);
         }

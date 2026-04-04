@@ -135,7 +135,8 @@ export default function BoardReportPage() {
       .then((data) => {
         setReport(data);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[WellbeingReportsPage]', err);
         setError(true);
       })
       .finally(() => {
@@ -167,9 +168,7 @@ export default function BoardReportPage() {
             onClick={fetchReport}
             className="inline-flex min-h-[44px] min-w-[44px] items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand/90"
           >
-            <RefreshCw className="h-4 w-4" />
-            Retry
-          </button>
+            <RefreshCw className="h-4 w-4" />{t('retry')}</button>
         </div>
       </div>
     );
@@ -271,7 +270,7 @@ export default function BoardReportPage() {
         />
         <Divider />
         <DataRow
-          label="Range"
+          label={t('range')}
           value={
             <span dir="ltr">
               {workload_distribution.range.min}–{workload_distribution.range.max}
@@ -304,12 +303,12 @@ export default function BoardReportPage() {
         />
         <Divider />
         <DataRow
-          label="Distribution shape"
+          label={t('distributionShape2')}
           value={cover_fairness.distribution_shape}
         />
         <Divider />
         <DataRow
-          label="Assessment"
+          label={t('assessment')}
           value={cover_fairness.assessment}
         />
       </SectionCard>
@@ -317,7 +316,7 @@ export default function BoardReportPage() {
       {/* c. Timetable Quality */}
       <SectionCard title={t('timetableQuality')}>
         <DataRow
-          label="Average score"
+          label={t('averageScore')}
           value={
             <span dir="ltr" className={qualityColor(timetable_quality.label)}>
               {timetable_quality.average_score.toFixed(1)}
@@ -326,7 +325,7 @@ export default function BoardReportPage() {
         />
         <Divider />
         <DataRow
-          label="Rating"
+          label={t('rating')}
           value={
             <span
               className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${qualityBadgeBg(timetable_quality.label)}`}
@@ -340,17 +339,17 @@ export default function BoardReportPage() {
       {/* d. Substitution Pressure */}
       <SectionCard title={t('substitutionPressure')}>
         <DataRow
-          label="Composite score"
+          label={t('compositeScore2')}
           value={<span dir="ltr">{substitution_pressure.composite_score.toFixed(1)}</span>}
         />
         <Divider />
         <DataRow
-          label="Assessment"
+          label={t('assessment')}
           value={substitution_pressure.assessment}
         />
         <Divider />
         <DataRow
-          label="Trend"
+          label={t('trendDirection')}
           value={
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${trendBadgeColor}`}
@@ -394,7 +393,7 @@ export default function BoardReportPage() {
       {correlation_insight !== null && (
         <SectionCard title={t('correlationInsight')}>
           <DataRow
-            label="Status"
+            label={t('status')}
             value={
               <span
                 className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${correlationBadgeColor}`}

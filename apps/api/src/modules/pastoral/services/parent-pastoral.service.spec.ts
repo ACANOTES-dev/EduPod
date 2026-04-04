@@ -5,6 +5,11 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  ParentReadFacade,
+  ConfigurationReadFacade,
+} from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { ParentPastoralService } from './parent-pastoral.service';
@@ -130,16 +135,20 @@ const makeTenantSettingsRecord = (
 
 describe('ParentPastoralService', () => {
   let service: ParentPastoralService;
-  let mockPrisma: {
-    parent: { findFirst: jest.Mock };
-    tenantSetting: { findUnique: jest.Mock };
-  };
+  let mockPrisma: Record<string, unknown>;
+  let mockParentReadFacade: { findActiveByUserId: jest.Mock };
+  let mockConfigFacade: { findSettings: jest.Mock };
   let mockEventService: { write: jest.Mock };
 
   beforeEach(async () => {
-    mockPrisma = {
-      parent: { findFirst: jest.fn() },
-      tenantSetting: { findUnique: jest.fn() },
+    mockPrisma = {};
+
+    mockParentReadFacade = {
+      findActiveByUserId: jest.fn(),
+    };
+
+    mockConfigFacade = {
+      findSettings: jest.fn(),
     };
 
     mockEventService = {
@@ -155,9 +164,12 @@ describe('ParentPastoralService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ParentPastoralService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PastoralEventService, useValue: mockEventService },
+        { provide: ParentReadFacade, useValue: mockParentReadFacade },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
       ],
     }).compile();
 
@@ -172,7 +184,7 @@ describe('ParentPastoralService', () => {
     const query = { page: 1, pageSize: 20 };
 
     it('should return only parent_shareable=true concerns', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
 
@@ -191,7 +203,7 @@ describe('ParentPastoralService', () => {
     });
 
     it('should omit narrative for category_only share level', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
 
@@ -209,7 +221,7 @@ describe('ParentPastoralService', () => {
     });
 
     it('should truncate narrative to 200 chars for category_summary share level', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
 
@@ -229,7 +241,7 @@ describe('ParentPastoralService', () => {
     });
 
     it('should return full narrative for full_detail share level', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
 
@@ -248,7 +260,7 @@ describe('ParentPastoralService', () => {
     });
 
     it('should never return author information', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
 
@@ -270,7 +282,7 @@ describe('ParentPastoralService', () => {
     });
 
     it('should never return Tier 3 concerns even if marked shareable', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
 
@@ -287,7 +299,7 @@ describe('ParentPastoralService', () => {
     });
 
     it('should return empty results for restricted students', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
 
       // Guardian restriction is active
@@ -306,7 +318,7 @@ describe('ParentPastoralService', () => {
     });
 
     it('should return 404 if parent record not found', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(null);
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(null);
 
       await expect(
         service.getSharedConcerns(TENANT_ID, USER_ID, query),
@@ -323,8 +335,8 @@ describe('ParentPastoralService', () => {
     };
 
     it('should create a Tier 1 routine concern with parent_self_referral source', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(makeTenantSettingsRecord());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
+      mockConfigFacade.findSettings.mockResolvedValue(makeTenantSettingsRecord());
 
       mockRlsTx.studentParent.findFirst.mockResolvedValue({
         parent_id: PARENT_ID,
@@ -379,8 +391,8 @@ describe('ParentPastoralService', () => {
     });
 
     it('should auto-assign to homeroom teacher when available', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(makeTenantSettingsRecord());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
+      mockConfigFacade.findSettings.mockResolvedValue(makeTenantSettingsRecord());
 
       mockRlsTx.studentParent.findFirst.mockResolvedValue({
         parent_id: PARENT_ID,
@@ -415,8 +427,8 @@ describe('ParentPastoralService', () => {
     });
 
     it('should reject if parent_self_referral_enabled is false', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeTenantSettingsRecord({ parent_self_referral_enabled: false }),
       );
 
@@ -429,8 +441,8 @@ describe('ParentPastoralService', () => {
     });
 
     it('should reject if parent is not linked to student', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(makeTenantSettingsRecord());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
+      mockConfigFacade.findSettings.mockResolvedValue(makeTenantSettingsRecord());
 
       // No parent-student link
       mockRlsTx.studentParent.findFirst.mockResolvedValue(null);
@@ -444,8 +456,8 @@ describe('ParentPastoralService', () => {
     });
 
     it('should use provided category when specified', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(makeTenantSettingsRecord());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
+      mockConfigFacade.findSettings.mockResolvedValue(makeTenantSettingsRecord());
 
       mockRlsTx.studentParent.findFirst.mockResolvedValue({
         parent_id: PARENT_ID,
@@ -474,7 +486,7 @@ describe('ParentPastoralService', () => {
 
   describe('getInterventionSummaries', () => {
     it('should return only parent_informed=true interventions', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
 
@@ -491,7 +503,7 @@ describe('ParentPastoralService', () => {
     });
 
     it('should omit case_id, case_owner, and created_by from response', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
 
@@ -512,7 +524,7 @@ describe('ParentPastoralService', () => {
     });
 
     it('should return empty for restricted students', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
 
       // Guardian restriction active
@@ -530,7 +542,7 @@ describe('ParentPastoralService', () => {
     });
 
     it('should filter by specific student_id when provided', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([
         makeStudentLink(STUDENT_ID),
         makeStudentLink(STUDENT_ID_B),
@@ -546,7 +558,7 @@ describe('ParentPastoralService', () => {
     });
 
     it('should correctly parse target_outcomes JSON', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
 
@@ -567,7 +579,7 @@ describe('ParentPastoralService', () => {
     });
 
     it('should return empty target_outcomes for malformed JSON', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
 
@@ -582,7 +594,7 @@ describe('ParentPastoralService', () => {
     });
 
     it('should include student_name in intervention view', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
 
@@ -598,7 +610,7 @@ describe('ParentPastoralService', () => {
 
   describe('resolveParent', () => {
     it('should throw NotFoundException when parent record not found', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(null);
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(null);
 
       await expect(
         service.resolveParent(TENANT_ID, USER_ID),
@@ -607,14 +619,12 @@ describe('ParentPastoralService', () => {
 
     it('should return parent record when found', async () => {
       const parent = makeParent();
-      mockPrisma.parent.findFirst.mockResolvedValue(parent);
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(parent);
 
       const result = await service.resolveParent(TENANT_ID, USER_ID);
 
       expect(result.id).toBe(PARENT_ID);
-      expect(mockPrisma.parent.findFirst).toHaveBeenCalledWith({
-        where: { user_id: USER_ID, tenant_id: TENANT_ID, status: 'active' },
-      });
+      expect(mockParentReadFacade.findActiveByUserId).toHaveBeenCalledWith(TENANT_ID, USER_ID);
     });
   });
 
@@ -622,7 +632,7 @@ describe('ParentPastoralService', () => {
 
   describe('edge cases', () => {
     it('edge: should return empty when parent has no linked students', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([]);
 
       const result = await service.getSharedConcerns(TENANT_ID, USER_ID, { page: 1, pageSize: 20 });
@@ -632,7 +642,7 @@ describe('ParentPastoralService', () => {
     });
 
     it('edge: should handle multiple students with mixed restrictions', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([
         makeStudentLink(STUDENT_ID),
         makeStudentLink(STUDENT_ID_B),
@@ -655,9 +665,9 @@ describe('ParentPastoralService', () => {
     });
 
     it('edge: self-referral defaults to true when setting is absent', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       // Return settings with NO parent_self_referral_enabled key
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+      mockConfigFacade.findSettings.mockResolvedValue({
         id: 'settings-1',
         tenant_id: TENANT_ID,
         settings: { pastoral: {} },
@@ -688,7 +698,7 @@ describe('ParentPastoralService', () => {
     });
 
     it('edge: getSharedConcerns with empty versions array returns empty narrative', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
       mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
       mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
 

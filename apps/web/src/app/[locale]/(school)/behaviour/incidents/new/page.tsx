@@ -94,10 +94,10 @@ export default function CreateIncidentPage() {
       '/api/v1/behaviour/categories?pageSize=100&is_active=true',
     )
       .then((res) => setCategories(res.data ?? []))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[IncidentsNewPage]', err); });
     apiClient<{ data: TemplateOption[] }>('/api/v1/behaviour/templates?pageSize=50')
       .then((res) => setTemplates(res.data ?? []))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[IncidentsNewPage]', err); });
   }, []);
 
   // Student search with debounce
@@ -112,7 +112,7 @@ export default function CreateIncidentPage() {
         `/api/v1/students?search=${encodeURIComponent(studentSearch)}&pageSize=10`,
       )
         .then((res) => setStudentResults(res.data ?? []))
-        .catch(() => undefined);
+        .catch((err) => { console.error('[IncidentsNewPage]', err); });
     }, 300);
     return () => {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);

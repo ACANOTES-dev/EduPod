@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, StaffProfileReadFacade } from '../../common/tests/mock-facades';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -29,8 +30,8 @@ describe('SenSnaService', () => {
     update: jest.fn(),
   };
 
-  const staffProfileMock = {
-    findFirst: jest.fn(),
+  const mockStaffProfileReadFacade = {
+    findById: jest.fn(),
   };
 
   const senProfileMock = {
@@ -39,7 +40,6 @@ describe('SenSnaService', () => {
 
   const mockPrisma = {
     senSnaAssignment: senSnaAssignmentMock,
-    staffProfile: staffProfileMock,
     senProfile: senProfileMock,
     $transaction: jest.fn() as jest.Mock,
   };
@@ -59,10 +59,12 @@ describe('SenSnaService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         SenSnaService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettingsService },
         { provide: SenScopeService, useValue: mockScopeService },
+        { provide: StaffProfileReadFacade, useValue: mockStaffProfileReadFacade },
       ],
     }).compile();
 
@@ -126,7 +128,7 @@ describe('SenSnaService', () => {
 
   describe('create', () => {
     it('should create an assignment successfully', async () => {
-      staffProfileMock.findFirst.mockResolvedValue({ id: STAFF_ID });
+      mockStaffProfileReadFacade.findById.mockResolvedValue({ id: STAFF_ID });
       senProfileMock.findFirst.mockResolvedValue({
         id: PROFILE_ID,
         student_id: STUDENT_ID,
@@ -153,7 +155,7 @@ describe('SenSnaService', () => {
     });
 
     it('should reject when the SNA staff profile is missing', async () => {
-      staffProfileMock.findFirst.mockResolvedValue(null);
+      mockStaffProfileReadFacade.findById.mockResolvedValue(null);
       senProfileMock.findFirst.mockResolvedValue({
         id: PROFILE_ID,
         student_id: STUDENT_ID,
@@ -178,7 +180,7 @@ describe('SenSnaService', () => {
     });
 
     it('should reject an inactive SEN profile', async () => {
-      staffProfileMock.findFirst.mockResolvedValue({ id: STAFF_ID });
+      mockStaffProfileReadFacade.findById.mockResolvedValue({ id: STAFF_ID });
       senProfileMock.findFirst.mockResolvedValue({
         id: PROFILE_ID,
         student_id: STUDENT_ID,
@@ -203,7 +205,7 @@ describe('SenSnaService', () => {
     });
 
     it('should reject a mismatched SEN profile', async () => {
-      staffProfileMock.findFirst.mockResolvedValue({ id: STAFF_ID });
+      mockStaffProfileReadFacade.findById.mockResolvedValue({ id: STAFF_ID });
       senProfileMock.findFirst.mockResolvedValue({
         id: PROFILE_ID,
         student_id: STUDENT_ID_2,
@@ -228,7 +230,7 @@ describe('SenSnaService', () => {
     });
 
     it('should reject when the SEN profile does not exist', async () => {
-      staffProfileMock.findFirst.mockResolvedValue({ id: STAFF_ID });
+      mockStaffProfileReadFacade.findById.mockResolvedValue({ id: STAFF_ID });
       senProfileMock.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -249,7 +251,7 @@ describe('SenSnaService', () => {
     });
 
     it('should validate schedule format against tenant weekly settings', async () => {
-      staffProfileMock.findFirst.mockResolvedValue({ id: STAFF_ID });
+      mockStaffProfileReadFacade.findById.mockResolvedValue({ id: STAFF_ID });
       senProfileMock.findFirst.mockResolvedValue({
         id: PROFILE_ID,
         student_id: STUDENT_ID,
@@ -273,7 +275,7 @@ describe('SenSnaService', () => {
     });
 
     it('should accept custom day keys when tenant schedule format is daily', async () => {
-      staffProfileMock.findFirst.mockResolvedValue({ id: STAFF_ID });
+      mockStaffProfileReadFacade.findById.mockResolvedValue({ id: STAFF_ID });
       senProfileMock.findFirst.mockResolvedValue({
         id: PROFILE_ID,
         student_id: STUDENT_ID,

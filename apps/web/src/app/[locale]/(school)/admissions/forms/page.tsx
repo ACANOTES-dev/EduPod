@@ -61,7 +61,8 @@ export default function AdmissionFormsPage() {
       );
       setForms(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[AdmissionsFormsPage]', err);
       setForms([]);
       setTotal(0);
     } finally {
@@ -148,7 +149,7 @@ export default function AdmissionFormsPage() {
       <div className="relative max-w-sm">
         <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
         <Input
-          placeholder="Search forms..."
+          placeholder={t('searchForms')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="ps-9"
@@ -171,7 +172,8 @@ export default function AdmissionFormsPage() {
                   await apiClient('/api/v1/admission-forms/system', { method: 'POST' });
                   toast.success(t('systemFormCreated'));
                   void fetchForms();
-                } catch {
+                } catch (err) {
+                  console.error('[AdmissionsFormsPage]', err);
                   toast.error('Failed to create system form');
                 }
               }}

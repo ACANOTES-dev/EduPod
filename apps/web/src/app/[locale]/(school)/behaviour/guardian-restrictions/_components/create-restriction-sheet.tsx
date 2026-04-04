@@ -2,6 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Search, X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
@@ -67,6 +68,8 @@ export function CreateRestrictionSheet({
   onOpenChange,
   onCreated,
 }: CreateRestrictionSheetProps) {
+  const t = useTranslations('behaviour');
+  const tCommon = useTranslations('common');
   const [creating, setCreating] = React.useState(false);
 
   // Student search
@@ -137,7 +140,7 @@ export function CreateRestrictionSheet({
           form.setValue('parent_id', parents[0].id, { shouldValidate: true });
         }
       })
-      .catch(() => setParentOptions([]))
+      .catch((err) => { console.error('[CreateRestrictionSheet]', err); return setParentOptions([]); })
       .finally(() => setLoadingParents(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStudent]);
@@ -173,10 +176,8 @@ export function CreateRestrictionSheet({
     >
       <SheetContent side="end" className="w-full overflow-y-auto sm:max-w-lg">
         <SheetHeader>
-          <SheetTitle>Add Guardian Restriction</SheetTitle>
-          <SheetDescription>
-            Restrict a guardian&apos;s access to behaviour data for a specific student.
-          </SheetDescription>
+          <SheetTitle>{t('addGuardianRestriction')}</SheetTitle>
+          <SheetDescription>{t('restrictAGuardiansAccessTo')}</SheetDescription>
         </SheetHeader>
 
         <form onSubmit={(e) => void form.handleSubmit(handleCreate)(e)} className="mt-6 space-y-5">
@@ -186,7 +187,7 @@ export function CreateRestrictionSheet({
 
           {/* Student Search */}
           <div className="space-y-2">
-            <Label>Student *</Label>
+            <Label>{t('student')}</Label>
             {selectedStudent ? (
               <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-secondary p-3">
                 <span className="flex-1 text-sm font-medium">
@@ -214,7 +215,7 @@ export function CreateRestrictionSheet({
                 <Input
                   value={studentSearch}
                   onChange={(e) => setStudentSearch(e.target.value)}
-                  placeholder="Search student by name..."
+                  placeholder={t('searchStudentByName')}
                   className="ps-9 text-base sm:text-sm"
                 />
                 {studentResults.length > 0 && (
@@ -242,15 +243,13 @@ export function CreateRestrictionSheet({
 
           {/* Parent Picker */}
           <div className="space-y-2">
-            <Label>Guardian *</Label>
+            <Label>{t('guardian')}</Label>
             {!selectedStudent ? (
-              <p className="text-sm text-text-tertiary">
-                Select a student first to see their guardians.
-              </p>
+              <p className="text-sm text-text-tertiary">{t('selectAStudentFirstTo')}</p>
             ) : loadingParents ? (
               <div className="h-10 animate-pulse rounded-md bg-surface-secondary" />
             ) : parentOptions.length === 0 ? (
-              <p className="text-sm text-text-tertiary">No guardians linked to this student.</p>
+              <p className="text-sm text-text-tertiary">{t('noGuardiansLinkedToThis')}</p>
             ) : (
               <Controller
                 control={form.control}
@@ -258,7 +257,7 @@ export function CreateRestrictionSheet({
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select guardian..." />
+                      <SelectValue placeholder={t('selectGuardian')} />
                     </SelectTrigger>
                     <SelectContent>
                       {parentOptions.map((p) => (
@@ -276,14 +275,14 @@ export function CreateRestrictionSheet({
 
           {/* Restriction Type */}
           <div className="space-y-2">
-            <Label>Restriction Type *</Label>
+            <Label>{t('restrictionType')}</Label>
             <Controller
               control={form.control}
               name="restriction_type"
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select restriction type..." />
+                    <SelectValue placeholder={t('selectRestrictionType')} />
                   </SelectTrigger>
                   <SelectContent>
                     {RESTRICTION_TYPES.map((type) => (
@@ -299,10 +298,10 @@ export function CreateRestrictionSheet({
 
           {/* Reason */}
           <div className="space-y-2">
-            <Label>Reason *</Label>
+            <Label>{t('reason')}</Label>
             <Textarea
               {...form.register('reason')}
-              placeholder="Explain the reason for this restriction..."
+              placeholder={t('explainTheReasonForThis')}
               rows={3}
               className="text-base sm:text-sm"
             />
@@ -310,10 +309,10 @@ export function CreateRestrictionSheet({
 
           {/* Legal Basis */}
           <div className="space-y-2">
-            <Label>Legal Basis</Label>
+            <Label>{t('legalBasis')}</Label>
             <Input
               {...form.register('legal_basis', { setValueAs: (v: string) => emptyToNull(v) })}
-              placeholder="e.g., Court order, GDPR request..."
+              placeholder={t('eGCourtOrderGdpr')}
               className="text-base sm:text-sm"
               maxLength={200}
             />
@@ -321,7 +320,7 @@ export function CreateRestrictionSheet({
 
           {/* Effective From */}
           <div className="space-y-2">
-            <Label>Effective From *</Label>
+            <Label>{t('effectiveFrom')}</Label>
             <input
               type="date"
               {...form.register('effective_from')}
@@ -331,26 +330,24 @@ export function CreateRestrictionSheet({
 
           {/* Effective Until */}
           <div className="space-y-2">
-            <Label>Effective Until</Label>
+            <Label>{t('effectiveUntil')}</Label>
             <input
               type="date"
               {...form.register('effective_until', { setValueAs: (v: string) => emptyToNull(v) })}
               className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-text-primary dark:bg-surface dark:text-text-primary sm:text-sm"
             />
-            <p className="text-xs text-text-tertiary">Leave empty for indefinite restriction.</p>
+            <p className="text-xs text-text-tertiary">{t('leaveEmptyForIndefiniteRestriction')}</p>
           </div>
 
           {/* Review Date */}
           <div className="space-y-2">
-            <Label>Review Date</Label>
+            <Label>{t('reviewDate')}</Label>
             <input
               type="date"
               {...form.register('review_date', { setValueAs: (v: string) => emptyToNull(v) })}
               className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-text-primary dark:bg-surface dark:text-text-primary sm:text-sm"
             />
-            <p className="text-xs text-text-tertiary">
-              A review task will be created automatically when the date approaches.
-            </p>
+            <p className="text-xs text-text-tertiary">{t('aReviewTaskWillBe')}</p>
           </div>
 
           <SheetFooter className="mt-6">
@@ -359,9 +356,7 @@ export function CreateRestrictionSheet({
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={creating}
-            >
-              Cancel
-            </Button>
+            >{tCommon('cancel')}</Button>
             <Button type="submit" disabled={!form.formState.isValid || creating}>
               {creating ? 'Creating...' : 'Create Restriction'}
             </Button>

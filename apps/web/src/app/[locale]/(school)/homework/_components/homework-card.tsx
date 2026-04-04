@@ -1,6 +1,7 @@
 'use client';
 
 import { Calendar } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 import { StatusBadge } from '@school/ui';
 
@@ -45,6 +46,7 @@ export function HomeworkCard({
   completion_rate,
   onClick,
 }: HomeworkCardProps) {
+  const t = useTranslations('homework');
   return (
     <button
       type="button"
@@ -76,7 +78,7 @@ export function HomeworkCard({
               style={{ width: `${Math.min(100, completion_rate)}%` }}
             />
           </div>
-          <p className="mt-1 text-xs text-text-tertiary">{Math.round(completion_rate)}% complete</p>
+          <p className="mt-1 text-xs text-text-tertiary">{Math.round(completion_rate)}{t('complete')}</p>
         </div>
       )}
     </button>

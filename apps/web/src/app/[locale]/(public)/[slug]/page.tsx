@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,7 +24,8 @@ async function fetchPage(slug: string): Promise<PublicPage | null> {
     if (!res.ok) return null;
     const data = await res.json() as { data: PublicPage };
     return data.data;
-  } catch {
+  } catch (err) {
+    console.error('[Page]', err);
     return null;
   }
 }
@@ -47,6 +49,7 @@ export default async function PublicSlugPage({
   params: { slug: string; locale: string };
 }) {
   const page = await fetchPage(params?.slug);
+  const t = await getTranslations('website');
 
   if (!page) {
     notFound();
@@ -66,7 +69,7 @@ export default async function PublicSlugPage({
           dangerouslySetInnerHTML={{ __html: page.body_html }}
         />
       ) : (
-        <p className="text-text-tertiary">No content available for this page.</p>
+        <p className="text-text-tertiary">{t('noContentAvailable')}</p>
       )}
     </div>
   );

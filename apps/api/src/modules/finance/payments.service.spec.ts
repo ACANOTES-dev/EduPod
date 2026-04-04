@@ -8,6 +8,11 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  HouseholdReadFacade,
+  TenantReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
 
@@ -85,14 +90,28 @@ const makePayment = (overrides: Record<string, unknown> = {}) => ({
 describe('PaymentsService', () => {
   let service: PaymentsService;
 
+  let mockHouseholdReadFacade: { existsOrThrow: jest.Mock };
+
   beforeEach(async () => {
+    mockHouseholdReadFacade = {
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         PaymentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: InvoicesService, useValue: mockInvoicesService },
         { provide: ReceiptsService, useValue: mockReceiptsService },
         { provide: SequenceService, useValue: mockSequenceService },
+        { provide: HouseholdReadFacade, useValue: mockHouseholdReadFacade },
+        {
+          provide: TenantReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue({ id: TENANT_ID, currency_code: 'EUR' }),
+          },
+        },
       ],
     }).compile();
 
@@ -159,7 +178,9 @@ describe('PaymentsService', () => {
     });
 
     it('should throw BadRequestException when household not found', async () => {
-      mockPrisma.household.findFirst.mockResolvedValue(null);
+      mockHouseholdReadFacade.existsOrThrow.mockRejectedValue(
+        new NotFoundException({ code: 'HOUSEHOLD_NOT_FOUND', message: 'Not found' }),
+      );
 
       await expect(
         service.createManual(TENANT_ID, USER_ID, {
@@ -168,7 +189,7 @@ describe('PaymentsService', () => {
           amount: 500,
           received_at: '2026-03-24',
         }),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

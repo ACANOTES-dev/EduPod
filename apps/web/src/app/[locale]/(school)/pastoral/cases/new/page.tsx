@@ -78,7 +78,7 @@ export default function NewPastoralCasePage() {
         ]);
         setSelectedConcernIds([response.data.id]);
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[CasesNewPage]', err); });
 
     return () => {
       cancelled = true;
@@ -108,7 +108,8 @@ export default function NewPastoralCasePage() {
           );
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[CasesNewPage]', err);
         if (!cancelled) {
           setCandidateConcerns([]);
         }

@@ -27,8 +27,7 @@ export function IncidentsTab({ linkedIncidents, incidentsLoading, locale }: Inci
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold text-text-primary">
-        Linked Incidents ({linkedIncidents.length})
+      <h3 className="text-sm font-semibold text-text-primary">{t('linkedIncidents')}{linkedIncidents.length})
       </h3>
 
       {incidentsLoading ? (

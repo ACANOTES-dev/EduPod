@@ -143,7 +143,8 @@ export default function StaffPage() {
       }
       toast.success(t('exportSuccess'));
       setExportModalOpen(false);
-    } catch {
+    } catch (err) {
+      console.error('[StaffPage]', err);
       toast.error(t('exportError'));
     } finally {
       setExporting(false);
@@ -161,7 +162,8 @@ export default function StaffPage() {
       const res = await apiClient<StaffResponse>(`/api/v1/staff-profiles?${params.toString()}`);
       setData(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[StaffPage]', err);
       setData([]);
       setTotal(0);
     } finally {

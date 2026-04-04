@@ -60,7 +60,8 @@ export function SearchPicker({
           setIsLoading(false);
         });
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[SearchPicker]', err);
         if (cancelled) {
           return;
         }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { Skeleton, toast } from '@school/ui';
@@ -30,6 +31,7 @@ interface HouseholdDetail {
 export default function EditHouseholdPage() {
   const _params = useParams<{ id: string }>();
   const id = _params?.id ?? '';
+  const t = useTranslations('households');
   const router = useRouter();
 
   const [household, setHousehold] = React.useState<HouseholdDetail | null>(null);
@@ -41,7 +43,8 @@ export default function EditHouseholdPage() {
       try {
         const res = await apiClient<{ data: HouseholdDetail }>(`/api/v1/households/${id}`);
         setHousehold(res.data);
-      } catch {
+      } catch (err) {
+        console.error('[HouseholdsEditPage]', err);
         toast.error('Failed to load household');
       } finally {
         setIsLoading(false);
@@ -113,9 +116,7 @@ export default function EditHouseholdPage() {
 
   if (!household) {
     return (
-      <div className="flex h-64 items-center justify-center text-text-tertiary">
-        Household not found.
-      </div>
+      <div className="flex h-64 items-center justify-center text-text-tertiary">{t('householdNotFound')}</div>
     );
   }
 
@@ -131,7 +132,7 @@ export default function EditHouseholdPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Edit Household" description={`Editing ${household.household_name}`} />
+      <PageHeader title={t('edit')} description={`Editing ${household.household_name}`} />
       <HouseholdForm initialData={initialData} onSubmit={handleSubmit} isEditMode />
     </div>
   );

@@ -8,6 +8,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+import { MOCK_FACADE_PROVIDERS } from '../mock-facades';
 import { ApprovalRequestsService } from '../../../modules/approvals/approval-requests.service';
 import { SettingsService } from '../../../modules/configuration/settings.service';
 import { InvoicesService } from '../../../modules/finance/invoices.service';
@@ -132,6 +133,7 @@ describe('Enrollment -> Invoice -> Payment flow', () => {
 
     const module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         InvoicesService,
         PaymentsService,
         { provide: PrismaService, useValue: mockPrisma },

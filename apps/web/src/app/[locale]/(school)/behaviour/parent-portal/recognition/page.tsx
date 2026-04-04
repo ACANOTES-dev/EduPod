@@ -34,7 +34,7 @@ export default function ParentRecognitionWallPage() {
       '/api/v1/parent/behaviour/recognition',
     )
       .then((res) => setItems(res.data ?? []))
-      .catch(() => setItems([]))
+      .catch((err) => { console.error('[ParentPortalRecognitionPage]', err); return setItems([]); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -122,8 +122,7 @@ export default function ParentRecognitionWallPage() {
 
                   {item.points > 0 && (
                     <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                      +{item.points} pts
-                    </span>
+                      +{item.points}{t('pts')}</span>
                   )}
                 </div>
 

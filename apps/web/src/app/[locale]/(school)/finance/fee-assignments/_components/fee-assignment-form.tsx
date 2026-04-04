@@ -87,11 +87,11 @@ export function FeeAssignmentForm({
   React.useEffect(() => {
     apiClient<{ data: FeeStructure[] }>('/api/v1/finance/fee-structures?pageSize=100&active=true')
       .then((res) => setFeeStructures(res.data))
-      .catch(() => setFeeStructures([]));
+      .catch((err) => { console.error('[FeeAssignmentForm]', err); return setFeeStructures([]); });
 
     apiClient<{ data: Discount[] }>('/api/v1/finance/discounts?pageSize=100&active=true')
       .then((res) => setDiscounts(res.data))
-      .catch(() => setDiscounts([]));
+      .catch((err) => { console.error('[FeeAssignmentForm]', err); return setDiscounts([]); });
   }, []);
 
   const watchHouseholdId = form.watch('household_id');
@@ -103,7 +103,7 @@ export function FeeAssignmentForm({
         `/api/v1/students?pageSize=100&household_id=${watchHouseholdId}`,
       )
         .then((res) => setStudents(res.data))
-        .catch(() => setStudents([]));
+        .catch((err) => { console.error('[FeeAssignmentForm]', err); return setStudents([]); });
     } else {
       setStudents([]);
       form.setValue('student_id', '');

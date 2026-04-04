@@ -117,7 +117,8 @@ export default function LoginPage() {
       }
 
       // success — useEffect above will handle redirect
-    } catch {
+    } catch (err) {
+      console.error('[LoginPage]', err);
       setError(t('errors.unknown'));
       setIsSubmitting(false);
     }

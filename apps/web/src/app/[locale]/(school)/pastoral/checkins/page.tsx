@@ -151,7 +151,7 @@ export default function PastoralCheckinsPage() {
       { silent: true },
     )
       .then((response) => setStudentHistory(response.data ?? []))
-      .catch(() => setStudentHistory([]));
+      .catch((err) => { console.error('[PastoralCheckinsPage]', err); return setStudentHistory([]); });
   }, [selectedStudent]);
 
   const runAction = async (key: string, action: () => Promise<void>) => {

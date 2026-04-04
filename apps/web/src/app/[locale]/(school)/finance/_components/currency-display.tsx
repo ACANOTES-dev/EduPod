@@ -24,7 +24,8 @@ export function CurrencyDisplay({
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       }).format(safeAmount);
-    } catch {
+    } catch (err) {
+      console.error('[CurrencyDisplay]', err);
       // Fallback if currency code is invalid
       return `${currency_code} ${safeAmount.toFixed(2)}`;
     }

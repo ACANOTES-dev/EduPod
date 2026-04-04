@@ -137,6 +137,7 @@ const DEFAULT_FORM: TemplateForm = {
 
 export default function BehaviourDocumentTemplatesPage() {
   const t = useTranslations('behaviourSettings.documents');
+  const tCommon = useTranslations('common');
   const [templates, setTemplates] = React.useState<DocumentTemplate[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
@@ -166,7 +167,8 @@ export default function BehaviourDocumentTemplatesPage() {
         const first = res.data[0];
         if (first) setSelectedId(first.id);
       }
-    } catch {
+    } catch (err) {
+      console.error('[SettingsBehaviourDocumentsPage]', err);
       setTemplates([]);
     } finally {
       setLoading(false);
@@ -263,12 +265,10 @@ export default function BehaviourDocumentTemplatesPage() {
   const leftPanel = (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between pb-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-          Templates
-        </p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('templates')}</p>
         <Button variant="ghost" size="sm" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" />
-          <span className="ms-1 text-xs">New</span>
+          <span className="ms-1 text-xs">{t('new')}</span>
         </Button>
       </div>
 
@@ -279,7 +279,7 @@ export default function BehaviourDocumentTemplatesPage() {
           ))}
         </div>
       ) : grouped.length === 0 ? (
-        <p className="text-xs text-text-tertiary">No templates yet.</p>
+        <p className="text-xs text-text-tertiary">{t('noTemplatesYet')}</p>
       ) : (
         grouped.map(({ type, items }) => (
           <div key={type} className="mb-2">
@@ -331,9 +331,7 @@ export default function BehaviourDocumentTemplatesPage() {
           onClick={() => setMobileShowEditor(false)}
           className="flex items-center gap-1 text-sm text-primary-600"
         >
-          <ChevronRight className="h-4 w-4 rotate-180" />
-          Back to list
-        </button>
+          <ChevronRight className="h-4 w-4 rotate-180" />{t('backToList')}</button>
       )}
 
       {/* Header row */}
@@ -343,9 +341,7 @@ export default function BehaviourDocumentTemplatesPage() {
             <h2 className="text-base font-semibold text-text-primary">{selectedTemplate.name}</h2>
             {selectedTemplate.is_system && (
               <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                <Lock className="h-3 w-3" />
-                System
-              </span>
+                <Lock className="h-3 w-3" />{t('systemTemplate')}</span>
             )}
             <Badge variant="secondary" className="text-xs">
               {LOCALE_OPTIONS.find((l) => l.value === selectedTemplate.locale)?.label ??
@@ -358,21 +354,17 @@ export default function BehaviourDocumentTemplatesPage() {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setPreviewOpen(true)}>
-            <Eye className="me-1.5 h-3.5 w-3.5" />
-            Preview
-          </Button>
+            <Eye className="me-1.5 h-3.5 w-3.5" />{t('preview')}</Button>
           {!selectedTemplate.is_system && (
             <Button size="sm" onClick={(e) => openEdit(selectedTemplate, e)}>
-              <Pencil className="me-1.5 h-3.5 w-3.5" />
-              Edit
-            </Button>
+              <Pencil className="me-1.5 h-3.5 w-3.5" />{tCommon('edit')}</Button>
           )}
         </div>
       </div>
 
       {/* Template body viewer */}
       <div>
-        <Label className="mb-1.5 block text-xs">Template Body</Label>
+        <Label className="mb-1.5 block text-xs">{t('templateBody2')}</Label>
         <pre className="w-full overflow-x-auto rounded-lg border border-border bg-gray-50 p-4 font-mono text-xs leading-relaxed text-text-primary dark:bg-gray-900">
           {selectedTemplate.body}
         </pre>
@@ -385,7 +377,7 @@ export default function BehaviourDocumentTemplatesPage() {
           onClick={() => setMergeFieldsOpen((v) => !v)}
           className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-text-primary"
         >
-          <span>Available Merge Fields</span>
+          <span>{t('availableMergeFields')}</span>
           {mergeFieldsOpen ? (
             <ChevronDown className="h-4 w-4 text-text-tertiary" />
           ) : (
@@ -424,11 +416,9 @@ export default function BehaviourDocumentTemplatesPage() {
   ) : (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
       <Pencil className="h-8 w-8 text-text-tertiary/30" />
-      <p className="mt-3 text-sm text-text-secondary">Select a template to view or edit</p>
+      <p className="mt-3 text-sm text-text-secondary">{t('selectATemplateToView')}</p>
       <Button variant="outline" size="sm" className="mt-4" onClick={openCreate}>
-        <Plus className="me-1.5 h-3.5 w-3.5" />
-        Create New Template
-      </Button>
+        <Plus className="me-1.5 h-3.5 w-3.5" />{t('createNewTemplate')}</Button>
     </div>
   );
 
@@ -473,18 +463,18 @@ export default function BehaviourDocumentTemplatesPage() {
 
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Template Name *</Label>
+              <Label>{t('templateName')}</Label>
               <Input
                 value={form.name}
                 onChange={(e) => updateForm('name', e.target.value)}
-                placeholder="e.g. Standard Detention Letter (EN)"
+                placeholder={t('eGStandardDetentionLetter')}
                 className="text-base"
               />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Document Type</Label>
+                <Label>{t('documentType')}</Label>
                 <Select
                   value={form.document_type}
                   onValueChange={(v) => updateForm('document_type', v)}
@@ -502,7 +492,7 @@ export default function BehaviourDocumentTemplatesPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Locale</Label>
+                <Label>{t('locale')}</Label>
                 <Select value={form.locale} onValueChange={(v) => updateForm('locale', v)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -519,17 +509,15 @@ export default function BehaviourDocumentTemplatesPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Template Body *</Label>
-              <p className="text-xs text-text-tertiary">
-                Use Handlebars syntax. Reference the merge fields list below.
-              </p>
+              <Label>{t('templateBody')}</Label>
+              <p className="text-xs text-text-tertiary">{t('useHandlebarsSyntaxReferenceThe')}</p>
               <textarea
                 value={form.body}
                 onChange={(e) => updateForm('body', e.target.value)}
                 rows={16}
                 className="w-full rounded-lg border border-border bg-gray-50 p-3 font-mono text-xs leading-relaxed text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-600 dark:bg-gray-900"
                 placeholder={
-                  '<h1>{{school.name}}</h1>\n\n<p>Dear {{parent.full_name}},</p>\n\n<p>We are writing to inform you about an incident involving {{student.full_name}}...</p>'
+                  t('h1SchoolNameH1N')
                 }
                 spellCheck={false}
               />
@@ -542,7 +530,7 @@ export default function BehaviourDocumentTemplatesPage() {
                 onClick={() => setMergeFieldsOpen((v) => !v)}
                 className="flex w-full items-center justify-between px-4 py-2.5 text-sm font-medium text-text-secondary"
               >
-                <span>Merge Field Reference</span>
+                <span>{t('mergeFieldReference')}</span>
                 {mergeFieldsOpen ? (
                   <ChevronDown className="h-4 w-4 text-text-tertiary" />
                 ) : (
@@ -578,9 +566,7 @@ export default function BehaviourDocumentTemplatesPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>{tCommon('cancel')}</Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? 'Saving...' : editTarget ? 'Update Template' : 'Create Template'}
             </Button>
@@ -592,14 +578,10 @@ export default function BehaviourDocumentTemplatesPage() {
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Template Preview</DialogTitle>
+            <DialogTitle>{t('templatePreview')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
-              This preview shows the raw template with merge fields as-is. In a generated document,
-              all <code className="font-mono">{'{{placeholders}}'}</code> are replaced with real
-              student, incident, and sanction data.
-            </div>
+            <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">{t('thisPreviewShowsTheRaw')}<code className="font-mono">{'{{placeholders}}'}</code>{t('areReplacedWithRealStudent')}</div>
             {selectedTemplate && (
               <div
                 className="prose prose-sm max-w-none rounded-lg border border-border bg-white p-5 dark:bg-gray-950"
@@ -609,9 +591,7 @@ export default function BehaviourDocumentTemplatesPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPreviewOpen(false)}>
-              Close
-            </Button>
+            <Button variant="outline" onClick={() => setPreviewOpen(false)}>{tCommon('close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

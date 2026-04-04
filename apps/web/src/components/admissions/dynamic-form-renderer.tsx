@@ -106,6 +106,7 @@ function FieldRenderer({
   onFieldChange: (key: string, val: unknown) => void;
   readOnly?: boolean;
 }) {
+  const tCommon = useTranslations('common');
   const stringVal = value != null ? String(value) : '';
 
   switch (field.field_type) {
@@ -228,7 +229,7 @@ function FieldRenderer({
           onChange={(e) => onFieldChange(field.field_key, e.target.value)}
           disabled={readOnly}
           required={field.required}
-          placeholder="+971 50 000 0000"
+          placeholder={t('phonePlaceholder')}
         />
       );
 
@@ -253,7 +254,7 @@ function FieldRenderer({
           disabled={readOnly}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Select country" />
+            <SelectValue placeholder={t('selectCountry')} />
           </SelectTrigger>
           <SelectContent>
             {COUNTRIES.map((c) => (
@@ -275,15 +276,11 @@ function FieldRenderer({
         >
           <div className="flex items-center gap-2">
             <RadioGroupItem value="yes" id={`field-${field.field_key}-yes`} />
-            <Label htmlFor={`field-${field.field_key}-yes`} className="text-sm">
-              Yes
-            </Label>
+            <Label htmlFor={`field-${field.field_key}-yes`} className="text-sm">{tCommon('yes')}</Label>
           </div>
           <div className="flex items-center gap-2">
             <RadioGroupItem value="no" id={`field-${field.field_key}-no`} />
-            <Label htmlFor={`field-${field.field_key}-no`} className="text-sm">
-              No
-            </Label>
+            <Label htmlFor={`field-${field.field_key}-no`} className="text-sm">{tCommon('no')}</Label>
           </div>
         </RadioGroup>
       );

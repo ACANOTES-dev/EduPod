@@ -94,7 +94,7 @@ export default function IncidentListPage() {
       '/api/v1/behaviour/categories?pageSize=100&is_active=true',
     )
       .then((res) => setCategories(res.data ?? []))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[BehaviourIncidentsPage]', err); });
   }, []);
 
   // Fetch incidents
@@ -113,7 +113,8 @@ export default function IncidentListPage() {
         );
         setData(res.data ?? []);
         setTotal(res.meta?.total ?? 0);
-      } catch {
+      } catch (err) {
+        console.error('[BehaviourIncidentsPage]', err);
         setData([]);
         setTotal(0);
       } finally {

@@ -1,6 +1,11 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  RbacReadFacade,
+  AcademicReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { EarlyWarningCohortService } from './early-warning-cohort.service';
@@ -55,8 +60,21 @@ describe('EarlyWarningCohortService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         EarlyWarningCohortService,
         { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: RbacReadFacade,
+          useValue: {
+            findMembershipByIdAndUser: mockPrisma.tenantMembership.findFirst,
+          },
+        },
+        {
+          provide: AcademicReadFacade,
+          useValue: {
+            findCurrentYear: mockPrisma.academicYear.findFirst,
+          },
+        },
       ],
     }).compile();
 

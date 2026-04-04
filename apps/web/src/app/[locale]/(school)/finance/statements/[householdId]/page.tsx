@@ -126,7 +126,8 @@ export default function HouseholdStatementPage() {
       const url = `/api/v1/finance/household-statements/${householdId}${qs ? `?${qs}` : ''}`;
       const res = await apiClient<{ data: HouseholdStatementData }>(url);
       setData(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[FinanceStatementsPage]', err);
       setData(null);
     } finally {
       setIsLoading(false);

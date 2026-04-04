@@ -1,6 +1,7 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, StaffProfileReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { StaffPreferencesService } from './staff-preferences.service';
@@ -19,6 +20,7 @@ const PREF_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
 
 describe('StaffPreferencesService', () => {
   let service: StaffPreferencesService;
+  let mockStaffProfileFacade: { findByUserId: jest.Mock };
   let mockPrisma: {
     staffSchedulingPreference: {
       findMany: jest.Mock;
@@ -46,8 +48,10 @@ describe('StaffPreferencesService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         StaffPreferencesService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: StaffProfileReadFacade, useValue: (mockStaffProfileFacade = { findByUserId: jest.fn().mockResolvedValue(null) }) },
       ],
     }).compile();
 
@@ -97,7 +101,7 @@ describe('StaffPreferencesService', () => {
   });
 
   it('should return own preferences when staff profile exists', async () => {
-    mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_ID });
+    mockStaffProfileFacade.findByUserId.mockResolvedValue({ id: STAFF_ID });
     mockPrisma.staffSchedulingPreference.findMany.mockResolvedValue([{ id: PREF_ID }]);
 
     const result = await service.findOwnPreferences(TENANT_ID, USER_ID, ACADEMIC_YEAR_ID);
@@ -170,7 +174,7 @@ describe('StaffPreferencesService', () => {
       id: PREF_ID,
       staff_profile_id: 'other-staff-id',
     });
-    mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_ID });
+    mockStaffProfileFacade.findByUserId.mockResolvedValue({ id: STAFF_ID });
 
     await expect(
       service.update(TENANT_ID, USER_ID, PREF_ID, {}, ['schedule.manage_own_preferences']),

@@ -143,7 +143,8 @@ export default function ProfilePage() {
       });
       await refreshUser();
       setProfileMessage({ type: 'success', text: t('profile.saveSuccess') });
-    } catch {
+    } catch (err) {
+      console.error('[ProfilePage]', err);
       setProfileMessage({ type: 'error', text: t('profile.saveError') });
     } finally {
       setSavingProfile(false);
@@ -158,7 +159,8 @@ export default function ProfilePage() {
         method: 'POST',
       });
       setMfaSetupData(data.data);
-    } catch {
+    } catch (err) {
+      console.error('[ProfilePage]', err);
       setMfaMessage({ type: 'error', text: t('profile.mfaSetupError') });
     } finally {
       setMfaSetupLoading(false);
@@ -178,7 +180,8 @@ export default function ProfilePage() {
       setMfaSetupData(null);
       setMfaCode('');
       await refreshUser();
-    } catch {
+    } catch (err) {
+      console.error('[ProfilePage]', err);
       setMfaMessage({ type: 'error', text: t('profile.mfaVerifyError') });
     } finally {
       setMfaVerifyLoading(false);
@@ -192,7 +195,8 @@ export default function ProfilePage() {
       await apiClient(`/api/v1/auth/sessions/${sessionId}`, { method: 'DELETE' });
       setSessions((prev) => prev.filter((s) => s.session_id !== sessionId));
       setSessionMessage({ type: 'success', text: t('profile.revokeSuccess') });
-    } catch {
+    } catch (err) {
+      console.error('[ProfilePage]', err);
       setSessionMessage({ type: 'error', text: t('profile.revokeError') });
     } finally {
       setRevokingId(null);
@@ -331,7 +335,7 @@ export default function ProfilePage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={mfaSetupData.qr_data_url}
-              alt="MFA QR code"
+              alt={t('mfaQrCode')}
               className="h-48 w-48 rounded-xl border border-border"
             />
             <div className="space-y-1.5 max-w-xs">

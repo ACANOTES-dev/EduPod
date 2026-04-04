@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ClassesReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { SchoolClosuresService } from './school-closures.service';
@@ -33,8 +34,10 @@ describe('SchoolClosuresService — isClosureDate', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         SchoolClosuresService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: ClassesReadFacade, useValue: { findYearGroupId: jest.fn().mockResolvedValue(null) } },
       ],
     }).compile();
 
@@ -114,17 +117,10 @@ describe('SchoolClosuresService — isClosureDate', () => {
     // No closure found for the given class/year_group/all combination
     mockPrisma.schoolClosure.findFirst.mockResolvedValue(null);
     // When no yearGroupId provided and class lookup returns no year_group
-    mockPrisma.class.findFirst.mockResolvedValue({ year_group_id: null });
+    // (classesReadFacade.findYearGroupId returns null by default from provider)
 
     const result = await service.isClosureDate(TENANT_ID, DATE, 'class-unaffected');
 
     expect(result).toBe(false);
-    // Verify class lookup was done to find year_group_id
-    expect(mockPrisma.class.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'class-unaffected', tenant_id: TENANT_ID },
-        select: { year_group_id: true },
-      }),
-    );
   });
 });

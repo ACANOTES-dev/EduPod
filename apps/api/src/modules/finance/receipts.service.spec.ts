@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, TenantReadFacade } from '../../common/tests/mock-facades';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
@@ -54,10 +55,23 @@ describe('ReceiptsService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ReceiptsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PdfRenderingService, useValue: mockPdfRenderingService },
         { provide: SequenceService, useValue: mockSequenceService },
+        {
+          provide: TenantReadFacade,
+          useValue: {
+            findBranding: jest.fn().mockResolvedValue({
+              school_name_display: 'Test School',
+              school_name_ar: null,
+              logo_url: null,
+              primary_color: null,
+            }),
+            findById: jest.fn().mockResolvedValue({ id: TENANT_ID, name: 'Test School' }),
+          },
+        },
       ],
     }).compile();
 

@@ -51,7 +51,7 @@ export default function WorkloadReportPage() {
           setYearFilter(active?.id ?? first.id);
         }
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[ReportsWorkloadPage]', err); });
   }, []);
 
   React.useEffect(() => {
@@ -59,7 +59,7 @@ export default function WorkloadReportPage() {
     setIsLoading(true);
     apiClient<ListResponse<WorkloadRow>>(`/api/v1/reports/workload?academic_year_id=${yearFilter}`)
       .then((res) => setData(res.data))
-      .catch(() => setData([]))
+      .catch((err) => { console.error('[ReportsWorkloadPage]', err); return setData([]); })
       .finally(() => setIsLoading(false));
   }, [yearFilter]);
 
@@ -70,7 +70,7 @@ export default function WorkloadReportPage() {
       <div className="flex flex-wrap items-center gap-3">
         <Select value={yearFilter} onValueChange={setYearFilter}>
           <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Select year" />
+            <SelectValue placeholder={t('selectYear')} />
           </SelectTrigger>
           <SelectContent>
             {academicYears.map((y) => (
@@ -125,9 +125,7 @@ export default function WorkloadReportPage() {
               ))
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-sm text-text-tertiary">
-                  No workload data available
-                </td>
+                <td colSpan={8} className="px-4 py-12 text-center text-sm text-text-tertiary">{t('noWorkloadDataAvailable')}</td>
               </tr>
             ) : (
               data.map((row) => (

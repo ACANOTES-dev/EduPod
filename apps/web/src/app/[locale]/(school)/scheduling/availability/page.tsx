@@ -87,7 +87,7 @@ function DayRow({ weekday, label, entry, onChange, onToggle }: DayRowProps) {
       {isEnabled ? (
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5">
-            <Label className="text-xs text-text-secondary">From</Label>
+            <Label className="text-xs text-text-secondary">{t('from')}</Label>
             <Input
               type="time"
               value={entry.from_time}
@@ -96,7 +96,7 @@ function DayRow({ weekday, label, entry, onChange, onToggle }: DayRowProps) {
             />
           </div>
           <div className="flex items-center gap-1.5">
-            <Label className="text-xs text-text-secondary">To</Label>
+            <Label className="text-xs text-text-secondary">{t('to')}</Label>
             <Input
               type="time"
               value={entry.to_time}
@@ -106,7 +106,7 @@ function DayRow({ weekday, label, entry, onChange, onToggle }: DayRowProps) {
           </div>
         </div>
       ) : (
-        <span className="text-xs text-text-tertiary">Not available</span>
+        <span className="text-xs text-text-tertiary">{t('notAvailable')}</span>
       )}
     </div>
   );
@@ -148,7 +148,7 @@ export default function AvailabilityPage() {
           setSelectedYear(yearsRes.data[0].id);
         }
       })
-      .catch(() => toast.error('Failed to load reference data'));
+      .catch((err) => { console.error('[SchedulingAvailabilityPage]', err); return toast.error('Failed to load reference data'); });
   }, []);
 
   // Load availability when staff + year selected
@@ -179,7 +179,8 @@ export default function AvailabilityPage() {
         );
         setRecordId(records[0]?.id ?? null);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[SchedulingAvailabilityPage]', err);
         setEntries([]);
         setRecordId(null);
       })
@@ -214,7 +215,8 @@ export default function AvailabilityPage() {
         }),
       });
       toast.success('Availability saved');
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingAvailabilityPage]', err);
       toast.error('Failed to save availability');
     } finally {
       setIsSaving(false);
@@ -241,7 +243,7 @@ export default function AvailabilityPage() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search staff…"
+              placeholder={t('searchStaff')}
               className="ps-8 text-sm"
             />
           </div>
@@ -260,7 +262,7 @@ export default function AvailabilityPage() {
               </button>
             ))}
             {filteredStaff.length === 0 && (
-              <div className="px-3 py-6 text-center text-xs text-text-tertiary">No staff found</div>
+              <div className="px-3 py-6 text-center text-xs text-text-tertiary">{t('noStaffFound')}</div>
             )}
           </div>
         </div>
@@ -268,9 +270,7 @@ export default function AvailabilityPage() {
         {/* Availability grid */}
         <div className="flex-1">
           {!selectedStaff ? (
-            <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border text-sm text-text-tertiary">
-              Select a staff member to configure availability
-            </div>
+            <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border text-sm text-text-tertiary">{t('selectAStaffMemberTo')}</div>
           ) : isLoading ? (
             <div className="space-y-2">
               {WEEKDAYS.map((d) => (
@@ -298,9 +298,7 @@ export default function AvailabilityPage() {
                   </Select>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleClear}>
-                    Clear all
-                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleClear}>{t('clearAll')}</Button>
                   <Button size="sm" onClick={() => void handleSave()} disabled={isSaving}>
                     {isSaving ? 'Saving…' : 'Save'}
                   </Button>

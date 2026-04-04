@@ -1,6 +1,13 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  RbacReadFacade,
+  AcademicReadFacade,
+  StaffProfileReadFacade,
+  ClassesReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { EarlyWarningService } from './early-warning.service';
@@ -96,8 +103,50 @@ describe('EarlyWarningService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         EarlyWarningService,
         { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: RbacReadFacade,
+          useValue: {
+            findMembershipByIdAndUser: mockPrisma.tenantMembership.findFirst,
+            findMembershipSummary: jest.fn().mockImplementation(async () => {
+              const row = await mockPrisma.tenantMembership.findFirst();
+              return row ? { ...row, membership_status: 'active' } : null;
+            }),
+          },
+        },
+        {
+          provide: AcademicReadFacade,
+          useValue: {
+            findCurrentYearId: jest.fn().mockImplementation(async () => {
+              const ay = await mockPrisma.academicYear.findFirst();
+              if (!ay) {
+                throw new NotFoundException({
+                  code: 'ACADEMIC_YEAR_NOT_FOUND',
+                  message: 'No active academic year found for this tenant',
+                });
+              }
+              return ay.id;
+            }),
+          },
+        },
+        {
+          provide: StaffProfileReadFacade,
+          useValue: {
+            findByUserId: mockPrisma.staffProfile.findFirst,
+          },
+        },
+        {
+          provide: ClassesReadFacade,
+          useValue: {
+            findClassesByStaff: mockPrisma.classStaff.findMany,
+            findEnrolledStudentIds: jest.fn().mockImplementation(async () => {
+              const rows = await mockPrisma.classEnrolment.findMany();
+              return rows.map((r: { student_id: string }) => r.student_id);
+            }),
+          },
+        },
       ],
     }).compile();
 

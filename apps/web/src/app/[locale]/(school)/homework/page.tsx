@@ -51,8 +51,8 @@ export default function HomeworkDashboardPage() {
       ]);
       setTodayItems(todayRes.data ?? []);
       setRecentItems(recentRes.data ?? []);
-    } catch {
-      console.error('[HomeworkDashboard] Failed to fetch data');
+    } catch (err) {
+      console.error('[HomeworkDashboard] Failed to fetch data', err);
     } finally {
       setLoading(false);
     }

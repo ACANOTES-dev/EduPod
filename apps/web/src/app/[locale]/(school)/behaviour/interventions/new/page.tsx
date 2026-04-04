@@ -113,7 +113,7 @@ export default function CreateInterventionPage() {
         `/api/v1/behaviour/students?search=${encodeURIComponent(studentSearch)}&pageSize=10`,
       )
         .then((res) => setStudentResults(res.data ?? []))
-        .catch(() => undefined);
+        .catch((err) => { console.error('[InterventionsNewPage]', err); });
     }, 300);
     return () => {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);

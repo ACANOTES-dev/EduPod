@@ -79,7 +79,7 @@ export default function RoomClosuresPage() {
   React.useEffect(() => {
     apiClient<{ data: Room[] }>('/api/v1/rooms?pageSize=100')
       .then((res) => setRooms(res.data))
-      .catch(() => {});
+      .catch((err) => { console.error('[SchedulingRoomClosuresPage]', err); });
   }, []);
 
   // Fetch closures
@@ -94,7 +94,8 @@ export default function RoomClosuresPage() {
       }>(`/api/v1/scheduling/room-closures?${params.toString()}`);
       setData(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingRoomClosuresPage]', err);
       setData([]);
       setTotal(0);
     } finally {
@@ -118,7 +119,8 @@ export default function RoomClosuresPage() {
       setForm(EMPTY_FORM);
       toast.success(tc('save'));
       void fetchData();
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingRoomClosuresPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setIsSaving(false);
@@ -130,7 +132,8 @@ export default function RoomClosuresPage() {
       await apiClient(`/api/v1/scheduling/room-closures/${id}`, { method: 'DELETE' });
       toast.success(tc('delete'));
       void fetchData();
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingRoomClosuresPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };

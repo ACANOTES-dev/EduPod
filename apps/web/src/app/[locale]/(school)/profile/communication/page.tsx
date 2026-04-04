@@ -94,7 +94,8 @@ export default function CommunicationPreferencesPage() {
         body: JSON.stringify({ communication: prefs }),
       });
       setMessage({ type: 'success', text: t('communication.saveSuccess') });
-    } catch {
+    } catch (err) {
+      console.error('[ProfileCommunicationPage]', err);
       setMessage({ type: 'error', text: t('communication.saveError') });
     } finally {
       setSaving(false);

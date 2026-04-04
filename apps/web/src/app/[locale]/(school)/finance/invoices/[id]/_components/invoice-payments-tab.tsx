@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 
@@ -34,8 +35,9 @@ interface InvoicePaymentsTabProps {
 }
 
 export function InvoicePaymentsTab({ allocations, currencyCode }: InvoicePaymentsTabProps) {
+  const t = useTranslations('finance');
   if (allocations.length === 0) {
-    return <p className="text-sm text-text-tertiary">No payments allocated to this invoice.</p>;
+    return <p className="text-sm text-text-tertiary">{t('noPaymentsAllocatedToThis')}</p>;
   }
 
   return (
@@ -43,18 +45,10 @@ export function InvoicePaymentsTab({ allocations, currencyCode }: InvoicePayment
       <table className="w-full">
         <thead>
           <tr className="border-b border-border bg-surface-secondary">
-            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-              Payment Reference
-            </th>
-            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-              Method
-            </th>
-            <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-              Amount Allocated
-            </th>
-            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-              Date
-            </th>
+            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('paymentReference2')}</th>
+            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('method')}</th>
+            <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('amountAllocated')}</th>
+            <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('date')}</th>
           </tr>
         </thead>
         <tbody>

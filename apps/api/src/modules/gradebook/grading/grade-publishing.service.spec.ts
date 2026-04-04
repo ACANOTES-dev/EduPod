@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ClassesReadFacade, AcademicReadFacade } from '../../../common/tests/mock-facades';
 import { NotificationsService } from '../../communications/notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AiProgressSummaryService } from '../ai/ai-progress-summary.service';
@@ -70,15 +71,22 @@ const baseAssessment = {
 
 // ─── getReadinessDashboard Tests ──────────────────────────────────────────────
 
+const mockClassesFacade = { findEnrolmentCountsByClasses: jest.fn(), existsOrThrow: jest.fn() };
+const mockAcademicFacade = { findPeriodById: jest.fn() };
+
 describe('GradePublishingService — getReadinessDashboard', () => {
   let service: GradePublishingService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockClassesFacade.findEnrolmentCountsByClasses.mockResolvedValue(new Map());
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
         GradePublishingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: NotificationsService, useValue: buildMockNotificationsService() },
@@ -93,7 +101,7 @@ describe('GradePublishingService — getReadinessDashboard', () => {
 
   it('should return empty data when no assessments exist', async () => {
     mockPrisma.assessment.findMany.mockResolvedValue([]);
-    mockPrisma.classEnrolment.groupBy.mockResolvedValue([]);
+    mockClassesFacade.findEnrolmentCountsByClasses.mockResolvedValue(new Map());
 
     const result = await service.getReadinessDashboard(TENANT_ID, {});
 
@@ -118,9 +126,7 @@ describe('GradePublishingService — getReadinessDashboard', () => {
         ],
       },
     ]);
-    mockPrisma.classEnrolment.groupBy.mockResolvedValue([
-      { class_id: CLASS_ID, _count: { student_id: 2 } },
-    ]);
+    mockClassesFacade.findEnrolmentCountsByClasses.mockResolvedValue(new Map([[CLASS_ID, 2]]));
 
     const result = await service.getReadinessDashboard(TENANT_ID, {});
 
@@ -146,9 +152,7 @@ describe('GradePublishingService — getReadinessDashboard', () => {
         grades: [{ student_id: 's1', raw_score: 80, is_missing: false }],
       },
     ]);
-    mockPrisma.classEnrolment.groupBy.mockResolvedValue([
-      { class_id: CLASS_ID, _count: { student_id: 1 } },
-    ]);
+    mockClassesFacade.findEnrolmentCountsByClasses.mockResolvedValue(new Map([[CLASS_ID, 1]]));
 
     const result = await service.getReadinessDashboard(TENANT_ID, {});
 
@@ -171,9 +175,7 @@ describe('GradePublishingService — getReadinessDashboard', () => {
         grades: [{ student_id: 's1', raw_score: 90, is_missing: false }],
       },
     ]);
-    mockPrisma.classEnrolment.groupBy.mockResolvedValue([
-      { class_id: CLASS_ID, _count: { student_id: 1 } },
-    ]);
+    mockClassesFacade.findEnrolmentCountsByClasses.mockResolvedValue(new Map([[CLASS_ID, 1]]));
 
     const result = await service.getReadinessDashboard(TENANT_ID, {});
 
@@ -196,6 +198,7 @@ describe('GradePublishingService — publishGrades', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         GradePublishingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: NotificationsService, useValue: mockNotifications },
@@ -271,11 +274,16 @@ describe('GradePublishingService — publishPeriodGrades', () => {
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockClassesFacade.existsOrThrow.mockResolvedValue(true);
+    mockAcademicFacade.findPeriodById.mockResolvedValue({ id: PERIOD_ID });
 
     mockRlsTx.assessment.update.mockReset().mockResolvedValue({});
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
         GradePublishingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: NotificationsService, useValue: buildMockNotificationsService() },
@@ -289,8 +297,7 @@ describe('GradePublishingService — publishPeriodGrades', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should throw NotFoundException when class does not exist', async () => {
-    mockPrisma.class.findFirst.mockResolvedValue(null);
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue({ id: PERIOD_ID });
+    mockClassesFacade.existsOrThrow.mockRejectedValue(new NotFoundException('class not found'));
 
     await expect(
       service.publishPeriodGrades(TENANT_ID, USER_ID, CLASS_ID, PERIOD_ID),
@@ -298,8 +305,7 @@ describe('GradePublishingService — publishPeriodGrades', () => {
   });
 
   it('should throw NotFoundException when period does not exist', async () => {
-    mockPrisma.class.findFirst.mockResolvedValue({ id: CLASS_ID });
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue(null);
+    mockAcademicFacade.findPeriodById.mockResolvedValue(null);
 
     await expect(
       service.publishPeriodGrades(TENANT_ID, USER_ID, CLASS_ID, PERIOD_ID),
@@ -307,8 +313,6 @@ describe('GradePublishingService — publishPeriodGrades', () => {
   });
 
   it('should return published:0 when all assessments are already published', async () => {
-    mockPrisma.class.findFirst.mockResolvedValue({ id: CLASS_ID });
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue({ id: PERIOD_ID });
     mockPrisma.assessment.findMany.mockResolvedValue([]);
 
     const result = await service.publishPeriodGrades(TENANT_ID, USER_ID, CLASS_ID, PERIOD_ID);

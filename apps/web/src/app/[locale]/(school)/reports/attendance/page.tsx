@@ -311,20 +311,15 @@ export default function AttendanceAnalyticsPage() {
           </div>
           <div className="mt-4 flex items-center gap-4 text-xs text-text-tertiary">
             <span className="flex items-center gap-1">
-              <span className="h-3 w-4 rounded bg-emerald-500" /> &ge;95%
-            </span>
+              <span className="h-3 w-4 rounded bg-emerald-500" />{t('95')}</span>
             <span className="flex items-center gap-1">
-              <span className="h-3 w-4 rounded bg-emerald-300" /> 90–94%
-            </span>
+              <span className="h-3 w-4 rounded bg-emerald-300" />{t('9094')}</span>
             <span className="flex items-center gap-1">
-              <span className="h-3 w-4 rounded bg-amber-300" /> 85–89%
-            </span>
+              <span className="h-3 w-4 rounded bg-amber-300" />{t('8589')}</span>
             <span className="flex items-center gap-1">
-              <span className="h-3 w-4 rounded bg-orange-400" /> 80–84%
-            </span>
+              <span className="h-3 w-4 rounded bg-orange-400" />{t('8084')}</span>
             <span className="flex items-center gap-1">
-              <span className="h-3 w-4 rounded bg-red-400" /> &lt;80%
-            </span>
+              <span className="h-3 w-4 rounded bg-red-400" />{t('80')}</span>
           </div>
         </div>
       )}

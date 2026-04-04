@@ -51,7 +51,7 @@ export default function SafeguardingSettingsPage() {
       .then((res) => {
         if (res.data) setSettings(res.data);
       })
-      .catch(() => undefined)
+      .catch((err) => { console.error('[SettingsSafeguardingPage]', err); })
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -143,11 +143,11 @@ export default function SafeguardingSettingsPage() {
         <h2 className="text-base font-semibold text-text-primary">{t('sections.dlp')}</h2>
         <div className="mt-4 space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="dlp">DLP</Label>
+            <Label htmlFor="dlp">{t('dlpLabel')}</Label>
             <Input
               id="dlp"
               type="text"
-              placeholder="Enter DLP user ID..."
+              placeholder={t('dlpPlaceholder')}
               value={settings.dlp_user_id}
               onChange={(e) => updateField('dlp_user_id', e.target.value)}
               className="w-full text-base"
@@ -156,11 +156,11 @@ export default function SafeguardingSettingsPage() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="deputy-dlp">Deputy DLP</Label>
+            <Label htmlFor="deputy-dlp">{t('deputyDlpLabel')}</Label>
             <Input
               id="deputy-dlp"
               type="text"
-              placeholder="Enter Deputy DLP user ID..."
+              placeholder={t('deputyDlpPlaceholder')}
               value={settings.deputy_dlp_user_id}
               onChange={(e) => updateField('deputy_dlp_user_id', e.target.value)}
               className="w-full text-base"
@@ -168,11 +168,11 @@ export default function SafeguardingSettingsPage() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="board-contact">Board Contact</Label>
+            <Label htmlFor="board-contact">{t('boardContactLabel')}</Label>
             <Input
               id="board-contact"
               type="text"
-              placeholder="Enter Board Contact user ID..."
+              placeholder={t('boardContactPlaceholder')}
               value={settings.board_contact_user_id}
               onChange={(e) => updateField('board_contact_user_id', e.target.value)}
               className="w-full text-base"
@@ -186,7 +186,7 @@ export default function SafeguardingSettingsPage() {
         <h2 className="text-base font-semibold text-text-primary">{t('sections.slaThresholds')}</h2>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="sla-critical">Critical</Label>
+            <Label htmlFor="sla-critical">{t('slaCritical')}</Label>
             <Input
               id="sla-critical"
               type="number"
@@ -197,7 +197,7 @@ export default function SafeguardingSettingsPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="sla-high">High</Label>
+            <Label htmlFor="sla-high">{t('slaHigh')}</Label>
             <Input
               id="sla-high"
               type="number"
@@ -208,7 +208,7 @@ export default function SafeguardingSettingsPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="sla-medium">Medium</Label>
+            <Label htmlFor="sla-medium">{t('slaMedium')}</Label>
             <Input
               id="sla-medium"
               type="number"
@@ -219,7 +219,7 @@ export default function SafeguardingSettingsPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="sla-low">Low</Label>
+            <Label htmlFor="sla-low">{t('slaLow')}</Label>
             <Input
               id="sla-low"
               type="number"
@@ -236,7 +236,7 @@ export default function SafeguardingSettingsPage() {
       <div className="rounded-xl border border-border bg-surface p-5">
         <h2 className="text-base font-semibold text-text-primary">{t('sections.dataRetention')}</h2>
         <div className="mt-4 space-y-1.5">
-          <Label htmlFor="retention">Retention Period (years)</Label>
+          <Label htmlFor="retention">{t('retentionLabel')}</Label>
           <Input
             id="retention"
             type="number"

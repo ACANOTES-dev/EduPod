@@ -1,6 +1,7 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { SettingsService } from '../configuration/settings.service';
 import { AiAuditService } from '../gdpr/ai-audit.service';
@@ -80,6 +81,7 @@ describe('AiSubstitutionService', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: SchedulesReadFacade, useValue: {
       findById: jest.fn().mockResolvedValue(null),
       findCoreById: jest.fn().mockResolvedValue(null),
@@ -144,6 +146,19 @@ describe('AiSubstitutionService', () => {
   // ─── rankSubstitutes ──────────────────────────────────────────────────────
 
   describe('rankSubstitutes', () => {
+    beforeEach(() => {
+      // Override facade mocks for tests that need schedule context
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(mockSchedule);
+      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set());
+
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
+        { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
+        { id: 'staff-3', user: { first_name: 'Bob', last_name: 'Jones' } },
+      ]);
+    });
+
     it('should return ranked substitutes from AI response', async () => {
       mockMessagesCreate.mockResolvedValue({
         content: [
@@ -267,7 +282,8 @@ describe('AiSubstitutionService', () => {
     });
 
     it('should return empty data when no available staff', async () => {
-      mockPrisma.staffProfile.findMany.mockResolvedValue([]);
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([]);
 
       const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
 
@@ -276,7 +292,8 @@ describe('AiSubstitutionService', () => {
     });
 
     it('should return empty data when schedule not found', async () => {
-      mockPrisma.schedule.findFirst.mockResolvedValue(null);
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(null);
 
       const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
 
@@ -320,7 +337,8 @@ describe('AiSubstitutionService', () => {
         reasoning: `Candidate ${i}`,
       }));
 
-      mockPrisma.staffProfile.findMany.mockResolvedValue(
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue(
         candidates.map((c) => ({
           id: c.staff_profile_id,
           user: { first_name: 'Teacher', last_name: `${c.staff_profile_id}` },

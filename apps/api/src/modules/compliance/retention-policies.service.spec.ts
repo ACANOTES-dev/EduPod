@@ -3,6 +3,8 @@ import { Test } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 jest.mock('../../common/middleware/rls.middleware');
+
+import { MOCK_FACADE_PROVIDERS, GdprReadFacade, AttendanceReadFacade, AuditLogReadFacade } from '../../common/tests/mock-facades';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 
 import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
@@ -110,18 +112,44 @@ describe('RetentionPoliciesService', () => {
   let prisma: ReturnType<typeof buildMockPrisma>;
   let financeFacade: ReturnType<typeof buildMockFinanceFacade>;
   let behaviourFacade: ReturnType<typeof buildMockBehaviourFacade>;
+  let gdprFacade: {
+    findRetentionHoldById: jest.Mock;
+    findRetentionHolds: jest.Mock;
+    findActiveRetentionHoldBySubject: jest.Mock;
+    findRetentionPolicyById: jest.Mock;
+    findPlatformDefaultPolicies: jest.Mock;
+    findTenantPolicyOverrides: jest.Mock;
+    findDefaultPolicyByCategory: jest.Mock;
+    countTokenUsageLogsBeforeDate: jest.Mock;
+  };
+  let attendanceFacade: { countAttendanceRecords: jest.Mock };
+  let auditLogFacade: { count: jest.Mock };
 
   beforeEach(async () => {
     prisma = buildMockPrisma();
     financeFacade = buildMockFinanceFacade();
     behaviourFacade = buildMockBehaviourFacade();
+    gdprFacade = {
+      findRetentionHoldById: jest.fn().mockResolvedValue(null),
+      findRetentionHolds: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+      findActiveRetentionHoldBySubject: jest.fn().mockResolvedValue(null),
+      findRetentionPolicyById: jest.fn().mockResolvedValue(null),
+      findPlatformDefaultPolicies: jest.fn().mockResolvedValue([]),
+      findTenantPolicyOverrides: jest.fn().mockResolvedValue([]),
+      findDefaultPolicyByCategory: jest.fn().mockResolvedValue(null),
+      countTokenUsageLogsBeforeDate: jest.fn().mockResolvedValue(0),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         RetentionPoliciesService,
         { provide: PrismaService, useValue: prisma },
         { provide: FinanceReadFacade, useValue: financeFacade },
         { provide: BehaviourReadFacade, useValue: behaviourFacade },
+        { provide: GdprReadFacade, useValue: gdprFacade },
+        { provide: AttendanceReadFacade, useValue: (attendanceFacade = { countAttendanceRecords: jest.fn().mockResolvedValue(0) }) },
+        { provide: AuditLogReadFacade, useValue: (auditLogFacade = { count: jest.fn().mockResolvedValue(0) }) },
       ],
     }).compile();
 
@@ -140,9 +168,8 @@ describe('RetentionPoliciesService', () => {
       });
       const overrideA = makeTenantOverride('attendance_records', 36);
 
-      prisma.retentionPolicy.findMany
-        .mockResolvedValueOnce([defaultA, defaultB]) // platform defaults
-        .mockResolvedValueOnce([overrideA]); // tenant overrides
+      gdprFacade.findPlatformDefaultPolicies.mockResolvedValue([defaultA, defaultB]);
+      gdprFacade.findTenantPolicyOverrides.mockResolvedValue([overrideA]);
 
       const result = await service.getEffectivePolicies(TENANT_ID);
 
@@ -174,9 +201,8 @@ describe('RetentionPoliciesService', () => {
         id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
       });
 
-      prisma.retentionPolicy.findMany
-        .mockResolvedValueOnce([defaultA, defaultB]) // first call: platform defaults (tenant_id = null)
-        .mockResolvedValueOnce([]); // second call: Tenant B's overrides — none exist
+      gdprFacade.findPlatformDefaultPolicies.mockResolvedValue([defaultA, defaultB]);
+      gdprFacade.findTenantPolicyOverrides.mockResolvedValue([]);
 
       const result = await service.getEffectivePolicies(TENANT_B_ID);
 
@@ -184,9 +210,7 @@ describe('RetentionPoliciesService', () => {
       expect(result.data.every((p) => p.is_override === false)).toBe(true);
 
       // Confirm the tenant override query was scoped exclusively to Tenant B
-      const findManyCalls = prisma.retentionPolicy.findMany.mock.calls;
-      expect(findManyCalls).toHaveLength(2);
-      expect(findManyCalls[1]![0]).toMatchObject({ where: { tenant_id: TENANT_B_ID } });
+      expect(gdprFacade.findTenantPolicyOverrides).toHaveBeenCalledWith(TENANT_B_ID);
     });
   });
 
@@ -195,7 +219,7 @@ describe('RetentionPoliciesService', () => {
   describe('overridePolicy', () => {
     it('should create a tenant override when extending retention', async () => {
       const defaultPolicy = makePlatformDefault('attendance_records', 24);
-      prisma.retentionPolicy.findFirst.mockResolvedValue(defaultPolicy);
+      gdprFacade.findRetentionPolicyById.mockResolvedValue(defaultPolicy);
 
       // No existing tenant override
       mockTx.retentionPolicy.findFirst.mockResolvedValue(null);
@@ -225,10 +249,10 @@ describe('RetentionPoliciesService', () => {
 
     it('should update an existing tenant override', async () => {
       const existingOverride = makeTenantOverride('attendance_records', 36);
-      // findFirst for the policy lookup returns the override itself
-      prisma.retentionPolicy.findFirst.mockResolvedValueOnce(existingOverride);
-      // findFirst for the platform default lookup
-      prisma.retentionPolicy.findFirst.mockResolvedValueOnce(
+      // findRetentionPolicyById for the policy lookup returns the override itself
+      gdprFacade.findRetentionPolicyById.mockResolvedValue(existingOverride);
+      // findDefaultPolicyByCategory for the platform default lookup
+      gdprFacade.findDefaultPolicyByCategory.mockResolvedValue(
         makePlatformDefault('attendance_records', 24),
       );
 
@@ -252,7 +276,7 @@ describe('RetentionPoliciesService', () => {
       const lockedPolicy = makePlatformDefault('child_protection_safeguarding', 0, {
         is_overridable: false,
       });
-      prisma.retentionPolicy.findFirst.mockResolvedValue(lockedPolicy);
+      gdprFacade.findRetentionPolicyById.mockResolvedValue(lockedPolicy);
 
       await expect(
         service.overridePolicy(TENANT_ID, POLICY_ID, { retention_months: 12 }),
@@ -267,7 +291,7 @@ describe('RetentionPoliciesService', () => {
 
     it('should throw RETENTION_BELOW_MINIMUM when reducing below statutory minimum', async () => {
       const defaultPolicy = makePlatformDefault('financial_records', 84);
-      prisma.retentionPolicy.findFirst.mockResolvedValue(defaultPolicy);
+      gdprFacade.findRetentionPolicyById.mockResolvedValue(defaultPolicy);
 
       await expect(
         service.overridePolicy(TENANT_ID, POLICY_ID, { retention_months: 60 }),
@@ -281,7 +305,7 @@ describe('RetentionPoliciesService', () => {
     });
 
     it('should throw NotFoundException when policy does not exist', async () => {
-      prisma.retentionPolicy.findFirst.mockResolvedValue(null);
+      gdprFacade.findRetentionPolicyById.mockResolvedValue(null);
 
       await expect(
         service.overridePolicy(TENANT_ID, POLICY_ID, { retention_months: 48 }),
@@ -300,12 +324,11 @@ describe('RetentionPoliciesService', () => {
         }),
       ];
 
-      prisma.retentionPolicy.findMany
-        .mockResolvedValueOnce(policies) // platform defaults
-        .mockResolvedValueOnce([]); // no tenant overrides
+      gdprFacade.findPlatformDefaultPolicies.mockResolvedValue(policies);
+      gdprFacade.findTenantPolicyOverrides.mockResolvedValue([]);
 
-      prisma.attendanceRecord.count.mockResolvedValue(150);
-      prisma.auditLog.count.mockResolvedValue(3000);
+      attendanceFacade.countAttendanceRecords.mockResolvedValue(150);
+      auditLogFacade.count.mockResolvedValue(3000);
 
       const result = await service.previewRetention(TENANT_ID);
 
@@ -336,9 +359,10 @@ describe('RetentionPoliciesService', () => {
         }),
       ];
 
-      prisma.retentionPolicy.findMany.mockResolvedValueOnce(policies).mockResolvedValueOnce([]);
+      gdprFacade.findPlatformDefaultPolicies.mockResolvedValue(policies);
+      gdprFacade.findTenantPolicyOverrides.mockResolvedValue([]);
 
-      prisma.attendanceRecord.count.mockResolvedValue(150);
+      attendanceFacade.countAttendanceRecords.mockResolvedValue(150);
 
       const result = await service.previewRetention(TENANT_ID, {
         data_category: 'attendance_records',
@@ -346,7 +370,7 @@ describe('RetentionPoliciesService', () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0]!.data_category).toBe('attendance_records');
-      expect(prisma.auditLog.count).not.toHaveBeenCalled();
+      expect(auditLogFacade.count).not.toHaveBeenCalled();
     });
 
     it('should return 0 for child_protection_safeguarding (indefinite)', async () => {
@@ -356,7 +380,8 @@ describe('RetentionPoliciesService', () => {
         }),
       ];
 
-      prisma.retentionPolicy.findMany.mockResolvedValueOnce(policies).mockResolvedValueOnce([]);
+      gdprFacade.findPlatformDefaultPolicies.mockResolvedValue(policies);
+      gdprFacade.findTenantPolicyOverrides.mockResolvedValue([]);
 
       const result = await service.previewRetention(TENANT_ID);
 
@@ -375,7 +400,7 @@ describe('RetentionPoliciesService', () => {
     };
 
     it('should create a legal hold', async () => {
-      prisma.retentionHold.findFirst.mockResolvedValue(null);
+      gdprFacade.findActiveRetentionHoldBySubject.mockResolvedValue(null);
 
       const createdHold = {
         id: HOLD_ID,
@@ -405,7 +430,7 @@ describe('RetentionPoliciesService', () => {
     });
 
     it('should throw HOLD_ALREADY_ACTIVE when a duplicate active hold exists', async () => {
-      prisma.retentionHold.findFirst.mockResolvedValue({
+      gdprFacade.findActiveRetentionHoldBySubject.mockResolvedValue({
         id: HOLD_ID,
         tenant_id: TENANT_ID,
         subject_type: 'student',
@@ -438,7 +463,7 @@ describe('RetentionPoliciesService', () => {
         released_at: null,
         created_at: new Date('2026-01-01'),
       };
-      prisma.retentionHold.findFirst.mockResolvedValue(activeHold);
+      gdprFacade.findRetentionHoldById.mockResolvedValue(activeHold);
 
       const releasedHold = { ...activeHold, released_at: new Date() };
       mockTx.retentionHold.update.mockResolvedValue(releasedHold);
@@ -456,7 +481,7 @@ describe('RetentionPoliciesService', () => {
     });
 
     it('should throw HOLD_NOT_FOUND when hold does not exist', async () => {
-      prisma.retentionHold.findFirst.mockResolvedValue(null);
+      gdprFacade.findRetentionHoldById.mockResolvedValue(null);
 
       await expect(service.releaseHold(TENANT_ID, HOLD_ID)).rejects.toThrow(NotFoundException);
 
@@ -466,7 +491,7 @@ describe('RetentionPoliciesService', () => {
     });
 
     it('should throw HOLD_ALREADY_RELEASED when hold was already released', async () => {
-      prisma.retentionHold.findFirst.mockResolvedValue({
+      gdprFacade.findRetentionHoldById.mockResolvedValue({
         id: HOLD_ID,
         tenant_id: TENANT_ID,
         subject_type: 'student',
@@ -504,8 +529,7 @@ describe('RetentionPoliciesService', () => {
         },
       ];
 
-      prisma.retentionHold.findMany.mockResolvedValue(holds);
-      prisma.retentionHold.count.mockResolvedValue(1);
+      gdprFacade.findRetentionHolds.mockResolvedValue({ data: holds, total: 1 });
 
       const result = await service.listHolds(TENANT_ID, {
         page: 1,
@@ -518,18 +542,10 @@ describe('RetentionPoliciesService', () => {
         pageSize: 20,
         total: 1,
       });
-
-      expect(prisma.retentionHold.findMany).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT_ID, released_at: null },
-        skip: 0,
-        take: 20,
-        orderBy: { held_at: 'desc' },
-      });
     });
 
     it('should handle pagination offset correctly', async () => {
-      prisma.retentionHold.findMany.mockResolvedValue([]);
-      prisma.retentionHold.count.mockResolvedValue(25);
+      gdprFacade.findRetentionHolds.mockResolvedValue({ data: [], total: 25 });
 
       const result = await service.listHolds(TENANT_ID, {
         page: 2,
@@ -541,10 +557,6 @@ describe('RetentionPoliciesService', () => {
         pageSize: 10,
         total: 25,
       });
-
-      expect(prisma.retentionHold.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ skip: 10, take: 10 }),
-      );
     });
   });
 });

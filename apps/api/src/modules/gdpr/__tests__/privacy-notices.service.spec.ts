@@ -6,6 +6,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn(),
 }));
 
+import { MOCK_FACADE_PROVIDERS, RbacReadFacade, TenantReadFacade } from '../../../common/tests/mock-facades';
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
@@ -21,7 +22,7 @@ const VERSION_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 // ─── Mock Factory ───────────────────────────────────────────────────────────
 
 function buildMockPrisma() {
-  return {
+  const prisma = {
     tenant: {
       findUnique: jest.fn(),
     },
@@ -43,7 +44,11 @@ function buildMockPrisma() {
     notification: {
       createMany: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  prisma.$transaction.mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(prisma));
+  return prisma;
 }
 
 function buildMockRedis() {
@@ -60,11 +65,13 @@ describe('PrivacyNoticesService', () => {
   let service: PrivacyNoticesService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockRbacFindMembershipSummary: jest.Mock;
   const mockCreateRlsClient = createRlsClient as jest.Mock;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRedis = buildMockRedis();
+    mockRbacFindMembershipSummary = jest.fn();
 
     mockCreateRlsClient.mockReturnValue({
       $transaction: jest
@@ -77,9 +84,24 @@ describe('PrivacyNoticesService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         PrivacyNoticesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
+        {
+          provide: RbacReadFacade,
+          useValue: {
+            findActiveMembershipsWithLocale: mockPrisma.tenantMembership.findMany,
+            findMembershipSummary: mockRbacFindMembershipSummary,
+          },
+        },
+        {
+          provide: TenantReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue({ id: TENANT_ID, name: 'Test School' }),
+            findBranding: jest.fn().mockResolvedValue(null),
+          },
+        },
       ],
     }).compile();
 
@@ -443,7 +465,10 @@ describe('PrivacyNoticesService', () => {
 
   describe('PrivacyNoticesService -- getParentPortalCurrent', () => {
     it('should return current notice status for an active parent membership', async () => {
-      mockPrisma.tenantMembership.findFirst.mockResolvedValue({ id: 'membership-id' });
+      mockRbacFindMembershipSummary.mockResolvedValue({
+        id: 'membership-id',
+        membership_status: 'active',
+      });
       mockPrisma.privacyNoticeVersion.findFirst.mockResolvedValue({
         id: 'current-version-id',
         version_number: 1,
@@ -455,18 +480,11 @@ describe('PrivacyNoticesService', () => {
       const result = await service.getParentPortalCurrent(TENANT_ID, USER_ID);
 
       expect(result.requires_acknowledgement).toBe(true);
-      expect(mockPrisma.tenantMembership.findFirst).toHaveBeenCalledWith({
-        where: {
-          tenant_id: TENANT_ID,
-          user_id: USER_ID,
-          membership_status: 'active',
-        },
-        select: { id: true },
-      });
+      expect(mockRbacFindMembershipSummary).toHaveBeenCalledWith(TENANT_ID, USER_ID);
     });
 
     it('should throw NotFoundException when parent has no active membership', async () => {
-      mockPrisma.tenantMembership.findFirst.mockResolvedValue(null);
+      mockRbacFindMembershipSummary.mockResolvedValue(null);
 
       await expect(service.getParentPortalCurrent(TENANT_ID, USER_ID)).rejects.toThrow(
         NotFoundException,

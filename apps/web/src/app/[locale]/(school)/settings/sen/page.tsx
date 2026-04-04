@@ -57,7 +57,8 @@ export default function SenSettingsPage() {
           setSettings((prev) => ({ ...prev, ...senConfig }));
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[SettingsSenPage]', err);
         /* use defaults */
       })
       .finally(() => setLoading(false));

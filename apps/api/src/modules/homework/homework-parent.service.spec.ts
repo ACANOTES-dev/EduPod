@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ParentReadFacade, ClassesReadFacade, StudentReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { HomeworkParentService } from './homework-parent.service';
@@ -33,15 +34,16 @@ const studentNames = [
   { id: STUDENT_ID, first_name: 'Ali', last_name: 'Ahmed' },
 ];
 
-function mockBaseSetup(mockPrisma: ReturnType<typeof buildMockPrisma>) {
-  mockPrisma.parent.findFirst.mockResolvedValue(parentRecord);
-  mockPrisma.studentParent.findMany.mockResolvedValue([
-    { student_id: STUDENT_ID },
-  ]);
-  mockPrisma.classEnrolment.findMany.mockResolvedValue([
-    { student_id: STUDENT_ID, class_id: CLASS_ID },
-  ]);
-  mockPrisma.student.findMany.mockResolvedValue(studentNames);
+/** Set up facade + prisma mocks for tests requiring a resolved parent + linked students. */
+function mockBaseSetupFacades(
+  pFacade: { findByUserId: jest.Mock; findLinkedStudentIds: jest.Mock },
+  cFacade: { findClassIdsForStudent: jest.Mock },
+  sFacade: { findByIds: jest.Mock },
+) {
+  pFacade.findByUserId.mockResolvedValue(parentRecord);
+  pFacade.findLinkedStudentIds.mockResolvedValue([STUDENT_ID]);
+  cFacade.findClassIdsForStudent.mockResolvedValue([CLASS_ID]);
+  sFacade.findByIds.mockResolvedValue(studentNames);
 }
 
 function buildAssignment(overrides: Record<string, unknown> = {}) {
@@ -66,14 +68,37 @@ describe('HomeworkParentService', () => {
   let module: TestingModule;
   let service: HomeworkParentService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockParentFacade: {
+    findByUserId: jest.Mock;
+    findLinkedStudentIds: jest.Mock;
+    isLinkedToStudent: jest.Mock;
+  };
+  let mockClassesFacade: { findClassIdsForStudent: jest.Mock };
+  let mockStudentFacade: { findByIds: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
 
+    mockParentFacade = {
+      findByUserId: jest.fn().mockResolvedValue(null),
+      findLinkedStudentIds: jest.fn().mockResolvedValue([]),
+      isLinkedToStudent: jest.fn().mockResolvedValue(false),
+    };
+    mockClassesFacade = {
+      findClassIdsForStudent: jest.fn().mockResolvedValue([]),
+    };
+    mockStudentFacade = {
+      findByIds: jest.fn().mockResolvedValue([]),
+    };
+
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HomeworkParentService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: ParentReadFacade, useValue: mockParentFacade },
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
       ],
     }).compile();
 
@@ -89,15 +114,13 @@ describe('HomeworkParentService', () => {
 
   describe('HomeworkParentService — resolveParent (via listAll)', () => {
     it('should throw NotFoundException when no parent record exists', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(null);
+      mockParentFacade.findByUserId.mockResolvedValue(null);
 
       await expect(
         service.listAll(TENANT_ID, USER_ID, { page: 1, pageSize: 20 }),
       ).rejects.toThrow(NotFoundException);
 
-      expect(mockPrisma.parent.findFirst).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT_ID, user_id: USER_ID },
-      });
+      expect(mockParentFacade.findByUserId).toHaveBeenCalledWith(TENANT_ID, USER_ID);
     });
   });
 
@@ -105,7 +128,7 @@ describe('HomeworkParentService', () => {
 
   describe('HomeworkParentService — listAll', () => {
     it('should return grouped homework for linked students', async () => {
-      mockBaseSetup(mockPrisma);
+      mockBaseSetupFacades(mockParentFacade, mockClassesFacade, mockStudentFacade);
 
       const assignment = buildAssignment({
         completions: [
@@ -136,8 +159,8 @@ describe('HomeworkParentService', () => {
     });
 
     it('should return empty when no linked students', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(parentRecord);
-      mockPrisma.studentParent.findMany.mockResolvedValue([]);
+      mockParentFacade.findByUserId.mockResolvedValue(parentRecord);
+      mockParentFacade.findLinkedStudentIds.mockResolvedValue([]);
 
       const result = await service.listAll(TENANT_ID, USER_ID, {
         page: 1,
@@ -149,11 +172,11 @@ describe('HomeworkParentService', () => {
     });
 
     it('should return empty when students have no active class enrolments', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(parentRecord);
+      mockParentFacade.findByUserId.mockResolvedValue(parentRecord);
       mockPrisma.studentParent.findMany.mockResolvedValue([
         { student_id: STUDENT_ID },
       ]);
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+      mockClassesFacade.findClassIdsForStudent.mockResolvedValue([]);
 
       const result = await service.listAll(TENANT_ID, USER_ID, {
         page: 1,
@@ -169,7 +192,7 @@ describe('HomeworkParentService', () => {
 
   describe('HomeworkParentService — listToday', () => {
     it('should return today homework grouped by student', async () => {
-      mockBaseSetup(mockPrisma);
+      mockBaseSetupFacades(mockParentFacade, mockClassesFacade, mockStudentFacade);
 
       const assignment = buildAssignment();
       mockPrisma.homeworkAssignment.findMany.mockResolvedValue([assignment]);
@@ -190,8 +213,8 @@ describe('HomeworkParentService', () => {
     });
 
     it('should return empty data when no linked students', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(parentRecord);
-      mockPrisma.studentParent.findMany.mockResolvedValue([]);
+      mockParentFacade.findByUserId.mockResolvedValue(parentRecord);
+      mockParentFacade.findLinkedStudentIds.mockResolvedValue([]);
 
       const result = await service.listToday(TENANT_ID, USER_ID);
 
@@ -203,7 +226,7 @@ describe('HomeworkParentService', () => {
 
   describe('HomeworkParentService — listOverdue', () => {
     it('should return overdue incomplete homework for linked students', async () => {
-      mockBaseSetup(mockPrisma);
+      mockBaseSetupFacades(mockParentFacade, mockClassesFacade, mockStudentFacade);
 
       const overdueAssignment = buildAssignment({
         due_date: new Date('2026-03-01'),
@@ -229,7 +252,7 @@ describe('HomeworkParentService', () => {
     });
 
     it('should exclude assignments where student has completed', async () => {
-      mockBaseSetup(mockPrisma);
+      mockBaseSetupFacades(mockParentFacade, mockClassesFacade, mockStudentFacade);
 
       const completedAssignment = buildAssignment({
         due_date: new Date('2026-03-01'),
@@ -253,8 +276,8 @@ describe('HomeworkParentService', () => {
     });
 
     it('should return empty data when no linked students', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(parentRecord);
-      mockPrisma.studentParent.findMany.mockResolvedValue([]);
+      mockParentFacade.findByUserId.mockResolvedValue(parentRecord);
+      mockParentFacade.findLinkedStudentIds.mockResolvedValue([]);
 
       const result = await service.listOverdue(TENANT_ID, USER_ID);
 
@@ -266,7 +289,7 @@ describe('HomeworkParentService', () => {
 
   describe('HomeworkParentService — listWeek', () => {
     it('should return weekly homework grouped by day and student', async () => {
-      mockBaseSetup(mockPrisma);
+      mockBaseSetupFacades(mockParentFacade, mockClassesFacade, mockStudentFacade);
 
       const assignment = buildAssignment({
         due_date: new Date('2026-03-30'),
@@ -291,8 +314,8 @@ describe('HomeworkParentService', () => {
     });
 
     it('should return empty data when no linked students', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(parentRecord);
-      mockPrisma.studentParent.findMany.mockResolvedValue([]);
+      mockParentFacade.findByUserId.mockResolvedValue(parentRecord);
+      mockParentFacade.findLinkedStudentIds.mockResolvedValue([]);
 
       const result = await service.listWeek(TENANT_ID, USER_ID);
 
@@ -300,11 +323,11 @@ describe('HomeworkParentService', () => {
     });
 
     it('should return empty data when students have no active classes', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(parentRecord);
+      mockParentFacade.findByUserId.mockResolvedValue(parentRecord);
       mockPrisma.studentParent.findMany.mockResolvedValue([
         { student_id: STUDENT_ID },
       ]);
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+      mockClassesFacade.findClassIdsForStudent.mockResolvedValue([]);
 
       const result = await service.listWeek(TENANT_ID, USER_ID);
 
@@ -316,14 +339,9 @@ describe('HomeworkParentService', () => {
 
   describe('HomeworkParentService — studentSummary', () => {
     it('should return summary counts and completion rate for a linked student', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(parentRecord);
-      mockPrisma.studentParent.findFirst.mockResolvedValue({
-        student_id: STUDENT_ID,
-        parent_id: PARENT_ID,
-      });
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
-        { student_id: STUDENT_ID, class_id: CLASS_ID },
-      ]);
+      mockParentFacade.findByUserId.mockResolvedValue(parentRecord);
+      mockParentFacade.isLinkedToStudent.mockResolvedValue(true);
+      mockClassesFacade.findClassIdsForStudent.mockResolvedValue([CLASS_ID]);
 
       const completedAssignment = buildAssignment({
         completions: [
@@ -355,12 +373,9 @@ describe('HomeworkParentService', () => {
     });
 
     it('should return zero stats when student has no active classes', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(parentRecord);
-      mockPrisma.studentParent.findFirst.mockResolvedValue({
-        student_id: STUDENT_ID,
-        parent_id: PARENT_ID,
-      });
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+      mockParentFacade.findByUserId.mockResolvedValue(parentRecord);
+      mockParentFacade.isLinkedToStudent.mockResolvedValue(true);
+      mockClassesFacade.findClassIdsForStudent.mockResolvedValue([]);
 
       const result = await service.studentSummary(
         TENANT_ID,
@@ -374,8 +389,8 @@ describe('HomeworkParentService', () => {
     });
 
     it('should throw NotFoundException when student is not linked to parent', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(parentRecord);
-      mockPrisma.studentParent.findFirst.mockResolvedValue(null);
+      mockParentFacade.findByUserId.mockResolvedValue(parentRecord);
+      mockParentFacade.isLinkedToStudent.mockResolvedValue(false);
 
       await expect(
         service.studentSummary(TENANT_ID, USER_ID, STUDENT_ID),
@@ -387,11 +402,8 @@ describe('HomeworkParentService', () => {
 
   describe('HomeworkParentService — studentDiary', () => {
     it('should return paginated diary notes for a linked student', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(parentRecord);
-      mockPrisma.studentParent.findFirst.mockResolvedValue({
-        student_id: STUDENT_ID,
-        parent_id: PARENT_ID,
-      });
+      mockParentFacade.findByUserId.mockResolvedValue(parentRecord);
+      mockParentFacade.isLinkedToStudent.mockResolvedValue(true);
 
       const notes = [
         {
@@ -419,8 +431,8 @@ describe('HomeworkParentService', () => {
     });
 
     it('should throw NotFoundException when student is not linked to parent', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(parentRecord);
-      mockPrisma.studentParent.findFirst.mockResolvedValue(null);
+      mockParentFacade.findByUserId.mockResolvedValue(parentRecord);
+      mockParentFacade.isLinkedToStudent.mockResolvedValue(false);
 
       await expect(
         service.studentDiary(TENANT_ID, USER_ID, STUDENT_ID, {
@@ -431,11 +443,8 @@ describe('HomeworkParentService', () => {
     });
 
     it('should use correct skip/take for pagination', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(parentRecord);
-      mockPrisma.studentParent.findFirst.mockResolvedValue({
-        student_id: STUDENT_ID,
-        parent_id: PARENT_ID,
-      });
+      mockParentFacade.findByUserId.mockResolvedValue(parentRecord);
+      mockParentFacade.isLinkedToStudent.mockResolvedValue(true);
       mockPrisma.diaryParentNote.findMany.mockResolvedValue([]);
       mockPrisma.diaryParentNote.count.mockResolvedValue(0);
 

@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 
@@ -45,6 +46,7 @@ const makeSchedule = (
 
 describe('ScheduleSwapService', () => {
   let service: ScheduleSwapService;
+  let module: TestingModule;
   let mockPrisma: {
     schedule: { findFirst: jest.Mock; findMany: jest.Mock; update: jest.Mock };
   };
@@ -60,8 +62,9 @@ describe('ScheduleSwapService', () => {
 
     mockTx.schedule.update.mockResolvedValue({});
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: SchedulesReadFacade, useValue: {
       findById: jest.fn().mockResolvedValue(null),
       findCoreById: jest.fn().mockResolvedValue(null),
@@ -100,11 +103,11 @@ describe('ScheduleSwapService', () => {
 
   describe('validateSwap', () => {
     it('should return valid=true when no constraint violations exist', async () => {
-      mockPrisma.schedule.findFirst
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSwapContext as jest.Mock)
         .mockResolvedValueOnce(makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1))
-        .mockResolvedValueOnce(makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3))
-        // No conflict checks return null
-        .mockResolvedValue(null);
+        .mockResolvedValueOnce(makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3));
+      (schedFacade.hasConflict as jest.Mock).mockResolvedValue(false);
 
       const result = await service.validateSwap(TENANT_ID, {
         schedule_id_a: SCHEDULE_A_ID,
@@ -116,12 +119,14 @@ describe('ScheduleSwapService', () => {
     });
 
     it('should detect teacher conflict and return violation', async () => {
-      mockPrisma.schedule.findFirst
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSwapContext as jest.Mock)
         .mockResolvedValueOnce(makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1))
-        .mockResolvedValueOnce(makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3))
-        // teacher-1 has a conflict at schedule B's time slot
-        .mockResolvedValueOnce({ id: 'conflict-schedule' })
-        .mockResolvedValue(null);
+        .mockResolvedValueOnce(makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3));
+      // teacher-1 has a conflict at schedule B's time slot
+      (schedFacade.hasConflict as jest.Mock)
+        .mockResolvedValueOnce(true)
+        .mockResolvedValue(false);
 
       const result = await service.validateSwap(TENANT_ID, {
         schedule_id_a: SCHEDULE_A_ID,
@@ -134,7 +139,8 @@ describe('ScheduleSwapService', () => {
     });
 
     it('should throw NotFoundException when schedule A does not exist', async () => {
-      mockPrisma.schedule.findFirst
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSwapContext as jest.Mock)
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3));
 
@@ -147,7 +153,8 @@ describe('ScheduleSwapService', () => {
     });
 
     it('should throw NotFoundException when schedule B does not exist', async () => {
-      mockPrisma.schedule.findFirst
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSwapContext as jest.Mock)
         .mockResolvedValueOnce(makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1))
         .mockResolvedValueOnce(null);
 
@@ -163,10 +170,11 @@ describe('ScheduleSwapService', () => {
       const schedA = makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1, 'room-1');
       const schedB = makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3, 'room-2');
 
-      mockPrisma.schedule.findFirst
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSwapContext as jest.Mock)
         .mockResolvedValueOnce(schedA)
-        .mockResolvedValueOnce(schedB)
-        .mockResolvedValue(null);
+        .mockResolvedValueOnce(schedB);
+      (schedFacade.hasConflict as jest.Mock).mockResolvedValue(false);
 
       const result = await service.validateSwap(TENANT_ID, {
         schedule_id_a: SCHEDULE_A_ID,
@@ -177,10 +185,11 @@ describe('ScheduleSwapService', () => {
     });
 
     it('should list affected teachers in impact', async () => {
-      mockPrisma.schedule.findFirst
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSwapContext as jest.Mock)
         .mockResolvedValueOnce(makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1))
-        .mockResolvedValueOnce(makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3))
-        .mockResolvedValue(null);
+        .mockResolvedValueOnce(makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3));
+      (schedFacade.hasConflict as jest.Mock).mockResolvedValue(false);
 
       const result = await service.validateSwap(TENANT_ID, {
         schedule_id_a: SCHEDULE_A_ID,
@@ -198,17 +207,15 @@ describe('ScheduleSwapService', () => {
       const schedA = makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1, 'room-1');
       const schedB = makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3, 'room-2');
 
-      // validateSwap: findFirst x2 (schedA, schedB) then conflict checks (x4 → null)
-      // executeSwap: findFirst x2 again (schedA, schedB) for the actual swap data
-      mockPrisma.schedule.findFirst
-        .mockResolvedValueOnce(schedA)   // validateSwap — schedule A
-        .mockResolvedValueOnce(schedB)   // validateSwap — schedule B
-        .mockResolvedValueOnce(null)     // conflict check: teacher-1 at B's slot
-        .mockResolvedValueOnce(null)     // conflict check: teacher-2 at A's slot
-        .mockResolvedValueOnce(null)     // conflict check: room-1 at B's slot
-        .mockResolvedValueOnce(null)     // conflict check: room-2 at A's slot
-        .mockResolvedValueOnce(schedA)   // executeSwap — fetch schedA data
-        .mockResolvedValueOnce(schedB);  // executeSwap — fetch schedB data
+      const schedFacade = module.get(SchedulesReadFacade);
+      // validateSwap and executeSwap both call findByIdWithSwapContext / findCoreById
+      (schedFacade.findByIdWithSwapContext as jest.Mock)
+        .mockResolvedValueOnce(schedA)
+        .mockResolvedValueOnce(schedB);
+      (schedFacade.hasConflict as jest.Mock).mockResolvedValue(false);
+      (schedFacade.findCoreById as jest.Mock)
+        .mockResolvedValueOnce(schedA)
+        .mockResolvedValueOnce(schedB);
 
       const result = await service.executeSwap(TENANT_ID, USER_ID, {
         schedule_id_a: SCHEDULE_A_ID,
@@ -226,12 +233,14 @@ describe('ScheduleSwapService', () => {
       const schedA = makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1);
       const schedB = makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3);
 
-      mockPrisma.schedule.findFirst
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSwapContext as jest.Mock)
         .mockResolvedValueOnce(schedA)
-        .mockResolvedValueOnce(schedB)
-        // Return a conflict for teacher-1 at schedule B's slot
-        .mockResolvedValueOnce({ id: 'conflict' })
-        .mockResolvedValue(null);
+        .mockResolvedValueOnce(schedB);
+      // Return a conflict for teacher-1 at schedule B's slot
+      (schedFacade.hasConflict as jest.Mock)
+        .mockResolvedValueOnce(true)
+        .mockResolvedValue(false);
 
       await expect(
         service.executeSwap(TENANT_ID, USER_ID, {
@@ -246,7 +255,8 @@ describe('ScheduleSwapService', () => {
 
   describe('emergencyChange', () => {
     it('should update teacher when new_teacher_staff_id is provided', async () => {
-      mockPrisma.schedule.findFirst.mockResolvedValue(
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findCoreById as jest.Mock).mockResolvedValue(
         makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1),
       );
       mockTx.schedule.update.mockResolvedValue({
@@ -266,7 +276,8 @@ describe('ScheduleSwapService', () => {
     });
 
     it('should cancel period when cancel_period is true', async () => {
-      mockPrisma.schedule.findFirst.mockResolvedValue(
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findCoreById as jest.Mock).mockResolvedValue(
         makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1),
       );
       mockTx.schedule.update.mockResolvedValue({
@@ -289,7 +300,8 @@ describe('ScheduleSwapService', () => {
     });
 
     it('should throw BadRequestException when no change is specified', async () => {
-      mockPrisma.schedule.findFirst.mockResolvedValue(
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findCoreById as jest.Mock).mockResolvedValue(
         makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1),
       );
 

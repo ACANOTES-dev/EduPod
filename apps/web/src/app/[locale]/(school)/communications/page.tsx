@@ -72,7 +72,8 @@ export default function CommunicationsPage() {
       );
       setAnnouncements(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[CommunicationsPage]', err);
       setAnnouncements([]);
       setTotal(0);
     } finally {

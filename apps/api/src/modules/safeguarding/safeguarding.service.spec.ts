@@ -51,6 +51,12 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+import {
+  BehaviourReadFacade,
+  ConfigurationReadFacade,
+  MOCK_FACADE_PROVIDERS,
+  RbacReadFacade,
+} from '../../common/tests/mock-facades';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { CpRecordService } from '../child-protection/services/cp-record.service';
 import { ConcernVersionService } from '../pastoral/services/concern-version.service';
@@ -264,6 +270,7 @@ describe('SafeguardingService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         SafeguardingService,
         SafeguardingConcernsService,
         SafeguardingReferralsService,
@@ -281,6 +288,18 @@ describe('SafeguardingService', () => {
         { provide: ConcernVersionService, useValue: mockConcernVersionService },
         { provide: PastoralEventService, useValue: mockPastoralEventService },
         { provide: PdfRenderingService, useValue: mockPdfRenderingService },
+        {
+          provide: RbacReadFacade,
+          useValue: { findMembershipByIdAndUser: mockPrisma.tenantMembership!.findFirst },
+        },
+        {
+          provide: BehaviourReadFacade,
+          useValue: { findOverdueTasksByEntityTypes: mockPrisma.behaviourTask!.findMany },
+        },
+        {
+          provide: ConfigurationReadFacade,
+          useValue: { findSettingsJson: mockPrisma.tenantSetting!.findFirst },
+        },
       ],
     }).compile();
 

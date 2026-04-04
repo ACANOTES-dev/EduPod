@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { PastoralEventService } from './pastoral-event.service';
@@ -180,19 +181,18 @@ const setupDefaultMocks = () => {
 describe('SstAgendaGeneratorService', () => {
   let service: SstAgendaGeneratorService;
   let mockPastoralEventService: { write: jest.Mock };
-  let mockPrisma: {
-    tenantSetting: { findUnique: jest.Mock };
-  };
+  let mockPrisma: Record<string, unknown>;
+  let mockConfigFacade: { findSettings: jest.Mock };
 
   beforeEach(async () => {
     mockPastoralEventService = {
       write: jest.fn().mockResolvedValue(undefined),
     };
 
-    mockPrisma = {
-      tenantSetting: {
-        findUnique: jest.fn().mockResolvedValue(makeTenantSettingsRecord()),
-      },
+    mockPrisma = {};
+
+    mockConfigFacade = {
+      findSettings: jest.fn().mockResolvedValue(makeTenantSettingsRecord()),
     };
 
     // Reset all RLS tx mocks
@@ -204,9 +204,11 @@ describe('SstAgendaGeneratorService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         SstAgendaGeneratorService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PastoralEventService, useValue: mockPastoralEventService },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
       ],
     }).compile();
 
@@ -688,7 +690,7 @@ describe('SstAgendaGeneratorService', () => {
       setupDefaultMocks();
 
       // Only enable new_concerns, disable everything else
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeTenantSettingsRecord({
           auto_agenda_sources: ['new_concerns'],
         }),
@@ -718,7 +720,7 @@ describe('SstAgendaGeneratorService', () => {
     it('queries all sources when all are enabled', async () => {
       setupDefaultMocks();
 
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+      mockConfigFacade.findSettings.mockResolvedValue(
         makeTenantSettingsRecord({
           auto_agenda_sources: [
             'new_concerns',

@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, TenantReadFacade } from '../../common/tests/mock-facades';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -117,9 +118,20 @@ describe('TripPackService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         TripPackService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PdfRenderingService, useValue: mockPdfRenderingService },
+        {
+          provide: TenantReadFacade,
+          useValue: {
+            findById: mockPrisma.tenant.findFirst,
+            findSettings: jest.fn().mockImplementation(async () => {
+              const tenant = await mockPrisma.tenant.findFirst();
+              return tenant?.settings ?? null;
+            }),
+          },
+        },
       ],
     }).compile();
 

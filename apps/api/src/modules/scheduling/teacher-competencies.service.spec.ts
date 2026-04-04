@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { GradebookReadFacade } from '../gradebook/gradebook-read.facade';
@@ -35,6 +36,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 
 describe('TeacherCompetenciesService', () => {
   let service: TeacherCompetenciesService;
+  let module: TestingModule;
   let mockPrisma: {
     teacherCompetency: {
       findMany: jest.Mock;
@@ -60,8 +62,9 @@ describe('TeacherCompetenciesService', () => {
       academicYear: { findFirst: jest.fn() },
     };
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         {
           provide: AcademicReadFacade,
           useValue: {
@@ -213,19 +216,15 @@ describe('TeacherCompetenciesService', () => {
     });
 
     it('should throw NotFoundException when staff does not exist', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue(null);
-      mockPrisma.subject.findFirst.mockResolvedValue({ id: SUBJECT_ID });
-      mockPrisma.yearGroup.findFirst.mockResolvedValue({ id: YG_ID });
-      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: AY_ID });
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.existsOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Staff not found'));
 
       await expect(service.create(TENANT_ID, dto)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw NotFoundException when subject does not exist', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_ID });
-      mockPrisma.subject.findFirst.mockResolvedValue(null);
-      mockPrisma.yearGroup.findFirst.mockResolvedValue({ id: YG_ID });
-      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: AY_ID });
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findSubjectByIdOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Subject not found'));
 
       await expect(service.create(TENANT_ID, dto)).rejects.toThrow(NotFoundException);
     });
@@ -251,7 +250,8 @@ describe('TeacherCompetenciesService', () => {
     });
 
     it('should throw NotFoundException when staff profile does not exist', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue(null);
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.existsOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Staff not found'));
 
       await expect(service.bulkCreate(TENANT_ID, dto)).rejects.toThrow(NotFoundException);
     });
@@ -322,9 +322,7 @@ describe('TeacherCompetenciesService', () => {
 
   describe('copyFromAcademicYear', () => {
     it('should copy competencies from source to target year', async () => {
-      mockPrisma.academicYear.findFirst
-        .mockResolvedValueOnce({ id: AY_ID })
-        .mockResolvedValueOnce({ id: AY_ID_TARGET });
+      // findYearByIdOrThrow resolves by default from facade mock
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([
         {
           id: COMP_ID,
@@ -343,9 +341,8 @@ describe('TeacherCompetenciesService', () => {
     });
 
     it('should throw NotFoundException when source year does not exist', async () => {
-      mockPrisma.academicYear.findFirst
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({ id: AY_ID_TARGET });
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Year not found'));
 
       await expect(
         service.copyFromAcademicYear(TENANT_ID, 'nonexistent', AY_ID_TARGET),
@@ -353,9 +350,10 @@ describe('TeacherCompetenciesService', () => {
     });
 
     it('should throw NotFoundException when target year does not exist', async () => {
-      mockPrisma.academicYear.findFirst
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findYearByIdOrThrow as jest.Mock)
         .mockResolvedValueOnce({ id: AY_ID })
-        .mockResolvedValueOnce(null);
+        .mockRejectedValueOnce(new NotFoundException('Year not found'));
 
       await expect(service.copyFromAcademicYear(TENANT_ID, AY_ID, 'nonexistent')).rejects.toThrow(
         NotFoundException,
@@ -363,9 +361,7 @@ describe('TeacherCompetenciesService', () => {
     });
 
     it('should throw BadRequestException when source has no data', async () => {
-      mockPrisma.academicYear.findFirst
-        .mockResolvedValueOnce({ id: AY_ID })
-        .mockResolvedValueOnce({ id: AY_ID_TARGET });
+      // findYearByIdOrThrow resolves by default from facade mock
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
 
       await expect(service.copyFromAcademicYear(TENANT_ID, AY_ID, AY_ID_TARGET)).rejects.toThrow(

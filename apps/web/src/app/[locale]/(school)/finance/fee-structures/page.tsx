@@ -51,6 +51,7 @@ const frequencyLabels: Record<BillingFrequency, string> = {
 
 export default function FeeStructuresPage() {
   const t = useTranslations('finance');
+  const tCommon = useTranslations('common');
   const router = useRouter();
   const { hasAnyRole } = useRoleCheck();
   const canManage = hasAnyRole('school_principal', 'accounting');
@@ -80,7 +81,8 @@ export default function FeeStructuresPage() {
       );
       setFeeStructures(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[FinanceFeeStructuresPage]', err);
       setFeeStructures([]);
       setTotal(0);
     } finally {
@@ -170,12 +172,12 @@ export default function FeeStructuresPage() {
 
       <Select value={activeFilter} onValueChange={setActiveFilter}>
         <SelectTrigger className="w-full sm:w-[140px]">
-          <SelectValue placeholder="Status" />
+          <SelectValue placeholder={t('status')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All</SelectItem>
-          <SelectItem value="true">Active</SelectItem>
-          <SelectItem value="false">Inactive</SelectItem>
+          <SelectItem value="all">{tCommon('all')}</SelectItem>
+          <SelectItem value="true">{t('active')}</SelectItem>
+          <SelectItem value="false">{t('inactive')}</SelectItem>
         </SelectContent>
       </Select>
     </div>

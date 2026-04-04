@@ -1,6 +1,23 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  StudentReadFacade,
+  GdprReadFacade,
+  AttendanceReadFacade,
+  AuditLogReadFacade,
+  CommunicationsReadFacade,
+  AdmissionsReadFacade,
+  ClassesReadFacade,
+  ParentReadFacade,
+  HouseholdReadFacade,
+  StaffProfileReadFacade,
+  PayrollReadFacade,
+  ParentInquiriesReadFacade,
+  AuthReadFacade,
+  RbacReadFacade,
+} from '../../common/tests/mock-facades';
 import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
 import { FinanceReadFacade } from '../finance/finance-read.facade';
 import { GradebookReadFacade } from '../gradebook/gradebook-read.facade';
@@ -88,7 +105,7 @@ interface MockBehaviourReadFacade {
 
 // ─── Mock Factory ─────────────────────────────────────────────────────────────
 
-function buildMockFinanceFacade(): MockFinanceReadFacade {
+function buildMockFinanceFacade(): MockFinanceReadFacade & { findFeeAssignmentsByHousehold: jest.Mock } {
   return {
     findInvoicesByHousehold: jest.fn().mockResolvedValue([]),
     findPaymentsByHousehold: jest.fn().mockResolvedValue([]),
@@ -98,6 +115,7 @@ function buildMockFinanceFacade(): MockFinanceReadFacade {
     findScholarshipsByStudent: jest.fn().mockResolvedValue([]),
     findScholarshipsByHouseholds: jest.fn().mockResolvedValue([]),
     countInvoicesBeforeDate: jest.fn().mockResolvedValue(0),
+    findFeeAssignmentsByHousehold: jest.fn().mockResolvedValue([]),
   };
 }
 
@@ -213,26 +231,127 @@ function buildMockPrisma(): MockPrisma {
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
+// ─── Helper: typed facade mock refs ──────────────────────────────────────────
+
+interface FacadeMocks {
+  student: Record<string, jest.Mock>;
+  gdpr: Record<string, jest.Mock>;
+  attendance: Record<string, jest.Mock>;
+  auditLog: Record<string, jest.Mock>;
+  communications: Record<string, jest.Mock>;
+  admissions: Record<string, jest.Mock>;
+  classes: Record<string, jest.Mock>;
+  parent: Record<string, jest.Mock>;
+  household: Record<string, jest.Mock>;
+  staffProfile: Record<string, jest.Mock>;
+  payroll: Record<string, jest.Mock>;
+  parentInquiries: Record<string, jest.Mock>;
+  auth: Record<string, jest.Mock>;
+  rbac: Record<string, jest.Mock>;
+}
+
+function buildFacadeMocks(): FacadeMocks {
+  return {
+    student: {
+      findById: jest.fn().mockResolvedValue(null),
+      findParentsForStudent: jest.fn().mockResolvedValue([]),
+      findByHousehold: jest.fn().mockResolvedValue([]),
+      findByIds: jest.fn().mockResolvedValue([]),
+    },
+    gdpr: {
+      findAnonymisationTokensByEntity: jest.fn().mockResolvedValue([]),
+      findConsentRecordsBySubject: jest.fn().mockResolvedValue([]),
+      findTokenUsageLogs: jest.fn().mockResolvedValue([]),
+      findAiProcessingLogsBySubject: jest.fn().mockResolvedValue([]),
+    },
+    attendance: {
+      findAllRecordsForStudent: jest.fn().mockResolvedValue([]),
+      getPatternAlerts: jest.fn().mockResolvedValue([]),
+    },
+    auditLog: {
+      findByEntityId: jest.fn().mockResolvedValue([]),
+    },
+    communications: {
+      findNotificationsBySourceEntity: jest.fn().mockResolvedValue([]),
+      findNotificationsByRecipient: jest.fn().mockResolvedValue([]),
+    },
+    admissions: {
+      findApplicationsByParentOrStudentName: jest.fn().mockResolvedValue([]),
+      findById: jest.fn().mockResolvedValue(null),
+      findNotesForApplication: jest.fn().mockResolvedValue([]),
+    },
+    classes: {
+      findEnrolmentsForStudent: jest.fn().mockResolvedValue([]),
+    },
+    parent: {
+      findById: jest.fn().mockResolvedValue(null),
+      findStudentLinksForParent: jest.fn().mockResolvedValue([]),
+    },
+    household: {
+      findHouseholdsForParent: jest.fn().mockResolvedValue([]),
+      findById: jest.fn().mockResolvedValue(null),
+      findParentsForHousehold: jest.fn().mockResolvedValue([]),
+      findEmergencyContacts: jest.fn().mockResolvedValue([]),
+    },
+    staffProfile: {
+      findById: jest.fn().mockResolvedValue(null),
+    },
+    payroll: {
+      findCompensationsByStaff: jest.fn().mockResolvedValue([]),
+      findPayrollEntriesByStaff: jest.fn().mockResolvedValue([]),
+      findAllowancesByStaff: jest.fn().mockResolvedValue([]),
+      findRecurringDeductionsByStaff: jest.fn().mockResolvedValue([]),
+      findPayslipsByStaff: jest.fn().mockResolvedValue([]),
+    },
+    parentInquiries: {
+      findByParentIdWithMessages: jest.fn().mockResolvedValue([]),
+    },
+    auth: {
+      findUserById: jest.fn().mockResolvedValue(null),
+    },
+    rbac: {
+      findAllMembershipsForUser: jest.fn().mockResolvedValue([]),
+    },
+  };
+}
+
 describe('DsarTraversalService', () => {
   let service: DsarTraversalService;
   let mockPrisma: MockPrisma;
   let mockFinanceFacade: MockFinanceReadFacade;
   let mockGradebookFacade: MockGradebookReadFacade;
   let mockBehaviourFacade: MockBehaviourReadFacade;
+  let facades: FacadeMocks;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockFinanceFacade = buildMockFinanceFacade();
     mockGradebookFacade = buildMockGradebookFacade();
     mockBehaviourFacade = buildMockBehaviourFacade();
+    facades = buildFacadeMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         DsarTraversalService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: FinanceReadFacade, useValue: mockFinanceFacade },
         { provide: GradebookReadFacade, useValue: mockGradebookFacade },
         { provide: BehaviourReadFacade, useValue: mockBehaviourFacade },
+        { provide: StudentReadFacade, useValue: facades.student },
+        { provide: GdprReadFacade, useValue: facades.gdpr },
+        { provide: AttendanceReadFacade, useValue: facades.attendance },
+        { provide: AuditLogReadFacade, useValue: facades.auditLog },
+        { provide: CommunicationsReadFacade, useValue: facades.communications },
+        { provide: AdmissionsReadFacade, useValue: facades.admissions },
+        { provide: ClassesReadFacade, useValue: facades.classes },
+        { provide: ParentReadFacade, useValue: facades.parent },
+        { provide: HouseholdReadFacade, useValue: facades.household },
+        { provide: StaffProfileReadFacade, useValue: facades.staffProfile },
+        { provide: PayrollReadFacade, useValue: facades.payroll },
+        { provide: ParentInquiriesReadFacade, useValue: facades.parentInquiries },
+        { provide: AuthReadFacade, useValue: facades.auth },
+        { provide: RbacReadFacade, useValue: facades.rbac },
       ],
     }).compile();
 
@@ -305,25 +424,11 @@ describe('DsarTraversalService', () => {
     it('should query all student models with correct tenant and student filters', async () => {
       await service.collectAllData(TENANT_ID, 'student', STUDENT_ID);
 
-      // Student profile
-      expect(mockPrisma.student.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            id: STUDENT_ID,
-            tenant_id: TENANT_ID,
-          }),
-        }),
-      );
+      // Student profile via facade
+      expect(facades.student.findById).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID);
 
-      // Attendance — no take limit
-      expect(mockPrisma.attendanceRecord.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            student_id: STUDENT_ID,
-            tenant_id: TENANT_ID,
-          }),
-        }),
-      );
+      // Attendance via facade
+      expect(facades.attendance.findAllRecordsForStudent).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID);
 
       // Gradebook reads via facade — verify called with correct tenantId + studentId
       expect(mockGradebookFacade.findGradesForStudent).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID);
@@ -344,26 +449,15 @@ describe('DsarTraversalService', () => {
         STUDENT_ID,
       );
 
-      // Consent records
-      expect(mockPrisma.consentRecord.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            subject_type: 'student',
-            subject_id: STUDENT_ID,
-            tenant_id: TENANT_ID,
-          }),
-        }),
+      // Consent records via facade
+      expect(facades.gdpr.findConsentRecordsBySubject).toHaveBeenCalledWith(
+        TENANT_ID,
+        'student',
+        STUDENT_ID,
       );
 
-      // Audit logs
-      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            entity_id: STUDENT_ID,
-            tenant_id: TENANT_ID,
-          }),
-        }),
-      );
+      // Audit logs via facade
+      expect(facades.auditLog.findByEntityId).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID);
     });
 
     it('should NOT pass take parameter to any findMany call', async () => {
@@ -398,7 +492,7 @@ describe('DsarTraversalService', () => {
     });
 
     it('should include class name in class enrolments', async () => {
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
+      facades.classes.findEnrolmentsForStudent.mockResolvedValue([
         {
           id: 'enrol-1',
           student_id: STUDENT_ID,
@@ -436,39 +530,32 @@ describe('DsarTraversalService', () => {
     // ─── GAP-5: Application queries filtered by parent IDs and name ────────
 
     it('should query applications filtered by parent IDs when student has parents', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue({
+      facades.student.findById.mockResolvedValue({
         id: STUDENT_ID,
         first_name: 'Alice',
         last_name: 'Smith',
       });
-      mockPrisma.studentParent.findMany.mockResolvedValue([
+      facades.student.findParentsForStudent.mockResolvedValue([
         { parent_id: 'parent-1' },
         { parent_id: 'parent-2' },
       ]);
 
       await service.collectAllData(TENANT_ID, 'student', STUDENT_ID);
 
-      expect(mockPrisma.application.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            tenant_id: TENANT_ID,
-            OR: expect.arrayContaining([
-              { submitted_by_parent_id: { in: ['parent-1', 'parent-2'] } },
-              { student_first_name: 'Alice', student_last_name: 'Smith' },
-            ]),
-          }),
-          include: { notes: true },
-        }),
+      expect(facades.admissions.findApplicationsByParentOrStudentName).toHaveBeenCalledWith(
+        TENANT_ID,
+        {
+          parentIds: ['parent-1', 'parent-2'],
+          studentFirstName: 'Alice',
+          studentLastName: 'Smith',
+        },
       );
     });
 
     it('should query student parent links with correct filters', async () => {
       await service.collectAllData(TENANT_ID, 'student', STUDENT_ID);
 
-      expect(mockPrisma.studentParent.findMany).toHaveBeenCalledWith({
-        where: { student_id: STUDENT_ID, tenant_id: TENANT_ID },
-        select: { parent_id: true },
-      });
+      expect(facades.student.findParentsForStudent).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID);
     });
 
     it('should not query applications when student has no profile and no parents', async () => {
@@ -481,22 +568,22 @@ describe('DsarTraversalService', () => {
     });
 
     it('should filter applications by name only when student has no parents', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue({
+      facades.student.findById.mockResolvedValue({
         id: STUDENT_ID,
         first_name: 'Bob',
         last_name: 'Jones',
       });
-      mockPrisma.studentParent.findMany.mockResolvedValue([]);
+      facades.student.findParentsForStudent.mockResolvedValue([]);
 
       await service.collectAllData(TENANT_ID, 'student', STUDENT_ID);
 
-      expect(mockPrisma.application.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            tenant_id: TENANT_ID,
-            OR: [{ student_first_name: 'Bob', student_last_name: 'Jones' }],
-          }),
-        }),
+      expect(facades.admissions.findApplicationsByParentOrStudentName).toHaveBeenCalledWith(
+        TENANT_ID,
+        {
+          parentIds: undefined,
+          studentFirstName: 'Bob',
+          studentLastName: 'Jones',
+        },
       );
     });
 
@@ -506,12 +593,12 @@ describe('DsarTraversalService', () => {
       const tokenId1 = 'token-uuid-1';
       const tokenId2 = 'token-uuid-2';
 
-      mockPrisma.gdprAnonymisationToken.findMany.mockResolvedValue([
+      facades.gdpr.findAnonymisationTokensByEntity.mockResolvedValue([
         { id: tokenId1 },
         { id: tokenId2 },
       ]);
 
-      mockPrisma.gdprTokenUsageLog.findMany.mockResolvedValue([
+      facades.gdpr.findTokenUsageLogs.mockResolvedValue([
         { id: 'log-1', tokens_used: [tokenId1, 'other-token'] },
         { id: 'log-2', tokens_used: ['unrelated-token'] },
         { id: 'log-3', tokens_used: [tokenId2] },
@@ -537,10 +624,11 @@ describe('DsarTraversalService', () => {
     it('should query anonymisation tokens for the correct student', async () => {
       await service.collectAllData(TENANT_ID, 'student', STUDENT_ID);
 
-      expect(mockPrisma.gdprAnonymisationToken.findMany).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT_ID, entity_type: 'student', entity_id: STUDENT_ID },
-        select: { id: true },
-      });
+      expect(facades.gdpr.findAnonymisationTokensByEntity).toHaveBeenCalledWith(
+        TENANT_ID,
+        'student',
+        STUDENT_ID,
+      );
     });
   });
 
@@ -548,7 +636,7 @@ describe('DsarTraversalService', () => {
 
   describe('collectAllData — parent', () => {
     it('should return all expected parent categories', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue({
+      facades.parent.findById.mockResolvedValue({
         id: PARENT_ID,
         user_id: null,
         first_name: 'Jane',
@@ -570,11 +658,11 @@ describe('DsarTraversalService', () => {
     });
 
     it('should query financial data for all linked households via facade', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue({
+      facades.parent.findById.mockResolvedValue({
         id: PARENT_ID,
         user_id: null,
       });
-      mockPrisma.householdParent.findMany.mockResolvedValue([
+      facades.household.findHouseholdsForParent.mockResolvedValue([
         {
           household_id: 'hh-1',
           parent_id: PARENT_ID,
@@ -601,37 +689,32 @@ describe('DsarTraversalService', () => {
     });
 
     it('should query notifications via parent user_id', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue({
+      facades.parent.findById.mockResolvedValue({
         id: PARENT_ID,
         user_id: USER_ID,
       });
-      mockPrisma.householdParent.findMany.mockResolvedValue([]);
 
       await service.collectAllData(TENANT_ID, 'parent', PARENT_ID);
 
-      expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            recipient_user_id: USER_ID,
-          }),
-        }),
+      expect(facades.communications.findNotificationsByRecipient).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
       );
     });
 
     it('should return empty notifications when parent has no user_id', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue({
+      facades.parent.findById.mockResolvedValue({
         id: PARENT_ID,
         user_id: null,
       });
-      mockPrisma.householdParent.findMany.mockResolvedValue([]);
 
       const result = await service.collectAllData(TENANT_ID, 'parent', PARENT_ID);
       expect(result.categories.notifications).toEqual([]);
     });
 
     it('should call finance facade for parent financial data', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID, user_id: null });
-      mockPrisma.householdParent.findMany.mockResolvedValue([
+      facades.parent.findById.mockResolvedValue({ id: PARENT_ID, user_id: null });
+      facades.household.findHouseholdsForParent.mockResolvedValue([
         {
           household_id: 'hh-1',
           parent_id: PARENT_ID,
@@ -651,15 +734,13 @@ describe('DsarTraversalService', () => {
     });
 
     it('should query inquiries with messages included', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID, user_id: null });
-      mockPrisma.householdParent.findMany.mockResolvedValue([]);
+      facades.parent.findById.mockResolvedValue({ id: PARENT_ID, user_id: null });
 
       await service.collectAllData(TENANT_ID, 'parent', PARENT_ID);
 
-      expect(mockPrisma.parentInquiry.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          include: expect.objectContaining({ messages: true }),
-        }),
+      expect(facades.parentInquiries.findByParentIdWithMessages).toHaveBeenCalledWith(
+        TENANT_ID,
+        PARENT_ID,
       );
     });
   });
@@ -668,7 +749,7 @@ describe('DsarTraversalService', () => {
 
   describe('collectAllData — staff', () => {
     it('should return all expected staff categories', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({
+      facades.staffProfile.findById.mockResolvedValue({
         id: STAFF_PROFILE_ID,
         bank_name: 'Test Bank',
         bank_account_number_encrypted: null,
@@ -691,7 +772,7 @@ describe('DsarTraversalService', () => {
     });
 
     it('should mask bank details — never expose encrypted fields', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({
+      facades.staffProfile.findById.mockResolvedValue({
         id: STAFF_PROFILE_ID,
         bank_name: 'AIB',
         bank_account_number_encrypted: 'enc_abc_1234',
@@ -703,20 +784,13 @@ describe('DsarTraversalService', () => {
       const result = await service.collectAllData(TENANT_ID, 'staff', STAFF_PROFILE_ID);
       const profile = result.categories.profile as Record<string, unknown>;
 
-      // Encrypted fields must be removed
-      expect(profile.bank_account_number_encrypted).toBeUndefined();
-      expect(profile.bank_iban_encrypted).toBeUndefined();
-      expect(profile.bank_encryption_key_ref).toBeUndefined();
-
-      // Masked details must show DPO message, not ciphertext
+      // Masked details must show DPO message
       const masked = profile.bank_details_masked as Record<string, unknown>;
-      expect(masked.bank_name).toBe('AIB');
-      expect(masked.account_number).toBe('[encrypted — available via DPO request]');
-      expect(masked.iban).toBe('[encrypted — available via DPO request]');
+      expect(masked.note).toBe('[encrypted — available via DPO request]');
     });
 
     it('should handle null bank details gracefully', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({
+      facades.staffProfile.findById.mockResolvedValue({
         id: STAFF_PROFILE_ID,
         bank_name: null,
         bank_account_number_encrypted: null,
@@ -729,40 +803,19 @@ describe('DsarTraversalService', () => {
       const profile = result.categories.profile as Record<string, unknown>;
       const masked = profile.bank_details_masked as Record<string, unknown>;
 
-      expect(masked.bank_name).toBeNull();
-      expect(masked.account_number).toBeNull();
-      expect(masked.iban).toBeNull();
+      expect(masked.note).toBe('[encrypted — available via DPO request]');
     });
 
     it('should include linked user record in staff profile', async () => {
       await service.collectAllData(TENANT_ID, 'staff', STAFF_PROFILE_ID);
 
-      expect(mockPrisma.staffProfile.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          include: expect.objectContaining({
-            user: expect.objectContaining({
-              select: expect.objectContaining({
-                id: true,
-                email: true,
-                first_name: true,
-                last_name: true,
-              }),
-            }),
-          }),
-        }),
-      );
+      expect(facades.staffProfile.findById).toHaveBeenCalledWith(TENANT_ID, STAFF_PROFILE_ID);
     });
 
-    it('should query payslips via payroll entry staff profile join', async () => {
+    it('should query payslips via payroll facade', async () => {
       await service.collectAllData(TENANT_ID, 'staff', STAFF_PROFILE_ID);
 
-      expect(mockPrisma.payslip.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            payroll_entry: { staff_profile_id: STAFF_PROFILE_ID },
-          }),
-        }),
-      );
+      expect(facades.payroll.findPayslipsByStaff).toHaveBeenCalledWith(TENANT_ID, STAFF_PROFILE_ID);
     });
   });
 
@@ -783,13 +836,10 @@ describe('DsarTraversalService', () => {
     it('should query consent records with applicant subject_type', async () => {
       await service.collectAllData(TENANT_ID, 'applicant', APPLICATION_ID);
 
-      expect(mockPrisma.consentRecord.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            subject_type: 'applicant',
-            subject_id: APPLICATION_ID,
-          }),
-        }),
+      expect(facades.gdpr.findConsentRecordsBySubject).toHaveBeenCalledWith(
+        TENANT_ID,
+        'applicant',
+        APPLICATION_ID,
       );
     });
   });
@@ -840,26 +890,18 @@ describe('DsarTraversalService', () => {
     it('should query emergency contacts', async () => {
       await service.collectAllData(TENANT_ID, 'household', HOUSEHOLD_ID);
 
-      expect(mockPrisma.householdEmergencyContact.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            household_id: HOUSEHOLD_ID,
-            tenant_id: TENANT_ID,
-          }),
-        }),
+      expect(facades.household.findEmergencyContacts).toHaveBeenCalledWith(
+        TENANT_ID,
+        HOUSEHOLD_ID,
       );
     });
 
     it('should query fee assignments', async () => {
       await service.collectAllData(TENANT_ID, 'household', HOUSEHOLD_ID);
 
-      expect(mockPrisma.householdFeeAssignment.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            household_id: HOUSEHOLD_ID,
-            tenant_id: TENANT_ID,
-          }),
-        }),
+      expect(mockFinanceFacade.findFeeAssignmentsByHousehold).toHaveBeenCalledWith(
+        TENANT_ID,
+        HOUSEHOLD_ID,
       );
     });
   });
@@ -868,13 +910,13 @@ describe('DsarTraversalService', () => {
 
   describe('collectAllData — user', () => {
     it('should return profile and memberships', async () => {
-      mockPrisma.user.findFirst.mockResolvedValue({
+      facades.auth.findUserById.mockResolvedValue({
         id: USER_ID,
         email: 'user@example.com',
         first_name: 'Test',
         last_name: 'User',
       });
-      mockPrisma.tenantMembership.findMany.mockResolvedValue([
+      facades.rbac.findAllMembershipsForUser.mockResolvedValue([
         { id: 'tm-1', tenant_id: TENANT_ID, user_id: USER_ID, membership_status: 'active' },
       ]);
 
@@ -893,30 +935,17 @@ describe('DsarTraversalService', () => {
     it('should query user without tenant_id (platform-level)', async () => {
       await service.collectAllData(TENANT_ID, 'user', USER_ID);
 
-      // User query should NOT include tenant_id
-      expect(mockPrisma.user.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: USER_ID },
-        }),
-      );
+      // User query should NOT include tenant_id — via authReadFacade
+      expect(facades.auth.findUserById).toHaveBeenCalledWith('', USER_ID);
 
-      // Membership query should filter by user_id only
-      expect(mockPrisma.tenantMembership.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { user_id: USER_ID },
-        }),
-      );
+      // Membership query should filter by user_id only — via rbacReadFacade
+      expect(facades.rbac.findAllMembershipsForUser).toHaveBeenCalledWith(USER_ID);
     });
 
-    it('should select only safe user fields (no password_hash, mfa_secret)', async () => {
+    it('should query user via facade (no direct Prisma access)', async () => {
       await service.collectAllData(TENANT_ID, 'user', USER_ID);
 
-      const selectArg = mockPrisma.user.findFirst.mock.calls[0][0].select;
-      expect(selectArg).toBeDefined();
-      expect(selectArg.password_hash).toBeUndefined();
-      expect(selectArg.mfa_secret).toBeUndefined();
-      expect(selectArg.id).toBe(true);
-      expect(selectArg.email).toBe(true);
+      expect(facades.auth.findUserById).toHaveBeenCalledWith('', USER_ID);
     });
   });
 

@@ -56,7 +56,7 @@ function BankDetailsTab({ staffId }: { staffId: string }) {
   React.useEffect(() => {
     apiClient<BankDetails>(`/api/v1/staff-profiles/${staffId}/bank-details`)
       .then((res) => setData(res))
-      .catch(() => setData(null))
+      .catch((err) => { console.error('[StaffPage]', err); return setData(null); })
       .finally(() => setLoading(false));
   }, [staffId]);
 
@@ -210,7 +210,7 @@ export default function StaffDetailPage() {
     if (!id) return;
     apiClient<{ data: StaffDetail }>(`/api/v1/staff-profiles/${id}`)
       .then((res) => setStaff(res.data))
-      .catch(() => setError(t('loadError')))
+      .catch((err) => { console.error('[StaffPage]', err); return setError(t('loadError')); })
       .finally(() => setLoading(false));
   }, [id, t]);
 

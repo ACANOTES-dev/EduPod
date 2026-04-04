@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { BehaviourReadFacade, ConfigurationReadFacade, MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -103,9 +104,22 @@ describe('SafeguardingReportingService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         SafeguardingReportingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PdfRenderingService, useValue: mockPdfRenderingService },
+        {
+          provide: BehaviourReadFacade,
+          useValue: {
+            findOverdueTasksByEntityTypes: mockPrisma.behaviourTask.findMany,
+          },
+        },
+        {
+          provide: ConfigurationReadFacade,
+          useValue: {
+            findSettingsJson: mockPrisma.tenantSetting.findFirst,
+          },
+        },
       ],
     }).compile();
 

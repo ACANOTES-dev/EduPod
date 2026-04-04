@@ -103,7 +103,7 @@ export function SubjectForm({
               value={values.code}
               onChange={(e) => setValues((p) => ({ ...p, code: e.target.value.toUpperCase() }))}
               dir="ltr"
-              placeholder="e.g. MATH"
+              placeholder={t('eGMath')}
             />
           </div>
           <div className="space-y-1.5">

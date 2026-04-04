@@ -230,7 +230,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
           setActiveSurveyBadge(null);
         }
       })
-      .catch(() => setActiveSurveyBadge(null));
+      .catch((err) => { console.error('[Layout]', err); return setActiveSurveyBadge(null); });
   }, [isStaff]);
 
   // Derive page title from current path by matching nav items

@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
@@ -32,6 +33,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 
 describe('SubstitutionService', () => {
   let service: SubstitutionService;
+  let module: TestingModule;
   let mockPrisma: {
     staffProfile: { findFirst: jest.Mock; findMany: jest.Mock };
     teacherAbsence: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock; delete: jest.Mock };
@@ -77,8 +79,9 @@ describe('SubstitutionService', () => {
       created_at: new Date('2026-03-01T10:00:00Z'),
     });
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: SchedulesReadFacade, useValue: {
       findById: jest.fn().mockResolvedValue(null),
       findCoreById: jest.fn().mockResolvedValue(null),
@@ -151,7 +154,8 @@ describe('SubstitutionService', () => {
     });
 
     it('should throw NotFoundException when staff does not exist', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue(null);
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.existsOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Staff not found'));
 
       await expect(
         service.reportAbsence(TENANT_ID, USER_ID, {
@@ -203,9 +207,11 @@ describe('SubstitutionService', () => {
     };
 
     it('should return eligible substitutes excluding the absent teacher', async () => {
-      mockPrisma.schedule.findFirst.mockResolvedValue(mockSchedule);
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
-      mockPrisma.staffProfile.findMany.mockResolvedValue([
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(mockSchedule);
+      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set());
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
         { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
         { id: STAFF_ID, user: { first_name: 'John', last_name: 'Doe' } }, // absent teacher
       ]);
@@ -219,10 +225,11 @@ describe('SubstitutionService', () => {
     });
 
     it('should filter out busy teachers from candidates', async () => {
-      mockPrisma.schedule.findFirst.mockResolvedValue(mockSchedule);
-      // staff-2 is busy at the same slot
-      mockPrisma.schedule.findMany.mockResolvedValue([{ teacher_staff_id: 'staff-2' }]);
-      mockPrisma.staffProfile.findMany.mockResolvedValue([
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(mockSchedule);
+      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set(['staff-2']));
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
         { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
         { id: 'staff-3', user: { first_name: 'Bob', last_name: 'Jones' } },
       ]);
@@ -236,9 +243,11 @@ describe('SubstitutionService', () => {
     });
 
     it('should assign higher rank_score to competent teachers', async () => {
-      mockPrisma.schedule.findFirst.mockResolvedValue(mockSchedule);
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
-      mockPrisma.staffProfile.findMany.mockResolvedValue([
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(mockSchedule);
+      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set());
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
         { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
         { id: 'staff-3', user: { first_name: 'Bob', last_name: 'Jones' } },
       ]);
@@ -258,9 +267,11 @@ describe('SubstitutionService', () => {
     });
 
     it('should penalise high cover count teachers to ensure fairness', async () => {
-      mockPrisma.schedule.findFirst.mockResolvedValue(mockSchedule);
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
-      mockPrisma.staffProfile.findMany.mockResolvedValue([
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(mockSchedule);
+      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set());
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
         { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
         { id: 'staff-3', user: { first_name: 'Bob', last_name: 'Jones' } },
       ]);
@@ -297,10 +308,10 @@ describe('SubstitutionService', () => {
 
   describe('assignSubstitute', () => {
     it('should create a substitution record when all entities exist', async () => {
-      // First findFirst for absence, second for schedule, third for substitute
       mockPrisma.teacherAbsence.findFirst.mockResolvedValue({ id: ABSENCE_ID });
-      mockPrisma.schedule.findFirst.mockResolvedValue({ id: SCHEDULE_ID });
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: SUBSTITUTE_STAFF_ID });
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.existsById as jest.Mock).mockResolvedValue(true);
+      // staffProfileReadFacade.existsOrThrow resolves by default (doesn't throw)
 
       const result = await service.assignSubstitute(TENANT_ID, USER_ID, {
         absence_id: ABSENCE_ID,

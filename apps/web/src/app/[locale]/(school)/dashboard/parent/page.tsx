@@ -123,18 +123,18 @@ export default function ParentDashboardPage() {
   // Fetch homework summary for dashboard card
   useEffect(() => {
     Promise.all([
-      apiClient<{ data: typeof hwToday }>('/api/v1/parent/homework/today').catch(() => ({
+      apiClient<{ data: typeof hwToday }>('/api/v1/parent/homework/today').catch((err) => { console.error('[DashboardParentPage]', err); return ({
         data: [] as typeof hwToday,
-      })),
-      apiClient<{ data: typeof hwOverdue }>('/api/v1/parent/homework/overdue').catch(() => ({
+      }); }),
+      apiClient<{ data: typeof hwOverdue }>('/api/v1/parent/homework/overdue').catch((err) => { console.error('[DashboardParentPage]', err); return ({
         data: [] as typeof hwOverdue,
-      })),
+      }); }),
     ])
       .then(([todayRes, overdueRes]) => {
         setHwToday(todayRes.data ?? []);
         setHwOverdue(overdueRes.data ?? []);
       })
-      .catch(() => console.error('[ParentDashboard] Failed to load homework summary'));
+      .catch((err) => console.error('[ParentDashboard] Failed to load homework summary', err));
   }, []);
 
   // Fetch unacknowledged notes count across all children
@@ -144,7 +144,7 @@ export default function ParentDashboardPage() {
       data.students.map((s) =>
         apiClient<{ data: Array<{ acknowledged: boolean }>; meta: { total: number } }>(
           `/api/v1/diary/${s.student_id}/parent-notes?page=1&pageSize=50`,
-        ).catch(() => ({ data: [] as Array<{ acknowledged: boolean }>, meta: { total: 0 } })),
+        ).catch((err) => { console.error('[DashboardParentPage]', err); return ({ data: [] as Array<{ acknowledged: boolean }>, meta: { total: 0 } }); }),
       ),
     )
       .then((results) => {
@@ -154,18 +154,18 @@ export default function ParentDashboardPage() {
         }
         setUnacknowledgedNotes(count);
       })
-      .catch(() => console.error('[ParentDashboard] Failed to load notes count'));
+      .catch((err) => console.error('[ParentDashboard] Failed to load notes count', err));
   }, [data]);
 
   useEffect(() => {
     Promise.all([
-      apiClient<ParentPendingForm[]>('/api/v1/parent/engagement/pending-forms').catch(() => []),
+      apiClient<ParentPendingForm[]>('/api/v1/parent/engagement/pending-forms').catch((err) => { console.error('[DashboardParentPage]', err); return []; }),
       apiClient<{ data: ParentEngagementEvent[]; meta: { total: number } }>(
         '/api/v1/parent/engagement/events?page=1&pageSize=20',
-      ).catch(() => ({ data: [], meta: { total: 0 } })),
-      apiClient<{ data: ParentFinanceSummary }>('/api/v1/parent/finances').catch(() => ({
+      ).catch((err) => { console.error('[DashboardParentPage]', err); return ({ data: [], meta: { total: 0 } }); }),
+      apiClient<{ data: ParentFinanceSummary }>('/api/v1/parent/finances').catch((err) => { console.error('[DashboardParentPage]', err); return ({
         data: { invoices: [] },
-      })),
+      }); }),
     ])
       .then(([forms, eventsResponse, financeResponse]) => {
         const actionableEvents = (eventsResponse.data ?? []).filter((event) =>

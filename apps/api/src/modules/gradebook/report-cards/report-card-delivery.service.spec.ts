@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { ReportCardDeliveryService } from './report-card-delivery.service';
@@ -61,6 +62,8 @@ const baseDelivery = {
 
 // ─── deliver ──────────────────────────────────────────────────────────────────
 
+const mockConfigFacade = { findSettings: jest.fn() };
+
 describe('ReportCardDeliveryService — deliver', () => {
   let service: ReportCardDeliveryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
@@ -71,9 +74,12 @@ describe('ReportCardDeliveryService — deliver', () => {
     mockRlsTx.reportCardDelivery.create.mockReset().mockImplementation(
       ({ data }: { data: { channel: string } }) => Promise.resolve({ ...baseDelivery, channel: data.channel }),
     );
+    mockConfigFacade.findSettings.mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
         ReportCardDeliveryService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -165,7 +171,7 @@ describe('ReportCardDeliveryService — deliver', () => {
         student_parents: [{ parent_id: PARENT_ID_1 }],
       },
     });
-    mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+    mockConfigFacade.findSettings.mockResolvedValue({
       tenant_id: TENANT_ID,
       settings: { reportCards: { deliveryChannel: 'whatsapp' } },
     });
@@ -198,6 +204,7 @@ describe('ReportCardDeliveryService — bulkDeliver', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ReportCardDeliveryService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -248,6 +255,7 @@ describe('ReportCardDeliveryService — markViewed', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ReportCardDeliveryService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

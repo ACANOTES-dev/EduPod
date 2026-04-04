@@ -64,7 +64,7 @@ export function ClosureForm({ open, onOpenChange, onSuccess }: ClosureFormProps)
         setYearGroups(ygRes.data);
         setClasses(classRes.data);
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[ClosureForm]', err); });
   }, [open]);
 
   React.useEffect(() => {
@@ -98,7 +98,8 @@ export function ClosureForm({ open, onOpenChange, onSuccess }: ClosureFormProps)
       toast.success('Closures created');
       onSuccess();
       onOpenChange(false);
-    } catch {
+    } catch (err) {
+      console.error('[ClosureForm]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setSaving(false);
@@ -165,7 +166,7 @@ export function ClosureForm({ open, onOpenChange, onSuccess }: ClosureFormProps)
               <Label>{scope === 'year_group' ? t('scopeYearGroup') : t('scopeClass')}</Label>
               <Select value={entityId} onValueChange={setEntityId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select..." />
+                  <SelectValue placeholder={t('select')} />
                 </SelectTrigger>
                 <SelectContent>
                   {entityOptions.map((opt) => (

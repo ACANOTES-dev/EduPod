@@ -96,7 +96,7 @@ export default function CurriculumPage() {
         if (yearsRes.data[0]) setSelectedYear(yearsRes.data[0].id);
         if (ygRes.data[0]) setSelectedYearGroup(ygRes.data[0].id);
       })
-      .catch(() => toast.error(tc('errorGeneric')));
+      .catch((err) => { console.error('[SchedulingCurriculumPage]', err); return toast.error(tc('errorGeneric')); });
   }, [tc]);
 
   // Fetch and merge data
@@ -118,9 +118,9 @@ export default function CurriculumPage() {
         ),
         apiClient<
           { total_teaching_periods: number } | { data: { total_teaching_periods: number } }
-        >(`/api/v1/period-grid/teaching-count?${params.toString()}`).catch(() => ({
+        >(`/api/v1/period-grid/teaching-count?${params.toString()}`).catch((err) => { console.error('[SchedulingCurriculumPage]', err); return ({
           total_teaching_periods: 0,
-        })),
+        }); }),
       ]);
 
       // Handle wrapped response: { data: { total_teaching_periods: N } } or { total_teaching_periods: N }
@@ -179,7 +179,8 @@ export default function CurriculumPage() {
       });
 
       setRows(merged);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingCurriculumPage]', err);
       setRows([]);
       setHasMatrixSubjects(true);
     } finally {
@@ -245,7 +246,8 @@ export default function CurriculumPage() {
       });
       toast.success(tv('savedSuccessfully'));
       void fetchData();
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingCurriculumPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setIsSaving(false);
@@ -295,7 +297,8 @@ export default function CurriculumPage() {
 
       toast.success(tv('copiedFromYearGroup'));
       void fetchData();
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingCurriculumPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };

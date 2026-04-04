@@ -259,7 +259,7 @@ export function ParentHomeworkCalendar({
                   {day}
                 </span>
                 <span className="text-xs text-text-tertiary">
-                  {dayAssignments.length} item{dayAssignments.length !== 1 ? 's' : ''}
+                  {dayAssignments.length}{t('item')}{dayAssignments.length !== 1 ? 's' : ''}
                 </span>
               </div>
               <div className="space-y-1.5">

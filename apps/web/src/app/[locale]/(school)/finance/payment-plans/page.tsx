@@ -97,7 +97,8 @@ export default function PaymentPlansPage() {
       );
       setRequests(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[FinancePaymentPlansPage]', err);
       setRequests([]);
       setTotal(0);
     } finally {
@@ -121,7 +122,8 @@ export default function PaymentPlansPage() {
       });
       toast.success(t('paymentPlans.approved'));
       void fetchRequests();
-    } catch {
+    } catch (err) {
+      console.error('[FinancePaymentPlansPage]', err);
       toast.error(t('paymentPlans.approveFailed'));
     } finally {
       setApproving(null);
@@ -141,7 +143,8 @@ export default function PaymentPlansPage() {
       setRejectTarget(null);
       setRejectNote('');
       void fetchRequests();
-    } catch {
+    } catch (err) {
+      console.error('[FinancePaymentPlansPage]', err);
       toast.error(t('paymentPlans.rejectFailed'));
     } finally {
       setRejecting(false);
@@ -163,7 +166,8 @@ export default function PaymentPlansPage() {
       setShowCounter(false);
       setCounterTarget(null);
       void fetchRequests();
-    } catch {
+    } catch (err) {
+      console.error('[FinancePaymentPlansPage]', err);
       toast.error(t('paymentPlans.counterFailed'));
     } finally {
       setCountering(false);

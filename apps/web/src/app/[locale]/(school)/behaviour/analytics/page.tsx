@@ -127,7 +127,7 @@ export default function BehaviourAnalyticsPage() {
     try {
       const [pulseRes, overviewRes, trendsRes, categoriesRes, subjectsRes, heatmapRes, compRes] =
         await Promise.all([
-          apiClient<PulseResult>('/behaviour/analytics/pulse').catch(() => null),
+          apiClient<PulseResult>('/behaviour/analytics/pulse').catch((err) => { console.error('[BehaviourAnalyticsPage]', err); return null; }),
           apiClient<OverviewResult>(`/behaviour/analytics/overview?${params}`),
           apiClient<{ points: TrendPoint[] }>(`/behaviour/analytics/trends?${params}`),
           apiClient<{ categories: CategoryEntry[] }>(`/behaviour/analytics/categories?${params}`),
@@ -154,7 +154,8 @@ export default function BehaviourAnalyticsPage() {
         `/behaviour/analytics/staff?${params}`,
       );
       if (staffRes?.entries) setStaffData(staffRes.entries);
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourAnalyticsPage]', err);
       // 403 or other error — user lacks behaviour.view_staff_analytics permission
       setStaffData([]);
     } finally {

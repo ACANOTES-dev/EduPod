@@ -50,7 +50,8 @@ export default function ParentApplicationsPage() {
       );
       setApplications(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[ApplicationsPage]', err);
       setApplications([]);
       setTotal(0);
     } finally {

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourSanctionAnalyticsService } from './behaviour-sanction-analytics.service';
@@ -46,8 +47,10 @@ describe('BehaviourSanctionAnalyticsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         BehaviourSanctionAnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: ConfigurationReadFacade, useValue: { findSettingsJson: mockPrisma.tenantSetting.findFirst } },
       ],
     }).compile();
 
@@ -181,7 +184,7 @@ describe('BehaviourSanctionAnalyticsService', () => {
   describe('BehaviourSanctionAnalyticsService -- getBenchmarks', () => {
     it('should return empty with benchmarking_enabled false when disabled', async () => {
       mockPrisma.tenantSetting.findFirst.mockResolvedValue({
-        settings: { behaviour: { cross_school_benchmarking_enabled: false } },
+        behaviour: { cross_school_benchmarking_enabled: false },
       });
 
       const result = await service.getBenchmarks(TENANT_ID, { exposureNormalised: false });
@@ -192,7 +195,7 @@ describe('BehaviourSanctionAnalyticsService', () => {
 
     it('should return benchmark rows when enabled and data available', async () => {
       mockPrisma.tenantSetting.findFirst.mockResolvedValue({
-        settings: { behaviour: { cross_school_benchmarking_enabled: true } },
+        behaviour: { cross_school_benchmarking_enabled: true },
       });
       mockPrisma.$queryRaw.mockResolvedValue([
         {
@@ -215,7 +218,7 @@ describe('BehaviourSanctionAnalyticsService', () => {
 
     it('should return empty entries when MV query fails', async () => {
       mockPrisma.tenantSetting.findFirst.mockResolvedValue({
-        settings: { behaviour: { cross_school_benchmarking_enabled: true } },
+        behaviour: { cross_school_benchmarking_enabled: true },
       });
       mockPrisma.$queryRaw.mockRejectedValue(new Error('MV not available'));
 

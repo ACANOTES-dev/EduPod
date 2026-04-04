@@ -167,7 +167,7 @@ export default function RequirementsPage() {
           setSelectedYear(yearsRes.data[0].id);
         }
       })
-      .catch(() => toast.error('Failed to load reference data'));
+      .catch((err) => { console.error('[SchedulingRequirementsPage]', err); return toast.error('Failed to load reference data'); });
   }, []);
 
   const fetchRequirements = React.useCallback(async (p: number, year: string, cls: string) => {
@@ -185,7 +185,8 @@ export default function RequirementsPage() {
       );
       setData(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingRequirementsPage]', err);
       setData([]);
       setTotal(0);
       toast.error('Failed to load requirements');
@@ -205,7 +206,8 @@ export default function RequirementsPage() {
         body: JSON.stringify(patch),
       });
       setData((prev) => prev.map((r) => (r.id === id ? { ...r, ...updated } : r)));
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingRequirementsPage]', err);
       toast.error('Failed to update requirement');
     }
   };
@@ -239,10 +241,10 @@ export default function RequirementsPage() {
           }
         >
           <SelectTrigger className="h-7 w-36 text-xs">
-            <SelectValue placeholder="Unassigned" />
+            <SelectValue placeholder={t('unassigned')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">Unassigned</SelectItem>
+            <SelectItem value="none">{t('unassigned')}</SelectItem>
             {staff.map((s) => (
               <SelectItem key={s.id} value={s.id}>
                 {s.name}
@@ -273,7 +275,7 @@ export default function RequirementsPage() {
             {row.room_type}
           </Badge>
         ) : (
-          <span className="text-xs text-text-tertiary">Any</span>
+          <span className="text-xs text-text-tertiary">{t('any')}</span>
         ),
     },
     {
@@ -287,10 +289,10 @@ export default function RequirementsPage() {
           }
         >
           <SelectTrigger className="h-7 w-36 text-xs">
-            <SelectValue placeholder="Any" />
+            <SelectValue placeholder={t('any')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">Any</SelectItem>
+            <SelectItem value="none">{t('any')}</SelectItem>
             {rooms.map((r) => (
               <SelectItem key={r.id} value={r.id}>
                 {r.name}
@@ -338,7 +340,7 @@ export default function RequirementsPage() {
         }}
       >
         <SelectTrigger className="w-full sm:w-44">
-          <SelectValue placeholder="Academic Year" />
+          <SelectValue placeholder={t('academicYear2')} />
         </SelectTrigger>
         <SelectContent>
           {academicYears.map((y) => (
@@ -357,10 +359,10 @@ export default function RequirementsPage() {
         }}
       >
         <SelectTrigger className="w-full sm:w-40">
-          <SelectValue placeholder="All Classes" />
+          <SelectValue placeholder={t('allClasses')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Classes</SelectItem>
+          <SelectItem value="all">{t('allClasses')}</SelectItem>
           {classes.map((c) => (
             <SelectItem key={c.id} value={c.id}>
               {c.name}
@@ -390,8 +392,7 @@ export default function RequirementsPage() {
             <Circle className="h-4 w-4 shrink-0" />
           )}
           <span>
-            {configuredCount} of {totalClasses} classes configured
-          </span>
+            {configuredCount}{t('of')}{totalClasses}{t('classesConfigured')}</span>
           {configuredCount < totalClasses && (
             <Button
               size="sm"
@@ -410,11 +411,9 @@ export default function RequirementsPage() {
                     toast.success('Defaults applied to remaining classes');
                     void fetchRequirements(page, selectedYear, classFilter);
                   })
-                  .catch(() => toast.error('Failed to apply defaults'));
+                  .catch((err) => { console.error('[SchedulingRequirementsPage]', err); return toast.error('Failed to apply defaults'); });
               }}
-            >
-              Configure remaining with defaults
-            </Button>
+            >{t('configureRemainingWithDefaults')}</Button>
           )}
         </div>
       )}

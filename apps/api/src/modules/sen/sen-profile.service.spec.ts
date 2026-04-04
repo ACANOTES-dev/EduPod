@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 
 import type { CreateSenProfileDto } from '@school/shared/sen';
 
+import { AcademicReadFacade, MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { SenProfileService } from './sen-profile.service';
@@ -29,13 +30,12 @@ describe('SenProfileService', () => {
     groupBy: jest.fn(),
   };
 
-  const yearGroupMock = {
-    findMany: jest.fn(),
+  const mockAcademicReadFacade = {
+    findAllYearGroups: jest.fn().mockResolvedValue([]),
   };
 
   const mockPrisma = {
     senProfile: senProfileMock,
-    yearGroup: yearGroupMock,
     $transaction: jest.fn() as jest.Mock,
   };
 
@@ -50,9 +50,11 @@ describe('SenProfileService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         SenProfileService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SenScopeService, useValue: mockScopeService },
+        { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
       ],
     }).compile();
 
@@ -495,7 +497,7 @@ describe('SenProfileService', () => {
         { student: { year_group_id: 'yg-1' } },
         { student: { year_group_id: 'yg-2' } },
       ]);
-      mockPrisma.yearGroup.findMany.mockResolvedValue([
+      mockAcademicReadFacade.findAllYearGroups.mockResolvedValue([
         { id: 'yg-1', name: 'Year 1' },
         { id: 'yg-2', name: 'Year 2' },
       ]);
@@ -529,7 +531,7 @@ describe('SenProfileService', () => {
         { student: { year_group_id: 'yg-1' } },
         { student: null },
       ]);
-      mockPrisma.yearGroup.findMany.mockResolvedValue([{ id: 'yg-1', name: 'Year 1' }]);
+      mockAcademicReadFacade.findAllYearGroups.mockResolvedValue([{ id: 'yg-1', name: 'Year 1' }]);
 
       const result = await service.getOverview(TENANT_ID);
 

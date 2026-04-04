@@ -97,7 +97,8 @@ export default function SurveyDetailPage() {
         if (!cancelled) {
           setSurvey(data);
         }
-      } catch {
+      } catch (err) {
+        console.error('[WellbeingSurveysPage]', err);
         if (!cancelled) {
           setLoadError(true);
         }
@@ -136,7 +137,8 @@ export default function SurveyDetailPage() {
           setFilterBlocked(false);
           setResultsFetched(true);
         }
-      } catch {
+      } catch (err) {
+        console.error('[WellbeingSurveysPage]', err);
         if (!cancelled) {
           setResults(null);
         }
@@ -170,7 +172,8 @@ export default function SurveyDetailPage() {
           setModerationItems(data);
           setModerationFetched(true);
         }
-      } catch {
+      } catch (err) {
+        console.error('[WellbeingSurveysPage]', err);
         if (!cancelled) {
           setModerationItems([]);
         }

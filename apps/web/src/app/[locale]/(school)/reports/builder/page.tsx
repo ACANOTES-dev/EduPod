@@ -115,7 +115,7 @@ export default function ReportBuilderPage() {
   React.useEffect(() => {
     apiClient<{ data: SavedReport[] }>('/api/v1/reports/saved?pageSize=10')
       .then((res) => setSavedReports(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[ReportsBuilderPage]', err); });
   }, []);
 
   const toggleDimension = (key: string) => {
@@ -153,7 +153,8 @@ export default function ReportBuilderPage() {
         }),
       });
       setSavedReports((prev) => [res.data, ...prev]);
-    } catch {
+    } catch (err) {
+      console.error('[ReportsBuilderPage]', err);
       const mock: SavedReport = {
         id: crypto.randomUUID(),
         name: reportName,

@@ -92,7 +92,7 @@ interface StepIndicatorProps {
 
 function StepIndicator({ currentStep, labels, t }: StepIndicatorProps) {
   return (
-    <nav aria-label="Wizard steps" className="mb-6">
+    <nav aria-label={t('wizardSteps')} className="mb-6">
       {/* Desktop: horizontal */}
       <ol className="hidden items-center sm:flex">
         {labels.map((labelKey, idx) => {

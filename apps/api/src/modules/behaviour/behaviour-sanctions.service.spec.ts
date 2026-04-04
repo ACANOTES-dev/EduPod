@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, SchedulesReadFacade, ConfigurationReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
 
@@ -100,6 +101,7 @@ const makeSettings = (overrides: Record<string, unknown> = {}) => ({
 
 describe('BehaviourSanctionsService', () => {
   let service: BehaviourSanctionsService;
+  let module: TestingModule;
   let mockPrisma: {
     behaviourSanction: { findMany: jest.Mock; findFirst: jest.Mock; count: jest.Mock };
     schedule: { findMany: jest.Mock };
@@ -139,13 +141,15 @@ describe('BehaviourSanctionsService', () => {
       }
     }
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         BehaviourSanctionsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SequenceService, useValue: mockSequence },
         { provide: BehaviourHistoryService, useValue: mockHistory },
         { provide: BehaviourSideEffectsService, useValue: mockSideEffects },
+        { provide: SchedulesReadFacade, useValue: { findByStudentWeekday: jest.fn().mockResolvedValue([]) } },
       ],
     }).compile();
 
@@ -333,8 +337,9 @@ describe('BehaviourSanctionsService', () => {
       // Mock existing sanctions (none)
       mockPrisma.behaviourSanction.findMany.mockResolvedValue([]);
 
-      // Mock timetable entry that overlaps with 14:00-15:00
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      // Mock timetable entry that overlaps with 14:00-15:00 via facade
+      const schedulesReadFacade = module.get(SchedulesReadFacade);
+      (schedulesReadFacade.findByStudentWeekday as jest.Mock).mockResolvedValue([
         {
           id: 'schedule-1',
           start_time: new Date('1970-01-01T13:30:00'),

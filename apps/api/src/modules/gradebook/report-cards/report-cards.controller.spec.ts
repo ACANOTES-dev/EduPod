@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../../common/tests/mock-facades';
 import { AuthGuard } from '../../../common/guards/auth.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
@@ -58,6 +59,7 @@ describe('ReportCardsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ReportCardsController],
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: ReportCardsService, useValue: mockReportCardsService },
         { provide: ReportCardsQueriesService, useValue: mockReportCardsQueriesService },
         { provide: PdfRenderingService, useValue: mockPdfRenderingService },

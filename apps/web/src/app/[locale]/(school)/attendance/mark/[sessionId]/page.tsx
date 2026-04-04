@@ -157,7 +157,7 @@ export default function MarkAttendancePage() {
 
         setRecords(Array.from(existingMap.values()));
       })
-      .catch(() => setError('Failed to load session'))
+      .catch((err) => { console.error('[AttendanceMarkPage]', err); return setError('Failed to load session'); })
       .finally(() => setLoading(false));
   }, [sessionId]);
 
@@ -230,7 +230,8 @@ export default function MarkAttendancePage() {
         }),
       });
       toast.success('Attendance saved');
-    } catch {
+    } catch (err) {
+      console.error('[AttendanceMarkPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setSaving(false);
@@ -256,7 +257,8 @@ export default function MarkAttendancePage() {
       });
       toast.success(t('submitted'));
       router.back();
-    } catch {
+    } catch (err) {
+      console.error('[AttendanceMarkPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setSubmitting(false);
@@ -337,9 +339,7 @@ export default function MarkAttendancePage() {
                           <Badge
                             variant="info"
                             className="cursor-default px-1.5 py-0.5 text-[10px]"
-                          >
-                            SEN
-                          </Badge>
+                          >{t('sen')}</Badge>
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>

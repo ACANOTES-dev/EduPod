@@ -42,7 +42,8 @@ export function AiInsightCard({ students }: AiInsightCardProps) {
         res.insights.forEach((i) => { map[i.student_id] = i.summary; });
         setInsights(map);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[AiInsightCard]', err);
         // Fallback: generate a placeholder per student
         const map: Record<string, string> = {};
         students.forEach((s) => {

@@ -189,7 +189,7 @@ export default function BrandingPage() {
               <Input
                 value={primaryColor}
                 onChange={(e) => setPrimaryColor(e.target.value)}
-                placeholder="#1a56db"
+                placeholder={t('1a56db')}
                 className="font-mono"
                 aria-label={t('primaryColourHex')}
               />
@@ -210,7 +210,7 @@ export default function BrandingPage() {
               <Input
                 value={secondaryColor}
                 onChange={(e) => setSecondaryColor(e.target.value)}
-                placeholder="#6b7280"
+                placeholder={t('6b7280')}
                 className="font-mono"
                 aria-label={t('secondaryColourHex')}
               />

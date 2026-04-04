@@ -4,6 +4,7 @@ import request from 'supertest';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 
+import { MOCK_FACADE_PROVIDERS, StaffProfileReadFacade } from '../../common/tests/mock-facades';
 import { REQUIRES_PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
@@ -90,10 +91,15 @@ describe('AttendanceController', () => {
     staffProfile: { findFirst: jest.fn().mockResolvedValue({ id: STAFF_PROFILE_ID }) },
   };
 
+  const mockStaffProfileFacade = {
+    findByUserId: jest.fn().mockResolvedValue({ id: STAFF_PROFILE_ID }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AttendanceController],
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: AttendanceService, useValue: mockAttendanceService },
         { provide: AttendancePatternService, useValue: mockAttendancePatternService },
         { provide: AttendanceScanService, useValue: mockAttendanceScanService },
@@ -101,6 +107,7 @@ describe('AttendanceController', () => {
         { provide: DailySummaryService, useValue: mockDailySummaryService },
         { provide: PermissionCacheService, useValue: mockPermissionCacheService },
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: StaffProfileReadFacade, useValue: mockStaffProfileFacade },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -118,7 +125,7 @@ describe('AttendanceController', () => {
       'attendance.view',
       'attendance.take',
     ]);
-    mockPrismaService.staffProfile.findFirst.mockResolvedValue({ id: STAFF_PROFILE_ID });
+    mockStaffProfileFacade.findByUserId.mockResolvedValue({ id: STAFF_PROFILE_ID });
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -166,6 +173,7 @@ describe('AttendanceController — permission denied', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AttendanceController],
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: AttendanceService, useValue: {} },
         { provide: AttendancePatternService, useValue: {} },
         { provide: AttendanceScanService, useValue: {} },

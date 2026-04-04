@@ -99,7 +99,7 @@ export function FinancesTab() {
   React.useEffect(() => {
     apiClient<{ data: ParentFinancesData }>('/api/v1/parent/finances')
       .then((res) => setData(res.data))
-      .catch(() => setData(null))
+      .catch((err) => { console.error('[FinancesTab]', err); return setData(null); })
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -111,7 +111,8 @@ export function FinancesTab() {
         { method: 'POST' },
       );
       window.location.href = res.checkout_url;
-    } catch {
+    } catch (err) {
+      console.error('[FinancesTab]', err);
       toast.error(tf('paymentRecordFailed'));
       setPayingId(null);
     }
@@ -170,7 +171,8 @@ export function FinancesTab() {
       });
       toast.success(tf('paymentPlans.requestSubmitted'));
       setShowPlanModal(false);
-    } catch {
+    } catch (err) {
+      console.error('[FinancesTab]', err);
       toast.error(tf('paymentPlans.requestFailed'));
     } finally {
       setSubmittingPlan(false);
@@ -268,8 +270,7 @@ export function FinancesTab() {
                         {invoice.currency_code}
                       </p>
                       {invoice.balance_amount !== invoice.total_amount && (
-                        <p className="text-xs text-text-tertiary" dir="ltr">
-                          of{' '}
+                        <p className="text-xs text-text-tertiary" dir="ltr">{t('of')}{' '}
                           {invoice.total_amount.toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,

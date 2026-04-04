@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AcademicReadFacade, MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { YearGroupGradeWeightsService } from './year-group-grade-weights.service';
@@ -63,16 +64,26 @@ const validDto = {
 describe('YearGroupGradeWeightsService', () => {
   let service: YearGroupGradeWeightsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockAcademicFacade: {
+    findYearGroupByIdOrThrow: jest.Mock;
+    findPeriodById: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRlsTx.yearGroupGradeWeight.upsert.mockReset();
     mockRlsTx.yearGroupGradeWeight.delete.mockReset();
+    mockAcademicFacade = {
+      findYearGroupByIdOrThrow: jest.fn().mockResolvedValue(undefined),
+      findPeriodById: jest.fn().mockResolvedValue(null),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         YearGroupGradeWeightsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
       ],
     }).compile();
 
@@ -85,29 +96,31 @@ describe('YearGroupGradeWeightsService', () => {
 
   describe('upsert', () => {
     it('should throw NotFoundException when year group does not exist', async () => {
-      mockPrisma.yearGroup.findFirst.mockResolvedValue(null);
+      mockAcademicFacade.findYearGroupByIdOrThrow.mockRejectedValue(
+        new NotFoundException({ code: 'YEAR_GROUP_NOT_FOUND', message: 'Year group not found' }),
+      );
 
       await expect(service.upsert(TENANT_ID, validDto)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw NotFoundException when academic period does not exist', async () => {
-      mockPrisma.yearGroup.findFirst.mockResolvedValue({ id: YEAR_GROUP_ID });
-      mockPrisma.academicPeriod.findFirst.mockResolvedValue(null);
+      mockAcademicFacade.findYearGroupByIdOrThrow.mockResolvedValue(undefined);
+      mockAcademicFacade.findPeriodById.mockResolvedValue(null);
 
       await expect(service.upsert(TENANT_ID, validDto)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw NotFoundException when a category_id does not exist', async () => {
-      mockPrisma.yearGroup.findFirst.mockResolvedValue({ id: YEAR_GROUP_ID });
-      mockPrisma.academicPeriod.findFirst.mockResolvedValue({ id: PERIOD_ID });
+      mockAcademicFacade.findYearGroupByIdOrThrow.mockResolvedValue(undefined);
+      mockAcademicFacade.findPeriodById.mockResolvedValue({ id: PERIOD_ID });
       mockPrisma.assessmentCategory.findMany.mockResolvedValue([]); // none found
 
       await expect(service.upsert(TENANT_ID, validDto)).rejects.toThrow(NotFoundException);
     });
 
     it('should upsert and return weight config when all validations pass', async () => {
-      mockPrisma.yearGroup.findFirst.mockResolvedValue({ id: YEAR_GROUP_ID });
-      mockPrisma.academicPeriod.findFirst.mockResolvedValue({ id: PERIOD_ID });
+      mockAcademicFacade.findYearGroupByIdOrThrow.mockResolvedValue(undefined);
+      mockAcademicFacade.findPeriodById.mockResolvedValue({ id: PERIOD_ID });
       mockPrisma.assessmentCategory.findMany.mockResolvedValue([{ id: CATEGORY_ID }]);
       mockRlsTx.yearGroupGradeWeight.upsert.mockResolvedValue(sampleWeight);
 
@@ -122,13 +135,15 @@ describe('YearGroupGradeWeightsService', () => {
 
   describe('findByYearGroup', () => {
     it('should throw NotFoundException when year group does not exist', async () => {
-      mockPrisma.yearGroup.findFirst.mockResolvedValue(null);
+      mockAcademicFacade.findYearGroupByIdOrThrow.mockRejectedValue(
+        new NotFoundException({ code: 'YEAR_GROUP_NOT_FOUND', message: 'Year group not found' }),
+      );
 
       await expect(service.findByYearGroup(TENANT_ID, YEAR_GROUP_ID)).rejects.toThrow(NotFoundException);
     });
 
     it('should return empty data when no configs exist for the year group', async () => {
-      mockPrisma.yearGroup.findFirst.mockResolvedValue({ id: YEAR_GROUP_ID });
+      mockAcademicFacade.findYearGroupByIdOrThrow.mockResolvedValue(undefined);
       mockPrisma.yearGroupGradeWeight.findMany.mockResolvedValue([]);
 
       const result = await service.findByYearGroup(TENANT_ID, YEAR_GROUP_ID);
@@ -137,7 +152,7 @@ describe('YearGroupGradeWeightsService', () => {
     });
 
     it('should return configs with resolved category names', async () => {
-      mockPrisma.yearGroup.findFirst.mockResolvedValue({ id: YEAR_GROUP_ID });
+      mockAcademicFacade.findYearGroupByIdOrThrow.mockResolvedValue(undefined);
       mockPrisma.yearGroupGradeWeight.findMany.mockResolvedValue([
         {
           ...sampleWeight,
@@ -183,7 +198,8 @@ describe('YearGroupGradeWeightsService', () => {
 
   describe('copyFromYearGroup', () => {
     it('should throw NotFoundException when source year group does not exist', async () => {
-      mockPrisma.yearGroup.findFirst.mockResolvedValueOnce(null);
+      mockAcademicFacade.findYearGroupByIdOrThrow
+        .mockRejectedValueOnce(new NotFoundException({ code: 'YEAR_GROUP_NOT_FOUND', message: 'Year group not found' }));
 
       await expect(
         service.copyFromYearGroup(TENANT_ID, {
@@ -194,8 +210,9 @@ describe('YearGroupGradeWeightsService', () => {
     });
 
     it('should throw NotFoundException when target year group does not exist', async () => {
-      mockPrisma.yearGroup.findFirst.mockResolvedValueOnce({ id: YEAR_GROUP_ID });
-      mockPrisma.yearGroup.findFirst.mockResolvedValueOnce(null);
+      mockAcademicFacade.findYearGroupByIdOrThrow
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new NotFoundException({ code: 'YEAR_GROUP_NOT_FOUND', message: 'Year group not found' }));
 
       await expect(
         service.copyFromYearGroup(TENANT_ID, {
@@ -206,8 +223,7 @@ describe('YearGroupGradeWeightsService', () => {
     });
 
     it('should throw NotFoundException when source has no configs', async () => {
-      mockPrisma.yearGroup.findFirst.mockResolvedValueOnce({ id: YEAR_GROUP_ID });
-      mockPrisma.yearGroup.findFirst.mockResolvedValueOnce({ id: TARGET_YEAR_GROUP_ID });
+      mockAcademicFacade.findYearGroupByIdOrThrow.mockResolvedValue(undefined);
       mockPrisma.yearGroupGradeWeight.findMany.mockResolvedValue([]);
 
       await expect(
@@ -219,8 +235,7 @@ describe('YearGroupGradeWeightsService', () => {
     });
 
     it('should copy configs from source to target and return copied count', async () => {
-      mockPrisma.yearGroup.findFirst.mockResolvedValueOnce({ id: YEAR_GROUP_ID });
-      mockPrisma.yearGroup.findFirst.mockResolvedValueOnce({ id: TARGET_YEAR_GROUP_ID });
+      mockAcademicFacade.findYearGroupByIdOrThrow.mockResolvedValue(undefined);
       mockPrisma.yearGroupGradeWeight.findMany.mockResolvedValue([sampleWeight]);
       mockRlsTx.yearGroupGradeWeight.upsert.mockResolvedValue({ ...sampleWeight, year_group_id: TARGET_YEAR_GROUP_ID });
 

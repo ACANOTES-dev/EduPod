@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { toast } from '@school/ui';
@@ -13,6 +14,7 @@ import { StudentForm, type StudentFormData } from '../_components/student-form';
 
 
 export default function NewStudentPage() {
+  const t = useTranslations('students');
   const router = useRouter();
 
   const handleSubmit = async (data: StudentFormData) => {
@@ -26,7 +28,7 @@ export default function NewStudentPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="New Student" description="Add a new student record" />
+      <PageHeader title={t('newStudent')} description="Add a new student record" />
       <StudentForm onSubmit={handleSubmit} />
     </div>
   );

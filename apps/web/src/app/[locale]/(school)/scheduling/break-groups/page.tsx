@@ -91,7 +91,7 @@ export default function BreakGroupsPage() {
         setYearGroups(ygRes.data);
         if (yearsRes.data[0]) setSelectedYear(yearsRes.data[0].id);
       })
-      .catch(() => toast.error(tc('errorGeneric')));
+      .catch((err) => { console.error('[SchedulingBreakGroupsPage]', err); return toast.error(tc('errorGeneric')); });
   }, [tc]);
 
   // Fetch break groups
@@ -104,7 +104,8 @@ export default function BreakGroupsPage() {
         `/api/v1/scheduling/break-groups?${params.toString()}`,
       );
       setRows(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingBreakGroupsPage]', err);
       setRows([]);
     } finally {
       setIsLoading(false);
@@ -168,7 +169,8 @@ export default function BreakGroupsPage() {
       setFormOpen(false);
       void fetchData();
       toast.success(tc('save'));
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingBreakGroupsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setIsSaving(false);
@@ -180,7 +182,8 @@ export default function BreakGroupsPage() {
       await apiClient(`/api/v1/scheduling/break-groups/${id}`, { method: 'DELETE' });
       setRows((prev) => prev.filter((r) => r.id !== id));
       toast.success(tc('delete'));
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingBreakGroupsPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };

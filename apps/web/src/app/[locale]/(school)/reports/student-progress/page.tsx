@@ -108,7 +108,8 @@ export default function StudentProgressPage() {
         `/api/v1/students/search?q=${encodeURIComponent(search)}&pageSize=8`,
       );
       setSearchResults(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[ReportsStudentProgressPage]', err);
       setSearchResults([]);
     } finally {
       setSearching(false);

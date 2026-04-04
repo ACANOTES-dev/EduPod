@@ -92,9 +92,7 @@ export function CompletionGrid({
                   {t('points')}
                 </th>
               )}
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
-                Verified
-              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">{t('verified')}</th>
             </tr>
           </thead>
           <tbody>

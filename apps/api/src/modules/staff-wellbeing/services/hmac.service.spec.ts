@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { ConfigurationReadFacade, MOCK_FACADE_PROVIDERS } from '../../../common/tests/mock-facades';
 import { EncryptionService } from '../../configuration/encryption.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -48,6 +49,7 @@ describe('HmacService', () => {
       findUnique: jest.Mock;
       update: jest.Mock;
     };
+    $transaction: jest.Mock;
   };
   let mockEncryption: {
     encrypt: jest.Mock;
@@ -60,7 +62,10 @@ describe('HmacService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
       },
+      $transaction: jest.fn(),
     };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(mockPrisma));
 
     mockEncryption = {
       encrypt: jest
@@ -71,9 +76,14 @@ describe('HmacService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         HmacService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EncryptionService, useValue: mockEncryption },
+        {
+          provide: ConfigurationReadFacade,
+          useValue: { findSettings: mockPrisma.tenantSetting.findUnique },
+        },
       ],
     }).compile();
 

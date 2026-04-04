@@ -29,6 +29,11 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+import {
+  ChildProtectionReadFacade,
+  MOCK_FACADE_PROVIDERS,
+  RbacReadFacade,
+} from '../../common/tests/mock-facades';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -55,10 +60,19 @@ describe('SafeguardingBreakGlassService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         SafeguardingBreakGlassService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditLogService, useValue: { write: jest.fn() } },
         { provide: 'BullQueue_notifications', useValue: mockNotificationsQueue },
+        {
+          provide: RbacReadFacade,
+          useValue: { findMembershipByIdAndUser: mockPrisma.tenantMembership.findFirst },
+        },
+        {
+          provide: ChildProtectionReadFacade,
+          useValue: { findActiveGrantForUser: mockPrisma.cpAccessGrant.findFirst },
+        },
       ],
     }).compile();
 
@@ -322,13 +336,10 @@ describe('SafeguardingBreakGlassService', () => {
       });
 
       // Verify cp_access_grant was queried with correct filters
-      expect(mockPrisma.cpAccessGrant.findFirst).toHaveBeenCalledWith({
-        where: {
-          user_id: USER_ID,
-          tenant_id: TENANT_ID,
-          revoked_at: null,
-        },
-      });
+      expect(mockPrisma.cpAccessGrant.findFirst).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+      );
     });
 
     it('should allow access via break-glass grant (backward compatibility)', async () => {
@@ -358,9 +369,8 @@ describe('SafeguardingBreakGlassService', () => {
         context: 'normal',
       });
 
-      // All three sources should have been checked
+      // RBAC and cp_access_grant should have been checked via facades
       expect(mockPrisma.tenantMembership.findFirst).toHaveBeenCalled();
-      expect(mockPrisma.safeguardingBreakGlassGrant.findFirst).toHaveBeenCalled();
       expect(mockPrisma.cpAccessGrant.findFirst).toHaveBeenCalled();
     });
   });

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, StudentReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AgeGateService } from '../age-gate.service';
 
@@ -15,12 +16,19 @@ function buildMockPrisma() {
 describe('AgeGateService', () => {
   let service: AgeGateService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockStudentFindById: jest.Mock;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockStudentFindById = jest.fn();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AgeGateService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        AgeGateService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: StudentReadFacade, useValue: { findById: mockStudentFindById } },
+      ],
     }).compile();
 
     service = module.get<AgeGateService>(AgeGateService);
@@ -64,19 +72,16 @@ describe('AgeGateService', () => {
     it('should return true for a 17+ year-old student', async () => {
       const now = new Date();
       const dob = new Date(now.getFullYear() - 17, now.getMonth(), now.getDate());
-      mockPrisma.student.findFirst.mockResolvedValue({ date_of_birth: dob });
+      mockStudentFindById.mockResolvedValue({ date_of_birth: dob });
 
       const result = await service.checkStudentAgeGated(TENANT_ID, STUDENT_ID);
 
       expect(result).toBe(true);
-      expect(mockPrisma.student.findFirst).toHaveBeenCalledWith({
-        where: { id: STUDENT_ID, tenant_id: TENANT_ID },
-        select: { date_of_birth: true },
-      });
+      expect(mockStudentFindById).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID);
     });
 
     it('should return false when student is not found', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue(null);
+      mockStudentFindById.mockResolvedValue(null);
 
       const result = await service.checkStudentAgeGated(TENANT_ID, STUDENT_ID);
 
@@ -86,7 +91,7 @@ describe('AgeGateService', () => {
     it('should return false for a 5-year-old student', async () => {
       const now = new Date();
       const dob = new Date(now.getFullYear() - 5, now.getMonth(), now.getDate());
-      mockPrisma.student.findFirst.mockResolvedValue({ date_of_birth: dob });
+      mockStudentFindById.mockResolvedValue({ date_of_birth: dob });
 
       const result = await service.checkStudentAgeGated(TENANT_ID, STUDENT_ID);
 
@@ -94,14 +99,11 @@ describe('AgeGateService', () => {
     });
 
     it('should scope the student lookup to the tenant', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue(null);
+      mockStudentFindById.mockResolvedValue(null);
 
       await service.checkStudentAgeGated(TENANT_ID, STUDENT_ID);
 
-      expect(mockPrisma.student.findFirst).toHaveBeenCalledWith({
-        where: { id: STUDENT_ID, tenant_id: TENANT_ID },
-        select: { date_of_birth: true },
-      });
+      expect(mockStudentFindById).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID);
     });
   });
 

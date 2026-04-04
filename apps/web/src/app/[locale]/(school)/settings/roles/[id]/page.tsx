@@ -149,7 +149,8 @@ export default function RoleDetailPage() {
             description: p.description,
           })),
         );
-      } catch {
+      } catch (err) {
+        console.error('[SettingsRolesPage]', err);
         setLoadError('Failed to load role.');
       } finally {
         setLoading(false);
@@ -201,7 +202,8 @@ export default function RoleDetailPage() {
     try {
       await apiClient(`/api/v1/roles/${id}`, { method: 'DELETE' });
       router.push(`${localePrefix}/settings/roles`);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsRolesPage]', err);
       setDeleteOpen(false);
     } finally {
       setDeleteLoading(false);

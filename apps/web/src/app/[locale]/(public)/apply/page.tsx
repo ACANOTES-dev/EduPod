@@ -179,9 +179,7 @@ export default function PublicAdmissionsPage() {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">
         <h1 className="text-2xl font-semibold text-text-primary">{t('publicFormTitle')}</h1>
-        <p className="mt-4 text-sm text-text-secondary">
-          No admission form is currently available. Please check back later.
-        </p>
+        <p className="mt-4 text-sm text-text-secondary">{t('noAdmissionFormIsCurrently')}</p>
       </div>
     );
   }
@@ -200,9 +198,7 @@ export default function PublicAdmissionsPage() {
           </svg>
         </div>
         <h1 className="text-2xl font-semibold text-text-primary">{t('applicationSubmitted')}</h1>
-        <p className="mt-2 text-sm text-text-secondary">
-          Your application has been received. You will be notified of any status changes.
-        </p>
+        <p className="mt-2 text-sm text-text-secondary">{t('yourApplicationHasBeenReceived')}</p>
       </div>
     );
   }
@@ -222,8 +218,7 @@ export default function PublicAdmissionsPage() {
           <h2 className="mb-4 text-base font-semibold text-text-primary">{t('studentName')}</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>
-                First Name <span className="text-emerald-600">*</span>
+              <Label>{t('firstName')}<span className="text-emerald-600">*</span>
               </Label>
               <Input
                 value={studentFirstName}
@@ -232,8 +227,7 @@ export default function PublicAdmissionsPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>
-                Last Name <span className="text-emerald-600">*</span>
+              <Label>{t('lastName')}<span className="text-emerald-600">*</span>
               </Label>
               <Input
                 value={studentLastName}

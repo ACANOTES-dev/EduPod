@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { ClassesReadFacade, MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { TimetablesService } from './timetables.service';
@@ -37,40 +37,30 @@ describe('TimetablesService', () => {
   let service: TimetablesService;
   let mockPrisma: {
     schedule: { findMany: jest.Mock };
-    classEnrolment: { findMany: jest.Mock };
+  };
+
+  const mockClassesReadFacade = {
+    findClassIdsForStudent: jest.fn().mockResolvedValue([]),
   };
 
   beforeEach(async () => {
     mockPrisma = {
       schedule: { findMany: jest.fn() },
-      classEnrolment: { findMany: jest.fn() },
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        {
-          provide: ClassesReadFacade,
-          useValue: {
-            findById: jest.fn().mockResolvedValue(null),
-            existsOrThrow: jest.fn().mockResolvedValue(undefined),
-            findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
-            countEnrolledStudents: jest.fn().mockResolvedValue(0),
-            findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
-            findByAcademicYear: jest.fn().mockResolvedValue([]),
-            findByYearGroup: jest.fn().mockResolvedValue([]),
-            findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
-            countByAcademicYear: jest.fn().mockResolvedValue(0),
-            findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
-            findClassIdsForStudent: jest.fn().mockResolvedValue([]),
-            findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
-          },
-        },
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
         TimetablesService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 
     service = module.get<TimetablesService>(TimetablesService);
+
+    jest.clearAllMocks();
+    mockClassesReadFacade.findClassIdsForStudent.mockResolvedValue([]);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -118,7 +108,7 @@ describe('TimetablesService', () => {
 
   describe('getStudentTimetable', () => {
     it('should return timetable entries for a student based on enrolments', async () => {
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([{ class_id: CLASS_ID }]);
+      mockClassesReadFacade.findClassIdsForStudent.mockResolvedValue([CLASS_ID]);
       mockPrisma.schedule.findMany.mockResolvedValue([buildScheduleRow()]);
 
       const result = await service.getStudentTimetable(TENANT_ID, STUDENT_ID, {
@@ -130,7 +120,7 @@ describe('TimetablesService', () => {
     });
 
     it('should return empty array when student has no enrolments', async () => {
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+      mockClassesReadFacade.findClassIdsForStudent.mockResolvedValue([]);
 
       const result = await service.getStudentTimetable(TENANT_ID, STUDENT_ID, {
         academic_year_id: AY_ID,

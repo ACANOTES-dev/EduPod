@@ -71,7 +71,7 @@ export default function ComparePage() {
         );
         setRuns(data);
       })
-      .catch(() => setRuns([]));
+      .catch((err) => { console.error('[RunsComparePage]', err); return setRuns([]); });
   }, []);
 
   // Load run data when selections change
@@ -94,7 +94,8 @@ export default function ComparePage() {
           setActiveTab(a.year_groups[0]!.year_group_id);
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[RunsComparePage]', err);
         setDataA(null);
         setDataB(null);
       })

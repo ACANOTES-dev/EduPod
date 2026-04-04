@@ -88,7 +88,7 @@ export function TimetableGrid({ entries, weekdays = DEFAULT_WEEKDAYS, onEntryCli
   if (entries.length === 0) {
     return (
       <div className="flex items-center justify-center rounded-xl border border-border bg-surface p-12">
-        <p className="text-sm text-text-tertiary">No timetable entries to display</p>
+        <p className="text-sm text-text-tertiary">{t('noTimetableEntriesToDisplay')}</p>
       </div>
     );
   }

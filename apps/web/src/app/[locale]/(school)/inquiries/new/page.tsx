@@ -59,7 +59,7 @@ export default function NewInquiryPage() {
           setLinkedStudents(res.data.students);
         }
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[InquiriesNewPage]', err); });
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,7 +83,8 @@ export default function NewInquiryPage() {
       });
       toast.success(t('inquiry.submitSuccess'));
       router.push(`/inquiries/${res.id}`);
-    } catch {
+    } catch (err) {
+      console.error('[InquiriesNewPage]', err);
       toast.error(t('inquiry.submitError'));
     } finally {
       setIsSubmitting(false);

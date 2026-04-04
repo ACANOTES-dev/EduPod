@@ -1,6 +1,12 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  ConfigurationReadFacade,
+  ParentReadFacade,
+  StudentReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AttendanceReportingService } from './attendance-reporting.service';
@@ -28,6 +34,9 @@ describe('AttendanceReportingService', () => {
     studentParent: { findUnique: jest.Mock };
   };
   let mockDailySummary: { findForStudent: jest.Mock };
+  let mockStudentFacade: { findByIds: jest.Mock; findById: jest.Mock; isParentLinked: jest.Mock };
+  let mockConfigFacade: { findSettingsJson: jest.Mock };
+  let mockParentFacade: { resolveIdByUserId: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -44,11 +53,23 @@ describe('AttendanceReportingService', () => {
       findForStudent: jest.fn().mockResolvedValue({ data: [] }),
     };
 
+    mockStudentFacade = {
+      findByIds: jest.fn().mockResolvedValue([]),
+      findById: jest.fn().mockResolvedValue(null),
+      isParentLinked: jest.fn().mockResolvedValue(false),
+    };
+    mockConfigFacade = { findSettingsJson: jest.fn().mockResolvedValue(null) };
+    mockParentFacade = { resolveIdByUserId: jest.fn().mockResolvedValue(null) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AttendanceReportingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: DailySummaryService, useValue: mockDailySummary },
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
+        { provide: ParentReadFacade, useValue: mockParentFacade },
       ],
     }).compile();
 
@@ -75,7 +96,7 @@ describe('AttendanceReportingService', () => {
       ];
       mockPrisma.attendanceSession.findMany.mockResolvedValue(pendingSessions);
       mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue([]);
-      mockPrisma.student.findMany.mockResolvedValue([]);
+      mockStudentFacade.findByIds.mockResolvedValue([]);
 
       const result = await service.getExceptions(TENANT_ID, {});
 
@@ -88,7 +109,7 @@ describe('AttendanceReportingService', () => {
       mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue([
         { student_id: STUDENT_ID, _count: { id: 8 } },
       ]);
-      mockPrisma.student.findMany.mockResolvedValue([
+      mockStudentFacade.findByIds.mockResolvedValue([
         {
           id: STUDENT_ID,
           first_name: 'Aisha',
@@ -115,7 +136,7 @@ describe('AttendanceReportingService', () => {
     it('should apply date filter when a single date is provided', async () => {
       mockPrisma.attendanceSession.findMany.mockResolvedValue([]);
       mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue([]);
-      mockPrisma.student.findMany.mockResolvedValue([]);
+      mockStudentFacade.findByIds.mockResolvedValue([]);
 
       await service.getExceptions(TENANT_ID, { date: '2026-03-15' });
 
@@ -131,7 +152,7 @@ describe('AttendanceReportingService', () => {
     it('should apply date range filter when start_date and end_date are provided', async () => {
       mockPrisma.attendanceSession.findMany.mockResolvedValue([]);
       mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue([]);
-      mockPrisma.student.findMany.mockResolvedValue([]);
+      mockStudentFacade.findByIds.mockResolvedValue([]);
 
       await service.getExceptions(TENANT_ID, {
         start_date: '2026-03-01',
@@ -155,7 +176,7 @@ describe('AttendanceReportingService', () => {
       mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue([
         { student_id: 'unknown-student', _count: { id: 6 } },
       ]);
-      mockPrisma.student.findMany.mockResolvedValue([]);
+      mockStudentFacade.findByIds.mockResolvedValue([]);
 
       const result = await service.getExceptions(TENANT_ID, {});
 
@@ -167,7 +188,7 @@ describe('AttendanceReportingService', () => {
 
   describe('AttendanceReportingService — getStudentAttendance', () => {
     it('should throw NotFoundException when student does not exist', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue(null);
+      mockStudentFacade.findById.mockResolvedValue(null);
 
       await expect(service.getStudentAttendance(TENANT_ID, STUDENT_ID, {})).rejects.toThrow(
         NotFoundException,
@@ -176,7 +197,7 @@ describe('AttendanceReportingService', () => {
 
     it('should return student and formatted attendance records', async () => {
       const student = { id: STUDENT_ID, first_name: 'Aisha', last_name: 'Al-Mansour' };
-      mockPrisma.student.findFirst.mockResolvedValue(student);
+      mockStudentFacade.findById.mockResolvedValue(student);
       mockPrisma.attendanceRecord.findMany.mockResolvedValue([
         {
           id: 'rec-1',
@@ -207,7 +228,7 @@ describe('AttendanceReportingService', () => {
 
     it('should handle records with null schedule', async () => {
       const student = { id: STUDENT_ID, first_name: 'Aisha', last_name: 'Al-Mansour' };
-      mockPrisma.student.findFirst.mockResolvedValue(student);
+      mockStudentFacade.findById.mockResolvedValue(student);
       mockPrisma.attendanceRecord.findMany.mockResolvedValue([
         {
           id: 'rec-1',
@@ -228,7 +249,7 @@ describe('AttendanceReportingService', () => {
 
     it('should apply date range filter on session query', async () => {
       const student = { id: STUDENT_ID, first_name: 'Aisha', last_name: 'Al-Mansour' };
-      mockPrisma.student.findFirst.mockResolvedValue(student);
+      mockStudentFacade.findById.mockResolvedValue(student);
       mockPrisma.attendanceRecord.findMany.mockResolvedValue([]);
 
       await service.getStudentAttendance(TENANT_ID, STUDENT_ID, {
@@ -257,9 +278,7 @@ describe('AttendanceReportingService', () => {
 
   describe('AttendanceReportingService — getParentStudentAttendance', () => {
     it('should throw ForbiddenException when attendance is not visible to parents', async () => {
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue({
-        settings: { general: { attendanceVisibleToParents: false } },
-      });
+      mockConfigFacade.findSettingsJson.mockResolvedValue({ general: { attendanceVisibleToParents: false } });
 
       await expect(
         service.getParentStudentAttendance(TENANT_ID, USER_ID, STUDENT_ID, {}),
@@ -267,10 +286,8 @@ describe('AttendanceReportingService', () => {
     });
 
     it('should throw NotFoundException when parent profile does not exist', async () => {
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue({
-        settings: { general: { attendanceVisibleToParents: true } },
-      });
-      mockPrisma.parent.findFirst.mockResolvedValue(null);
+      mockConfigFacade.findSettingsJson.mockResolvedValue({ general: { attendanceVisibleToParents: true } });
+      mockParentFacade.resolveIdByUserId.mockResolvedValue(null);
 
       await expect(
         service.getParentStudentAttendance(TENANT_ID, USER_ID, STUDENT_ID, {}),
@@ -278,11 +295,9 @@ describe('AttendanceReportingService', () => {
     });
 
     it('should throw ForbiddenException when parent is not linked to the student', async () => {
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue({
-        settings: { general: { attendanceVisibleToParents: true } },
-      });
-      mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID });
-      mockPrisma.studentParent.findUnique.mockResolvedValue(null);
+      mockConfigFacade.findSettingsJson.mockResolvedValue({ general: { attendanceVisibleToParents: true } });
+      mockParentFacade.resolveIdByUserId.mockResolvedValue(PARENT_ID);
+      mockStudentFacade.isParentLinked.mockResolvedValue(false);
 
       await expect(
         service.getParentStudentAttendance(TENANT_ID, USER_ID, STUDENT_ID, {}),
@@ -290,15 +305,10 @@ describe('AttendanceReportingService', () => {
     });
 
     it('should throw ForbiddenException when studentParent link is from a different tenant', async () => {
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue({
-        settings: { general: { attendanceVisibleToParents: true } },
-      });
-      mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID });
-      mockPrisma.studentParent.findUnique.mockResolvedValue({
-        student_id: STUDENT_ID,
-        parent_id: PARENT_ID,
-        tenant_id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', // different tenant
-      });
+      mockConfigFacade.findSettingsJson.mockResolvedValue({ general: { attendanceVisibleToParents: true } });
+      mockParentFacade.resolveIdByUserId.mockResolvedValue(PARENT_ID);
+      // isParentLinked returns false because different tenant
+      mockStudentFacade.isParentLinked.mockResolvedValue(false);
 
       await expect(
         service.getParentStudentAttendance(TENANT_ID, USER_ID, STUDENT_ID, {}),
@@ -306,22 +316,16 @@ describe('AttendanceReportingService', () => {
     });
 
     it('should return summaries and records when all checks pass', async () => {
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue({
-        settings: { general: { attendanceVisibleToParents: true } },
-      });
-      mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID });
-      mockPrisma.studentParent.findUnique.mockResolvedValue({
-        student_id: STUDENT_ID,
-        parent_id: PARENT_ID,
-        tenant_id: TENANT_ID,
-      });
+      mockConfigFacade.findSettingsJson.mockResolvedValue({ general: { attendanceVisibleToParents: true } });
+      mockParentFacade.resolveIdByUserId.mockResolvedValue(PARENT_ID);
+      mockStudentFacade.isParentLinked.mockResolvedValue(true);
       mockDailySummary.findForStudent.mockResolvedValue({
         data: [{ summary_date: '2026-03-15', derived_status: 'present' }],
       });
 
       // Mock the student lookup for getStudentAttendance which is called internally
       const student = { id: STUDENT_ID, first_name: 'Aisha', last_name: 'Al-Mansour' };
-      mockPrisma.student.findFirst.mockResolvedValue(student);
+      mockStudentFacade.findById.mockResolvedValue(student);
       mockPrisma.attendanceRecord.findMany.mockResolvedValue([]);
 
       const result = await service.getParentStudentAttendance(TENANT_ID, USER_ID, STUDENT_ID, {});
@@ -331,15 +335,11 @@ describe('AttendanceReportingService', () => {
     });
 
     it('should default attendanceVisibleToParents to true when setting is not configured', async () => {
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
-      mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID });
-      mockPrisma.studentParent.findUnique.mockResolvedValue({
-        student_id: STUDENT_ID,
-        parent_id: PARENT_ID,
-        tenant_id: TENANT_ID,
-      });
+      mockConfigFacade.findSettingsJson.mockResolvedValue(null);
+      mockParentFacade.resolveIdByUserId.mockResolvedValue(PARENT_ID);
+      mockStudentFacade.isParentLinked.mockResolvedValue(true);
       mockDailySummary.findForStudent.mockResolvedValue({ data: [] });
-      mockPrisma.student.findFirst.mockResolvedValue({
+      mockStudentFacade.findById.mockResolvedValue({
         id: STUDENT_ID,
         first_name: 'Aisha',
         last_name: 'Al-Mansour',

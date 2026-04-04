@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertTriangle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -50,6 +51,7 @@ export function LoadHeatmap({
   className = '',
 }: LoadHeatmapProps) {
   // Extract unique year groups from data if not provided
+  const t = useTranslations('homework');
   const uniqueYearGroups = React.useMemo(() => {
     if (yearGroups.length > 0) return yearGroups;
     const groups = new Set(data.map((d) => d.yearGroup));
@@ -113,7 +115,7 @@ export function LoadHeatmap({
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              <th className="p-2 text-start text-xs font-medium text-text-tertiary">Year Group</th>
+              <th className="p-2 text-start text-xs font-medium text-text-tertiary">{t('yearGroup')}</th>
               {days.map((day) => (
                 <th key={day} className="p-2 text-center text-xs font-medium text-text-tertiary">
                   {day}
@@ -154,26 +156,26 @@ export function LoadHeatmap({
       {/* Legend */}
       {showLegend && (
         <div className="flex flex-wrap items-center gap-4 text-xs text-text-secondary">
-          <span className="font-medium">Load:</span>
+          <span className="font-medium">{t('load')}</span>
           <div className="flex items-center gap-2">
             <div className="h-4 w-4 rounded" style={{ backgroundColor: '#dcfce7' }} />
-            <span>Low (0-20%)</span>
+            <span>{t('low020')}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-4 w-4 rounded" style={{ backgroundColor: '#bbf7d0' }} />
-            <span>Light (21-40%)</span>
+            <span>{t('light2140')}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-4 w-4 rounded" style={{ backgroundColor: '#fde68a' }} />
-            <span>Medium (41-60%)</span>
+            <span>{t('medium4160')}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-4 w-4 rounded" style={{ backgroundColor: '#fed7aa' }} />
-            <span>High (61-80%)</span>
+            <span>{t('high6180')}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-4 w-4 rounded" style={{ backgroundColor: '#fecaca' }} />
-            <span>Critical (81-100%)</span>
+            <span>{t('critical81100')}</span>
           </div>
         </div>
       )}
@@ -183,18 +185,17 @@ export function LoadHeatmap({
         <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
           <div className="mb-2 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-yellow-600" />
-            <span className="text-sm font-medium text-text-primary">Load Insights</span>
+            <span className="text-sm font-medium text-text-primary">{t('loadInsights')}</span>
           </div>
           <ul className="space-y-1 text-xs text-text-secondary">
             {insights.overloads.slice(0, 3).map((overload, index) => (
               <li key={index}>
-                • {overload.yearGroup} has {overload.load} assignments on {overload.day}
+                • {overload.yearGroup}{t('has')}{overload.load}{t('assignmentsOn')}{overload.day}
               </li>
             ))}
             {insights.mostLoadedDay && (
               <li className="mt-2 text-yellow-700">
-                💡 {insights.mostLoadedDay} appears to be your most loaded day
-              </li>
+                💡 {insights.mostLoadedDay}{t('appearsToBeYourMost')}</li>
             )}
           </ul>
         </div>

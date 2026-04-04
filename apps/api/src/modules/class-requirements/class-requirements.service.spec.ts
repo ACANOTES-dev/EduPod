@@ -8,6 +8,7 @@ import type {
   UpdateClassRequirementDto,
 } from '@school/shared';
 
+import { MOCK_FACADE_PROVIDERS, SchedulingReadFacade, ClassesReadFacade, RoomsReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { ClassRequirementsService } from './class-requirements.service';
@@ -80,39 +81,45 @@ function buildCreateDto(
 
 describe('ClassRequirementsService', () => {
   let service: ClassRequirementsService;
-  let mockPrisma: {
-    classSchedulingRequirement: {
-      findMany: jest.Mock;
-      count: jest.Mock;
-      findFirst: jest.Mock;
-    };
-    class: {
-      findFirst: jest.Mock;
-      count: jest.Mock;
-    };
-    room: {
-      findFirst: jest.Mock;
-    };
+  let mockPrisma: Record<string, unknown>;
+  let mockSchedulingReadFacade: {
+    findClassRequirementsPaginated: jest.Mock;
+    findClassRequirementById: jest.Mock;
+  };
+  let mockClassesReadFacade: {
+    countByAcademicYear: jest.Mock;
+    existsOrThrow: jest.Mock;
+  };
+  let mockRoomsReadFacade: {
+    existsOrThrow: jest.Mock;
   };
 
   beforeEach(async () => {
-    mockPrisma = {
-      classSchedulingRequirement: {
-        findMany: jest.fn(),
-        count: jest.fn(),
-        findFirst: jest.fn(),
-      },
-      class: {
-        findFirst: jest.fn(),
-        count: jest.fn(),
-      },
-      room: {
-        findFirst: jest.fn(),
-      },
+    mockPrisma = {};
+
+    mockSchedulingReadFacade = {
+      findClassRequirementsPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+      findClassRequirementById: jest.fn().mockResolvedValue(null),
+    };
+
+    mockClassesReadFacade = {
+      countByAcademicYear: jest.fn().mockResolvedValue(0),
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+    };
+
+    mockRoomsReadFacade = {
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ClassRequirementsService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ClassRequirementsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: SchedulingReadFacade, useValue: mockSchedulingReadFacade },
+        { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
+        { provide: RoomsReadFacade, useValue: mockRoomsReadFacade },
+      ],
     }).compile();
 
     service = module.get<ClassRequirementsService>(ClassRequirementsService);
@@ -125,9 +132,8 @@ describe('ClassRequirementsService', () => {
   describe('findAll', () => {
     it('should return paginated class requirements with meta', async () => {
       const requirement = buildRequirement();
-      mockPrisma.classSchedulingRequirement.findMany.mockResolvedValue([requirement]);
-      mockPrisma.classSchedulingRequirement.count.mockResolvedValue(1);
-      mockPrisma.class.count.mockResolvedValue(3);
+      mockSchedulingReadFacade.findClassRequirementsPaginated.mockResolvedValue({ data: [requirement], total: 1 });
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(3);
 
       const result = await service.findAll(TENANT_ID, YEAR_ID, { page: 1, pageSize: 20 });
 
@@ -140,25 +146,23 @@ describe('ClassRequirementsService', () => {
         total_active_classes: 3,
         configured_count: 1,
       });
-      expect(mockPrisma.classSchedulingRequirement.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { tenant_id: TENANT_ID, academic_year_id: YEAR_ID },
-          skip: 0,
-          take: 20,
-          orderBy: { created_at: 'asc' },
-        }),
+      expect(mockSchedulingReadFacade.findClassRequirementsPaginated).toHaveBeenCalledWith(
+        TENANT_ID,
+        YEAR_ID,
+        { skip: 0, take: 20 },
       );
     });
 
     it('should apply correct skip for page 2', async () => {
-      mockPrisma.classSchedulingRequirement.findMany.mockResolvedValue([]);
-      mockPrisma.classSchedulingRequirement.count.mockResolvedValue(0);
-      mockPrisma.class.count.mockResolvedValue(0);
+      mockSchedulingReadFacade.findClassRequirementsPaginated.mockResolvedValue({ data: [], total: 0 });
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(0);
 
       await service.findAll(TENANT_ID, YEAR_ID, { page: 2, pageSize: 10 });
 
-      expect(mockPrisma.classSchedulingRequirement.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ skip: 10, take: 10 }),
+      expect(mockSchedulingReadFacade.findClassRequirementsPaginated).toHaveBeenCalledWith(
+        TENANT_ID,
+        YEAR_ID,
+        { skip: 10, take: 10 },
       );
     });
   });
@@ -170,15 +174,13 @@ describe('ClassRequirementsService', () => {
       const dto = buildCreateDto();
       const created = buildRequirement();
 
-      mockPrisma.class.findFirst.mockResolvedValue({ id: CLASS_ID });
+      mockClassesReadFacade.existsOrThrow.mockResolvedValue(undefined);
       mockRlsTx.classSchedulingRequirement.create.mockResolvedValue(created);
 
       const result = await service.create(TENANT_ID, dto);
 
       expect(result).toEqual(created);
-      expect(mockPrisma.class.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: CLASS_ID, tenant_id: TENANT_ID } }),
-      );
+      expect(mockClassesReadFacade.existsOrThrow).toHaveBeenCalledWith(TENANT_ID, CLASS_ID);
       expect(mockRlsTx.classSchedulingRequirement.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -192,15 +194,15 @@ describe('ClassRequirementsService', () => {
     });
 
     it('should throw NotFoundException if class not found on create', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue(null);
+      mockClassesReadFacade.existsOrThrow.mockRejectedValue(new NotFoundException({ code: 'CLASS_NOT_FOUND', message: 'Class not found' }));
 
       await expect(service.create(TENANT_ID, buildCreateDto())).rejects.toThrow(NotFoundException);
       expect(mockRlsTx.classSchedulingRequirement.create).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if room not found on create', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue({ id: CLASS_ID });
-      mockPrisma.room.findFirst.mockResolvedValue(null);
+      mockClassesReadFacade.existsOrThrow.mockResolvedValue(undefined);
+      mockRoomsReadFacade.existsOrThrow.mockRejectedValue(new NotFoundException({ code: 'ROOM_NOT_FOUND', message: 'Room not found' }));
 
       const dto = buildCreateDto({ preferred_room_id: ROOM_ID });
 
@@ -212,20 +214,18 @@ describe('ClassRequirementsService', () => {
       const dto = buildCreateDto({ preferred_room_id: ROOM_ID });
       const created = buildRequirement({ preferred_room_id: ROOM_ID });
 
-      mockPrisma.class.findFirst.mockResolvedValue({ id: CLASS_ID });
-      mockPrisma.room.findFirst.mockResolvedValue({ id: ROOM_ID });
+      mockClassesReadFacade.existsOrThrow.mockResolvedValue(undefined);
+      mockRoomsReadFacade.existsOrThrow.mockResolvedValue(undefined);
       mockRlsTx.classSchedulingRequirement.create.mockResolvedValue(created);
 
       const result = await service.create(TENANT_ID, dto);
 
       expect(result).toEqual(created);
-      expect(mockPrisma.room.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: ROOM_ID, tenant_id: TENANT_ID } }),
-      );
+      expect(mockRoomsReadFacade.existsOrThrow).toHaveBeenCalledWith(TENANT_ID, ROOM_ID);
     });
 
     it('should throw ConflictException on duplicate requirement (P2002)', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue({ id: CLASS_ID });
+      mockClassesReadFacade.existsOrThrow.mockResolvedValue(undefined);
 
       const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
         code: 'P2002',
@@ -245,7 +245,7 @@ describe('ClassRequirementsService', () => {
       const dto: UpdateClassRequirementDto = { periods_per_week: 3 };
       const updated = buildRequirement({ periods_per_week: 3 });
 
-      mockPrisma.classSchedulingRequirement.findFirst.mockResolvedValue({ id: REQUIREMENT_ID });
+      mockSchedulingReadFacade.findClassRequirementById.mockResolvedValue({ id: REQUIREMENT_ID });
       mockRlsTx.classSchedulingRequirement.update.mockResolvedValue(updated);
 
       const result = await service.update(TENANT_ID, REQUIREMENT_ID, dto);
@@ -260,7 +260,7 @@ describe('ClassRequirementsService', () => {
     });
 
     it('should throw NotFoundException if requirement not found on update', async () => {
-      mockPrisma.classSchedulingRequirement.findFirst.mockResolvedValue(null);
+      mockSchedulingReadFacade.findClassRequirementById.mockResolvedValue(null);
 
       await expect(service.update(TENANT_ID, REQUIREMENT_ID, {})).rejects.toThrow(
         NotFoundException,
@@ -268,8 +268,8 @@ describe('ClassRequirementsService', () => {
     });
 
     it('should throw NotFoundException if preferred_room_id room not found on update', async () => {
-      mockPrisma.classSchedulingRequirement.findFirst.mockResolvedValue({ id: REQUIREMENT_ID });
-      mockPrisma.room.findFirst.mockResolvedValue(null);
+      mockSchedulingReadFacade.findClassRequirementById.mockResolvedValue({ id: REQUIREMENT_ID });
+      mockRoomsReadFacade.existsOrThrow.mockRejectedValue(new NotFoundException({ code: 'ROOM_NOT_FOUND', message: 'Room not found' }));
 
       const dto: UpdateClassRequirementDto = { preferred_room_id: ROOM_ID };
 
@@ -286,7 +286,7 @@ describe('ClassRequirementsService', () => {
     it('should delete a class requirement', async () => {
       const deleted = buildRequirement();
 
-      mockPrisma.classSchedulingRequirement.findFirst.mockResolvedValue({ id: REQUIREMENT_ID });
+      mockSchedulingReadFacade.findClassRequirementById.mockResolvedValue({ id: REQUIREMENT_ID });
       mockRlsTx.classSchedulingRequirement.delete.mockResolvedValue(deleted);
 
       const result = await service.delete(TENANT_ID, REQUIREMENT_ID);
@@ -298,7 +298,7 @@ describe('ClassRequirementsService', () => {
     });
 
     it('should throw NotFoundException if requirement not found on delete', async () => {
-      mockPrisma.classSchedulingRequirement.findFirst.mockResolvedValue(null);
+      mockSchedulingReadFacade.findClassRequirementById.mockResolvedValue(null);
 
       await expect(service.delete(TENANT_ID, REQUIREMENT_ID)).rejects.toThrow(NotFoundException);
       expect(mockRlsTx.classSchedulingRequirement.delete).not.toHaveBeenCalled();

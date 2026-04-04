@@ -3,6 +3,7 @@ import { ForbiddenException, type INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 
+import { MOCK_FACADE_PROVIDERS, TenantReadFacade } from '../../common/tests/mock-facades';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
@@ -33,16 +34,28 @@ const mockPrisma = {
   },
 };
 
+const mockTenantReadFacade = {
+  findDefaultLocale: jest.fn().mockResolvedValue('en'),
+  findNameById: jest.fn().mockResolvedValue(null),
+  findBranding: jest.fn().mockResolvedValue(null),
+};
+
 describe('TranscriptsController', () => {
   let controller: TranscriptsController;
 
   beforeEach(async () => {
+    mockTenantReadFacade.findDefaultLocale.mockReset().mockResolvedValue('en');
+    mockTenantReadFacade.findNameById.mockReset().mockResolvedValue(null);
+    mockTenantReadFacade.findBranding.mockReset().mockResolvedValue(null);
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TranscriptsController],
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: TranscriptsService, useValue: mockTranscriptsService },
         { provide: PdfRenderingService, useValue: mockPdfRenderingService },
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: TenantReadFacade, useValue: mockTenantReadFacade },
       ],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
@@ -77,8 +90,9 @@ describe('TranscriptsController', () => {
     const pdfBuffer = Buffer.from('%PDF-1.4 test');
 
     mockTranscriptsService.getTranscriptData.mockResolvedValue(transcriptData);
-    mockPrisma.tenant.findFirst.mockResolvedValue({ name: 'Test School', default_locale: 'en' });
-    mockPrisma.tenantBranding.findFirst.mockResolvedValue(null);
+    mockTenantReadFacade.findDefaultLocale.mockResolvedValue('en');
+    mockTenantReadFacade.findNameById.mockResolvedValue('Test School');
+    mockTenantReadFacade.findBranding.mockResolvedValue(null);
     mockPdfRenderingService.renderPdf.mockResolvedValue(pdfBuffer);
 
     const mockRes = {
@@ -106,8 +120,9 @@ describe('TranscriptsController', () => {
     const pdfBuffer = Buffer.from('%PDF');
 
     mockTranscriptsService.getTranscriptData.mockResolvedValue(transcriptData);
-    mockPrisma.tenant.findFirst.mockResolvedValue(null);
-    mockPrisma.tenantBranding.findFirst.mockResolvedValue(null);
+    mockTenantReadFacade.findDefaultLocale.mockResolvedValue('en');
+    mockTenantReadFacade.findNameById.mockResolvedValue(null);
+    mockTenantReadFacade.findBranding.mockResolvedValue(null);
     mockPdfRenderingService.renderPdf.mockResolvedValue(pdfBuffer);
 
     const mockRes = { set: jest.fn(), send: jest.fn() };
@@ -132,9 +147,11 @@ describe('TranscriptsController — permission denied', () => {
     const module = await Test.createTestingModule({
       controllers: [TranscriptsController],
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: TranscriptsService, useValue: mockTranscriptsService },
         { provide: PdfRenderingService, useValue: mockPdfRenderingService },
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: TenantReadFacade, useValue: mockTenantReadFacade },
       ],
     })
       .overrideGuard(AuthGuard)

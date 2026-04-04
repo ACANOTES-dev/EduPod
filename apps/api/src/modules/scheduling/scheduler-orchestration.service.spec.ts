@@ -2,6 +2,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
@@ -54,6 +55,7 @@ jest.mock('@school/shared/scheduler', () => ({
 
 describe('SchedulerOrchestrationService', () => {
   let service: SchedulerOrchestrationService;
+  let module: TestingModule;
   let mockQueue: { add: jest.Mock };
   let mockPrisma: {
     yearGroup: { findMany: jest.Mock };
@@ -107,8 +109,9 @@ describe('SchedulerOrchestrationService', () => {
     mockTx.schedulingRun.create.mockReset();
     mockTx.schedulingRun.update.mockReset();
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         {
           provide: AcademicReadFacade,
           useValue: {
@@ -251,8 +254,8 @@ describe('SchedulerOrchestrationService', () => {
 
   describe('checkPrerequisites', () => {
     it('should return ready=false when no year groups have active classes', async () => {
-      mockPrisma.yearGroup.findMany.mockResolvedValue([]);
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      // findYearGroupsWithActiveClasses returns [] by default from facade mock
+      // findPinnedEntries returns [] by default from facade mock
 
       const result = await service.checkPrerequisites(TENANT_ID, AY_ID);
 
@@ -261,8 +264,9 @@ describe('SchedulerOrchestrationService', () => {
     });
 
     it('should return ready=true when all prerequisites are met', async () => {
-      // Year groups with classes
-      mockPrisma.yearGroup.findMany.mockResolvedValue([{ id: 'yg-1', name: 'Year 1' }]);
+      // Year groups with classes via facade
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([{ id: 'yg-1', name: 'Year 1' }]);
       // Period grid exists (shared)
       mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: null }]);
       // Curriculum requirements exist for yg-1
@@ -278,8 +282,9 @@ describe('SchedulerOrchestrationService', () => {
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([
         { subject_id: 'sub-1', year_group_id: 'yg-1' },
       ]);
-      // No pinned entries
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      // No pinned entries via facade
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([]);
 
       const result = await service.checkPrerequisites(TENANT_ID, AY_ID);
 
@@ -288,7 +293,8 @@ describe('SchedulerOrchestrationService', () => {
     });
 
     it('should report missing period grid for a year group', async () => {
-      mockPrisma.yearGroup.findMany.mockResolvedValue([{ id: 'yg-1', name: 'Year 1' }]);
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([{ id: 'yg-1', name: 'Year 1' }]);
       // No period templates at all
       mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([]);
       mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
@@ -302,7 +308,8 @@ describe('SchedulerOrchestrationService', () => {
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([
         { subject_id: 'sub-1', year_group_id: 'yg-1' },
       ]);
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([]);
 
       const result = await service.checkPrerequisites(TENANT_ID, AY_ID);
 
@@ -313,12 +320,14 @@ describe('SchedulerOrchestrationService', () => {
     });
 
     it('should report missing curriculum requirements', async () => {
-      mockPrisma.yearGroup.findMany.mockResolvedValue([{ id: 'yg-1', name: 'Year 1' }]);
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([{ id: 'yg-1', name: 'Year 1' }]);
       mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: null }]);
       // No curriculum requirements
       mockPrisma.curriculumRequirement.findMany.mockResolvedValue([]);
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([]);
 
       const result = await service.checkPrerequisites(TENANT_ID, AY_ID);
 
@@ -329,8 +338,9 @@ describe('SchedulerOrchestrationService', () => {
     });
 
     it('should detect pinned entry teacher double-booking', async () => {
-      mockPrisma.yearGroup.findMany.mockResolvedValue([]);
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      // findYearGroupsWithActiveClasses returns [] by default
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([
         {
           id: 'pin-1',
           teacher_staff_id: 'teacher-1',
@@ -362,7 +372,8 @@ describe('SchedulerOrchestrationService', () => {
 
   describe('triggerSolverRun', () => {
     it('should throw NotFoundException when academic year does not exist', async () => {
-      mockPrisma.academicYear.findFirst.mockResolvedValue(null);
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Year not found'));
 
       await expect(service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID)).rejects.toThrow(
         NotFoundException,
@@ -370,10 +381,8 @@ describe('SchedulerOrchestrationService', () => {
     });
 
     it('should throw BadRequestException when prerequisites are not met', async () => {
-      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: AY_ID });
-      // No year groups => prerequisites fail
-      mockPrisma.yearGroup.findMany.mockResolvedValue([]);
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      // findYearByIdOrThrow resolves by default (doesn't throw)
+      // No year groups => prerequisites fail (findYearGroupsWithActiveClasses returns [] by default)
 
       await expect(service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID)).rejects.toThrow(
         BadRequestException,
@@ -381,9 +390,9 @@ describe('SchedulerOrchestrationService', () => {
     });
 
     it('should throw ConflictException when a run is already active', async () => {
-      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: AY_ID });
       // Prerequisites pass
-      mockPrisma.yearGroup.findMany.mockResolvedValue([{ id: 'yg-1', name: 'Y1' }]);
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([{ id: 'yg-1', name: 'Y1' }]);
       mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: null }]);
       mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
         {
@@ -396,9 +405,11 @@ describe('SchedulerOrchestrationService', () => {
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([
         { subject_id: 's1', year_group_id: 'yg-1' },
       ]);
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([]);
       // Active run exists
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findActiveRun as jest.Mock).mockResolvedValue({
         id: 'existing-run',
         status: 'running',
       });
@@ -413,7 +424,8 @@ describe('SchedulerOrchestrationService', () => {
 
   describe('discardRun', () => {
     it('should discard a completed run', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({ id: RUN_ID, status: 'completed' });
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findStatusById as jest.Mock).mockResolvedValue({ id: RUN_ID, status: 'completed' });
       mockTx.schedulingRun.update.mockResolvedValue({ id: RUN_ID, status: 'discarded' });
 
       const result = await service.discardRun(TENANT_ID, RUN_ID);
@@ -423,13 +435,14 @@ describe('SchedulerOrchestrationService', () => {
     });
 
     it('should throw NotFoundException when run does not exist', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
+      // findStatusById returns null by default from mock
 
       await expect(service.discardRun(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException when run is not completed', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({ id: RUN_ID, status: 'running' });
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findStatusById as jest.Mock).mockResolvedValue({ id: RUN_ID, status: 'running' });
 
       await expect(service.discardRun(TENANT_ID, RUN_ID)).rejects.toThrow(BadRequestException);
     });
@@ -460,8 +473,8 @@ describe('SchedulerOrchestrationService', () => {
           updated_at: new Date('2026-03-01T10:05:00Z'),
         },
       ];
-      mockPrisma.schedulingRun.findMany.mockResolvedValue(runs);
-      mockPrisma.schedulingRun.count.mockResolvedValue(1);
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.listRuns as jest.Mock).mockResolvedValue({ data: runs, total: 1 });
 
       const result = await service.listRuns(TENANT_ID, AY_ID, 1, 20);
 
@@ -472,8 +485,7 @@ describe('SchedulerOrchestrationService', () => {
     });
 
     it('should return empty when no runs exist', async () => {
-      mockPrisma.schedulingRun.findMany.mockResolvedValue([]);
-      mockPrisma.schedulingRun.count.mockResolvedValue(0);
+      // listRuns returns { data: [], total: 0 } by default from facade mock
 
       const result = await service.listRuns(TENANT_ID, AY_ID, 1, 20);
 
@@ -486,7 +498,8 @@ describe('SchedulerOrchestrationService', () => {
 
   describe('getRun', () => {
     it('should return a single run', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
         id: RUN_ID,
         status: 'completed',
         solver_seed: null,
@@ -503,7 +516,7 @@ describe('SchedulerOrchestrationService', () => {
     });
 
     it('should throw NotFoundException when run does not exist', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
+      // findById returns null by default from facade mock
 
       await expect(service.getRun(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
     });
@@ -513,7 +526,8 @@ describe('SchedulerOrchestrationService', () => {
 
   describe('getRunStatus', () => {
     it('should return run status', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
         id: RUN_ID,
         status: 'running',
         entries_generated: null,
@@ -531,7 +545,7 @@ describe('SchedulerOrchestrationService', () => {
     });
 
     it('should throw NotFoundException when run does not exist', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
+      // findById returns null by default from facade mock
 
       await expect(service.getRunStatus(TENANT_ID, 'nonexistent')).rejects.toThrow(
         NotFoundException,
@@ -543,7 +557,7 @@ describe('SchedulerOrchestrationService', () => {
 
   describe('applyRun', () => {
     it('should throw NotFoundException when run does not exist', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
+      // findById returns null by default from facade mock
 
       await expect(service.applyRun(TENANT_ID, 'nonexistent', USER_ID)).rejects.toThrow(
         NotFoundException,
@@ -551,7 +565,8 @@ describe('SchedulerOrchestrationService', () => {
     });
 
     it('should throw BadRequestException when run is not completed', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
         id: RUN_ID,
         status: 'running',
       });
@@ -562,7 +577,8 @@ describe('SchedulerOrchestrationService', () => {
     });
 
     it('should throw BadRequestException when run has no result data', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
         id: RUN_ID,
         status: 'completed',
         result_json: null,

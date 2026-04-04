@@ -122,16 +122,11 @@ function AgeGateBanner() {
     <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/10">
       <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-700 dark:text-blue-300" />
       <div>
-        <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-          Data Protection Rights
-        </p>
+        <p className="text-sm font-medium text-blue-800 dark:text-blue-200">{t('dataProtectionRights')}</p>
         <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
           {students.length === 1 && students[0]
             ? `Your child ${students[0].first_name} is 17 or older.`
-            : `${students.length} of your children are 17 or older.`}{' '}
-          Under DPC guidance, students aged 17 and over may exercise their own data protection
-          rights.
-        </p>
+            : `${students.length} of your children are 17 or older.`}{' '}{t('underDpcGuidanceStudentsAged')}</p>
       </div>
     </div>
   );

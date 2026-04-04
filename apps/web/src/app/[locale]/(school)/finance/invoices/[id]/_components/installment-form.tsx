@@ -1,6 +1,7 @@
 'use client';
 
 import { Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -44,6 +45,7 @@ export function InstallmentForm({
   currencyCode,
   onSuccess,
 }: InstallmentFormProps) {
+  const t = useTranslations('finance');
   const [rows, setRows] = React.useState<InstallmentRow[]>([
     { due_date: '', amount: '' },
     { due_date: '', amount: '' },
@@ -94,7 +96,8 @@ export function InstallmentForm({
         { due_date: '', amount: '' },
       ]);
       onSuccess();
-    } catch {
+    } catch (err) {
+      console.error('[InstallmentForm]', err);
       toast.error('Failed to create installment plan');
     } finally {
       setIsSubmitting(false);
@@ -105,17 +108,14 @@ export function InstallmentForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create Installment Plan</DialogTitle>
-          <DialogDescription>
-            Split the invoice total into installments. The sum of all installments must equal the
-            invoice total.
-          </DialogDescription>
+          <DialogTitle>{t('createInstallmentPlan')}</DialogTitle>
+          <DialogDescription>{t('splitTheInvoiceTotalInto')}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Summary */}
           <div className="flex items-center justify-between rounded-lg border border-border bg-surface-secondary px-4 py-3">
-            <span className="text-sm text-text-secondary">Invoice Total</span>
+            <span className="text-sm text-text-secondary">{t('invoiceTotal')}</span>
             <CurrencyDisplay
               amount={invoiceTotal}
               currency_code={currencyCode}
@@ -128,7 +128,7 @@ export function InstallmentForm({
             {rows.map((row, index) => (
               <div key={index} className="flex items-end gap-3">
                 <div className="flex-1">
-                  <Label className="text-xs">Due Date</Label>
+                  <Label className="text-xs">{t('dueDate')}</Label>
                   <Input
                     type="date"
                     value={row.due_date}
@@ -136,7 +136,7 @@ export function InstallmentForm({
                   />
                 </div>
                 <div className="flex-1">
-                  <Label className="text-xs">Amount</Label>
+                  <Label className="text-xs">{t('amount')}</Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -160,13 +160,11 @@ export function InstallmentForm({
           </div>
 
           <Button variant="outline" size="sm" onClick={addRow}>
-            <Plus className="me-2 h-3.5 w-3.5" />
-            Add Installment
-          </Button>
+            <Plus className="me-2 h-3.5 w-3.5" />{t('addInstallment')}</Button>
 
           {/* Running total */}
           <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-            <span className="text-sm text-text-secondary">Total Allocated</span>
+            <span className="text-sm text-text-secondary">{t('totalAllocated')}</span>
             <div className="flex items-center gap-3">
               <CurrencyDisplay
                 amount={totalAllocated}
@@ -188,9 +186,7 @@ export function InstallmentForm({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-            Cancel
-          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>{t('cancel')}</Button>
           <Button onClick={() => void handleSubmit()} disabled={!isValid || isSubmitting}>
             {isSubmitting ? 'Creating...' : 'Create Plan'}
           </Button>

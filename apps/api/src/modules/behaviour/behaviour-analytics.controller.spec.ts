@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 
+import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade } from '../../common/tests/mock-facades';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -76,6 +77,10 @@ const mockPrisma = {
   },
 };
 
+const mockConfigurationReadFacade = {
+  findSettingsJson: jest.fn().mockResolvedValue(null),
+};
+
 describe('BehaviourAnalyticsController', () => {
   let controller: BehaviourAnalyticsController;
 
@@ -83,11 +88,13 @@ describe('BehaviourAnalyticsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BehaviourAnalyticsController],
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: BehaviourAnalyticsService, useValue: mockAnalyticsService },
         { provide: BehaviourPulseService, useValue: mockPulseService },
         { provide: BehaviourAIService, useValue: mockAIService },
         { provide: PermissionCacheService, useValue: mockPermissionCacheService },
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: ConfigurationReadFacade, useValue: mockConfigurationReadFacade },
       ],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
@@ -107,8 +114,8 @@ describe('BehaviourAnalyticsController', () => {
   // ─── Pulse ────────────────────────────────────────────────────────────────
 
   it('should call pulseService.getPulse when pulse is enabled', async () => {
-    mockPrisma.tenantSetting.findFirst.mockResolvedValue({
-      settings: { behaviour: { behaviour_pulse_enabled: true } },
+    mockConfigurationReadFacade.findSettingsJson.mockResolvedValue({
+      behaviour: { behaviour_pulse_enabled: true },
     });
     mockPulseService.getPulse.mockResolvedValue({ score: 85 });
 
@@ -119,8 +126,8 @@ describe('BehaviourAnalyticsController', () => {
   });
 
   it('should return pulse_enabled false when pulse is disabled', async () => {
-    mockPrisma.tenantSetting.findFirst.mockResolvedValue({
-      settings: { behaviour: { behaviour_pulse_enabled: false } },
+    mockConfigurationReadFacade.findSettingsJson.mockResolvedValue({
+      behaviour: { behaviour_pulse_enabled: false },
     });
 
     const result = await controller.getPulse(TENANT);
@@ -387,8 +394,8 @@ describe('BehaviourAnalyticsController', () => {
 
   it('should call aiService.processNLQuery with tenant_id, user_id, permissions, input, settings', async () => {
     const input = { query: 'Show me top offenders' };
-    mockPrisma.tenantSetting.findFirst.mockResolvedValue({
-      settings: { behaviour: { ai_enabled: true } },
+    mockConfigurationReadFacade.findSettingsJson.mockResolvedValue({
+      behaviour: { ai_enabled: true },
     });
     mockAIService.processNLQuery.mockResolvedValue({ answer: 'Top 5 students...' });
 

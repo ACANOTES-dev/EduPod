@@ -65,7 +65,8 @@ export default function CommunicationsInquiriesPage() {
       );
       setInquiries(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[CommunicationsInquiriesPage]', err);
       setInquiries([]);
       setTotal(0);
     } finally {
@@ -165,7 +166,7 @@ export default function CommunicationsInquiriesPage() {
       {!isLoading && inquiries.length === 0 && activeTab === 'all' ? (
         <EmptyState
           icon={MessageCircle}
-          title="No inquiries yet"
+          title={t('noInquiriesYet')}
           description="Parent inquiries will appear here."
         />
       ) : (

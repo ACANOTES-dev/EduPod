@@ -50,7 +50,8 @@ export default function ParentInquiriesPage() {
     try {
       const res = await apiClient<{ data: MyInquiry[] }>('/api/v1/inquiries/my');
       setInquiries(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[InquiriesPage]', err);
       setInquiries([]);
     } finally {
       setIsLoading(false);
@@ -90,7 +91,7 @@ export default function ParentInquiriesPage() {
       {inquiries.length === 0 ? (
         <EmptyState
           icon={MessageCircle}
-          title="No inquiries yet"
+          title={t('noInquiriesYet')}
           description="Have a question? Send an inquiry to the school."
           action={{ label: t('inquiry.newInquiry'), onClick: () => router.push('/inquiries/new') }}
         />

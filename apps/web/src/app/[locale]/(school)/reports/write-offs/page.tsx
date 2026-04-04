@@ -48,7 +48,7 @@ export default function WriteOffsReportPage() {
       `/api/v1/reports/write-offs?start_date=${startDate}&end_date=${endDate}`,
     )
       .then((res) => setReport(res))
-      .catch(() => setReport(null))
+      .catch((err) => { console.error('[ReportsWriteOffsPage]', err); return setReport(null); })
       .finally(() => setIsLoading(false));
   }, [startDate, endDate]);
 

@@ -353,7 +353,8 @@ function TodayTab() {
         `/api/v1/scheduling/absences?date=${today ?? ''}`,
       );
       setAbsences(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingSubstitutionsPage]', err);
       setAbsences([]);
     } finally {
       setLoading(false);
@@ -364,7 +365,7 @@ function TodayTab() {
     void fetchAbsences();
     apiClient<{ data: StaffProfile[] }>('/api/v1/staff?pageSize=200&role=teacher')
       .then((res) => setStaff(res.data ?? []))
-      .catch(() => setStaff([]));
+      .catch((err) => { console.error('[SchedulingSubstitutionsPage]', err); return setStaff([]); });
   }, [fetchAbsences]);
 
   const handleFindSub = async (absenceId: string, slot: AbsenceSlot) => {
@@ -377,7 +378,8 @@ function TodayTab() {
         `/api/v1/scheduling/absences/${absenceId}/suggestions?schedule_id=${slot.schedule_id}`,
       );
       setSuggestions(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingSubstitutionsPage]', err);
       setSuggestions([]);
     } finally {
       setSuggestLoading(false);
@@ -529,7 +531,8 @@ function HistoryTab() {
       );
       setRecords(res.data ?? []);
       setTotal(res.meta?.total ?? 0);
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingSubstitutionsPage]', err);
       setRecords([]);
     } finally {
       setLoading(false);

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
 import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
@@ -74,6 +75,7 @@ describe('RegulatoryTuslaService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         RegulatoryTuslaService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: StudentReadFacade, useValue: mockStudentReadFacade },
@@ -276,13 +278,12 @@ describe('RegulatoryTuslaService', () => {
       await service.generateAar(TENANT_ID, { academic_year: '2025-2026' });
 
       expect(mockAttendanceReadFacade.countDailySummaries).toHaveBeenCalledWith(
+        TENANT_ID,
         expect.objectContaining({
-          where: expect.objectContaining({
-            summary_date: {
-              gte: new Date('2025-09-01'),
-              lte: new Date('2026-08-31'),
-            },
-          }),
+          dateFilter: {
+            gte: new Date('2025-09-01'),
+            lte: new Date('2026-08-31'),
+          },
         }),
       );
     });

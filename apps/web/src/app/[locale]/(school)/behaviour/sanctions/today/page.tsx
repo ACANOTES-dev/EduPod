@@ -203,7 +203,8 @@ export default function TodaySanctionsPage() {
         }
       }
       setAllSanctions(flat);
-    } catch {
+    } catch (err) {
+      console.error('[SanctionsTodayPage]', err);
       setError('Failed to load today\u2019s sanctions');
       setAllSanctions([]);
     } finally {
@@ -421,7 +422,7 @@ export default function TodaySanctionsPage() {
             <Checkbox
               checked={allScheduledSelected}
               onCheckedChange={toggleSelectAll}
-              aria-label="Select all scheduled sanctions"
+              aria-label={t('selectAllScheduledSanctions')}
             />
             <span className="text-sm text-text-secondary">
               {selected.size > 0

@@ -228,7 +228,8 @@ export default function BehaviourGeneralSettingsPage() {
           setSettings((prev) => ({ ...prev, ...beh }));
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[SettingsBehaviourGeneralPage]', err);
         /* use defaults */
       })
       .finally(() => setLoading(false));

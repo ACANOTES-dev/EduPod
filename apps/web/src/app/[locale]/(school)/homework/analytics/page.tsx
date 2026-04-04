@@ -91,8 +91,8 @@ export default function HomeworkAnalyticsPage() {
         { silent: true },
       );
       setNonCompleters(nonCompletersRes.data ?? []);
-    } catch {
-      console.error('[Analytics] Failed to fetch data');
+    } catch (err) {
+      console.error('[Analytics] Failed to fetch data', err);
     } finally {
       setLoading(false);
     }
@@ -219,7 +219,7 @@ export default function HomeworkAnalyticsPage() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <EmptyState icon={BookOpen} title="No data" description="" />
+            <EmptyState icon={BookOpen} title={t('noData')} description="" />
           )}
         </div>
 
@@ -253,7 +253,7 @@ export default function HomeworkAnalyticsPage() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <EmptyState icon={BookOpen} title="No data" description="" />
+            <EmptyState icon={BookOpen} title={t('noData')} description="" />
           )}
         </div>
       </div>
@@ -277,7 +277,7 @@ export default function HomeworkAnalyticsPage() {
                   <th className="py-2 pe-4 text-start">{t('student')}</th>
                   <th className="py-2 pe-4 text-start">{t('class')}</th>
                   <th className="py-2 pe-4 text-end">{t('analytics.completionRate')}</th>
-                  <th className="py-2 pe-4 text-end">Uncompleted</th>
+                  <th className="py-2 pe-4 text-end">{t('uncompleted')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -316,7 +316,7 @@ export default function HomeworkAnalyticsPage() {
         ) : (
           <EmptyState
             icon={Users}
-            title="No non-completers"
+            title={t('noNonCompleters')}
             description="All students are on track!"
           />
         )}

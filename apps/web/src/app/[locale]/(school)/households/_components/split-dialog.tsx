@@ -1,6 +1,7 @@
 'use client';
 
 import { Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -56,6 +57,8 @@ export function SplitDialog({
   parents,
   onSplit,
 }: SplitDialogProps) {
+  const t = useTranslations('households');
+  const tCommon = useTranslations('common');
   const [newHouseholdName, setNewHouseholdName] = React.useState('');
   const [selectedStudents, setSelectedStudents] = React.useState<Set<string>>(new Set());
   const [selectedParents, setSelectedParents] = React.useState<Set<string>>(new Set());
@@ -150,7 +153,8 @@ export function SplitDialog({
       toast.success('Household split successfully');
       onOpenChange(false);
       onSplit(res.data.id);
-    } catch {
+    } catch (err) {
+      console.error('[SplitDialog]', err);
       toast.error('Failed to split household');
     } finally {
       setIsSplitting(false);
@@ -161,21 +165,19 @@ export function SplitDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Split Household</DialogTitle>
-          <DialogDescription>
-            Create a new household by moving selected students and parents from this one.
-          </DialogDescription>
+          <DialogTitle>{t('split')}</DialogTitle>
+          <DialogDescription>{t('createANewHouseholdBy')}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* New household name */}
           <div className="space-y-1.5">
-            <Label htmlFor="split_name">New Household Name *</Label>
+            <Label htmlFor="split_name">{t('newHouseholdName2')}</Label>
             <Input
               id="split_name"
               value={newHouseholdName}
               onChange={(e) => setNewHouseholdName(e.target.value)}
-              placeholder="e.g. The Smith Family"
+              placeholder={t('eGTheSmithFamily')}
             />
             {errors.household_name && (
               <p className="text-xs text-danger-text">{errors.household_name}</p>
@@ -187,7 +189,7 @@ export function SplitDialog({
           {/* Students */}
           {students.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-text-primary">Students to move</p>
+              <p className="text-sm font-semibold text-text-primary">{t('studentsToMove')}</p>
               {students.map((student) => (
                 <div key={student.id} className="flex items-center gap-2">
                   <Checkbox
@@ -207,7 +209,7 @@ export function SplitDialog({
           {/* Parents */}
           {parents.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-text-primary">Parents to move</p>
+              <p className="text-sm font-semibold text-text-primary">{t('parentsToMove')}</p>
               {parents.map((parent) => (
                 <div key={parent.id} className="flex items-center gap-2">
                   <Checkbox
@@ -226,22 +228,17 @@ export function SplitDialog({
           {/* Emergency contacts for new household */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-text-primary">
-                Emergency Contacts for New Household *
-              </p>
+              <p className="text-sm font-semibold text-text-primary">{t('emergencyContactsForNewHousehold')}</p>
               {emergencyContacts.length < 3 && (
                 <Button type="button" variant="outline" size="sm" onClick={addContact}>
-                  <Plus className="me-1 h-3.5 w-3.5" />
-                  Add
-                </Button>
+                  <Plus className="me-1 h-3.5 w-3.5" />{t('add')}</Button>
               )}
             </div>
 
             {emergencyContacts.map((contact, index) => (
               <div key={index} className="rounded-xl border border-border p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-text-tertiary uppercase tracking-wider">
-                    Contact {index + 1}
+                  <span className="text-xs font-semibold text-text-tertiary uppercase tracking-wider">{t('contact')}{index + 1}
                   </span>
                   {emergencyContacts.length > 1 && (
                     <button
@@ -255,7 +252,7 @@ export function SplitDialog({
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label>Name</Label>
+                    <Label>{tCommon('name')}</Label>
                     <Input
                       value={contact.contact_name}
                       onChange={(e) => setContactField(index, 'contact_name', e.target.value)}
@@ -265,7 +262,7 @@ export function SplitDialog({
                     )}
                   </div>
                   <div className="space-y-1">
-                    <Label>Phone</Label>
+                    <Label>{t('phone')}</Label>
                     <Input
                       dir="ltr"
                       type="tel"
@@ -278,7 +275,7 @@ export function SplitDialog({
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <Label>Relationship</Label>
+                  <Label>{t('relationship')}</Label>
                   <Input
                     value={contact.relationship_label}
                     onChange={(e) => setContactField(index, 'relationship_label', e.target.value)}
@@ -293,9 +290,7 @@ export function SplitDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{tCommon('cancel')}</Button>
           <Button disabled={isSplitting} onClick={() => void handleSplit()}>
             {isSplitting ? 'Splitting...' : 'Confirm Split'}
           </Button>

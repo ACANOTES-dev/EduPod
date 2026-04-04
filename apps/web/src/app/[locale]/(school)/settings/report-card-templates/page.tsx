@@ -209,7 +209,8 @@ export default function ReportCardTemplatesPage() {
         '/api/v1/report-card-templates',
       );
       setTemplates(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsReportCardTemplatesPage]', err);
       setTemplates([]);
     } finally {
       setIsLoading(false);
@@ -244,7 +245,8 @@ export default function ReportCardTemplatesPage() {
       await apiClient(`/api/v1/report-card-templates/${id}/set-default`, { method: 'POST' });
       toast.success(tr('templateSetAsDefault'));
       void fetchTemplates();
-    } catch {
+    } catch (err) {
+      console.error('[SettingsReportCardTemplatesPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -254,7 +256,8 @@ export default function ReportCardTemplatesPage() {
       await apiClient(`/api/v1/report-card-templates/${id}`, { method: 'DELETE' });
       toast.success(tc('deleted'));
       void fetchTemplates();
-    } catch {
+    } catch (err) {
+      console.error('[SettingsReportCardTemplatesPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -289,7 +292,8 @@ export default function ReportCardTemplatesPage() {
             toast.success(tc('saved'));
             setEditing(null);
             void fetchTemplates();
-          } catch {
+          } catch (err) {
+            console.error('[SettingsReportCardTemplatesPage]', err);
             toast.error(tc('errorGeneric'));
           }
         }}
@@ -480,7 +484,8 @@ function TemplateEditor({ template, isNew, onSave, onCancel }: TemplateEditorPro
       );
       setSections(res.data.sections_json.sort((a, b) => a.order - b.order));
       toast.success(tr('aiConvertSuccess'));
-    } catch {
+    } catch (err) {
+      console.error('[SettingsReportCardTemplatesPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setImporting(false);
@@ -549,8 +554,8 @@ function TemplateEditor({ template, isNew, onSave, onCancel }: TemplateEditorPro
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="en">English (LTR)</SelectItem>
-                    <SelectItem value="ar">Arabic (RTL)</SelectItem>
+                    <SelectItem value="en">{t('englishLtr')}</SelectItem>
+                    <SelectItem value="ar">{t('arabicRtl')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -651,7 +656,7 @@ function TemplateEditor({ template, isNew, onSave, onCancel }: TemplateEditorPro
                   value={branding.primary_color}
                   onChange={(e) => setBranding((b) => ({ ...b, primary_color: e.target.value }))}
                   className="font-mono text-sm"
-                  placeholder="#1d4ed8"
+                  placeholder={t('1d4ed8')}
                   dir="ltr"
                 />
               </div>
@@ -746,7 +751,7 @@ function SectionRow({
             disabled={idx === 0}
             onClick={onMoveUp}
             className="rounded p-0.5 text-text-tertiary hover:text-text-secondary disabled:opacity-30"
-            aria-label="Move up"
+            aria-label={t('moveUp')}
           >
             <ArrowUp className="h-3 w-3" />
           </button>
@@ -755,7 +760,7 @@ function SectionRow({
             disabled={idx === total - 1}
             onClick={onMoveDown}
             className="rounded p-0.5 text-text-tertiary hover:text-text-secondary disabled:opacity-30"
-            aria-label="Move down"
+            aria-label={t('moveDown')}
           >
             <ArrowDown className="h-3 w-3" />
           </button>

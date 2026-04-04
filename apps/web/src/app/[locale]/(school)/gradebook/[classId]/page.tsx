@@ -120,7 +120,7 @@ export default function ClassGradebookPage() {
   React.useEffect(() => {
     apiClient<{ data: AssessmentTemplate[] }>('/api/v1/gradebook/assessment-templates?pageSize=100')
       .then((res) => setAssessmentTemplates(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradebookPage]', err); });
   }, []);
 
   const handleCreateFromTemplate = (tplId: string) => {
@@ -144,7 +144,7 @@ export default function ClassGradebookPage() {
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/subjects?pageSize=100&subject_type=academic')
       .then((res) => setAssessmentSubjects(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradebookPage]', err); });
   }, []);
 
   const fetchAssessments = React.useCallback(
@@ -162,7 +162,8 @@ export default function ClassGradebookPage() {
         );
         setAssessments(res.data);
         setAssessmentsTotal(res.meta.total);
-      } catch {
+      } catch (err) {
+        console.error('[GradebookPage]', err);
         setAssessments([]);
         setAssessmentsTotal(0);
       } finally {
@@ -188,7 +189,8 @@ export default function ClassGradebookPage() {
       setStatusDialogOpen(false);
       setStatusTarget(null);
       void fetchAssessments(assessmentsPage, assessmentSubjectFilter);
-    } catch {
+    } catch (err) {
+      console.error('[GradebookPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -263,9 +265,7 @@ export default function ClassGradebookPage() {
               setNewStatus('');
               setStatusDialogOpen(true);
             }}
-          >
-            Status
-          </Button>
+          >{t('publishingStatus')}</Button>
         </div>
       ),
     },
@@ -291,10 +291,10 @@ export default function ClassGradebookPage() {
     if (activeTab === 'grades') {
       apiClient<ListResponse<SelectOption>>('/api/v1/subjects?pageSize=100&subject_type=academic')
         .then((res) => setPgSubjects(res.data))
-        .catch(() => undefined);
+        .catch((err) => { console.error('[GradebookPage]', err); });
       apiClient<ListResponse<SelectOption>>('/api/v1/academic-periods?pageSize=50')
         .then((res) => setPgPeriods(res.data))
-        .catch(() => undefined);
+        .catch((err) => { console.error('[GradebookPage]', err); });
     }
   }, [activeTab]);
 
@@ -312,7 +312,8 @@ export default function ClassGradebookPage() {
           `/api/v1/gradebook/period-grades?${prms.toString()}`,
         );
         setPeriodGrades(res.data);
-      } catch {
+      } catch (err) {
+        console.error('[GradebookPage]', err);
         setPeriodGrades([]);
       } finally {
         setPeriodGradesLoading(false);
@@ -344,7 +345,8 @@ export default function ClassGradebookPage() {
       });
       void fetchPeriodGrades(pgSubjectId, pgPeriodId);
       toast.success('Grades computed');
-    } catch {
+    } catch (err) {
+      console.error('[GradebookPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setComputing(false);
@@ -363,7 +365,8 @@ export default function ClassGradebookPage() {
       });
       setOverrideDialogOpen(false);
       if (pgSubjectId && pgPeriodId) void fetchPeriodGrades(pgSubjectId, pgPeriodId);
-    } catch {
+    } catch (err) {
+      console.error('[GradebookPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -496,7 +499,7 @@ export default function ClassGradebookPage() {
       {/* Tabs */}
       <nav
         className="flex gap-1 overflow-x-auto border-b border-border"
-        aria-label="Gradebook tabs"
+        aria-label={t('gradebookTabs')}
       >
         {tabs.map((tab) => (
           <button
@@ -531,7 +534,7 @@ export default function ClassGradebookPage() {
                 <SelectValue placeholder={t('subject')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Subjects</SelectItem>
+                <SelectItem value="all">{t('allSubjects')}</SelectItem>
                 {assessmentSubjects.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name}
@@ -559,17 +562,16 @@ export default function ClassGradebookPage() {
           <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Change Status</DialogTitle>
+                <DialogTitle>{t('changeStatus')}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 {statusTarget && (
-                  <p className="text-sm text-text-secondary">
-                    Current: <Badge variant="secondary">{statusTarget.status}</Badge>
+                  <p className="text-sm text-text-secondary">{t('current')}<Badge variant="secondary">{statusTarget.status}</Badge>
                   </p>
                 )}
                 <Select value={newStatus} onValueChange={setNewStatus}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select new status" />
+                    <SelectValue placeholder={t('selectNewStatus')} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="draft">{t('statusDraft')}</SelectItem>
@@ -627,9 +629,7 @@ export default function ClassGradebookPage() {
           </div>
 
           {!pgSubjectId || !pgPeriodId ? (
-            <p className="py-8 text-center text-sm text-text-tertiary">
-              Select a subject and period to view grades.
-            </p>
+            <p className="py-8 text-center text-sm text-text-tertiary">{t('selectASubjectAndPeriod')}</p>
           ) : (
             <DataTable
               columns={periodGradeColumns}
@@ -651,8 +651,7 @@ export default function ClassGradebookPage() {
               </DialogHeader>
               <div className="space-y-4">
                 {overrideTarget && (
-                  <p className="text-sm text-text-secondary">
-                    Student:{' '}
+                  <p className="text-sm text-text-secondary">{t('student')}{' '}
                     <span className="font-medium text-text-primary">
                       {overrideTarget.student_name}
                     </span>
@@ -665,11 +664,11 @@ export default function ClassGradebookPage() {
                     type="number"
                     value={overrideScore}
                     onChange={(e) => setOverrideScore(e.target.value)}
-                    placeholder="Override score"
+                    placeholder={t('overrideScore')}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="override-letter">Letter Grade</Label>
+                  <Label htmlFor="override-letter">{t('letterGrade')}</Label>
                   <Input
                     id="override-letter"
                     value={overrideLetter}

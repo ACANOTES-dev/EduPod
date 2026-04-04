@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { cn } from '@school/ui';
@@ -46,7 +47,7 @@ function statusRowBorder(status: 'pass' | 'fail' | 'warning') {
 
 function ChecklistSkeleton() {
   return (
-    <div className="space-y-3" aria-busy="true" aria-label="Loading readiness checklist">
+    <div className="space-y-3" aria-busy="true" aria-label={t('loadingReadinessChecklist')}>
       <div className="animate-pulse rounded-xl bg-surface-secondary p-4">
         <div className="h-4 w-40 rounded bg-border" />
       </div>
@@ -71,15 +72,14 @@ function ChecklistSkeleton() {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ReadinessChecklist({ categories, isLoading }: ReadinessChecklistProps) {
+  const t = useTranslations('regulatory');
   if (isLoading) {
     return <ChecklistSkeleton />;
   }
 
   if (categories.length === 0) {
     return (
-      <div className="rounded-xl border border-border bg-surface-secondary p-6 text-center text-sm text-text-secondary">
-        No readiness data available.
-      </div>
+      <div className="rounded-xl border border-border bg-surface-secondary p-6 text-center text-sm text-text-secondary">{t('noReadinessDataAvailable')}</div>
     );
   }
 
@@ -115,13 +115,13 @@ export function ReadinessChecklist({ categories, isLoading }: ReadinessChecklist
         <StatusIcon status={overallStatus} />
         <span>{summaryLabel}</span>
         <span className="ms-auto flex gap-3 text-xs font-normal">
-          {passCount > 0 && <span className="text-success-700">{passCount} passed</span>}
+          {passCount > 0 && <span className="text-success-700">{passCount}{t('passed')}</span>}
           {warnCount > 0 && (
             <span className="text-warning-700">
-              {warnCount} warning{warnCount !== 1 ? 's' : ''}
+              {warnCount}{t('warning')}{warnCount !== 1 ? 's' : ''}
             </span>
           )}
-          {failCount > 0 && <span className="text-danger-700">{failCount} failed</span>}
+          {failCount > 0 && <span className="text-danger-700">{failCount}{t('failed')}</span>}
         </span>
       </div>
 
@@ -165,10 +165,9 @@ export function ReadinessChecklist({ categories, isLoading }: ReadinessChecklist
                     />
                   </div>
                   <span className="text-xs text-text-secondary">
-                    {category.details.valid} of {category.details.total} valid
-                    {category.details.issues > 0 && (
+                    {category.details.valid}{t('of')}{category.details.total}{t('valid')}{category.details.issues > 0 && (
                       <span className="ms-1 text-danger-600">
-                        ({category.details.issues} issue{category.details.issues !== 1 ? 's' : ''})
+                        ({category.details.issues}{t('issue')}{category.details.issues !== 1 ? 's' : ''})
                       </span>
                     )}
                   </span>

@@ -1,6 +1,7 @@
 'use client';
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { Button, TableWrapper } from '@school/ui';
@@ -37,6 +38,7 @@ export function DataTable<T>({
   keyExtractor,
   isLoading,
 }: DataTableProps<T>) {
+  const t = useTranslations('common');
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const startItem = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const endItem = Math.min(page * pageSize, total);
@@ -53,7 +55,7 @@ export function DataTable<T>({
               size="icon"
               disabled={page <= 1}
               onClick={() => onPageChange(page - 1)}
-              aria-label="Previous page"
+              aria-label={t('previousPage')}
             >
               <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
             </Button>
@@ -65,7 +67,7 @@ export function DataTable<T>({
               size="icon"
               disabled={page >= totalPages}
               onClick={() => onPageChange(page + 1)}
-              aria-label="Next page"
+              aria-label={t('nextPage')}
             >
               <ChevronRight className="h-4 w-4 rtl:rotate-180" />
             </Button>
@@ -102,9 +104,7 @@ export function DataTable<T>({
               <td
                 colSpan={columns.length}
                 className="px-4 py-12 text-center text-sm text-text-tertiary"
-              >
-                No results found
-              </td>
+              >{t('noResults')}</td>
             </tr>
           ) : (
             data.map((row) => (

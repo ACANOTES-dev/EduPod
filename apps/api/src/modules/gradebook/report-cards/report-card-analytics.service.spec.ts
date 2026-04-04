@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ClassesReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { ReportCardAnalyticsService } from './report-card-analytics.service';
@@ -28,6 +29,8 @@ function buildMockPrisma() {
 
 // ─── getDashboard ─────────────────────────────────────────────────────────────
 
+const mockClassesFacade = { countEnrolmentsGeneric: jest.fn() };
+
 describe('ReportCardAnalyticsService — getDashboard', () => {
   let service: ReportCardAnalyticsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
@@ -37,6 +40,8 @@ describe('ReportCardAnalyticsService — getDashboard', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
         ReportCardAnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -57,7 +62,7 @@ describe('ReportCardAnalyticsService — getDashboard', () => {
       .mockResolvedValueOnce(20); // publishedWithComment
 
     mockPrisma.reportCardApproval.count.mockResolvedValue(3);
-    mockPrisma.classEnrolment.count.mockResolvedValue(40); // active students
+    mockClassesFacade.countEnrolmentsGeneric.mockResolvedValue(40); // active students
 
     const result = await service.getDashboard(TENANT_ID, PERIOD_ID);
 
@@ -82,7 +87,7 @@ describe('ReportCardAnalyticsService — getDashboard', () => {
       .mockResolvedValueOnce(5);
 
     mockPrisma.reportCardApproval.count.mockResolvedValue(0);
-    mockPrisma.classEnrolment.count.mockResolvedValue(0); // no active students
+    mockClassesFacade.countEnrolmentsGeneric.mockResolvedValue(0); // no active students
 
     const result = await service.getDashboard(TENANT_ID, PERIOD_ID);
 
@@ -98,7 +103,7 @@ describe('ReportCardAnalyticsService — getDashboard', () => {
       .mockResolvedValueOnce(0); // publishedWithComment = 0
 
     mockPrisma.reportCardApproval.count.mockResolvedValue(0);
-    mockPrisma.classEnrolment.count.mockResolvedValue(15);
+    mockClassesFacade.countEnrolmentsGeneric.mockResolvedValue(15);
 
     const result = await service.getDashboard(TENANT_ID, PERIOD_ID);
 
@@ -108,7 +113,7 @@ describe('ReportCardAnalyticsService — getDashboard', () => {
   it('should return period_id null when no period is specified', async () => {
     mockPrisma.reportCard.count.mockResolvedValue(0);
     mockPrisma.reportCardApproval.count.mockResolvedValue(0);
-    mockPrisma.classEnrolment.count.mockResolvedValue(0);
+    mockClassesFacade.countEnrolmentsGeneric.mockResolvedValue(0);
 
     const result = await service.getDashboard(TENANT_ID);
 
@@ -138,6 +143,7 @@ describe('ReportCardAnalyticsService — getClassComparison', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ReportCardAnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

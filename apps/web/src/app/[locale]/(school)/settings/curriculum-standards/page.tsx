@@ -101,10 +101,10 @@ export default function CurriculumStandardsPage() {
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/subjects?pageSize=100&subject_type=academic')
       .then((res) => setSubjects(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[SettingsCurriculumStandardsPage]', err); });
     apiClient<ListResponse<SelectOption>>('/api/v1/year-groups?pageSize=100')
       .then((res) => setYearGroups(res.data))
-      .catch(() => undefined);
+      .catch((err) => { console.error('[SettingsCurriculumStandardsPage]', err); });
   }, []);
 
   const fetchStandards = React.useCallback(
@@ -119,7 +119,8 @@ export default function CurriculumStandardsPage() {
         );
         setData(res.data);
         setTotal(res.meta.total);
-      } catch {
+      } catch (err) {
+        console.error('[SettingsCurriculumStandardsPage]', err);
         setData([]);
         setTotal(0);
       } finally {
@@ -178,7 +179,8 @@ export default function CurriculumStandardsPage() {
       }
       setDialogOpen(false);
       void fetchStandards(page, subjectFilter, yearGroupFilter);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsCurriculumStandardsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setSaving(false);
@@ -190,7 +192,8 @@ export default function CurriculumStandardsPage() {
       await apiClient(`/api/v1/gradebook/curriculum-standards/${id}`, { method: 'DELETE' });
       setConfirmDeleteId(null);
       void fetchStandards(page, subjectFilter, yearGroupFilter);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsCurriculumStandardsPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -241,7 +244,8 @@ export default function CurriculumStandardsPage() {
       setCsvPreview([]);
       setCsvFile(null);
       void fetchStandards(1, subjectFilter, yearGroupFilter);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsCurriculumStandardsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setImporting(false);
@@ -338,7 +342,7 @@ export default function CurriculumStandardsPage() {
             <SelectValue placeholder={t('subject')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Subjects</SelectItem>
+            <SelectItem value="all">{t('allSubjects')}</SelectItem>
             {subjects.map((s) => (
               <SelectItem key={s.id} value={s.id}>
                 {s.name}
@@ -358,7 +362,7 @@ export default function CurriculumStandardsPage() {
             <SelectValue placeholder={t('yearGroup')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Year Groups</SelectItem>
+            <SelectItem value="all">{t('allYearGroups')}</SelectItem>
             {yearGroups.map((yg) => (
               <SelectItem key={yg.id} value={yg.id}>
                 {yg.name}
@@ -399,7 +403,7 @@ export default function CurriculumStandardsPage() {
                 id="std-code"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="e.g. MATH.10.A1"
+                placeholder={t('eGMath10A1')}
               />
             </div>
             <div>
@@ -408,7 +412,7 @@ export default function CurriculumStandardsPage() {
                 id="std-desc"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Standard description..."
+                placeholder={t('standardDescription')}
                 rows={3}
               />
             </div>
@@ -431,7 +435,7 @@ export default function CurriculumStandardsPage() {
               <Label>{t('yearGroup')}</Label>
               <Select value={yearGroupId} onValueChange={setYearGroupId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select year group" />
+                  <SelectValue placeholder={t('selectYearGroup')} />
                 </SelectTrigger>
                 <SelectContent>
                   {yearGroups.map((yg) => (
@@ -489,12 +493,8 @@ export default function CurriculumStandardsPage() {
           <div className="space-y-4">
             <div className="rounded-lg border border-border bg-surface-secondary/40 p-4">
               <p className="text-sm font-medium text-text-primary">{t('csvFormat')}</p>
-              <p className="mt-1 text-xs text-text-secondary font-mono">
-                code,description,subject_name,year_group_name
-              </p>
-              <p className="mt-1 text-xs text-text-secondary font-mono">
-                MATH.10.A1,Solve linear equations,Mathematics,Grade 10
-              </p>
+              <p className="mt-1 text-xs text-text-secondary font-mono">{t('codeDescriptionSubjectNameYear')}</p>
+              <p className="mt-1 text-xs text-text-secondary font-mono">{t('math10A1SolveLinear')}</p>
             </div>
 
             <div>
@@ -524,18 +524,10 @@ export default function CurriculumStandardsPage() {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="bg-surface-secondary">
-                        <th className="px-3 py-2 text-start font-medium text-text-secondary">
-                          Code
-                        </th>
-                        <th className="px-3 py-2 text-start font-medium text-text-secondary">
-                          Description
-                        </th>
-                        <th className="px-3 py-2 text-start font-medium text-text-secondary">
-                          Subject
-                        </th>
-                        <th className="px-3 py-2 text-start font-medium text-text-secondary">
-                          Year Group
-                        </th>
+                        <th className="px-3 py-2 text-start font-medium text-text-secondary">{t('standardCode')}</th>
+                        <th className="px-3 py-2 text-start font-medium text-text-secondary">{t('description')}</th>
+                        <th className="px-3 py-2 text-start font-medium text-text-secondary">{t('subject')}</th>
+                        <th className="px-3 py-2 text-start font-medium text-text-secondary">{t('yearGroup')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -552,8 +544,7 @@ export default function CurriculumStandardsPage() {
                       {csvPreview.length > 20 && (
                         <tr className="border-t border-border">
                           <td colSpan={4} className="px-3 py-2 text-center text-text-tertiary">
-                            +{csvPreview.length - 20} more rows
-                          </td>
+                            +{csvPreview.length - 20}{t('moreRows')}</td>
                         </tr>
                       )}
                     </tbody>

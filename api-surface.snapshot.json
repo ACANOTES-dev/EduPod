@@ -22,6 +22,13 @@
   },
   {
     "method": "GET",
+    "path": "/metrics",
+    "controller": "MetricsController",
+    "module": "metrics",
+    "permission": null
+  },
+  {
+    "method": "GET",
     "path": "/v1/academic-periods",
     "controller": "AcademicPeriodsController",
     "module": "academics",
@@ -2104,7 +2111,10 @@
     "path": "/v1/behaviour/tasks/:id/cancel",
     "controller": "BehaviourTasksController",
     "module": "behaviour",
-    "permission": ["behaviour.view", "behaviour.manage"]
+    "permission": [
+      "behaviour.view",
+      "behaviour.manage"
+    ]
   },
   {
     "method": "POST",
@@ -6787,14 +6797,20 @@
     "path": "/v1/period-grid",
     "controller": "PeriodGridController",
     "module": "period-grid",
-    "permission": ["schedule.configure_period_grid", "schedule.view_own"]
+    "permission": [
+      "schedule.configure_period_grid",
+      "schedule.view_own"
+    ]
   },
   {
     "method": "POST",
     "path": "/v1/period-grid",
     "controller": "PeriodGridController",
     "module": "period-grid",
-    "permission": ["schedule.configure_period_grid", "schedule.view_own"]
+    "permission": [
+      "schedule.configure_period_grid",
+      "schedule.view_own"
+    ]
   },
   {
     "method": "DELETE",
@@ -8256,147 +8272,147 @@
     "method": "GET",
     "path": "/v1/safeguarding/break-glass",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.seal"
   },
   {
     "method": "POST",
     "path": "/v1/safeguarding/break-glass",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.view"
   },
   {
     "method": "POST",
     "path": "/v1/safeguarding/break-glass/:id/review",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.seal"
   },
   {
     "method": "GET",
     "path": "/v1/safeguarding/concerns",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.report"
   },
   {
     "method": "POST",
     "path": "/v1/safeguarding/concerns",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.report"
   },
   {
     "method": "GET",
     "path": "/v1/safeguarding/concerns/:id",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.view"
   },
   {
     "method": "PATCH",
     "path": "/v1/safeguarding/concerns/:id",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.view"
   },
   {
     "method": "GET",
     "path": "/v1/safeguarding/concerns/:id/actions",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.manage"
   },
   {
     "method": "POST",
     "path": "/v1/safeguarding/concerns/:id/actions",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.manage"
   },
   {
     "method": "POST",
     "path": "/v1/safeguarding/concerns/:id/assign",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.manage"
   },
   {
     "method": "POST",
     "path": "/v1/safeguarding/concerns/:id/attachments",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.manage"
   },
   {
     "method": "GET",
     "path": "/v1/safeguarding/concerns/:id/attachments/:aid/download",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.manage"
   },
   {
     "method": "POST",
     "path": "/v1/safeguarding/concerns/:id/case-file",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.view"
   },
   {
     "method": "POST",
     "path": "/v1/safeguarding/concerns/:id/case-file/redacted",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.manage"
   },
   {
     "method": "POST",
     "path": "/v1/safeguarding/concerns/:id/garda-referral",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.manage"
   },
   {
     "method": "POST",
     "path": "/v1/safeguarding/concerns/:id/seal/approve",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.seal"
   },
   {
     "method": "POST",
     "path": "/v1/safeguarding/concerns/:id/seal/initiate",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.manage"
   },
   {
     "method": "PATCH",
     "path": "/v1/safeguarding/concerns/:id/status",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.manage"
   },
   {
     "method": "POST",
     "path": "/v1/safeguarding/concerns/:id/tusla-referral",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.view"
   },
   {
     "method": "GET",
     "path": "/v1/safeguarding/dashboard",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.seal"
   },
   {
     "method": "GET",
     "path": "/v1/safeguarding/my-reports",
     "controller": "SafeguardingController",
-    "module": "behaviour",
+    "module": "safeguarding",
     "permission": "safeguarding.report"
   },
   {

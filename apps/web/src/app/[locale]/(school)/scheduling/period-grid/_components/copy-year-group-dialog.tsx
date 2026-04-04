@@ -107,7 +107,8 @@ export function CopyYearGroupDialog({
       toast.success(tv('yearGroupsCopied'));
       onOpenChange(false);
       onCopied();
-    } catch {
+    } catch (err) {
+      console.error('[CopyYearGroupDialog]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setIsCopying(false);

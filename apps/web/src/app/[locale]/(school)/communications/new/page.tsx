@@ -101,7 +101,8 @@ export default function NewAnnouncementPage() {
       });
       toast.success(t('form.saveDraftSuccess'));
       router.push('/communications');
-    } catch {
+    } catch (err) {
+      console.error('[CommunicationsNewPage]', err);
       toast.error(t('form.saveError'));
     } finally {
       setIsSaving(false);
@@ -128,7 +129,8 @@ export default function NewAnnouncementPage() {
       }
       toast.success(t('form.publishSuccess'));
       router.push('/communications');
-    } catch {
+    } catch (err) {
+      console.error('[CommunicationsNewPage]', err);
       toast.error(t('form.saveError'));
     } finally {
       setIsPublishing(false);
@@ -199,9 +201,7 @@ export default function NewAnnouncementPage() {
               onChange={(e) => setTargetIds(e.target.value)}
               placeholder={t('form.targetPlaceholder')}
             />
-            <p className="text-xs text-text-tertiary">
-              Enter comma-separated IDs for the selected scope.
-            </p>
+            <p className="text-xs text-text-tertiary">{t('enterCommaSeparatedIdsFor')}</p>
           </div>
         )}
 

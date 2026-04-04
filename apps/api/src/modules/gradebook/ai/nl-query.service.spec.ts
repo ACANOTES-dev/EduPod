@@ -1,6 +1,7 @@
 import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, StudentReadFacade } from '../../../common/tests/mock-facades';
 import { AnthropicClientService } from '../../ai/anthropic-client.service';
 import { SettingsService } from '../../configuration/settings.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
@@ -53,6 +54,7 @@ describe('NlQueryService — processQuery', () => {
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockSettings: ReturnType<typeof buildMockSettingsService>;
   let mockAnthropicClientService: ReturnType<typeof buildMockAnthropicClient>;
+  const mockStudentFacade = { findManyGeneric: jest.fn() };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
@@ -61,11 +63,13 @@ describe('NlQueryService — processQuery', () => {
       JSON.stringify({ entity: 'student', filters: [], select: [], limit: 50 }),
     );
 
-    mockPrisma.student.findMany.mockResolvedValue([]);
+    mockStudentFacade.findManyGeneric.mockResolvedValue([]);
     mockPrisma.nlQueryHistory.create.mockResolvedValue({ id: 'qh-1' });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
         NlQueryService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettings },
@@ -133,7 +137,7 @@ describe('NlQueryService — processQuery', () => {
       ],
     });
 
-    mockPrisma.student.findMany.mockResolvedValue([
+    mockStudentFacade.findManyGeneric.mockResolvedValue([
       {
         id: 's1',
         first_name: 'Ali',
@@ -278,6 +282,7 @@ describe('NlQueryService — getQueryHistory', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         NlQueryService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: buildMockSettingsService(true) },

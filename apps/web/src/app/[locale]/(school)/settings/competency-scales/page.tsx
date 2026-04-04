@@ -74,7 +74,8 @@ export default function CompetencyScalesPage() {
       );
       setData(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsCompetencyScalesPage]', err);
       setData([]);
       setTotal(0);
     } finally {
@@ -136,7 +137,8 @@ export default function CompetencyScalesPage() {
       }
       setDialogOpen(false);
       void fetchScales(page);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsCompetencyScalesPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setSaving(false);
@@ -148,7 +150,8 @@ export default function CompetencyScalesPage() {
       await apiClient(`/api/v1/gradebook/competency-scales/${id}`, { method: 'DELETE' });
       setConfirmDeleteId(null);
       void fetchScales(page);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsCompetencyScalesPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -297,7 +300,7 @@ export default function CompetencyScalesPage() {
                 id="scale-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Standard Mastery Scale"
+                placeholder={t('eGStandardMasteryScale')}
               />
             </div>
 
@@ -305,20 +308,16 @@ export default function CompetencyScalesPage() {
               <div className="flex items-center justify-between">
                 <Label>{t('levels')}</Label>
                 <Button variant="ghost" size="sm" onClick={addLevel}>
-                  <Plus className="me-1 h-3 w-3" />
-                  Add level
-                </Button>
+                  <Plus className="me-1 h-3 w-3" />{t('addLevel')}</Button>
               </div>
-              <p className="text-xs text-text-secondary">
-                Levels are applied bottom-up. A score ≥ threshold qualifies for that level.
-              </p>
+              <p className="text-xs text-text-secondary">{t('levelsAreAppliedBottomUp')}</p>
 
               {levels.map((lv, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <Input
                     value={lv.label}
                     onChange={(e) => updateLevel(i, 'label', e.target.value)}
-                    placeholder="Level label"
+                    placeholder={t('levelLabel')}
                     className="flex-1"
                   />
                   <div className="flex items-center gap-1 shrink-0">

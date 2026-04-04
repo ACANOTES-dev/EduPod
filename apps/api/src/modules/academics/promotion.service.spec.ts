@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, StudentReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { PromotionService } from './promotion.service';
@@ -43,9 +44,10 @@ const mockPrisma = {
   yearGroup: {
     findMany: jest.fn(),
   },
-  student: {
-    findMany: jest.fn(),
-  },
+};
+
+const mockStudentReadFacade = {
+  findManyGeneric: jest.fn(),
 };
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -89,7 +91,12 @@ describe('PromotionService', () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PromotionService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        PromotionService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: StudentReadFacade, useValue: mockStudentReadFacade },
+      ],
     }).compile();
 
     service = module.get<PromotionService>(PromotionService);
@@ -118,7 +125,7 @@ describe('PromotionService', () => {
     it('should return preview with students grouped by year group', async () => {
       mockPrisma.academicYear.findFirst.mockResolvedValueOnce(academicYear);
       mockPrisma.yearGroup.findMany.mockResolvedValueOnce([yearGroupWithNext, finalYearGroup]);
-      mockPrisma.student.findMany.mockResolvedValueOnce([
+      mockStudentReadFacade.findManyGeneric.mockResolvedValueOnce([
         makeStudent(STUDENT_ID_1, YEAR_GROUP_ID_1),
         makeStudent(STUDENT_ID_2, YEAR_GROUP_ID_2),
       ]);
@@ -132,7 +139,7 @@ describe('PromotionService', () => {
     it('should propose promote for students with a next year group', async () => {
       mockPrisma.academicYear.findFirst.mockResolvedValueOnce(academicYear);
       mockPrisma.yearGroup.findMany.mockResolvedValueOnce([yearGroupWithNext, finalYearGroup]);
-      mockPrisma.student.findMany.mockResolvedValueOnce([
+      mockStudentReadFacade.findManyGeneric.mockResolvedValueOnce([
         makeStudent(STUDENT_ID_1, YEAR_GROUP_ID_1),
       ]);
 
@@ -147,7 +154,7 @@ describe('PromotionService', () => {
     it('should propose graduate for students in the final year group (no next)', async () => {
       mockPrisma.academicYear.findFirst.mockResolvedValueOnce(academicYear);
       mockPrisma.yearGroup.findMany.mockResolvedValueOnce([yearGroupWithNext, finalYearGroup]);
-      mockPrisma.student.findMany.mockResolvedValueOnce([
+      mockStudentReadFacade.findManyGeneric.mockResolvedValueOnce([
         makeStudent(STUDENT_ID_2, YEAR_GROUP_ID_2),
       ]);
 
@@ -162,7 +169,7 @@ describe('PromotionService', () => {
     it('should propose hold_back for students without a year group', async () => {
       mockPrisma.academicYear.findFirst.mockResolvedValueOnce(academicYear);
       mockPrisma.yearGroup.findMany.mockResolvedValueOnce([yearGroupWithNext, finalYearGroup]);
-      mockPrisma.student.findMany.mockResolvedValueOnce([makeStudent(STUDENT_ID_3, null)]);
+      mockStudentReadFacade.findManyGeneric.mockResolvedValueOnce([makeStudent(STUDENT_ID_3, null)]);
 
       const result = await service.preview(TENANT_ID, ACADEMIC_YEAR_ID);
 

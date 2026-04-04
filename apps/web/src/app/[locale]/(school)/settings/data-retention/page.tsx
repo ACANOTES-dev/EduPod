@@ -660,7 +660,7 @@ export default function DataRetentionSettingsPage() {
               <Input
                 id="hold-subject-id"
                 type="text"
-                placeholder="UUID"
+                placeholder={t('uuid')}
                 value={holdSubjectId}
                 onChange={(e) => setHoldSubjectId(e.target.value)}
                 className="w-full text-base"

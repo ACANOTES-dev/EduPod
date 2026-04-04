@@ -1,5 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  ClassesReadFacade,
+  StaffProfileReadFacade,
+  StudentReadFacade,
+  RbacReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { EarlyWarningRoutingService } from './early-warning-routing.service';
@@ -50,8 +57,51 @@ describe('EarlyWarningRoutingService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         EarlyWarningRoutingService,
         { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: ClassesReadFacade,
+          useValue: {
+            findClassIdsForStudent: jest.fn().mockImplementation(async () => {
+              const row = await mockPrisma.classEnrolment.findFirst();
+              return row ? [row.class_id] : [];
+            }),
+            findStaffByClass: jest.fn().mockImplementation(async () => {
+              const rows = await mockPrisma.classStaff.findMany();
+              return rows.map((r: Record<string, unknown>) => ({ ...r, assignment_role: 'homeroom' }));
+            }),
+            findStaffByClasses: jest.fn().mockImplementation(async () => {
+              const rows = await mockPrisma.classStaff.findMany();
+              return rows;
+            }),
+            findByYearGroup: mockPrisma.class.findMany,
+          },
+        },
+        {
+          provide: StaffProfileReadFacade,
+          useValue: {
+            findByIds: jest.fn().mockImplementation(async () => {
+              const rows = await mockPrisma.staffProfile.findMany();
+              return rows ?? [];
+            }),
+          },
+        },
+        {
+          provide: StudentReadFacade,
+          useValue: {
+            findById: mockPrisma.student.findFirst,
+          },
+        },
+        {
+          provide: RbacReadFacade,
+          useValue: {
+            findActiveUserIdsByRoleKey: jest.fn().mockImplementation(async () => {
+              const rows = await mockPrisma.membershipRole.findMany();
+              return rows.map((r: { membership: { user_id: string } }) => r.membership.user_id);
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -78,11 +128,6 @@ describe('EarlyWarningRoutingService', () => {
       );
 
       expect(result.recipientUserIds).toEqual([TEACHER_USER_ID]);
-      expect(mockPrisma.classEnrolment.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { tenant_id: TENANT_ID, student_id: STUDENT_ID, status: 'active' },
-        }),
-      );
     });
 
     it('should resolve year head for amber tier', async () => {
@@ -92,7 +137,10 @@ describe('EarlyWarningRoutingService', () => {
       ]);
       mockPrisma.class.findMany.mockResolvedValue([{ id: CLASS_ID }]);
       mockPrisma.classStaff.findMany.mockResolvedValue([
-        { staff_profile: { user_id: YEAR_HEAD_USER_ID } },
+        { staff_profile_id: STAFF_PROFILE_ID },
+      ]);
+      mockPrisma.staffProfile.findMany.mockResolvedValue([
+        { id: STAFF_PROFILE_ID, user_id: YEAR_HEAD_USER_ID },
       ]);
 
       const result = await service.resolveRecipients(

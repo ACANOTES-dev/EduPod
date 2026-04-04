@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 
+import { MOCK_FACADE_PROVIDERS, TenantReadFacade } from '../../common/tests/mock-facades';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
@@ -58,9 +59,21 @@ describe('InvoicesController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [InvoicesController],
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         { provide: InvoicesService, useValue: mockInvoicesService },
         { provide: PdfRenderingService, useValue: mockPdfRenderingService },
         { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: TenantReadFacade,
+          useValue: {
+            findBranding: jest.fn().mockResolvedValue({
+              school_name_display: 'My School',
+              school_name_ar: null,
+              logo_url: null,
+              primary_color: null,
+            }),
+          },
+        },
       ],
     })
       .overrideGuard(AuthGuard)

@@ -54,7 +54,8 @@ export default function AcademicYearsPage() {
         '/api/v1/academic-years?pageSize=100&sort=start_date&order=desc',
       );
       setYears(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[SettingsAcademicYearsPage]', err);
       setYears([]);
     } finally {
       setLoading(false);

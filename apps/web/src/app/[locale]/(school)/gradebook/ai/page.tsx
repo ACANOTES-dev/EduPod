@@ -56,7 +56,7 @@ export default function AiQueryPage() {
   React.useEffect(() => {
     apiClient<HistoryResponse>('/api/v1/gradebook/ai-query/history?pageSize=10')
       .then((res) => setHistory(res.data))
-      .catch(() => undefined)
+      .catch((err) => { console.error('[GradebookAiPage]', err); })
       .finally(() => setLoadingHistory(false));
   }, []);
 
@@ -76,7 +76,8 @@ export default function AiQueryPage() {
         '/api/v1/gradebook/ai-query/history?pageSize=10',
       );
       setHistory(hist.data);
-    } catch {
+    } catch (err) {
+      console.error('[GradebookAiPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setLoading(false);

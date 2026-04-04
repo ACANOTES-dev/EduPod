@@ -2,6 +2,7 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ParentReadFacade, StudentReadFacade, TenantReadFacade } from '../../common/tests/mock-facades';
 import { AcademicPeriodsService } from '../academics/academic-periods.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -56,6 +57,10 @@ const mockAcademicPeriodsService = {
   findAll: jest.fn(),
 };
 
+const mockParentFacade = { findByUserId: jest.fn() };
+const mockStudentFacade = { isParentLinked: jest.fn() };
+const mockTenantFacade = { findDefaultLocale: jest.fn(), findNameById: jest.fn(), findBranding: jest.fn() };
+
 describe('ParentGradebookController', () => {
   let controller: ParentGradebookController;
 
@@ -63,6 +68,10 @@ describe('ParentGradebookController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ParentGradebookController],
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ParentReadFacade, useValue: mockParentFacade },
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
+        { provide: TenantReadFacade, useValue: mockTenantFacade },
         { provide: GradesService, useValue: mockGradesService },
         { provide: ReportCardsQueriesService, useValue: mockReportCardsQueriesService },
         { provide: TranscriptsService, useValue: mockTranscriptsService },
@@ -97,12 +106,8 @@ describe('ParentGradebookController', () => {
   // ─── Student Grades ─────────────────────────────────────────────────────
 
   it('should return grades for a student when parent is linked', async () => {
-    mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID });
-    mockPrisma.studentParent.findUnique.mockResolvedValue({
-      student_id: STUDENT_ID,
-      parent_id: PARENT_ID,
-      tenant_id: TENANT_ID,
-    });
+    mockParentFacade.findByUserId.mockResolvedValue({ id: PARENT_ID });
+    mockStudentFacade.isParentLinked.mockResolvedValue(true);
     const grades = [{ id: 'grade-1', raw_score: 85 }];
     mockGradesService.findByStudent.mockResolvedValue(grades);
 
@@ -113,7 +118,7 @@ describe('ParentGradebookController', () => {
   });
 
   it('should throw NotFoundException when no parent profile exists for the current user', async () => {
-    mockPrisma.parent.findFirst.mockResolvedValue(null);
+    mockParentFacade.findByUserId.mockResolvedValue(null);
 
     await expect(
       controller.getStudentGrades(tenantContext, userContext, STUDENT_ID, {}),
@@ -121,8 +126,8 @@ describe('ParentGradebookController', () => {
   });
 
   it('should throw ForbiddenException when parent is not linked to the student', async () => {
-    mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID });
-    mockPrisma.studentParent.findUnique.mockResolvedValue(null);
+    mockParentFacade.findByUserId.mockResolvedValue({ id: PARENT_ID });
+    mockStudentFacade.isParentLinked.mockResolvedValue(false);
 
     await expect(
       controller.getStudentGrades(tenantContext, userContext, STUDENT_ID, {}),
@@ -132,12 +137,8 @@ describe('ParentGradebookController', () => {
   // ─── Student Report Cards ──────────────────────────────────────────────
 
   it('should return published report cards for a linked student', async () => {
-    mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID });
-    mockPrisma.studentParent.findUnique.mockResolvedValue({
-      student_id: STUDENT_ID,
-      parent_id: PARENT_ID,
-      tenant_id: TENANT_ID,
-    });
+    mockParentFacade.findByUserId.mockResolvedValue({ id: PARENT_ID });
+    mockStudentFacade.isParentLinked.mockResolvedValue(true);
     const reportCards = { data: [{ id: REPORT_CARD_ID, status: 'published' }] };
     mockReportCardsQueriesService.findAll.mockResolvedValue(reportCards);
 
@@ -158,12 +159,8 @@ describe('ParentGradebookController', () => {
   // ─── Report Card PDF ───────────────────────────────────────────────────
 
   it('should throw ForbiddenException when report card does not belong to the student', async () => {
-    mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID });
-    mockPrisma.studentParent.findUnique.mockResolvedValue({
-      student_id: STUDENT_ID,
-      parent_id: PARENT_ID,
-      tenant_id: TENANT_ID,
-    });
+    mockParentFacade.findByUserId.mockResolvedValue({ id: PARENT_ID });
+    mockStudentFacade.isParentLinked.mockResolvedValue(true);
     mockReportCardsQueriesService.findOne.mockResolvedValue({
       id: REPORT_CARD_ID,
       student_id: 'different-student-id',
@@ -186,12 +183,8 @@ describe('ParentGradebookController', () => {
   });
 
   it('should throw ForbiddenException when report card is not yet published', async () => {
-    mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID });
-    mockPrisma.studentParent.findUnique.mockResolvedValue({
-      student_id: STUDENT_ID,
-      parent_id: PARENT_ID,
-      tenant_id: TENANT_ID,
-    });
+    mockParentFacade.findByUserId.mockResolvedValue({ id: PARENT_ID });
+    mockStudentFacade.isParentLinked.mockResolvedValue(true);
     mockReportCardsQueriesService.findOne.mockResolvedValue({
       id: REPORT_CARD_ID,
       student_id: STUDENT_ID,
@@ -214,12 +207,8 @@ describe('ParentGradebookController', () => {
   });
 
   it('should stream PDF when report card is published and belongs to the student', async () => {
-    mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID });
-    mockPrisma.studentParent.findUnique.mockResolvedValue({
-      student_id: STUDENT_ID,
-      parent_id: PARENT_ID,
-      tenant_id: TENANT_ID,
-    });
+    mockParentFacade.findByUserId.mockResolvedValue({ id: PARENT_ID });
+    mockStudentFacade.isParentLinked.mockResolvedValue(true);
     mockReportCardsQueriesService.findOne.mockResolvedValue({
       id: REPORT_CARD_ID,
       student_id: STUDENT_ID,
@@ -227,8 +216,8 @@ describe('ParentGradebookController', () => {
       template_locale: 'en',
       snapshot_payload_json: { student: 'Ali' },
     });
-    mockPrisma.tenant.findFirst.mockResolvedValue({ name: 'Test School' });
-    mockPrisma.tenantBranding.findFirst.mockResolvedValue(null);
+    mockTenantFacade.findNameById.mockResolvedValue('Test School');
+    mockTenantFacade.findBranding.mockResolvedValue(null);
     const pdfBuffer = Buffer.from('%PDF-1.4');
     mockPdfRenderingService.renderPdf.mockResolvedValue(pdfBuffer);
 
@@ -257,16 +246,13 @@ describe('ParentGradebookController', () => {
   // ─── Transcript PDF ────────────────────────────────────────────────────
 
   it('should stream a transcript PDF for a linked student', async () => {
-    mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID });
-    mockPrisma.studentParent.findUnique.mockResolvedValue({
-      student_id: STUDENT_ID,
-      parent_id: PARENT_ID,
-      tenant_id: TENANT_ID,
-    });
+    mockParentFacade.findByUserId.mockResolvedValue({ id: PARENT_ID });
+    mockStudentFacade.isParentLinked.mockResolvedValue(true);
     const transcriptData = { student: { id: STUDENT_ID }, periods: [] };
     mockTranscriptsService.getTranscriptData.mockResolvedValue(transcriptData);
-    mockPrisma.tenant.findFirst.mockResolvedValue({ name: 'Test School', default_locale: 'ar' });
-    mockPrisma.tenantBranding.findFirst.mockResolvedValue(null);
+    mockTenantFacade.findDefaultLocale.mockResolvedValue('ar');
+    mockTenantFacade.findNameById.mockResolvedValue('Test School');
+    mockTenantFacade.findBranding.mockResolvedValue(null);
     const pdfBuffer = Buffer.from('%PDF-1.4');
     mockPdfRenderingService.renderPdf.mockResolvedValue(pdfBuffer);
 

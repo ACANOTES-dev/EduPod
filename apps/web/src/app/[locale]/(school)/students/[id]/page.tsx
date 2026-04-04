@@ -2,6 +2,7 @@
 
 import { ChevronDown, Edit, HeartHandshake } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -95,6 +96,8 @@ const nextStatuses: Record<Student['status'], string[]> = {
 export default function StudentHubPage() {
   const _params = useParams<{ id: string }>();
   const id = _params?.id ?? '';
+  const t = useTranslations('students');
+  const tCommon = useTranslations('common');
   const router = useRouter();
 
   const [student, setStudent] = React.useState<Student | null>(null);
@@ -145,7 +148,7 @@ export default function StudentHubPage() {
       }>;
     }>(`/api/v1/homework/analytics/student/${id}`)
       .then((res) => setHwData(res))
-      .catch(() => console.error('[StudentHub] Failed to load homework data'))
+      .catch((err) => console.error('[StudentHub] Failed to load homework data', err))
       .finally(() => setHwLoading(false));
   }, [id]);
 
@@ -156,7 +159,7 @@ export default function StudentHubPage() {
     if (!id) return;
     apiClient<{ data: SenProfileSummary }>(`/api/v1/sen/students/${id}/profile`, { silent: true })
       .then((res) => setSenProfile(res.data))
-      .catch(() => setSenProfile(null));
+      .catch((err) => { console.error('[StudentsPage]', err); return setSenProfile(null); });
   }, [id]);
 
   const handleStatusChange = async (newStatus: string) => {
@@ -169,7 +172,8 @@ export default function StudentHubPage() {
       });
       setStudent(res.data);
       toast.success(`Status changed to ${newStatus}`);
-    } catch {
+    } catch (err) {
+      console.error('[StudentsPage]', err);
       toast.error('Failed to update status');
     } finally {
       setIsChangingStatus(false);
@@ -188,9 +192,7 @@ export default function StudentHubPage() {
 
   if (!student) {
     return (
-      <div className="flex h-64 items-center justify-center text-text-tertiary">
-        Student not found.
-      </div>
+      <div className="flex h-64 items-center justify-center text-text-tertiary">{t('studentNotFound')}</div>
     );
   }
 
@@ -199,16 +201,12 @@ export default function StudentHubPage() {
   const actions = (
     <>
       <Button variant="outline" onClick={() => router.push(`/students/${id}/edit`)}>
-        <Edit className="me-2 h-4 w-4" />
-        Edit
-      </Button>
+        <Edit className="me-2 h-4 w-4" />{tCommon('edit')}</Button>
 
       {allowedNextStatuses.length > 0 && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" disabled={isChangingStatus}>
-              Change Status
-              <ChevronDown className="ms-2 h-4 w-4" />
+            <Button variant="outline" disabled={isChangingStatus}>{t('statusChange')}<ChevronDown className="ms-2 h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
@@ -253,7 +251,7 @@ export default function StudentHubPage() {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         {student.gender && (
           <div>
-            <dt className="text-xs text-text-tertiary">Gender</dt>
+            <dt className="text-xs text-text-tertiary">{t('gender')}</dt>
             <dd className="text-sm font-medium text-text-primary capitalize">
               {student.gender.replace(/_/g, ' ')}
             </dd>
@@ -261,19 +259,19 @@ export default function StudentHubPage() {
         )}
         {student.year_group && (
           <div>
-            <dt className="text-xs text-text-tertiary">Year Group</dt>
+            <dt className="text-xs text-text-tertiary">{t('yearGroup')}</dt>
             <dd className="text-sm font-medium text-text-primary">{student.year_group.name}</dd>
           </div>
         )}
         {student.nationality && (
           <div>
-            <dt className="text-xs text-text-tertiary">Nationality</dt>
+            <dt className="text-xs text-text-tertiary">{t('nationality')}</dt>
             <dd className="text-sm font-medium text-text-primary">{student.nationality}</dd>
           </div>
         )}
         {student.city_of_birth && (
           <div>
-            <dt className="text-xs text-text-tertiary">City of Birth</dt>
+            <dt className="text-xs text-text-tertiary">{t('cityOfBirth')}</dt>
             <dd className="text-sm font-medium text-text-primary">{student.city_of_birth}</dd>
           </div>
         )}
@@ -282,7 +280,7 @@ export default function StudentHubPage() {
       {/* Household */}
       {student.household && (
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-text-primary">Household</h3>
+          <h3 className="mb-2 text-sm font-semibold text-text-primary">{t('household')}</h3>
           <EntityLink
             entityType="household"
             entityId={student.household.id}
@@ -295,7 +293,7 @@ export default function StudentHubPage() {
       {/* Parents */}
       {student.parents && student.parents.length > 0 && (
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-text-primary">Parents / Guardians</h3>
+          <h3 className="mb-2 text-sm font-semibold text-text-primary">{t('parentsGuardians')}</h3>
           <ul className="space-y-2">
             {student.parents.map((parent) => (
               <li key={parent.id} className="flex items-center gap-2">
@@ -308,7 +306,7 @@ export default function StudentHubPage() {
                 {parent.relationship_label && (
                   <span className="text-xs text-text-tertiary">({parent.relationship_label})</span>
                 )}
-                {parent.is_primary_contact && <StatusBadge status="info">Primary</StatusBadge>}
+                {parent.is_primary_contact && <StatusBadge status="info">{t('primary')}</StatusBadge>}
               </li>
             ))}
           </ul>
@@ -320,7 +318,7 @@ export default function StudentHubPage() {
   const classesTab = (
     <div>
       {!student.class_enrolments || student.class_enrolments.length === 0 ? (
-        <p className="text-sm text-text-tertiary">No class enrolments found.</p>
+        <p className="text-sm text-text-tertiary">{t('noClassEnrolmentsFound')}</p>
       ) : (
         <ul className="divide-y divide-border rounded-xl border border-border">
           {student.class_enrolments.map((enrolment) => (
@@ -363,20 +361,20 @@ export default function StudentHubPage() {
 
       {student.has_allergy && student.allergy_details && (
         <div className="rounded-xl border border-warning-border bg-warning-surface p-4">
-          <p className="text-sm font-semibold text-warning-text">Allergy Details</p>
+          <p className="text-sm font-semibold text-warning-text">{t('allergyDetails')}</p>
           <p className="mt-1 text-sm text-text-primary">{student.allergy_details}</p>
         </div>
       )}
 
       {student.medical_notes && (
         <div>
-          <h3 className="mb-1 text-sm font-semibold text-text-primary">Medical Notes</h3>
+          <h3 className="mb-1 text-sm font-semibold text-text-primary">{t('medicalNotes')}</h3>
           <p className="text-sm text-text-secondary">{student.medical_notes}</p>
         </div>
       )}
 
       {!student.has_allergy && !student.medical_notes && (
-        <p className="text-sm text-text-tertiary">No medical information on file.</p>
+        <p className="text-sm text-text-tertiary">{t('noMedicalInformationOnFile')}</p>
       )}
     </div>
   );
@@ -390,7 +388,7 @@ export default function StudentHubPage() {
           ))}
         </div>
       ) : !hwData ? (
-        <p className="text-sm text-text-tertiary">No homework data available.</p>
+        <p className="text-sm text-text-tertiary">{t('noHomeworkDataAvailable')}</p>
       ) : (
         <>
           <div className="grid grid-cols-3 gap-3">
@@ -398,23 +396,23 @@ export default function StudentHubPage() {
               <p className="text-2xl font-bold text-text-primary">
                 {hwData.overall.total_assigned}
               </p>
-              <p className="text-xs text-text-tertiary">Total Assigned</p>
+              <p className="text-xs text-text-tertiary">{t('totalAssigned')}</p>
             </div>
             <div className="rounded-xl border border-border bg-surface p-4 text-center">
               <p className="text-2xl font-bold text-green-600">{hwData.overall.total_completed}</p>
-              <p className="text-xs text-text-tertiary">Completed</p>
+              <p className="text-xs text-text-tertiary">{t('completed')}</p>
             </div>
             <div className="rounded-xl border border-border bg-surface p-4 text-center">
               <p className="text-2xl font-bold text-primary-600">
                 {hwData.overall.completion_rate}%
               </p>
-              <p className="text-xs text-text-tertiary">Completion Rate</p>
+              <p className="text-xs text-text-tertiary">{t('completionRate')}</p>
             </div>
           </div>
 
           {hwData.by_subject.length > 0 && (
             <div>
-              <h3 className="mb-2 text-sm font-semibold text-text-primary">By Subject</h3>
+              <h3 className="mb-2 text-sm font-semibold text-text-primary">{t('bySubject')}</h3>
               <ul className="divide-y divide-border rounded-xl border border-border">
                 {hwData.by_subject.map((subj) => (
                   <li
@@ -452,19 +450,19 @@ export default function StudentHubPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
               <div>
-                <dt className="text-xs text-text-tertiary">Category</dt>
+                <dt className="text-xs text-text-tertiary">{t('category')}</dt>
                 <dd className="text-sm font-medium text-text-primary">
                   {senProfile.primary_category}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-text-tertiary">Support Level</dt>
+                <dt className="text-xs text-text-tertiary">{t('supportLevel')}</dt>
                 <dd className="text-sm font-medium text-text-primary">
                   {senProfile.support_level}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-text-tertiary">Coordinator</dt>
+                <dt className="text-xs text-text-tertiary">{t('coordinator')}</dt>
                 <dd className="text-sm font-medium text-text-primary">
                   {senProfile.sen_coordinator_name ?? '—'}
                 </dd>
@@ -476,9 +474,7 @@ export default function StudentHubPage() {
                 size="sm"
                 onClick={() => router.push(`/sen/students/${id}`)}
               >
-                <HeartHandshake className="me-2 h-4 w-4" />
-                View Full SEN Profile
-              </Button>
+                <HeartHandshake className="me-2 h-4 w-4" />{t('viewFullSenProfile')}</Button>
             )}
           </div>
         ),
@@ -508,7 +504,7 @@ export default function StudentHubPage() {
     >
       {senProfile && (
         <div className="flex items-center gap-2">
-          <Badge variant="info">SEN</Badge>
+          <Badge variant="info">{t('sen')}</Badge>
           <span className="text-sm text-text-secondary">
             {senProfile.primary_category} · {senProfile.support_level}
           </span>

@@ -100,7 +100,8 @@ export default function StripeConfigPage() {
         } else {
           setIsEditing(true);
         }
-      } catch {
+      } catch (err) {
+        console.error('[SettingsStripePage]', err);
         // Not configured yet
         setIsEditing(true);
       } finally {
@@ -219,7 +220,7 @@ export default function StripeConfigPage() {
                 id="stripe-secret-key"
                 value={secretKey}
                 onChange={setSecretKey}
-                placeholder="sk_live_..."
+                placeholder={t('skLive')}
               />
             </div>
 
@@ -232,7 +233,7 @@ export default function StripeConfigPage() {
                 type="text"
                 value={publishableKey}
                 onChange={(e) => setPublishableKey(e.target.value)}
-                placeholder="pk_live_..."
+                placeholder={t('pkLive')}
                 className="font-mono"
                 autoComplete="off"
               />
@@ -246,7 +247,7 @@ export default function StripeConfigPage() {
                 id="stripe-webhook-secret"
                 value={webhookSecret}
                 onChange={setWebhookSecret}
-                placeholder="whsec_..."
+                placeholder={t('whsec')}
               />
             </div>
           </div>

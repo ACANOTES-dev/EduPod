@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AcademicReadFacade, MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { SenReportsService } from './sen-reports.service';
@@ -13,8 +14,8 @@ const YEAR_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 describe('SenReportsService', () => {
   let service: SenReportsService;
 
-  const academicYearMock = {
-    findFirst: jest.fn(),
+  const mockAcademicReadFacade = {
+    findYearById: jest.fn().mockResolvedValue(null),
   };
 
   const senProfileMock = {
@@ -42,7 +43,6 @@ describe('SenReportsService', () => {
   };
 
   const mockPrisma = {
-    academicYear: academicYearMock,
     senProfile: senProfileMock,
     senSupportPlan: senSupportPlanMock,
     senGoal: senGoalMock,
@@ -62,10 +62,12 @@ describe('SenReportsService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         SenReportsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SenScopeService, useValue: mockScopeService },
         { provide: SenResourceService, useValue: mockResourceService },
+        { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
       ],
     }).compile();
 
@@ -79,7 +81,7 @@ describe('SenReportsService', () => {
 
   describe('getNcseReturn', () => {
     it('aggregates profile, resource, gender, and year-group data', async () => {
-      academicYearMock.findFirst.mockResolvedValue({ id: YEAR_ID, name: '2025/2026' });
+      mockAcademicReadFacade.findYearById.mockResolvedValue({ id: YEAR_ID, name: '2025/2026' });
       senProfileMock.findMany.mockResolvedValue([
         {
           primary_category: 'learning',
@@ -240,7 +242,7 @@ describe('SenReportsService', () => {
       const recentProgress = new Date();
       recentProgress.setDate(recentProgress.getDate() - 5);
 
-      academicYearMock.findFirst.mockResolvedValue({ id: YEAR_ID, name: '2025/2026' });
+      mockAcademicReadFacade.findYearById.mockResolvedValue({ id: YEAR_ID, name: '2025/2026' });
       senSupportPlanMock.findMany
         .mockResolvedValueOnce([
           {

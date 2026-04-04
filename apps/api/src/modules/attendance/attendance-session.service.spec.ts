@@ -10,6 +10,11 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  ClassesReadFacade,
+  SchedulesReadFacade,
+} from '../../common/tests/mock-facades';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -25,6 +30,8 @@ describe('AttendanceSessionService', () => {
   let mockTx: any;
   let mockSettings: any;
   let mockClosures: any;
+  let mockClassesFacade: any;
+  let mockSchedulesFacade: any;
 
   const TENANT_ID = 'tenant-1';
   const USER_ID = 'user-1';
@@ -76,12 +83,27 @@ describe('AttendanceSessionService', () => {
       isClosureDate: jest.fn().mockResolvedValue(false),
     };
 
+    mockClassesFacade = {
+      findByIdWithAcademicYear: jest.fn().mockResolvedValue(null),
+      isStaffAssignedToClass: jest.fn().mockResolvedValue(false),
+      findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
+      findEnrolledStudentsWithNumber: jest.fn().mockResolvedValue([]),
+      findClassIdsByStaff: jest.fn().mockResolvedValue(null),
+    };
+
+    mockSchedulesFacade = {
+      findByWeekdayWithClassYearGroup: jest.fn().mockResolvedValue([]),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AttendanceSessionService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettings },
         { provide: SchoolClosuresService, useValue: mockClosures },
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: SchedulesReadFacade, useValue: mockSchedulesFacade },
       ],
     }).compile();
 
@@ -99,25 +121,25 @@ describe('AttendanceSessionService', () => {
     };
 
     beforeEach(() => {
-      mockPrisma.class.findFirst.mockResolvedValue({
+      mockClassesFacade.findByIdWithAcademicYear.mockResolvedValue({
         id: CLASS_ID,
         academic_year: {
           start_date: new Date('2024-09-01'),
           end_date: new Date('2025-06-30'),
         },
       });
-      mockPrisma.classStaff.findFirst.mockResolvedValue({ class_id: CLASS_ID });
+      mockClassesFacade.isStaffAssignedToClass.mockResolvedValue(true);
     });
 
     it('should throw NotFoundException if class does not exist', async () => {
-      mockPrisma.class.findFirst.mockResolvedValue(null);
+      mockClassesFacade.findByIdWithAcademicYear.mockResolvedValue(null);
       await expect(
         service.createSession(TENANT_ID, USER_ID, defaultDto, ['attendance.take']),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ForbiddenException if user lacks manage perm and is not assigned', async () => {
-      mockPrisma.classStaff.findFirst.mockResolvedValue(null);
+      mockClassesFacade.isStaffAssignedToClass.mockResolvedValue(false);
       await expect(
         service.createSession(
           TENANT_ID,
@@ -188,10 +210,7 @@ describe('AttendanceSessionService', () => {
       });
       mockTx.attendanceSession.findFirst.mockResolvedValue(null);
       mockTx.attendanceSession.create.mockResolvedValue({ id: 'sess-bulk' });
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
-        { student_id: 'stu-1' },
-        { student_id: 'stu-2' },
-      ]);
+      mockClassesFacade.findEnrolledStudentIds.mockResolvedValue(['stu-1', 'stu-2']);
       mockTx.attendanceRecord.createMany.mockResolvedValue({ count: 2 });
 
       const result = await service.createSession(TENANT_ID, USER_ID, defaultDto, [
@@ -255,7 +274,7 @@ describe('AttendanceSessionService', () => {
 
   describe('Queries', () => {
     it('findAllSessions should filter by teacher assignment', async () => {
-      mockPrisma.classStaff.findMany.mockResolvedValue([{ class_id: 'class-1' }]);
+      mockClassesFacade.findClassIdsByStaff.mockResolvedValue(['class-1']);
       mockPrisma.attendanceSession.findMany.mockResolvedValue([{ id: 'sess-1' }]);
       mockPrisma.attendanceSession.count.mockResolvedValue(1);
 
@@ -277,7 +296,7 @@ describe('AttendanceSessionService', () => {
         class_id: 'class-1',
         schedule: null,
       });
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student: { id: 'stu-1' } }]);
+      mockClassesFacade.findEnrolledStudentsWithNumber.mockResolvedValue([{ student: { id: 'stu-1' } }]);
 
       const result = await service.findOneSession(TENANT_ID, 'sess-1');
       expect(result.enrolled_students).toEqual([{ id: 'stu-1' }]);
@@ -286,7 +305,7 @@ describe('AttendanceSessionService', () => {
 
   describe('batchGenerateSessions', () => {
     it('should create sessions for active schedules that are not closures', async () => {
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      mockSchedulesFacade.findByWeekdayWithClassYearGroup.mockResolvedValue([
         { id: 'sched-1', class_id: 'class-1', class_entity: { year_group_id: 'yg-1' } },
       ]);
       mockClosures.isClosureDate.mockResolvedValue(false);

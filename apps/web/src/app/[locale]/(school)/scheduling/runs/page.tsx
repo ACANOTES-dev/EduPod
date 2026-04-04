@@ -90,7 +90,7 @@ export default function SchedulingRunsPage() {
         setYears(data);
         if (data.length > 0) setSelectedYear(data[0]!.id);
       })
-      .catch(() => {});
+      .catch((err) => { console.error('[SchedulingRunsPage]', err); });
   }, []);
 
   // Load runs
@@ -99,7 +99,7 @@ export default function SchedulingRunsPage() {
     setLoading(true);
     apiClient<{ data: SchedulingRun[] }>(`/api/v1/scheduling-runs?academic_year_id=${selectedYear}`)
       .then((res) => setRuns(res.data ?? []))
-      .catch(() => setRuns([]))
+      .catch((err) => { console.error('[SchedulingRunsPage]', err); return setRuns([]); })
       .finally(() => setLoading(false));
   }, [selectedYear]);
 
@@ -222,7 +222,7 @@ export default function SchedulingRunsPage() {
                           {run.score}
                         </span>
                       ) : (
-                        <span className="text-text-tertiary">\u2014</span>
+                        <span className="text-text-tertiary">{t('u2014')}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-text-secondary">

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, StaffProfileReadFacade, ClassesReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourScopeService } from './behaviour-scope.service';
@@ -15,6 +16,8 @@ describe('BehaviourScopeService', () => {
     classStaff: { findMany: jest.Mock };
     classEnrolment: { findMany: jest.Mock };
   };
+  let mockStaffProfileReadFacade: { findByUserId: jest.Mock };
+  let mockClassesReadFacade: { findClassIdsByStaff: jest.Mock; findEnrolledStudentIds: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -23,10 +26,22 @@ describe('BehaviourScopeService', () => {
       classEnrolment: { findMany: jest.fn() },
     };
 
+    mockStaffProfileReadFacade = {
+      findByUserId: jest.fn().mockResolvedValue(null),
+    };
+
+    mockClassesReadFacade = {
+      findClassIdsByStaff: jest.fn().mockResolvedValue([]),
+      findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         BehaviourScopeService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: StaffProfileReadFacade, useValue: mockStaffProfileReadFacade },
+        { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
       ],
     }).compile();
 
@@ -53,16 +68,11 @@ describe('BehaviourScopeService', () => {
     });
 
     it('should return "class" scope with student IDs for behaviour.view with staff profile', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_PROFILE_ID });
-      mockPrisma.classStaff.findMany.mockResolvedValue([
-        { class_id: 'class-1' },
-        { class_id: 'class-2' },
-      ]);
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
-        { student_id: 'student-1' },
-        { student_id: 'student-2' },
-        { student_id: 'student-1' }, // Duplicate — should be deduplicated
-      ]);
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: STAFF_PROFILE_ID });
+      mockClassesReadFacade.findClassIdsByStaff.mockResolvedValue(['class-1', 'class-2']);
+      mockClassesReadFacade.findEnrolledStudentIds
+        .mockResolvedValueOnce(['student-1', 'student-2'])
+        .mockResolvedValueOnce(['student-1']); // Duplicate — should be deduplicated
 
       const result = await service.getUserScope(TENANT_ID, USER_ID, ['behaviour.view']);
 
@@ -73,8 +83,8 @@ describe('BehaviourScopeService', () => {
     });
 
     it('should return "own" scope for behaviour.view with staff profile but no class assignments', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_PROFILE_ID });
-      mockPrisma.classStaff.findMany.mockResolvedValue([]);
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: STAFF_PROFILE_ID });
+      mockClassesReadFacade.findClassIdsByStaff.mockResolvedValue([]);
 
       const result = await service.getUserScope(TENANT_ID, USER_ID, ['behaviour.view']);
 
@@ -82,7 +92,7 @@ describe('BehaviourScopeService', () => {
     });
 
     it('should return "own" scope for behaviour.view with no staff profile', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue(null);
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue(null);
 
       const result = await service.getUserScope(TENANT_ID, USER_ID, ['behaviour.view']);
 
@@ -102,23 +112,13 @@ describe('BehaviourScopeService', () => {
     });
 
     it('should query class enrolments with active status filter', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_PROFILE_ID });
-      mockPrisma.classStaff.findMany.mockResolvedValue([{ class_id: 'class-1' }]);
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
-        { student_id: 'student-1' },
-      ]);
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: STAFF_PROFILE_ID });
+      mockClassesReadFacade.findClassIdsByStaff.mockResolvedValue(['class-1']);
+      mockClassesReadFacade.findEnrolledStudentIds.mockResolvedValue(['student-1']);
 
       await service.getUserScope(TENANT_ID, USER_ID, ['behaviour.view']);
 
-      expect(mockPrisma.classEnrolment.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            class_id: { in: ['class-1'] },
-            tenant_id: TENANT_ID,
-            status: 'active',
-          }),
-        }),
-      );
+      expect(mockClassesReadFacade.findEnrolledStudentIds).toHaveBeenCalledWith(TENANT_ID, 'class-1');
     });
   });
 

@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
+import { MOCK_FACADE_PROVIDERS, StudentReadFacade, ClassesReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { YearGroupsService } from './year-groups.service';
@@ -40,12 +41,14 @@ const mockPrisma = {
     update: jest.fn(),
     delete: jest.fn(),
   },
-  student: {
-    count: jest.fn(),
-  },
-  class: {
-    count: jest.fn(),
-  },
+};
+
+const mockStudentReadFacade = {
+  count: jest.fn(),
+};
+
+const mockClassesReadFacade = {
+  countClassesGeneric: jest.fn(),
 };
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -69,7 +72,13 @@ describe('YearGroupsService', () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [YearGroupsService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        YearGroupsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: StudentReadFacade, useValue: mockStudentReadFacade },
+        { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
+      ],
     }).compile();
 
     service = module.get<YearGroupsService>(YearGroupsService);
@@ -215,8 +224,8 @@ describe('YearGroupsService', () => {
   describe('remove', () => {
     it('should delete a year group with no references', async () => {
       mockPrisma.yearGroup.findFirst.mockResolvedValueOnce({ id: YEAR_GROUP_ID });
-      mockPrisma.student.count.mockResolvedValueOnce(0);
-      mockPrisma.class.count.mockResolvedValueOnce(0);
+      mockStudentReadFacade.count.mockResolvedValueOnce(0);
+      mockClassesReadFacade.countClassesGeneric.mockResolvedValueOnce(0);
       mockRlsTx.yearGroup.delete.mockResolvedValueOnce(baseYearGroup);
 
       const result = await service.remove(TENANT_ID, YEAR_GROUP_ID);
@@ -227,7 +236,7 @@ describe('YearGroupsService', () => {
 
     it('should throw BadRequestException when year group has students', async () => {
       mockPrisma.yearGroup.findFirst.mockResolvedValueOnce({ id: YEAR_GROUP_ID });
-      mockPrisma.student.count.mockResolvedValueOnce(5);
+      mockStudentReadFacade.count.mockResolvedValueOnce(5);
 
       let caught: unknown;
       try {
@@ -246,8 +255,8 @@ describe('YearGroupsService', () => {
 
     it('should throw BadRequestException when year group has classes', async () => {
       mockPrisma.yearGroup.findFirst.mockResolvedValueOnce({ id: YEAR_GROUP_ID });
-      mockPrisma.student.count.mockResolvedValueOnce(0);
-      mockPrisma.class.count.mockResolvedValueOnce(2);
+      mockStudentReadFacade.count.mockResolvedValueOnce(0);
+      mockClassesReadFacade.countClassesGeneric.mockResolvedValueOnce(2);
 
       let caught: unknown;
       try {

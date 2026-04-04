@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ParentReadFacade, StudentReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { MeilisearchClient } from './meilisearch.client';
@@ -14,17 +15,18 @@ describe('SearchIndexService', () => {
     addDocuments: jest.Mock;
     deleteDocument: jest.Mock;
   };
+  const mockStudentReadFacade = {
+    findById: jest.fn().mockResolvedValue(null),
+  };
+  const mockParentReadFacade = {
+    findById: jest.fn().mockResolvedValue(null),
+  };
   let mockPrisma: {
     searchIndexStatus: {
       upsert: jest.Mock;
       deleteMany: jest.Mock;
       findMany: jest.Mock;
     };
-    student: { findUnique: jest.Mock };
-    parent: { findUnique: jest.Mock };
-    staffProfile: { findUnique: jest.Mock };
-    household: { findUnique: jest.Mock };
-    application: { findUnique: jest.Mock };
   };
 
   beforeEach(async () => {
@@ -38,15 +40,13 @@ describe('SearchIndexService', () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
         findMany: jest.fn().mockResolvedValue([]),
       },
-      student: { findUnique: jest.fn() },
-      parent: { findUnique: jest.fn() },
-      staffProfile: { findUnique: jest.fn() },
-      household: { findUnique: jest.fn() },
-      application: { findUnique: jest.fn() },
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: StudentReadFacade, useValue: mockStudentReadFacade },
+        { provide: ParentReadFacade, useValue: mockParentReadFacade },
         SearchIndexService,
         { provide: MeilisearchClient, useValue: mockMeilisearch },
         { provide: PrismaService, useValue: mockPrisma },
@@ -206,7 +206,7 @@ describe('SearchIndexService', () => {
         index_status: 'pending',
       };
       mockPrisma.searchIndexStatus.findMany.mockResolvedValue([pendingRecord]);
-      mockPrisma.student.findUnique.mockResolvedValue({
+      mockStudentReadFacade.findById.mockResolvedValue({
         id: ENTITY_ID,
         tenant_id: TENANT_ID,
         first_name: 'John',
@@ -228,7 +228,7 @@ describe('SearchIndexService', () => {
         index_status: 'search_failed',
       };
       mockPrisma.searchIndexStatus.findMany.mockResolvedValue([pendingRecord]);
-      mockPrisma.student.findUnique.mockResolvedValue(null);
+      mockStudentReadFacade.findById.mockResolvedValue(null);
 
       const result = await service.reconcile(TENANT_ID);
 
@@ -246,7 +246,7 @@ describe('SearchIndexService', () => {
         index_status: 'pending',
       };
       mockPrisma.searchIndexStatus.findMany.mockResolvedValue([pendingRecord]);
-      mockPrisma.parent.findUnique.mockResolvedValue({ id: 'p-1', tenant_id: TENANT_ID });
+      mockParentReadFacade.findById.mockResolvedValue({ id: 'p-1', tenant_id: TENANT_ID });
       mockMeilisearch.addDocuments.mockRejectedValue(new Error('Meilisearch down'));
 
       const result = await service.reconcile(TENANT_ID);

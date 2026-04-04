@@ -1,6 +1,15 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import {
+  MOCK_FACADE_PROVIDERS,
+  ParentReadFacade,
+  StudentReadFacade,
+  HouseholdReadFacade,
+  StaffProfileReadFacade,
+  AdmissionsReadFacade,
+  AuthReadFacade,
+} from '../../common/tests/mock-facades';
 import { AgeGateService } from '../gdpr/age-gate.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PastoralDsarService } from '../pastoral/services/pastoral-dsar.service';
@@ -75,8 +84,17 @@ describe('ComplianceService', () => {
     checkStudentAgeGated: jest.Mock;
     isStudentAgeGated: jest.Mock;
   };
+  let mockParentReadFacade: { findById: jest.Mock };
+  let mockStudentReadFacade: { exists: jest.Mock };
+  let mockHouseholdReadFacade: { findById: jest.Mock };
+  let mockStaffProfileReadFacade: { findById: jest.Mock };
+  let mockAdmissionsReadFacade: { findById: jest.Mock };
+  let mockAuthReadFacade: { findUserById: jest.Mock };
 
   beforeEach(async () => {
+    const consentDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
+    const tokenDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
+
     mockPrisma = {
       complianceRequest: {
         findFirst: jest.fn(),
@@ -91,9 +109,15 @@ describe('ComplianceService', () => {
       user: { findFirst: jest.fn() },
       staffProfile: { findFirst: jest.fn() },
       application: { findFirst: jest.fn() },
-      consentRecord: { deleteMany: jest.fn() },
-      gdprAnonymisationToken: { deleteMany: jest.fn() },
-    };
+      consentRecord: { deleteMany: consentDeleteMany },
+      gdprAnonymisationToken: { deleteMany: tokenDeleteMany },
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({
+          consentRecord: { deleteMany: consentDeleteMany },
+          gdprAnonymisationToken: { deleteMany: tokenDeleteMany },
+        }),
+      ),
+    } as unknown as typeof mockPrisma;
 
     mockAccessExport = {
       exportSubjectData: jest.fn(),
@@ -126,8 +150,17 @@ describe('ComplianceService', () => {
       isStudentAgeGated: jest.fn().mockReturnValue(false),
     };
 
+    // Facade mocks — subject validation now goes through facades
+    mockParentReadFacade = { findById: jest.fn().mockResolvedValue({ id: SUBJECT_ID }) };
+    mockStudentReadFacade = { exists: jest.fn().mockResolvedValue(true) };
+    mockHouseholdReadFacade = { findById: jest.fn().mockResolvedValue({ id: SUBJECT_ID }) };
+    mockStaffProfileReadFacade = { findById: jest.fn().mockResolvedValue({ id: SUBJECT_ID }) };
+    mockAdmissionsReadFacade = { findById: jest.fn().mockResolvedValue({ id: SUBJECT_ID }) };
+    mockAuthReadFacade = { findUserById: jest.fn().mockResolvedValue({ id: SUBJECT_ID }) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         ComplianceService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AccessExportService, useValue: mockAccessExport },
@@ -136,6 +169,12 @@ describe('ComplianceService', () => {
         { provide: DsarTraversalService, useValue: mockDsarTraversal },
         { provide: AgeGateService, useValue: mockAgeGateService },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
+        { provide: ParentReadFacade, useValue: mockParentReadFacade },
+        { provide: StudentReadFacade, useValue: mockStudentReadFacade },
+        { provide: HouseholdReadFacade, useValue: mockHouseholdReadFacade },
+        { provide: StaffProfileReadFacade, useValue: mockStaffProfileReadFacade },
+        { provide: AdmissionsReadFacade, useValue: mockAdmissionsReadFacade },
+        { provide: AuthReadFacade, useValue: mockAuthReadFacade },
       ],
     }).compile();
 
@@ -158,7 +197,6 @@ describe('ComplianceService', () => {
 
   describe('create', () => {
     it('should create a compliance request for a valid parent subject', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue({ id: SUBJECT_ID });
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
 
       const created = buildMockRequest({ status: 'submitted' });
@@ -172,10 +210,7 @@ describe('ComplianceService', () => {
 
       expect(result.status).toBe('submitted');
       expect(result.requested_by).toEqual(REQUESTED_BY_SELECT);
-      expect(mockPrisma.parent.findFirst).toHaveBeenCalledWith({
-        where: { id: SUBJECT_ID, tenant_id: TENANT_ID },
-        select: { id: true },
-      });
+      expect(mockParentReadFacade.findById).toHaveBeenCalledWith(TENANT_ID, SUBJECT_ID);
       expect(mockPrisma.complianceRequest.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -188,7 +223,6 @@ describe('ComplianceService', () => {
     });
 
     it('should create a compliance request for a valid student subject', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue({ id: SUBJECT_ID });
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
 
       const created = buildMockRequest({ subject_type: 'student', status: 'submitted' });
@@ -201,14 +235,10 @@ describe('ComplianceService', () => {
       });
 
       expect(result.status).toBe('submitted');
-      expect(mockPrisma.student.findFirst).toHaveBeenCalledWith({
-        where: { id: SUBJECT_ID, tenant_id: TENANT_ID },
-        select: { id: true },
-      });
+      expect(mockStudentReadFacade.exists).toHaveBeenCalledWith(TENANT_ID, SUBJECT_ID);
     });
 
     it('should create a compliance request for a valid household subject', async () => {
-      mockPrisma.household.findFirst.mockResolvedValue({ id: SUBJECT_ID });
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
 
       const created = buildMockRequest({ subject_type: 'household', status: 'submitted' });
@@ -221,14 +251,10 @@ describe('ComplianceService', () => {
       });
 
       expect(result.status).toBe('submitted');
-      expect(mockPrisma.household.findFirst).toHaveBeenCalledWith({
-        where: { id: SUBJECT_ID, tenant_id: TENANT_ID },
-        select: { id: true },
-      });
+      expect(mockHouseholdReadFacade.findById).toHaveBeenCalledWith(TENANT_ID, SUBJECT_ID);
     });
 
     it('should create a compliance request for a valid user subject (lookup without tenant_id)', async () => {
-      mockPrisma.user.findFirst.mockResolvedValue({ id: SUBJECT_ID });
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
 
       const created = buildMockRequest({ subject_type: 'user', status: 'submitted' });
@@ -241,15 +267,12 @@ describe('ComplianceService', () => {
       });
 
       expect(result.status).toBe('submitted');
-      // user lookup must NOT include tenant_id
-      expect(mockPrisma.user.findFirst).toHaveBeenCalledWith({
-        where: { id: SUBJECT_ID },
-        select: { id: true },
-      });
+      // user lookup goes through authReadFacade with empty tenantId
+      expect(mockAuthReadFacade.findUserById).toHaveBeenCalledWith('', SUBJECT_ID);
     });
 
     it('should throw SUBJECT_NOT_FOUND when parent does not exist', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue(null);
+      mockParentReadFacade.findById.mockResolvedValue(null);
 
       await expect(
         service.create(TENANT_ID, USER_ID, {
@@ -263,7 +286,7 @@ describe('ComplianceService', () => {
     });
 
     it('should throw SUBJECT_NOT_FOUND when student does not exist', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue(null);
+      mockStudentReadFacade.exists.mockResolvedValue(false);
 
       await expect(
         service.create(TENANT_ID, USER_ID, {
@@ -277,7 +300,6 @@ describe('ComplianceService', () => {
     });
 
     it('should throw DUPLICATE_REQUEST when active request exists (status not completed/rejected)', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue({ id: SUBJECT_ID });
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(
         buildMockRequest({ status: 'submitted' }),
       );
@@ -294,7 +316,6 @@ describe('ComplianceService', () => {
     });
 
     it('should allow creation when prior request is completed', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue({ id: SUBJECT_ID });
       // findFirst for duplicate check returns null (completed requests are excluded by the notIn filter)
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
 
@@ -312,7 +333,6 @@ describe('ComplianceService', () => {
     });
 
     it('should allow creation when prior request is rejected', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue({ id: SUBJECT_ID });
       // findFirst for duplicate check returns null (rejected requests are excluded by the notIn filter)
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
 
@@ -1172,7 +1192,6 @@ describe('ComplianceService', () => {
 
   describe('create — deadline_at', () => {
     it('should auto-set deadline_at to 30 days from now', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue({ id: SUBJECT_ID });
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
 
       const created = buildMockRequest({ status: 'submitted' });
@@ -1417,7 +1436,6 @@ describe('ComplianceService', () => {
 
   describe('create — age-gate', () => {
     it('should auto-flag age-gated review for 17+ student', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue({ id: SUBJECT_ID });
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
       mockAgeGateService.checkStudentAgeGated.mockResolvedValue(true);
 
@@ -1446,7 +1464,6 @@ describe('ComplianceService', () => {
     });
 
     it('should NOT flag age-gated review for 16-year-old student', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue({ id: SUBJECT_ID });
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
       mockAgeGateService.checkStudentAgeGated.mockResolvedValue(false);
 
@@ -1475,7 +1492,6 @@ describe('ComplianceService', () => {
     });
 
     it('should NOT flag age-gated review for non-student subject', async () => {
-      mockPrisma.parent.findFirst.mockResolvedValue({ id: SUBJECT_ID });
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
 
       const created = buildMockRequest({
@@ -1738,7 +1754,6 @@ describe('ComplianceService', () => {
 
   describe('validateSubjectExists — staff and applicant', () => {
     it('should validate staff subject via staffProfile', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: SUBJECT_ID });
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
 
       const created = buildMockRequest({ subject_type: 'staff', status: 'submitted' });
@@ -1751,14 +1766,10 @@ describe('ComplianceService', () => {
       });
 
       expect(result.status).toBe('submitted');
-      expect(mockPrisma.staffProfile.findFirst).toHaveBeenCalledWith({
-        where: { id: SUBJECT_ID, tenant_id: TENANT_ID },
-        select: { id: true },
-      });
+      expect(mockStaffProfileReadFacade.findById).toHaveBeenCalledWith(TENANT_ID, SUBJECT_ID);
     });
 
     it('should validate applicant subject via application', async () => {
-      mockPrisma.application.findFirst.mockResolvedValue({ id: SUBJECT_ID });
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
 
       const created = buildMockRequest({ subject_type: 'applicant', status: 'submitted' });
@@ -1771,14 +1782,11 @@ describe('ComplianceService', () => {
       });
 
       expect(result.status).toBe('submitted');
-      expect(mockPrisma.application.findFirst).toHaveBeenCalledWith({
-        where: { id: SUBJECT_ID, tenant_id: TENANT_ID },
-        select: { id: true },
-      });
+      expect(mockAdmissionsReadFacade.findById).toHaveBeenCalledWith(TENANT_ID, SUBJECT_ID);
     });
 
     it('should throw SUBJECT_NOT_FOUND when staff does not exist', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue(null);
+      mockStaffProfileReadFacade.findById.mockResolvedValue(null);
 
       await expect(
         service.create(TENANT_ID, USER_ID, {
@@ -1790,7 +1798,7 @@ describe('ComplianceService', () => {
     });
 
     it('should throw SUBJECT_NOT_FOUND when applicant does not exist', async () => {
-      mockPrisma.application.findFirst.mockResolvedValue(null);
+      mockAdmissionsReadFacade.findById.mockResolvedValue(null);
 
       await expect(
         service.create(TENANT_ID, USER_ID, {

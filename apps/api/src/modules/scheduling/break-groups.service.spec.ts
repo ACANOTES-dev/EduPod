@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -35,6 +36,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 
 describe('BreakGroupsService', () => {
   let service: BreakGroupsService;
+  let module: TestingModule;
   let mockPrisma: {
     breakGroup: { findMany: jest.Mock; findFirst: jest.Mock };
     academicYear: { findFirst: jest.Mock };
@@ -68,8 +70,9 @@ describe('BreakGroupsService', () => {
     mockTx.breakGroupYearGroup.create.mockReset();
     mockTx.breakGroupYearGroup.deleteMany.mockReset();
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         {
           provide: AcademicReadFacade,
           useValue: {
@@ -143,7 +146,8 @@ describe('BreakGroupsService', () => {
     });
 
     it('should throw NotFoundException when academic year does not exist', async () => {
-      mockPrisma.academicYear.findFirst.mockResolvedValue(null);
+      const facade = module.get(AcademicReadFacade);
+      (facade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Year not found'));
 
       await expect(service.create(TENANT_ID, dto)).rejects.toThrow(NotFoundException);
     });

@@ -154,7 +154,7 @@ export default function PeriodGridPage() {
           setSelectedYearGroup(ygRes.data[0].id);
         }
       })
-      .catch(() => toast.error(tc('errorGeneric')));
+      .catch((err) => { console.error('[SchedulingPeriodGridPage]', err); return toast.error(tc('errorGeneric')); });
   }, [tc]);
 
   // Load break groups when academic year is selected
@@ -165,7 +165,7 @@ export default function PeriodGridPage() {
       { silent: true },
     )
       .then((res) => setBreakGroups(res.data))
-      .catch(() => setBreakGroups([]));
+      .catch((err) => { console.error('[SchedulingPeriodGridPage]', err); return setBreakGroups([]); });
   }, [selectedYear]);
 
   // Load period grid when year or year group changes
@@ -181,7 +181,8 @@ export default function PeriodGridPage() {
         `/api/v1/period-grid?${params.toString()}`,
       );
       setPeriods(Array.isArray(res) ? res : (res.data ?? []));
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingPeriodGridPage]', err);
       setPeriods([]);
     } finally {
       setIsLoading(false);
@@ -280,7 +281,8 @@ export default function PeriodGridPage() {
       setEditOpen(false);
       toast.success(editState.id ? tv('periodUpdated') : tv('periodAdded'));
       void fetchGrid();
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingPeriodGridPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setIsSaving(false);
@@ -292,7 +294,8 @@ export default function PeriodGridPage() {
       await apiClient(`/api/v1/period-grid/${id}`, { method: 'DELETE' });
       toast.success(tc('delete'));
       void fetchGrid();
-    } catch {
+    } catch (err) {
+      console.error('[SchedulingPeriodGridPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -452,7 +455,7 @@ export default function PeriodGridPage() {
               <Input
                 value={editState.name}
                 onChange={(e) => setEditState((s) => ({ ...s, name: e.target.value }))}
-                placeholder="e.g. Period 1"
+                placeholder={t('eGPeriod1')}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">

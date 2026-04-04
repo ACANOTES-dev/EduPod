@@ -6,6 +6,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn(),
 }));
 
+import { MOCK_FACADE_PROVIDERS, AuthReadFacade } from '../../../common/tests/mock-facades';
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PdfRenderingService } from '../../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -85,6 +86,10 @@ const mockSequenceService = {
   nextNumber: jest.fn().mockResolvedValue('CPX-202603-000001'),
 };
 
+const mockAuthReadFacade = {
+  findUserSummary: jest.fn().mockResolvedValue({ first_name: 'John', last_name: 'Teacher' }),
+};
+
 // ─── Test Suite ─────────────────────────────────────────────────────────────
 
 describe('CpExportService', () => {
@@ -103,12 +108,14 @@ describe('CpExportService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         CpExportService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PdfRenderingService, useValue: mockPdfService },
         { provide: PastoralEventService, useValue: mockEventService },
         { provide: SequenceService, useValue: mockSequenceService },
         { provide: RedisService, useValue: mockRedisService },
+        { provide: AuthReadFacade, useValue: mockAuthReadFacade },
       ],
     }).compile();
 

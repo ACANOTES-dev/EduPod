@@ -67,16 +67,16 @@ export function AddReviewDialog({
           {/* Auto-populated stats (read only) */}
           {autoPopData && (
             <div className="rounded-lg border border-border bg-surface-secondary p-3">
-              <p className="mb-2 text-xs font-medium text-text-tertiary">Auto-populated Stats</p>
+              <p className="mb-2 text-xs font-medium text-text-tertiary">{t('autoPopulatedStats')}</p>
               <div className="flex flex-wrap gap-4 text-sm">
                 <span>
-                  <span className="text-text-tertiary">Points since last: </span>
+                  <span className="text-text-tertiary">{t('pointsSinceLast')}</span>
                   <span className="font-medium text-text-primary">
                     {autoPopData.points_since_last}
                   </span>
                 </span>
                 <span>
-                  <span className="text-text-tertiary">Attendance: </span>
+                  <span className="text-text-tertiary">{t('attendance')}</span>
                   <span className="font-medium text-text-primary">
                     {autoPopData.attendance_rate}%
                   </span>
@@ -87,7 +87,7 @@ export function AddReviewDialog({
 
           {/* Progress */}
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Overall Progress *</Label>
+            <Label className="text-sm font-medium">{t('overallProgress')}</Label>
             <Select
               value={reviewForm.progress}
               onValueChange={(v) => onFormChange((prev) => ({ ...prev, progress: v }))}
@@ -96,10 +96,10 @@ export function AddReviewDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="on_track">On Track</SelectItem>
-                <SelectItem value="some_progress">Some Progress</SelectItem>
-                <SelectItem value="no_progress">No Progress</SelectItem>
-                <SelectItem value="regression">Regression</SelectItem>
+                <SelectItem value="on_track">{t('onTrack')}</SelectItem>
+                <SelectItem value="some_progress">{t('someProgress')}</SelectItem>
+                <SelectItem value="no_progress">{t('noProgress')}</SelectItem>
+                <SelectItem value="regression">{t('regression')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -107,7 +107,7 @@ export function AddReviewDialog({
           {/* Goal updates */}
           {reviewForm.goal_updates.length > 0 && (
             <div className="space-y-3">
-              <Label className="text-sm font-medium">Goal Updates</Label>
+              <Label className="text-sm font-medium">{t('goalUpdates')}</Label>
               {reviewForm.goal_updates.map((gu, idx) => {
                 const goalMatch = goals.find((g) => g.id === gu.goal_id);
                 const autoGoal = autoPopData?.goal_statuses?.find(
@@ -134,13 +134,13 @@ export function AddReviewDialog({
                         }}
                       >
                         <SelectTrigger className="text-sm">
-                          <SelectValue placeholder="Status" />
+                          <SelectValue placeholder={t('status')} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="not_started">Not Started</SelectItem>
-                          <SelectItem value="in_progress">In Progress</SelectItem>
-                          <SelectItem value="achieved">Achieved</SelectItem>
-                          <SelectItem value="not_achieved">Not Achieved</SelectItem>
+                          <SelectItem value="not_started">{t('notStarted')}</SelectItem>
+                          <SelectItem value="in_progress">{t('inProgress')}</SelectItem>
+                          <SelectItem value="achieved">{t('achieved')}</SelectItem>
+                          <SelectItem value="not_achieved">{t('notAchieved')}</SelectItem>
                         </SelectContent>
                       </Select>
                       <Input
@@ -156,7 +156,7 @@ export function AddReviewDialog({
                             return { ...prev, goal_updates: updated };
                           });
                         }}
-                        placeholder="Notes..."
+                        placeholder={t('notes2')}
                         className="text-sm"
                       />
                     </div>
@@ -168,18 +168,18 @@ export function AddReviewDialog({
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Notes</Label>
+            <Label className="text-sm font-medium">{t('notes')}</Label>
             <Textarea
               value={reviewForm.notes}
               onChange={(e) => onFormChange((prev) => ({ ...prev, notes: e.target.value }))}
-              placeholder="Review observations, recommendations..."
+              placeholder={t('reviewObservationsRecommendations')}
               rows={3}
             />
           </div>
 
           {/* Next review date */}
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Next Review Date</Label>
+            <Label className="text-sm font-medium">{t('nextReviewDate')}</Label>
             <Input
               type="date"
               value={reviewForm.next_review_date}

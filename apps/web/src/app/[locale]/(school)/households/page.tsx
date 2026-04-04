@@ -2,6 +2,7 @@
 
 import { Home, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -44,6 +45,7 @@ const statusVariantMap: Record<
 };
 
 export default function HouseholdsPage() {
+  const t = useTranslations('households');
   const router = useRouter();
 
   const [households, setHouseholds] = React.useState<Household[]>([]);
@@ -70,7 +72,8 @@ export default function HouseholdsPage() {
       );
       setHouseholds(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[HouseholdsPage]', err);
       setHouseholds([]);
       setTotal(0);
     } finally {
@@ -156,7 +159,7 @@ export default function HouseholdsPage() {
       <div className="relative flex-1 min-w-[200px]">
         <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
         <Input
-          placeholder="Search households..."
+          placeholder={t('searchHouseholds')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="ps-9"
@@ -165,13 +168,13 @@ export default function HouseholdsPage() {
 
       <Select value={statusFilter} onValueChange={setStatusFilter}>
         <SelectTrigger className="w-[140px]">
-          <SelectValue placeholder="Status" />
+          <SelectValue placeholder={t('status')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Statuses</SelectItem>
-          <SelectItem value="active">Active</SelectItem>
-          <SelectItem value="inactive">Inactive</SelectItem>
-          <SelectItem value="archived">Archived</SelectItem>
+          <SelectItem value="all">{t('allStatuses')}</SelectItem>
+          <SelectItem value="active">{t('active')}</SelectItem>
+          <SelectItem value="inactive">{t('inactive')}</SelectItem>
+          <SelectItem value="archived">{t('archived')}</SelectItem>
         </SelectContent>
       </Select>
     </div>
@@ -179,12 +182,12 @@ export default function HouseholdsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Households" description="Manage family household records" />
+      <PageHeader title={t('title')} description="Manage family household records" />
 
       {!isLoading && households.length === 0 && !search && statusFilter === 'all' ? (
         <EmptyState
           icon={Home}
-          title="No households yet"
+          title={t('noHouseholdsYet')}
           description="Register a new family using the wizard to create a household."
         />
       ) : (

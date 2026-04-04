@@ -126,7 +126,8 @@ export default function AmendmentListPage() {
       const res = await apiClient<AmendmentsResponse>(endpoint);
       setData(res.data ?? []);
       setTotal(res.meta?.total ?? 0);
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourAmendmentsPage]', err);
       setData([]);
       setTotal(0);
     } finally {
@@ -250,11 +251,9 @@ export default function AmendmentListPage() {
               handleOpenConfirm(row);
             }}
           >
-            <Send className="me-1 h-3.5 w-3.5" />
-            Send
-          </Button>
+            <Send className="me-1 h-3.5 w-3.5" />{t('send')}</Button>
         ) : (
-          <span className="text-xs text-green-600 dark:text-green-400">Sent</span>
+          <span className="text-xs text-green-600 dark:text-green-400">{t('sent')}</span>
         ),
     },
   ];
@@ -289,7 +288,7 @@ export default function AmendmentListPage() {
             <Send className="h-3.5 w-3.5" />
           </Button>
         ) : (
-          <span className="text-xs text-green-600 dark:text-green-400">Sent</span>
+          <span className="text-xs text-green-600 dark:text-green-400">{t('sent')}</span>
         )}
       </div>
       <p className="mt-2 text-xs text-text-secondary">{renderChangeSummary(row.what_changed)}</p>

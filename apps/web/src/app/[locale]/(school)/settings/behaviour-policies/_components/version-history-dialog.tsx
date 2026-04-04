@@ -1,5 +1,7 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@school/ui';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -19,11 +21,13 @@ export function VersionHistoryDialog({
   loading,
   history,
 }: VersionHistoryDialogProps) {
+  const t = useTranslations('behaviourSettings.policies');
+  const tCommon = useTranslations('common');
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Version History</DialogTitle>
+          <DialogTitle>{t('versionHistory')}</DialogTitle>
         </DialogHeader>
         {loading ? (
           <div className="space-y-2">
@@ -32,7 +36,7 @@ export function VersionHistoryDialog({
             ))}
           </div>
         ) : history.length === 0 ? (
-          <p className="text-sm text-text-tertiary">No version history.</p>
+          <p className="text-sm text-text-tertiary">{t('noVersionHistory')}</p>
         ) : (
           <div className="space-y-2">
             {history.map((v) => (
@@ -45,13 +49,11 @@ export function VersionHistoryDialog({
                 </div>
                 <p className="text-xs text-text-secondary">{String(v.name)}</p>
                 {v.change_reason ? (
-                  <p className="mt-1 text-xs text-text-tertiary">
-                    Reason: {String(v.change_reason)}
+                  <p className="mt-1 text-xs text-text-tertiary">{t('reason2')}{String(v.change_reason)}
                   </p>
                 ) : null}
                 {v.changed_by ? (
-                  <p className="text-xs text-text-tertiary">
-                    By: {(v.changed_by as Record<string, string>).first_name}{' '}
+                  <p className="text-xs text-text-tertiary">{t('by')}{(v.changed_by as Record<string, string>).first_name}{' '}
                     {(v.changed_by as Record<string, string>).last_name}
                   </p>
                 ) : null}
@@ -60,9 +62,7 @@ export function VersionHistoryDialog({
           </div>
         )}
         <DialogFooter>
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>{tCommon('close')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

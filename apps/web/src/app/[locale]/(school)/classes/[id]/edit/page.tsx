@@ -42,7 +42,7 @@ export default function EditClassPage() {
     if (!id) return;
     apiClient<{ data: ClassDetail }>(`/api/v1/classes/${id}`)
       .then((res) => setCls(res.data))
-      .catch(() => setError(t('loadError')))
+      .catch((err) => { console.error('[ClassesEditPage]', err); return setError(t('loadError')); })
       .finally(() => setLoading(false));
   }, [id, t]);
 

@@ -68,7 +68,8 @@ export function PaymentForm({ onSuccess }: PaymentFormProps) {
       });
       toast.success(t('paymentRecorded'));
       onSuccess(res.data.id);
-    } catch {
+    } catch (err) {
+      console.error('[PaymentForm]', err);
       toast.error(t('paymentRecordFailed'));
     }
   });
@@ -80,7 +81,7 @@ export function PaymentForm({ onSuccess }: PaymentFormProps) {
       <div className="grid gap-6 sm:grid-cols-2">
         {/* Household */}
         <div className="sm:col-span-2 space-y-2">
-          <Label>Household *</Label>
+          <Label>{t('household2')}</Label>
           <Controller
             control={form.control}
             name="household_id"
@@ -88,7 +89,7 @@ export function PaymentForm({ onSuccess }: PaymentFormProps) {
               <HouseholdSelector
                 value={field.value}
                 onValueChange={field.onChange}
-                placeholder="Search and select household..."
+                placeholder={t('searchAndSelectHousehold')}
               />
             )}
           />
@@ -99,19 +100,19 @@ export function PaymentForm({ onSuccess }: PaymentFormProps) {
 
         {/* Payment Method */}
         <div className="space-y-2">
-          <Label>Payment Method *</Label>
+          <Label>{t('paymentMethod')}</Label>
           <Controller
             control={form.control}
             name="payment_method"
             render={({ field }) => (
               <Select value={field.value ?? ''} onValueChange={field.onChange}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select method..." />
+                  <SelectValue placeholder={t('selectMethod')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="card_manual">Card (Manual)</SelectItem>
+                  <SelectItem value="cash">{t('cash')}</SelectItem>
+                  <SelectItem value="bank_transfer">{t('bankTransfer')}</SelectItem>
+                  <SelectItem value="card_manual">{t('cardManual')}</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -125,7 +126,7 @@ export function PaymentForm({ onSuccess }: PaymentFormProps) {
 
         {/* Amount */}
         <div className="space-y-2">
-          <Label>Amount *</Label>
+          <Label>{t('amount2')}</Label>
           <Input
             type="number"
             step="0.01"
@@ -140,7 +141,7 @@ export function PaymentForm({ onSuccess }: PaymentFormProps) {
 
         {/* Received At */}
         <div className="space-y-2">
-          <Label>Received At *</Label>
+          <Label>{t('receivedAt')}</Label>
           <Input
             type="datetime-local"
             value={receivedAtLocal}
@@ -158,9 +159,9 @@ export function PaymentForm({ onSuccess }: PaymentFormProps) {
 
         {/* Reason */}
         <div className="sm:col-span-2 space-y-2">
-          <Label>Reason (optional)</Label>
+          <Label>{t('reasonOptional')}</Label>
           <Textarea
-            placeholder="Optional notes about this payment..."
+            placeholder={t('optionalNotesAboutThisPayment')}
             rows={2}
             {...form.register('reason')}
           />

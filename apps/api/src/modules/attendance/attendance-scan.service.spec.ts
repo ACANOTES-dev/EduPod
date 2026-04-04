@@ -1,6 +1,7 @@
 import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, StudentReadFacade } from '../../common/tests/mock-facades';
 import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { SettingsService } from '../configuration/settings.service';
 import { AiAuditService } from '../gdpr/ai-audit.service';
@@ -31,6 +32,7 @@ describe('AttendanceScanService — parseScanResponse', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AttendanceScanService,
         { provide: PrismaService, useValue: { student: { findMany: jest.fn() } } },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
@@ -164,14 +166,17 @@ describe('AttendanceScanService — parseScanResponse', () => {
 describe('AttendanceScanService — resolveStudentNames', () => {
   let service: AttendanceScanService;
   let mockPrisma: { student: { findMany: jest.Mock } };
+  let mockStudentFacade: { findByStudentNumbers: jest.Mock };
 
   beforeEach(async () => {
     delete process.env.ANTHROPIC_API_KEY;
 
     mockPrisma = { student: { findMany: jest.fn() } };
+    mockStudentFacade = { findByStudentNumbers: jest.fn().mockResolvedValue([]) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AttendanceScanService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
@@ -195,6 +200,7 @@ describe('AttendanceScanService — resolveStudentNames', () => {
           provide: AnthropicClientService,
           useValue: { isConfigured: false, createMessage: jest.fn() },
         },
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
       ],
     }).compile();
 
@@ -207,11 +213,11 @@ describe('AttendanceScanService — resolveStudentNames', () => {
     const result = await service.resolveStudentNames(TENANT_ID, []);
 
     expect(result).toHaveLength(0);
-    expect(mockPrisma.student.findMany).not.toHaveBeenCalled();
+    expect(mockStudentFacade.findByStudentNumbers).not.toHaveBeenCalled();
   });
 
   it('should attach resolved_student_id and resolved_student_name when student is found', async () => {
-    mockPrisma.student.findMany.mockResolvedValue([
+    mockStudentFacade.findByStudentNumbers.mockResolvedValue([
       { id: 'stu-1', student_number: '1001', first_name: 'Ahmad', last_name: 'Hassan' },
     ]);
 
@@ -227,7 +233,7 @@ describe('AttendanceScanService — resolveStudentNames', () => {
   });
 
   it('should attach error field when student_number is not found', async () => {
-    mockPrisma.student.findMany.mockResolvedValue([]);
+    mockStudentFacade.findByStudentNumbers.mockResolvedValue([]);
 
     const result = await service.resolveStudentNames(TENANT_ID, [
       { student_number: 'UNKNOWN', status: 'late', confidence: 'low' },
@@ -241,7 +247,7 @@ describe('AttendanceScanService — resolveStudentNames', () => {
   });
 
   it('should resolve multiple entries in one database call', async () => {
-    mockPrisma.student.findMany.mockResolvedValue([
+    mockStudentFacade.findByStudentNumbers.mockResolvedValue([
       { id: 'stu-1', student_number: '1001', first_name: 'Ahmad', last_name: 'Hassan' },
       { id: 'stu-2', student_number: '1002', first_name: 'Sara', last_name: 'Ali' },
     ]);
@@ -251,7 +257,7 @@ describe('AttendanceScanService — resolveStudentNames', () => {
       { student_number: '1002', status: 'late', confidence: 'high' },
     ]);
 
-    expect(mockPrisma.student.findMany).toHaveBeenCalledTimes(1);
+    expect(mockStudentFacade.findByStudentNumbers).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -263,6 +269,7 @@ describe('AttendanceScanService — scanImage guards', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AttendanceScanService,
         { provide: PrismaService, useValue: { student: { findMany: jest.fn() } } },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
@@ -304,6 +311,7 @@ describe('AttendanceScanService — scanImage guards', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AttendanceScanService,
         { provide: PrismaService, useValue: { student: { findMany: jest.fn() } } },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
@@ -364,8 +372,10 @@ describe('AttendanceScanService — AI audit trail', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         AttendanceScanService,
         { provide: PrismaService, useValue: mockStudentPrisma },
+        { provide: StudentReadFacade, useValue: { findByStudentNumbers: jest.fn().mockResolvedValue([]) } },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
         { provide: SettingsService, useValue: mockSettingsService },
         {

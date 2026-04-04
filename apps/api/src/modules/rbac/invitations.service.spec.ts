@@ -4,6 +4,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, AuthReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { InvitationsService } from './invitations.service';
@@ -84,13 +85,31 @@ describe('InvitationsService', () => {
   let service: InvitationsService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    // Reset all mocks fully (clear queued once-values and implementations)
+    Object.values(mockPrisma).forEach((model) => {
+      if (typeof model === 'function') {
+        (model as jest.Mock).mockReset();
+      } else {
+        Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset());
+      }
+    });
+    // Re-establish the $transaction implementation after reset
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockPrisma));
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         InvitationsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: getQueueToken('notifications'), useValue: { add: jest.fn() } },
+        {
+          provide: AuthReadFacade,
+          useValue: {
+            findUserByEmail: jest.fn().mockImplementation((_t: string, email: string) => {
+              return mockPrisma.user.findUnique({ where: { email } });
+            }),
+          },
+        },
       ],
     }).compile();
 

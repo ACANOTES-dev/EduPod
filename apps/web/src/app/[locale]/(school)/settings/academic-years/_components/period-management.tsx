@@ -226,7 +226,8 @@ export function PeriodManagement({ academicYearId }: PeriodManagementProps) {
         `/api/v1/academic-years/${academicYearId}/periods`,
       );
       setPeriods(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[PeriodManagement]', err);
       setPeriods([]);
     } finally {
       setLoading(false);

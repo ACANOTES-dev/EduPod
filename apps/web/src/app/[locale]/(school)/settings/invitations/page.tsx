@@ -112,7 +112,7 @@ function InviteDialog({ open, onOpenChange, onSuccess }: InviteDialogProps) {
     if (!open) return;
     apiClient<RolesResponse>('/api/v1/roles')
       .then((res) => setRoles(res.data.filter((r) => r.role_tier !== 'platform')))
-      .catch(() => setRoles([]));
+      .catch((err) => { console.error('[SettingsInvitationsPage]', err); return setRoles([]); });
   }, [open]);
 
   const handleClose = () => {

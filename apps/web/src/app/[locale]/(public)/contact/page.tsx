@@ -1,6 +1,7 @@
 'use client';
 /* eslint-disable school/no-hand-rolled-forms -- legacy form; migrate to react-hook-form when touched (HR-025) */
 
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { Button, Input, Label, Textarea } from '@school/ui';
@@ -10,6 +11,7 @@ import { apiClient } from '@/lib/api-client';
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PublicContactPage() {
+  const t = useTranslations('contact');
   const [name, setName] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [phone, setPhone] = React.useState('');
@@ -80,10 +82,8 @@ export default function PublicContactPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h1 className="text-2xl font-semibold text-text-primary">Message Sent</h1>
-        <p className="mt-2 text-sm text-text-secondary">
-          Thank you for reaching out. We will get back to you as soon as possible.
-        </p>
+        <h1 className="text-2xl font-semibold text-text-primary">{t('successTitle')}</h1>
+        <p className="mt-2 text-sm text-text-secondary">{t('successMessage')}</p>
       </div>
     );
   }
@@ -91,10 +91,8 @@ export default function PublicContactPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-16">
       <div className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight text-text-primary">Contact Us</h1>
-        <p className="mt-2 text-sm text-text-secondary">
-          Fill in the form below and we will be in touch soon.
-        </p>
+        <h1 className="text-3xl font-semibold tracking-tight text-text-primary">{t('title')}</h1>
+        <p className="mt-2 text-sm text-text-secondary">{t('subtitle')}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6" noValidate>
@@ -102,8 +100,7 @@ export default function PublicContactPage() {
           <div className="space-y-4">
             {/* Name */}
             <div className="space-y-1.5">
-              <Label htmlFor="name">
-                Name <span className="text-error-text">*</span>
+              <Label htmlFor="name">{t('name')}<span className="text-error-text">*</span>
               </Label>
               <Input
                 id="name"
@@ -111,14 +108,13 @@ export default function PublicContactPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                placeholder="Your full name"
+                placeholder={t('namePlaceholder')}
               />
             </div>
 
             {/* Email */}
             <div className="space-y-1.5">
-              <Label htmlFor="email">
-                Email <span className="text-error-text">*</span>
+              <Label htmlFor="email">{t('email')}<span className="text-error-text">*</span>
               </Label>
               <Input
                 id="email"
@@ -134,7 +130,7 @@ export default function PublicContactPage() {
 
             {/* Phone (optional) */}
             <div className="space-y-1.5">
-              <Label htmlFor="phone">Phone (optional)</Label>
+              <Label htmlFor="phone">{t('phone')}</Label>
               <Input
                 id="phone"
                 type="tel"
@@ -142,21 +138,20 @@ export default function PublicContactPage() {
                 autoComplete="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="+1 555 000 0000"
+                placeholder={t('phonePlaceholder')}
               />
             </div>
 
             {/* Message */}
             <div className="space-y-1.5">
-              <Label htmlFor="message">
-                Message <span className="text-error-text">*</span>
+              <Label htmlFor="message">{t('message')}<span className="text-error-text">*</span>
               </Label>
               <Textarea
                 id="message"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 required
-                placeholder="How can we help you?"
+                placeholder={t('messagePlaceholder')}
                 className="min-h-[140px]"
               />
             </div>
@@ -187,10 +182,7 @@ export default function PublicContactPage() {
           </Button>
         </div>
 
-        <p className="text-xs leading-relaxed text-text-secondary">
-          Your IP address is recorded with this submission for security purposes and will be
-          automatically deleted after 90 days.
-        </p>
+        <p className="text-xs leading-relaxed text-text-secondary">{t('yourIpAddressIsRecorded')}</p>
       </form>
     </div>
   );

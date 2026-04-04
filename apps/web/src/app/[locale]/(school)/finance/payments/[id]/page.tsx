@@ -145,9 +145,7 @@ export default function PaymentDetailPage() {
 
   if (!payment) {
     return (
-      <div className="flex h-64 items-center justify-center text-text-tertiary">
-        Payment not found.
-      </div>
+      <div className="flex h-64 items-center justify-center text-text-tertiary">{t('paymentNotFound')}</div>
     );
   }
 
@@ -236,21 +234,11 @@ export default function PaymentDetailPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-surface-secondary">
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Invoice
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Due Date
-                </th>
-                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Invoice Total
-                </th>
-                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Allocated
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Date
-                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('invoice')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('dueDate')}</th>
+                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('invoiceTotal')}</th>
+                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('allocated')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('date')}</th>
               </tr>
             </thead>
             <tbody>
@@ -302,7 +290,7 @@ export default function PaymentDetailPage() {
       )}
 
       {!isAllocated && !canAllocate && (
-        <p className="text-sm text-text-tertiary">No allocations for this payment.</p>
+        <p className="text-sm text-text-tertiary">{t('noAllocationsForThisPayment')}</p>
       )}
     </div>
   );
@@ -311,24 +299,16 @@ export default function PaymentDetailPage() {
   const refundsContent = (
     <div>
       {payment.refunds.length === 0 ? (
-        <p className="text-sm text-text-tertiary">No refunds for this payment.</p>
+        <p className="text-sm text-text-tertiary">{t('noRefundsForThisPayment')}</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-surface-secondary">
-                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Amount
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Reason
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Date
-                </th>
+                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('amount')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('reason')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('status')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('date')}</th>
               </tr>
             </thead>
             <tbody>
@@ -375,7 +355,7 @@ export default function PaymentDetailPage() {
       {/* Reason note */}
       {payment.reason && (
         <div className="rounded-xl border border-border bg-surface-secondary px-6 py-4">
-          <p className="text-sm font-semibold text-text-primary">Payment Note</p>
+          <p className="text-sm font-semibold text-text-primary">{t('paymentNote')}</p>
           <p className="mt-1 text-sm text-text-secondary">{payment.reason}</p>
         </div>
       )}

@@ -62,7 +62,8 @@ export default function PastoralCaseListPage() {
 
       setCases(response.data ?? []);
       setTotal(response.meta?.total ?? 0);
-    } catch {
+    } catch (err) {
+      console.error('[PastoralCasesPage]', err);
       setCases([]);
       setTotal(0);
     } finally {

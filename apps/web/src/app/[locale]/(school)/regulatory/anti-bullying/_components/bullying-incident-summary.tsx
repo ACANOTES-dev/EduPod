@@ -54,12 +54,12 @@ function SkeletonCard() {
 
 function TrendIcon({ trend }: { trend: 'up' | 'down' | 'stable' }) {
   if (trend === 'up') {
-    return <TrendingUp className="h-3.5 w-3.5 text-danger-text" aria-label="Trending up" />;
+    return <TrendingUp className="h-3.5 w-3.5 text-danger-text" aria-label={t('trendingUp')} />;
   }
   if (trend === 'down') {
-    return <TrendingDown className="h-3.5 w-3.5 text-success-text" aria-label="Trending down" />;
+    return <TrendingDown className="h-3.5 w-3.5 text-success-text" aria-label={t('trendingDown')} />;
   }
-  return <Minus className="h-3.5 w-3.5 text-text-tertiary" aria-label="Stable" />;
+  return <Minus className="h-3.5 w-3.5 text-text-tertiary" aria-label={t('stable')} />;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────

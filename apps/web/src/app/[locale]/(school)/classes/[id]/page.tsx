@@ -76,7 +76,7 @@ export default function ClassDetailPage() {
   React.useEffect(() => {
     apiClient<{ data: ClassDetail }>(`/api/v1/classes/${id}`)
       .then((res) => setCls(res.data))
-      .catch(() => setError(t('loadError')))
+      .catch((err) => { console.error('[ClassesPage]', err); return setError(t('loadError')); })
       .finally(() => setLoading(false));
   }, [id, t]);
 

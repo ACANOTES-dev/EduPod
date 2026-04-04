@@ -18,6 +18,7 @@ jest.mock('@school/shared/ai', () => {
 
 import { anonymiseForAI, deAnonymiseFromAI } from '@school/shared/ai';
 
+import { MOCK_FACADE_PROVIDERS, AuditLogReadFacade } from '../../common/tests/mock-facades';
 import { AnthropicClientService } from '../ai/anthropic-client.service';
 import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
@@ -113,6 +114,8 @@ describe('BehaviourAIService', () => {
   let mockAnthropicCreate: jest.Mock;
   let mockAnthropicClientService: { isConfigured: boolean; createMessage: jest.Mock };
 
+  let mockAuditLogReadFacade: { count: jest.Mock; findMany: jest.Mock };
+
   beforeEach(async () => {
     mockPrisma = {
       auditLog: {
@@ -120,6 +123,16 @@ describe('BehaviourAIService', () => {
         count: jest.fn().mockResolvedValue(0),
         findMany: jest.fn().mockResolvedValue([]),
       },
+    };
+
+    // Add $transaction that delegates to mockPrisma.auditLog
+    (mockPrisma as Record<string, unknown>).$transaction = jest.fn().mockImplementation(
+      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockPrisma),
+    );
+
+    mockAuditLogReadFacade = {
+      count: jest.fn().mockResolvedValue(0),
+      findMany: jest.fn().mockResolvedValue([]),
     };
 
     mockScope = {
@@ -142,6 +155,7 @@ describe('BehaviourAIService', () => {
 
     module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         BehaviourAIService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: BehaviourScopeService, useValue: mockScope },
@@ -149,6 +163,7 @@ describe('BehaviourAIService', () => {
         { provide: AnthropicClientService, useValue: mockAnthropicClientService },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
         { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AuditLogReadFacade, useValue: mockAuditLogReadFacade },
       ],
     }).compile();
 
@@ -420,8 +435,8 @@ describe('BehaviourAIService', () => {
           created_at: new Date('2026-03-26T10:00:00Z'),
         },
       ];
-      mockPrisma.auditLog.count.mockResolvedValue(2);
-      mockPrisma.auditLog.findMany.mockResolvedValue(mockEntries);
+      mockAuditLogReadFacade.count.mockResolvedValue(2);
+      mockAuditLogReadFacade.findMany.mockResolvedValue(mockEntries);
 
       const result = await service.getQueryHistory(TENANT_ID, USER_ID, 1, 20);
 
@@ -433,27 +448,22 @@ describe('BehaviourAIService', () => {
     });
 
     it('should filter by tenant_id and user_id', async () => {
-      mockPrisma.auditLog.count.mockResolvedValue(0);
-      mockPrisma.auditLog.findMany.mockResolvedValue([]);
+      mockAuditLogReadFacade.count.mockResolvedValue(0);
+      mockAuditLogReadFacade.findMany.mockResolvedValue([]);
 
       await service.getQueryHistory(TENANT_ID, USER_ID, 1, 10);
 
-      const expectedWhere = {
-        tenant_id: TENANT_ID,
-        actor_user_id: USER_ID,
+      expect(mockAuditLogReadFacade.count).toHaveBeenCalledWith(TENANT_ID, {
+        entityType: 'behaviour_analytics',
         action: 'ai_query',
-        entity_type: 'behaviour_analytics',
-      };
-
-      expect(mockPrisma.auditLog.count).toHaveBeenCalledWith({ where: expectedWhere });
-      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expectedWhere,
-          skip: 0,
-          take: 10,
-          orderBy: { created_at: 'desc' },
-        }),
-      );
+      });
+      expect(mockAuditLogReadFacade.findMany).toHaveBeenCalledWith(TENANT_ID, {
+        entityType: 'behaviour_analytics',
+        action: 'ai_query',
+        actorUserId: USER_ID,
+        skip: 0,
+        take: 10,
+      });
     });
   });
 });

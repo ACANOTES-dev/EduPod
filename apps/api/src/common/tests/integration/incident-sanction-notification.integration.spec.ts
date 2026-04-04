@@ -9,6 +9,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+import { MOCK_FACADE_PROVIDERS } from '../mock-facades';
 import { BehaviourSanctionsService } from '../../../modules/behaviour/behaviour-sanctions.service';
 import { BehaviourService } from '../../../modules/behaviour/behaviour.service';
 import { BehaviourDocumentService } from '../../../modules/behaviour/behaviour-document.service';
@@ -124,6 +125,7 @@ describe('Incident -> Sanction -> Notification flow', () => {
 
     const module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         BehaviourService,
         BehaviourSanctionsService,
         { provide: PrismaService, useValue: mockPrisma },

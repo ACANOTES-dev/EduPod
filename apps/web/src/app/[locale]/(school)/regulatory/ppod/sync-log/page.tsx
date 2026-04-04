@@ -37,8 +37,8 @@ export default function PpodSyncLogPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('ppod.allDatabases')}</SelectItem>
-              <SelectItem value="ppod">PPOD</SelectItem>
-              <SelectItem value="pod">POD</SelectItem>
+              <SelectItem value="ppod">{t('ppod2')}</SelectItem>
+              <SelectItem value="pod">{t('pod')}</SelectItem>
             </SelectContent>
           </Select>
         }

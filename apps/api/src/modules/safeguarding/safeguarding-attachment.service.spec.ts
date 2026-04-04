@@ -31,6 +31,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+import { BehaviourReadFacade, MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -74,10 +75,18 @@ describe('SafeguardingAttachmentService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         SafeguardingAttachmentService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditLogService, useValue: { write: jest.fn() } },
         { provide: 'BullQueue_behaviour', useValue: mockBehaviourQueue },
+        {
+          provide: BehaviourReadFacade,
+          useValue: {
+            findAttachmentById: mockPrisma.behaviourAttachment!.findFirst,
+            findAttachmentsByEntity: mockPrisma.behaviourAttachment!.findMany,
+          },
+        },
       ],
     }).compile();
 
@@ -371,19 +380,11 @@ describe('SafeguardingAttachmentService', () => {
 
       const result = await service.listAttachments(TENANT_ID, CONCERN_ID);
 
-      expect(mockPrisma.behaviourAttachment!.findMany).toHaveBeenCalledWith({
-        where: {
-          tenant_id: TENANT_ID,
-          entity_type: 'safeguarding_concern',
-          entity_id: CONCERN_ID,
-        },
-        orderBy: { created_at: 'desc' },
-        include: {
-          uploaded_by: {
-            select: { id: true, first_name: true, last_name: true },
-          },
-        },
-      });
+      expect(mockPrisma.behaviourAttachment!.findMany).toHaveBeenCalledWith(
+        TENANT_ID,
+        'safeguarding_concern',
+        CONCERN_ID,
+      );
 
       expect(result.data).toHaveLength(1);
       const item = result.data[0]!;

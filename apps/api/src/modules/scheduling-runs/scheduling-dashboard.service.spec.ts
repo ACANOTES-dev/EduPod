@@ -1,13 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { ClassesReadFacade } from '../classes/classes-read.facade';
+import {
+  ClassesReadFacade,
+  MOCK_FACADE_PROVIDERS,
+  RoomsReadFacade,
+  SchedulesReadFacade,
+  SchedulingReadFacade,
+  SchedulingRunsReadFacade,
+  StaffAvailabilityReadFacade,
+  StaffProfileReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
-import { RoomsReadFacade } from '../rooms/rooms-read.facade';
-import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
-import { SchedulingReadFacade } from '../scheduling/scheduling-read.facade';
-import { SchedulingRunsReadFacade } from '../scheduling-runs/scheduling-runs-read.facade';
-import { StaffAvailabilityReadFacade } from '../staff-availability/staff-availability-read.facade';
-import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { SchedulingDashboardService } from './scheduling-dashboard.service';
 
@@ -17,161 +20,90 @@ const NOW = new Date('2026-03-01T12:00:00Z');
 
 describe('SchedulingDashboardService', () => {
   let service: SchedulingDashboardService;
-  let mockPrisma: {
-    class: { count: jest.Mock };
-    classSchedulingRequirement: { count: jest.Mock; findMany: jest.Mock };
-    schedule: { groupBy: jest.Mock; count: jest.Mock; findMany: jest.Mock };
-    schedulingRun: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock };
-    staffAvailability: { findMany: jest.Mock };
-    schedulePeriodTemplate: { count: jest.Mock };
-    staffProfile: { findFirst: jest.Mock; findMany: jest.Mock };
-    room: { count: jest.Mock; findMany: jest.Mock };
+
+  const mockClassesReadFacade = {
+    countByAcademicYear: jest.fn().mockResolvedValue(0),
   };
 
-  beforeEach(async () => {
-    mockPrisma = {
-      class: { count: jest.fn().mockResolvedValue(0) },
-      classSchedulingRequirement: {
-        count: jest.fn().mockResolvedValue(0),
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      schedule: {
-        groupBy: jest.fn().mockResolvedValue([]),
-        count: jest.fn().mockResolvedValue(0),
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      schedulingRun: {
-        findFirst: jest.fn().mockResolvedValue(null),
-        findMany: jest.fn().mockResolvedValue([]),
-        count: jest.fn().mockResolvedValue(0),
-      },
-      staffAvailability: { findMany: jest.fn().mockResolvedValue([]) },
-      schedulePeriodTemplate: { count: jest.fn().mockResolvedValue(0) },
-      staffProfile: {
-        findFirst: jest.fn().mockResolvedValue(null),
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      room: {
-        count: jest.fn().mockResolvedValue(0),
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-    };
+  const mockRoomsReadFacade = {
+    countActiveRooms: jest.fn().mockResolvedValue(0),
+    findActiveRooms: jest.fn().mockResolvedValue([]),
+  };
 
+  const mockSchedulesReadFacade = {
+    findScheduledClassIds: jest.fn().mockResolvedValue([]),
+    countPinnedEntries: jest.fn().mockResolvedValue(0),
+    countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
+    findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
+    findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
+    countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
+    findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
+  };
+
+  const mockSchedulingReadFacade = {
+    countClassRequirements: jest.fn().mockResolvedValue(0),
+    countTeachingPeriods: jest.fn().mockResolvedValue(0),
+    findClassRequirementsWithDetails: jest.fn().mockResolvedValue([]),
+  };
+
+  const mockSchedulingRunsReadFacade = {
+    findLatestCompletedRun: jest.fn().mockResolvedValue(null),
+    countActiveRuns: jest.fn().mockResolvedValue(0),
+    findLatestRunWithResult: jest.fn().mockResolvedValue(null),
+    findHistoricalRuns: jest.fn().mockResolvedValue([]),
+  };
+
+  const mockStaffAvailabilityReadFacade = {
+    findByStaffIds: jest.fn().mockResolvedValue([]),
+  };
+
+  const mockStaffProfileReadFacade = {
+    findByUserId: jest.fn().mockResolvedValue(null),
+    findByIds: jest.fn().mockResolvedValue([]),
+  };
+
+  const mockPrisma = {};
+
+  beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        {
-          provide: ClassesReadFacade,
-          useValue: {
-            findById: jest.fn().mockResolvedValue(null),
-            existsOrThrow: jest.fn().mockResolvedValue(undefined),
-            findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
-            countEnrolledStudents: jest.fn().mockResolvedValue(0),
-            findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
-            findByAcademicYear: jest.fn().mockResolvedValue([]),
-            findByYearGroup: jest.fn().mockResolvedValue([]),
-            findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
-            countByAcademicYear: jest.fn().mockResolvedValue(0),
-            findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
-            findClassIdsForStudent: jest.fn().mockResolvedValue([]),
-            findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
-          },
-        },
-        {
-          provide: RoomsReadFacade,
-          useValue: {
-            findById: jest.fn().mockResolvedValue(null),
-            existsOrThrow: jest.fn().mockResolvedValue(undefined),
-            exists: jest.fn().mockResolvedValue(false),
-            findActiveRooms: jest.fn().mockResolvedValue([]),
-            findActiveRoomBasics: jest.fn().mockResolvedValue([]),
-            countActiveRooms: jest.fn().mockResolvedValue(0),
-            findAllClosures: jest.fn().mockResolvedValue([]),
-            findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-            findClosureById: jest.fn().mockResolvedValue(null),
-          },
-        },
-        {
-          provide: SchedulesReadFacade,
-          useValue: {
-            findById: jest.fn().mockResolvedValue(null),
-            findCoreById: jest.fn().mockResolvedValue(null),
-            existsById: jest.fn().mockResolvedValue(null),
-            findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
-            countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
-            findTeacherTimetable: jest.fn().mockResolvedValue([]),
-            findClassTimetable: jest.fn().mockResolvedValue([]),
-            findPinnedEntries: jest.fn().mockResolvedValue([]),
-            countPinnedEntries: jest.fn().mockResolvedValue(0),
-            findByAcademicYear: jest.fn().mockResolvedValue([]),
-            findScheduledClassIds: jest.fn().mockResolvedValue([]),
-            countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
-            count: jest.fn().mockResolvedValue(0),
-            hasRotationEntries: jest.fn().mockResolvedValue(false),
-            countByRoom: jest.fn().mockResolvedValue(0),
-            findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
-            findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
-            countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
-            findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
-            hasConflict: jest.fn().mockResolvedValue(false),
-            findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
-            findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
-          },
-        },
-        {
-          provide: SchedulingReadFacade,
-          useValue: {
-            findPeriodTemplate: jest.fn().mockResolvedValue(null),
-            countTeachingPeriods: jest.fn().mockResolvedValue(0),
-            findPeriodTemplates: jest.fn().mockResolvedValue([]),
-            countClassRequirements: jest.fn().mockResolvedValue(0),
-            findClassRequirementsWithDetails: jest.fn().mockResolvedValue([]),
-            findTeacherCompetencies: jest.fn().mockResolvedValue([]),
-            findTeacherConfigs: jest.fn().mockResolvedValue([]),
-          },
-        },
-        {
-          provide: SchedulingRunsReadFacade,
-          useValue: {
-            findById: jest.fn().mockResolvedValue(null),
-            findStatusById: jest.fn().mockResolvedValue(null),
-            findActiveRun: jest.fn().mockResolvedValue(null),
-            countActiveRuns: jest.fn().mockResolvedValue(0),
-            findLatestCompletedRun: jest.fn().mockResolvedValue(null),
-            findLatestRunWithResult: jest.fn().mockResolvedValue(null),
-            findLatestAppliedRun: jest.fn().mockResolvedValue(null),
-            listRuns: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-            findHistoricalRuns: jest.fn().mockResolvedValue([]),
-            findScenarioById: jest.fn().mockResolvedValue(null),
-            findScenarioStatusById: jest.fn().mockResolvedValue(null),
-            listScenarios: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-            findScenariosForComparison: jest.fn().mockResolvedValue([]),
-          },
-        },
-        {
-          provide: StaffAvailabilityReadFacade,
-          useValue: {
-            findByAcademicYear: jest.fn().mockResolvedValue([]),
-            findByStaffIds: jest.fn().mockResolvedValue([]),
-            findByWeekday: jest.fn().mockResolvedValue([]),
-          },
-        },
-        {
-          provide: StaffProfileReadFacade,
-          useValue: {
-            findById: jest.fn().mockResolvedValue(null),
-            findByIds: jest.fn().mockResolvedValue([]),
-            findByUserId: jest.fn().mockResolvedValue(null),
-            findActiveStaff: jest.fn().mockResolvedValue([]),
-            existsOrThrow: jest.fn().mockResolvedValue(undefined),
-            resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
-          },
-        },
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
+        { provide: RoomsReadFacade, useValue: mockRoomsReadFacade },
+        { provide: SchedulesReadFacade, useValue: mockSchedulesReadFacade },
+        { provide: SchedulingReadFacade, useValue: mockSchedulingReadFacade },
+        { provide: SchedulingRunsReadFacade, useValue: mockSchedulingRunsReadFacade },
+        { provide: StaffAvailabilityReadFacade, useValue: mockStaffAvailabilityReadFacade },
+        { provide: StaffProfileReadFacade, useValue: mockStaffProfileReadFacade },
         SchedulingDashboardService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 
     service = module.get<SchedulingDashboardService>(SchedulingDashboardService);
+
+    jest.clearAllMocks();
+    // Reset defaults
+    mockClassesReadFacade.countByAcademicYear.mockResolvedValue(0);
+    mockRoomsReadFacade.countActiveRooms.mockResolvedValue(0);
+    mockRoomsReadFacade.findActiveRooms.mockResolvedValue([]);
+    mockSchedulesReadFacade.findScheduledClassIds.mockResolvedValue([]);
+    mockSchedulesReadFacade.countPinnedEntries.mockResolvedValue(0);
+    mockSchedulesReadFacade.countRoomAssignedEntries.mockResolvedValue(0);
+    mockSchedulesReadFacade.findTeacherScheduleEntries.mockResolvedValue([]);
+    mockSchedulesReadFacade.findTeacherWorkloadEntries.mockResolvedValue([]);
+    mockSchedulesReadFacade.countEntriesPerClass.mockResolvedValue(new Map());
+    mockSchedulesReadFacade.findRoomScheduleEntries.mockResolvedValue([]);
+    mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(0);
+    mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(0);
+    mockSchedulingReadFacade.findClassRequirementsWithDetails.mockResolvedValue([]);
+    mockSchedulingRunsReadFacade.findLatestCompletedRun.mockResolvedValue(null);
+    mockSchedulingRunsReadFacade.countActiveRuns.mockResolvedValue(0);
+    mockSchedulingRunsReadFacade.findLatestRunWithResult.mockResolvedValue(null);
+    mockSchedulingRunsReadFacade.findHistoricalRuns.mockResolvedValue([]);
+    mockStaffAvailabilityReadFacade.findByStaffIds.mockResolvedValue([]);
+    mockStaffProfileReadFacade.findByUserId.mockResolvedValue(null);
+    mockStaffProfileReadFacade.findByIds.mockResolvedValue([]);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -180,15 +112,16 @@ describe('SchedulingDashboardService', () => {
 
   describe('overview', () => {
     it('should return summary stats with no latest run', async () => {
-      mockPrisma.class.count.mockResolvedValue(10);
-      mockPrisma.classSchedulingRequirement.count.mockResolvedValue(8);
-      mockPrisma.schedule.groupBy.mockResolvedValue([{ class_id: 'c1' }, { class_id: 'c2' }]);
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
-      mockPrisma.schedulingRun.count.mockResolvedValue(0);
-      mockPrisma.schedule.count.mockResolvedValue(3);
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(0);
-      mockPrisma.room.count.mockResolvedValue(0);
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(10);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(8);
+      mockSchedulesReadFacade.findScheduledClassIds.mockResolvedValue(['c1', 'c2']);
+      mockSchedulingRunsReadFacade.findLatestCompletedRun.mockResolvedValue(null);
+      mockSchedulingRunsReadFacade.countActiveRuns.mockResolvedValue(0);
+      mockSchedulesReadFacade.countPinnedEntries.mockResolvedValue(3);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(0);
+      mockRoomsReadFacade.countActiveRooms.mockResolvedValue(0);
+      mockSchedulesReadFacade.countRoomAssignedEntries.mockResolvedValue(0);
+      mockSchedulesReadFacade.findTeacherScheduleEntries.mockResolvedValue([]);
 
       const result = await service.overview(TENANT_ID, AY_ID);
 
@@ -205,10 +138,10 @@ describe('SchedulingDashboardService', () => {
     });
 
     it('should include latest_run and preference_score when a completed run exists', async () => {
-      mockPrisma.class.count.mockResolvedValue(5);
-      mockPrisma.classSchedulingRequirement.count.mockResolvedValue(5);
-      mockPrisma.schedule.groupBy.mockResolvedValue([]);
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockSchedulesReadFacade.findScheduledClassIds.mockResolvedValue([]);
+      mockSchedulingRunsReadFacade.findLatestCompletedRun.mockResolvedValue({
         id: 'run-1',
         status: 'completed',
         mode: 'auto',
@@ -222,11 +155,12 @@ describe('SchedulingDashboardService', () => {
         created_at: NOW,
         applied_at: null,
       });
-      mockPrisma.schedulingRun.count.mockResolvedValue(0);
-      mockPrisma.schedule.count.mockResolvedValue(0);
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(25);
-      mockPrisma.room.count.mockResolvedValue(5);
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      mockSchedulingRunsReadFacade.countActiveRuns.mockResolvedValue(0);
+      mockSchedulesReadFacade.countPinnedEntries.mockResolvedValue(0);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(25);
+      mockRoomsReadFacade.countActiveRooms.mockResolvedValue(5);
+      mockSchedulesReadFacade.countRoomAssignedEntries.mockResolvedValue(0);
+      mockSchedulesReadFacade.findTeacherScheduleEntries.mockResolvedValue([]);
 
       const result = await service.overview(TENANT_ID, AY_ID);
 
@@ -238,15 +172,16 @@ describe('SchedulingDashboardService', () => {
     });
 
     it('should set active_run to true when queued/running runs exist', async () => {
-      mockPrisma.class.count.mockResolvedValue(5);
-      mockPrisma.classSchedulingRequirement.count.mockResolvedValue(5);
-      mockPrisma.schedule.groupBy.mockResolvedValue([]);
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
-      mockPrisma.schedulingRun.count.mockResolvedValue(1);
-      mockPrisma.schedule.count.mockResolvedValue(0);
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(0);
-      mockPrisma.room.count.mockResolvedValue(0);
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockSchedulesReadFacade.findScheduledClassIds.mockResolvedValue([]);
+      mockSchedulingRunsReadFacade.findLatestCompletedRun.mockResolvedValue(null);
+      mockSchedulingRunsReadFacade.countActiveRuns.mockResolvedValue(1);
+      mockSchedulesReadFacade.countPinnedEntries.mockResolvedValue(0);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(0);
+      mockRoomsReadFacade.countActiveRooms.mockResolvedValue(0);
+      mockSchedulesReadFacade.countRoomAssignedEntries.mockResolvedValue(0);
+      mockSchedulesReadFacade.findTeacherScheduleEntries.mockResolvedValue([]);
 
       const result = await service.overview(TENANT_ID, AY_ID);
 
@@ -254,19 +189,18 @@ describe('SchedulingDashboardService', () => {
     });
 
     it('should compute room and teacher utilisation from schedule data', async () => {
-      mockPrisma.class.count.mockResolvedValue(5);
-      mockPrisma.classSchedulingRequirement.count.mockResolvedValue(5);
-      mockPrisma.schedule.groupBy.mockResolvedValue([]);
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
-      mockPrisma.schedulingRun.count.mockResolvedValue(0);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockSchedulesReadFacade.findScheduledClassIds.mockResolvedValue([]);
+      mockSchedulingRunsReadFacade.findLatestCompletedRun.mockResolvedValue(null);
+      mockSchedulingRunsReadFacade.countActiveRuns.mockResolvedValue(0);
       // 3 pinned
-      mockPrisma.schedule.count
-        .mockResolvedValueOnce(3) // pinned
-        .mockResolvedValueOnce(10); // usedRoomSlots
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(25);
-      mockPrisma.room.count.mockResolvedValue(5); // 5 rooms
-      // 15 teacher schedule entries for 3 unique teachers
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      mockSchedulesReadFacade.countPinnedEntries.mockResolvedValue(3);
+      mockSchedulesReadFacade.countRoomAssignedEntries.mockResolvedValue(10);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(25);
+      mockRoomsReadFacade.countActiveRooms.mockResolvedValue(5); // 5 rooms
+      // 6 teacher schedule entries for 3 unique teachers
+      mockSchedulesReadFacade.findTeacherScheduleEntries.mockResolvedValue([
         { teacher_staff_id: 't1', weekday: 0, period_order: 1 },
         { teacher_staff_id: 't1', weekday: 0, period_order: 2 },
         { teacher_staff_id: 't1', weekday: 0, period_order: 4 },
@@ -291,7 +225,7 @@ describe('SchedulingDashboardService', () => {
 
   describe('workload', () => {
     it('should aggregate per-teacher period counts', async () => {
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      mockSchedulesReadFacade.findTeacherWorkloadEntries.mockResolvedValue([
         {
           teacher_staff_id: 'staff-1',
           teacher: { id: 'staff-1', user: { first_name: 'Alice', last_name: 'Smith' } },
@@ -305,8 +239,8 @@ describe('SchedulingDashboardService', () => {
           teacher: { id: 'staff-2', user: { first_name: 'Bob', last_name: 'Jones' } },
         },
       ]);
-      mockPrisma.staffAvailability.findMany.mockResolvedValue([]);
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(25);
+      mockStaffAvailabilityReadFacade.findByStaffIds.mockResolvedValue([]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(25);
 
       const result = await service.workload(TENANT_ID, AY_ID);
 
@@ -322,7 +256,7 @@ describe('SchedulingDashboardService', () => {
     });
 
     it('should sort by total_periods descending', async () => {
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      mockSchedulesReadFacade.findTeacherWorkloadEntries.mockResolvedValue([
         {
           teacher_staff_id: 'staff-2',
           teacher: { id: 'staff-2', user: { first_name: 'Bob', last_name: 'Jones' } },
@@ -340,8 +274,8 @@ describe('SchedulingDashboardService', () => {
           teacher: { id: 'staff-1', user: { first_name: 'Alice', last_name: 'Smith' } },
         },
       ]);
-      mockPrisma.staffAvailability.findMany.mockResolvedValue([]);
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(25);
+      mockStaffAvailabilityReadFacade.findByStaffIds.mockResolvedValue([]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(25);
 
       const result = await service.workload(TENANT_ID, AY_ID);
 
@@ -350,9 +284,9 @@ describe('SchedulingDashboardService', () => {
     });
 
     it('should return empty data when no schedules exist', async () => {
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
-      mockPrisma.staffAvailability.findMany.mockResolvedValue([]);
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(25);
+      mockSchedulesReadFacade.findTeacherWorkloadEntries.mockResolvedValue([]);
+      mockStaffAvailabilityReadFacade.findByStaffIds.mockResolvedValue([]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(25);
 
       const result = await service.workload(TENANT_ID, AY_ID);
 
@@ -364,7 +298,7 @@ describe('SchedulingDashboardService', () => {
 
   describe('unassigned', () => {
     it('should return classes with fewer scheduled periods than required', async () => {
-      mockPrisma.classSchedulingRequirement.findMany.mockResolvedValue([
+      mockSchedulingReadFacade.findClassRequirementsWithDetails.mockResolvedValue([
         {
           class_id: 'cls-1',
           periods_per_week: 5,
@@ -387,12 +321,11 @@ describe('SchedulingDashboardService', () => {
         },
       ]);
 
-      mockPrisma.schedule.groupBy.mockResolvedValue([
-        { class_id: 'cls-1', _count: { class_id: 3 } },
-        // cls-2 not in groupBy at all -> 0 scheduled
-      ]);
+      mockSchedulesReadFacade.countEntriesPerClass.mockResolvedValue(
+        new Map([['cls-1', 3]]),
+      );
 
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
+      mockSchedulingRunsReadFacade.findLatestRunWithResult.mockResolvedValue(null);
 
       const result = await service.unassigned(TENANT_ID, AY_ID);
 
@@ -409,7 +342,7 @@ describe('SchedulingDashboardService', () => {
     });
 
     it('should not include fully scheduled classes', async () => {
-      mockPrisma.classSchedulingRequirement.findMany.mockResolvedValue([
+      mockSchedulingReadFacade.findClassRequirementsWithDetails.mockResolvedValue([
         {
           class_id: 'cls-1',
           periods_per_week: 3,
@@ -421,10 +354,10 @@ describe('SchedulingDashboardService', () => {
           },
         },
       ]);
-      mockPrisma.schedule.groupBy.mockResolvedValue([
-        { class_id: 'cls-1', _count: { class_id: 3 } },
-      ]);
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
+      mockSchedulesReadFacade.countEntriesPerClass.mockResolvedValue(
+        new Map([['cls-1', 3]]),
+      );
+      mockSchedulingRunsReadFacade.findLatestRunWithResult.mockResolvedValue(null);
 
       const result = await service.unassigned(TENANT_ID, AY_ID);
 
@@ -437,7 +370,7 @@ describe('SchedulingDashboardService', () => {
 
   describe('getStaffProfileId', () => {
     it('should return staff profile id when found', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: 'staff-1' });
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue({ id: 'staff-1' });
 
       const result = await service.getStaffProfileId(TENANT_ID, 'user-1');
 
@@ -445,7 +378,7 @@ describe('SchedulingDashboardService', () => {
     });
 
     it('should return null when staff profile not found', async () => {
-      mockPrisma.staffProfile.findFirst.mockResolvedValue(null);
+      mockStaffProfileReadFacade.findByUserId.mockResolvedValue(null);
 
       const result = await service.getStaffProfileId(TENANT_ID, 'user-1');
 
@@ -457,7 +390,7 @@ describe('SchedulingDashboardService', () => {
 
   describe('preferences', () => {
     it('should return empty result when no completed run exists', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
+      mockSchedulingRunsReadFacade.findLatestRunWithResult.mockResolvedValue(null);
 
       const result = await service.preferences(TENANT_ID, AY_ID);
 
@@ -466,7 +399,7 @@ describe('SchedulingDashboardService', () => {
     });
 
     it('should aggregate preference satisfaction from result_json', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      mockSchedulingRunsReadFacade.findLatestRunWithResult.mockResolvedValue({
         id: 'run-1',
         status: 'completed',
         soft_preference_score: 80,
@@ -489,7 +422,7 @@ describe('SchedulingDashboardService', () => {
           unassigned: [],
         },
       });
-      mockPrisma.staffProfile.findMany.mockResolvedValue([
+      mockStaffProfileReadFacade.findByIds.mockResolvedValue([
         { id: 'staff-1', user: { first_name: 'Alice', last_name: 'Smith' } },
       ]);
 
@@ -505,7 +438,7 @@ describe('SchedulingDashboardService', () => {
     });
 
     it('should filter by staffProfileId when provided', async () => {
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+      mockSchedulingRunsReadFacade.findLatestRunWithResult.mockResolvedValue({
         id: 'run-1',
         status: 'applied',
         soft_preference_score: 70,
@@ -525,7 +458,7 @@ describe('SchedulingDashboardService', () => {
           unassigned: [],
         },
       });
-      mockPrisma.staffProfile.findMany.mockResolvedValue([
+      mockStaffProfileReadFacade.findByIds.mockResolvedValue([
         { id: 'staff-1', user: { first_name: 'Alice', last_name: 'Smith' } },
       ]);
 
@@ -540,12 +473,12 @@ describe('SchedulingDashboardService', () => {
 
   describe('roomUtilisation', () => {
     it('should return per-room utilisation data', async () => {
-      mockPrisma.room.findMany.mockResolvedValue([
+      mockRoomsReadFacade.findActiveRooms.mockResolvedValue([
         { id: 'room-1', name: 'Lab A', room_type: 'laboratory', capacity: 30 },
         { id: 'room-2', name: 'Room 101', room_type: 'classroom', capacity: 25 },
       ]);
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(25);
-      mockPrisma.schedule.findMany.mockResolvedValue([
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(25);
+      mockSchedulesReadFacade.findRoomScheduleEntries.mockResolvedValue([
         {
           room_id: 'room-1',
           weekday: 0,
@@ -577,9 +510,9 @@ describe('SchedulingDashboardService', () => {
     });
 
     it('should return empty data when no rooms exist', async () => {
-      mockPrisma.room.findMany.mockResolvedValue([]);
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(25);
-      mockPrisma.schedule.findMany.mockResolvedValue([]);
+      mockRoomsReadFacade.findActiveRooms.mockResolvedValue([]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(25);
+      mockSchedulesReadFacade.findRoomScheduleEntries.mockResolvedValue([]);
 
       const result = await service.roomUtilisation(TENANT_ID, AY_ID);
 
@@ -591,7 +524,7 @@ describe('SchedulingDashboardService', () => {
 
   describe('trends', () => {
     it('should return trend data from past runs', async () => {
-      mockPrisma.schedulingRun.findMany.mockResolvedValue([
+      mockSchedulingRunsReadFacade.findHistoricalRuns.mockResolvedValue([
         {
           id: 'run-1',
           entries_generated: 50,
@@ -608,8 +541,8 @@ describe('SchedulingDashboardService', () => {
           },
         },
       ]);
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(25);
-      mockPrisma.room.count.mockResolvedValue(5);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(25);
+      mockRoomsReadFacade.countActiveRooms.mockResolvedValue(5);
 
       const result = await service.trends(TENANT_ID, AY_ID);
 
@@ -618,9 +551,9 @@ describe('SchedulingDashboardService', () => {
     });
 
     it('should return empty data when no completed runs exist', async () => {
-      mockPrisma.schedulingRun.findMany.mockResolvedValue([]);
-      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(25);
-      mockPrisma.room.count.mockResolvedValue(0);
+      mockSchedulingRunsReadFacade.findHistoricalRuns.mockResolvedValue([]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(25);
+      mockRoomsReadFacade.countActiveRooms.mockResolvedValue(0);
 
       const result = await service.trends(TENANT_ID, AY_ID);
 

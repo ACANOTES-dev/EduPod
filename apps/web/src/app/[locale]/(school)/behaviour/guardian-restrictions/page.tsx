@@ -33,6 +33,7 @@ const PAGE_SIZE = 20;
 
 export default function GuardianRestrictionsPage() {
   const t = useTranslations('behaviour.guardianRestrictions');
+  const tCommon = useTranslations('common');
 
   // ─── List State ───────────────────────────────────────────────────────────────
   const [data, setData] = React.useState<RestrictionRow[]>([]);
@@ -69,7 +70,8 @@ export default function GuardianRestrictionsPage() {
       }
       setData(items);
       setTotal(type !== 'all' ? items.length : (res.meta?.total ?? 0));
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourGuardianRestrictionsPage]', err);
       setData([]);
       setTotal(0);
     } finally {
@@ -89,7 +91,8 @@ export default function GuardianRestrictionsPage() {
     try {
       const res = await apiClient<RestrictionRow>(`/api/v1/behaviour/guardian-restrictions/${id}`);
       setDetailData(res);
-    } catch {
+    } catch (err) {
+      console.error('[BehaviourGuardianRestrictionsPage]', err);
       setDetailData(null);
     } finally {
       setDetailLoading(false);
@@ -169,9 +172,7 @@ export default function GuardianRestrictionsPage() {
             onClick={(e) => openRevoke(row.id, e)}
             className="shrink-0 text-red-600 hover:text-red-700"
           >
-            <Ban className="me-1 h-3.5 w-3.5" />
-            Revoke
-          </Button>
+            <Ban className="me-1 h-3.5 w-3.5" />{t('revoke')}</Button>
         ) : null;
       },
     },
@@ -189,10 +190,10 @@ export default function GuardianRestrictionsPage() {
         }}
       >
         <SelectTrigger className="w-full sm:w-52">
-          <SelectValue placeholder="Restriction Type" />
+          <SelectValue placeholder={t('restrictionType')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Types</SelectItem>
+          <SelectItem value="all">{t('allTypes')}</SelectItem>
           {RESTRICTION_TYPES.map((type) => (
             <SelectItem key={type} value={type}>
               {RESTRICTION_TYPE_LABELS[type]}
@@ -208,14 +209,14 @@ export default function GuardianRestrictionsPage() {
         }}
       >
         <SelectTrigger className="w-full sm:w-40">
-          <SelectValue placeholder="Status" />
+          <SelectValue placeholder={t('status')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Statuses</SelectItem>
-          <SelectItem value="active">Active</SelectItem>
-          <SelectItem value="expired">Expired</SelectItem>
-          <SelectItem value="revoked">Revoked</SelectItem>
-          <SelectItem value="superseded">Superseded</SelectItem>
+          <SelectItem value="all">{t('allStatuses')}</SelectItem>
+          <SelectItem value="active">{t('active')}</SelectItem>
+          <SelectItem value="expired">{t('expired')}</SelectItem>
+          <SelectItem value="revoked">{t('revoked')}</SelectItem>
+          <SelectItem value="superseded">{t('superseded')}</SelectItem>
         </SelectContent>
       </Select>
     </div>
@@ -245,8 +246,7 @@ export default function GuardianRestrictionsPage() {
                 ? `${row.student.first_name} ${row.student.last_name}`
                 : t('unknownStudent')}
             </p>
-            <p className="mt-0.5 text-xs text-text-tertiary">
-              Guardian: {getParentDisplayName(row.parent)}
+            <p className="mt-0.5 text-xs text-text-tertiary">{t('guardian')}{getParentDisplayName(row.parent)}
             </p>
           </div>
           <StatusBadge status={row.status} />
@@ -268,9 +268,7 @@ export default function GuardianRestrictionsPage() {
               className="w-full text-red-600 hover:text-red-700"
               onClick={(e) => openRevoke(row.id, e)}
             >
-              <Ban className="me-1 h-3.5 w-3.5" />
-              Revoke
-            </Button>
+              <Ban className="me-1 h-3.5 w-3.5" />{t('revoke')}</Button>
           </div>
         )}
       </button>
@@ -304,10 +302,8 @@ export default function GuardianRestrictionsPage() {
             ) : data.length === 0 ? (
               <div className="rounded-xl border border-border bg-surface py-12 text-center dark:bg-surface">
                 <ShieldAlert className="mx-auto mb-2 h-8 w-8 text-text-tertiary" />
-                <p className="text-sm font-medium text-text-primary">No restrictions found</p>
-                <p className="mt-1 text-xs text-text-tertiary">
-                  No guardian restrictions match the current filters
-                </p>
+                <p className="text-sm font-medium text-text-primary">{t('noRestrictionsFound')}</p>
+                <p className="mt-1 text-xs text-text-tertiary">{t('noGuardianRestrictionsMatchThe')}</p>
               </div>
             ) : (
               data.map(renderMobileCard)
@@ -316,8 +312,7 @@ export default function GuardianRestrictionsPage() {
           {/* Mobile pagination */}
           {total > PAGE_SIZE && (
             <div className="mt-4 flex items-center justify-between text-sm text-text-secondary">
-              <span>
-                Page {page} of {Math.ceil(total / PAGE_SIZE)}
+              <span>{t('page')}{page}{t('of')}{Math.ceil(total / PAGE_SIZE)}
               </span>
               <div className="flex gap-2">
                 <Button
@@ -325,17 +320,13 @@ export default function GuardianRestrictionsPage() {
                   size="sm"
                   disabled={page <= 1}
                   onClick={() => setPage(page - 1)}
-                >
-                  Previous
-                </Button>
+                >{tCommon('previous')}</Button>
                 <Button
                   variant="outline"
                   size="sm"
                   disabled={page >= Math.ceil(total / PAGE_SIZE)}
                   onClick={() => setPage(page + 1)}
-                >
-                  Next
-                </Button>
+                >{tCommon('next')}</Button>
               </div>
             </div>
           )}

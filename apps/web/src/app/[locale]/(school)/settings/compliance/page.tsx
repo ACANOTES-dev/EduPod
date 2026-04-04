@@ -312,6 +312,7 @@ function DetailDialog({ request, onClose, onAction }: DetailDialogProps) {
 
 export default function CompliancePage() {
   const t = useTranslations('compliance');
+  const tCommon = useTranslations('common');
   const { isOwner } = useRoleCheck();
 
   const [data, setData] = React.useState<ComplianceRequest[]>([]);
@@ -438,9 +439,7 @@ export default function CompliancePage() {
                 setAgeGateConfirmId(row.id);
               }}
             >
-              <ShieldCheck className="me-1 h-3.5 w-3.5" />
-              Confirm Age-Gate
-            </Button>
+              <ShieldCheck className="me-1 h-3.5 w-3.5" />{t('confirmAgeGate')}</Button>
           )}
         </div>
       ),
@@ -511,20 +510,15 @@ export default function CompliancePage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Age-Gated DSAR</DialogTitle>
-            <DialogDescription>
-              This student is 17 or older. Per DPC guidance, please confirm that processing this
-              DSAR is in the student&apos;s best interest before it can proceed.
-            </DialogDescription>
+            <DialogTitle>{t('confirmAgeGatedDsar')}</DialogTitle>
+            <DialogDescription>{t('thisStudentIs17Or')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => setAgeGateConfirmId(null)}
               disabled={ageGateConfirming}
-            >
-              Cancel
-            </Button>
+            >{tCommon('cancel')}</Button>
             <Button
               disabled={ageGateConfirming}
               onClick={async () => {
@@ -540,7 +534,8 @@ export default function CompliancePage() {
                   );
                   setAgeGateConfirmId(null);
                   void fetchRequests(page);
-                } catch {
+                } catch (err) {
+                  console.error('[SettingsCompliancePage]', err);
                   toast.error('Failed to confirm age-gated review');
                 } finally {
                   setAgeGateConfirming(false);

@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertTriangle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -36,6 +37,7 @@ interface SchoolClass {
 }
 
 export default function AllergyReportPage() {
+  const t = useTranslations('students');
   const [records, setRecords] = React.useState<AllergyRecord[]>([]);
   const [yearGroups, setYearGroups] = React.useState<YearGroup[]>([]);
   const [classes, setClasses] = React.useState<SchoolClass[]>([]);
@@ -60,7 +62,8 @@ export default function AllergyReportPage() {
       );
       setRecords(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[StudentsAllergyReportPage]', err);
       setRecords([]);
       setTotal(0);
     } finally {
@@ -133,10 +136,10 @@ export default function AllergyReportPage() {
     <div className="flex flex-wrap items-center gap-2">
       <Select value={yearGroupFilter} onValueChange={setYearGroupFilter}>
         <SelectTrigger className="w-full sm:w-[140px]">
-          <SelectValue placeholder="Year Group" />
+          <SelectValue placeholder={t('yearGroup')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Year Groups</SelectItem>
+          <SelectItem value="all">{t('allYearGroups')}</SelectItem>
           {yearGroups.map((yg) => (
             <SelectItem key={yg.id} value={yg.id}>
               {yg.name}
@@ -147,10 +150,10 @@ export default function AllergyReportPage() {
 
       <Select value={classFilter} onValueChange={setClassFilter}>
         <SelectTrigger className="w-full sm:w-[140px]">
-          <SelectValue placeholder="Class" />
+          <SelectValue placeholder={t('class')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Classes</SelectItem>
+          <SelectItem value="all">{t('allClasses')}</SelectItem>
           {classes.map((c) => (
             <SelectItem key={c.id} value={c.id}>
               {c.name}
@@ -164,14 +167,14 @@ export default function AllergyReportPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Allergy Report"
+        title={t('allergyReport')}
         description="Students with known allergies across all year groups"
       />
 
       {!isLoading && records.length === 0 ? (
         <EmptyState
           icon={AlertTriangle}
-          title="No allergy records found"
+          title={t('noAllergyRecordsFound')}
           description="No students with recorded allergies match the current filters."
         />
       ) : (

@@ -97,7 +97,7 @@ export function GradesTab({ students: children }: GradesTabProps) {
         setPeriods(res.data);
         if (res.data.length > 0) setSelectedPeriod(res.data[0]!.id);
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[GradesTab]', err); });
   }, []);
 
   const fetchGrades = React.useCallback(async (studentId: string, periodId: string) => {
@@ -109,7 +109,8 @@ export function GradesTab({ students: children }: GradesTabProps) {
         `/api/v1/gradebook/student-grades?${params.toString()}`,
       );
       setGradesData(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[GradesTab]', err);
       setGradesData(null);
     } finally {
       setIsLoading(false);
@@ -125,7 +126,8 @@ export function GradesTab({ students: children }: GradesTabProps) {
         `/api/v1/parent/report-card-history?${params.toString()}`,
       );
       setHistory(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[GradesTab]', err);
       setHistory([]);
     } finally {
       setHistoryLoading(false);
@@ -159,7 +161,8 @@ export function GradesTab({ students: children }: GradesTabProps) {
       });
       toast.success(tr('acknowledged'));
       void fetchHistory(selectedChild);
-    } catch {
+    } catch (err) {
+      console.error('[GradesTab]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setAcknowledging(null);
@@ -180,7 +183,8 @@ export function GradesTab({ students: children }: GradesTabProps) {
       ]);
       setCompareDataA(resA.data.grades);
       setCompareDataB(resB.data.grades);
-    } catch {
+    } catch (err) {
+      console.error('[GradesTab]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setCompareLoading(false);
@@ -210,7 +214,7 @@ export function GradesTab({ students: children }: GradesTabProps) {
       {children.length > 1 && (
         <Select value={selectedChild} onValueChange={setSelectedChild}>
           <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Select student" />
+            <SelectValue placeholder={t('selectStudent')} />
           </SelectTrigger>
           <SelectContent>
             {children.map((c) => (
@@ -223,7 +227,7 @@ export function GradesTab({ students: children }: GradesTabProps) {
       )}
 
       {/* Sub-tabs */}
-      <nav className="flex gap-1 border-b border-border" aria-label="Grades tabs">
+      <nav className="flex gap-1 border-b border-border" aria-label={t('gradesTabs')}>
         {subTabs.map((tab) => (
           <button
             key={tab.key}
@@ -278,9 +282,7 @@ export function GradesTab({ students: children }: GradesTabProps) {
                         <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
                           {t('score')}
                         </th>
-                        <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
-                          Grade
-                        </th>
+                        <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">{t('grade')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -410,9 +412,7 @@ export function GradesTab({ students: children }: GradesTabProps) {
                                   <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary">
                                     {t('score')}
                                   </th>
-                                  <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary">
-                                    Grade
-                                  </th>
+                                  <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-text-tertiary">{t('grade')}</th>
                                 </tr>
                               </thead>
                               <tbody>

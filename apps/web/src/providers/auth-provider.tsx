@@ -92,7 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return fullUser;
       }
       return null;
-    } catch {
+    } catch (err) {
+      console.error('[AuthProvider]', err);
       return null;
     }
   }, []);
@@ -111,7 +112,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const fullUser = await fetchMe();
           if (!cancelled) setUser(fullUser);
         }
-      } catch {
+      } catch (err) {
+        console.error('[AuthProvider]', err);
         // No valid refresh token — user is not logged in
         setAccessToken(null);
         setUser(null);

@@ -1,6 +1,7 @@
 'use client';
 
 import { Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 import {
   Button,
@@ -50,6 +51,8 @@ export function RuleEditorSheet({
   saveError,
   onSave,
 }: RuleEditorSheetProps) {
+  const t = useTranslations('behaviourSettings.policies');
+  const tCommon = useTranslations('common');
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
@@ -58,16 +61,16 @@ export function RuleEditorSheet({
         </SheetHeader>
         <div className="mt-4 space-y-4">
           <div className="space-y-1.5">
-            <Label>Name *</Label>
+            <Label>{t('name')}</Label>
             <Input
               value={form.name}
               onChange={(e) => onFormChange((f) => ({ ...f, name: e.target.value }))}
-              placeholder="e.g. 3 verbal warnings \u2192 written warning"
+              placeholder={t('eG3VerbalWarnings')}
               className="text-base"
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Description</Label>
+            <Label>{t('description2')}</Label>
             <Textarea
               value={form.description}
               onChange={(e) => onFormChange((f) => ({ ...f, description: e.target.value }))}
@@ -76,7 +79,7 @@ export function RuleEditorSheet({
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Stage</Label>
+              <Label>{t('stage')}</Label>
               <Select
                 value={form.stage}
                 onValueChange={(v) => onFormChange((f) => ({ ...f, stage: v }))}
@@ -94,7 +97,7 @@ export function RuleEditorSheet({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Priority (lower = earlier)</Label>
+              <Label>{t('priorityLowerEarlier')}</Label>
               <Input
                 type="number"
                 value={form.priority}
@@ -107,7 +110,7 @@ export function RuleEditorSheet({
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Match Strategy</Label>
+              <Label>{t('matchStrategy')}</Label>
               <Select
                 value={form.match_strategy}
                 onValueChange={(v) => onFormChange((f) => ({ ...f, match_strategy: v }))}
@@ -116,8 +119,8 @@ export function RuleEditorSheet({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="first_match">First Match</SelectItem>
-                  <SelectItem value="all_matching">All Matching</SelectItem>
+                  <SelectItem value="first_match">{t('firstMatch')}</SelectItem>
+                  <SelectItem value="all_matching">{t('allMatching')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -127,7 +130,7 @@ export function RuleEditorSheet({
                   checked={form.stop_processing_stage}
                   onCheckedChange={(v) => onFormChange((f) => ({ ...f, stop_processing_stage: v }))}
                 />
-                <Label className="text-sm">Stop stage on match</Label>
+                <Label className="text-sm">{t('stopStageOnMatch')}</Label>
               </div>
             </div>
           </div>
@@ -136,18 +139,16 @@ export function RuleEditorSheet({
               checked={form.is_active}
               onCheckedChange={(v) => onFormChange((f) => ({ ...f, is_active: v }))}
             />
-            <Label className="text-sm">Enabled</Label>
+            <Label className="text-sm">{t('enabled')}</Label>
           </div>
 
           {/* ─── Conditions ──────────────────────────────────────────── */}
           <div className="space-y-3 border-t border-border pt-4">
-            <h3 className="text-sm font-semibold">Conditions</h3>
-            <p className="text-xs text-text-tertiary">
-              Leave blank for wildcard. All specified conditions must match (AND).
-            </p>
+            <h3 className="text-sm font-semibold">{t('conditions')}</h3>
+            <p className="text-xs text-text-tertiary">{t('leaveBlankForWildcardAll')}</p>
 
             <div className="space-y-1.5">
-              <Label className="text-xs">Categories</Label>
+              <Label className="text-xs">{t('categories')}</Label>
               <div className="flex flex-wrap gap-2">
                 {categories.map((cat) => {
                   const selected = ((form.conditions.category_ids as string[]) ?? []).includes(
@@ -184,7 +185,7 @@ export function RuleEditorSheet({
 
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Polarity</Label>
+                <Label className="text-xs">{t('polarity')}</Label>
                 <Select
                   value={(form.conditions.polarity as string) ?? ''}
                   onValueChange={(v) =>
@@ -195,17 +196,17 @@ export function RuleEditorSheet({
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Any" />
+                    <SelectValue placeholder={t('any')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="positive">Positive</SelectItem>
-                    <SelectItem value="negative">Negative</SelectItem>
-                    <SelectItem value="neutral">Neutral</SelectItem>
+                    <SelectItem value="positive">{t('positive')}</SelectItem>
+                    <SelectItem value="negative">{t('negative')}</SelectItem>
+                    <SelectItem value="neutral">{t('neutral')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Severity Min</Label>
+                <Label className="text-xs">{t('severityMin')}</Label>
                 <Input
                   type="number"
                   min={1}
@@ -224,7 +225,7 @@ export function RuleEditorSheet({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Severity Max</Label>
+                <Label className="text-xs">{t('severityMax')}</Label>
                 <Input
                   type="number"
                   min={1}
@@ -255,7 +256,7 @@ export function RuleEditorSheet({
                     }))
                   }
                 />
-                <Label className="text-xs">Student has SEND</Label>
+                <Label className="text-xs">{t('studentHasSend')}</Label>
               </div>
               <div className="flex items-center gap-2">
                 <Checkbox
@@ -270,13 +271,13 @@ export function RuleEditorSheet({
                     }))
                   }
                 />
-                <Label className="text-xs">Has Active Intervention</Label>
+                <Label className="text-xs">{t('hasActiveIntervention')}</Label>
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Repeat Count Min</Label>
+                <Label className="text-xs">{t('repeatCountMin')}</Label>
                 <Input
                   type="number"
                   min={1}
@@ -294,7 +295,7 @@ export function RuleEditorSheet({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Window (days)</Label>
+                <Label className="text-xs">{t('windowDays')}</Label>
                 <Input
                   type="number"
                   min={1}
@@ -315,7 +316,7 @@ export function RuleEditorSheet({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Participant Role</Label>
+                <Label className="text-xs">{t('participantRole')}</Label>
                 <Select
                   value={(form.conditions.participant_role as string) ?? ''}
                   onValueChange={(v) =>
@@ -326,7 +327,7 @@ export function RuleEditorSheet({
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Any" />
+                    <SelectValue placeholder={t('any')} />
                   </SelectTrigger>
                   <SelectContent>
                     {PARTICIPANT_ROLES.map((r) => (
@@ -343,7 +344,7 @@ export function RuleEditorSheet({
           {/* ─── Actions ─────────────────────────────────────────────── */}
           <div className="space-y-3 border-t border-border pt-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Actions</h3>
+              <h3 className="text-sm font-semibold">{tCommon('actions')}</h3>
               <Button
                 variant="secondary"
                 size="sm"
@@ -361,9 +362,7 @@ export function RuleEditorSheet({
                   }));
                 }}
               >
-                <Plus className="me-1 h-3 w-3" />
-                Add Action
-              </Button>
+                <Plus className="me-1 h-3 w-3" />{t('addAction')}</Button>
             </div>
             {form.actions.map((action, idx) => {
               const updateAction = (patch: Partial<PolicyAction>) => {
@@ -410,7 +409,7 @@ export function RuleEditorSheet({
                     </Select>
                     {action.action_type === 'create_task' && (
                       <Input
-                        placeholder="Task title"
+                        placeholder={t('taskTitle')}
                         value={(action.action_config.title as string) ?? ''}
                         onChange={(e) =>
                           updateConfig({ title: e.target.value, task_type: 'follow_up' })
@@ -424,7 +423,7 @@ export function RuleEditorSheet({
                         onValueChange={(v) => updateConfig({ target_category_id: v })}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Target category" />
+                          <SelectValue placeholder={t('targetCategory')} />
                         </SelectTrigger>
                         <SelectContent>
                           {categories.map((c) => (
@@ -437,7 +436,7 @@ export function RuleEditorSheet({
                     )}
                     {action.action_type === 'flag_for_review' && (
                       <Input
-                        placeholder="Reason"
+                        placeholder={t('reason')}
                         value={(action.action_config.reason as string) ?? ''}
                         onChange={(e) => updateConfig({ reason: e.target.value })}
                         className="text-base"
@@ -446,7 +445,7 @@ export function RuleEditorSheet({
                     {(action.action_type === 'require_approval' ||
                       action.action_type === 'block_without_approval') && (
                       <Input
-                        placeholder="Approver role (e.g. deputy_principal)"
+                        placeholder={t('approverRoleEGDeputy')}
                         value={(action.action_config.approver_role as string) ?? ''}
                         onChange={(e) =>
                           updateConfig({
@@ -461,7 +460,7 @@ export function RuleEditorSheet({
                     )}
                     {action.action_type === 'notify_roles' && (
                       <Input
-                        placeholder="Roles (comma-separated, e.g. year_head,deputy_principal)"
+                        placeholder={t('rolesCommaSeparatedEG')}
                         value={((action.action_config.roles as string[]) ?? []).join(', ')}
                         onChange={(e) =>
                           updateConfig({
@@ -495,11 +494,11 @@ export function RuleEditorSheet({
 
           {editTarget && (
             <div className="space-y-1.5 border-t border-border pt-4">
-              <Label>Change Reason</Label>
+              <Label>{t('changeReason')}</Label>
               <Textarea
                 value={form.change_reason}
                 onChange={(e) => onFormChange((f) => ({ ...f, change_reason: e.target.value }))}
-                placeholder="Why are you making this change?"
+                placeholder={t('whyAreYouMakingThis')}
                 rows={2}
               />
             </div>
@@ -508,9 +507,7 @@ export function RuleEditorSheet({
           {saveError && <p className="text-sm text-danger-text">{saveError}</p>}
 
           <div className="flex justify-end gap-2 border-t border-border pt-4">
-            <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={saving}>
-              Cancel
-            </Button>
+            <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={saving}>{tCommon('cancel')}</Button>
             <Button onClick={onSave} disabled={saving}>
               {saving ? 'Saving...' : editTarget ? 'Update Rule' : 'Create Rule'}
             </Button>

@@ -116,14 +116,10 @@ export function FeeGenerationPreview({
                 <td className="px-4 py-3 text-sm">
                   <div className="flex flex-wrap gap-1">
                     {isDuplicate && (
-                      <StatusBadge status="neutral" className="text-xs">
-                        Duplicate
-                      </StatusBadge>
+                      <StatusBadge status="neutral" className="text-xs">{t('duplicate')}</StatusBadge>
                     )}
                     {line.missing_billing_parent && (
-                      <StatusBadge status="warning" className="text-xs">
-                        No Billing Parent
-                      </StatusBadge>
+                      <StatusBadge status="warning" className="text-xs">{t('noBillingParent')}</StatusBadge>
                     )}
                   </div>
                 </td>

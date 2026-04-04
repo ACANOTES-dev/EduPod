@@ -21,6 +21,7 @@ jest.mock('../middleware/rls.middleware', () => ({
   }),
 }));
 
+import { MOCK_FACADE_PROVIDERS } from './mock-facades';
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import { RedisService } from '../../modules/redis/redis.service';
 import { SequenceService } from '../../modules/sequence/sequence.service';
@@ -151,6 +152,7 @@ describe('Prisma Query Snapshots — StudentsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         StudentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -234,6 +236,7 @@ describe('Prisma Query Snapshots — InvoicesService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         InvoicesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SequenceService, useValue: mockSequence },
@@ -305,6 +308,7 @@ describe('Prisma Query Snapshots — PaymentsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         PaymentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SequenceService, useValue: mockSequence },

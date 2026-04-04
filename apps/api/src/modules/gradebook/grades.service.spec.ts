@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS, ClassesReadFacade, ConfigurationReadFacade, StudentReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import type { BulkUpsertGradesDto } from './dto/gradebook.dto';
@@ -54,13 +55,22 @@ function buildValidDto(overrides: Partial<BulkUpsertGradesDto> = {}): BulkUpsert
 describe('GradesService', () => {
   let service: GradesService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  const mockClassesFacade = { findEnrolledStudentIds: jest.fn() };
+  const mockConfigFacade = { findSettings: jest.fn() };
+  const mockStudentFacade = { findById: jest.fn() };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRlsTx.grade.upsert.mockReset();
+    mockClassesFacade.findEnrolledStudentIds.mockResolvedValue([]);
+    mockConfigFacade.findSettings.mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
         GradesService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -102,7 +112,7 @@ describe('GradesService', () => {
         class_id: CLASS_ID,
         max_score: 100,
       });
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+      mockClassesFacade.findEnrolledStudentIds.mockResolvedValue([]);
 
       await expect(
         service.bulkUpsert(TENANT_ID, ASSESSMENT_ID, USER_ID, buildValidDto()),
@@ -116,10 +126,8 @@ describe('GradesService', () => {
         class_id: CLASS_ID,
         max_score: 50,
       });
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
-        { student_id: STUDENT_ID },
-      ]);
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
+      mockClassesFacade.findEnrolledStudentIds.mockResolvedValue([STUDENT_ID]);
+      mockConfigFacade.findSettings.mockResolvedValue(null);
 
       await expect(
         service.bulkUpsert(TENANT_ID, ASSESSMENT_ID, USER_ID, buildValidDto()),
@@ -157,10 +165,8 @@ describe('GradesService', () => {
         class_id: CLASS_ID,
         max_score: 100,
       });
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
-        { student_id: STUDENT_ID },
-      ]);
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
+      mockClassesFacade.findEnrolledStudentIds.mockResolvedValue([STUDENT_ID]);
+      mockConfigFacade.findSettings.mockResolvedValue(null);
       mockPrisma.grade.findMany.mockResolvedValue([]);
       mockRlsTx.grade.upsert.mockResolvedValue({
         id: 'grade-1',
@@ -184,10 +190,8 @@ describe('GradesService', () => {
         class_id: CLASS_ID,
         max_score: 100,
       });
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
-        { student_id: STUDENT_ID },
-      ]);
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
+      mockClassesFacade.findEnrolledStudentIds.mockResolvedValue([STUDENT_ID]);
+      mockConfigFacade.findSettings.mockResolvedValue(null);
       mockPrisma.grade.findMany.mockResolvedValue([
         {
           student_id: STUDENT_ID,
@@ -217,10 +221,8 @@ describe('GradesService', () => {
         class_id: CLASS_ID,
         max_score: 100,
       });
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
-        { student_id: STUDENT_ID },
-      ]);
-      mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
+      mockClassesFacade.findEnrolledStudentIds.mockResolvedValue([STUDENT_ID]);
+      mockConfigFacade.findSettings.mockResolvedValue(null);
 
       await expect(
         service.bulkUpsert(
@@ -266,7 +268,7 @@ describe('GradesService', () => {
 
   describe('findByStudent', () => {
     it('should throw NotFoundException when student does not exist', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue(null);
+      mockStudentFacade.findById.mockResolvedValue(null);
 
       await expect(
         service.findByStudent(TENANT_ID, STUDENT_ID, {}),
@@ -274,7 +276,7 @@ describe('GradesService', () => {
     });
 
     it('should return grades with assessment info when student exists', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue({
+      mockStudentFacade.findById.mockResolvedValue({
         id: STUDENT_ID,
         first_name: 'Alice',
         last_name: 'Smith',
@@ -304,7 +306,7 @@ describe('GradesService', () => {
     });
 
     it('should pass class_id filter to grade query when provided', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue({
+      mockStudentFacade.findById.mockResolvedValue({
         id: STUDENT_ID,
         first_name: 'Alice',
         last_name: 'Smith',

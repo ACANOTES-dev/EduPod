@@ -63,7 +63,8 @@ export default function ApprovalsPage() {
       );
       setData(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsApprovalsPage]', err);
       setData([]);
       setTotal(0);
     } finally {
@@ -80,7 +81,8 @@ export default function ApprovalsPage() {
       await apiClient(`/api/v1/report-card-approvals/${id}/approve`, { method: 'POST' });
       toast.success(t('approved'));
       void fetchApprovals(page);
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsApprovalsPage]', err);
       toast.error(tc('errorGeneric'));
     }
   };
@@ -96,7 +98,8 @@ export default function ApprovalsPage() {
       toast.success(t('bulkApproved'));
       setSelected(new Set());
       void fetchApprovals(page);
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsApprovalsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setBulkActioning(false);
@@ -119,7 +122,8 @@ export default function ApprovalsPage() {
       toast.success(t('rejected'));
       setRejectTarget(null);
       void fetchApprovals(page);
-    } catch {
+    } catch (err) {
+      console.error('[ReportCardsApprovalsPage]', err);
       toast.error(tc('errorGeneric'));
     } finally {
       setRejecting(false);
@@ -242,7 +246,7 @@ export default function ApprovalsPage() {
           checked={allSelected}
           onChange={toggleAll}
           className="rounded border-border"
-          aria-label="Select all"
+          aria-label={t('selectAll')}
         />
         {t('selectAll')}
       </label>

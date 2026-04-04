@@ -60,7 +60,7 @@ export default function NewPastoralReferralPage() {
           setCases(response.data ?? []);
         }
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[ReferralsNewPage]', err); });
 
     return () => {
       cancelled = true;
@@ -90,7 +90,7 @@ export default function NewPastoralReferralPage() {
           ]);
         }
       })
-      .catch(() => undefined);
+      .catch((err) => { console.error('[ReferralsNewPage]', err); });
 
     return () => {
       cancelled = true;

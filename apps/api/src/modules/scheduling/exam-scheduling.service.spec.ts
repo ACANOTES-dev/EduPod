@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { RoomsReadFacade } from '../rooms/rooms-read.facade';
@@ -50,6 +51,7 @@ const makePlanningSession = (status = 'planning') => ({
 
 describe('ExamSchedulingService', () => {
   let service: ExamSchedulingService;
+  let module: TestingModule;
   let mockPrisma: {
     academicPeriod: { findFirst: jest.Mock };
     examSession: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock };
@@ -99,8 +101,9 @@ describe('ExamSchedulingService', () => {
       created_at: new Date('2026-03-01'),
     });
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
+        ...MOCK_FACADE_PROVIDERS,
         {
           provide: AcademicReadFacade,
           useValue: {
@@ -158,6 +161,9 @@ describe('ExamSchedulingService', () => {
 
   describe('createExamSession', () => {
     it('should create a new exam session in planning status', async () => {
+      const facade = module.get(AcademicReadFacade);
+      (facade.findPeriodById as jest.Mock).mockResolvedValue({ id: PERIOD_ID });
+
       const result = await service.createExamSession(TENANT_ID, {
         academic_period_id: PERIOD_ID,
         name: 'Summer Exams 2026',
@@ -179,7 +185,8 @@ describe('ExamSchedulingService', () => {
     });
 
     it('should throw NotFoundException when academic period does not exist', async () => {
-      mockPrisma.academicPeriod.findFirst.mockResolvedValue(null);
+      const facade = module.get(AcademicReadFacade);
+      (facade.findPeriodById as jest.Mock).mockResolvedValue(null);
 
       await expect(
         service.createExamSession(TENANT_ID, {

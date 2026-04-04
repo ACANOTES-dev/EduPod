@@ -79,7 +79,7 @@ export function TimetableTab({ students }: TimetableTabProps) {
     setLoading(true);
     apiClient<ParentTimetableResponse>(`/api/v1/parent/timetable?student_id=${selectedChild}`)
       .then((res) => setData(res))
-      .catch(() => setData(null))
+      .catch((err) => { console.error('[TimetableTab]', err); return setData(null); })
       .finally(() => setLoading(false));
   }, [selectedChild]);
 
