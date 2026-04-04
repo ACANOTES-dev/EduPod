@@ -281,6 +281,25 @@ gunzip -c /opt/edupod/backups/db-TIMESTAMP.sql.gz | \
   psql -U edupod_admin -d school_platformedupod_prod
 ```
 
+#### Off-site backup replication (S3)
+
+Automated daily via cron. See `docs/operations/backup-replication-setup.md` for full setup.
+
+```bash
+# Manual run
+cd /opt/edupod/app
+pnpm db:backup:replicate
+
+# List available S3 backups
+pnpm db:backup:restore-s3 -- --list
+
+# Restore from S3
+pnpm db:backup:restore-s3 -- --target-url "postgresql://user:pass@host:5432/db_name"
+
+# Quarterly drill with S3 source
+bash scripts/backup-drill.sh --from-s3
+```
+
 ---
 
 ### 7. Deployment (Manual)

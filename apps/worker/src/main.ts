@@ -1,10 +1,5 @@
-/* eslint-disable import/order -- dotenv must load before NestJS reads process.env */
-import { resolve } from 'path';
-import { config } from 'dotenv';
-
-// Preload .env so process.env is populated before NestJS/Prisma/BullMQ reads it
-config({ path: resolve(__dirname, '../../.env') });
-config({ path: resolve(__dirname, '../../../.env') });
+/* eslint-disable import/order -- instrument must load before NestJS reads process.env */
+import './instrument';
 
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';

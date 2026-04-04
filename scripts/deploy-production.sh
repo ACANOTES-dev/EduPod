@@ -15,6 +15,15 @@ SMOKE_API_READY_URL="${SMOKE_API_READY_URL:-http://localhost:3001/api/health}"
 SMOKE_AUTH_URL="${SMOKE_AUTH_URL:-http://localhost:3001/api/v1/auth/login}"
 SMOKE_WORKER_URL="${SMOKE_WORKER_URL:-http://localhost:5556/health}"
 
+# ─── Migration Policy ──────────────────────────────────────────────────────────
+# All schema migrations follow the expand/contract pattern.
+# Expand (additive) migrations deploy WITH new code.
+# Contract (destructive) migrations deploy AFTER code is stable.
+# This means code rollback is always sufficient — the old code runs against
+# the expanded schema without modification.
+# See docs/operations/migration-policy.md for the full policy.
+# ───────────────────────────────────────────────────────────────────────────────
+
 rollback_attempted=0
 
 log() {

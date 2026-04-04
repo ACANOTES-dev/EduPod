@@ -69,7 +69,23 @@ pnpm --filter @school/prisma exec prisma generate
 
 Run this again after Prisma schema changes.
 
-## 7. Seed Local Data
+## 7. Run Database Migrations
+
+```bash
+pnpm --filter @school/prisma exec prisma migrate dev
+```
+
+This applies all pending schema migrations to your local database.
+
+## 8. Run Post-Migrate Scripts
+
+```bash
+pnpm db:post-migrate
+```
+
+This applies RLS policies, database extensions, and custom functions defined in `post_migrate.sql` files. Required after every migration -- without this step, Row-Level Security is not enforced and tenant isolation will not work.
+
+## 9. Seed Local Data
 
 ```bash
 pnpm db:seed
@@ -81,7 +97,7 @@ If you need the demo data flow described in the repo scripts:
 pnpm seed:demo
 ```
 
-## 8. Run the App
+## 10. Run the App
 
 ```bash
 pnpm dev
@@ -89,7 +105,7 @@ pnpm dev
 
 This starts the web app, API, and worker through Turborepo.
 
-## 9. Verify the Baseline
+## 11. Verify the Baseline
 
 Before changing code, make sure the current branch is healthy:
 
@@ -101,7 +117,7 @@ pnpm i18n:check
 pnpm hotspots:check
 ```
 
-## 10. Day-to-Day Development Workflow
+## 12. Day-to-Day Development Workflow
 
 1. Read `docs/plans/context.md` and `docs/architecture/pre-flight-checklist.md` before meaningful changes.
 2. Check `docs/architecture/module-blast-radius.md` and `docs/architecture/danger-zones.md` for touched modules.
@@ -110,14 +126,14 @@ pnpm hotspots:check
 5. Run the full verification set before pushing or opening a PR.
 6. Refresh hotspot metrics if you changed a tracked hotspot module.
 
-## 11. Working with Tenancy and RLS
+## 13. Working with Tenancy and RLS
 
 - Tenant-scoped writes must use Prisma interactive transactions.
 - Sequential `prisma.$transaction([...])` is not allowed for tenant data.
 - BullMQ payloads must include `tenant_id`.
 - Raw SQL is only allowed in the sanctioned RLS middleware path.
 
-## 12. Contributing Expectations
+## 14. Contributing Expectations
 
 - Commit messages must follow Conventional Commits. Example: `feat(payroll): add payroll run finalisation`
 - PRs should use the repository template and include change-cost notes for hotspot modules.
@@ -125,7 +141,7 @@ pnpm hotspots:check
 - New frontend forms should use `react-hook-form` with `zodResolver` and shared schemas.
 - Human-facing UI strings belong in `apps/web/messages/en.json` and `apps/web/messages/ar.json`.
 
-## 13. Useful Commands
+## 15. Useful Commands
 
 ```bash
 pnpm turbo run lint
@@ -136,9 +152,10 @@ pnpm hotspots:check
 pnpm hotspots:report
 ```
 
-## 14. Troubleshooting
+## 16. Troubleshooting
 
 - Missing dependencies after sync or storage cleanup: rerun `pnpm install --frozen-lockfile`
 - Prisma client errors after schema changes: rerun `pnpm --filter @school/prisma exec prisma generate`
 - Hooks not firing: rerun `pnpm exec husky`
+- RLS policy errors or tenant isolation not working: run `pnpm db:post-migrate` to apply post-migration scripts including RLS policies
 - Local `.app` domain issues: use `localhost`, not `.app`, because HSTS is preloaded

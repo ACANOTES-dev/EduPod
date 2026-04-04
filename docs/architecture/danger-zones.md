@@ -408,33 +408,49 @@ The re-enqueue happens OUTSIDE the Prisma transaction (line ~52 comment), preven
 
 ---
 
-## DZ-27: survey_responses Has No tenant_id and No RLS
+## DZ-27: Anonymous Survey Response Tables (surveyResponse, surveyParticipationToken)
 
-**Risk**: Cross-tenant response leakage if queried without survey join
-**Location**: `packages/prisma/schema.prisma` — `SurveyResponse` model, `apps/api/src/modules/staff-wellbeing/`
+**Risk**: Cross-tenant response leakage or anonymity breach if queried without survey join
+**Location**: `packages/prisma/schema.prisma` — `SurveyResponse` + `SurveyParticipationToken` models, `apps/api/src/modules/staff-wellbeing/`
 **Severity**: CRITICAL
 
-The `survey_responses` table is the ONLY table in the entire codebase that intentionally has NO `tenant_id` column and NO RLS policy. This is an anonymity-by-architecture decision for the Staff Wellbeing module — survey responses must not be traceable to any user.
+**Threat:** These tables intentionally have NO `tenant_id` and NO `user_id` to enforce survey anonymity. This means:
 
-**What makes this dangerous:**
+1. RLS cannot isolate them — isolation depends on joining through `staff_surveys.tenant_id`
+2. Any new access path could break anonymity guarantees
+3. Freeform response text may contain PII that respondents included voluntarily
 
-- A direct query against `survey_responses` without joining through `staff_surveys` will return responses from ALL tenants
-- There is no database-layer protection — tenant isolation is enforced purely at the application layer
-- Only `StaffWellbeingSurveyService` may query this table — no other service, no raw queries
-
-**Also absent from this table (by design):**
+**Also absent from these tables (by design):**
 
 - No `user_id` or `staff_profile_id` — no link to any person
 - No `session_id` or `ip_address` — no network traceability
 - No `created_at` TIMESTAMPTZ — only `submitted_date DATE` to prevent timing inference
 - No foreign key to ANY user-related table
 
-**Mitigation:**
+**Current Defenses:**
 
-- All queries MUST join through `staff_surveys.tenant_id` to enforce tenant isolation
-- Only the wellbeing survey service may access this table
-- Integration tests (Phase G) specifically verify no API path can return responses from another tenant's surveys
-- The `survey_participation_tokens` table follows the same pattern (no tenant_id, no RLS) — same mitigations apply
+- No identity columns on the tables (architectural anonymity)
+- Date-only timestamps (`@db.Date`) prevent timing-based deanonymization
+- One-way HMAC participation tokens (non-reversible)
+- Automatic token cleanup 7 days after survey close
+- ESLint rule `no-unguarded-survey-access` restricts access to allowlisted files (CI enforcement)
+- Static isolation test `survey-responses-isolation.spec.ts` verifies allowlist + query patterns
+- API-layer access always goes through `createRlsClient()` joining via `staff_surveys.tenant_id`
+- Worker access is constrained to specific findUnique patterns (no broad queries)
+
+**Allowed Access Files:**
+
+- `surveyResponse`: survey.service.ts, survey-results.service.ts, moderation-scan.processor.ts
+- `surveyParticipationToken`: survey.service.ts, survey-results.service.ts, cleanup-participation-tokens.processor.ts
+
+**Mitigation for new access sites:**
+
+1. ESLint `no-unguarded-survey-access` will block the build
+2. Add the file to the rule's allowlist ONLY after security review confirming:
+   - Tenant isolation via staff_surveys join
+   - No user-to-response linkage
+   - No broad queries (findMany without survey_id scope)
+3. Update the isolation spec's allowlist to match
 
 **HMAC reversibility window:**
 

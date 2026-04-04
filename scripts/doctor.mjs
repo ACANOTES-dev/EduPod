@@ -151,6 +151,11 @@ if (exists('.env')) {
     }
   }
 
+  // Advisory: DATABASE_MIGRATE_URL is needed for prisma migrate dev (falls back to DATABASE_URL)
+  if (!envVars['DATABASE_MIGRATE_URL']) {
+    console.log('NOTE env: DATABASE_MIGRATE_URL: not set (needed for `prisma migrate dev` — falls back to DATABASE_URL)');
+  }
+
   // Backward-compat drift: warn about deprecated variable names
   const deprecatedMap = {
     MEILISEARCH_HOST: 'MEILISEARCH_URL',
@@ -175,16 +180,22 @@ if (exists('packages/shared/dist/index.js')) {
   fail('Shared build artifact', 'packages/shared/dist/index.js is missing', 'Run `pnpm build`.');
 }
 
-if (exists('apps/api/dist/main.js')) {
-  pass('API build artifact', 'apps/api/dist/main.js present');
+if (exists('apps/api/dist/api/src/main.js')) {
+  pass('API build artifact', 'apps/api/dist/api/src/main.js present');
 } else {
-  fail('API build artifact', 'apps/api/dist/main.js is missing', 'Run `pnpm --filter @school/api build` or `pnpm build`.');
+  fail('API build artifact', 'apps/api/dist/api/src/main.js is missing', 'Run `pnpm --filter @school/api build` or `pnpm build`.');
 }
 
 if (exists('apps/worker/dist/apps/worker/src/main.js')) {
   pass('Worker build artifact', 'apps/worker/dist/apps/worker/src/main.js present');
 } else {
   fail('Worker build artifact', 'apps/worker/dist/apps/worker/src/main.js is missing', 'Run `pnpm --filter @school/worker build` or `pnpm build`.');
+}
+
+if (exists('scripts/post-migrate.ts')) {
+  pass('Post-migrate script', 'scripts/post-migrate.ts present');
+} else {
+  fail('Post-migrate script', 'scripts/post-migrate.ts is missing', 'This file should exist in the repo. Run `git status` to check for missing files.');
 }
 
 await checkPort('PostgreSQL', 5553);

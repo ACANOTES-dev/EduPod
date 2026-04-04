@@ -9,6 +9,8 @@ LOG_FILE="backup-drill-${DRILL_DATE}.log"
 
 BACKUP_SEARCH_DIR="${BACKUP_SEARCH_DIR:-/opt/edupod/backups/predeploy}"
 BACKUP_FILE_OVERRIDE=""
+FROM_S3=false
+S3_TEMP_FILE=""
 DB_NAME="${DRILL_DB_NAME:-school_platform}"
 DB_USER="${DRILL_DB_USER:-postgres}"
 DB_PASSWORD="${DRILL_DB_PASSWORD:-drill-local-password}"
@@ -19,11 +21,12 @@ RESTORE_STARTED=false
 usage() {
   cat <<'EOF'
 Usage:
-  ./scripts/backup-drill.sh [--backup-file /path/to/file.dump] [--skip-cleanup]
+  ./scripts/backup-drill.sh [options]
 
 Options:
-  --backup-file    Restore a specific custom-format .dump file.
-  --skip-cleanup   Keep the drill container and Docker volume for extended checks.
+  --backup-file <path>  Restore a specific custom-format .dump file.
+  --from-s3             Download and restore from S3 instead of local backup.
+  --skip-cleanup        Keep the drill container and Docker volume for extended checks.
 EOF
 }
 
@@ -32,6 +35,10 @@ while [[ $# -gt 0 ]]; do
     --backup-file)
       BACKUP_FILE_OVERRIDE="${2:-}"
       shift 2
+      ;;
+    --from-s3)
+      FROM_S3=true
+      shift
       ;;
     --skip-cleanup)
       SKIP_CLEANUP=true
@@ -62,6 +69,13 @@ cleanup_resources() {
 
   docker rm -f "$CONTAINER_NAME" > /dev/null 2>&1 || true
   docker volume rm "$VOLUME_NAME" > /dev/null 2>&1 || true
+
+  # Clean up S3 temp file if one was downloaded
+  if [[ -n "$S3_TEMP_FILE" && -f "$S3_TEMP_FILE" ]]; then
+    local temp_parent
+    temp_parent="$(dirname "$S3_TEMP_FILE")"
+    rm -rf "$temp_parent" 2>/dev/null || true
+  fi
 }
 
 fail() {
@@ -176,6 +190,25 @@ WHERE schemaname = 'public'
 EOSQL
 }
 
+# ─── S3 download (if --from-s3) ──────────────────────────────────────────────
+if [[ "$FROM_S3" == true ]]; then
+  if [[ -n "$BACKUP_FILE_OVERRIDE" ]]; then
+    echo "ERROR: --from-s3 and --backup-file are mutually exclusive" >&2
+    exit 1
+  fi
+
+  echo "[pre] Downloading latest backup from S3..."
+  S3_TEMP_FILE="$(npx tsx scripts/backup-restore-s3.ts --download-only 2>&1 | tail -1)"
+
+  if [[ ! -f "$S3_TEMP_FILE" ]]; then
+    echo "ERROR: Failed to download S3 backup. Output was: ${S3_TEMP_FILE}" >&2
+    exit 1
+  fi
+
+  echo "[pre] Downloaded S3 backup: ${S3_TEMP_FILE}"
+  BACKUP_FILE_OVERRIDE="$S3_TEMP_FILE"
+fi
+
 BACKUP_FILE="$(resolve_backup_file)"
 BACKUP_SIZE_BYTES="$(stat -f '%z' "$BACKUP_FILE" 2>/dev/null || stat -c '%s' "$BACKUP_FILE")"
 BACKUP_SIZE_MB="$((BACKUP_SIZE_BYTES / 1024 / 1024))"
@@ -183,6 +216,7 @@ BACKUP_SIZE_MB="$((BACKUP_SIZE_BYTES / 1024 / 1024))"
 log "============================================"
 log "  Quarterly Backup Restore Drill"
 log "  Date: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+log "  Source: $(if [[ "$FROM_S3" == true ]]; then echo 'S3 (off-site)'; else echo 'Local'; fi)"
 log "  Backup File: $BACKUP_FILE"
 log "  Drill Container: $CONTAINER_NAME"
 log "============================================"
@@ -263,6 +297,7 @@ echo ""
 log "============================================"
 log "  Drill Results Summary"
 log "============================================"
+log "Backup source:      $(if [[ "$FROM_S3" == true ]]; then echo 'S3 (off-site)'; else echo 'Local'; fi)"
 log "Backup file:        $BACKUP_FILE"
 log "Backup size:        ${BACKUP_SIZE_MB} MB"
 log "Restore container:  $CONTAINER_NAME"

@@ -20,6 +20,20 @@ const ALLOWED_PRODUCTION_FILES = [
 ];
 
 /**
+ * Allowed production source files (non-test, non-spec) that may query
+ * the `surveyParticipationToken` Prisma model. This is the complete allowlist.
+ *
+ * - survey.service.ts: creates/validates participation tokens during response submission
+ * - survey-results.service.ts: counts tokens for minimum response threshold check
+ * - cleanup-participation-tokens.processor.ts: worker job that deletes expired tokens
+ */
+const ALLOWED_PARTICIPATION_TOKEN_FILES = [
+  'survey.service.ts',
+  'survey-results.service.ts',
+  'cleanup-participation-tokens.processor.ts',
+];
+
+/**
  * Service source file paths relative to the repo root, for reading and
  * verifying query patterns.
  */
@@ -64,6 +78,15 @@ function fileAccessesSurveyResponse(filePath: string): boolean {
   return /\.surveyResponse[.(]/.test(content);
 }
 
+/**
+ * Check whether a source file contains a reference to `.surveyParticipationToken.`
+ * (Prisma model access pattern).
+ */
+function fileAccessesSurveyParticipationToken(filePath: string): boolean {
+  const content = fs.readFileSync(filePath, 'utf-8');
+  return /\.surveyParticipationToken[.(]/.test(content);
+}
+
 // ─── Test Suite ─────────────────────────────────────────────────────────────
 
 describe('survey_responses — tenant isolation', () => {
@@ -83,6 +106,28 @@ describe('survey_responses — tenant isolation', () => {
       if (fileAccessesSurveyResponse(filePath)) {
         const basename = path.basename(filePath);
         if (!ALLOWED_PRODUCTION_FILES.includes(basename)) {
+          violatingFiles.push(filePath);
+        }
+      }
+    }
+
+    expect(violatingFiles).toEqual([]);
+  });
+
+  it('surveyParticipationToken should only be queried by allowlisted files', () => {
+    // Scan ALL production .ts files across modules (excluding specs)
+    const allModuleFiles = collectTsFiles(MODULES_DIR);
+    const workerFiles = collectTsFiles(
+      path.resolve(__dirname, '../../../../worker/src/processors'),
+    );
+    const allFiles = [...allModuleFiles, ...workerFiles];
+
+    const violatingFiles: string[] = [];
+
+    for (const filePath of allFiles) {
+      if (fileAccessesSurveyParticipationToken(filePath)) {
+        const basename = path.basename(filePath);
+        if (!ALLOWED_PARTICIPATION_TOKEN_FILES.includes(basename)) {
           violatingFiles.push(filePath);
         }
       }

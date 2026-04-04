@@ -1,0 +1,18 @@
+# Migration Safety Allowlist
+#
+# Files listed here are exempt from the expand/contract safety check.
+# Format: relative path to migration.sql (one per line)
+#
+# Only add entries AFTER the corresponding expand phase has been deployed
+# and verified stable in production. Each entry should include a comment
+# explaining why the contract migration is safe to deploy.
+#
+# Example:
+# # 2026-04-01: users table fully migrated to new_email column, old column unreferenced
+# packages/prisma/migrations/20260401000000_drop_old_email_column/migration.sql
+
+# ─── Historical migrations (deployed before expand/contract policy) ──────────
+# These pre-date the policy and are already live in production.
+packages/prisma/migrations/20260326000000_period_grid_year_group_constraints/migration.sql
+packages/prisma/migrations/20260326210000_add_safeguarding_phase_d_indexes/migration.sql
+packages/prisma/migrations/20260327100000_behaviour_change_type_enum/migration.sql

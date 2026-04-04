@@ -36,6 +36,8 @@ function scrubEvent(event: Sentry.ErrorEvent): Sentry.ErrorEvent {
 
 Sentry.init({
   dsn: process.env.SENTRY_DSN_BACKEND,
+  environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV,
+  release: process.env.SENTRY_RELEASE,
   sendDefaultPii: false,
   serverName: 'worker',
   beforeSend(event) {

@@ -291,6 +291,33 @@
 
 ---
 
+## Wave 5 Addendum: Recoverability, Telemetry, And Tooling Truth
+
+### Bucket 5E — Recoverability + Worker Telemetry
+
+| ID   | Item                                                    | Status | Date       | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ---- | ------------------------------------------------------- | ------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5E.1 | Load worker instrumentation at boot                     | DONE   | 2026-04-04 | Added `import './instrument'` as first import in `apps/worker/src/main.ts` (matching API pattern). Removed redundant dotenv loading from main.ts (instrument.ts handles it). Added `environment` and `release` Sentry tags to worker `instrument.ts` to align with API. Created `instrument.spec.ts` with 5 tests: init config, env/release tags, PII redaction, UUID stripping in transactions, breadcrumb URL scrubbing. All 5 tests pass. Zero TS errors. |
+| 5E.2 | Make schema-changing deploy rollback real                | DONE   | 2026-04-04 | Adopted expand/contract-only migration policy. Created `docs/operations/migration-policy.md` (full policy + partial migration recovery + full DB restore procedure + RTO). Created `scripts/check-migration-safety.sh` CI gate scanning for 6 contract-phase patterns (DROP COLUMN, DROP TABLE, RENAME, SET NOT NULL, TYPE change, DROP INDEX). Created `.migration-safety-allowlist` with 3 pre-existing historical migrations. Added `check:migration-safety` script to package.json. Added policy reference comment in deploy-production.sh. |
+| 5E.3 | Wire off-site backup replication and prove off-site restore | DONE   | 2026-04-04 | Created `scripts/backup-replicate-cron.sh` (cron wrapper with Slack/Telegram failure alerts). Created `scripts/backup-restore-s3.ts` (full S3 restore with --list, --download-only, --backup-key, --target-url modes + post-restore verification). Added `--from-s3` flag to `backup-drill.sh` for off-site drill support. Created `docs/operations/backup-replication-setup.md` (prereqs, cron setup, logrotate, monitoring, restore procedures). Added `db:backup:restore-s3` and `drill:restore-s3` scripts to package.json. Updated OPERATIONS-RUNBOOK.md with off-site backup reference. |
+
+### Bucket 5F — Governance + Tooling Truth
+
+| ID   | Item                                                              | Status | Date       | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ---- | ----------------------------------------------------------------- | ------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5F.1 | Add allowlist guardrail for surveyResponse/surveyParticipationToken | DONE   | 2026-04-04 | Created ESLint rule `no-unguarded-survey-access` (`packages/eslint-config/rules/`) at `error` severity. Enforces allowlist for both `surveyResponse` (3 files) and `surveyParticipationToken` (3 files incl. survey-results.service.ts discovered during implementation). Registered in plugin.js and nest.js. 12 rule unit tests pass. Updated isolation spec to cover surveyParticipationToken (13 tests pass). Updated DZ-27 in danger-zones.md with expanded threat model. Spec/test files exempt. Zero lint false positives. |
+| 5F.2 | Align docs, doctor, build artifacts, and db:post-migrate          | DONE   | 2026-04-04 | Fixed doctor.mjs API artifact path: `apps/api/dist/main.js` → `apps/api/dist/api/src/main.js` (matching actual NestJS output). Added post-migrate script existence check. Added advisory NOTE for DATABASE_MIGRATE_URL. Added steps 7-8 (Run Database Migrations + Run Post-Migrate Scripts) to GETTING-STARTED.md, renumbered steps 9-16. Added RLS troubleshooting entry. All doctor checks syntactically valid.                                                                                                             |
+
+**Bucket 5E Totals:** 3 items completed. Worker telemetry now initializes at boot with environment/release tags matching API. Expand/contract migration policy enforced by CI gate script. Off-site backup replication wired with cron wrapper, S3 restore script, and off-site drill support.
+
+**Bucket 5F Totals:** 2 items completed. Survey access now enforced by ESLint rule at error severity (CI blocks unauthorized access). Doctor script, getting-started docs, and build artifact paths all aligned with actual runtime expectations.
+
+---
+
+**Wave 5 Addendum Complete.** All 5 items (5E.1-5E.3 Recoverability + Worker Telemetry, 5F.1-5F.2 Governance + Tooling Truth) are DONE.
+
+---
+
 ## Status Key
 
 | Status      | Meaning                                    |
