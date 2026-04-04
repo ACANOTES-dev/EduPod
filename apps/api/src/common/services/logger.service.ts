@@ -3,17 +3,9 @@ import type { LogLevel } from '@nestjs/common';
 
 import { getRequestContext } from '../middleware/correlation.middleware';
 
-// ─── Structured log entry ───────────────────────────────────────────────────
+import type { LokiLogShipper, StructuredLogEntry } from './loki-log-shipper.service';
 
-interface StructuredLogEntry {
-  timestamp: string;
-  level: string;
-  message: string;
-  requestId: string | null;
-  tenantId: string | null;
-  userId: string | null;
-  context: string | null;
-}
+export type { StructuredLogEntry };
 
 // ─── Structured logger service ──────────────────────────────────────────────
 
@@ -28,6 +20,15 @@ interface StructuredLogEntry {
 @Injectable({ scope: Scope.TRANSIENT })
 export class StructuredLoggerService extends ConsoleLogger {
   private readonly isProduction = process.env.NODE_ENV === 'production';
+  private static shipper: LokiLogShipper | null = null;
+
+  static setShipper(shipper: LokiLogShipper): void {
+    StructuredLoggerService.shipper = shipper;
+  }
+
+  static clearShipper(): void {
+    StructuredLoggerService.shipper = null;
+  }
 
   // ─── Log level overrides ────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ export class StructuredLoggerService extends ConsoleLogger {
         (entry as StructuredLogEntry & { trace: string }).trace = trace;
       }
       process.stderr.write(JSON.stringify(entry) + '\n');
+      StructuredLoggerService.shipper?.ship(entry);
     } else {
       super.error(message, trace, context);
     }
@@ -95,6 +97,7 @@ export class StructuredLoggerService extends ConsoleLogger {
     const entry = this.buildEntry(level, message, context);
     const stream = level === 'error' ? process.stderr : process.stdout;
     stream.write(JSON.stringify(entry) + '\n');
+    StructuredLoggerService.shipper?.ship(entry);
   }
 
   /**

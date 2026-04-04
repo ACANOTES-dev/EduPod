@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -28,7 +29,10 @@ export interface ClassComparisonEntry {
 
 @Injectable()
 export class ReportCardAnalyticsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly classesReadFacade: ClassesReadFacade,
+  ) {}
 
   // ─── Dashboard ────────────────────────────────────────────────────────────
 
@@ -50,9 +54,7 @@ export class ReportCardAnalyticsService {
       where: {
         tenant_id: tenantId,
         status: 'pending',
-        ...(periodId
-          ? { report_card: { academic_period_id: periodId } }
-          : {}),
+        ...(periodId ? { report_card: { academic_period_id: periodId } } : {}),
       },
     });
 
@@ -67,9 +69,7 @@ export class ReportCardAnalyticsService {
 
     // Count students who have published report cards for this period
     const activeStudents = periodId
-      ? await this.prisma.classEnrolment.count({
-          where: { tenant_id: tenantId, status: 'active' },
-        })
+      ? await this.classesReadFacade.countEnrolmentsGeneric(tenantId, { status: 'active' })
       : 0;
 
     const completionRate =
@@ -115,13 +115,16 @@ export class ReportCardAnalyticsService {
     });
 
     // Group by class
-    const classMap = new Map<string, {
-      class_id: string;
-      class_name: string;
-      grades: number[];
-      student_ids: Set<string>;
-      published_count: number;
-    }>();
+    const classMap = new Map<
+      string,
+      {
+        class_id: string;
+        class_name: string;
+        grades: number[];
+        student_ids: Set<string>;
+        published_count: number;
+      }
+    >();
 
     for (const rc of reportCards) {
       const classId = rc.student.homeroom_class?.id;
@@ -148,7 +151,8 @@ export class ReportCardAnalyticsService {
         const payload = rc.snapshot_payload_json as Record<string, unknown> | null;
         const subjects = payload?.subjects as Array<{ computed_value: number }> | undefined;
         if (subjects && subjects.length > 0) {
-          const avg = subjects.reduce((sum, s) => sum + (s.computed_value ?? 0), 0) / subjects.length;
+          const avg =
+            subjects.reduce((sum, s) => sum + (s.computed_value ?? 0), 0) / subjects.length;
           entry.grades.push(avg);
         }
       }
@@ -163,9 +167,7 @@ export class ReportCardAnalyticsService {
           ? Math.round((entry.grades.reduce((s, v) => s + v, 0) / entry.grades.length) * 100) / 100
           : 0;
       const completionRate =
-        studentCount > 0
-          ? Math.round((entry.published_count / studentCount) * 10000) / 100
-          : 0;
+        studentCount > 0 ? Math.round((entry.published_count / studentCount) * 10000) / 100 : 0;
 
       results.push({
         class_id: entry.class_id,

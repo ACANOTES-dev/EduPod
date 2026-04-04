@@ -12,6 +12,7 @@ import type {
 } from '@school/shared/behaviour';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourAppealsService } from './behaviour-appeals.service';
@@ -23,15 +24,13 @@ export class BehaviourParentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly appealsService: BehaviourAppealsService,
+    private readonly parentReadFacade: ParentReadFacade,
   ) {}
 
   // ─── Resolve Parent ──────────────────────────────────────────────────
 
   async resolveParent(tenantId: string, userId: string) {
-    const parent = await this.prisma.parent.findFirst({
-      where: { user_id: userId, tenant_id: tenantId, status: 'active' },
-      include: { user: { select: { preferred_locale: true } } },
-    });
+    const parent = await this.parentReadFacade.findActiveByUserIdWithLocale(tenantId, userId);
 
     if (!parent) {
       throw new NotFoundException({

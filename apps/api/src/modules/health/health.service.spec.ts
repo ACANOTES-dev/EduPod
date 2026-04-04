@@ -233,12 +233,56 @@ describe('HealthService', () => {
   // ─── getReadiness() ───────────────────────────────────────────────────────
 
   describe('getReadiness()', () => {
-    it('should include latency measurements', async () => {
+    it('should return ready when both PostgreSQL and Redis are up', async () => {
+      const result = await service.getReadiness();
+
+      expect(result.status).toBe('ready');
+      expect(result.checks.postgresql.status).toBe('up');
+      expect(result.checks.redis.status).toBe('up');
+    });
+
+    it('should return not_ready when PostgreSQL is down', async () => {
+      prisma.$queryRaw.mockRejectedValue(new Error('Connection refused'));
+
+      const result = await service.getReadiness();
+
+      expect(result.status).toBe('not_ready');
+      expect(result.checks.postgresql.status).toBe('down');
+    });
+
+    it('should return not_ready when Redis is down', async () => {
+      redis.ping.mockResolvedValue(false);
+
+      const result = await service.getReadiness();
+
+      expect(result.status).toBe('not_ready');
+      expect(result.checks.redis.status).toBe('down');
+    });
+
+    it('should NOT check Meilisearch', async () => {
+      await service.getReadiness();
+
+      expect(meili.search).not.toHaveBeenCalled();
+    });
+
+    it('should NOT check BullMQ queues', async () => {
+      await service.getReadiness();
+
+      expect(queues.notifications.getJobCounts).not.toHaveBeenCalled();
+      expect(queues.behaviour.getJobCounts).not.toHaveBeenCalled();
+    });
+
+    it('should include latency measurements for PostgreSQL and Redis', async () => {
       const result = await service.getReadiness();
 
       expect(result.checks.postgresql.latency_ms).toBeGreaterThanOrEqual(0);
       expect(result.checks.redis.latency_ms).toBeGreaterThanOrEqual(0);
-      expect(result.checks.meilisearch.latency_ms).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should only contain postgresql and redis in checks', async () => {
+      const result = await service.getReadiness();
+
+      expect(Object.keys(result.checks)).toEqual(['postgresql', 'redis']);
     });
   });
 

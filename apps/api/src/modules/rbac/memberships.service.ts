@@ -335,6 +335,9 @@ export class MembershipsService {
       data: { membership_status: 'active' },
     });
 
+    // Invalidate permission cache — ensure fresh permissions on reactivation
+    await this.permissionCacheService.invalidate(membership.id);
+
     if (actorUserId) {
       await this.securityAuditService.logUserStatusChange(tenantId, actorUserId, userId, 'active');
     }

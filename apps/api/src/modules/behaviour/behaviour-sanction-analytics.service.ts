@@ -11,6 +11,7 @@ import type {
   TaskCompletionResult,
 } from '@school/shared/behaviour';
 
+import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { buildDateRange, makeDataQuality } from './behaviour-analytics-helpers';
@@ -19,7 +20,10 @@ import { buildDateRange, makeDataQuality } from './behaviour-analytics-helpers';
 export class BehaviourSanctionAnalyticsService {
   private readonly logger = new Logger(BehaviourSanctionAnalyticsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
+  ) {}
 
   // ─── Sanctions ─────────────────────────────────────────────────────────────
 
@@ -247,11 +251,8 @@ export class BehaviourSanctionAnalyticsService {
 
   async getBenchmarks(tenantId: string, query: BenchmarkQuery): Promise<BenchmarkResult> {
     // Check if cross-school benchmarking is enabled for this tenant
-    const tenantSettings = await this.prisma.tenantSetting.findFirst({
-      where: { tenant_id: tenantId },
-      select: { settings: true },
-    });
-    const settings = (tenantSettings?.settings as Record<string, unknown>) ?? {};
+    const settingsJson = await this.configurationReadFacade.findSettingsJson(tenantId);
+    const settings = (settingsJson as Record<string, unknown>) ?? {};
     const behaviourSettings = (settings?.behaviour as Record<string, unknown>) ?? {};
     const benchmarkingEnabled = behaviourSettings?.cross_school_benchmarking_enabled === true;
 

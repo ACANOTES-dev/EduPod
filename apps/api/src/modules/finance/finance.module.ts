@@ -1,9 +1,14 @@
 import { Module } from '@nestjs/common';
 
+import { AcademicsModule } from '../academics/academics.module';
 import { ApprovalsModule } from '../approvals/approvals.module';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
+import { HouseholdsModule } from '../households/households.module';
+import { ParentsModule } from '../parents/parents.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
 import { SequenceModule } from '../sequence/sequence.module';
+import { StudentsModule } from '../students/students.module';
 
 import { BulkOperationsService } from './bulk-operations.service';
 import { CreditNotesService } from './credit-notes.service';
@@ -40,7 +45,17 @@ import { StripeWebhookController } from './stripe-webhook.controller';
 import { StripeService } from './stripe.service';
 
 @Module({
-  imports: [ApprovalsModule, SequenceModule, ConfigurationModule, PdfRenderingModule],
+  imports: [
+    AcademicsModule,
+    ApprovalsModule,
+    AuditLogModule,
+    ConfigurationModule,
+    HouseholdsModule,
+    ParentsModule,
+    PdfRenderingModule,
+    SequenceModule,
+    StudentsModule,
+  ],
   controllers: [
     FeeStructuresController,
     DiscountsController,

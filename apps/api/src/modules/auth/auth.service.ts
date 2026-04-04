@@ -17,6 +17,7 @@ import { runWithRlsContext } from '../../common/middleware/rls.middleware';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { MfaService } from './auth-mfa.service';
 import { PasswordResetService } from './auth-password-reset.service';
@@ -47,6 +48,7 @@ export class AuthService {
     private readonly redis: RedisService,
     private readonly prisma: PrismaService,
     private readonly securityAuditService: SecurityAuditService,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   // ─── Token signing / verification (delegates to TokenService) ──────────────
@@ -349,9 +351,7 @@ export class AuthService {
       }
 
       // Also check DB for more accuracy
-      const tenant = await this.prisma.tenant.findUnique({
-        where: { id: session.tenant_id },
-      });
+      const tenant = await this.tenantReadFacade.findById(session.tenant_id);
       if (tenant && tenant.status !== 'active') {
         throw new ForbiddenException({
           code: 'TENANT_NOT_ACTIVE',

@@ -261,6 +261,17 @@ run_build() {
   NEXT_PUBLIC_API_URL= SENTRY_ENVIRONMENT="$SENTRY_ENVIRONMENT" SENTRY_RELEASE="$release_sha" pnpm build --force
 }
 
+verify_migrations() {
+  local deployed_sha="$1"
+
+  log 'Verifying migration completeness'
+  if ! DATABASE_MIGRATE_URL="$DATABASE_MIGRATE_URL" \
+    bash "${APP_DIR}/scripts/verify-migrations.sh" --backup-dir "$BACKUP_DIR"; then
+    notify_deploy 'CRITICAL' "$deployed_sha" 'Partial migration detected — manual recovery required'
+    exit 1
+  fi
+}
+
 run_post_migrate_verification() {
   log 'Running post-migrate verification'
   psql "$DATABASE_MIGRATE_URL" -v ON_ERROR_STOP=1 -f scripts/post-migrate-verify.sql > /dev/null
@@ -350,6 +361,8 @@ main() {
     cd packages/prisma
     DATABASE_URL="$DATABASE_MIGRATE_URL" npx prisma migrate deploy
   )
+
+  verify_migrations "$deployed_sha"
 
   log 'Applying post-migrate SQL'
   DATABASE_URL="$DATABASE_MIGRATE_URL" pnpm db:post-migrate

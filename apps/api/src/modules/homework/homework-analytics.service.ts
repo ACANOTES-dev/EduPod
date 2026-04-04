@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 // ─── Filter Types ────────────────────────────────────────────────────────────
 
@@ -52,7 +55,12 @@ function buildAssignmentWhere(
 export class HomeworkAnalyticsService {
   private readonly logger = new Logger(HomeworkAnalyticsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly academicReadFacade: AcademicReadFacade,
+  ) {}
 
   // ─── Completion Rates ────────────────────────────────────────────────────────
 
@@ -106,9 +114,7 @@ export class HomeworkAnalyticsService {
         }
 
         group.total_assignments += 1;
-        const completed = a.completions.filter(
-          (c) => c.status === 'completed',
-        ).length;
+        const completed = a.completions.filter((c) => c.status === 'completed').length;
         group.total_completions += completed;
         group.total_possible += a.completions.length;
       }
@@ -121,8 +127,7 @@ export class HomeworkAnalyticsService {
         total_assignments: g.total_assignments,
         avg_completion_rate:
           g.total_possible > 0
-            ? Math.round((g.total_completions / g.total_possible) * 10000) /
-              100
+            ? Math.round((g.total_completions / g.total_possible) * 10000) / 100
             : 0,
       }));
     } catch (err) {
@@ -134,23 +139,10 @@ export class HomeworkAnalyticsService {
   // ─── Student Trends ──────────────────────────────────────────────────────────
 
   /** Individual student homework trends with per-subject breakdown. */
-  async studentTrends(
-    tenantId: string,
-    studentId: string,
-    filters: AnalyticsFilters,
-  ) {
+  async studentTrends(tenantId: string, studentId: string, filters: AnalyticsFilters) {
     try {
       // Find classes the student is actively enrolled in
-      const enrolments = await this.prisma.classEnrolment.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: studentId,
-          status: 'active',
-        },
-        select: { class_id: true },
-      });
-
-      const classIds = enrolments.map((e) => e.class_id);
+      const classIds = await this.classesReadFacade.findClassIdsForStudent(tenantId, studentId);
       if (classIds.length === 0) {
         return {
           student_id: studentId,
@@ -255,9 +247,7 @@ export class HomeworkAnalyticsService {
 
       const avgPoints =
         pointsList.length > 0
-          ? Math.round(
-              (pointsList.reduce((s, v) => s + v, 0) / pointsList.length) * 100,
-            ) / 100
+          ? Math.round((pointsList.reduce((s, v) => s + v, 0) / pointsList.length) * 100) / 100
           : null;
 
       return {
@@ -266,9 +256,7 @@ export class HomeworkAnalyticsService {
           total_assigned: totalAssigned,
           total_completed: totalCompleted,
           completion_rate:
-            totalAssigned > 0
-              ? Math.round((totalCompleted / totalAssigned) * 10000) / 100
-              : 0,
+            totalAssigned > 0 ? Math.round((totalCompleted / totalAssigned) * 10000) / 100 : 0,
           avg_points_awarded: avgPoints,
         },
         by_subject: Array.from(subjectMap.values()).map((s) => ({
@@ -278,29 +266,21 @@ export class HomeworkAnalyticsService {
           total_completed: s.total_completed,
           completion_rate:
             s.total_assigned > 0
-              ? Math.round((s.total_completed / s.total_assigned) * 10000) /
-                100
+              ? Math.round((s.total_completed / s.total_assigned) * 10000) / 100
               : 0,
           avg_points:
             s.points.length > 0
-              ? Math.round(
-                  (s.points.reduce((a, b) => a + b, 0) / s.points.length) *
-                    100,
-                ) / 100
+              ? Math.round((s.points.reduce((a, b) => a + b, 0) / s.points.length) * 100) / 100
               : null,
         })),
         trend: {
           current_period:
             currentPeriodAssigned > 0
-              ? Math.round(
-                  (currentPeriodCompleted / currentPeriodAssigned) * 10000,
-                ) / 100
+              ? Math.round((currentPeriodCompleted / currentPeriodAssigned) * 10000) / 100
               : 0,
           previous_period:
             previousPeriodAssigned > 0
-              ? Math.round(
-                  (previousPeriodCompleted / previousPeriodAssigned) * 10000,
-                ) / 100
+              ? Math.round((previousPeriodCompleted / previousPeriodAssigned) * 10000) / 100
               : 0,
         },
       };
@@ -313,11 +293,7 @@ export class HomeworkAnalyticsService {
   // ─── Class Patterns ──────────────────────────────────────────────────────────
 
   /** Homework volume, completion rates, type breakdown and student rankings for a class. */
-  async classPatterns(
-    tenantId: string,
-    classId: string,
-    filters: AnalyticsFilters,
-  ) {
+  async classPatterns(tenantId: string, classId: string, filters: AnalyticsFilters) {
     try {
       const baseWhere = buildAssignmentWhere(tenantId, filters);
       const where: Prisma.HomeworkAssignmentWhereInput = {
@@ -360,9 +336,7 @@ export class HomeworkAnalyticsService {
       >();
 
       for (const a of assignments) {
-        const completedCount = a.completions.filter(
-          (c) => c.status === 'completed',
-        ).length;
+        const completedCount = a.completions.filter((c) => c.status === 'completed').length;
         totalCompletions += completedCount;
         totalPossible += a.completions.length;
 
@@ -400,9 +374,7 @@ export class HomeworkAnalyticsService {
           assigned: s.assigned,
           completed: s.completed,
           completion_rate:
-            s.assigned > 0
-              ? Math.round((s.completed / s.assigned) * 10000) / 100
-              : 0,
+            s.assigned > 0 ? Math.round((s.completed / s.assigned) * 10000) / 100 : 0,
         }))
         .sort((a, b) => b.completion_rate - a.completion_rate);
 
@@ -416,16 +388,12 @@ export class HomeworkAnalyticsService {
         class_id: classId,
         assignments_count: assignmentsCount,
         avg_completion_rate:
-          totalPossible > 0
-            ? Math.round((totalCompletions / totalPossible) * 10000) / 100
-            : 0,
+          totalPossible > 0 ? Math.round((totalCompletions / totalPossible) * 10000) / 100 : 0,
         by_type: Array.from(typeMap.values()).map((t) => ({
           type: t.type,
           count: t.count,
           completion_rate:
-            t.possible > 0
-              ? Math.round((t.completed / t.possible) * 10000) / 100
-              : 0,
+            t.possible > 0 ? Math.round((t.completed / t.possible) * 10000) / 100 : 0,
         })),
         top_students: topStudents,
         struggling_students: strugglingStudents,
@@ -516,10 +484,7 @@ export class HomeworkAnalyticsService {
           class_id: g.class_id,
           class_name: g.class_name,
           total_assignments: g.total,
-          weekly_avg:
-            g.weeks.size > 0
-              ? Math.round((g.total / g.weeks.size) * 100) / 100
-              : 0,
+          weekly_avg: g.weeks.size > 0 ? Math.round((g.total / g.weeks.size) * 100) / 100 : 0,
           subject_breakdown: Array.from(g.subjects.values()),
         })),
       };
@@ -634,33 +599,19 @@ export class HomeworkAnalyticsService {
 
       // Filter: min 3 assignments, rate < 50%
       const struggling = Array.from(studentMap.values())
-        .filter(
-          (s) =>
-            s.total_assigned >= 3 &&
-            s.total_completed / s.total_assigned < 0.5,
-        )
+        .filter((s) => s.total_assigned >= 3 && s.total_completed / s.total_assigned < 0.5)
         .sort(
-          (a, b) =>
-            a.total_completed / a.total_assigned -
-            b.total_completed / b.total_assigned,
+          (a, b) => a.total_completed / a.total_assigned - b.total_completed / b.total_assigned,
         );
 
       // Enrich with student names
       const studentIds = struggling.map((s) => s.student_id);
 
       const studentRecords =
-        studentIds.length > 0
-          ? await this.prisma.student.findMany({
-              where: { tenant_id: tenantId, id: { in: studentIds } },
-              select: { id: true, first_name: true, last_name: true },
-            })
-          : [];
+        studentIds.length > 0 ? await this.studentReadFacade.findByIds(tenantId, studentIds) : [];
 
       const nameMap = new Map(
-        studentRecords.map((s) => [
-          s.id,
-          { first_name: s.first_name, last_name: s.last_name },
-        ]),
+        studentRecords.map((s) => [s.id, { first_name: s.first_name, last_name: s.last_name }]),
       );
 
       return {
@@ -668,8 +619,7 @@ export class HomeworkAnalyticsService {
           const names = nameMap.get(s.student_id);
           const rate =
             s.total_assigned > 0
-              ? Math.round((s.total_completed / s.total_assigned) * 10000) /
-                100
+              ? Math.round((s.total_completed / s.total_assigned) * 10000) / 100
               : 0;
           return {
             student_id: s.student_id,
@@ -691,11 +641,7 @@ export class HomeworkAnalyticsService {
   // ─── Subject Trends ────────────────────────────────────────────────────────
 
   /** Cross-class analytics for a single subject. */
-  async subjectTrends(
-    tenantId: string,
-    subjectId: string,
-    filters: AnalyticsFilters,
-  ) {
+  async subjectTrends(tenantId: string, subjectId: string, filters: AnalyticsFilters) {
     try {
       const baseWhere = buildAssignmentWhere(tenantId, filters);
       const where: Prisma.HomeworkAssignmentWhereInput = {
@@ -704,10 +650,7 @@ export class HomeworkAnalyticsService {
       };
 
       const [subject, assignments] = await Promise.all([
-        this.prisma.subject.findFirst({
-          where: { tenant_id: tenantId, id: subjectId },
-          select: { name: true },
-        }),
+        this.academicReadFacade.findSubjectById(tenantId, subjectId),
         this.prisma.homeworkAssignment.findMany({
           where,
           select: {
@@ -744,9 +687,7 @@ export class HomeworkAnalyticsService {
       >();
 
       for (const a of assignments) {
-        const completed = a.completions.filter(
-          (c) => c.status === 'completed',
-        ).length;
+        const completed = a.completions.filter((c) => c.status === 'completed').length;
         totalCompletions += completed;
         totalPossible += a.completions.length;
 
@@ -783,25 +724,19 @@ export class HomeworkAnalyticsService {
         subject_name: subject?.name ?? null,
         total_assignments: assignments.length,
         avg_completion_rate:
-          totalPossible > 0
-            ? Math.round((totalCompletions / totalPossible) * 10000) / 100
-            : 0,
+          totalPossible > 0 ? Math.round((totalCompletions / totalPossible) * 10000) / 100 : 0,
         by_class: Array.from(classMap.values()).map((c) => ({
           class_id: c.class_id,
           class_name: c.class_name,
           assignments_count: c.count,
           completion_rate:
-            c.possible > 0
-              ? Math.round((c.completed / c.possible) * 10000) / 100
-              : 0,
+            c.possible > 0 ? Math.round((c.completed / c.possible) * 10000) / 100 : 0,
         })),
         by_type: Array.from(typeMap.values()).map((t) => ({
           type: t.type,
           count: t.count,
           completion_rate:
-            t.possible > 0
-              ? Math.round((t.completed / t.possible) * 10000) / 100
-              : 0,
+            t.possible > 0 ? Math.round((t.completed / t.possible) * 10000) / 100 : 0,
         })),
       };
     } catch (err) {
@@ -813,11 +748,7 @@ export class HomeworkAnalyticsService {
   // ─── Teacher Patterns ──────────────────────────────────────────────────────
 
   /** Homework setting patterns for a specific teacher. */
-  async teacherPatterns(
-    tenantId: string,
-    staffId: string,
-    filters: AnalyticsFilters,
-  ) {
+  async teacherPatterns(tenantId: string, staffId: string, filters: AnalyticsFilters) {
     try {
       const baseWhere = buildAssignmentWhere(tenantId, filters);
       const where: Prisma.HomeworkAssignmentWhereInput = {
@@ -851,9 +782,7 @@ export class HomeworkAnalyticsService {
       >();
 
       for (const a of assignments) {
-        const completed = a.completions.filter(
-          (c) => c.status === 'completed',
-        ).length;
+        const completed = a.completions.filter((c) => c.status === 'completed').length;
         totalCompletions += completed;
         totalPossible += a.completions.length;
 
@@ -883,16 +812,12 @@ export class HomeworkAnalyticsService {
         total_set: assignments.length,
         by_type: Array.from(typeMap.values()),
         avg_completion_rate:
-          totalPossible > 0
-            ? Math.round((totalCompletions / totalPossible) * 10000) / 100
-            : 0,
+          totalPossible > 0 ? Math.round((totalCompletions / totalPossible) * 10000) / 100 : 0,
         trend: Array.from(monthMap.values()).map((m) => ({
           month: m.month,
           assignments_set: m.set,
           completion_rate:
-            m.possible > 0
-              ? Math.round((m.completed / m.possible) * 10000) / 100
-              : 0,
+            m.possible > 0 ? Math.round((m.completed / m.possible) * 10000) / 100 : 0,
         })),
       };
     } catch (err) {
@@ -904,20 +829,10 @@ export class HomeworkAnalyticsService {
   // ─── Year Group Overview ───────────────────────────────────────────────────
 
   /** Aggregate homework analytics across all classes in a year group. */
-  async yearGroupOverview(
-    tenantId: string,
-    yearGroupId: string,
-    filters: AnalyticsFilters,
-  ) {
+  async yearGroupOverview(tenantId: string, yearGroupId: string, filters: AnalyticsFilters) {
     try {
       // Find all classes in this year group
-      const classes = await this.prisma.class.findMany({
-        where: {
-          tenant_id: tenantId,
-          year_group_id: yearGroupId,
-        },
-        select: { id: true, name: true },
-      });
+      const classes = await this.classesReadFacade.findByYearGroup(tenantId, yearGroupId);
 
       const classIds = classes.map((c) => c.id);
       if (classIds.length === 0) {
@@ -961,9 +876,7 @@ export class HomeworkAnalyticsService {
           classStatsMap.set(a.class_id, stats);
         }
         stats.count += 1;
-        const completed = a.completions.filter(
-          (c) => c.status === 'completed',
-        ).length;
+        const completed = a.completions.filter((c) => c.status === 'completed').length;
         stats.completed += completed;
         stats.possible += a.completions.length;
         totalCompleted += completed;
@@ -974,22 +887,16 @@ export class HomeworkAnalyticsService {
 
       return {
         year_group_id: yearGroupId,
-        classes: Array.from(classStatsMap.entries()).map(
-          ([classId, stats]) => ({
-            class_id: classId,
-            class_name: classNameMap.get(classId) ?? '',
-            assignments_count: stats.count,
-            completion_rate:
-              stats.possible > 0
-                ? Math.round((stats.completed / stats.possible) * 10000) / 100
-                : 0,
-          }),
-        ),
+        classes: Array.from(classStatsMap.entries()).map(([classId, stats]) => ({
+          class_id: classId,
+          class_name: classNameMap.get(classId) ?? '',
+          assignments_count: stats.count,
+          completion_rate:
+            stats.possible > 0 ? Math.round((stats.completed / stats.possible) * 10000) / 100 : 0,
+        })),
         total_assignments: assignments.length,
         avg_completion_rate:
-          totalPossible > 0
-            ? Math.round((totalCompleted / totalPossible) * 10000) / 100
-            : 0,
+          totalPossible > 0 ? Math.round((totalCompleted / totalPossible) * 10000) / 100 : 0,
       };
     } catch (err) {
       this.logger.error('[yearGroupOverview] Failed to compute', err);
@@ -1051,12 +958,9 @@ export class HomeworkAnalyticsService {
       ];
 
       for (const s of studentMap.values()) {
-        const rate =
-          s.total > 0 ? (s.completed / s.total) * 100 : 0;
+        const rate = s.total > 0 ? (s.completed / s.total) * 100 : 0;
         const avgPts =
-          s.points.length > 0
-            ? s.points.reduce((a, b) => a + b, 0) / s.points.length
-            : 0;
+          s.points.length > 0 ? s.points.reduce((a, b) => a + b, 0) / s.points.length : 0;
 
         for (const bucket of buckets) {
           if (rate >= bucket.min && rate < bucket.max) {
@@ -1075,9 +979,7 @@ export class HomeworkAnalyticsService {
           range: b.label,
           student_count: b.students,
           avg_points:
-            b.pointsCount > 0
-              ? Math.round((b.pointsSum / b.pointsCount) * 100) / 100
-              : null,
+            b.pointsCount > 0 ? Math.round((b.pointsSum / b.pointsCount) * 100) / 100 : null,
         })),
       };
     } catch (err) {

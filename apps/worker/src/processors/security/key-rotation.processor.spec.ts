@@ -16,6 +16,7 @@ const KEY_V2_BUF = Buffer.from(HEX_KEY_V2, 'hex');
 
 const STRIPE_ID = 'stripe-config-001';
 const STAFF_ID = 'staff-profile-001';
+const USER_ID = 'user-001';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -49,15 +50,21 @@ function buildMockPrisma() {
       findMany: jest.fn().mockResolvedValue([]),
       update: jest.fn().mockResolvedValue({ id: STRIPE_ID }),
     },
+    user: {
+      findMany: jest.fn().mockResolvedValue([]),
+      update: jest.fn().mockResolvedValue({ id: USER_ID }),
+    },
   };
 }
 
-function makeStripeRow(overrides: Partial<{
-  id: string;
-  stripe_secret_key_encrypted: string;
-  stripe_webhook_secret_encrypted: string;
-  encryption_key_ref: string;
-}> = {}) {
+function makeStripeRow(
+  overrides: Partial<{
+    id: string;
+    stripe_secret_key_encrypted: string;
+    stripe_webhook_secret_encrypted: string;
+    encryption_key_ref: string;
+  }> = {},
+) {
   return {
     id: overrides.id ?? STRIPE_ID,
     stripe_secret_key_encrypted:
@@ -68,12 +75,14 @@ function makeStripeRow(overrides: Partial<{
   };
 }
 
-function makeStaffRow(overrides: Partial<{
-  id: string;
-  bank_account_number_encrypted: string | null;
-  bank_iban_encrypted: string | null;
-  bank_encryption_key_ref: string | null;
-}> = {}) {
+function makeStaffRow(
+  overrides: Partial<{
+    id: string;
+    bank_account_number_encrypted: string | null;
+    bank_iban_encrypted: string | null;
+    bank_encryption_key_ref: string | null;
+  }> = {},
+) {
   return {
     id: overrides.id ?? STAFF_ID,
     bank_account_number_encrypted:
@@ -85,6 +94,20 @@ function makeStaffRow(overrides: Partial<{
         ? overrides.bank_iban_encrypted
         : encrypt('IE29AIBK12345678901234', KEY_V1_BUF),
     bank_encryption_key_ref: overrides.bank_encryption_key_ref ?? 'v1',
+  };
+}
+
+function makeMfaRow(
+  overrides: Partial<{
+    id: string;
+    mfa_secret: string;
+    mfa_secret_key_ref: string | null;
+  }> = {},
+) {
+  return {
+    id: overrides.id ?? USER_ID,
+    mfa_secret: overrides.mfa_secret ?? encrypt('JBSWY3DPEHPK3PXP', KEY_V1_BUF),
+    mfa_secret_key_ref: overrides.mfa_secret_key_ref ?? 'v1',
   };
 }
 
@@ -119,6 +142,7 @@ describe('KeyRotationProcessor', () => {
 
       expect(prisma.tenantStripeConfig.findMany).not.toHaveBeenCalled();
       expect(prisma.staffProfile.findMany).not.toHaveBeenCalled();
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
     });
 
     it('should proceed for the correct job name', async () => {
@@ -129,6 +153,7 @@ describe('KeyRotationProcessor', () => {
 
       expect(prisma.tenantStripeConfig.findMany).toHaveBeenCalled();
       expect(prisma.staffProfile.findMany).toHaveBeenCalled();
+      expect(prisma.user.findMany).toHaveBeenCalled();
     });
   });
 
@@ -199,8 +224,13 @@ describe('KeyRotationProcessor', () => {
   describe('dry-run mode', () => {
     it('should not mutate encrypted rows in dry-run', async () => {
       const prisma = buildMockPrisma();
-      prisma.tenantStripeConfig.findMany.mockResolvedValueOnce([makeStripeRow()]).mockResolvedValueOnce([]);
-      prisma.staffProfile.findMany.mockResolvedValueOnce([makeStaffRow()]).mockResolvedValueOnce([]);
+      prisma.tenantStripeConfig.findMany
+        .mockResolvedValueOnce([makeStripeRow()])
+        .mockResolvedValueOnce([]);
+      prisma.staffProfile.findMany
+        .mockResolvedValueOnce([makeStaffRow()])
+        .mockResolvedValueOnce([]);
+      prisma.user.findMany.mockResolvedValueOnce([makeMfaRow()]).mockResolvedValueOnce([]);
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
       const job = buildJob(KEY_ROTATION_JOB, { dry_run: true });
@@ -209,6 +239,7 @@ describe('KeyRotationProcessor', () => {
 
       expect(prisma.tenantStripeConfig.update).not.toHaveBeenCalled();
       expect(prisma.staffProfile.update).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
       expect(job.updateProgress).toHaveBeenCalledWith(100);
     });
 
@@ -216,9 +247,7 @@ describe('KeyRotationProcessor', () => {
       const prisma = buildMockPrisma();
       const row = makeStripeRow();
       // First call returns a row, second call returns empty (end of data)
-      prisma.tenantStripeConfig.findMany
-        .mockResolvedValueOnce([row])
-        .mockResolvedValueOnce([]);
+      prisma.tenantStripeConfig.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
       prisma.staffProfile.findMany.mockResolvedValue([]);
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
@@ -229,9 +258,7 @@ describe('KeyRotationProcessor', () => {
       // First call: skip=0, second call: skip=50 (batchSize)
       expect(prisma.tenantStripeConfig.findMany).toHaveBeenCalledTimes(2);
       const secondCall = prisma.tenantStripeConfig.findMany.mock.calls[1];
-      expect(secondCall[0]).toEqual(
-        expect.objectContaining({ skip: 50 }),
-      );
+      expect(secondCall[0]).toEqual(expect.objectContaining({ skip: 50 }));
     });
 
     it('should not increment offset in non-dry-run mode (WHERE clause filters rotated rows)', async () => {
@@ -261,9 +288,7 @@ describe('KeyRotationProcessor', () => {
     it('should re-encrypt stripe keys from v1 to v2', async () => {
       const prisma = buildMockPrisma();
       const row = makeStripeRow();
-      prisma.tenantStripeConfig.findMany
-        .mockResolvedValueOnce([row])
-        .mockResolvedValueOnce([]);
+      prisma.tenantStripeConfig.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
       prisma.staffProfile.findMany.mockResolvedValue([]);
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
@@ -277,9 +302,7 @@ describe('KeyRotationProcessor', () => {
       expect(updateCall.data.encryption_key_ref).toBe('v2');
       expect(updateCall.data.key_last_rotated_at).toBeInstanceOf(Date);
       // The new ciphertext must be different from the old
-      expect(updateCall.data.stripe_secret_key_encrypted).not.toBe(
-        row.stripe_secret_key_encrypted,
-      );
+      expect(updateCall.data.stripe_secret_key_encrypted).not.toBe(row.stripe_secret_key_encrypted);
       expect(updateCall.data.stripe_webhook_secret_encrypted).not.toBe(
         row.stripe_webhook_secret_encrypted,
       );
@@ -289,9 +312,7 @@ describe('KeyRotationProcessor', () => {
       const prisma = buildMockPrisma();
       prisma.tenantStripeConfig.findMany.mockResolvedValue([]);
       const row = makeStaffRow();
-      prisma.staffProfile.findMany
-        .mockResolvedValueOnce([row])
-        .mockResolvedValueOnce([]);
+      prisma.staffProfile.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
       const job = buildJob(KEY_ROTATION_JOB);
@@ -331,9 +352,7 @@ describe('KeyRotationProcessor', () => {
         stripe_secret_key_encrypted: 'fake:cipher:text',
         stripe_webhook_secret_encrypted: 'fake:cipher:text',
       });
-      prisma.tenantStripeConfig.findMany
-        .mockResolvedValueOnce([row])
-        .mockResolvedValueOnce([]);
+      prisma.tenantStripeConfig.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
       prisma.staffProfile.findMany.mockResolvedValue([]);
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
@@ -353,9 +372,7 @@ describe('KeyRotationProcessor', () => {
         bank_account_number_encrypted: 'fake:cipher:text',
         bank_iban_encrypted: 'fake:cipher:text',
       });
-      prisma.staffProfile.findMany
-        .mockResolvedValueOnce([row])
-        .mockResolvedValueOnce([]);
+      prisma.staffProfile.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
       const job = buildJob(KEY_ROTATION_JOB);
@@ -368,9 +385,7 @@ describe('KeyRotationProcessor', () => {
     it('should resolve legacy "aws" keyRef to v1', async () => {
       const prisma = buildMockPrisma();
       const row = makeStripeRow({ encryption_key_ref: 'aws' });
-      prisma.tenantStripeConfig.findMany
-        .mockResolvedValueOnce([row])
-        .mockResolvedValueOnce([]);
+      prisma.tenantStripeConfig.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
       prisma.staffProfile.findMany.mockResolvedValue([]);
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
@@ -386,9 +401,7 @@ describe('KeyRotationProcessor', () => {
     it('should resolve legacy "local" keyRef to v1', async () => {
       const prisma = buildMockPrisma();
       const row = makeStripeRow({ encryption_key_ref: 'local' });
-      prisma.tenantStripeConfig.findMany
-        .mockResolvedValueOnce([row])
-        .mockResolvedValueOnce([]);
+      prisma.tenantStripeConfig.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
       prisma.staffProfile.findMany.mockResolvedValue([]);
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
@@ -404,9 +417,7 @@ describe('KeyRotationProcessor', () => {
       const prisma = buildMockPrisma();
       // "mystery" keyRef falls back to v1
       const row = makeStripeRow({ encryption_key_ref: 'mystery' });
-      prisma.tenantStripeConfig.findMany
-        .mockResolvedValueOnce([row])
-        .mockResolvedValueOnce([]);
+      prisma.tenantStripeConfig.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
       prisma.staffProfile.findMany.mockResolvedValue([]);
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
@@ -428,9 +439,7 @@ describe('KeyRotationProcessor', () => {
       const row = makeStaffRow({
         bank_account_number_encrypted: null,
       });
-      prisma.staffProfile.findMany
-        .mockResolvedValueOnce([row])
-        .mockResolvedValueOnce([]);
+      prisma.staffProfile.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
       const job = buildJob(KEY_ROTATION_JOB);
@@ -452,9 +461,7 @@ describe('KeyRotationProcessor', () => {
       const row = makeStaffRow({
         bank_iban_encrypted: null,
       });
-      prisma.staffProfile.findMany
-        .mockResolvedValueOnce([row])
-        .mockResolvedValueOnce([]);
+      prisma.staffProfile.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
       const job = buildJob(KEY_ROTATION_JOB);
@@ -475,9 +482,7 @@ describe('KeyRotationProcessor', () => {
         bank_account_number_encrypted: null,
         bank_iban_encrypted: null,
       });
-      prisma.staffProfile.findMany
-        .mockResolvedValueOnce([row])
-        .mockResolvedValueOnce([]);
+      prisma.staffProfile.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
       const job = buildJob(KEY_ROTATION_JOB);
@@ -500,9 +505,7 @@ describe('KeyRotationProcessor', () => {
       const row = makeStripeRow({
         stripe_secret_key_encrypted: 'not-valid-ciphertext',
       });
-      prisma.tenantStripeConfig.findMany
-        .mockResolvedValueOnce([row])
-        .mockResolvedValueOnce([]);
+      prisma.tenantStripeConfig.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
       prisma.staffProfile.findMany.mockResolvedValue([]);
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
@@ -521,9 +524,7 @@ describe('KeyRotationProcessor', () => {
       const row = makeStaffRow({
         bank_account_number_encrypted: 'garbage:data',
       });
-      prisma.staffProfile.findMany
-        .mockResolvedValueOnce([row])
-        .mockResolvedValueOnce([]);
+      prisma.staffProfile.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
       const job = buildJob(KEY_ROTATION_JOB);
@@ -542,9 +543,7 @@ describe('KeyRotationProcessor', () => {
         stripe_secret_key_encrypted: encrypt('secret', KEY_V2_BUF),
         stripe_webhook_secret_encrypted: encrypt('webhook', KEY_V2_BUF),
       });
-      prisma.tenantStripeConfig.findMany
-        .mockResolvedValueOnce([row])
-        .mockResolvedValueOnce([]);
+      prisma.tenantStripeConfig.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
       prisma.staffProfile.findMany.mockResolvedValue([]);
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
@@ -598,6 +597,7 @@ describe('KeyRotationProcessor', () => {
       expect(prisma.staffProfile.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: 50 }),
       );
+      expect(prisma.user.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 50 }));
     });
 
     it('should terminate when a batch returns empty results', async () => {
@@ -614,18 +614,14 @@ describe('KeyRotationProcessor', () => {
       // Only 1 query per table (immediate empty termination)
       expect(prisma.tenantStripeConfig.findMany).toHaveBeenCalledTimes(1);
       expect(prisma.staffProfile.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.user.findMany).toHaveBeenCalledTimes(1);
     });
 
     it('should process multiple batches for stripe configs', async () => {
       const prisma = buildMockPrisma();
       // Batch 1: 2 rows, Batch 2: empty
-      const rows = [
-        makeStripeRow({ id: 'stripe-1' }),
-        makeStripeRow({ id: 'stripe-2' }),
-      ];
-      prisma.tenantStripeConfig.findMany
-        .mockResolvedValueOnce(rows)
-        .mockResolvedValueOnce([]);
+      const rows = [makeStripeRow({ id: 'stripe-1' }), makeStripeRow({ id: 'stripe-2' })];
+      prisma.tenantStripeConfig.findMany.mockResolvedValueOnce(rows).mockResolvedValueOnce([]);
       prisma.staffProfile.findMany.mockResolvedValue([]);
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
@@ -644,9 +640,7 @@ describe('KeyRotationProcessor', () => {
         makeStaffRow({ id: 'staff-2' }),
         makeStaffRow({ id: 'staff-3' }),
       ];
-      prisma.staffProfile.findMany
-        .mockResolvedValueOnce(rows)
-        .mockResolvedValueOnce([]);
+      prisma.staffProfile.findMany.mockResolvedValueOnce(rows).mockResolvedValueOnce([]);
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
       const job = buildJob(KEY_ROTATION_JOB);
@@ -705,9 +699,7 @@ describe('KeyRotationProcessor', () => {
         stripe_secret_key_encrypted: encrypt(plainSecret, KEY_V1_BUF),
         stripe_webhook_secret_encrypted: encrypt(plainWebhook, KEY_V1_BUF),
       });
-      prisma.tenantStripeConfig.findMany
-        .mockResolvedValueOnce([row])
-        .mockResolvedValueOnce([]);
+      prisma.tenantStripeConfig.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
       prisma.staffProfile.findMany.mockResolvedValue([]);
 
       // Capture the data written by update
@@ -725,10 +717,14 @@ describe('KeyRotationProcessor', () => {
       await processor.process(job);
 
       // The new ciphertext should be in iv:authTag:ciphertext format
-      const newSecretParts = (capturedData as Record<string, string>)['stripe_secret_key_encrypted']!.split(':');
+      const newSecretParts = (capturedData as Record<string, string>)[
+        'stripe_secret_key_encrypted'
+      ]!.split(':');
       expect(newSecretParts).toHaveLength(3);
 
-      const newWebhookParts = (capturedData as Record<string, string>)['stripe_webhook_secret_encrypted']!.split(':');
+      const newWebhookParts = (capturedData as Record<string, string>)[
+        'stripe_webhook_secret_encrypted'
+      ]!.split(':');
       expect(newWebhookParts).toHaveLength(3);
     });
   });
@@ -847,9 +843,7 @@ describe('KeyRotationProcessor', () => {
       const row1 = makeStaffRow({ id: 'staff-fail' });
       const row2 = makeStaffRow({ id: 'staff-ok' });
 
-      prisma.staffProfile.findMany
-        .mockResolvedValueOnce([row1, row2])
-        .mockResolvedValueOnce([]);
+      prisma.staffProfile.findMany.mockResolvedValueOnce([row1, row2]).mockResolvedValueOnce([]);
 
       prisma.staffProfile.update
         .mockRejectedValueOnce(new Error('Timeout'))
@@ -895,9 +889,7 @@ describe('KeyRotationProcessor', () => {
 
     it('should handle findMany throwing during stripe rotation', async () => {
       const prisma = buildMockPrisma();
-      prisma.tenantStripeConfig.findMany.mockRejectedValueOnce(
-        new Error('Connection refused'),
-      );
+      prisma.tenantStripeConfig.findMany.mockRejectedValueOnce(new Error('Connection refused'));
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
       const job = buildJob(KEY_ROTATION_JOB);
@@ -909,9 +901,7 @@ describe('KeyRotationProcessor', () => {
     it('should handle findMany throwing during staff rotation', async () => {
       const prisma = buildMockPrisma();
       prisma.tenantStripeConfig.findMany.mockResolvedValue([]);
-      prisma.staffProfile.findMany.mockRejectedValueOnce(
-        new Error('Connection refused'),
-      );
+      prisma.staffProfile.findMany.mockRejectedValueOnce(new Error('Connection refused'));
 
       const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
       const job = buildJob(KEY_ROTATION_JOB);
@@ -965,6 +955,177 @@ describe('KeyRotationProcessor', () => {
           },
         }),
       );
+    });
+
+    it('should select only necessary MFA user columns', async () => {
+      const prisma = buildMockPrisma();
+      prisma.tenantStripeConfig.findMany.mockResolvedValue([]);
+      prisma.staffProfile.findMany.mockResolvedValue([]);
+
+      const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
+      const job = buildJob(KEY_ROTATION_JOB);
+
+      await processor.process(job);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: {
+            id: true,
+            mfa_secret: true,
+            mfa_secret_key_ref: true,
+          },
+        }),
+      );
+    });
+  });
+
+  // ─── MFA secrets rotation ────────���───────────────────────────────────────
+
+  describe('MFA secrets rotation', () => {
+    it('should re-encrypt MFA secrets from v1 to v2', async () => {
+      const prisma = buildMockPrisma();
+      const row = makeMfaRow();
+      prisma.tenantStripeConfig.findMany.mockResolvedValue([]);
+      prisma.staffProfile.findMany.mockResolvedValue([]);
+      prisma.user.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
+
+      const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
+      const job = buildJob(KEY_ROTATION_JOB);
+
+      await processor.process(job);
+
+      expect(prisma.user.update).toHaveBeenCalledTimes(1);
+      const updateCall = prisma.user.update.mock.calls[0][0];
+      expect(updateCall.where).toEqual({ id: USER_ID });
+      expect(updateCall.data.mfa_secret_key_ref).toBe('v2');
+      // The new ciphertext must be different from the old
+      expect(updateCall.data.mfa_secret).not.toBe(row.mfa_secret);
+    });
+
+    it('should query users WHERE mfa_secret IS NOT NULL AND mfa_secret_key_ref IS NOT NULL AND mfa_secret_key_ref != current', async () => {
+      const prisma = buildMockPrisma();
+      prisma.tenantStripeConfig.findMany.mockResolvedValue([]);
+      prisma.staffProfile.findMany.mockResolvedValue([]);
+
+      const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
+      const job = buildJob(KEY_ROTATION_JOB);
+
+      await processor.process(job);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            mfa_secret: { not: null },
+            mfa_secret_key_ref: { not: null },
+            NOT: { mfa_secret_key_ref: 'v2' },
+          },
+        }),
+      );
+    });
+
+    it('should skip MFA records with unknown keyRef gracefully', async () => {
+      const prisma = buildMockPrisma();
+      prisma.tenantStripeConfig.findMany.mockResolvedValue([]);
+      prisma.staffProfile.findMany.mockResolvedValue([]);
+      // Record encrypted with v3, but v3 key is not in env
+      const row = makeMfaRow({
+        mfa_secret_key_ref: 'v3',
+        mfa_secret: 'fake:cipher:text',
+      });
+      prisma.user.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
+
+      const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
+      const job = buildJob(KEY_ROTATION_JOB);
+
+      // Should NOT throw
+      await processor.process(job);
+
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('should not mutate MFA rows in dry-run mode', async () => {
+      const prisma = buildMockPrisma();
+      prisma.tenantStripeConfig.findMany.mockResolvedValue([]);
+      prisma.staffProfile.findMany.mockResolvedValue([]);
+      prisma.user.findMany.mockResolvedValueOnce([makeMfaRow()]).mockResolvedValueOnce([]);
+
+      const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
+      const job = buildJob(KEY_ROTATION_JOB, { dry_run: true });
+
+      await processor.process(job);
+
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('should log error and continue when MFA ciphertext is malformed', async () => {
+      const prisma = buildMockPrisma();
+      prisma.tenantStripeConfig.findMany.mockResolvedValue([]);
+      prisma.staffProfile.findMany.mockResolvedValue([]);
+      const row = makeMfaRow({
+        mfa_secret: 'not-valid-ciphertext',
+      });
+      prisma.user.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
+
+      const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
+      const job = buildJob(KEY_ROTATION_JOB);
+
+      // Should NOT throw — error is caught and logged
+      await processor.process(job);
+
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(job.updateProgress).toHaveBeenCalledWith(100);
+    });
+
+    it('should continue processing remaining MFA records when one update fails', async () => {
+      const prisma = buildMockPrisma();
+      prisma.tenantStripeConfig.findMany.mockResolvedValue([]);
+      prisma.staffProfile.findMany.mockResolvedValue([]);
+
+      const row1 = makeMfaRow({ id: 'user-fail' });
+      const row2 = makeMfaRow({ id: 'user-ok' });
+
+      prisma.user.findMany.mockResolvedValueOnce([row1, row2]).mockResolvedValueOnce([]);
+
+      prisma.user.update
+        .mockRejectedValueOnce(new Error('DB connection lost'))
+        .mockResolvedValueOnce({ id: 'user-ok' });
+
+      const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
+      const job = buildJob(KEY_ROTATION_JOB);
+
+      // Should NOT throw
+      await processor.process(job);
+
+      // Both records were attempted
+      expect(prisma.user.update).toHaveBeenCalledTimes(2);
+      expect(job.updateProgress).toHaveBeenCalledWith(100);
+    });
+
+    it('should handle findMany throwing during MFA rotation', async () => {
+      const prisma = buildMockPrisma();
+      prisma.tenantStripeConfig.findMany.mockResolvedValue([]);
+      prisma.staffProfile.findMany.mockResolvedValue([]);
+      prisma.user.findMany.mockRejectedValueOnce(new Error('Connection refused'));
+
+      const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
+      const job = buildJob(KEY_ROTATION_JOB);
+
+      await expect(processor.process(job)).rejects.toThrow('Connection refused');
+    });
+
+    it('should process multiple batches for MFA users', async () => {
+      const prisma = buildMockPrisma();
+      prisma.tenantStripeConfig.findMany.mockResolvedValue([]);
+      prisma.staffProfile.findMany.mockResolvedValue([]);
+      const rows = [makeMfaRow({ id: 'user-1' }), makeMfaRow({ id: 'user-2' })];
+      prisma.user.findMany.mockResolvedValueOnce(rows).mockResolvedValueOnce([]);
+
+      const processor = new KeyRotationProcessor(prisma as unknown as PrismaClient);
+      const job = buildJob(KEY_ROTATION_JOB);
+
+      await processor.process(job);
+
+      expect(prisma.user.update).toHaveBeenCalledTimes(2);
     });
   });
 });

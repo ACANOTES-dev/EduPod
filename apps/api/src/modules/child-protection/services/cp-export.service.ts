@@ -9,6 +9,7 @@ import {
 import type { ExportPurpose } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { AuthReadFacade } from '../../auth/auth-read.facade';
 import { PastoralEventService } from '../../pastoral/services/pastoral-event.service';
 import { PdfRenderingService } from '../../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -121,6 +122,7 @@ export class CpExportService {
     private readonly eventService: PastoralEventService,
     private readonly sequenceService: SequenceService,
     private readonly redisService: RedisService,
+    private readonly authReadFacade: AuthReadFacade,
   ) {}
 
   /**
@@ -338,10 +340,7 @@ export class CpExportService {
     }
 
     // 4. Get exporting user's name for watermark
-    const exportingUser = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { first_name: true, last_name: true },
-    });
+    const exportingUser = await this.authReadFacade.findUserSummary(tenantId, userId);
     const exporterName = exportingUser
       ? `${exportingUser.first_name} ${exportingUser.last_name}`
       : 'Unknown User';

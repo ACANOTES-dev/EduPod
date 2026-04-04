@@ -297,6 +297,7 @@ describe('MembershipsService', () => {
         data: { membership_status: 'active' },
       });
       expect(result).toEqual(ownerMembershipFull);
+      expect(mockPermissionCacheService.invalidate).toHaveBeenCalledWith(MEMBERSHIP_ID);
     });
 
     it('should throw BadRequestException when membership is not suspended', async () => {

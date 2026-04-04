@@ -1,8 +1,13 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
+import { AcademicsModule } from '../academics/academics.module';
+import { ClassesModule } from '../classes/classes.module';
+import { ParentsModule } from '../parents/parents.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { S3Module } from '../s3/s3.module';
+import { StudentsModule } from '../students/students.module';
+import { TenantsModule } from '../tenants/tenants.module';
 
 import { HomeworkAnalyticsController } from './homework-analytics.controller';
 import { HomeworkAnalyticsService } from './homework-analytics.service';
@@ -17,8 +22,13 @@ import { HomeworkService } from './homework.service';
 
 @Module({
   imports: [
+    AcademicsModule,
+    ClassesModule,
+    ParentsModule,
     PrismaModule,
     S3Module,
+    StudentsModule,
+    TenantsModule,
     BullModule.registerQueue({ name: 'homework' }),
   ],
   controllers: [
@@ -35,9 +45,6 @@ import { HomeworkService } from './homework.service';
     HomeworkParentService,
     HomeworkAnalyticsService,
   ],
-  exports: [
-    HomeworkService,
-    HomeworkCompletionsService,
-  ],
+  exports: [HomeworkService, HomeworkCompletionsService],
 })
 export class HomeworkModule {}

@@ -93,6 +93,15 @@ export interface FullHealthResult {
   };
 }
 
+export interface ReadinessResult {
+  status: 'ready' | 'not_ready';
+  timestamp: string;
+  checks: {
+    postgresql: DependencyCheck;
+    redis: DependencyCheck;
+  };
+}
+
 export interface AdminHealthResult {
   status: HealthStatus;
   timestamp: string;
@@ -258,8 +267,16 @@ export class HealthService {
     return this.buildFullResult();
   }
 
-  async getReadiness(): Promise<FullHealthResult> {
-    return this.buildFullResult();
+  async getReadiness(): Promise<ReadinessResult> {
+    const [postgresql, redis] = await Promise.all([this.checkPostgresql(), this.checkRedis()]);
+
+    const status = postgresql.status === 'up' && redis.status === 'up' ? 'ready' : 'not_ready';
+
+    return {
+      status,
+      timestamp: new Date().toISOString(),
+      checks: { postgresql, redis },
+    };
   }
 
   async getAdminDashboard(): Promise<AdminHealthResult> {

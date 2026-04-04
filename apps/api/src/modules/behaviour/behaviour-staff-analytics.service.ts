@@ -7,7 +7,9 @@ import type {
   TeacherAnalyticsResult,
 } from '@school/shared/behaviour';
 
+import { AuthReadFacade } from '../auth/auth-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { RbacReadFacade } from '../rbac/rbac-read.facade';
 
 import { EXCLUDED_STATUSES, buildDateRange, makeDataQuality } from './behaviour-analytics-helpers';
 
@@ -15,7 +17,11 @@ import { EXCLUDED_STATUSES, buildDateRange, makeDataQuality } from './behaviour-
 export class BehaviourStaffAnalyticsService {
   private readonly logger = new Logger(BehaviourStaffAnalyticsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly rbacReadFacade: RbacReadFacade,
+    private readonly authReadFacade: AuthReadFacade,
+  ) {}
 
   // ─── Staff Logging Activity ────────────────────────────────────────────────
 
@@ -26,24 +32,10 @@ export class BehaviourStaffAnalyticsService {
     const yearStart = query.from ? new Date(query.from) : new Date(now.getFullYear(), 0, 1);
 
     // Get all staff with behaviour.log permission
-    const staffWithPermission = await this.prisma.tenantMembership.findMany({
-      where: {
-        tenant_id: tenantId,
-        membership_status: 'active',
-        membership_roles: {
-          some: {
-            role: {
-              role_permissions: {
-                some: { permission: { permission_key: 'behaviour.log' } },
-              },
-            },
-          },
-        },
-      },
-      include: {
-        user: { select: { first_name: true, last_name: true } },
-      },
-    });
+    const staffWithPermission = await this.rbacReadFacade.findMembershipsWithPermissionAndUser(
+      tenantId,
+      'behaviour.log',
+    );
 
     const staffIds = staffWithPermission.map((s) => s.user_id);
 
@@ -137,10 +129,7 @@ export class BehaviourStaffAnalyticsService {
     const teacherIds = [...new Set(rawData.map((r) => r.reported_by_id))];
 
     // Get teacher names
-    const teachers = await this.prisma.user.findMany({
-      where: { id: { in: teacherIds } },
-      select: { id: true, first_name: true, last_name: true },
-    });
+    const teachers = await this.authReadFacade.findUsersByIds(tenantId, teacherIds);
     const teacherNameMap = new Map(teachers.map((t) => [t.id, `${t.first_name} ${t.last_name}`]));
 
     // Build teacher stats map

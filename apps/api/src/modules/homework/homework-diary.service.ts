@@ -1,13 +1,10 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import type { CreateDiaryNoteDto } from './dto/create-diary-note.dto';
 import type { CreateParentNoteDto } from './dto/create-parent-note.dto';
@@ -25,7 +22,11 @@ interface DiaryQuery {
 export class HomeworkDiaryService {
   private readonly logger = new Logger(HomeworkDiaryService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly parentReadFacade: ParentReadFacade,
+  ) {}
 
   // ─── Personal diary notes ─────────────────────────────────────────────────
 
@@ -82,10 +83,7 @@ export class HomeworkDiaryService {
 
         return note;
       } catch (err) {
-        if (
-          err instanceof Prisma.PrismaClientKnownRequestError &&
-          err.code === 'P2002'
-        ) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
           throw new BadRequestException({
             code: 'DIARY_NOTE_EXISTS',
             message: 'A diary note already exists for this date',
@@ -99,12 +97,7 @@ export class HomeworkDiaryService {
   /**
    * Update the content of a diary note identified by student + note_date.
    */
-  async updateNote(
-    tenantId: string,
-    studentId: string,
-    noteDate: string,
-    content: string,
-  ) {
+  async updateNote(tenantId: string, studentId: string, noteDate: string, content: string) {
     const existing = await this.prisma.diaryNote.findFirst({
       where: {
         tenant_id: tenantId,
@@ -195,10 +188,8 @@ export class HomeworkDiaryService {
     await this.verifyStudentExists(tenantId, studentId);
 
     // Resolve parent_id if the user is linked to a parent record
-    const parentRecord = await this.prisma.parent.findFirst({
-      where: { tenant_id: tenantId, user_id: userId },
-      select: { id: true },
-    });
+    const parentId = await this.parentReadFacade.resolveIdByUserId(tenantId, userId);
+    const parentRecord = parentId ? { id: parentId } : null;
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
@@ -278,16 +269,6 @@ export class HomeworkDiaryService {
    * Verify that a student exists within the tenant. Throws NotFoundException if not found.
    */
   private async verifyStudentExists(tenantId: string, studentId: string) {
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
-      select: { id: true },
-    });
-
-    if (!student) {
-      throw new NotFoundException({
-        code: 'STUDENT_NOT_FOUND',
-        message: `Student with id "${studentId}" not found`,
-      });
-    }
+    await this.studentReadFacade.existsOrThrow(tenantId, studentId);
   }
 }

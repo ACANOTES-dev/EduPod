@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import type { FinanceAuditQueryDto } from '@school/shared';
 
+import { AuditLogReadFacade } from '../audit-log/audit-log-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 const FINANCE_ENTITY_TYPES = [
@@ -20,49 +21,31 @@ const FINANCE_ENTITY_TYPES = [
 
 @Injectable()
 export class FinanceAuditService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogReadFacade: AuditLogReadFacade,
+  ) {}
 
   async getAuditTrail(tenantId: string, query: FinanceAuditQueryDto) {
     const { page, pageSize, entity_type, entity_id, search, date_from, date_to } = query;
     const skip = (page - 1) * pageSize;
 
-    const where: Record<string, unknown> = {
-      tenant_id: tenantId,
-      entity_type: entity_type ? entity_type : { in: FINANCE_ENTITY_TYPES },
+    const filterOptions = {
+      entityType: entity_type ?? undefined,
+      entityTypes: entity_type ? undefined : FINANCE_ENTITY_TYPES,
+      entityId: entity_id ?? undefined,
+      search: search ?? undefined,
+      dateFrom: date_from ? new Date(date_from) : undefined,
+      dateTo: date_to ? new Date(date_to) : undefined,
     };
 
-    if (entity_id) {
-      where.entity_id = entity_id;
-    }
-
-    if (date_from || date_to) {
-      const dateFilter: Record<string, Date> = {};
-      if (date_from) dateFilter.gte = new Date(date_from);
-      if (date_to) dateFilter.lte = new Date(date_to);
-      where.created_at = dateFilter;
-    }
-
-    if (search) {
-      // Search by entity_id (UUID) or action containing the search term
-      where.OR = [
-        { action: { contains: search, mode: 'insensitive' } },
-        { entity_type: { contains: search, mode: 'insensitive' } },
-      ];
-    }
-
     const [data, total] = await Promise.all([
-      this.prisma.auditLog.findMany({
-        where,
+      this.auditLogReadFacade.findManyWithActor(tenantId, {
+        ...filterOptions,
         skip,
         take: pageSize,
-        orderBy: { created_at: 'desc' },
-        include: {
-          actor: {
-            select: { id: true, email: true, first_name: true, last_name: true },
-          },
-        },
       }),
-      this.prisma.auditLog.count({ where }),
+      this.auditLogReadFacade.countWithFilters(tenantId, filterOptions),
     ]);
 
     return {

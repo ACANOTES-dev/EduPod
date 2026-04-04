@@ -11,7 +11,9 @@ import type {
   TrendResult,
 } from '@school/shared/behaviour';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import {
   EXCLUDED_STATUSES,
@@ -28,6 +30,8 @@ export class BehaviourIncidentAnalyticsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeService: BehaviourScopeService,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly academicReadFacade: AcademicReadFacade,
   ) {}
 
   // ─── Overview ──────────────────────────────────────────────────────────────
@@ -255,8 +259,8 @@ export class BehaviourIncidentAnalyticsService {
     });
     const catMap = new Map(categories.map((c) => [c.id, c]));
 
-    const totalStudents = await this.prisma.student.count({
-      where: { tenant_id: tenantId, status: 'enrolled' as $Enums.StudentStatus },
+    const totalStudents = await this.studentReadFacade.count(tenantId, {
+      status: 'enrolled' as $Enums.StudentStatus,
     });
 
     const result = rawData
@@ -295,10 +299,7 @@ export class BehaviourIncidentAnalyticsService {
     });
 
     const subjectIds = rawData.map((r) => r.subject_id).filter((id): id is string => id !== null);
-    const subjects = await this.prisma.subject.findMany({
-      where: { id: { in: subjectIds } },
-      select: { id: true, name: true },
-    });
+    const subjects = await this.academicReadFacade.findSubjectsByIds(tenantId, subjectIds);
     const subMap = new Map(subjects.map((s) => [s.id, s.name]));
 
     // Try to get exposure data for rate normalisation

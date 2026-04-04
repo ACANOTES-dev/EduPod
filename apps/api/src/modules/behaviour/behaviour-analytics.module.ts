@@ -1,8 +1,12 @@
 import { Module } from '@nestjs/common';
 
+import { AcademicsModule } from '../academics/academics.module';
 import { AiModule } from '../ai/ai.module';
 import { AuthModule } from '../auth/auth.module';
+import { ConfigurationModule } from '../configuration/configuration.module';
 import { GdprModule } from '../gdpr/gdpr.module';
+import { RbacModule } from '../rbac/rbac.module';
+import { StudentsModule } from '../students/students.module';
 
 import { BehaviourAIService } from './behaviour-ai.service';
 import { BehaviourAnalyticsController } from './behaviour-analytics.controller';
@@ -16,7 +20,16 @@ import { BehaviourSanctionAnalyticsService } from './behaviour-sanction-analytic
 import { BehaviourStaffAnalyticsService } from './behaviour-staff-analytics.service';
 
 @Module({
-  imports: [AiModule, AuthModule, GdprModule, BehaviourCoreModule],
+  imports: [
+    AcademicsModule,
+    AiModule,
+    AuthModule,
+    ConfigurationModule,
+    GdprModule,
+    RbacModule,
+    StudentsModule,
+    BehaviourCoreModule,
+  ],
   controllers: [BehaviourAnalyticsController],
   providers: [
     BehaviourAnalyticsService,

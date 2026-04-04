@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../../academics/academic-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import type {
   CreateRubricTemplateDto,
@@ -28,22 +29,18 @@ interface RubricCriterion {
 
 @Injectable()
 export class RubricService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
+  ) {}
 
   /**
    * Create a new rubric template.
    */
-  async createTemplate(
-    tenantId: string,
-    userId: string,
-    dto: CreateRubricTemplateDto,
-  ) {
+  async createTemplate(tenantId: string, userId: string, dto: CreateRubricTemplateDto) {
     // Validate subject if provided
     if (dto.subject_id) {
-      const subject = await this.prisma.subject.findFirst({
-        where: { id: dto.subject_id, tenant_id: tenantId },
-        select: { id: true },
-      });
+      const subject = await this.academicReadFacade.findSubjectById(tenantId, dto.subject_id);
       if (!subject) {
         throw new NotFoundException({
           code: 'SUBJECT_NOT_FOUND',
@@ -62,7 +59,9 @@ export class RubricService {
           tenant_id: tenantId,
           name: dto.name,
           subject_id: dto.subject_id ?? null,
-          criteria_json: dto.criteria as unknown as Parameters<typeof db.rubricTemplate.create>[0]['data']['criteria_json'],
+          criteria_json: dto.criteria as unknown as Parameters<
+            typeof db.rubricTemplate.create
+          >[0]['data']['criteria_json'],
           created_by_user_id: userId,
         },
       });
@@ -72,11 +71,7 @@ export class RubricService {
   /**
    * Update a rubric template.
    */
-  async updateTemplate(
-    tenantId: string,
-    id: string,
-    dto: UpdateRubricTemplateDto,
-  ) {
+  async updateTemplate(tenantId: string, id: string, dto: UpdateRubricTemplateDto) {
     const template = await this.prisma.rubricTemplate.findFirst({
       where: { id, tenant_id: tenantId },
       select: { id: true },
@@ -90,10 +85,7 @@ export class RubricService {
     }
 
     if (dto.subject_id) {
-      const subject = await this.prisma.subject.findFirst({
-        where: { id: dto.subject_id, tenant_id: tenantId },
-        select: { id: true },
-      });
+      const subject = await this.academicReadFacade.findSubjectById(tenantId, dto.subject_id);
       if (!subject) {
         throw new NotFoundException({
           code: 'SUBJECT_NOT_FOUND',
@@ -113,7 +105,9 @@ export class RubricService {
           ...(dto.name !== undefined && { name: dto.name }),
           ...(dto.subject_id !== undefined && { subject_id: dto.subject_id }),
           ...(dto.criteria !== undefined && {
-            criteria_json: dto.criteria as unknown as Parameters<typeof db.rubricTemplate.update>[0]['data']['criteria_json'],
+            criteria_json: dto.criteria as unknown as Parameters<
+              typeof db.rubricTemplate.update
+            >[0]['data']['criteria_json'],
           }),
         },
       });
@@ -212,11 +206,7 @@ export class RubricService {
    * Save rubric grades for a grade record and compute the total raw_score sum.
    * All operations within a single transaction.
    */
-  async saveRubricGrades(
-    tenantId: string,
-    gradeId: string,
-    dto: SaveRubricGradesDto,
-  ) {
+  async saveRubricGrades(tenantId: string, gradeId: string, dto: SaveRubricGradesDto) {
     // 1. Verify the grade exists and belongs to this tenant
     const grade = await this.prisma.grade.findFirst({
       where: { id: gradeId, tenant_id: tenantId },
@@ -273,10 +263,7 @@ export class RubricService {
     }
 
     // 4. Compute total raw score from criteria scores
-    const totalRawScore = dto.criteria_scores.reduce(
-      (sum, s) => sum + s.points_awarded,
-      0,
-    );
+    const totalRawScore = dto.criteria_scores.reduce((sum, s) => sum + s.points_awarded, 0);
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 

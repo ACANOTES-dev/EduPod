@@ -1,10 +1,9 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,7 +36,12 @@ interface StudentHomework {
 export class HomeworkParentService {
   private readonly logger = new Logger(HomeworkParentService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly parentReadFacade: ParentReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+  ) {}
 
   // ─── Public Methods ───────────────────────────────────────────────────────
 
@@ -317,7 +321,11 @@ export class HomeworkParentService {
         let studentEntry = dayEntry.students.find((s) => s.student.id === student.id);
         if (!studentEntry) {
           studentEntry = {
-            student: { id: student.id, first_name: student.first_name, last_name: student.last_name },
+            student: {
+              id: student.id,
+              first_name: student.first_name,
+              last_name: student.last_name,
+            },
             assignments: [],
           };
           dayEntry.students.push(studentEntry);
@@ -408,9 +416,7 @@ export class HomeworkParentService {
     }
 
     const totalAssigned = assignments.length;
-    const completionRate = totalAssigned > 0
-      ? Math.round((completed / totalAssigned) * 100)
-      : 0;
+    const completionRate = totalAssigned > 0 ? Math.round((completed / totalAssigned) * 100) : 0;
 
     // Recent 10 assignments
     const recent = assignments.slice(0, 10).map((a) => ({
@@ -445,12 +451,7 @@ export class HomeworkParentService {
   }
 
   /** Diary parent notes for a specific linked student with pagination. */
-  async studentDiary(
-    tenantId: string,
-    userId: string,
-    studentId: string,
-    query: PaginationQuery,
-  ) {
+  async studentDiary(tenantId: string, userId: string, studentId: string, query: PaginationQuery) {
     const parent = await this.resolveParent(tenantId, userId);
     await this.validateStudentAccess(tenantId, parent.id, studentId);
 
@@ -491,9 +492,7 @@ export class HomeworkParentService {
   // ─── Private Helpers ──────────────────────────────────────────────────────
 
   private async resolveParent(tenantId: string, userId: string) {
-    const parent = await this.prisma.parent.findFirst({
-      where: { tenant_id: tenantId, user_id: userId },
-    });
+    const parent = await this.parentReadFacade.findByUserId(tenantId, userId);
 
     if (!parent) {
       throw new NotFoundException({
@@ -506,19 +505,13 @@ export class HomeworkParentService {
   }
 
   private async getLinkedStudentIds(tenantId: string, parentId: string): Promise<string[]> {
-    const links = await this.prisma.studentParent.findMany({
-      where: { tenant_id: tenantId, parent_id: parentId },
-      select: { student_id: true },
-    });
-    return links.map((l) => l.student_id);
+    return this.parentReadFacade.findLinkedStudentIds(tenantId, parentId);
   }
 
   private async validateStudentAccess(tenantId: string, parentId: string, studentId: string) {
-    const link = await this.prisma.studentParent.findFirst({
-      where: { tenant_id: tenantId, parent_id: parentId, student_id: studentId },
-    });
+    const isLinked = await this.parentReadFacade.isLinkedToStudent(tenantId, parentId, studentId);
 
-    if (!link) {
+    if (!isLinked) {
       throw new NotFoundException({
         code: 'STUDENT_NOT_LINKED',
         message: 'Student is not linked to your account',
@@ -527,16 +520,12 @@ export class HomeworkParentService {
   }
 
   private async getActiveClassIds(tenantId: string, studentIds: string[]): Promise<string[]> {
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
-        student_id: { in: studentIds },
-        status: 'active',
-      },
-      select: { class_id: true },
-    });
-
-    return [...new Set(enrolments.map((e) => e.class_id))];
+    const allClassIds: string[] = [];
+    for (const studentId of studentIds) {
+      const classIds = await this.classesReadFacade.findClassIdsForStudent(tenantId, studentId);
+      allClassIds.push(...classIds);
+    }
+    return [...new Set(allClassIds)];
   }
 
   /** Returns a map of studentId -> array of active classIds */
@@ -544,20 +533,10 @@ export class HomeworkParentService {
     tenantId: string,
     studentIds: string[],
   ): Promise<Map<string, string[]>> {
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
-        student_id: { in: studentIds },
-        status: 'active',
-      },
-      select: { student_id: true, class_id: true },
-    });
-
     const map = new Map<string, string[]>();
-    for (const e of enrolments) {
-      const existing = map.get(e.student_id) ?? [];
-      existing.push(e.class_id);
-      map.set(e.student_id, existing);
+    for (const studentId of studentIds) {
+      const classIds = await this.classesReadFacade.findClassIdsForStudent(tenantId, studentId);
+      map.set(studentId, classIds);
     }
     return map;
   }
@@ -566,10 +545,8 @@ export class HomeworkParentService {
     tenantId: string,
     studentIds: string[],
   ): Promise<Array<{ id: string; first_name: string; last_name: string }>> {
-    return this.prisma.student.findMany({
-      where: { tenant_id: tenantId, id: { in: studentIds } },
-      select: { id: true, first_name: true, last_name: true },
-    });
+    const students = await this.studentReadFacade.findByIds(tenantId, studentIds);
+    return students.map((s) => ({ id: s.id, first_name: s.first_name, last_name: s.last_name }));
   }
 
   /** Group assignments by which student is enrolled in the assignment's class. */
@@ -629,17 +606,13 @@ export class HomeworkParentService {
     const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ...
     const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
 
-    const monday = new Date(Date.UTC(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() + diffToMonday,
-    ));
+    const monday = new Date(
+      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday),
+    );
 
-    const sunday = new Date(Date.UTC(
-      monday.getUTCFullYear(),
-      monday.getUTCMonth(),
-      monday.getUTCDate() + 6,
-    ));
+    const sunday = new Date(
+      Date.UTC(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate() + 6),
+    );
 
     return { weekStart: monday, weekEnd: sunday };
   }

@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 
+import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { ACTIVE_INCIDENT_FILTER } from './behaviour-students.constants';
@@ -52,7 +53,10 @@ export interface AttendanceCorrelation {
 export class BehaviourStudentAnalyticsService {
   private readonly logger = new Logger(BehaviourStudentAnalyticsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly attendanceReadFacade: AttendanceReadFacade,
+  ) {}
 
   async computeAnalyticsSummary(tenantId: string, studentId: string) {
     let positiveCount = 0;
@@ -347,27 +351,19 @@ export class BehaviourStudentAnalyticsService {
     tenantId: string,
     studentId: string,
   ): Promise<AttendanceCorrelation | null> {
-    const attendanceCount = await this.prisma.dailyAttendanceSummary.count({
-      where: {
-        tenant_id: tenantId,
-        student_id: studentId,
-      },
-    });
+    const attendanceCount = await this.attendanceReadFacade.countAllDailySummariesForStudent(
+      tenantId,
+      studentId,
+    );
 
     if (attendanceCount === 0) {
       return null;
     }
 
-    const attendanceDays = await this.prisma.dailyAttendanceSummary.findMany({
-      where: {
-        tenant_id: tenantId,
-        student_id: studentId,
-      },
-      select: {
-        summary_date: true,
-        derived_status: true,
-      },
-    });
+    const attendanceDays = await this.attendanceReadFacade.findAllDailySummariesForStudent(
+      tenantId,
+      studentId,
+    );
 
     const absentDates = new Set<string>();
     const presentDates = new Set<string>();

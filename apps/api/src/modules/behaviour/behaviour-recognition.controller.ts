@@ -33,6 +33,8 @@ import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourAwardService } from './behaviour-award.service';
@@ -58,6 +60,8 @@ export class BehaviourRecognitionController {
     private readonly houseService: BehaviourHouseService,
     private readonly pointsService: BehaviourPointsService,
     private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
   ) {}
 
   // ─── Recognition Wall ────────────────────────────────────────────────────
@@ -210,10 +214,7 @@ export class BehaviourRecognitionController {
   // ─── Private Helpers ──────────────────────────────────────────────────────
 
   private async getActiveAcademicYear(tenantId: string): Promise<{ id: string }> {
-    const academicYear = await this.prisma.academicYear.findFirst({
-      where: { tenant_id: tenantId, status: 'active' },
-      select: { id: true },
-    });
+    const academicYear = await this.academicReadFacade.findCurrentYear(tenantId);
 
     if (!academicYear) {
       throw new BadRequestException(
@@ -225,11 +226,8 @@ export class BehaviourRecognitionController {
   }
 
   private async getBehaviourSettings(tenantId: string) {
-    const tenantSetting = await this.prisma.tenantSetting.findFirst({
-      where: { tenant_id: tenantId },
-      select: { settings: true },
-    });
-    const raw = (tenantSetting?.settings ?? {}) as Record<string, unknown>;
+    const settingsJson = await this.configurationReadFacade.findSettingsJson(tenantId);
+    const raw = (settingsJson ?? {}) as Record<string, unknown>;
     const behaviour = (raw.behaviour ?? {}) as Record<string, unknown>;
     return behaviourSettingsSchema.parse(behaviour);
   }

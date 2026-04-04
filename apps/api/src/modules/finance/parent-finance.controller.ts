@@ -22,7 +22,10 @@ import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { HouseholdReadFacade } from '../households/household-read.facade';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import { InvoicesService } from './invoices.service';
 import { PaymentPlansService } from './payment-plans.service';
@@ -36,6 +39,9 @@ export class ParentFinanceController {
     private readonly invoicesService: InvoicesService,
     private readonly stripeService: StripeService,
     private readonly paymentPlansService: PaymentPlansService,
+    private readonly parentReadFacade: ParentReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly householdReadFacade: HouseholdReadFacade,
   ) {}
 
   /**
@@ -150,9 +156,7 @@ export class ParentFinanceController {
     tenantId: string,
     studentId: string,
   ) {
-    const parent = await this.prisma.parent.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-    });
+    const parent = await this.parentReadFacade.findByUserId(tenantId, userId);
 
     if (!parent) {
       throw new NotFoundException(
@@ -160,29 +164,20 @@ export class ParentFinanceController {
       );
     }
 
-    const studentParent = await this.prisma.studentParent.findUnique({
-      where: {
-        student_id_parent_id: {
-          student_id: studentId,
-          parent_id: parent.id,
-        },
-      },
-      include: {
-        student: {
-          select: { household_id: true },
-        },
-      },
-    });
+    const isLinked = await this.studentReadFacade.isParentLinked(tenantId, studentId, parent.id);
 
-    if (!studentParent || studentParent.tenant_id !== tenantId) {
+    if (!isLinked) {
       throw new ForbiddenException(
         apiError('NOT_LINKED_TO_STUDENT', 'You are not linked to this student'),
       );
     }
 
-    const household = await this.prisma.household.findFirst({
-      where: { id: studentParent.student.household_id, tenant_id: tenantId },
-    });
+    const student = await this.studentReadFacade.findById(tenantId, studentId);
+    if (!student?.household_id) {
+      throw new NotFoundException(apiError('HOUSEHOLD_NOT_FOUND', 'Household not found'));
+    }
+
+    const household = await this.householdReadFacade.findById(tenantId, student.household_id);
 
     if (!household) {
       throw new NotFoundException(apiError('HOUSEHOLD_NOT_FOUND', 'Household not found'));
@@ -196,9 +191,7 @@ export class ParentFinanceController {
     tenantId: string,
     invoiceId: string,
   ): Promise<void> {
-    const parent = await this.prisma.parent.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-    });
+    const parent = await this.parentReadFacade.findByUserId(tenantId, userId);
 
     if (!parent) {
       throw new NotFoundException(
@@ -207,12 +200,14 @@ export class ParentFinanceController {
     }
 
     // Get all household IDs for this parent's students
-    const studentParents = await this.prisma.studentParent.findMany({
-      where: { parent_id: parent.id, tenant_id: tenantId },
-      include: { student: { select: { household_id: true } } },
-    });
-
-    const householdIds = studentParents.map((sp) => sp.student.household_id);
+    const linkedStudentIds = await this.parentReadFacade.findLinkedStudentIds(tenantId, parent.id);
+    const students =
+      linkedStudentIds.length > 0
+        ? await this.studentReadFacade.findByIds(tenantId, linkedStudentIds)
+        : [];
+    const householdIds = students
+      .map((s) => s.household_id)
+      .filter((id): id is string => id !== null);
 
     const invoice = await this.prisma.invoice.findFirst({
       where: {

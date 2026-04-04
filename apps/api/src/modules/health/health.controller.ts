@@ -23,7 +23,7 @@ export class HealthController {
   async ready(@Res() res: Response) {
     const result = await this.healthService.getReadiness();
     const httpStatus =
-      result.status === 'unhealthy' ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.OK;
+      result.status === 'not_ready' ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.OK;
     res.status(httpStatus).json(result);
   }
 

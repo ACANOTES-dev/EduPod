@@ -4,7 +4,9 @@ import { $Enums } from '@prisma/client';
 import type { PulseDimension, PulseResult } from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { RbacReadFacade } from '../rbac/rbac-read.facade';
 import { RedisService } from '../redis/redis.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 /** Statuses excluded from all behaviour aggregations. */
 const EXCLUDED_STATUSES: $Enums.IncidentStatus[] = [
@@ -34,6 +36,8 @@ export class BehaviourPulseService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly rbacReadFacade: RbacReadFacade,
   ) {}
 
   /**
@@ -180,11 +184,8 @@ export class BehaviourPulseService {
           severity: { gte: 7 },
         },
       }),
-      this.prisma.student.count({
-        where: {
-          tenant_id: tenantId,
-          status: 'enrolled' as $Enums.StudentStatus,
-        },
+      this.studentReadFacade.count(tenantId, {
+        status: 'enrolled' as $Enums.StudentStatus,
       }),
     ]);
 
@@ -250,23 +251,7 @@ export class BehaviourPulseService {
         })
         .then((rows) => rows.length),
       // Count staff with behaviour.log permission
-      this.prisma.tenantMembership.count({
-        where: {
-          tenant_id: tenantId,
-          membership_status: 'active',
-          membership_roles: {
-            some: {
-              role: {
-                role_permissions: {
-                  some: {
-                    permission: { permission_key: 'behaviour.log' },
-                  },
-                },
-              },
-            },
-          },
-        },
-      }),
+      this.rbacReadFacade.countMembershipsWithPermission(tenantId, 'behaviour.log'),
     ]);
 
     if (totalStaff === 0) return null;

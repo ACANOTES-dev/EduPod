@@ -1,13 +1,10 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Queue } from 'bullmq';
 
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 interface ListInquiriesFilters {
   page: number;
@@ -22,6 +19,8 @@ export class ParentInquiriesService {
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
+    private readonly parentReadFacade: ParentReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
   ) {}
 
   async listForAdmin(tenantId: string, filters: ListInquiriesFilters) {
@@ -146,14 +145,12 @@ export class ParentInquiriesService {
 
     // Validate student belongs to this parent
     if (dto.student_id) {
-      const link = await this.prisma.studentParent.findFirst({
-        where: {
-          tenant_id: tenantId,
-          parent_id: parent.id,
-          student_id: dto.student_id,
-        },
-      });
-      if (!link) {
+      const linked = await this.studentReadFacade.isParentLinked(
+        tenantId,
+        dto.student_id,
+        parent.id,
+      );
+      if (!linked) {
         throw new BadRequestException({
           code: 'STUDENT_NOT_LINKED',
           message: 'The specified student is not linked to your account',
@@ -342,9 +339,7 @@ export class ParentInquiriesService {
   }
 
   private async resolveParent(tenantId: string, userId: string) {
-    const parent = await this.prisma.parent.findFirst({
-      where: { tenant_id: tenantId, user_id: userId },
-    });
+    const parent = await this.parentReadFacade.findByUserId(tenantId, userId);
 
     if (!parent) {
       throw new NotFoundException({

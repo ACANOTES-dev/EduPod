@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { HealthController } from './health.controller';
 import { HealthService } from './health.service';
-import type { FullHealthResult } from './health.service';
+import type { FullHealthResult, ReadinessResult } from './health.service';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -45,6 +45,17 @@ function buildHealthResult(status: FullHealthResult['status']): FullHealthResult
         utilization_percent: 50,
         alert: null,
       },
+    },
+  };
+}
+
+function buildReadinessResult(status: ReadinessResult['status']): ReadinessResult {
+  return {
+    status,
+    timestamp: new Date().toISOString(),
+    checks: {
+      postgresql: { status: 'up', latency_ms: 2 },
+      redis: { status: 'up', latency_ms: 1 },
     },
   };
 }
@@ -132,8 +143,8 @@ describe('HealthController', () => {
   // ─── ready() ────────────────────────────────────────────────────────────
 
   describe('ready()', () => {
-    it('should return 200 when readiness is healthy', async () => {
-      const result = buildHealthResult('healthy');
+    it('should return 200 when readiness status is ready', async () => {
+      const result = buildReadinessResult('ready');
       mockService.getReadiness.mockResolvedValue(result);
       const res = createMockResponse();
 
@@ -143,18 +154,8 @@ describe('HealthController', () => {
       expect(res.json).toHaveBeenCalledWith(result);
     });
 
-    it('should return 200 when readiness is degraded', async () => {
-      const result = buildHealthResult('degraded');
-      mockService.getReadiness.mockResolvedValue(result);
-      const res = createMockResponse();
-
-      await controller.ready(res);
-
-      expect(res.status).toHaveBeenCalledWith(HttpStatus.OK);
-    });
-
-    it('should return 503 when readiness is unhealthy', async () => {
-      const result = buildHealthResult('unhealthy');
+    it('should return 503 when readiness status is not_ready', async () => {
+      const result = buildReadinessResult('not_ready');
       mockService.getReadiness.mockResolvedValue(result);
       const res = createMockResponse();
 
@@ -162,6 +163,22 @@ describe('HealthController', () => {
 
       expect(res.status).toHaveBeenCalledWith(HttpStatus.SERVICE_UNAVAILABLE);
       expect(res.json).toHaveBeenCalledWith(result);
+    });
+
+    it('should return ReadinessResult shape with only postgresql and redis', async () => {
+      const result = buildReadinessResult('ready');
+      mockService.getReadiness.mockResolvedValue(result);
+      const res = createMockResponse();
+
+      await controller.ready(res);
+
+      const body = (res.json as jest.Mock).mock.calls[0][0] as ReadinessResult;
+      expect(body).toHaveProperty('status');
+      expect(body).toHaveProperty('timestamp');
+      expect(body).toHaveProperty('checks.postgresql');
+      expect(body).toHaveProperty('checks.redis');
+      expect(body.checks).not.toHaveProperty('meilisearch');
+      expect(body.checks).not.toHaveProperty('bullmq');
     });
   });
 

@@ -335,6 +335,7 @@ describe('RolesService', () => {
         where: { id: ROLE_ID },
       });
       expect(result).toEqual({ deleted: true });
+      expect(mockPermissionCacheService.invalidateAllForTenant).toHaveBeenCalledWith(TENANT_ID);
     });
 
     it('should block deleting roles that are in use', async () => {

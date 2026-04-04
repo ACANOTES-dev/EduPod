@@ -7,7 +7,9 @@ import {
 
 import type { CreateFeeAssignmentDto, UpdateFeeAssignmentDto } from '@school/shared';
 
+import { HouseholdReadFacade } from '../households/household-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 interface FeeAssignmentFilters {
   page: number;
@@ -20,7 +22,11 @@ interface FeeAssignmentFilters {
 
 @Injectable()
 export class FeeAssignmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly householdReadFacade: HouseholdReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
+  ) {}
 
   async findAll(tenantId: string, filters: FeeAssignmentFilters) {
     const { page, pageSize, household_id, student_id, fee_structure_id, active_only } = filters;
@@ -107,9 +113,7 @@ export class FeeAssignmentsService {
 
   async create(tenantId: string, dto: CreateFeeAssignmentDto) {
     // Validate household exists
-    const household = await this.prisma.household.findFirst({
-      where: { id: dto.household_id, tenant_id: tenantId },
-    });
+    const household = await this.householdReadFacade.findById(tenantId, dto.household_id);
     if (!household) {
       throw new BadRequestException({
         code: 'HOUSEHOLD_NOT_FOUND',
@@ -136,9 +140,7 @@ export class FeeAssignmentsService {
 
     // Validate student exists if provided
     if (dto.student_id) {
-      const student = await this.prisma.student.findFirst({
-        where: { id: dto.student_id, tenant_id: tenantId },
-      });
+      const student = await this.studentReadFacade.findById(tenantId, dto.student_id);
       if (!student) {
         throw new BadRequestException({
           code: 'STUDENT_NOT_FOUND',

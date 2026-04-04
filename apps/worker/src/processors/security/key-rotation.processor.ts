@@ -38,10 +38,16 @@ interface StaffProfileRow {
   bank_encryption_key_ref: string | null;
 }
 
+interface MfaSecretRow {
+  id: string;
+  mfa_secret: string;
+  mfa_secret_key_ref: string | null;
+}
+
 // ─── Processor ────────────────────────────────────────────────────────────────
 
 /**
- * Rotates all encryption keys for tenant_stripe_configs and staff_profiles.
+ * Rotates all encryption keys for tenant_stripe_configs, staff_profiles, and MFA secrets.
  * This is a cross-tenant operation — it does NOT use TenantAwareJob or RLS context,
  * because it must iterate all tenants' encrypted records in one pass.
  *
@@ -82,13 +88,15 @@ export class KeyRotationProcessor extends WorkerHost {
       currentKeyRef,
       dryRun,
     );
+    const mfaStats = await this.rotateMfaSecrets(keys, currentVersion, currentKeyRef, dryRun);
 
     await job.updateProgress(100);
 
     this.logger.log(
       `Key rotation complete. ` +
         `Stripe: total=${stripeStats.total} rotated=${stripeStats.rotated} skipped=${stripeStats.skipped} failed=${stripeStats.failed}. ` +
-        `Bank: total=${bankStats.total} rotated=${bankStats.rotated} skipped=${bankStats.skipped} failed=${bankStats.failed}.`,
+        `Bank: total=${bankStats.total} rotated=${bankStats.rotated} skipped=${bankStats.skipped} failed=${bankStats.failed}. ` +
+        `MFA: total=${mfaStats.total} rotated=${mfaStats.rotated} skipped=${mfaStats.skipped} failed=${mfaStats.failed}.`,
     );
   }
 
@@ -276,6 +284,89 @@ export class KeyRotationProcessor extends WorkerHost {
     return stats;
   }
 
+  // ─── MFA secrets rotation ─────────────────────────────────────────────────
+
+  private async rotateMfaSecrets(
+    keys: Map<number, Buffer>,
+    currentVersion: number,
+    currentKeyRef: string,
+    dryRun: boolean,
+  ): Promise<RotationStats> {
+    const stats: RotationStats = { total: 0, rotated: 0, skipped: 0, failed: 0 };
+    const batchSize = 50;
+    // In non-dry-run mode, updated records drop out of the WHERE clause, so we
+    // always query from offset 0 — the next batch automatically contains the next
+    // unprocessed records. In dry-run mode, records are never updated and would
+    // loop infinitely at offset 0, so we increment offset only for dry runs.
+    let offset = 0;
+
+    for (;;) {
+      const rows = await this.prisma.user.findMany({
+        where: {
+          mfa_secret: { not: null },
+          mfa_secret_key_ref: { not: null },
+          NOT: { mfa_secret_key_ref: currentKeyRef },
+        },
+        select: {
+          id: true,
+          mfa_secret: true,
+          mfa_secret_key_ref: true,
+        },
+        take: batchSize,
+        skip: offset,
+      });
+
+      if (rows.length === 0) break;
+
+      stats.total += rows.length;
+      const batchRows = rows as MfaSecretRow[];
+
+      for (const row of batchRows) {
+        // mfa_secret_key_ref is non-null here (WHERE filters nulls out)
+        const keyRef = row.mfa_secret_key_ref as string;
+
+        try {
+          const oldVersion = this.keyRefToVersion(keyRef);
+          const oldKey = keys.get(oldVersion);
+
+          if (!oldKey) {
+            this.logger.warn(
+              `[mfa] Skipping record ${row.id}: key for ref "${keyRef}" (v${oldVersion}) not in environment.`,
+            );
+            stats.skipped++;
+            continue;
+          }
+
+          const currentKey = keys.get(currentVersion) as Buffer;
+          const plaintext = this.decrypt(row.mfa_secret, oldKey);
+          const newEncrypted = this.encrypt(plaintext, currentKey);
+
+          if (!dryRun) {
+            await this.prisma.user.update({
+              where: { id: row.id },
+              data: {
+                mfa_secret: newEncrypted,
+                mfa_secret_key_ref: currentKeyRef,
+              },
+            });
+          }
+
+          stats.rotated++;
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          this.logger.error(`[mfa] Failed to rotate record ${row.id}: ${message}`);
+          stats.failed++;
+        }
+      }
+
+      if (dryRun) {
+        offset += batchSize;
+      }
+    }
+
+    return stats;
+  }
+
   // ─── Encryption helpers ───────────────────────────────────────────────────
   //
   // MAINTENANCE NOTE: These encrypt/decrypt methods duplicate the logic from
@@ -362,9 +453,9 @@ export class KeyRotationProcessor extends WorkerHost {
 
   /**
    * Convert a keyRef string to a numeric key version.
-   * - 'v1', 'v2', ... → parsed integer
-   * - 'aws', 'local' → 1 (legacy backward compat)
-   * - Unknown → 1 with a warning
+   * - 'v1', 'v2', ... -> parsed integer
+   * - 'aws', 'local' -> 1 (legacy backward compat)
+   * - Unknown -> 1 with a warning
    */
   private keyRefToVersion(keyRef: string): number {
     const versionMatch = /^v(\d+)$/.exec(keyRef);

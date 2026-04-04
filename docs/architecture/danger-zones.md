@@ -148,12 +148,13 @@ Permissions are cached in Redis. If a role's permissions are changed:
 
 ---
 
-## DZ-09: Encrypted Fields — One-Way Risk
+## DZ-09: Encrypted Fields — One-Way Risk (MITIGATED)
 
 **Risk**: Changing encryption logic makes existing data permanently unreadable
 **Location**: `apps/api/src/modules/configuration/encryption.service.ts`
+**Mitigation**: Key rotation tooling now exists — see `docs/operations/key-rotation-runbook.md`
 
-Bank details (staff profiles), Stripe keys (tenant config), and admission payment details are AES-256 encrypted at rest. The encryption key comes from environment variables.
+Bank details (staff profiles), Stripe keys (tenant config), MFA TOTP secrets (users), and admission payment details are AES-256 encrypted at rest. The encryption key comes from environment variables.
 
 If you:
 
@@ -161,9 +162,11 @@ If you:
 - Rotate the encryption key without re-encrypting existing data
 - Modify the IV generation
 
-All existing encrypted fields become unreadable garbage. There is no "decrypt with old key, re-encrypt with new key" migration mechanism built in.
+All existing encrypted fields become unreadable garbage.
 
-**Rule**: Never modify EncryptionService without a migration plan for existing encrypted data.
+**Mitigation in place**: `KeyRotationService` (API), `KeyRotationProcessor` (Worker), and `scripts/rotate-encryption-key.ts` (CLI) handle decrypt-old → re-encrypt-new for all three encrypted field categories (Stripe configs, staff bank details, MFA secrets). Dry-run mode available. See runbook for procedure.
+
+**Rule**: Never modify EncryptionService without a migration plan for existing encrypted data. Run key rotation after any key change.
 
 ---
 

@@ -10,10 +10,7 @@ import { KeyRotationService } from './key-rotation.service';
 const CURRENT_KEY_REF = 'v2';
 const CURRENT_VERSION = 2;
 
-const mockStripeConfig = (
-  id: string,
-  keyRef: string,
-) => ({
+const mockStripeConfig = (id: string, keyRef: string) => ({
   id,
   tenant_id: `tenant-${id}`,
   stripe_secret_key_encrypted: `iv:tag:cipher_secret_${id}`,
@@ -40,6 +37,12 @@ const mockStaffProfile = (
   bank_encryption_key_ref: keyRef,
 });
 
+const mockMfaUser = (id: string, keyRef: string | null) => ({
+  id,
+  mfa_secret: keyRef ? `iv:tag:cipher_mfa_${id}` : null,
+  mfa_secret_key_ref: keyRef,
+});
+
 // ─── Test suite ─────────────────────────────────────────────────────────────
 
 describe('KeyRotationService', () => {
@@ -50,6 +53,10 @@ describe('KeyRotationService', () => {
       update: jest.Mock;
     };
     staffProfile: {
+      findMany: jest.Mock;
+      update: jest.Mock;
+    };
+    user: {
       findMany: jest.Mock;
       update: jest.Mock;
     };
@@ -68,6 +75,10 @@ describe('KeyRotationService', () => {
         update: jest.fn().mockResolvedValue({}),
       },
       staffProfile: {
+        findMany: jest.fn().mockResolvedValue([]),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      user: {
         findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn().mockResolvedValue({}),
       },
@@ -154,9 +165,7 @@ describe('KeyRotationService', () => {
   describe('rotateAll — staff bank details', () => {
     it('should re-encrypt records with old keyRef', async () => {
       const oldRecord = mockStaffProfile('sp-1', 'aws', 'iv:tag:cipher_acct', 'iv:tag:cipher_iban');
-      mockPrisma.staffProfile.findMany
-        .mockResolvedValueOnce([oldRecord])
-        .mockResolvedValueOnce([]);
+      mockPrisma.staffProfile.findMany.mockResolvedValueOnce([oldRecord]).mockResolvedValueOnce([]);
 
       const result = await service.rotateAll(false);
 
@@ -206,12 +215,85 @@ describe('KeyRotationService', () => {
     });
   });
 
+  // ─── MFA Secrets ─────────────────────────────────────────────────────────
+
+  describe('rotateAll — MFA secrets', () => {
+    it('should re-encrypt MFA secrets with old keyRef', async () => {
+      const oldUser = mockMfaUser('user-1', 'v1');
+      mockPrisma.user.findMany.mockResolvedValueOnce([oldUser]).mockResolvedValueOnce([]);
+
+      const result = await service.rotateAll(false);
+
+      expect(result.mfaSecrets.total).toBe(1);
+      expect(result.mfaSecrets.rotated).toBe(1);
+      expect(result.mfaSecrets.failed).toBe(0);
+
+      // Should have decrypted with old keyRef
+      expect(mockEncryption.decrypt).toHaveBeenCalledWith(oldUser.mfa_secret, 'v1');
+
+      // Should have re-encrypted the plaintext
+      expect(mockEncryption.encrypt).toHaveBeenCalledWith(`decrypted_${oldUser.mfa_secret}`);
+
+      // Should have updated the record
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: expect.objectContaining({
+          mfa_secret_key_ref: CURRENT_KEY_REF,
+        }),
+      });
+    });
+
+    it('should skip users with null mfa_secret_key_ref (legacy plaintext)', async () => {
+      // Users with null mfa_secret_key_ref are excluded by the WHERE clause,
+      // so findMany returns empty for them
+      mockPrisma.user.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.rotateAll(false);
+
+      expect(result.mfaSecrets.total).toBe(0);
+      expect(result.mfaSecrets.rotated).toBe(0);
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('should skip users already on current version', async () => {
+      // findMany with NOT currentKeyRef returns nothing — all users already rotated
+      mockPrisma.user.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.rotateAll(false);
+
+      expect(result.mfaSecrets.total).toBe(0);
+      expect(result.mfaSecrets.rotated).toBe(0);
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('should count and log failures without stopping', async () => {
+      const user = mockMfaUser('user-bad', 'v1');
+
+      mockEncryption.decrypt.mockImplementation((encrypted: string) => {
+        if (encrypted.includes('user-bad')) {
+          throw new Error('Corrupt MFA data');
+        }
+        return `decrypted_${encrypted}`;
+      });
+
+      mockPrisma.user.findMany.mockResolvedValueOnce([user]).mockResolvedValueOnce([]);
+
+      const result = await service.rotateAll(false);
+
+      expect(result.mfaSecrets.total).toBe(1);
+      expect(result.mfaSecrets.failed).toBe(1);
+      expect(result.mfaSecrets.rotated).toBe(0);
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+
   // ─── Dry run ──────────────────────────────────────────────────────────────
 
   describe('rotateAll — dry run', () => {
     it('should count records but not update them', async () => {
       const stripeRecord = mockStripeConfig('sc-1', 'local');
       const staffRecord = mockStaffProfile('sp-1', 'aws', 'iv:tag:acct', 'iv:tag:iban');
+      const mfaUser = mockMfaUser('user-1', 'v1');
 
       mockPrisma.tenantStripeConfig.findMany
         .mockResolvedValueOnce([stripeRecord])
@@ -219,16 +301,19 @@ describe('KeyRotationService', () => {
       mockPrisma.staffProfile.findMany
         .mockResolvedValueOnce([staffRecord])
         .mockResolvedValueOnce([]);
+      mockPrisma.user.findMany.mockResolvedValueOnce([mfaUser]).mockResolvedValueOnce([]);
 
       const result = await service.rotateAll(true);
 
       expect(result.dryRun).toBe(true);
       expect(result.stripeConfigs.rotated).toBe(1);
       expect(result.staffProfiles.rotated).toBe(1);
+      expect(result.mfaSecrets.rotated).toBe(1);
 
       // No updates should have been made
       expect(mockPrisma.tenantStripeConfig.update).not.toHaveBeenCalled();
       expect(mockPrisma.staffProfile.update).not.toHaveBeenCalled();
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
     });
   });
 
@@ -240,14 +325,12 @@ describe('KeyRotationService', () => {
       const bad = mockStripeConfig('sc-bad', 'local');
 
       // Make decrypt throw for the bad record's secret key
-      mockEncryption.decrypt.mockImplementation(
-        (encrypted: string, _keyRef: string) => {
-          if (encrypted.includes('sc-bad')) {
-            throw new Error('Corrupt data');
-          }
-          return `decrypted_${encrypted}`;
-        },
-      );
+      mockEncryption.decrypt.mockImplementation((encrypted: string, _keyRef: string) => {
+        if (encrypted.includes('sc-bad')) {
+          throw new Error('Corrupt data');
+        }
+        return `decrypted_${encrypted}`;
+      });
 
       mockPrisma.tenantStripeConfig.findMany
         .mockResolvedValueOnce([bad, good])
@@ -273,9 +356,7 @@ describe('KeyRotationService', () => {
         throw new Error('Key mismatch');
       });
 
-      mockPrisma.staffProfile.findMany
-        .mockResolvedValueOnce([bad])
-        .mockResolvedValueOnce([]);
+      mockPrisma.staffProfile.findMany.mockResolvedValueOnce([bad]).mockResolvedValueOnce([]);
 
       const result = await service.rotateAll(false);
 

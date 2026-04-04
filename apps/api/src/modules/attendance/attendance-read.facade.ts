@@ -3,6 +3,7 @@ import type {
   AttendanceAlertStatus,
   AttendanceAlertType,
   AttendanceRecordStatus,
+  AttendanceSessionStatus,
   DailyAttendanceStatus,
 } from '@prisma/client';
 
@@ -245,6 +246,244 @@ export class AttendanceReadFacade {
       class_id: r.session.class_id,
       class_name: r.session.class_entity.name,
     }));
+  }
+
+  // ─── Attendance Record Count ───────────────────────────────────────────────
+
+  /**
+   * Count attendance records matching a filter.
+   * Used by retention policies (records before cutoff date) and reports.
+   */
+  async countAttendanceRecords(tenantId: string, options?: { beforeDate?: Date }): Promise<number> {
+    return this.prisma.attendanceRecord.count({
+      where: {
+        tenant_id: tenantId,
+        ...(options?.beforeDate ? { created_at: { lt: options.beforeDate } } : {}),
+      },
+    });
+  }
+
+  /**
+   * Find all attendance records for a student (unfiltered).
+   * Used by DSAR traversal — returns complete history.
+   */
+  async findAllRecordsForStudent(
+    tenantId: string,
+    studentId: string,
+  ): Promise<
+    Array<{ id: string; student_id: string; status: AttendanceRecordStatus; marked_at: Date }>
+  > {
+    return this.prisma.attendanceRecord.findMany({
+      where: { tenant_id: tenantId, student_id: studentId },
+      select: { id: true, student_id: true, status: true, marked_at: true },
+      orderBy: { marked_at: 'desc' },
+    });
+  }
+
+  /**
+   * Find attendance records for a student filtered by session date range.
+   * Used by gradebook AI comments and progress summary services.
+   */
+  async findRecordsForStudentBySessionDate(
+    tenantId: string,
+    studentId: string,
+    dateRange: DateRange,
+  ): Promise<
+    Array<{
+      id: string;
+      status: AttendanceRecordStatus;
+      session: { session_date: Date };
+    }>
+  > {
+    return this.prisma.attendanceRecord.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+        session: {
+          session_date: { gte: dateRange.from, lte: dateRange.to },
+        },
+      },
+      select: {
+        id: true,
+        status: true,
+        session: { select: { session_date: true } },
+      },
+      orderBy: { session: { session_date: 'desc' } },
+    });
+  }
+
+  // ─── Attendance Session Counts ────────────────────────────────────────────
+
+  /**
+   * Count attendance sessions matching a filter.
+   */
+  async countSessions(
+    tenantId: string,
+    options?: {
+      scheduleId?: string;
+      dateRange?: DateRange;
+      status?: AttendanceSessionStatus;
+    },
+  ): Promise<number> {
+    return this.prisma.attendanceSession.count({
+      where: {
+        tenant_id: tenantId,
+        ...(options?.scheduleId ? { schedule_id: options.scheduleId } : {}),
+        ...(options?.dateRange
+          ? { session_date: { gte: options.dateRange.from, lte: options.dateRange.to } }
+          : {}),
+        ...(options?.status ? { status: options.status } : {}),
+      },
+    });
+  }
+
+  // ─── Daily Attendance Summary — Additional Methods ────────────────────────
+
+  /**
+   * Find daily summaries for a student within a date range (raw rows).
+   * Used by behaviour analytics for attendance correlation.
+   */
+  async findDailySummariesForStudent(
+    tenantId: string,
+    studentId: string,
+    dateRange: DateRange,
+  ): Promise<Array<{ summary_date: Date; derived_status: DailyAttendanceStatus }>> {
+    return this.prisma.dailyAttendanceSummary.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+        summary_date: { gte: dateRange.from, lte: dateRange.to },
+      },
+      select: { summary_date: true, derived_status: true },
+      orderBy: { summary_date: 'desc' },
+    });
+  }
+
+  /**
+   * Count daily summaries for a student within a date range.
+   * Used by behaviour student analytics.
+   */
+  async countDailySummariesForStudent(
+    tenantId: string,
+    studentId: string,
+    dateRange: DateRange,
+  ): Promise<number> {
+    return this.prisma.dailyAttendanceSummary.count({
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+        summary_date: { gte: dateRange.from, lte: dateRange.to },
+      },
+    });
+  }
+
+  /**
+   * Count all daily summaries for a student (no date filter).
+   * Used by behaviour student analytics for attendance correlation.
+   */
+  async countAllDailySummariesForStudent(tenantId: string, studentId: string): Promise<number> {
+    return this.prisma.dailyAttendanceSummary.count({
+      where: { tenant_id: tenantId, student_id: studentId },
+    });
+  }
+
+  /**
+   * Find all daily summaries for a student (no date filter).
+   * Used by behaviour student analytics for attendance correlation.
+   */
+  async findAllDailySummariesForStudent(
+    tenantId: string,
+    studentId: string,
+  ): Promise<Array<{ summary_date: Date; derived_status: DailyAttendanceStatus }>> {
+    return this.prisma.dailyAttendanceSummary.findMany({
+      where: { tenant_id: tenantId, student_id: studentId },
+      select: { summary_date: true, derived_status: true },
+      orderBy: { summary_date: 'desc' },
+    });
+  }
+
+  /**
+   * Find daily summaries for a student since a given date.
+   * Used by early-warning attendance signal collector.
+   */
+  async findDailySummariesSince(
+    tenantId: string,
+    studentId: string,
+    sinceDate: Date,
+  ): Promise<Array<{ summary_date: Date; derived_status: DailyAttendanceStatus }>> {
+    return this.prisma.dailyAttendanceSummary.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+        summary_date: { gte: sinceDate },
+      },
+      select: { summary_date: true, derived_status: true },
+      orderBy: { summary_date: 'desc' },
+    });
+  }
+
+  /**
+   * Group daily attendance summaries by derived_status for a student/period.
+   * Used by report card generation for attendance breakdown in report cards.
+   */
+  async groupSummariesByStatus(
+    tenantId: string,
+    studentId: string,
+    dateRange: DateRange,
+  ): Promise<Array<{ derived_status: DailyAttendanceStatus; _count: { _all: number } }>> {
+    const groups = await this.prisma.dailyAttendanceSummary.groupBy({
+      by: ['derived_status'],
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+        summary_date: { gte: dateRange.from, lte: dateRange.to },
+      },
+      _count: { _all: true },
+    });
+
+    return groups;
+  }
+
+  // ─── Pattern Alert ──────────────────────────────────────────────────────
+
+  /**
+   * Find active pattern alerts for a student.
+   * Used by early-warning attendance signal collector.
+   */
+  async findActivePatternAlerts(
+    tenantId: string,
+    studentId: string,
+  ): Promise<
+    Array<{
+      id: string;
+      alert_type: AttendanceAlertType;
+      status: AttendanceAlertStatus;
+      detected_date: Date;
+      window_start: Date;
+      window_end: Date;
+      details_json: unknown;
+      parent_notified: boolean;
+      created_at: Date;
+    }>
+  > {
+    return this.prisma.attendancePatternAlert.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+        status: 'active',
+      },
+      select: {
+        id: true,
+        alert_type: true,
+        status: true,
+        detected_date: true,
+        window_start: true,
+        window_end: true,
+        details_json: true,
+        parent_notified: true,
+        created_at: true,
+      },
+    });
   }
 
   // ─── Private Helpers ──────────────────────────────────────────────────────

@@ -10,7 +10,10 @@ import type { HomeworkCompletion } from '@prisma/client';
 import type { CompletionStatus } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import type { BulkMarkCompletionDto, MarkCompletionDto } from './dto/mark-completion.dto';
 
@@ -18,7 +21,12 @@ import type { BulkMarkCompletionDto, MarkCompletionDto } from './dto/mark-comple
 export class HomeworkCompletionsService {
   private readonly logger = new Logger(HomeworkCompletionsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantReadFacade: TenantReadFacade,
+    private readonly parentReadFacade: ParentReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+  ) {}
 
   // ─── List completions for an assignment ─────────────────────────────────────
 
@@ -68,13 +76,8 @@ export class HomeworkCompletionsService {
     dto: MarkCompletionDto,
   ) {
     // Check if self-reporting is enabled for this tenant
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { settings: true },
-    });
-    const hwSettings = (tenant?.settings as Record<string, unknown>)?.homework as
-      | Record<string, unknown>
-      | undefined;
+    const tenantSettings = await this.tenantReadFacade.findSettings(tenantId);
+    const hwSettings = tenantSettings?.homework as Record<string, unknown> | undefined;
     if (hwSettings?.allow_student_self_report === false) {
       throw new ForbiddenException({
         code: 'SELF_REPORT_DISABLED',
@@ -85,43 +88,33 @@ export class HomeworkCompletionsService {
     const assignment = await this.findPublishedAssignment(tenantId, homeworkId);
 
     // Resolve student from user via parent → student_parents → student → class_enrolments
-    const parent = await this.prisma.parent.findFirst({
-      where: { tenant_id: tenantId, user_id: userId, status: 'active' },
-      select: {
-        student_parents: {
-          select: {
-            student_id: true,
-            student: {
-              select: {
-                id: true,
-                class_enrolments: {
-                  where: {
-                    tenant_id: tenantId,
-                    class_id: assignment.class_id,
-                    status: 'active',
-                  },
-                  select: { id: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
+    const parent = await this.parentReadFacade.findActiveByUserId(tenantId, userId);
 
-    // Find the student enrolled in this assignment's class
-    const enrolledStudentLink = parent?.student_parents.find(
-      (sp) => sp.student.class_enrolments.length > 0,
-    );
-
-    if (!enrolledStudentLink) {
+    if (!parent) {
       throw new NotFoundException({
         code: 'STUDENT_NOT_FOUND',
         message: 'No student linked to this user is enrolled in the assignment class',
       });
     }
 
-    const studentId = enrolledStudentLink.student_id;
+    const linkedStudentIds = await this.parentReadFacade.findLinkedStudentIds(tenantId, parent.id);
+
+    // Find the student enrolled in this assignment's class
+    let studentId: string | null = null;
+    for (const sid of linkedStudentIds) {
+      const cids = await this.classesReadFacade.findClassIdsForStudent(tenantId, sid);
+      if (cids.includes(assignment.class_id)) {
+        studentId = sid;
+        break;
+      }
+    }
+
+    if (!studentId) {
+      throw new NotFoundException({
+        code: 'STUDENT_NOT_FOUND',
+        message: 'No student linked to this user is enrolled in the assignment class',
+      });
+    }
     const now = new Date();
 
     const prismaWithRls = createRlsClient(this.prisma, {
@@ -301,13 +294,10 @@ export class HomeworkCompletionsService {
     const assignment = await this.findAssignment(tenantId, homeworkId);
 
     // Count active students in the class
-    const totalStudents = await this.prisma.classEnrolment.count({
-      where: {
-        tenant_id: tenantId,
-        class_id: assignment.class_id,
-        status: 'active',
-      },
-    });
+    const totalStudents = await this.classesReadFacade.countEnrolledStudents(
+      tenantId,
+      assignment.class_id,
+    );
 
     // Count completions by status
     const completions = await this.prisma.homeworkCompletion.findMany({

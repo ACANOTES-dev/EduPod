@@ -34,6 +34,8 @@ import { HealthModule } from './modules/health/health.module';
 import { HomeworkModule } from './modules/homework/homework.module';
 import { HouseholdsModule } from './modules/households/households.module';
 import { ImportsModule } from './modules/imports/imports.module';
+import { MetricsMiddleware } from './modules/metrics/metrics.middleware';
+import { MetricsModule } from './modules/metrics/metrics.module';
 import { ParentInquiriesModule } from './modules/parent-inquiries/parent-inquiries.module';
 import { ParentsModule } from './modules/parents/parents.module';
 import { PastoralModule } from './modules/pastoral/pastoral.module';
@@ -145,6 +147,7 @@ import { WebsiteModule } from './modules/website/website.module';
     AuditLogModule,
     ComplianceModule,
     ImportsModule,
+    MetricsModule,
     ReportsModule,
     RegistrationModule,
     SchedulingModule,
@@ -156,7 +159,9 @@ import { WebsiteModule } from './modules/website/website.module';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // Correlation middleware runs first — assigns X-Request-Id before any other middleware
-    consumer.apply(CorrelationMiddleware, RequestLoggingMiddleware).forRoutes('*');
+    consumer
+      .apply(CorrelationMiddleware, RequestLoggingMiddleware, MetricsMiddleware)
+      .forRoutes('*');
 
     consumer
       .apply(TenantResolutionMiddleware)
@@ -164,6 +169,7 @@ export class AppModule implements NestModule {
         { path: 'health', method: RequestMethod.ALL },
         { path: 'health/(.*)', method: RequestMethod.ALL },
         { path: 'docs(.*)', method: RequestMethod.ALL },
+        { path: 'metrics', method: RequestMethod.ALL },
         { path: 'v1/stripe/webhook', method: RequestMethod.POST },
         { path: 'v1/webhooks/(.*)', method: RequestMethod.POST },
       )

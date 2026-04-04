@@ -7,6 +7,7 @@ import {
 
 import type { CreateFeeStructureDto, UpdateFeeStructureDto } from '@school/shared';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 interface FeeStructureFilters {
@@ -19,7 +20,10 @@ interface FeeStructureFilters {
 
 @Injectable()
 export class FeeStructuresService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
+  ) {}
 
   async findAll(tenantId: string, filters: FeeStructureFilters) {
     const { page, pageSize, active, year_group_id, search } = filters;
@@ -97,9 +101,10 @@ export class FeeStructuresService {
 
     // Validate year_group exists if provided
     if (dto.year_group_id) {
-      const yearGroup = await this.prisma.yearGroup.findFirst({
-        where: { id: dto.year_group_id, tenant_id: tenantId },
-      });
+      const yearGroup = await this.academicReadFacade.findYearGroupById(
+        tenantId,
+        dto.year_group_id,
+      );
       if (!yearGroup) {
         throw new BadRequestException({
           code: 'YEAR_GROUP_NOT_FOUND',

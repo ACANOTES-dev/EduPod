@@ -9,6 +9,7 @@ import type {
 } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AuthReadFacade } from '../auth/auth-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -29,17 +30,17 @@ function buildGreeting(firstName: string, locale?: string | null): string {
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly authReadFacade: AuthReadFacade,
+  ) {}
 
   async schoolAdmin(
     tenantId: string,
     userId: string,
   ): Promise<SchoolAdminDashboard & { greeting: string; summary: string }> {
     // Load the user from the platform users table (no RLS — users table is platform-level)
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { first_name: true },
-    });
+    const user = await this.authReadFacade.findUserSummary(tenantId, userId);
 
     if (!user) {
       throw new NotFoundException({
@@ -176,10 +177,10 @@ export class DashboardService {
 
   async parent(tenantId: string, userId: string): Promise<ParentDashboard & { greeting: string }> {
     // Load the user from the platform users table (no RLS)
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { first_name: true, preferred_locale: true },
-    });
+    const userFull = await this.authReadFacade.findUserById(tenantId, userId);
+    const user = userFull
+      ? { first_name: userFull.first_name, preferred_locale: userFull.preferred_locale }
+      : null;
 
     if (!user) {
       throw new NotFoundException({
@@ -242,10 +243,7 @@ export class DashboardService {
     tenantId: string,
     userId: string,
   ): Promise<TeacherDashboardData & { greeting: string }> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { first_name: true },
-    });
+    const user = await this.authReadFacade.findUserSummary(tenantId, userId);
 
     if (!user) {
       throw new NotFoundException({

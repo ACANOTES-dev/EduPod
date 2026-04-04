@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 
+import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourPointsService } from './behaviour-points.service';
@@ -25,8 +26,12 @@ export class BehaviourStudentsService {
     private readonly prisma: PrismaService,
     private readonly scopeService: BehaviourScopeService,
     private readonly pointsService: BehaviourPointsService,
+    private readonly attendanceReadFacade: AttendanceReadFacade,
   ) {
-    this.analyticsService = new BehaviourStudentAnalyticsService(this.prisma);
+    this.analyticsService = new BehaviourStudentAnalyticsService(
+      this.prisma,
+      this.attendanceReadFacade,
+    );
   }
 
   /**

@@ -8,5 +8,6 @@ module.exports = {
     'school/no-sequential-transaction': 'error',
     'school/no-raw-sql-outside-rls': 'error',
     'school/no-cross-module-internal-import': 'warn',
+    'school/no-cross-module-prisma-access': 'warn',
   },
 };

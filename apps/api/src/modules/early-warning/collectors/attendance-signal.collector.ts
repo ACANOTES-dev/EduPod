@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import type { SignalResult } from '@school/shared/early-warning';
 
-import { PrismaService } from '../../prisma/prisma.service';
+import { AttendanceReadFacade } from '../../attendance/attendance-read.facade';
 
 import { buildSignal } from './collector-utils';
 
@@ -81,7 +81,7 @@ function computeWeeklyRates(summaries: AttendanceSummaryRow[], weekCount: number
 
 @Injectable()
 export class AttendanceSignalCollector {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly attendanceReadFacade: AttendanceReadFacade) {}
 
   async collectSignals(
     tenantId: string,
@@ -93,22 +93,15 @@ export class AttendanceSignalCollector {
 
     // Fetch both queries in parallel — single DB round-trip batch
     const [summaries, patternAlerts] = await Promise.all([
-      this.prisma.dailyAttendanceSummary.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: studentId,
-          summary_date: { gte: thirtyDaysAgo },
-        },
-        orderBy: { summary_date: 'desc' },
-      }) as Promise<AttendanceSummaryRow[]>,
+      this.attendanceReadFacade.findDailySummariesSince(
+        tenantId,
+        studentId,
+        thirtyDaysAgo,
+      ) as Promise<AttendanceSummaryRow[]>,
 
-      this.prisma.attendancePatternAlert.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: studentId,
-          status: 'active',
-        },
-      }) as Promise<PatternAlertRow[]>,
+      this.attendanceReadFacade.findActivePatternAlerts(tenantId, studentId) as Promise<
+        PatternAlertRow[]
+      >,
     ]);
 
     const result: SignalResult = {

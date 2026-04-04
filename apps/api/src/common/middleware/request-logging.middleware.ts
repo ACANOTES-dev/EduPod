@@ -4,21 +4,25 @@ import type { NextFunction, Request, Response } from 'express';
 
 import { StructuredLoggerService } from '../services/logger.service';
 
-// ─── Development-only request logging ───────────────────────────────────────
+import { getRequestContext } from './correlation.middleware';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
+const SKIP_PREFIXES = ['/api/health', '/api/docs', '/api/metrics'];
+
+// ─── Request logging ──────────────────────────────────────────────────────────
 
 @Injectable()
 export class RequestLoggingMiddleware implements NestMiddleware {
   private readonly logger = new StructuredLoggerService();
+  private readonly isProduction = process.env.NODE_ENV === 'production';
 
   use(req: Request, res: Response, next: NextFunction): void {
-    if (process.env.NODE_ENV !== 'development') {
-      next();
-      return;
-    }
-
     const requestPath = req.originalUrl ?? req.url;
 
-    if (requestPath.startsWith('/api/health') || requestPath.startsWith('/api/docs')) {
+    if (SKIP_PREFIXES.some((prefix) => requestPath.startsWith(prefix))) {
       next();
       return;
     }
@@ -27,10 +31,27 @@ export class RequestLoggingMiddleware implements NestMiddleware {
 
     res.once('finish', () => {
       const durationMs = Date.now() - startedAt;
-      this.logger.log(
-        `${req.method} ${requestPath} ${res.statusCode} ${durationMs}ms`,
-        RequestLoggingMiddleware.name,
-      );
+
+      if (this.isProduction) {
+        const reqCtx = getRequestContext();
+        const entry = {
+          timestamp: new Date().toISOString(),
+          level: 'access',
+          method: req.method,
+          path: requestPath.replace(UUID_RE, ':id'),
+          status: res.statusCode,
+          duration_ms: durationMs,
+          request_id: reqCtx?.requestId ?? null,
+          tenant_id: reqCtx?.tenantId ?? null,
+          user_id: reqCtx?.userId ?? null,
+        };
+        process.stdout.write(JSON.stringify(entry) + '\n');
+      } else {
+        this.logger.log(
+          `${req.method} ${requestPath} ${res.statusCode} ${durationMs}ms`,
+          RequestLoggingMiddleware.name,
+        );
+      }
     });
 
     next();

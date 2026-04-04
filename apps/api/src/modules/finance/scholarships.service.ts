@@ -8,13 +8,17 @@ import type {
 } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import { roundMoney } from './helpers/invoice-status.helper';
 import { serializeDecimal } from './helpers/serialize-decimal.helper';
 
 @Injectable()
 export class ScholarshipsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly studentReadFacade: StudentReadFacade,
+  ) {}
 
   async findAll(tenantId: string, query: ScholarshipQueryDto) {
     const { page, pageSize, student_id, status } = query;
@@ -64,9 +68,7 @@ export class ScholarshipsService {
   }
 
   async create(tenantId: string, userId: string, dto: CreateScholarshipDto) {
-    const student = await this.prisma.student.findFirst({
-      where: { id: dto.student_id, tenant_id: tenantId },
-    });
+    const student = await this.studentReadFacade.findById(tenantId, dto.student_id);
     if (!student) {
       throw new NotFoundException({
         code: 'STUDENT_NOT_FOUND',

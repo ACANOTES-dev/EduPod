@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── AttendanceLockingService ────────────────────────────────────────────────
@@ -11,7 +12,10 @@ import { PrismaService } from '../prisma/prisma.service';
  */
 @Injectable()
 export class AttendanceLockingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
+  ) {}
 
   // ─── Auto-Lock ───────────────────────────────────────────────────────────
 
@@ -21,12 +25,9 @@ export class AttendanceLockingService {
    */
   async lockExpiredSessions(tenantId: string) {
     // Read tenant settings for autoLockAfterDays
-    const tenantSetting = await this.prisma.tenantSetting.findFirst({
-      where: { tenant_id: tenantId },
-      select: { settings: true },
-    });
+    const settingsJson = await this.configurationReadFacade.findSettingsJson(tenantId);
 
-    const settings = (tenantSetting?.settings ?? {}) as Record<string, unknown>;
+    const settings = (settingsJson ?? {}) as Record<string, unknown>;
     const attendanceSettings = (settings['attendance'] ?? {}) as Record<string, unknown>;
     const autoLockAfterDays = attendanceSettings['autoLockAfterDays'] as number | undefined;
     if (autoLockAfterDays === undefined || autoLockAfterDays === null) {

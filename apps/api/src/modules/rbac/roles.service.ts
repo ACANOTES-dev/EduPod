@@ -260,6 +260,9 @@ export class RolesService {
       where: { id: roleId },
     });
 
+    // Invalidate permission cache for all memberships in this tenant
+    await this.permissionCacheService.invalidateAllForTenant(tenantId);
+
     if (actorUserId) {
       await this.securityAuditService.logRoleChange(tenantId, actorUserId, 'delete', roleId, {
         role_key: role.role_key,

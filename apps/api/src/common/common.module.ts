@@ -1,7 +1,10 @@
 import { Global, Module } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
 
 import { RlsRoleCheckService } from './guards/rls-role-check.service';
 import { CircuitBreakerRegistry } from './services/circuit-breaker-registry';
+import { StructuredLoggerService } from './services/logger.service';
+import { LokiLogShipper } from './services/loki-log-shipper.service';
 import { PermissionCacheService } from './services/permission-cache.service';
 
 /**
@@ -12,7 +15,13 @@ import { PermissionCacheService } from './services/permission-cache.service';
  */
 @Global()
 @Module({
-  providers: [CircuitBreakerRegistry, PermissionCacheService, RlsRoleCheckService],
-  exports: [CircuitBreakerRegistry, PermissionCacheService],
+  providers: [CircuitBreakerRegistry, LokiLogShipper, PermissionCacheService, RlsRoleCheckService],
+  exports: [CircuitBreakerRegistry, LokiLogShipper, PermissionCacheService],
 })
-export class CommonModule {}
+export class CommonModule implements OnModuleInit {
+  constructor(private readonly lokiShipper: LokiLogShipper) {}
+
+  onModuleInit(): void {
+    StructuredLoggerService.setShipper(this.lokiShipper);
+  }
+}
