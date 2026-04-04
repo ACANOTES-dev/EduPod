@@ -115,8 +115,8 @@ describe('AnnouncementApprovalCallbackProcessor', () => {
       data: {
         status: 'executed',
         executed_at: expect.any(Date),
-        callback_status: 'already_completed',
-        callback_error: 'Self-healed: announcement was in status "published"',
+        callback_status: 'already_done',
+        callback_error: 'Self-healed: announcement already in status "published"',
       },
     });
   });
@@ -136,8 +136,52 @@ describe('AnnouncementApprovalCallbackProcessor', () => {
     expect(mockTx.approvalRequest.update).toHaveBeenCalledWith({
       where: { id: APPROVAL_REQUEST_ID },
       data: {
-        callback_status: 'skipped_unexpected_state',
-        callback_error: 'Self-healed: announcement was in status "draft"',
+        callback_status: 'skipped',
+        callback_error:
+          'Skipped: announcement was in unexpected status "draft", expected "pending_approval"',
+      },
+    });
+  });
+
+  // ─── Failure contract tests ───────────────────────────────────────────────
+
+  it('should throw when target entity is not found', async () => {
+    const mockTx = buildMockTx();
+    mockTx.announcement.findFirst.mockResolvedValue(null);
+    const processor = new AnnouncementApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+
+    await expect(processor.process(buildJob())).rejects.toThrow(
+      `Announcement ${ANNOUNCEMENT_ID} not found for tenant ${TENANT_ID}`,
+    );
+  });
+
+  it('should propagate database errors (not swallow them)', async () => {
+    const mockTx = buildMockTx();
+    mockTx.announcement.update.mockRejectedValue(new Error('DB connection lost'));
+    const processor = new AnnouncementApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+
+    await expect(processor.process(buildJob())).rejects.toThrow('DB connection lost');
+  });
+
+  it('should handle concurrent callback execution gracefully when already published', async () => {
+    const mockTx = buildMockTx();
+    mockTx.announcement.findFirst.mockResolvedValue({
+      id: ANNOUNCEMENT_ID,
+      status: 'published',
+      title: 'School Closure',
+    });
+    const processor = new AnnouncementApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+
+    await processor.process(buildJob());
+
+    expect(mockTx.announcement.update).not.toHaveBeenCalled();
+    expect(mockTx.approvalRequest.update).toHaveBeenCalledWith({
+      where: { id: APPROVAL_REQUEST_ID },
+      data: {
+        status: 'executed',
+        executed_at: expect.any(Date),
+        callback_status: 'already_done',
+        callback_error: 'Self-healed: announcement already in status "published"',
       },
     });
   });

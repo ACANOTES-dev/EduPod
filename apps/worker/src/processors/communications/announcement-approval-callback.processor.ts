@@ -88,8 +88,10 @@ class AnnouncementApprovalCallbackJob extends TenantAwareJob<AnnouncementApprova
         where: { id: approval_request_id },
         data: {
           ...(isPostApproval ? { status: 'executed' as const, executed_at: new Date() } : {}),
-          callback_status: isPostApproval ? 'already_completed' : 'skipped_unexpected_state',
-          callback_error: `Self-healed: announcement was in status "${announcement.status}"`,
+          callback_status: isPostApproval ? 'already_done' : 'skipped',
+          callback_error: isPostApproval
+            ? `Self-healed: announcement already in status "${announcement.status}"`
+            : `Skipped: announcement was in unexpected status "${announcement.status}", expected "pending_approval"`,
         },
       });
 

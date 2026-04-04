@@ -107,8 +107,8 @@ describe('InvoiceApprovalCallbackProcessor', () => {
       data: {
         status: 'executed',
         executed_at: expect.any(Date),
-        callback_status: 'already_completed',
-        callback_error: 'Self-healed: invoice was in status "issued"',
+        callback_status: 'already_done',
+        callback_error: 'Self-healed: invoice already in status "issued"',
       },
     });
   });
@@ -128,8 +128,53 @@ describe('InvoiceApprovalCallbackProcessor', () => {
     expect(tx.approvalRequest.update).toHaveBeenCalledWith({
       where: { id: APPROVAL_REQUEST_ID },
       data: {
-        callback_status: 'skipped_unexpected_state',
-        callback_error: 'Self-healed: invoice was in status "draft"',
+        callback_status: 'skipped',
+        callback_error:
+          'Skipped: invoice was in unexpected status "draft", expected "pending_approval"',
+      },
+    });
+  });
+
+  // ─── Failure contract tests ───────────────────────────────────────────────
+
+  it('should throw when target entity is not found', async () => {
+    const tx = buildMockTx();
+    tx.invoice.findFirst.mockResolvedValue(null);
+    const processor = new InvoiceApprovalCallbackProcessor(buildMockPrisma(tx));
+
+    await expect(processor.process(buildJob(INVOICE_APPROVAL_CALLBACK_JOB))).rejects.toThrow(
+      `Invoice ${INVOICE_ID} not found for tenant ${TENANT_ID}`,
+    );
+  });
+
+  it('should propagate database errors (not swallow them)', async () => {
+    const tx = buildMockTx();
+    tx.invoice.update.mockRejectedValue(new Error('DB connection lost'));
+    const processor = new InvoiceApprovalCallbackProcessor(buildMockPrisma(tx));
+
+    await expect(processor.process(buildJob(INVOICE_APPROVAL_CALLBACK_JOB))).rejects.toThrow(
+      'DB connection lost',
+    );
+  });
+
+  it('should self-heal when invoice is already paid', async () => {
+    const tx = buildMockTx();
+    tx.invoice.findFirst.mockResolvedValue({
+      id: INVOICE_ID,
+      invoice_number: 'INV-001',
+      status: 'paid',
+    });
+    const processor = new InvoiceApprovalCallbackProcessor(buildMockPrisma(tx));
+
+    await processor.process(buildJob(INVOICE_APPROVAL_CALLBACK_JOB));
+
+    expect(tx.invoice.update).not.toHaveBeenCalled();
+    expect(tx.approvalRequest.update).toHaveBeenCalledWith({
+      where: { id: APPROVAL_REQUEST_ID },
+      data: {
+        callback_status: 'skipped',
+        callback_error:
+          'Skipped: invoice was in unexpected status "paid", expected "pending_approval"',
       },
     });
   });

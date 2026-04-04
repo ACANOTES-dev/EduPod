@@ -19,7 +19,16 @@ module.exports = {
   },
   setupFiles: ['<rootDir>/test/setup-env.ts'],
   collectCoverage: false,
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/*.spec.ts',
+    '!src/**/*.module.ts',
+    '!src/**/dto/**',
+    '!src/main.ts',
+    '!src/**/*.d.ts',
+  ],
   coverageDirectory: '<rootDir>/coverage',
+  coverageReporters: ['text', 'text-summary', 'json-summary', 'lcov'],
   coveragePathIgnorePatterns: ['/node_modules/', '/test/', '/dist/'],
   // Coverage baselines measured 2026-04-04 (post Wave 6D): stmts 83.05%, branch 65.92%, fn 80.83%, lines 83.73%
   // Thresholds set at baseline minus 2% — ratchet enforced per health recovery plan

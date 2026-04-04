@@ -23,7 +23,15 @@ export interface ApprovalWorkflow {
   updated_at: string;
 }
 
-export type ApprovalCallbackStatus = 'pending' | 'executed' | 'failed';
+export const APPROVAL_CALLBACK_STATUSES = [
+  'pending',
+  'executed',
+  'failed',
+  'skipped',
+  'already_done',
+] as const;
+
+export type ApprovalCallbackStatus = 'pending' | 'executed' | 'failed' | 'skipped' | 'already_done';
 
 export interface ApprovalRequest {
   id: string;

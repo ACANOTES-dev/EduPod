@@ -89,8 +89,10 @@ class PayrollApprovalCallbackJob extends TenantAwareJob<ApprovalCallbackPayload>
         where: { id: approval_request_id },
         data: {
           ...(isPostApproval ? { status: 'executed' as const, executed_at: new Date() } : {}),
-          callback_status: isPostApproval ? 'already_completed' : 'skipped_unexpected_state',
-          callback_error: `Self-healed: payroll run was in status "${payrollRun.status}"`,
+          callback_status: isPostApproval ? 'already_done' : 'skipped',
+          callback_error: isPostApproval
+            ? `Self-healed: payroll run already in status "${payrollRun.status}"`
+            : `Skipped: payroll run was in unexpected status "${payrollRun.status}", expected "pending_approval"`,
         },
       });
 

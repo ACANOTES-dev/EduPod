@@ -38,7 +38,7 @@ export const approvalRequestFilterSchema = z.object({
   status: z
     .enum(['pending_approval', 'approved', 'rejected', 'executed', 'cancelled', 'expired'])
     .optional(),
-  callback_status: z.enum(['pending', 'executed', 'failed']).optional(),
+  callback_status: z.enum(['pending', 'executed', 'failed', 'skipped', 'already_done']).optional(),
 });
 
 export type ApprovalRequestFilterDto = z.infer<typeof approvalRequestFilterSchema>;

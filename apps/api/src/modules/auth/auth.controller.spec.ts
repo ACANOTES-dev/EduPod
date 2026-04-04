@@ -188,7 +188,7 @@ describe('AuthController', () => {
       expect(res.cookie).not.toHaveBeenCalled();
     });
 
-    it('should use tenant_id from dto body over tenant context', async () => {
+    it('should use host-resolved tenant context over dto body tenant_id', async () => {
       const loginResult = {
         access_token: 'at',
         refresh_token: 'rt',
@@ -213,8 +213,64 @@ describe('AuthController', () => {
         'pass123',
         '127.0.0.1',
         'jest-test',
+        TENANT_ID,
+        undefined,
+      );
+    });
+
+    it('should use dto.tenant_id when no tenant context is available', async () => {
+      const loginResult = {
+        access_token: 'at',
+        refresh_token: 'rt',
+        user: { id: USER_ID },
+      };
+      service.login.mockResolvedValue(loginResult);
+
+      const dtoTenantId = 'dto-tenant-id';
+      await controller.login(
+        {
+          email: 'user@school.test',
+          password: 'pass123',
+          tenant_id: dtoTenantId,
+        },
+        buildMockRequest(),
+        buildMockResponse(),
+        null,
+      );
+
+      expect(service.login).toHaveBeenCalledWith(
+        'user@school.test',
+        'pass123',
+        '127.0.0.1',
+        'jest-test',
         dtoTenantId,
         undefined,
+      );
+    });
+
+    it('should log warning when body tenant_id conflicts with host-resolved tenant', async () => {
+      const loginResult = {
+        access_token: 'at',
+        refresh_token: 'rt',
+        user: { id: USER_ID },
+      };
+      service.login.mockResolvedValue(loginResult);
+      const warnSpy = jest.spyOn(controller['logger'], 'warn');
+
+      const dtoTenantId = 'dto-tenant-id';
+      await controller.login(
+        {
+          email: 'user@school.test',
+          password: 'pass123',
+          tenant_id: dtoTenantId,
+        },
+        buildMockRequest(),
+        buildMockResponse(),
+        mockTenantContext,
+      );
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        `Login tenant mismatch: host resolved "${TENANT_ID}" but body sent "${dtoTenantId}" for user@school.test. Using host-resolved tenant.`,
       );
     });
 
@@ -305,6 +361,87 @@ describe('AuthController', () => {
         '192.168.1.100',
         'jest-test',
         undefined,
+        undefined,
+      );
+    });
+
+    // ─── 2E.3 regression: tenant mismatch edge cases ────────────────────────
+
+    it('should NOT log warning when body tenant_id matches host-resolved tenant', async () => {
+      const loginResult = {
+        access_token: 'at',
+        refresh_token: 'rt',
+        user: { id: USER_ID },
+      };
+      service.login.mockResolvedValue(loginResult);
+      const warnSpy = jest.spyOn(controller['logger'], 'warn');
+
+      await controller.login(
+        {
+          email: 'user@school.test',
+          password: 'pass123',
+          tenant_id: TENANT_ID,
+        },
+        buildMockRequest(),
+        buildMockResponse(),
+        mockTenantContext,
+      );
+
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it('should use host tenant_id when dto.tenant_id is undefined (not provided)', async () => {
+      const loginResult = {
+        access_token: 'at',
+        refresh_token: 'rt',
+        user: { id: USER_ID },
+      };
+      service.login.mockResolvedValue(loginResult);
+      const warnSpy = jest.spyOn(controller['logger'], 'warn');
+
+      await controller.login(
+        { email: 'user@school.test', password: 'pass123' },
+        buildMockRequest(),
+        buildMockResponse(),
+        mockTenantContext,
+      );
+
+      expect(service.login).toHaveBeenCalledWith(
+        'user@school.test',
+        'pass123',
+        '127.0.0.1',
+        'jest-test',
+        TENANT_ID,
+        undefined,
+      );
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it('should pass host-resolved tenant_id to authService even when body tenant_id matches', async () => {
+      const loginResult = {
+        access_token: 'at',
+        refresh_token: 'rt',
+        user: { id: USER_ID },
+      };
+      service.login.mockResolvedValue(loginResult);
+
+      await controller.login(
+        {
+          email: 'user@school.test',
+          password: 'pass123',
+          tenant_id: TENANT_ID,
+        },
+        buildMockRequest(),
+        buildMockResponse(),
+        mockTenantContext,
+      );
+
+      expect(service.login).toHaveBeenCalledWith(
+        'user@school.test',
+        'pass123',
+        '127.0.0.1',
+        'jest-test',
+        TENANT_ID,
         undefined,
       );
     });

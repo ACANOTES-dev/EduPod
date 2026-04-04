@@ -58,8 +58,18 @@ export class AuthController {
       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
 
-    // Use tenant_id from body, or from tenant resolution middleware
-    const tenantId = dto.tenant_id || tenantContext?.tenant_id;
+    // Host-resolved tenant always wins; body tenant_id is fallback for platform-level login
+    let tenantId: string | undefined;
+    if (tenantContext?.tenant_id) {
+      tenantId = tenantContext.tenant_id;
+      if (dto.tenant_id && dto.tenant_id !== tenantContext.tenant_id) {
+        this.logger.warn(
+          `Login tenant mismatch: host resolved "${tenantContext.tenant_id}" but body sent "${dto.tenant_id}" for ${dto.email}. Using host-resolved tenant.`,
+        );
+      }
+    } else {
+      tenantId = dto.tenant_id;
+    }
 
     const result = await this.authService.login(
       dto.email,

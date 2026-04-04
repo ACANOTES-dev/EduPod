@@ -158,8 +158,8 @@ describe('PayrollApprovalCallbackProcessor', () => {
       data: {
         status: 'executed',
         executed_at: expect.any(Date),
-        callback_status: 'already_completed',
-        callback_error: 'Self-healed: payroll run was in status "finalised"',
+        callback_status: 'already_done',
+        callback_error: 'Self-healed: payroll run already in status "finalised"',
       },
     });
   });
@@ -183,8 +183,9 @@ describe('PayrollApprovalCallbackProcessor', () => {
     expect(mockTx.approvalRequest.update).toHaveBeenCalledWith({
       where: { id: APPROVAL_REQUEST_ID },
       data: {
-        callback_status: 'skipped_unexpected_state',
-        callback_error: 'Self-healed: payroll run was in status "draft"',
+        callback_status: 'skipped',
+        callback_error:
+          'Skipped: payroll run was in unexpected status "draft", expected "pending_approval"',
       },
     });
   });
@@ -233,5 +234,64 @@ describe('PayrollApprovalCallbackProcessor', () => {
     expect(mockTx.payslip.create).not.toHaveBeenCalled();
     expect(mockTx.payrollRun.update).toHaveBeenCalled();
     expect(mockTx.approvalRequest.update).toHaveBeenCalled();
+  });
+
+  // ─── Failure contract tests ───────────────────────────────────────────────
+
+  it('should throw when target entity is not found', async () => {
+    const mockTx = buildMockTx();
+    mockTx.payrollRun.findFirst.mockResolvedValue(null);
+    const processor = new PayrollApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+
+    await expect(processor.process(buildJob())).rejects.toThrow(
+      `Payroll run ${PAYROLL_RUN_ID} not found for tenant ${TENANT_ID}`,
+    );
+  });
+
+  it('should propagate database errors (not swallow them)', async () => {
+    const mockTx = buildMockTx();
+    mockTx.payrollRun.update.mockRejectedValue(new Error('DB connection lost'));
+    const processor = new PayrollApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+
+    await expect(processor.process(buildJob())).rejects.toThrow('DB connection lost');
+  });
+
+  it('should throw when salaried entry has no snapshot_base_salary', async () => {
+    const mockTx = buildMockTx();
+    const entry = buildEntry();
+    entry.snapshot_base_salary = null as unknown as Decimal;
+    entry.compensation_type = 'salaried';
+    mockTx.payrollEntry.findMany.mockResolvedValue([entry]);
+    const processor = new PayrollApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+
+    await expect(processor.process(buildJob())).rejects.toThrow(
+      `Entry ${ENTRY_ID} is salaried but has no snapshot_base_salary`,
+    );
+  });
+
+  it('should calculate per_class correctly with bonus classes', async () => {
+    const mockTx = buildMockTx();
+    const perClassEntry = {
+      ...buildEntry(),
+      classes_taught: 12,
+      compensation_type: 'per_class',
+      snapshot_assigned_class_count: 10,
+      snapshot_base_salary: null,
+      snapshot_bonus_class_rate: new Decimal(50),
+      snapshot_per_class_rate: new Decimal(100),
+    };
+    mockTx.payrollEntry.findMany.mockResolvedValue([perClassEntry]);
+    const processor = new PayrollApprovalCallbackProcessor(buildMockPrisma(mockTx) as never);
+
+    await processor.process(buildJob());
+
+    // basic_pay = per_class_rate * min(classes_taught, assigned) = 100 * 10 = 1000
+    // bonus_pay = bonus_class_rate * extra_classes = 50 * 2 = 100
+    const entryUpdateCall = mockTx.payrollEntry.update.mock.calls[0]?.[0] as {
+      data: { basic_pay: Decimal; bonus_pay: Decimal; total_pay: Decimal };
+    };
+    expect(entryUpdateCall.data.basic_pay.toString()).toBe('1000');
+    expect(entryUpdateCall.data.bonus_pay.toString()).toBe('100');
+    expect(entryUpdateCall.data.total_pay.toString()).toBe('1100');
   });
 });

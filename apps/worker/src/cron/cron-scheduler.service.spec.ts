@@ -290,4 +290,125 @@ describe('CronSchedulerService', () => {
     expect(notificationsQueue.add).toHaveBeenCalledWith(DLQ_MONITOR_JOB, {}, expect.any(Object));
     expect(notificationsQueue.add).toHaveBeenCalledWith(CANARY_PING_JOB, {}, expect.any(Object));
   });
+
+  // ─── Cron scheduler health tests ────────────────────────────────────────────
+
+  it('should use unique jobId for each cron registration to prevent BullMQ deduplication conflicts', async () => {
+    const {
+      approvalsQueue,
+      behaviourQueue,
+      complianceQueue,
+      earlyWarningQueue,
+      engagementQueue,
+      gradebookQueue,
+      homeworkQueue,
+      importsQueue,
+      notificationsQueue,
+      pastoralQueue,
+      regulatoryQueue,
+      securityQueue,
+      service,
+      wellbeingQueue,
+    } = buildService();
+
+    await service.onModuleInit();
+
+    const allQueues = [
+      approvalsQueue,
+      behaviourQueue,
+      complianceQueue,
+      earlyWarningQueue,
+      engagementQueue,
+      gradebookQueue,
+      homeworkQueue,
+      importsQueue,
+      notificationsQueue,
+      pastoralQueue,
+      regulatoryQueue,
+      securityQueue,
+      wellbeingQueue,
+    ];
+
+    const allJobIds: string[] = [];
+    for (const queue of allQueues) {
+      const addMock = queue.add as jest.Mock;
+      for (const call of addMock.mock.calls) {
+        const options = call[2] as { jobId?: string };
+        if (options?.jobId) {
+          allJobIds.push(options.jobId);
+        }
+      }
+    }
+
+    const uniqueJobIds = new Set(allJobIds);
+    expect(allJobIds.length).toBeGreaterThan(0);
+    expect(uniqueJobIds.size).toBe(allJobIds.length);
+  });
+
+  it('should include removeOnComplete and removeOnFail for all cron registrations', async () => {
+    const {
+      approvalsQueue,
+      behaviourQueue,
+      complianceQueue,
+      earlyWarningQueue,
+      engagementQueue,
+      gradebookQueue,
+      homeworkQueue,
+      importsQueue,
+      notificationsQueue,
+      pastoralQueue,
+      regulatoryQueue,
+      securityQueue,
+      service,
+      wellbeingQueue,
+    } = buildService();
+
+    await service.onModuleInit();
+
+    const allQueues = [
+      approvalsQueue,
+      behaviourQueue,
+      complianceQueue,
+      earlyWarningQueue,
+      engagementQueue,
+      gradebookQueue,
+      homeworkQueue,
+      importsQueue,
+      notificationsQueue,
+      pastoralQueue,
+      regulatoryQueue,
+      securityQueue,
+      wellbeingQueue,
+    ];
+
+    for (const queue of allQueues) {
+      const addMock = queue.add as jest.Mock;
+      for (const call of addMock.mock.calls) {
+        const jobName = call[0] as string;
+        const options = call[2] as { removeOnComplete?: number; removeOnFail?: number };
+        expect(options.removeOnComplete).toBeDefined();
+        expect(options.removeOnFail).toBeDefined();
+        expect(typeof options.removeOnComplete).toBe('number');
+        expect(typeof options.removeOnFail).toBe('number');
+        // Provide context on failure
+        if (!options.removeOnComplete || !options.removeOnFail) {
+          throw new Error(
+            `Cron job "${jobName}" is missing removeOnComplete or removeOnFail — this causes Redis memory leaks`,
+          );
+        }
+      }
+    }
+  });
+
+  it('should register at least one compliance-affecting cron job on regulatory and compliance queues', async () => {
+    const { complianceQueue, regulatoryQueue, service } = buildService();
+
+    await service.onModuleInit();
+
+    const regulatoryAddMock = regulatoryQueue.add as jest.Mock;
+    const complianceAddMock = complianceQueue.add as jest.Mock;
+
+    expect(regulatoryAddMock.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(complianceAddMock.mock.calls.length).toBeGreaterThanOrEqual(1);
+  });
 });
