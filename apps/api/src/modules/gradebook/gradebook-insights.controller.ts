@@ -15,7 +15,6 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 
 import {
@@ -35,6 +34,10 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import {
+  createFileInterceptor,
+  FILE_UPLOAD_PRESETS,
+} from '../../common/interceptors/file-upload.interceptor';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { AiCommentsService } from './ai/ai-comments.service';
@@ -260,7 +263,7 @@ export class GradebookInsightsController {
   @Post('gradebook/ai/grade-inline')
   @RequiresPermission('gradebook.enter_grades')
   @HttpCode(HttpStatus.OK)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(createFileInterceptor({ allowedMimes: FILE_UPLOAD_PRESETS.IMAGE }))
   async gradeInline(
     @CurrentTenant() tenant: { tenant_id: string },
     @UploadedFile() file: UploadedFileShape | undefined,

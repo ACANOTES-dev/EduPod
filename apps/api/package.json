@@ -13,6 +13,7 @@
     "test:changed": "jest --changedSince=main --passWithNoTests",
     "test:coverage": "jest --coverage",
     "test:integration": "jest --config jest.integration.config.js --runInBand",
+    "test:rls": "jest --config jest.rls.config.js --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "coverage:modules": "jest --coverage --coverageReporters=json --silent && tsx ../../scripts/coverage-by-module.ts",
     "test:mutation": "stryker run"

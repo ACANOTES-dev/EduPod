@@ -36,7 +36,12 @@ describe('StaffAvailabilityController', () => {
         { provide: StaffAvailabilityService, useValue: mockService },
         { provide: PermissionCacheService, useValue: { getPermissions: jest.fn() } },
       ],
-    }).compile();
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<StaffAvailabilityController>(StaffAvailabilityController);
   });

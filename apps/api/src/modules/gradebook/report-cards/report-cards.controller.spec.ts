@@ -1,5 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AuthGuard } from '../../../common/guards/auth.guard';
+import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
 import { PdfRenderingService } from '../../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -62,7 +64,12 @@ describe('ReportCardsController', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PermissionCacheService, useValue: mockPermissionCacheService },
       ],
-    }).compile();
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<ReportCardsController>(ReportCardsController);
   });

@@ -14,7 +14,6 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { z } from 'zod';
 
@@ -33,6 +32,10 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import {
+  createFileInterceptor,
+  FILE_UPLOAD_PRESETS,
+} from '../../common/interceptors/file-upload.interceptor';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { ImportTemplateService } from './import-template.service';
@@ -89,7 +92,7 @@ export class ImportController {
   @Post('upload')
   @RequiresPermission('settings.manage')
   @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(createFileInterceptor({ allowedMimes: FILE_UPLOAD_PRESETS.SPREADSHEET }))
   async upload(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,

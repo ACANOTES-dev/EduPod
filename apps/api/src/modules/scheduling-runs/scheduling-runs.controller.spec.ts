@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 
+import { AuthGuard } from '../../common/guards/auth.guard';
+import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 
 import { SchedulingApplyService } from './scheduling-apply.service';
@@ -67,7 +69,12 @@ describe('SchedulingRunsController', () => {
           useValue: { getPermissions: jest.fn().mockResolvedValue([]) },
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<SchedulingRunsController>(SchedulingRunsController);
   });

@@ -1,6 +1,8 @@
 import { getQueueToken } from '@nestjs/bullmq';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AuthGuard } from '../../../common/guards/auth.guard';
+import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
 
 import { GradeThresholdService } from './grade-threshold.service';
@@ -122,7 +124,12 @@ async function buildModule() {
       { provide: getQueueToken('gradebook'), useValue: mockGradebookQueue },
       { provide: PermissionCacheService, useValue: mockPermissionCacheService },
     ],
-  }).compile();
+  })
+    .overrideGuard(AuthGuard)
+    .useValue({ canActivate: () => true })
+    .overrideGuard(PermissionGuard)
+    .useValue({ canActivate: () => true })
+    .compile();
 
   return module.get<ReportCardsEnhancedController>(ReportCardsEnhancedController);
 }
@@ -362,7 +369,12 @@ describe('ReportCardVerificationController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ReportCardVerificationController],
       providers: [{ provide: ReportCardVerificationService, useValue: mockVerificationService }],
-    }).compile();
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<ReportCardVerificationController>(ReportCardVerificationController);
   });

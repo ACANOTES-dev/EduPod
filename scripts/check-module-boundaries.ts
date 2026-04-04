@@ -21,7 +21,7 @@ import * as path from 'path';
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-const OWNERSHIP_PATH = path.join(REPO_ROOT, 'architecture', 'module-ownership.json');
+const OWNERSHIP_PATH = path.join(REPO_ROOT, 'docs', 'architecture', 'module-ownership.json');
 const MODULES_DIR = path.join(REPO_ROOT, 'apps', 'api', 'src', 'modules');
 
 // Prisma read operations that indicate a module is reading another module's data
@@ -235,14 +235,18 @@ function reportText(violations: Violation[]): void {
     console.log(`${ownerModule} (owned by: ${ownerModule}, facade: ${facade}):`);
 
     for (const v of vList) {
-      console.log(`  - apps/api/src/modules/${v.file}:${v.line} — direct prisma.${v.model}.${v.snippet.includes('.find') ? v.snippet.split('.').pop()?.split('(')[0] ?? 'read' : 'read'}`);
+      console.log(
+        `  - apps/api/src/modules/${v.file}:${v.line} — direct prisma.${v.model}.${v.snippet.includes('.find') ? (v.snippet.split('.').pop()?.split('(')[0] ?? 'read') : 'read'}`,
+      );
     }
 
     console.log(`  ... (${vList.length} total violation${vList.length !== 1 ? 's' : ''})`);
     console.log('');
   }
 
-  console.log(`Summary: ${violations.length} violation${violations.length !== 1 ? 's' : ''} across ${byOwner.size} facade-protected module${byOwner.size !== 1 ? 's' : ''}`);
+  console.log(
+    `Summary: ${violations.length} violation${violations.length !== 1 ? 's' : ''} across ${byOwner.size} facade-protected module${byOwner.size !== 1 ? 's' : ''}`,
+  );
   console.log('');
   console.log('These are advisory — migrate to facade methods when touching these files.');
 }
@@ -268,7 +272,9 @@ function parseMaxViolations(): number | null {
   if (idx === -1 || idx + 1 >= process.argv.length) return null;
   const value = parseInt(process.argv[idx + 1], 10);
   if (isNaN(value) || value < 0) {
-    console.error(`ERROR: --max-violations requires a non-negative integer, got "${process.argv[idx + 1]}"`);
+    console.error(
+      `ERROR: --max-violations requires a non-negative integer, got "${process.argv[idx + 1]}"`,
+    );
     process.exit(2);
   }
   return value;
@@ -287,7 +293,9 @@ if (protectedModels.size === 0) {
   process.exit(0);
 }
 
-console.log(`Scanning for boundary violations across ${protectedModels.size} facade-protected models...`);
+console.log(
+  `Scanning for boundary violations across ${protectedModels.size} facade-protected models...`,
+);
 
 const violations = scan(protectedModels);
 
@@ -300,11 +308,15 @@ if (jsonMode) {
 // ─── Threshold gate (HR-025) ───────────────────────────────────────────────
 if (maxViolations !== null) {
   if (violations.length > maxViolations) {
-    console.log(`\nFAILED: ${violations.length} violations exceed --max-violations threshold of ${maxViolations}.`);
+    console.log(
+      `\nFAILED: ${violations.length} violations exceed --max-violations threshold of ${maxViolations}.`,
+    );
     console.log('Fix the new violations before merging.');
     process.exit(1);
   }
-  console.log(`\nPASSED: ${violations.length} violations within --max-violations threshold of ${maxViolations}.`);
+  console.log(
+    `\nPASSED: ${violations.length} violations within --max-violations threshold of ${maxViolations}.`,
+  );
   process.exit(0);
 }
 

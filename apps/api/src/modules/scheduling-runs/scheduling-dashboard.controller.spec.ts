@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 
+import { AuthGuard } from '../../common/guards/auth.guard';
+import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 
 import { SchedulingDashboardController } from './scheduling-dashboard.controller';
@@ -50,7 +52,12 @@ describe('SchedulingDashboardController', () => {
         { provide: SchedulingDashboardService, useValue: mockDashboardService },
         { provide: PermissionCacheService, useValue: mockPermissionCache },
       ],
-    }).compile();
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<SchedulingDashboardController>(SchedulingDashboardController);
   });

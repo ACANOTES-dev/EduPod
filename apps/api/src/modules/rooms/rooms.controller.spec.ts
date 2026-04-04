@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { TenantContext } from '@school/shared';
 
+import { AuthGuard } from '../../common/guards/auth.guard';
+import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 
 import { RoomsController } from './rooms.controller';
@@ -44,7 +46,12 @@ describe('RoomsController', () => {
         { provide: RoomsService, useValue: mockService },
         { provide: PermissionCacheService, useValue: { getPermissions: jest.fn() } },
       ],
-    }).compile();
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<RoomsController>(RoomsController);
   });

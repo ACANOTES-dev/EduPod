@@ -21,14 +21,14 @@ module.exports = {
   collectCoverage: false,
   coverageDirectory: '<rootDir>/coverage',
   coveragePathIgnorePatterns: ['/node_modules/', '/test/', '/dist/'],
-  // Coverage baselines measured 2026-04-01: stmts ~81%, branch ~63%, fn ~83%, lines ~82%
-  // Thresholds set at baseline minus 5% — ratchet up over time toward >80% target
+  // Coverage baselines measured 2026-04-04 (post Wave 2A+2B): stmts 83.9%, branch 65.8%, fn 84.5%, lines 84.5%
+  // Thresholds set at baseline minus 2% — ratchet enforced per health recovery plan
   coverageThreshold: {
     global: {
-      statements: 76,
-      branches: 57,
-      functions: 78,
-      lines: 77,
+      statements: 81,
+      branches: 63,
+      functions: 82,
+      lines: 82,
     },
   },
 };

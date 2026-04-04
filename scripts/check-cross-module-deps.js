@@ -20,7 +20,7 @@ const path = require('path');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const MODULES_DIR = path.join(REPO_ROOT, 'apps', 'api', 'src', 'modules');
-const BLAST_RADIUS_PATH = path.join(REPO_ROOT, 'architecture', 'module-blast-radius.md');
+const BLAST_RADIUS_PATH = path.join(REPO_ROOT, 'docs', 'architecture', 'module-blast-radius.md');
 
 // These modules are universal infrastructure — every feature module is
 // permitted to import them without needing blast-radius documentation.
@@ -235,7 +235,9 @@ function parseMaxViolations() {
   if (idx === -1 || idx + 1 >= process.argv.length) return null;
   const value = parseInt(process.argv[idx + 1], 10);
   if (isNaN(value) || value < 0) {
-    console.error(`ERROR: --max-violations requires a non-negative integer, got "${process.argv[idx + 1]}"`);
+    console.error(
+      `ERROR: --max-violations requires a non-negative integer, got "${process.argv[idx + 1]}"`,
+    );
     process.exit(2);
   }
   return value;
@@ -367,10 +369,14 @@ function main() {
     // ── Threshold gate (HR-025) ──────────────────────────────────────────────
     if (maxViolations !== null) {
       if (undocumented.length > maxViolations) {
-        console.log(`\nFAILED: ${undocumented.length} violations exceed --max-violations threshold of ${maxViolations}.`);
+        console.log(
+          `\nFAILED: ${undocumented.length} violations exceed --max-violations threshold of ${maxViolations}.`,
+        );
         process.exit(1);
       }
-      console.log(`\nPASSED: ${undocumented.length} violations within --max-violations threshold of ${maxViolations}.`);
+      console.log(
+        `\nPASSED: ${undocumented.length} violations within --max-violations threshold of ${maxViolations}.`,
+      );
       process.exit(0);
     }
 

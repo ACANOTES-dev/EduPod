@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
+import { json, urlencoded } from 'express';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 
@@ -26,6 +27,10 @@ async function bootstrap() {
     rawBody: true,
     logger,
   });
+
+  // Body size limits — reject payloads >10MB with 413 Payload Too Large
+  app.use(json({ limit: '10mb' }));
+  app.use(urlencoded({ limit: '10mb', extended: true }));
 
   // Security
   const isProduction = process.env.NODE_ENV === 'production';

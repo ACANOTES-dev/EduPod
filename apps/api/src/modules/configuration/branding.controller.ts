@@ -9,7 +9,6 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 
 import { updateBrandingSchema } from '@school/shared';
 import type { TenantContext, UpdateBrandingDto } from '@school/shared';
@@ -19,6 +18,10 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import {
+  createFileInterceptor,
+  FILE_UPLOAD_PRESETS,
+} from '../../common/interceptors/file-upload.interceptor';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { BrandingService } from './branding.service';
@@ -52,7 +55,7 @@ export class BrandingController {
 
   @Post('logo')
   @RequiresPermission('branding.manage')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(createFileInterceptor({ allowedMimes: FILE_UPLOAD_PRESETS.IMAGE }))
   async uploadLogo(
     @CurrentTenant() tenant: TenantContext,
     @UploadedFile() file: UploadedFileShape | undefined,

@@ -17,7 +17,6 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 
 import {
@@ -41,6 +40,10 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import {
+  createFileInterceptor,
+  FILE_UPLOAD_PRESETS,
+} from '../../common/interceptors/file-upload.interceptor';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
@@ -424,7 +427,7 @@ export class GradebookController {
 
   @Post('gradebook/import/validate')
   @RequiresPermission('gradebook.manage')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(createFileInterceptor({ allowedMimes: FILE_UPLOAD_PRESETS.SPREADSHEET }))
   async validateImport(
     @CurrentTenant() tenant: { tenant_id: string },
     @UploadedFile() file: UploadedFileShape | undefined,

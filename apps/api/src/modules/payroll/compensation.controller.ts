@@ -14,7 +14,6 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 
 import {
@@ -35,6 +34,10 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import {
+  createFileInterceptor,
+  FILE_UPLOAD_PRESETS,
+} from '../../common/interceptors/file-upload.interceptor';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { CompensationService } from './compensation.service';
@@ -90,7 +93,7 @@ export class CompensationController {
 
   @Post('bulk-import')
   @RequiresPermission('payroll.manage_compensation')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(createFileInterceptor({ allowedMimes: FILE_UPLOAD_PRESETS.CSV }))
   async bulkImport(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,

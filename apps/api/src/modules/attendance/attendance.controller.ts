@@ -16,7 +16,6 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { AttendanceAlertStatus, AttendanceAlertType } from '@prisma/client';
 import type { Response } from 'express';
 import { z } from 'zod';
@@ -40,6 +39,10 @@ import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import {
+  createFileInterceptor,
+  FILE_UPLOAD_PRESETS,
+} from '../../common/interceptors/file-upload.interceptor';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -302,7 +305,7 @@ export class AttendanceController {
   @Post('attendance/upload')
   @RequiresPermission('attendance.manage')
   @HttpCode(HttpStatus.OK)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(createFileInterceptor({ allowedMimes: FILE_UPLOAD_PRESETS.SPREADSHEET }))
   async uploadAttendance(
     @CurrentTenant() tenant: { tenant_id: string },
     @CurrentUser() user: JwtPayload,
@@ -398,7 +401,9 @@ export class AttendanceController {
   @ModuleEnabled('ai_functions')
   @RequiresPermission('attendance.manage')
   @HttpCode(HttpStatus.OK)
-  @UseInterceptors(FileInterceptor('image'))
+  @UseInterceptors(
+    createFileInterceptor({ fieldName: 'image', allowedMimes: FILE_UPLOAD_PRESETS.IMAGE }),
+  )
   async scanAttendanceImage(
     @CurrentTenant() tenant: { tenant_id: string },
     @CurrentUser() user: JwtPayload,

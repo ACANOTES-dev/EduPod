@@ -14,7 +14,6 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
@@ -38,6 +37,10 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import {
+  createFileInterceptor,
+  FILE_UPLOAD_PRESETS,
+} from '../../common/interceptors/file-upload.interceptor';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 import { PolicyReplayService } from '../policy-engine/policy-replay.service';
@@ -256,7 +259,7 @@ export class BehaviourController {
   @Post('behaviour/incidents/:id/attachments')
   @RequiresPermission('behaviour.manage')
   @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(createFileInterceptor({ allowedMimes: FILE_UPLOAD_PRESETS.DOCUMENT }))
   async uploadAttachment(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,

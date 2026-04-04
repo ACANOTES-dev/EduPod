@@ -5,6 +5,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
 
@@ -12,6 +13,8 @@ import type { JwtPayload } from '@school/shared';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
+  constructor(private readonly configService: ConfigService) {}
+
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>();
     const token = this.extractTokenFromHeader(request);
@@ -21,7 +24,7 @@ export class AuthGuard implements CanActivate {
     }
 
     try {
-      const secret = process.env.JWT_SECRET;
+      const secret = this.configService.get<string>('JWT_SECRET');
       if (!secret) {
         throw new UnauthorizedException('JWT secret not configured');
       }
