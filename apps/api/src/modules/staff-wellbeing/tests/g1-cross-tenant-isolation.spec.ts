@@ -81,10 +81,12 @@ import { BoardReportService } from '../services/board-report.service';
 import { HmacService } from '../services/hmac.service';
 import { SurveyResultsService } from '../services/survey-results.service';
 import { SurveyService } from '../services/survey.service';
+import { WorkloadAggregateService } from '../services/workload-aggregate.service';
 import { WorkloadCacheService } from '../services/workload-cache.service';
 import { WorkloadComputeService } from '../services/workload-compute.service';
 import { WorkloadDataService } from '../services/workload-data.service';
 import { WorkloadMetricsService } from '../services/workload-metrics.service';
+import { WorkloadPersonalService } from '../services/workload-personal.service';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -131,6 +133,8 @@ describe('G1 — Cross-Tenant Isolation', () => {
         SurveyResultsService,
         WorkloadDataService,
         WorkloadMetricsService,
+        WorkloadPersonalService,
+        WorkloadAggregateService,
         WorkloadComputeService,
         BoardReportService,
         { provide: PrismaService, useValue: mockPrisma },

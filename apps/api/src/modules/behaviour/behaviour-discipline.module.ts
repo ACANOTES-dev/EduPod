@@ -21,6 +21,9 @@ import { BehaviourGuardianRestrictionsService } from './behaviour-guardian-restr
 import { BehaviourInterventionsController } from './behaviour-interventions.controller';
 import { BehaviourInterventionsService } from './behaviour-interventions.service';
 import { BehaviourLegalHoldService } from './behaviour-legal-hold.service';
+import { BehaviourSanctionsCrudService } from './behaviour-sanctions-crud.service';
+import { BehaviourSanctionsLifecycleService } from './behaviour-sanctions-lifecycle.service';
+import { BehaviourSanctionsMeetingsService } from './behaviour-sanctions-meetings.service';
 import { BehaviourSanctionsController } from './behaviour-sanctions.controller';
 import { BehaviourSanctionsService } from './behaviour-sanctions.service';
 
@@ -46,6 +49,9 @@ import { BehaviourSanctionsService } from './behaviour-sanctions.service';
     BehaviourInterventionsController,
   ],
   providers: [
+    BehaviourSanctionsCrudService,
+    BehaviourSanctionsLifecycleService,
+    BehaviourSanctionsMeetingsService,
     BehaviourSanctionsService,
     BehaviourAppealsService,
     BehaviourExclusionCasesService,

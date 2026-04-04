@@ -2,17 +2,21 @@
 /**
  * check-module-boundaries.ts
  *
- * Reads architecture/module-ownership.json and scans all NestJS module source
- * files for direct Prisma reads of facade-protected models. Reports violations
- * where a module directly queries another module's owned tables instead of using
- * the published read facade.
+ * Reads docs/architecture/module-ownership.json and scans all NestJS module
+ * source files for direct Prisma reads of facade-protected models. Reports
+ * violations where a module directly queries another module's owned tables
+ * instead of using the published read facade.
  *
- * This is an advisory tool (exit 0) — HR-025 in Wave 4 will promote it to a
- * hard gate (exit 1).
+ * When run with --max-violations N, this is a hard CI gate: the process exits 1
+ * if the violation count exceeds the threshold. CI enforces a ratcheted budget
+ * so new violations cannot be introduced without raising the threshold.
+ *
+ * Without --max-violations the tool runs in advisory mode (exit 0).
  *
  * Usage:
  *   npx tsx scripts/check-module-boundaries.ts
- *   npx tsx scripts/check-module-boundaries.ts --json   # machine-readable output
+ *   npx tsx scripts/check-module-boundaries.ts --max-violations 17  # CI gate
+ *   npx tsx scripts/check-module-boundaries.ts --json                # machine-readable output
  */
 
 import * as fs from 'fs';
@@ -248,7 +252,8 @@ function reportText(violations: Violation[]): void {
     `Summary: ${violations.length} violation${violations.length !== 1 ? 's' : ''} across ${byOwner.size} facade-protected module${byOwner.size !== 1 ? 's' : ''}`,
   );
   console.log('');
-  console.log('These are advisory — migrate to facade methods when touching these files.');
+  console.log('Boundary violations are enforced in CI via --max-violations threshold.');
+  console.log('Migrate to facade methods when touching these files to reduce the budget.');
 }
 
 function reportJson(violations: Violation[]): void {

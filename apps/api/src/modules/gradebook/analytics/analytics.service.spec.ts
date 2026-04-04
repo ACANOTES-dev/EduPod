@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, ClassesReadFacade } from '../../../common/tests/mock-facades';
+import {
+  AcademicReadFacade,
+  MOCK_FACADE_PROVIDERS,
+  ClassesReadFacade,
+} from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 
@@ -250,7 +254,6 @@ describe('AnalyticsService — getStudentTrend', () => {
           due_date: new Date('2026-01-15'),
           max_score: decimal(100),
           subject_id: SUBJECT_ID,
-          subject: { id: SUBJECT_ID, name: 'Math' },
         },
       },
     ]);
@@ -281,7 +284,6 @@ describe('AnalyticsService — getStudentTrend', () => {
           due_date: new Date('2026-01-15'),
           max_score: decimal(100),
           subject_id: SUBJECT_ID,
-          subject: { id: SUBJECT_ID, name: 'Math' },
         },
       },
       {
@@ -292,7 +294,6 @@ describe('AnalyticsService — getStudentTrend', () => {
           due_date: new Date('2026-01-20'),
           max_score: decimal(100),
           subject_id: 'other-subject',
-          subject: { id: 'other-subject', name: 'Science' },
         },
       },
     ]);
@@ -368,13 +369,14 @@ describe('AnalyticsService — getClassTrend', () => {
   });
 });
 
-// ─── getBenchmark Tests ──────────────────────────────────────────────────────
+// ─── getTeacherConsistency Tests ─────────────────────────────────────────────
 
-describe('AnalyticsService — getBenchmark', () => {
+describe('AnalyticsService — getTeacherConsistency', () => {
   let service: AnalyticsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockRedis: ReturnType<typeof buildMockRedis>;
-  const mockClassesFacade = { findByYearGroup: jest.fn() };
+  const mockClassesFacade = { findClassStaffGeneric: jest.fn() };
+  const mockAcademicFacade = { findSubjectsByIds: jest.fn() };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
@@ -384,6 +386,134 @@ describe('AnalyticsService — getBenchmark', () => {
       providers: [
         ...MOCK_FACADE_PROVIDERS,
         { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
+        AnalyticsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+      ],
+    }).compile();
+
+    service = module.get<AnalyticsService>(AnalyticsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should return empty array when no class staff exist', async () => {
+    mockClassesFacade.findClassStaffGeneric.mockResolvedValue([]);
+    mockAcademicFacade.findSubjectsByIds.mockResolvedValue([]);
+
+    const result = await service.getTeacherConsistency(TENANT_ID);
+
+    expect(result).toEqual([]);
+  });
+
+  it('should compute teacher consistency entries with facade-resolved subject names', async () => {
+    mockClassesFacade.findClassStaffGeneric.mockResolvedValue([
+      {
+        class_id: CLASS_ID,
+        staff_profile_id: 'staff-1',
+        class_entity: { id: CLASS_ID, name: 'Grade 5A', year_group_id: YEAR_GROUP_ID },
+        staff_profile: {
+          id: 'staff-1',
+          user: { id: 'user-1', first_name: 'John', last_name: 'Doe' },
+        },
+      },
+    ]);
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        subject_id: SUBJECT_ID,
+        max_score: decimal(100),
+        grades: [{ raw_score: decimal(80) }, { raw_score: decimal(60) }],
+      },
+    ]);
+    mockAcademicFacade.findSubjectsByIds.mockResolvedValue([
+      { id: SUBJECT_ID, name: 'Math', code: null },
+    ]);
+
+    const result = await service.getTeacherConsistency(TENANT_ID);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.teacher_name).toBe('John Doe');
+    expect(result[0]?.class_name).toBe('Grade 5A');
+    expect(result[0]?.subject_name).toBe('Math');
+    expect(result[0]?.average).toBe(70);
+    expect(result[0]?.count).toBe(2);
+    expect(result[0]?.flagged).toBe(false);
+  });
+
+  it('should flag teachers with >15% deviation from subject mean', async () => {
+    mockClassesFacade.findClassStaffGeneric.mockResolvedValue([
+      {
+        class_id: 'class-a',
+        staff_profile_id: 'staff-1',
+        class_entity: { id: 'class-a', name: 'Class A', year_group_id: null },
+        staff_profile: {
+          id: 'staff-1',
+          user: { id: 'user-1', first_name: 'Alice', last_name: 'Smith' },
+        },
+      },
+      {
+        class_id: 'class-b',
+        staff_profile_id: 'staff-2',
+        class_entity: { id: 'class-b', name: 'Class B', year_group_id: null },
+        staff_profile: {
+          id: 'staff-2',
+          user: { id: 'user-2', first_name: 'Bob', last_name: 'Jones' },
+        },
+      },
+    ]);
+
+    // Alice: avg 90%, Bob: avg 50% → subject mean = 70%, deviation > 15% for both
+    mockPrisma.assessment.findMany
+      .mockResolvedValueOnce([
+        {
+          subject_id: SUBJECT_ID,
+          max_score: decimal(100),
+          grades: [{ raw_score: decimal(90) }],
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          subject_id: SUBJECT_ID,
+          max_score: decimal(100),
+          grades: [{ raw_score: decimal(50) }],
+        },
+      ]);
+    mockAcademicFacade.findSubjectsByIds.mockResolvedValue([
+      { id: SUBJECT_ID, name: 'Math', code: null },
+    ]);
+
+    const result = await service.getTeacherConsistency(TENANT_ID);
+
+    expect(result).toHaveLength(2);
+    const alice = result.find((e) => e.teacher_name === 'Alice Smith');
+    const bob = result.find((e) => e.teacher_name === 'Bob Jones');
+    expect(alice?.flagged).toBe(true);
+    expect(bob?.flagged).toBe(true);
+  });
+});
+
+// ─── getBenchmark Tests ──────────────────────────────────────────────────────
+
+describe('AnalyticsService — getBenchmark', () => {
+  let service: AnalyticsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRedis: ReturnType<typeof buildMockRedis>;
+  const mockClassesFacade = { findByYearGroup: jest.fn() };
+  const mockAcademicFacade = {
+    findSubjectsByIds: jest.fn(),
+    findPeriodsByIds: jest.fn(),
+  };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRedis = buildMockRedis();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
         AnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -411,18 +541,18 @@ describe('AnalyticsService — getBenchmark', () => {
         subject_id: SUBJECT_ID,
         academic_period_id: PERIOD_ID,
         computed_value: decimal(75),
-        subject: { name: 'Math' },
-        academic_period: { name: 'Term 1' },
       },
       {
         class_id: CLASS_ID,
         subject_id: SUBJECT_ID,
         academic_period_id: PERIOD_ID,
         computed_value: decimal(85),
-        subject: { name: 'Math' },
-        academic_period: { name: 'Term 1' },
       },
     ]);
+    mockAcademicFacade.findSubjectsByIds.mockResolvedValue([
+      { id: SUBJECT_ID, name: 'Math', code: null },
+    ]);
+    mockAcademicFacade.findPeriodsByIds.mockResolvedValue([{ id: PERIOD_ID, name: 'Term 1' }]);
 
     const result = await service.getBenchmark(TENANT_ID, YEAR_GROUP_ID);
 
@@ -430,6 +560,8 @@ describe('AnalyticsService — getBenchmark', () => {
     expect(result[0]?.average).toBe(80);
     expect(result[0]?.count).toBe(2);
     expect(result[0]?.class_name).toBe('Grade 5A');
+    expect(result[0]?.subject_name).toBe('Math');
+    expect(result[0]?.period_name).toBe('Term 1');
   });
 });
 

@@ -109,7 +109,7 @@ jobs:
         run: node scripts/check-global-providers.js
 
       - name: Module boundary check
-        run: pnpm check:boundaries -- --max-violations 235
+        run: pnpm check:boundaries -- --max-violations 17
 
       - name: Cross-module dependency check
         run: node scripts/check-cross-module-deps.js --max-violations 8

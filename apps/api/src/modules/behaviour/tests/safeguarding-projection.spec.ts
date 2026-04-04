@@ -303,12 +303,7 @@ describe('DZ-13: Safeguarding Status Projection Enforcement', () => {
       mockPrisma.behaviourIncidentParticipant.findMany.mockResolvedValue([entry]);
       mockPrisma.behaviourIncidentParticipant.count.mockResolvedValue(1);
 
-      const result = await studentsService.getStudentTimeline(
-        TENANT_ID,
-        STUDENT_ID,
-        1,
-        20,
-      );
+      const result = await studentsService.getStudentTimeline(TENANT_ID, STUDENT_ID, 1, 20);
 
       // Service returns raw status — projection handled at controller/consumer level
       expect(result.data[0]!.incident.status).toBe('converted_to_safeguarding');
@@ -319,12 +314,7 @@ describe('DZ-13: Safeguarding Status Projection Enforcement', () => {
       mockPrisma.behaviourIncidentParticipant.findMany.mockResolvedValue([entry]);
       mockPrisma.behaviourIncidentParticipant.count.mockResolvedValue(1);
 
-      const result = await studentsService.getStudentTimeline(
-        TENANT_ID,
-        STUDENT_ID,
-        1,
-        20,
-      );
+      const result = await studentsService.getStudentTimeline(TENANT_ID, STUDENT_ID, 1, 20);
 
       // Raw status is preserved as-is in the service layer
       expect(result.data[0]!.incident.status).toBe('converted_to_safeguarding');
@@ -348,12 +338,7 @@ describe('DZ-13: Safeguarding Status Projection Enforcement', () => {
       mockPrisma.behaviourIncidentParticipant.findMany.mockResolvedValue(entries);
       mockPrisma.behaviourIncidentParticipant.count.mockResolvedValue(3);
 
-      const result = await studentsService.getStudentTimeline(
-        TENANT_ID,
-        STUDENT_ID,
-        1,
-        20,
-      );
+      const result = await studentsService.getStudentTimeline(TENANT_ID, STUDENT_ID, 1, 20);
 
       expect(result.data[0]!.incident.status).toBe('active');
       // Service returns raw status — projection handled at controller/consumer level
@@ -461,7 +446,7 @@ describe('DZ-13: Safeguarding Status Projection Enforcement', () => {
       // We need a separate module for the appeals service due to its complex DI
       const appealsModule = await Test.createTestingModule({
         providers: [
-        ...MOCK_FACADE_PROVIDERS,
+          ...MOCK_FACADE_PROVIDERS,
           BehaviourAppealsService,
           { provide: PrismaService, useValue: mockPrisma },
           { provide: SequenceService, useValue: { nextNumber: jest.fn() } },
@@ -480,10 +465,7 @@ describe('DZ-13: Safeguarding Status Projection Enforcement', () => {
       mockPrisma.behaviourAppeal.findMany.mockResolvedValue([appeal]);
       mockPrisma.behaviourAppeal.count.mockResolvedValue(1);
 
-      const result = await appealsService.list(
-        TENANT_ID,
-        { page: 1, pageSize: 20 } as never,
-      );
+      const result = await appealsService.list(TENANT_ID, { page: 1, pageSize: 20 } as never);
 
       // Appeals service returns raw status — projection is handled at the controller/consumer level
       expect(result.data[0]!.incident!.status).toBe('converted_to_safeguarding');
@@ -494,10 +476,7 @@ describe('DZ-13: Safeguarding Status Projection Enforcement', () => {
       mockPrisma.behaviourAppeal.findMany.mockResolvedValue([appeal]);
       mockPrisma.behaviourAppeal.count.mockResolvedValue(1);
 
-      const result = await appealsService.list(
-        TENANT_ID,
-        { page: 1, pageSize: 20 } as never,
-      );
+      const result = await appealsService.list(TENANT_ID, { page: 1, pageSize: 20 } as never);
 
       // Appeals service returns raw status — projection is handled at the controller/consumer level
       expect(result.data[0]!.incident!.status).toBe('converted_to_safeguarding');
@@ -510,10 +489,7 @@ describe('DZ-13: Safeguarding Status Projection Enforcement', () => {
       });
       mockPrisma.behaviourAppeal.findFirst.mockResolvedValue(appeal);
 
-      const result = await appealsService.getById(
-        TENANT_ID,
-        'appeal-1',
-      );
+      const result = await appealsService.getById(TENANT_ID, 'appeal-1');
 
       // Appeals service returns raw status — projection is handled at the controller/consumer level
       expect(result.incident!.status).toBe('converted_to_safeguarding');
@@ -526,10 +502,7 @@ describe('DZ-13: Safeguarding Status Projection Enforcement', () => {
       });
       mockPrisma.behaviourAppeal.findFirst.mockResolvedValue(appeal);
 
-      const result = await appealsService.getById(
-        TENANT_ID,
-        'appeal-1',
-      );
+      const result = await appealsService.getById(TENANT_ID, 'appeal-1');
 
       // Appeals service returns raw status — projection is handled at the controller/consumer level
       expect(result.incident!.status).toBe('converted_to_safeguarding');
@@ -538,9 +511,9 @@ describe('DZ-13: Safeguarding Status Projection Enforcement', () => {
     it('should throw NotFoundException for missing appeal', async () => {
       mockPrisma.behaviourAppeal.findFirst.mockResolvedValue(null);
 
-      await expect(
-        appealsService.getById(TENANT_ID, 'nonexistent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(appealsService.getById(TENANT_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -559,11 +532,15 @@ describe('DZ-13: Safeguarding Status Projection Enforcement', () => {
      */
     const PROJECTION_AWARE_FILES = new Set([
       'behaviour.service.ts',
+      'behaviour-incidents.service.ts',
+      'behaviour-status.service.ts',
+      'behaviour-participants.service.ts',
       'behaviour-parent.service.ts',
       'behaviour-students.service.ts',
       'behaviour-export.service.ts',
       'behaviour-export-analytics.service.ts',
       'behaviour-sanctions.service.ts',
+      'behaviour-sanctions-crud.service.ts',
       'behaviour-appeals.service.ts',
       'behaviour-exclusion-cases.service.ts',
       'behaviour-incident-analytics.service.ts',

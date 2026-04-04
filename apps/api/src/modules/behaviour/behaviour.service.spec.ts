@@ -5,8 +5,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
 
 import { BehaviourHistoryService } from './behaviour-history.service';
+import { BehaviourIncidentsService } from './behaviour-incidents.service';
+import { BehaviourParticipantsService } from './behaviour-participants.service';
 import { BehaviourScopeService } from './behaviour-scope.service';
 import { BehaviourSideEffectsService } from './behaviour-side-effects.service';
+import { BehaviourStatusService } from './behaviour-status.service';
 import { BehaviourService } from './behaviour.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -159,6 +162,9 @@ describe('BehaviourService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        BehaviourIncidentsService,
+        BehaviourStatusService,
+        BehaviourParticipantsService,
         BehaviourService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SequenceService, useValue: mockSequence },

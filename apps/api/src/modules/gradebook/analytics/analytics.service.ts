@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
 
+import { AcademicReadFacade } from '../../academics/academic-read.facade';
 import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
@@ -148,6 +149,7 @@ export class AnalyticsService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly classesReadFacade: ClassesReadFacade,
+    private readonly academicReadFacade: AcademicReadFacade,
   ) {}
 
   // ─── A2: Grade Distribution per Assessment ──────────────────────────────
@@ -275,7 +277,6 @@ export class AnalyticsService {
             due_date: true,
             max_score: true,
             subject_id: true,
-            subject: { select: { id: true, name: true } },
           },
         },
       },
@@ -408,6 +409,9 @@ export class AnalyticsService {
     // For each class-teacher, get grades for all assessments in that class
     const entries: TeacherConsistencyEntry[] = [];
 
+    // Collect all subject IDs we encounter for batch name resolution
+    const allSubjectIds = new Set<string>();
+
     for (const cs of filteredClassStaff) {
       const assessments = await this.prisma.assessment.findMany({
         where: {
@@ -417,7 +421,6 @@ export class AnalyticsService {
         },
         select: {
           subject_id: true,
-          subject: { select: { id: true, name: true } },
           max_score: true,
           grades: {
             where: { raw_score: { not: null }, is_missing: false },
@@ -428,11 +431,14 @@ export class AnalyticsService {
 
       if (assessments.length === 0) continue;
 
+      for (const a of assessments) {
+        allSubjectIds.add(a.subject_id);
+      }
+
       // Group by subject
       const subjectMap = new Map<
         string,
         {
-          subjectName: string;
           scores: number[];
           maxScores: number[];
         }
@@ -441,7 +447,6 @@ export class AnalyticsService {
       for (const a of assessments) {
         if (!subjectMap.has(a.subject_id)) {
           subjectMap.set(a.subject_id, {
-            subjectName: a.subject.name,
             scores: [],
             maxScores: [],
           });
@@ -474,7 +479,7 @@ export class AnalyticsService {
           class_id: cs.class_id,
           class_name: cs.class_entity.name,
           subject_id: sid,
-          subject_name: data.subjectName,
+          subject_name: '', // resolved below via facade
           average: Math.round(avg * 100) / 100,
           pass_rate: Math.round(passRate * 100) / 100,
           stddev: Math.round(stddev * 100) / 100,
@@ -482,6 +487,13 @@ export class AnalyticsService {
           flagged: false, // computed below
         });
       }
+    }
+
+    // Batch-resolve subject names via AcademicReadFacade
+    const subjects = await this.academicReadFacade.findSubjectsByIds(tenantId, [...allSubjectIds]);
+    const subjectNameMap = new Map(subjects.map((s) => [s.id, s.name]));
+    for (const e of entries) {
+      e.subject_name = subjectNameMap.get(e.subject_id) ?? '';
     }
 
     // Flag teachers with unusual deviations (>15% from subject mean)
@@ -542,10 +554,24 @@ export class AnalyticsService {
         subject_id: true,
         academic_period_id: true,
         computed_value: true,
-        subject: { select: { name: true } },
-        academic_period: { select: { name: true } },
       },
     });
+
+    // Collect unique subject and period IDs for batch facade resolution
+    const uniqueSubjectIds = new Set<string>();
+    const uniquePeriodIds = new Set<string>();
+    for (const snap of snapshots) {
+      uniqueSubjectIds.add(snap.subject_id);
+      uniquePeriodIds.add(snap.academic_period_id);
+    }
+
+    // Batch-resolve names via AcademicReadFacade
+    const [subjectRows, periodRows] = await Promise.all([
+      this.academicReadFacade.findSubjectsByIds(tenantId, [...uniqueSubjectIds]),
+      this.academicReadFacade.findPeriodsByIds(tenantId, [...uniquePeriodIds]),
+    ]);
+    const subjectNameMap = new Map(subjectRows.map((s) => [s.id, s.name]));
+    const periodNameMap = new Map(periodRows.map((p) => [p.id, p.name]));
 
     // Group by class × subject × period
     const groupKey = (s: { class_id: string; subject_id: string; academic_period_id: string }) =>
@@ -557,8 +583,6 @@ export class AnalyticsService {
         classId: string;
         subjectId: string;
         periodId: string;
-        subjectName: string;
-        periodName: string;
         scores: number[];
       }
     >();
@@ -570,8 +594,6 @@ export class AnalyticsService {
           classId: snap.class_id,
           subjectId: snap.subject_id,
           periodId: snap.academic_period_id,
-          subjectName: snap.subject.name,
-          periodName: snap.academic_period.name,
           scores: [],
         });
       }
@@ -592,9 +614,9 @@ export class AnalyticsService {
         class_id: group.classId,
         class_name: classMap.get(group.classId) ?? '',
         subject_id: group.subjectId,
-        subject_name: group.subjectName,
+        subject_name: subjectNameMap.get(group.subjectId) ?? '',
         academic_period_id: group.periodId,
-        period_name: group.periodName,
+        period_name: periodNameMap.get(group.periodId) ?? '',
         average: Math.round(avg * 100) / 100,
         count: n,
       });

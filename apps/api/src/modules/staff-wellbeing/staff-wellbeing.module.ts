@@ -17,10 +17,12 @@ import { HmacService } from './services/hmac.service';
 import { ResourceService } from './services/resource.service';
 import { SurveyResultsService } from './services/survey-results.service';
 import { SurveyService } from './services/survey.service';
+import { WorkloadAggregateService } from './services/workload-aggregate.service';
 import { WorkloadCacheService } from './services/workload-cache.service';
 import { WorkloadComputeService } from './services/workload-compute.service';
 import { WorkloadDataService } from './services/workload-data.service';
 import { WorkloadMetricsService } from './services/workload-metrics.service';
+import { WorkloadPersonalService } from './services/workload-personal.service';
 
 @Module({
   imports: [
@@ -45,6 +47,8 @@ import { WorkloadMetricsService } from './services/workload-metrics.service';
     ResourceService,
     WorkloadDataService,
     WorkloadMetricsService,
+    WorkloadPersonalService,
+    WorkloadAggregateService,
     WorkloadComputeService,
     WorkloadCacheService,
     BoardReportService,

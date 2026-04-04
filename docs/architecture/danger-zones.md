@@ -345,7 +345,7 @@ Table and partition names are derived from constants (not user input), so SQL in
 ## DZ-23: Break-Glass Expiry Has No Dispatch Mechanism — RESOLVED
 
 **Risk**: Expired break-glass grants remain active indefinitely because nothing enqueues the expiry job
-**Location**: `apps/worker/src/processors/behaviour/break-glass-expiry.processor.ts`
+**Location**: `apps/worker/src/processors/safeguarding/break-glass-expiry.processor.ts`
 
 **Status**: RESOLVED in Batch 3 (issue #3.3). `behaviour:break-glass-expiry` is now dispatched daily at 00:00 UTC via `BehaviourCronDispatchProcessor.dispatchDaily()`. Uses `jobId: daily:behaviour:break-glass-expiry:{tenant_id}` for per-tenant dedup. Processor was previously also dispatched from `dispatchSla()` (every 5 min) without dedup — that unnecessary dispatch has been removed.
 
@@ -369,7 +369,7 @@ The `checkRepeatEligibility()` method (line ~339) mitigates this for `once_ever`
 ## DZ-25: SLA Threshold Changes Are Not Retroactive
 
 **Risk**: Relaxing SLA thresholds does not relieve existing safeguarding concerns that have already breached
-**Location**: `apps/worker/src/processors/behaviour/sla-check.processor.ts`, `apps/api/src/modules/behaviour/safeguarding.service.ts`
+**Location**: `apps/worker/src/processors/safeguarding/sla-check.processor.ts`, `apps/api/src/modules/safeguarding/safeguarding.service.ts`
 
 The SLA check processor queries `sla_first_response_due < now()` to detect breaches. The `sla_first_response_due` timestamp is set at concern creation time based on the tenant's configured SLA threshold at that moment. If a tenant later relaxes the SLA (e.g., from 1 hour to 4 hours):
 
@@ -386,7 +386,7 @@ This is **intentional design** — retroactive SLA relaxation could mask genuine
 ## DZ-26: Critical Escalation Self-Chaining With Re-Enqueue
 
 **Risk**: Originally a single-step problem — escalation fired once and stopped. Now MITIGATED.
-**Location**: `apps/worker/src/processors/behaviour/critical-escalation.processor.ts`
+**Location**: `apps/worker/src/processors/safeguarding/critical-escalation.processor.ts`
 
 The `CriticalEscalationProcessor` re-enqueues itself with a 30-minute delay after each step (line ~56). The pattern:
 

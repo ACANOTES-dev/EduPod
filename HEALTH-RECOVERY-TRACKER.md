@@ -263,6 +263,34 @@
 
 ---
 
+## Wave 3 Addendum: Boundary Truth + Hotspot Refactor Enablement
+
+### Bucket 3E — Boundary Checker + Shared Contract Discipline
+
+| ID   | Item                                                               | Status | Date       | Notes                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---- | ------------------------------------------------------------------ | ------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 3E.1 | Repair boundary checker and ratchet violation budget               | DONE   | 2026-04-04 | Boundary checker path was already correct (`docs/architecture/module-ownership.json`). Ratcheted CI `--max-violations` from 235 → 17 (actual count). Updated script JSDoc and footer to reflect hard-gate status. `check:boundaries` script already existed. Verified: 17 violations, PASSED.                                                                                                              |
+| 3E.2 | Reduce `@school/shared` root-barrel usage and add lint enforcement | DONE   | 2026-04-04 | Added FROZEN comment to `packages/shared/src/index.ts`. Created `prefer-shared-subpath` ESLint rule (`packages/eslint-config/rules/prefer-shared-subpath.js`) with keyword-to-subpath mapping for 11 domain subpaths. Warn-only severity. Registered in `plugin.js` and `nest.js`. 10 rule tests pass. 4 genuine warnings detected in API codebase. Current ratio: 581 root-barrel vs 275 subpath imports. |
+| 3E.3 | Architecture docs consistency check + stale doc fixes              | DONE   | 2026-04-04 | Fixed 12 stale file paths across `danger-zones.md` (3), `event-job-catalog.md` (4), `processor-registry.md` (4), `mutation-testing-guide.md` (1) — all safeguarding module path updates. Added RbacModule + 12 missing Tier 4 modules to `module-blast-radius.md`. Created `scripts/check-architecture-docs.ts` consistency checker. Added `check:arch-docs` script. Verified: all 61 modules consistent.  |
+
+**Bucket 3E Totals:** 3 items completed. CI boundary threshold ratcheted from 235 → 17. ESLint `prefer-shared-subpath` rule created. 12 stale architecture doc paths fixed. Architecture consistency checker created. All advisory — no source code changes.
+
+### Bucket 3F — Hotspot Service Refactor Enablement
+
+| ID   | Item                                                                  | Status | Date       | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ---- | --------------------------------------------------------------------- | ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 3F.1 | Decompose `behaviour.service.ts` and `behaviour-sanctions.service.ts` | DONE   | 2026-04-04 | `behaviour.service.ts` (1011 lines) split into: `behaviour-incidents.service.ts` (563), `behaviour-status.service.ts` (203), `behaviour-participants.service.ts` (205); original rewritten as 95-line facade. `behaviour-sanctions.service.ts` (1059 lines) split into: `behaviour-sanctions-crud.service.ts` (536), `behaviour-sanctions-lifecycle.service.ts` (363), `behaviour-sanctions-meetings.service.ts` (130); original rewritten as 116-line facade. Modules updated. 903/903 tests pass across 60 suites. Zero TS errors. |
+| 3F.2 | Move gradebook analytics onto dedicated analytics facade              | DONE   | 2026-04-04 | Removed all cross-domain relation traversals (`subject`, `academic_period`) from `analytics.service.ts`. Added `AcademicReadFacade` injection. Batch-resolved subject/period names via facade instead of N+1 Prisma relation includes. Added `findPeriodsByIds()` to `AcademicReadFacade`. 3 new tests for teacher consistency batch resolution. 714/714 gradebook tests pass across 52 suites. Zero TS errors.                                                                                                                      |
+| 3F.3 | Decompose `workload-compute.service.ts`                               | DONE   | 2026-04-04 | Split 1161-line file into: `workload-personal.service.ts` (324 lines — personal summary, cover history, timetable quality), `workload-aggregate.service.ts` (682 lines — 8 school-wide aggregate methods). Original rewritten as 321-line facade. Module and test files updated. 439/439 tests pass across 25 suites. Public API unchanged.                                                                                                                                                                                          |
+
+**Bucket 3F Totals:** 3 hotspot services decomposed into 8 sub-services. 3231 lines of god-file code reorganized into focused collaborators. Original services preserved as thin facades for API compatibility. 2056/2056 tests pass. Zero TS errors. No controller changes required.
+
+---
+
+**Wave 3 Addendum Complete.** All 6 items (3E.1-3E.3 Boundary + Shared Contract Discipline, 3F.1-3F.3 Hotspot Refactor Enablement) are DONE.
+
+---
+
 ## Status Key
 
 | Status      | Meaning                                    |

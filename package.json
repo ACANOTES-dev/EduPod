@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "check:arch-docs": "npx tsx scripts/check-architecture-docs.ts",
     "check:worker-processor-specs": "node scripts/check-worker-processor-specs.mjs",
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",

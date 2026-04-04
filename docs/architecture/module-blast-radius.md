@@ -133,6 +133,13 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 - **Consumed by**: Various services enqueue `search:index-entity` jobs on mutations
 - **Blast radius**: LOW. Search index is eventually consistent; breakage = stale search results, not data loss.
 
+### RolesService + MembershipsService + RbacReadFacade (RbacModule)
+
+- **Change cost**: MEDIUM -- 9 modules import RbacModule for role/membership/invitation services
+- **Exports**: `RolesService`, `MembershipsService`, `InvitationsService`, `RbacReadFacade`
+- **Consumed by**: ApprovalsModule, BehaviourAnalyticsModule, ComplianceModule (via forwardRef), EarlyWarningModule, FinanceModule, GdprModule, PastoralModule (core + SST sub-modules), SafeguardingModule, TenantsModule
+- **Blast radius**: MEDIUM. Role and membership changes affect permission resolution, approval routing, notification recipient resolution, and DSAR traversal.
+
 ---
 
 ## Tier 3 — Domain Services (change = specific feature breaks)
@@ -235,6 +242,17 @@ These modules have NO downstream dependents. Changes are contained:
 - ReportsModule (exports `ReportsDataAccessService` — centralised cross-module read facade. All analytics queries to foreign tables are routed through this service instead of direct Prisma access. DashboardModule imports ReportsModule for this.)
 - ParentInquiriesModule
 - SecurityIncidentsModule (platform-level, no tenant scope — reads `audit_logs` for anomaly detection, writes `security_incidents` and `security_incident_events`. No downstream dependents.)
+- AiModule (wraps Anthropic client; consumed by modules that call Claude API directly)
+- ConfigModule (NestJS ConfigModule wrapper — env validation)
+- MetricsModule (Prometheus metrics endpoint — no downstream dependents)
+- EngagementModule (events, conferences, forms, trip packs — no downstream dependents)
+- ImportsModule (CSV/Excel import pipeline — no downstream dependents)
+- ClassRequirementsModule (class staffing requirements — no downstream dependents)
+- StaffAvailabilityModule (staff availability scheduling — no downstream dependents)
+- StaffPreferencesModule (staff scheduling preferences — no downstream dependents)
+- PastoralCheckinsModule (stub — not yet implemented)
+- PastoralDsarModule (stub — not yet implemented)
+- CriticalIncidentsModule (stub — not yet implemented)
 
 ### RegulatoryModule
 

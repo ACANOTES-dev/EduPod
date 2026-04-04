@@ -1,3 +1,10 @@
+// ─── FROZEN ──────────────────────────────────────────────────────────────────
+// This root barrel is frozen. New domain-specific exports go into domain
+// subpath modules (e.g., @school/shared/behaviour, @school/shared/pastoral).
+// Only true shared-kernel primitives (auth, pagination, tenant, API response
+// types) should be added here. All others must use subpath imports.
+// ────────────────────────────────────────────────────────────────────────────
+
 // Constants
 export * from './constants/ports';
 export * from './constants/pagination';

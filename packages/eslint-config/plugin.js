@@ -7,6 +7,7 @@ const noPhysicalCssDirection = require('./rules/no-physical-css-direction');
 const noRawSqlOutsideRls = require('./rules/no-raw-sql-outside-rls');
 const noSequentialTransaction = require('./rules/no-sequential-transaction');
 const noUntranslatedStrings = require('./rules/no-untranslated-strings');
+const preferSharedSubpath = require('./rules/prefer-shared-subpath');
 
 module.exports = {
   rules: {
@@ -19,5 +20,6 @@ module.exports = {
     'no-raw-sql-outside-rls': noRawSqlOutsideRls,
     'no-sequential-transaction': noSequentialTransaction,
     'no-untranslated-strings': noUntranslatedStrings,
+    'prefer-shared-subpath': preferSharedSubpath,
   },
 };

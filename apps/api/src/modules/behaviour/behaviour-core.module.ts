@@ -16,11 +16,14 @@ import { BehaviourConfigController } from './behaviour-config.controller';
 import { BehaviourConfigService } from './behaviour-config.service';
 import { BehaviourDocumentTemplateService } from './behaviour-document-template.service';
 import { BehaviourHistoryService } from './behaviour-history.service';
+import { BehaviourIncidentsService } from './behaviour-incidents.service';
+import { BehaviourParticipantsService } from './behaviour-participants.service';
 import { BehaviourPointsService } from './behaviour-points.service';
 import { BehaviourQuickLogService } from './behaviour-quick-log.service';
 import { BehaviourReadFacade } from './behaviour-read.facade';
 import { BehaviourScopeService } from './behaviour-scope.service';
 import { BehaviourSideEffectsService } from './behaviour-side-effects.service';
+import { BehaviourStatusService } from './behaviour-status.service';
 import { BehaviourTasksController } from './behaviour-tasks.controller';
 import { BehaviourTasksService } from './behaviour-tasks.service';
 import { BehaviourController } from './behaviour.controller';
@@ -48,6 +51,9 @@ import { BehaviourService } from './behaviour.service';
   providers: [
     BehaviourAlertsService,
     BehaviourReadFacade,
+    BehaviourIncidentsService,
+    BehaviourStatusService,
+    BehaviourParticipantsService,
     BehaviourService,
     BehaviourQuickLogService,
     BehaviourHistoryService,

@@ -587,7 +587,7 @@ Cron fires at tenant digest time
 
 **Trigger**: Enqueued by `BehaviourAttachmentService` when an attachment is uploaded to a behaviour entity (incident, sanction, appeal, etc.).
 **Payload**: `{ tenant_id, attachment_id, file_key }`
-**Processor**: `apps/worker/src/processors/behaviour/attachment-scan.processor.ts`
+**Processor**: `apps/worker/src/processors/safeguarding/attachment-scan.processor.ts`
 **Retries**: 3 with exponential backoff (5s, 10s, 20s)
 **Added in**: Phase D
 
@@ -642,7 +642,7 @@ PdfRenderProcessor completes PDF rendering + S3 upload
 
 **Trigger**: Daily cron at 00:00 UTC per active behaviour tenant, dispatched by `BehaviourCronDispatchProcessor.dispatchDaily()`.
 **Payload**: `{ tenant_id }`
-**Processor**: `apps/worker/src/processors/behaviour/break-glass-expiry.processor.ts`
+**Processor**: `apps/worker/src/processors/safeguarding/break-glass-expiry.processor.ts`
 **Retries**: 3 with exponential backoff
 **Added in**: Phase D — **activated in Batch 3 (issue #3.3)**
 
@@ -707,7 +707,7 @@ Positive incident created with status = active
 
 **Trigger**: Enqueued by `SafeguardingService.reportConcern()` when `severity = 'critical'` (initial step 0, no delay). Self-re-enqueues with 30-minute delay for subsequent steps (SP3 fix: re-enqueue happens OUTSIDE the Prisma transaction).
 **Payload**: `{ tenant_id, concern_id, escalation_step }`
-**Processor**: `apps/worker/src/processors/behaviour/critical-escalation.processor.ts`
+**Processor**: `apps/worker/src/processors/safeguarding/critical-escalation.processor.ts`
 **Retries**: 3 with exponential backoff
 **Added in**: Phase D, fixed in SP3
 
@@ -773,7 +773,7 @@ Daily cron dispatch at 06:00 UTC
 
 **Trigger**: Dispatched by `behaviour:cron-dispatch-sla` every 5 minutes for each active behaviour tenant.
 **Payload**: `{ tenant_id }`
-**Processor**: `apps/worker/src/processors/behaviour/sla-check.processor.ts`
+**Processor**: `apps/worker/src/processors/safeguarding/sla-check.processor.ts`
 **Retries**: 3 with exponential backoff
 **Added in**: Phase D
 

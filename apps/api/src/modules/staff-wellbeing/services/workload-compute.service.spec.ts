@@ -71,9 +71,11 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+import { WorkloadAggregateService } from './workload-aggregate.service';
 import { WorkloadComputeService } from './workload-compute.service';
 import { WorkloadDataService } from './workload-data.service';
 import { WorkloadMetricsService } from './workload-metrics.service';
+import { WorkloadPersonalService } from './workload-personal.service';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -156,6 +158,8 @@ describe('WorkloadComputeService', () => {
       providers: [
         WorkloadDataService,
         WorkloadMetricsService,
+        WorkloadPersonalService,
+        WorkloadAggregateService,
         WorkloadComputeService,
         { provide: PrismaService, useValue: {} },
       ],

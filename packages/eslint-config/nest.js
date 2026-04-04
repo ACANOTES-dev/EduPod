@@ -9,5 +9,6 @@ module.exports = {
     'school/no-raw-sql-outside-rls': 'error',
     'school/no-cross-module-internal-import': 'warn',
     'school/no-cross-module-prisma-access': 'error',
+    'school/prefer-shared-subpath': 'warn',
   },
 };

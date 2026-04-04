@@ -84,7 +84,7 @@ Edit `apps/api/stryker.conf.json` and add paths to the `mutate` array:
     "src/modules/finance/invoices.service.ts",
     "src/modules/finance/payments.service.ts",
     "src/modules/behaviour/behaviour-sanctions.service.ts",
-    "src/modules/behaviour/safeguarding-concerns.service.ts",
+    "src/modules/safeguarding/safeguarding-concerns.service.ts",
     "src/modules/payroll/payroll-calculations.service.ts"
   ]
 }

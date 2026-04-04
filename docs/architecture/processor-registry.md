@@ -66,10 +66,10 @@
 | attendance     | `attendance-pattern-detection.processor.ts`    | covered     | `apps/worker/src/processors/attendance-pattern-detection.processor.spec.ts`                  |
 | attendance     | `attendance-pending-detection.processor.ts`    | covered     | `apps/worker/src/processors/attendance-pending-detection.processor.spec.ts`                  |
 | attendance     | `attendance-session-generation.processor.ts`   | covered     | `apps/worker/src/processors/attendance-session-generation.processor.spec.ts`                 |
-| behaviour      | `attachment-scan.processor.ts`                 | covered     | `apps/worker/src/processors/behaviour/attachment-scan.processor.spec.ts`                     |
-| behaviour      | `break-glass-expiry.processor.ts`              | covered     | `apps/worker/src/processors/behaviour/break-glass-expiry.processor.spec.ts`                  |
+| safeguarding   | `attachment-scan.processor.ts`                 | covered     | `apps/worker/src/processors/safeguarding/attachment-scan.processor.spec.ts`                  |
+| safeguarding   | `break-glass-expiry.processor.ts`              | covered     | `apps/worker/src/processors/safeguarding/break-glass-expiry.processor.spec.ts`               |
 | behaviour      | `check-awards.processor.ts`                    | covered     | `apps/worker/src/processors/behaviour/check-awards.processor.spec.ts`                        |
-| behaviour      | `critical-escalation.processor.ts`             | covered     | `apps/worker/src/processors/behaviour/critical-escalation.processor.spec.ts`                 |
+| safeguarding   | `critical-escalation.processor.ts`             | covered     | `apps/worker/src/processors/safeguarding/critical-escalation.processor.spec.ts`              |
 | behaviour      | `cron-dispatch.processor.ts`                   | covered     | `apps/worker/src/processors/behaviour/cron-dispatch.processor.spec.ts`                       |
 | behaviour      | `detect-patterns.processor.ts`                 | covered     | `apps/worker/src/processors/behaviour/detect-patterns.processor.spec.ts`                     |
 | behaviour      | `digest-notifications.processor.ts`            | covered     | `apps/worker/src/processors/behaviour/digest-notifications.processor.spec.ts`                |
@@ -79,7 +79,7 @@
 | behaviour      | `partition-maintenance.processor.ts`           | covered     | `apps/worker/src/processors/behaviour/partition-maintenance.processor.spec.ts`               |
 | behaviour      | `refresh-mv.processor.ts`                      | covered     | `apps/worker/src/processors/behaviour/refresh-mv.processor.spec.ts`                          |
 | behaviour      | `retention-check.processor.ts`                 | covered     | `apps/worker/src/processors/behaviour/retention-check.processor.spec.ts`                     |
-| behaviour      | `sla-check.processor.ts`                       | covered     | `apps/worker/src/processors/behaviour/sla-check.processor.spec.ts`                           |
+| safeguarding   | `sla-check.processor.ts`                       | covered     | `apps/worker/src/processors/safeguarding/sla-check.processor.spec.ts`                        |
 | behaviour      | `suspension-return.processor.ts`               | covered     | `apps/worker/src/processors/behaviour/suspension-return.processor.spec.ts`                   |
 | behaviour      | `task-reminders.processor.ts`                  | covered     | `apps/worker/src/processors/behaviour/task-reminders.processor.spec.ts`                      |
 | communications | `announcement-approval-callback.processor.ts`  | covered     | `apps/worker/src/processors/communications/announcement-approval-callback.processor.spec.ts` |

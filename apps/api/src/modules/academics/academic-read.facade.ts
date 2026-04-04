@@ -434,7 +434,7 @@ export class AcademicReadFacade {
 
   /**
    * Batch lookup of subjects by IDs. Missing IDs are silently excluded.
-   * Used by behaviour-incident-analytics for subject name resolution.
+   * Used by behaviour-incident-analytics and gradebook analytics for subject name resolution.
    */
   async findSubjectsByIds(
     tenantId: string,
@@ -445,6 +445,23 @@ export class AcademicReadFacade {
     return this.prisma.subject.findMany({
       where: { id: { in: subjectIds }, tenant_id: tenantId },
       select: { id: true, name: true, code: true },
+    });
+  }
+
+  /**
+   * Batch lookup of academic periods by IDs, returning id + name.
+   * Missing IDs are silently excluded.
+   * Used by gradebook analytics for period name resolution.
+   */
+  async findPeriodsByIds(
+    tenantId: string,
+    periodIds: string[],
+  ): Promise<Array<{ id: string; name: string }>> {
+    if (periodIds.length === 0) return [];
+
+    return this.prisma.academicPeriod.findMany({
+      where: { id: { in: periodIds }, tenant_id: tenantId },
+      select: { id: true, name: true },
     });
   }
 

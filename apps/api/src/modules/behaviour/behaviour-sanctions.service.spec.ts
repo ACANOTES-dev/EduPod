@@ -1,11 +1,14 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, SchedulesReadFacade, ConfigurationReadFacade } from '../../common/tests/mock-facades';
+import { MOCK_FACADE_PROVIDERS, SchedulesReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
 
 import { BehaviourHistoryService } from './behaviour-history.service';
+import { BehaviourSanctionsCrudService } from './behaviour-sanctions-crud.service';
+import { BehaviourSanctionsLifecycleService } from './behaviour-sanctions-lifecycle.service';
+import { BehaviourSanctionsMeetingsService } from './behaviour-sanctions-meetings.service';
 import { BehaviourSanctionsService } from './behaviour-sanctions.service';
 import { BehaviourSideEffectsService } from './behaviour-side-effects.service';
 
@@ -144,12 +147,18 @@ describe('BehaviourSanctionsService', () => {
     module = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
+        BehaviourSanctionsCrudService,
+        BehaviourSanctionsLifecycleService,
+        BehaviourSanctionsMeetingsService,
         BehaviourSanctionsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SequenceService, useValue: mockSequence },
         { provide: BehaviourHistoryService, useValue: mockHistory },
         { provide: BehaviourSideEffectsService, useValue: mockSideEffects },
-        { provide: SchedulesReadFacade, useValue: { findByStudentWeekday: jest.fn().mockResolvedValue([]) } },
+        {
+          provide: SchedulesReadFacade,
+          useValue: { findByStudentWeekday: jest.fn().mockResolvedValue([]) },
+        },
       ],
     }).compile();
 
