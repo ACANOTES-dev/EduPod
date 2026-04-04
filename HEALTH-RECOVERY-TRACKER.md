@@ -181,6 +181,20 @@
 
 ---
 
+## Wave 6: Code Quality & Maintainability
+
+### Bucket 6B — God-File Decomposition
+
+| ID   | Item                                                    | Status | Date       | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ---- | ------------------------------------------------------- | ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 6B.1 | Decompose households.service.ts (1,122 → 4 files)       | DONE   | 2026-04-04 | Split into `households-crud.service.ts` (331 lines: create/findAll/findOne/update/updateStatus), `households-relations.service.ts` (352 lines: emergency contacts + parent linking + setBillingParent), `households-structural.service.ts` (433 lines: merge/split/preview). Original rewritten as thin facade (183 lines). Module updated. 63 service tests + 19 controller tests pass. Zero TS errors.                                                                                                                             |
+| 6B.2 | Decompose attendance-upload.service.ts (985 → 4 files)  | DONE   | 2026-04-04 | Split into `attendance-file-parser.service.ts` (307 lines: CSV/XLSX parsing, quick-mark, constants), `attendance-bulk-upload.service.ts` (387 lines: template generation + processUpload), `attendance-exceptions.service.ts` (307 lines: processExceptionsUpload + undoUpload with Redis). Original rewritten as thin facade (97 lines). Module updated. 21 service tests pass. Zero TS errors.                                                                                                                                     |
+| 6B.3 | Decompose homework-analytics.service.ts (990 → 5 files) | DONE   | 2026-04-04 | Split into `homework-analytics.helpers.ts` (44 lines: buildAssignmentWhere + filter types), `homework-load-analytics.service.ts` (147 lines: loadAnalysis + dailyLoadHeatmap), `homework-student-analytics.service.ts` (363 lines: studentTrends + nonCompleters + correlationAnalysis), `homework-completion-analytics.service.ts` (476 lines: completionRates + classPatterns + subjectTrends + teacherPatterns + yearGroupOverview). Original rewritten as thin facade (77 lines). Module updated. 44 tests pass. Zero TS errors. |
+
+**Bucket 6B Totals:** 3 god-files decomposed into 13 sub-service files. All files under 500 lines (largest: 476). Original services preserved as thin facades for API compatibility. 128 tests pass (63 + 21 + 44). Zero TypeScript errors. Zero regressions. No controller changes required.
+
+---
+
 ## Status Key
 
 | Status      | Meaning                                    |

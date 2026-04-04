@@ -11,12 +11,15 @@ import { TenantsModule } from '../tenants/tenants.module';
 
 import { HomeworkAnalyticsController } from './homework-analytics.controller';
 import { HomeworkAnalyticsService } from './homework-analytics.service';
+import { HomeworkCompletionAnalyticsService } from './homework-completion-analytics.service';
 import { HomeworkCompletionsController } from './homework-completions.controller';
 import { HomeworkCompletionsService } from './homework-completions.service';
 import { HomeworkDiaryController } from './homework-diary.controller';
 import { HomeworkDiaryService } from './homework-diary.service';
+import { HomeworkLoadAnalyticsService } from './homework-load-analytics.service';
 import { HomeworkParentController } from './homework-parent.controller';
 import { HomeworkParentService } from './homework-parent.service';
+import { HomeworkStudentAnalyticsService } from './homework-student-analytics.service';
 import { HomeworkController } from './homework.controller';
 import { HomeworkService } from './homework.service';
 
@@ -44,6 +47,9 @@ import { HomeworkService } from './homework.service';
     HomeworkDiaryService,
     HomeworkParentService,
     HomeworkAnalyticsService,
+    HomeworkCompletionAnalyticsService,
+    HomeworkLoadAnalyticsService,
+    HomeworkStudentAnalyticsService,
   ],
   exports: [HomeworkService, HomeworkCompletionsService],
 })

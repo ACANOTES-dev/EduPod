@@ -6,6 +6,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { SequenceService } from '../sequence/sequence.service';
 
+import { HouseholdsCrudService } from './households-crud.service';
+import { HouseholdsRelationsService } from './households-relations.service';
+import { HouseholdsStructuralService } from './households-structural.service';
 import { HouseholdsService } from './households.service';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -157,6 +160,9 @@ describe('HouseholdsService — create', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        HouseholdsCrudService,
+        HouseholdsRelationsService,
+        HouseholdsStructuralService,
         HouseholdsService,
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
@@ -289,6 +295,9 @@ describe('HouseholdsService — findAll', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        HouseholdsCrudService,
+        HouseholdsRelationsService,
+        HouseholdsStructuralService,
         HouseholdsService,
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
@@ -417,6 +426,9 @@ describe('HouseholdsService — findOne', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        HouseholdsCrudService,
+        HouseholdsRelationsService,
+        HouseholdsStructuralService,
         HouseholdsService,
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
@@ -511,6 +523,9 @@ describe('HouseholdsService — update', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        HouseholdsCrudService,
+        HouseholdsRelationsService,
+        HouseholdsStructuralService,
         HouseholdsService,
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
@@ -577,6 +592,9 @@ describe('HouseholdsService — updateStatus', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        HouseholdsCrudService,
+        HouseholdsRelationsService,
+        HouseholdsStructuralService,
         HouseholdsService,
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: buildMockRedis() },
@@ -640,6 +658,9 @@ describe('HouseholdsService — addEmergencyContact', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        HouseholdsCrudService,
+        HouseholdsRelationsService,
+        HouseholdsStructuralService,
         HouseholdsService,
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
@@ -712,6 +733,9 @@ describe('HouseholdsService — updateEmergencyContact', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        HouseholdsCrudService,
+        HouseholdsRelationsService,
+        HouseholdsStructuralService,
         HouseholdsService,
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: buildMockRedis() },
@@ -789,6 +813,9 @@ describe('HouseholdsService — removeEmergencyContact', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        HouseholdsCrudService,
+        HouseholdsRelationsService,
+        HouseholdsStructuralService,
         HouseholdsService,
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
@@ -866,6 +893,9 @@ describe('HouseholdsService — linkParent', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        HouseholdsCrudService,
+        HouseholdsRelationsService,
+        HouseholdsStructuralService,
         HouseholdsService,
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: buildMockRedis() },
@@ -975,6 +1005,9 @@ describe('HouseholdsService — unlinkParent', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        HouseholdsCrudService,
+        HouseholdsRelationsService,
+        HouseholdsStructuralService,
         HouseholdsService,
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
@@ -1054,6 +1087,9 @@ describe('HouseholdsService — setBillingParent', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        HouseholdsCrudService,
+        HouseholdsRelationsService,
+        HouseholdsStructuralService,
         HouseholdsService,
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
@@ -1167,6 +1203,9 @@ describe('HouseholdsService — merge', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        HouseholdsCrudService,
+        HouseholdsRelationsService,
+        HouseholdsStructuralService,
         HouseholdsService,
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
@@ -1359,6 +1398,9 @@ describe('HouseholdsService — split', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        HouseholdsCrudService,
+        HouseholdsRelationsService,
+        HouseholdsStructuralService,
         HouseholdsService,
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },
@@ -1534,6 +1576,9 @@ describe('HouseholdsService — preview', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        HouseholdsCrudService,
+        HouseholdsRelationsService,
+        HouseholdsStructuralService,
         HouseholdsService,
         { provide: PrismaService, useValue: buildMockPrisma() },
         { provide: RedisService, useValue: mockRedis },

@@ -1,8 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import { HomeworkAnalyticsService } from './homework-analytics.service';
+import { HomeworkCompletionAnalyticsService } from './homework-completion-analytics.service';
+import { HomeworkLoadAnalyticsService } from './homework-load-analytics.service';
+import { HomeworkStudentAnalyticsService } from './homework-student-analytics.service';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -21,18 +27,25 @@ function buildMockPrisma() {
       findMany: jest.fn(),
       count: jest.fn(),
     },
-    classEnrolment: {
-      findMany: jest.fn(),
-    },
-    student: {
-      findMany: jest.fn(),
-    },
-    subject: {
-      findFirst: jest.fn(),
-    },
-    class: {
-      findMany: jest.fn(),
-    },
+  };
+}
+
+function buildMockClassesReadFacade() {
+  return {
+    findClassIdsForStudent: jest.fn(),
+    findByYearGroup: jest.fn(),
+  };
+}
+
+function buildMockStudentReadFacade() {
+  return {
+    findByIds: jest.fn(),
+  };
+}
+
+function buildMockAcademicReadFacade() {
+  return {
+    findSubjectById: jest.fn(),
   };
 }
 
@@ -44,14 +57,26 @@ describe('HomeworkAnalyticsService', () => {
   let module: TestingModule;
   let service: HomeworkAnalyticsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockClassesFacade: ReturnType<typeof buildMockClassesReadFacade>;
+  let mockStudentFacade: ReturnType<typeof buildMockStudentReadFacade>;
+  let mockAcademicFacade: ReturnType<typeof buildMockAcademicReadFacade>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockClassesFacade = buildMockClassesReadFacade();
+    mockStudentFacade = buildMockStudentReadFacade();
+    mockAcademicFacade = buildMockAcademicReadFacade();
 
     module = await Test.createTestingModule({
       providers: [
         HomeworkAnalyticsService,
+        HomeworkCompletionAnalyticsService,
+        HomeworkLoadAnalyticsService,
+        HomeworkStudentAnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
       ],
     }).compile();
 
@@ -74,11 +99,7 @@ describe('HomeworkAnalyticsService', () => {
           subject_id: SUBJECT_ID,
           class_entity: { name: 'Class 5A' },
           subject: { name: 'Mathematics' },
-          completions: [
-            { status: 'completed' },
-            { status: 'completed' },
-            { status: 'pending' },
-          ],
+          completions: [{ status: 'completed' }, { status: 'completed' }, { status: 'pending' }],
         },
       ]);
 
@@ -147,9 +168,7 @@ describe('HomeworkAnalyticsService', () => {
 
   describe('HomeworkAnalyticsService — studentTrends', () => {
     it('should return overall and per-subject breakdown for a student', async () => {
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
-        { class_id: CLASS_ID },
-      ]);
+      mockClassesFacade.findClassIdsForStudent.mockResolvedValue([CLASS_ID]);
 
       mockPrisma.homeworkAssignment.findMany.mockResolvedValue([
         {
@@ -168,11 +187,7 @@ describe('HomeworkAnalyticsService', () => {
         },
       ]);
 
-      const result = await service.studentTrends(
-        TENANT_ID,
-        STUDENT_ID,
-        emptyFilters,
-      );
+      const result = await service.studentTrends(TENANT_ID, STUDENT_ID, emptyFilters);
 
       expect(result.student_id).toBe(STUDENT_ID);
       expect(result.overall.total_assigned).toBe(2);
@@ -184,13 +199,9 @@ describe('HomeworkAnalyticsService', () => {
     });
 
     it('should return empty result when student has no enrolments', async () => {
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+      mockClassesFacade.findClassIdsForStudent.mockResolvedValue([]);
 
-      const result = await service.studentTrends(
-        TENANT_ID,
-        STUDENT_ID,
-        emptyFilters,
-      );
+      const result = await service.studentTrends(TENANT_ID, STUDENT_ID, emptyFilters);
 
       expect(result.overall.total_assigned).toBe(0);
       expect(result.overall.completion_rate).toBe(0);
@@ -198,9 +209,7 @@ describe('HomeworkAnalyticsService', () => {
     });
 
     it('should compute trend periods correctly', async () => {
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
-        { class_id: CLASS_ID },
-      ]);
+      mockClassesFacade.findClassIdsForStudent.mockResolvedValue([CLASS_ID]);
 
       const now = new Date();
       const fiveDaysAgo = new Date(now.getTime() - 5 * 86400000);
@@ -223,11 +232,7 @@ describe('HomeworkAnalyticsService', () => {
         },
       ]);
 
-      const result = await service.studentTrends(
-        TENANT_ID,
-        STUDENT_ID,
-        emptyFilters,
-      );
+      const result = await service.studentTrends(TENANT_ID, STUDENT_ID, emptyFilters);
 
       expect(result.trend.current_period).toBe(100);
       expect(result.trend.previous_period).toBe(0);
@@ -262,11 +267,7 @@ describe('HomeworkAnalyticsService', () => {
         },
       ]);
 
-      const result = await service.classPatterns(
-        TENANT_ID,
-        CLASS_ID,
-        emptyFilters,
-      );
+      const result = await service.classPatterns(TENANT_ID, CLASS_ID, emptyFilters);
 
       expect(result.class_id).toBe(CLASS_ID);
       expect(result.assignments_count).toBe(2);
@@ -284,11 +285,7 @@ describe('HomeworkAnalyticsService', () => {
     it('should handle empty assignments', async () => {
       mockPrisma.homeworkAssignment.findMany.mockResolvedValue([]);
 
-      const result = await service.classPatterns(
-        TENANT_ID,
-        CLASS_ID,
-        emptyFilters,
-      );
+      const result = await service.classPatterns(TENANT_ID, CLASS_ID, emptyFilters);
 
       expect(result.assignments_count).toBe(0);
       expect(result.avg_completion_rate).toBe(0);
@@ -373,16 +370,12 @@ describe('HomeworkAnalyticsService', () => {
 
       expect(result).toHaveLength(2);
 
-      const march30 = result.find(
-        (r: { date: string }) => r.date === '2026-03-30',
-      );
+      const march30 = result.find((r: { date: string }) => r.date === '2026-03-30');
       expect(march30).toBeDefined();
       expect(march30!.count).toBe(2);
       expect(march30!.day_of_week).toBe('Monday');
 
-      const march31 = result.find(
-        (r: { date: string }) => r.date === '2026-03-31',
-      );
+      const march31 = result.find((r: { date: string }) => r.date === '2026-03-31');
       expect(march31).toBeDefined();
       expect(march31!.count).toBe(1);
       expect(march31!.day_of_week).toBe('Tuesday');
@@ -408,29 +401,23 @@ describe('HomeworkAnalyticsService', () => {
           id: 'hw-1',
           class_id: CLASS_ID,
           class_entity: { name: 'Class 5A' },
-          completions: [
-            { student_id: struggleStudentId, status: 'pending' },
-          ],
+          completions: [{ student_id: struggleStudentId, status: 'pending' }],
         },
         {
           id: 'hw-2',
           class_id: CLASS_ID,
           class_entity: { name: 'Class 5A' },
-          completions: [
-            { student_id: struggleStudentId, status: 'pending' },
-          ],
+          completions: [{ student_id: struggleStudentId, status: 'pending' }],
         },
         {
           id: 'hw-3',
           class_id: CLASS_ID,
           class_entity: { name: 'Class 5A' },
-          completions: [
-            { student_id: struggleStudentId, status: 'completed' },
-          ],
+          completions: [{ student_id: struggleStudentId, status: 'completed' }],
         },
       ]);
 
-      mockPrisma.student.findMany.mockResolvedValue([
+      mockStudentFacade.findByIds.mockResolvedValue([
         { id: struggleStudentId, first_name: 'Ali', last_name: 'Noor' },
       ]);
 
@@ -450,17 +437,13 @@ describe('HomeworkAnalyticsService', () => {
           id: 'hw-1',
           class_id: CLASS_ID,
           class_entity: { name: 'Class 5A' },
-          completions: [
-            { student_id: 'student-few', status: 'pending' },
-          ],
+          completions: [{ student_id: 'student-few', status: 'pending' }],
         },
         {
           id: 'hw-2',
           class_id: CLASS_ID,
           class_entity: { name: 'Class 5A' },
-          completions: [
-            { student_id: 'student-few', status: 'pending' },
-          ],
+          completions: [{ student_id: 'student-few', status: 'pending' }],
         },
       ]);
 
@@ -475,25 +458,19 @@ describe('HomeworkAnalyticsService', () => {
           id: 'hw-1',
           class_id: CLASS_ID,
           class_entity: { name: 'Class 5A' },
-          completions: [
-            { student_id: 'student-ok', status: 'completed' },
-          ],
+          completions: [{ student_id: 'student-ok', status: 'completed' }],
         },
         {
           id: 'hw-2',
           class_id: CLASS_ID,
           class_entity: { name: 'Class 5A' },
-          completions: [
-            { student_id: 'student-ok', status: 'completed' },
-          ],
+          completions: [{ student_id: 'student-ok', status: 'completed' }],
         },
         {
           id: 'hw-3',
           class_id: CLASS_ID,
           class_entity: { name: 'Class 5A' },
-          completions: [
-            { student_id: 'student-ok', status: 'pending' },
-          ],
+          completions: [{ student_id: 'student-ok', status: 'pending' }],
         },
       ]);
 
@@ -507,35 +484,25 @@ describe('HomeworkAnalyticsService', () => {
 
   describe('HomeworkAnalyticsService — subjectTrends', () => {
     it('should return subject-level metrics with class and type breakdowns', async () => {
-      mockPrisma.subject.findFirst.mockResolvedValue({ name: 'Mathematics' });
+      mockAcademicFacade.findSubjectById.mockResolvedValue({ name: 'Mathematics' });
       mockPrisma.homeworkAssignment.findMany.mockResolvedValue([
         {
           id: 'hw-1',
           class_id: CLASS_ID,
           homework_type: 'assignment',
           class_entity: { name: 'Class 5A' },
-          completions: [
-            { status: 'completed' },
-            { status: 'pending' },
-          ],
+          completions: [{ status: 'completed' }, { status: 'pending' }],
         },
         {
           id: 'hw-2',
           class_id: CLASS_ID,
           homework_type: 'quiz',
           class_entity: { name: 'Class 5A' },
-          completions: [
-            { status: 'completed' },
-            { status: 'completed' },
-          ],
+          completions: [{ status: 'completed' }, { status: 'completed' }],
         },
       ]);
 
-      const result = await service.subjectTrends(
-        TENANT_ID,
-        SUBJECT_ID,
-        emptyFilters,
-      );
+      const result = await service.subjectTrends(TENANT_ID, SUBJECT_ID, emptyFilters);
 
       expect(result.subject_id).toBe(SUBJECT_ID);
       expect(result.subject_name).toBe('Mathematics');
@@ -547,14 +514,10 @@ describe('HomeworkAnalyticsService', () => {
     });
 
     it('should handle missing subject name gracefully', async () => {
-      mockPrisma.subject.findFirst.mockResolvedValue(null);
+      mockAcademicFacade.findSubjectById.mockResolvedValue(null);
       mockPrisma.homeworkAssignment.findMany.mockResolvedValue([]);
 
-      const result = await service.subjectTrends(
-        TENANT_ID,
-        SUBJECT_ID,
-        emptyFilters,
-      );
+      const result = await service.subjectTrends(TENANT_ID, SUBJECT_ID, emptyFilters);
 
       expect(result.subject_name).toBeNull();
       expect(result.total_assignments).toBe(0);
@@ -571,26 +534,17 @@ describe('HomeworkAnalyticsService', () => {
           id: 'hw-1',
           homework_type: 'assignment',
           due_date: new Date('2026-03-15'),
-          completions: [
-            { status: 'completed' },
-            { status: 'completed' },
-          ],
+          completions: [{ status: 'completed' }, { status: 'completed' }],
         },
         {
           id: 'hw-2',
           homework_type: 'assignment',
           due_date: new Date('2026-03-20'),
-          completions: [
-            { status: 'pending' },
-          ],
+          completions: [{ status: 'pending' }],
         },
       ]);
 
-      const result = await service.teacherPatterns(
-        TENANT_ID,
-        STAFF_ID,
-        emptyFilters,
-      );
+      const result = await service.teacherPatterns(TENANT_ID, STAFF_ID, emptyFilters);
 
       expect(result.staff_id).toBe(STAFF_ID);
       expect(result.total_set).toBe(2);
@@ -607,11 +561,7 @@ describe('HomeworkAnalyticsService', () => {
     it('should handle empty assignments for teacher', async () => {
       mockPrisma.homeworkAssignment.findMany.mockResolvedValue([]);
 
-      const result = await service.teacherPatterns(
-        TENANT_ID,
-        STAFF_ID,
-        emptyFilters,
-      );
+      const result = await service.teacherPatterns(TENANT_ID, STAFF_ID, emptyFilters);
 
       expect(result.total_set).toBe(0);
       expect(result.avg_completion_rate).toBe(0);
@@ -624,32 +574,20 @@ describe('HomeworkAnalyticsService', () => {
 
   describe('HomeworkAnalyticsService — yearGroupOverview', () => {
     it('should return year-group aggregate across classes', async () => {
-      mockPrisma.class.findMany.mockResolvedValue([
-        { id: CLASS_ID, name: 'Class 5A' },
-      ]);
+      mockClassesFacade.findByYearGroup.mockResolvedValue([{ id: CLASS_ID, name: 'Class 5A' }]);
 
       mockPrisma.homeworkAssignment.findMany.mockResolvedValue([
         {
           class_id: CLASS_ID,
-          completions: [
-            { status: 'completed' },
-            { status: 'completed' },
-            { status: 'pending' },
-          ],
+          completions: [{ status: 'completed' }, { status: 'completed' }, { status: 'pending' }],
         },
         {
           class_id: CLASS_ID,
-          completions: [
-            { status: 'completed' },
-          ],
+          completions: [{ status: 'completed' }],
         },
       ]);
 
-      const result = await service.yearGroupOverview(
-        TENANT_ID,
-        YEAR_GROUP_ID,
-        emptyFilters,
-      );
+      const result = await service.yearGroupOverview(TENANT_ID, YEAR_GROUP_ID, emptyFilters);
 
       expect(result.year_group_id).toBe(YEAR_GROUP_ID);
       expect(result.total_assignments).toBe(2);
@@ -662,13 +600,9 @@ describe('HomeworkAnalyticsService', () => {
     });
 
     it('should return empty result when year group has no classes', async () => {
-      mockPrisma.class.findMany.mockResolvedValue([]);
+      mockClassesFacade.findByYearGroup.mockResolvedValue([]);
 
-      const result = await service.yearGroupOverview(
-        TENANT_ID,
-        YEAR_GROUP_ID,
-        emptyFilters,
-      );
+      const result = await service.yearGroupOverview(TENANT_ID, YEAR_GROUP_ID, emptyFilters);
 
       expect(result.year_group_id).toBe(YEAR_GROUP_ID);
       expect(result.classes).toEqual([]);
@@ -677,16 +611,10 @@ describe('HomeworkAnalyticsService', () => {
     });
 
     it('should handle classes with no assignments', async () => {
-      mockPrisma.class.findMany.mockResolvedValue([
-        { id: CLASS_ID, name: 'Class 5A' },
-      ]);
+      mockClassesFacade.findByYearGroup.mockResolvedValue([{ id: CLASS_ID, name: 'Class 5A' }]);
       mockPrisma.homeworkAssignment.findMany.mockResolvedValue([]);
 
-      const result = await service.yearGroupOverview(
-        TENANT_ID,
-        YEAR_GROUP_ID,
-        emptyFilters,
-      );
+      const result = await service.yearGroupOverview(TENANT_ID, YEAR_GROUP_ID, emptyFilters);
 
       expect(result.total_assignments).toBe(0);
       expect(result.avg_completion_rate).toBe(0);
@@ -700,48 +628,31 @@ describe('HomeworkAnalyticsService', () => {
     it('should return bucketed student data with average points', async () => {
       mockPrisma.homeworkAssignment.findMany.mockResolvedValue([
         {
-          completions: [
-            { student_id: 'high-student', status: 'completed', points_awarded: 90 },
-          ],
+          completions: [{ student_id: 'high-student', status: 'completed', points_awarded: 90 }],
         },
         {
-          completions: [
-            { student_id: 'high-student', status: 'completed', points_awarded: 80 },
-          ],
+          completions: [{ student_id: 'high-student', status: 'completed', points_awarded: 80 }],
         },
         {
-          completions: [
-            { student_id: 'low-student', status: 'pending', points_awarded: null },
-          ],
+          completions: [{ student_id: 'low-student', status: 'pending', points_awarded: null }],
         },
         {
-          completions: [
-            { student_id: 'low-student', status: 'pending', points_awarded: null },
-          ],
+          completions: [{ student_id: 'low-student', status: 'pending', points_awarded: null }],
         },
         {
-          completions: [
-            { student_id: 'low-student', status: 'pending', points_awarded: null },
-          ],
+          completions: [{ student_id: 'low-student', status: 'pending', points_awarded: null }],
         },
       ]);
 
-      const result = await service.correlationAnalysis(
-        TENANT_ID,
-        emptyFilters,
-      );
+      const result = await service.correlationAnalysis(TENANT_ID, emptyFilters);
 
       expect(result.buckets).toHaveLength(4);
 
-      const lowBucket = result.buckets.find(
-        (b: { range: string }) => b.range === '0-25%',
-      );
+      const lowBucket = result.buckets.find((b: { range: string }) => b.range === '0-25%');
       expect(lowBucket).toBeDefined();
       expect(lowBucket!.student_count).toBe(1);
 
-      const highBucket = result.buckets.find(
-        (b: { range: string }) => b.range === '75-100%',
-      );
+      const highBucket = result.buckets.find((b: { range: string }) => b.range === '75-100%');
       expect(highBucket).toBeDefined();
       expect(highBucket!.student_count).toBe(1);
       expect(highBucket!.avg_points).toBe(85);
@@ -750,10 +661,7 @@ describe('HomeworkAnalyticsService', () => {
     it('should return empty buckets when no assignments', async () => {
       mockPrisma.homeworkAssignment.findMany.mockResolvedValue([]);
 
-      const result = await service.correlationAnalysis(
-        TENANT_ID,
-        emptyFilters,
-      );
+      const result = await service.correlationAnalysis(TENANT_ID, emptyFilters);
 
       expect(result.buckets).toHaveLength(4);
       for (const bucket of result.buckets) {
@@ -765,20 +673,13 @@ describe('HomeworkAnalyticsService', () => {
     it('should handle students without points', async () => {
       mockPrisma.homeworkAssignment.findMany.mockResolvedValue([
         {
-          completions: [
-            { student_id: 'no-points', status: 'completed', points_awarded: null },
-          ],
+          completions: [{ student_id: 'no-points', status: 'completed', points_awarded: null }],
         },
       ]);
 
-      const result = await service.correlationAnalysis(
-        TENANT_ID,
-        emptyFilters,
-      );
+      const result = await service.correlationAnalysis(TENANT_ID, emptyFilters);
 
-      const highBucket = result.buckets.find(
-        (b: { range: string }) => b.range === '75-100%',
-      );
+      const highBucket = result.buckets.find((b: { range: string }) => b.range === '75-100%');
       expect(highBucket).toBeDefined();
       expect(highBucket!.student_count).toBe(1);
       expect(highBucket!.avg_points).toBeNull();

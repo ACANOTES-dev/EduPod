@@ -14,6 +14,9 @@ import { SchoolClosuresModule } from '../school-closures/school-closures.module'
 import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 import { StudentsModule } from '../students/students.module';
 
+import { AttendanceBulkUploadService } from './attendance-bulk-upload.service';
+import { AttendanceExceptionsService } from './attendance-exceptions.service';
+import { AttendanceFileParserService } from './attendance-file-parser.service';
 import { AttendanceLockingService } from './attendance-locking.service';
 import { AttendanceParentNotificationService } from './attendance-parent-notification.service';
 import { AttendancePatternService } from './attendance-pattern.service';
@@ -51,6 +54,9 @@ import { DailySummaryService } from './daily-summary.service';
     AttendancePatternService,
     AttendanceReadFacade,
     AttendanceScanService,
+    AttendanceFileParserService,
+    AttendanceBulkUploadService,
+    AttendanceExceptionsService,
     AttendanceUploadService,
     DailySummaryService,
     AttendanceParentNotificationService,

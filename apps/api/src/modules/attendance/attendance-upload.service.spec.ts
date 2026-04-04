@@ -1,10 +1,16 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
+import { AttendanceBulkUploadService } from './attendance-bulk-upload.service';
+import { AttendanceExceptionsService } from './attendance-exceptions.service';
+import { AttendanceFileParserService } from './attendance-file-parser.service';
 import { AttendanceParentNotificationService } from './attendance-parent-notification.service';
 import { AttendanceUploadService } from './attendance-upload.service';
 import { DailySummaryService } from './daily-summary.service';
@@ -32,9 +38,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -49,11 +53,59 @@ const mockRedisClient = {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function buildCsvBuffer(rows: string[]): Buffer {
-  const csv = [
-    'student_number,student_name,class_name,status',
-    ...rows,
-  ].join('\n');
+  const csv = ['student_number,student_name,class_name,status', ...rows].join('\n');
   return Buffer.from(csv, 'utf-8');
+}
+
+// ─── Shared provider factories ──────────────────────────────────────────────
+
+function buildBaseProviders(overrides: {
+  prisma?: unknown;
+  settings?: unknown;
+  dailySummary?: unknown;
+  redis?: unknown;
+  parentNotification?: unknown;
+  academicReadFacade?: unknown;
+  classesReadFacade?: unknown;
+  studentReadFacade?: unknown;
+}) {
+  return [
+    AttendanceFileParserService,
+    AttendanceBulkUploadService,
+    AttendanceExceptionsService,
+    AttendanceUploadService,
+    { provide: PrismaService, useValue: overrides.prisma ?? {} },
+    { provide: SettingsService, useValue: overrides.settings ?? {} },
+    {
+      provide: DailySummaryService,
+      useValue: overrides.dailySummary ?? { recalculate: jest.fn().mockResolvedValue(null) },
+    },
+    {
+      provide: RedisService,
+      useValue: overrides.redis ?? { getClient: () => mockRedisClient },
+    },
+    {
+      provide: AttendanceParentNotificationService,
+      useValue: overrides.parentNotification ?? {
+        triggerAbsenceNotification: jest.fn().mockResolvedValue(undefined),
+      },
+    },
+    {
+      provide: AcademicReadFacade,
+      useValue: overrides.academicReadFacade ?? { findCurrentYearId: jest.fn() },
+    },
+    {
+      provide: ClassesReadFacade,
+      useValue: overrides.classesReadFacade ?? {
+        findActiveHomeroomClasses: jest.fn(),
+        findEnrolledStudentsWithNumber: jest.fn(),
+      },
+    },
+    {
+      provide: StudentReadFacade,
+      useValue: overrides.studentReadFacade ?? { findAllStudentNumbers: jest.fn() },
+    },
+  ];
 }
 
 describe('AttendanceUploadService — parseQuickMarkText', () => {
@@ -61,17 +113,7 @@ describe('AttendanceUploadService — parseQuickMarkText', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AttendanceUploadService,
-        { provide: PrismaService, useValue: {} },
-        { provide: SettingsService, useValue: {} },
-        { provide: DailySummaryService, useValue: {} },
-        { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
-        {
-          provide: AttendanceParentNotificationService,
-          useValue: { triggerAbsenceNotification: jest.fn() },
-        },
-      ],
+      providers: buildBaseProviders({}),
     }).compile();
 
     service = module.get<AttendanceUploadService>(AttendanceUploadService);
@@ -145,13 +187,11 @@ describe('AttendanceUploadService — parseQuickMarkText', () => {
 
 describe('AttendanceUploadService — processExceptionsUpload', () => {
   let service: AttendanceUploadService;
-  let mockPrisma: {
-    student: { findMany: jest.Mock };
-  };
+  let mockStudentReadFacade: { findAllStudentNumbers: jest.Mock };
 
   beforeEach(async () => {
-    mockPrisma = {
-      student: { findMany: jest.fn() },
+    mockStudentReadFacade = {
+      findAllStudentNumbers: jest.fn(),
     };
 
     mockRlsTx.attendanceRecord.findMany = jest.fn();
@@ -159,20 +199,9 @@ describe('AttendanceUploadService — processExceptionsUpload', () => {
     mockRedisClient.set.mockResolvedValue('OK');
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AttendanceUploadService,
-        { provide: PrismaService, useValue: mockPrisma },
-        { provide: SettingsService, useValue: {} },
-        {
-          provide: DailySummaryService,
-          useValue: { recalculate: jest.fn().mockResolvedValue(null) },
-        },
-        { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
-        {
-          provide: AttendanceParentNotificationService,
-          useValue: { triggerAbsenceNotification: jest.fn().mockResolvedValue(undefined) },
-        },
-      ],
+      providers: buildBaseProviders({
+        studentReadFacade: mockStudentReadFacade,
+      }),
     }).compile();
 
     service = module.get<AttendanceUploadService>(AttendanceUploadService);
@@ -181,7 +210,7 @@ describe('AttendanceUploadService — processExceptionsUpload', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should reject an invalid date string', async () => {
-    mockPrisma.student.findMany.mockResolvedValue([]);
+    mockStudentReadFacade.findAllStudentNumbers.mockResolvedValue([]);
 
     await expect(
       service.processExceptionsUpload(TENANT_ID, USER_ID, 'not-a-date', []),
@@ -189,14 +218,11 @@ describe('AttendanceUploadService — processExceptionsUpload', () => {
   });
 
   it('should record an error row when student_number is not found', async () => {
-    mockPrisma.student.findMany.mockResolvedValue([]);
+    mockStudentReadFacade.findAllStudentNumbers.mockResolvedValue([]);
 
-    const result = await service.processExceptionsUpload(
-      TENANT_ID,
-      USER_ID,
-      '2026-03-10',
-      [{ student_number: 'UNKNOWN', status: 'absent_unexcused' }],
-    );
+    const result = await service.processExceptionsUpload(TENANT_ID, USER_ID, '2026-03-10', [
+      { student_number: 'UNKNOWN', status: 'absent_unexcused' },
+    ]);
 
     expect(result.success).toBe(false);
     expect(result.updated).toBe(0);
@@ -205,7 +231,7 @@ describe('AttendanceUploadService — processExceptionsUpload', () => {
   });
 
   it('should record an error row for an invalid exception status', async () => {
-    mockPrisma.student.findMany.mockResolvedValue([
+    mockStudentReadFacade.findAllStudentNumbers.mockResolvedValue([
       { id: 'stu-1', student_number: 'STU001' },
     ]);
 
@@ -221,19 +247,16 @@ describe('AttendanceUploadService — processExceptionsUpload', () => {
   });
 
   it('should store undo data in Redis with 5-minute TTL and return a batch_id', async () => {
-    mockPrisma.student.findMany.mockResolvedValue([
+    mockStudentReadFacade.findAllStudentNumbers.mockResolvedValue([
       { id: 'stu-1', student_number: 'STU001' },
     ]);
     (mockRlsTx.attendanceRecord.findMany as jest.Mock).mockResolvedValue([
       { id: 'rec-1', status: 'present', attendance_session_id: 'sess-1' },
     ]);
 
-    const result = await service.processExceptionsUpload(
-      TENANT_ID,
-      USER_ID,
-      '2026-03-10',
-      [{ student_number: 'STU001', status: 'absent_unexcused' }],
-    );
+    const result = await service.processExceptionsUpload(TENANT_ID, USER_ID, '2026-03-10', [
+      { student_number: 'STU001', status: 'absent_unexcused' },
+    ]);
 
     expect(result.updated).toBe(1);
     expect(result.batch_id).toBeDefined();
@@ -246,19 +269,14 @@ describe('AttendanceUploadService — processExceptionsUpload', () => {
   });
 
   it('should report success:false when some rows error and some succeed', async () => {
-    mockPrisma.student.findMany.mockResolvedValue([
+    mockStudentReadFacade.findAllStudentNumbers.mockResolvedValue([
       { id: 'stu-1', student_number: 'STU001' },
     ]);
-    (mockRlsTx.attendanceRecord.findMany as jest.Mock)
-      .mockResolvedValueOnce([]) // no records for STU001 → error
-    ;
+    (mockRlsTx.attendanceRecord.findMany as jest.Mock).mockResolvedValueOnce([]); // no records for STU001 → error
 
-    const result = await service.processExceptionsUpload(
-      TENANT_ID,
-      USER_ID,
-      '2026-03-10',
-      [{ student_number: 'STU001', status: 'absent_unexcused' }],
-    );
+    const result = await service.processExceptionsUpload(TENANT_ID, USER_ID, '2026-03-10', [
+      { student_number: 'STU001', status: 'absent_unexcused' },
+    ]);
 
     expect(result.success).toBe(false);
     expect(result.errors).toHaveLength(1);
@@ -275,20 +293,7 @@ describe('AttendanceUploadService — undoUpload', () => {
     mockRlsTx.attendanceRecord.update = jest.fn().mockResolvedValue({});
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AttendanceUploadService,
-        { provide: PrismaService, useValue: { student: { findMany: jest.fn() } } },
-        { provide: SettingsService, useValue: {} },
-        {
-          provide: DailySummaryService,
-          useValue: { recalculate: jest.fn().mockResolvedValue(null) },
-        },
-        { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
-        {
-          provide: AttendanceParentNotificationService,
-          useValue: { triggerAbsenceNotification: jest.fn() },
-        },
-      ],
+      providers: buildBaseProviders({}),
     }).compile();
 
     service = module.get<AttendanceUploadService>(AttendanceUploadService);
@@ -299,9 +304,9 @@ describe('AttendanceUploadService — undoUpload', () => {
   it('should throw BadRequestException when batch_id does not exist in Redis', async () => {
     mockRedisClient.get.mockResolvedValue(null);
 
-    await expect(
-      service.undoUpload(TENANT_ID, USER_ID, 'nonexistent-batch'),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.undoUpload(TENANT_ID, USER_ID, 'nonexistent-batch')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should throw BadRequestException when tenant_id does not match', async () => {
@@ -313,9 +318,9 @@ describe('AttendanceUploadService — undoUpload', () => {
     });
     mockRedisClient.get.mockResolvedValue(payload);
 
-    await expect(
-      service.undoUpload(TENANT_ID, USER_ID, 'batch-1'),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.undoUpload(TENANT_ID, USER_ID, 'batch-1')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should throw BadRequestException when user_id does not match', async () => {
@@ -327,9 +332,9 @@ describe('AttendanceUploadService — undoUpload', () => {
     });
     mockRedisClient.get.mockResolvedValue(payload);
 
-    await expect(
-      service.undoUpload(TENANT_ID, USER_ID, 'batch-1'),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.undoUpload(TENANT_ID, USER_ID, 'batch-1')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should skip records whose session is no longer open', async () => {
@@ -390,20 +395,25 @@ describe('AttendanceUploadService — undoUpload', () => {
 
 describe('AttendanceUploadService — CSV parsing', () => {
   let service: AttendanceUploadService;
-  let mockPrisma: {
-    academicYear: { findFirst: jest.Mock };
-    student: { findMany: jest.Mock };
-    class: { findMany: jest.Mock };
+  let mockAcademicReadFacade: { findCurrentYearId: jest.Mock };
+  let mockStudentReadFacade: { findAllStudentNumbers: jest.Mock };
+  let mockClassesReadFacade: {
+    findActiveHomeroomClasses: jest.Mock;
+    findEnrolledStudentsWithNumber: jest.Mock;
   };
   let mockSettings: { getSettings: jest.Mock };
 
   beforeEach(async () => {
-    mockPrisma = {
-      academicYear: { findFirst: jest.fn() },
-      student: { findMany: jest.fn() },
-      class: { findMany: jest.fn() },
+    mockAcademicReadFacade = {
+      findCurrentYearId: jest.fn(),
     };
-
+    mockStudentReadFacade = {
+      findAllStudentNumbers: jest.fn(),
+    };
+    mockClassesReadFacade = {
+      findActiveHomeroomClasses: jest.fn(),
+      findEnrolledStudentsWithNumber: jest.fn(),
+    };
     mockSettings = {
       getSettings: jest.fn().mockResolvedValue({
         attendance: { workDays: [0, 1, 2, 3, 4, 5, 6] },
@@ -411,20 +421,12 @@ describe('AttendanceUploadService — CSV parsing', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AttendanceUploadService,
-        { provide: PrismaService, useValue: mockPrisma },
-        { provide: SettingsService, useValue: mockSettings },
-        {
-          provide: DailySummaryService,
-          useValue: { recalculate: jest.fn().mockResolvedValue(null) },
-        },
-        { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
-        {
-          provide: AttendanceParentNotificationService,
-          useValue: { triggerAbsenceNotification: jest.fn() },
-        },
-      ],
+      providers: buildBaseProviders({
+        settings: mockSettings,
+        academicReadFacade: mockAcademicReadFacade,
+        studentReadFacade: mockStudentReadFacade,
+        classesReadFacade: mockClassesReadFacade,
+      }),
     }).compile();
 
     service = module.get<AttendanceUploadService>(AttendanceUploadService);
@@ -433,9 +435,11 @@ describe('AttendanceUploadService — CSV parsing', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should return validation failure when a student_number is not found', async () => {
-    mockPrisma.academicYear.findFirst.mockResolvedValue({ id: 'ay-1' });
-    mockPrisma.student.findMany.mockResolvedValue([]);
-    mockPrisma.class.findMany.mockResolvedValue([{ id: 'cls-1', name: 'Grade 1A' }]);
+    mockAcademicReadFacade.findCurrentYearId.mockResolvedValue('ay-1');
+    mockStudentReadFacade.findAllStudentNumbers.mockResolvedValue([]);
+    mockClassesReadFacade.findActiveHomeroomClasses.mockResolvedValue([
+      { id: 'cls-1', name: 'Grade 1A' },
+    ]);
 
     const csv = buildCsvBuffer(['STU999,John Doe,Grade 1A,P']);
     const result = await service.processUpload(
@@ -454,10 +458,6 @@ describe('AttendanceUploadService — CSV parsing', () => {
   });
 
   it('should throw BadRequestException for unsupported file extension', async () => {
-    mockPrisma.academicYear.findFirst.mockResolvedValue({ id: 'ay-1' });
-    mockPrisma.student.findMany.mockResolvedValue([]);
-    mockPrisma.class.findMany.mockResolvedValue([]);
-
     const buf = Buffer.from('data');
     await expect(
       service.processUpload(TENANT_ID, USER_ID, buf, 'attendance.pdf', '2026-03-10'),
@@ -465,11 +465,13 @@ describe('AttendanceUploadService — CSV parsing', () => {
   });
 
   it('should return validation failure for an invalid status code', async () => {
-    mockPrisma.academicYear.findFirst.mockResolvedValue({ id: 'ay-1' });
-    mockPrisma.student.findMany.mockResolvedValue([
+    mockAcademicReadFacade.findCurrentYearId.mockResolvedValue('ay-1');
+    mockStudentReadFacade.findAllStudentNumbers.mockResolvedValue([
       { id: 'stu-1', student_number: 'STU001' },
     ]);
-    mockPrisma.class.findMany.mockResolvedValue([{ id: 'cls-1', name: 'Grade 1A' }]);
+    mockClassesReadFacade.findActiveHomeroomClasses.mockResolvedValue([
+      { id: 'cls-1', name: 'Grade 1A' },
+    ]);
 
     const csv = buildCsvBuffer(['STU001,John Doe,Grade 1A,X']);
     const result = await service.processUpload(
