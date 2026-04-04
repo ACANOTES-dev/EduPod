@@ -23,6 +23,9 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { AcademicPeriodsService } from '../academics/academic-periods.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
+import { ParentReadFacade } from '../parents/parent-read.facade';
+import { StudentReadFacade } from '../students/student-read.facade';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { GradesService } from './grades.service';
@@ -51,6 +54,9 @@ export class ParentGradebookController {
     private readonly pdfRenderingService: PdfRenderingService,
     private readonly prisma: PrismaService,
     private readonly academicPeriodsService: AcademicPeriodsService,
+    private readonly parentReadFacade: ParentReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   @Get('parent/academic-periods')

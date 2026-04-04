@@ -4,6 +4,10 @@ import { Observable, map } from 'rxjs';
 import type { JwtPayload } from '@school/shared';
 
 import type { AuthenticatedRequest } from '../../../common/types/request.types';
+import { ChildProtectionReadFacade } from '../../child-protection/child-protection-read.facade';
+
+import { RbacReadFacade } from '../../rbac/rbac-read.facade';
+
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -80,7 +84,9 @@ interface ViewerContext {
 export class AuthorMaskingInterceptor implements NestInterceptor {
   private readonly logger = new Logger(AuthorMaskingInterceptor.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService,
+    private readonly rbacReadFacade: RbacReadFacade,
+    private readonly childProtectionReadFacade: ChildProtectionReadFacade) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
@@ -135,7 +141,7 @@ export class AuthorMaskingInterceptor implements NestInterceptor {
   private async resolveViewerContext(tenantId: string, user: JwtPayload): Promise<ViewerContext> {
     const [isDlp, isParent] = await Promise.all([
       this.checkCpAccess(tenantId, user.sub),
-      this.checkIsParent(user.membership_id),
+      this.checkIsParent(user.membership_id, tenantId),
     ]);
 
     return { isDlp, isParent };
@@ -146,14 +152,7 @@ export class AuthorMaskingInterceptor implements NestInterceptor {
    * DLP users always see real author information regardless of masking flag.
    */
   private async checkCpAccess(tenantId: string, userId: string): Promise<boolean> {
-    const grant = await this.prisma.cpAccessGrant.findFirst({
-      where: {
-        tenant_id: tenantId,
-        user_id: userId,
-        revoked_at: null,
-      },
-      select: { id: true },
-    });
+    const grant = await this.childProtectionReadFacade.hasActiveCpAccess(tenantId, userId) ? { id: "active" } : null;
 
     return !!grant;
   }
@@ -163,23 +162,16 @@ export class AuthorMaskingInterceptor implements NestInterceptor {
    * Parents have parent.* permissions and lack staff-level pastoral permissions.
    * If membership_id is null (platform user), they are not a parent.
    */
-  private async checkIsParent(membershipId: string | null): Promise<boolean> {
-    if (!membershipId) return false;
+  private async checkIsParent(membershipId: string | null, tenantId?: string): Promise<boolean> {
+    if (!membershipId || !tenantId) return false;
 
-    const membershipRoles = await this.prisma.membershipRole.findMany({
-      where: { membership_id: membershipId },
-      include: {
-        role: {
-          include: {
-            role_permissions: {
-              include: { permission: true },
-            },
-          },
-        },
-      },
-    });
+    const membership = await this.rbacReadFacade.findMembershipWithPermissions(
+      tenantId,
+      membershipId,
+    );
+    if (!membership) return false;
 
-    const permissionKeys = membershipRoles.flatMap((mr) =>
+    const permissionKeys = membership.membership_roles.flatMap((mr) =>
       mr.role.role_permissions.map((rp) => rp.permission.permission_key),
     );
 

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -122,6 +123,115 @@ export class AcademicReadFacade {
   }
 
   /**
+   * Find an academic year by ID. Returns `null` if not found.
+   * Used by scheduling, scheduling-runs, and other modules to validate year references.
+   */
+  async findYearById(
+    tenantId: string,
+    yearId: string,
+  ): Promise<AcademicYearSummary | null> {
+    return this.prisma.academicYear.findFirst({
+      where: { id: yearId, tenant_id: tenantId },
+    });
+  }
+
+  /**
+   * Assert that an academic year exists. Returns the ID or throws NotFoundException.
+   */
+  async findYearByIdOrThrow(tenantId: string, yearId: string): Promise<string> {
+    const year = await this.prisma.academicYear.findFirst({
+      where: { id: yearId, tenant_id: tenantId },
+      select: { id: true },
+    });
+    if (!year) {
+      throw new NotFoundException({
+        code: 'ACADEMIC_YEAR_NOT_FOUND',
+        message: `Academic year "${yearId}" not found`,
+      });
+    }
+    return year.id;
+  }
+
+  /**
+   * Find all subjects for a tenant. Used by scheduling for validation.
+   */
+  async findSubjectByIdOrThrow(tenantId: string, subjectId: string): Promise<string> {
+    const subject = await this.prisma.subject.findFirst({
+      where: { id: subjectId, tenant_id: tenantId },
+      select: { id: true },
+    });
+    if (!subject) {
+      throw new NotFoundException({
+        code: 'SUBJECT_NOT_FOUND',
+        message: `Subject "${subjectId}" not found`,
+      });
+    }
+    return subject.id;
+  }
+
+  /**
+   * Assert that a year group exists. Returns the ID or throws NotFoundException.
+   */
+  async findYearGroupByIdOrThrow(tenantId: string, yearGroupId: string): Promise<string> {
+    const yg = await this.prisma.yearGroup.findFirst({
+      where: { id: yearGroupId, tenant_id: tenantId },
+      select: { id: true },
+    });
+    if (!yg) {
+      throw new NotFoundException({
+        code: 'YEAR_GROUP_NOT_FOUND',
+        message: `Year group "${yearGroupId}" not found`,
+      });
+    }
+    return yg.id;
+  }
+
+  /**
+   * Find year groups that have active classes for an academic year.
+   * Used by scheduler prerequisites and orchestration.
+   */
+  async findYearGroupsWithActiveClasses(
+    tenantId: string,
+    academicYearId: string,
+  ): Promise<Array<{ id: string; name: string }>> {
+    return this.prisma.yearGroup.findMany({
+      where: {
+        tenant_id: tenantId,
+        classes: {
+          some: { academic_year_id: academicYearId, status: 'active' },
+        },
+      },
+      select: { id: true, name: true },
+    });
+  }
+
+  /**
+   * Find all year groups for a tenant. Used by teacher competency coverage.
+   */
+  async findAllYearGroups(tenantId: string): Promise<Array<{ id: string; name: string }>> {
+    return this.prisma.yearGroup.findMany({
+      where: { tenant_id: tenantId },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  /**
+   * Find all subjects by IDs with name and code. Used by teacher competency coverage.
+   */
+  async findSubjectsByIdsWithOrder(
+    tenantId: string,
+    subjectIds: string[],
+  ): Promise<Array<{ id: string; name: string; code: string | null }>> {
+    if (subjectIds.length === 0) return [];
+    return this.prisma.subject.findMany({
+      where: { id: { in: subjectIds }, tenant_id: tenantId },
+      select: { id: true, name: true, code: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  /**
    * Return the ID of the current (active) academic year for a tenant.
    * Throws NotFoundException if no active academic year exists.
    */
@@ -139,6 +249,44 @@ export class AcademicReadFacade {
     }
 
     return year.id;
+  }
+
+  /**
+   * Find year groups with active classes and student counts for an academic year.
+   * Used by scheduler orchestration to build solver input.
+   */
+  async findYearGroupsWithClassesAndCounts(
+    tenantId: string,
+    academicYearId: string,
+  ): Promise<
+    Array<{
+      id: string;
+      name: string;
+      classes: Array<{
+        id: string;
+        name: string;
+        _count: { class_enrolments: number };
+      }>;
+    }>
+  > {
+    return this.prisma.yearGroup.findMany({
+      where: {
+        tenant_id: tenantId,
+        classes: {
+          some: { academic_year_id: academicYearId, status: 'active' },
+        },
+      },
+      include: {
+        classes: {
+          where: { academic_year_id: academicYearId, status: 'active' },
+          select: {
+            id: true,
+            name: true,
+            _count: { select: { class_enrolments: { where: { status: 'active' } } } },
+          },
+        },
+      },
+    });
   }
 
   // ─── Class enrolments ───────────────────────────────────────────────────────
@@ -232,6 +380,123 @@ export class AcademicReadFacade {
     });
 
     return enrolments.map((e) => e.student_id);
+  }
+
+  // ─── Year Groups ─────────────────────────────────────────────────────────
+
+  /**
+   * Find a year group by ID. Returns `null` if not found.
+   * Used by finance fee-structures to validate year_group_id.
+   */
+  async findYearGroupById(
+    tenantId: string,
+    yearGroupId: string,
+  ): Promise<{ id: string; name: string } | null> {
+    return this.prisma.yearGroup.findFirst({
+      where: { id: yearGroupId, tenant_id: tenantId },
+      select: { id: true, name: true },
+    });
+  }
+
+  // ─── Subjects ──────────────────────────────────────────────────────────────
+
+  /**
+   * Find a single subject by ID. Returns `null` if not found.
+   * Used by gradebook rubric and homework analytics for subject validation.
+   */
+  async findSubjectById(
+    tenantId: string,
+    subjectId: string,
+  ): Promise<{ id: string; name: string; code: string | null } | null> {
+    return this.prisma.subject.findFirst({
+      where: { id: subjectId, tenant_id: tenantId },
+      select: { id: true, name: true, code: true },
+    });
+  }
+
+  /**
+   * Batch lookup of subjects by IDs. Missing IDs are silently excluded.
+   * Used by behaviour-incident-analytics for subject name resolution.
+   */
+  async findSubjectsByIds(
+    tenantId: string,
+    subjectIds: string[],
+  ): Promise<Array<{ id: string; name: string; code: string | null }>> {
+    if (subjectIds.length === 0) return [];
+
+    return this.prisma.subject.findMany({
+      where: { id: { in: subjectIds }, tenant_id: tenantId },
+      select: { id: true, name: true, code: true },
+    });
+  }
+
+  // ─── Academic Year by Name ──────────────────────────────────────────────────
+
+  /**
+   * Find an academic year by its name (e.g., '2024-2025').
+   * Used by regulatory services for DES/October returns.
+   */
+  async findYearByName(
+    tenantId: string,
+    name: string,
+  ): Promise<{ id: string; name: string; start_date: Date; end_date: Date; status: string } | null> {
+    return this.prisma.academicYear.findFirst({
+      where: { tenant_id: tenantId, name },
+    });
+  }
+
+  // ─── Generic Subject Queries ──────────────────────────���───────────────────
+
+  /**
+   * Count subjects with an arbitrary where clause.
+   * Used by regulatory DES readiness checks.
+   */
+  async countSubjects(tenantId: string, where?: Prisma.SubjectWhereInput): Promise<number> {
+    return this.prisma.subject.count({
+      where: { tenant_id: tenantId, ...where },
+    });
+  }
+
+  /**
+   * Generic findMany for subjects with arbitrary where/include/select/orderBy.
+   * Used by regulatory DES for subject data collection with DES code mappings.
+   */
+  async findSubjectsGeneric(
+    tenantId: string,
+    options: {
+      where?: Prisma.SubjectWhereInput;
+      include?: Prisma.SubjectInclude;
+      select?: Prisma.SubjectSelect;
+      orderBy?: Prisma.SubjectOrderByWithRelationInput;
+    },
+  ): Promise<unknown[]> {
+    return this.prisma.subject.findMany({
+      where: { tenant_id: tenantId, ...options.where },
+      ...(options.include && { include: options.include }),
+      ...(options.select && { select: options.select }),
+      ...(options.orderBy && { orderBy: options.orderBy }),
+    });
+  }
+
+  /**
+   * Find the academic period that covers a given date within a specific academic year.
+   * Returns `null` if no period covers the date.
+   * Used by behaviour admin for resolving current period context.
+   */
+  async findPeriodCoveringDate(
+    tenantId: string,
+    academicYearId: string,
+    date: Date,
+  ): Promise<{ id: string } | null> {
+    return this.prisma.academicPeriod.findFirst({
+      where: {
+        tenant_id: tenantId,
+        academic_year_id: academicYearId,
+        start_date: { lte: date },
+        end_date: { gte: date },
+      },
+      select: { id: true },
+    });
   }
 
   // ─── Private helpers ────────────────────────────────────────────────────────

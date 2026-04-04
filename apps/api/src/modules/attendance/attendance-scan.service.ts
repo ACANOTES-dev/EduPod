@@ -16,6 +16,7 @@ import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 // ─── AI Status Mapping ─────────────────────────────────────────────────────
 
@@ -77,6 +78,7 @@ export class AttendanceScanService {
     private readonly gdprTokenService: GdprTokenService,
     private readonly aiAuditService: AiAuditService,
     private readonly anthropicClient: AnthropicClientService,
+    private readonly studentReadFacade: StudentReadFacade,
   ) {}
 
   // ─── Scan Image ──────────────────────────────────────────────────────────
@@ -256,18 +258,7 @@ export class AttendanceScanService {
 
     // Load all students for this tenant by student_number
     const studentNumbers = entries.map((e) => e.student_number);
-    const students = await this.prisma.student.findMany({
-      where: {
-        tenant_id: tenantId,
-        student_number: { in: studentNumbers },
-      },
-      select: {
-        id: true,
-        student_number: true,
-        first_name: true,
-        last_name: true,
-      },
-    });
+    const students = await this.studentReadFacade.findByStudentNumbers(tenantId, studentNumbers);
 
     const studentByNumber = new Map<string, { id: string; name: string }>();
     for (const s of students) {

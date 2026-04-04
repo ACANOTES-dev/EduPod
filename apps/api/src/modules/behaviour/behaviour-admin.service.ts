@@ -15,6 +15,7 @@ import type {
 } from '@school/shared/behaviour';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PolicyReplayService } from '../policy-engine/policy-replay.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -30,6 +31,7 @@ export class BehaviourAdminService {
     private readonly redis: RedisService,
     private readonly scopeService: BehaviourScopeService,
     private readonly policyReplayService: PolicyReplayService,
+    private readonly academicReadFacade: AcademicReadFacade,
     // TODO(M-17): Migrate to BehaviourSideEffectsService
     @InjectQueue('behaviour') private readonly behaviourQueue: Queue,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
@@ -428,10 +430,7 @@ export class BehaviourAdminService {
     }
 
     // Resolve current academic year and period (needed by the check-awards processor)
-    const academicContext = await this.prisma.academicYear.findFirst({
-      where: { tenant_id: tenantId, status: 'active' },
-      select: { id: true },
-    });
+    const academicContext = await this.academicReadFacade.findCurrentYear(tenantId);
 
     if (!academicContext) {
       this.logger.warn(`rebuildAwards: no active academic year for tenant ${tenantId}`);
@@ -439,15 +438,11 @@ export class BehaviourAdminService {
     }
 
     const now = new Date();
-    const currentPeriod = await this.prisma.academicPeriod.findFirst({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicContext.id,
-        start_date: { lte: now },
-        end_date: { gte: now },
-      },
-      select: { id: true },
-    });
+    const currentPeriod = await this.academicReadFacade.findPeriodCoveringDate(
+      tenantId,
+      academicContext.id,
+      now,
+    );
 
     // Enqueue one job per student.  Each job needs an incident_id — we use the
     // student's most recent active incident so the dedup and awarded_by logic in

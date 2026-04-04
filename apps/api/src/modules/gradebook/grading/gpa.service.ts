@@ -4,6 +4,9 @@ import {
 } from '@nestjs/common';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
+import { StudentReadFacade } from '../students/student-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 interface GradingScaleRange {
@@ -28,7 +31,6 @@ interface GradingScaleConfig {
 @Injectable()
 export class GpaService {
   constructor(private readonly prisma: PrismaService) {}
-
   /**
    * Compute and persist GPA for a student in a specific period.
    * Uses credit_hours from ClassSubjectGradeConfig if available;

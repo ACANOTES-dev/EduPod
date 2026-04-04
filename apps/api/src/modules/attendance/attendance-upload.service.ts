@@ -5,9 +5,12 @@ import { $Enums } from '@prisma/client';
 import * as XLSX from 'xlsx';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import { AttendanceParentNotificationService } from './attendance-parent-notification.service';
 import { DailySummaryService } from './daily-summary.service';
@@ -104,6 +107,9 @@ export class AttendanceUploadService {
     private readonly dailySummaryService: DailySummaryService,
     private readonly redisService: RedisService,
     private readonly parentNotificationService: AttendanceParentNotificationService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
   ) {}
 
   // ─── Template Generation ────────────────────────────────────────────────
@@ -132,57 +138,16 @@ export class AttendanceUploadService {
     }
 
     // 3. Find the active academic year
-    const academicYear = await this.prisma.academicYear.findFirst({
-      where: {
-        tenant_id: tenantId,
-        status: 'active',
-      },
-      select: { id: true },
-    });
-
-    if (!academicYear) {
-      throw new NotFoundException({
-        code: 'NO_ACTIVE_ACADEMIC_YEAR',
-        message: 'No active academic year found',
-      });
-    }
+    const academicYearId = await this.academicReadFacade.findCurrentYearId(tenantId);
 
     // 4. Load all active homeroom classes (subject_id IS NULL) for the academic year
-    const classes = await this.prisma.class.findMany({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYear.id,
-        subject_id: null,
-        status: 'active',
-      },
-      select: {
-        id: true,
-        name: true,
-      },
-      orderBy: { name: 'asc' },
-    });
+    const classes = await this.classesReadFacade.findActiveHomeroomClasses(tenantId, academicYearId);
 
     // 5. For each class, load actively enrolled students
     const rows: string[] = [];
 
     for (const cls of classes) {
-      const enrolments = await this.prisma.classEnrolment.findMany({
-        where: {
-          tenant_id: tenantId,
-          class_id: cls.id,
-          status: 'active',
-        },
-        select: {
-          student: {
-            select: {
-              student_number: true,
-              first_name: true,
-              last_name: true,
-            },
-          },
-        },
-        orderBy: { student: { last_name: 'asc' } },
-      });
+      const enrolments = await this.classesReadFacade.findEnrolledStudentsWithNumber(tenantId, cls.id);
 
       for (const enrolment of enrolments) {
         const student = enrolment.student;
@@ -259,28 +224,11 @@ export class AttendanceUploadService {
     }
 
     // 4. Find the active academic year
-    const academicYear = await this.prisma.academicYear.findFirst({
-      where: {
-        tenant_id: tenantId,
-        status: 'active',
-      },
-      select: { id: true },
-    });
-
-    if (!academicYear) {
-      throw new NotFoundException({
-        code: 'NO_ACTIVE_ACADEMIC_YEAR',
-        message: 'No active academic year found',
-      });
-    }
+    const academicYearId2 = await this.academicReadFacade.findCurrentYearId(tenantId);
 
     // 5. Load lookup data for validation
     // Load all students by student_number for this tenant
-    const students = await this.prisma.student.findMany({
-      where: { tenant_id: tenantId },
-      select: { id: true, student_number: true },
-      take: 1000,
-    });
+    const students = await this.studentReadFacade.findAllStudentNumbers(tenantId, 1000);
     const studentByNumber = new Map<string, string>();
     for (const s of students) {
       if (s.student_number) {
@@ -289,15 +237,7 @@ export class AttendanceUploadService {
     }
 
     // Load all active homeroom classes for this academic year
-    const classes = await this.prisma.class.findMany({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYear.id,
-        subject_id: null,
-        status: 'active',
-      },
-      select: { id: true, name: true },
-    });
+    const classes = await this.classesReadFacade.findActiveHomeroomClasses(tenantId, academicYearId2);
     const classByName = new Map<string, string>();
     for (const c of classes) {
       classByName.set(c.name, c.id);
@@ -584,11 +524,7 @@ export class AttendanceUploadService {
     }
 
     // Resolve all students by student_number
-    const students = await this.prisma.student.findMany({
-      where: { tenant_id: tenantId },
-      select: { id: true, student_number: true },
-      take: 1000,
-    });
+    const students = await this.studentReadFacade.findAllStudentNumbers(tenantId, 1000);
     const studentByNumber = new Map<string, string>();
     for (const s of students) {
       if (s.student_number) {

@@ -27,7 +27,16 @@ import {
 } from '@school/shared/scheduler';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { RoomsReadFacade } from '../rooms/rooms-read.facade';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { SchedulingRunsReadFacade } from '../scheduling-runs/scheduling-runs-read.facade';
+import { StaffAvailabilityReadFacade } from '../staff-availability/staff-availability-read.facade';
+import { StaffPreferencesReadFacade } from '../staff-preferences/staff-preferences-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 export interface PrerequisiteResult {
   ready: boolean;
@@ -41,6 +50,15 @@ export class SchedulerOrchestrationService {
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue('scheduling') private readonly schedulingQueue: Queue,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
+    private readonly roomsReadFacade: RoomsReadFacade,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
+    private readonly schedulingRunsReadFacade: SchedulingRunsReadFacade,
+    private readonly staffAvailabilityReadFacade: StaffAvailabilityReadFacade,
+    private readonly staffPreferencesReadFacade: StaffPreferencesReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
   ) {}
 
   // ─── Check Prerequisites ───────────────────────────────────────────────────
@@ -49,18 +67,10 @@ export class SchedulerOrchestrationService {
     const missing: string[] = [];
 
     // 1. Year groups with active classes
-    const yearGroupsWithClasses = await this.prisma.yearGroup.findMany({
-      where: {
-        tenant_id: tenantId,
-        classes: {
-          some: {
-            academic_year_id: academicYearId,
-            status: 'active',
-          },
-        },
-      },
-      select: { id: true, name: true },
-    });
+    const yearGroupsWithClasses = await this.academicReadFacade.findYearGroupsWithActiveClasses(
+      tenantId,
+      academicYearId,
+    );
 
     if (yearGroupsWithClasses.length === 0) {
       missing.push('No year groups have active classes for this academic year');
@@ -78,7 +88,7 @@ export class SchedulerOrchestrationService {
         },
         select: { year_group_id: true },
         distinct: ['year_group_id'],
-      });
+      }); // own-model read (scheduling owns schedulePeriodTemplate)
 
       const gridYearGroupIds = new Set(
         periodGridYearGroups
@@ -149,22 +159,15 @@ export class SchedulerOrchestrationService {
     }
 
     // 5. No pinned entry conflicts
-    const pinnedEntries = await this.prisma.schedule.findMany({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        is_pinned: true,
-        OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-      },
-      select: {
-        id: true,
-        teacher_staff_id: true,
-        room_id: true,
-        weekday: true,
-        start_time: true,
-        end_time: true,
-      },
-    });
+    const pinnedEntryRows = await this.schedulesReadFacade.findPinnedEntries(tenantId, academicYearId);
+    const pinnedEntries = pinnedEntryRows.map((e) => ({
+      id: e.id,
+      teacher_staff_id: e.teacher_staff_id,
+      room_id: e.room_id,
+      weekday: e.weekday,
+      start_time: e.start_time,
+      end_time: e.end_time,
+    }));
 
     for (let i = 0; i < pinnedEntries.length; i++) {
       for (let j = i + 1; j < pinnedEntries.length; j++) {
@@ -208,24 +211,7 @@ export class SchedulerOrchestrationService {
       tenantSettings,
     ] = await Promise.all([
       // Year groups with active classes and student counts
-      this.prisma.yearGroup.findMany({
-        where: {
-          tenant_id: tenantId,
-          classes: {
-            some: { academic_year_id: academicYearId, status: 'active' },
-          },
-        },
-        include: {
-          classes: {
-            where: { academic_year_id: academicYearId, status: 'active' },
-            select: {
-              id: true,
-              name: true,
-              _count: { select: { class_enrolments: { where: { status: 'active' } } } },
-            },
-          },
-        },
-      }),
+      this.academicReadFacade.findYearGroupsWithClassesAndCounts(tenantId, academicYearId),
 
       // Period templates (may be shared or year-group-specific)
       this.prisma.schedulePeriodTemplate.findMany({
@@ -247,14 +233,10 @@ export class SchedulerOrchestrationService {
       }),
 
       // Staff availability
-      this.prisma.staffAvailability.findMany({
-        where: { tenant_id: tenantId, academic_year_id: academicYearId },
-      }),
+      this.staffAvailabilityReadFacade.findByAcademicYear(tenantId, academicYearId),
 
       // Staff preferences
-      this.prisma.staffSchedulingPreference.findMany({
-        where: { tenant_id: tenantId, academic_year_id: academicYearId },
-      }),
+      this.staffPreferencesReadFacade.findByAcademicYear(tenantId, academicYearId),
 
       // Teacher scheduling configs
       this.prisma.teacherSchedulingConfig.findMany({
@@ -262,14 +244,10 @@ export class SchedulerOrchestrationService {
       }),
 
       // Rooms (active only)
-      this.prisma.room.findMany({
-        where: { tenant_id: tenantId, active: true },
-      }),
+      this.roomsReadFacade.findActiveRooms(tenantId),
 
       // Room closures
-      this.prisma.roomClosure.findMany({
-        where: { tenant_id: tenantId },
-      }),
+      this.roomsReadFacade.findAllClosures(tenantId),
 
       // Break groups with year group links
       this.prisma.breakGroup.findMany({
@@ -278,33 +256,13 @@ export class SchedulerOrchestrationService {
       }),
 
       // Pinned schedules
-      this.prisma.schedule.findMany({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: academicYearId,
-          is_pinned: true,
-          OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-        },
-        include: {
-          class_entity: { select: { year_group_id: true, subject_id: true } },
-        },
-      }),
+      this.schedulesReadFacade.findPinnedEntries(tenantId, academicYearId),
 
       // Class enrolments for student overlap computation
-      this.prisma.classEnrolment.findMany({
-        where: {
-          tenant_id: tenantId,
-          status: 'active',
-          class_entity: { academic_year_id: academicYearId, status: 'active' },
-        },
-        select: { class_id: true, student_id: true },
-      }),
+      this.classesReadFacade.findEnrolmentPairsForAcademicYear(tenantId, academicYearId),
 
       // Tenant settings for solver config
-      this.prisma.tenantSetting.findFirst({
-        where: { tenant_id: tenantId },
-        select: { settings: true },
-      }),
+      this.configurationReadFacade.findSettings(tenantId),
     ]);
 
     // ─── Build year_groups with period grids ─────────────────────────────────
@@ -360,13 +318,7 @@ export class SchedulerOrchestrationService {
     // Get teacher names
     const staffProfiles =
       teacherIds.length > 0
-        ? await this.prisma.staffProfile.findMany({
-            where: { id: { in: teacherIds }, tenant_id: tenantId },
-            select: {
-              id: true,
-              user: { select: { first_name: true, last_name: true } },
-            },
-          })
+        ? await this.staffProfileReadFacade.findByIds(tenantId, teacherIds)
         : [];
 
     const staffNameMap = new Map(
@@ -523,16 +475,7 @@ export class SchedulerOrchestrationService {
     settings?: TriggerSolverRunDto,
   ) {
     // Validate academic year
-    const academicYear = await this.prisma.academicYear.findFirst({
-      where: { id: academicYearId, tenant_id: tenantId },
-      select: { id: true },
-    });
-    if (!academicYear) {
-      throw new NotFoundException({
-        code: 'ACADEMIC_YEAR_NOT_FOUND',
-        message: `Academic year "${academicYearId}" not found`,
-      });
-    }
+    await this.academicReadFacade.findYearByIdOrThrow(tenantId, academicYearId);
 
     // Check prerequisites
     const prereqs = await this.checkPrerequisites(tenantId, academicYearId);
@@ -545,14 +488,7 @@ export class SchedulerOrchestrationService {
     }
 
     // Check no active run exists
-    const activeRun = await this.prisma.schedulingRun.findFirst({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        status: { in: ['queued', 'running'] },
-      },
-      select: { id: true, status: true },
-    });
+    const activeRun = await this.schedulingRunsReadFacade.findActiveRun(tenantId, academicYearId);
 
     if (activeRun) {
       throw new ConflictException({
@@ -622,9 +558,7 @@ export class SchedulerOrchestrationService {
     userId: string,
     acknowledgedViolations?: boolean,
   ) {
-    const run = await this.prisma.schedulingRun.findFirst({
-      where: { id: runId, tenant_id: tenantId },
-    });
+    const run = await this.schedulingRunsReadFacade.findById(tenantId, runId);
 
     if (!run) {
       throw new NotFoundException({
@@ -803,10 +737,7 @@ export class SchedulerOrchestrationService {
   // ─── Discard Run ───────────────────────────────────────────────────────────
 
   async discardRun(tenantId: string, runId: string) {
-    const run = await this.prisma.schedulingRun.findFirst({
-      where: { id: runId, tenant_id: tenantId },
-      select: { id: true, status: true },
-    });
+    const run = await this.schedulingRunsReadFacade.findStatusById(tenantId, runId);
 
     if (!run) {
       throw new NotFoundException({
@@ -844,34 +775,14 @@ export class SchedulerOrchestrationService {
     const skip = (page - 1) * pageSize;
     const where = { tenant_id: tenantId, academic_year_id: academicYearId };
 
-    const [data, total] = await Promise.all([
-      this.prisma.schedulingRun.findMany({
-        where,
-        skip,
-        take: pageSize,
-        orderBy: { created_at: 'desc' },
-        select: {
-          id: true,
-          mode: true,
-          status: true,
-          hard_constraint_violations: true,
-          soft_preference_score: true,
-          soft_preference_max: true,
-          entries_generated: true,
-          entries_pinned: true,
-          entries_unassigned: true,
-          solver_duration_ms: true,
-          solver_seed: true,
-          failure_reason: true,
-          created_by_user_id: true,
-          applied_by_user_id: true,
-          applied_at: true,
-          created_at: true,
-          updated_at: true,
-        },
-      }),
-      this.prisma.schedulingRun.count({ where }),
-    ]);
+    const result = await this.schedulingRunsReadFacade.listRuns(
+      tenantId,
+      academicYearId,
+      page,
+      pageSize,
+    );
+    const data = result.data as unknown as Record<string, unknown>[];
+    const total = result.total;
 
     return {
       data: data.map((r) => this.formatRunPartial(r)),
@@ -882,9 +793,7 @@ export class SchedulerOrchestrationService {
   // ─── Get Run ───────────────────────────────────────────────────────────────
 
   async getRun(tenantId: string, runId: string) {
-    const run = await this.prisma.schedulingRun.findFirst({
-      where: { id: runId, tenant_id: tenantId },
-    });
+    const run = await this.schedulingRunsReadFacade.findById(tenantId, runId);
 
     if (!run) {
       throw new NotFoundException({
@@ -899,18 +808,7 @@ export class SchedulerOrchestrationService {
   // ─── Get Run Status ────────────────────────────────────────────────────────
 
   async getRunStatus(tenantId: string, runId: string) {
-    const run = await this.prisma.schedulingRun.findFirst({
-      where: { id: runId, tenant_id: tenantId },
-      select: {
-        id: true,
-        status: true,
-        entries_generated: true,
-        entries_unassigned: true,
-        solver_duration_ms: true,
-        failure_reason: true,
-        updated_at: true,
-      },
-    });
+    const run = await this.schedulingRunsReadFacade.findById(tenantId, runId);
 
     if (!run) {
       throw new NotFoundException({

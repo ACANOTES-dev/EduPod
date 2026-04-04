@@ -8,6 +8,7 @@ import {
 } from '@school/shared/scheduler';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { SchedulingRunsReadFacade } from '../scheduling-runs/scheduling-runs-read.facade';
 
 import { SchedulerOrchestrationService } from './scheduler-orchestration.service';
 
@@ -16,14 +17,13 @@ export class SchedulerValidationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly orchestration: SchedulerOrchestrationService,
+    private readonly schedulingRunsReadFacade: SchedulingRunsReadFacade,
   ) {}
 
   // ─── Validate Run ─────────────────────────────────────────────────────────
 
   async validateRun(tenantId: string, runId: string): Promise<ValidationResult> {
-    const run = await this.prisma.schedulingRun.findFirst({
-      where: { id: runId, tenant_id: tenantId },
-    });
+    const run = await this.schedulingRunsReadFacade.findById(tenantId, runId);
 
     if (!run) {
       throw new NotFoundException({
@@ -79,9 +79,7 @@ export class SchedulerValidationService {
     runId: string,
     adjustments: unknown[],
   ): Promise<ValidationResult> {
-    const run = await this.prisma.schedulingRun.findFirst({
-      where: { id: runId, tenant_id: tenantId },
-    });
+    const run = await this.schedulingRunsReadFacade.findById(tenantId, runId);
 
     if (!run) {
       throw new NotFoundException({

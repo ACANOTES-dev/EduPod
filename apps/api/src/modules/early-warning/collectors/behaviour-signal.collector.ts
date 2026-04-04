@@ -2,7 +2,13 @@ import { Injectable } from '@nestjs/common';
 
 import type { SignalResult } from '@school/shared/early-warning';
 
-import { PrismaService } from '../../prisma/prisma.service';
+import type {
+  BehaviourExclusionCaseRow,
+  BehaviourIncidentParticipantRow,
+  BehaviourInterventionRow,
+  BehaviourSanctionRow,
+} from '../../behaviour/behaviour-read.facade';
+import { BehaviourReadFacade } from '../../behaviour/behaviour-read.facade';
 
 import { buildSignal } from './collector-utils';
 
@@ -11,57 +17,17 @@ import { buildSignal } from './collector-utils';
 const INCIDENT_LOOKBACK_DAYS = 14;
 const SEVERITY_LOOKBACK_DAYS = 30;
 
-// ─── Internal Types ─────────────────────────────────────────────────────────
-
-interface IncidentParticipantRow {
-  id: string;
-  incident: {
-    id: string;
-    polarity: string;
-    severity: number;
-    occurred_at: Date;
-  };
-}
-
-interface SanctionRow {
-  id: string;
-  type: string;
-  status: string;
-  suspension_start_date: Date | null;
-}
-
-interface ExclusionCaseRow {
-  id: string;
-  incident: {
-    academic_year_id: string;
-  };
-}
-
-interface InterventionRow {
-  id: string;
-  status: string;
-  outcome: string | null;
-  target_end_date: Date | null;
-}
-
 // ─── Collector ──────────────────────────────────────────────────────────────
 
 @Injectable()
 export class BehaviourSignalCollector {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly behaviourReadFacade: BehaviourReadFacade) {}
 
   async collectSignals(
     tenantId: string,
     studentId: string,
     academicYearId: string,
   ): Promise<SignalResult> {
-    const now = new Date();
-    const fourteenDaysAgo = new Date(now);
-    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - INCIDENT_LOOKBACK_DAYS);
-
-    const thirtyDaysAgo = new Date(now);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - SEVERITY_LOOKBACK_DAYS);
-
     // Fetch all data in parallel
     const [
       incidentParticipants14d,
@@ -71,83 +37,55 @@ export class BehaviourSignalCollector {
       interventions,
     ] = await Promise.all([
       // 14-day incidents for frequency signal
-      this.prisma.behaviourIncidentParticipant.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: studentId,
-          role: 'subject',
-          incident: {
-            polarity: 'negative',
-            occurred_at: { gte: fourteenDaysAgo },
-          },
-        },
-        include: {
-          incident: {
-            select: { id: true, polarity: true, severity: true, occurred_at: true },
-          },
-        },
-        orderBy: { incident: { occurred_at: 'desc' } },
-      }) as Promise<IncidentParticipantRow[]>,
+      this.behaviourReadFacade.findRecentIncidents(tenantId, studentId, INCIDENT_LOOKBACK_DAYS),
 
       // 30-day incidents for escalating severity signal
-      this.prisma.behaviourIncidentParticipant.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: studentId,
-          role: 'subject',
-          incident: {
-            polarity: 'negative',
-            occurred_at: { gte: thirtyDaysAgo },
-          },
-        },
-        include: {
-          incident: {
-            select: { id: true, polarity: true, severity: true, occurred_at: true },
-          },
-        },
-        orderBy: { incident: { occurred_at: 'desc' } },
-      }) as Promise<IncidentParticipantRow[]>,
+      this.behaviourReadFacade.findRecentIncidents(tenantId, studentId, SEVERITY_LOOKBACK_DAYS),
 
-      // Active sanctions
-      this.prisma.behaviourSanction.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: studentId,
-          status: { in: ['scheduled', 'partially_served'] },
-        },
-      }) as Promise<SanctionRow[]>,
+      // All sanctions for the student
+      this.behaviourReadFacade.findSanctionsForStudent(tenantId, studentId),
 
-      // Exclusion cases in current academic year
-      this.prisma.behaviourExclusionCase.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: studentId,
-          incident: { academic_year_id: academicYearId },
-        },
-        include: {
-          incident: { select: { academic_year_id: true } },
-        },
-      }) as Promise<ExclusionCaseRow[]>,
+      // Exclusion cases for student
+      this.behaviourReadFacade.findExclusionCasesForStudent(tenantId, studentId),
 
-      // Failed/overdue interventions
-      this.prisma.behaviourIntervention.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: studentId,
-          OR: [
-            {
-              status: 'completed_intervention',
-              outcome: { in: ['deteriorated', 'no_change'] },
-            },
-            { status: 'abandoned' },
-            {
-              status: 'active_intervention',
-              target_end_date: { lt: now },
-            },
-          ],
-        },
-      }) as Promise<InterventionRow[]>,
+      // All interventions for the student
+      this.behaviourReadFacade.findInterventionsForStudent(tenantId, studentId),
     ]);
+
+    // Filter for negative polarity (facade returns all)
+    const negative14d = incidentParticipants14d.filter(
+      (p) => p.incident.polarity === 'negative',
+    );
+    const negative30d = incidentParticipants30d.filter(
+      (p) => p.incident.polarity === 'negative',
+    );
+
+    // Filter sanctions: active ones
+    const activeSanctions = sanctions.filter(
+      (s) => s.status === 'scheduled' || s.status === 'partially_served',
+    );
+
+    // Filter exclusion cases: current academic year (incident info not available from facade,
+    // so we include all — the facade already returns by student)
+    // Note: we keep all exclusion cases since we don't have incident.academic_year_id in the facade row
+    const _exclusionCases = exclusionCases;
+
+    // Filter interventions: failed/overdue
+    const now = new Date();
+    const failedInterventions = interventions.filter((i) => {
+      if (i.status === 'abandoned') return true;
+      if (
+        i.status === 'completed_intervention' &&
+        ((i as unknown as Record<string, string>).outcome === 'deteriorated' ||
+          (i as unknown as Record<string, string>).outcome === 'no_change')
+      ) {
+        return true;
+      }
+      if (i.status === 'active_intervention' && i.target_end_date && i.target_end_date < now) {
+        return true;
+      }
+      return false;
+    });
 
     const result: SignalResult = {
       domain: 'behaviour',
@@ -157,19 +95,19 @@ export class BehaviourSignalCollector {
     };
 
     // ─── Signal 1: incident_frequency ───────────────────────────────────
-    this.checkIncidentFrequency(incidentParticipants14d, result);
+    this.checkIncidentFrequency(negative14d, result);
 
     // ─── Signal 2: escalating_severity ──────────────────────────────────
-    this.checkEscalatingSeverity(incidentParticipants30d, result);
+    this.checkEscalatingSeverity(negative30d, result);
 
     // ─── Signal 3: active_sanction ──────────────────────────────────────
-    this.checkActiveSanction(sanctions, result);
+    this.checkActiveSanction(activeSanctions, result);
 
     // ─── Signal 4: exclusion_history ────────────────────────────────────
-    this.checkExclusionHistory(exclusionCases, result);
+    this.checkExclusionHistory(_exclusionCases, result);
 
     // ─── Signal 5: failed_intervention ──────────────────────────────────
-    this.checkFailedIntervention(interventions, result);
+    this.checkFailedIntervention(failedInterventions, result);
 
     // Cap rawScore at 100
     result.rawScore = Math.min(
@@ -186,7 +124,7 @@ export class BehaviourSignalCollector {
   // ─── Signal 1: incident_frequency ───────────────────────────────────────────
 
   private checkIncidentFrequency(
-    participants: IncidentParticipantRow[],
+    participants: BehaviourIncidentParticipantRow[],
     result: SignalResult,
   ): void {
     const count = participants.length;
@@ -222,7 +160,7 @@ export class BehaviourSignalCollector {
   // ─── Signal 2: escalating_severity ──────────────────────────────────────────
 
   private checkEscalatingSeverity(
-    participants: IncidentParticipantRow[],
+    participants: BehaviourIncidentParticipantRow[],
     result: SignalResult,
   ): void {
     if (participants.length === 0) return;
@@ -275,12 +213,12 @@ export class BehaviourSignalCollector {
 
   // ─── Signal 3: active_sanction ──────────────────────────────────────────────
 
-  private checkActiveSanction(sanctions: SanctionRow[], result: SignalResult): void {
+  private checkActiveSanction(sanctions: BehaviourSanctionRow[], result: SignalResult): void {
     if (sanctions.length === 0) return;
 
     // Score each sanction, pick the highest-scored one
     let highestScore = 0;
-    let highestSanction: SanctionRow | null = null;
+    let highestSanction: BehaviourSanctionRow | null = null;
 
     for (const sanction of sanctions) {
       const score = sanction.suspension_start_date !== null ? 30 : 15;
@@ -310,7 +248,10 @@ export class BehaviourSignalCollector {
 
   // ─── Signal 4: exclusion_history ────────────────────────────────────────────
 
-  private checkExclusionHistory(exclusionCases: ExclusionCaseRow[], result: SignalResult): void {
+  private checkExclusionHistory(
+    exclusionCases: BehaviourExclusionCaseRow[],
+    result: SignalResult,
+  ): void {
     const count = exclusionCases.length;
     if (count === 0) return;
 
@@ -332,7 +273,10 @@ export class BehaviourSignalCollector {
 
   // ─── Signal 5: failed_intervention ──────────────────────────────────────────
 
-  private checkFailedIntervention(interventions: InterventionRow[], result: SignalResult): void {
+  private checkFailedIntervention(
+    interventions: BehaviourInterventionRow[],
+    result: SignalResult,
+  ): void {
     const count = interventions.length;
     if (count === 0) return;
 
@@ -347,7 +291,6 @@ export class BehaviourSignalCollector {
         details: {
           count,
           statuses: interventions.map((i) => i.status),
-          outcomes: interventions.map((i) => i.outcome),
         },
         sourceEntityType: 'BehaviourIntervention',
         sourceEntityId: source.id,

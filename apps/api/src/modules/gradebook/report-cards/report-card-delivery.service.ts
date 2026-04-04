@@ -6,6 +6,7 @@ import {
 import type { ReportCardDelivery } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -15,7 +16,6 @@ export class ReportCardDeliveryService {
   private readonly logger = new Logger(ReportCardDeliveryService.name);
 
   constructor(private readonly prisma: PrismaService) {}
-
   // ─── Deliver to all parents ───────────────────────────────────────────────
 
   async deliver(tenantId: string, reportCardId: string) {

@@ -4,6 +4,8 @@ import { Prisma } from '@prisma/client';
 import { pastoralTenantSettingsSchema } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
+
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { CheckinAlertService } from './checkin-alert.service';
@@ -57,6 +59,7 @@ export class CheckinService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
     private readonly alertService: CheckinAlertService,
   ) {}
 
@@ -409,9 +412,7 @@ export class CheckinService {
   }
 
   private async loadCheckinSettings(tenantId: string) {
-    const record = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const record = await this.configurationReadFacade.findSettings(tenantId);
 
     const settingsJson = (record?.settings as Record<string, unknown>) ?? {};
     const pastoralRaw = (settingsJson.pastoral as Record<string, unknown>) ?? {};

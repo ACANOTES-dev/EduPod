@@ -12,7 +12,10 @@ import {
   TUSLA_DEFAULT_THRESHOLD_DAYS,
 } from '@school/shared/regulatory';
 
+import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
+import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,7 +65,12 @@ const STUDENT_SELECT = {
 
 @Injectable()
 export class RegulatoryTuslaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly behaviourReadFacade: BehaviourReadFacade,
+    private readonly attendanceReadFacade: AttendanceReadFacade,
+  ) {}
 
   // ─── Threshold Monitor ────────────────────────────────────────────────────────
 
@@ -79,15 +87,10 @@ export class RegulatoryTuslaService {
 
     const summaryDateWhere = Object.keys(dateFilter).length > 0 ? dateFilter : undefined;
 
-    // Group by student, count absent days
-    const groups = await this.prisma.dailyAttendanceSummary.groupBy({
-      by: ['student_id'],
-      where: {
-        tenant_id: tenantId,
-        derived_status: { in: ABSENT_STATUSES },
-        ...(summaryDateWhere ? { summary_date: summaryDateWhere } : {}),
-      },
-      _count: { student_id: true },
+    // Group by student, count absent days via attendance facade
+    const groups = await this.attendanceReadFacade.groupDailySummariesByStudent(tenantId, {
+      derivedStatuses: ABSENT_STATUSES,
+      dateFilter: summaryDateWhere,
     });
 
     // Filter students approaching or exceeding threshold
@@ -97,14 +100,14 @@ export class RegulatoryTuslaService {
       return { threshold, data: [] };
     }
 
-    // Get student details
+    // Get student details via facade
     const studentIds = filtered.map((g) => g.student_id);
-    const students = await this.prisma.student.findMany({
-      where: { id: { in: studentIds }, tenant_id: tenantId },
+    const students = await this.studentReadFacade.findManyGeneric(tenantId, {
+      where: { id: { in: studentIds } },
       select: STUDENT_SELECT,
     });
 
-    const studentMap = new Map(students.map((s) => [s.id, s]));
+    const studentMap = new Map((students as Array<{ id: string }>).map((s) => [s.id, s]));
 
     const data = filtered
       .map((g) => ({
@@ -126,23 +129,13 @@ export class RegulatoryTuslaService {
     const startDate = new Date(dto.start_date);
     const endDate = new Date(dto.end_date);
 
-    // Get non-present attendance records in the date range via session join
-    const records = await this.prisma.attendanceRecord.findMany({
-      where: {
-        tenant_id: tenantId,
-        status: { not: AttendanceRecordStatus.present },
-        session: {
-          session_date: { gte: startDate, lte: endDate },
-        },
-      },
-      select: {
-        student_id: true,
-        status: true,
-        session: { select: { session_date: true } },
-      },
+    // Get non-present attendance records in the date range via facade
+    const records = await this.attendanceReadFacade.findRecordsByStatusWithSession(tenantId, {
+      statusNot: AttendanceRecordStatus.present,
+      sessionDateRange: { gte: startDate, lte: endDate },
     });
 
-    // Get Tusla mappings for categorisation
+    // Get Tusla mappings for categorisation (own module table — no facade needed)
     const mappings = await this.prisma.tuslaAbsenceCodeMapping.findMany({
       where: { tenant_id: tenantId },
     });
@@ -173,17 +166,17 @@ export class RegulatoryTuslaService {
       cats[category] = (cats[category] ?? 0) + 1;
     }
 
-    // Get student details for those with absences
+    // Get student details via facade
     const studentIds = [...studentData.keys()];
     const students =
       studentIds.length > 0
-        ? await this.prisma.student.findMany({
-            where: { id: { in: studentIds }, tenant_id: tenantId },
+        ? await this.studentReadFacade.findManyGeneric(tenantId, {
+            where: { id: { in: studentIds } },
             select: STUDENT_SELECT,
           })
         : [];
 
-    const studentMap = new Map(students.map((s) => [s.id, s]));
+    const studentMap = new Map((students as Array<{ id: string }>).map((s) => [s.id, s]));
 
     const rows = studentIds
       .map((id) => {
@@ -213,29 +206,19 @@ export class RegulatoryTuslaService {
   async generateAar(tenantId: string, dto: GenerateTuslaAarDto) {
     const { start, end } = academicYearToDateRange(dto.academic_year);
 
-    // Total enrolled students (active status)
-    const totalStudents = await this.prisma.student.count({
-      where: { tenant_id: tenantId, status: 'active' },
+    // Total enrolled students (active status) via facade
+    const totalStudents = await this.studentReadFacade.count(tenantId, { status: 'active' });
+
+    // Total absent days via attendance facade
+    const totalDaysLost = await this.attendanceReadFacade.countDailySummaries(tenantId, {
+      derivedStatuses: ABSENT_STATUSES,
+      dateFilter: { gte: start, lte: end },
     });
 
-    // Total absent days across all students
-    const totalDaysLost = await this.prisma.dailyAttendanceSummary.count({
-      where: {
-        tenant_id: tenantId,
-        derived_status: { in: ABSENT_STATUSES },
-        summary_date: { gte: start, lte: end },
-      },
-    });
-
-    // Students with 20+ absent days
-    const groups = await this.prisma.dailyAttendanceSummary.groupBy({
-      by: ['student_id'],
-      where: {
-        tenant_id: tenantId,
-        derived_status: { in: ABSENT_STATUSES },
-        summary_date: { gte: start, lte: end },
-      },
-      _count: { student_id: true },
+    // Students with 20+ absent days via facade
+    const groups = await this.attendanceReadFacade.groupDailySummariesByStudent(tenantId, {
+      derivedStatuses: ABSENT_STATUSES,
+      dateFilter: { gte: start, lte: end },
     });
 
     const studentsOver20 = groups.filter(
@@ -260,26 +243,10 @@ export class RegulatoryTuslaService {
         })()
       : undefined;
 
-    return this.prisma.behaviourSanction.findMany({
-      where: {
-        tenant_id: tenantId,
-        type: { in: SUSPENSION_TYPES },
-        suspension_days: { gte: TUSLA_NOTIFICATION_SUSPENSION_DAYS },
-        ...(dateFilter ? { created_at: dateFilter } : {}),
-      },
-      select: {
-        id: true,
-        sanction_number: true,
-        type: true,
-        status: true,
-        suspension_start_date: true,
-        suspension_end_date: true,
-        suspension_days: true,
-        notes: true,
-        created_at: true,
-        student: { select: STUDENT_SELECT },
-      },
-      orderBy: { created_at: 'desc' },
+    return this.behaviourReadFacade.findSanctionsForTusla(tenantId, {
+      types: SUSPENSION_TYPES,
+      minSuspensionDays: TUSLA_NOTIFICATION_SUSPENSION_DAYS,
+      dateFilter,
     });
   }
 
@@ -293,27 +260,6 @@ export class RegulatoryTuslaService {
         })()
       : undefined;
 
-    return this.prisma.behaviourExclusionCase.findMany({
-      where: {
-        tenant_id: tenantId,
-        ...(dateFilter ? { created_at: dateFilter } : {}),
-      },
-      select: {
-        id: true,
-        case_number: true,
-        type: true,
-        status: true,
-        decision: true,
-        decision_date: true,
-        formal_notice_issued_at: true,
-        hearing_date: true,
-        created_at: true,
-        student: { select: STUDENT_SELECT },
-        sanction: {
-          select: { id: true, sanction_number: true, type: true, suspension_days: true },
-        },
-      },
-      orderBy: { created_at: 'desc' },
-    });
+    return this.behaviourReadFacade.findExclusionCasesForTusla(tenantId, { dateFilter });
   }
 }

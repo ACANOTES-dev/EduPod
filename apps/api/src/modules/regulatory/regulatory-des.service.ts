@@ -4,8 +4,13 @@ import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common'
 
 import { type DesFileType, DES_FILE_TYPES } from '@school/shared/regulatory';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import type {
   DesColumnDef,
@@ -89,6 +94,11 @@ export class RegulatoryDesService {
     private readonly s3Service: S3Service,
     private readonly submissionService: RegulatorySubmissionService,
     @Inject(DES_FILE_EXPORTER) private readonly exporter: DesFileExporter,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
   ) {}
 
   // ─── Check Readiness ─────────────────────────────────────────────────────────
@@ -97,15 +107,10 @@ export class RegulatoryDesService {
     const categories: ReadinessCategory[] = [];
 
     // Staff data check
-    const staffTotal = await this.prisma.staffProfile.count({
-      where: { tenant_id: tenantId },
-    });
-    const staffWithUser = await this.prisma.staffProfile.count({
-      where: {
-        tenant_id: tenantId,
-        user_id: { not: undefined },
-        employment_type: { not: undefined },
-      },
+    const staffTotal = await this.staffProfileReadFacade.count(tenantId);
+    const staffWithUser = await this.staffProfileReadFacade.count(tenantId, {
+      user_id: { not: undefined },
+      employment_type: { not: undefined },
     });
     const staffIssues = staffTotal - staffWithUser;
     categories.push({
@@ -123,17 +128,14 @@ export class RegulatoryDesService {
     // Class data check
     const academicYearRecord = await this.findAcademicYear(tenantId, academicYear);
     const classTotal = academicYearRecord
-      ? await this.prisma.class.count({
-          where: { tenant_id: tenantId, academic_year_id: academicYearRecord.id },
+      ? await this.classesReadFacade.countClassesGeneric(tenantId, {
+          academic_year_id: academicYearRecord.id,
         })
       : 0;
     const classesWithEnrolments = academicYearRecord
-      ? await this.prisma.class.count({
-          where: {
-            tenant_id: tenantId,
-            academic_year_id: academicYearRecord.id,
-            class_enrolments: { some: { status: 'active' } },
-          },
+      ? await this.classesReadFacade.countClassesGeneric(tenantId, {
+          academic_year_id: academicYearRecord.id,
+          class_enrolments: { some: { status: 'active' } },
         })
       : 0;
     const classIssues = classTotal - classesWithEnrolments;
@@ -150,15 +152,10 @@ export class RegulatoryDesService {
     });
 
     // Subject mappings check
-    const subjectTotal = await this.prisma.subject.count({
-      where: { tenant_id: tenantId, active: true },
-    });
-    const subjectsWithMapping = await this.prisma.subject.count({
-      where: {
-        tenant_id: tenantId,
-        active: true,
-        reg_des_code_mappings: { some: {} },
-      },
+    const subjectTotal = await this.academicReadFacade.countSubjects(tenantId, { active: true });
+    const subjectsWithMapping = await this.academicReadFacade.countSubjects(tenantId, {
+      active: true,
+      reg_des_code_mappings: { some: {} },
     });
     const subjectIssues = subjectTotal - subjectsWithMapping;
     categories.push({
@@ -174,17 +171,12 @@ export class RegulatoryDesService {
     });
 
     // Student data check
-    const studentTotal = await this.prisma.student.count({
-      where: { tenant_id: tenantId, status: 'active' },
-    });
-    const studentsValid = await this.prisma.student.count({
-      where: {
-        tenant_id: tenantId,
-        status: 'active',
-        national_id: { not: null },
-        date_of_birth: { not: undefined },
-        gender: { not: null },
-      },
+    const studentTotal = await this.studentReadFacade.count(tenantId, { status: 'active' });
+    const studentsValid = await this.studentReadFacade.count(tenantId, {
+      status: 'active',
+      national_id: { not: null },
+      date_of_birth: { not: undefined },
+      gender: { not: null },
     });
     const studentIssues = studentTotal - studentsValid;
     categories.push({
@@ -201,8 +193,8 @@ export class RegulatoryDesService {
 
     // Schedule data check
     const scheduleTotal = academicYearRecord
-      ? await this.prisma.schedule.count({
-          where: { tenant_id: tenantId, academic_year_id: academicYearRecord.id },
+      ? await this.schedulesReadFacade.count(tenantId, {
+          academic_year_id: academicYearRecord.id,
         })
       : 0;
     categories.push({
@@ -343,11 +335,7 @@ export class RegulatoryDesService {
   // ─── Private: Collect File A (Staff) ───────────────────────────────────────
 
   private async collectFileA(tenantId: string, _academicYear: string) {
-    return this.prisma.staffProfile.findMany({
-      where: { tenant_id: tenantId },
-      include: {
-        user: { select: { first_name: true, last_name: true } },
-      },
+    return this.staffProfileReadFacade.findAllWithUser(tenantId, {
       orderBy: { created_at: 'asc' },
     });
   }
@@ -358,22 +346,17 @@ export class RegulatoryDesService {
     const academicYearRecord = await this.findAcademicYear(tenantId, academicYear);
     if (!academicYearRecord) return [];
 
-    return this.prisma.class.findMany({
-      where: { tenant_id: tenantId, academic_year_id: academicYearRecord.id },
-      include: {
-        year_group: { select: { name: true } },
-        _count: { select: { class_enrolments: { where: { status: 'active' } } } },
-      },
-      orderBy: { name: 'asc' },
-    });
+    return this.classesReadFacade.findClassesWithYearGroupAndEnrolmentCount(
+      tenantId,
+      academicYearRecord.id,
+    );
   }
 
   // ─── Private: Collect File D (Subjects with DES Mappings) ──────────────────
 
   private async collectFileD(tenantId: string, _academicYear: string) {
-    return this.prisma.subject.findMany({
+    return this.academicReadFacade.findSubjectsGeneric(tenantId, {
       where: {
-        tenant_id: tenantId,
         active: true,
         reg_des_code_mappings: { some: {} },
       },
@@ -389,8 +372,8 @@ export class RegulatoryDesService {
   // ─── Private: Collect File E (Students) ────────────────────────────────────
 
   private async collectFileE(tenantId: string, _academicYear: string) {
-    return this.prisma.student.findMany({
-      where: { tenant_id: tenantId, status: 'active' },
+    return this.studentReadFacade.findManyGeneric(tenantId, {
+      where: { status: 'active' },
       select: {
         national_id: true,
         first_name: true,
@@ -410,32 +393,26 @@ export class RegulatoryDesService {
     const academicYearRecord = await this.findAcademicYear(tenantId, academicYear);
     if (!academicYearRecord) return [];
 
-    const schedules = await this.prisma.schedule.findMany({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearRecord.id,
-        teacher_staff_id: { not: null },
-      },
-      include: {
-        teacher: {
-          include: {
-            user: { select: { first_name: true, last_name: true } },
-          },
-        },
-        class_entity: {
-          include: {
-            subject: {
-              include: {
-                reg_des_code_mappings: {
-                  select: { des_code: true },
-                  take: 1,
-                },
-              },
-            },
-          },
-        },
-      },
-    });
+    type TeachingLoadEntry = {
+      teacher: {
+        id: string;
+        user: { first_name: string; last_name: string };
+      } | null;
+      class_entity: {
+        subject: {
+          id: string;
+          name: string;
+          reg_des_code_mappings: Array<{ des_code: string }>;
+        } | null;
+      };
+      start_time: Date;
+      end_time: Date;
+    };
+
+    const schedules = await this.schedulesReadFacade.findTeachingLoadEntries(
+      tenantId,
+      academicYearRecord.id,
+    ) as TeachingLoadEntry[];
 
     // Group by teacher + subject to calculate weekly hours
     const loadMap = new Map<
@@ -734,8 +711,6 @@ export class RegulatoryDesService {
   // ─── Private: Find Academic Year ───────────────────────────────────────────
 
   private async findAcademicYear(tenantId: string, academicYear: string) {
-    return this.prisma.academicYear.findFirst({
-      where: { tenant_id: tenantId, name: academicYear },
-    });
+    return this.academicReadFacade.findYearByName(tenantId, academicYear);
   }
 }

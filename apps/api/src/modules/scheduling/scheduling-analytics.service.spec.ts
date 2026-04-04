@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { RoomsReadFacade } from '../rooms/rooms-read.facade';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { SchedulingRunsReadFacade } from '../scheduling-runs/scheduling-runs-read.facade';
 
 import { SchedulingAnalyticsService } from './scheduling-analytics.service';
 
@@ -46,6 +49,56 @@ describe('SchedulingAnalyticsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: RoomsReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+      exists: jest.fn().mockResolvedValue(false),
+      findActiveRooms: jest.fn().mockResolvedValue([]),
+      findActiveRoomBasics: jest.fn().mockResolvedValue([]),
+      countActiveRooms: jest.fn().mockResolvedValue(0),
+      findAllClosures: jest.fn().mockResolvedValue([]),
+      findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+      findClosureById: jest.fn().mockResolvedValue(null),
+    } },
+        { provide: SchedulesReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      findCoreById: jest.fn().mockResolvedValue(null),
+      existsById: jest.fn().mockResolvedValue(null),
+      findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
+      countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
+      findTeacherTimetable: jest.fn().mockResolvedValue([]),
+      findClassTimetable: jest.fn().mockResolvedValue([]),
+      findPinnedEntries: jest.fn().mockResolvedValue([]),
+      countPinnedEntries: jest.fn().mockResolvedValue(0),
+      findByAcademicYear: jest.fn().mockResolvedValue([]),
+      findScheduledClassIds: jest.fn().mockResolvedValue([]),
+      countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
+      count: jest.fn().mockResolvedValue(0),
+      hasRotationEntries: jest.fn().mockResolvedValue(false),
+      countByRoom: jest.fn().mockResolvedValue(0),
+      findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
+      findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
+      countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
+      findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
+      hasConflict: jest.fn().mockResolvedValue(false),
+      findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
+      findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
+    } },
+        { provide: SchedulingRunsReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      findStatusById: jest.fn().mockResolvedValue(null),
+      findActiveRun: jest.fn().mockResolvedValue(null),
+      countActiveRuns: jest.fn().mockResolvedValue(0),
+      findLatestCompletedRun: jest.fn().mockResolvedValue(null),
+      findLatestRunWithResult: jest.fn().mockResolvedValue(null),
+      findLatestAppliedRun: jest.fn().mockResolvedValue(null),
+      listRuns: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+      findHistoricalRuns: jest.fn().mockResolvedValue([]),
+      findScenarioById: jest.fn().mockResolvedValue(null),
+      findScenarioStatusById: jest.fn().mockResolvedValue(null),
+      listScenarios: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+      findScenariosForComparison: jest.fn().mockResolvedValue([]),
+    } },
         SchedulingAnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

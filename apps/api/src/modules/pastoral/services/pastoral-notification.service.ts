@@ -6,6 +6,14 @@ import { Queue } from 'bullmq';
 import { pastoralTenantSettingsSchema } from '@school/shared/pastoral';
 
 import { NotificationsService } from '../../communications/notifications.service';
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
+
+import { ChildProtectionReadFacade } from '../../child-protection/child-protection-read.facade';
+
+import { RbacReadFacade } from '../../rbac/rbac-read.facade';
+
+import { StudentReadFacade } from '../../students/student-read.facade';
+
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -77,6 +85,10 @@ export class PastoralNotificationService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly rbacReadFacade: RbacReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly childProtectionReadFacade: ChildProtectionReadFacade,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
     private readonly notificationsService: NotificationsService,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
     @InjectQueue('pastoral') private readonly pastoralQueue: Queue,
@@ -412,15 +424,7 @@ export class PastoralNotificationService {
    */
   private async resolveDlpUsers(tenantId: string): Promise<string[]> {
     // DLP users are those with active (non-revoked) CP access grants
-    const grants = await this.prisma.cpAccessGrant.findMany({
-      where: {
-        tenant_id: tenantId,
-        revoked_at: null,
-      },
-      select: { user_id: true },
-    });
-
-    return grants.map((g) => g.user_id);
+    return this.childProtectionReadFacade.findDlpUserIds(tenantId);
   }
 
   /**
@@ -430,10 +434,7 @@ export class PastoralNotificationService {
    */
   private async resolveYearHeadForStudent(tenantId: string, studentId: string): Promise<string[]> {
     // Get the student's year group
-    const student = await this.prisma.student.findUnique({
-      where: { id: studentId },
-      select: { year_group_id: true },
-    });
+    const student = await this.studentReadFacade.findById(tenantId, studentId);
 
     if (!student?.year_group_id) {
       return [];
@@ -449,24 +450,7 @@ export class PastoralNotificationService {
    * in this tenant via the roles -> membership_roles -> tenant_memberships chain.
    */
   private async resolveUsersByRoleKey(tenantId: string, roleKey: string): Promise<string[]> {
-    const memberships = await this.prisma.membershipRole.findMany({
-      where: {
-        tenant_id: tenantId,
-        role: {
-          role_key: roleKey,
-        },
-        membership: {
-          membership_status: 'active',
-        },
-      },
-      select: {
-        membership: {
-          select: { user_id: true },
-        },
-      },
-    });
-
-    return memberships.map((mr) => mr.membership.user_id);
+    return this.rbacReadFacade.findActiveUserIdsByRoleKey(tenantId, roleKey);
   }
 
   // ─── PRIVATE: Notification Creation ────────────────────────────────────
@@ -632,9 +616,7 @@ export class PastoralNotificationService {
    * Uses the Zod schema to fill in defaults for any missing fields.
    */
   private async loadPastoralSettings(tenantId: string) {
-    const record = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const record = await this.configurationReadFacade.findSettings(tenantId);
 
     const settingsJson = (record?.settings as Record<string, unknown>) ?? {};
     const pastoralRaw = (settingsJson.pastoral as Record<string, unknown>) ?? {};

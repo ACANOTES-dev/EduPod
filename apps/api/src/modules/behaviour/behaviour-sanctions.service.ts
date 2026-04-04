@@ -28,6 +28,7 @@ import {
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 import { SequenceService } from '../sequence/sequence.service';
 
 import { BehaviourDocumentService } from './behaviour-document.service';
@@ -44,6 +45,7 @@ export class BehaviourSanctionsService {
     private readonly historyService: BehaviourHistoryService,
     @Optional() private readonly documentService: BehaviourDocumentService | null,
     private readonly sideEffects: BehaviourSideEffectsService,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
   ) {}
 
   // ─── Create (manual) ────────────────────────────────────────────────────
@@ -911,28 +913,7 @@ export class BehaviourSanctionsService {
 
     // Check timetable entries for the student on that date
     const dayOfWeek = new Date(date).getDay();
-    const timetableEntries = await this.prisma.schedule.findMany({
-      where: {
-        tenant_id: tenantId,
-        weekday: dayOfWeek,
-        class_entity: {
-          class_enrolments: {
-            some: {
-              student_id: studentId,
-              status: 'active',
-            },
-          },
-        },
-      },
-      select: {
-        id: true,
-        start_time: true,
-        end_time: true,
-        class_entity: {
-          select: { subject: { select: { name: true } } },
-        },
-      },
-    });
+    const timetableEntries = await this.schedulesReadFacade.findByStudentWeekday(tenantId, studentId, dayOfWeek);
 
     if (startTime && endTime) {
       const reqStart = new Date(`1970-01-01T${startTime}`);

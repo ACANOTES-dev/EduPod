@@ -8,12 +8,14 @@ import { PastoralCoreModule } from './pastoral-core.module';
 import { SstAgendaGeneratorService } from './services/sst-agenda-generator.service';
 import { SstMeetingService } from './services/sst-meeting.service';
 import { SstService } from './services/sst.service';
+import { ConfigurationModule } from '../configuration/configuration.module';
+import { RbacModule } from '../rbac/rbac.module';
 
 // ─── PastoralSstModule ─────────────────────────────────────────────────────────
 // SST meetings, agenda generation.
 
 @Module({
-  imports: [AuthModule, PastoralCoreModule, BullModule.registerQueue({ name: 'pastoral' })],
+  imports: [AuthModule, PastoralCoreModule, BullModule.registerQueue({ name: 'pastoral' }), ConfigurationModule, RbacModule],
   controllers: [SstController],
   providers: [SstAgendaGeneratorService, SstMeetingService, SstService],
   exports: [SstService],

@@ -16,6 +16,7 @@ import { PastoralReportSstActivityService } from './services/pastoral-report-sst
 import { PastoralReportStudentSummaryService } from './services/pastoral-report-student-summary.service';
 import { PastoralReportWellbeingService } from './services/pastoral-report-wellbeing.service';
 import { PastoralReportService } from './services/pastoral-report.service';
+import { ConfigurationModule } from '../configuration/configuration.module';
 
 // ─── PastoralAdminModule ───────────────────────────────────────────────────────
 // Admin, reports, export, import, parent portal.
@@ -23,7 +24,7 @@ import { PastoralReportService } from './services/pastoral-report.service';
 // is broken: CP → PastoralCoreModule (leaf), PastoralAdminModule → CP.
 
 @Module({
-  imports: [AuthModule, ChildProtectionModule, PastoralCoreModule, PdfRenderingModule],
+  imports: [AuthModule, ChildProtectionModule, PastoralCoreModule, PdfRenderingModule, ConfigurationModule],
   controllers: [
     PastoralAdminController,
     PastoralImportController,

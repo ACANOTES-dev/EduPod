@@ -332,23 +332,6 @@ export class ParentReadFacade {
    * Get student-parent links with student details — used in DSAR parent data collection.
    * Returns student links with basic student display fields.
    */
-  /**
-   * Find an active parent by user ID, including the user's preferred locale.
-   * Used by behaviour parent service for locale-aware rendering.
-   */
-  async findActiveByUserIdWithLocale(
-    tenantId: string,
-    userId: string,
-  ): Promise<(ParentSummaryRow & { user: { preferred_locale: string | null } | null }) | null> {
-    return this.prisma.parent.findFirst({
-      where: { user_id: userId, tenant_id: tenantId, status: 'active' },
-      select: {
-        ...PARENT_SUMMARY_SELECT,
-        user: { select: { preferred_locale: true } },
-      },
-    });
-  }
-
   async findStudentLinksForParent(
     tenantId: string,
     parentId: string,
@@ -387,4 +370,5 @@ export class ParentReadFacade {
       },
     });
   }
+
 }

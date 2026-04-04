@@ -166,7 +166,7 @@ describe('Permission Cache Invalidation — Integration', () => {
     });
     mockRedisClient.pipeline.mockImplementation(() => {
       mockPipelineOps.length = 0;
-      const pipelineObj = {
+      const pipelineObj: { del: jest.Mock; exec: jest.Mock } = {
         del: jest.fn((key: string) => {
           mockPipelineOps.push(() => redisStore.delete(key));
           return pipelineObj;

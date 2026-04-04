@@ -10,6 +10,7 @@ import {
   UpdatePolicyRuleDto,
 } from '@school/shared/behaviour';
 
+import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -66,7 +67,10 @@ function mapRuleToApi(rule: Record<string, unknown>): Record<string, unknown> {
 export class PolicyRulesService {
   private readonly logger = new Logger(PolicyRulesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly behaviourReadFacade: BehaviourReadFacade,
+  ) {}
 
   async listRules(tenantId: string, query: ListPolicyRulesQuery) {
     const where: Prisma.BehaviourPolicyRuleWhereInput = {
@@ -80,32 +84,23 @@ export class PolicyRulesService {
       where.is_active = query.is_active;
     }
 
-    const [data, total] = await Promise.all([
-      this.prisma.behaviourPolicyRule.findMany({
-        where,
-        include: {
-          actions: { orderBy: { execution_order: 'asc' } },
-        },
-        orderBy: [{ stage: 'asc' }, { priority: 'asc' }],
-        skip: (query.page - 1) * query.pageSize,
-        take: query.pageSize,
-      }),
-      this.prisma.behaviourPolicyRule.count({ where }),
-    ]);
+    const result = await this.behaviourReadFacade.findPolicyRulesPaginated(
+      tenantId,
+      {
+        stage: where.stage as string | undefined,
+        is_active: where.is_active as boolean | undefined,
+      },
+      { skip: (query.page - 1) * query.pageSize, take: query.pageSize },
+    );
 
     return {
-      data: data.map((r) => mapRuleToApi(r as unknown as Record<string, unknown>)),
-      meta: { page: query.page, pageSize: query.pageSize, total },
+      data: result.data.map((r) => mapRuleToApi(r as Record<string, unknown>)),
+      meta: { page: query.page, pageSize: query.pageSize, total: result.total },
     };
   }
 
   async getRule(tenantId: string, ruleId: string) {
-    const rule = await this.prisma.behaviourPolicyRule.findFirst({
-      where: { id: ruleId, tenant_id: tenantId },
-      include: {
-        actions: { orderBy: { execution_order: 'asc' } },
-      },
-    });
+    const rule = await this.behaviourReadFacade.findPolicyRuleById(tenantId, ruleId);
 
     if (!rule) {
       throw new NotFoundException({
@@ -276,9 +271,7 @@ export class PolicyRulesService {
   }
 
   async deleteRule(tenantId: string, ruleId: string) {
-    const rule = await this.prisma.behaviourPolicyRule.findFirst({
-      where: { id: ruleId, tenant_id: tenantId },
-    });
+    const rule = await this.behaviourReadFacade.findPolicyRuleById(tenantId, ruleId);
 
     if (!rule) {
       throw new NotFoundException({
@@ -297,9 +290,7 @@ export class PolicyRulesService {
   }
 
   async getVersionHistory(tenantId: string, ruleId: string) {
-    const rule = await this.prisma.behaviourPolicyRule.findFirst({
-      where: { id: ruleId, tenant_id: tenantId },
-    });
+    const rule = await this.behaviourReadFacade.findPolicyRuleById(tenantId, ruleId);
 
     if (!rule) {
       throw new NotFoundException({
@@ -308,43 +299,22 @@ export class PolicyRulesService {
       });
     }
 
-    const versions = await this.prisma.behaviourPolicyRuleVersion.findMany({
-      where: { rule_id: ruleId, tenant_id: tenantId },
-      orderBy: { version: 'desc' },
-      include: {
-        changed_by: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            email: true,
-          },
-        },
-      },
-    });
+    const versions = await this.behaviourReadFacade.findPolicyRuleVersions(tenantId, ruleId);
 
     return {
-      data: versions.map((v) => ({
+      data: (versions as Array<Record<string, unknown>>).map((v) => ({
         ...v,
-        stage: toApiStage(v.stage),
+        stage: toApiStage(v.stage as string),
       })),
     };
   }
 
   async getVersion(tenantId: string, ruleId: string, version: number) {
-    const versionRecord = await this.prisma.behaviourPolicyRuleVersion.findFirst({
-      where: { rule_id: ruleId, tenant_id: tenantId, version },
-      include: {
-        changed_by: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            email: true,
-          },
-        },
-      },
-    });
+    const versionRecord = await this.behaviourReadFacade.findPolicyRuleVersion(
+      tenantId,
+      ruleId,
+      version,
+    ) as { stage: string } | null;
 
     if (!versionRecord) {
       throw new NotFoundException({
@@ -357,9 +327,7 @@ export class PolicyRulesService {
   }
 
   async updatePriority(tenantId: string, ruleId: string, dto: UpdatePolicyPriorityDto) {
-    const rule = await this.prisma.behaviourPolicyRule.findFirst({
-      where: { id: ruleId, tenant_id: tenantId },
-    });
+    const rule = await this.behaviourReadFacade.findPolicyRuleById(tenantId, ruleId);
 
     if (!rule) {
       throw new NotFoundException({
@@ -468,17 +436,10 @@ export class PolicyRulesService {
   }
 
   async exportRules(tenantId: string) {
-    const rules = await this.prisma.behaviourPolicyRule.findMany({
-      where: { tenant_id: tenantId, is_active: true },
-      include: { actions: { orderBy: { execution_order: 'asc' } } },
-      orderBy: [{ stage: 'asc' }, { priority: 'asc' }],
-    });
+    const rules = await this.behaviourReadFacade.findPolicyRules(tenantId);
 
     // Load categories for UUID→name token resolution
-    const categories = await this.prisma.behaviourCategory.findMany({
-      where: { tenant_id: tenantId },
-      select: { id: true, name: true },
-    });
+    const categories = await this.behaviourReadFacade.findCategories(tenantId);
     const catIdToToken = new Map(
       categories.map((c) => [c.id, `__${c.name.toUpperCase().replace(/\s+/g, '_')}__`]),
     );

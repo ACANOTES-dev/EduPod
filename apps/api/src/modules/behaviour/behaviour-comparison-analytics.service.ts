@@ -8,7 +8,10 @@ import type {
   RatioResult,
 } from '@school/shared/behaviour';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import { buildIncidentWhere, makeDataQuality } from './behaviour-analytics-helpers';
 import { BehaviourScopeService } from './behaviour-scope.service';
@@ -18,6 +21,9 @@ export class BehaviourComparisonAnalyticsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeService: BehaviourScopeService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
   ) {}
 
   // ─── Positive/Negative Ratio ───────────────────────────────────────────────
@@ -101,21 +107,9 @@ export class BehaviourComparisonAnalyticsService {
       },
     });
 
-    const yearGroups = await this.prisma.yearGroup.findMany({
-      where: { tenant_id: tenantId },
-      select: { id: true, name: true },
-    });
+    const yearGroups = await this.academicReadFacade.findAllYearGroups(tenantId);
 
-    const studentCounts = await this.prisma.student.groupBy({
-      by: ['year_group_id'],
-      where: { tenant_id: tenantId, status: 'enrolled' as $Enums.StudentStatus },
-      _count: true,
-    });
-    const studentCountMap = new Map(
-      studentCounts
-        .filter((s) => s.year_group_id !== null)
-        .map((s) => [s.year_group_id as string, s._count]),
-    );
+    const studentCountMap = await this.studentReadFacade.countByYearGroup(tenantId, 'enrolled');
 
     const ygMap = new Map<string, { positive: number; negative: number }>();
     for (const inc of incidents) {
@@ -213,19 +207,10 @@ export class BehaviourComparisonAnalyticsService {
 
     // Get student count per class
     const classIds = [...classMap.keys()];
-    const studentCounts = await this.prisma.classEnrolment.groupBy({
-      by: ['class_id'],
-      where: {
-        tenant_id: tenantId,
-        class_id: { in: classIds },
-        status: 'active' as $Enums.ClassEnrolmentStatus,
-      },
-      _count: true,
-    });
-    const studentCountMap = new Map(studentCounts.map((s) => [s.class_id, s._count]));
+    const studentCountMap2 = await this.classesReadFacade.findEnrolmentCountsByClasses(tenantId, classIds);
 
     const entries = Array.from(classMap.entries()).map(([classId, data]) => {
-      const studentCount = studentCountMap.get(classId) ?? 0;
+      const studentCount = studentCountMap2.get(classId) ?? 0;
       return {
         class_id: classId,
         class_name: data.name,

@@ -168,10 +168,6 @@ export class RbacReadFacade {
   }
 
   /**
-   * Count active memberships for a tenant.
-   * Used by behaviour pulse and tenant dashboard.
-   */
-  /**
    * Count active memberships that have a specific permission key.
    * Used by behaviour pulse to compute reporting confidence.
    */
@@ -314,61 +310,6 @@ export class RbacReadFacade {
         display_name: true,
         is_system_role: true,
         role_tier: true,
-      },
-    });
-  }
-
-  /**
-   * Count active memberships that have a specific permission key.
-   * Used by behaviour pulse to compute reporting confidence (staff with behaviour.log).
-   */
-  async countMembershipsWithPermission(tenantId: string, permissionKey: string): Promise<number> {
-    return this.prisma.tenantMembership.count({
-      where: {
-        tenant_id: tenantId,
-        membership_status: 'active',
-        membership_roles: {
-          some: {
-            role: {
-              role_permissions: {
-                some: {
-                  permission: { permission_key: permissionKey },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-  }
-
-  /**
-   * Find active memberships that have a specific permission key, with user display names.
-   * Used by behaviour staff analytics to list staff with behaviour.log permission.
-   */
-  async findMembershipsWithPermissionAndUser(
-    tenantId: string,
-    permissionKey: string,
-  ): Promise<Array<{ user_id: string; user: { first_name: string; last_name: string } }>> {
-    return this.prisma.tenantMembership.findMany({
-      where: {
-        tenant_id: tenantId,
-        membership_status: 'active',
-        membership_roles: {
-          some: {
-            role: {
-              role_permissions: {
-                some: {
-                  permission: { permission_key: permissionKey },
-                },
-              },
-            },
-          },
-        },
-      },
-      select: {
-        user_id: true,
-        user: { select: { first_name: true, last_name: true } },
       },
     });
   }

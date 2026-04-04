@@ -6,12 +6,10 @@ import { BehaviourDisciplineModule } from './behaviour-discipline.module';
 import { BehaviourOpsModule } from './behaviour-ops.module';
 import { BehaviourPortalModule } from './behaviour-portal.module';
 import { BehaviourRecognitionModule } from './behaviour-recognition.module';
-import { BehaviourSafeguardingModule } from './behaviour-safeguarding.module';
 
 @Module({
   imports: [
     BehaviourCoreModule,
-    BehaviourSafeguardingModule,
     BehaviourDisciplineModule,
     BehaviourRecognitionModule,
     BehaviourAnalyticsModule,
@@ -20,7 +18,6 @@ import { BehaviourSafeguardingModule } from './behaviour-safeguarding.module';
   ],
   exports: [
     BehaviourCoreModule,
-    BehaviourSafeguardingModule,
     BehaviourDisciplineModule,
     BehaviourRecognitionModule,
     BehaviourAnalyticsModule,

@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { RoomsReadFacade } from '../rooms/rooms-read.facade';
 
 import { RoomClosuresService } from './room-closures.service';
 
@@ -46,6 +47,17 @@ describe('RoomClosuresService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: RoomsReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+      exists: jest.fn().mockResolvedValue(false),
+      findActiveRooms: jest.fn().mockResolvedValue([]),
+      findActiveRoomBasics: jest.fn().mockResolvedValue([]),
+      countActiveRooms: jest.fn().mockResolvedValue(0),
+      findAllClosures: jest.fn().mockResolvedValue([]),
+      findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+      findClosureById: jest.fn().mockResolvedValue(null),
+    } },
         RoomClosuresService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

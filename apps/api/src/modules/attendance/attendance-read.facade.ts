@@ -410,14 +410,16 @@ export class AttendanceReadFacade {
     tenantId: string,
     studentId: string,
     sinceDate: Date,
-  ): Promise<Array<{ summary_date: Date; derived_status: DailyAttendanceStatus }>> {
+  ): Promise<
+    Array<{ id: string; summary_date: Date; derived_status: DailyAttendanceStatus }>
+  > {
     return this.prisma.dailyAttendanceSummary.findMany({
       where: {
         tenant_id: tenantId,
         student_id: studentId,
         summary_date: { gte: sinceDate },
       },
-      select: { summary_date: true, derived_status: true },
+      select: { id: true, summary_date: true, derived_status: true },
       orderBy: { summary_date: 'desc' },
     });
   }
@@ -482,6 +484,114 @@ export class AttendanceReadFacade {
         details_json: true,
         parent_notified: true,
         created_at: true,
+      },
+    });
+  }
+
+  // ─── Pattern Alert Counts (tenant-wide) ────────────────────────────────────
+
+  /**
+   * Count active pattern alerts for a tenant.
+   * Used by regulatory dashboard for Tusla summary.
+   */
+  async countActivePatternAlerts(tenantId: string): Promise<number> {
+    return this.prisma.attendancePatternAlert.count({
+      where: { tenant_id: tenantId, status: 'active' },
+    });
+  }
+
+  /**
+   * Find active pattern alerts of a specific type with student_id and details.
+   * Used by regulatory dashboard for Tusla threshold analysis.
+   */
+  async findActiveAlertsByType(
+    tenantId: string,
+    alertType: string,
+  ): Promise<Array<{ student_id: string; details_json: unknown }>> {
+    return this.prisma.attendancePatternAlert.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: 'active',
+        alert_type: alertType as AttendanceAlertType,
+      },
+      select: { student_id: true, details_json: true },
+    });
+  }
+
+  // ─── Regulatory / Tusla Methods ──────────────────────────────────────────
+
+  /**
+   * Group daily attendance summaries by student_id with count.
+   * Used by regulatory-tusla threshold monitor and AAR generation.
+   */
+  async groupDailySummariesByStudent(
+    tenantId: string,
+    filters: {
+      derivedStatuses: DailyAttendanceStatus[];
+      dateFilter?: { gte?: Date; lte?: Date };
+    },
+  ): Promise<Array<{ student_id: string; _count: { student_id: number } }>> {
+    const result = await this.prisma.dailyAttendanceSummary.groupBy({
+      by: ['student_id'],
+      where: {
+        tenant_id: tenantId,
+        derived_status: { in: filters.derivedStatuses },
+        ...(filters.dateFilter ? { summary_date: filters.dateFilter } : {}),
+      },
+      _count: { student_id: true },
+    });
+    return result as Array<{ student_id: string; _count: { student_id: number } }>;
+  }
+
+  /**
+   * Count daily summaries matching filters.
+   * Used by regulatory-tusla AAR for total absent days calculation.
+   */
+  async countDailySummaries(
+    tenantId: string,
+    filters: {
+      derivedStatuses: DailyAttendanceStatus[];
+      dateFilter?: { gte?: Date; lte?: Date };
+    },
+  ): Promise<number> {
+    return this.prisma.dailyAttendanceSummary.count({
+      where: {
+        tenant_id: tenantId,
+        derived_status: { in: filters.derivedStatuses },
+        ...(filters.dateFilter ? { summary_date: filters.dateFilter } : {}),
+      },
+    });
+  }
+
+  /**
+   * Find attendance records with session date join, filtered by status.
+   * Used by regulatory-tusla SAR (Student Absence Report).
+   */
+  async findRecordsByStatusWithSession(
+    tenantId: string,
+    filters: {
+      statusNot?: AttendanceRecordStatus;
+      sessionDateRange: { gte: Date; lte: Date };
+    },
+  ): Promise<
+    Array<{
+      student_id: string;
+      status: AttendanceRecordStatus;
+      session: { session_date: Date };
+    }>
+  > {
+    return this.prisma.attendanceRecord.findMany({
+      where: {
+        tenant_id: tenantId,
+        ...(filters.statusNot ? { status: { not: filters.statusNot } } : {}),
+        session: {
+          session_date: filters.sessionDateRange,
+        },
+      },
+      select: {
+        student_id: true,
+        status: true,
+        session: { select: { session_date: true } },
       },
     });
   }

@@ -6,6 +6,8 @@ import { SYSTEM_USER_SENTINEL } from '@school/shared';
 import { pastoralTenantSettingsSchema } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
+
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { PastoralEventService } from './pastoral-event.service';
@@ -26,6 +28,7 @@ export class CheckinAlertService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
     private readonly eventService: PastoralEventService,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
@@ -293,9 +296,7 @@ export class CheckinAlertService {
   // ─── Private: Load Checkin Settings ───────────────────────────────────────
 
   private async loadCheckinSettings(tenantId: string) {
-    const record = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const record = await this.configurationReadFacade.findSettings(tenantId);
 
     const settingsJson = (record?.settings as Record<string, unknown>) ?? {};
     const pastoralRaw = (settingsJson.pastoral as Record<string, unknown>) ?? {};

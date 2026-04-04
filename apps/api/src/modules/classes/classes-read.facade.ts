@@ -690,4 +690,101 @@ export class ClassesReadFacade {
       ...(orderBy && { orderBy }),
     });
   }
+
+  /**
+   * Find active homeroom classes (subject_id IS NULL) for an academic year.
+   * Used by attendance upload template generation and validation.
+   */
+  async findActiveHomeroomClasses(
+    tenantId: string,
+    academicYearId: string,
+  ): Promise<Array<{ id: string; name: string }>> {
+    return this.prisma.class.findMany({
+      where: {
+        tenant_id: tenantId,
+        academic_year_id: academicYearId,
+        subject_id: null,
+        status: 'active',
+      },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  /**
+   * Find a class by ID with its academic year dates. Used by attendance session creation
+   * to validate that session_date falls within the academic year range.
+   */
+  async findByIdWithAcademicYear(
+    tenantId: string,
+    classId: string,
+  ): Promise<{
+    id: string;
+    academic_year_id: string;
+    year_group_id: string | null;
+    academic_year: { start_date: Date; end_date: Date };
+  } | null> {
+    return this.prisma.class.findFirst({
+      where: { id: classId, tenant_id: tenantId },
+      select: {
+        id: true,
+        academic_year_id: true,
+        year_group_id: true,
+        academic_year: {
+          select: { start_date: true, end_date: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * Find enrolled students in a class with student_number for attendance views.
+   * Returns student detail records ordered by last_name.
+   */
+  async findEnrolledStudentsWithNumber(
+    tenantId: string,
+    classId: string,
+  ): Promise<
+    Array<{
+      student: {
+        id: string;
+        first_name: string;
+        last_name: string;
+        student_number: string | null;
+      };
+    }>
+  > {
+    return this.prisma.classEnrolment.findMany({
+      where: { tenant_id: tenantId, class_id: classId, status: 'active' },
+      select: {
+        student: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            student_number: true,
+          },
+        },
+      },
+      orderBy: { student: { last_name: 'asc' } },
+    });
+  }
+
+  /**
+   * Find classes with year group name and active enrolment count.
+   * Used by regulatory DES File C generation.
+   */
+  async findClassesWithYearGroupAndEnrolmentCount(
+    tenantId: string,
+    academicYearId: string,
+  ): Promise<unknown[]> {
+    return this.prisma.class.findMany({
+      where: { tenant_id: tenantId, academic_year_id: academicYearId },
+      include: {
+        year_group: { select: { name: true } },
+        _count: { select: { class_enrolments: { where: { status: 'active' } } } },
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
 }

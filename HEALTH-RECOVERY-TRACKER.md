@@ -106,7 +106,7 @@
 
 | ID   | Item                                               | Status      | Date | Notes                                                                                                                                                                                |
 | ---- | -------------------------------------------------- | ----------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 3C.1 | Extract safeguarding into a separate NestJS module | NOT STARTED | —    | Placeholder `safeguarding/index.ts` exists but all services remain in `behaviour/behaviour-safeguarding.module.ts`. Not registered in `app.module.ts`. No code physically moved yet. |
+| 3C.1 | Extract safeguarding into a separate NestJS module | DONE | 2026-04-04 | SafeguardingModule extracted as top-level module. 7 services + controller moved from behaviour/. 4 worker processors moved to processors/safeguarding/. Registered in app.module.ts. BehaviourModule no longer exports safeguarding services. module-blast-radius.md updated. |
 
 ### Bucket 3D — Remaining Facade Migration
 

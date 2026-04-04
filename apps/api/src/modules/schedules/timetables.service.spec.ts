@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 
 import { TimetablesService } from './timetables.service';
 
@@ -47,6 +48,20 @@ describe('TimetablesService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: ClassesReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+      findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
+      countEnrolledStudents: jest.fn().mockResolvedValue(0),
+      findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
+      findByAcademicYear: jest.fn().mockResolvedValue([]),
+      findByYearGroup: jest.fn().mockResolvedValue([]),
+      findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
+      countByAcademicYear: jest.fn().mockResolvedValue(0),
+      findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
+      findClassIdsForStudent: jest.fn().mockResolvedValue([]),
+      findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
+    } },
         TimetablesService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

@@ -6,6 +6,7 @@ import {
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourPointsService } from './behaviour-points.service';
@@ -48,6 +49,7 @@ export class BehaviourHouseService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pointsService: BehaviourPointsService,
+    private readonly academicReadFacade: AcademicReadFacade,
   ) {}
 
   // ─── List Houses ──────────────────────────────────────────────────────
@@ -57,10 +59,7 @@ export class BehaviourHouseService {
    */
   async listHouses(tenantId: string) {
     // Find current academic year
-    const currentYear = await this.prisma.academicYear.findFirst({
-      where: { tenant_id: tenantId, status: 'active' },
-      select: { id: true },
-    });
+    const currentYear = await this.academicReadFacade.findCurrentYear(tenantId);
 
     const houses = await this.prisma.behaviourHouseTeam.findMany({
       where: { tenant_id: tenantId, is_active: true },

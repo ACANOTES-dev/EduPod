@@ -6,6 +6,8 @@ import {
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { NotificationsService } from '../../communications/notifications.service';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -34,6 +36,8 @@ export class ProgressReportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
   ) {}
 
   // ─── D2: Generate Progress Reports ───────────────────────────────────────

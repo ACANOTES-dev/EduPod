@@ -1,5 +1,6 @@
 import { Logger, NotFoundException } from '@nestjs/common';
 
+import { StudentReadFacade } from '../../students/student-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 
@@ -9,6 +10,7 @@ export class ReportCardTranscriptService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
+    private readonly studentReadFacade: StudentReadFacade,
   ) {}
 
   async invalidateTranscriptCache(tenantId: string, studentId: string) {

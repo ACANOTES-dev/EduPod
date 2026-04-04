@@ -53,6 +53,7 @@ import { RegulatoryModule } from './modules/regulatory/regulatory.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { S3Module } from './modules/s3/s3.module';
+import { SafeguardingModule } from './modules/safeguarding/safeguarding.module';
 import { SchedulesModule } from './modules/schedules/schedules.module';
 import { SchedulingModule } from './modules/scheduling/scheduling.module';
 import { SchedulingRunsModule } from './modules/scheduling-runs/scheduling-runs.module';
@@ -120,6 +121,7 @@ import { WebsiteModule } from './modules/website/website.module';
     SchoolClosuresModule,
     AttendanceModule,
     BehaviourModule,
+    SafeguardingModule,
     CriticalIncidentsModule,
     HomeworkModule,
     HouseholdsModule,

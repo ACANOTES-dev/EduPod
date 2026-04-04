@@ -45,6 +45,7 @@ import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AssessmentTemplateService } from './assessments/assessment-template.service';
@@ -77,6 +78,7 @@ export class GradebookAdvancedController {
     private readonly assessmentTemplateService: AssessmentTemplateService,
     private readonly gradesService: GradesService,
     private readonly prisma: PrismaService,
+    private readonly classesReadFacade: ClassesReadFacade,
   ) {}
 
   // ─── C1: Rubric Templates ────────────────────────────────────────────────

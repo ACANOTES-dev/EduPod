@@ -9,7 +9,11 @@ import { Prisma } from '@prisma/client';
 import type { Conflict } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { RoomsReadFacade } from '../rooms/rooms-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { ConflictDetectionService } from './conflict-detection.service';
 import type { CreateScheduleDto, UpdateScheduleDto } from './dto/schedule.dto';
@@ -52,6 +56,10 @@ export class SchedulesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly conflictDetection: ConflictDetectionService,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly roomsReadFacade: RoomsReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly attendanceReadFacade: AttendanceReadFacade,
   ) {}
 
   async create(
@@ -61,10 +69,7 @@ export class SchedulesService {
     userPermissions: string[],
   ): Promise<ScheduleWithConflicts> {
     // Validate class exists and belongs to tenant
-    const classEntity = await this.prisma.class.findFirst({
-      where: { id: dto.class_id, tenant_id: tenantId },
-      select: { id: true, academic_year_id: true },
-    });
+    const classEntity = await this.classesReadFacade.findById(tenantId, dto.class_id);
 
     if (!classEntity) {
       throw new NotFoundException({
@@ -77,30 +82,12 @@ export class SchedulesService {
 
     // Validate room exists and belongs to tenant
     if (dto.room_id) {
-      const room = await this.prisma.room.findFirst({
-        where: { id: dto.room_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!room) {
-        throw new NotFoundException({
-          code: 'ROOM_NOT_FOUND',
-          message: `Room with id "${dto.room_id}" not found`,
-        });
-      }
+      await this.roomsReadFacade.existsOrThrow(tenantId, dto.room_id);
     }
 
     // Validate teacher exists and belongs to tenant
     if (dto.teacher_staff_id) {
-      const staff = await this.prisma.staffProfile.findFirst({
-        where: { id: dto.teacher_staff_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!staff) {
-        throw new NotFoundException({
-          code: 'STAFF_PROFILE_NOT_FOUND',
-          message: `Staff profile with id "${dto.teacher_staff_id}" not found`,
-        });
-      }
+      await this.staffProfileReadFacade.existsOrThrow(tenantId, dto.teacher_staff_id);
     }
 
     // Detect conflicts
@@ -248,30 +235,12 @@ export class SchedulesService {
 
     // Validate room if being changed
     if (dto.room_id !== undefined && dto.room_id !== null) {
-      const room = await this.prisma.room.findFirst({
-        where: { id: dto.room_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!room) {
-        throw new NotFoundException({
-          code: 'ROOM_NOT_FOUND',
-          message: `Room with id "${dto.room_id}" not found`,
-        });
-      }
+      await this.roomsReadFacade.existsOrThrow(tenantId, dto.room_id);
     }
 
     // Validate teacher if being changed
     if (dto.teacher_staff_id !== undefined && dto.teacher_staff_id !== null) {
-      const staff = await this.prisma.staffProfile.findFirst({
-        where: { id: dto.teacher_staff_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!staff) {
-        throw new NotFoundException({
-          code: 'STAFF_PROFILE_NOT_FOUND',
-          message: `Staff profile with id "${dto.teacher_staff_id}" not found`,
-        });
-      }
+      await this.staffProfileReadFacade.existsOrThrow(tenantId, dto.teacher_staff_id);
     }
 
     // Merge existing values with update to build full entry for conflict detection
@@ -369,8 +338,8 @@ export class SchedulesService {
     }
 
     // Safety check: if attendance sessions reference this schedule, end-date instead of delete
-    const attendanceCount = await this.prisma.attendanceSession.count({
-      where: { schedule_id: id, tenant_id: tenantId },
+    const attendanceCount = await this.attendanceReadFacade.countSessions(tenantId, {
+      scheduleId: id,
     });
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });

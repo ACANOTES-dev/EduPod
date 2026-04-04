@@ -14,6 +14,8 @@ import { AuthGuard } from '../../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
+
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Validation Schema ──────────────────────────────────────────────────────
@@ -50,7 +52,8 @@ interface EscalationDashboardResponse {
 @ModuleEnabled('pastoral')
 @UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class PastoralAdminController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService,
+    private readonly configurationReadFacade: ConfigurationReadFacade) {}
 
   // ─── 1. Get Escalation Settings ──────────────────────────────────────────
 
@@ -76,9 +79,7 @@ export class PastoralAdminController {
     @Body(new ZodValidationPipe(updateEscalationSettingsSchema))
     dto: z.infer<typeof updateEscalationSettingsSchema>,
   ): Promise<{ data: EscalationSettingsResponse }> {
-    const record = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenant.tenant_id },
-    });
+    const record = await this.configurationReadFacade.findSettings(tenant.tenant_id);
 
     const existingSettings = (record?.settings as Record<string, unknown>) ?? {};
     const existingPastoral = (existingSettings.pastoral as Record<string, unknown>) ?? {};
@@ -238,9 +239,7 @@ export class PastoralAdminController {
    * Loads the raw pastoral JSONB sub-object from tenant settings.
    */
   private async loadPastoralRaw(tenantId: string): Promise<Record<string, unknown>> {
-    const record = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const record = await this.configurationReadFacade.findSettings(tenantId);
 
     const settingsJson = (record?.settings as Record<string, unknown>) ?? {};
     return (settingsJson.pastoral as Record<string, unknown>) ?? {};

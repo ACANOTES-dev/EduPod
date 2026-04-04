@@ -2,11 +2,17 @@ import { Module, forwardRef } from '@nestjs/common';
 
 import { AcademicsModule } from '../academics/academics.module';
 import { AiModule } from '../ai/ai.module';
+import { AttendanceModule } from '../attendance/attendance.module';
 import { AuthModule } from '../auth/auth.module';
+import { ClassesModule } from '../classes/classes.module';
 import { CommunicationsModule } from '../communications/communications.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { GdprModule } from '../gdpr/gdpr.module';
+import { ParentsModule } from '../parents/parents.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
+import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
+import { StudentsModule } from '../students/students.module';
+import { TenantsModule } from '../tenants/tenants.module';
 
 import { AiCommentsService } from './ai/ai-comments.service';
 import { AiGradingInstructionService } from './ai/ai-grading-instruction.service';
@@ -46,11 +52,17 @@ import { YearGroupGradeWeightsService } from './year-group-grade-weights.service
   imports: [
     forwardRef(() => AcademicsModule),
     AiModule,
+    AttendanceModule,
     AuthModule,
+    ClassesModule,
     CommunicationsModule,
     ConfigurationModule,
     GdprModule,
+    ParentsModule,
     PdfRenderingModule,
+    StaffProfilesModule,
+    StudentsModule,
+    TenantsModule,
     // ─── Report Card Sub-Module ──────────────────────────────────────────────
     ReportCardModule,
   ],

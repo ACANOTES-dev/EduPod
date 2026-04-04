@@ -14,6 +14,7 @@
  * enforced by always including `tenant_id` in the `where` clause.
  */
 import { Injectable, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -225,5 +226,35 @@ export class StaffProfileReadFacade {
         message: `Staff profile with id "${profileId}" not found`,
       });
     }
+  }
+
+  /**
+   * Count staff profiles matching a filter.
+   * Used by retention policies and reports.
+   */
+  async count(tenantId: string, where?: Prisma.StaffProfileWhereInput): Promise<number> {
+    return this.prisma.staffProfile.count({
+      where: { tenant_id: tenantId, ...where },
+    });
+  }
+
+  /**
+   * Generic findMany for staff profiles with include/select/orderBy.
+   * Used by regulatory DES file generation for staff data export.
+   */
+  async findAllWithUser(
+    tenantId: string,
+    options?: {
+      where?: Prisma.StaffProfileWhereInput;
+      orderBy?: Prisma.StaffProfileOrderByWithRelationInput;
+    },
+  ): Promise<unknown[]> {
+    return this.prisma.staffProfile.findMany({
+      where: { tenant_id: tenantId, ...options?.where },
+      include: {
+        user: { select: { first_name: true, last_name: true } },
+      },
+      ...(options?.orderBy && { orderBy: options.orderBy }),
+    });
   }
 }

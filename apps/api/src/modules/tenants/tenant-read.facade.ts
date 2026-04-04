@@ -194,18 +194,6 @@ export class TenantReadFacade {
    * Check whether a specific module is enabled for a tenant.
    * Returns false if the module row does not exist.
    */
-  /**
-   * Find the tenant's JSONB settings blob. Returns null if tenant not found.
-   * Used by homework, reports, and other modules that read per-tenant feature flags.
-   */
-  async findSettings(tenantId: string): Promise<Record<string, unknown> | null> {
-    const row = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { settings: true },
-    });
-    return (row?.settings as Record<string, unknown>) ?? null;
-  }
-
   async isModuleEnabled(tenantId: string, moduleKey: string): Promise<boolean> {
     const row = await this.prisma.tenantModule.findFirst({
       where: { tenant_id: tenantId, module_key: moduleKey },

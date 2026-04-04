@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { GpaService } from './gpa.service';
@@ -41,6 +43,8 @@ export class PeriodGradeComputationService {
     private readonly prisma: PrismaService,
     private readonly gpaService: GpaService,
     private readonly standardsService: StandardsService,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
   ) {}
 
   /**

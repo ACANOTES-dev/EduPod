@@ -11,6 +11,8 @@ import { AuthGuard } from '../../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
+
 import { PrismaService } from '../../prisma/prisma.service';
 import { CheckinPrerequisiteService } from '../services/checkin-prerequisite.service';
 
@@ -37,6 +39,7 @@ const checkinConfigUpdateSchema = z.object({
 export class CheckinConfigController {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
     private readonly prerequisiteService: CheckinPrerequisiteService,
   ) {}
 
@@ -45,9 +48,7 @@ export class CheckinConfigController {
   @Get('pastoral/checkins/config')
   @RequiresPermission('pastoral.admin')
   async getConfig(@CurrentTenant() tenant: TenantContext) {
-    const record = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenant.tenant_id },
-    });
+    const record = await this.configurationReadFacade.findSettings(tenant.tenant_id);
 
     const existingSettings = (record?.settings as Record<string, unknown>) ?? {};
     const existingPastoral = (existingSettings.pastoral as Record<string, unknown>) ?? {};
@@ -79,9 +80,7 @@ export class CheckinConfigController {
     }
 
     // Load current settings
-    const record = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenant.tenant_id },
-    });
+    const record = await this.configurationReadFacade.findSettings(tenant.tenant_id);
 
     const existingSettings = (record?.settings as Record<string, unknown>) ?? {};
     const existingPastoral = (existingSettings.pastoral as Record<string, unknown>) ?? {};

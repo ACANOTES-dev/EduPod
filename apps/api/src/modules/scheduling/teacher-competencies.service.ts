@@ -7,7 +7,11 @@ import type {
 } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { GradebookReadFacade } from '../gradebook/gradebook-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 const INCLUDE_RELATIONS = {
   staff_profile: {
@@ -22,7 +26,13 @@ const INCLUDE_RELATIONS = {
 
 @Injectable()
 export class TeacherCompetenciesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly gradebookReadFacade: GradebookReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+  ) {}
 
   // ─── List All ──────────────────────────────────────────────────────────────
 
@@ -124,16 +134,7 @@ export class TeacherCompetenciesService {
 
   async bulkCreate(tenantId: string, dto: BulkCreateTeacherCompetenciesDto) {
     // Validate staff profile exists
-    const staff = await this.prisma.staffProfile.findFirst({
-      where: { id: dto.staff_profile_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-    if (!staff) {
-      throw new NotFoundException({
-        code: 'STAFF_PROFILE_NOT_FOUND',
-        message: `Staff profile "${dto.staff_profile_id}" not found`,
-      });
-    }
+    await this.staffProfileReadFacade.existsOrThrow(tenantId, dto.staff_profile_id);
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
@@ -209,29 +210,8 @@ export class TeacherCompetenciesService {
   // ─── Copy from Academic Year ───────────────────────────────────────────────
 
   async copyFromAcademicYear(tenantId: string, sourceYearId: string, targetYearId: string) {
-    const [sourceYear, targetYear] = await Promise.all([
-      this.prisma.academicYear.findFirst({
-        where: { id: sourceYearId, tenant_id: tenantId },
-        select: { id: true },
-      }),
-      this.prisma.academicYear.findFirst({
-        where: { id: targetYearId, tenant_id: tenantId },
-        select: { id: true },
-      }),
-    ]);
-
-    if (!sourceYear) {
-      throw new NotFoundException({
-        code: 'SOURCE_ACADEMIC_YEAR_NOT_FOUND',
-        message: `Source academic year "${sourceYearId}" not found`,
-      });
-    }
-    if (!targetYear) {
-      throw new NotFoundException({
-        code: 'TARGET_ACADEMIC_YEAR_NOT_FOUND',
-        message: `Target academic year "${targetYearId}" not found`,
-      });
-    }
+    await this.academicReadFacade.findYearByIdOrThrow(tenantId, sourceYearId);
+    await this.academicReadFacade.findYearByIdOrThrow(tenantId, targetYearId);
 
     const sourceRecords = await this.prisma.teacherCompetency.findMany({
       where: { tenant_id: tenantId, academic_year_id: sourceYearId },
@@ -344,21 +324,13 @@ export class TeacherCompetenciesService {
 
   async getCoverage(tenantId: string, academicYearId: string) {
     // 1. Get all year groups for this tenant
-    const yearGroups = await this.prisma.yearGroup.findMany({
-      where: { tenant_id: tenantId },
-      select: { id: true, name: true },
-      orderBy: { name: 'asc' },
-    });
+    const yearGroups = await this.academicReadFacade.findAllYearGroups(tenantId);
 
     // 2. Get all active classes grouped by year group
-    const classes = await this.prisma.class.findMany({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        status: 'active',
-      },
-      select: { id: true, year_group_id: true },
-    });
+    const classSummaries = await this.classesReadFacade.findByAcademicYear(tenantId, academicYearId);
+    const classes = classSummaries
+      .filter((c) => c.status === 'active')
+      .map((c) => ({ id: c.id, year_group_id: c.year_group_id }));
     const classIdsByYg = new Map<string, string[]>();
     for (const c of classes) {
       if (!c.year_group_id) continue;
@@ -369,13 +341,11 @@ export class TeacherCompetenciesService {
 
     // 3. Get all class-subject assignments (curriculum matrix)
     const allClassIds = classes.map((c) => c.id);
-    const configs =
+    const configsFull =
       allClassIds.length > 0
-        ? await this.prisma.classSubjectGradeConfig.findMany({
-            where: { tenant_id: tenantId, class_id: { in: allClassIds } },
-            select: { class_id: true, subject_id: true },
-          })
+        ? await this.gradebookReadFacade.findClassSubjectConfigs(tenantId, allClassIds)
         : [];
+    const configs = configsFull.map((c) => ({ class_id: c.class_id, subject_id: c.subject_id }));
 
     // Build set of subject IDs per year group
     const subjectIdsByYg = new Map<string, Set<string>>();
@@ -424,11 +394,7 @@ export class TeacherCompetenciesService {
 
     const subjectRecords =
       allSubjectIds.size > 0
-        ? await this.prisma.subject.findMany({
-            where: { id: { in: [...allSubjectIds] }, tenant_id: tenantId },
-            select: { id: true, name: true },
-            orderBy: { name: 'asc' },
-          })
+        ? await this.academicReadFacade.findSubjectsByIdsWithOrder(tenantId, [...allSubjectIds])
         : [];
 
     // 6. Build the matrix
@@ -484,48 +450,11 @@ export class TeacherCompetenciesService {
     yearGroupId: string,
     academicYearId: string,
   ) {
-    const [staff, subject, yearGroup, academicYear] = await Promise.all([
-      this.prisma.staffProfile.findFirst({
-        where: { id: staffProfileId, tenant_id: tenantId },
-        select: { id: true },
-      }),
-      this.prisma.subject.findFirst({
-        where: { id: subjectId, tenant_id: tenantId },
-        select: { id: true },
-      }),
-      this.prisma.yearGroup.findFirst({
-        where: { id: yearGroupId, tenant_id: tenantId },
-        select: { id: true },
-      }),
-      this.prisma.academicYear.findFirst({
-        where: { id: academicYearId, tenant_id: tenantId },
-        select: { id: true },
-      }),
+    await Promise.all([
+      this.staffProfileReadFacade.existsOrThrow(tenantId, staffProfileId),
+      this.academicReadFacade.findSubjectByIdOrThrow(tenantId, subjectId),
+      this.academicReadFacade.findYearGroupByIdOrThrow(tenantId, yearGroupId),
+      this.academicReadFacade.findYearByIdOrThrow(tenantId, academicYearId),
     ]);
-
-    if (!staff) {
-      throw new NotFoundException({
-        code: 'STAFF_PROFILE_NOT_FOUND',
-        message: `Staff profile "${staffProfileId}" not found`,
-      });
-    }
-    if (!subject) {
-      throw new NotFoundException({
-        code: 'SUBJECT_NOT_FOUND',
-        message: `Subject "${subjectId}" not found`,
-      });
-    }
-    if (!yearGroup) {
-      throw new NotFoundException({
-        code: 'YEAR_GROUP_NOT_FOUND',
-        message: `Year group "${yearGroupId}" not found`,
-      });
-    }
-    if (!academicYear) {
-      throw new NotFoundException({
-        code: 'ACADEMIC_YEAR_NOT_FOUND',
-        message: `Academic year "${academicYearId}" not found`,
-      });
-    }
   }
 }

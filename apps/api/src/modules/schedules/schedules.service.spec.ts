@@ -7,6 +7,10 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { RoomsReadFacade } from '../rooms/rooms-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
+import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
 
 const TENANT_ID = 'tenant-uuid-1';
 const USER_ID = 'user-uuid-1';
@@ -89,6 +93,42 @@ describe('SchedulesService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: RoomsReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+      exists: jest.fn().mockResolvedValue(false),
+      findActiveRooms: jest.fn().mockResolvedValue([]),
+      findActiveRoomBasics: jest.fn().mockResolvedValue([]),
+      countActiveRooms: jest.fn().mockResolvedValue(0),
+      findAllClosures: jest.fn().mockResolvedValue([]),
+      findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+      findClosureById: jest.fn().mockResolvedValue(null),
+    } },
+        { provide: ClassesReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+      findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
+      countEnrolledStudents: jest.fn().mockResolvedValue(0),
+      findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
+      findByAcademicYear: jest.fn().mockResolvedValue([]),
+      findByYearGroup: jest.fn().mockResolvedValue([]),
+      findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
+      countByAcademicYear: jest.fn().mockResolvedValue(0),
+      findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
+      findClassIdsForStudent: jest.fn().mockResolvedValue([]),
+      findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
+    } },
+        { provide: StaffProfileReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      findByIds: jest.fn().mockResolvedValue([]),
+      findByUserId: jest.fn().mockResolvedValue(null),
+      findActiveStaff: jest.fn().mockResolvedValue([]),
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+      resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
+    } },
+        { provide: AttendanceReadFacade, useValue: {
+      countSessions: jest.fn().mockResolvedValue(0),
+    } },
         SchedulesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: ConflictDetectionService, useValue: mockConflictDetection },

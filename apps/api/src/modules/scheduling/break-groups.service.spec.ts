@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 
 import { BreakGroupsService } from './break-groups.service';
 
@@ -67,6 +68,21 @@ describe('BreakGroupsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: AcademicReadFacade, useValue: {
+      findCurrentYear: jest.fn().mockResolvedValue(null),
+      findCurrentYearId: jest.fn().mockResolvedValue('year-1'),
+      findYearById: jest.fn().mockResolvedValue(null),
+      findYearByIdOrThrow: jest.fn().mockResolvedValue('year-1'),
+      findSubjectByIdOrThrow: jest.fn().mockResolvedValue('subject-1'),
+      findYearGroupByIdOrThrow: jest.fn().mockResolvedValue('yg-1'),
+      findYearGroupsWithActiveClasses: jest.fn().mockResolvedValue([]),
+      findYearGroupsWithClassesAndCounts: jest.fn().mockResolvedValue([]),
+      findAllYearGroups: jest.fn().mockResolvedValue([]),
+      findSubjectsByIdsWithOrder: jest.fn().mockResolvedValue([]),
+      findSubjectById: jest.fn().mockResolvedValue(null),
+      findYearGroupById: jest.fn().mockResolvedValue(null),
+      findPeriodById: jest.fn().mockResolvedValue(null),
+    } },
         BreakGroupsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

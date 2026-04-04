@@ -7,6 +7,8 @@ import {
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import type { UpsertGradeConfigDto } from './dto/gradebook.dto';
@@ -14,7 +16,6 @@ import type { UpsertGradeConfigDto } from './dto/gradebook.dto';
 @Injectable()
 export class ClassGradeConfigsService {
   constructor(private readonly prisma: PrismaService) {}
-
   /**
    * Upsert a class-subject grade configuration.
    * Validates subject is academic, grading scale exists, and all category IDs exist.

@@ -256,6 +256,44 @@ export interface ProgressReportRow {
 export class GradebookReadFacade {
   constructor(private readonly prisma: PrismaService) {}
 
+  // ─── Class Subject Grade Configs ─────────────────────────────────────────────
+
+  /**
+   * Find class-subject grade configs for a set of class IDs.
+   * Used by curriculum-requirements to determine which subjects are assigned to which classes.
+   */
+  async findClassSubjectConfigs(
+    tenantId: string,
+    classIds: string[],
+  ): Promise<
+    Array<{
+      class_id: string;
+      subject_id: string;
+      subject: { id: string; name: string };
+      class_name: string;
+    }>
+  > {
+    if (classIds.length === 0) return [];
+
+    const configs = await this.prisma.classSubjectGradeConfig.findMany({
+      where: {
+        tenant_id: tenantId,
+        class_id: { in: classIds },
+      },
+      include: {
+        subject: { select: { id: true, name: true } },
+        class_entity: { select: { id: true, name: true } },
+      },
+    });
+
+    return configs.map((c) => ({
+      class_id: c.class_id,
+      subject_id: c.subject_id,
+      subject: c.subject,
+      class_name: c.class_entity.name,
+    }));
+  }
+
   // ─── Assessment Counts ──────────────────────────────────────────────────────
 
   /**
@@ -417,6 +455,19 @@ export class GradebookReadFacade {
       where: { tenant_id: tenantId, student_id: studentId },
       select: PROGRESS_REPORT_SELECT,
       orderBy: { created_at: 'desc' },
+    });
+  }
+
+  /**
+   * Count NL query history records before a cutoff date.
+   * Used by retention policies for purgeable record counts.
+   */
+  async countNlQueryHistoryBeforeDate(tenantId: string, cutoffDate: Date): Promise<number> {
+    return this.prisma.nlQueryHistory.count({
+      where: {
+        tenant_id: tenantId,
+        created_at: { lt: cutoffDate },
+      },
     });
   }
 }

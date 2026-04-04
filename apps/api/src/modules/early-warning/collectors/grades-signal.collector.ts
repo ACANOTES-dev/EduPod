@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 
 import type { DetectedSignal, SignalResult } from '@school/shared/early-warning';
 
-import { PrismaService } from '../../prisma/prisma.service';
+import { GradebookReadFacade } from '../../gradebook/gradebook-read.facade';
+import type { GradeRow, PeriodSnapshotRow, RiskAlertRow } from '../../gradebook/gradebook-read.facade';
 
 import { buildSignal } from './collector-utils';
 
@@ -57,25 +58,6 @@ function multiSubjectScore(
 
 // ─── Types for Internal Computation ─────────────────────────────────────────
 
-interface SnapshotRow {
-  id: string;
-  subject_id: string;
-  academic_period_id: string;
-  computed_value: { toNumber?: () => number } | number;
-  academic_period: { start_date: Date };
-}
-
-interface RiskAlertRow {
-  id: string;
-  alert_type: string;
-  trigger_reason: string;
-  subject_id: string | null;
-}
-
-interface MissingGradeRow {
-  id: string;
-}
-
 interface ProgressEntryRow {
   subject_id: string;
   trend: string;
@@ -85,25 +67,47 @@ interface ProgressEntryRow {
 
 @Injectable()
 export class GradesSignalCollector {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly gradebookReadFacade: GradebookReadFacade) {}
 
   async collectSignals(
     tenantId: string,
     studentId: string,
-    academicYearId: string,
+    _academicYearId: string,
   ): Promise<SignalResult> {
     const signals: DetectedSignal[] = [];
 
     // Fetch all data in parallel
-    const [riskAlerts, snapshots, missingGrades, progressEntries] = await Promise.all([
-      this.fetchRiskAlerts(tenantId, studentId),
-      this.fetchPeriodSnapshots(tenantId, studentId, academicYearId),
-      this.fetchMissingGrades(tenantId, studentId, academicYearId),
-      this.fetchDecliningProgressEntries(tenantId, studentId, academicYearId),
+    const [riskAlerts, snapshots, grades, progressReports] = await Promise.all([
+      this.gradebookReadFacade.findRiskAlertsForStudent(tenantId, studentId),
+      this.gradebookReadFacade.findPeriodSnapshotsForStudent(tenantId, studentId),
+      this.gradebookReadFacade.findGradesForStudent(tenantId, studentId),
+      this.gradebookReadFacade.findProgressReportsForStudent(tenantId, studentId),
     ]);
 
+    // Filter risk alerts for the types we care about
+    const filteredAlerts = riskAlerts.filter(
+      (a) =>
+        a.alert_type === 'at_risk_low' ||
+        a.alert_type === 'at_risk_medium' ||
+        a.alert_type === 'at_risk_high' ||
+        a.alert_type === 'score_anomaly',
+    );
+
+    // Missing grades
+    const missingGrades = grades.filter((g) => g.is_missing);
+
+    // Declining progress entries
+    const progressEntries: ProgressEntryRow[] = [];
+    for (const report of progressReports) {
+      for (const entry of report.entries) {
+        if (entry.trend === 'declining') {
+          progressEntries.push({ subject_id: entry.subject_id, trend: entry.trend });
+        }
+      }
+    }
+
     // ─── Signal 1: below_class_mean ───────────────────────────────────────────
-    const atRiskAlerts = riskAlerts.filter((a) => a.alert_type in ALERT_TYPE_SCORES);
+    const atRiskAlerts = filteredAlerts.filter((a) => a.alert_type in ALERT_TYPE_SCORES);
     const belowClassMeanSignal = this.computeBelowClassMean(atRiskAlerts);
     if (belowClassMeanSignal) {
       signals.push(belowClassMeanSignal);
@@ -129,7 +133,7 @@ export class GradesSignalCollector {
     }
 
     // ─── Signal 4: score_anomaly ──────────────────────────────────────────────
-    const anomalyAlerts = riskAlerts.filter((a) => a.alert_type === 'score_anomaly');
+    const anomalyAlerts = filteredAlerts.filter((a) => a.alert_type === 'score_anomaly');
     const anomalySignal = this.computeScoreAnomaly(anomalyAlerts);
     if (anomalySignal) {
       signals.push(anomalySignal);
@@ -149,92 +153,12 @@ export class GradesSignalCollector {
     };
   }
 
-  // ─── Data Fetchers ──────────────────────────────────────────────────────────
-
-  private async fetchRiskAlerts(tenantId: string, studentId: string): Promise<RiskAlertRow[]> {
-    return this.prisma.studentAcademicRiskAlert.findMany({
-      where: {
-        tenant_id: tenantId,
-        student_id: studentId,
-        status: 'active',
-        alert_type: {
-          in: ['at_risk_low', 'at_risk_medium', 'at_risk_high', 'score_anomaly'],
-        },
-      },
-      select: {
-        id: true,
-        alert_type: true,
-        trigger_reason: true,
-        subject_id: true,
-      },
-    });
-  }
-
-  private async fetchPeriodSnapshots(
-    tenantId: string,
-    studentId: string,
-    academicYearId: string,
-  ): Promise<SnapshotRow[]> {
-    return this.prisma.periodGradeSnapshot.findMany({
-      where: {
-        tenant_id: tenantId,
-        student_id: studentId,
-        academic_period: { academic_year_id: academicYearId },
-      },
-      select: {
-        id: true,
-        subject_id: true,
-        academic_period_id: true,
-        computed_value: true,
-        academic_period: { select: { start_date: true } },
-      },
-      orderBy: { academic_period: { start_date: 'asc' } },
-    });
-  }
-
-  private async fetchMissingGrades(
-    tenantId: string,
-    studentId: string,
-    academicYearId: string,
-  ): Promise<MissingGradeRow[]> {
-    return this.prisma.grade.findMany({
-      where: {
-        tenant_id: tenantId,
-        student_id: studentId,
-        is_missing: true,
-        assessment: {
-          academic_period: { academic_year_id: academicYearId },
-        },
-      },
-      select: { id: true },
-    });
-  }
-
-  private async fetchDecliningProgressEntries(
-    tenantId: string,
-    studentId: string,
-    academicYearId: string,
-  ): Promise<ProgressEntryRow[]> {
-    return this.prisma.progressReportEntry.findMany({
-      where: {
-        tenant_id: tenantId,
-        trend: 'declining',
-        progress_report: {
-          student_id: studentId,
-          academic_period: { academic_year_id: academicYearId },
-        },
-      },
-      select: { subject_id: true, trend: true },
-    });
-  }
-
   // ─── Signal Computers ───────────────────────────────────────────────────────
 
   private computeBelowClassMean(atRiskAlerts: RiskAlertRow[]): DetectedSignal | null {
     const first = atRiskAlerts[0];
     if (!first) return null;
 
-    // Find the highest-scored alert
     let best: RiskAlertRow = first;
     let bestScore = ALERT_TYPE_SCORES[best.alert_type]?.score ?? 0;
 
@@ -258,17 +182,11 @@ export class GradesSignalCollector {
     });
   }
 
-  /**
-   * Compute the set of subjects whose grades are declining.
-   * Merges evidence from period grade snapshots (actual grade delta) and
-   * progress report entries (teacher-assessed trend). Returns the higher count.
-   */
   private computeDecliningSubjects(
-    snapshots: SnapshotRow[],
+    snapshots: PeriodSnapshotRow[],
     progressEntries: ProgressEntryRow[],
   ): { subjectIds: Set<string>; biggestDeclineSnapshotId: string | null } {
-    // Group snapshots by subject
-    const bySubject = new Map<string, SnapshotRow[]>();
+    const bySubject = new Map<string, PeriodSnapshotRow[]>();
     for (const s of snapshots) {
       const existing = bySubject.get(s.subject_id);
       if (existing) {
@@ -278,7 +196,6 @@ export class GradesSignalCollector {
       }
     }
 
-    // Find subjects with declining snapshots (compare last two periods)
     const snapshotDeclining = new Set<string>();
     let biggestDecline = 0;
     let biggestDeclineSnapshotId: string | null = null;
@@ -286,7 +203,6 @@ export class GradesSignalCollector {
     for (const [subjectId, subjectSnapshots] of bySubject) {
       if (subjectSnapshots.length < 2) continue;
 
-      // Already ordered by start_date asc from the query
       const prev = subjectSnapshots[subjectSnapshots.length - 2];
       const curr = subjectSnapshots[subjectSnapshots.length - 1];
       if (!prev || !curr) continue;
@@ -303,13 +219,11 @@ export class GradesSignalCollector {
       }
     }
 
-    // Find subjects declining per progress reports
     const progressDeclining = new Set<string>();
     for (const entry of progressEntries) {
       progressDeclining.add(entry.subject_id);
     }
 
-    // Use the higher count source
     const usedSet =
       progressDeclining.size > snapshotDeclining.size ? progressDeclining : snapshotDeclining;
 
@@ -318,7 +232,7 @@ export class GradesSignalCollector {
 
   private computeGradeTrajectoryDecline(
     declining: { subjectIds: Set<string>; biggestDeclineSnapshotId: string | null },
-    snapshots: SnapshotRow[],
+    snapshots: PeriodSnapshotRow[],
   ): DetectedSignal | null {
     const count = declining.subjectIds.size;
     const tier = trajectoryScore(count);
@@ -336,7 +250,7 @@ export class GradesSignalCollector {
     });
   }
 
-  private computeMissingAssessments(missingGrades: MissingGradeRow[]): DetectedSignal | null {
+  private computeMissingAssessments(missingGrades: GradeRow[]): DetectedSignal | null {
     const count = missingGrades.length;
     const tier = missingScore(count);
     if (!tier) return null;
@@ -370,7 +284,7 @@ export class GradesSignalCollector {
 
   private computeMultiSubjectDecline(
     declining: { subjectIds: Set<string>; biggestDeclineSnapshotId: string | null },
-    snapshots: SnapshotRow[],
+    snapshots: PeriodSnapshotRow[],
   ): DetectedSignal | null {
     const count = declining.subjectIds.size;
     const tier = multiSubjectScore(count);

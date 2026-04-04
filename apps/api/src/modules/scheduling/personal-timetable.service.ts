@@ -6,6 +6,8 @@ import type { CreateSubscriptionTokenDto, TimetableQuery } from '@school/shared'
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 export interface TimetableEntry {
   schedule_id: string;
@@ -22,7 +24,11 @@ export interface TimetableEntry {
 
 @Injectable()
 export class PersonalTimetableService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+  ) {}
 
   // ─── Get Teacher Timetable ────────────────────────────────────────────────
 
@@ -50,18 +56,9 @@ export class PersonalTimetableService {
       where.rotation_week = query.rotation_week;
     }
 
-    const schedules = await this.prisma.schedule.findMany({
-      where,
-      orderBy: [{ weekday: 'asc' }, { period_order: 'asc' }],
-      include: {
-        class_entity: {
-          select: {
-            name: true,
-            subject: { select: { name: true } },
-          },
-        },
-        room: { select: { name: true } },
-      },
+    const schedules = await this.schedulesReadFacade.findTeacherTimetable(tenantId, staffId, {
+      asOfDate: today,
+      rotationWeek: query.rotation_week,
     });
 
     const data: TimetableEntry[] = schedules.map((s) => ({
@@ -86,10 +83,7 @@ export class PersonalTimetableService {
     userId: string,
     query: TimetableQuery,
   ): Promise<{ data: TimetableEntry[] }> {
-    const staffProfile = await this.prisma.staffProfile.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-      select: { id: true },
-    });
+    const staffProfile = await this.staffProfileReadFacade.findByUserId(tenantId, userId);
 
     if (!staffProfile) {
       throw new NotFoundException({
@@ -129,21 +123,9 @@ export class PersonalTimetableService {
       where.rotation_week = query.rotation_week;
     }
 
-    const schedules = await this.prisma.schedule.findMany({
-      where,
-      orderBy: [{ weekday: 'asc' }, { period_order: 'asc' }],
-      include: {
-        class_entity: {
-          select: {
-            name: true,
-            subject: { select: { name: true } },
-          },
-        },
-        teacher: {
-          select: { user: { select: { first_name: true, last_name: true } } },
-        },
-        room: { select: { name: true } },
-      },
+    const schedules = await this.schedulesReadFacade.findClassTimetable(tenantId, classId, {
+      asOfDate: today,
+      rotationWeek: query.rotation_week,
     });
 
     const data = schedules.map((s) => ({
@@ -196,39 +178,17 @@ export class PersonalTimetableService {
     }> = [];
 
     if (subscriptionToken.entity_type === 'teacher') {
-      schedules = (await this.prisma.schedule.findMany({
-        where: {
-          tenant_id: tenantId,
-          teacher_staff_id: subscriptionToken.entity_id,
-          effective_start_date: { lte: today },
-          OR: [{ effective_end_date: null }, { effective_end_date: { gte: today } }],
-        },
-        orderBy: [{ weekday: 'asc' }, { period_order: 'asc' }],
-        include: {
-          class_entity: {
-            select: { name: true, subject: { select: { name: true } } },
-          },
-          room: { select: { name: true } },
-          teacher: { select: { user: { select: { first_name: true, last_name: true } } } },
-        },
-      })) as typeof schedules;
+      schedules = (await this.schedulesReadFacade.findTeacherTimetable(
+        tenantId,
+        subscriptionToken.entity_id,
+        { asOfDate: today },
+      )) as typeof schedules;
     } else {
-      schedules = (await this.prisma.schedule.findMany({
-        where: {
-          tenant_id: tenantId,
-          class_id: subscriptionToken.entity_id,
-          effective_start_date: { lte: today },
-          OR: [{ effective_end_date: null }, { effective_end_date: { gte: today } }],
-        },
-        orderBy: [{ weekday: 'asc' }, { period_order: 'asc' }],
-        include: {
-          class_entity: {
-            select: { name: true, subject: { select: { name: true } } },
-          },
-          room: { select: { name: true } },
-          teacher: { select: { user: { select: { first_name: true, last_name: true } } } },
-        },
-      })) as typeof schedules;
+      schedules = (await this.schedulesReadFacade.findClassTimetable(
+        tenantId,
+        subscriptionToken.entity_id,
+        { asOfDate: today },
+      )) as typeof schedules;
     }
 
     // Generate ICS content

@@ -6,6 +6,9 @@ import type {
 } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { GradebookReadFacade } from '../gradebook/gradebook-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 interface ListParams {
@@ -22,7 +25,12 @@ const INCLUDE_RELATIONS = {
 
 @Injectable()
 export class CurriculumRequirementsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly gradebookReadFacade: GradebookReadFacade,
+  ) {}
 
   // ─── List ──────────────────────────────────────────────────────────────────
 
@@ -182,16 +190,7 @@ export class CurriculumRequirementsService {
     items: CreateCurriculumRequirementDto[],
   ) {
     // Validate the year group exists
-    const yearGroup = await this.prisma.yearGroup.findFirst({
-      where: { id: yearGroupId, tenant_id: tenantId },
-      select: { id: true },
-    });
-    if (!yearGroup) {
-      throw new NotFoundException({
-        code: 'YEAR_GROUP_NOT_FOUND',
-        message: `Year group "${yearGroupId}" not found`,
-      });
-    }
+    await this.academicReadFacade.findYearGroupByIdOrThrow(tenantId, yearGroupId);
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
@@ -238,29 +237,8 @@ export class CurriculumRequirementsService {
 
   async copyFromAcademicYear(tenantId: string, sourceYearId: string, targetYearId: string) {
     // Validate both years exist
-    const [sourceYear, targetYear] = await Promise.all([
-      this.prisma.academicYear.findFirst({
-        where: { id: sourceYearId, tenant_id: tenantId },
-        select: { id: true },
-      }),
-      this.prisma.academicYear.findFirst({
-        where: { id: targetYearId, tenant_id: tenantId },
-        select: { id: true },
-      }),
-    ]);
-
-    if (!sourceYear) {
-      throw new NotFoundException({
-        code: 'SOURCE_ACADEMIC_YEAR_NOT_FOUND',
-        message: `Source academic year "${sourceYearId}" not found`,
-      });
-    }
-    if (!targetYear) {
-      throw new NotFoundException({
-        code: 'TARGET_ACADEMIC_YEAR_NOT_FOUND',
-        message: `Target academic year "${targetYearId}" not found`,
-      });
-    }
+    await this.academicReadFacade.findYearByIdOrThrow(tenantId, sourceYearId);
+    await this.academicReadFacade.findYearByIdOrThrow(tenantId, targetYearId);
 
     // Load source requirements
     const sourceRecords = await this.prisma.curriculumRequirement.findMany({
@@ -308,29 +286,19 @@ export class CurriculumRequirementsService {
 
   async getMatrixSubjects(tenantId: string, academicYearId: string, yearGroupId: string) {
     // Get active classes in this year group for this academic year
-    const classes = await this.prisma.class.findMany({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        year_group_id: yearGroupId,
-        status: 'active',
-      },
-      select: { id: true, name: true },
-    });
+    const classes = await this.classesReadFacade.findByYearGroup(tenantId, yearGroupId);
+    const filteredClasses = classes.filter(
+      (c) => c.academic_year_id === academicYearId && c.status === 'active',
+    );
+    const classesForMatrix = filteredClasses.map((c) => ({ id: c.id, name: c.name }));
 
-    if (classes.length === 0) return [];
+    if (classesForMatrix.length === 0) return [];
 
     // Get subjects assigned to these classes via curriculum matrix
-    const configs = await this.prisma.classSubjectGradeConfig.findMany({
-      where: {
-        tenant_id: tenantId,
-        class_id: { in: classes.map((c) => c.id) },
-      },
-      include: {
-        subject: { select: { id: true, name: true } },
-        class_entity: { select: { id: true, name: true } },
-      },
-    });
+    const configs = await this.gradebookReadFacade.findClassSubjectConfigs(
+      tenantId,
+      classesForMatrix.map((c) => c.id),
+    );
 
     // Group by subject, listing classes
     const subjectMap = new Map<
@@ -340,11 +308,11 @@ export class CurriculumRequirementsService {
     for (const config of configs) {
       const existing = subjectMap.get(config.subject_id);
       if (existing) {
-        existing.classes.push(config.class_entity.name);
+        existing.classes.push(config.class_name);
       } else {
         subjectMap.set(config.subject_id, {
           subject: config.subject,
-          classes: [config.class_entity.name],
+          classes: [config.class_name],
         });
       }
     }
@@ -362,38 +330,10 @@ export class CurriculumRequirementsService {
     yearGroupId: string,
     academicYearId: string,
   ) {
-    const [subject, yearGroup, academicYear] = await Promise.all([
-      this.prisma.subject.findFirst({
-        where: { id: subjectId, tenant_id: tenantId },
-        select: { id: true },
-      }),
-      this.prisma.yearGroup.findFirst({
-        where: { id: yearGroupId, tenant_id: tenantId },
-        select: { id: true },
-      }),
-      this.prisma.academicYear.findFirst({
-        where: { id: academicYearId, tenant_id: tenantId },
-        select: { id: true },
-      }),
+    await Promise.all([
+      this.academicReadFacade.findSubjectByIdOrThrow(tenantId, subjectId),
+      this.academicReadFacade.findYearGroupByIdOrThrow(tenantId, yearGroupId),
+      this.academicReadFacade.findYearByIdOrThrow(tenantId, academicYearId),
     ]);
-
-    if (!subject) {
-      throw new NotFoundException({
-        code: 'SUBJECT_NOT_FOUND',
-        message: `Subject "${subjectId}" not found`,
-      });
-    }
-    if (!yearGroup) {
-      throw new NotFoundException({
-        code: 'YEAR_GROUP_NOT_FOUND',
-        message: `Year group "${yearGroupId}" not found`,
-      });
-    }
-    if (!academicYear) {
-      throw new NotFoundException({
-        code: 'ACADEMIC_YEAR_NOT_FOUND',
-        message: `Academic year "${academicYearId}" not found`,
-      });
-    }
   }
 }

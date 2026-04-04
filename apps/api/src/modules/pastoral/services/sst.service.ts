@@ -4,6 +4,8 @@ import type { AddSstMemberDto, UpdateSstMemberDto } from '@school/shared/pastora
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
+import { RbacReadFacade } from '../../rbac/rbac-read.facade';
+
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { PastoralEventService } from './pastoral-event.service';
@@ -35,6 +37,7 @@ export class SstService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly rbacReadFacade: RbacReadFacade,
     private readonly eventService: PastoralEventService,
     private readonly permissionCacheService: PermissionCacheService,
   ) {}
@@ -286,13 +289,7 @@ export class SstService {
 
   async ensureTierAccess(tenantId: string, userId: string): Promise<TierAccessResult> {
     // Find the user's membership for this tenant
-    const membership = await this.prisma.tenantMembership.findFirst({
-      where: {
-        tenant_id: tenantId,
-        user_id: userId,
-      },
-      select: { id: true },
-    });
+    const membership = await this.rbacReadFacade.findMembershipSummary(tenantId, userId);
 
     if (!membership) {
       this.logger.warn(`SST member user_id=${userId} has no membership in tenant_id=${tenantId}`);

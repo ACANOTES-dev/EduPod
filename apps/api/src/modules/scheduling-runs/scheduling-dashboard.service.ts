@@ -2,11 +2,28 @@ import { Injectable } from '@nestjs/common';
 
 import type { SchedulingResultJson } from '@school/shared';
 
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { RoomsReadFacade } from '../rooms/rooms-read.facade';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { SchedulingReadFacade } from '../scheduling/scheduling-read.facade';
+import { StaffAvailabilityReadFacade } from '../staff-availability/staff-availability-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
+
+import { SchedulingRunsReadFacade } from './scheduling-runs-read.facade';
 
 @Injectable()
 export class SchedulingDashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly roomsReadFacade: RoomsReadFacade,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
+    private readonly schedulingReadFacade: SchedulingReadFacade,
+    private readonly schedulingRunsReadFacade: SchedulingRunsReadFacade,
+    private readonly staffAvailabilityReadFacade: StaffAvailabilityReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+  ) {}
 
   // ─── Overview ──────────────────────────────────────────────────────────────
   // Summary stats for the scheduling dashboard tile
@@ -15,67 +32,26 @@ export class SchedulingDashboardService {
     const [totalClasses, configuredClasses, scheduledClasses, latestRun, activeRunCount] =
       await Promise.all([
         // Total active academic classes
-        this.prisma.class.count({
-          where: {
-            tenant_id: tenantId,
-            academic_year_id: academicYearId,
-            status: 'active',
-            subject: { subject_type: 'academic' },
-          },
+        this.classesReadFacade.countByAcademicYear(tenantId, academicYearId, {
+          status: 'active',
+          subjectType: 'academic',
         }),
 
         // Classes with scheduling requirements
-        this.prisma.classSchedulingRequirement.count({
-          where: {
-            tenant_id: tenantId,
-            academic_year_id: academicYearId,
-            class_entity: { status: 'active', subject: { subject_type: 'academic' } },
-          },
+        this.schedulingReadFacade.countClassRequirements(tenantId, academicYearId, {
+          activeAcademicOnly: true,
         }),
 
         // Classes that have at least one auto_generated schedule entry
-        this.prisma.schedule.groupBy({
-          by: ['class_id'],
-          where: {
-            tenant_id: tenantId,
-            academic_year_id: academicYearId,
-            source: 'auto_generated',
-            OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-          },
-        }),
+        this.schedulesReadFacade.findScheduledClassIds(tenantId, academicYearId, {
+          source: 'auto_generated',
+        }).then((ids) => ids.map((id) => ({ class_id: id }))),
 
         // Most recent completed / applied run
-        this.prisma.schedulingRun.findFirst({
-          where: {
-            tenant_id: tenantId,
-            academic_year_id: academicYearId,
-            status: { in: ['completed', 'applied'] },
-          },
-          orderBy: { created_at: 'desc' },
-          select: {
-            id: true,
-            status: true,
-            mode: true,
-            entries_generated: true,
-            entries_pinned: true,
-            entries_unassigned: true,
-            hard_constraint_violations: true,
-            soft_preference_score: true,
-            soft_preference_max: true,
-            solver_duration_ms: true,
-            created_at: true,
-            applied_at: true,
-          },
-        }),
+        this.schedulingRunsReadFacade.findLatestCompletedRun(tenantId, academicYearId),
 
         // Active (queued/running) run count
-        this.prisma.schedulingRun.count({
-          where: {
-            tenant_id: tenantId,
-            academic_year_id: academicYearId,
-            status: { in: ['queued', 'running'] },
-          },
-        }),
+        this.schedulingRunsReadFacade.countActiveRuns(tenantId, academicYearId),
       ]);
 
     const effectiveFilter = {
@@ -89,45 +65,11 @@ export class SchedulingDashboardService {
       usedRoomSlots,
       teacherScheduleEntries,
     ] = await Promise.all([
-      this.prisma.schedule.count({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: academicYearId,
-          is_pinned: true,
-          ...effectiveFilter,
-        },
-      }),
-      this.prisma.schedulePeriodTemplate.count({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: academicYearId,
-          schedule_period_type: 'teaching',
-        },
-      }),
-      this.prisma.room.count({
-        where: { tenant_id: tenantId, active: true },
-      }),
-      this.prisma.schedule.count({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: academicYearId,
-          room_id: { not: null },
-          ...effectiveFilter,
-        },
-      }),
-      this.prisma.schedule.findMany({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: academicYearId,
-          teacher_staff_id: { not: null },
-          ...effectiveFilter,
-        },
-        select: {
-          teacher_staff_id: true,
-          weekday: true,
-          period_order: true,
-        },
-      }),
+      this.schedulesReadFacade.countPinnedEntries(tenantId, academicYearId),
+      this.schedulingReadFacade.countTeachingPeriods(tenantId, academicYearId),
+      this.roomsReadFacade.countActiveRooms(tenantId),
+      this.schedulesReadFacade.countRoomAssignedEntries(tenantId, academicYearId),
+      this.schedulesReadFacade.findTeacherScheduleEntries(tenantId, academicYearId),
     ]);
 
     // Room utilisation: used room-slots / total room-slots
@@ -220,23 +162,10 @@ export class SchedulingDashboardService {
 
   async workload(tenantId: string, academicYearId: string) {
     // Get all schedule entries (auto_generated + manual) for workload
-    const allSchedules = await this.prisma.schedule.findMany({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        teacher_staff_id: { not: null },
-        OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-      },
-      select: {
-        teacher_staff_id: true,
-        teacher: {
-          select: {
-            id: true,
-            user: { select: { first_name: true, last_name: true } },
-          },
-        },
-      },
-    });
+    const allSchedules = await this.schedulesReadFacade.findTeacherWorkloadEntries(
+      tenantId,
+      academicYearId,
+    );
 
     // Aggregate by teacher
     const teacherPeriodMap = new Map<string, { name: string; total_periods: number }>();
@@ -255,14 +184,11 @@ export class SchedulingDashboardService {
     }
 
     // Get teacher availability (max periods per week derived from availability windows)
-    const availabilities = await this.prisma.staffAvailability.findMany({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        staff_profile_id: { in: [...teacherPeriodMap.keys()] },
-      },
-      select: { staff_profile_id: true, weekday: true },
-    });
+    const availabilities = await this.staffAvailabilityReadFacade.findByStaffIds(
+      tenantId,
+      academicYearId,
+      [...teacherPeriodMap.keys()],
+    );
 
     const teacherAvailDays = new Map<string, Set<number>>();
     for (const a of availabilities) {
@@ -272,13 +198,10 @@ export class SchedulingDashboardService {
     }
 
     // Get period counts per academic year for max context
-    const totalTeachingPeriods = await this.prisma.schedulePeriodTemplate.count({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        schedule_period_type: 'teaching',
-      },
-    });
+    const totalTeachingPeriods = await this.schedulingReadFacade.countTeachingPeriods(
+      tenantId,
+      academicYearId,
+    );
 
     const result = [...teacherPeriodMap.entries()].map(([staffId, data]) => ({
       staff_id: staffId,
@@ -302,52 +225,23 @@ export class SchedulingDashboardService {
 
   async unassigned(tenantId: string, academicYearId: string) {
     // Get all active academic classes with requirements
-    const allConfiguredClasses = await this.prisma.classSchedulingRequirement.findMany({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        class_entity: { status: 'active', subject: { subject_type: 'academic' } },
-      },
-      select: {
-        class_id: true,
-        periods_per_week: true,
-        class_entity: {
-          select: {
-            id: true,
-            name: true,
-            subject: { select: { name: true } },
-            year_group: { select: { name: true } },
-          },
-        },
-      },
-    });
+    const allConfiguredClasses = await this.schedulingReadFacade.findClassRequirementsWithDetails(
+      tenantId,
+      academicYearId,
+      { activeAcademicOnly: true },
+    );
 
     // Get currently scheduled classes (with count of auto_generated effective entries)
-    const scheduledGroups = await this.prisma.schedule.groupBy({
-      by: ['class_id'],
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-      },
-      _count: { class_id: true },
-    });
-
-    const scheduledMap = new Map<string, number>();
-    for (const group of scheduledGroups) {
-      scheduledMap.set(group.class_id, group._count.class_id);
-    }
+    const scheduledMap = await this.schedulesReadFacade.countEntriesPerClass(
+      tenantId,
+      academicYearId,
+    );
 
     // Check the most recent run's unassigned list
-    const latestCompletedRun = await this.prisma.schedulingRun.findFirst({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        status: { in: ['completed', 'applied'] },
-      },
-      orderBy: { created_at: 'desc' },
-      select: { result_json: true },
-    });
+    const latestCompletedRun = await this.schedulingRunsReadFacade.findLatestRunWithResult(
+      tenantId,
+      academicYearId,
+    );
 
     const unassignedFromRun = new Map<string, string>();
     if (latestCompletedRun?.result_json) {
@@ -385,10 +279,7 @@ export class SchedulingDashboardService {
   // ─── Helper: resolve staff profile for a user ─────────────────────────────
 
   async getStaffProfileId(tenantId: string, userId: string): Promise<string | null> {
-    const staffProfile = await this.prisma.staffProfile.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-      select: { id: true },
-    });
+    const staffProfile = await this.staffProfileReadFacade.findByUserId(tenantId, userId);
     return staffProfile?.id ?? null;
   }
 
@@ -396,22 +287,10 @@ export class SchedulingDashboardService {
   // Staff preference satisfaction from the latest run
 
   async preferences(tenantId: string, academicYearId: string, staffProfileId?: string) {
-    const latestRun = await this.prisma.schedulingRun.findFirst({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        status: { in: ['completed', 'applied'] },
-      },
-      orderBy: { created_at: 'desc' },
-      select: {
-        id: true,
-        status: true,
-        soft_preference_score: true,
-        soft_preference_max: true,
-        result_json: true,
-        created_at: true,
-      },
-    });
+    const latestRun = await this.schedulingRunsReadFacade.findLatestRunWithResult(
+      tenantId,
+      academicYearId,
+    );
 
     if (!latestRun) {
       return {
@@ -465,13 +344,7 @@ export class SchedulingDashboardService {
     const staffIds = [...staffSatisfaction.keys()];
     const staffProfiles =
       staffIds.length > 0
-        ? await this.prisma.staffProfile.findMany({
-            where: { id: { in: staffIds }, tenant_id: tenantId },
-            select: {
-              id: true,
-              user: { select: { first_name: true, last_name: true } },
-            },
-          })
+        ? await this.staffProfileReadFacade.findByIds(tenantId, staffIds)
         : [];
 
     const staffNameMap = new Map(
@@ -523,33 +396,9 @@ export class SchedulingDashboardService {
     };
 
     const [rooms, totalTeachingSlots, roomSchedules] = await Promise.all([
-      this.prisma.room.findMany({
-        where: { tenant_id: tenantId, active: true },
-        select: { id: true, name: true, room_type: true, capacity: true },
-      }),
-      this.prisma.schedulePeriodTemplate.count({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: academicYearId,
-          schedule_period_type: 'teaching',
-        },
-      }),
-      this.prisma.schedule.findMany({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: academicYearId,
-          room_id: { not: null },
-          ...effectiveFilter,
-        },
-        select: {
-          room_id: true,
-          weekday: true,
-          period_order: true,
-          schedule_period_template: {
-            select: { period_name: true },
-          },
-        },
-      }),
+      this.roomsReadFacade.findActiveRooms(tenantId),
+      this.schedulingReadFacade.countTeachingPeriods(tenantId, academicYearId),
+      this.schedulesReadFacade.findRoomScheduleEntries(tenantId, academicYearId),
     ]);
 
     // Count usage per room and find peak period
@@ -603,35 +452,10 @@ export class SchedulingDashboardService {
   // Historical metrics from past scheduling runs
 
   async trends(tenantId: string, academicYearId: string) {
-    const runs = await this.prisma.schedulingRun.findMany({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        status: { in: ['completed', 'applied'] },
-      },
-      orderBy: { created_at: 'asc' },
-      take: 20,
-      select: {
-        id: true,
-        entries_generated: true,
-        entries_unassigned: true,
-        soft_preference_score: true,
-        soft_preference_max: true,
-        created_at: true,
-        result_json: true,
-      },
-    });
+    const runs = await this.schedulingRunsReadFacade.findHistoricalRuns(tenantId, academicYearId);
 
-    const totalTeachingSlots = await this.prisma.schedulePeriodTemplate.count({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        schedule_period_type: 'teaching',
-      },
-    });
-    const totalActiveRooms = await this.prisma.room.count({
-      where: { tenant_id: tenantId, active: true },
-    });
+    const totalTeachingSlots = await this.schedulingReadFacade.countTeachingPeriods(tenantId, academicYearId);
+    const totalActiveRooms = await this.roomsReadFacade.countActiveRooms(tenantId);
 
     const data = runs.map((run) => {
       const resultJson = run.result_json as unknown as SchedulingResultJson | null;

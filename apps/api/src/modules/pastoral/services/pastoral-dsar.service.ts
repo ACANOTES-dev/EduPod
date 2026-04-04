@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { ChildProtectionReadFacade } from '../../child-protection/child-protection-read.facade';
+
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { PastoralEventService } from './pastoral-event.service';
@@ -139,6 +141,7 @@ export class PastoralDsarService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly childProtectionReadFacade: ChildProtectionReadFacade,
     private readonly eventService: PastoralEventService,
   ) {}
 
@@ -615,10 +618,7 @@ export class PastoralDsarService {
    * is a platform-level security check.
    */
   private async checkCpAccess(tenantId: string, userId: string): Promise<boolean> {
-    const grant = await this.prisma.cpAccessGrant.findFirst({
-      where: { tenant_id: tenantId, user_id: userId, revoked_at: null },
-    });
-    return !!grant;
+    return this.childProtectionReadFacade.hasActiveCpAccess(tenantId, userId);
   }
 
   private async resolveDsarQueryUserId(
@@ -629,13 +629,9 @@ export class PastoralDsarService {
       return preferredUserId;
     }
 
-    const fallbackGrant = await this.prisma.cpAccessGrant.findFirst({
-      where: { tenant_id: tenantId, revoked_at: null },
-      orderBy: { granted_at: 'asc' },
-      select: { user_id: true },
-    });
+    const fallbackUserId = await this.childProtectionReadFacade.findFallbackGrantUserId(tenantId);
 
-    return fallbackGrant?.user_id ?? null;
+    return fallbackUserId;
   }
 
   /**

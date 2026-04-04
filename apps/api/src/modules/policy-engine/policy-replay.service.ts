@@ -13,6 +13,8 @@ import {
   ReplaySampleMatch,
 } from '@school/shared/behaviour';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { PolicyEvaluationEngine } from './policy-evaluation-engine';
@@ -44,6 +46,8 @@ export class PolicyReplayService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly evaluationEngine: PolicyEvaluationEngine,
+    private readonly behaviourReadFacade: BehaviourReadFacade,
+    private readonly academicReadFacade: AcademicReadFacade,
   ) {}
 
   /**
@@ -63,12 +67,7 @@ export class PolicyReplayService {
     }
 
     // Load the rule
-    const rule = await this.prisma.behaviourPolicyRule.findFirst({
-      where: { id: dto.rule_id, tenant_id: tenantId },
-      include: {
-        actions: { orderBy: { execution_order: 'asc' } },
-      },
-    });
+    const rule = await this.behaviourReadFacade.findPolicyRuleById(tenantId, dto.rule_id);
 
     if (!rule) {
       throw new NotFoundException({
@@ -80,21 +79,28 @@ export class PolicyReplayService {
     const conditions = PolicyConditionSchema.parse(rule.conditions);
 
     // Load incidents in the period
-    const incidents = await this.prisma.behaviourIncident.findMany({
-      where: {
-        tenant_id: tenantId,
-        occurred_at: { gte: fromDate, lte: toDate },
-        status: {
-          notIn: ['withdrawn', 'draft'] as $Enums.IncidentStatus[],
-        },
-      },
-      include: {
-        category: { select: { name: true } },
-        participants: {
-          where: { participant_type: 'student' },
-        },
-      },
-    });
+    const incidents = await this.behaviourReadFacade.findIncidentsForReplay(
+      tenantId,
+      fromDate,
+      toDate,
+      ['withdrawn', 'draft'],
+    ) as Array<{
+      id: string;
+      category_id: string;
+      polarity: string;
+      severity: number;
+      context_type: string;
+      occurred_at: Date;
+      weekday: number | null;
+      period_order: number | null;
+      category?: { name: string } | null;
+      participants: Array<{
+        student_id: string | null;
+        role: string;
+        student_snapshot: unknown;
+      }>;
+      incident_number?: string;
+    }>;
 
     if (incidents.length > 10000) {
       throw new BadRequestException({
@@ -189,10 +195,7 @@ export class PolicyReplayService {
    * No data is written.
    */
   async dryRun(tenantId: string, dto: PolicyDryRunDto): Promise<DryRunResult> {
-    const category = await this.prisma.behaviourCategory.findFirst({
-      where: { id: dto.category_id, tenant_id: tenantId },
-      select: { name: true },
-    });
+    const category = await this.behaviourReadFacade.findCategoryById(tenantId, dto.category_id);
 
     if (!category) {
       throw new NotFoundException({
@@ -224,27 +227,29 @@ export class PolicyReplayService {
 
     // Resolve year group name if ID provided
     if (dto.student_year_group_id) {
-      const yg = await this.prisma.yearGroup.findFirst({
-        where: { id: dto.student_year_group_id, tenant_id: tenantId },
-        select: { name: true },
-      });
+      const yg = await this.academicReadFacade.findYearGroupById(tenantId, dto.student_year_group_id);
       if (yg) hypotheticalInput.year_group_name = yg.name;
     }
 
     const stageResults: DryRunStageResult[] = [];
 
     for (const stage of STAGE_ORDER_PRISMA) {
-      const rules = await this.prisma.behaviourPolicyRule.findMany({
-        where: {
-          tenant_id: tenantId,
-          stage,
-          is_active: true,
-        },
-        include: {
-          actions: { orderBy: { execution_order: 'asc' } },
-        },
-        orderBy: { priority: 'asc' },
-      });
+      const stageResult = await this.behaviourReadFacade.findPolicyRulesPaginated(
+        tenantId,
+        { stage, is_active: true },
+        { skip: 0, take: 1000 },
+      );
+      const rules = stageResult.data as Array<{
+        id: string;
+        name: string;
+        conditions: unknown;
+        stop_processing_stage: boolean;
+        match_strategy: string;
+        actions: Array<{
+          action_type: string;
+          action_config: unknown;
+        }>;
+      }>;
 
       const matchedRules: DryRunStageResult['matched_rules'] = [];
 
@@ -291,16 +296,14 @@ export class PolicyReplayService {
    * Full policy decision trace for an incident.
    */
   async getIncidentEvaluationTrace(tenantId: string, incidentId: string) {
-    const evaluations = await this.prisma.behaviourPolicyEvaluation.findMany({
-      where: { tenant_id: tenantId, incident_id: incidentId },
-      include: {
-        action_executions: {
-          orderBy: { executed_at: 'asc' },
-        },
-        rule_version: true,
-      },
-      orderBy: [{ stage: 'asc' }, { created_at: 'asc' }],
-    });
+    const evaluations = await this.behaviourReadFacade.findPolicyEvaluationTrace(
+      tenantId,
+      incidentId,
+    ) as Array<{
+      stage: string;
+      rule_version: { stage: string } | null;
+      [key: string]: unknown;
+    }>;
 
     return {
       data: evaluations.map((e) => ({

@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
+import { AcademicsModule } from '../academics/academics.module';
 import { AuthModule } from '../auth/auth.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
 import { PolicyEngineModule } from '../policy-engine/policy-engine.module';
@@ -13,6 +14,7 @@ import { BehaviourExportService } from './behaviour-export.service';
 
 @Module({
   imports: [
+    AcademicsModule,
     AuthModule,
     PdfRenderingModule,
     BehaviourCoreModule,

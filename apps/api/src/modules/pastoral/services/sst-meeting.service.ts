@@ -11,6 +11,8 @@ import {
 } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
+
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { PastoralEventService } from './pastoral-event.service';
@@ -109,6 +111,7 @@ export class SstMeetingService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
     private readonly eventService: PastoralEventService,
     private readonly sstService: SstService,
     @InjectQueue('pastoral') private readonly pastoralQueue: Queue,
@@ -651,9 +654,7 @@ export class SstMeetingService {
   }
 
   private async loadSstSettings(tenantId: string) {
-    const record = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const record = await this.configurationReadFacade.findSettings(tenantId);
 
     const settingsJson = (record?.settings as Record<string, unknown>) ?? {};
     const pastoralRaw = (settingsJson.pastoral as Record<string, unknown>) ?? {};

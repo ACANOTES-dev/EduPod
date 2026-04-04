@@ -7,6 +7,9 @@ import {
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
+import { StudentReadFacade } from '../students/student-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import type { BulkUpsertGradesDto } from './dto/gradebook.dto';
@@ -20,7 +23,6 @@ interface FindByStudentFilters {
 @Injectable()
 export class GradesService {
   constructor(private readonly prisma: PrismaService) {}
-
   /**
    * Bulk upsert grades for an assessment.
    * Verifies assessment status, student enrolment, and comment requirements.

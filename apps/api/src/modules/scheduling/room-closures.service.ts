@@ -4,6 +4,7 @@ import type { CreateRoomClosureDto } from '@school/shared';
 
 import { withRls } from '../../common/helpers/with-rls';
 import { PrismaService } from '../prisma/prisma.service';
+import { RoomsReadFacade } from '../rooms/rooms-read.facade';
 
 interface ListParams {
   page: number;
@@ -20,7 +21,10 @@ const INCLUDE_RELATIONS = {
 
 @Injectable()
 export class RoomClosuresService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roomsReadFacade: RoomsReadFacade,
+  ) {}
 
   // ─── List ──────────────────────────────────────────────────────────────────
 
@@ -46,16 +50,19 @@ export class RoomClosuresService {
       }
     }
 
-    const [data, total] = await Promise.all([
-      this.prisma.roomClosure.findMany({
-        where,
-        skip,
-        take: pageSize,
-        orderBy: { date_from: 'desc' },
-        include: INCLUDE_RELATIONS,
-      }),
-      this.prisma.roomClosure.count({ where }),
-    ]);
+    const result = await this.roomsReadFacade.findClosuresPaginated(tenantId, {
+      skip,
+      take: pageSize,
+      where: (() => {
+        const w: Record<string, unknown> = {};
+        if (room_id) w['room_id'] = room_id;
+        if (where['AND']) w['AND'] = where['AND'];
+        return w;
+      })(),
+      include: INCLUDE_RELATIONS,
+    });
+    const data = result.data as Record<string, unknown>[];
+    const total = result.total;
 
     return {
       data: data.map((rc) => this.formatClosure(rc)),
@@ -67,17 +74,7 @@ export class RoomClosuresService {
 
   async create(tenantId: string, userId: string, dto: CreateRoomClosureDto) {
     // Validate room exists
-    const room = await this.prisma.room.findFirst({
-      where: { id: dto.room_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-
-    if (!room) {
-      throw new NotFoundException({
-        code: 'ROOM_NOT_FOUND',
-        message: `Room "${dto.room_id}" not found`,
-      });
-    }
+    await this.roomsReadFacade.existsOrThrow(tenantId, dto.room_id);
 
     const record = (await withRls(this.prisma, { tenant_id: tenantId }, async (tx) => {
       return tx.roomClosure.create({
@@ -99,10 +96,7 @@ export class RoomClosuresService {
   // ─── Delete ────────────────────────────────────────────────────────────────
 
   async delete(tenantId: string, id: string) {
-    const existing = await this.prisma.roomClosure.findFirst({
-      where: { id, tenant_id: tenantId },
-      select: { id: true },
-    });
+    const existing = await this.roomsReadFacade.findClosureById(tenantId, id);
 
     if (!existing) {
       throw new NotFoundException({

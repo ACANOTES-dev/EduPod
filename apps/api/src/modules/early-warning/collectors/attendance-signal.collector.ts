@@ -15,22 +15,17 @@ const WEEKS_TO_TRACK = 4;
 
 interface AttendanceSummaryRow {
   id: string;
-  tenant_id: string;
-  student_id: string;
   summary_date: Date;
   derived_status: string;
-  derived_payload: unknown;
 }
 
 interface PatternAlertRow {
   id: string;
-  tenant_id: string;
-  student_id: string;
   alert_type: string;
   detected_date: Date;
   window_start: Date;
   window_end: Date;
-  details_json: Record<string, unknown>;
+  details_json: unknown;
   status: string;
 }
 
@@ -93,15 +88,8 @@ export class AttendanceSignalCollector {
 
     // Fetch both queries in parallel — single DB round-trip batch
     const [summaries, patternAlerts] = await Promise.all([
-      this.attendanceReadFacade.findDailySummariesSince(
-        tenantId,
-        studentId,
-        thirtyDaysAgo,
-      ) as Promise<AttendanceSummaryRow[]>,
-
-      this.attendanceReadFacade.findActivePatternAlerts(tenantId, studentId) as Promise<
-        PatternAlertRow[]
-      >,
+      this.attendanceReadFacade.findDailySummariesSince(tenantId, studentId, thirtyDaysAgo),
+      this.attendanceReadFacade.findActivePatternAlerts(tenantId, studentId),
     ]);
 
     const result: SignalResult = {

@@ -3,7 +3,9 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import type { UpsertRotationConfigDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 
 export interface CurrentRotationWeek {
   cycle_length: number;
@@ -14,21 +16,17 @@ export interface CurrentRotationWeek {
 
 @Injectable()
 export class RotationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
+  ) {}
 
   // ─── Upsert Rotation Config ───────────────────────────────────────────────
 
   async upsertRotationConfig(tenantId: string, dto: UpsertRotationConfigDto) {
     // Verify academic year exists
-    const academicYear = await this.prisma.academicYear.findFirst({
-      where: { id: dto.academic_year_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-    if (!academicYear) {
-      throw new NotFoundException({
-        error: { code: 'ACADEMIC_YEAR_NOT_FOUND', message: 'Academic year not found' },
-      });
-    }
+    await this.academicReadFacade.findYearByIdOrThrow(tenantId, dto.academic_year_id);
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
@@ -125,16 +123,9 @@ export class RotationService {
     }
 
     // Check if any schedules reference rotation weeks
-    const rotatingSchedules = await this.prisma.schedule.findFirst({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        rotation_week: { not: null },
-      },
-      select: { id: true },
-    });
+    const hasRotation = await this.schedulesReadFacade.hasRotationEntries(tenantId, academicYearId);
 
-    if (rotatingSchedules) {
+    if (hasRotation) {
       throw new ConflictException({
         error: {
           code: 'ROTATION_IN_USE',

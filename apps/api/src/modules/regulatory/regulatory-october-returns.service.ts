@@ -2,7 +2,9 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { OCTOBER_RETURNS_FIELDS } from '@school/shared/regulatory';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -71,14 +73,16 @@ const PPSN_REGEX = /^\d{7}[A-Za-z]{1,2}$/;
 export class RegulatoryOctoberReturnsService {
   private readonly logger = new Logger(RegulatoryOctoberReturnsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
+  ) {}
 
   // ─── Check Readiness ───────────────────────────────────────────────────────
 
   async checkReadiness(tenantId: string, academicYear: string): Promise<ReadinessResult> {
-    const ayRecord = await this.prisma.academicYear.findFirst({
-      where: { tenant_id: tenantId, name: academicYear },
-    });
+    const ayRecord = await this.academicReadFacade.findYearByName(tenantId, academicYear);
 
     if (!ayRecord) {
       this.logger.warn(`Academic year "${academicYear}" not found for tenant ${tenantId}`);
@@ -96,8 +100,8 @@ export class RegulatoryOctoberReturnsService {
       };
     }
 
-    const activeStudents = await this.prisma.student.findMany({
-      where: { tenant_id: tenantId, status: 'active' },
+    const activeStudents = await this.studentReadFacade.findManyGeneric(tenantId, {
+      where: { status: 'active' },
       select: {
         id: true,
         gender: true,
@@ -112,7 +116,15 @@ export class RegulatoryOctoberReturnsService {
           },
         },
       },
-    });
+    }) as Array<{
+      id: string;
+      gender: string | null;
+      nationality: string | null;
+      entry_date: Date | null;
+      class_enrolments: {
+        class_entity: { academic_year_id: string; year_group_id: string | null };
+      }[];
+    }>;
 
     const studentCount = activeStudents.length;
     const categories: ReadinessCategory[] = [];
@@ -132,9 +144,7 @@ export class RegulatoryOctoberReturnsService {
   // ─── Preview ───────────────────────────────────────────────────────────────
 
   async preview(tenantId: string, academicYear: string): Promise<PreviewResult> {
-    const ayRecord = await this.prisma.academicYear.findFirst({
-      where: { tenant_id: tenantId, name: academicYear },
-    });
+    const ayRecord = await this.academicReadFacade.findYearByName(tenantId, academicYear);
 
     if (!ayRecord) {
       throw new NotFoundException({
@@ -143,8 +153,8 @@ export class RegulatoryOctoberReturnsService {
       });
     }
 
-    const activeStudents = await this.prisma.student.findMany({
-      where: { tenant_id: tenantId, status: 'active' },
+    const activeStudents = await this.studentReadFacade.findManyGeneric(tenantId, {
+      where: { status: 'active' },
       select: {
         id: true,
         gender: true,
@@ -162,7 +172,18 @@ export class RegulatoryOctoberReturnsService {
           },
         },
       },
-    });
+    }) as Array<{
+      id: string;
+      gender: string | null;
+      nationality: string | null;
+      entry_date: Date | null;
+      class_enrolments: {
+        class_entity: {
+          academic_year_id: string;
+          year_group: { name: string } | null;
+        };
+      }[];
+    }>;
 
     // Gender aggregation
     let male = 0;
@@ -229,9 +250,7 @@ export class RegulatoryOctoberReturnsService {
   // ─── Student Issues ────────────────────────────────────────────────────────
 
   async getStudentIssues(tenantId: string, academicYear: string): Promise<StudentIssuesResult> {
-    const ayRecord = await this.prisma.academicYear.findFirst({
-      where: { tenant_id: tenantId, name: academicYear },
-    });
+    const ayRecord = await this.academicReadFacade.findYearByName(tenantId, academicYear);
 
     if (!ayRecord) {
       throw new NotFoundException({
@@ -240,8 +259,8 @@ export class RegulatoryOctoberReturnsService {
       });
     }
 
-    const activeStudents = await this.prisma.student.findMany({
-      where: { tenant_id: tenantId, status: 'active' },
+    const activeStudents = await this.studentReadFacade.findManyGeneric(tenantId, {
+      where: { status: 'active' },
       select: {
         id: true,
         first_name: true,
@@ -265,7 +284,22 @@ export class RegulatoryOctoberReturnsService {
           },
         },
       },
-    });
+    }) as Array<{
+      id: string;
+      first_name: string;
+      last_name: string;
+      student_number: string | null;
+      national_id: string | null;
+      date_of_birth: Date | null;
+      gender: string | null;
+      nationality: string | null;
+      entry_date: Date | null;
+      household_id: string | null;
+      household: { address_line_1: string | null } | null;
+      class_enrolments: {
+        class_entity: { academic_year_id: string; year_group_id: string | null };
+      }[];
+    }>;
 
     const issues: StudentIssueEntry[] = [];
 
@@ -292,8 +326,7 @@ export class RegulatoryOctoberReturnsService {
   // ─── Validate Single Student ───────────────────────────────────────────────
 
   async validateStudent(tenantId: string, studentId: string): Promise<ValidateStudentResult> {
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
+    const student = await this.studentReadFacade.findOneGeneric(tenantId, studentId, {
       select: {
         id: true,
         first_name: true,
@@ -317,7 +350,21 @@ export class RegulatoryOctoberReturnsService {
           },
         },
       },
-    });
+    }) as {
+      id: string;
+      first_name: string;
+      last_name: string;
+      student_number: string | null;
+      national_id: string | null;
+      date_of_birth: Date | null;
+      gender: string | null;
+      nationality: string | null;
+      entry_date: Date | null;
+      household: { address_line_1: string | null } | null;
+      class_enrolments: {
+        class_entity: { academic_year_id: string; year_group_id: string | null };
+      }[];
+    } | null;
 
     if (!student) {
       throw new NotFoundException({

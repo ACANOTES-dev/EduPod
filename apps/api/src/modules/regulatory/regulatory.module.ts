@@ -1,7 +1,14 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
+import { AcademicsModule } from '../academics/academics.module';
+import { AttendanceModule } from '../attendance/attendance.module';
 import { AuthModule } from '../auth/auth.module';
+import { BehaviourModule } from '../behaviour/behaviour.module';
+import { ClassesModule } from '../classes/classes.module';
 import { S3Module } from '../s3/s3.module';
+import { SchedulesModule } from '../schedules/schedules.module';
+import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
+import { StudentsModule } from '../students/students.module';
 
 import { DesFileExporterCsv } from './adapters/des-file-exporter.csv';
 import { DES_FILE_EXPORTER } from './adapters/des-file-exporter.interface';
@@ -24,7 +31,17 @@ import { RegulatoryTuslaService } from './regulatory-tusla.service';
 import { RegulatoryController } from './regulatory.controller';
 
 @Module({
-  imports: [AuthModule, S3Module],
+  imports: [
+    AuthModule,
+    S3Module,
+    forwardRef(() => StudentsModule),
+    forwardRef(() => StaffProfilesModule),
+    forwardRef(() => ClassesModule),
+    forwardRef(() => AcademicsModule),
+    forwardRef(() => SchedulesModule),
+    forwardRef(() => AttendanceModule),
+    forwardRef(() => BehaviourModule),
+  ],
   controllers: [RegulatoryController],
   providers: [
     { provide: DES_FILE_EXPORTER, useClass: DesFileExporterCsv },

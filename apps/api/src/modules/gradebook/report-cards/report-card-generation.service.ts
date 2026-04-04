@@ -2,11 +2,15 @@ import { NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../../academics/academic-read.facade';
+import { AttendanceReadFacade } from '../../attendance/attendance-read.facade';
+import { ClassesReadFacade } from '../../classes/classes-read.facade';
+import { StudentReadFacade } from '../../students/student-read.facade';
+import { TenantReadFacade } from '../../tenants/tenant-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export class ReportCardGenerationService {
   constructor(private readonly prisma: PrismaService) {}
-
   async generate(tenantId: string, studentIds: string[], periodId: string) {
     const period = await this.prisma.academicPeriod.findFirst({
       where: { id: periodId, tenant_id: tenantId },

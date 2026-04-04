@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
 import { S3Module } from '../s3/s3.module';
+import { SchedulesModule } from '../schedules/schedules.module';
 import { SequenceModule } from '../sequence/sequence.module';
 
 import { BehaviourAmendmentsController } from './behaviour-amendments.controller';
@@ -28,6 +29,7 @@ import { BehaviourSanctionsService } from './behaviour-sanctions.service';
     AuthModule,
     PdfRenderingModule,
     S3Module,
+    SchedulesModule,
     SequenceModule,
     BehaviourCoreModule,
     BullModule.registerQueue({ name: 'notifications' }),

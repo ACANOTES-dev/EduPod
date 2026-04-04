@@ -6,7 +6,9 @@ import {
   buildScopeFilter,
 } from '@school/shared/behaviour';
 
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 export interface ScopeResult {
   scope: BehaviourScope;
@@ -16,7 +18,11 @@ export interface ScopeResult {
 
 @Injectable()
 export class BehaviourScopeService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+  ) {}
 
   /**
    * Resolve the user's behaviour scope based on permissions.
@@ -39,34 +45,20 @@ export class BehaviourScopeService {
 
     // Users with view permission see their class students
     if (permissions.includes('behaviour.view')) {
-      const staffProfile = await this.prisma.staffProfile.findFirst({
-        where: { user_id: userId, tenant_id: tenantId },
-        select: { id: true },
-      });
+      const staffProfile = await this.staffProfileReadFacade.findByUserId(tenantId, userId);
 
       if (staffProfile) {
-        const classStaff = await this.prisma.classStaff.findMany({
-          where: {
-            staff_profile_id: staffProfile.id,
-            tenant_id: tenantId,
-          },
-          select: { class_id: true },
-        });
+        const classIds = await this.classesReadFacade.findClassIdsByStaff(tenantId, staffProfile.id);
 
-        if (classStaff.length > 0) {
-          const classIds = classStaff.map((cs) => cs.class_id);
-          const enrolments = await this.prisma.classEnrolment.findMany({
-            where: {
-              class_id: { in: classIds },
-              tenant_id: tenantId,
-              status: 'active',
-            },
-            select: { student_id: true },
-          });
+        if (classIds.length > 0) {
+          const studentIdSets = await Promise.all(
+            classIds.map((cid) => this.classesReadFacade.findEnrolledStudentIds(tenantId, cid)),
+          );
+          const allStudentIds = studentIdSets.flat();
 
           return {
             scope: 'class',
-            classStudentIds: [...new Set(enrolments.map((e) => e.student_id))],
+            classStudentIds: [...new Set(allStudentIds)],
           };
         }
       }

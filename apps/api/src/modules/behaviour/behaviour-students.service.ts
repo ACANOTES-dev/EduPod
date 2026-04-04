@@ -3,6 +3,7 @@ import { $Enums, Prisma } from '@prisma/client';
 
 import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import { BehaviourPointsService } from './behaviour-points.service';
 import { BehaviourScopeService } from './behaviour-scope.service';
@@ -27,6 +28,7 @@ export class BehaviourStudentsService {
     private readonly scopeService: BehaviourScopeService,
     private readonly pointsService: BehaviourPointsService,
     private readonly attendanceReadFacade: AttendanceReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
   ) {
     this.analyticsService = new BehaviourStudentAnalyticsService(
       this.prisma,
@@ -75,9 +77,8 @@ export class BehaviourStudentsService {
     }
 
     const [students, total] = await Promise.all([
-      this.prisma.student.findMany({
+      this.studentReadFacade.findManyGeneric(tenantId, {
         where: studentFilter,
-        orderBy: { last_name: 'asc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
         select: {
@@ -94,8 +95,16 @@ export class BehaviourStudentsService {
             },
           },
         },
-      }),
-      this.prisma.student.count({ where: studentFilter }),
+        orderBy: { last_name: 'asc' },
+      }) as Promise<Array<{
+        id: string;
+        first_name: string;
+        last_name: string;
+        student_number: string | null;
+        year_group: { id: string; name: string } | null;
+        _count: { bh_incident_participants: number };
+      }>>,
+      this.studentReadFacade.count(tenantId, studentFilter),
     ]);
 
     // Get point totals for returned students
@@ -128,10 +137,7 @@ export class BehaviourStudentsService {
    * Full student behaviour profile.
    */
   async getStudentProfile(tenantId: string, studentId: string) {
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
-      include: { year_group: { select: { id: true, name: true } } },
-    });
+    const student = await this.studentReadFacade.findById(tenantId, studentId);
     if (!student) {
       throw new NotFoundException({
         code: 'STUDENT_NOT_FOUND',
@@ -303,11 +309,8 @@ export class BehaviourStudentsService {
    */
   async getStudentAnalytics(tenantId: string, studentId: string) {
     // Validate student exists
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
-      select: { id: true },
-    });
-    if (!student) {
+    const studentExists = await this.studentReadFacade.exists(tenantId, studentId);
+    if (!studentExists) {
       throw new NotFoundException({
         code: 'STUDENT_NOT_FOUND',
         message: 'Student not found',
@@ -553,15 +556,7 @@ export class BehaviourStudentsService {
    */
   async getParentView(tenantId: string, studentId: string) {
     // Validate student exists
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
-      select: {
-        id: true,
-        first_name: true,
-        last_name: true,
-        student_number: true,
-      },
-    });
+    const student = await this.studentReadFacade.findById(tenantId, studentId);
     if (!student) {
       throw new NotFoundException({
         code: 'STUDENT_NOT_FOUND',

@@ -4,6 +4,7 @@ import type { EmergencyChangeDto, ExecuteSwapDto, ValidateSwapDto } from '@schoo
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 
 export interface SwapValidationResult {
   valid: boolean;
@@ -17,32 +18,17 @@ export interface SwapValidationResult {
 
 @Injectable()
 export class ScheduleSwapService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
+  ) {}
 
   // ─── Validate Swap ────────────────────────────────────────────────────────
 
   async validateSwap(tenantId: string, dto: ValidateSwapDto): Promise<SwapValidationResult> {
     const [scheduleA, scheduleB] = await Promise.all([
-      this.prisma.schedule.findFirst({
-        where: { id: dto.schedule_id_a, tenant_id: tenantId },
-        include: {
-          class_entity: { select: { name: true, year_group_id: true, subject_id: true } },
-          teacher: {
-            select: { id: true, user: { select: { first_name: true, last_name: true } } },
-          },
-          room: { select: { id: true, name: true } },
-        },
-      }),
-      this.prisma.schedule.findFirst({
-        where: { id: dto.schedule_id_b, tenant_id: tenantId },
-        include: {
-          class_entity: { select: { name: true, year_group_id: true, subject_id: true } },
-          teacher: {
-            select: { id: true, user: { select: { first_name: true, last_name: true } } },
-          },
-          room: { select: { id: true, name: true } },
-        },
-      }),
+      this.schedulesReadFacade.findByIdWithSwapContext(tenantId, dto.schedule_id_a),
+      this.schedulesReadFacade.findByIdWithSwapContext(tenantId, dto.schedule_id_b),
     ]);
 
     if (!scheduleA) {
@@ -61,19 +47,15 @@ export class ScheduleSwapService {
     // After swap: A's teacher would be at B's slot, B's teacher at A's slot
     // Check if A's teacher has a conflict at B's slot (excluding A and B themselves)
     if (scheduleA.teacher_staff_id) {
-      const conflict = await this.prisma.schedule.findFirst({
-        where: {
-          tenant_id: tenantId,
-          id: { notIn: [dto.schedule_id_a, dto.schedule_id_b] },
-          teacher_staff_id: scheduleA.teacher_staff_id,
-          weekday: scheduleB.weekday,
-          start_time: { lt: scheduleB.end_time },
-          end_time: { gt: scheduleB.start_time },
-          OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-        },
-        select: { id: true },
+      const conflict = await this.schedulesReadFacade.hasConflict(tenantId, {
+        excludeIds: [dto.schedule_id_a, dto.schedule_id_b],
+        teacherStaffId: scheduleA.teacher_staff_id,
+        weekday: scheduleB.weekday,
+        startTime: scheduleB.start_time,
+        endTime: scheduleB.end_time,
       });
-      if (conflict) {
+      const conflictExists = conflict;
+      if (conflictExists) {
         const name = scheduleA.teacher
           ? `${scheduleA.teacher.user.first_name} ${scheduleA.teacher.user.last_name}`.trim()
           : scheduleA.teacher_staff_id;
@@ -82,19 +64,14 @@ export class ScheduleSwapService {
     }
 
     if (scheduleB.teacher_staff_id) {
-      const conflict = await this.prisma.schedule.findFirst({
-        where: {
-          tenant_id: tenantId,
-          id: { notIn: [dto.schedule_id_a, dto.schedule_id_b] },
-          teacher_staff_id: scheduleB.teacher_staff_id,
-          weekday: scheduleA.weekday,
-          start_time: { lt: scheduleA.end_time },
-          end_time: { gt: scheduleA.start_time },
-          OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-        },
-        select: { id: true },
+      const bConflict = await this.schedulesReadFacade.hasConflict(tenantId, {
+        excludeIds: [dto.schedule_id_a, dto.schedule_id_b],
+        teacherStaffId: scheduleB.teacher_staff_id,
+        weekday: scheduleA.weekday,
+        startTime: scheduleA.start_time,
+        endTime: scheduleA.end_time,
       });
-      if (conflict) {
+      if (bConflict) {
         const name = scheduleB.teacher
           ? `${scheduleB.teacher.user.first_name} ${scheduleB.teacher.user.last_name}`.trim()
           : scheduleB.teacher_staff_id;
@@ -104,17 +81,12 @@ export class ScheduleSwapService {
 
     // Check room conflicts after swap
     if (scheduleA.room_id) {
-      const roomConflict = await this.prisma.schedule.findFirst({
-        where: {
-          tenant_id: tenantId,
-          id: { notIn: [dto.schedule_id_a, dto.schedule_id_b] },
-          room_id: scheduleA.room_id,
-          weekday: scheduleB.weekday,
-          start_time: { lt: scheduleB.end_time },
-          end_time: { gt: scheduleB.start_time },
-          OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-        },
-        select: { id: true },
+      const roomConflict = await this.schedulesReadFacade.hasConflict(tenantId, {
+        excludeIds: [dto.schedule_id_a, dto.schedule_id_b],
+        roomId: scheduleA.room_id,
+        weekday: scheduleB.weekday,
+        startTime: scheduleB.start_time,
+        endTime: scheduleB.end_time,
       });
       if (roomConflict) {
         violations.push(
@@ -124,17 +96,12 @@ export class ScheduleSwapService {
     }
 
     if (scheduleB.room_id) {
-      const roomConflict = await this.prisma.schedule.findFirst({
-        where: {
-          tenant_id: tenantId,
-          id: { notIn: [dto.schedule_id_a, dto.schedule_id_b] },
-          room_id: scheduleB.room_id,
-          weekday: scheduleA.weekday,
-          start_time: { lt: scheduleA.end_time },
-          end_time: { gt: scheduleA.start_time },
-          OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-        },
-        select: { id: true },
+      const roomConflict = await this.schedulesReadFacade.hasConflict(tenantId, {
+        excludeIds: [dto.schedule_id_a, dto.schedule_id_b],
+        roomId: scheduleB.room_id,
+        weekday: scheduleA.weekday,
+        startTime: scheduleA.start_time,
+        endTime: scheduleA.end_time,
       });
       if (roomConflict) {
         violations.push(
@@ -185,32 +152,8 @@ export class ScheduleSwapService {
     }
 
     const [scheduleA, scheduleB] = await Promise.all([
-      this.prisma.schedule.findFirst({
-        where: { id: dto.schedule_id_a, tenant_id: tenantId },
-        select: {
-          id: true,
-          teacher_staff_id: true,
-          room_id: true,
-          weekday: true,
-          period_order: true,
-          start_time: true,
-          end_time: true,
-          rotation_week: true,
-        },
-      }),
-      this.prisma.schedule.findFirst({
-        where: { id: dto.schedule_id_b, tenant_id: tenantId },
-        select: {
-          id: true,
-          teacher_staff_id: true,
-          room_id: true,
-          weekday: true,
-          period_order: true,
-          start_time: true,
-          end_time: true,
-          rotation_week: true,
-        },
-      }),
+      this.schedulesReadFacade.findCoreById(tenantId, dto.schedule_id_a),
+      this.schedulesReadFacade.findCoreById(tenantId, dto.schedule_id_b),
     ]);
 
     if (!scheduleA || !scheduleB) {
@@ -255,18 +198,7 @@ export class ScheduleSwapService {
   // ─── Emergency Change ─────────────────────────────────────────────────────
 
   async emergencyChange(tenantId: string, userId: string, dto: EmergencyChangeDto) {
-    const schedule = await this.prisma.schedule.findFirst({
-      where: { id: dto.schedule_id, tenant_id: tenantId },
-      select: {
-        id: true,
-        teacher_staff_id: true,
-        room_id: true,
-        weekday: true,
-        period_order: true,
-        start_time: true,
-        end_time: true,
-      },
-    });
+    const schedule = await this.schedulesReadFacade.findCoreById(tenantId, dto.schedule_id);
 
     if (!schedule) {
       throw new NotFoundException({

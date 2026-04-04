@@ -27,6 +27,7 @@
  * - Batch methods return arrays (empty array = nothing found).
  */
 import { Injectable, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -250,6 +251,168 @@ export class StudentReadFacade {
       },
       select: { id: true, first_name: true, last_name: true },
       orderBy: [{ first_name: 'asc' }, { last_name: 'asc' }],
+    });
+  }
+
+  /**
+   * Count students matching a filter.
+   * Used by behaviour-pulse and behaviour-incident-analytics for rate calculations.
+   */
+  async count(tenantId: string, where?: Prisma.StudentWhereInput): Promise<number> {
+    return this.prisma.student.count({
+      where: {
+        tenant_id: tenantId,
+        ...where,
+      },
+    });
+  }
+
+  /**
+   * Check whether a parent is linked to a student via the `student_parents` join table.
+   * Used by parent-finance and parent-inquiries for access control.
+   */
+  async isParentLinked(tenantId: string, studentId: string, parentId: string): Promise<boolean> {
+    const link = await this.prisma.studentParent.findFirst({
+      where: { tenant_id: tenantId, student_id: studentId, parent_id: parentId },
+      select: { student_id: true },
+    });
+    return !!link;
+  }
+
+  /**
+   * Find students belonging to a household. Used by DSAR household traversal.
+   */
+  async findByHousehold(
+    tenantId: string,
+    householdId: string,
+  ): Promise<Array<{ id: string; first_name: string; last_name: string; student_number: string | null }>> {
+    return this.prisma.student.findMany({
+      where: { household_id: householdId, tenant_id: tenantId },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        student_number: true,
+      },
+    });
+  }
+
+  /**
+   * Check if a student exists for the given tenant. Returns true/false.
+   * Used by compliance validateSubjectExists.
+   */
+  async exists(tenantId: string, studentId: string): Promise<boolean> {
+    const found = await this.prisma.student.findFirst({
+      where: { id: studentId, tenant_id: tenantId },
+      select: { id: true },
+    });
+    return !!found;
+  }
+
+  /**
+   * Count students grouped by year_group_id. Used by behaviour comparison analytics.
+   */
+  async countByYearGroup(
+    tenantId: string,
+    status?: string,
+  ): Promise<Map<string, number>> {
+    const groups = await this.prisma.student.groupBy({
+      by: ['year_group_id'],
+      where: {
+        tenant_id: tenantId,
+        ...(status ? { status: status as never } : {}),
+      },
+      _count: true,
+    });
+
+    const map = new Map<string, number>();
+    for (const g of groups) {
+      if (g.year_group_id) {
+        map.set(g.year_group_id, g._count);
+      }
+    }
+    return map;
+  }
+
+  /**
+   * Load all students for a tenant with id + student_number for number-based lookups.
+   * Used by attendance upload for student_number resolution.
+   */
+  async findAllStudentNumbers(
+    tenantId: string,
+    limit?: number,
+  ): Promise<Array<{ id: string; student_number: string | null }>> {
+    return this.prisma.student.findMany({
+      where: { tenant_id: tenantId },
+      select: { id: true, student_number: true },
+      ...(limit ? { take: limit } : {}),
+    });
+  }
+
+  /**
+   * Look up students by their student numbers. Used by attendance scan for name resolution.
+   */
+  async findByStudentNumbers(
+    tenantId: string,
+    studentNumbers: string[],
+  ): Promise<Array<{ id: string; student_number: string | null; first_name: string; last_name: string }>> {
+    if (studentNumbers.length === 0) return [];
+
+    return this.prisma.student.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_number: { in: studentNumbers },
+      },
+      select: {
+        id: true,
+        student_number: true,
+        first_name: true,
+        last_name: true,
+      },
+    });
+  }
+
+  /**
+   * Generic findMany for students with arbitrary where/select/include/orderBy.
+   * Used by regulatory DES/October returns for data export.
+   */
+  async findManyGeneric(
+    tenantId: string,
+    options: {
+      where?: Prisma.StudentWhereInput;
+      select?: Prisma.StudentSelect;
+      include?: Prisma.StudentInclude;
+      orderBy?: Prisma.StudentOrderByWithRelationInput;
+      skip?: number;
+      take?: number;
+    },
+  ): Promise<unknown[]> {
+    return this.prisma.student.findMany({
+      where: { tenant_id: tenantId, ...options.where },
+      ...(options.select && { select: options.select }),
+      ...(options.include && { include: options.include }),
+      ...(options.orderBy && { orderBy: options.orderBy }),
+      ...(options.skip !== undefined && { skip: options.skip }),
+      ...(options.take !== undefined && { take: options.take }),
+    });
+  }
+
+  /**
+   * Find a single student with arbitrary select/include.
+   * Used by regulatory for validating individual students.
+   */
+  async findOneGeneric(
+    tenantId: string,
+    studentId: string,
+    options?: {
+      select?: Prisma.StudentSelect;
+      include?: Prisma.StudentInclude;
+    },
+  ): Promise<unknown | null> {
+    return this.prisma.student.findFirst({
+      where: { id: studentId, tenant_id: tenantId },
+      ...(options?.select && { select: options.select }),
+      ...(options?.include && { include: options.include }),
     });
   }
 }

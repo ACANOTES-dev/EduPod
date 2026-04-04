@@ -14,6 +14,8 @@ import type {
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 export interface SubstituteCandidate {
   staff_profile_id: string;
@@ -27,21 +29,17 @@ export interface SubstituteCandidate {
 
 @Injectable()
 export class SubstitutionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+  ) {}
 
   // ─── Report Absence ───────────────────────────────────────────────────────
 
   async reportAbsence(tenantId: string, userId: string, dto: ReportAbsenceDto) {
     // Verify staff exists in tenant
-    const staff = await this.prisma.staffProfile.findFirst({
-      where: { id: dto.staff_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-    if (!staff) {
-      throw new NotFoundException({
-        error: { code: 'STAFF_NOT_FOUND', message: 'Staff profile not found' },
-      });
-    }
+    await this.staffProfileReadFacade.existsOrThrow(tenantId, dto.staff_id);
 
     // Check for duplicate
     const existing = await this.prisma.teacherAbsence.findFirst({
@@ -96,12 +94,7 @@ export class SubstitutionService {
     date: string,
   ): Promise<{ data: SubstituteCandidate[] }> {
     // Load the schedule to understand context
-    const schedule = await this.prisma.schedule.findFirst({
-      where: { id: scheduleId, tenant_id: tenantId },
-      include: {
-        class_entity: { select: { year_group_id: true, subject_id: true, academic_year_id: true } },
-      },
-    });
+    const schedule = await this.schedulesReadFacade.findByIdWithSubstitutionContext(tenantId, scheduleId);
     if (!schedule) {
       throw new NotFoundException({
         error: { code: 'SCHEDULE_NOT_FOUND', message: 'Schedule not found' },
@@ -115,31 +108,15 @@ export class SubstitutionService {
     const academicYearId = schedule.class_entity?.academic_year_id ?? schedule.academic_year_id;
 
     // Find teachers already busy at this time slot on that date
-    const busyTeachers = await this.prisma.schedule.findMany({
-      where: {
-        tenant_id: tenantId,
-        weekday,
-        start_time: { lt: schedule.end_time },
-        end_time: { gt: schedule.start_time },
-        teacher_staff_id: { not: null },
-        OR: [{ effective_end_date: null }, { effective_end_date: { gte: targetDate } }],
-        effective_start_date: { lte: targetDate },
-      },
-      select: { teacher_staff_id: true },
+    const busyIds = await this.schedulesReadFacade.findBusyTeacherIds(tenantId, {
+      weekday,
+      startTime: schedule.start_time,
+      endTime: schedule.end_time,
+      effectiveDate: targetDate,
     });
-
-    const busyIds = new Set(
-      busyTeachers.map((s) => s.teacher_staff_id).filter((id): id is string => id !== null),
-    );
 
     // All staff
-    const allStaff = await this.prisma.staffProfile.findMany({
-      where: { tenant_id: tenantId },
-      select: {
-        id: true,
-        user: { select: { first_name: true, last_name: true } },
-      },
-    });
+    const allStaff = await this.staffProfileReadFacade.findActiveStaff(tenantId);
 
     // Competencies
     const competencies =
@@ -229,26 +206,15 @@ export class SubstitutionService {
     }
 
     // Verify schedule exists
-    const schedule = await this.prisma.schedule.findFirst({
-      where: { id: dto.schedule_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-    if (!schedule) {
+    const scheduleCheck = await this.schedulesReadFacade.existsById(tenantId, dto.schedule_id);
+    if (!scheduleCheck) {
       throw new NotFoundException({
         error: { code: 'SCHEDULE_NOT_FOUND', message: 'Schedule not found' },
       });
     }
 
     // Verify substitute staff exists
-    const substitute = await this.prisma.staffProfile.findFirst({
-      where: { id: dto.substitute_staff_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-    if (!substitute) {
-      throw new NotFoundException({
-        error: { code: 'SUBSTITUTE_NOT_FOUND', message: 'Substitute staff not found' },
-      });
-    }
+    await this.staffProfileReadFacade.existsOrThrow(tenantId, dto.substitute_staff_id);
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 

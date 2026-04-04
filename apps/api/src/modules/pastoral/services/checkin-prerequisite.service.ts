@@ -3,6 +3,8 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { pastoralTenantSettingsSchema } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
+
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -21,7 +23,8 @@ export interface PrerequisiteStatus {
 export class CheckinPrerequisiteService {
   private readonly logger = new Logger(CheckinPrerequisiteService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService,
+    private readonly configurationReadFacade: ConfigurationReadFacade) {}
 
   // ─── GET PREREQUISITE STATUS ────────────────────────────────────────────────
 
@@ -123,9 +126,7 @@ export class CheckinPrerequisiteService {
   // ─── Private Helpers ──────────────────────────────────────────────────────────
 
   private async loadCheckinSettings(tenantId: string) {
-    const record = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const record = await this.configurationReadFacade.findSettings(tenantId);
 
     const settingsJson = (record?.settings as Record<string, unknown>) ?? {};
     const pastoralRaw = (settingsJson.pastoral as Record<string, unknown>) ?? {};

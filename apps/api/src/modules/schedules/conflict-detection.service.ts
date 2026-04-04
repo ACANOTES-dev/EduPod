@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 
 import type { Conflict } from '@school/shared';
 
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { RoomsReadFacade } from '../rooms/rooms-read.facade';
 
 interface ProposedEntry {
   class_id: string;
@@ -18,7 +20,11 @@ interface ProposedEntry {
 
 @Injectable()
 export class ConflictDetectionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roomsReadFacade: RoomsReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+  ) {}
 
   async detectConflicts(
     tenantId: string,
@@ -62,10 +68,7 @@ export class ConflictDetectionService {
       });
 
       if (roomConflicts.length > 0) {
-        const room = await this.prisma.room.findFirst({
-          where: { id: entry.room_id, tenant_id: tenantId },
-          select: { is_exclusive: true, name: true },
-        });
+        const room = await this.roomsReadFacade.findById(tenantId, entry.room_id);
 
         for (const conflict of roomConflicts) {
           if (room?.is_exclusive) {
@@ -108,24 +111,15 @@ export class ConflictDetectionService {
 
     // 3. Student double-booking (students enrolled in the proposed class
     //    who are also enrolled in other classes at the same time)
-    const enrolledStudents = await this.prisma.classEnrolment.findMany({
-      where: { class_id: entry.class_id, tenant_id: tenantId, status: 'active' },
-      select: { student_id: true },
-    });
+    const studentIds = await this.classesReadFacade.findEnrolledStudentIds(tenantId, entry.class_id);
 
-    if (enrolledStudents.length > 0) {
-      const studentIds = enrolledStudents.map((e) => e.student_id);
-
+    if (studentIds.length > 0) {
       // Get other classes these students are enrolled in
-      const otherEnrolments = await this.prisma.classEnrolment.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: { in: studentIds },
-          class_id: { not: entry.class_id },
-          status: 'active',
-        },
-        select: { class_id: true, student_id: true },
-      });
+      const otherEnrolments = await this.classesReadFacade.findOtherClassEnrolmentsForStudents(
+        tenantId,
+        studentIds,
+        entry.class_id,
+      );
 
       if (otherEnrolments.length > 0) {
         const otherClassIds = [...new Set(otherEnrolments.map((e) => e.class_id))];
@@ -160,14 +154,9 @@ export class ConflictDetectionService {
 
     // 4. Room over capacity
     if (entry.room_id) {
-      const room = await this.prisma.room.findFirst({
-        where: { id: entry.room_id, tenant_id: tenantId },
-        select: { capacity: true, name: true },
-      });
+      const room = await this.roomsReadFacade.findById(tenantId, entry.room_id);
       if (room?.capacity) {
-        const enrolmentCount = await this.prisma.classEnrolment.count({
-          where: { class_id: entry.class_id, tenant_id: tenantId, status: 'active' },
-        });
+        const enrolmentCount = await this.classesReadFacade.countEnrolledStudents(tenantId, entry.class_id);
         if (enrolmentCount > room.capacity) {
           soft.push({
             type: 'soft',

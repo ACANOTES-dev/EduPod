@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 
 import { AcademicsModule } from '../academics/academics.module';
 import { AiModule } from '../ai/ai.module';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuthModule } from '../auth/auth.module';
+import { ClassesModule } from '../classes/classes.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { GdprModule } from '../gdpr/gdpr.module';
 import { RbacModule } from '../rbac/rbac.module';
@@ -23,7 +25,9 @@ import { BehaviourStaffAnalyticsService } from './behaviour-staff-analytics.serv
   imports: [
     AcademicsModule,
     AiModule,
+    AuditLogModule,
     AuthModule,
+    ClassesModule,
     ConfigurationModule,
     GdprModule,
     RbacModule,

@@ -3,6 +3,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { CreateBreakGroupDto, UpdateBreakGroupDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 const INCLUDE_RELATIONS = {
@@ -15,7 +16,10 @@ const INCLUDE_RELATIONS = {
 
 @Injectable()
 export class BreakGroupsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
+  ) {}
 
   // ─── List ──────────────────────────────────────────────────────────────────
 
@@ -35,16 +39,7 @@ export class BreakGroupsService {
 
   async create(tenantId: string, dto: CreateBreakGroupDto) {
     // Validate academic year exists
-    const academicYear = await this.prisma.academicYear.findFirst({
-      where: { id: dto.academic_year_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-    if (!academicYear) {
-      throw new NotFoundException({
-        code: 'ACADEMIC_YEAR_NOT_FOUND',
-        message: `Academic year "${dto.academic_year_id}" not found`,
-      });
-    }
+    await this.academicReadFacade.findYearByIdOrThrow(tenantId, dto.academic_year_id);
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 

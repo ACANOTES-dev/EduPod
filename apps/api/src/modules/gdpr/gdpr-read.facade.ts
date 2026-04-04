@@ -269,12 +269,15 @@ export class GdprReadFacade {
    */
   async findRetentionHolds(
     tenantId: string,
-    options?: { page?: number; pageSize?: number },
+    options?: { page?: number; pageSize?: number; activeOnly?: boolean },
   ): Promise<{ data: RetentionHoldRow[]; total: number }> {
     const page = options?.page ?? 1;
     const pageSize = options?.pageSize ?? 20;
 
-    const where = { tenant_id: tenantId };
+    const where: Record<string, unknown> = { tenant_id: tenantId };
+    if (options?.activeOnly) {
+      where.released_at = null;
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.retentionHold.findMany({
@@ -294,6 +297,20 @@ export class GdprReadFacade {
    * Find an active retention hold by subject type + ID.
    * Used by compliance to check if a hold already exists.
    */
+  /**
+   * Find a retention hold by ID.
+   * Used by compliance retention hold release.
+   */
+  async findRetentionHoldById(
+    tenantId: string,
+    holdId: string,
+  ): Promise<RetentionHoldRow | null> {
+    return this.prisma.retentionHold.findFirst({
+      where: { id: holdId, tenant_id: tenantId },
+      select: RETENTION_HOLD_SELECT,
+    });
+  }
+
   async findActiveRetentionHoldBySubject(
     tenantId: string,
     subjectType: string,

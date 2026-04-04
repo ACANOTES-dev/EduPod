@@ -8,8 +8,12 @@ import type {
   ListEarlyWarningsQuery,
 } from '@school/shared/early-warning';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { RbacReadFacade } from '../rbac/rbac-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 // ─── Role-scoping helper types ──────────────────────────────────────────────
 
@@ -22,7 +26,13 @@ interface RoleScopeFilter {
 export class EarlyWarningService {
   private readonly logger = new Logger(EarlyWarningService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly rbacReadFacade: RbacReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly academicReadFacade: AcademicReadFacade,
+  ) {}
 
   // ─── Role-scoping ────────────────────────────────────────────────────────
 
@@ -44,22 +54,11 @@ export class EarlyWarningService {
     }
 
     // Check if user has manage permission (admin/principal → unrestricted)
-    const membership = await this.prisma.tenantMembership.findFirst({
-      where: { id: membershipId, tenant_id: tenantId, user_id: userId },
-      include: {
-        membership_roles: {
-          include: {
-            role: {
-              include: {
-                role_permissions: {
-                  include: { permission: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
+    const membership = await this.rbacReadFacade.findMembershipByIdAndUser(
+      tenantId,
+      membershipId,
+      userId,
+    );
 
     if (!membership) {
       return { unrestricted: false, studentIds: [] };
@@ -75,28 +74,20 @@ export class EarlyWarningService {
     }
 
     // Staff: find students in classes via staff profile
-    const staffProfile = await this.prisma.staffProfile.findFirst({
-      where: { tenant_id: tenantId, user_id: userId },
-      select: { id: true },
-    });
+    const staffProfile = await this.staffProfileReadFacade.findByUserId(tenantId, userId);
 
     if (staffProfile) {
-      const classStaffRows = await this.prisma.classStaff.findMany({
-        where: { tenant_id: tenantId, staff_profile_id: staffProfile.id },
-        select: { class_id: true },
-      });
+      const classStaffRows = await this.classesReadFacade.findClassesByStaff(
+        tenantId,
+        staffProfile.id,
+      );
 
       if (classStaffRows.length > 0) {
         const classIds = classStaffRows.map((cs) => cs.class_id);
-        const enrolments = await this.prisma.classEnrolment.findMany({
-          where: {
-            tenant_id: tenantId,
-            class_id: { in: classIds },
-            status: 'active',
-          },
-          select: { student_id: true },
-        });
-        const uniqueStudentIds = [...new Set(enrolments.map((e) => e.student_id))];
+        const studentIdSets = await Promise.all(
+          classIds.map((classId) => this.classesReadFacade.findEnrolledStudentIds(tenantId, classId)),
+        );
+        const uniqueStudentIds = [...new Set(studentIdSets.flat())];
         return { unrestricted: false, studentIds: uniqueStudentIds };
       }
     }
@@ -108,17 +99,7 @@ export class EarlyWarningService {
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   private async getActiveAcademicYearId(tenantId: string): Promise<string> {
-    const year = await this.prisma.academicYear.findFirst({
-      where: { tenant_id: tenantId, status: 'active' },
-      select: { id: true },
-    });
-    if (!year) {
-      throw new NotFoundException({
-        code: 'NO_ACTIVE_ACADEMIC_YEAR',
-        message: 'No active academic year found for this tenant',
-      });
-    }
-    return year.id;
+    return this.academicReadFacade.findCurrentYearId(tenantId);
   }
 
   private buildStudentScopeWhere(
@@ -467,15 +448,11 @@ export class EarlyWarningService {
     const academicYearId = await this.getActiveAcademicYearId(tenantId);
 
     // Verify the target user has an active membership in this tenant
-    const targetMembership = await this.prisma.tenantMembership.findFirst({
-      where: {
-        user_id: dto.assigned_to_user_id,
-        tenant_id: tenantId,
-        membership_status: 'active',
-      },
-      select: { id: true },
-    });
-    if (!targetMembership) {
+    const targetMembership = await this.rbacReadFacade.findMembershipSummary(
+      tenantId,
+      dto.assigned_to_user_id,
+    );
+    if (!targetMembership || targetMembership.membership_status !== 'active') {
       throw new NotFoundException({
         code: 'USER_NOT_FOUND',
         message: `User "${dto.assigned_to_user_id}" not found in this tenant`,

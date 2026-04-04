@@ -14,6 +14,9 @@ import { SettingsService } from '../../configuration/settings.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { ConsentService } from '../../gdpr/consent.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
+import { StudentReadFacade } from '../students/student-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 
@@ -43,6 +46,9 @@ export class AiProgressSummaryService {
     private readonly gdprTokenService: GdprTokenService,
     private readonly aiAuditService: AiAuditService,
     private readonly anthropicClient: AnthropicClientService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly attendanceReadFacade: AttendanceReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
   ) {}
 
   // ─── Generate Summary ─────────────────────────────────────────────────────

@@ -3,7 +3,9 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import type { UpsertTeacherSchedulingConfigDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 const INCLUDE_RELATIONS = {
   staff_profile: {
@@ -16,7 +18,11 @@ const INCLUDE_RELATIONS = {
 
 @Injectable()
 export class TeacherSchedulingConfigService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+  ) {}
 
   // ─── List ──────────────────────────────────────────────────────────────────
 
@@ -34,28 +40,10 @@ export class TeacherSchedulingConfigService {
 
   async upsert(tenantId: string, dto: UpsertTeacherSchedulingConfigDto) {
     // Validate staff profile exists
-    const staff = await this.prisma.staffProfile.findFirst({
-      where: { id: dto.staff_profile_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-    if (!staff) {
-      throw new NotFoundException({
-        code: 'STAFF_PROFILE_NOT_FOUND',
-        message: `Staff profile "${dto.staff_profile_id}" not found`,
-      });
-    }
+    await this.staffProfileReadFacade.existsOrThrow(tenantId, dto.staff_profile_id);
 
     // Validate academic year
-    const academicYear = await this.prisma.academicYear.findFirst({
-      where: { id: dto.academic_year_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-    if (!academicYear) {
-      throw new NotFoundException({
-        code: 'ACADEMIC_YEAR_NOT_FOUND',
-        message: `Academic year "${dto.academic_year_id}" not found`,
-      });
-    }
+    await this.academicReadFacade.findYearByIdOrThrow(tenantId, dto.academic_year_id);
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
@@ -128,29 +116,8 @@ export class TeacherSchedulingConfigService {
   // ─── Copy from Academic Year ───────────────────────────────────────────────
 
   async copyFromAcademicYear(tenantId: string, sourceYearId: string, targetYearId: string) {
-    const [sourceYear, targetYear] = await Promise.all([
-      this.prisma.academicYear.findFirst({
-        where: { id: sourceYearId, tenant_id: tenantId },
-        select: { id: true },
-      }),
-      this.prisma.academicYear.findFirst({
-        where: { id: targetYearId, tenant_id: tenantId },
-        select: { id: true },
-      }),
-    ]);
-
-    if (!sourceYear) {
-      throw new NotFoundException({
-        code: 'SOURCE_ACADEMIC_YEAR_NOT_FOUND',
-        message: `Source academic year "${sourceYearId}" not found`,
-      });
-    }
-    if (!targetYear) {
-      throw new NotFoundException({
-        code: 'TARGET_ACADEMIC_YEAR_NOT_FOUND',
-        message: `Target academic year "${targetYearId}" not found`,
-      });
-    }
+    await this.academicReadFacade.findYearByIdOrThrow(tenantId, sourceYearId);
+    await this.academicReadFacade.findYearByIdOrThrow(tenantId, targetYearId);
 
     const sourceRecords = await this.prisma.teacherSchedulingConfig.findMany({
       where: { tenant_id: tenantId, academic_year_id: sourceYearId },

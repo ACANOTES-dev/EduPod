@@ -2,7 +2,14 @@ import { Injectable } from '@nestjs/common';
 
 import type { SignalResult } from '@school/shared/early-warning';
 
-import { PrismaService } from '../../prisma/prisma.service';
+import type {
+  CriticalIncidentAffectedRow,
+  PastoralCaseRow,
+  PastoralConcernRow,
+  PastoralReferralRow,
+  StudentCheckinRow,
+} from '../../pastoral/pastoral-read.facade';
+import { PastoralReadFacade } from '../../pastoral/pastoral-read.facade';
 
 import { buildSignal } from './collector-utils';
 
@@ -14,57 +21,11 @@ const RECENT_CHECKIN_COUNT = 5;
 const LOW_MOOD_CHECKIN_COUNT = 3;
 const LOW_MOOD_THRESHOLD = 2;
 
-// ─── Internal Interfaces ────────────────────────────────────────────────────
-
-interface CheckinRow {
-  id: string;
-  tenant_id: string;
-  student_id: string;
-  mood_score: number;
-  checkin_date: Date;
-  created_at: Date;
-}
-
-interface ConcernRow {
-  id: string;
-  tenant_id: string;
-  student_id: string;
-  category: string;
-  severity: string;
-  follow_up_needed: boolean;
-  acknowledged_at: Date | null;
-  created_at: Date;
-}
-
-interface CaseRow {
-  id: string;
-  tenant_id: string;
-  student_id: string;
-  status: string;
-}
-
-interface ReferralRow {
-  id: string;
-  tenant_id: string;
-  student_id: string;
-  referral_type: string;
-  referral_body_name: string | null;
-  status: string;
-}
-
-interface IncidentAffectedRow {
-  id: string;
-  tenant_id: string;
-  student_id: string | null;
-  impact_level: string;
-  wellbeing_flag_active: boolean;
-}
-
 // ─── Collector ──────────────────────────────────────────────────────────────
 
 @Injectable()
 export class WellbeingSignalCollector {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly pastoralReadFacade: PastoralReadFacade) {}
 
   async collectSignals(
     tenantId: string,
@@ -79,48 +40,11 @@ export class WellbeingSignalCollector {
 
     // Fetch all queries in parallel — single round-trip batch
     const [checkins, concerns, cases, referrals, incidentAffected] = await Promise.all([
-      this.prisma.studentCheckin.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: studentId,
-          checkin_date: { gte: thirtyDaysAgo },
-        },
-        orderBy: { checkin_date: 'desc' },
-      }) as Promise<CheckinRow[]>,
-
-      this.prisma.pastoralConcern.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: studentId,
-          created_at: { gte: ninetyDaysAgo },
-          OR: [{ follow_up_needed: true }, { severity: { in: ['urgent', 'critical'] } }],
-        },
-        orderBy: { created_at: 'desc' },
-      }) as Promise<ConcernRow[]>,
-
-      this.prisma.pastoralCase.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: studentId,
-          status: { in: ['open', 'active', 'monitoring'] },
-        },
-      }) as Promise<CaseRow[]>,
-
-      this.prisma.pastoralReferral.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: studentId,
-          status: { in: ['submitted', 'acknowledged', 'assessment_scheduled'] },
-        },
-      }) as Promise<ReferralRow[]>,
-
-      this.prisma.criticalIncidentAffected.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: studentId,
-          wellbeing_flag_active: true,
-        },
-      }) as Promise<IncidentAffectedRow[]>,
+      this.pastoralReadFacade.findRecentCheckins(tenantId, studentId, thirtyDaysAgo),
+      this.pastoralReadFacade.findRecentConcerns(tenantId, studentId, ninetyDaysAgo),
+      this.pastoralReadFacade.findActiveCases(tenantId, studentId),
+      this.pastoralReadFacade.findActiveReferrals(tenantId, studentId),
+      this.pastoralReadFacade.findActiveWellbeingFlags(tenantId, studentId),
     ]);
 
     const result: SignalResult = {
@@ -173,7 +97,7 @@ export class WellbeingSignalCollector {
 
   // ─── Signal 1: declining_wellbeing_score ──────────────────────────────────
 
-  private checkDecliningWellbeingScore(checkins: CheckinRow[], result: SignalResult): void {
+  private checkDecliningWellbeingScore(checkins: StudentCheckinRow[], result: SignalResult): void {
     if (checkins.length < RECENT_CHECKIN_COUNT) return;
 
     const recent = checkins.slice(0, RECENT_CHECKIN_COUNT);
@@ -219,7 +143,7 @@ export class WellbeingSignalCollector {
 
   // ─── Signal 2: low_mood_pattern ───────────────────────────────────────────
 
-  private checkLowMoodPattern(checkins: CheckinRow[], result: SignalResult): void {
+  private checkLowMoodPattern(checkins: StudentCheckinRow[], result: SignalResult): void {
     if (checkins.length < LOW_MOOD_CHECKIN_COUNT) return;
 
     const lastThree = checkins.slice(0, LOW_MOOD_CHECKIN_COUNT);
@@ -257,7 +181,7 @@ export class WellbeingSignalCollector {
 
   // ─── Signal 3: active_pastoral_concern ────────────────────────────────────
 
-  private checkActivePastoralConcern(concerns: ConcernRow[], result: SignalResult): void {
+  private checkActivePastoralConcern(concerns: PastoralConcernRow[], result: SignalResult): void {
     const firstConcern = concerns[0];
     if (!firstConcern) return;
 
@@ -271,11 +195,9 @@ export class WellbeingSignalCollector {
     } else if (hasUrgent) {
       scoreContribution = 20;
     } else {
-      // elevated with follow_up_needed
       scoreContribution = 15;
     }
 
-    // Use the highest-severity concern for the signal source
     const primaryConcern = hasCritical
       ? (concerns.find((c) => c.severity === 'critical') ?? firstConcern)
       : hasUrgent
@@ -301,7 +223,7 @@ export class WellbeingSignalCollector {
 
   // ─── Signal 4: active_pastoral_case ───────────────────────────────────────
 
-  private checkActivePastoralCase(cases: CaseRow[], result: SignalResult): void {
+  private checkActivePastoralCase(cases: PastoralCaseRow[], result: SignalResult): void {
     const firstCase = cases[0];
     if (!firstCase) return;
 
@@ -324,7 +246,7 @@ export class WellbeingSignalCollector {
 
   // ─── Signal 5: external_referral ──────────────────────────────────────────
 
-  private checkExternalReferral(referrals: ReferralRow[], result: SignalResult): void {
+  private checkExternalReferral(referrals: PastoralReferralRow[], result: SignalResult): void {
     const primaryReferral = referrals[0];
     if (!primaryReferral) return;
 
@@ -350,7 +272,7 @@ export class WellbeingSignalCollector {
   // ─── Signal 6: critical_incident_affected ─────────────────────────────────
 
   private checkCriticalIncidentAffected(
-    incidents: IncidentAffectedRow[],
+    incidents: CriticalIncidentAffectedRow[],
     result: SignalResult,
   ): void {
     const firstIncident = incidents[0];

@@ -125,6 +125,7 @@ const PARENT_ACKNOWLEDGEMENT_SELECT = {
 const POLICY_RULE_SELECT = {
   id: true,
   name: true,
+  description: true,
   is_active: true,
   stage: true,
   priority: true,
@@ -266,6 +267,7 @@ export interface BehaviourPolicyRuleActionRow {
 export interface BehaviourPolicyRuleRow {
   id: string;
   name: string;
+  description: string | null;
   is_active: boolean;
   stage: string;
   priority: number;
@@ -521,6 +523,244 @@ export class BehaviourReadFacade {
       where: { tenant_id: tenantId, incident_id: incidentId },
       select: POLICY_EVALUATION_SELECT,
       orderBy: { created_at: 'asc' },
+    });
+  }
+
+  /**
+   * Find policy evaluations with action executions and rule version for trace view.
+   * Used by policy-engine incident trace.
+   */
+  async findPolicyEvaluationTrace(
+    tenantId: string,
+    incidentId: string,
+  ): Promise<unknown[]> {
+    return this.prisma.behaviourPolicyEvaluation.findMany({
+      where: { tenant_id: tenantId, incident_id: incidentId },
+      include: {
+        action_executions: {
+          orderBy: { executed_at: 'asc' },
+        },
+        rule_version: true,
+      },
+      orderBy: [{ stage: 'asc' }, { created_at: 'asc' }],
+    });
+  }
+
+  /**
+   * Find a single policy rule by ID with actions.
+   * Used by policy-engine for rule CRUD and replay.
+   */
+  async findPolicyRuleById(
+    tenantId: string,
+    ruleId: string,
+  ): Promise<BehaviourPolicyRuleRow | null> {
+    return this.prisma.behaviourPolicyRule.findFirst({
+      where: { id: ruleId, tenant_id: tenantId },
+      select: POLICY_RULE_SELECT,
+    }) as Promise<BehaviourPolicyRuleRow | null>;
+  }
+
+  /**
+   * List policy rules with pagination and optional filters.
+   * Used by policy-engine rules listing.
+   */
+  async findPolicyRulesPaginated(
+    tenantId: string,
+    filters: { stage?: string; is_active?: boolean },
+    pagination: { skip: number; take: number },
+  ): Promise<{ data: unknown[]; total: number }> {
+    const where: Record<string, unknown> = { tenant_id: tenantId };
+    if (filters.stage !== undefined) where.stage = filters.stage;
+    if (filters.is_active !== undefined) where.is_active = filters.is_active;
+
+    const [data, total] = await Promise.all([
+      this.prisma.behaviourPolicyRule.findMany({
+        where,
+        include: { actions: { orderBy: { execution_order: 'asc' } } },
+        orderBy: [{ stage: 'asc' }, { priority: 'asc' }],
+        skip: pagination.skip,
+        take: pagination.take,
+      }),
+      this.prisma.behaviourPolicyRule.count({ where }),
+    ]);
+
+    return { data, total };
+  }
+
+  /**
+   * Find policy rule version history for a rule.
+   * Used by policy-engine version management.
+   */
+  async findPolicyRuleVersions(
+    tenantId: string,
+    ruleId: string,
+  ): Promise<unknown[]> {
+    return this.prisma.behaviourPolicyRuleVersion.findMany({
+      where: { rule_id: ruleId, tenant_id: tenantId },
+      orderBy: { version: 'desc' },
+      include: {
+        changed_by: {
+          select: { id: true, first_name: true, last_name: true, email: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * Find a specific policy rule version.
+   * Used by policy-engine version detail view.
+   */
+  async findPolicyRuleVersion(
+    tenantId: string,
+    ruleId: string,
+    version: number,
+  ): Promise<unknown | null> {
+    return this.prisma.behaviourPolicyRuleVersion.findFirst({
+      where: { rule_id: ruleId, tenant_id: tenantId, version },
+      include: {
+        changed_by: {
+          select: { id: true, first_name: true, last_name: true, email: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * Find behaviour categories for a tenant.
+   * Used by policy-engine import/export for category name resolution.
+   */
+  async findCategories(
+    tenantId: string,
+  ): Promise<Array<{ id: string; name: string }>> {
+    return this.prisma.behaviourCategory.findMany({
+      where: { tenant_id: tenantId },
+      select: { id: true, name: true },
+    });
+  }
+
+  /**
+   * Find a single behaviour category by ID.
+   * Used by policy-engine dry-run for category name resolution.
+   */
+  async findCategoryById(
+    tenantId: string,
+    categoryId: string,
+  ): Promise<{ name: string } | null> {
+    return this.prisma.behaviourCategory.findFirst({
+      where: { id: categoryId, tenant_id: tenantId },
+      select: { name: true },
+    });
+  }
+
+  /**
+   * Find incidents in a date range with category and student participants.
+   * Used by policy-engine replay.
+   */
+  async findIncidentsForReplay(
+    tenantId: string,
+    fromDate: Date,
+    toDate: Date,
+    excludeStatuses: string[],
+  ): Promise<unknown[]> {
+    return this.prisma.behaviourIncident.findMany({
+      where: {
+        tenant_id: tenantId,
+        occurred_at: { gte: fromDate, lte: toDate },
+        status: { notIn: excludeStatuses as never[] },
+      },
+      include: {
+        category: { select: { name: true } },
+        participants: { where: { participant_type: 'student' } },
+      },
+    });
+  }
+
+  // ─── Tusla / Regulatory Methods ────────────────────────────────────────────
+
+  /**
+   * Find sanctions matching Tusla notification criteria (suspension type + minimum days).
+   * Used by regulatory-tusla for suspension notifications.
+   */
+  async findSanctionsForTusla(
+    tenantId: string,
+    filters: {
+      types: string[];
+      minSuspensionDays: number;
+      dateFilter?: { gte: Date; lte: Date };
+    },
+  ): Promise<unknown[]> {
+    return this.prisma.behaviourSanction.findMany({
+      where: {
+        tenant_id: tenantId,
+        type: { in: filters.types as never[] },
+        suspension_days: { gte: filters.minSuspensionDays },
+        ...(filters.dateFilter ? { created_at: filters.dateFilter } : {}),
+      },
+      select: {
+        id: true,
+        sanction_number: true,
+        type: true,
+        status: true,
+        suspension_start_date: true,
+        suspension_end_date: true,
+        suspension_days: true,
+        notes: true,
+        created_at: true,
+        student: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            student_number: true,
+            date_of_birth: true,
+            year_group: { select: { id: true, name: true } },
+          },
+        },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  /**
+   * Find exclusion cases for Tusla notification.
+   * Used by regulatory-tusla for expulsion notifications.
+   */
+  async findExclusionCasesForTusla(
+    tenantId: string,
+    filters: {
+      dateFilter?: { gte: Date; lte: Date };
+    },
+  ): Promise<unknown[]> {
+    return this.prisma.behaviourExclusionCase.findMany({
+      where: {
+        tenant_id: tenantId,
+        ...(filters.dateFilter ? { created_at: filters.dateFilter } : {}),
+      },
+      select: {
+        id: true,
+        case_number: true,
+        type: true,
+        status: true,
+        decision: true,
+        decision_date: true,
+        formal_notice_issued_at: true,
+        hearing_date: true,
+        created_at: true,
+        student: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            student_number: true,
+            date_of_birth: true,
+            year_group: { select: { id: true, name: true } },
+          },
+        },
+        sanction: {
+          select: { id: true, sanction_number: true, type: true, suspension_days: true },
+        },
+      },
+      orderBy: { created_at: 'desc' },
     });
   }
 }

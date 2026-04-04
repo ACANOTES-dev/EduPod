@@ -1,7 +1,19 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 
+import { AcademicsModule } from '../academics/academics.module';
+import { AuthModule } from '../auth/auth.module';
+import { BehaviourModule } from '../behaviour/behaviour.module';
+import { ClassesModule } from '../classes/classes.module';
+import { CommunicationsModule } from '../communications/communications.module';
+import { GradebookModule } from '../gradebook/gradebook.module';
+import { ParentInquiriesModule } from '../parent-inquiries/parent-inquiries.module';
+import { ParentsModule } from '../parents/parents.module';
+import { PastoralModule } from '../pastoral/pastoral.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { RbacModule } from '../rbac/rbac.module';
+import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
+import { StudentsModule } from '../students/students.module';
 
 import { AttendanceSignalCollector } from './collectors/attendance-signal.collector';
 import { BehaviourSignalCollector } from './collectors/behaviour-signal.collector';
@@ -16,7 +28,22 @@ import { EarlyWarningController } from './early-warning.controller';
 import { EarlyWarningService } from './early-warning.service';
 
 @Module({
-  imports: [PrismaModule, BullModule.registerQueue({ name: 'early-warning' })],
+  imports: [
+    PrismaModule,
+    BullModule.registerQueue({ name: 'early-warning' }),
+    AcademicsModule,
+    AuthModule,
+    forwardRef(() => BehaviourModule),
+    ClassesModule,
+    CommunicationsModule,
+    forwardRef(() => GradebookModule),
+    ParentInquiriesModule,
+    ParentsModule,
+    forwardRef(() => PastoralModule),
+    RbacModule,
+    StaffProfilesModule,
+    StudentsModule,
+  ],
   controllers: [EarlyWarningController],
   providers: [
     EarlyWarningService,

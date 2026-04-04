@@ -14,6 +14,7 @@ import type { AIQueryHistoryResult, AIQueryInput, AIQueryResult } from '@school/
 import type { GdprOutboundData } from '@school/shared/gdpr';
 
 import { AnthropicClientService } from '../ai/anthropic-client.service';
+import { AuditLogReadFacade } from '../audit-log/audit-log-read.facade';
 import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -35,6 +36,7 @@ export class BehaviourAIService {
     private readonly anthropicClient: AnthropicClientService,
     private readonly gdprTokenService: GdprTokenService,
     private readonly aiAuditService: AiAuditService,
+    private readonly auditLogReadFacade: AuditLogReadFacade,
   ) {}
 
   /**
@@ -223,17 +225,16 @@ export class BehaviourAIService {
     };
 
     const [total, entries] = await Promise.all([
-      this.prisma.auditLog.count({ where: auditWhere }),
-      this.prisma.auditLog.findMany({
-        where: auditWhere,
-        orderBy: { created_at: 'desc' },
+      this.auditLogReadFacade.count(tenantId, {
+        entityType: 'behaviour_analytics',
+        action: 'ai_query',
+      }),
+      this.auditLogReadFacade.findMany(tenantId, {
+        entityType: 'behaviour_analytics',
+        action: 'ai_query',
+        actorUserId: userId,
         skip: (page - 1) * pageSize,
         take: pageSize,
-        select: {
-          id: true,
-          metadata_json: true,
-          created_at: true,
-        },
       }),
     ]);
 

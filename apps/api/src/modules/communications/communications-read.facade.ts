@@ -152,6 +152,26 @@ export class CommunicationsReadFacade {
     });
   }
 
+  /**
+   * Check if a notification already exists for a specific source entity.
+   * Used by attendance parent notification deduplication.
+   */
+  async hasNotificationForSourceEntity(
+    tenantId: string,
+    sourceEntityType: string,
+    sourceEntityId: string,
+  ): Promise<boolean> {
+    const found = await this.prisma.notification.findFirst({
+      where: {
+        tenant_id: tenantId,
+        source_entity_type: sourceEntityType,
+        source_entity_id: sourceEntityId,
+      },
+      select: { id: true },
+    });
+    return found !== null;
+  }
+
   // ─── Generic reporting methods ──────────────────────────────────────────────
 
   /**

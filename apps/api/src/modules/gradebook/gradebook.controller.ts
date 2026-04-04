@@ -47,6 +47,8 @@ import {
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AssessmentsService } from './assessments/assessments.service';
@@ -97,6 +99,8 @@ export class GradebookController {
     private readonly yearGroupGradeWeightsService: YearGroupGradeWeightsService,
     private readonly permissionCacheService: PermissionCacheService,
     private readonly prisma: PrismaService,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
   ) {}
 
   // ─── Grade Configs ──────────────────────────────────────────────────────

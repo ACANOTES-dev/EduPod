@@ -2,24 +2,31 @@ import { Injectable } from '@nestjs/common';
 
 import type { PrerequisiteCheck, PrerequisitesResult } from '@school/shared';
 
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { SchedulingReadFacade } from '../scheduling/scheduling-read.facade';
+import { StaffAvailabilityReadFacade } from '../staff-availability/staff-availability-read.facade';
 
 @Injectable()
 export class SchedulingPrerequisitesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
+    private readonly schedulingReadFacade: SchedulingReadFacade,
+    private readonly staffAvailabilityReadFacade: StaffAvailabilityReadFacade,
+  ) {}
 
   async check(tenantId: string, academicYearId: string): Promise<PrerequisitesResult> {
     const checks: PrerequisiteCheck[] = [];
 
     // ── 1. Period grid exists (at least 1 teaching period on 1 day) ─────────
 
-    const teachingPeriodCount = await this.prisma.schedulePeriodTemplate.count({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        schedule_period_type: 'teaching',
-      },
-    });
+    const teachingPeriodCount = await this.schedulingReadFacade.countTeachingPeriods(
+      tenantId,
+      academicYearId,
+    );
 
     checks.push({
       key: 'period_grid_exists',
@@ -32,22 +39,17 @@ export class SchedulingPrerequisitesService {
 
     // ── 2. All active academic classes have scheduling requirements ──────────
 
-    const activeClassCount = await this.prisma.class.count({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        status: 'active',
-        subject: { subject_type: 'academic' },
-      },
-    });
+    const activeClassCount = await this.classesReadFacade.countByAcademicYear(
+      tenantId,
+      academicYearId,
+      { status: 'active', subjectType: 'academic' },
+    );
 
-    const configuredCount = await this.prisma.classSchedulingRequirement.count({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        class_entity: { status: 'active', subject: { subject_type: 'academic' } },
-      },
-    });
+    const configuredCount = await this.schedulingReadFacade.countClassRequirements(
+      tenantId,
+      academicYearId,
+      { activeAcademicOnly: true },
+    );
 
     const unconfiguredClasses = activeClassCount - configuredCount;
 
@@ -63,18 +65,10 @@ export class SchedulingPrerequisitesService {
 
     // ── 3. All academic classes have at least one teacher ───────────────────
 
-    const classesWithoutTeachers = await this.prisma.class.findMany({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        status: 'active',
-        subject: { subject_type: 'academic' },
-        class_staff: {
-          none: { assignment_role: { in: ['teacher', 'homeroom'] } },
-        },
-      },
-      select: { id: true, name: true },
-    });
+    const classesWithoutTeachers = await this.classesReadFacade.findClassesWithoutTeachers(
+      tenantId,
+      academicYearId,
+    );
 
     checks.push({
       key: 'all_classes_have_teachers',
@@ -91,22 +85,15 @@ export class SchedulingPrerequisitesService {
 
     // ── 4. No pinned entry conflicts (teacher/room double-booking) ───────────
 
-    const pinnedEntries = await this.prisma.schedule.findMany({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        is_pinned: true,
-        OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-      },
-      select: {
-        id: true,
-        teacher_staff_id: true,
-        room_id: true,
-        weekday: true,
-        start_time: true,
-        end_time: true,
-      },
-    });
+    const pinnedRows = await this.schedulesReadFacade.findPinnedEntries(tenantId, academicYearId);
+    const pinnedEntries = pinnedRows.map((e) => ({
+      id: e.id,
+      teacher_staff_id: e.teacher_staff_id,
+      room_id: e.room_id,
+      weekday: e.weekday,
+      start_time: e.start_time,
+      end_time: e.end_time,
+    }));
 
     let pinnedConflicts = false;
     const conflictDetails: Array<{ entry_a: string; entry_b: string; reason: string }> = [];
@@ -154,13 +141,11 @@ export class SchedulingPrerequisitesService {
     ];
 
     if (teacherIds.length > 0) {
-      const availabilities = await this.prisma.staffAvailability.findMany({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: academicYearId,
-          staff_profile_id: { in: teacherIds },
-        },
-      });
+      const availabilities = await this.staffAvailabilityReadFacade.findByStaffIds(
+        tenantId,
+        academicYearId,
+        teacherIds,
+      );
 
       // Build map: staffProfileId -> availability rows
       const availMap = new Map<

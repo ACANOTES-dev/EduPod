@@ -256,14 +256,13 @@ ComplianceModule note: anonymisation/export flows now import `SearchModule` and 
 
 ### BehaviourModule
 
-- **Change cost**: VERY HIGH -- 7 sub-modules, 45+ services, 214 endpoints, 16 worker processors; changes cascade through appeal/sanction/exclusion chains (DZ-13/17/18). Verify sub-module placement for every change.
-- **Last verified**: 2026-03-30
-- **Exports** (28 services): `BehaviourService`, `BehaviourConfigService`, `BehaviourStudentsService`, `BehaviourTasksService`, `BehaviourHistoryService`, `BehaviourScopeService`, `BehaviourQuickLogService`, `BehaviourPointsService`, `BehaviourAwardService`, `BehaviourRecognitionService`, `BehaviourHouseService`, `BehaviourInterventionsService`, `BehaviourGuardianRestrictionsService`, `PolicyRulesService`, `PolicyEvaluationEngine`, `PolicyReplayService`, `SafeguardingService`, `SafeguardingAttachmentService`, `SafeguardingBreakGlassService`, `BehaviourSanctionsService`, `BehaviourAppealsService`, `BehaviourExclusionCasesService`, `BehaviourExportService`, `BehaviourAmendmentsService`, `BehaviourPulseService`, `BehaviourAnalyticsService`, `BehaviourAlertsService`, `BehaviourAIService`, `BehaviourDocumentService`, `BehaviourDocumentTemplateService`, `BehaviourParentService`, `BehaviourLegalHoldService`, `BehaviourAdminService`
-- **Controllers**: 17 controllers, 214 endpoints total:
+- **Change cost**: VERY HIGH -- 6 sub-modules, 40+ services, 193 endpoints, 12 worker processors; changes cascade through appeal/sanction/exclusion chains (DZ-13/17/18). Verify sub-module placement for every change.
+- **Last verified**: 2026-04-04
+- **Exports** (25 services): `BehaviourService`, `BehaviourConfigService`, `BehaviourStudentsService`, `BehaviourTasksService`, `BehaviourHistoryService`, `BehaviourScopeService`, `BehaviourQuickLogService`, `BehaviourPointsService`, `BehaviourAwardService`, `BehaviourRecognitionService`, `BehaviourHouseService`, `BehaviourInterventionsService`, `BehaviourGuardianRestrictionsService`, `PolicyRulesService`, `PolicyEvaluationEngine`, `PolicyReplayService`, `BehaviourSanctionsService`, `BehaviourAppealsService`, `BehaviourExclusionCasesService`, `BehaviourExportService`, `BehaviourAmendmentsService`, `BehaviourPulseService`, `BehaviourAnalyticsService`, `BehaviourAlertsService`, `BehaviourAIService`, `BehaviourDocumentService`, `BehaviourDocumentTemplateService`, `BehaviourParentService`, `BehaviourLegalHoldService`, `BehaviourAdminService`
+- **Controllers**: 16 controllers, 193 endpoints total:
   - `BehaviourController` (21) — core incident CRUD, quick-log
   - `BehaviourConfigController` (21) — categories, templates, settings
   - `BehaviourAdminController` (21) — admin ops, legal holds, data export
-  - `SafeguardingController` (21) — safeguarding concerns, actions, break-glass
   - `BehaviourAnalyticsController` (20) — analytics, pulse, AI queries
   - `BehaviourSanctionsController` (14) — sanction lifecycle
   - `BehaviourStudentsController` (13) — student profiles, histories
@@ -292,14 +291,28 @@ ComplianceModule note: anonymisation/export flows now import `SearchModule` and 
   - `BehaviourAdminService` -> PrismaService (reads `students` for data export, cohort analysis)
   - `BehaviourAwardService` -> PrismaService (reads `academic_periods` for period date ranges)
 - **External dependencies**: `@anthropic-ai/sdk` (Anthropic Claude API), `handlebars` (template compilation for document generation), `puppeteer` (PDF rendering via PdfRenderingModule)
-- **Queues** — 16 processors on the `behaviour` queue, plus enqueues to `notifications`:
-  - _Enqueues to `behaviour` queue_: `behaviour:evaluate-policy`, `behaviour:check-awards`, `behaviour:suspension-return`, `behaviour:detect-patterns`, `behaviour:task-reminders`, `behaviour:break-glass-expiry` (constant defined but NOT dispatched — see DZ-23), `safeguarding:critical-escalation`, `safeguarding:sla-check`, `behaviour:refresh-mv-student-summary`, `behaviour:refresh-mv-benchmarks`, `behaviour:refresh-mv-exposure-rates`, `behaviour:partition-maintenance`, `behaviour:cron-dispatch-daily`, `behaviour:cron-dispatch-sla`, `behaviour:cron-dispatch-monthly`, `behaviour:guardian-restriction-check`, `behaviour:attachment-scan`, `behaviour:retention-check`
+- **Queues** — 12 processors on the `behaviour` queue, plus enqueues to `notifications`:
+  - _Enqueues to `behaviour` queue_: `behaviour:evaluate-policy`, `behaviour:check-awards`, `behaviour:suspension-return`, `behaviour:detect-patterns`, `behaviour:task-reminders`, `behaviour:refresh-mv-student-summary`, `behaviour:refresh-mv-benchmarks`, `behaviour:refresh-mv-exposure-rates`, `behaviour:partition-maintenance`, `behaviour:cron-dispatch-daily`, `behaviour:cron-dispatch-sla`, `behaviour:cron-dispatch-monthly`, `behaviour:guardian-restriction-check`, `behaviour:retention-check`
   - _Enqueues to `notifications` queue_: parent notifications, sanction notices, appeal outcomes, correction notices, `behaviour:digest-notifications`
-  - _Processors (16)_: `BehaviourCronDispatchProcessor` (dispatches per-tenant daily/SLA/monthly jobs), `BehaviourParentNotificationProcessor`, `DigestNotificationsProcessor`, `BehaviourTaskRemindersProcessor`, `BehaviourCheckAwardsProcessor`, `BehaviourGuardianRestrictionCheckProcessor`, `EvaluatePolicyProcessor`, `BehaviourSuspensionReturnProcessor`, `AttachmentScanProcessor`, `BreakGlassExpiryProcessor`, `SlaCheckProcessor`, `CriticalEscalationProcessor`, `DetectPatternsProcessor`, `RefreshMVProcessor` (handles 3 MV refresh job types), `RetentionCheckProcessor`, `PartitionMaintenanceProcessor`
+  - _Processors (12)_: `BehaviourCronDispatchProcessor` (dispatches per-tenant daily/SLA/monthly jobs — also dispatches safeguarding SLA/break-glass jobs), `BehaviourParentNotificationProcessor`, `DigestNotificationsProcessor`, `BehaviourTaskRemindersProcessor`, `BehaviourCheckAwardsProcessor`, `BehaviourGuardianRestrictionCheckProcessor`, `EvaluatePolicyProcessor`, `BehaviourSuspensionReturnProcessor`, `DetectPatternsProcessor`, `RefreshMVProcessor` (handles 3 MV refresh job types), `RetentionCheckProcessor`, `PartitionMaintenanceProcessor`
 - **Consumed by**: None yet externally. Internally, PolicyEvaluationEngine creates tasks, sanctions, interventions. SanctionService auto-creates exclusion cases + auto-generates documents. AppealService cascades decisions to sanctions/incidents + auto-generates documents. AmendmentsService dispatches correction notifications + supersedes documents. BehaviourAnalyticsService reads from materialized views refreshed by cron jobs.
 - **Blast radius**: HIGH. ApprovalsModule changes affect behaviour policy actions. Sanction lifecycle creates exclusion cases, legal holds, amendment notices, auto-generates documents. Appeal decisions cascade to sanctions, incidents, exclusion cases, and generate documents. Amendment corrections dispatch parent notifications and supersede existing documents. Document generation depends on PdfRenderingModule (Puppeteer) and S3Module. Materialized view refreshes depend on underlying tables.
 - **Cross-module Prisma-direct reads**: Reads `students`, `student_parents`, `class_staff`, `class_enrolments`, `academic_years`, `academic_periods`, `subjects`, `rooms`, `schedules`, `tenant_settings`, `users`, `staff_profiles`, `parents`, `year_groups`, `notifications`, `behaviour_publication_approvals` directly via PrismaService. These are read-only lookups for context snapshots, scope resolution, student data, and parent portal rendering.
 - **Danger**: Schema changes to `students`, `class_enrolments`, or `class_staff` affect scope resolution in `BehaviourScopeService`. Schema changes to `student_parents` affect parent notification dispatch in the worker and parent portal rendering. The `@anthropic-ai/sdk` dependency requires an API key configured per tenant. Puppeteer PDF generation runs synchronously in API transactions — see DZ-19. Amendment correction chain touches 5 tables — see DZ-20. Break-glass expiry processor has no dispatch mechanism — see DZ-23.
+
+### SafeguardingModule
+
+- **Change cost**: HIGH -- handles child safeguarding concerns, referrals, break-glass access, sealed records; any data leak is a legal liability
+- **Last verified**: 2026-04-04
+- **Exports**: `SafeguardingService`
+- **Controllers**: 1 controller, 21 endpoints:
+  - `SafeguardingController` (21) — safeguarding concerns, actions, referrals, attachments, case files, seals, break-glass, dashboard
+- **Imports**: `AuthModule`, `ChildProtectionModule`, `PastoralCoreModule`, `PdfRenderingModule`, `SequenceModule`, `BullModule.registerQueue('notifications')`, `BullModule.registerQueue('behaviour')`
+- **Internal services**: `SafeguardingService` (facade), `SafeguardingConcernsService`, `SafeguardingReferralsService`, `SafeguardingReportingService`, `SafeguardingSealService`, `SafeguardingAttachmentService`, `SafeguardingBreakGlassService`
+- **Worker processors** (4, on `behaviour` queue): `SlaCheckProcessor` (`safeguarding:sla-check`), `CriticalEscalationProcessor` (`safeguarding:critical-escalation`), `BreakGlassExpiryProcessor` (`behaviour:break-glass-expiry`), `AttachmentScanProcessor` (`behaviour:attachment-scan`)
+- **Consumed by**: None directly. Cron jobs dispatched by `BehaviourCronDispatchProcessor`.
+- **Blast radius**: HIGH. Safeguarding data is subject to strict access controls (break-glass, sealing). Changes affect audit trail, SLA enforcement, and TUSLA/Garda referral workflows.
+- **Cross-module Prisma-direct reads**: `tenant_memberships`, `safeguarding_concerns`, `safeguarding_actions`, `safeguarding_break_glass_grants`, `behaviour_incidents`, `behaviour_attachments`, `tenant_settings`
 
 ### SenModule
 

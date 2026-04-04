@@ -14,6 +14,8 @@ import {
 } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { AuthReadFacade } from '../../auth/auth-read.facade';
+
 import { PrismaService } from '../../prisma/prisma.service';
 import { SequenceService } from '../../sequence/sequence.service';
 
@@ -141,6 +143,7 @@ function toPrismaStatus(status: string): $Enums.PastoralCaseStatus {
 export class CaseService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly authReadFacade: AuthReadFacade,
     private readonly sequenceService: SequenceService,
     private readonly eventService: PastoralEventService,
   ) {}
@@ -440,10 +443,7 @@ export class CaseService {
       }
 
       // Validate new owner exists (users table is platform-level, no RLS)
-      const newOwner = await this.prisma.user.findFirst({
-        where: { id: dto.new_owner_user_id },
-        select: { id: true },
-      });
+      const newOwner = await this.authReadFacade.findUserSummary(tenantId, dto.new_owner_user_id);
 
       if (!newOwner) {
         throw new NotFoundException({

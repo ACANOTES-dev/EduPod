@@ -2,6 +2,9 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { GradebookReadFacade } from '../gradebook/gradebook-read.facade';
 
 import { CurriculumRequirementsService } from './curriculum-requirements.service';
 
@@ -54,6 +57,38 @@ describe('CurriculumRequirementsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: AcademicReadFacade, useValue: {
+      findCurrentYear: jest.fn().mockResolvedValue(null),
+      findCurrentYearId: jest.fn().mockResolvedValue('year-1'),
+      findYearById: jest.fn().mockResolvedValue(null),
+      findYearByIdOrThrow: jest.fn().mockResolvedValue('year-1'),
+      findSubjectByIdOrThrow: jest.fn().mockResolvedValue('subject-1'),
+      findYearGroupByIdOrThrow: jest.fn().mockResolvedValue('yg-1'),
+      findYearGroupsWithActiveClasses: jest.fn().mockResolvedValue([]),
+      findYearGroupsWithClassesAndCounts: jest.fn().mockResolvedValue([]),
+      findAllYearGroups: jest.fn().mockResolvedValue([]),
+      findSubjectsByIdsWithOrder: jest.fn().mockResolvedValue([]),
+      findSubjectById: jest.fn().mockResolvedValue(null),
+      findYearGroupById: jest.fn().mockResolvedValue(null),
+      findPeriodById: jest.fn().mockResolvedValue(null),
+    } },
+        { provide: ClassesReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+      findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
+      countEnrolledStudents: jest.fn().mockResolvedValue(0),
+      findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
+      findByAcademicYear: jest.fn().mockResolvedValue([]),
+      findByYearGroup: jest.fn().mockResolvedValue([]),
+      findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
+      countByAcademicYear: jest.fn().mockResolvedValue(0),
+      findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
+      findClassIdsForStudent: jest.fn().mockResolvedValue([]),
+      findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
+    } },
+        { provide: GradebookReadFacade, useValue: {
+      findClassSubjectConfigs: jest.fn().mockResolvedValue([]),
+    } },
         CurriculumRequirementsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

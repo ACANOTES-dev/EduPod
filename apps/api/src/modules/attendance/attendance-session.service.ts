@@ -8,9 +8,12 @@ import {
 import { Prisma, $Enums } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 import { SchoolClosuresService } from '../school-closures/school-closures.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import type { CreateAttendanceSessionDto } from './dto/attendance.dto';
 
@@ -36,6 +39,9 @@ export class AttendanceSessionService {
     private readonly prisma: PrismaService,
     private readonly closuresService: SchoolClosuresService,
     private readonly settingsService: SettingsService,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
   ) {}
 
   // ─── Session Creation ────────────────────────────────────────────────────
@@ -53,17 +59,7 @@ export class AttendanceSessionService {
     userStaffProfileId?: string,
   ): Promise<{ id: string; [key: string]: unknown }> {
     // 1. Validate class exists and belongs to tenant
-    const classEntity = await this.prisma.class.findFirst({
-      where: { id: dto.class_id, tenant_id: tenantId },
-      select: {
-        id: true,
-        academic_year_id: true,
-        year_group_id: true,
-        academic_year: {
-          select: { start_date: true, end_date: true },
-        },
-      },
-    });
+    const classEntity = await this.classesReadFacade.findByIdWithAcademicYear(tenantId, dto.class_id);
 
     if (!classEntity) {
       throw new NotFoundException({
@@ -75,16 +71,13 @@ export class AttendanceSessionService {
     // 2. If user only has attendance.take (not attendance.manage), verify class assignment
     const hasManage = userPermissions.includes('attendance.manage');
     if (!hasManage && userStaffProfileId) {
-      const assignment = await this.prisma.classStaff.findFirst({
-        where: {
-          class_id: dto.class_id,
-          staff_profile_id: userStaffProfileId,
-          tenant_id: tenantId,
-        },
-        select: { class_id: true },
-      });
+      const isAssigned = await this.classesReadFacade.isStaffAssignedToClass(
+        tenantId,
+        userStaffProfileId,
+        dto.class_id,
+      );
 
-      if (!assignment) {
+      if (!isAssigned) {
         throw new ForbiddenException({
           code: 'NOT_ASSIGNED_TO_CLASS',
           message: 'You are not assigned to this class',
@@ -235,16 +228,9 @@ export class AttendanceSessionService {
     userId: string,
   ): Promise<number> {
     // Get all actively enrolled students in the class
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
-        class_id: classId,
-        status: 'active',
-      },
-      select: { student_id: true },
-    });
+    const enrolledStudentIds = await this.classesReadFacade.findEnrolledStudentIds(tenantId, classId);
 
-    if (enrolments.length === 0) {
+    if (enrolledStudentIds.length === 0) {
       return 0;
     }
 
@@ -255,10 +241,10 @@ export class AttendanceSessionService {
       const db = tx as unknown as PrismaService;
 
       return db.attendanceRecord.createMany({
-        data: enrolments.map((e) => ({
+        data: enrolledStudentIds.map((sid) => ({
           tenant_id: tenantId,
           attendance_session_id: sessionId,
-          student_id: e.student_id,
+          student_id: sid,
           status: 'present' as $Enums.AttendanceRecordStatus,
           marked_by_user_id: userId,
           marked_at: now,
@@ -303,11 +289,7 @@ export class AttendanceSessionService {
 
     // If teacher, filter to their assigned classes
     if (userStaffProfileId) {
-      const assignments = await this.prisma.classStaff.findMany({
-        where: { staff_profile_id: userStaffProfileId, tenant_id: tenantId },
-        select: { class_id: true },
-      });
-      const assignedClassIds = assignments.map((a) => a.class_id);
+      const assignedClassIds = await this.classesReadFacade.findClassIdsByStaff(tenantId, userStaffProfileId);
 
       if (where.class_id) {
         // If a specific class_id filter is provided, validate it's in their assignments
@@ -395,24 +377,10 @@ export class AttendanceSessionService {
     }
 
     // Get enrolled students for the class (so the UI can show who's missing records)
-    const enrolledStudents = await this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
-        class_id: session.class_id,
-        status: 'active',
-      },
-      select: {
-        student: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            student_number: true,
-          },
-        },
-      },
-      orderBy: { student: { last_name: 'asc' } },
-    });
+    const enrolledStudents = await this.classesReadFacade.findEnrolledStudentsWithNumber(
+      tenantId,
+      session.class_id,
+    );
 
     // Format schedule times if present
     const formattedSchedule = session.schedule
@@ -477,21 +445,7 @@ export class AttendanceSessionService {
     const weekday = jsDay === 0 ? 6 : jsDay - 1;
 
     // Find all active schedules for this weekday
-    const schedules = await this.prisma.schedule.findMany({
-      where: {
-        tenant_id: tenantId,
-        weekday,
-        effective_start_date: { lte: date },
-        OR: [{ effective_end_date: null }, { effective_end_date: { gte: date } }],
-      },
-      select: {
-        id: true,
-        class_id: true,
-        class_entity: {
-          select: { year_group_id: true },
-        },
-      },
-    });
+    const schedules = await this.schedulesReadFacade.findByWeekdayWithClassYearGroup(tenantId, weekday, date);
 
     let created = 0;
     let skipped = 0;
@@ -562,17 +516,7 @@ export class AttendanceSessionService {
    */
   async getTeacherDashboard(tenantId: string, userId: string) {
     // Find the staff profile for the current user
-    const staffProfile = await this.prisma.staffProfile.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-      select: { id: true },
-    });
-
-    if (!staffProfile) {
-      throw new NotFoundException({
-        code: 'STAFF_PROFILE_NOT_FOUND',
-        message: 'No staff profile found for the current user',
-      });
-    }
+    const staffProfileId = await this.staffProfileReadFacade.resolveProfileId(tenantId, userId);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -581,34 +525,9 @@ export class AttendanceSessionService {
     const weekday = todayJsDay === 0 ? 6 : todayJsDay - 1;
 
     // Get today's schedules for classes the teacher is assigned to
-    const assignments = await this.prisma.classStaff.findMany({
-      where: {
-        staff_profile_id: staffProfile.id,
-        tenant_id: tenantId,
-      },
-      select: { class_id: true },
-    });
+    const classIds = await this.classesReadFacade.findClassIdsByStaff(tenantId, staffProfileId);
 
-    const classIds = assignments.map((a) => a.class_id);
-
-    const schedules = await this.prisma.schedule.findMany({
-      where: {
-        tenant_id: tenantId,
-        class_id: { in: classIds },
-        weekday,
-        effective_start_date: { lte: today },
-        OR: [{ effective_end_date: null }, { effective_end_date: { gte: today } }],
-      },
-      include: {
-        class_entity: {
-          select: { id: true, name: true },
-        },
-        room: {
-          select: { id: true, name: true },
-        },
-      },
-      orderBy: { start_time: 'asc' },
-    });
+    const schedules = await this.schedulesReadFacade.findByClassIdsAndWeekday(tenantId, classIds, weekday, today);
 
     // Get today's sessions for those classes
     const sessions = await this.prisma.attendanceSession.findMany({

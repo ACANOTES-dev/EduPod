@@ -16,10 +16,16 @@ import {
 } from '@school/shared';
 import type { GdprEntityType, GdprOutboundData } from '@school/shared/gdpr';
 
+import { AdmissionsReadFacade } from '../admissions/admissions-read.facade';
+import { AuthReadFacade } from '../auth/auth-read.facade';
 import { AgeGateService } from '../gdpr/age-gate.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
+import { HouseholdReadFacade } from '../households/household-read.facade';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PastoralDsarService } from '../pastoral/services/pastoral-dsar.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import { AccessExportService } from './access-export.service';
 import { AnonymisationService } from './anonymisation.service';
@@ -35,6 +41,12 @@ export class ComplianceService {
     private readonly dsarTraversalService: DsarTraversalService,
     private readonly ageGateService: AgeGateService,
     private readonly gdprTokenService: GdprTokenService,
+    private readonly parentReadFacade: ParentReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly householdReadFacade: HouseholdReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly admissionsReadFacade: AdmissionsReadFacade,
+    private readonly authReadFacade: AuthReadFacade,
   ) {}
 
   /**
@@ -431,7 +443,7 @@ export class ComplianceService {
         request.subject_id,
       );
 
-      // Delete consent records for the subject
+      // Delete consent records for the subject (compliance-owned write — not a cross-module read)
       await this.prisma.consentRecord.deleteMany({
         where: {
           tenant_id: tenantId,
@@ -440,7 +452,7 @@ export class ComplianceService {
         },
       });
 
-      // Delete tokenisation mappings for the subject
+      // Delete tokenisation mappings for the subject (compliance-owned write — not a cross-module read)
       await this.prisma.gdprAnonymisationToken.deleteMany({
         where: {
           tenant_id: tenantId,
@@ -624,50 +636,31 @@ export class ComplianceService {
 
     switch (subjectType) {
       case 'parent': {
-        const parent = await this.prisma.parent.findFirst({
-          where: { id: subjectId, tenant_id: tenantId },
-          select: { id: true },
-        });
+        const parent = await this.parentReadFacade.findById(tenantId, subjectId);
         exists = !!parent;
         break;
       }
       case 'student': {
-        const student = await this.prisma.student.findFirst({
-          where: { id: subjectId, tenant_id: tenantId },
-          select: { id: true },
-        });
-        exists = !!student;
+        exists = await this.studentReadFacade.exists(tenantId, subjectId);
         break;
       }
       case 'household': {
-        const household = await this.prisma.household.findFirst({
-          where: { id: subjectId, tenant_id: tenantId },
-          select: { id: true },
-        });
+        const household = await this.householdReadFacade.findById(tenantId, subjectId);
         exists = !!household;
         break;
       }
       case 'staff': {
-        const staff = await this.prisma.staffProfile.findFirst({
-          where: { id: subjectId, tenant_id: tenantId },
-          select: { id: true },
-        });
+        const staff = await this.staffProfileReadFacade.findById(tenantId, subjectId);
         exists = !!staff;
         break;
       }
       case 'applicant': {
-        const applicant = await this.prisma.application.findFirst({
-          where: { id: subjectId, tenant_id: tenantId },
-          select: { id: true },
-        });
+        const applicant = await this.admissionsReadFacade.findById(tenantId, subjectId);
         exists = !!applicant;
         break;
       }
       case 'user': {
-        const user = await this.prisma.user.findFirst({
-          where: { id: subjectId },
-          select: { id: true },
-        });
+        const user = await this.authReadFacade.findUserById('', subjectId);
         exists = !!user;
         break;
       }

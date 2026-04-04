@@ -45,7 +45,7 @@ import {
 } from '../../common/interceptors/file-upload.interceptor';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { AttendancePatternService } from './attendance-pattern.service';
 import { AttendanceScanService } from './attendance-scan.service';
@@ -129,7 +129,7 @@ export class AttendanceController {
     private readonly attendanceUploadService: AttendanceUploadService,
     private readonly dailySummaryService: DailySummaryService,
     private readonly permissionCacheService: PermissionCacheService,
-    private readonly prisma: PrismaService,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
   ) {}
 
   // ─── Attendance Sessions ──────────────────────────────────────────────
@@ -520,10 +520,7 @@ export class AttendanceController {
       ? await this.permissionCacheService.getPermissions(user.membership_id)
       : [];
 
-    const staffProfile = await this.prisma.staffProfile.findFirst({
-      where: { user_id: user.sub, tenant_id: tenantId },
-      select: { id: true },
-    });
+    const staffProfile = await this.staffProfileReadFacade.findByUserId(tenantId, user.sub);
 
     return {
       permissions,

@@ -1,8 +1,18 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
+import { AdmissionsModule } from '../admissions/admissions.module';
 import { AiModule } from '../ai/ai.module';
+import { AttendanceModule } from '../attendance/attendance.module';
+import { AuditLogModule } from '../audit-log/audit-log.module';
+import { ClassesModule } from '../classes/classes.module';
+import { CommunicationsModule } from '../communications/communications.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
+import { FinanceModule } from '../finance/finance.module';
 import { GdprModule } from '../gdpr/gdpr.module';
+import { GradebookModule } from '../gradebook/gradebook.module';
+import { PayrollModule } from '../payroll/payroll.module';
+import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
+import { StudentsModule } from '../students/students.module';
 
 import { AdmissionsAnalyticsService } from './admissions-analytics.service';
 import { AiPredictionsService } from './ai-predictions.service';
@@ -26,7 +36,21 @@ import { StudentProgressService } from './student-progress.service';
 import { UnifiedDashboardService } from './unified-dashboard.service';
 
 @Module({
-  imports: [AiModule, ConfigurationModule, GdprModule],
+  imports: [
+    AiModule,
+    ConfigurationModule,
+    GdprModule,
+    forwardRef(() => StudentsModule),
+    forwardRef(() => StaffProfilesModule),
+    forwardRef(() => ClassesModule),
+    forwardRef(() => AttendanceModule),
+    forwardRef(() => GradebookModule),
+    forwardRef(() => FinanceModule),
+    forwardRef(() => AdmissionsModule),
+    forwardRef(() => PayrollModule),
+    forwardRef(() => CommunicationsModule),
+    forwardRef(() => AuditLogModule),
+  ],
   controllers: [ReportsController, ReportsEnhancedController],
   providers: [
     ReportsDataAccessService,

@@ -59,8 +59,8 @@ import { PastoralEventService } from '../pastoral/services/pastoral-event.servic
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
-import { BehaviourHistoryService } from './behaviour-history.service';
-import { BehaviourTasksService } from './behaviour-tasks.service';
+import { BehaviourHistoryService } from '../behaviour/behaviour-history.service';
+import { BehaviourTasksService } from '../behaviour/behaviour-tasks.service';
 import { SafeguardingConcernsService } from './safeguarding-concerns.service';
 import { SafeguardingReferralsService } from './safeguarding-referrals.service';
 import { SafeguardingReportingService } from './safeguarding-reporting.service';

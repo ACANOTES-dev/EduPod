@@ -8,7 +8,10 @@ import type {
 } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { RoomsReadFacade } from '../rooms/rooms-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 interface InvigilatorCandidate {
   staff_profile_id: string;
@@ -20,15 +23,17 @@ interface InvigilatorCandidate {
 export class ExamSchedulingService {
   private readonly logger = new Logger(ExamSchedulingService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly roomsReadFacade: RoomsReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+  ) {}
 
   // ─── Create Exam Session ──────────────────────────────────────────────────
 
   async createExamSession(tenantId: string, dto: CreateExamSessionDto) {
-    const period = await this.prisma.academicPeriod.findFirst({
-      where: { id: dto.academic_period_id, tenant_id: tenantId },
-      select: { id: true },
-    });
+    const period = await this.academicReadFacade.findPeriodById(tenantId, dto.academic_period_id);
     if (!period) {
       throw new NotFoundException({
         error: { code: 'ACADEMIC_PERIOD_NOT_FOUND', message: 'Academic period not found' },
@@ -286,10 +291,7 @@ export class ExamSchedulingService {
     }
 
     // Gather available rooms
-    const rooms = await this.prisma.room.findMany({
-      where: { tenant_id: tenantId, active: true },
-      select: { id: true, name: true, capacity: true },
-    });
+    const rooms = await this.roomsReadFacade.findActiveRoomBasics(tenantId);
 
     // Basic placement: assign rooms to unassigned slots based on capacity
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
@@ -344,13 +346,7 @@ export class ExamSchedulingService {
     }
 
     // Load all staff
-    const allStaff = await this.prisma.staffProfile.findMany({
-      where: { tenant_id: tenantId },
-      select: {
-        id: true,
-        user: { select: { first_name: true, last_name: true } },
-      },
-    });
+    const allStaff = await this.staffProfileReadFacade.findActiveStaff(tenantId);
 
     if (allStaff.length === 0) {
       return { session_id: sessionId, assignments_created: 0 };

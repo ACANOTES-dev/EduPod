@@ -7,6 +7,8 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { TimetablesController } from './timetables.controller';
 import { TimetablesService } from './timetables.service';
@@ -67,6 +69,28 @@ describe('TimetablesController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TimetablesController],
       providers: [
+        { provide: ClassesReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+      findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
+      countEnrolledStudents: jest.fn().mockResolvedValue(0),
+      findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
+      findByAcademicYear: jest.fn().mockResolvedValue([]),
+      findByYearGroup: jest.fn().mockResolvedValue([]),
+      findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
+      countByAcademicYear: jest.fn().mockResolvedValue(0),
+      findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
+      findClassIdsForStudent: jest.fn().mockResolvedValue([]),
+      findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
+    } },
+        { provide: StaffProfileReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      findByIds: jest.fn().mockResolvedValue([]),
+      findByUserId: jest.fn().mockResolvedValue(null),
+      findActiveStaff: jest.fn().mockResolvedValue([]),
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+      resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
+    } },
         { provide: TimetablesService, useValue: mockService },
         { provide: PermissionCacheService, useValue: mockPermissionCache },
         { provide: PrismaService, useValue: mockPrisma },

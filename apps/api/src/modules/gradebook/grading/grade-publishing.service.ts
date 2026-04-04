@@ -6,6 +6,8 @@ import {
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { NotificationsService } from '../../communications/notifications.service';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AiProgressSummaryService } from '../ai/ai-progress-summary.service';
 
@@ -42,6 +44,8 @@ export class GradePublishingService {
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly aiProgressSummaryService: AiProgressSummaryService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
   ) {}
 
   // ─── D1: Readiness Dashboard ──────────────────────────────────────────────

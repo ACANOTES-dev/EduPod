@@ -15,7 +15,9 @@ import type {
 } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 
 import { SchedulingPrerequisitesService } from './scheduling-prerequisites.service';
 
@@ -29,23 +31,15 @@ export class SchedulingRunsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly prerequisites: SchedulingPrerequisitesService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
   ) {}
 
   // ─── Create a new scheduling run ──────────────────────────────────────────
 
   async create(tenantId: string, userId: string, dto: CreateSchedulingRunDto) {
     // Verify the academic year belongs to this tenant
-    const academicYear = await this.prisma.academicYear.findFirst({
-      where: { id: dto.academic_year_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-
-    if (!academicYear) {
-      throw new NotFoundException({
-        code: 'ACADEMIC_YEAR_NOT_FOUND',
-        message: `Academic year "${dto.academic_year_id}" not found`,
-      });
-    }
+    await this.academicReadFacade.findYearByIdOrThrow(tenantId, dto.academic_year_id);
 
     // Ensure no active run (queued or running) for this year
     const activeRun = await this.prisma.schedulingRun.findFirst({
@@ -75,14 +69,7 @@ export class SchedulingRunsService {
     }
 
     // Auto-detect mode: if there are any pinned entries, it's hybrid
-    const pinnedCount = await this.prisma.schedule.count({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: dto.academic_year_id,
-        is_pinned: true,
-        OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-      },
-    });
+    const pinnedCount = await this.schedulesReadFacade.countPinnedEntries(tenantId, dto.academic_year_id);
     const mode: 'auto' | 'hybrid' = pinnedCount > 0 ? 'hybrid' : 'auto';
 
     // Build config snapshot

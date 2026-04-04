@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { RegulatoryDomain } from '@prisma/client';
 import { PodSyncStatus, RegulatorySubmissionStatus } from '@prisma/client';
 
+import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -63,7 +64,10 @@ interface OverdueItem {
 
 @Injectable()
 export class RegulatoryDashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly attendanceReadFacade: AttendanceReadFacade,
+  ) {}
 
   // ─── Dashboard Summary ────────────────────────────────────────────────────
 
@@ -147,17 +151,8 @@ export class RegulatoryDashboardService {
 
   private async getTuslaSummary(tenantId: string) {
     const [activeAlerts, excessiveAbsenceAlerts] = await Promise.all([
-      this.prisma.attendancePatternAlert.count({
-        where: { tenant_id: tenantId, status: 'active' },
-      }),
-      this.prisma.attendancePatternAlert.findMany({
-        where: {
-          tenant_id: tenantId,
-          status: 'active',
-          alert_type: 'excessive_absences',
-        },
-        select: { student_id: true, details_json: true },
-      }),
+      this.attendanceReadFacade.countActivePatternAlerts(tenantId),
+      this.attendanceReadFacade.findActiveAlertsByType(tenantId, 'excessive_absences'),
     ]);
 
     type AlertRow = { student_id: string; details_json: unknown };

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Types ───────────────────────────────────────────────────────────────
@@ -50,7 +51,6 @@ interface BatchGradeInput {
 @Injectable()
 export class ResultsMatrixService {
   constructor(private readonly prisma: PrismaService) {}
-
   /**
    * Fetch the full results matrix for a class in a given academic period.
    * Returns students × subjects × assessments with all grades.

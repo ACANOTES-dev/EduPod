@@ -11,6 +11,7 @@ import { CheckinAlertService } from './services/checkin-alert.service';
 import { CheckinAnalyticsService } from './services/checkin-analytics.service';
 import { CheckinPrerequisiteService } from './services/checkin-prerequisite.service';
 import { CheckinService } from './services/checkin.service';
+import { ConfigurationModule } from '../configuration/configuration.module';
 
 // ─── PastoralCheckinsSubModule ─────────────────────────────────────────────────
 // Check-ins, alerts, analytics, prerequisites.
@@ -18,7 +19,7 @@ import { CheckinService } from './services/checkin.service';
 // PastoralCheckinsModule at modules/pastoral-checkins/ (if it ever exists).
 
 @Module({
-  imports: [AuthModule, PastoralCoreModule, BullModule.registerQueue({ name: 'notifications' })],
+  imports: [AuthModule, PastoralCoreModule, BullModule.registerQueue({ name: 'notifications' }), ConfigurationModule],
   controllers: [CheckinAdminController, CheckinConfigController, CheckinsController],
   providers: [
     CheckinAlertService,

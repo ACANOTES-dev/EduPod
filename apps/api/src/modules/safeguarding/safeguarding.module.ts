@@ -38,4 +38,4 @@ import { SafeguardingService } from './safeguarding.service';
   ],
   exports: [SafeguardingService],
 })
-export class BehaviourSafeguardingModule {}
+export class SafeguardingModule {}

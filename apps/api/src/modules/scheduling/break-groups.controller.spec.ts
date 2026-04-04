@@ -5,6 +5,7 @@ import type { TenantContext } from '@school/shared';
 
 import { BreakGroupsController } from './break-groups.controller';
 import { BreakGroupsService } from './break-groups.service';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 
 const TENANT: TenantContext = {
   tenant_id: 'tenant-uuid',
@@ -30,7 +31,22 @@ describe('BreakGroupsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BreakGroupsController],
-      providers: [{ provide: BreakGroupsService, useValue: mockService }],
+      providers: [
+        { provide: AcademicReadFacade, useValue: {
+      findCurrentYear: jest.fn().mockResolvedValue(null),
+      findCurrentYearId: jest.fn().mockResolvedValue('year-1'),
+      findYearById: jest.fn().mockResolvedValue(null),
+      findYearByIdOrThrow: jest.fn().mockResolvedValue('year-1'),
+      findSubjectByIdOrThrow: jest.fn().mockResolvedValue('subject-1'),
+      findYearGroupByIdOrThrow: jest.fn().mockResolvedValue('yg-1'),
+      findYearGroupsWithActiveClasses: jest.fn().mockResolvedValue([]),
+      findYearGroupsWithClassesAndCounts: jest.fn().mockResolvedValue([]),
+      findAllYearGroups: jest.fn().mockResolvedValue([]),
+      findSubjectsByIdsWithOrder: jest.fn().mockResolvedValue([]),
+      findSubjectById: jest.fn().mockResolvedValue(null),
+      findYearGroupById: jest.fn().mockResolvedValue(null),
+      findPeriodById: jest.fn().mockResolvedValue(null),
+    } },{ provide: BreakGroupsService, useValue: mockService }],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })

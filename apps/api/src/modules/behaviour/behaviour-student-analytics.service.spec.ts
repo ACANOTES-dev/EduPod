@@ -1,3 +1,4 @@
+import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourStudentAnalyticsService } from './behaviour-student-analytics.service';
@@ -37,7 +38,15 @@ describe('BehaviourStudentAnalyticsService', () => {
 
   beforeEach(() => {
     mockPrisma = makeMockPrisma();
-    service = new BehaviourStudentAnalyticsService(mockPrisma as unknown as PrismaService);
+    service = new BehaviourStudentAnalyticsService(
+      mockPrisma as unknown as PrismaService,
+      {
+        countAllDailySummariesForStudent: jest.fn().mockResolvedValue(0),
+        findAllDailySummariesForStudent: jest.fn().mockResolvedValue([]),
+        findDailySummariesForStudent: jest.fn().mockResolvedValue([]),
+        countDailySummariesForStudent: jest.fn().mockResolvedValue(0),
+      } as unknown as AttendanceReadFacade,
+    );
   });
 
   afterEach(() => jest.clearAllMocks());

@@ -1,6 +1,9 @@
 import type { PulseDimension } from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { RbacReadFacade } from '../rbac/rbac-read.facade';
+import { RedisService } from '../redis/redis.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import { BehaviourPulseService } from './behaviour-pulse.service';
 
@@ -11,7 +14,9 @@ describe('BehaviourPulseService', () => {
     // Create service with mocked dependencies for pure function tests
     service = new BehaviourPulseService(
       {} as never, // PrismaService (not needed for computeComposite)
-      {} as never, // RedisService (not needed for computeComposite)
+      {} as never as RedisService, // RedisService (not needed for computeComposite)
+      {} as never as StudentReadFacade, // StudentReadFacade (not needed for computeComposite)
+      {} as never as RbacReadFacade, // RbacReadFacade (not needed for computeComposite)
     );
   });
 
@@ -155,7 +160,9 @@ describe('BehaviourPulseService', () => {
 
       dimService = new BehaviourPulseService(
         mockPrisma as unknown as PrismaService,
-        {} as never, // RedisService (not needed for dimension methods)
+        {} as never as RedisService, // RedisService (not needed for dimension methods)
+        { count: jest.fn().mockResolvedValue(0) } as unknown as StudentReadFacade,
+        { countMembershipsWithPermission: jest.fn().mockResolvedValue(0) } as unknown as RbacReadFacade,
       );
     });
 

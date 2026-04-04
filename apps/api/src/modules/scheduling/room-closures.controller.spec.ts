@@ -9,6 +9,7 @@ import type { TenantContext } from '@school/shared';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import { RoomsReadFacade } from '../rooms/rooms-read.facade';
 
 import { RoomClosuresController } from './room-closures.controller';
 import { RoomClosuresService } from './room-closures.service';
@@ -44,7 +45,18 @@ describe('RoomClosuresController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RoomClosuresController],
-      providers: [{ provide: RoomClosuresService, useValue: mockService }],
+      providers: [
+        { provide: RoomsReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+      exists: jest.fn().mockResolvedValue(false),
+      findActiveRooms: jest.fn().mockResolvedValue([]),
+      findActiveRoomBasics: jest.fn().mockResolvedValue([]),
+      countActiveRooms: jest.fn().mockResolvedValue(0),
+      findAllClosures: jest.fn().mockResolvedValue([]),
+      findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+      findClosureById: jest.fn().mockResolvedValue(null),
+    } },{ provide: RoomClosuresService, useValue: mockService }],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })

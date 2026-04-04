@@ -9,6 +9,7 @@ import type {
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 // ─── State machine ────────────────────────────────────────────────────────────
 
@@ -37,7 +38,10 @@ const API_DIRECTION_TO_PRISMA: Record<string, TransferDirection> = {
 
 @Injectable()
 export class RegulatoryTransfersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly studentReadFacade: StudentReadFacade,
+  ) {}
 
   // ─── Find All ───────────────────────────────────────────────────────────────
 
@@ -92,17 +96,7 @@ export class RegulatoryTransfersService {
   // ─── Create ─────────────────────────────────────────────────────────────────
 
   async create(tenantId: string, userId: string, dto: CreateTransferDto) {
-    const student = await this.prisma.student.findFirst({
-      where: { id: dto.student_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-
-    if (!student) {
-      throw new NotFoundException({
-        code: 'STUDENT_NOT_FOUND',
-        message: `Student with id "${dto.student_id}" not found`,
-      });
-    }
+    await this.studentReadFacade.existsOrThrow(tenantId, dto.student_id);
 
     const prismaDirection = API_DIRECTION_TO_PRISMA[dto.direction] ?? TransferDirection.outbound;
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });

@@ -5,6 +5,13 @@ import type { JwtPayload, TenantContext } from '@school/shared';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { RoomsReadFacade } from '../rooms/rooms-read.facade';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { SchedulingReadFacade } from '../scheduling/scheduling-read.facade';
+import { SchedulingRunsReadFacade } from '../scheduling-runs/scheduling-runs-read.facade';
+import { StaffAvailabilityReadFacade } from '../staff-availability/staff-availability-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { SchedulingDashboardController } from './scheduling-dashboard.controller';
 import { SchedulingDashboardService } from './scheduling-dashboard.service';
@@ -49,6 +56,92 @@ describe('SchedulingDashboardController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SchedulingDashboardController],
       providers: [
+        { provide: ClassesReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+      findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
+      countEnrolledStudents: jest.fn().mockResolvedValue(0),
+      findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
+      findByAcademicYear: jest.fn().mockResolvedValue([]),
+      findByYearGroup: jest.fn().mockResolvedValue([]),
+      findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
+      countByAcademicYear: jest.fn().mockResolvedValue(0),
+      findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
+      findClassIdsForStudent: jest.fn().mockResolvedValue([]),
+      findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
+    } },
+        { provide: RoomsReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+      exists: jest.fn().mockResolvedValue(false),
+      findActiveRooms: jest.fn().mockResolvedValue([]),
+      findActiveRoomBasics: jest.fn().mockResolvedValue([]),
+      countActiveRooms: jest.fn().mockResolvedValue(0),
+      findAllClosures: jest.fn().mockResolvedValue([]),
+      findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+      findClosureById: jest.fn().mockResolvedValue(null),
+    } },
+        { provide: SchedulesReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      findCoreById: jest.fn().mockResolvedValue(null),
+      existsById: jest.fn().mockResolvedValue(null),
+      findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
+      countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
+      findTeacherTimetable: jest.fn().mockResolvedValue([]),
+      findClassTimetable: jest.fn().mockResolvedValue([]),
+      findPinnedEntries: jest.fn().mockResolvedValue([]),
+      countPinnedEntries: jest.fn().mockResolvedValue(0),
+      findByAcademicYear: jest.fn().mockResolvedValue([]),
+      findScheduledClassIds: jest.fn().mockResolvedValue([]),
+      countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
+      count: jest.fn().mockResolvedValue(0),
+      hasRotationEntries: jest.fn().mockResolvedValue(false),
+      countByRoom: jest.fn().mockResolvedValue(0),
+      findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
+      findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
+      countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
+      findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
+      hasConflict: jest.fn().mockResolvedValue(false),
+      findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
+      findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
+    } },
+        { provide: SchedulingReadFacade, useValue: {
+      findPeriodTemplate: jest.fn().mockResolvedValue(null),
+      countTeachingPeriods: jest.fn().mockResolvedValue(0),
+      findPeriodTemplates: jest.fn().mockResolvedValue([]),
+      countClassRequirements: jest.fn().mockResolvedValue(0),
+      findClassRequirementsWithDetails: jest.fn().mockResolvedValue([]),
+      findTeacherCompetencies: jest.fn().mockResolvedValue([]),
+      findTeacherConfigs: jest.fn().mockResolvedValue([]),
+    } },
+        { provide: SchedulingRunsReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      findStatusById: jest.fn().mockResolvedValue(null),
+      findActiveRun: jest.fn().mockResolvedValue(null),
+      countActiveRuns: jest.fn().mockResolvedValue(0),
+      findLatestCompletedRun: jest.fn().mockResolvedValue(null),
+      findLatestRunWithResult: jest.fn().mockResolvedValue(null),
+      findLatestAppliedRun: jest.fn().mockResolvedValue(null),
+      listRuns: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+      findHistoricalRuns: jest.fn().mockResolvedValue([]),
+      findScenarioById: jest.fn().mockResolvedValue(null),
+      findScenarioStatusById: jest.fn().mockResolvedValue(null),
+      listScenarios: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+      findScenariosForComparison: jest.fn().mockResolvedValue([]),
+    } },
+        { provide: StaffAvailabilityReadFacade, useValue: {
+      findByAcademicYear: jest.fn().mockResolvedValue([]),
+      findByStaffIds: jest.fn().mockResolvedValue([]),
+      findByWeekday: jest.fn().mockResolvedValue([]),
+    } },
+        { provide: StaffProfileReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      findByIds: jest.fn().mockResolvedValue([]),
+      findByUserId: jest.fn().mockResolvedValue(null),
+      findActiveStaff: jest.fn().mockResolvedValue([]),
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+      resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
+    } },
         { provide: SchedulingDashboardService, useValue: mockDashboardService },
         { provide: PermissionCacheService, useValue: mockPermissionCache },
       ],

@@ -2,7 +2,11 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import type { CohortQuery } from '@school/shared/early-warning';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { RbacReadFacade } from '../rbac/rbac-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -52,7 +56,13 @@ interface ProfileRow {
 export class EarlyWarningCohortService {
   private readonly logger = new Logger(EarlyWarningCohortService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly rbacReadFacade: RbacReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly academicReadFacade: AcademicReadFacade,
+  ) {}
 
   // ─── Role-scoping (mirrors EarlyWarningService logic) ─────────────────────
 
@@ -65,22 +75,11 @@ export class EarlyWarningCohortService {
       return { unrestricted: false, studentIds: [] };
     }
 
-    const membership = await this.prisma.tenantMembership.findFirst({
-      where: { id: membershipId, tenant_id: tenantId, user_id: userId },
-      include: {
-        membership_roles: {
-          include: {
-            role: {
-              include: {
-                role_permissions: {
-                  include: { permission: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
+    const membership = await this.rbacReadFacade.findMembershipByIdAndUser(
+      tenantId,
+      membershipId,
+      userId,
+    );
 
     if (!membership) {
       return { unrestricted: false, studentIds: [] };
@@ -95,28 +94,20 @@ export class EarlyWarningCohortService {
     }
 
     // Staff: find students in classes via staff profile
-    const staffProfile = await this.prisma.staffProfile.findFirst({
-      where: { tenant_id: tenantId, user_id: userId },
-      select: { id: true },
-    });
+    const staffProfile = await this.staffProfileReadFacade.findByUserId(tenantId, userId);
 
     if (staffProfile) {
-      const classStaffRows = await this.prisma.classStaff.findMany({
-        where: { tenant_id: tenantId, staff_profile_id: staffProfile.id },
-        select: { class_id: true },
-      });
+      const classStaffRows = await this.classesReadFacade.findClassesByStaff(
+        tenantId,
+        staffProfile.id,
+      );
 
       if (classStaffRows.length > 0) {
         const classIds = classStaffRows.map((cs) => cs.class_id);
-        const enrolments = await this.prisma.classEnrolment.findMany({
-          where: {
-            tenant_id: tenantId,
-            class_id: { in: classIds },
-            status: 'active',
-          },
-          select: { student_id: true },
-        });
-        const uniqueStudentIds = [...new Set(enrolments.map((e) => e.student_id))];
+        const studentIdSets = await Promise.all(
+          classIds.map((classId) => this.classesReadFacade.findEnrolledStudentIds(tenantId, classId)),
+        );
+        const uniqueStudentIds = [...new Set(studentIdSets.flat())];
         return { unrestricted: false, studentIds: uniqueStudentIds };
       }
     }
@@ -134,10 +125,7 @@ export class EarlyWarningCohortService {
   ): Promise<{ data: CohortResponseRow[] }> {
     const [scope, academicYear] = await Promise.all([
       this.resolveRoleScope(tenantId, userId, membershipId),
-      this.prisma.academicYear.findFirst({
-        where: { tenant_id: tenantId, status: 'active' },
-        select: { id: true },
-      }),
+      this.academicReadFacade.findCurrentYear(tenantId),
     ]);
 
     if (!academicYear) {

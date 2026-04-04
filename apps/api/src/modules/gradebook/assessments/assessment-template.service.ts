@@ -6,6 +6,8 @@ import {
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import type {
   CreateAssessmentFromTemplateDto,

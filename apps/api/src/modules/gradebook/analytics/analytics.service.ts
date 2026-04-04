@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
 
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 
@@ -150,6 +151,7 @@ export class AnalyticsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly classesReadFacade: ClassesReadFacade,
   ) {}
 
   // ─── A2: Grade Distribution per Assessment ──────────────────────────────

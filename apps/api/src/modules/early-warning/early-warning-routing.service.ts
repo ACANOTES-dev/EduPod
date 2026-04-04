@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import { PrismaService } from '../prisma/prisma.service';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { RbacReadFacade } from '../rbac/rbac-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -15,7 +18,12 @@ interface RoutingResult {
 export class EarlyWarningRoutingService {
   private readonly logger = new Logger(EarlyWarningRoutingService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly rbacReadFacade: RbacReadFacade,
+  ) {}
 
   async resolveRecipients(
     tenantId: string,
@@ -77,29 +85,20 @@ export class EarlyWarningRoutingService {
     tenantId: string,
     studentId: string,
   ): Promise<string[]> {
-    const enrolment = await this.prisma.classEnrolment.findFirst({
-      where: { tenant_id: tenantId, student_id: studentId, status: 'active' },
-      select: { class_id: true },
-    });
+    const classIds = await this.classesReadFacade.findClassIdsForStudent(tenantId, studentId);
+    if (classIds.length === 0) return [];
 
-    if (!enrolment) return [];
+    // Find homeroom staff in the student's first class
+    const firstClassId = classIds[0];
+    if (!firstClassId) return [];
 
-    const classStaff = await this.prisma.classStaff.findMany({
-      where: {
-        tenant_id: tenantId,
-        class_id: enrolment.class_id,
-        assignment_role: 'homeroom',
-      },
-      select: { staff_profile_id: true },
-    });
+    const classStaff = await this.classesReadFacade.findStaffByClass(tenantId, firstClassId);
+    const homeroomStaff = classStaff.filter((cs) => cs.assignment_role === 'homeroom');
 
-    if (classStaff.length === 0) return [];
+    if (homeroomStaff.length === 0) return [];
 
-    const staffProfileIds = classStaff.map((cs) => cs.staff_profile_id);
-    const staffProfiles = await this.prisma.staffProfile.findMany({
-      where: { id: { in: staffProfileIds }, tenant_id: tenantId },
-      select: { user_id: true },
-    });
+    const staffProfileIds = homeroomStaff.map((cs) => cs.staff_profile_id);
+    const staffProfiles = await this.staffProfileReadFacade.findByIds(tenantId, staffProfileIds);
 
     return staffProfiles.map((sp) => sp.user_id);
   }
@@ -108,11 +107,7 @@ export class EarlyWarningRoutingService {
     tenantId: string,
     studentId: string,
   ): Promise<string[]> {
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
-      select: { year_group_id: true },
-    });
-
+    const student = await this.studentReadFacade.findById(tenantId, studentId);
     if (!student?.year_group_id) return [];
 
     // Step 1: Get all year_head user IDs in this tenant
@@ -120,27 +115,23 @@ export class EarlyWarningRoutingService {
     if (allYearHeadUserIds.length === 0) return [];
 
     // Step 2: Find classes in the student's year group
-    const yearGroupClasses = await this.prisma.class.findMany({
-      where: { tenant_id: tenantId, year_group_id: student.year_group_id },
-      select: { id: true },
-    });
+    const yearGroupClasses = await this.classesReadFacade.findByYearGroup(
+      tenantId,
+      student.year_group_id,
+    );
     const classIds = yearGroupClasses.map((c) => c.id);
 
     if (classIds.length === 0) return allYearHeadUserIds;
 
     // Step 3: Find which year heads have staff assignments in those classes
-    const staffInYearGroup = await this.prisma.classStaff.findMany({
-      where: {
-        tenant_id: tenantId,
-        class_id: { in: classIds },
-        staff_profile: {
-          user_id: { in: allYearHeadUserIds },
-        },
-      },
-      include: { staff_profile: { select: { user_id: true } } },
-    });
+    const classStaffRows = await this.classesReadFacade.findStaffByClasses(tenantId, classIds);
 
-    const scopedUserIds = [...new Set(staffInYearGroup.map((cs) => cs.staff_profile.user_id))];
+    // Resolve staff profile user IDs
+    const staffProfileIds = [...new Set(classStaffRows.map((cs) => cs.staff_profile_id))];
+    const staffProfiles = await this.staffProfileReadFacade.findByIds(tenantId, staffProfileIds);
+    const staffUserIds = new Set(staffProfiles.map((sp) => sp.user_id));
+
+    const scopedUserIds = allYearHeadUserIds.filter((uid) => staffUserIds.has(uid));
     return scopedUserIds.length > 0 ? scopedUserIds : allYearHeadUserIds;
   }
 
@@ -148,15 +139,6 @@ export class EarlyWarningRoutingService {
     tenantId: string,
     roleKey: string,
   ): Promise<string[]> {
-    const memberships = await this.prisma.membershipRole.findMany({
-      where: {
-        tenant_id: tenantId,
-        role: { role_key: roleKey },
-        membership: { membership_status: 'active' },
-      },
-      select: { membership: { select: { user_id: true } } },
-    });
-
-    return memberships.map((mr) => mr.membership.user_id);
+    return this.rbacReadFacade.findActiveUserIdsByRoleKey(tenantId, roleKey);
   }
 }

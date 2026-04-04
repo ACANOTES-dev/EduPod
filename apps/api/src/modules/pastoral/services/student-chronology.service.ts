@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { ChildProtectionReadFacade } from '../../child-protection/child-protection-read.facade';
+
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -188,7 +190,8 @@ function resolveEntityType(
 export class StudentChronologyService {
   private readonly logger = new Logger(StudentChronologyService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService,
+    private readonly childProtectionReadFacade: ChildProtectionReadFacade) {}
 
   /**
    * Returns the complete pastoral timeline for a student, merging events
@@ -286,14 +289,7 @@ export class StudentChronologyService {
     tenantId: string,
     userId: string,
   ): Promise<boolean> {
-    const grant = await this.prisma.cpAccessGrant.findFirst({
-      where: {
-        tenant_id: tenantId,
-        user_id: userId,
-        revoked_at: null,
-      },
-      select: { id: true },
-    });
+    const grant = await this.childProtectionReadFacade.hasActiveCpAccess(tenantId, userId) ? { id: "active" } : null;
 
     return !!grant;
   }

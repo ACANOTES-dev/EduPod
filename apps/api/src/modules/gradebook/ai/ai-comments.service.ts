@@ -14,6 +14,7 @@ import { SettingsService } from '../../configuration/settings.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { ConsentService } from '../../gdpr/consent.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
+import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -42,6 +43,7 @@ export class AiCommentsService {
     private readonly gdprTokenService: GdprTokenService,
     private readonly aiAuditService: AiAuditService,
     private readonly anthropicClient: AnthropicClientService,
+    private readonly attendanceReadFacade: AttendanceReadFacade,
   ) {}
 
   // ─── Generate Single Comment ──────────────────────────────────────────────
@@ -239,13 +241,10 @@ export class AiCommentsService {
     });
 
     // Load attendance summary
-    const attendanceRecords = await this.prisma.attendanceRecord.findMany({
-      where: {
-        tenant_id: tenantId,
-        student_id: reportCard.student_id,
-      },
-      select: { status: true },
-    });
+    const attendanceRecords = await this.attendanceReadFacade.findAllRecordsForStudent(
+      tenantId,
+      reportCard.student_id,
+    );
 
     const totalDays = attendanceRecords.length;
     const presentDays = attendanceRecords.filter((r) => r.status === 'present').length;

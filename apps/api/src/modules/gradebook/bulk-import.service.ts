@@ -7,6 +7,9 @@ import {
 import * as XLSX from 'xlsx';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { StudentReadFacade } from '../students/student-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import type { ImportProcessDto } from './dto/gradebook.dto';
@@ -34,7 +37,6 @@ export interface CsvValidationResult {
 @Injectable()
 export class BulkImportService {
   constructor(private readonly prisma: PrismaService) {}
-
   /**
    * Validate a CSV buffer against the database.
    * CSV columns: student_identifier, subject_code, assessment_title, score

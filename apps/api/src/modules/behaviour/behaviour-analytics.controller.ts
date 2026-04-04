@@ -29,7 +29,7 @@ import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
 
 import { BehaviourAIService } from './behaviour-ai.service';
 import { BehaviourAnalyticsService } from './behaviour-analytics.service';
@@ -49,7 +49,7 @@ export class BehaviourAnalyticsController {
     private readonly pulseService: BehaviourPulseService,
     private readonly aiService: BehaviourAIService,
     private readonly permissionCacheService: PermissionCacheService,
-    private readonly prisma: PrismaService,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
   ) {}
 
   // ─── Pulse ─────────────────────────────────────────────────────────────────
@@ -344,11 +344,8 @@ export class BehaviourAnalyticsController {
   }
 
   private async getBehaviourSettings(tenantId: string): Promise<Record<string, unknown>> {
-    const tenantSettings = await this.prisma.tenantSetting.findFirst({
-      where: { tenant_id: tenantId },
-      select: { settings: true },
-    });
-    const settings = (tenantSettings?.settings as Record<string, unknown>) ?? {};
+    const settingsJson = await this.configurationReadFacade.findSettingsJson(tenantId);
+    const settings = (settingsJson as Record<string, unknown>) ?? {};
     return (settings?.behaviour as Record<string, unknown>) ?? {};
   }
 }

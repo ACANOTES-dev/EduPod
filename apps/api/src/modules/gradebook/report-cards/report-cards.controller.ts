@@ -30,6 +30,7 @@ import { AuthGuard } from '../../../common/guards/auth.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { PdfRenderingService } from '../../pdf-rendering/pdf-rendering.service';
+import { TenantReadFacade } from '../../tenants/tenant-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { ReportCardsQueriesService } from './report-cards-queries.service';
@@ -57,6 +58,7 @@ export class ReportCardsController {
     private readonly reportCardsQueriesService: ReportCardsQueriesService,
     private readonly pdfRenderingService: PdfRenderingService,
     private readonly prisma: PrismaService,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   @Post('report-cards/generate')

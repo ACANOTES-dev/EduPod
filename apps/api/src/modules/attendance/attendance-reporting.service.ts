@@ -1,7 +1,10 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
+import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import { DailySummaryService } from './daily-summary.service';
 
@@ -27,6 +30,9 @@ export class AttendanceReportingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly dailySummaryService: DailySummaryService,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
+    private readonly parentReadFacade: ParentReadFacade,
   ) {}
 
   // ─── Exceptions ──────────────────────────────────────────────────────────
@@ -97,21 +103,7 @@ export class AttendanceReportingService {
 
     // Get student details for excessive absences
     const studentIds = excessiveAbsences.map((a) => a.student_id);
-    const students =
-      studentIds.length > 0
-        ? await this.prisma.student.findMany({
-            where: {
-              id: { in: studentIds },
-              tenant_id: tenantId,
-            },
-            select: {
-              id: true,
-              first_name: true,
-              last_name: true,
-              student_number: true,
-            },
-          })
-        : [];
+    const students = await this.studentReadFacade.findByIds(tenantId, studentIds);
 
     const studentMap = new Map(students.map((s) => [s.id, s]));
     const excessiveAbsenceDetails = excessiveAbsences.map((a) => ({
@@ -133,10 +125,7 @@ export class AttendanceReportingService {
    */
   async getStudentAttendance(tenantId: string, studentId: string, params: StudentAttendanceParams) {
     // Verify student exists
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
-      select: { id: true, first_name: true, last_name: true },
-    });
+    const student = await this.studentReadFacade.findById(tenantId, studentId);
 
     if (!student) {
       throw new NotFoundException({
@@ -220,12 +209,9 @@ export class AttendanceReportingService {
     params: StudentAttendanceParams,
   ) {
     // Check tenant settings to see if attendance is visible to parents
-    const tenantSetting = await this.prisma.tenantSetting.findFirst({
-      where: { tenant_id: tenantId },
-      select: { settings: true },
-    });
+    const tenantSettingsJson = await this.configurationReadFacade.findSettingsJson(tenantId);
 
-    const settings = (tenantSetting?.settings ?? {}) as Record<string, unknown>;
+    const settings = (tenantSettingsJson ?? {}) as Record<string, unknown>;
     const generalSettings = (settings['general'] ?? {}) as Record<string, unknown>;
     const attendanceVisible = generalSettings['attendanceVisibleToParents'] !== false;
 
@@ -237,28 +223,18 @@ export class AttendanceReportingService {
     }
 
     // Verify the student is linked to the parent
-    const parent = await this.prisma.parent.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-      select: { id: true },
-    });
+    const parentId = await this.parentReadFacade.resolveIdByUserId(tenantId, userId);
 
-    if (!parent) {
+    if (!parentId) {
       throw new NotFoundException({
         code: 'PARENT_NOT_FOUND',
         message: 'No parent profile found for the current user',
       });
     }
 
-    const studentParentLink = await this.prisma.studentParent.findUnique({
-      where: {
-        student_id_parent_id: {
-          student_id: studentId,
-          parent_id: parent.id,
-        },
-      },
-    });
+    const isLinked = await this.studentReadFacade.isParentLinked(tenantId, studentId, parentId);
 
-    if (!studentParentLink || studentParentLink.tenant_id !== tenantId) {
+    if (!isLinked) {
       throw new ForbiddenException({
         code: 'NOT_LINKED_TO_STUDENT',
         message: 'You are not linked to this student',

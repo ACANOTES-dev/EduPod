@@ -8,6 +8,8 @@ import { SettingsService } from '../configuration/settings.service';
 import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 export interface AiSubstituteRanking {
   staff_profile_id: string;
@@ -41,6 +43,8 @@ export class AiSubstitutionService {
     private readonly gdprTokenService: GdprTokenService,
     private readonly aiAuditService: AiAuditService,
     private readonly anthropicClient: AnthropicClientService,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
   ) {}
 
   // ─── Rank Substitutes ────────────────────────────────────────────────────
@@ -70,22 +74,7 @@ export class AiSubstitutionService {
     }
 
     // Load schedule context
-    const schedule = await this.prisma.schedule.findFirst({
-      where: { id: scheduleId, tenant_id: tenantId },
-      include: {
-        class_entity: {
-          select: {
-            name: true,
-            year_group_id: true,
-            subject_id: true,
-            academic_year_id: true,
-            subject: { select: { name: true } },
-            year_group: { select: { name: true } },
-          },
-        },
-        room: { select: { name: true } },
-      },
-    });
+    const schedule = await this.schedulesReadFacade.findByIdWithSubstitutionContext(tenantId, scheduleId);
     if (!schedule) {
       return { data: [] };
     }
@@ -97,31 +86,15 @@ export class AiSubstitutionService {
     const academicYearId = schedule.class_entity?.academic_year_id ?? schedule.academic_year_id;
 
     // Find busy teachers at that slot
-    const busyTeachers = await this.prisma.schedule.findMany({
-      where: {
-        tenant_id: tenantId,
-        weekday,
-        start_time: { lt: schedule.end_time },
-        end_time: { gt: schedule.start_time },
-        teacher_staff_id: { not: null },
-        OR: [{ effective_end_date: null }, { effective_end_date: { gte: targetDate } }],
-        effective_start_date: { lte: targetDate },
-      },
-      select: { teacher_staff_id: true },
+    const busyIds = await this.schedulesReadFacade.findBusyTeacherIds(tenantId, {
+      weekday,
+      startTime: schedule.start_time,
+      endTime: schedule.end_time,
+      effectiveDate: targetDate,
     });
-
-    const busyIds = new Set(
-      busyTeachers.map((s) => s.teacher_staff_id).filter((id): id is string => id !== null),
-    );
 
     // Load all staff
-    const allStaff = await this.prisma.staffProfile.findMany({
-      where: { tenant_id: tenantId },
-      select: {
-        id: true,
-        user: { select: { first_name: true, last_name: true } },
-      },
-    });
+    const allStaff = await this.staffProfileReadFacade.findActiveStaff(tenantId);
 
     const availableStaff = allStaff.filter(
       (s) => !busyIds.has(s.id) && s.id !== schedule.teacher_staff_id,

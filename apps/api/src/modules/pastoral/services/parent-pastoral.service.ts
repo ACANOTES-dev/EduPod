@@ -8,6 +8,10 @@ import {
 import { $Enums } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
+
+import { ParentReadFacade } from '../../parents/parent-read.facade';
+
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { PastoralEventService } from './pastoral-event.service';
@@ -66,15 +70,15 @@ export class ParentPastoralService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
+    private readonly parentReadFacade: ParentReadFacade,
     private readonly eventService: PastoralEventService,
   ) {}
 
   // ─── Resolve Parent (private, same pattern as BehaviourParentService) ─────
 
   async resolveParent(tenantId: string, userId: string) {
-    const parent = await this.prisma.parent.findFirst({
-      where: { user_id: userId, tenant_id: tenantId, status: 'active' },
-    });
+    const parent = await this.parentReadFacade.findActiveByUserId(tenantId, userId);
 
     if (!parent) {
       throw new NotFoundException({
@@ -432,9 +436,7 @@ export class ParentPastoralService {
    * Reads the raw pastoral settings from the tenant_settings table.
    */
   private async loadRawPastoralSettings(tenantId: string): Promise<Record<string, unknown>> {
-    const record = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const record = await this.configurationReadFacade.findSettings(tenantId);
 
     const settingsJson = (record?.settings as Record<string, unknown>) ?? {};
     return (settingsJson.pastoral as Record<string, unknown>) ?? {};

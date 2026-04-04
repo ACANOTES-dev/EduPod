@@ -2,6 +2,8 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { TeacherSchedulingConfigService } from './teacher-scheduling-config.service';
 
@@ -49,6 +51,29 @@ describe('TeacherSchedulingConfigService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: AcademicReadFacade, useValue: {
+      findCurrentYear: jest.fn().mockResolvedValue(null),
+      findCurrentYearId: jest.fn().mockResolvedValue('year-1'),
+      findYearById: jest.fn().mockResolvedValue(null),
+      findYearByIdOrThrow: jest.fn().mockResolvedValue('year-1'),
+      findSubjectByIdOrThrow: jest.fn().mockResolvedValue('subject-1'),
+      findYearGroupByIdOrThrow: jest.fn().mockResolvedValue('yg-1'),
+      findYearGroupsWithActiveClasses: jest.fn().mockResolvedValue([]),
+      findYearGroupsWithClassesAndCounts: jest.fn().mockResolvedValue([]),
+      findAllYearGroups: jest.fn().mockResolvedValue([]),
+      findSubjectsByIdsWithOrder: jest.fn().mockResolvedValue([]),
+      findSubjectById: jest.fn().mockResolvedValue(null),
+      findYearGroupById: jest.fn().mockResolvedValue(null),
+      findPeriodById: jest.fn().mockResolvedValue(null),
+    } },
+        { provide: StaffProfileReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      findByIds: jest.fn().mockResolvedValue([]),
+      findByUserId: jest.fn().mockResolvedValue(null),
+      findActiveStaff: jest.fn().mockResolvedValue([]),
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+      resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
+    } },
         TeacherSchedulingConfigService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

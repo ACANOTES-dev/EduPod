@@ -13,6 +13,7 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { TranscriptsService } from './transcripts.service';
@@ -24,6 +25,7 @@ export class TranscriptsController {
     private readonly transcriptsService: TranscriptsService,
     private readonly pdfRenderingService: PdfRenderingService,
     private readonly prisma: PrismaService,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   @Get('transcripts/students/:studentId')

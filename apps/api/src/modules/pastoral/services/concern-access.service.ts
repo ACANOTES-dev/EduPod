@@ -2,12 +2,21 @@ import { BadRequestException } from '@nestjs/common';
 
 import { pastoralTenantSettingsSchema } from '@school/shared/pastoral';
 
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
+
+import { ChildProtectionReadFacade } from '../../child-protection/child-protection-read.facade';
+
+import { RbacReadFacade } from '../../rbac/rbac-read.facade';
+
 import { PrismaService } from '../../prisma/prisma.service';
 
 import type { ValidatedCategory } from './concern.types';
 
 export class ConcernAccessService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService,
+    private readonly rbacReadFacade: RbacReadFacade,
+    private readonly childProtectionReadFacade: ChildProtectionReadFacade,
+    private readonly configurationReadFacade: ConfigurationReadFacade) {}
 
   async validateCategory(tenantId: string, categoryKey: string): Promise<ValidatedCategory> {
     const settings = await this.loadPastoralSettings(tenantId);
@@ -27,9 +36,7 @@ export class ConcernAccessService {
   }
 
   async loadPastoralSettings(tenantId: string) {
-    const record = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const record = await this.configurationReadFacade.findSettings(tenantId);
 
     const settingsJson = (record?.settings as Record<string, unknown>) ?? {};
     const pastoralRaw = (settingsJson.pastoral as Record<string, unknown>) ?? {};
@@ -38,29 +45,14 @@ export class ConcernAccessService {
   }
 
   async checkCpAccess(tenantId: string, userId: string): Promise<boolean> {
-    const grant = await this.prisma.cpAccessGrant.findFirst({
-      where: {
-        tenant_id: tenantId,
-        user_id: userId,
-        revoked_at: null,
-      },
-      select: { id: true },
-    });
+    const grant = await this.childProtectionReadFacade.hasActiveCpAccess(tenantId, userId) ? { id: "active" } : null;
 
     return !!grant;
   }
 
   async checkIsYearHead(tenantId: string, membershipId: string): Promise<boolean> {
-    const role = await this.prisma.membershipRole.findFirst({
-      where: {
-        membership_id: membershipId,
-        tenant_id: tenantId,
-        role: { role_key: 'year_head' },
-      },
-      select: { membership_id: true },
-    });
-
-    return !!role;
+    const yearHeads = await this.rbacReadFacade.findMembershipsByRoleKey(tenantId, 'year_head');
+    return yearHeads.some((mr) => mr.membership_id === membershipId);
   }
 
   resolveCallerTierAccess(permissions: string[], hasCpAccess: boolean): number {

@@ -3,6 +3,9 @@ import { Injectable } from '@nestjs/common';
 import type { AnalyticsQuery, HistoricalComparisonQuery } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { RoomsReadFacade } from '../rooms/rooms-read.facade';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { SchedulingRunsReadFacade } from '../scheduling-runs/scheduling-runs-read.facade';
 
 export interface TeacherWorkloadEntry {
   staff_profile_id: string;
@@ -23,36 +26,26 @@ export interface RoomUtilizationEntry {
 
 @Injectable()
 export class SchedulingAnalyticsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roomsReadFacade: RoomsReadFacade,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
+    private readonly schedulingRunsReadFacade: SchedulingRunsReadFacade,
+  ) {}
 
   // ─── Get Efficiency Dashboard ─────────────────────────────────────────────
 
   async getEfficiencyDashboard(tenantId: string, query: AnalyticsQuery) {
     const [schedules, teacherConfigs, rooms, periodTemplates, substitutionRecords, latestRun] =
       await Promise.all([
-        this.prisma.schedule.findMany({
-          where: {
-            tenant_id: tenantId,
-            academic_year_id: query.academic_year_id,
-            OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-          },
-          select: {
-            teacher_staff_id: true,
-            room_id: true,
-            period_order: true,
-            weekday: true,
-          },
-        }),
+        this.schedulesReadFacade.findByAcademicYear(tenantId, query.academic_year_id),
 
         this.prisma.teacherSchedulingConfig.findMany({
           where: { tenant_id: tenantId, academic_year_id: query.academic_year_id },
           select: { staff_profile_id: true, max_periods_per_week: true },
         }),
 
-        this.prisma.room.findMany({
-          where: { tenant_id: tenantId, active: true },
-          select: { id: true, capacity: true },
-        }),
+        this.roomsReadFacade.findActiveRooms(tenantId),
 
         this.prisma.schedulePeriodTemplate.findMany({
           where: {
@@ -68,20 +61,7 @@ export class SchedulingAnalyticsService {
           where: { tenant_id: tenantId },
         }),
 
-        this.prisma.schedulingRun.findFirst({
-          where: {
-            tenant_id: tenantId,
-            academic_year_id: query.academic_year_id,
-            status: 'applied',
-          },
-          orderBy: { applied_at: 'desc' },
-          select: {
-            soft_preference_score: true,
-            soft_preference_max: true,
-            entries_unassigned: true,
-            entries_generated: true,
-          },
-        }),
+        this.schedulingRunsReadFacade.findLatestAppliedRun(tenantId, query.academic_year_id),
       ]);
 
     // Teacher utilization
@@ -157,22 +137,17 @@ export class SchedulingAnalyticsService {
     tenantId: string,
     query: AnalyticsQuery,
   ): Promise<{ data: TeacherWorkloadEntry[] }> {
-    const schedules = await this.prisma.schedule.findMany({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: query.academic_year_id,
-        teacher_staff_id: { not: null },
-        OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-      },
-      select: {
-        teacher_staff_id: true,
-        weekday: true,
-        period_order: true,
-        teacher: {
-          select: { user: { select: { first_name: true, last_name: true } } },
-        },
-      },
-    });
+    const teacherWorkloadEntries = await this.schedulesReadFacade.findTeacherWorkloadEntries(
+      tenantId,
+      query.academic_year_id,
+    );
+    // Wrap into shape expected by downstream code
+    const schedules = teacherWorkloadEntries.map((e) => ({
+      teacher_staff_id: e.teacher_staff_id,
+      weekday: 0 as number, // workload heatmap doesn't need weekday from this query
+      period_order: null as number | null,
+      teacher: e.teacher,
+    }));
 
     // Cover counts (last 90 days)
     const ninetyDaysAgo = new Date();
@@ -233,20 +208,11 @@ export class SchedulingAnalyticsService {
     tenantId: string,
     query: AnalyticsQuery,
   ): Promise<{ data: RoomUtilizationEntry[] }> {
-    const [rooms, schedules, periodTemplates] = await Promise.all([
-      this.prisma.room.findMany({
-        where: { tenant_id: tenantId, active: true },
-        select: { id: true, name: true, capacity: true },
-      }),
+    const [rooms, roomSchedules, periodTemplates] = await Promise.all([
+      this.roomsReadFacade.findActiveRoomBasics(tenantId),
 
-      this.prisma.schedule.findMany({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: query.academic_year_id,
-          room_id: { not: null },
-          OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-        },
-        select: { room_id: true },
+      this.schedulesReadFacade.findByAcademicYear(tenantId, query.academic_year_id, {
+        roomAssigned: true,
       }),
 
       this.prisma.schedulePeriodTemplate.findMany({
@@ -263,7 +229,7 @@ export class SchedulingAnalyticsService {
     const totalSlotsPerRoom = periodTemplates.length;
 
     const roomScheduleCounts = new Map<string, number>();
-    for (const s of schedules) {
+    for (const s of roomSchedules) {
       if (s.room_id) {
         roomScheduleCounts.set(s.room_id, (roomScheduleCounts.get(s.room_id) ?? 0) + 1);
       }
@@ -311,25 +277,11 @@ export class SchedulingAnalyticsService {
 
   private async getYearMetrics(tenantId: string, academicYearId: string) {
     const [scheduleCount, substitutionCount, latestRun] = await Promise.all([
-      this.prisma.schedule.count({
-        where: { tenant_id: tenantId, academic_year_id: academicYearId },
-      }),
+      this.schedulesReadFacade.count(tenantId, { academic_year_id: academicYearId }),
       this.prisma.substitutionRecord.count({
         where: { tenant_id: tenantId },
       }),
-      this.prisma.schedulingRun.findFirst({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: academicYearId,
-          status: 'applied',
-        },
-        orderBy: { applied_at: 'desc' },
-        select: {
-          entries_unassigned: true,
-          soft_preference_score: true,
-          soft_preference_max: true,
-        },
-      }),
+      this.schedulingRunsReadFacade.findLatestAppliedRun(tenantId, academicYearId),
     ]);
 
     const prefScore = latestRun?.soft_preference_score

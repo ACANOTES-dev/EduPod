@@ -24,6 +24,11 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 }));
 
 import { PrismaService } from '../prisma/prisma.service';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { SchedulingReadFacade } from '../scheduling/scheduling-read.facade';
+import { StaffAvailabilityReadFacade } from '../staff-availability/staff-availability-read.facade';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 
 import { SchedulingPrerequisitesService } from './scheduling-prerequisites.service';
 import { SchedulingRunsService } from './scheduling-runs.service';
@@ -64,6 +69,73 @@ describe('SchedulingRunsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: ClassesReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+      findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
+      countEnrolledStudents: jest.fn().mockResolvedValue(0),
+      findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
+      findByAcademicYear: jest.fn().mockResolvedValue([]),
+      findByYearGroup: jest.fn().mockResolvedValue([]),
+      findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
+      countByAcademicYear: jest.fn().mockResolvedValue(0),
+      findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
+      findClassIdsForStudent: jest.fn().mockResolvedValue([]),
+      findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
+    } },
+        { provide: SchedulesReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      findCoreById: jest.fn().mockResolvedValue(null),
+      existsById: jest.fn().mockResolvedValue(null),
+      findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
+      countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
+      findTeacherTimetable: jest.fn().mockResolvedValue([]),
+      findClassTimetable: jest.fn().mockResolvedValue([]),
+      findPinnedEntries: jest.fn().mockResolvedValue([]),
+      countPinnedEntries: jest.fn().mockResolvedValue(0),
+      findByAcademicYear: jest.fn().mockResolvedValue([]),
+      findScheduledClassIds: jest.fn().mockResolvedValue([]),
+      countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
+      count: jest.fn().mockResolvedValue(0),
+      hasRotationEntries: jest.fn().mockResolvedValue(false),
+      countByRoom: jest.fn().mockResolvedValue(0),
+      findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
+      findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
+      countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
+      findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
+      hasConflict: jest.fn().mockResolvedValue(false),
+      findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
+      findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
+    } },
+        { provide: SchedulingReadFacade, useValue: {
+      findPeriodTemplate: jest.fn().mockResolvedValue(null),
+      countTeachingPeriods: jest.fn().mockResolvedValue(0),
+      findPeriodTemplates: jest.fn().mockResolvedValue([]),
+      countClassRequirements: jest.fn().mockResolvedValue(0),
+      findClassRequirementsWithDetails: jest.fn().mockResolvedValue([]),
+      findTeacherCompetencies: jest.fn().mockResolvedValue([]),
+      findTeacherConfigs: jest.fn().mockResolvedValue([]),
+    } },
+        { provide: StaffAvailabilityReadFacade, useValue: {
+      findByAcademicYear: jest.fn().mockResolvedValue([]),
+      findByStaffIds: jest.fn().mockResolvedValue([]),
+      findByWeekday: jest.fn().mockResolvedValue([]),
+    } },
+        { provide: AcademicReadFacade, useValue: {
+      findCurrentYear: jest.fn().mockResolvedValue(null),
+      findCurrentYearId: jest.fn().mockResolvedValue('year-1'),
+      findYearById: jest.fn().mockResolvedValue(null),
+      findYearByIdOrThrow: jest.fn().mockResolvedValue('year-1'),
+      findSubjectByIdOrThrow: jest.fn().mockResolvedValue('subject-1'),
+      findYearGroupByIdOrThrow: jest.fn().mockResolvedValue('yg-1'),
+      findYearGroupsWithActiveClasses: jest.fn().mockResolvedValue([]),
+      findYearGroupsWithClassesAndCounts: jest.fn().mockResolvedValue([]),
+      findAllYearGroups: jest.fn().mockResolvedValue([]),
+      findSubjectsByIdsWithOrder: jest.fn().mockResolvedValue([]),
+      findSubjectById: jest.fn().mockResolvedValue(null),
+      findYearGroupById: jest.fn().mockResolvedValue(null),
+      findPeriodById: jest.fn().mockResolvedValue(null),
+    } },
         SchedulingRunsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SchedulingPrerequisitesService, useValue: mockPrerequisites },

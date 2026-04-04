@@ -524,6 +524,42 @@ export class SchedulesReadFacade {
   }
 
   /**
+   * Find schedule entries with teacher + class + subject + DES code mapping includes.
+   * Used by regulatory DES Form TL (teaching loads) generation.
+   */
+  async findTeachingLoadEntries(
+    tenantId: string,
+    academicYearId: string,
+  ): Promise<unknown[]> {
+    return this.prisma.schedule.findMany({
+      where: {
+        tenant_id: tenantId,
+        academic_year_id: academicYearId,
+        teacher_staff_id: { not: null },
+      },
+      include: {
+        teacher: {
+          include: {
+            user: { select: { first_name: true, last_name: true } },
+          },
+        },
+        class_entity: {
+          include: {
+            subject: {
+              include: {
+                reg_des_code_mappings: {
+                  select: { des_code: true },
+                  take: 1,
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  /**
    * Find teacher schedule entries for an academic year (teacher_staff_id + weekday + period_order).
    * Used by scheduling dashboard for teacher utilisation and gap analysis.
    */
@@ -741,6 +777,63 @@ export class SchedulesReadFacade {
         },
       },
     });
+  }
+
+  /**
+   * Find active schedules for a weekday with class year_group_id.
+   * Used by attendance batch session generation.
+   */
+  async findByWeekdayWithClassYearGroup(
+    tenantId: string,
+    weekday: number,
+    asOfDate: Date,
+  ): Promise<
+    Array<{
+      id: string;
+      class_id: string;
+      class_entity: { year_group_id: string | null };
+    }>
+  > {
+    return this.prisma.schedule.findMany({
+      where: {
+        tenant_id: tenantId,
+        weekday,
+        effective_start_date: { lte: asOfDate },
+        OR: [{ effective_end_date: null }, { effective_end_date: { gte: asOfDate } }],
+      },
+      select: {
+        id: true,
+        class_id: true,
+        class_entity: {
+          select: { year_group_id: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * Find schedules for given classes on a weekday, with class and room includes.
+   * Used by attendance teacher dashboard.
+   */
+  async findByClassIdsAndWeekday(
+    tenantId: string,
+    classIds: string[],
+    weekday: number,
+    asOfDate: Date,
+  ): Promise<ScheduleWithClassRow[]> {
+    if (classIds.length === 0) return [];
+
+    return this.prisma.schedule.findMany({
+      where: {
+        tenant_id: tenantId,
+        class_id: { in: classIds },
+        weekday,
+        effective_start_date: { lte: asOfDate },
+        OR: [{ effective_end_date: null }, { effective_end_date: { gte: asOfDate } }],
+      },
+      select: SCHEDULE_WITH_CLASS_SUBJECT_SELECT,
+      orderBy: { start_time: 'asc' },
+    }) as Promise<ScheduleWithClassRow[]>;
   }
 
   /**

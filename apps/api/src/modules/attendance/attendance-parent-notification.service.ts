@@ -2,9 +2,12 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { Queue } from 'bullmq';
 
+import { CommunicationsReadFacade } from '../communications/communications-read.facade';
 import { NotificationsService } from '../communications/notifications.service';
 import { SettingsService } from '../configuration/settings.service';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 /** Map attendance record status to notification template key. */
 function statusToTemplateKey(status: string): string | null {
@@ -29,6 +32,9 @@ export class AttendanceParentNotificationService {
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService,
     private readonly notificationsService: NotificationsService,
+    private readonly communicationsReadFacade: CommunicationsReadFacade,
+    private readonly parentReadFacade: ParentReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
 
@@ -67,16 +73,13 @@ export class AttendanceParentNotificationService {
     }
 
     // 4. Deduplicate: check if a notification already exists for this record
-    const existingNotification = await this.prisma.notification.findFirst({
-      where: {
-        tenant_id: tenantId,
-        source_entity_type: 'attendance_record',
-        source_entity_id: recordId,
-      },
-      select: { id: true },
-    });
+    const alreadyNotified = await this.communicationsReadFacade.hasNotificationForSourceEntity(
+      tenantId,
+      'attendance_record',
+      recordId,
+    );
 
-    if (existingNotification) {
+    if (alreadyNotified) {
       this.logger.debug(
         `Notification already exists for attendance record ${recordId}, skipping`,
       );
@@ -84,25 +87,13 @@ export class AttendanceParentNotificationService {
     }
 
     // 5. Find parent/guardian user(s) for the student
-    const studentParents = await this.prisma.studentParent.findMany({
-      where: {
-        student_id: studentId,
-        tenant_id: tenantId,
-      },
-      select: {
-        parent: {
-          select: {
-            user_id: true,
-            whatsapp_phone: true,
-            phone: true,
-            preferred_contact_channels: true,
-          },
-        },
-      },
-    });
+    const studentParentContacts = await this.parentReadFacade.findParentContactsForStudent(
+      tenantId,
+      studentId,
+    );
 
     // Filter to parents that have a linked user account
-    const parentUsers = studentParents
+    const parentUsers = studentParentContacts
       .map((sp) => sp.parent)
       .filter((p) => p.user_id !== null);
 
@@ -114,10 +105,7 @@ export class AttendanceParentNotificationService {
     }
 
     // 6. Get student name for the notification message
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
-      select: { first_name: true, last_name: true },
-    });
+    const student = await this.studentReadFacade.findById(tenantId, studentId);
 
     if (!student) {
       this.logger.warn(

@@ -1,9 +1,15 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
+import { AcademicsModule } from '../../academics/academics.module';
 import { AiModule } from '../../ai/ai.module';
+import { AttendanceModule } from '../../attendance/attendance.module';
+import { ClassesModule } from '../../classes/classes.module';
+import { ConfigurationModule } from '../../configuration/configuration.module';
 import { GdprModule } from '../../gdpr/gdpr.module';
 import { PdfRenderingModule } from '../../pdf-rendering/pdf-rendering.module';
+import { StudentsModule } from '../../students/students.module';
+import { TenantsModule } from '../../tenants/tenants.module';
 
 import { GradeThresholdService } from './grade-threshold.service';
 import { ReportCardAcknowledgmentService } from './report-card-acknowledgment.service';
@@ -31,9 +37,15 @@ import { ReportCardsService } from './report-cards.service';
 
 @Module({
   imports: [
+    AcademicsModule,
     AiModule,
+    AttendanceModule,
+    ClassesModule,
+    ConfigurationModule,
     GdprModule,
     PdfRenderingModule,
+    StudentsModule,
+    TenantsModule,
     BullModule.registerQueue({ name: 'gradebook' }),
   ],
   controllers: [

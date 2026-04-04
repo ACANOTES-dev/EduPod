@@ -10,13 +10,14 @@ import { ClassAssignmentService } from './class-assignments.service';
 import { ClassEnrolmentsController } from './class-enrolments.controller';
 import { ClassEnrolmentsService } from './class-enrolments.service';
 import { ClassesController } from './classes.controller';
+import { ClassesReadFacade } from './classes-read.facade';
 import { ClassesService } from './classes.service';
 
 @Module({
   imports: [AuthModule, SchedulesModule],
   controllers: [ClassesController, ClassEnrolmentsController, ClassAssignmentsController],
-  providers: [ClassesService, ClassEnrolmentsService, ClassAssignmentService],
-  exports: [ClassesService, ClassEnrolmentsService],
+  providers: [ClassesService, ClassEnrolmentsService, ClassAssignmentService, ClassesReadFacade],
+  exports: [ClassesService, ClassEnrolmentsService, ClassesReadFacade],
 })
 export class ClassesModule implements OnModuleInit {
   constructor(

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 
 import type { TimetableEntry, WorkloadEntry } from '@school/shared';
 
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 interface TimetableQuery {
@@ -12,7 +13,10 @@ interface TimetableQuery {
 
 @Injectable()
 export class TimetablesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly classesReadFacade: ClassesReadFacade,
+  ) {}
 
   async getTeacherTimetable(
     tenantId: string,
@@ -84,18 +88,9 @@ export class TimetablesService {
     query: TimetableQuery,
   ): Promise<TimetableEntry[]> {
     // Find active class enrolments for the student
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
-        student_id: studentId,
-        status: 'active',
-      },
-      select: { class_id: true },
-    });
+    const classIds = await this.classesReadFacade.findClassIdsForStudent(tenantId, studentId);
 
-    if (enrolments.length === 0) return [];
-
-    const classIds = enrolments.map((e) => e.class_id);
+    if (classIds.length === 0) return [];
 
     const where = this.buildEffectiveFilter(tenantId, query.academic_year_id, query.week_start);
     where.class_id = { in: classIds };

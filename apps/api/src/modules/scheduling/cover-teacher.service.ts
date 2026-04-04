@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { StaffAvailabilityReadFacade } from '../staff-availability/staff-availability-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 export interface CoverTeacherResult {
   staff_profile_id: string;
@@ -14,7 +17,12 @@ export interface CoverTeacherResult {
 
 @Injectable()
 export class CoverTeacherService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
+    private readonly staffAvailabilityReadFacade: StaffAvailabilityReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+  ) {}
 
   // ─── Find Cover Teacher ────────────────────────────────────────────────────
 
@@ -42,33 +50,15 @@ export class CoverTeacherService {
     }
 
     // 2. Find all teachers already scheduled at this time
-    const busyTeachers = await this.prisma.schedule.findMany({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        weekday,
-        start_time: { lt: periodTemplate.end_time },
-        end_time: { gt: periodTemplate.start_time },
-        OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-        teacher_staff_id: { not: null },
-      },
-      select: { teacher_staff_id: true },
+    const busyTeacherIds = await this.schedulesReadFacade.findBusyTeacherIds(tenantId, {
+      weekday,
+      startTime: periodTemplate.start_time,
+      endTime: periodTemplate.end_time,
+      academicYearId,
     });
-
-    const busyTeacherIds = new Set(
-      busyTeachers
-        .map((s) => s.teacher_staff_id)
-        .filter((id): id is string => id !== null),
-    );
 
     // 3. Get all staff profiles (teachers)
-    const allStaff = await this.prisma.staffProfile.findMany({
-      where: { tenant_id: tenantId },
-      select: {
-        id: true,
-        user: { select: { first_name: true, last_name: true } },
-      },
-    });
+    const allStaff = await this.staffProfileReadFacade.findActiveStaff(tenantId);
 
     // 4. Get teacher competencies for this academic year (if subject/year filter provided)
     const competencies = (subjectId || yearGroupId)
@@ -92,14 +82,11 @@ export class CoverTeacherService {
     }
 
     // 5. Get availability for this weekday
-    const availabilities = await this.prisma.staffAvailability.findMany({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        weekday,
-      },
-      select: { staff_profile_id: true, available_from: true, available_to: true },
-    });
+    const availabilities = await this.staffAvailabilityReadFacade.findByWeekday(
+      tenantId,
+      academicYearId,
+      weekday,
+    );
 
     const availabilityMap = new Map<
       string,
@@ -112,25 +99,10 @@ export class CoverTeacherService {
     }
 
     // 6. Get current period counts for the week
-    const weeklySchedules = await this.prisma.schedule.findMany({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        teacher_staff_id: { not: null },
-        OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-      },
-      select: { teacher_staff_id: true },
-    });
-
-    const periodCountMap = new Map<string, number>();
-    for (const s of weeklySchedules) {
-      if (s.teacher_staff_id) {
-        periodCountMap.set(
-          s.teacher_staff_id,
-          (periodCountMap.get(s.teacher_staff_id) ?? 0) + 1,
-        );
-      }
-    }
+    const periodCountMap = await this.schedulesReadFacade.countWeeklyPeriodsPerTeacher(
+      tenantId,
+      academicYearId,
+    );
 
     // 7. Score and rank available teachers
     const results: CoverTeacherResult[] = [];

@@ -5,6 +5,8 @@ import {
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { StudentReadFacade } from '../students/student-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import type {
   BulkImportStandardsDto,
@@ -27,7 +29,6 @@ interface CompetencyLevel {
 @Injectable()
 export class StandardsService {
   constructor(private readonly prisma: PrismaService) {}
-
   /**
    * Create a single curriculum standard.
    */

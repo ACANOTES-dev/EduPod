@@ -6,13 +6,14 @@ import { InvitationsService } from './invitations.service';
 import { MembershipsController } from './memberships.controller';
 import { MembershipsService } from './memberships.service';
 import { PermissionsController } from './permissions.controller';
+import { RbacReadFacade } from './rbac-read.facade';
 import { RolesController } from './roles.controller';
 import { RolesService } from './roles.service';
 
 @Module({
   imports: [BullModule.registerQueue({ name: 'notifications' })],
   controllers: [RolesController, PermissionsController, MembershipsController, InvitationsController],
-  providers: [RolesService, MembershipsService, InvitationsService],
-  exports: [RolesService, MembershipsService, InvitationsService],
+  providers: [RolesService, MembershipsService, InvitationsService, RbacReadFacade],
+  exports: [RolesService, MembershipsService, InvitationsService, RbacReadFacade],
 })
 export class RbacModule {}

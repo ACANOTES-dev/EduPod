@@ -19,9 +19,9 @@ import type { RecordFollowUpDto } from '@school/shared/behaviour';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { BEHAVIOUR_ATTACHMENT_SCAN_JOB } from '../safeguarding/safeguarding.constants';
 
 import { BehaviourHistoryService } from './behaviour-history.service';
-import { BEHAVIOUR_ATTACHMENT_SCAN_JOB } from './safeguarding.constants';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 

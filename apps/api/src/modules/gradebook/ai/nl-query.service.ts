@@ -11,6 +11,7 @@ import { AnthropicClientService } from '../../ai/anthropic-client.service';
 import { SettingsService } from '../../configuration/settings.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -107,6 +108,7 @@ export class NlQueryService {
     private readonly gdprTokenService: GdprTokenService,
     private readonly aiAuditService: AiAuditService,
     private readonly anthropicClient: AnthropicClientService,
+    private readonly studentReadFacade: StudentReadFacade,
   ) {}
 
   // ─── Process Query ────────────────────────────────────────────────────────

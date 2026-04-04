@@ -317,4 +317,138 @@ export class SchedulingRunsReadFacade {
       }>
     >;
   }
+
+  // ─── Scheduling Scenarios ──────────────────────────────────────────────────
+
+  /**
+   * Find a scenario by ID with all fields. Used by scenario management in scheduling module.
+   */
+  async findScenarioById(
+    tenantId: string,
+    scenarioId: string,
+  ): Promise<{
+    id: string;
+    name: string;
+    description: string | null;
+    academic_year_id: string;
+    base_run_id: string | null;
+    adjustments_json: unknown;
+    solver_result_json: unknown;
+    status: string;
+    created_by_user_id: string;
+    created_at: Date;
+    updated_at: Date;
+  } | null> {
+    return this.prisma.schedulingScenario.findFirst({
+      where: { id: scenarioId, tenant_id: tenantId },
+    }) as Promise<{
+      id: string;
+      name: string;
+      description: string | null;
+      academic_year_id: string;
+      base_run_id: string | null;
+      adjustments_json: unknown;
+      solver_result_json: unknown;
+      status: string;
+      created_by_user_id: string;
+      created_at: Date;
+      updated_at: Date;
+    } | null>;
+  }
+
+  /**
+   * Find a scenario status by ID. Used for guard checks before mutations.
+   */
+  async findScenarioStatusById(
+    tenantId: string,
+    scenarioId: string,
+  ): Promise<{ id: string; status: string } | null> {
+    return this.prisma.schedulingScenario.findFirst({
+      where: { id: scenarioId, tenant_id: tenantId },
+      select: { id: true, status: true },
+    });
+  }
+
+  /**
+   * List scenarios with pagination and optional filters.
+   */
+  async listScenarios(
+    tenantId: string,
+    opts: {
+      academicYearId?: string;
+      status?: string;
+      page: number;
+      pageSize: number;
+    },
+  ): Promise<{
+    data: Array<{
+      id: string;
+      name: string;
+      description: string | null;
+      academic_year_id: string;
+      base_run_id: string | null;
+      status: string;
+      created_by_user_id: string;
+      created_at: Date;
+      updated_at: Date;
+    }>;
+    total: number;
+  }> {
+    const skip = (opts.page - 1) * opts.pageSize;
+    const where: Record<string, unknown> = { tenant_id: tenantId };
+    if (opts.academicYearId) where.academic_year_id = opts.academicYearId;
+    if (opts.status) where.status = opts.status;
+
+    const [data, total] = await Promise.all([
+      this.prisma.schedulingScenario.findMany({
+        where,
+        skip,
+        take: opts.pageSize,
+        orderBy: { created_at: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          academic_year_id: true,
+          base_run_id: true,
+          status: true,
+          created_by_user_id: true,
+          created_at: true,
+          updated_at: true,
+        },
+      }),
+      this.prisma.schedulingScenario.count({ where }),
+    ]);
+
+    return { data, total };
+  }
+
+  /**
+   * Find scenarios by IDs for comparison. Returns solver results and adjustments.
+   */
+  async findScenariosForComparison(
+    tenantId: string,
+    scenarioIds: string[],
+  ): Promise<
+    Array<{
+      id: string;
+      name: string;
+      status: string;
+      solver_result_json: unknown;
+      adjustments_json: unknown;
+      created_at: Date;
+    }>
+  > {
+    return this.prisma.schedulingScenario.findMany({
+      where: { id: { in: scenarioIds }, tenant_id: tenantId },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        solver_result_json: true,
+        adjustments_json: true,
+        created_at: true,
+      },
+    });
+  }
 }

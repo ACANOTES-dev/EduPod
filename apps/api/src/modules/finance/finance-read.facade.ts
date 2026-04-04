@@ -392,4 +392,14 @@ export class FinanceReadFacade {
       orderBy: { name: 'asc' },
     });
   }
+
+  /**
+   * Find fee assignments for a household — used by DSAR household traversal.
+   */
+  async findFeeAssignmentsByHousehold(tenantId: string, householdId: string): Promise<unknown[]> {
+    return this.prisma.householdFeeAssignment.findMany({
+      where: { household_id: householdId, tenant_id: tenantId },
+      orderBy: { effective_from: 'desc' },
+    });
+  }
 }

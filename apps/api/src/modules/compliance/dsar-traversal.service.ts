@@ -1,9 +1,23 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 
+import { AdmissionsReadFacade } from '../admissions/admissions-read.facade';
+import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
+import { AuditLogReadFacade } from '../audit-log/audit-log-read.facade';
+import { AuthReadFacade } from '../auth/auth-read.facade';
 import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { CommunicationsReadFacade } from '../communications/communications-read.facade';
 import { FinanceReadFacade } from '../finance/finance-read.facade';
+import { GdprReadFacade } from '../gdpr/gdpr-read.facade';
 import { GradebookReadFacade } from '../gradebook/gradebook-read.facade';
+import { HouseholdReadFacade } from '../households/household-read.facade';
+import { ParentInquiriesReadFacade } from '../parent-inquiries/parent-inquiries-read.facade';
+import { ParentReadFacade } from '../parents/parent-read.facade';
+import { PayrollReadFacade } from '../payroll/payroll-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { RbacReadFacade } from '../rbac/rbac-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -25,6 +39,20 @@ export class DsarTraversalService {
     private readonly financeReadFacade: FinanceReadFacade,
     private readonly gradebookReadFacade: GradebookReadFacade,
     private readonly behaviourReadFacade: BehaviourReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly parentReadFacade: ParentReadFacade,
+    private readonly householdReadFacade: HouseholdReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly admissionsReadFacade: AdmissionsReadFacade,
+    private readonly authReadFacade: AuthReadFacade,
+    private readonly rbacReadFacade: RbacReadFacade,
+    private readonly attendanceReadFacade: AttendanceReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly gdprReadFacade: GdprReadFacade,
+    private readonly auditLogReadFacade: AuditLogReadFacade,
+    private readonly communicationsReadFacade: CommunicationsReadFacade,
+    private readonly parentInquiriesReadFacade: ParentInquiriesReadFacade,
+    private readonly payrollReadFacade: PayrollReadFacade,
   ) {}
 
   /**
@@ -80,37 +108,15 @@ export class DsarTraversalService {
     tenantId: string,
     studentId: string,
   ): Promise<Record<string, unknown>> {
-    const where = { tenant_id: tenantId };
-
     // Phase 1: Fetch profile and parent links first — needed for application + token queries
     const [profile, studentParentLinks, studentTokens] = await Promise.all([
-      this.prisma.student.findFirst({
-        where: { id: studentId, ...where },
-      }),
-      this.prisma.studentParent.findMany({
-        where: { student_id: studentId, tenant_id: tenantId },
-        select: { parent_id: true },
-      }),
-      this.prisma.gdprAnonymisationToken.findMany({
-        where: { tenant_id: tenantId, entity_type: 'student', entity_id: studentId },
-        select: { id: true },
-      }),
+      this.studentReadFacade.findById(tenantId, studentId),
+      this.studentReadFacade.findParentsForStudent(tenantId, studentId),
+      this.gdprReadFacade.findAnonymisationTokensByEntity(tenantId, 'student', studentId),
     ]);
 
     const parentIds = studentParentLinks.map((sp) => sp.parent_id);
     const studentTokenIds = studentTokens.map((t) => t.id);
-
-    // Build application filter: by parent submission OR by student name match
-    const applicationOrClauses: Record<string, unknown>[] = [];
-    if (parentIds.length > 0) {
-      applicationOrClauses.push({ submitted_by_parent_id: { in: parentIds } });
-    }
-    if (profile) {
-      applicationOrClauses.push({
-        student_first_name: profile.first_name,
-        student_last_name: profile.last_name,
-      });
-    }
 
     // Phase 2: All remaining queries in parallel
     // Foreign-table reads use facades; own-table reads remain direct Prisma.
@@ -137,17 +143,11 @@ export class DsarTraversalService {
       auditLogs,
       notifications,
     ] = await Promise.all([
-      // Attendance — own module, direct Prisma (ALL records, no limit)
-      this.prisma.attendanceRecord.findMany({
-        where: { student_id: studentId, ...where },
-        orderBy: { marked_at: 'desc' },
-      }),
+      // Attendance via facade
+      this.attendanceReadFacade.findAllRecordsForStudent(tenantId, studentId),
 
-      // Attendance pattern alerts — own module, direct Prisma
-      this.prisma.attendancePatternAlert.findMany({
-        where: { student_id: studentId, ...where },
-        orderBy: { detected_date: 'desc' },
-      }),
+      // Attendance pattern alerts via facade
+      this.attendanceReadFacade.getPatternAlerts(tenantId, studentId),
 
       // Gradebook reads via facade
       this.gradebookReadFacade.findGradesForStudent(tenantId, studentId),
@@ -165,55 +165,32 @@ export class DsarTraversalService {
       this.behaviourReadFacade.findExclusionCasesForStudent(tenantId, studentId),
       this.behaviourReadFacade.findRecognitionAwardsForStudent(tenantId, studentId),
 
-      // Admissions — own module, direct Prisma
-      applicationOrClauses.length > 0
-        ? this.prisma.application.findMany({
-            where: { ...where, OR: applicationOrClauses },
-            include: { notes: true },
+      // Admissions via facade
+      profile
+        ? this.admissionsReadFacade.findApplicationsByParentOrStudentName(tenantId, {
+            parentIds: parentIds.length > 0 ? parentIds : undefined,
+            studentFirstName: profile.first_name,
+            studentLastName: profile.last_name,
           })
         : Promise.resolve([]),
 
-      // Class enrolments — own module, direct Prisma
-      this.prisma.classEnrolment.findMany({
-        where: { student_id: studentId, ...where },
-        include: {
-          class_entity: {
-            select: { id: true, name: true },
-          },
-        },
-      }),
+      // Class enrolments via facade
+      this.classesReadFacade.findEnrolmentsForStudent(tenantId, studentId),
 
-      // Consent records — compliance-owned, direct Prisma
-      this.prisma.consentRecord.findMany({
-        where: { subject_type: 'student', subject_id: studentId, ...where },
-      }),
+      // Consent records via GDPR facade
+      this.gdprReadFacade.findConsentRecordsBySubject(tenantId, 'student', studentId),
 
-      // GDPR token usage logs — compliance-owned, direct Prisma
-      this.prisma.gdprTokenUsageLog.findMany({
-        where: { ...where },
-      }),
+      // GDPR token usage logs via facade
+      this.gdprReadFacade.findTokenUsageLogs(tenantId),
 
-      // AI processing logs — compliance-owned, direct Prisma
-      this.prisma.aiProcessingLog.findMany({
-        where: { subject_type: 'student', subject_id: studentId, ...where },
-        orderBy: { created_at: 'desc' },
-      }),
+      // AI processing logs via GDPR facade
+      this.gdprReadFacade.findAiProcessingLogsBySubject(tenantId, 'student', studentId),
 
-      // Audit logs — compliance-owned, direct Prisma
-      this.prisma.auditLog.findMany({
-        where: { entity_id: studentId, tenant_id: tenantId },
-        orderBy: { created_at: 'desc' },
-      }),
+      // Audit logs via facade
+      this.auditLogReadFacade.findByEntityId(tenantId, studentId),
 
-      // Notifications — compliance-owned, direct Prisma
-      this.prisma.notification.findMany({
-        where: {
-          source_entity_type: 'student',
-          source_entity_id: studentId,
-          ...where,
-        },
-        orderBy: { created_at: 'desc' },
-      }),
+      // Notifications via facade
+      this.communicationsReadFacade.findNotificationsBySourceEntity(tenantId, 'student', studentId),
     ]);
 
     // Filter token usage logs to only those referencing the student's token IDs
@@ -261,52 +238,25 @@ export class DsarTraversalService {
     tenantId: string,
     parentId: string,
   ): Promise<Record<string, unknown>> {
-    const where = { tenant_id: tenantId };
-
     const [profile, studentLinks, householdLinks, inquiries, consentRecords, auditLogs] =
       await Promise.all([
-        // Profile — ALL fields
-        this.prisma.parent.findFirst({
-          where: { id: parentId, ...where },
-        }),
+        // Profile — ALL fields via facade
+        this.parentReadFacade.findById(tenantId, parentId),
 
-        // Linked students
-        this.prisma.studentParent.findMany({
-          where: { parent_id: parentId, ...where },
-          include: {
-            student: {
-              select: { id: true, first_name: true, last_name: true, student_number: true },
-            },
-          },
-        }),
+        // Linked students via facade
+        this.parentReadFacade.findStudentLinksForParent(tenantId, parentId),
 
-        // Household memberships
-        this.prisma.householdParent.findMany({
-          where: { parent_id: parentId, ...where },
-          include: {
-            household: {
-              select: { id: true, household_name: true },
-            },
-          },
-        }),
+        // Household memberships via facade
+        this.householdReadFacade.findHouseholdsForParent(tenantId, parentId),
 
-        // Parent inquiries + messages
-        this.prisma.parentInquiry.findMany({
-          where: { parent_id: parentId, ...where },
-          include: { messages: true },
-          orderBy: { created_at: 'desc' },
-        }),
+        // Parent inquiries + messages via facade
+        this.parentInquiriesReadFacade.findByParentIdWithMessages(tenantId, parentId),
 
-        // Consent records
-        this.prisma.consentRecord.findMany({
-          where: { subject_type: 'parent', subject_id: parentId, ...where },
-        }),
+        // Consent records via GDPR facade
+        this.gdprReadFacade.findConsentRecordsBySubject(tenantId, 'parent', parentId),
 
-        // Audit logs
-        this.prisma.auditLog.findMany({
-          where: { entity_id: parentId, tenant_id: tenantId },
-          orderBy: { created_at: 'desc' },
-        }),
+        // Audit logs via facade
+        this.auditLogReadFacade.findByEntityId(tenantId, parentId),
       ]);
 
     // Gather household IDs for financial data
@@ -348,12 +298,9 @@ export class DsarTraversalService {
       Promise.resolve(paymentPlanRequestArrays.flat()),
       this.financeReadFacade.findScholarshipsByHouseholds(tenantId, householdIds),
 
-      // Notifications sent to parent's user account — compliance-owned, direct Prisma
+      // Notifications sent to parent's user account via facade
       profile?.user_id
-        ? this.prisma.notification.findMany({
-            where: { recipient_user_id: profile.user_id, ...where },
-            orderBy: { created_at: 'desc' },
-          })
+        ? this.communicationsReadFacade.findNotificationsByRecipient(tenantId, profile.user_id)
         : Promise.resolve([]),
     ]);
 
@@ -382,8 +329,6 @@ export class DsarTraversalService {
     tenantId: string,
     staffProfileId: string,
   ): Promise<Record<string, unknown>> {
-    const where = { tenant_id: tenantId };
-
     const [
       profile,
       compensations,
@@ -394,82 +339,37 @@ export class DsarTraversalService {
       consentRecords,
       auditLogs,
     ] = await Promise.all([
-      // Profile — ALL fields + linked user
-      this.prisma.staffProfile.findFirst({
-        where: { id: staffProfileId, ...where },
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              first_name: true,
-              last_name: true,
-              phone: true,
-              preferred_locale: true,
-              created_at: true,
-            },
-          },
-        },
-      }),
+      // Profile via facade
+      this.staffProfileReadFacade.findById(tenantId, staffProfileId),
 
-      // Compensation records
-      this.prisma.staffCompensation.findMany({
-        where: { staff_profile_id: staffProfileId, ...where },
-        orderBy: { effective_from: 'desc' },
-      }),
+      // Compensation records via facade
+      this.payrollReadFacade.findCompensationsByStaff(tenantId, staffProfileId),
 
-      // Payroll entries
-      this.prisma.payrollEntry.findMany({
-        where: { staff_profile_id: staffProfileId, ...where },
-        orderBy: { created_at: 'desc' },
-      }),
+      // Payroll entries via facade
+      this.payrollReadFacade.findPayrollEntriesByStaff(tenantId, staffProfileId),
 
-      // Allowances
-      this.prisma.staffAllowance.findMany({
-        where: { staff_profile_id: staffProfileId, ...where },
-        orderBy: { effective_from: 'desc' },
-      }),
+      // Allowances via facade
+      this.payrollReadFacade.findAllowancesByStaff(tenantId, staffProfileId),
 
-      // Recurring deductions
-      this.prisma.staffRecurringDeduction.findMany({
-        where: { staff_profile_id: staffProfileId, ...where },
-        orderBy: { start_date: 'desc' },
-      }),
+      // Recurring deductions via facade
+      this.payrollReadFacade.findRecurringDeductionsByStaff(tenantId, staffProfileId),
 
-      // Payslips — via payroll entries
-      this.prisma.payslip.findMany({
-        where: {
-          ...where,
-          payroll_entry: { staff_profile_id: staffProfileId },
-        },
-        orderBy: { issued_at: 'desc' },
-      }),
+      // Payslips via facade
+      this.payrollReadFacade.findPayslipsByStaff(tenantId, staffProfileId),
 
-      // Consent records
-      this.prisma.consentRecord.findMany({
-        where: { subject_type: 'staff', subject_id: staffProfileId, ...where },
-      }),
+      // Consent records via GDPR facade
+      this.gdprReadFacade.findConsentRecordsBySubject(tenantId, 'staff', staffProfileId),
 
-      // Audit logs
-      this.prisma.auditLog.findMany({
-        where: { entity_id: staffProfileId, tenant_id: tenantId },
-        orderBy: { created_at: 'desc' },
-      }),
+      // Audit logs via facade
+      this.auditLogReadFacade.findByEntityId(tenantId, staffProfileId),
     ]);
 
     // Mask bank details — show bank_name only; encrypted fields cannot be meaningfully masked
     const maskedProfile = profile
       ? {
           ...profile,
-          bank_account_number_encrypted: undefined,
-          bank_iban_encrypted: undefined,
-          bank_encryption_key_ref: undefined,
           bank_details_masked: {
-            bank_name: profile.bank_name,
-            account_number: profile.bank_account_number_encrypted
-              ? '[encrypted — available via DPO request]'
-              : null,
-            iban: profile.bank_iban_encrypted ? '[encrypted — available via DPO request]' : null,
+            note: '[encrypted — available via DPO request]',
           },
         }
       : null;
@@ -492,30 +392,18 @@ export class DsarTraversalService {
     tenantId: string,
     applicationId: string,
   ): Promise<Record<string, unknown>> {
-    const where = { tenant_id: tenantId };
-
     const [application, applicationNotes, consentRecords, auditLogs] = await Promise.all([
-      // Application record with payload
-      this.prisma.application.findFirst({
-        where: { id: applicationId, ...where },
-      }),
+      // Application record via facade
+      this.admissionsReadFacade.findById(tenantId, applicationId),
 
-      // Application notes
-      this.prisma.applicationNote.findMany({
-        where: { application_id: applicationId, ...where },
-        orderBy: { created_at: 'desc' },
-      }),
+      // Application notes via facade
+      this.admissionsReadFacade.findNotesForApplication(tenantId, applicationId),
 
-      // Consent records
-      this.prisma.consentRecord.findMany({
-        where: { subject_type: 'applicant', subject_id: applicationId, ...where },
-      }),
+      // Consent records via GDPR facade
+      this.gdprReadFacade.findConsentRecordsBySubject(tenantId, 'applicant', applicationId),
 
-      // Audit logs
-      this.prisma.auditLog.findMany({
-        where: { entity_id: applicationId, tenant_id: tenantId },
-        orderBy: { created_at: 'desc' },
-      }),
+      // Audit logs via facade
+      this.auditLogReadFacade.findByEntityId(tenantId, applicationId),
     ]);
 
     return {
@@ -532,8 +420,6 @@ export class DsarTraversalService {
     tenantId: string,
     householdId: string,
   ): Promise<Record<string, unknown>> {
-    const where = { tenant_id: tenantId };
-
     const [
       profile,
       parentLinks,
@@ -545,43 +431,20 @@ export class DsarTraversalService {
       refunds,
       creditNotes,
     ] = await Promise.all([
-      // Profile — ALL fields (compliance-owned, direct Prisma)
-      this.prisma.household.findFirst({
-        where: { id: householdId, ...where },
-      }),
+      // Profile via facade
+      this.householdReadFacade.findById(tenantId, householdId),
 
-      // Linked parents (compliance-owned, direct Prisma)
-      this.prisma.householdParent.findMany({
-        where: { household_id: householdId, ...where },
-        include: {
-          parent: {
-            select: { id: true, first_name: true, last_name: true, email: true },
-          },
-        },
-      }),
+      // Linked parents via facade
+      this.householdReadFacade.findParentsForHousehold(tenantId, householdId),
 
-      // Linked students (compliance-owned, direct Prisma)
-      this.prisma.student.findMany({
-        where: { household_id: householdId, ...where },
-        select: {
-          id: true,
-          first_name: true,
-          last_name: true,
-          student_number: true,
-        },
-      }),
+      // Linked students via facade
+      this.studentReadFacade.findByHousehold(tenantId, householdId),
 
-      // Emergency contacts (compliance-owned, direct Prisma)
-      this.prisma.householdEmergencyContact.findMany({
-        where: { household_id: householdId, ...where },
-        orderBy: { display_order: 'asc' },
-      }),
+      // Emergency contacts via facade
+      this.householdReadFacade.findEmergencyContacts(tenantId, householdId),
 
-      // Fee assignments (compliance-owned, direct Prisma)
-      this.prisma.householdFeeAssignment.findMany({
-        where: { household_id: householdId, ...where },
-        orderBy: { effective_from: 'desc' },
-      }),
+      // Fee assignments via finance facade
+      this.financeReadFacade.findFeeAssignmentsByHousehold(tenantId, householdId),
 
       // Finance reads via facade
       this.financeReadFacade.findInvoicesByHousehold(tenantId, householdId),
@@ -609,29 +472,11 @@ export class DsarTraversalService {
 
   private async collectUserData(userId: string): Promise<Record<string, unknown>> {
     const [profile, memberships] = await Promise.all([
-      // User record — basic fields only (platform-level, no tenant_id)
-      this.prisma.user.findFirst({
-        where: { id: userId },
-        select: {
-          id: true,
-          email: true,
-          first_name: true,
-          last_name: true,
-          phone: true,
-          preferred_locale: true,
-          global_status: true,
-          email_verified_at: true,
-          mfa_enabled: true,
-          last_login_at: true,
-          created_at: true,
-          updated_at: true,
-        },
-      }),
+      // User record — basic fields via facade
+      this.authReadFacade.findUserById('', userId),
 
-      // Tenant memberships
-      this.prisma.tenantMembership.findMany({
-        where: { user_id: userId },
-      }),
+      // Tenant memberships via facade
+      this.rbacReadFacade.findAllMembershipsForUser(userId),
     ]);
 
     return {

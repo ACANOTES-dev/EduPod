@@ -7,6 +7,7 @@ import {
 import { $Enums } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AttendanceLockingService } from './attendance-locking.service';
@@ -43,6 +44,7 @@ export class AttendanceService {
     private readonly sessionService: AttendanceSessionService,
     private readonly lockingService: AttendanceLockingService,
     private readonly reportingService: AttendanceReportingService,
+    private readonly classesReadFacade: ClassesReadFacade,
   ) {}
 
   // ─── Session Management (delegated) ─────────────────────────────────────
@@ -169,17 +171,9 @@ export class AttendanceService {
 
     // 2. Validate all student_ids are actively enrolled in the class
     const studentIds = dto.records.map((r) => r.student_id);
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
-        class_id: session.class_id,
-        student_id: { in: studentIds },
-        status: 'active',
-      },
-      select: { student_id: true },
-    });
+    const allEnrolledIds = await this.classesReadFacade.findEnrolledStudentIds(tenantId, session.class_id);
 
-    const enrolledStudentIds = new Set(enrolments.map((e) => e.student_id));
+    const enrolledStudentIds = new Set(allEnrolledIds);
     const notEnrolled = studentIds.filter((id) => !enrolledStudentIds.has(id));
 
     if (notEnrolled.length > 0) {

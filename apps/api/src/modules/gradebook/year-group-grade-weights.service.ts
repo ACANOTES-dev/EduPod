@@ -5,6 +5,7 @@ import {
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import type {
@@ -14,7 +15,10 @@ import type {
 
 @Injectable()
 export class YearGroupGradeWeightsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
+  ) {}
 
   /**
    * Upsert category weight config for a year group + academic period.
@@ -22,23 +26,10 @@ export class YearGroupGradeWeightsService {
    */
   async upsert(tenantId: string, dto: UpsertYearGroupGradeWeightDto) {
     // 1. Validate year group exists
-    const yearGroup = await this.prisma.yearGroup.findFirst({
-      where: { id: dto.year_group_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-
-    if (!yearGroup) {
-      throw new NotFoundException({
-        code: 'YEAR_GROUP_NOT_FOUND',
-        message: `Year group with id "${dto.year_group_id}" not found`,
-      });
-    }
+    await this.academicReadFacade.findYearGroupByIdOrThrow(tenantId, dto.year_group_id);
 
     // 2. Validate academic period exists
-    const academicPeriod = await this.prisma.academicPeriod.findFirst({
-      where: { id: dto.academic_period_id, tenant_id: tenantId },
-      select: { id: true },
-    });
+    const academicPeriod = await this.academicReadFacade.findPeriodById(tenantId, dto.academic_period_id);
 
     if (!academicPeriod) {
       throw new NotFoundException({
@@ -107,17 +98,7 @@ export class YearGroupGradeWeightsService {
    * Includes the period name for display.
    */
   async findByYearGroup(tenantId: string, yearGroupId: string) {
-    const yearGroup = await this.prisma.yearGroup.findFirst({
-      where: { id: yearGroupId, tenant_id: tenantId },
-      select: { id: true },
-    });
-
-    if (!yearGroup) {
-      throw new NotFoundException({
-        code: 'YEAR_GROUP_NOT_FOUND',
-        message: `Year group with id "${yearGroupId}" not found`,
-      });
-    }
+    await this.academicReadFacade.findYearGroupByIdOrThrow(tenantId, yearGroupId);
 
     const configs = await this.prisma.yearGroupGradeWeight.findMany({
       where: {
@@ -206,30 +187,10 @@ export class YearGroupGradeWeightsService {
    */
   async copyFromYearGroup(tenantId: string, dto: CopyYearGroupGradeWeightsDto) {
     // Validate source year group
-    const sourceYearGroup = await this.prisma.yearGroup.findFirst({
-      where: { id: dto.source_year_group_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-
-    if (!sourceYearGroup) {
-      throw new NotFoundException({
-        code: 'SOURCE_YEAR_GROUP_NOT_FOUND',
-        message: `Source year group with id "${dto.source_year_group_id}" not found`,
-      });
-    }
+    await this.academicReadFacade.findYearGroupByIdOrThrow(tenantId, dto.source_year_group_id);
 
     // Validate target year group
-    const targetYearGroup = await this.prisma.yearGroup.findFirst({
-      where: { id: dto.target_year_group_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-
-    if (!targetYearGroup) {
-      throw new NotFoundException({
-        code: 'TARGET_YEAR_GROUP_NOT_FOUND',
-        message: `Target year group with id "${dto.target_year_group_id}" not found`,
-      });
-    }
+    await this.academicReadFacade.findYearGroupByIdOrThrow(tenantId, dto.target_year_group_id);
 
     // Fetch all source configs
     const sourceConfigs = await this.prisma.yearGroupGradeWeight.findMany({

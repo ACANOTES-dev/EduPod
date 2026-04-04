@@ -14,10 +14,10 @@ import { AttendanceAutoLockProcessor } from './processors/attendance-auto-lock.p
 import { AttendancePatternDetectionProcessor } from './processors/attendance-pattern-detection.processor';
 import { AttendancePendingDetectionProcessor } from './processors/attendance-pending-detection.processor';
 import { AttendanceSessionGenerationProcessor } from './processors/attendance-session-generation.processor';
-import { AttachmentScanProcessor } from './processors/behaviour/attachment-scan.processor';
-import { BreakGlassExpiryProcessor } from './processors/behaviour/break-glass-expiry.processor';
+import { AttachmentScanProcessor } from './processors/safeguarding/attachment-scan.processor';
+import { BreakGlassExpiryProcessor } from './processors/safeguarding/break-glass-expiry.processor';
 import { BehaviourCheckAwardsProcessor } from './processors/behaviour/check-awards.processor';
-import { CriticalEscalationProcessor } from './processors/behaviour/critical-escalation.processor';
+import { CriticalEscalationProcessor } from './processors/safeguarding/critical-escalation.processor';
 import { BehaviourCronDispatchProcessor } from './processors/behaviour/cron-dispatch.processor';
 import { DetectPatternsProcessor } from './processors/behaviour/detect-patterns.processor';
 import { DigestNotificationsProcessor } from './processors/behaviour/digest-notifications.processor';
@@ -29,7 +29,7 @@ import { BehaviourParentNotificationProcessor } from './processors/behaviour/par
 import { PartitionMaintenanceProcessor } from './processors/behaviour/partition-maintenance.processor';
 import { RefreshMVProcessor } from './processors/behaviour/refresh-mv.processor';
 import { RetentionCheckProcessor } from './processors/behaviour/retention-check.processor';
-import { SlaCheckProcessor } from './processors/behaviour/sla-check.processor';
+import { SlaCheckProcessor } from './processors/safeguarding/sla-check.processor';
 import { BehaviourSuspensionReturnProcessor } from './processors/behaviour/suspension-return.processor';
 import { BehaviourTaskRemindersProcessor } from './processors/behaviour/task-reminders.processor';
 import { AnnouncementApprovalCallbackProcessor } from './processors/communications/announcement-approval-callback.processor';

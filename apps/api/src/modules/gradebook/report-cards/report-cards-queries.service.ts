@@ -1,6 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, $Enums } from '@prisma/client';
 
+import { AcademicReadFacade } from '../../academics/academic-read.facade';
+import { AttendanceReadFacade } from '../../attendance/attendance-read.facade';
+import { ClassesReadFacade } from '../../classes/classes-read.facade';
+import { StudentReadFacade } from '../../students/student-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -23,7 +27,6 @@ interface ListReportCardsParams {
 @Injectable()
 export class ReportCardsQueriesService {
   constructor(private readonly prisma: PrismaService) {}
-
   // ─── LIST ───────────────────────────────────────────────────────────────────
 
   /**

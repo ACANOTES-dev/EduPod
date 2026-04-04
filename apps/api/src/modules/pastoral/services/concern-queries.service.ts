@@ -4,6 +4,10 @@ import { Prisma } from '@prisma/client';
 import { type ListConcernsQuery, pastoralTenantSettingsSchema } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
+
+import { ChildProtectionReadFacade } from '../../child-protection/child-protection-read.facade';
+
 import { PrismaService } from '../../prisma/prisma.service';
 
 import type {
@@ -27,7 +31,9 @@ import type {
 export class ConcernQueriesService {
   private readonly logger = new Logger(ConcernQueriesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService,
+    private readonly childProtectionReadFacade: ChildProtectionReadFacade,
+    private readonly configurationReadFacade: ConfigurationReadFacade) {}
 
   // ─── LIST ───────────────────────────────────────────────────────────────────
 
@@ -144,14 +150,7 @@ export class ConcernQueriesService {
    * Checks whether a user has an active (non-revoked) CP access grant.
    */
   private async checkCpAccess(tenantId: string, userId: string): Promise<boolean> {
-    const grant = await this.prisma.cpAccessGrant.findFirst({
-      where: {
-        tenant_id: tenantId,
-        user_id: userId,
-        revoked_at: null,
-      },
-      select: { id: true },
-    });
+    const grant = await this.childProtectionReadFacade.hasActiveCpAccess(tenantId, userId) ? { id: "active" } : null;
 
     return !!grant;
   }
@@ -174,9 +173,7 @@ export class ConcernQueriesService {
    * Uses the Zod schema to fill in defaults for any missing fields.
    */
   private async loadPastoralSettings(tenantId: string) {
-    const record = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const record = await this.configurationReadFacade.findSettings(tenantId);
 
     const settingsJson = (record?.settings as Record<string, unknown>) ?? {};
     const pastoralRaw = (settingsJson.pastoral as Record<string, unknown>) ?? {};

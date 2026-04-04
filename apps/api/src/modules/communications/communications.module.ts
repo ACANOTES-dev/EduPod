@@ -9,6 +9,7 @@ import { RedisModule } from '../redis/redis.module';
 
 import { AnnouncementsController } from './announcements.controller';
 import { AnnouncementsService } from './announcements.service';
+import { CommunicationsReadFacade } from './communications-read.facade';
 import { AudienceResolutionService } from './audience-resolution.service';
 import { NotificationDispatchService } from './notification-dispatch.service';
 import { NotificationRateLimitService } from './notification-rate-limit.service';
@@ -52,11 +53,13 @@ import { WebhookService } from './webhook.service';
     ResendEmailProvider,
     TwilioWhatsAppProvider,
     TwilioSmsProvider,
+    CommunicationsReadFacade,
     NotificationRateLimitService,
     UnsubscribeService,
   ],
   exports: [
     AnnouncementsService,
+    CommunicationsReadFacade,
     NotificationsService,
     NotificationDispatchService,
     AudienceResolutionService,

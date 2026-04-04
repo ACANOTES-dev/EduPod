@@ -11,33 +11,26 @@ import type {
 } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchedulingRunsReadFacade } from '../scheduling-runs/scheduling-runs-read.facade';
 
 @Injectable()
 export class ScenarioService {
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue('scheduling') private readonly schedulingQueue: Queue,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly schedulingRunsReadFacade: SchedulingRunsReadFacade,
   ) {}
 
   // ─── Create Scenario ──────────────────────────────────────────────────────
 
   async createScenario(tenantId: string, userId: string, dto: CreateScenarioDto) {
-    const academicYear = await this.prisma.academicYear.findFirst({
-      where: { id: dto.academic_year_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-    if (!academicYear) {
-      throw new NotFoundException({
-        error: { code: 'ACADEMIC_YEAR_NOT_FOUND', message: 'Academic year not found' },
-      });
-    }
+    await this.academicReadFacade.findYearByIdOrThrow(tenantId, dto.academic_year_id);
 
     if (dto.base_run_id) {
-      const run = await this.prisma.schedulingRun.findFirst({
-        where: { id: dto.base_run_id, tenant_id: tenantId },
-        select: { id: true },
-      });
+      const run = await this.schedulingRunsReadFacade.findStatusById(tenantId, dto.base_run_id);
       if (!run) {
         throw new NotFoundException({
           error: { code: 'BASE_RUN_NOT_FOUND', message: 'Base scheduling run not found' },
@@ -74,9 +67,7 @@ export class ScenarioService {
   // ─── Get Scenario ─────────────────────────────────────────────────────────
 
   async getScenario(tenantId: string, scenarioId: string) {
-    const scenario = await this.prisma.schedulingScenario.findFirst({
-      where: { id: scenarioId, tenant_id: tenantId },
-    });
+    const scenario = await this.schedulingRunsReadFacade.findScenarioById(tenantId, scenarioId);
 
     if (!scenario) {
       throw new NotFoundException({
@@ -105,26 +96,14 @@ export class ScenarioService {
       where.status = query.status;
     }
 
-    const [data, total] = await Promise.all([
-      this.prisma.schedulingScenario.findMany({
-        where,
-        skip,
-        take: query.pageSize,
-        orderBy: { created_at: 'desc' },
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          academic_year_id: true,
-          base_run_id: true,
-          status: true,
-          created_by_user_id: true,
-          created_at: true,
-          updated_at: true,
-        },
-      }),
-      this.prisma.schedulingScenario.count({ where }),
-    ]);
+    const result = await this.schedulingRunsReadFacade.listScenarios(tenantId, {
+      academicYearId: query.academic_year_id,
+      status: query.status,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
+    const data = result.data;
+    const total = result.total;
 
     return {
       data: data.map((s) => ({
@@ -144,10 +123,7 @@ export class ScenarioService {
   // ─── Update Scenario ──────────────────────────────────────────────────────
 
   async updateScenario(tenantId: string, scenarioId: string, dto: UpdateScenarioDto) {
-    const scenario = await this.prisma.schedulingScenario.findFirst({
-      where: { id: scenarioId, tenant_id: tenantId },
-      select: { id: true, status: true },
-    });
+    const scenario = await this.schedulingRunsReadFacade.findScenarioStatusById(tenantId, scenarioId);
     if (!scenario) {
       throw new NotFoundException({
         error: { code: 'SCENARIO_NOT_FOUND', message: 'Scenario not found' },
@@ -189,10 +165,7 @@ export class ScenarioService {
   // ─── Delete Scenario ──────────────────────────────────────────────────────
 
   async deleteScenario(tenantId: string, scenarioId: string) {
-    const scenario = await this.prisma.schedulingScenario.findFirst({
-      where: { id: scenarioId, tenant_id: tenantId },
-      select: { id: true, status: true },
-    });
+    const scenario = await this.schedulingRunsReadFacade.findScenarioStatusById(tenantId, scenarioId);
     if (!scenario) {
       throw new NotFoundException({
         error: { code: 'SCENARIO_NOT_FOUND', message: 'Scenario not found' },
@@ -217,10 +190,8 @@ export class ScenarioService {
   // ─── Run Scenario Solver ──────────────────────────────────────────────────
 
   async runScenarioSolver(tenantId: string, scenarioId: string) {
-    const scenario = await this.prisma.schedulingScenario.findFirst({
-      where: { id: scenarioId, tenant_id: tenantId },
-      select: { id: true, status: true, academic_year_id: true },
-    });
+    const scenarioFull = await this.schedulingRunsReadFacade.findScenarioById(tenantId, scenarioId);
+    const scenario = scenarioFull;
     if (!scenario) {
       throw new NotFoundException({
         error: { code: 'SCENARIO_NOT_FOUND', message: 'Scenario not found' },
@@ -253,20 +224,10 @@ export class ScenarioService {
   // ─── Compare Scenarios ────────────────────────────────────────────────────
 
   async compareScenarios(tenantId: string, dto: CompareScenarioDto) {
-    const scenarios = await this.prisma.schedulingScenario.findMany({
-      where: {
-        id: { in: dto.scenario_ids },
-        tenant_id: tenantId,
-      },
-      select: {
-        id: true,
-        name: true,
-        status: true,
-        solver_result_json: true,
-        adjustments_json: true,
-        created_at: true,
-      },
-    });
+    const scenarios = await this.schedulingRunsReadFacade.findScenariosForComparison(
+      tenantId,
+      dto.scenario_ids,
+    );
 
     if (scenarios.length !== dto.scenario_ids.length) {
       throw new NotFoundException({

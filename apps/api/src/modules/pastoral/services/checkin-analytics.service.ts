@@ -3,6 +3,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { pastoralTenantSettingsSchema } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
+
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -31,7 +33,8 @@ export interface ExamComparisonResult {
 export class CheckinAnalyticsService {
   private readonly logger = new Logger(CheckinAnalyticsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService,
+    private readonly configurationReadFacade: ConfigurationReadFacade) {}
 
   // ─── Year Group Mood Trends ─────────────────────────────────────────────
 
@@ -370,9 +373,7 @@ export class CheckinAnalyticsService {
   // ─── Private: Tenant Settings ─────────────────────────────────────────
 
   private async getMinCohortSize(tenantId: string): Promise<number> {
-    const record = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const record = await this.configurationReadFacade.findSettings(tenantId);
 
     const settingsJson = (record?.settings as Record<string, unknown>) ?? {};
     const pastoralRaw = (settingsJson.pastoral as Record<string, unknown>) ?? {};

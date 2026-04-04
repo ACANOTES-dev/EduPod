@@ -1,10 +1,19 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
+import { AcademicsModule } from '../academics/academics.module';
 import { AiModule } from '../ai/ai.module';
 import { AuthModule } from '../auth/auth.module';
+import { ClassesModule } from '../classes/classes.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { GdprModule } from '../gdpr/gdpr.module';
+import { GradebookModule } from '../gradebook/gradebook.module';
+import { RoomsModule } from '../rooms/rooms.module';
+import { SchedulesModule } from '../schedules/schedules.module';
+import { SchedulingRunsModule } from '../scheduling-runs/scheduling-runs.module';
+import { StaffAvailabilityModule } from '../staff-availability/staff-availability.module';
+import { StaffPreferencesModule } from '../staff-preferences/staff-preferences.module';
+import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 
 import { AiSubstitutionService } from './ai-substitution.service';
 import { BreakGroupsController } from './break-groups.controller';
@@ -28,6 +37,7 @@ import { SchedulerValidationService } from './scheduler-validation.service';
 import { SchedulingAnalyticsService } from './scheduling-analytics.service';
 import { SchedulingEnhancedController } from './scheduling-enhanced.controller';
 import { SchedulingPublicController } from './scheduling-public.controller';
+import { SchedulingReadFacade } from './scheduling-read.facade';
 import { SubstitutionService } from './substitution.service';
 import { TeacherCompetenciesController } from './teacher-competencies.controller';
 import { TeacherCompetenciesService } from './teacher-competencies.service';
@@ -36,10 +46,19 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
 
 @Module({
   imports: [
+    AcademicsModule,
     AiModule,
     AuthModule,
+    ClassesModule,
     ConfigurationModule,
     GdprModule,
+    forwardRef(() => GradebookModule),
+    RoomsModule,
+    forwardRef(() => SchedulesModule),
+    forwardRef(() => SchedulingRunsModule),
+    StaffAvailabilityModule,
+    StaffPreferencesModule,
+    StaffProfilesModule,
     BullModule.registerQueue({ name: 'scheduling' }),
   ],
   controllers: [
@@ -72,6 +91,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     ExamSchedulingService,
     ScenarioService,
     SchedulingAnalyticsService,
+    SchedulingReadFacade,
   ],
   exports: [
     SchedulerOrchestrationService,
@@ -79,6 +99,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
     TeacherCompetenciesService,
     BreakGroupsService,
     PersonalTimetableService,
+    SchedulingReadFacade,
   ],
 })
 export class SchedulingModule {}

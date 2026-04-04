@@ -18,7 +18,7 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { TimetablesService } from './timetables.service';
 
@@ -40,7 +40,7 @@ export class TimetablesController {
   constructor(
     private readonly timetablesService: TimetablesService,
     private readonly permissionCacheService: PermissionCacheService,
-    private readonly prisma: PrismaService,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
   ) {}
 
   @Get('timetables/teacher/:staffProfileId')
@@ -135,14 +135,7 @@ export class TimetablesController {
     userId: string,
     staffProfileId: string,
   ): Promise<boolean> {
-    const profile = await this.prisma.staffProfile.findFirst({
-      where: {
-        id: staffProfileId,
-        tenant_id: tenantId,
-        user_id: userId,
-      },
-      select: { id: true },
-    });
-    return profile !== null;
+    const profile = await this.staffProfileReadFacade.findByUserId(tenantId, userId);
+    return profile !== null && profile.id === staffProfileId;
   }
 }

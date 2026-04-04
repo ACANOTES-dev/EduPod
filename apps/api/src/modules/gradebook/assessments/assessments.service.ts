@@ -7,6 +7,8 @@ import {
 import { Prisma, $Enums } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ClassGradeConfigsService } from '../class-grade-configs.service';
 import type { CreateAssessmentDto, UpdateAssessmentDto, TransitionAssessmentStatusDto } from '../dto/gradebook.dto';
@@ -27,6 +29,8 @@ export class AssessmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly classGradeConfigsService: ClassGradeConfigsService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
   ) {}
 
   /**

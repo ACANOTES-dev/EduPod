@@ -1,8 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 /** Statuses excluded from point aggregations per spec. */
 const EXCLUDED_STATUSES: $Enums.IncidentStatus[] = [
@@ -66,6 +69,9 @@ export class BehaviourPointsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
   ) {}
 
   // ─── Student Points ────────────────────────────────────────────────────
@@ -156,12 +162,9 @@ export class BehaviourPointsService {
     key: string;
     filter: Prisma.BehaviourIncidentWhereInput;
   }> {
-    const tenantSettings = await this.prisma.tenantSetting.findFirst({
-      where: { tenant_id: tenantId },
-      select: { settings: true },
-    });
+    const tenantSettingsJson = await this.configurationReadFacade.findSettingsJson(tenantId);
     const settings =
-      (tenantSettings?.settings as Record<string, unknown>) ?? {};
+      (tenantSettingsJson as Record<string, unknown>) ?? {};
     const behaviourSettings =
       (settings?.behaviour as Record<string, unknown>) ?? {};
     const resetFrequency =
@@ -173,11 +176,7 @@ export class BehaviourPointsService {
     }
 
     if (resetFrequency === 'academic_period') {
-      const currentPeriod = await this.prisma.academicPeriod.findFirst({
-        where: { tenant_id: tenantId, status: 'active' },
-        orderBy: { start_date: 'desc' },
-        select: { id: true },
-      });
+      const currentPeriod = await this.academicReadFacade.findCurrentPeriod(tenantId);
       if (currentPeriod) {
         return {
           key: `period:${currentPeriod.id}`,
@@ -187,10 +186,7 @@ export class BehaviourPointsService {
     }
 
     // Default: academic_year
-    const currentYear = await this.prisma.academicYear.findFirst({
-      where: { tenant_id: tenantId, status: 'active' },
-      select: { id: true },
-    });
+    const currentYear = await this.academicReadFacade.findCurrentYear(tenantId);
     if (currentYear) {
       return {
         key: `year:${currentYear.id}`,
@@ -277,20 +273,12 @@ export class BehaviourPointsService {
     };
 
     if (query.scope === 'year') {
-      const currentYear = await this.prisma.academicYear.findFirst({
-        where: { tenant_id: tenantId, status: 'active' },
-      });
+      const currentYear = await this.academicReadFacade.findCurrentYear(tenantId);
       if (currentYear) {
         incidentFilter.academic_year_id = currentYear.id;
       }
     } else if (query.scope === 'period') {
-      const currentPeriod = await this.prisma.academicPeriod.findFirst({
-        where: {
-          tenant_id: tenantId,
-          status: 'active',
-        },
-        orderBy: { start_date: 'desc' },
-      });
+      const currentPeriod = await this.academicReadFacade.findCurrentPeriod(tenantId);
       if (currentPeriod) {
         incidentFilter.academic_period_id = currentPeriod.id;
       }
@@ -340,15 +328,7 @@ export class BehaviourPointsService {
       .filter((id): id is string => id !== null);
 
     const [students, houseMemberships] = await Promise.all([
-      this.prisma.student.findMany({
-        where: { id: { in: studentIds }, tenant_id: tenantId },
-        select: {
-          id: true,
-          first_name: true,
-          last_name: true,
-          year_group: { select: { id: true, name: true } },
-        },
-      }),
+      this.studentReadFacade.findByIds(tenantId, studentIds),
       // Get house membership for these students (current academic year)
       this.resolveHouseMemberships(tenantId, studentIds),
     ]);
@@ -485,10 +465,7 @@ export class BehaviourPointsService {
     studentIds: string[],
   ): Promise<Map<string, { id: string; name: string; color: string }>> {
     // Find the current academic year
-    const currentYear = await this.prisma.academicYear.findFirst({
-      where: { tenant_id: tenantId, status: 'active' },
-      select: { id: true },
-    });
+    const currentYear = await this.academicReadFacade.findCurrentYear(tenantId);
 
     if (!currentYear) return new Map();
 

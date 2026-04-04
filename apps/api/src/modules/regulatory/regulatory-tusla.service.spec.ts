@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
+import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import { RegulatoryTuslaService } from './regulatory-tusla.service';
 
@@ -31,56 +34,51 @@ const mockStudentB = {
 describe('RegulatoryTuslaService', () => {
   let service: RegulatoryTuslaService;
   let mockPrisma: {
-    dailyAttendanceSummary: {
-      groupBy: jest.Mock;
-      count: jest.Mock;
-    };
-    attendanceRecord: {
-      findMany: jest.Mock;
-    };
     tuslaAbsenceCodeMapping: {
       findMany: jest.Mock;
     };
-    student: {
-      findMany: jest.Mock;
-      count: jest.Mock;
-    };
-    behaviourSanction: {
-      findMany: jest.Mock;
-    };
-    behaviourExclusionCase: {
-      findMany: jest.Mock;
-    };
+  };
+  let mockStudentReadFacade: {
+    findManyGeneric: jest.Mock;
+    count: jest.Mock;
+  };
+  let mockBehaviourReadFacade: {
+    findSanctionsForTusla: jest.Mock;
+    findExclusionCasesForTusla: jest.Mock;
+  };
+  let mockAttendanceReadFacade: {
+    groupDailySummariesByStudent: jest.Mock;
+    countDailySummaries: jest.Mock;
+    findRecordsByStatusWithSession: jest.Mock;
   };
 
   beforeEach(async () => {
     mockPrisma = {
-      dailyAttendanceSummary: {
-        groupBy: jest.fn().mockResolvedValue([]),
-        count: jest.fn().mockResolvedValue(0),
-      },
-      attendanceRecord: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
       tuslaAbsenceCodeMapping: {
         findMany: jest.fn().mockResolvedValue([]),
       },
-      student: {
-        findMany: jest.fn().mockResolvedValue([]),
-        count: jest.fn().mockResolvedValue(0),
-      },
-      behaviourSanction: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      behaviourExclusionCase: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
+    };
+    mockStudentReadFacade = {
+      findManyGeneric: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+    };
+    mockBehaviourReadFacade = {
+      findSanctionsForTusla: jest.fn().mockResolvedValue([]),
+      findExclusionCasesForTusla: jest.fn().mockResolvedValue([]),
+    };
+    mockAttendanceReadFacade = {
+      groupDailySummariesByStudent: jest.fn().mockResolvedValue([]),
+      countDailySummaries: jest.fn().mockResolvedValue(0),
+      findRecordsByStatusWithSession: jest.fn().mockResolvedValue([]),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RegulatoryTuslaService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: StudentReadFacade, useValue: mockStudentReadFacade },
+        { provide: BehaviourReadFacade, useValue: mockBehaviourReadFacade },
+        { provide: AttendanceReadFacade, useValue: mockAttendanceReadFacade },
       ],
     }).compile();
 
@@ -93,11 +91,11 @@ describe('RegulatoryTuslaService', () => {
 
   describe('getThresholdMonitor', () => {
     it('should return students with absent days >= 80% of threshold', async () => {
-      mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue([
+      mockAttendanceReadFacade.groupDailySummariesByStudent.mockResolvedValue([
         { student_id: STUDENT_A, _count: { student_id: 22 } },
         { student_id: STUDENT_B, _count: { student_id: 18 } },
       ]);
-      mockPrisma.student.findMany.mockResolvedValue([mockStudentA, mockStudentB]);
+      mockStudentReadFacade.findManyGeneric.mockResolvedValue([mockStudentA, mockStudentB]);
 
       const result = await service.getThresholdMonitor(TENANT_ID, { threshold_days: 20 });
 
@@ -111,7 +109,7 @@ describe('RegulatoryTuslaService', () => {
     });
 
     it('should use default threshold of 20 when not specified', async () => {
-      mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue([]);
+      mockAttendanceReadFacade.groupDailySummariesByStudent.mockResolvedValue([]);
 
       const result = await service.getThresholdMonitor(TENANT_ID, {});
 
@@ -120,7 +118,7 @@ describe('RegulatoryTuslaService', () => {
     });
 
     it('should exclude students below approaching threshold', async () => {
-      mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue([
+      mockAttendanceReadFacade.groupDailySummariesByStudent.mockResolvedValue([
         { student_id: STUDENT_A, _count: { student_id: 10 } },
       ]);
 
@@ -131,21 +129,20 @@ describe('RegulatoryTuslaService', () => {
     });
 
     it('should apply date range filters', async () => {
-      mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue([]);
+      mockAttendanceReadFacade.groupDailySummariesByStudent.mockResolvedValue([]);
 
       await service.getThresholdMonitor(TENANT_ID, {
         start_date: '2025-09-01',
         end_date: '2025-12-20',
       });
 
-      expect(mockPrisma.dailyAttendanceSummary.groupBy).toHaveBeenCalledWith(
+      expect(mockAttendanceReadFacade.groupDailySummariesByStudent).toHaveBeenCalledWith(
+        TENANT_ID,
         expect.objectContaining({
-          where: expect.objectContaining({
-            summary_date: {
-              gte: new Date('2025-09-01'),
-              lte: new Date('2025-12-20'),
-            },
-          }),
+          dateFilter: {
+            gte: new Date('2025-09-01'),
+            lte: new Date('2025-12-20'),
+          },
         }),
       );
     });
@@ -155,7 +152,7 @@ describe('RegulatoryTuslaService', () => {
 
   describe('generateSar', () => {
     it('should produce correct row count and categorisation', async () => {
-      mockPrisma.attendanceRecord.findMany.mockResolvedValue([
+      mockAttendanceReadFacade.findRecordsByStatusWithSession.mockResolvedValue([
         {
           student_id: STUDENT_A,
           status: 'absent_excused',
@@ -178,7 +175,7 @@ describe('RegulatoryTuslaService', () => {
         { attendance_status: 'absent_unexcused', tusla_category: 'unexplained' },
       ]);
 
-      mockPrisma.student.findMany.mockResolvedValue([mockStudentA, mockStudentB]);
+      mockStudentReadFacade.findManyGeneric.mockResolvedValue([mockStudentA, mockStudentB]);
 
       const result = await service.generateSar(TENANT_ID, {
         academic_year: '2025-2026',
@@ -197,7 +194,7 @@ describe('RegulatoryTuslaService', () => {
     });
 
     it('should deduplicate multiple sessions on the same day', async () => {
-      mockPrisma.attendanceRecord.findMany.mockResolvedValue([
+      mockAttendanceReadFacade.findRecordsByStatusWithSession.mockResolvedValue([
         {
           student_id: STUDENT_A,
           status: 'absent_excused',
@@ -214,7 +211,7 @@ describe('RegulatoryTuslaService', () => {
         { attendance_status: 'absent_excused', tusla_category: 'illness' },
       ]);
 
-      mockPrisma.student.findMany.mockResolvedValue([mockStudentA]);
+      mockStudentReadFacade.findManyGeneric.mockResolvedValue([mockStudentA]);
 
       const result = await service.generateSar(TENANT_ID, {
         academic_year: '2025-2026',
@@ -228,7 +225,7 @@ describe('RegulatoryTuslaService', () => {
     });
 
     it('should default to unexplained when no mapping exists', async () => {
-      mockPrisma.attendanceRecord.findMany.mockResolvedValue([
+      mockAttendanceReadFacade.findRecordsByStatusWithSession.mockResolvedValue([
         {
           student_id: STUDENT_A,
           status: 'late',
@@ -237,7 +234,7 @@ describe('RegulatoryTuslaService', () => {
       ]);
 
       mockPrisma.tuslaAbsenceCodeMapping.findMany.mockResolvedValue([]);
-      mockPrisma.student.findMany.mockResolvedValue([mockStudentA]);
+      mockStudentReadFacade.findManyGeneric.mockResolvedValue([mockStudentA]);
 
       const result = await service.generateSar(TENANT_ID, {
         academic_year: '2025-2026',
@@ -254,9 +251,9 @@ describe('RegulatoryTuslaService', () => {
 
   describe('generateAar', () => {
     it('should produce correct aggregate counts', async () => {
-      mockPrisma.student.count.mockResolvedValue(120);
-      mockPrisma.dailyAttendanceSummary.count.mockResolvedValue(450);
-      mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue([
+      mockStudentReadFacade.count.mockResolvedValue(120);
+      mockAttendanceReadFacade.countDailySummaries.mockResolvedValue(450);
+      mockAttendanceReadFacade.groupDailySummariesByStudent.mockResolvedValue([
         { student_id: STUDENT_A, _count: { student_id: 25 } },
         { student_id: STUDENT_B, _count: { student_id: 22 } },
       ]);
@@ -272,13 +269,13 @@ describe('RegulatoryTuslaService', () => {
     });
 
     it('should filter by academic year date range', async () => {
-      mockPrisma.student.count.mockResolvedValue(0);
-      mockPrisma.dailyAttendanceSummary.count.mockResolvedValue(0);
-      mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue([]);
+      mockStudentReadFacade.count.mockResolvedValue(0);
+      mockAttendanceReadFacade.countDailySummaries.mockResolvedValue(0);
+      mockAttendanceReadFacade.groupDailySummariesByStudent.mockResolvedValue([]);
 
       await service.generateAar(TENANT_ID, { academic_year: '2025-2026' });
 
-      expect(mockPrisma.dailyAttendanceSummary.count).toHaveBeenCalledWith(
+      expect(mockAttendanceReadFacade.countDailySummaries).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             summary_date: {
@@ -307,35 +304,33 @@ describe('RegulatoryTuslaService', () => {
         created_at: new Date(),
         student: mockStudentA,
       };
-      mockPrisma.behaviourSanction.findMany.mockResolvedValue([mockSuspension]);
+      mockBehaviourReadFacade.findSanctionsForTusla.mockResolvedValue([mockSuspension]);
 
       const result = await service.getSuspensions(TENANT_ID);
 
       expect(result).toHaveLength(1);
-      expect(result[0]!.suspension_days).toBe(7);
-      expect(mockPrisma.behaviourSanction.findMany).toHaveBeenCalledWith(
+      expect((result[0] as Record<string, unknown>).suspension_days).toBe(7);
+      expect(mockBehaviourReadFacade.findSanctionsForTusla).toHaveBeenCalledWith(
+        TENANT_ID,
         expect.objectContaining({
-          where: expect.objectContaining({
-            type: { in: ['suspension_internal', 'suspension_external'] },
-            suspension_days: { gte: 6 },
-          }),
+          types: ['suspension_internal', 'suspension_external'],
+          minSuspensionDays: 6,
         }),
       );
     });
 
     it('should filter by academic year when provided', async () => {
-      mockPrisma.behaviourSanction.findMany.mockResolvedValue([]);
+      mockBehaviourReadFacade.findSanctionsForTusla.mockResolvedValue([]);
 
       await service.getSuspensions(TENANT_ID, '2025-2026');
 
-      expect(mockPrisma.behaviourSanction.findMany).toHaveBeenCalledWith(
+      expect(mockBehaviourReadFacade.findSanctionsForTusla).toHaveBeenCalledWith(
+        TENANT_ID,
         expect.objectContaining({
-          where: expect.objectContaining({
-            created_at: {
-              gte: new Date('2025-09-01'),
-              lte: new Date('2026-08-31'),
-            },
-          }),
+          dateFilter: {
+            gte: new Date('2025-09-01'),
+            lte: new Date('2026-08-31'),
+          },
         }),
       );
     });
@@ -358,32 +353,30 @@ describe('RegulatoryTuslaService', () => {
         student: mockStudentA,
         sanction: { id: SANCTION_ID, sanction_number: 'SNC-001', type: 'expulsion', suspension_days: null },
       };
-      mockPrisma.behaviourExclusionCase.findMany.mockResolvedValue([mockExclusion]);
+      mockBehaviourReadFacade.findExclusionCasesForTusla.mockResolvedValue([mockExclusion]);
 
       const result = await service.getExpulsions(TENANT_ID);
 
       expect(result).toHaveLength(1);
-      expect(result[0]!.case_number).toBe('EXC-001');
-      expect(mockPrisma.behaviourExclusionCase.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { tenant_id: TENANT_ID },
-        }),
+      expect((result[0] as Record<string, unknown>).case_number).toBe('EXC-001');
+      expect(mockBehaviourReadFacade.findExclusionCasesForTusla).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({}),
       );
     });
 
     it('should filter by academic year when provided', async () => {
-      mockPrisma.behaviourExclusionCase.findMany.mockResolvedValue([]);
+      mockBehaviourReadFacade.findExclusionCasesForTusla.mockResolvedValue([]);
 
       await service.getExpulsions(TENANT_ID, '2025-2026');
 
-      expect(mockPrisma.behaviourExclusionCase.findMany).toHaveBeenCalledWith(
+      expect(mockBehaviourReadFacade.findExclusionCasesForTusla).toHaveBeenCalledWith(
+        TENANT_ID,
         expect.objectContaining({
-          where: expect.objectContaining({
-            created_at: {
-              gte: new Date('2025-09-01'),
-              lte: new Date('2026-08-31'),
-            },
-          }),
+          dateFilter: {
+            gte: new Date('2025-09-01'),
+            lte: new Date('2026-08-31'),
+          },
         }),
       );
     });

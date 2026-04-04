@@ -6,6 +6,9 @@ import request from 'supertest';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { StaffAvailabilityReadFacade } from '../staff-availability/staff-availability-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { CoverTeacherController } from './cover-teacher.controller';
 import { CoverTeacherService } from './cover-teacher.service';
@@ -23,7 +26,44 @@ describe('CoverTeacherController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CoverTeacherController],
-      providers: [{ provide: CoverTeacherService, useValue: mockService }],
+      providers: [
+        { provide: SchedulesReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      findCoreById: jest.fn().mockResolvedValue(null),
+      existsById: jest.fn().mockResolvedValue(null),
+      findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
+      countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
+      findTeacherTimetable: jest.fn().mockResolvedValue([]),
+      findClassTimetable: jest.fn().mockResolvedValue([]),
+      findPinnedEntries: jest.fn().mockResolvedValue([]),
+      countPinnedEntries: jest.fn().mockResolvedValue(0),
+      findByAcademicYear: jest.fn().mockResolvedValue([]),
+      findScheduledClassIds: jest.fn().mockResolvedValue([]),
+      countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
+      count: jest.fn().mockResolvedValue(0),
+      hasRotationEntries: jest.fn().mockResolvedValue(false),
+      countByRoom: jest.fn().mockResolvedValue(0),
+      findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
+      findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
+      countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
+      findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
+      hasConflict: jest.fn().mockResolvedValue(false),
+      findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
+      findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
+    } },
+        { provide: StaffAvailabilityReadFacade, useValue: {
+      findByAcademicYear: jest.fn().mockResolvedValue([]),
+      findByStaffIds: jest.fn().mockResolvedValue([]),
+      findByWeekday: jest.fn().mockResolvedValue([]),
+    } },
+        { provide: StaffProfileReadFacade, useValue: {
+      findById: jest.fn().mockResolvedValue(null),
+      findByIds: jest.fn().mockResolvedValue([]),
+      findByUserId: jest.fn().mockResolvedValue(null),
+      findActiveStaff: jest.fn().mockResolvedValue([]),
+      existsOrThrow: jest.fn().mockResolvedValue(undefined),
+      resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
+    } },{ provide: CoverTeacherService, useValue: mockService }],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })
