@@ -2,8 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
 import {
+  AL_NOOR_ADMIN_EMAIL,
   AL_NOOR_DOMAIN,
-  AL_NOOR_OWNER_EMAIL,
   closeTestApp,
   createTestApp,
   DEV_PASSWORD,
@@ -13,13 +13,13 @@ import {
 
 describe('Search (e2e)', () => {
   let app: INestApplication;
-  let ownerToken: string;
+  let adminToken: string;
 
   beforeAll(async () => {
     app = await createTestApp();
 
-    const ownerLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
-    ownerToken = ownerLogin.accessToken;
+    const adminLogin = await login(app, AL_NOOR_ADMIN_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    adminToken = adminLogin.accessToken;
   });
 
   afterAll(async () => {
@@ -27,7 +27,7 @@ describe('Search (e2e)', () => {
   });
 
   it('GET /search?q=test — should return results → 200', async () => {
-    const res = await authGet(app, '/api/v1/search?q=test', ownerToken, AL_NOOR_DOMAIN).expect(200);
+    const res = await authGet(app, '/api/v1/search?q=test', adminToken, AL_NOOR_DOMAIN).expect(200);
 
     // Controller returns { data: { results, total } }
     // ResponseTransformInterceptor wraps to { data: { data: { results, total } } }
