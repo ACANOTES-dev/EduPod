@@ -3,9 +3,15 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
 import { ApprovalsModule } from '../approvals/approvals.module';
+import { AuthModule } from '../auth/auth.module';
+import { ClassesModule } from '../classes/classes.module';
+import { ConfigurationModule } from '../configuration/configuration.module';
 import { GdprModule } from '../gdpr/gdpr.module';
+import { HouseholdsModule } from '../households/households.module';
+import { ParentsModule } from '../parents/parents.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RedisModule } from '../redis/redis.module';
+import { StudentsModule } from '../students/students.module';
 
 import { AnnouncementsController } from './announcements.controller';
 import { AnnouncementsService } from './announcements.service';
@@ -32,7 +38,13 @@ import { WebhookService } from './webhook.service';
     PrismaModule,
     RedisModule,
     ApprovalsModule,
+    AuthModule,
+    ClassesModule,
+    ConfigurationModule,
     GdprModule,
+    HouseholdsModule,
+    ParentsModule,
+    StudentsModule,
     BullModule.registerQueue({ name: 'notifications' }),
   ],
   controllers: [

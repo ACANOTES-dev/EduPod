@@ -329,7 +329,7 @@ Rules:
     const where: Record<string, unknown> = { tenant_id: tenantId };
     this.applyFilters(where, query.filters);
 
-    const students = await this.prisma.student.findMany({
+    const students = await this.studentReadFacade.findManyGeneric(tenantId, {
       where,
       take: limit,
       select: {
@@ -341,7 +341,14 @@ Rules:
         homeroom_class: { select: { name: true } },
       },
       orderBy: this.buildOrderBy(query.sort) ?? { last_name: 'asc' },
-    });
+    }) as Array<{
+      id: string;
+      first_name: string;
+      last_name: string;
+      student_number: string | null;
+      year_group: { name: string } | null;
+      homeroom_class: { name: string } | null;
+    }>;
 
     return students.map((s) => ({
       id: s.id,

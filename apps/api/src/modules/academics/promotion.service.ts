@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import type { PromotionCommitDto } from './dto/promotion-commit.dto';
 
@@ -41,7 +42,10 @@ export interface CommitCounts {
 
 @Injectable()
 export class PromotionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly studentReadFacade: StudentReadFacade,
+  ) {}
 
   async preview(tenantId: string, academicYearId: string): Promise<PreviewResponse> {
     // Load academic year — validate it exists and belongs to tenant
@@ -70,9 +74,8 @@ export class PromotionService {
     const yearGroupMap = new Map(yearGroups.map((yg) => [yg.id, yg]));
 
     // Load all active students that have class enrolments in classes for this academic year
-    const students = await this.prisma.student.findMany({
+    const students = await this.studentReadFacade.findManyGeneric(tenantId, {
       where: {
-        tenant_id: tenantId,
         status: 'active',
         class_enrolments: {
           some: {
@@ -88,7 +91,13 @@ export class PromotionService {
         status: true,
         year_group_id: true,
       },
-    });
+    }) as Array<{
+      id: string;
+      first_name: string;
+      last_name: string;
+      status: string;
+      year_group_id: string | null;
+    }>;
 
     // Group students by year_group_id
     const grouped = new Map<string | null, typeof students>();

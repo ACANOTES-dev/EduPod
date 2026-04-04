@@ -174,11 +174,8 @@ export class GradebookController {
     // If user has enter_grades but NOT manage, filter to their assigned classes
     let assignedClassIds: string[] | undefined;
     if (!hasManage && staffProfileId) {
-      const assignments = await this.prisma.classStaff.findMany({
-        where: { staff_profile_id: staffProfileId, tenant_id: tenant.tenant_id },
-        select: { class_id: true },
-      });
-      assignedClassIds = assignments.map((a) => a.class_id);
+      const classStaffRows = await this.classesReadFacade.findClassesByStaff(tenant.tenant_id, staffProfileId);
+      assignedClassIds = classStaffRows.map((a) => a.class_id);
     }
 
     return this.assessmentsService.findAll(tenant.tenant_id, {
@@ -473,10 +470,7 @@ export class GradebookController {
       ? await this.permissionCacheService.getPermissions(user.membership_id)
       : [];
 
-    const staffProfile = await this.prisma.staffProfile.findFirst({
-      where: { user_id: user.sub, tenant_id: tenantId },
-      select: { id: true },
-    });
+    const staffProfile = await this.staffProfileReadFacade.findByUserId(tenantId, user.sub);
 
     return {
       permissions,

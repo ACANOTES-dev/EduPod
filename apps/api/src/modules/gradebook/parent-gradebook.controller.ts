@@ -22,11 +22,10 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { AcademicPeriodsService } from '../academics/academic-periods.service';
-import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { ParentReadFacade } from '../parents/parent-read.facade';
+import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { StudentReadFacade } from '../students/student-read.facade';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
-import { PrismaService } from '../prisma/prisma.service';
 
 import { GradesService } from './grades.service';
 import { ReportCardsQueriesService } from './report-cards/report-cards-queries.service';
@@ -52,7 +51,6 @@ export class ParentGradebookController {
     private readonly reportCardsQueriesService: ReportCardsQueriesService,
     private readonly transcriptsService: TranscriptsService,
     private readonly pdfRenderingService: PdfRenderingService,
-    private readonly prisma: PrismaService,
     private readonly academicPeriodsService: AcademicPeriodsService,
     private readonly parentReadFacade: ParentReadFacade,
     private readonly studentReadFacade: StudentReadFacade,
@@ -164,11 +162,7 @@ export class ParentGradebookController {
     const branding = await this.loadBranding(tenant.tenant_id);
 
     // Determine locale from tenant default
-    const tenantRecord = await this.prisma.tenant.findFirst({
-      where: { id: tenant.tenant_id },
-      select: { default_locale: true },
-    });
-    const locale = tenantRecord?.default_locale ?? 'en';
+    const locale = await this.tenantReadFacade.findDefaultLocale(tenant.tenant_id);
 
     const pdfBuffer = await this.pdfRenderingService.renderPdf(
       'transcript',
@@ -194,10 +188,7 @@ export class ParentGradebookController {
     tenantId: string,
     studentId: string,
   ): Promise<void> {
-    const parent = await this.prisma.parent.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-      select: { id: true },
-    });
+    const parent = await this.parentReadFacade.findByUserId(tenantId, userId);
 
     if (!parent) {
       throw new NotFoundException(
@@ -205,16 +196,9 @@ export class ParentGradebookController {
       );
     }
 
-    const link = await this.prisma.studentParent.findUnique({
-      where: {
-        student_id_parent_id: {
-          student_id: studentId,
-          parent_id: parent.id,
-        },
-      },
-    });
+    const isLinked = await this.studentReadFacade.isParentLinked(tenantId, studentId, parent.id);
 
-    if (!link || link.tenant_id !== tenantId) {
+    if (!isLinked) {
       throw new ForbiddenException(
         apiError('NOT_LINKED_TO_STUDENT', 'You are not linked to this student'),
       );
@@ -222,22 +206,11 @@ export class ParentGradebookController {
   }
 
   private async loadBranding(tenantId: string) {
-    const tenant = await this.prisma.tenant.findFirst({
-      where: { id: tenantId },
-      select: { name: true },
-    });
-
-    const branding = await this.prisma.tenantBranding.findFirst({
-      where: { tenant_id: tenantId },
-      select: {
-        school_name_ar: true,
-        logo_url: true,
-        primary_color: true,
-      },
-    });
+    const tenantName = await this.tenantReadFacade.findNameById(tenantId);
+    const branding = await this.tenantReadFacade.findBranding(tenantId);
 
     return {
-      school_name: tenant?.name ?? '',
+      school_name: tenantName ?? '',
       school_name_ar: branding?.school_name_ar ?? undefined,
       logo_url: branding?.logo_url ?? undefined,
       primary_color: branding?.primary_color ?? undefined,

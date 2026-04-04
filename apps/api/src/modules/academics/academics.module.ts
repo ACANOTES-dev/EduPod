@@ -2,7 +2,9 @@ import { Module, forwardRef } from '@nestjs/common';
 
 import { AttendanceModule } from '../attendance/attendance.module';
 import { AuthModule } from '../auth/auth.module';
+import { ClassesModule } from '../classes/classes.module';
 import { GradebookModule } from '../gradebook/gradebook.module';
+import { StudentsModule } from '../students/students.module';
 
 import { AcademicPeriodsController } from './academic-periods.controller';
 import { AcademicPeriodsService } from './academic-periods.service';
@@ -19,7 +21,7 @@ import { YearGroupsController } from './year-groups.controller';
 import { YearGroupsService } from './year-groups.service';
 
 @Module({
-  imports: [AuthModule, AttendanceModule, forwardRef(() => GradebookModule)],
+  imports: [AuthModule, AttendanceModule, forwardRef(() => ClassesModule), forwardRef(() => GradebookModule), forwardRef(() => StudentsModule)],
   controllers: [
     AcademicYearsController,
     AcademicPeriodsController,

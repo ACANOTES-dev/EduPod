@@ -2,8 +2,10 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 
 import type { HouseholdStatementData, StatementEntry } from '@school/shared';
 
+import { HouseholdReadFacade } from '../households/household-read.facade';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { roundMoney } from './helpers/invoice-status.helper';
 
@@ -17,6 +19,8 @@ export class HouseholdStatementsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pdfRenderingService: PdfRenderingService,
+    private readonly householdReadFacade: HouseholdReadFacade,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   async getStatement(
@@ -25,14 +29,7 @@ export class HouseholdStatementsService {
     filters: StatementFilters,
   ): Promise<HouseholdStatementData> {
     // Validate household exists
-    const household = await this.prisma.household.findFirst({
-      where: { id: householdId, tenant_id: tenantId },
-      include: {
-        billing_parent: {
-          select: { id: true, first_name: true, last_name: true },
-        },
-      },
-    });
+    const household = await this.householdReadFacade.findByIdWithBillingParent(tenantId, householdId);
     if (!household) {
       throw new NotFoundException({
         code: 'HOUSEHOLD_NOT_FOUND',
@@ -40,9 +37,7 @@ export class HouseholdStatementsService {
       });
     }
 
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
+    const tenant = await this.tenantReadFacade.findById(tenantId);
 
     // Build date range filter
     const dateFrom = filters.date_from ? new Date(filters.date_from) : undefined;
@@ -230,12 +225,8 @@ export class HouseholdStatementsService {
   ): Promise<Buffer> {
     const statement = await this.getStatement(tenantId, householdId, filters);
 
-    const branding = await this.prisma.tenantBranding.findUnique({
-      where: { tenant_id: tenantId },
-    });
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
+    const branding = await this.tenantReadFacade.findBranding(tenantId);
+    const tenant = await this.tenantReadFacade.findById(tenantId);
 
     const pdfBranding = {
       school_name: branding?.school_name_display ?? tenant?.name ?? '',

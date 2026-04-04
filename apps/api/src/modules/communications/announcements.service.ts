@@ -9,6 +9,7 @@ import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { sanitiseHtml } from '../../common/utils/sanitise-html';
 import { addValidatedJob } from '../../common/utils/validated-job.util';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
+import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AudienceResolutionService } from './audience-resolution.service';
@@ -27,6 +28,7 @@ export class AnnouncementsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly approvalService: ApprovalRequestsService,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
     private readonly audienceService: AudienceResolutionService,
     private readonly notificationsService: NotificationsService,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
@@ -182,11 +184,9 @@ export class AnnouncementsService {
     }
 
     // Check if approval is required
-    const settings = await this.prisma.tenantSetting.findFirst({
-      where: { tenant_id: tenantId },
-    });
+    const settingsRow = await this.configurationReadFacade.findSettings(tenantId);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const settingsJson = (settings?.settings as Record<string, any>) ?? {};
+    const settingsJson = (settingsRow?.settings as Record<string, any>) ?? {};
     const requireApproval = settingsJson?.communications?.requireApprovalForAnnouncements ?? true;
 
     if (requireApproval) {

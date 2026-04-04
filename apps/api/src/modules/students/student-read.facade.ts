@@ -280,6 +280,116 @@ export class StudentReadFacade {
   }
 
   /**
+   * Find student IDs linked to a parent (parent-oriented lookup).
+   * Used by ParentReadFacade for parent-portal flows.
+   */
+  async findStudentIdsByParent(tenantId: string, parentId: string): Promise<string[]> {
+    const links = await this.prisma.studentParent.findMany({
+      where: { tenant_id: tenantId, parent_id: parentId },
+      select: { student_id: true },
+    });
+    return links.map((l) => l.student_id);
+  }
+
+  /**
+   * Find parent user IDs for a student via student_parents join.
+   * Used by ParentReadFacade for notification dispatch.
+   */
+  async findParentIdsForStudent(
+    tenantId: string,
+    studentId: string,
+  ): Promise<Array<{ id: string; user_id: string | null }>> {
+    const links = await this.prisma.studentParent.findMany({
+      where: { student_id: studentId, tenant_id: tenantId },
+      include: { parent: { select: { id: true, user_id: true } } },
+    });
+    return links.map((l) => l.parent);
+  }
+
+  /**
+   * Check if a parent-student link exists (parent-oriented).
+   * Used by ParentReadFacade for authorization checks.
+   */
+  async isParentLinkedToStudent(tenantId: string, parentId: string, studentId: string): Promise<boolean> {
+    const link = await this.prisma.studentParent.findFirst({
+      where: { tenant_id: tenantId, parent_id: parentId, student_id: studentId },
+      select: { student_id: true },
+    });
+    return !!link;
+  }
+
+  /**
+   * Find unique parent IDs linked to given student IDs.
+   * Used by ParentReadFacade for audience resolution.
+   */
+  async findParentIdsByStudentIds(tenantId: string, studentIds: string[]): Promise<string[]> {
+    if (studentIds.length === 0) return [];
+    const links = await this.prisma.studentParent.findMany({
+      where: { tenant_id: tenantId, student_id: { in: studentIds } },
+      select: { parent_id: true },
+    });
+    return [...new Set(links.map((l) => l.parent_id))];
+  }
+
+  /**
+   * Find parent contacts for a student via student_parents join.
+   * Used by ParentReadFacade for attendance notifications.
+   */
+  async findParentContactsForStudent(
+    tenantId: string,
+    studentId: string,
+  ): Promise<
+    Array<{
+      parent: {
+        user_id: string | null;
+        whatsapp_phone: string | null;
+        phone: string | null;
+        preferred_contact_channels: unknown;
+      };
+    }>
+  > {
+    return this.prisma.studentParent.findMany({
+      where: { student_id: studentId, tenant_id: tenantId },
+      select: {
+        parent: {
+          select: {
+            user_id: true,
+            whatsapp_phone: true,
+            phone: true,
+            preferred_contact_channels: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Find student links for a parent with student details.
+   * Used by ParentReadFacade for DSAR parent data collection.
+   */
+  async findStudentLinksForParent(
+    tenantId: string,
+    parentId: string,
+  ): Promise<
+    Array<{
+      student_id: string;
+      parent_id: string;
+      student: { id: string; first_name: string; last_name: string; student_number: string | null };
+    }>
+  > {
+    return this.prisma.studentParent.findMany({
+      where: { parent_id: parentId, tenant_id: tenantId },
+      select: {
+        student_id: true,
+        parent_id: true,
+        student: {
+          select: { id: true, first_name: true, last_name: true, student_number: true },
+        },
+      },
+    });
+  }
+
+  /**
    * Find students belonging to a household. Used by DSAR household traversal.
    */
   async findByHousehold(

@@ -16,7 +16,11 @@ import {
 } from '@school/shared/engagement';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -55,7 +59,13 @@ interface SlotStats {
 export class ConferencesService {
   private readonly logger = new Logger(ConferencesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly parentReadFacade: ParentReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
+  ) {}
 
   // ─── Slot Generation ────────────────────────────────────────────────────
 
@@ -335,9 +345,7 @@ export class ConferencesService {
   ) {
     await this.ensureConferenceEvent(tenantId, eventId);
 
-    const staff = await this.prisma.staffProfile.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-    });
+    const staff = await this.staffProfileReadFacade.findByUserId(tenantId, userId);
 
     if (!staff) {
       throw new NotFoundException({

@@ -388,24 +388,28 @@ export class AnalyticsService {
     }
 
     // Get classes taught by teachers, optionally filtered by subject/year group
-    const classStaffList = await this.prisma.classStaff.findMany({
-      where: { tenant_id: tenantId },
-      include: {
-        class_entity: {
-          select: {
-            id: true,
-            name: true,
-            year_group_id: true,
-          },
-        },
-        staff_profile: {
-          select: {
-            id: true,
-            user: { select: { id: true, first_name: true, last_name: true } },
-          },
+    const classStaffList = await this.classesReadFacade.findClassStaffGeneric(tenantId, undefined, {
+      class_id: true,
+      staff_profile_id: true,
+      class_entity: {
+        select: {
+          id: true,
+          name: true,
+          year_group_id: true,
         },
       },
-    });
+      staff_profile: {
+        select: {
+          id: true,
+          user: { select: { id: true, first_name: true, last_name: true } },
+        },
+      },
+    }) as Array<{
+      class_id: string;
+      staff_profile_id: string;
+      class_entity: { id: string; name: string; year_group_id: string | null };
+      staff_profile: { id: string; user: { id: string; first_name: string; last_name: string } };
+    }>;
 
     // Filter by year group if specified
     const filteredClassStaff = yearGroupId
@@ -537,10 +541,7 @@ export class AnalyticsService {
     }
 
     // Get classes in year group
-    const classes = await this.prisma.class.findMany({
-      where: { tenant_id: tenantId, year_group_id: yearGroupId },
-      select: { id: true, name: true },
-    });
+    const classes = await this.classesReadFacade.findByYearGroup(tenantId, yearGroupId);
 
     if (classes.length === 0) {
       return [];

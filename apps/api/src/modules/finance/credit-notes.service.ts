@@ -4,6 +4,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import type { ApplyCreditNoteDto, CreateCreditNoteDto, CreditNoteQueryDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { HouseholdReadFacade } from '../households/household-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
 
@@ -17,6 +18,7 @@ export class CreditNotesService {
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
     private readonly invoicesService: InvoicesService,
+    private readonly householdReadFacade: HouseholdReadFacade,
   ) {}
 
   async findAll(tenantId: string, query: CreditNoteQueryDto) {
@@ -80,15 +82,7 @@ export class CreditNotesService {
   }
 
   async create(tenantId: string, userId: string, dto: CreateCreditNoteDto) {
-    const household = await this.prisma.household.findFirst({
-      where: { id: dto.household_id, tenant_id: tenantId },
-    });
-    if (!household) {
-      throw new NotFoundException({
-        code: 'HOUSEHOLD_NOT_FOUND',
-        message: `Household "${dto.household_id}" not found`,
-      });
-    }
+    await this.householdReadFacade.existsOrThrow(tenantId, dto.household_id);
 
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 

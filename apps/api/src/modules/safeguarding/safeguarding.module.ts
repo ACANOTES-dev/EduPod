@@ -2,9 +2,12 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
+import { BehaviourCoreModule } from '../behaviour/behaviour-core.module';
 import { ChildProtectionModule } from '../child-protection/child-protection.module';
+import { ConfigurationModule } from '../configuration/configuration.module';
 import { PastoralCoreModule } from '../pastoral/pastoral-core.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
+import { RbacModule } from '../rbac/rbac.module';
 import { SequenceModule } from '../sequence/sequence.module';
 
 import { SafeguardingAttachmentService } from './safeguarding-attachment.service';
@@ -19,9 +22,12 @@ import { SafeguardingService } from './safeguarding.service';
 @Module({
   imports: [
     AuthModule,
+    BehaviourCoreModule,
     ChildProtectionModule,
+    ConfigurationModule,
     PastoralCoreModule,
     PdfRenderingModule,
+    RbacModule,
     SequenceModule,
     BullModule.registerQueue({ name: 'notifications' }),
     BullModule.registerQueue({ name: 'behaviour' }),

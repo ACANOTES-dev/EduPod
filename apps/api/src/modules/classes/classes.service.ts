@@ -9,9 +9,11 @@ import { Prisma, $Enums } from '@prisma/client';
 import type { PreviewResponse } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import type { SchedulesService as SchedulesServiceType } from '../schedules/schedules.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profiles-read.facade';
 
 import type { AssignClassStaffDto } from './dto/assign-class-staff.dto';
 import type { CreateClassDto } from './dto/create-class.dto';
@@ -35,6 +37,8 @@ export class ClassesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
   ) {}
 
   /** Injected lazily to avoid circular dependency */
@@ -44,17 +48,7 @@ export class ClassesService {
 
   async create(tenantId: string, dto: CreateClassDto) {
     // Validate academic year exists and belongs to tenant
-    const academicYear = await this.prisma.academicYear.findFirst({
-      where: { id: dto.academic_year_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-
-    if (!academicYear) {
-      throw new NotFoundException({
-        code: 'ACADEMIC_YEAR_NOT_FOUND',
-        message: `Academic year with id "${dto.academic_year_id}" not found`,
-      });
-    }
+    await this.academicReadFacade.findYearByIdOrThrow(tenantId, dto.academic_year_id);
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
@@ -237,34 +231,13 @@ export class ClassesService {
 
     // Validate FK references belong to this tenant before connecting
     if ('year_group_id' in dto && dto.year_group_id) {
-      const yg = await this.prisma.yearGroup.findFirst({
-        where: { id: dto.year_group_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!yg)
-        throw new NotFoundException({
-          code: 'YEAR_GROUP_NOT_FOUND',
-          message: `Year group not found`,
-        });
+      await this.academicReadFacade.findYearGroupByIdOrThrow(tenantId, dto.year_group_id);
     }
     if ('subject_id' in dto && dto.subject_id) {
-      const sub = await this.prisma.subject.findFirst({
-        where: { id: dto.subject_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!sub)
-        throw new NotFoundException({ code: 'SUBJECT_NOT_FOUND', message: `Subject not found` });
+      await this.academicReadFacade.findSubjectByIdOrThrow(tenantId, dto.subject_id);
     }
     if ('homeroom_teacher_staff_id' in dto && dto.homeroom_teacher_staff_id) {
-      const sp = await this.prisma.staffProfile.findFirst({
-        where: { id: dto.homeroom_teacher_staff_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!sp)
-        throw new NotFoundException({
-          code: 'STAFF_PROFILE_NOT_FOUND',
-          message: `Staff profile not found`,
-        });
+      await this.staffProfileReadFacade.existsOrThrow(tenantId, dto.homeroom_teacher_staff_id);
     }
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });

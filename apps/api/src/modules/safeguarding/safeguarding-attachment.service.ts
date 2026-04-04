@@ -16,6 +16,7 @@ import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BEHAVIOUR_ATTACHMENT_SCAN_JOB } from './safeguarding.constants';
@@ -69,6 +70,7 @@ export class SafeguardingAttachmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
+    private readonly behaviourReadFacade: BehaviourReadFacade,
     // TODO(M-17): Migrate to BehaviourSideEffectsService
     @InjectQueue('behaviour') private readonly behaviourQueue: Queue,
   ) {}
@@ -225,12 +227,7 @@ export class SafeguardingAttachmentService {
     }
 
     // Load attachment
-    const attachment = await this.prisma.behaviourAttachment.findFirst({
-      where: {
-        id: attachmentId,
-        tenant_id: tenantId,
-      },
-    });
+    const attachment = await this.behaviourReadFacade.findAttachmentById(tenantId, attachmentId);
     if (!attachment) {
       throw new NotFoundException({
         code: 'ATTACHMENT_NOT_FOUND',
@@ -314,19 +311,11 @@ export class SafeguardingAttachmentService {
   // ─── List Attachments ────────────────────────────────────────────────────
 
   async listAttachments(tenantId: string, concernId: string) {
-    const attachments = await this.prisma.behaviourAttachment.findMany({
-      where: {
-        tenant_id: tenantId,
-        entity_type: 'safeguarding_concern',
-        entity_id: concernId,
-      },
-      orderBy: { created_at: 'desc' },
-      include: {
-        uploaded_by: {
-          select: { id: true, first_name: true, last_name: true },
-        },
-      },
-    });
+    const attachments = await this.behaviourReadFacade.findAttachmentsByEntity(
+      tenantId,
+      'safeguarding_concern',
+      concernId,
+    );
 
     return {
       data: attachments.map((a) => ({

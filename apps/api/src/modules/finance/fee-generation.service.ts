@@ -7,6 +7,7 @@ import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { roundMoney } from './helpers/invoice-status.helper';
 
@@ -16,6 +17,7 @@ export class FeeGenerationService {
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
     private readonly auditLogService: AuditLogService,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   async preview(tenantId: string, dto: FeeGenerationPreviewDto): Promise<FeeGenerationPreview> {
@@ -178,9 +180,7 @@ export class FeeGenerationService {
     }
 
     // Get tenant currency
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
+    const tenant = await this.tenantReadFacade.findById(tenantId);
     if (!tenant) {
       throw new BadRequestException({
         code: 'TENANT_NOT_FOUND',
@@ -189,9 +189,7 @@ export class FeeGenerationService {
     }
 
     // Get branding for invoice prefix
-    const branding = await this.prisma.tenantBranding.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const branding = await this.tenantReadFacade.findBranding(tenantId);
     const invoicePrefix = branding?.invoice_prefix ?? 'INV';
 
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });

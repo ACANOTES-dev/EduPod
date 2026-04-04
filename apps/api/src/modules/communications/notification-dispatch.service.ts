@@ -3,7 +3,9 @@ import { Notification, NotificationChannel } from '@prisma/client';
 
 import { CONSENT_TYPES } from '@school/shared/gdpr';
 
+import { AuthReadFacade } from '../auth/auth-read.facade';
 import { ConsentService } from '../gdpr/consent.service';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { NotificationRateLimitService } from './notification-rate-limit.service';
@@ -32,6 +34,8 @@ export class NotificationDispatchService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly authReadFacade: AuthReadFacade,
+    private readonly parentReadFacade: ParentReadFacade,
     private readonly consentService: ConsentService,
     private readonly templateService: NotificationTemplatesService,
     private readonly templateRenderer: TemplateRendererService,
@@ -350,18 +354,12 @@ export class NotificationDispatchService {
     channel: 'email' | 'whatsapp' | 'sms',
   ): Promise<string | null> {
     if (channel === 'email') {
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true },
-      });
+      const user = await this.authReadFacade.findUserSummary(tenantId, userId);
       return user?.email ?? null;
     }
 
     // For whatsapp and sms, look up Parent record via User
-    const parent = await this.prisma.parent.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-      select: { phone: true, whatsapp_phone: true },
-    });
+    const parent = await this.parentReadFacade.findContactByUserId(tenantId, userId);
 
     if (!parent) {
       return null;
@@ -376,19 +374,16 @@ export class NotificationDispatchService {
   }
 
   private async hasRecipientWhatsAppConsent(tenantId: string, userId: string): Promise<boolean> {
-    const parent = await this.prisma.parent.findFirst({
-      where: { tenant_id: tenantId, user_id: userId },
-      select: { id: true },
-    });
+    const parentId = await this.parentReadFacade.resolveIdByUserId(tenantId, userId);
 
-    if (!parent) {
+    if (!parentId) {
       return true;
     }
 
     return this.consentService.hasConsent(
       tenantId,
       'parent',
-      parent.id,
+      parentId,
       CONSENT_TYPES.WHATSAPP_CHANNEL,
     );
   }

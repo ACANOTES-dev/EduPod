@@ -5,6 +5,11 @@ import type { PreviewResponse } from '@school/shared';
 import { CONSENT_TYPES } from '@school/shared/gdpr';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { GdprReadFacade } from '../gdpr/gdpr-read.facade';
+import { HouseholdReadFacade } from '../households/household-read.facade';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { SequenceService } from '../sequence/sequence.service';
@@ -142,6 +147,11 @@ export class StudentsService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly sequenceService: SequenceService,
+    private readonly householdReadFacade: HouseholdReadFacade,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly parentReadFacade: ParentReadFacade,
+    private readonly gdprReadFacade: GdprReadFacade,
   ) {}
 
   /**
@@ -150,59 +160,22 @@ export class StudentsService {
    */
   async create(tenantId: string, dto: CreateStudentDto) {
     // Validate household exists (tenant-scoped)
-    const household = await this.prisma.household.findFirst({
-      where: { id: dto.household_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-
-    if (!household) {
-      throw new NotFoundException({
-        code: 'HOUSEHOLD_NOT_FOUND',
-        message: `Household with id "${dto.household_id}" not found`,
-      });
-    }
+    await this.householdReadFacade.existsOrThrow(tenantId, dto.household_id);
 
     // Validate year_group if provided
     if (dto.year_group_id) {
-      const yearGroup = await this.prisma.yearGroup.findFirst({
-        where: { id: dto.year_group_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!yearGroup) {
-        throw new NotFoundException({
-          code: 'YEAR_GROUP_NOT_FOUND',
-          message: `Year group with id "${dto.year_group_id}" not found`,
-        });
-      }
+      await this.academicReadFacade.findYearGroupByIdOrThrow(tenantId, dto.year_group_id);
     }
 
     // Validate homeroom class if provided
     if (dto.class_homeroom_id) {
-      const homeroomClass = await this.prisma.class.findFirst({
-        where: { id: dto.class_homeroom_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!homeroomClass) {
-        throw new NotFoundException({
-          code: 'CLASS_NOT_FOUND',
-          message: `Class with id "${dto.class_homeroom_id}" not found`,
-        });
-      }
+      await this.classesReadFacade.existsOrThrow(tenantId, dto.class_homeroom_id);
     }
 
     // Validate parent_links if provided
     if (dto.parent_links && dto.parent_links.length > 0) {
       for (const link of dto.parent_links) {
-        const parent = await this.prisma.parent.findFirst({
-          where: { id: link.parent_id, tenant_id: tenantId },
-          select: { id: true },
-        });
-        if (!parent) {
-          throw new NotFoundException({
-            code: 'PARENT_NOT_FOUND',
-            message: `Parent with id "${link.parent_id}" not found`,
-          });
-        }
+        await this.parentReadFacade.existsOrThrow(tenantId, link.parent_id);
       }
     }
 
@@ -410,44 +383,17 @@ export class StudentsService {
 
     // Validate household if being changed
     if (dto.household_id) {
-      const household = await this.prisma.household.findFirst({
-        where: { id: dto.household_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!household) {
-        throw new NotFoundException({
-          code: 'HOUSEHOLD_NOT_FOUND',
-          message: `Household with id "${dto.household_id}" not found`,
-        });
-      }
+      await this.householdReadFacade.existsOrThrow(tenantId, dto.household_id);
     }
 
     // Validate year_group if being changed
     if (dto.year_group_id) {
-      const yearGroup = await this.prisma.yearGroup.findFirst({
-        where: { id: dto.year_group_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!yearGroup) {
-        throw new NotFoundException({
-          code: 'YEAR_GROUP_NOT_FOUND',
-          message: `Year group with id "${dto.year_group_id}" not found`,
-        });
-      }
+      await this.academicReadFacade.findYearGroupByIdOrThrow(tenantId, dto.year_group_id);
     }
 
     // Validate homeroom class if being changed
     if (dto.class_homeroom_id) {
-      const homeroomClass = await this.prisma.class.findFirst({
-        where: { id: dto.class_homeroom_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!homeroomClass) {
-        throw new NotFoundException({
-          code: 'CLASS_NOT_FOUND',
-          message: `Class with id "${dto.class_homeroom_id}" not found`,
-        });
-      }
+      await this.classesReadFacade.existsOrThrow(tenantId, dto.class_homeroom_id);
     }
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
@@ -767,20 +713,13 @@ export class StudentsService {
       orderBy: { last_name: 'asc' },
     })) as AllergyStudentRow[];
 
-    const consentedStudentIds = new Set(
-      (
-        await this.prisma.consentRecord.findMany({
-          where: {
-            tenant_id: tenantId,
-            subject_type: 'student',
-            subject_id: { in: students.map((student) => student.id) },
-            consent_type: CONSENT_TYPES.HEALTH_DATA,
-            status: 'granted',
-          },
-          select: { subject_id: true },
-        })
-      ).map((record) => record.subject_id),
-    );
+    const consentRecords = await this.gdprReadFacade.findConsentRecordsWhere(tenantId, {
+      subject_type: 'student',
+      subject_id: { in: students.map((student) => student.id) },
+      consent_type: CONSENT_TYPES.HEALTH_DATA,
+      status: 'granted',
+    });
+    const consentedStudentIds = new Set(consentRecords.map((record) => record.subject_id));
 
     const data = students
       .filter((student) => consentedStudentIds.has(student.id))

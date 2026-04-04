@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Return types ─────────────────────────────────────────────────────────────
@@ -85,7 +86,11 @@ interface StudentEnrolmentRow {
  */
 @Injectable()
 export class AcademicReadFacade {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => ClassesReadFacade))
+    private readonly classesReadFacade: ClassesReadFacade,
+  ) {}
 
   // ─── Academic periods ───────────────────────────────────────────────────────
 
@@ -217,6 +222,19 @@ export class AcademicReadFacade {
   }
 
   /**
+   * Find all year groups ordered by display_order. Used by class assignments.
+   */
+  async findAllYearGroupsWithOrder(
+    tenantId: string,
+  ): Promise<Array<{ id: string; name: string; display_order: number }>> {
+    return this.prisma.yearGroup.findMany({
+      where: { tenant_id: tenantId },
+      select: { id: true, name: true, display_order: true },
+      orderBy: { display_order: 'asc' },
+    });
+  }
+
+  /**
    * Find all subjects by IDs with name and code. Used by teacher competency coverage.
    */
   async findSubjectsByIdsWithOrder(
@@ -305,9 +323,9 @@ export class AcademicReadFacade {
   ): Promise<ClassEnrolmentRow[]> {
     const dateFilter = periodId ? await this.buildPeriodDateFilter(tenantId, periodId) : undefined;
 
-    return this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
+    return this.classesReadFacade.findEnrolmentsGeneric(
+      tenantId,
+      {
         class_id: classId,
         status: 'active',
         ...(dateFilter && {
@@ -315,8 +333,13 @@ export class AcademicReadFacade {
           OR: [{ end_date: null }, { end_date: { gte: dateFilter.start_date } }],
         }),
       },
-      orderBy: { start_date: 'asc' },
-      include: {
+      {
+        id: true,
+        class_id: true,
+        student_id: true,
+        status: true,
+        start_date: true,
+        end_date: true,
         student: {
           select: {
             id: true,
@@ -327,7 +350,8 @@ export class AcademicReadFacade {
           },
         },
       },
-    });
+      { start_date: 'asc' },
+    ) as Promise<ClassEnrolmentRow[]>;
   }
 
   /**
@@ -342,9 +366,9 @@ export class AcademicReadFacade {
   ): Promise<StudentEnrolmentRow[]> {
     const dateFilter = periodId ? await this.buildPeriodDateFilter(tenantId, periodId) : undefined;
 
-    return this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
+    return this.classesReadFacade.findEnrolmentsGeneric(
+      tenantId,
+      {
         student_id: studentId,
         status: 'active',
         ...(dateFilter && {
@@ -352,8 +376,13 @@ export class AcademicReadFacade {
           OR: [{ end_date: null }, { end_date: { gte: dateFilter.start_date } }],
         }),
       },
-      orderBy: { start_date: 'asc' },
-      include: {
+      {
+        id: true,
+        class_id: true,
+        student_id: true,
+        status: true,
+        start_date: true,
+        end_date: true,
         class_entity: {
           select: {
             id: true,
@@ -362,7 +391,8 @@ export class AcademicReadFacade {
           },
         },
       },
-    });
+      { start_date: 'asc' },
+    ) as Promise<StudentEnrolmentRow[]>;
   }
 
   /**
@@ -370,16 +400,7 @@ export class AcademicReadFacade {
    * Useful for bulk operations that only need IDs (e.g. attendance seeding, grade init).
    */
   async findStudentIdsForClass(tenantId: string, classId: string): Promise<string[]> {
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
-        class_id: classId,
-        status: 'active',
-      },
-      select: { student_id: true },
-    });
-
-    return enrolments.map((e) => e.student_id);
+    return this.classesReadFacade.findEnrolledStudentIds(tenantId, classId);
   }
 
   // ─── Year Groups ─────────────────────────────────────────────────────────

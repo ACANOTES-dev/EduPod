@@ -23,7 +23,11 @@ interface ListTemplatesParams {
 
 @Injectable()
 export class AssessmentTemplateService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+  ) {}
 
   /**
    * Create a new assessment template.
@@ -156,16 +160,7 @@ export class AssessmentTemplateService {
     }
 
     if (dto.subject_id) {
-      const subject = await this.prisma.subject.findFirst({
-        where: { id: dto.subject_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!subject) {
-        throw new NotFoundException({
-          code: 'SUBJECT_NOT_FOUND',
-          message: `Subject with id "${dto.subject_id}" not found`,
-        });
-      }
+      await this.academicReadFacade.findSubjectByIdOrThrow(tenantId, dto.subject_id);
     }
 
     if (dto.rubric_template_id) {
@@ -262,10 +257,7 @@ export class AssessmentTemplateService {
     }
 
     // Validate class exists
-    const classEntity = await this.prisma.class.findFirst({
-      where: { id: dto.class_id, tenant_id: tenantId },
-      select: { id: true, subject_id: true },
-    });
+    const classEntity = await this.classesReadFacade.findById(tenantId, dto.class_id);
 
     if (!classEntity) {
       throw new NotFoundException({
@@ -275,10 +267,7 @@ export class AssessmentTemplateService {
     }
 
     // Validate period exists
-    const period = await this.prisma.academicPeriod.findFirst({
-      where: { id: dto.academic_period_id, tenant_id: tenantId },
-      select: { id: true },
-    });
+    const period = await this.academicReadFacade.findPeriodById(tenantId, dto.academic_period_id);
 
     if (!period) {
       throw new NotFoundException({
@@ -381,16 +370,7 @@ export class AssessmentTemplateService {
     }
 
     if (dto.subject_id) {
-      const subject = await this.prisma.subject.findFirst({
-        where: { id: dto.subject_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!subject) {
-        throw new NotFoundException({
-          code: 'SUBJECT_NOT_FOUND',
-          message: `Subject with id "${dto.subject_id}" not found`,
-        });
-      }
+      await this.academicReadFacade.findSubjectByIdOrThrow(tenantId, dto.subject_id);
     }
 
     if (dto.rubric_template_id) {

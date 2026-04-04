@@ -294,6 +294,41 @@ export interface BehaviourPolicyEvaluationRow {
   created_at: Date;
 }
 
+export interface BehaviourAttachmentRow {
+  id: string;
+  tenant_id: string;
+  entity_type: string;
+  entity_id: string;
+  uploaded_by_id: string;
+  file_name: string;
+  file_key: string;
+  file_size_bytes: bigint;
+  mime_type: string;
+  sha256_hash: string;
+  classification: string;
+  description: string | null;
+  visibility: string;
+  is_redactable: boolean;
+  scan_status: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface BehaviourTaskRow {
+  id: string;
+  tenant_id: string;
+  entity_type: string;
+  entity_id: string;
+  title: string;
+  priority: string;
+  status: string;
+  due_date: Date | null;
+  completed_at: Date | null;
+  completed_by_id: string | null;
+  completion_notes: string | null;
+  created_at: Date;
+}
+
 // ─── Facade ───────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -762,5 +797,83 @@ export class BehaviourReadFacade {
       },
       orderBy: { created_at: 'desc' },
     });
+  }
+
+  // ─── Attachment Methods ─────────────────────────────────────────────────────
+
+  /**
+   * Find a single behaviour attachment by ID and tenant.
+   * Used by safeguarding attachment download.
+   */
+  async findAttachmentById(
+    tenantId: string,
+    attachmentId: string,
+  ): Promise<BehaviourAttachmentRow | null> {
+    return this.prisma.behaviourAttachment.findFirst({
+      where: { id: attachmentId, tenant_id: tenantId },
+    }) as Promise<BehaviourAttachmentRow | null>;
+  }
+
+  /**
+   * Find all behaviour attachments for a given entity (e.g., safeguarding_concern).
+   * Used by safeguarding attachment listing.
+   */
+  async findAttachmentsByEntity(
+    tenantId: string,
+    entityType: string,
+    entityId: string,
+  ): Promise<Array<{
+    id: string;
+    file_name: string;
+    classification: string;
+    scan_status: string;
+    file_size_bytes: bigint;
+    uploaded_by: { id: string; first_name: string; last_name: string };
+    created_at: Date;
+  }>> {
+    return this.prisma.behaviourAttachment.findMany({
+      where: {
+        tenant_id: tenantId,
+        entity_type: entityType,
+        entity_id: entityId,
+      },
+      orderBy: { created_at: 'desc' },
+      include: {
+        uploaded_by: {
+          select: { id: true, first_name: true, last_name: true },
+        },
+      },
+    }) as Promise<Array<{
+      id: string;
+      file_name: string;
+      classification: string;
+      scan_status: string;
+      file_size_bytes: bigint;
+      uploaded_by: { id: string; first_name: string; last_name: string };
+      created_at: Date;
+    }>>;
+  }
+
+  // ─── Task Methods ───────────────────────────────────────────────────────────
+
+  /**
+   * Find overdue behaviour tasks filtered by entity types.
+   * Used by safeguarding dashboard to display overdue safeguarding tasks.
+   */
+  async findOverdueTasksByEntityTypes(
+    tenantId: string,
+    entityTypes: string[],
+    limit: number,
+  ): Promise<BehaviourTaskRow[]> {
+    return this.prisma.behaviourTask.findMany({
+      where: {
+        tenant_id: tenantId,
+        entity_type: { in: entityTypes as never[] },
+        status: { in: ['pending', 'in_progress', 'overdue'] as never[] },
+        due_date: { lt: new Date() },
+      },
+      take: limit,
+      orderBy: { due_date: 'asc' },
+    }) as Promise<BehaviourTaskRow[]>;
   }
 }

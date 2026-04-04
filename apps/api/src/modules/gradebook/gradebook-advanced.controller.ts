@@ -441,14 +441,8 @@ export class GradebookAdvancedController {
     }
 
     // Load enrolled students
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenant.tenant_id,
-        class_id: assessment.class_id,
-        status: 'active',
-      },
-      select: { student_id: true },
-    });
+    const enrolledStudentIds = await this.classesReadFacade.findEnrolledStudentIds(tenant.tenant_id, assessment.class_id);
+    const enrolments = enrolledStudentIds.map((id) => ({ student_id: id }));
 
     if (enrolments.length === 0) {
       return { filled: 0, message: 'No enrolled students found' };

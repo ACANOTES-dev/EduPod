@@ -229,17 +229,11 @@ export class AiProgressSummaryService {
   // ─── Load Context ─────────────────────────────────────────────────────────
 
   private async loadStudentContext(tenantId: string, studentId: string, periodId: string) {
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
-      select: { id: true, first_name: true, last_name: true },
-    });
+    const student = await this.studentReadFacade.findById(tenantId, studentId);
 
     if (!student) return null;
 
-    const period = await this.prisma.academicPeriod.findFirst({
-      where: { id: periodId, tenant_id: tenantId },
-      select: { id: true, name: true },
-    });
+    const period = await this.academicReadFacade.findPeriodById(tenantId, periodId);
 
     if (!period) return null;
 
@@ -256,10 +250,7 @@ export class AiProgressSummaryService {
     });
 
     // Attendance summary
-    const attendanceRecords = await this.prisma.attendanceRecord.findMany({
-      where: { tenant_id: tenantId, student_id: studentId },
-      select: { status: true },
-    });
+    const attendanceRecords = await this.attendanceReadFacade.findAllRecordsForStudent(tenantId, studentId);
 
     const totalDays = attendanceRecords.length;
     const presentDays = attendanceRecords.filter((r) => r.status === 'present').length;

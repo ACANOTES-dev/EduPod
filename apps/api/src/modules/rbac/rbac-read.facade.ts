@@ -228,6 +228,19 @@ export class RbacReadFacade {
     });
   }
 
+  /**
+   * Find the user_id of the oldest active membership for a tenant.
+   * Used by recurring invoices to attribute system-generated invoices.
+   */
+  async findFirstActiveMembershipUserId(tenantId: string): Promise<string | null> {
+    const row = await this.prisma.tenantMembership.findFirst({
+      where: { tenant_id: tenantId, membership_status: 'active' },
+      orderBy: { created_at: 'asc' },
+      select: { user_id: true },
+    });
+    return row?.user_id ?? null;
+  }
+
   // ─── Membership Roles ───────────────────────────────────────────────────────
 
   /**

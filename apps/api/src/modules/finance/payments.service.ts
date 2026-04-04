@@ -3,8 +3,10 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import type { AllocationSuggestion, ConfirmAllocationsDto, CreatePaymentDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { HouseholdReadFacade } from '../households/household-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { roundMoney } from './helpers/invoice-status.helper';
 import { InvoicesService } from './invoices.service';
@@ -29,6 +31,8 @@ export class PaymentsService {
     private readonly invoicesService: InvoicesService,
     private readonly receiptsService: ReceiptsService,
     private readonly sequenceService: SequenceService,
+    private readonly householdReadFacade: HouseholdReadFacade,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   async findAll(tenantId: string, filters: PaymentFilters) {
@@ -150,20 +154,10 @@ export class PaymentsService {
 
   async createManual(tenantId: string, userId: string, dto: CreatePaymentDto) {
     // Validate household exists
-    const household = await this.prisma.household.findFirst({
-      where: { id: dto.household_id, tenant_id: tenantId },
-    });
-    if (!household) {
-      throw new BadRequestException({
-        code: 'HOUSEHOLD_NOT_FOUND',
-        message: `Household with id "${dto.household_id}" not found`,
-      });
-    }
+    await this.householdReadFacade.existsOrThrow(tenantId, dto.household_id);
 
     // Get tenant for currency
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
+    const tenant = await this.tenantReadFacade.findById(tenantId);
     if (!tenant) {
       throw new NotFoundException({
         code: 'TENANT_NOT_FOUND',

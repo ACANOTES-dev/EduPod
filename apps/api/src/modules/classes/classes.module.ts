@@ -1,9 +1,13 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module, OnModuleInit, forwardRef } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 
+import { AcademicsModule } from '../academics/academics.module';
 import { AuthModule } from '../auth/auth.module';
 import { SchedulesModule } from '../schedules/schedules.module';
 import { SchedulesService } from '../schedules/schedules.service';
+import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
+import { StudentsModule } from '../students/students.module';
+import { TenantsModule } from '../tenants/tenants.module';
 
 import { ClassAssignmentsController } from './class-assignments.controller';
 import { ClassAssignmentService } from './class-assignments.service';
@@ -14,7 +18,7 @@ import { ClassesReadFacade } from './classes-read.facade';
 import { ClassesService } from './classes.service';
 
 @Module({
-  imports: [AuthModule, SchedulesModule],
+  imports: [AuthModule, forwardRef(() => AcademicsModule), SchedulesModule, StaffProfilesModule, forwardRef(() => StudentsModule), TenantsModule],
   controllers: [ClassesController, ClassEnrolmentsController, ClassAssignmentsController],
   providers: [ClassesService, ClassEnrolmentsService, ClassAssignmentService, ClassesReadFacade],
   exports: [ClassesService, ClassEnrolmentsService, ClassesReadFacade],

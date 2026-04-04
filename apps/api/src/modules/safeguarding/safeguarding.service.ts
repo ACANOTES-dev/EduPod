@@ -16,6 +16,7 @@ import type {
 } from '@school/shared/behaviour';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { RbacReadFacade } from '../rbac/rbac-read.facade';
 
 import { SafeguardingConcernsService } from './safeguarding-concerns.service';
 import { SafeguardingReferralsService } from './safeguarding-referrals.service';
@@ -30,6 +31,7 @@ import { SafeguardingSealService } from './safeguarding-seal.service';
 export class SafeguardingService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly rbacReadFacade: RbacReadFacade,
     private readonly concernsService: SafeguardingConcernsService,
     private readonly referralsService: SafeguardingReferralsService,
     private readonly sealService: SafeguardingSealService,
@@ -180,22 +182,11 @@ export class SafeguardingService {
     concernId?: string,
   ): Promise<{ allowed: boolean; context: 'normal' | 'break_glass'; grantId?: string }> {
     // Check normal permission
-    const membership = await this.prisma.tenantMembership.findFirst({
-      where: { id: membershipId, user_id: userId, tenant_id: tenantId },
-      include: {
-        membership_roles: {
-          include: {
-            role: {
-              include: {
-                role_permissions: {
-                  include: { permission: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
+    const membership = await this.rbacReadFacade.findMembershipByIdAndUser(
+      tenantId,
+      membershipId,
+      userId,
+    );
 
     if (membership) {
       const permissions = new Set<string>();

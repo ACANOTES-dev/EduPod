@@ -9,8 +9,8 @@ import { Prisma } from '@prisma/client';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
-import { StudentReadFacade } from '../students/student-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import type { BulkUpsertGradesDto } from './dto/gradebook.dto';
 
@@ -22,7 +22,12 @@ interface FindByStudentFilters {
 
 @Injectable()
 export class GradesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
+  ) {}
   /**
    * Bulk upsert grades for an assessment.
    * Verifies assessment status, student enrolment, and comment requirements.
@@ -55,17 +60,8 @@ export class GradesService {
 
     // 2. Verify all students are enrolled in the class
     const studentIds = dto.grades.map((g) => g.student_id);
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
-        class_id: assessment.class_id,
-        student_id: { in: studentIds },
-        status: 'active',
-      },
-      select: { student_id: true },
-    });
-
-    const enrolledStudentIds = new Set(enrolments.map((e) => e.student_id));
+    const allEnrolledIds = await this.classesReadFacade.findEnrolledStudentIds(tenantId, assessment.class_id);
+    const enrolledStudentIds = new Set(allEnrolledIds.filter((id) => studentIds.includes(id)));
     const notEnrolled = studentIds.filter((id) => !enrolledStudentIds.has(id));
 
     if (notEnrolled.length > 0) {
@@ -76,12 +72,9 @@ export class GradesService {
     }
 
     // 3. Check tenant setting for comment requirement
-    const tenantSetting = await this.prisma.tenantSetting.findFirst({
-      where: { tenant_id: tenantId },
-      select: { settings: true },
-    });
+    const settingsRow = await this.configurationReadFacade.findSettings(tenantId);
 
-    const settings = (tenantSetting?.settings ?? {}) as Record<string, unknown>;
+    const settings = ((settingsRow?.settings ?? {}) as Record<string, unknown>) ?? {};
     const gradebookSettings = (settings['gradebook'] ?? {}) as Record<string, unknown>;
     const requireGradeComment = gradebookSettings['requireGradeComment'] === true;
 
@@ -251,10 +244,7 @@ export class GradesService {
     studentId: string,
     filters: FindByStudentFilters,
   ) {
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
-      select: { id: true, first_name: true, last_name: true },
-    });
+    const student = await this.studentReadFacade.findById(tenantId, studentId);
 
     if (!student) {
       throw new NotFoundException({

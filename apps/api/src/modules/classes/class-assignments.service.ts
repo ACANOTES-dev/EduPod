@@ -5,20 +5,25 @@ import {
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import type { BulkClassAssignmentDto } from './dto/bulk-class-assignment.dto';
 
 @Injectable()
 export class ClassAssignmentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly tenantReadFacade: TenantReadFacade,
+  ) {}
 
   async getAssignments(tenantId: string) {
     // Find the current (active) academic year for this tenant
-    const activeAcademicYear = await this.prisma.academicYear.findFirst({
-      where: { tenant_id: tenantId, status: 'active' },
-      select: { id: true },
-    });
+    const activeAcademicYear = await this.academicReadFacade.findCurrentYear(tenantId);
 
     if (!activeAcademicYear) {
       throw new NotFoundException({
@@ -28,9 +33,8 @@ export class ClassAssignmentService {
     }
 
     // Fetch all active students with a year_group assigned
-    const students = await this.prisma.student.findMany({
+    const students = await this.studentReadFacade.findManyGeneric(tenantId, {
       where: {
-        tenant_id: tenantId,
         status: 'active',
         year_group_id: { not: null },
       },
@@ -45,8 +49,16 @@ export class ClassAssignmentService {
           select: { id: true, name: true },
         },
       },
-      orderBy: [{ last_name: 'asc' }, { first_name: 'asc' }],
-    });
+      orderBy: { last_name: 'asc' },
+    }) as Array<{
+      id: string;
+      first_name: string;
+      last_name: string;
+      student_number: string | null;
+      year_group_id: string | null;
+      class_homeroom_id: string | null;
+      homeroom_class: { id: string; name: string } | null;
+    }>;
 
     // Fetch all active homeroom classes for the current academic year
     const homeroomClasses = await this.prisma.class.findMany({
@@ -73,15 +85,7 @@ export class ClassAssignmentService {
     });
 
     // Fetch all year groups for this tenant
-    const yearGroups = await this.prisma.yearGroup.findMany({
-      where: { tenant_id: tenantId },
-      select: {
-        id: true,
-        name: true,
-        display_order: true,
-      },
-      orderBy: { display_order: 'asc' },
-    });
+    const yearGroups = await this.academicReadFacade.findAllYearGroupsWithOrder(tenantId);
 
     // Group students by year_group
     const studentsByYearGroup = new Map<string, typeof students>();
@@ -294,10 +298,7 @@ export class ClassAssignmentService {
    * Get export data: students grouped by subclass with full details + branding.
    */
   async getExportData(tenantId: string) {
-    const activeAcademicYear = await this.prisma.academicYear.findFirst({
-      where: { tenant_id: tenantId, status: 'active' },
-      select: { id: true, name: true },
-    });
+    const activeAcademicYear = await this.academicReadFacade.findCurrentYear(tenantId);
 
     if (!activeAcademicYear) {
       throw new NotFoundException({
@@ -307,9 +308,8 @@ export class ClassAssignmentService {
     }
 
     // Fetch students with gender and DOB
-    const students = await this.prisma.student.findMany({
+    const students = await this.studentReadFacade.findManyGeneric(tenantId, {
       where: {
-        tenant_id: tenantId,
         status: 'active',
         year_group_id: { not: null },
         class_homeroom_id: { not: null },
@@ -344,8 +344,27 @@ export class ClassAssignmentService {
           },
         },
       },
-      orderBy: [{ last_name: 'asc' }, { first_name: 'asc' }],
-    });
+      orderBy: { last_name: 'asc' },
+    }) as Array<{
+      id: string;
+      first_name: string;
+      last_name: string;
+      middle_name: string | null;
+      student_number: string | null;
+      national_id: string | null;
+      nationality: string | null;
+      city_of_birth: string | null;
+      gender: string | null;
+      date_of_birth: Date | null;
+      medical_notes: string | null;
+      has_allergy: boolean;
+      allergy_details: string | null;
+      class_homeroom_id: string | null;
+      year_group_id: string | null;
+      student_parents: Array<{
+        parent: { first_name: string; last_name: string; email: string | null; phone: string | null };
+      }>;
+    }>;
 
     // Fetch homeroom classes
     const classes = await this.prisma.class.findMany({
@@ -368,19 +387,9 @@ export class ClassAssignmentService {
     });
 
     // Fetch branding
-    const branding = await this.prisma.tenantBranding.findUnique({
-      where: { tenant_id: tenantId },
-      select: {
-        school_name_display: true,
-        school_name_ar: true,
-        logo_url: true,
-      },
-    });
+    const branding = await this.tenantReadFacade.findBranding(tenantId);
 
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { name: true },
-    });
+    const tenantName = await this.tenantReadFacade.findNameById(tenantId);
 
     // Group students by class
     const studentsByClass = new Map<string, typeof students>();
@@ -420,7 +429,7 @@ export class ClassAssignmentService {
 
     return {
       academic_year: activeAcademicYear.name,
-      school_name: branding?.school_name_display ?? tenant?.name ?? '',
+      school_name: branding?.school_name_display ?? tenantName ?? '',
       logo_url: branding?.logo_url ?? null,
       class_lists: classLists,
     };

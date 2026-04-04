@@ -2,6 +2,8 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
+import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -69,6 +71,8 @@ export class SafeguardingReportingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pdfRenderingService: PdfRenderingService,
+    private readonly behaviourReadFacade: BehaviourReadFacade,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
   ) {}
 
   // ─── Dashboard ──────────────────────────────────────────────────────────
@@ -129,18 +133,11 @@ export class SafeguardingReportingService {
           },
         }),
         // Overdue tasks
-        this.prisma.behaviourTask.findMany({
-          where: {
-            tenant_id: tenantId,
-            entity_type: {
-              in: ['safeguarding_concern', 'break_glass_grant'] as $Enums.BehaviourTaskEntityType[],
-            },
-            status: { in: ['pending', 'in_progress', 'overdue'] as $Enums.BehaviourTaskStatus[] },
-            due_date: { lt: new Date() },
-          },
-          take: 10,
-          orderBy: { due_date: 'asc' },
-        }),
+        this.behaviourReadFacade.findOverdueTasksByEntityTypes(
+          tenantId,
+          ['safeguarding_concern', 'break_glass_grant'],
+          10,
+        ),
         // Recent actions
         this.prisma.safeguardingAction.findMany({
           where: { tenant_id: tenantId },
@@ -210,6 +207,11 @@ export class SafeguardingReportingService {
   // ─── Case File PDF Generation ─────────────────────────────────────────
 
   async generateCaseFile(tenantId: string, concernId: string, redacted: boolean): Promise<Buffer> {
+    // Load school name for branding (outside transaction — read-only, no RLS needed)
+    const tenantSettings = await this.configurationReadFacade.findSettingsJson(tenantId);
+    const settingsObj = (tenantSettings as Record<string, unknown>) ?? {};
+    const schoolName = (settingsObj.school_name as string) ?? 'School';
+
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     const data = (await rlsClient.$transaction(
@@ -270,14 +272,6 @@ export class SafeguardingReportingService {
             message: 'Safeguarding concern not found',
           });
         }
-
-        // 2. Load school name for branding
-        const tenantSettings = await db.tenantSetting.findFirst({
-          where: { tenant_id: tenantId },
-          select: { settings: true },
-        });
-        const settings = (tenantSettings?.settings as Record<string, unknown>) ?? {};
-        const schoolName = (settings.school_name as string) ?? 'School';
 
         return { concern, schoolName };
       },

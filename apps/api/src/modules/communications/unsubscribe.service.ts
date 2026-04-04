@@ -113,6 +113,7 @@ export class UnsubscribeService {
     }
 
     // Upsert the TenantNotificationSetting to disable this notification type
+    // eslint-disable-next-line school/no-cross-module-prisma-access -- write operation; facades only cover reads
     await this.prisma.tenantNotificationSetting.upsert({
       where: {
         tenant_id_notification_type: {

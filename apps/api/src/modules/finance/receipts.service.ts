@@ -3,6 +3,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 @Injectable()
 export class ReceiptsService {
@@ -10,6 +11,7 @@ export class ReceiptsService {
     private readonly prisma: PrismaService,
     private readonly pdfRenderingService: PdfRenderingService,
     private readonly sequenceService: SequenceService,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   async createForPayment(
@@ -90,13 +92,9 @@ export class ReceiptsService {
       });
     }
 
-    const branding = await this.prisma.tenantBranding.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const branding = await this.tenantReadFacade.findBranding(tenantId);
 
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
+    const tenant = await this.tenantReadFacade.findById(tenantId);
 
     const pdfBranding = {
       school_name: branding?.school_name_display ?? tenant?.name ?? '',

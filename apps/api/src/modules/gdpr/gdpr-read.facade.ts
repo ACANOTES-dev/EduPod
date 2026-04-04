@@ -214,6 +214,20 @@ export class GdprReadFacade {
     });
   }
 
+  /**
+   * Generic consent record query with arbitrary where clause.
+   * Used by students allergy report for consent filtering.
+   */
+  async findConsentRecordsWhere(
+    tenantId: string,
+    where: Record<string, unknown>,
+  ): Promise<Array<{ subject_id: string }>> {
+    return this.prisma.consentRecord.findMany({
+      where: { tenant_id: tenantId, ...where },
+      select: { subject_id: true },
+    });
+  }
+
   // ─── Retention Policies ───────────────────────────────────────────────────
 
   /**

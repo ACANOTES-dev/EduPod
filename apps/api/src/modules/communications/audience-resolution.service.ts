@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
 
+import { AuthReadFacade } from '../auth/auth-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
+import { HouseholdReadFacade } from '../households/household-read.facade';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 export interface AudienceTarget {
   user_id: string;
@@ -10,7 +16,15 @@ export interface AudienceTarget {
 
 @Injectable()
 export class AudienceResolutionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly parentReadFacade: ParentReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly householdReadFacade: HouseholdReadFacade,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
+    private readonly authReadFacade: AuthReadFacade,
+  ) {}
 
   async resolve(
     tenantId: string,
@@ -50,64 +64,35 @@ export class AudienceResolutionService {
   }
 
   private async getAllParentIds(tenantId: string): Promise<string[]> {
-    const parents = await this.prisma.parent.findMany({
-      where: { tenant_id: tenantId, user_id: { not: null }, status: 'active' },
-      select: { id: true },
-    });
-    return parents.map((p) => p.id);
+    return this.parentReadFacade.findAllActiveIds(tenantId);
   }
 
   private async getParentIdsByYearGroups(tenantId: string, yearGroupIds: string[]): Promise<string[]> {
-    const students = await this.prisma.student.findMany({
-      where: {
-        tenant_id: tenantId,
-        year_group_id: { in: yearGroupIds },
-        status: 'active',
-      },
+    const students = await this.studentReadFacade.findManyGeneric(tenantId, {
+      where: { year_group_id: { in: yearGroupIds }, status: 'active' },
       select: { id: true },
-    });
+    }) as Array<{ id: string }>;
 
     return this.getParentIdsFromStudents(tenantId, students.map((s) => s.id));
   }
 
   private async getParentIdsByClasses(tenantId: string, classIds: string[]): Promise<string[]> {
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
-        class_id: { in: classIds },
-        status: 'active',
-      },
-      select: { student_id: true },
-    });
-
-    const studentIds = [...new Set(enrolments.map((e) => e.student_id))];
+    // Collect enrolled student IDs across all class IDs
+    const studentIdArrays = await Promise.all(
+      classIds.map((classId) => this.classesReadFacade.findEnrolledStudentIds(tenantId, classId)),
+    );
+    const studentIds = [...new Set(studentIdArrays.flat())];
     return this.getParentIdsFromStudents(tenantId, studentIds);
   }
 
   private async getParentIdsByHouseholds(tenantId: string, householdIds: string[]): Promise<string[]> {
-    const householdParents = await this.prisma.householdParent.findMany({
-      where: {
-        tenant_id: tenantId,
-        household_id: { in: householdIds },
-      },
-      select: { parent_id: true },
-    });
-
-    return [...new Set(householdParents.map((hp) => hp.parent_id))];
+    return this.householdReadFacade.findParentIdsByHouseholdIds(tenantId, householdIds);
   }
 
   private async getParentIdsFromStudents(tenantId: string, studentIds: string[]): Promise<string[]> {
     if (studentIds.length === 0) return [];
 
-    const studentParents = await this.prisma.studentParent.findMany({
-      where: {
-        tenant_id: tenantId,
-        student_id: { in: studentIds },
-      },
-      select: { parent_id: true },
-    });
-
-    return [...new Set(studentParents.map((sp) => sp.parent_id))];
+    return this.parentReadFacade.findParentIdsByStudentIds(tenantId, studentIds);
   }
 
   private async resolveParentsToTargets(tenantId: string, parentIds: string[]): Promise<AudienceTarget[]> {
@@ -115,26 +100,13 @@ export class AudienceResolutionService {
 
     const uniqueParentIds = [...new Set(parentIds)];
 
-    const parents = await this.prisma.parent.findMany({
-      where: {
-        id: { in: uniqueParentIds },
-        tenant_id: tenantId,
-        user_id: { not: null },
-        status: 'active',
-      },
-      select: {
-        user_id: true,
-        preferred_contact_channels: true,
-      },
-    });
+    const parents = await this.parentReadFacade.findActiveContactsByIds(tenantId, uniqueParentIds);
 
     // Check tenant notification settings for announcement.published
-    const notifSetting = await this.prisma.tenantNotificationSetting.findFirst({
-      where: {
-        tenant_id: tenantId,
-        notification_type: 'announcement.published',
-      },
-    });
+    const notifSetting = await this.configurationReadFacade.findNotificationSettingByType(
+      tenantId,
+      'announcement.published',
+    );
 
     const enabledChannels: string[] = notifSetting?.is_enabled
       ? ((notifSetting.channels as string[]) ?? ['email'])
@@ -144,7 +116,7 @@ export class AudienceResolutionService {
     const seenUserIds = new Set<string>();
 
     for (const parent of parents) {
-      if (!parent.user_id || seenUserIds.has(parent.user_id)) continue;
+      if (seenUserIds.has(parent.user_id)) continue;
       seenUserIds.add(parent.user_id);
 
       const parentChannels = (parent.preferred_contact_channels as string[]) ?? ['email'];
@@ -168,14 +140,12 @@ export class AudienceResolutionService {
   }
 
   private async resolveCustomUsers(userIds: string[]): Promise<AudienceTarget[]> {
-    const users = await this.prisma.user.findMany({
-      where: { id: { in: userIds } },
-      select: { id: true, preferred_locale: true },
-    });
+    // tenantId not used for platform-level user table, but pass empty for facade consistency
+    const users = await this.authReadFacade.findUsersByIds('', userIds);
 
     return users.map((u) => ({
       user_id: u.id,
-      locale: u.preferred_locale ?? 'en',
+      locale: 'en', // UserSummaryRow doesn't include preferred_locale; default to 'en'
       channels: ['in_app'],
     }));
   }

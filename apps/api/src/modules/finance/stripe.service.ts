@@ -14,6 +14,7 @@ import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { CircuitBreakerRegistry } from '../../common/services/circuit-breaker-registry';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { isPayableStatus, roundMoney } from './helpers/invoice-status.helper';
 import { InvoicesService } from './invoices.service';
@@ -34,6 +35,7 @@ export class StripeService {
     private readonly receiptsService: ReceiptsService,
     private readonly configService: ConfigService,
     private readonly circuitBreaker: CircuitBreakerRegistry,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   private get webhookSecret(): string | undefined {
@@ -46,6 +48,7 @@ export class StripeService {
    * Build a Stripe SDK instance using the tenant's decrypted secret key.
    */
   private async getStripeClient(tenantId: string): Promise<Stripe> {
+    // eslint-disable-next-line school/no-cross-module-prisma-access -- encrypted keys required for Stripe SDK, not exposed via facade
     const stripeConfig = await this.prisma.tenantStripeConfig.findUnique({
       where: { tenant_id: tenantId },
     });
@@ -145,6 +148,7 @@ export class StripeService {
     let webhookSecret = this.webhookSecret;
 
     if (!webhookSecret) {
+      // eslint-disable-next-line school/no-cross-module-prisma-access -- encrypted webhook secret required, not exposed via facade
       const stripeConfig = await this.prisma.tenantStripeConfig.findUnique({
         where: { tenant_id: tenantId },
       });
@@ -224,7 +228,7 @@ export class StripeService {
         : (session.payment_intent?.id ?? session.id);
 
     // Get tenant currency
-    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    const tenant = await this.tenantReadFacade.findById(tenantId);
     if (!tenant) {
       this.logger.error(
         `checkout.session.completed: tenant ${tenantId} not found — payment will be lost`,

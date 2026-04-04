@@ -14,7 +14,6 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
-import { PrismaService } from '../prisma/prisma.service';
 
 import { TranscriptsService } from './transcripts.service';
 
@@ -24,7 +23,6 @@ export class TranscriptsController {
   constructor(
     private readonly transcriptsService: TranscriptsService,
     private readonly pdfRenderingService: PdfRenderingService,
-    private readonly prisma: PrismaService,
     private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
@@ -56,11 +54,7 @@ export class TranscriptsController {
     const branding = await this.loadBranding(tenant.tenant_id);
 
     // Determine locale from tenant default
-    const tenantRecord = await this.prisma.tenant.findFirst({
-      where: { id: tenant.tenant_id },
-      select: { default_locale: true },
-    });
-    const locale = tenantRecord?.default_locale ?? 'en';
+    const locale = await this.tenantReadFacade.findDefaultLocale(tenant.tenant_id);
 
     const pdfBuffer = await this.pdfRenderingService.renderPdf(
       'transcript',
@@ -79,22 +73,11 @@ export class TranscriptsController {
   // ─── Private Helpers ────────────────────────────────────────────────────
 
   private async loadBranding(tenantId: string) {
-    const tenant = await this.prisma.tenant.findFirst({
-      where: { id: tenantId },
-      select: { name: true },
-    });
-
-    const branding = await this.prisma.tenantBranding.findFirst({
-      where: { tenant_id: tenantId },
-      select: {
-        school_name_ar: true,
-        logo_url: true,
-        primary_color: true,
-      },
-    });
+    const tenantName = await this.tenantReadFacade.findNameById(tenantId);
+    const branding = await this.tenantReadFacade.findBranding(tenantId);
 
     return {
-      school_name: tenant?.name ?? '',
+      school_name: tenantName ?? '',
       school_name_ar: branding?.school_name_ar ?? undefined,
       logo_url: branding?.logo_url ?? undefined,
       primary_color: branding?.primary_color ?? undefined,

@@ -296,7 +296,13 @@
         "behaviourDocumentTemplate",
         "behaviourGuardianRestriction",
         "behaviourPublicationApproval",
-        "behaviourLegalHold",
+        "behaviourLegalHold"
+      ],
+      "readFacade": null
+    },
+    "safeguarding": {
+      "path": "apps/api/src/modules/safeguarding",
+      "ownedModels": [
         "safeguardingConcern",
         "safeguardingAction",
         "safeguardingConcernIncident",

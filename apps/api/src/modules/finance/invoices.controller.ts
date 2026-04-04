@@ -40,7 +40,7 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { InvoicesService } from './invoices.service';
 
@@ -50,7 +50,7 @@ export class InvoicesController {
   constructor(
     private readonly invoicesService: InvoicesService,
     private readonly pdfRenderingService: PdfRenderingService,
-    private readonly prisma: PrismaService,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   @Get()
@@ -87,9 +87,7 @@ export class InvoicesController {
     const invoice = await this.invoicesService.findOne(tenant.tenant_id, id);
     const locale = query.locale ?? 'en';
 
-    const branding = await this.prisma.tenantBranding.findUnique({
-      where: { tenant_id: tenant.tenant_id },
-    });
+    const branding = await this.tenantReadFacade.findBranding(tenant.tenant_id);
 
     const pdfBranding = {
       school_name: branding?.school_name_display ?? tenant.name,

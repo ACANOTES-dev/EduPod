@@ -7,14 +7,20 @@ import {
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import type { CreateYearGroupDto } from './dto/create-year-group.dto';
 import type { UpdateYearGroupDto } from './dto/update-year-group.dto';
 
 @Injectable()
 export class YearGroupsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+  ) {}
 
   async create(tenantId: string, dto: CreateYearGroupDto) {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
@@ -84,9 +90,7 @@ export class YearGroupsService {
     await this.assertExists(tenantId, id);
 
     // Check if referenced by students
-    const studentCount = await this.prisma.student.count({
-      where: { year_group_id: id, tenant_id: tenantId },
-    });
+    const studentCount = await this.studentReadFacade.count(tenantId, { year_group_id: id });
 
     if (studentCount > 0) {
       throw new BadRequestException({
@@ -96,9 +100,7 @@ export class YearGroupsService {
     }
 
     // Check if referenced by classes
-    const classCount = await this.prisma.class.count({
-      where: { year_group_id: id, tenant_id: tenantId },
-    });
+    const classCount = await this.classesReadFacade.countClassesGeneric(tenantId, { year_group_id: id });
 
     if (classCount > 0) {
       throw new BadRequestException({

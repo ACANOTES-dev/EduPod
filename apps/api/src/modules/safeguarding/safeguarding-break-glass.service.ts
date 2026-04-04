@@ -7,7 +7,9 @@ import type { CompleteBreakGlassReviewDto, GrantBreakGlassDto } from '@school/sh
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { ChildProtectionReadFacade } from '../child-protection/child-protection-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { RbacReadFacade } from '../rbac/rbac-read.facade';
 
 export type EffectivePermissionContext = 'normal' | 'break_glass' | 'cp_access_grant';
 
@@ -24,6 +26,8 @@ export class SafeguardingBreakGlassService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
+    private readonly rbacReadFacade: RbacReadFacade,
+    private readonly cpReadFacade: ChildProtectionReadFacade,
     // TODO(M-17): Migrate to BehaviourSideEffectsService
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
@@ -37,22 +41,11 @@ export class SafeguardingBreakGlassService {
     concernId?: string,
   ): Promise<EffectivePermissionResult> {
     // 1. Check RBAC for safeguarding.view permission
-    const membership = await this.prisma.tenantMembership.findFirst({
-      where: { id: membershipId, user_id: userId, tenant_id: tenantId },
-      include: {
-        membership_roles: {
-          include: {
-            role: {
-              include: {
-                role_permissions: {
-                  include: { permission: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
+    const membership = await this.rbacReadFacade.findMembershipByIdAndUser(
+      tenantId,
+      membershipId,
+      userId,
+    );
 
     if (membership) {
       const permissions = new Set<string>();
@@ -93,13 +86,7 @@ export class SafeguardingBreakGlassService {
     }
 
     // 3. Check pastoral cp_access_grants for active grant
-    const cpGrant = await this.prisma.cpAccessGrant.findFirst({
-      where: {
-        user_id: userId,
-        tenant_id: tenantId,
-        revoked_at: null,
-      },
-    });
+    const cpGrant = await this.cpReadFacade.findActiveGrantForUser(tenantId, userId);
 
     if (cpGrant) {
       return { allowed: true, context: 'cp_access_grant', grantId: cpGrant.id };

@@ -9,7 +9,9 @@ import type {
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RbacReadFacade } from '../rbac/rbac-read.facade';
 import { SequenceService } from '../sequence/sequence.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { roundMoney } from './helpers/invoice-status.helper';
 
@@ -21,6 +23,8 @@ export class RecurringInvoicesService {
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService,
     private readonly sequenceService: SequenceService,
+    private readonly tenantReadFacade: TenantReadFacade,
+    private readonly rbacReadFacade: RbacReadFacade,
   ) {}
 
   // ─── Config CRUD ──────────────────────────────────────────────────────────
@@ -164,12 +168,8 @@ export class RecurringInvoicesService {
     // Look up the first admin user for this tenant to attribute invoices to if no systemUserId given
     let resolvedSystemUserId = systemUserId;
     if (!resolvedSystemUserId) {
-      const adminMembership = await this.prisma.tenantMembership.findFirst({
-        where: { tenant_id: tenantId, membership_status: 'active' },
-        orderBy: { created_at: 'asc' },
-        select: { user_id: true },
-      });
-      resolvedSystemUserId = adminMembership?.user_id ?? tenantId;
+      const memberUserId = await this.rbacReadFacade.findFirstActiveMembershipUserId(tenantId);
+      resolvedSystemUserId = memberUserId ?? tenantId;
     }
 
     for (const config of dueConfigs) {
@@ -222,14 +222,10 @@ export class RecurringInvoicesService {
 
     if (assignments.length === 0) return 0;
 
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
+    const tenant = await this.tenantReadFacade.findById(tenantId);
     if (!tenant) return 0;
 
-    const branding = await this.prisma.tenantBranding.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const branding = await this.tenantReadFacade.findBranding(tenantId);
     const prefix = branding?.invoice_prefix ?? 'INV';
 
     const dueDate = new Date();

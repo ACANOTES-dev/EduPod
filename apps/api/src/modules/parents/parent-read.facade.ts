@@ -24,9 +24,10 @@
  * - Returns `null` when a single record is not found (callers decide whether to throw).
  * - Batch methods return arrays (empty = nothing found).
  */
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 // ─── Common select shapes ─────────────────────────────────────────────────────
 
@@ -104,7 +105,11 @@ export interface StudentParentLinkRow {
 
 @Injectable()
 export class ParentReadFacade {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => StudentReadFacade))
+    private readonly studentReadFacade: StudentReadFacade,
+  ) {}
 
   /**
    * Find a single parent by ID with summary fields.
@@ -248,11 +253,7 @@ export class ParentReadFacade {
    * Used by many parent-portal flows to determine which students a parent can access.
    */
   async findLinkedStudentIds(tenantId: string, parentId: string): Promise<string[]> {
-    const links = await this.prisma.studentParent.findMany({
-      where: { tenant_id: tenantId, parent_id: parentId },
-      select: { student_id: true },
-    });
-    return links.map((l) => l.student_id);
+    return this.studentReadFacade.findStudentIdsByParent(tenantId, parentId);
   }
 
   /**
