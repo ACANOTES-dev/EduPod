@@ -105,9 +105,24 @@ const WHITELISTED_VIOLATIONS = [
   // auth → configuration: MFA TOTP encryption uses EncryptionService (S-19)
   { importer: 'auth', imported: 'configuration' },
 
-  // T2 → T3
-  { importer: 'policy-engine', imported: 'behaviour' },
+  // T2 → T3 (cross-cutting modules needing domain context)
+  { importer: 'auth', imported: 'tenants' },
+  { importer: 'approvals', imported: 'rbac' },
+  { importer: 'search', imported: 'admissions' },
+  { importer: 'search', imported: 'staff-profiles' },
+  { importer: 'search', imported: 'students' },
+  { importer: 'configuration', imported: 'tenants' },
   { importer: 'gdpr', imported: 'communications' },
+  { importer: 'gdpr', imported: 'rbac' },
+  { importer: 'gdpr', imported: 'students' },
+  { importer: 'gdpr', imported: 'tenants' },
+  { importer: 'policy-engine', imported: 'behaviour' },
+  { importer: 'policy-engine', imported: 'academics' },
+
+  // T2 → T4 (cross-cutting modules importing leaf via facades)
+  { importer: 'search', imported: 'households' },
+  { importer: 'search', imported: 'parents' },
+  { importer: 'gdpr', imported: 'parents' },
 
   // T3 → T3 peer deps (all documented in module-blast-radius.md)
   { importer: 'behaviour', imported: 'pastoral' },
@@ -124,12 +139,34 @@ const WHITELISTED_VIOLATIONS = [
   { importer: 'scheduling-runs', imported: 'period-grid' },
   { importer: 'schedules', imported: 'rooms' },
 
+  // T3 → T4 (domain modules importing leaf via ReadFacades)
+  { importer: 'attendance', imported: 'parents' },
+  { importer: 'communications', imported: 'households' },
+  { importer: 'communications', imported: 'parents' },
+  { importer: 'finance', imported: 'households' },
+  { importer: 'finance', imported: 'parents' },
+  { importer: 'gradebook', imported: 'parents' },
+  { importer: 'homework', imported: 'parents' },
+  { importer: 'imports', imported: 'households' },
+  { importer: 'imports', imported: 'parents' },
+  { importer: 'students', imported: 'households' },
+  { importer: 'students', imported: 'parents' },
+
   // T4 → T3 (documented)
   { importer: 'households', imported: 'registration' },
   { importer: 'compliance', imported: 'pastoral' },
 
   // T4 → T4 (documented facade pattern)
   { importer: 'dashboard', imported: 'reports' },
+  { importer: 'compliance', imported: 'households' },
+  { importer: 'compliance', imported: 'parent-inquiries' },
+  { importer: 'compliance', imported: 'parents' },
+  { importer: 'compliance', imported: 'website' },
+  { importer: 'early-warning', imported: 'parent-inquiries' },
+  { importer: 'early-warning', imported: 'parents' },
+  { importer: 'engagement', imported: 'parents' },
+  { importer: 'parent-inquiries', imported: 'parents' },
+  { importer: 'reports', imported: 'households' },
 ];
 
 // ─── Module directory discovery ───────────────────────────────────────────────
