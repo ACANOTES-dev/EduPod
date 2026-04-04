@@ -2,10 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { TenantContext } from '@school/shared';
 
-import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade } from '../../../common/tests/mock-facades';
 import { AuthGuard } from '../../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
+import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { PastoralAdminController } from './pastoral-admin.controller';
@@ -41,9 +41,9 @@ const mockPrisma = {
   pastoralEvent: {
     count: jest.fn(),
   },
-  $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-    fn(mockPrisma),
-  ),
+  $transaction: jest
+    .fn()
+    .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockPrisma)),
 };
 
 const mockConfigurationReadFacade = {

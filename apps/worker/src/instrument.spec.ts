@@ -17,7 +17,7 @@ describe('Worker Instrumentation', () => {
       jest.mock('@sentry/nestjs', () => ({
         init: mockInit,
       }));
-      require('./instrument');
+      require('./instrument'); // eslint-disable-line @typescript-eslint/no-require-imports -- jest.isolateModules requires dynamic require
     });
   }
 
@@ -69,13 +69,12 @@ describe('Worker Instrumentation', () => {
     loadInstrument();
 
     const initCall = mockInit.mock.calls[0][0] as Record<string, unknown>;
-    const beforeSendTransaction = initCall.beforeSendTransaction as (
-      event: { transaction?: string },
-    ) => { transaction?: string };
+    const beforeSendTransaction = initCall.beforeSendTransaction as (event: {
+      transaction?: string;
+    }) => { transaction?: string };
 
     const event = {
-      transaction:
-        'GET /api/v1/students/550e8400-e29b-41d4-a716-446655440000',
+      transaction: 'GET /api/v1/students/550e8400-e29b-41d4-a716-446655440000',
     };
 
     const result = beforeSendTransaction(event);

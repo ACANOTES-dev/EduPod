@@ -7,12 +7,12 @@ import type {
   PersonalWorkloadSummary,
 } from '@school/shared/staff-wellbeing';
 
-import { MOCK_FACADE_PROVIDERS, StaffProfileReadFacade } from '../../../common/tests/mock-facades';
 import { BLOCK_IMPERSONATION_KEY } from '../../../common/decorators/block-impersonation.decorator';
 import { MODULE_ENABLED_KEY } from '../../../common/decorators/module-enabled.decorator';
 import { AuthGuard } from '../../../common/guards/auth.guard';
 import { BlockImpersonationGuard } from '../../../common/guards/block-impersonation.guard';
 import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
+import { MOCK_FACADE_PROVIDERS, StaffProfileReadFacade } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WorkloadCacheService } from '../services/workload-cache.service';
 import { WorkloadComputeService } from '../services/workload-compute.service';
@@ -234,10 +234,7 @@ describe('PersonalWorkloadController', () => {
 
       await controller.getSummary(TENANT, USER);
 
-      expect(mockPrisma.staffProfile.findUnique).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-      );
+      expect(mockPrisma.staffProfile.findUnique).toHaveBeenCalledWith(TENANT_ID, USER_ID);
       expect(mockComputeService.getPersonalWorkloadSummary).toHaveBeenCalledWith(
         TENANT_ID,
         STAFF_PROFILE_ID,

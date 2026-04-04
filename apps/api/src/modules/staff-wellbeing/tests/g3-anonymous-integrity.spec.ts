@@ -20,9 +20,7 @@ const QUESTION_ID = '22222222-2222-2222-2222-222222222222';
 // ─── DMMF Helpers ───────────────────────────────────────────────────────────
 
 function getSurveyResponseModel(): Prisma.DMMF.Model {
-  const model = Prisma.dmmf.datamodel.models.find(
-    (m) => m.name === 'SurveyResponse',
-  );
+  const model = Prisma.dmmf.datamodel.models.find((m) => m.name === 'SurveyResponse');
   if (!model) {
     throw new Error(
       'SurveyResponse model not found in Prisma DMMF — has the schema been generated?',
@@ -64,9 +62,7 @@ describe('G3 — Anonymous Submission Integrity', () => {
   describe('SurveyResponse.submitted_date has no timestamp precision', () => {
     it('should use @db.Date (DATE type), not Timestamptz', () => {
       const model = getSurveyResponseModel();
-      const submittedDateField = model.fields.find(
-        (f) => f.name === 'submitted_date',
-      );
+      const submittedDateField = model.fields.find((f) => f.name === 'submitted_date');
 
       expect(submittedDateField).toBeDefined();
       expect(submittedDateField!.type).toBe('DateTime');
@@ -118,9 +114,7 @@ describe('G3 — Anonymous Submission Integrity', () => {
       // serve as a covert tenant discriminator
       const tenantLikeFields = fieldNames.filter(
         (name) =>
-          name.includes('tenant') ||
-          name.includes('organization') ||
-          name.includes('school'),
+          name.includes('tenant') || name.includes('organization') || name.includes('school'),
       );
       expect(tenantLikeFields).toEqual([]);
     });
@@ -135,6 +129,7 @@ describe('G3 — Anonymous Submission Integrity', () => {
         findUnique: jest.Mock;
         update: jest.Mock;
       };
+      $transaction: jest.Mock;
     };
     let mockEncryption: {
       encrypt: jest.Mock;
@@ -158,8 +153,11 @@ describe('G3 — Anonymous Submission Integrity', () => {
           }),
           update: jest.fn(),
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        $transaction: jest.fn().mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(mockPrisma)),
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: typeof mockPrisma) => Promise<unknown>) =>
+            fn(mockPrisma),
+          ),
       };
 
       mockEncryption = {
@@ -189,57 +187,29 @@ describe('G3 — Anonymous Submission Integrity', () => {
     afterEach(() => jest.clearAllMocks());
 
     it('should return a 64-character hex string (SHA256 output)', async () => {
-      const hash = await hmacService.computeTokenHash(
-        TENANT_ID,
-        SURVEY_ID,
-        USER_ID_A,
-      );
+      const hash = await hmacService.computeTokenHash(TENANT_ID, SURVEY_ID, USER_ID_A);
 
       expect(hash).toMatch(/^[0-9a-f]{64}$/);
       expect(hash).toHaveLength(64);
     });
 
     it('should be deterministic — same inputs produce the same hash', async () => {
-      const hash1 = await hmacService.computeTokenHash(
-        TENANT_ID,
-        SURVEY_ID,
-        USER_ID_A,
-      );
-      const hash2 = await hmacService.computeTokenHash(
-        TENANT_ID,
-        SURVEY_ID,
-        USER_ID_A,
-      );
+      const hash1 = await hmacService.computeTokenHash(TENANT_ID, SURVEY_ID, USER_ID_A);
+      const hash2 = await hmacService.computeTokenHash(TENANT_ID, SURVEY_ID, USER_ID_A);
 
       expect(hash1).toBe(hash2);
     });
 
     it('should produce different hashes for different user IDs', async () => {
-      const hashA = await hmacService.computeTokenHash(
-        TENANT_ID,
-        SURVEY_ID,
-        USER_ID_A,
-      );
-      const hashB = await hmacService.computeTokenHash(
-        TENANT_ID,
-        SURVEY_ID,
-        USER_ID_B,
-      );
+      const hashA = await hmacService.computeTokenHash(TENANT_ID, SURVEY_ID, USER_ID_A);
+      const hashB = await hmacService.computeTokenHash(TENANT_ID, SURVEY_ID, USER_ID_B);
 
       expect(hashA).not.toBe(hashB);
     });
 
     it('should produce different hashes for different survey IDs', async () => {
-      const hashA = await hmacService.computeTokenHash(
-        TENANT_ID,
-        SURVEY_ID,
-        USER_ID_A,
-      );
-      const hashB = await hmacService.computeTokenHash(
-        TENANT_ID,
-        SURVEY_ID_B,
-        USER_ID_A,
-      );
+      const hashA = await hmacService.computeTokenHash(TENANT_ID, SURVEY_ID, USER_ID_A);
+      const hashB = await hmacService.computeTokenHash(TENANT_ID, SURVEY_ID_B, USER_ID_A);
 
       expect(hashA).not.toBe(hashB);
     });
@@ -277,7 +247,7 @@ describe('G3 — Anonymous Submission Integrity', () => {
 
       // --- Phase 2: Token cleanup runs (7 days after survey close)
       // Simulates surveyParticipationToken.deleteMany({ where: { survey_id } })
-      const tokensAfterCleanup: typeof participationToken[] = [];
+      const tokensAfterCleanup: (typeof participationToken)[] = [];
 
       // --- Phase 3: Verify the response survives but is unlinkable
       // Response still exists with its data intact

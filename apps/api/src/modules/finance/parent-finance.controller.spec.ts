@@ -2,14 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 
+import { AuthGuard } from '../../common/guards/auth.guard';
+import { PermissionGuard } from '../../common/guards/permission.guard';
 import {
   MOCK_FACADE_PROVIDERS,
   ParentReadFacade,
   StudentReadFacade,
   HouseholdReadFacade,
 } from '../../common/tests/mock-facades';
-import { AuthGuard } from '../../common/guards/auth.guard';
-import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { InvoicesService } from './invoices.service';
@@ -71,7 +71,13 @@ describe('ParentFinanceController', () => {
         {
           provide: ParentReadFacade,
           useValue: {
-            findByUserId: jest.fn().mockResolvedValue({ id: 'parent-1', user_id: 'user-uuid', tenant_id: 'tenant-uuid' }),
+            findByUserId: jest
+              .fn()
+              .mockResolvedValue({
+                id: 'parent-1',
+                user_id: 'user-uuid',
+                tenant_id: 'tenant-uuid',
+              }),
             findLinkedStudentIds: jest.fn().mockResolvedValue(['student-1']),
           },
         },
@@ -86,7 +92,13 @@ describe('ParentFinanceController', () => {
         {
           provide: HouseholdReadFacade,
           useValue: {
-            findById: jest.fn().mockResolvedValue({ id: 'hh-1', household_name: 'Smith Family', tenant_id: 'tenant-uuid' }),
+            findById: jest
+              .fn()
+              .mockResolvedValue({
+                id: 'hh-1',
+                household_name: 'Smith Family',
+                tenant_id: 'tenant-uuid',
+              }),
           },
         },
       ],

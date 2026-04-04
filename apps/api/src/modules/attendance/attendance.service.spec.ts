@@ -53,7 +53,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 function buildModule(mockPrisma: object, overrides: Record<string, object> = {}) {
   return Test.createTestingModule({
     providers: [
-        ...MOCK_FACADE_PROVIDERS,
+      ...MOCK_FACADE_PROVIDERS,
       AttendanceService,
       AttendanceSessionService,
       AttendanceLockingService,
@@ -80,8 +80,15 @@ function buildModule(mockPrisma: object, overrides: Record<string, object> = {})
           triggerAbsenceNotification: jest.fn(),
         },
       },
-      { provide: ConfigurationReadFacade, useValue: overrides['ConfigurationReadFacade'] ?? { findSettingsJson: jest.fn().mockResolvedValue(null) } },
-      ...(overrides['ClassesReadFacade'] ? [{ provide: ClassesReadFacade, useValue: overrides['ClassesReadFacade'] }] : []),
+      {
+        provide: ConfigurationReadFacade,
+        useValue: overrides['ConfigurationReadFacade'] ?? {
+          findSettingsJson: jest.fn().mockResolvedValue(null),
+        },
+      },
+      ...(overrides['ClassesReadFacade']
+        ? [{ provide: ClassesReadFacade, useValue: overrides['ClassesReadFacade'] }]
+        : []),
     ],
   }).compile();
 }
@@ -279,7 +286,11 @@ describe('AttendanceService — createDefaultPresentRecords', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should create present records for all enrolled students', async () => {
-    mockClassesFacadeDP.findEnrolledStudentIds.mockResolvedValue(['student-1', 'student-2', 'student-3']);
+    mockClassesFacadeDP.findEnrolledStudentIds.mockResolvedValue([
+      'student-1',
+      'student-2',
+      'student-3',
+    ]);
 
     const count = await service.createDefaultPresentRecords(
       TENANT_ID,
@@ -364,7 +375,11 @@ describe('AttendanceService — createSession default_present', () => {
   };
   let mockSettings: { getSettings: jest.Mock };
   let mockClosures: { isClosureDate: jest.Mock };
-  let mockClassesFacadeDP2: { findByIdWithAcademicYear: jest.Mock; isStaffAssignedToClass: jest.Mock; findEnrolledStudentIds: jest.Mock };
+  let mockClassesFacadeDP2: {
+    findByIdWithAcademicYear: jest.Mock;
+    isStaffAssignedToClass: jest.Mock;
+    findEnrolledStudentIds: jest.Mock;
+  };
 
   const baseClass = {
     id: CLASS_ID,
@@ -619,20 +634,26 @@ describe('AttendanceService — createSession validation', () => {
           useValue: { triggerAbsenceNotification: jest.fn() },
         },
         { provide: ClassesReadFacade, useValue: mockClassesFacadeValidation },
-        { provide: ConfigurationReadFacade, useValue: { findSettingsJson: jest.fn().mockResolvedValue(null) } },
+        {
+          provide: ConfigurationReadFacade,
+          useValue: { findSettingsJson: jest.fn().mockResolvedValue(null) },
+        },
       ],
     }).compile();
 
     service = module.get<AttendanceService>(AttendanceService);
 
     // Store the mock for test manipulation
-    (service as any).__classesReadFacade = mockClassesFacadeValidation;
+    (service as unknown as Record<string, unknown>).__classesReadFacade =
+      mockClassesFacadeValidation;
   });
 
   afterEach(() => jest.clearAllMocks());
 
   it('should throw NotFoundException when class does not exist', async () => {
-    (service as any).__classesReadFacade.findByIdWithAcademicYear.mockResolvedValue(null);
+    (
+      service as unknown as Record<string, Record<string, jest.Mock>>
+    ).__classesReadFacade!.findByIdWithAcademicYear!.mockResolvedValue(null);
 
     await expect(
       service.createSession(
@@ -881,7 +902,10 @@ describe('AttendanceService — saveRecords', () => {
             findEnrolledStudentIds: jest.fn().mockResolvedValue(['student-1', 'student-2']),
           },
         },
-        { provide: ConfigurationReadFacade, useValue: { findSettingsJson: jest.fn().mockResolvedValue(null) } },
+        {
+          provide: ConfigurationReadFacade,
+          useValue: { findSettingsJson: jest.fn().mockResolvedValue(null) },
+        },
       ],
     }).compile();
 
@@ -1302,7 +1326,9 @@ describe('AttendanceService — lockExpiredSessions', () => {
   });
 
   it('should lock submitted sessions older than autoLockAfterDays', async () => {
-    mockConfigFacadeLock.findSettingsJson.mockResolvedValue({ attendance: { autoLockAfterDays: 3 } });
+    mockConfigFacadeLock.findSettingsJson.mockResolvedValue({
+      attendance: { autoLockAfterDays: 3 },
+    });
     mockRlsTx.attendanceSession.updateMany.mockResolvedValue({ count: 5 });
 
     const result = await service.lockExpiredSessions(TENANT_ID);
@@ -1325,7 +1351,9 @@ describe('AttendanceService — lockExpiredSessions', () => {
   });
 
   it('should use the correct autoLockAfterDays value from settings', async () => {
-    mockConfigFacadeLock.findSettingsJson.mockResolvedValue({ attendance: { autoLockAfterDays: 14 } });
+    mockConfigFacadeLock.findSettingsJson.mockResolvedValue({
+      attendance: { autoLockAfterDays: 14 },
+    });
     mockRlsTx.attendanceSession.updateMany.mockResolvedValue({ count: 0 });
 
     await service.lockExpiredSessions(TENANT_ID);
@@ -1341,7 +1369,9 @@ describe('AttendanceService — lockExpiredSessions', () => {
   });
 
   it('edge: should return locked_count: 0 when no sessions match the criteria', async () => {
-    mockConfigFacadeLock.findSettingsJson.mockResolvedValue({ attendance: { autoLockAfterDays: 7 } });
+    mockConfigFacadeLock.findSettingsJson.mockResolvedValue({
+      attendance: { autoLockAfterDays: 7 },
+    });
     mockRlsTx.attendanceSession.updateMany.mockResolvedValue({ count: 0 });
 
     const result = await service.lockExpiredSessions(TENANT_ID);
@@ -1456,7 +1486,10 @@ describe('AttendanceService — teacher permission filtering', () => {
           useValue: { triggerAbsenceNotification: jest.fn() },
         },
         { provide: ClassesReadFacade, useValue: mockClassesFacade },
-        { provide: ConfigurationReadFacade, useValue: { findSettingsJson: jest.fn().mockResolvedValue(null) } },
+        {
+          provide: ConfigurationReadFacade,
+          useValue: { findSettingsJson: jest.fn().mockResolvedValue(null) },
+        },
       ],
     }).compile();
 
@@ -1508,7 +1541,10 @@ describe('AttendanceService — teacher permission filtering', () => {
   });
 
   it('should filter sessions by teacher assigned classes in findAllSessions', async () => {
-    mockClassesFacade.findClassIdsByStaff.mockResolvedValue(['assigned-class-1', 'assigned-class-2']);
+    mockClassesFacade.findClassIdsByStaff.mockResolvedValue([
+      'assigned-class-1',
+      'assigned-class-2',
+    ]);
     mockPrisma.attendanceSession.findMany.mockResolvedValue([]);
     mockPrisma.attendanceSession.count.mockResolvedValue(0);
 

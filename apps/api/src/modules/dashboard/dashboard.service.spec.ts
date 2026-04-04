@@ -360,7 +360,10 @@ describe('DashboardService', () => {
     });
 
     it('should return parent dashboard with empty students if no parent record', async () => {
-      mockAuthFacade.findUserById.mockResolvedValue({ first_name: 'Frank', preferred_locale: null });
+      mockAuthFacade.findUserById.mockResolvedValue({
+        first_name: 'Frank',
+        preferred_locale: null,
+      });
       mockRlsTx.parent.findFirst.mockResolvedValue(null);
 
       const result = await service.parent(TENANT_ID, USER_ID);
@@ -370,7 +373,10 @@ describe('DashboardService', () => {
     });
 
     it('should use Arabic greeting when preferred_locale is ar', async () => {
-      mockAuthFacade.findUserById.mockResolvedValue({ first_name: 'فاطمة', preferred_locale: 'ar' });
+      mockAuthFacade.findUserById.mockResolvedValue({
+        first_name: 'فاطمة',
+        preferred_locale: 'ar',
+      });
       mockRlsTx.parent.findFirst.mockResolvedValue(null);
 
       const result = await service.parent(TENANT_ID, USER_ID);
@@ -380,7 +386,10 @@ describe('DashboardService', () => {
     });
 
     it('should map null year_group and homeroom_class to null', async () => {
-      mockAuthFacade.findUserById.mockResolvedValue({ first_name: 'Grace', preferred_locale: 'en' });
+      mockAuthFacade.findUserById.mockResolvedValue({
+        first_name: 'Grace',
+        preferred_locale: 'en',
+      });
       mockRlsTx.parent.findFirst.mockResolvedValue({ id: 'parent-id-2' });
       mockRlsTx.studentParent.findMany.mockResolvedValue([
         {
@@ -403,7 +412,10 @@ describe('DashboardService', () => {
     });
 
     it('should return multiple students when parent has multiple children', async () => {
-      mockAuthFacade.findUserById.mockResolvedValue({ first_name: 'Karen', preferred_locale: 'en' });
+      mockAuthFacade.findUserById.mockResolvedValue({
+        first_name: 'Karen',
+        preferred_locale: 'en',
+      });
       mockRlsTx.parent.findFirst.mockResolvedValue({ id: 'parent-multi' });
       mockRlsTx.studentParent.findMany.mockResolvedValue([
         {
@@ -451,7 +463,10 @@ describe('DashboardService', () => {
 
   describe('parent — data shape', () => {
     it('should return student objects with all required fields', async () => {
-      mockAuthFacade.findUserById.mockResolvedValue({ first_name: 'Shape', preferred_locale: 'en' });
+      mockAuthFacade.findUserById.mockResolvedValue({
+        first_name: 'Shape',
+        preferred_locale: 'en',
+      });
       mockRlsTx.parent.findFirst.mockResolvedValue({ id: 'parent-shape' });
       mockRlsTx.studentParent.findMany.mockResolvedValue([
         {
@@ -700,12 +715,13 @@ describe('DashboardService', () => {
     function mockDateHour(isoString: string) {
       const mockDate = new RealDate(isoString);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Date constructor overload
-      globalThis.Date = function (...args: any[]) {
+      const FakeDate = function (...args: any[]) {
         if (args.length === 0) return mockDate;
-        return new RealDate(...args);
+        return Reflect.construct(RealDate, args) as Date;
       } as unknown as DateConstructor;
-      globalThis.Date.prototype = RealDate.prototype;
-      globalThis.Date.now = RealDate.now;
+      Object.setPrototypeOf(FakeDate, RealDate);
+      FakeDate.now = RealDate.now;
+      globalThis.Date = FakeDate;
     }
 
     it('should produce morning greeting before 12:00', async () => {

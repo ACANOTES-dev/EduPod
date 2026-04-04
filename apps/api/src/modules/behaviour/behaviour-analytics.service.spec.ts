@@ -87,7 +87,7 @@ describe('BehaviourAnalyticsService', () => {
   let service: BehaviourAnalyticsService;
   let mockPrisma: MockPrisma;
   let mockScope: { getUserScope: jest.Mock; buildScopeFilter: jest.Mock };
-  let mockStudentCountByYearGroup: jest.Mock;
+  let __mockStudentCountByYearGroup: jest.Mock;
   let mockClassEnrolmentCounts: jest.Mock;
 
   beforeEach(async () => {
@@ -108,12 +108,39 @@ describe('BehaviourAnalyticsService', () => {
         BehaviourExportAnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: BehaviourScopeService, useValue: mockScope },
-        { provide: RbacReadFacade, useValue: { findMembershipsWithPermissionAndUser: mockPrisma.tenantMembership.findMany } },
+        {
+          provide: RbacReadFacade,
+          useValue: { findMembershipsWithPermissionAndUser: mockPrisma.tenantMembership.findMany },
+        },
         { provide: AuthReadFacade, useValue: { findUsersByIds: mockPrisma.user.findMany } },
-        { provide: AcademicReadFacade, useValue: { findAllYearGroups: mockPrisma.yearGroup.findMany, findSubjectsByIds: mockPrisma.subject.findMany } },
-        { provide: StudentReadFacade, useValue: { count: mockPrisma.student.count, countByYearGroup: (mockStudentCountByYearGroup = jest.fn().mockResolvedValue(new Map())) } },
-        { provide: ClassesReadFacade, useValue: { findEnrolmentCountsByClasses: (mockClassEnrolmentCounts = jest.fn().mockResolvedValue(new Map())) } },
-        { provide: ConfigurationReadFacade, useValue: { findSettingsJson: mockPrisma.tenantSetting.findFirst } },
+        {
+          provide: AcademicReadFacade,
+          useValue: {
+            findAllYearGroups: mockPrisma.yearGroup.findMany,
+            findSubjectsByIds: mockPrisma.subject.findMany,
+          },
+        },
+        {
+          provide: StudentReadFacade,
+          useValue: {
+            count: mockPrisma.student.count,
+            countByYearGroup: (__mockStudentCountByYearGroup = jest
+              .fn()
+              .mockResolvedValue(new Map())),
+          },
+        },
+        {
+          provide: ClassesReadFacade,
+          useValue: {
+            findEnrolmentCountsByClasses: (mockClassEnrolmentCounts = jest
+              .fn()
+              .mockResolvedValue(new Map())),
+          },
+        },
+        {
+          provide: ConfigurationReadFacade,
+          useValue: { findSettingsJson: mockPrisma.tenantSetting.findFirst },
+        },
       ],
     }).compile();
 
@@ -950,7 +977,10 @@ describe('BehaviourAnalyticsService', () => {
         },
       ]);
       mockClassEnrolmentCounts.mockResolvedValueOnce(
-        new Map([['class-1', 25], ['class-2', 20]]),
+        new Map([
+          ['class-1', 25],
+          ['class-2', 20],
+        ]),
       );
 
       const result = await service.getClassComparisons(

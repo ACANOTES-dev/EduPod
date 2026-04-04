@@ -2,13 +2,13 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { PermissionCacheService } from '../../../common/services/permission-cache.service';
 import {
   MOCK_FACADE_PROVIDERS,
   ConfigurationReadFacade,
   ChildProtectionReadFacade,
   RbacReadFacade,
 } from '../../../common/tests/mock-facades';
-import { PermissionCacheService } from '../../../common/services/permission-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { ConcernQueriesService } from './concern-queries.service';

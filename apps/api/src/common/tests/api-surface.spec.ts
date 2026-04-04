@@ -14,8 +14,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join, relative, resolve } from 'path';
 
-import { MOCK_FACADE_PROVIDERS } from './mock-facades';
-
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type ApiEndpoint = {

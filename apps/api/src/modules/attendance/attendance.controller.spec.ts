@@ -4,12 +4,12 @@ import request from 'supertest';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 
-import { MOCK_FACADE_PROVIDERS, StaffProfileReadFacade } from '../../common/tests/mock-facades';
 import { REQUIRES_PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
+import { MOCK_FACADE_PROVIDERS, StaffProfileReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AttendancePatternService } from './attendance-pattern.service';

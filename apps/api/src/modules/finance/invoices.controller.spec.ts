@@ -2,9 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 
-import { MOCK_FACADE_PROVIDERS, TenantReadFacade } from '../../common/tests/mock-facades';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import { MOCK_FACADE_PROVIDERS, TenantReadFacade } from '../../common/tests/mock-facades';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 

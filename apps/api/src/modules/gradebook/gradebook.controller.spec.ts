@@ -2,8 +2,12 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, ClassesReadFacade, StaffProfileReadFacade } from '../../common/tests/mock-facades';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
+import {
+  MOCK_FACADE_PROVIDERS,
+  ClassesReadFacade,
+  StaffProfileReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AssessmentsService } from './assessments/assessments.service';
@@ -135,7 +139,10 @@ describe('GradebookController', () => {
   // ─── Grade Configs ──────────────────────────────────────────────────────
 
   it('should upsert a grade config for a class/subject pair', async () => {
-    const dto = { grading_scale_id: 'scale-id', category_weight_json: { weights: [{ category_id: 'cat-1', weight: 100 }] } };
+    const dto = {
+      grading_scale_id: 'scale-id',
+      category_weight_json: { weights: [{ category_id: 'cat-1', weight: 100 }] },
+    };
     const upserted = { id: 'cfg-id', class_id: CLASS_ID, subject_id: SUBJECT_ID };
     mockClassGradeConfigsService.upsert.mockResolvedValue(upserted);
 
@@ -143,7 +150,10 @@ describe('GradebookController', () => {
 
     expect(result).toEqual(upserted);
     expect(mockClassGradeConfigsService.upsert).toHaveBeenCalledWith(
-      TENANT_ID, CLASS_ID, SUBJECT_ID, dto,
+      TENANT_ID,
+      CLASS_ID,
+      SUBJECT_ID,
+      dto,
     );
   });
 
@@ -163,7 +173,9 @@ describe('GradebookController', () => {
     await controller.deleteGradeConfig(tenantContext, CLASS_ID, SUBJECT_ID);
 
     expect(mockClassGradeConfigsService.delete).toHaveBeenCalledWith(
-      TENANT_ID, CLASS_ID, SUBJECT_ID,
+      TENANT_ID,
+      CLASS_ID,
+      SUBJECT_ID,
     );
   });
 
@@ -251,17 +263,25 @@ describe('GradebookController', () => {
   // ─── Grades ─────────────────────────────────────────────────────────────
 
   it('should bulk upsert grades for an assessment', async () => {
-    const dto = { grades: [{ student_id: 'st-id', raw_score: 85, is_missing: false, comment: null }] };
+    const dto = {
+      grades: [{ student_id: 'st-id', raw_score: 85, is_missing: false, comment: null }],
+    };
     const upserted = { data: [{ id: 'grade-1' }] };
     mockGradesService.bulkUpsert.mockResolvedValue(upserted);
 
     const result = await controller.bulkUpsertGrades(
-      tenantContext, userContext, ASSESSMENT_ID, dto,
+      tenantContext,
+      userContext,
+      ASSESSMENT_ID,
+      dto,
     );
 
     expect(result).toEqual(upserted);
     expect(mockGradesService.bulkUpsert).toHaveBeenCalledWith(
-      TENANT_ID, ASSESSMENT_ID, USER_ID, dto,
+      TENANT_ID,
+      ASSESSMENT_ID,
+      USER_ID,
+      dto,
     );
   });
 
@@ -286,7 +306,10 @@ describe('GradebookController', () => {
 
     expect(result).toEqual(computed);
     expect(mockPeriodGradeComputationService.compute).toHaveBeenCalledWith(
-      TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID,
+      TENANT_ID,
+      CLASS_ID,
+      SUBJECT_ID,
+      PERIOD_ID,
     );
   });
 
@@ -319,13 +342,15 @@ describe('GradebookController', () => {
     const result = await controller.getResultsMatrix(tenantContext, CLASS_ID, PERIOD_ID);
 
     expect(result).toEqual(matrix);
-    expect(mockResultsMatrixService.getMatrix).toHaveBeenCalledWith(
-      TENANT_ID, CLASS_ID, PERIOD_ID,
-    );
+    expect(mockResultsMatrixService.getMatrix).toHaveBeenCalledWith(TENANT_ID, CLASS_ID, PERIOD_ID);
   });
 
   it('should save results matrix and return the saved data', async () => {
-    const dto = { grades: [{ assessment_id: ASSESSMENT_ID, student_id: 'st-1', raw_score: 88, is_missing: false }] };
+    const dto = {
+      grades: [
+        { assessment_id: ASSESSMENT_ID, student_id: 'st-1', raw_score: 88, is_missing: false },
+      ],
+    };
     const saved = { saved: 1 };
     mockResultsMatrixService.saveMatrix.mockResolvedValue(saved);
 
@@ -333,16 +358,19 @@ describe('GradebookController', () => {
 
     expect(result).toEqual(saved);
     expect(mockResultsMatrixService.saveMatrix).toHaveBeenCalledWith(
-      TENANT_ID, CLASS_ID, USER_ID, dto.grades,
+      TENANT_ID,
+      CLASS_ID,
+      USER_ID,
+      dto.grades,
     );
   });
 
   // ─── Import ─────────────────────────────────────────────────────────────
 
   it('should throw BadRequestException when validating import with no file', async () => {
-    await expect(
-      controller.validateImport(tenantContext, undefined),
-    ).rejects.toThrow(BadRequestException);
+    await expect(controller.validateImport(tenantContext, undefined)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should generate an import template and return the result', async () => {
@@ -353,7 +381,9 @@ describe('GradebookController', () => {
 
     expect(result).toEqual(template);
     expect(mockBulkImportService.generateTemplate).toHaveBeenCalledWith(
-      TENANT_ID, CLASS_ID, PERIOD_ID,
+      TENANT_ID,
+      CLASS_ID,
+      PERIOD_ID,
     );
   });
 });

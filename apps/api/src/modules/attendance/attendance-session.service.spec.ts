@@ -10,12 +10,12 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import {
   MOCK_FACADE_PROVIDERS,
   ClassesReadFacade,
   SchedulesReadFacade,
 } from '../../common/tests/mock-facades';
-import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolClosuresService } from '../school-closures/school-closures.service';
@@ -296,7 +296,9 @@ describe('AttendanceSessionService', () => {
         class_id: 'class-1',
         schedule: null,
       });
-      mockClassesFacade.findEnrolledStudentsWithNumber.mockResolvedValue([{ student: { id: 'stu-1' } }]);
+      mockClassesFacade.findEnrolledStudentsWithNumber.mockResolvedValue([
+        { student: { id: 'stu-1' } },
+      ]);
 
       const result = await service.findOneSession(TENANT_ID, 'sess-1');
       expect(result.enrolled_students).toEqual([{ id: 'stu-1' }]);

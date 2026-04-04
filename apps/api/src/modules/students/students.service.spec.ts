@@ -1,7 +1,14 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, HouseholdReadFacade, AcademicReadFacade, ClassesReadFacade, ParentReadFacade, GdprReadFacade } from '../../common/tests/mock-facades';
+import {
+  MOCK_FACADE_PROVIDERS,
+  HouseholdReadFacade,
+  AcademicReadFacade,
+  ClassesReadFacade,
+  ParentReadFacade,
+  GdprReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { SequenceService } from '../sequence/sequence.service';
@@ -125,8 +132,14 @@ describe('StudentsService — create', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
-        { provide: HouseholdReadFacade, useValue: { existsOrThrow: mockFacades.householdExistsOrThrow } },
-        { provide: AcademicReadFacade, useValue: { findYearGroupByIdOrThrow: mockFacades.yearGroupOrThrow } },
+        {
+          provide: HouseholdReadFacade,
+          useValue: { existsOrThrow: mockFacades.householdExistsOrThrow },
+        },
+        {
+          provide: AcademicReadFacade,
+          useValue: { findYearGroupByIdOrThrow: mockFacades.yearGroupOrThrow },
+        },
         { provide: ClassesReadFacade, useValue: { existsOrThrow: mockFacades.classExistsOrThrow } },
         { provide: ParentReadFacade, useValue: { existsOrThrow: mockFacades.parentExistsOrThrow } },
       ],
@@ -185,8 +198,9 @@ describe('StudentsService — create', () => {
   });
 
   it('should throw NotFoundException when household does not exist', async () => {
-    const facades = (service as unknown as Record<string, Record<string, jest.Mock>>).__mockFacades;
-    facades.householdExistsOrThrow.mockRejectedValue(
+    const facades = (service as unknown as Record<string, Record<string, jest.Mock>>)
+      .__mockFacades!;
+    facades.householdExistsOrThrow!.mockRejectedValue(
       new NotFoundException({ code: 'HOUSEHOLD_NOT_FOUND', message: 'Household not found' }),
     );
 
@@ -194,8 +208,9 @@ describe('StudentsService — create', () => {
   });
 
   it('should throw NotFoundException when year_group_id does not exist', async () => {
-    const facades = (service as unknown as Record<string, Record<string, jest.Mock>>).__mockFacades;
-    facades.yearGroupOrThrow.mockRejectedValue(
+    const facades = (service as unknown as Record<string, Record<string, jest.Mock>>)
+      .__mockFacades!;
+    facades.yearGroupOrThrow!.mockRejectedValue(
       new NotFoundException({ code: 'YEAR_GROUP_NOT_FOUND', message: 'Year group not found' }),
     );
 
@@ -205,8 +220,9 @@ describe('StudentsService — create', () => {
   });
 
   it('should throw NotFoundException when parent_links contains nonexistent parent', async () => {
-    const facades = (service as unknown as Record<string, Record<string, jest.Mock>>).__mockFacades;
-    facades.parentExistsOrThrow.mockRejectedValue(
+    const facades = (service as unknown as Record<string, Record<string, jest.Mock>>)
+      .__mockFacades!;
+    facades.parentExistsOrThrow!.mockRejectedValue(
       new NotFoundException({ code: 'PARENT_NOT_FOUND', message: 'Parent not found' }),
     );
 

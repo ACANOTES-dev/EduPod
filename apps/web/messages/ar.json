@@ -2494,7 +2494,8 @@
     "filterAllTypes": "كل الأنواع",
     "filterAll": "الكل",
     "filterActive": "نشط",
-    "filterInactive": "غير نشط"
+    "filterInactive": "غير نشط",
+    "eGMath": "مثال: رياضيات"
   },
   "promotion": {
     "title": "معالج الترقية",
@@ -10044,5 +10045,12 @@
     },
     "badge": "SEN",
     "reportTabs": "[AR] Report tabs"
-  }
+  },
+  "approved": "موافق عليه",
+  "cancelled": "ملغى",
+  "failedCallbacks": "عمليات الاستدعاء الفاشلة",
+  "mfaQrCode": "رمز QR للمصادقة الثنائية",
+  "noApprovalRequests": "لا توجد طلبات موافقة",
+  "pending": "قيد الانتظار",
+  "rejected": "مرفوض"
 }

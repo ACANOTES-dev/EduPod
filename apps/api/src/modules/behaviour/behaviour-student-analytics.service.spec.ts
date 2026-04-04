@@ -1,5 +1,3 @@
-
-import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 

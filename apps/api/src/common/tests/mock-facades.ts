@@ -40,8 +40,8 @@ import { PayrollReadFacade } from '../../modules/payroll/payroll-read.facade';
 import { RbacReadFacade } from '../../modules/rbac/rbac-read.facade';
 import { RoomsReadFacade } from '../../modules/rooms/rooms-read.facade';
 import { SchedulesReadFacade } from '../../modules/schedules/schedules-read.facade';
-import { SchedulingRunsReadFacade } from '../../modules/scheduling-runs/scheduling-runs-read.facade';
 import { SchedulingReadFacade } from '../../modules/scheduling/scheduling-read.facade';
+import { SchedulingRunsReadFacade } from '../../modules/scheduling-runs/scheduling-runs-read.facade';
 import { SchoolClosuresReadFacade } from '../../modules/school-closures/school-closures-read.facade';
 import { StaffAvailabilityReadFacade } from '../../modules/staff-availability/staff-availability-read.facade';
 import { StaffPreferencesReadFacade } from '../../modules/staff-preferences/staff-preferences-read.facade';
@@ -61,11 +61,21 @@ function createAutoMockFacade(): Record<string, jest.Mock> {
       if (!fnCache.has(prop)) {
         const lp = prop.toLowerCase();
         let defaultReturn: unknown = null;
-        if (lp.includes('findmany') || lp.includes('list') || lp.includes('getall') || lp.includes('findall') || lp.includes('search'))
+        if (
+          lp.includes('findmany') ||
+          lp.includes('list') ||
+          lp.includes('getall') ||
+          lp.includes('findall') ||
+          lp.includes('search')
+        )
           defaultReturn = [];
-        else if (lp.includes('count'))
-          defaultReturn = 0;
-        else if (lp.includes('findmap') || lp.includes('map') || lp.includes('byclasses') || lp.includes('byids'))
+        else if (lp.includes('count')) defaultReturn = 0;
+        else if (
+          lp.includes('findmap') ||
+          lp.includes('map') ||
+          lp.includes('byclasses') ||
+          lp.includes('byids')
+        )
           defaultReturn = new Map();
         fnCache.set(prop, jest.fn().mockResolvedValue(defaultReturn));
       }

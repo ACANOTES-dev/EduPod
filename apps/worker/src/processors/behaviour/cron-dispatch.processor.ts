@@ -8,13 +8,13 @@ import { behaviourSettingsSchema } from '@school/shared/behaviour';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { HOMEWORK_COMPLETION_REMINDER_JOB } from '../homework/completion-reminder.processor';
 import { HOMEWORK_DIGEST_JOB } from '../homework/digest-homework.processor';
-
 import { BREAK_GLASS_EXPIRY_JOB } from '../safeguarding/break-glass-expiry.processor';
+import { SLA_CHECK_JOB } from '../safeguarding/sla-check.processor';
+
 import { BEHAVIOUR_DETECT_PATTERNS_JOB } from './detect-patterns.processor';
 import { BEHAVIOUR_DIGEST_NOTIFICATIONS_JOB } from './digest-notifications.processor';
 import { BEHAVIOUR_GUARDIAN_RESTRICTION_CHECK_JOB } from './guardian-restriction-check.processor';
 import { BEHAVIOUR_RETENTION_CHECK_JOB } from './retention-check.processor';
-import { SLA_CHECK_JOB } from '../safeguarding/sla-check.processor';
 import { BEHAVIOUR_SUSPENSION_RETURN_JOB } from './suspension-return.processor';
 import { BEHAVIOUR_TASK_REMINDERS_JOB } from './task-reminders.processor';
 

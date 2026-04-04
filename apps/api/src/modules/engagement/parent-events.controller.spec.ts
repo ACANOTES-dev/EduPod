@@ -1,11 +1,10 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
-
-import { MOCK_FACADE_PROVIDERS, ParentReadFacade } from '../../common/tests/mock-facades';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import { MOCK_FACADE_PROVIDERS, ParentReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { EventParticipantsService } from './event-participants.service';
@@ -83,12 +82,14 @@ describe('ParentEventsController', () => {
               const links = await mockPrisma.studentParent.findMany();
               return (links as Array<{ student_id: string }>).map((l) => l.student_id);
             }),
-            isLinkedToStudent: jest.fn().mockImplementation(
-              async (_tenantId: string, _parentId: string, studentId: string) => {
-                const link = await mockPrisma.studentParent.findUnique();
-                return link?.student_id === studentId;
-              },
-            ),
+            isLinkedToStudent: jest
+              .fn()
+              .mockImplementation(
+                async (_tenantId: string, _parentId: string, studentId: string) => {
+                  const link = await mockPrisma.studentParent.findUnique();
+                  return link?.student_id === studentId;
+                },
+              ),
           },
         },
       ],

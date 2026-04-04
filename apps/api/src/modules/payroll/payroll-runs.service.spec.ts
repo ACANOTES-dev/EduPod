@@ -548,9 +548,10 @@ describe('PayrollRunsService', () => {
       const result = await service.listRuns(TENANT_ID, { page: 1, pageSize: 20 });
 
       // serializeRun converts decimal-like values via Number()
-      expect(typeof result.data[0].total_basic_pay).toBe('number');
-      expect(typeof result.data[0].total_bonus_pay).toBe('number');
-      expect(typeof result.data[0].total_pay).toBe('number');
+      const firstRun = result.data[0]!;
+      expect(typeof firstRun.total_basic_pay).toBe('number');
+      expect(typeof firstRun.total_bonus_pay).toBe('number');
+      expect(typeof firstRun.total_pay).toBe('number');
     });
   });
 
@@ -584,13 +585,14 @@ describe('PayrollRunsService', () => {
       const result = await service.listEntries(TENANT_ID, RUN_ID);
 
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].staff_name).toBe('Jane Doe');
-      expect(result.data[0].basic_pay).toBe(5000);
-      expect(result.data[0].bonus_pay).toBe(100);
-      expect(result.data[0].total_pay).toBe(5100);
-      expect(result.data[0].override_total_pay).toBeNull();
-      expect(result.data[0].snapshot_base_salary).toBe(5000);
-      expect(result.data[0].snapshot_per_class_rate).toBeNull();
+      const firstEntry = result.data[0]!;
+      expect(firstEntry.staff_name).toBe('Jane Doe');
+      expect(firstEntry.basic_pay).toBe(5000);
+      expect(firstEntry.bonus_pay).toBe(100);
+      expect(firstEntry.total_pay).toBe(5100);
+      expect(firstEntry.override_total_pay).toBeNull();
+      expect(firstEntry.snapshot_base_salary).toBe(5000);
+      expect(firstEntry.snapshot_per_class_rate).toBeNull();
     });
 
     it('should serialize override_total_pay when present', async () => {
@@ -619,7 +621,7 @@ describe('PayrollRunsService', () => {
 
       const result = await service.listEntries(TENANT_ID, RUN_ID);
 
-      expect(result.data[0].override_total_pay).toBe(4500);
+      expect(result.data[0]!.override_total_pay).toBe(4500);
     });
   });
 
@@ -692,8 +694,8 @@ describe('PayrollRunsService', () => {
       // Entries should also have serialized decimal fields
       const entries = result.entries as Array<Record<string, unknown>>;
       expect(entries).toHaveLength(1);
-      expect(entries[0].basic_pay).toBe(5000);
-      expect(entries[0].snapshot_base_salary).toBe(5000);
+      expect(entries[0]!.basic_pay).toBe(5000);
+      expect(entries[0]!.snapshot_base_salary).toBe(5000);
     });
   });
 

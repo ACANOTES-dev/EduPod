@@ -83,6 +83,7 @@ interface MockFinanceReadFacade {
   findScholarshipsByStudent: jest.Mock;
   findScholarshipsByHouseholds: jest.Mock;
   countInvoicesBeforeDate: jest.Mock;
+  findFeeAssignmentsByHousehold: jest.Mock;
 }
 
 interface MockGradebookReadFacade {
@@ -105,7 +106,7 @@ interface MockBehaviourReadFacade {
 
 // ─── Mock Factory ─────────────────────────────────────────────────────────────
 
-function buildMockFinanceFacade(): MockFinanceReadFacade & { findFeeAssignmentsByHousehold: jest.Mock } {
+function buildMockFinanceFacade(): MockFinanceReadFacade {
   return {
     findInvoicesByHousehold: jest.fn().mockResolvedValue([]),
     findPaymentsByHousehold: jest.fn().mockResolvedValue([]),
@@ -428,7 +429,10 @@ describe('DsarTraversalService', () => {
       expect(facades.student.findById).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID);
 
       // Attendance via facade
-      expect(facades.attendance.findAllRecordsForStudent).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID);
+      expect(facades.attendance.findAllRecordsForStudent).toHaveBeenCalledWith(
+        TENANT_ID,
+        STUDENT_ID,
+      );
 
       // Gradebook reads via facade — verify called with correct tenantId + studentId
       expect(mockGradebookFacade.findGradesForStudent).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID);
@@ -492,7 +496,7 @@ describe('DsarTraversalService', () => {
     });
 
     it('should include class name in class enrolments', async () => {
-      facades.classes.findEnrolmentsForStudent.mockResolvedValue([
+      facades.classes.findEnrolmentsForStudent!.mockResolvedValue([
         {
           id: 'enrol-1',
           student_id: STUDENT_ID,
@@ -530,12 +534,12 @@ describe('DsarTraversalService', () => {
     // ─── GAP-5: Application queries filtered by parent IDs and name ────────
 
     it('should query applications filtered by parent IDs when student has parents', async () => {
-      facades.student.findById.mockResolvedValue({
+      facades.student.findById!.mockResolvedValue({
         id: STUDENT_ID,
         first_name: 'Alice',
         last_name: 'Smith',
       });
-      facades.student.findParentsForStudent.mockResolvedValue([
+      facades.student.findParentsForStudent!.mockResolvedValue([
         { parent_id: 'parent-1' },
         { parent_id: 'parent-2' },
       ]);
@@ -568,12 +572,12 @@ describe('DsarTraversalService', () => {
     });
 
     it('should filter applications by name only when student has no parents', async () => {
-      facades.student.findById.mockResolvedValue({
+      facades.student.findById!.mockResolvedValue({
         id: STUDENT_ID,
         first_name: 'Bob',
         last_name: 'Jones',
       });
-      facades.student.findParentsForStudent.mockResolvedValue([]);
+      facades.student.findParentsForStudent!.mockResolvedValue([]);
 
       await service.collectAllData(TENANT_ID, 'student', STUDENT_ID);
 
@@ -593,12 +597,12 @@ describe('DsarTraversalService', () => {
       const tokenId1 = 'token-uuid-1';
       const tokenId2 = 'token-uuid-2';
 
-      facades.gdpr.findAnonymisationTokensByEntity.mockResolvedValue([
+      facades.gdpr.findAnonymisationTokensByEntity!.mockResolvedValue([
         { id: tokenId1 },
         { id: tokenId2 },
       ]);
 
-      facades.gdpr.findTokenUsageLogs.mockResolvedValue([
+      facades.gdpr.findTokenUsageLogs!.mockResolvedValue([
         { id: 'log-1', tokens_used: [tokenId1, 'other-token'] },
         { id: 'log-2', tokens_used: ['unrelated-token'] },
         { id: 'log-3', tokens_used: [tokenId2] },
@@ -636,7 +640,7 @@ describe('DsarTraversalService', () => {
 
   describe('collectAllData — parent', () => {
     it('should return all expected parent categories', async () => {
-      facades.parent.findById.mockResolvedValue({
+      facades.parent.findById!.mockResolvedValue({
         id: PARENT_ID,
         user_id: null,
         first_name: 'Jane',
@@ -658,11 +662,11 @@ describe('DsarTraversalService', () => {
     });
 
     it('should query financial data for all linked households via facade', async () => {
-      facades.parent.findById.mockResolvedValue({
+      facades.parent.findById!.mockResolvedValue({
         id: PARENT_ID,
         user_id: null,
       });
-      facades.household.findHouseholdsForParent.mockResolvedValue([
+      facades.household.findHouseholdsForParent!.mockResolvedValue([
         {
           household_id: 'hh-1',
           parent_id: PARENT_ID,
@@ -689,7 +693,7 @@ describe('DsarTraversalService', () => {
     });
 
     it('should query notifications via parent user_id', async () => {
-      facades.parent.findById.mockResolvedValue({
+      facades.parent.findById!.mockResolvedValue({
         id: PARENT_ID,
         user_id: USER_ID,
       });
@@ -703,7 +707,7 @@ describe('DsarTraversalService', () => {
     });
 
     it('should return empty notifications when parent has no user_id', async () => {
-      facades.parent.findById.mockResolvedValue({
+      facades.parent.findById!.mockResolvedValue({
         id: PARENT_ID,
         user_id: null,
       });
@@ -713,8 +717,8 @@ describe('DsarTraversalService', () => {
     });
 
     it('should call finance facade for parent financial data', async () => {
-      facades.parent.findById.mockResolvedValue({ id: PARENT_ID, user_id: null });
-      facades.household.findHouseholdsForParent.mockResolvedValue([
+      facades.parent.findById!.mockResolvedValue({ id: PARENT_ID, user_id: null });
+      facades.household.findHouseholdsForParent!.mockResolvedValue([
         {
           household_id: 'hh-1',
           parent_id: PARENT_ID,
@@ -734,7 +738,7 @@ describe('DsarTraversalService', () => {
     });
 
     it('should query inquiries with messages included', async () => {
-      facades.parent.findById.mockResolvedValue({ id: PARENT_ID, user_id: null });
+      facades.parent.findById!.mockResolvedValue({ id: PARENT_ID, user_id: null });
 
       await service.collectAllData(TENANT_ID, 'parent', PARENT_ID);
 
@@ -749,7 +753,7 @@ describe('DsarTraversalService', () => {
 
   describe('collectAllData — staff', () => {
     it('should return all expected staff categories', async () => {
-      facades.staffProfile.findById.mockResolvedValue({
+      facades.staffProfile.findById!.mockResolvedValue({
         id: STAFF_PROFILE_ID,
         bank_name: 'Test Bank',
         bank_account_number_encrypted: null,
@@ -772,7 +776,7 @@ describe('DsarTraversalService', () => {
     });
 
     it('should mask bank details — never expose encrypted fields', async () => {
-      facades.staffProfile.findById.mockResolvedValue({
+      facades.staffProfile.findById!.mockResolvedValue({
         id: STAFF_PROFILE_ID,
         bank_name: 'AIB',
         bank_account_number_encrypted: 'enc_abc_1234',
@@ -790,7 +794,7 @@ describe('DsarTraversalService', () => {
     });
 
     it('should handle null bank details gracefully', async () => {
-      facades.staffProfile.findById.mockResolvedValue({
+      facades.staffProfile.findById!.mockResolvedValue({
         id: STAFF_PROFILE_ID,
         bank_name: null,
         bank_account_number_encrypted: null,
@@ -890,10 +894,7 @@ describe('DsarTraversalService', () => {
     it('should query emergency contacts', async () => {
       await service.collectAllData(TENANT_ID, 'household', HOUSEHOLD_ID);
 
-      expect(facades.household.findEmergencyContacts).toHaveBeenCalledWith(
-        TENANT_ID,
-        HOUSEHOLD_ID,
-      );
+      expect(facades.household.findEmergencyContacts).toHaveBeenCalledWith(TENANT_ID, HOUSEHOLD_ID);
     });
 
     it('should query fee assignments', async () => {
@@ -910,13 +911,13 @@ describe('DsarTraversalService', () => {
 
   describe('collectAllData — user', () => {
     it('should return profile and memberships', async () => {
-      facades.auth.findUserById.mockResolvedValue({
+      facades.auth.findUserById!.mockResolvedValue({
         id: USER_ID,
         email: 'user@example.com',
         first_name: 'Test',
         last_name: 'User',
       });
-      facades.rbac.findAllMembershipsForUser.mockResolvedValue([
+      facades.rbac.findAllMembershipsForUser!.mockResolvedValue([
         { id: 'tm-1', tenant_id: TENANT_ID, user_id: USER_ID, membership_status: 'active' },
       ]);
 

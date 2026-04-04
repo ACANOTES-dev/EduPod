@@ -1,7 +1,11 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, ClassesReadFacade, AcademicReadFacade } from '../../../common/tests/mock-facades';
+import {
+  MOCK_FACADE_PROVIDERS,
+  ClassesReadFacade,
+  AcademicReadFacade,
+} from '../../../common/tests/mock-facades';
 import { NotificationsService } from '../../communications/notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -28,7 +32,9 @@ const mockRlsTx = {
 
 jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -56,7 +62,6 @@ function buildMockNotificationsService() {
   };
 }
 
-const baseClass = { id: CLASS_ID, name: 'Grade 5A', subject_id: 'subject-1' };
 const basePeriod = { id: PERIOD_ID, name: 'Term 1' };
 const baseEnrolment = { student_id: STUDENT_ID };
 const baseSubject = { id: 'subject-1', name: 'Math' };
@@ -241,9 +246,7 @@ describe('ProgressReportService — send', () => {
           id: STUDENT_ID,
           first_name: 'Ali',
           last_name: 'Hassan',
-          student_parents: [
-            { parent: { user_id: 'parent-user-1' } },
-          ],
+          student_parents: [{ parent: { user_id: 'parent-user-1' } }],
         },
       },
     ]);
@@ -253,9 +256,7 @@ describe('ProgressReportService — send', () => {
     expect(result.sent).toBe(1);
     expect(mockNotifications.createBatch).toHaveBeenCalledWith(
       TENANT_ID,
-      expect.arrayContaining([
-        expect.objectContaining({ recipient_user_id: 'parent-user-1' }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ recipient_user_id: 'parent-user-1' })]),
     );
   });
 
@@ -299,7 +300,9 @@ describe('ProgressReportService — updateEntry', () => {
       createRlsClient: jest.Mock;
     };
     createRlsClient.mockReturnValue({
-      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTxWithUpdate)),
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTxWithUpdate)),
     });
 
     const module: TestingModule = await Test.createTestingModule({
@@ -321,16 +324,18 @@ describe('ProgressReportService — updateEntry', () => {
       createRlsClient: jest.Mock;
     };
     createRlsClient.mockReturnValue({
-      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
     });
   });
 
   it('should throw NotFoundException when entry does not exist', async () => {
     mockPrisma.progressReportEntry.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.updateEntry(TENANT_ID, 'entry-missing', 'Good progress.'),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.updateEntry(TENANT_ID, 'entry-missing', 'Good progress.')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should update teacher_note when entry exists', async () => {

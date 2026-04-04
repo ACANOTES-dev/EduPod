@@ -2,8 +2,12 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
-import { MOCK_FACADE_PROVIDERS, AcademicReadFacade, StaffProfileReadFacade } from '../../common/tests/mock-facades';
 import { buildMockPrisma, buildMockRedis } from '../../../test/mock-factories';
+import {
+  MOCK_FACADE_PROVIDERS,
+  AcademicReadFacade,
+  StaffProfileReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -128,7 +132,9 @@ describe('ClassesService — create', () => {
   });
 
   it('should throw NotFoundException when academic year does not exist', async () => {
-    createAcademicFacade.findYearByIdOrThrow.mockRejectedValue(new NotFoundException({ code: 'ACADEMIC_YEAR_NOT_FOUND', message: 'Not found' }));
+    createAcademicFacade.findYearByIdOrThrow.mockRejectedValue(
+      new NotFoundException({ code: 'ACADEMIC_YEAR_NOT_FOUND', message: 'Not found' }),
+    );
 
     await expect(service.create(TENANT_ID, baseCreateDto)).rejects.toThrow(NotFoundException);
   });
@@ -286,7 +292,11 @@ describe('ClassesService — update', () => {
   let service: ClassesService;
   let mockPrisma: ReturnType<typeof createMockPrisma>;
   let mockRedis: ReturnType<typeof createMockRedis>;
-  let updAcademicFacade: { findYearGroupByIdOrThrow: jest.Mock; findSubjectByIdOrThrow: jest.Mock; findYearByIdOrThrow: jest.Mock };
+  let updAcademicFacade: {
+    findYearGroupByIdOrThrow: jest.Mock;
+    findSubjectByIdOrThrow: jest.Mock;
+    findYearByIdOrThrow: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockPrisma = createMockPrisma();
@@ -330,7 +340,9 @@ describe('ClassesService — update', () => {
   });
 
   it('should throw NotFoundException when year_group_id FK not found', async () => {
-    updAcademicFacade.findYearGroupByIdOrThrow.mockRejectedValue(new NotFoundException({ code: 'YEAR_GROUP_NOT_FOUND', message: 'Not found' }));
+    updAcademicFacade.findYearGroupByIdOrThrow.mockRejectedValue(
+      new NotFoundException({ code: 'YEAR_GROUP_NOT_FOUND', message: 'Not found' }),
+    );
 
     await expect(
       service.update(TENANT_ID, CLASS_ID, { year_group_id: 'nonexistent' }),
@@ -819,7 +831,11 @@ describe('ClassesService — update (FK validation)', () => {
   let service: ClassesService;
   let mockPrisma: ReturnType<typeof createMockPrisma>;
   let mockRedis: ReturnType<typeof createMockRedis>;
-  let fkAcademicFacade: { findSubjectByIdOrThrow: jest.Mock; findYearGroupByIdOrThrow: jest.Mock; findYearByIdOrThrow: jest.Mock };
+  let fkAcademicFacade: {
+    findSubjectByIdOrThrow: jest.Mock;
+    findYearGroupByIdOrThrow: jest.Mock;
+    findYearByIdOrThrow: jest.Mock;
+  };
   let fkStaffProfileFacade: { existsOrThrow: jest.Mock };
 
   beforeEach(async () => {
@@ -857,7 +873,9 @@ describe('ClassesService — update (FK validation)', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should throw NotFoundException when subject_id FK not found', async () => {
-    fkAcademicFacade.findSubjectByIdOrThrow.mockRejectedValue(new NotFoundException({ code: 'SUBJECT_NOT_FOUND', message: 'Subject not found' }));
+    fkAcademicFacade.findSubjectByIdOrThrow.mockRejectedValue(
+      new NotFoundException({ code: 'SUBJECT_NOT_FOUND', message: 'Subject not found' }),
+    );
 
     await expect(
       service.update(TENANT_ID, CLASS_ID, { subject_id: 'nonexistent-subject' }),
@@ -865,7 +883,9 @@ describe('ClassesService — update (FK validation)', () => {
   });
 
   it('should throw NotFoundException when homeroom_teacher_staff_id FK not found', async () => {
-    fkStaffProfileFacade.existsOrThrow.mockRejectedValue(new NotFoundException({ code: 'STAFF_NOT_FOUND', message: 'Staff not found' }));
+    fkStaffProfileFacade.existsOrThrow.mockRejectedValue(
+      new NotFoundException({ code: 'STAFF_NOT_FOUND', message: 'Staff not found' }),
+    );
 
     await expect(
       service.update(TENANT_ID, CLASS_ID, { homeroom_teacher_staff_id: 'nonexistent-staff' }),
@@ -873,7 +893,6 @@ describe('ClassesService — update (FK validation)', () => {
   });
 
   it('should allow update when subject_id FK exists', async () => {
-
     await service.update(TENANT_ID, CLASS_ID, { subject_id: 'subject-1' });
 
     expect(mockRlsTx.class.update).toHaveBeenCalledWith(

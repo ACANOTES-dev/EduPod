@@ -1,8 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, ChildProtectionReadFacade } from '../../../common/tests/mock-facades';
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import {
+  MOCK_FACADE_PROVIDERS,
+  ChildProtectionReadFacade,
+} from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { PastoralDsarService } from './pastoral-dsar.service';
@@ -113,7 +116,11 @@ const makeReview = (overrides: Record<string, unknown> = {}) => ({
 describe('PastoralDsarService', () => {
   let service: PastoralDsarService;
   let mockPrisma: Record<string, unknown>;
-  let mockCpFacade: { hasActiveCpAccess: jest.Mock; findFallbackGrantUserId: jest.Mock; findDlpUserIds: jest.Mock };
+  let mockCpFacade: {
+    hasActiveCpAccess: jest.Mock;
+    findFallbackGrantUserId: jest.Mock;
+    findDlpUserIds: jest.Mock;
+  };
   let mockPastoralEventService: { write: jest.Mock };
 
   beforeEach(async () => {

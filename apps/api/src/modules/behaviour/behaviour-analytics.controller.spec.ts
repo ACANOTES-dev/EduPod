@@ -3,8 +3,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 
-import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade } from '../../common/tests/mock-facades';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
+import { MOCK_FACADE_PROVIDERS, ConfigurationReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourAIService } from './behaviour-ai.service';

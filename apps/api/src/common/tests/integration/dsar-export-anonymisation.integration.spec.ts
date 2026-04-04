@@ -29,7 +29,7 @@ const PARENT_ID = 'parent-uuid-integration-005';
 // ─── Mock factories ──────────────────────────────────────────────────────────
 
 const buildMockPrisma = () => {
-  const prisma: Record<string, Record<string, jest.Mock>> & { $transaction: jest.Mock } = {
+  const prisma = {
     complianceRequest: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
@@ -51,7 +51,9 @@ const buildMockPrisma = () => {
     },
     $transaction: jest.fn(),
   };
-  prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma));
+  prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+    fn(prisma),
+  );
   return prisma;
 };
 

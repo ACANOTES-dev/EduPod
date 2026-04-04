@@ -34,19 +34,6 @@
         }
       ]
     },
-    "apps/api/src/modules/staff-wellbeing/services/workload-compute.service.ts": {
-      "reason": "Workload calculations mix personal, aggregate, and trend concerns; budgets help keep future additions inside the extracted helpers rather than back in the facade.",
-      "budgets": [
-        {
-          "name": "WorkloadComputeService.getAggregateTimetableQuality::closure@617",
-          "max": 12
-        },
-        {
-          "name": "WorkloadComputeService.getAggregateWorkloadSummary::closure@459",
-          "max": 10
-        }
-      ]
-    },
     "apps/api/src/modules/gradebook/report-cards/report-cards.service.ts": {
       "reason": "Report cards remain a high-change module with lifecycle orchestration, approval flow, and query responsibilities that can regress into a god service without guardrails.",
       "budgets": [
@@ -57,23 +44,6 @@
         {
           "name": "ReportCardsService.update",
           "max": 10
-        }
-      ]
-    },
-    "apps/api/src/modules/households/households.service.ts": {
-      "reason": "Household operations (create, merge, split) coordinate multi-entity writes across students, parents, addresses, and contacts with complex validation logic.",
-      "budgets": [
-        {
-          "name": "HouseholdsService.split::closure@903",
-          "max": 12
-        },
-        {
-          "name": "HouseholdsService.create::closure@116",
-          "max": 11
-        },
-        {
-          "name": "HouseholdsService.merge::closure@726",
-          "max": 11
         }
       ]
     },
@@ -94,24 +64,7 @@
         }
       ]
     },
-    "apps/api/src/modules/behaviour/behaviour-sanctions.service.ts": {
-      "reason": "Sanction lifecycle involves creation with approval routing, conflict detection, and status transition logic that can grow unbounded without guardrails.",
-      "budgets": [
-        {
-          "name": "BehaviourSanctionsService.create::closure@55",
-          "max": 27
-        },
-        {
-          "name": "BehaviourSanctionsService.update::closure@412",
-          "max": 24
-        },
-        {
-          "name": "BehaviourSanctionsService.checkConflicts",
-          "max": 16
-        }
-      ]
-    },
-    "apps/api/src/modules/behaviour/safeguarding-concerns.service.ts": {
+    "apps/api/src/modules/safeguarding/safeguarding-concerns.service.ts": {
       "reason": "Safeguarding concern reporting and triage involves access-controlled detail mapping, multi-step status transitions, and sensitive data handling.",
       "budgets": [
         {
@@ -136,46 +89,12 @@
           "max": 30
         },
         {
-          "name": "PastoralDsarService.routeForReview::closure@162",
+          "name": "PastoralDsarService.routeForReview::closure@164",
           "max": 22
         },
         {
           "name": "PastoralDsarService.fetchEntityRecord",
           "max": 20
-        }
-      ]
-    },
-    "apps/api/src/modules/attendance/attendance-upload.service.ts": {
-      "reason": "Attendance bulk upload parses CSV/XLSX with row-level validation, conflict detection, and transactional commit that concentrates branching in a single flow.",
-      "budgets": [
-        {
-          "name": "AttendanceUploadService.processUpload",
-          "max": 27
-        },
-        {
-          "name": "AttendanceUploadService.parseXlsx",
-          "max": 17
-        },
-        {
-          "name": "AttendanceUploadService.parseCsv",
-          "max": 14
-        }
-      ]
-    },
-    "apps/api/src/modules/behaviour/behaviour.service.ts": {
-      "reason": "Core behaviour incident service with the highest single-function complexity in the codebase; createIncident orchestrates validation, participant handling, escalation, and notification dispatch.",
-      "budgets": [
-        {
-          "name": "BehaviourService.createIncident::closure@71",
-          "max": 48
-        },
-        {
-          "name": "BehaviourService.addParticipant::closure@787",
-          "max": 21
-        },
-        {
-          "name": "BehaviourService.listIncidents",
-          "max": 19
         }
       ]
     },
@@ -200,7 +119,7 @@
       "reason": "Homework service manages CRUD, recurrence generation, and bulk operations with date computation and validation branching.",
       "budgets": [
         {
-          "name": "HomeworkService.update::closure@250",
+          "name": "HomeworkService.update::closure@252",
           "max": 19
         },
         {
@@ -208,7 +127,7 @@
           "max": 19
         },
         {
-          "name": "HomeworkService.bulkCreate::closure@894",
+          "name": "HomeworkService.bulkCreate::closure@892",
           "max": 16
         }
       ]
@@ -298,22 +217,22 @@
   },
   "lineBudgets": {
     "apps/api/src/modules/staff-wellbeing/services/workload-compute.service.ts": {
-      "max": 1211,
-      "reason": "Workload compute service mixes personal, aggregate, and trend logic across 1161 lines"
+      "max": 372,
+      "reason": "Workload compute service mixes personal, aggregate, and trend logic now thin facade, across 322 lines"
     },
     "apps/api/src/modules/households/households.service.ts": {
-      "max": 1173,
-      "reason": "Household CRUD with merge/split orchestration across 1123 lines"
+      "max": 234,
+      "reason": "Household CRUD with merge/split orchestration now thin facade, across 184 lines"
     },
     "apps/api/src/modules/homework/homework-analytics.service.ts": {
       "max": 1139,
       "reason": "Homework analytics with trend/correlation/pattern queries across 1089 lines"
     },
     "apps/api/src/modules/behaviour/behaviour-sanctions.service.ts": {
-      "max": 1129,
-      "reason": "Sanction lifecycle with approval routing and conflict detection across 1079 lines"
+      "max": 167,
+      "reason": "Sanction lifecycle with approval routing and conflict detection now thin facade, across 117 lines"
     },
-    "apps/api/src/modules/behaviour/safeguarding-concerns.service.ts": {
+    "apps/api/src/modules/safeguarding/safeguarding-concerns.service.ts": {
       "max": 1120,
       "reason": "Safeguarding concern triage and access-controlled detail mapping across 1070 lines"
     },
@@ -322,12 +241,12 @@
       "reason": "DSAR processing with multi-entity record aggregation across 1056 lines"
     },
     "apps/api/src/modules/attendance/attendance-upload.service.ts": {
-      "max": 1091,
-      "reason": "Bulk attendance upload with CSV/XLSX parsing and validation across 1041 lines"
+      "max": 148,
+      "reason": "Bulk attendance upload with CSV/XLSX parsing and validation now thin facade, across 98 lines"
     },
     "apps/api/src/modules/behaviour/behaviour.service.ts": {
-      "max": 1062,
-      "reason": "Core behaviour incident service with the highest single-function complexity across 1012 lines"
+      "max": 146,
+      "reason": "Core behaviour incident service with the highest single-function complexity now thin facade, across 96 lines"
     },
     "apps/api/src/modules/behaviour/behaviour-appeals.service.ts": {
       "max": 1038,

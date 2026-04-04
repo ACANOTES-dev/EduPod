@@ -2502,7 +2502,8 @@
     "filterAllTypes": "All Types",
     "filterAll": "All",
     "filterActive": "Active",
-    "filterInactive": "Inactive"
+    "filterInactive": "Inactive",
+    "eGMath": "e.g. MATH"
   },
   "promotion": {
     "title": "Promotion Wizard",
@@ -10053,5 +10054,12 @@
     },
     "badge": "SEN",
     "reportTabs": "Report tabs"
-  }
+  },
+  "approved": "Approved",
+  "cancelled": "Cancelled",
+  "failedCallbacks": "Failed Callbacks",
+  "mfaQrCode": "MFA QR Code",
+  "noApprovalRequests": "No approval requests",
+  "pending": "Pending",
+  "rejected": "Rejected"
 }

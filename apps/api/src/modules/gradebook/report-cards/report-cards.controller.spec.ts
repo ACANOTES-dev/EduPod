@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS } from '../../../common/tests/mock-facades';
 import { AuthGuard } from '../../../common/guards/auth.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
+import { MOCK_FACADE_PROVIDERS } from '../../../common/tests/mock-facades';
 import { PdfRenderingService } from '../../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
