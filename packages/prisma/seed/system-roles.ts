@@ -69,6 +69,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'schedule.view_own',
       'schedule.manage_own_preferences',
       'schedule.view_own_satisfaction',
+      // Search
+      'search.view',
       // Students & Attendance
       'students.manage',
       'students.view',
@@ -131,6 +133,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     display_name: 'School Principal',
     role_tier: 'admin',
     default_permissions: [
+      // Search
+      'search.view',
       // Users & Roles
       'users.manage',
       'users.invite',
@@ -228,6 +232,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     display_name: 'Admin',
     role_tier: 'admin',
     default_permissions: [
+      'search.view',
       'users.manage',
       'users.invite',
       'users.view',
