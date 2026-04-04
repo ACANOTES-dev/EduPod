@@ -2,6 +2,8 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
+import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
+import { GradebookReadFacade } from '../gradebook/gradebook-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AcademicPeriodsService } from './academic-periods.service';
@@ -42,6 +44,16 @@ const mockPrisma = {
     count: jest.fn(),
     update: jest.fn(),
   },
+};
+
+// ─── Facade mocks ────────────────────────────────────────────────────────────
+
+const mockAttendanceReadFacade = {
+  countSessions: jest.fn(),
+};
+
+const mockGradebookReadFacade = {
+  countAssessmentsByPeriodAndStatus: jest.fn(),
 };
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -85,7 +97,12 @@ describe('AcademicPeriodsService', () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AcademicPeriodsService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        AcademicPeriodsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AttendanceReadFacade, useValue: mockAttendanceReadFacade },
+        { provide: GradebookReadFacade, useValue: mockGradebookReadFacade },
+      ],
     }).compile();
 
     service = module.get<AcademicPeriodsService>(AcademicPeriodsService);
@@ -488,11 +505,13 @@ describe('AcademicPeriodsService', () => {
       expect(result).toEqual(updated);
     });
 
-    it('should allow active -> closed status transition', async () => {
+    it('should allow active -> closed status transition with no warnings', async () => {
       mockPrisma.academicPeriod.findFirst.mockResolvedValueOnce({
         ...basePeriod,
         status: 'active',
       });
+      mockAttendanceReadFacade.countSessions.mockResolvedValueOnce(0);
+      mockGradebookReadFacade.countAssessmentsByPeriodAndStatus.mockResolvedValueOnce(0);
       const updated = { ...basePeriod, status: 'closed' };
       mockRlsTx.academicPeriod.update.mockResolvedValueOnce(updated);
 
@@ -502,6 +521,7 @@ describe('AcademicPeriodsService', () => {
         where: { id: PERIOD_ID },
         data: { status: 'closed' },
       });
+      // When no warnings, returns the raw period (backward compatible)
       expect(result).toEqual(updated);
     });
 
@@ -604,6 +624,147 @@ describe('AcademicPeriodsService', () => {
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'ACADEMIC_PERIOD_NOT_FOUND',
       });
+    });
+
+    // ─── Pre-closure validation (DZ-06) ──────────────────────────────────────
+
+    it('should return warnings with pending attendance when closing a period', async () => {
+      mockPrisma.academicPeriod.findFirst.mockResolvedValueOnce({
+        ...basePeriod,
+        status: 'active',
+      });
+      mockAttendanceReadFacade.countSessions.mockResolvedValueOnce(5);
+      mockGradebookReadFacade.countAssessmentsByPeriodAndStatus.mockResolvedValueOnce(0);
+      const updated = { ...basePeriod, status: 'closed' };
+      mockRlsTx.academicPeriod.update.mockResolvedValueOnce(updated);
+
+      const result = await service.updateStatus(TENANT_ID, PERIOD_ID, 'closed');
+
+      expect(result).toEqual({
+        data: updated,
+        warnings: [
+          {
+            type: 'PENDING_ATTENDANCE',
+            count: 5,
+            message: expect.stringContaining('5 attendance session(s)'),
+          },
+        ],
+      });
+      // Should still perform the status update despite warnings
+      expect(mockRlsTx.academicPeriod.update).toHaveBeenCalledWith({
+        where: { id: PERIOD_ID },
+        data: { status: 'closed' },
+      });
+    });
+
+    it('should return warnings with open assessments when closing a period', async () => {
+      mockPrisma.academicPeriod.findFirst.mockResolvedValueOnce({
+        ...basePeriod,
+        status: 'active',
+      });
+      mockAttendanceReadFacade.countSessions.mockResolvedValueOnce(0);
+      mockGradebookReadFacade.countAssessmentsByPeriodAndStatus.mockResolvedValueOnce(3);
+      const updated = { ...basePeriod, status: 'closed' };
+      mockRlsTx.academicPeriod.update.mockResolvedValueOnce(updated);
+
+      const result = await service.updateStatus(TENANT_ID, PERIOD_ID, 'closed');
+
+      expect(result).toEqual({
+        data: updated,
+        warnings: [
+          {
+            type: 'OPEN_ASSESSMENTS',
+            count: 3,
+            message: expect.stringContaining('3 assessment(s)'),
+          },
+        ],
+      });
+      expect(mockRlsTx.academicPeriod.update).toHaveBeenCalledWith({
+        where: { id: PERIOD_ID },
+        data: { status: 'closed' },
+      });
+    });
+
+    it('should return both warnings when closing a period with pending attendance and open assessments', async () => {
+      mockPrisma.academicPeriod.findFirst.mockResolvedValueOnce({
+        ...basePeriod,
+        status: 'active',
+      });
+      mockAttendanceReadFacade.countSessions.mockResolvedValueOnce(7);
+      mockGradebookReadFacade.countAssessmentsByPeriodAndStatus.mockResolvedValueOnce(2);
+      const updated = { ...basePeriod, status: 'closed' };
+      mockRlsTx.academicPeriod.update.mockResolvedValueOnce(updated);
+
+      const result = await service.updateStatus(TENANT_ID, PERIOD_ID, 'closed');
+
+      expect(result).toEqual({
+        data: updated,
+        warnings: [
+          {
+            type: 'PENDING_ATTENDANCE',
+            count: 7,
+            message: expect.stringContaining('7 attendance session(s)'),
+          },
+          {
+            type: 'OPEN_ASSESSMENTS',
+            count: 2,
+            message: expect.stringContaining('2 assessment(s)'),
+          },
+        ],
+      });
+    });
+
+    it('should query attendance sessions within the period date range via facade', async () => {
+      mockPrisma.academicPeriod.findFirst.mockResolvedValueOnce({
+        ...basePeriod,
+        status: 'active',
+      });
+      mockAttendanceReadFacade.countSessions.mockResolvedValueOnce(0);
+      mockGradebookReadFacade.countAssessmentsByPeriodAndStatus.mockResolvedValueOnce(0);
+      const updated = { ...basePeriod, status: 'closed' };
+      mockRlsTx.academicPeriod.update.mockResolvedValueOnce(updated);
+
+      await service.updateStatus(TENANT_ID, PERIOD_ID, 'closed');
+
+      expect(mockAttendanceReadFacade.countSessions).toHaveBeenCalledWith(TENANT_ID, {
+        dateRange: { from: basePeriod.start_date, to: basePeriod.end_date },
+        status: 'open',
+      });
+    });
+
+    it('should query assessments by academic_period_id for draft and open statuses via facade', async () => {
+      mockPrisma.academicPeriod.findFirst.mockResolvedValueOnce({
+        ...basePeriod,
+        status: 'active',
+      });
+      mockAttendanceReadFacade.countSessions.mockResolvedValueOnce(0);
+      mockGradebookReadFacade.countAssessmentsByPeriodAndStatus.mockResolvedValueOnce(0);
+      const updated = { ...basePeriod, status: 'closed' };
+      mockRlsTx.academicPeriod.update.mockResolvedValueOnce(updated);
+
+      await service.updateStatus(TENANT_ID, PERIOD_ID, 'closed');
+
+      expect(mockGradebookReadFacade.countAssessmentsByPeriodAndStatus).toHaveBeenCalledWith(
+        TENANT_ID,
+        PERIOD_ID,
+        ['draft', 'open'],
+      );
+    });
+
+    it('should not run pre-closure checks for planned -> active transition', async () => {
+      mockPrisma.academicPeriod.findFirst.mockResolvedValueOnce({
+        ...basePeriod,
+        status: 'planned',
+      });
+      const updated = { ...basePeriod, status: 'active' };
+      mockRlsTx.academicPeriod.update.mockResolvedValueOnce(updated);
+
+      const result = await service.updateStatus(TENANT_ID, PERIOD_ID, 'active');
+
+      expect(mockAttendanceReadFacade.countSessions).not.toHaveBeenCalled();
+      expect(mockGradebookReadFacade.countAssessmentsByPeriodAndStatus).not.toHaveBeenCalled();
+      // Returns raw period (no warnings wrapper)
+      expect(result).toEqual(updated);
     });
   });
 });

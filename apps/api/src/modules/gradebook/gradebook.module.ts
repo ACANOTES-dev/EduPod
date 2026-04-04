@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 
 import { AcademicsModule } from '../academics/academics.module';
 import { AiModule } from '../ai/ai.module';
@@ -44,7 +44,7 @@ import { YearGroupGradeWeightsService } from './year-group-grade-weights.service
 
 @Module({
   imports: [
-    AcademicsModule,
+    forwardRef(() => AcademicsModule),
     AiModule,
     AuthModule,
     CommunicationsModule,

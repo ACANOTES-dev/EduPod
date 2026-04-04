@@ -101,6 +101,7 @@ import { ModerationScanProcessor } from './processors/wellbeing/moderation-scan.
 import { SurveyClosingReminderProcessor } from './processors/wellbeing/survey-closing-reminder.processor';
 import { SurveyOpenNotifyProcessor } from './processors/wellbeing/survey-open-notify.processor';
 import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metrics.processor';
+import { ClamavScannerService } from './services/clamav-scanner.service';
 
 const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
 
@@ -327,6 +328,8 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
         return client;
       },
     },
+    // Shared services
+    ClamavScannerService,
     // Health service
     WorkerHealthService,
     // Approvals queue processors

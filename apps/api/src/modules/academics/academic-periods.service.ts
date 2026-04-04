@@ -1,18 +1,29 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
+  Logger,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
+import { GradebookReadFacade } from '../gradebook/gradebook-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import type { CreateAcademicPeriodDto } from './dto/create-academic-period.dto';
 import type { UpdateAcademicPeriodDto } from './dto/update-academic-period.dto';
 
 type AcademicPeriodStatus = 'planned' | 'active' | 'closed';
+
+interface ClosureWarning {
+  type: 'PENDING_ATTENDANCE' | 'OPEN_ASSESSMENTS';
+  count: number;
+  message: string;
+}
 
 const VALID_STATUS_TRANSITIONS: Record<AcademicPeriodStatus, AcademicPeriodStatus[]> = {
   planned: ['active'],
@@ -22,7 +33,14 @@ const VALID_STATUS_TRANSITIONS: Record<AcademicPeriodStatus, AcademicPeriodStatu
 
 @Injectable()
 export class AcademicPeriodsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(AcademicPeriodsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly attendanceReadFacade: AttendanceReadFacade,
+    @Inject(forwardRef(() => GradebookReadFacade))
+    private readonly gradebookReadFacade: GradebookReadFacade,
+  ) {}
 
   async create(tenantId: string, yearId: string, dto: CreateAcademicPeriodDto) {
     // Verify the parent academic year exists and belongs to this tenant
@@ -177,14 +195,88 @@ export class AcademicPeriodsService {
       });
     }
 
+    // ─── Pre-closure validation (DZ-06) ───────────────────────────────────────
+    // When closing a period, check for pending attendance and open assessments.
+    // These are warnings, not hard blocks — the admin can still proceed.
+    const warnings: ClosureWarning[] = [];
+
+    if (status === 'closed') {
+      warnings.push(...(await this.gatherClosureWarnings(tenantId, period)));
+    }
+
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    return prismaWithRls.$transaction(async (tx) => {
+    const updated = await prismaWithRls.$transaction(async (tx) => {
       return (tx as unknown as PrismaService).academicPeriod.update({
         where: { id },
         data: { status },
       });
     });
+
+    if (warnings.length > 0) {
+      return { data: updated, warnings };
+    }
+
+    return updated;
+  }
+
+  // ─── Pre-closure warning checks (DZ-06) ──────────────────────────────────
+
+  /** Gather warnings about pending work before closing an academic period. */
+  private async gatherClosureWarnings(
+    tenantId: string,
+    period: { id: string; start_date: Date; end_date: Date },
+  ): Promise<ClosureWarning[]> {
+    const warnings: ClosureWarning[] = [];
+
+    const [pendingAttendanceCount, openAssessmentCount] = await Promise.all([
+      this.countPendingAttendanceSessions(tenantId, period.start_date, period.end_date),
+      this.countOpenAssessments(tenantId, period.id),
+    ]);
+
+    if (pendingAttendanceCount > 0) {
+      this.logger.warn(
+        `Closing period ${period.id} with ${pendingAttendanceCount} pending attendance session(s)`,
+      );
+      warnings.push({
+        type: 'PENDING_ATTENDANCE',
+        count: pendingAttendanceCount,
+        message: `${pendingAttendanceCount} attendance session(s) are still open/unmarked within this period's date range`,
+      });
+    }
+
+    if (openAssessmentCount > 0) {
+      this.logger.warn(
+        `Closing period ${period.id} with ${openAssessmentCount} open/draft assessment(s)`,
+      );
+      warnings.push({
+        type: 'OPEN_ASSESSMENTS',
+        count: openAssessmentCount,
+        message: `${openAssessmentCount} assessment(s) are still in draft or open status for this period`,
+      });
+    }
+
+    return warnings;
+  }
+
+  /** Count attendance sessions with 'open' status whose date falls within the period range. */
+  private async countPendingAttendanceSessions(
+    tenantId: string,
+    periodStart: Date,
+    periodEnd: Date,
+  ): Promise<number> {
+    return this.attendanceReadFacade.countSessions(tenantId, {
+      dateRange: { from: periodStart, to: periodEnd },
+      status: 'open',
+    });
+  }
+
+  /** Count assessments in 'draft' or 'open' status linked to this academic period. */
+  private async countOpenAssessments(tenantId: string, periodId: string): Promise<number> {
+    return this.gradebookReadFacade.countAssessmentsByPeriodAndStatus(tenantId, periodId, [
+      'draft',
+      'open',
+    ]);
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────

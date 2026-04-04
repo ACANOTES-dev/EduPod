@@ -256,6 +256,26 @@ export interface ProgressReportRow {
 export class GradebookReadFacade {
   constructor(private readonly prisma: PrismaService) {}
 
+  // ─── Assessment Counts ──────────────────────────────────────────────────────
+
+  /**
+   * Count assessments for a given academic period filtered by status.
+   * Used by academic period pre-closure validation (DZ-06).
+   */
+  async countAssessmentsByPeriodAndStatus(
+    tenantId: string,
+    periodId: string,
+    statuses: string[],
+  ): Promise<number> {
+    return this.prisma.assessment.count({
+      where: {
+        tenant_id: tenantId,
+        academic_period_id: periodId,
+        status: { in: statuses as ('draft' | 'open' | 'closed' | 'locked')[] },
+      },
+    });
+  }
+
   // ─── Grades ─────────────────────────────────────────────────────────────────
 
   /**

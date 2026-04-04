@@ -1,12 +1,12 @@
-import { existsSync } from 'fs';
-
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
+import { downloadBufferFromS3 } from '../../base/s3.helpers';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
+import { ClamavScannerService } from '../../services/clamav-scanner.service';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
 
@@ -29,7 +29,10 @@ export const ATTACHMENT_SCAN_JOB = 'behaviour:attachment-scan';
 export class AttachmentScanProcessor extends WorkerHost {
   private readonly logger = new Logger(AttachmentScanProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly clamavScanner: ClamavScannerService,
+  ) {
     super();
   }
 
@@ -48,7 +51,7 @@ export class AttachmentScanProcessor extends WorkerHost {
       `Processing ${ATTACHMENT_SCAN_JOB} — attachment ${job.data.attachment_id}, file_key ${job.data.file_key}`,
     );
 
-    const scanJob = new AttachmentScanJob(this.prisma);
+    const scanJob = new AttachmentScanJob(this.prisma, this.clamavScanner);
     await scanJob.execute(job.data);
   }
 }
@@ -58,8 +61,15 @@ export class AttachmentScanProcessor extends WorkerHost {
 class AttachmentScanJob extends TenantAwareJob<AttachmentScanPayload> {
   private readonly logger = new Logger(AttachmentScanJob.name);
 
+  constructor(
+    prisma: PrismaClient,
+    private readonly clamavScanner: ClamavScannerService,
+  ) {
+    super(prisma);
+  }
+
   protected async processJob(data: AttachmentScanPayload, tx: PrismaClient): Promise<void> {
-    const { tenant_id, attachment_id } = data;
+    const { tenant_id, attachment_id, file_key } = data;
 
     // 1. Load attachment record
     const attachment = await tx.behaviourAttachment.findFirst({
@@ -79,13 +89,10 @@ class AttachmentScanJob extends TenantAwareJob<AttachmentScanPayload> {
       return;
     }
 
-    // 3. ClamAV graceful fallback
-    const clamavSocket = '/var/run/clamav/clamd.ctl';
-    const clamavAvailable = existsSync(clamavSocket);
-
-    if (!clamavAvailable) {
+    // 3. ClamAV graceful fallback — dev environments without ClamAV daemon
+    if (!this.clamavScanner.isAvailable()) {
       this.logger.warn(
-        `ClamAV socket not found at ${clamavSocket} — auto-approving attachment ${attachment_id} as clean (development fallback)`,
+        `ClamAV unavailable — auto-approving attachment ${attachment_id} as clean (development fallback)`,
       );
 
       await tx.behaviourAttachment.update({
@@ -100,20 +107,68 @@ class AttachmentScanJob extends TenantAwareJob<AttachmentScanPayload> {
       return;
     }
 
-    // 4. Production path: ClamAV is available — scan would happen here
-    // TODO: Implement actual ClamAV scanning via unix socket
-    this.logger.log(
-      `ClamAV available — would scan attachment ${attachment_id} (file_key: ${data.file_key})`,
+    // 4. Download file from S3 for scanning
+    let fileBuffer: Buffer;
+    try {
+      fileBuffer = await downloadBufferFromS3(file_key);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown S3 download error';
+      this.logger.error(`Failed to download file for attachment ${attachment_id}: ${message}`);
+
+      await tx.behaviourAttachment.update({
+        where: { id: attachment_id },
+        data: {
+          scan_status: 'scan_failed',
+          scanned_at: new Date(),
+        },
+      });
+      return;
+    }
+
+    // 5. Scan the file buffer with ClamAV
+    const scanResult = await this.clamavScanner.scanBuffer(fileBuffer);
+
+    if (scanResult.clean) {
+      // File is clean — mark as approved
+      await tx.behaviourAttachment.update({
+        where: { id: attachment_id },
+        data: {
+          scan_status: 'clean',
+          scanned_at: new Date(),
+        },
+      });
+
+      this.logger.log(`Attachment ${attachment_id} scan complete — clean`);
+      return;
+    }
+
+    if (scanResult.virus_name) {
+      // Malware detected — quarantine the file
+      this.logger.warn(
+        `Malware detected in attachment ${attachment_id}: ${scanResult.virus_name} — marking as infected`,
+      );
+
+      await tx.behaviourAttachment.update({
+        where: { id: attachment_id },
+        data: {
+          scan_status: 'infected',
+          scanned_at: new Date(),
+        },
+      });
+      return;
+    }
+
+    // Scanner returned an error (socket failure, timeout, unexpected response)
+    this.logger.error(
+      `ClamAV scan error for attachment ${attachment_id}: ${scanResult.error ?? 'unknown error'}`,
     );
 
     await tx.behaviourAttachment.update({
       where: { id: attachment_id },
       data: {
-        scan_status: 'clean',
+        scan_status: 'scan_failed',
         scanned_at: new Date(),
       },
     });
-
-    this.logger.log(`Attachment ${attachment_id} scan complete — clean`);
   }
 }

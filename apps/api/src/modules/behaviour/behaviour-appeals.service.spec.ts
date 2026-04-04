@@ -57,9 +57,7 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest
-      .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest.fn().mockImplementation(async (fn) => fn(mockRlsTx)),
   }),
 }));
 
@@ -211,6 +209,7 @@ describe('BehaviourAppealsService', () => {
         tenant_id: TENANT_ID,
         appeal_number: 'AP-202603-000001',
         status: 'under_review',
+        student_id: STUDENT_ID,
         incident_id: INCIDENT_ID,
         sanction_id: SANCTION_ID,
         incident: {
@@ -339,6 +338,27 @@ describe('BehaviourAppealsService', () => {
       );
     });
 
+    it('should use 15s transaction timeout guard (DZ-17)', async () => {
+      setupDecideMocks({ sanctionStatus: 'appealed' });
+
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { createRlsClient } = require('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      const rlsReturnValue = createRlsClient() as { $transaction: jest.Mock };
+      const mockTxFn = rlsReturnValue.$transaction;
+
+      await service.decide(TENANT_ID, APPEAL_ID, USER_ID, {
+        decision: 'upheld_original',
+        decision_reasoning: 'Decision stands',
+      });
+
+      // The decide method calls $transaction with the callback and { timeout: 15000 }
+      const txCalls = mockTxFn.mock.calls;
+      const decideCall = txCalls[txCalls.length - 1];
+      expect(decideCall[1]).toEqual({ timeout: 15000 });
+    });
+
     it('edge: decide endpoint must be atomic - if amendment notice creation fails, entire transaction rolls back', async () => {
       setupDecideMocks({ sanctionStatus: 'appealed' });
       mockAmendmentsService.createAmendmentNotice.mockRejectedValue(
@@ -399,6 +419,7 @@ describe('BehaviourAppealsService', () => {
         tenant_id: TENANT_ID,
         appeal_number: 'AP-202603-000001',
         status: 'decided',
+        student_id: STUDENT_ID,
         incident_id: INCIDENT_ID,
         sanction_id: SANCTION_ID,
         incident: { id: INCIDENT_ID, status: 'confirmed' },
@@ -420,6 +441,7 @@ describe('BehaviourAppealsService', () => {
         tenant_id: TENANT_ID,
         appeal_number: 'AP-202603-000001',
         status: 'withdrawn_appeal',
+        student_id: STUDENT_ID,
         incident_id: INCIDENT_ID,
         sanction_id: SANCTION_ID,
         incident: { id: INCIDENT_ID, status: 'confirmed' },

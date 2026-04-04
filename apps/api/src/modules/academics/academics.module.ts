@@ -1,6 +1,8 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 
+import { AttendanceModule } from '../attendance/attendance.module';
 import { AuthModule } from '../auth/auth.module';
+import { GradebookModule } from '../gradebook/gradebook.module';
 
 import { AcademicPeriodsController } from './academic-periods.controller';
 import { AcademicPeriodsService } from './academic-periods.service';
@@ -17,7 +19,7 @@ import { YearGroupsController } from './year-groups.controller';
 import { YearGroupsService } from './year-groups.service';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, AttendanceModule, forwardRef(() => GradebookModule)],
   controllers: [
     AcademicYearsController,
     AcademicPeriodsController,
