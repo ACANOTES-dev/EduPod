@@ -2,7 +2,6 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { ChildProtectionReadFacade } from '../../child-protection/child-protection-read.facade';
-
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { PastoralEventService } from './pastoral-event.service';

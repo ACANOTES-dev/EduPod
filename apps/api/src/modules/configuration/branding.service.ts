@@ -6,6 +6,7 @@ import type { UpdateBrandingDto } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 const ALLOWED_LOGO_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.svg', '.webp'];
 const ALLOWED_MIMETYPES = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp'];
@@ -16,15 +17,14 @@ export class BrandingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly s3: S3Service,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   /**
    * Get branding for a tenant.
    */
   async getBranding(tenantId: string) {
-    const branding = await this.prisma.tenantBranding.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const branding = await this.tenantReadFacade.findBranding(tenantId);
 
     if (!branding) {
       throw new NotFoundException({
@@ -51,13 +51,15 @@ export class BrandingService {
     if (data.primary_colour !== undefined) dbData.primary_color = data.primary_colour;
     if (data.secondary_colour !== undefined) dbData.secondary_color = data.secondary_colour;
 
-    return this.prisma.tenantBranding.upsert({
-      where: { tenant_id: tenantId },
-      update: dbData,
-      create: {
-        tenant_id: tenantId,
-        ...dbData,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      return tx.tenantBranding.upsert({
+        where: { tenant_id: tenantId },
+        update: dbData,
+        create: {
+          tenant_id: tenantId,
+          ...dbData,
+        },
+      });
     });
   }
 
@@ -93,13 +95,15 @@ export class BrandingService {
     const s3Key = `logos/logo${ext}`;
     const fullKey = await this.s3.upload(tenantId, s3Key, file.buffer, file.mimetype);
 
-    const branding = await this.prisma.tenantBranding.upsert({
-      where: { tenant_id: tenantId },
-      update: { logo_url: fullKey },
-      create: {
-        tenant_id: tenantId,
-        logo_url: fullKey,
-      },
+    const branding = await this.prisma.$transaction(async (tx) => {
+      return tx.tenantBranding.upsert({
+        where: { tenant_id: tenantId },
+        update: { logo_url: fullKey },
+        create: {
+          tenant_id: tenantId,
+          logo_url: fullKey,
+        },
+      });
     });
 
     return branding;

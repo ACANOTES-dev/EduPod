@@ -257,4 +257,65 @@ export class StaffProfileReadFacade {
       ...(options?.orderBy && { orderBy: options.orderBy }),
     });
   }
+
+  /**
+   * Generic findMany for staff profiles with arbitrary where/select/skip/take.
+   * Used by reports-data-access for staff data queries.
+   */
+  async findManyGeneric(
+    tenantId: string,
+    options: {
+      where?: Prisma.StaffProfileWhereInput;
+      select?: Prisma.StaffProfileSelect;
+      skip?: number;
+      take?: number;
+    },
+  ): Promise<unknown[]> {
+    return this.prisma.staffProfile.findMany({
+      where: { tenant_id: tenantId, ...options.where },
+      ...(options.select && { select: options.select }),
+      ...(options.skip !== undefined && { skip: options.skip }),
+      ...(options.take !== undefined && { take: options.take }),
+    });
+  }
+
+  /**
+   * Group staff profiles by one or more scalar fields with counts.
+   * Used by reports-data-access for staff demographic groupings.
+   */
+  async groupBy<K extends Prisma.StaffProfileScalarFieldEnum>(
+    tenantId: string,
+    by: K[],
+    where?: Prisma.StaffProfileWhereInput,
+  ): Promise<Array<Record<string, unknown> & { _count: number }>> {
+    const result = await this.prisma.staffProfile.groupBy({
+      by,
+      where: { tenant_id: tenantId, ...where },
+      _count: true,
+    });
+    return result as unknown as Array<Record<string, unknown> & { _count: number }>;
+  }
+
+  /**
+   * Find staff profiles with bank encryption keys that need rotation.
+   * Used by key-rotation service to re-encrypt bank details.
+   */
+  async findWithStaleBankEncryptionKey(
+    currentKeyRef: string,
+    take: number,
+    skip: number,
+  ): Promise<unknown[]> {
+    return this.prisma.staffProfile.findMany({
+      where: {
+        bank_encryption_key_ref: {
+          not: currentKeyRef,
+        },
+        NOT: {
+          bank_encryption_key_ref: null,
+        },
+      },
+      take,
+      skip,
+    });
+  }
 }

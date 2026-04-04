@@ -8,6 +8,7 @@ import { Queue } from 'bullmq';
 
 import type { CreateInvitationDto, InvitedRolePayload } from '@school/shared';
 
+import { AuthReadFacade } from '../auth/auth-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 interface RegistrationData {
@@ -24,6 +25,7 @@ export class InvitationsService {
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
+    private readonly authReadFacade: AuthReadFacade,
   ) {}
 
   /**
@@ -48,9 +50,7 @@ export class InvitationsService {
     }
 
     // Check if user already has a membership at this tenant
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: data.email },
-    });
+    const existingUser = await this.authReadFacade.findUserByEmail(tenantId, data.email);
 
     if (existingUser) {
       const existingMembership = await this.prisma.tenantMembership.findFirst({

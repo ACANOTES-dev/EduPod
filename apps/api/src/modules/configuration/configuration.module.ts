@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { S3Module } from '../s3/s3.module';
+import { TenantsModule } from '../tenants/tenants.module';
 
 import { BrandingController } from './branding.controller';
 import { BrandingService } from './branding.service';
@@ -15,7 +16,7 @@ import { StripeConfigController } from './stripe-config.controller';
 import { StripeConfigService } from './stripe-config.service';
 
 @Module({
-  imports: [S3Module],
+  imports: [S3Module, TenantsModule],
   controllers: [
     BrandingController,
     SettingsController,

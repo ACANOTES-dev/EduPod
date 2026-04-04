@@ -1,7 +1,9 @@
 import { forwardRef, Module } from '@nestjs/common';
 
+import { AcademicsModule } from '../academics/academics.module';
 import { AdmissionsModule } from '../admissions/admissions.module';
 import { AiModule } from '../ai/ai.module';
+import { ApprovalsModule } from '../approvals/approvals.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { ClassesModule } from '../classes/classes.module';
@@ -10,7 +12,9 @@ import { ConfigurationModule } from '../configuration/configuration.module';
 import { FinanceModule } from '../finance/finance.module';
 import { GdprModule } from '../gdpr/gdpr.module';
 import { GradebookModule } from '../gradebook/gradebook.module';
+import { HouseholdsModule } from '../households/households.module';
 import { PayrollModule } from '../payroll/payroll.module';
+import { SchedulesModule } from '../schedules/schedules.module';
 import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 import { StudentsModule } from '../students/students.module';
 
@@ -40,16 +44,20 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     AiModule,
     ConfigurationModule,
     GdprModule,
-    forwardRef(() => StudentsModule),
-    forwardRef(() => StaffProfilesModule),
-    forwardRef(() => ClassesModule),
-    forwardRef(() => AttendanceModule),
-    forwardRef(() => GradebookModule),
-    forwardRef(() => FinanceModule),
+    forwardRef(() => AcademicsModule),
     forwardRef(() => AdmissionsModule),
-    forwardRef(() => PayrollModule),
-    forwardRef(() => CommunicationsModule),
+    forwardRef(() => ApprovalsModule),
+    forwardRef(() => AttendanceModule),
     forwardRef(() => AuditLogModule),
+    forwardRef(() => ClassesModule),
+    forwardRef(() => CommunicationsModule),
+    forwardRef(() => FinanceModule),
+    forwardRef(() => GradebookModule),
+    forwardRef(() => HouseholdsModule),
+    forwardRef(() => PayrollModule),
+    forwardRef(() => SchedulesModule),
+    forwardRef(() => StaffProfilesModule),
+    forwardRef(() => StudentsModule),
   ],
   controllers: [ReportsController, ReportsEnhancedController],
   providers: [

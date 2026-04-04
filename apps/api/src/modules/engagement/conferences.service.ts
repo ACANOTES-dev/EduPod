@@ -21,6 +21,7 @@ import { ConfigurationReadFacade } from '../configuration/configuration-read.fac
 import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -65,6 +66,7 @@ export class ConferencesService {
     private readonly parentReadFacade: ParentReadFacade,
     private readonly classesReadFacade: ClassesReadFacade,
     private readonly configurationReadFacade: ConfigurationReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
   ) {}
 
   // ─── Slot Generation ────────────────────────────────────────────────────
@@ -394,9 +396,7 @@ export class ConferencesService {
   async getTeacherSchedule(tenantId: string, eventId: string, userId: string) {
     await this.ensureConferenceEvent(tenantId, eventId);
 
-    const staff = await this.prisma.staffProfile.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-    });
+    const staff = await this.staffProfileReadFacade.findByUserId(tenantId, userId);
 
     if (!staff) {
       throw new NotFoundException({
@@ -696,9 +696,7 @@ export class ConferencesService {
   }
 
   private async getParentStudentIds(userId: string, tenantId: string): Promise<string[]> {
-    const parent = await this.prisma.parent.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-    });
+    const parent = await this.parentReadFacade.findByUserId(tenantId, userId);
 
     if (!parent) {
       throw new NotFoundException({
@@ -707,37 +705,15 @@ export class ConferencesService {
       });
     }
 
-    const links = await this.prisma.studentParent.findMany({
-      where: { parent_id: parent.id, tenant_id: tenantId },
-      select: { student_id: true },
-    });
-
-    return links.map((l) => l.student_id);
+    return this.parentReadFacade.findLinkedStudentIds(tenantId, parent.id);
   }
 
   private async getStudentTeacherIds(tenantId: string, studentIds: string[]): Promise<string[]> {
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
-        student_id: { in: studentIds },
-        status: 'active',
-      },
-      select: { class_id: true },
-    });
-
-    const classIds = [...new Set(enrolments.map((e) => e.class_id))];
+    const classIds = await this.classesReadFacade.findClassIdsByStudentIds(tenantId, studentIds);
 
     if (!classIds.length) return [];
 
-    const staffAssignments = await this.prisma.classStaff.findMany({
-      where: {
-        tenant_id: tenantId,
-        class_id: { in: classIds },
-      },
-      select: { staff_profile_id: true },
-    });
-
-    return [...new Set(staffAssignments.map((s) => s.staff_profile_id))];
+    return this.classesReadFacade.findStaffProfileIdsByClassIds(tenantId, classIds);
   }
 
   private async verifyParentStudentLink(
@@ -745,9 +721,7 @@ export class ConferencesService {
     tenantId: string,
     studentId: string,
   ): Promise<void> {
-    const parent = await this.prisma.parent.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-    });
+    const parent = await this.parentReadFacade.findByUserId(tenantId, userId);
 
     if (!parent) {
       throw new NotFoundException({
@@ -756,13 +730,9 @@ export class ConferencesService {
       });
     }
 
-    const link = await this.prisma.studentParent.findUnique({
-      where: {
-        student_id_parent_id: { student_id: studentId, parent_id: parent.id },
-      },
-    });
+    const isLinked = await this.parentReadFacade.isLinkedToStudent(tenantId, parent.id, studentId);
 
-    if (!link || link.tenant_id !== tenantId) {
+    if (!isLinked) {
       throw new ForbiddenException({
         code: 'NOT_LINKED_TO_STUDENT',
         message: 'You are not linked to this student',
@@ -771,9 +741,7 @@ export class ConferencesService {
   }
 
   private async isParentCancellationAllowed(tenantId: string): Promise<boolean> {
-    const tenantSettings = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const tenantSettings = await this.configurationReadFacade.findSettings(tenantId);
 
     const settings = (tenantSettings?.settings ?? {}) as Record<string, unknown>;
     const engConfig = (settings.engagement ?? {}) as Record<string, unknown>;

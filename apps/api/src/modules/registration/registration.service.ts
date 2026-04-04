@@ -8,6 +8,7 @@ import type {
 import { CONSENT_TYPES, mapConsentCaptureToTypes } from '@school/shared/gdpr';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AuthReadFacade } from '../auth/auth-read.facade';
 import { roundMoney } from '../finance/helpers/invoice-status.helper';
 import { InvoicesService } from '../finance/invoices.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -34,6 +35,7 @@ export class RegistrationService {
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
     private readonly invoicesService: InvoicesService,
+    private readonly authReadFacade: AuthReadFacade,
   ) {}
 
   // ─── Preview Fees ──────────────────────────────────────────────────────────
@@ -183,10 +185,7 @@ export class RegistrationService {
       // Look up user by email (platform-level table, no RLS)
       let primaryUserId: string | null = null;
       if (dto.primary_parent.email) {
-        const user = await this.prisma.user.findUnique({
-          where: { email: dto.primary_parent.email },
-          select: { id: true },
-        });
+        const user = await this.authReadFacade.findUserByEmail(tenantId, dto.primary_parent.email);
         if (user) {
           primaryUserId = user.id;
         }
@@ -223,10 +222,10 @@ export class RegistrationService {
       if (dto.secondary_parent) {
         let secondaryUserId: string | null = null;
         if (dto.secondary_parent.email) {
-          const user = await this.prisma.user.findUnique({
-            where: { email: dto.secondary_parent.email },
-            select: { id: true },
-          });
+          const user = await this.authReadFacade.findUserByEmail(
+            tenantId,
+            dto.secondary_parent.email,
+          );
           if (user) {
             secondaryUserId = user.id;
           }

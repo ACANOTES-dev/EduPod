@@ -310,7 +310,11 @@ export class StudentReadFacade {
    * Check if a parent-student link exists (parent-oriented).
    * Used by ParentReadFacade for authorization checks.
    */
-  async isParentLinkedToStudent(tenantId: string, parentId: string, studentId: string): Promise<boolean> {
+  async isParentLinkedToStudent(
+    tenantId: string,
+    parentId: string,
+    studentId: string,
+  ): Promise<boolean> {
     const link = await this.prisma.studentParent.findFirst({
       where: { tenant_id: tenantId, parent_id: parentId, student_id: studentId },
       select: { student_id: true },
@@ -395,7 +399,9 @@ export class StudentReadFacade {
   async findByHousehold(
     tenantId: string,
     householdId: string,
-  ): Promise<Array<{ id: string; first_name: string; last_name: string; student_number: string | null }>> {
+  ): Promise<
+    Array<{ id: string; first_name: string; last_name: string; student_number: string | null }>
+  > {
     return this.prisma.student.findMany({
       where: { household_id: householdId, tenant_id: tenantId },
       select: {
@@ -422,10 +428,7 @@ export class StudentReadFacade {
   /**
    * Count students grouped by year_group_id. Used by behaviour comparison analytics.
    */
-  async countByYearGroup(
-    tenantId: string,
-    status?: string,
-  ): Promise<Map<string, number>> {
+  async countByYearGroup(tenantId: string, status?: string): Promise<Map<string, number>> {
     const groups = await this.prisma.student.groupBy({
       by: ['year_group_id'],
       where: {
@@ -465,7 +468,9 @@ export class StudentReadFacade {
   async findByStudentNumbers(
     tenantId: string,
     studentNumbers: string[],
-  ): Promise<Array<{ id: string; student_number: string | null; first_name: string; last_name: string }>> {
+  ): Promise<
+    Array<{ id: string; student_number: string | null; first_name: string; last_name: string }>
+  > {
     if (studentNumbers.length === 0) return [];
 
     return this.prisma.student.findMany({
@@ -480,6 +485,25 @@ export class StudentReadFacade {
         last_name: true,
       },
     });
+  }
+
+  /**
+   * Find active student IDs, optionally filtered by a where clause.
+   * Used by engagement event-participants for target resolution.
+   */
+  async findActiveStudentIds(
+    tenantId: string,
+    where?: Prisma.StudentWhereInput,
+  ): Promise<string[]> {
+    const students = await this.prisma.student.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: 'active',
+        ...where,
+      },
+      select: { id: true },
+    });
+    return students.map((s) => s.id);
   }
 
   /**
@@ -524,5 +548,53 @@ export class StudentReadFacade {
       ...(options?.select && { select: options.select }),
       ...(options?.include && { include: options.include }),
     });
+  }
+
+  /**
+   * Find a student by ID with counts of dependent records.
+   * Used by imports rollback to determine if a student can be safely deleted.
+   */
+  async findWithDependencyCounts(studentId: string): Promise<{
+    id: string;
+    _count: {
+      attendance_records: number;
+      grades: number;
+      class_enrolments: number;
+      invoice_lines: number;
+      report_cards: number;
+    };
+  } | null> {
+    return this.prisma.student.findUnique({
+      where: { id: studentId },
+      select: {
+        id: true,
+        _count: {
+          select: {
+            attendance_records: true,
+            grades: true,
+            class_enrolments: true,
+            invoice_lines: true,
+            report_cards: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Group students by one or more scalar fields with counts.
+   * Used by reports-data-access for demographic groupings.
+   */
+  async groupBy<K extends Prisma.StudentScalarFieldEnum>(
+    tenantId: string,
+    by: K[],
+    where?: Prisma.StudentWhereInput,
+  ): Promise<Array<Record<string, unknown> & { _count: number }>> {
+    const result = await this.prisma.student.groupBy({
+      by,
+      where: { tenant_id: tenantId, ...where },
+      _count: true,
+    });
+    return result as unknown as Array<Record<string, unknown> & { _count: number }>;
   }
 }

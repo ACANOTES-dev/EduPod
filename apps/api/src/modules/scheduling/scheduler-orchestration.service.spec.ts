@@ -1,15 +1,11 @@
 import { getQueueToken } from '@nestjs/bullmq';
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PrismaService } from '../prisma/prisma.service';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
+import { PrismaService } from '../prisma/prisma.service';
 import { RoomsReadFacade } from '../rooms/rooms-read.facade';
 import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 import { SchedulingRunsReadFacade } from '../scheduling-runs/scheduling-runs-read.facade';
@@ -40,7 +36,9 @@ const mockTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
@@ -111,106 +109,133 @@ describe('SchedulerOrchestrationService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        { provide: AcademicReadFacade, useValue: {
-      findCurrentYear: jest.fn().mockResolvedValue(null),
-      findCurrentYearId: jest.fn().mockResolvedValue('year-1'),
-      findYearById: jest.fn().mockResolvedValue(null),
-      findYearByIdOrThrow: jest.fn().mockResolvedValue('year-1'),
-      findSubjectByIdOrThrow: jest.fn().mockResolvedValue('subject-1'),
-      findYearGroupByIdOrThrow: jest.fn().mockResolvedValue('yg-1'),
-      findYearGroupsWithActiveClasses: jest.fn().mockResolvedValue([]),
-      findYearGroupsWithClassesAndCounts: jest.fn().mockResolvedValue([]),
-      findAllYearGroups: jest.fn().mockResolvedValue([]),
-      findSubjectsByIdsWithOrder: jest.fn().mockResolvedValue([]),
-      findSubjectById: jest.fn().mockResolvedValue(null),
-      findYearGroupById: jest.fn().mockResolvedValue(null),
-      findPeriodById: jest.fn().mockResolvedValue(null),
-    } },
-        { provide: ClassesReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
-      countEnrolledStudents: jest.fn().mockResolvedValue(0),
-      findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findByYearGroup: jest.fn().mockResolvedValue([]),
-      findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
-      countByAcademicYear: jest.fn().mockResolvedValue(0),
-      findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
-      findClassIdsForStudent: jest.fn().mockResolvedValue([]),
-      findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
-    } },
-        { provide: ConfigurationReadFacade, useValue: {
-      findSettings: jest.fn().mockResolvedValue(null),
-      findSettingsJson: jest.fn().mockResolvedValue(null),
-    } },
-        { provide: RoomsReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      exists: jest.fn().mockResolvedValue(false),
-      findActiveRooms: jest.fn().mockResolvedValue([]),
-      findActiveRoomBasics: jest.fn().mockResolvedValue([]),
-      countActiveRooms: jest.fn().mockResolvedValue(0),
-      findAllClosures: jest.fn().mockResolvedValue([]),
-      findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-      findClosureById: jest.fn().mockResolvedValue(null),
-    } },
-        { provide: SchedulesReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findCoreById: jest.fn().mockResolvedValue(null),
-      existsById: jest.fn().mockResolvedValue(null),
-      findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
-      countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
-      findTeacherTimetable: jest.fn().mockResolvedValue([]),
-      findClassTimetable: jest.fn().mockResolvedValue([]),
-      findPinnedEntries: jest.fn().mockResolvedValue([]),
-      countPinnedEntries: jest.fn().mockResolvedValue(0),
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findScheduledClassIds: jest.fn().mockResolvedValue([]),
-      countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
-      count: jest.fn().mockResolvedValue(0),
-      hasRotationEntries: jest.fn().mockResolvedValue(false),
-      countByRoom: jest.fn().mockResolvedValue(0),
-      findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
-      findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
-      countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
-      findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
-      hasConflict: jest.fn().mockResolvedValue(false),
-      findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
-      findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
-    } },
-        { provide: SchedulingRunsReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findStatusById: jest.fn().mockResolvedValue(null),
-      findActiveRun: jest.fn().mockResolvedValue(null),
-      countActiveRuns: jest.fn().mockResolvedValue(0),
-      findLatestCompletedRun: jest.fn().mockResolvedValue(null),
-      findLatestRunWithResult: jest.fn().mockResolvedValue(null),
-      findLatestAppliedRun: jest.fn().mockResolvedValue(null),
-      listRuns: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-      findHistoricalRuns: jest.fn().mockResolvedValue([]),
-      findScenarioById: jest.fn().mockResolvedValue(null),
-      findScenarioStatusById: jest.fn().mockResolvedValue(null),
-      listScenarios: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-      findScenariosForComparison: jest.fn().mockResolvedValue([]),
-    } },
-        { provide: StaffAvailabilityReadFacade, useValue: {
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findByStaffIds: jest.fn().mockResolvedValue([]),
-      findByWeekday: jest.fn().mockResolvedValue([]),
-    } },
-        { provide: StaffPreferencesReadFacade, useValue: {
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findByStaffProfile: jest.fn().mockResolvedValue([]),
-    } },
-        { provide: StaffProfileReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findByIds: jest.fn().mockResolvedValue([]),
-      findByUserId: jest.fn().mockResolvedValue(null),
-      findActiveStaff: jest.fn().mockResolvedValue([]),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
-    } },
+        {
+          provide: AcademicReadFacade,
+          useValue: {
+            findCurrentYear: jest.fn().mockResolvedValue(null),
+            findCurrentYearId: jest.fn().mockResolvedValue('year-1'),
+            findYearById: jest.fn().mockResolvedValue(null),
+            findYearByIdOrThrow: jest.fn().mockResolvedValue('year-1'),
+            findSubjectByIdOrThrow: jest.fn().mockResolvedValue('subject-1'),
+            findYearGroupByIdOrThrow: jest.fn().mockResolvedValue('yg-1'),
+            findYearGroupsWithActiveClasses: jest.fn().mockResolvedValue([]),
+            findYearGroupsWithClassesAndCounts: jest.fn().mockResolvedValue([]),
+            findAllYearGroups: jest.fn().mockResolvedValue([]),
+            findSubjectsByIdsWithOrder: jest.fn().mockResolvedValue([]),
+            findSubjectById: jest.fn().mockResolvedValue(null),
+            findYearGroupById: jest.fn().mockResolvedValue(null),
+            findPeriodById: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: ClassesReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
+            countEnrolledStudents: jest.fn().mockResolvedValue(0),
+            findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
+            findByAcademicYear: jest.fn().mockResolvedValue([]),
+            findByYearGroup: jest.fn().mockResolvedValue([]),
+            findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
+            countByAcademicYear: jest.fn().mockResolvedValue(0),
+            findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
+            findClassIdsForStudent: jest.fn().mockResolvedValue([]),
+            findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: ConfigurationReadFacade,
+          useValue: {
+            findSettings: jest.fn().mockResolvedValue(null),
+            findSettingsJson: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: RoomsReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            exists: jest.fn().mockResolvedValue(false),
+            findActiveRooms: jest.fn().mockResolvedValue([]),
+            findActiveRoomBasics: jest.fn().mockResolvedValue([]),
+            countActiveRooms: jest.fn().mockResolvedValue(0),
+            findAllClosures: jest.fn().mockResolvedValue([]),
+            findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+            findClosureById: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: SchedulesReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            findCoreById: jest.fn().mockResolvedValue(null),
+            existsById: jest.fn().mockResolvedValue(null),
+            findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
+            countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
+            findTeacherTimetable: jest.fn().mockResolvedValue([]),
+            findClassTimetable: jest.fn().mockResolvedValue([]),
+            findPinnedEntries: jest.fn().mockResolvedValue([]),
+            countPinnedEntries: jest.fn().mockResolvedValue(0),
+            findByAcademicYear: jest.fn().mockResolvedValue([]),
+            findScheduledClassIds: jest.fn().mockResolvedValue([]),
+            countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
+            count: jest.fn().mockResolvedValue(0),
+            hasRotationEntries: jest.fn().mockResolvedValue(false),
+            countByRoom: jest.fn().mockResolvedValue(0),
+            findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
+            findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
+            countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
+            findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
+            hasConflict: jest.fn().mockResolvedValue(false),
+            findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
+            findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: SchedulingRunsReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            findStatusById: jest.fn().mockResolvedValue(null),
+            findActiveRun: jest.fn().mockResolvedValue(null),
+            countActiveRuns: jest.fn().mockResolvedValue(0),
+            findLatestCompletedRun: jest.fn().mockResolvedValue(null),
+            findLatestRunWithResult: jest.fn().mockResolvedValue(null),
+            findLatestAppliedRun: jest.fn().mockResolvedValue(null),
+            listRuns: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+            findHistoricalRuns: jest.fn().mockResolvedValue([]),
+            findScenarioById: jest.fn().mockResolvedValue(null),
+            findScenarioStatusById: jest.fn().mockResolvedValue(null),
+            listScenarios: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+            findScenariosForComparison: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: StaffAvailabilityReadFacade,
+          useValue: {
+            findByAcademicYear: jest.fn().mockResolvedValue([]),
+            findByStaffIds: jest.fn().mockResolvedValue([]),
+            findByWeekday: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: StaffPreferencesReadFacade,
+          useValue: {
+            findByAcademicYear: jest.fn().mockResolvedValue([]),
+            findByStaffProfile: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: StaffProfileReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            findByIds: jest.fn().mockResolvedValue([]),
+            findByUserId: jest.fn().mockResolvedValue(null),
+            findActiveStaff: jest.fn().mockResolvedValue([]),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
+          },
+        },
         SchedulerOrchestrationService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: getQueueToken('scheduling'), useValue: mockQueue },
@@ -237,13 +262,9 @@ describe('SchedulerOrchestrationService', () => {
 
     it('should return ready=true when all prerequisites are met', async () => {
       // Year groups with classes
-      mockPrisma.yearGroup.findMany.mockResolvedValue([
-        { id: 'yg-1', name: 'Year 1' },
-      ]);
+      mockPrisma.yearGroup.findMany.mockResolvedValue([{ id: 'yg-1', name: 'Year 1' }]);
       // Period grid exists (shared)
-      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([
-        { year_group_id: null },
-      ]);
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: null }]);
       // Curriculum requirements exist for yg-1
       mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
         {
@@ -267,13 +288,16 @@ describe('SchedulerOrchestrationService', () => {
     });
 
     it('should report missing period grid for a year group', async () => {
-      mockPrisma.yearGroup.findMany.mockResolvedValue([
-        { id: 'yg-1', name: 'Year 1' },
-      ]);
+      mockPrisma.yearGroup.findMany.mockResolvedValue([{ id: 'yg-1', name: 'Year 1' }]);
       // No period templates at all
       mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([]);
       mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
-        { year_group_id: 'yg-1', subject_id: 'sub-1', subject: { name: 'Math' }, year_group: { name: 'Year 1' } },
+        {
+          year_group_id: 'yg-1',
+          subject_id: 'sub-1',
+          subject: { name: 'Math' },
+          year_group: { name: 'Year 1' },
+        },
       ]);
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([
         { subject_id: 'sub-1', year_group_id: 'yg-1' },
@@ -284,19 +308,13 @@ describe('SchedulerOrchestrationService', () => {
 
       expect(result.ready).toBe(false);
       expect(result.missing).toEqual(
-        expect.arrayContaining([
-          expect.stringContaining('No period grid configured'),
-        ]),
+        expect.arrayContaining([expect.stringContaining('No period grid configured')]),
       );
     });
 
     it('should report missing curriculum requirements', async () => {
-      mockPrisma.yearGroup.findMany.mockResolvedValue([
-        { id: 'yg-1', name: 'Year 1' },
-      ]);
-      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([
-        { year_group_id: null },
-      ]);
+      mockPrisma.yearGroup.findMany.mockResolvedValue([{ id: 'yg-1', name: 'Year 1' }]);
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: null }]);
       // No curriculum requirements
       mockPrisma.curriculumRequirement.findMany.mockResolvedValue([]);
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
@@ -306,9 +324,7 @@ describe('SchedulerOrchestrationService', () => {
 
       expect(result.ready).toBe(false);
       expect(result.missing).toEqual(
-        expect.arrayContaining([
-          expect.stringContaining('No curriculum requirements defined'),
-        ]),
+        expect.arrayContaining([expect.stringContaining('No curriculum requirements defined')]),
       );
     });
 
@@ -337,9 +353,7 @@ describe('SchedulerOrchestrationService', () => {
 
       expect(result.ready).toBe(false);
       expect(result.missing).toEqual(
-        expect.arrayContaining([
-          expect.stringContaining('teacher double-booking'),
-        ]),
+        expect.arrayContaining([expect.stringContaining('teacher double-booking')]),
       );
     });
   });
@@ -350,9 +364,9 @@ describe('SchedulerOrchestrationService', () => {
     it('should throw NotFoundException when academic year does not exist', async () => {
       mockPrisma.academicYear.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException when prerequisites are not met', async () => {
@@ -361,9 +375,9 @@ describe('SchedulerOrchestrationService', () => {
       mockPrisma.yearGroup.findMany.mockResolvedValue([]);
       mockPrisma.schedule.findMany.mockResolvedValue([]);
 
-      await expect(
-        service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw ConflictException when a run is already active', async () => {
@@ -372,18 +386,26 @@ describe('SchedulerOrchestrationService', () => {
       mockPrisma.yearGroup.findMany.mockResolvedValue([{ id: 'yg-1', name: 'Y1' }]);
       mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: null }]);
       mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
-        { year_group_id: 'yg-1', subject_id: 's1', subject: { name: 'M' }, year_group: { name: 'Y1' } },
+        {
+          year_group_id: 'yg-1',
+          subject_id: 's1',
+          subject: { name: 'M' },
+          year_group: { name: 'Y1' },
+        },
       ]);
       mockPrisma.teacherCompetency.findMany.mockResolvedValue([
         { subject_id: 's1', year_group_id: 'yg-1' },
       ]);
       mockPrisma.schedule.findMany.mockResolvedValue([]);
       // Active run exists
-      mockPrisma.schedulingRun.findFirst.mockResolvedValue({ id: 'existing-run', status: 'running' });
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+        id: 'existing-run',
+        status: 'running',
+      });
 
-      await expect(
-        service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -403,17 +425,13 @@ describe('SchedulerOrchestrationService', () => {
     it('should throw NotFoundException when run does not exist', async () => {
       mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
 
-      await expect(service.discardRun(TENANT_ID, 'nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.discardRun(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException when run is not completed', async () => {
       mockPrisma.schedulingRun.findFirst.mockResolvedValue({ id: RUN_ID, status: 'running' });
 
-      await expect(service.discardRun(TENANT_ID, RUN_ID)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.discardRun(TENANT_ID, RUN_ID)).rejects.toThrow(BadRequestException);
     });
   });
 

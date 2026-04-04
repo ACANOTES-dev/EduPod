@@ -4,6 +4,10 @@ import { Module } from '@nestjs/common';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
+import { SchedulesModule } from '../schedules/schedules.module';
+import { SchoolClosuresModule } from '../school-closures/school-closures.module';
+import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
+import { TenantsModule } from '../tenants/tenants.module';
 
 import { CalculationService } from './calculation.service';
 import { ClassDeliveryService } from './class-delivery.service';
@@ -35,6 +39,10 @@ import { StaffAttendanceService } from './staff-attendance.service';
     ApprovalsModule,
     PdfRenderingModule,
     ConfigurationModule,
+    SchedulesModule,
+    SchoolClosuresModule,
+    StaffProfilesModule,
+    TenantsModule,
     BullModule.registerQueue({ name: 'payroll' }),
   ],
   controllers: [

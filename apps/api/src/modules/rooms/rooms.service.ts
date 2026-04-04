@@ -1,12 +1,15 @@
 import {
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { Prisma, $Enums } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 
 import type { CreateRoomDto, UpdateRoomDto } from './dto/room.dto';
 
@@ -19,7 +22,11 @@ interface ListRoomsParams {
 
 @Injectable()
 export class RoomsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => SchedulesReadFacade))
+    private readonly schedulesReadFacade: SchedulesReadFacade,
+  ) {}
 
   async create(tenantId: string, dto: CreateRoomDto) {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
@@ -38,10 +45,7 @@ export class RoomsService {
         });
       });
     } catch (err) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === 'P2002'
-      ) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException({
           code: 'ROOM_NAME_EXISTS',
           message: `A room with name "${dto.name}" already exists for this tenant`,
@@ -113,10 +117,7 @@ export class RoomsService {
         });
       });
     } catch (err) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === 'P2002'
-      ) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException({
           code: 'ROOM_NAME_EXISTS',
           message: `A room with name "${dto.name}" already exists for this tenant`,
@@ -130,9 +131,7 @@ export class RoomsService {
     await this.assertExists(tenantId, id);
 
     // Check if room is referenced by any schedules
-    const scheduleCount = await this.prisma.schedule.count({
-      where: { room_id: id, tenant_id: tenantId },
-    });
+    const scheduleCount = await this.schedulesReadFacade.countByRoom(tenantId, id);
 
     if (scheduleCount > 0) {
       throw new ConflictException({

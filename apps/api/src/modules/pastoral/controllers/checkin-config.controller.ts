@@ -12,7 +12,6 @@ import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard'
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
-
 import { PrismaService } from '../../prisma/prisma.service';
 import { CheckinPrerequisiteService } from '../services/checkin-prerequisite.service';
 
@@ -123,15 +122,17 @@ export class CheckinConfigController {
     const mergedPastoral = { ...existingPastoral, checkins: mergedCheckins };
     const mergedSettings = { ...existingSettings, pastoral: mergedPastoral };
 
-    await this.prisma.tenantSetting.upsert({
-      where: { tenant_id: tenant.tenant_id },
-      create: {
-        tenant_id: tenant.tenant_id,
-        settings: JSON.parse(JSON.stringify(mergedSettings)),
-      },
-      update: {
-        settings: JSON.parse(JSON.stringify(mergedSettings)),
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.tenantSetting.upsert({
+        where: { tenant_id: tenant.tenant_id },
+        create: {
+          tenant_id: tenant.tenant_id,
+          settings: JSON.parse(JSON.stringify(mergedSettings)),
+        },
+        update: {
+          settings: JSON.parse(JSON.stringify(mergedSettings)),
+        },
+      });
     });
 
     // Return the freshly-parsed config so Zod defaults are applied

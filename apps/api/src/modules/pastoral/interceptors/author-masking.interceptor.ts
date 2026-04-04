@@ -5,10 +5,8 @@ import type { JwtPayload } from '@school/shared';
 
 import type { AuthenticatedRequest } from '../../../common/types/request.types';
 import { ChildProtectionReadFacade } from '../../child-protection/child-protection-read.facade';
-
-import { RbacReadFacade } from '../../rbac/rbac-read.facade';
-
 import { PrismaService } from '../../prisma/prisma.service';
+import { RbacReadFacade } from '../../rbac/rbac-read.facade';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -84,9 +82,11 @@ interface ViewerContext {
 export class AuthorMaskingInterceptor implements NestInterceptor {
   private readonly logger = new Logger(AuthorMaskingInterceptor.name);
 
-  constructor(private readonly prisma: PrismaService,
+  constructor(
+    private readonly prisma: PrismaService,
     private readonly rbacReadFacade: RbacReadFacade,
-    private readonly childProtectionReadFacade: ChildProtectionReadFacade) {}
+    private readonly childProtectionReadFacade: ChildProtectionReadFacade,
+  ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
@@ -152,7 +152,9 @@ export class AuthorMaskingInterceptor implements NestInterceptor {
    * DLP users always see real author information regardless of masking flag.
    */
   private async checkCpAccess(tenantId: string, userId: string): Promise<boolean> {
-    const grant = await this.childProtectionReadFacade.hasActiveCpAccess(tenantId, userId) ? { id: "active" } : null;
+    const grant = (await this.childProtectionReadFacade.hasActiveCpAccess(tenantId, userId))
+      ? { id: 'active' }
+      : null;
 
     return !!grant;
   }

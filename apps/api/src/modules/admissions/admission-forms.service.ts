@@ -868,25 +868,27 @@ export class AdmissionFormsService {
       justification: string;
     }>,
   ): Promise<void> {
-    for (const override of overrides) {
-      await this.prisma.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          actor_user_id: userId,
-          entity_type: 'admission_form_field',
-          entity_id: formId,
-          action: 'data_minimisation_override',
-          metadata_json: {
-            field_key: override.field_key,
-            field_label: override.field_label,
-            matched_keyword: override.matched_keyword,
-            justification: override.justification,
-            dpc_guidance: 'August 2025 — special category data at pre-enrolment',
-          } as Prisma.InputJsonValue,
-          ip_address: null,
-        },
-      });
-    }
+    await this.prisma.$transaction(async (tx) => {
+      for (const override of overrides) {
+        await tx.auditLog.create({
+          data: {
+            tenant_id: tenantId,
+            actor_user_id: userId,
+            entity_type: 'admission_form_field',
+            entity_id: formId,
+            action: 'data_minimisation_override',
+            metadata_json: {
+              field_key: override.field_key,
+              field_label: override.field_label,
+              matched_keyword: override.matched_keyword,
+              justification: override.justification,
+              dpc_guidance: 'August 2025 — special category data at pre-enrolment',
+            } as Prisma.InputJsonValue,
+            ip_address: null,
+          },
+        });
+      }
+    });
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────

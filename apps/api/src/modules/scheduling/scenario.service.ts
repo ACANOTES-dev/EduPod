@@ -81,7 +81,7 @@ export class ScenarioService {
   // ─── List Scenarios ───────────────────────────────────────────────────────
 
   async listScenarios(tenantId: string, query: ScenarioQuery) {
-    const skip = (query.page - 1) * query.pageSize;
+    const _skip = (query.page - 1) * query.pageSize;
 
     const where: {
       tenant_id: string;
@@ -123,7 +123,10 @@ export class ScenarioService {
   // ─── Update Scenario ──────────────────────────────────────────────────────
 
   async updateScenario(tenantId: string, scenarioId: string, dto: UpdateScenarioDto) {
-    const scenario = await this.schedulingRunsReadFacade.findScenarioStatusById(tenantId, scenarioId);
+    const scenario = await this.schedulingRunsReadFacade.findScenarioStatusById(
+      tenantId,
+      scenarioId,
+    );
     if (!scenario) {
       throw new NotFoundException({
         error: { code: 'SCENARIO_NOT_FOUND', message: 'Scenario not found' },
@@ -165,7 +168,10 @@ export class ScenarioService {
   // ─── Delete Scenario ──────────────────────────────────────────────────────
 
   async deleteScenario(tenantId: string, scenarioId: string) {
-    const scenario = await this.schedulingRunsReadFacade.findScenarioStatusById(tenantId, scenarioId);
+    const scenario = await this.schedulingRunsReadFacade.findScenarioStatusById(
+      tenantId,
+      scenarioId,
+    );
     if (!scenario) {
       throw new NotFoundException({
         error: { code: 'SCENARIO_NOT_FOUND', message: 'Scenario not found' },

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
+import { RbacModule } from '../rbac/rbac.module';
 import { SequenceModule } from '../sequence/sequence.module';
 
 import { DomainsController } from './domains.controller';
@@ -10,7 +11,7 @@ import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
 
 @Module({
-  imports: [AuthModule, SequenceModule],
+  imports: [AuthModule, RbacModule, SequenceModule],
   controllers: [TenantsController, DomainsController],
   providers: [TenantsService, DomainsService, TenantReadFacade],
   exports: [TenantsService, SequenceModule, TenantReadFacade],

@@ -159,7 +159,10 @@ export class SchedulerOrchestrationService {
     }
 
     // 5. No pinned entry conflicts
-    const pinnedEntryRows = await this.schedulesReadFacade.findPinnedEntries(tenantId, academicYearId);
+    const pinnedEntryRows = await this.schedulesReadFacade.findPinnedEntries(
+      tenantId,
+      academicYearId,
+    );
     const pinnedEntries = pinnedEntryRows.map((e) => ({
       id: e.id,
       teacher_staff_id: e.teacher_staff_id,
@@ -772,8 +775,8 @@ export class SchedulerOrchestrationService {
   // ─── List Runs ─────────────────────────────────────────────────────────────
 
   async listRuns(tenantId: string, academicYearId: string, page: number, pageSize: number) {
-    const skip = (page - 1) * pageSize;
-    const where = { tenant_id: tenantId, academic_year_id: academicYearId };
+    const _skip = (page - 1) * pageSize;
+    const _where = { tenant_id: tenantId, academic_year_id: academicYearId };
 
     const result = await this.schedulingRunsReadFacade.listRuns(
       tenantId,

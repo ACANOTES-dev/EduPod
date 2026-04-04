@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { TeacherCompetenciesController } from './teacher-competencies.controller';
-import { TeacherCompetenciesService } from './teacher-competencies.service';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { GradebookReadFacade } from '../gradebook/gradebook-read.facade';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
+
+import { TeacherCompetenciesController } from './teacher-competencies.controller';
+import { TeacherCompetenciesService } from './teacher-competencies.service';
 
 const TENANT = { tenant_id: 'tenant-uuid' };
 const AY_ID = 'ay-uuid';
@@ -32,46 +33,58 @@ describe('TeacherCompetenciesController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TeacherCompetenciesController],
       providers: [
-        { provide: AcademicReadFacade, useValue: {
-      findCurrentYear: jest.fn().mockResolvedValue(null),
-      findCurrentYearId: jest.fn().mockResolvedValue('year-1'),
-      findYearById: jest.fn().mockResolvedValue(null),
-      findYearByIdOrThrow: jest.fn().mockResolvedValue('year-1'),
-      findSubjectByIdOrThrow: jest.fn().mockResolvedValue('subject-1'),
-      findYearGroupByIdOrThrow: jest.fn().mockResolvedValue('yg-1'),
-      findYearGroupsWithActiveClasses: jest.fn().mockResolvedValue([]),
-      findYearGroupsWithClassesAndCounts: jest.fn().mockResolvedValue([]),
-      findAllYearGroups: jest.fn().mockResolvedValue([]),
-      findSubjectsByIdsWithOrder: jest.fn().mockResolvedValue([]),
-      findSubjectById: jest.fn().mockResolvedValue(null),
-      findYearGroupById: jest.fn().mockResolvedValue(null),
-      findPeriodById: jest.fn().mockResolvedValue(null),
-    } },
-        { provide: ClassesReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
-      countEnrolledStudents: jest.fn().mockResolvedValue(0),
-      findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findByYearGroup: jest.fn().mockResolvedValue([]),
-      findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
-      countByAcademicYear: jest.fn().mockResolvedValue(0),
-      findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
-      findClassIdsForStudent: jest.fn().mockResolvedValue([]),
-      findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
-    } },
-        { provide: GradebookReadFacade, useValue: {
-      findClassSubjectConfigs: jest.fn().mockResolvedValue([]),
-    } },
-        { provide: StaffProfileReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findByIds: jest.fn().mockResolvedValue([]),
-      findByUserId: jest.fn().mockResolvedValue(null),
-      findActiveStaff: jest.fn().mockResolvedValue([]),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
-    } },
+        {
+          provide: AcademicReadFacade,
+          useValue: {
+            findCurrentYear: jest.fn().mockResolvedValue(null),
+            findCurrentYearId: jest.fn().mockResolvedValue('year-1'),
+            findYearById: jest.fn().mockResolvedValue(null),
+            findYearByIdOrThrow: jest.fn().mockResolvedValue('year-1'),
+            findSubjectByIdOrThrow: jest.fn().mockResolvedValue('subject-1'),
+            findYearGroupByIdOrThrow: jest.fn().mockResolvedValue('yg-1'),
+            findYearGroupsWithActiveClasses: jest.fn().mockResolvedValue([]),
+            findYearGroupsWithClassesAndCounts: jest.fn().mockResolvedValue([]),
+            findAllYearGroups: jest.fn().mockResolvedValue([]),
+            findSubjectsByIdsWithOrder: jest.fn().mockResolvedValue([]),
+            findSubjectById: jest.fn().mockResolvedValue(null),
+            findYearGroupById: jest.fn().mockResolvedValue(null),
+            findPeriodById: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: ClassesReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
+            countEnrolledStudents: jest.fn().mockResolvedValue(0),
+            findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
+            findByAcademicYear: jest.fn().mockResolvedValue([]),
+            findByYearGroup: jest.fn().mockResolvedValue([]),
+            findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
+            countByAcademicYear: jest.fn().mockResolvedValue(0),
+            findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
+            findClassIdsForStudent: jest.fn().mockResolvedValue([]),
+            findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: GradebookReadFacade,
+          useValue: {
+            findClassSubjectConfigs: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: StaffProfileReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            findByIds: jest.fn().mockResolvedValue([]),
+            findByUserId: jest.fn().mockResolvedValue(null),
+            findActiveStaff: jest.fn().mockResolvedValue([]),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
+          },
+        },
         { provide: TeacherCompetenciesService, useValue: mockService },
       ],
     })
@@ -80,9 +93,7 @@ describe('TeacherCompetenciesController', () => {
       .overrideGuard(require('../../common/guards/permission.guard').PermissionGuard)
       .useValue({ canActivate: () => true })
       .compile();
-    controller = module.get<TeacherCompetenciesController>(
-      TeacherCompetenciesController,
-    );
+    controller = module.get<TeacherCompetenciesController>(TeacherCompetenciesController);
     jest.clearAllMocks();
   });
 
@@ -100,17 +111,9 @@ describe('TeacherCompetenciesController', () => {
     const mockResult = [{ id: COMP_ID, staff_profile_id: STAFF_ID }];
     mockService.listByTeacher.mockResolvedValue(mockResult);
 
-    const result = await controller.listByTeacher(
-      TENANT,
-      STAFF_ID,
-      { academic_year_id: AY_ID },
-    );
+    const result = await controller.listByTeacher(TENANT, STAFF_ID, { academic_year_id: AY_ID });
 
-    expect(mockService.listByTeacher).toHaveBeenCalledWith(
-      'tenant-uuid',
-      AY_ID,
-      STAFF_ID,
-    );
+    expect(mockService.listByTeacher).toHaveBeenCalledWith('tenant-uuid', AY_ID, STAFF_ID);
     expect(result).toEqual(mockResult);
   });
 
@@ -162,17 +165,11 @@ describe('TeacherCompetenciesController', () => {
   it('should call service.deleteAllForTeacher with correct params', async () => {
     mockService.deleteAllForTeacher.mockResolvedValue({ deleted: 3 });
 
-    const result = await controller.deleteAllForTeacher(
-      TENANT,
-      STAFF_ID,
-      { academic_year_id: AY_ID },
-    );
+    const result = await controller.deleteAllForTeacher(TENANT, STAFF_ID, {
+      academic_year_id: AY_ID,
+    });
 
-    expect(mockService.deleteAllForTeacher).toHaveBeenCalledWith(
-      'tenant-uuid',
-      AY_ID,
-      STAFF_ID,
-    );
+    expect(mockService.deleteAllForTeacher).toHaveBeenCalledWith('tenant-uuid', AY_ID, STAFF_ID);
     expect(result).toEqual({ deleted: 3 });
   });
 

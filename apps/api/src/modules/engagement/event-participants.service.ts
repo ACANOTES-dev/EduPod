@@ -12,6 +12,7 @@ import type { EventTargetConfig } from '@school/shared/engagement';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -40,6 +41,7 @@ export class EventParticipantsService {
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
+    private readonly studentReadFacade: StudentReadFacade,
   ) {}
 
   // ─── Target Resolution ──────────────────────────────────────────────────
@@ -51,11 +53,7 @@ export class EventParticipantsService {
   ): Promise<string[]> {
     switch (targetType) {
       case 'whole_school': {
-        const students = await this.prisma.student.findMany({
-          where: { tenant_id: tenantId, status: 'active' },
-          select: { id: true },
-        });
-        return students.map((s) => s.id);
+        return this.studentReadFacade.findActiveStudentIds(tenantId);
       }
 
       case 'year_group': {
@@ -66,20 +64,14 @@ export class EventParticipantsService {
             message: 'year_group_ids required for year_group target type',
           });
         }
-        const students = await this.prisma.student.findMany({
-          where: {
-            tenant_id: tenantId,
-            status: 'active',
-            class_enrolments: {
-              some: {
-                class_entity: { year_group_id: { in: yearGroupIds } },
-                status: 'active',
-              },
+        return this.studentReadFacade.findActiveStudentIds(tenantId, {
+          class_enrolments: {
+            some: {
+              class_entity: { year_group_id: { in: yearGroupIds } },
+              status: 'active',
             },
           },
-          select: { id: true },
         });
-        return students.map((s) => s.id);
       }
 
       case 'class_group': {
@@ -90,20 +82,14 @@ export class EventParticipantsService {
             message: 'class_ids required for class_group target type',
           });
         }
-        const students = await this.prisma.student.findMany({
-          where: {
-            tenant_id: tenantId,
-            status: 'active',
-            class_enrolments: {
-              some: {
-                class_id: { in: classIds },
-                status: 'active',
-              },
+        return this.studentReadFacade.findActiveStudentIds(tenantId, {
+          class_enrolments: {
+            some: {
+              class_id: { in: classIds },
+              status: 'active',
             },
           },
-          select: { id: true },
         });
-        return students.map((s) => s.id);
       }
 
       case 'custom': {

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { RbacReadFacade } from '../rbac/rbac-read.facade';
 import { RedisService } from '../redis/redis.service';
 
 import { PLATFORM_DPA_VERSIONS, PLATFORM_SUB_PROCESSOR_REGISTER_VERSIONS } from './legal-content';
@@ -13,6 +14,7 @@ export class PlatformLegalService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly rbacReadFacade: RbacReadFacade,
     private readonly redis: RedisService,
   ) {}
 
@@ -92,29 +94,12 @@ export class PlatformLegalService {
    * notification table to avoid coupling GDPR to CommunicationsModule.
    */
   private async notifyTenantAdmins(version: string, summary: string) {
-    const memberships = await this.prisma.tenantMembership.findMany({
-      where: {
-        membership_status: 'active',
-        membership_roles: {
-          some: {
-            role: {
-              role_key: {
-                in: ['school_owner', 'school_principal', 'school_vice_principal', 'admin'],
-              },
-            },
-          },
-        },
-      },
-      select: {
-        tenant_id: true,
-        user_id: true,
-        user: {
-          select: {
-            preferred_locale: true,
-          },
-        },
-      },
-    });
+    const memberships = await this.rbacReadFacade.findActiveMembershipsByRoleKeys([
+      'school_owner',
+      'school_principal',
+      'school_vice_principal',
+      'admin',
+    ]);
 
     const byTenant = new Map<string, Array<{ user_id: string; preferred_locale: string }>>();
     for (const membership of memberships) {
@@ -149,7 +134,9 @@ export class PlatformLegalService {
           delivered_at: new Date(),
         }));
 
-        await this.prisma.notification.createMany({ data });
+        await this.prisma.$transaction(async (tx) => {
+          await tx.notification.createMany({ data });
+        });
 
         // Invalidate unread-count caches for all recipients
         const uniqueUserIds = [...new Set(recipients.map((r) => r.user_id))];

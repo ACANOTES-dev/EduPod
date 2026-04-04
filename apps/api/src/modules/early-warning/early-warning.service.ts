@@ -8,9 +8,9 @@ import type {
   ListEarlyWarningsQuery,
 } from '@school/shared/early-warning';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
-import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { RbacReadFacade } from '../rbac/rbac-read.facade';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
@@ -85,7 +85,9 @@ export class EarlyWarningService {
       if (classStaffRows.length > 0) {
         const classIds = classStaffRows.map((cs) => cs.class_id);
         const studentIdSets = await Promise.all(
-          classIds.map((classId) => this.classesReadFacade.findEnrolledStudentIds(tenantId, classId)),
+          classIds.map((classId) =>
+            this.classesReadFacade.findEnrolledStudentIds(tenantId, classId),
+          ),
         );
         const uniqueStudentIds = [...new Set(studentIdSets.flat())];
         return { unrestricted: false, studentIds: uniqueStudentIds };

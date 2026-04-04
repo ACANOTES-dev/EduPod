@@ -1,13 +1,10 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
-import { AcademicReadFacade } from '../academics/academic-read.facade';
-import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
-import { StudentReadFacade } from '../students/student-read.facade';
+import { AcademicReadFacade } from '../../academics/academic-read.facade';
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StudentReadFacade } from '../../students/student-read.facade';
 
 interface GradingScaleRange {
   min: number;
@@ -30,33 +27,21 @@ interface GradingScaleConfig {
 
 @Injectable()
 export class GpaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
+  ) {}
   /**
    * Compute and persist GPA for a student in a specific period.
    * Uses credit_hours from ClassSubjectGradeConfig if available;
    * falls back to equal weighting.
    */
-  async computeGpa(
-    tenantId: string,
-    studentId: string,
-    periodId: string,
-  ) {
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
-      select: { id: true, first_name: true, last_name: true },
-    });
+  async computeGpa(tenantId: string, studentId: string, periodId: string) {
+    await this.studentReadFacade.existsOrThrow(tenantId, studentId);
 
-    if (!student) {
-      throw new NotFoundException({
-        code: 'STUDENT_NOT_FOUND',
-        message: `Student with id "${studentId}" not found`,
-      });
-    }
-
-    const period = await this.prisma.academicPeriod.findFirst({
-      where: { id: periodId, tenant_id: tenantId },
-      select: { id: true },
-    });
+    const period = await this.academicReadFacade.findPeriodById(tenantId, periodId);
 
     if (!period) {
       throw new NotFoundException({
@@ -83,11 +68,8 @@ export class GpaService {
     }
 
     // Load tenant GPA precision setting
-    const tenantSetting = await this.prisma.tenantSetting.findFirst({
-      where: { tenant_id: tenantId },
-      select: { settings: true },
-    });
-    const settings = (tenantSetting?.settings ?? {}) as Record<string, unknown>;
+    const tenantSettingRow = await this.configurationReadFacade.findSettings(tenantId);
+    const settings = (tenantSettingRow?.settings ?? {}) as Record<string, unknown>;
     const gradebookSettings = (settings['gradebook'] ?? {}) as Record<string, unknown>;
     const gpaPrecision = (gradebookSettings['gpaPrecision'] as number) ?? 2;
 
@@ -109,9 +91,8 @@ export class GpaService {
         include: { grading_scale: true },
       });
 
-      const creditHours = gradeConfig?.credit_hours != null
-        ? Number(gradeConfig.credit_hours)
-        : null;
+      const creditHours =
+        gradeConfig?.credit_hours != null ? Number(gradeConfig.credit_hours) : null;
 
       if (creditHours === null) {
         useEqualWeighting = true;
@@ -199,10 +180,9 @@ export class GpaService {
    * Get cumulative GPA for a student across all periods.
    */
   async getCumulativeGpa(tenantId: string, studentId: string) {
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
+    const student = (await this.studentReadFacade.findOneGeneric(tenantId, studentId, {
       select: { id: true, first_name: true, last_name: true },
-    });
+    })) as { id: string; first_name: string; last_name: string } | null;
 
     if (!student) {
       throw new NotFoundException({
@@ -233,9 +213,8 @@ export class GpaService {
       totalCreditHours += creditHours;
     }
 
-    const cumulativeGpa = totalCreditHours > 0
-      ? Math.round((totalWeightedGpa / totalCreditHours) * 1000) / 1000
-      : null;
+    const cumulativeGpa =
+      totalCreditHours > 0 ? Math.round((totalWeightedGpa / totalCreditHours) * 1000) / 1000 : null;
 
     return {
       student,
@@ -252,11 +231,7 @@ export class GpaService {
   /**
    * Get GPA snapshots for a student in a specific period.
    */
-  async getGpaSnapshot(
-    tenantId: string,
-    studentId: string,
-    periodId: string,
-  ) {
+  async getGpaSnapshot(tenantId: string, studentId: string, periodId: string) {
     const snapshot = await this.prisma.gpaSnapshot.findFirst({
       where: {
         tenant_id: tenantId,
@@ -285,10 +260,7 @@ export class GpaService {
   /**
    * Resolve the GPA points for a given computed percentage using the grading scale.
    */
-  private resolveGpaPoints(
-    computedPercentage: number,
-    config: GradingScaleConfig,
-  ): number {
+  private resolveGpaPoints(computedPercentage: number, config: GradingScaleConfig): number {
     if (config.type === 'numeric' && config.ranges) {
       for (const range of config.ranges) {
         if (computedPercentage >= range.min && computedPercentage <= range.max) {

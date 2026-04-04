@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PrismaService } from '../prisma/prisma.service';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { PrismaService } from '../prisma/prisma.service';
 import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 import { SchedulingReadFacade } from '../scheduling/scheduling-read.facade';
 import { StaffAvailabilityReadFacade } from '../staff-availability/staff-availability-read.facade';
@@ -35,58 +35,70 @@ describe('SchedulingPrerequisitesService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        { provide: ClassesReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
-      countEnrolledStudents: jest.fn().mockResolvedValue(0),
-      findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findByYearGroup: jest.fn().mockResolvedValue([]),
-      findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
-      countByAcademicYear: jest.fn().mockResolvedValue(0),
-      findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
-      findClassIdsForStudent: jest.fn().mockResolvedValue([]),
-      findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
-    } },
-        { provide: SchedulesReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findCoreById: jest.fn().mockResolvedValue(null),
-      existsById: jest.fn().mockResolvedValue(null),
-      findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
-      countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
-      findTeacherTimetable: jest.fn().mockResolvedValue([]),
-      findClassTimetable: jest.fn().mockResolvedValue([]),
-      findPinnedEntries: jest.fn().mockResolvedValue([]),
-      countPinnedEntries: jest.fn().mockResolvedValue(0),
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findScheduledClassIds: jest.fn().mockResolvedValue([]),
-      countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
-      count: jest.fn().mockResolvedValue(0),
-      hasRotationEntries: jest.fn().mockResolvedValue(false),
-      countByRoom: jest.fn().mockResolvedValue(0),
-      findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
-      findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
-      countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
-      findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
-      hasConflict: jest.fn().mockResolvedValue(false),
-      findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
-      findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
-    } },
-        { provide: SchedulingReadFacade, useValue: {
-      findPeriodTemplate: jest.fn().mockResolvedValue(null),
-      countTeachingPeriods: jest.fn().mockResolvedValue(0),
-      findPeriodTemplates: jest.fn().mockResolvedValue([]),
-      countClassRequirements: jest.fn().mockResolvedValue(0),
-      findClassRequirementsWithDetails: jest.fn().mockResolvedValue([]),
-      findTeacherCompetencies: jest.fn().mockResolvedValue([]),
-      findTeacherConfigs: jest.fn().mockResolvedValue([]),
-    } },
-        { provide: StaffAvailabilityReadFacade, useValue: {
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findByStaffIds: jest.fn().mockResolvedValue([]),
-      findByWeekday: jest.fn().mockResolvedValue([]),
-    } },
+        {
+          provide: ClassesReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
+            countEnrolledStudents: jest.fn().mockResolvedValue(0),
+            findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
+            findByAcademicYear: jest.fn().mockResolvedValue([]),
+            findByYearGroup: jest.fn().mockResolvedValue([]),
+            findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
+            countByAcademicYear: jest.fn().mockResolvedValue(0),
+            findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
+            findClassIdsForStudent: jest.fn().mockResolvedValue([]),
+            findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: SchedulesReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            findCoreById: jest.fn().mockResolvedValue(null),
+            existsById: jest.fn().mockResolvedValue(null),
+            findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
+            countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
+            findTeacherTimetable: jest.fn().mockResolvedValue([]),
+            findClassTimetable: jest.fn().mockResolvedValue([]),
+            findPinnedEntries: jest.fn().mockResolvedValue([]),
+            countPinnedEntries: jest.fn().mockResolvedValue(0),
+            findByAcademicYear: jest.fn().mockResolvedValue([]),
+            findScheduledClassIds: jest.fn().mockResolvedValue([]),
+            countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
+            count: jest.fn().mockResolvedValue(0),
+            hasRotationEntries: jest.fn().mockResolvedValue(false),
+            countByRoom: jest.fn().mockResolvedValue(0),
+            findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
+            findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
+            countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
+            findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
+            hasConflict: jest.fn().mockResolvedValue(false),
+            findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
+            findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: SchedulingReadFacade,
+          useValue: {
+            findPeriodTemplate: jest.fn().mockResolvedValue(null),
+            countTeachingPeriods: jest.fn().mockResolvedValue(0),
+            findPeriodTemplates: jest.fn().mockResolvedValue([]),
+            countClassRequirements: jest.fn().mockResolvedValue(0),
+            findClassRequirementsWithDetails: jest.fn().mockResolvedValue([]),
+            findTeacherCompetencies: jest.fn().mockResolvedValue([]),
+            findTeacherConfigs: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: StaffAvailabilityReadFacade,
+          useValue: {
+            findByAcademicYear: jest.fn().mockResolvedValue([]),
+            findByStaffIds: jest.fn().mockResolvedValue([]),
+            findByWeekday: jest.fn().mockResolvedValue([]),
+          },
+        },
         SchedulingPrerequisitesService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -155,9 +167,7 @@ describe('SchedulingPrerequisitesService', () => {
       const result = await service.check(TENANT_ID, AY_ID);
 
       expect(result.ready).toBe(false);
-      const teacherCheck = result.checks.find(
-        (c) => c.key === 'all_classes_have_teachers',
-      );
+      const teacherCheck = result.checks.find((c) => c.key === 'all_classes_have_teachers');
       expect(teacherCheck?.passed).toBe(false);
       expect(teacherCheck?.message).toContain('2 classes have no teacher');
     });
@@ -176,9 +186,7 @@ describe('SchedulingPrerequisitesService', () => {
       const result = await service.check(TENANT_ID, AY_ID);
 
       expect(result.ready).toBe(false);
-      const configCheck = result.checks.find(
-        (c) => c.key === 'all_classes_configured',
-      );
+      const configCheck = result.checks.find((c) => c.key === 'all_classes_configured');
       expect(configCheck?.passed).toBe(false);
       expect(configCheck?.message).toContain('2 of 5');
     });
@@ -216,9 +224,7 @@ describe('SchedulingPrerequisitesService', () => {
       const result = await service.check(TENANT_ID, AY_ID);
 
       expect(result.ready).toBe(false);
-      const conflictCheck = result.checks.find(
-        (c) => c.key === 'no_pinned_conflicts',
-      );
+      const conflictCheck = result.checks.find((c) => c.key === 'no_pinned_conflicts');
       expect(conflictCheck?.passed).toBe(false);
       expect(conflictCheck?.message).toContain('conflict');
     });
@@ -251,9 +257,7 @@ describe('SchedulingPrerequisitesService', () => {
       const result = await service.check(TENANT_ID, AY_ID);
 
       expect(result.ready).toBe(false);
-      const conflictCheck = result.checks.find(
-        (c) => c.key === 'no_pinned_conflicts',
-      );
+      const conflictCheck = result.checks.find((c) => c.key === 'no_pinned_conflicts');
       expect(conflictCheck?.passed).toBe(false);
     });
 
@@ -284,9 +288,7 @@ describe('SchedulingPrerequisitesService', () => {
 
       const result = await service.check(TENANT_ID, AY_ID);
 
-      const conflictCheck = result.checks.find(
-        (c) => c.key === 'no_pinned_conflicts',
-      );
+      const conflictCheck = result.checks.find((c) => c.key === 'no_pinned_conflicts');
       expect(conflictCheck?.passed).toBe(true);
     });
   });
@@ -324,9 +326,7 @@ describe('SchedulingPrerequisitesService', () => {
 
       const result = await service.check(TENANT_ID, AY_ID);
 
-      const availCheck = result.checks.find(
-        (c) => c.key === 'no_pinned_availability_violations',
-      );
+      const availCheck = result.checks.find((c) => c.key === 'no_pinned_availability_violations');
       expect(availCheck?.passed).toBe(false);
       expect(availCheck?.message).toContain('violate teacher availability');
     });

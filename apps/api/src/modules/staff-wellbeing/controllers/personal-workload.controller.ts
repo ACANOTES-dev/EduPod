@@ -17,6 +17,7 @@ import { BlockImpersonationGuard } from '../../../common/guards/block-impersonat
 import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../../staff-profiles/staff-profile-read.facade';
 import { WorkloadCacheService } from '../services/workload-cache.service';
 import { WorkloadComputeService } from '../services/workload-compute.service';
 
@@ -31,6 +32,7 @@ export class PersonalWorkloadController {
     private readonly computeService: WorkloadComputeService,
     private readonly cacheService: WorkloadCacheService,
     private readonly prisma: PrismaService,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
   ) {}
 
   // ─── 1. Personal Workload Summary ──────────────────────────────────────
@@ -109,15 +111,7 @@ export class PersonalWorkloadController {
   // ─── Staff Profile Resolution ─────────────────────────────────────────
 
   private async resolveStaffProfile(tenantId: string, userId: string): Promise<string> {
-    const profile = await this.prisma.staffProfile.findUnique({
-      where: {
-        idx_staff_profiles_tenant_user: {
-          tenant_id: tenantId,
-          user_id: userId,
-        },
-      },
-      select: { id: true },
-    });
+    const profile = await this.staffProfileReadFacade.findByUserId(tenantId, userId);
 
     if (!profile) {
       throw new NotFoundException({

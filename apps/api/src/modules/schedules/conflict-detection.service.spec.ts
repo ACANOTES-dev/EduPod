@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { RoomsReadFacade } from '../rooms/rooms-read.facade';
-import { ClassesReadFacade } from '../classes/classes-read.facade';
 
 import { ConflictDetectionService } from './conflict-detection.service';
 
@@ -59,31 +59,37 @@ describe('ConflictDetectionService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        { provide: RoomsReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      exists: jest.fn().mockResolvedValue(false),
-      findActiveRooms: jest.fn().mockResolvedValue([]),
-      findActiveRoomBasics: jest.fn().mockResolvedValue([]),
-      countActiveRooms: jest.fn().mockResolvedValue(0),
-      findAllClosures: jest.fn().mockResolvedValue([]),
-      findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-      findClosureById: jest.fn().mockResolvedValue(null),
-    } },
-        { provide: ClassesReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
-      countEnrolledStudents: jest.fn().mockResolvedValue(0),
-      findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findByYearGroup: jest.fn().mockResolvedValue([]),
-      findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
-      countByAcademicYear: jest.fn().mockResolvedValue(0),
-      findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
-      findClassIdsForStudent: jest.fn().mockResolvedValue([]),
-      findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
-    } },
+        {
+          provide: RoomsReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            exists: jest.fn().mockResolvedValue(false),
+            findActiveRooms: jest.fn().mockResolvedValue([]),
+            findActiveRoomBasics: jest.fn().mockResolvedValue([]),
+            countActiveRooms: jest.fn().mockResolvedValue(0),
+            findAllClosures: jest.fn().mockResolvedValue([]),
+            findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+            findClosureById: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: ClassesReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
+            countEnrolledStudents: jest.fn().mockResolvedValue(0),
+            findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
+            findByAcademicYear: jest.fn().mockResolvedValue([]),
+            findByYearGroup: jest.fn().mockResolvedValue([]),
+            findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
+            countByAcademicYear: jest.fn().mockResolvedValue(0),
+            findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
+            findClassIdsForStudent: jest.fn().mockResolvedValue([]),
+            findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
+          },
+        },
         ConflictDetectionService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -116,9 +122,7 @@ describe('ConflictDetectionService', () => {
     const result = await service.detectConflicts(TENANT_ID, makeEntry());
 
     expect(result.hard.length).toBeGreaterThanOrEqual(1);
-    const roomConflict = result.hard.find(
-      (c) => c.category === 'room_double_booking',
-    );
+    const roomConflict = result.hard.find((c) => c.category === 'room_double_booking');
     expect(roomConflict).toBeDefined();
     expect(roomConflict!.type).toBe('hard');
   });
@@ -140,9 +144,7 @@ describe('ConflictDetectionService', () => {
 
     const result = await service.detectConflicts(TENANT_ID, makeEntry());
 
-    const softRoomConflict = result.soft.find(
-      (c) => c.category === 'room_shared_warning',
-    );
+    const softRoomConflict = result.soft.find((c) => c.category === 'room_shared_warning');
     expect(softRoomConflict).toBeDefined();
     expect(softRoomConflict!.type).toBe('soft');
     expect(result.hard.filter((c) => c.category === 'room_double_booking')).toHaveLength(0);
@@ -153,7 +155,8 @@ describe('ConflictDetectionService', () => {
     // Room query — no room conflicts
     mockPrisma.schedule.findMany
       .mockResolvedValueOnce([]) // room conflicts query
-      .mockResolvedValueOnce([  // teacher conflicts query
+      .mockResolvedValueOnce([
+        // teacher conflicts query
         makeScheduleRow({ teacher_staff_id: 'teacher-1' }),
       ])
       .mockResolvedValueOnce([]); // student schedule query (won't be reached since no student enrolments)
@@ -167,9 +170,7 @@ describe('ConflictDetectionService', () => {
 
     const result = await service.detectConflicts(TENANT_ID, makeEntry());
 
-    const teacherConflict = result.hard.find(
-      (c) => c.category === 'teacher_double_booking',
-    );
+    const teacherConflict = result.hard.find((c) => c.category === 'teacher_double_booking');
     expect(teacherConflict).toBeDefined();
     expect(teacherConflict!.type).toBe('hard');
   });
@@ -202,9 +203,7 @@ describe('ConflictDetectionService', () => {
 
     const result = await service.detectConflicts(TENANT_ID, makeEntry());
 
-    const studentConflict = result.hard.find(
-      (c) => c.category === 'student_double_booking',
-    );
+    const studentConflict = result.hard.find((c) => c.category === 'student_double_booking');
     expect(studentConflict).toBeDefined();
     expect(studentConflict!.type).toBe('hard');
     expect(studentConflict!.message).toContain('1 student(s)');
@@ -228,9 +227,7 @@ describe('ConflictDetectionService', () => {
 
     const result = await service.detectConflicts(TENANT_ID, makeEntry());
 
-    const capacityConflict = result.soft.find(
-      (c) => c.category === 'room_over_capacity',
-    );
+    const capacityConflict = result.soft.find((c) => c.category === 'room_over_capacity');
     expect(capacityConflict).toBeDefined();
     expect(capacityConflict!.type).toBe('soft');
     expect(capacityConflict!.message).toContain('20 students');

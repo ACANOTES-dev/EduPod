@@ -10,11 +10,11 @@ import { SYSTEM_USER_SENTINEL } from '@school/shared';
 import { type GdprOutboundData, CONSENT_TYPES } from '@school/shared/gdpr';
 
 import { AnthropicClientService } from '../../ai/anthropic-client.service';
+import { AttendanceReadFacade } from '../../attendance/attendance-read.facade';
 import { SettingsService } from '../../configuration/settings.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { ConsentService } from '../../gdpr/consent.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
-import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

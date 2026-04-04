@@ -1,8 +1,8 @@
 import { Logger, NotFoundException } from '@nestjs/common';
 
-import { StudentReadFacade } from '../../students/student-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
+import { StudentReadFacade } from '../../students/student-read.facade';
 
 export class ReportCardTranscriptService {
   private readonly logger = new Logger(ReportCardTranscriptService.name);
@@ -26,8 +26,7 @@ export class ReportCardTranscriptService {
   }
 
   async generateTranscript(tenantId: string, studentId: string) {
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
+    const student = (await this.studentReadFacade.findOneGeneric(tenantId, studentId, {
       select: {
         id: true,
         first_name: true,
@@ -35,7 +34,13 @@ export class ReportCardTranscriptService {
         student_number: true,
         year_group: { select: { id: true, name: true } },
       },
-    });
+    })) as {
+      id: string;
+      first_name: string;
+      last_name: string;
+      student_number: string | null;
+      year_group: { id: string; name: string } | null;
+    } | null;
 
     if (!student) {
       throw new NotFoundException({

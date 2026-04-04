@@ -3,10 +3,14 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import type { CreateApprovalWorkflowDto, UpdateApprovalWorkflowDto } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { RbacReadFacade } from '../rbac/rbac-read.facade';
 
 @Injectable()
 export class ApprovalWorkflowsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly rbacReadFacade: RbacReadFacade,
+  ) {}
 
   /**
    * List all approval workflows for a tenant, including approver role.
@@ -36,12 +40,7 @@ export class ApprovalWorkflowsService {
    */
   async createWorkflow(tenantId: string, data: CreateApprovalWorkflowDto) {
     // Verify approver role exists and belongs to this tenant
-    const role = await this.prisma.role.findFirst({
-      where: {
-        id: data.approver_role_id,
-        OR: [{ tenant_id: tenantId }, { tenant_id: null }],
-      },
-    });
+    const role = await this.rbacReadFacade.findRoleById(tenantId, data.approver_role_id);
 
     if (!role) {
       throw new NotFoundException({
@@ -107,12 +106,7 @@ export class ApprovalWorkflowsService {
 
     // If updating approver role, verify it exists
     if (data.approver_role_id) {
-      const role = await this.prisma.role.findFirst({
-        where: {
-          id: data.approver_role_id,
-          OR: [{ tenant_id: tenantId }, { tenant_id: null }],
-        },
-      });
+      const role = await this.rbacReadFacade.findRoleById(tenantId, data.approver_role_id);
 
       if (!role) {
         throw new NotFoundException({

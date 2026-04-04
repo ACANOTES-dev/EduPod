@@ -131,10 +131,7 @@ export class AcademicReadFacade {
    * Find an academic year by ID. Returns `null` if not found.
    * Used by scheduling, scheduling-runs, and other modules to validate year references.
    */
-  async findYearById(
-    tenantId: string,
-    yearId: string,
-  ): Promise<AcademicYearSummary | null> {
+  async findYearById(tenantId: string, yearId: string): Promise<AcademicYearSummary | null> {
     return this.prisma.academicYear.findFirst({
       where: { id: yearId, tenant_id: tenantId },
     });
@@ -460,7 +457,13 @@ export class AcademicReadFacade {
   async findYearByName(
     tenantId: string,
     name: string,
-  ): Promise<{ id: string; name: string; start_date: Date; end_date: Date; status: string } | null> {
+  ): Promise<{
+    id: string;
+    name: string;
+    start_date: Date;
+    end_date: Date;
+    status: string;
+  } | null> {
     return this.prisma.academicYear.findFirst({
       where: { tenant_id: tenantId, name },
     });
@@ -532,5 +535,49 @@ export class AcademicReadFacade {
       select: { start_date: true, end_date: true },
     });
     return period;
+  }
+
+  // ─── Generic Methods (reports-data-access) ─────────────────────────────────
+
+  /**
+   * Generic findMany for year groups with optional select/orderBy.
+   * Used by reports-data-access for year group queries.
+   */
+  async findYearGroupsGeneric(
+    tenantId: string,
+    select?: Prisma.YearGroupSelect,
+    orderBy?: Prisma.YearGroupOrderByWithRelationInput,
+  ): Promise<unknown[]> {
+    return this.prisma.yearGroup.findMany({
+      where: { tenant_id: tenantId },
+      ...(select && { select }),
+      ...(orderBy ? { orderBy } : { orderBy: { display_order: 'asc' } }),
+    });
+  }
+
+  /**
+   * Generic findMany for academic periods with optional where/select.
+   * Used by reports-data-access for period queries.
+   */
+  async findPeriodsGeneric(
+    tenantId: string,
+    where?: Prisma.AcademicPeriodWhereInput,
+    select?: Prisma.AcademicPeriodSelect,
+  ): Promise<unknown[]> {
+    return this.prisma.academicPeriod.findMany({
+      where: { tenant_id: tenantId, ...where },
+      ...(select && { select }),
+    });
+  }
+
+  /**
+   * Generic findMany for subjects with optional select.
+   * Used by reports-data-access for subject queries.
+   */
+  async findAllSubjects(tenantId: string, select?: Prisma.SubjectSelect): Promise<unknown[]> {
+    return this.prisma.subject.findMany({
+      where: { tenant_id: tenantId },
+      ...(select && { select }),
+    });
   }
 }

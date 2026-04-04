@@ -10,10 +10,14 @@ import type {
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 @Injectable()
 export class StaffPreferencesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+  ) {}
 
   async findAll(tenantId: string, academicYearId: string, staffProfileId?: string) {
     const data = await this.prisma.staffSchedulingPreference.findMany({
@@ -38,10 +42,7 @@ export class StaffPreferencesService {
 
   async findOwnPreferences(tenantId: string, userId: string, academicYearId: string) {
     // Resolve staff_profile_id from user's profile
-    const staffProfile = await this.prisma.staffProfile.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-      select: { id: true },
-    });
+    const staffProfile = await this.staffProfileReadFacade.findByUserId(tenantId, userId);
 
     if (!staffProfile) {
       throw new NotFoundException({
@@ -203,10 +204,7 @@ export class StaffPreferencesService {
     userId: string,
     targetStaffProfileId: string,
   ): Promise<void> {
-    const staffProfile = await this.prisma.staffProfile.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-      select: { id: true },
-    });
+    const staffProfile = await this.staffProfileReadFacade.findByUserId(tenantId, userId);
 
     if (!staffProfile || staffProfile.id !== targetStaffProfileId) {
       throw new ForbiddenException({

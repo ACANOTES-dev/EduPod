@@ -12,7 +12,6 @@ import {
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
-
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { PastoralEventService } from './pastoral-event.service';

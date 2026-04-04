@@ -6,6 +6,7 @@ import { VALID_HOMEWORK_TRANSITIONS } from '@school/shared';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import type { CreateHomeworkDto } from './dto/create-homework.dto';
 import type { ListHomeworkQuery } from './dto/list-homework.dto';
@@ -95,6 +96,7 @@ export class HomeworkService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly s3Service: S3Service,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   // ─── Create ───────────────────────────────────────────────────────────────────
@@ -452,11 +454,7 @@ export class HomeworkService {
   // ─── Tenant homework settings ──────────────────────────────────────────────
 
   private async getHomeworkSettings(tenantId: string) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { settings: true },
-    });
-    const settings = tenant?.settings as Record<string, unknown> | null;
+    const settings = await this.tenantReadFacade.findSettings(tenantId);
     const hw = settings?.homework as Record<string, unknown> | undefined;
     return {
       max_attachment_size_mb: (hw?.max_attachment_size_mb as number) ?? 10,

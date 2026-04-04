@@ -13,12 +13,19 @@ import { ClassAssignmentsController } from './class-assignments.controller';
 import { ClassAssignmentService } from './class-assignments.service';
 import { ClassEnrolmentsController } from './class-enrolments.controller';
 import { ClassEnrolmentsService } from './class-enrolments.service';
-import { ClassesController } from './classes.controller';
 import { ClassesReadFacade } from './classes-read.facade';
+import { ClassesController } from './classes.controller';
 import { ClassesService } from './classes.service';
 
 @Module({
-  imports: [AuthModule, forwardRef(() => AcademicsModule), SchedulesModule, StaffProfilesModule, forwardRef(() => StudentsModule), TenantsModule],
+  imports: [
+    AuthModule,
+    forwardRef(() => AcademicsModule),
+    SchedulesModule,
+    StaffProfilesModule,
+    forwardRef(() => StudentsModule),
+    TenantsModule,
+  ],
   controllers: [ClassesController, ClassEnrolmentsController, ClassAssignmentsController],
   providers: [ClassesService, ClassEnrolmentsService, ClassAssignmentService, ClassesReadFacade],
   exports: [ClassesService, ClassEnrolmentsService, ClassesReadFacade],

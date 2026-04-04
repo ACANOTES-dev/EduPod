@@ -1,13 +1,9 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../../academics/academic-read.facade';
+import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { NotificationsService } from '../../communications/notifications.service';
-import { AcademicReadFacade } from '../academics/academic-read.facade';
-import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AiProgressSummaryService } from '../ai/ai-progress-summary.service';
 
@@ -85,31 +81,17 @@ export class GradePublishingService {
 
     // Get enrolled student counts per class
     const classIds = [...new Set(assessments.map((a) => a.class_id))];
-    const enrolmentCounts = await this.prisma.classEnrolment.groupBy({
-      by: ['class_id'],
-      where: {
-        tenant_id: tenantId,
-        class_id: { in: classIds },
-        status: 'active',
-      },
-      _count: { student_id: true },
-    });
-
-    const enrolmentMap = new Map<string, number>();
-    for (const e of enrolmentCounts) {
-      enrolmentMap.set(e.class_id, e._count.student_id);
-    }
+    const enrolmentMap = await this.classesReadFacade.findEnrolmentCountsByClasses(
+      tenantId,
+      classIds,
+    );
 
     const rows: ReadinessRow[] = assessments.map((a) => {
       const enrolledCount = enrolmentMap.get(a.class_id) ?? 0;
-      const gradedCount = a.grades.filter(
-        (g) => g.raw_score !== null || g.is_missing,
-      ).length;
+      const gradedCount = a.grades.filter((g) => g.raw_score !== null || g.is_missing).length;
 
       const completionPercent =
-        enrolledCount > 0
-          ? Math.round((gradedCount / enrolledCount) * 100)
-          : 0;
+        enrolledCount > 0 ? Math.round((gradedCount / enrolledCount) * 100) : 0;
 
       let status: ReadinessRow['status'];
       if (a.grades_published_at) {
@@ -132,9 +114,7 @@ export class GradePublishingService {
         graded_count: gradedCount,
         enrolled_count: enrolledCount,
         completion_percent: completionPercent,
-        published_at: a.grades_published_at
-          ? a.grades_published_at.toISOString()
-          : null,
+        published_at: a.grades_published_at ? a.grades_published_at.toISOString() : null,
         status,
       };
     });
@@ -240,18 +220,12 @@ export class GradePublishingService {
 
     // Invalidate AI progress summary caches for affected students
     for (const studentId of studentIds) {
-      void this.aiProgressSummaryService
-        .invalidateCache(tenantId, studentId)
-        .catch((err) => {
-          this.logger.warn(
-            `Failed to invalidate progress summary cache: ${String(err)}`,
-          );
-        });
+      void this.aiProgressSummaryService.invalidateCache(tenantId, studentId).catch((err) => {
+        this.logger.warn(`Failed to invalidate progress summary cache: ${String(err)}`);
+      });
     }
 
-    this.logger.log(
-      `Published ${assessments.length} assessments for tenant ${tenantId}`,
-    );
+    this.logger.log(`Published ${assessments.length} assessments for tenant ${tenantId}`);
 
     return {
       published: assessments.length,
@@ -268,23 +242,9 @@ export class GradePublishingService {
     periodId: string,
   ): Promise<{ published: number; assessment_ids: string[] }> {
     // Verify class and period exist
-    const [classEntity, period] = await Promise.all([
-      this.prisma.class.findFirst({
-        where: { id: classId, tenant_id: tenantId },
-        select: { id: true },
-      }),
-      this.prisma.academicPeriod.findFirst({
-        where: { id: periodId, tenant_id: tenantId },
-        select: { id: true },
-      }),
-    ]);
+    await this.classesReadFacade.existsOrThrow(tenantId, classId);
 
-    if (!classEntity) {
-      throw new NotFoundException({
-        error: { code: 'CLASS_NOT_FOUND', message: `Class "${classId}" not found` },
-      });
-    }
-
+    const period = await this.academicReadFacade.findPeriodById(tenantId, periodId);
     if (!period) {
       throw new NotFoundException({
         error: {

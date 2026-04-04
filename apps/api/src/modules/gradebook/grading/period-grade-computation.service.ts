@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
-import { ClassesReadFacade } from '../classes/classes-read.facade';
-import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
+import { ClassesReadFacade } from '../../classes/classes-read.facade';
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { GpaService } from './gpa.service';
@@ -57,10 +57,9 @@ export class PeriodGradeComputationService {
     const warnings: ComputationWarning[] = [];
 
     // 1. Look up class to get year_group_id
-    const classEntity = await this.prisma.class.findFirst({
-      where: { id: classId, tenant_id: tenantId },
-      select: { year_group_id: true },
-    });
+    const classEntity = await this.classesReadFacade
+      .findClassesGeneric(tenantId, { id: classId }, { year_group_id: true })
+      .then((rows) => (rows[0] as { year_group_id: string | null } | undefined) ?? null);
 
     // 2. Try year-group weights first, fall back to class-subject config
     let categoryWeightsRaw: CategoryWeight[] = [];
@@ -111,12 +110,8 @@ export class PeriodGradeComputationService {
     }
 
     // 3. Load tenant settings for formative weight cap
-    const tenantSetting = await this.prisma.tenantSetting.findFirst({
-      where: { tenant_id: tenantId },
-      select: { settings: true },
-    });
-
-    const settings = (tenantSetting?.settings ?? {}) as Record<string, unknown>;
+    const tenantSettingRow = await this.configurationReadFacade.findSettings(tenantId);
+    const settings = (tenantSettingRow?.settings ?? {}) as Record<string, unknown>;
     const gradebookSettings = (settings['gradebook'] ?? {}) as Record<string, unknown>;
     const missingGradePolicy =
       (gradebookSettings['defaultMissingGradePolicy'] as string) ?? 'exclude';
@@ -149,14 +144,11 @@ export class PeriodGradeComputationService {
     }
 
     // 6. Load enrolled students
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
-        class_id: classId,
-        status: 'active',
-      },
-      select: { student_id: true },
-    });
+    const enrolments = (await this.classesReadFacade.findEnrolmentsGeneric(
+      tenantId,
+      { class_id: classId, status: 'active' },
+      { student_id: true },
+    )) as Array<{ student_id: string }>;
 
     const studentIds = enrolments.map((e) => e.student_id);
 

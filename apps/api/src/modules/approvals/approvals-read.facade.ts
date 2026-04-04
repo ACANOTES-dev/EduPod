@@ -11,6 +11,7 @@
  * - No RLS transaction needed for reads — `tenant_id` is in every `where` clause.
  */
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -36,5 +37,18 @@ export class ApprovalsReadFacade {
     if (options.actionType) where.action_type = options.actionType;
 
     return this.prisma.approvalRequest.count({ where });
+  }
+
+  /**
+   * Count approval requests matching an arbitrary Prisma where clause.
+   * Used by reports-data-access for generic dashboard counts.
+   */
+  async countRequestsGeneric(
+    tenantId: string,
+    where?: Prisma.ApprovalRequestWhereInput,
+  ): Promise<number> {
+    return this.prisma.approvalRequest.count({
+      where: { tenant_id: tenantId, ...where },
+    });
   }
 }

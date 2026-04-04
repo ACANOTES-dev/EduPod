@@ -1,8 +1,12 @@
 import { Module } from '@nestjs/common';
 
+import { AcademicsModule } from '../academics/academics.module';
 import { AuthModule } from '../auth/auth.module';
+import { ClassesModule } from '../classes/classes.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
+import { PastoralModule } from '../pastoral/pastoral.module';
 import { SequenceModule } from '../sequence/sequence.module';
+import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 
 import { SenAccommodationController } from './sen-accommodation.controller';
 import { SenAccommodationService } from './sen-accommodation.service';
@@ -25,7 +29,15 @@ import { SenTransitionController } from './sen-transition.controller';
 import { SenTransitionService } from './sen-transition.service';
 
 @Module({
-  imports: [AuthModule, ConfigurationModule, SequenceModule],
+  imports: [
+    AuthModule,
+    AcademicsModule,
+    ClassesModule,
+    ConfigurationModule,
+    PastoralModule,
+    SequenceModule,
+    StaffProfilesModule,
+  ],
   controllers: [
     SenProfileController,
     SenSupportPlanController,

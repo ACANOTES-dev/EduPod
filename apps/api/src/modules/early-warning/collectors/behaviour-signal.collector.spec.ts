@@ -1,4 +1,4 @@
-import type { PrismaService } from '../../prisma/prisma.service';
+import type { BehaviourReadFacade } from '../../behaviour/behaviour-read.facade';
 
 import { BehaviourSignalCollector } from './behaviour-signal.collector';
 
@@ -10,12 +10,12 @@ const ACADEMIC_YEAR_ID = '00000000-0000-0000-0000-000000000003';
 
 // ─── Mock Factory ───────────────────────────────────────────────────────────
 
-function buildMockPrisma() {
+function buildMockFacade() {
   return {
-    behaviourIncidentParticipant: { findMany: jest.fn().mockResolvedValue([]) },
-    behaviourSanction: { findMany: jest.fn().mockResolvedValue([]) },
-    behaviourExclusionCase: { findMany: jest.fn().mockResolvedValue([]) },
-    behaviourIntervention: { findMany: jest.fn().mockResolvedValue([]) },
+    findRecentIncidents: jest.fn().mockResolvedValue([]),
+    findSanctionsForStudent: jest.fn().mockResolvedValue([]),
+    findExclusionCasesForStudent: jest.fn().mockResolvedValue([]),
+    findInterventionsForStudent: jest.fn().mockResolvedValue([]),
   };
 }
 
@@ -50,11 +50,11 @@ function makeParticipant(
 
 describe('BehaviourSignalCollector', () => {
   let collector: BehaviourSignalCollector;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockFacade: ReturnType<typeof buildMockFacade>;
 
   beforeEach(() => {
-    mockPrisma = buildMockPrisma();
-    collector = new BehaviourSignalCollector(mockPrisma as unknown as PrismaService);
+    mockFacade = buildMockFacade();
+    collector = new BehaviourSignalCollector(mockFacade as unknown as BehaviourReadFacade);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -77,9 +77,9 @@ describe('BehaviourSignalCollector', () => {
       makeParticipant({ id: `part-${i}`, occurredDaysAgo: i + 1 }),
     );
 
-    mockPrisma.behaviourIncidentParticipant.findMany
-      .mockResolvedValueOnce(participants)  // 14-day query
-      .mockResolvedValueOnce([]);           // 30-day query
+    mockFacade.findRecentIncidents
+      .mockResolvedValueOnce(participants) // 14-day query
+      .mockResolvedValueOnce([]); // 30-day query
 
     const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
@@ -104,8 +104,8 @@ describe('BehaviourSignalCollector', () => {
     );
     const allParticipants = [...secondHalf, ...firstHalf];
 
-    mockPrisma.behaviourIncidentParticipant.findMany
-      .mockResolvedValueOnce([])            // 14-day query (not used for this signal)
+    mockFacade.findRecentIncidents
+      .mockResolvedValueOnce([]) // 14-day query (not used for this signal)
       .mockResolvedValueOnce(allParticipants); // 30-day query
 
     const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
@@ -119,7 +119,7 @@ describe('BehaviourSignalCollector', () => {
   // ─── Test 4: active_sanction (suspension) → score 30, high ─────────────
 
   it('should detect active suspension sanction as high severity', async () => {
-    mockPrisma.behaviourSanction.findMany.mockResolvedValue([
+    mockFacade.findSanctionsForStudent.mockResolvedValue([
       {
         id: 'sanc-001',
         type: 'suspension_external',
@@ -140,7 +140,7 @@ describe('BehaviourSignalCollector', () => {
   // ─── Test 5: active_sanction (non-suspension) → score 15, medium ──────
 
   it('should detect active non-suspension sanction as medium severity', async () => {
-    mockPrisma.behaviourSanction.findMany.mockResolvedValue([
+    mockFacade.findSanctionsForStudent.mockResolvedValue([
       {
         id: 'sanc-002',
         type: 'detention',
@@ -161,7 +161,7 @@ describe('BehaviourSignalCollector', () => {
   // ─── Test 6: exclusion_history with 1 case → score 20, medium ──────────
 
   it('should detect 1 exclusion case as medium severity', async () => {
-    mockPrisma.behaviourExclusionCase.findMany.mockResolvedValue([
+    mockFacade.findExclusionCasesForStudent.mockResolvedValue([
       {
         id: 'exc-001',
         incident: { academic_year_id: ACADEMIC_YEAR_ID },
@@ -180,7 +180,7 @@ describe('BehaviourSignalCollector', () => {
   // ─── Test 7: failed_intervention → 1 abandoned → score 10 ─────────────
 
   it('should detect 1 abandoned intervention with score 10', async () => {
-    mockPrisma.behaviourIntervention.findMany.mockResolvedValue([
+    mockFacade.findInterventionsForStudent.mockResolvedValue([
       {
         id: 'int-001',
         status: 'abandoned',
@@ -200,21 +200,19 @@ describe('BehaviourSignalCollector', () => {
   // ─── Test 8: Only negative polarity counted ───────────────────────────
 
   it('should not generate signals for positive polarity incidents', async () => {
-    // All queries return empty because the Prisma where clause filters to
-    // polarity: 'negative'. Mock returns empty to simulate no negative matches.
-    // The test validates that the query includes the polarity filter.
+    // Provide 5 positive incidents — collector filters client-side for negative only
+    const positiveParticipants = Array.from({ length: 5 }, (_, i) =>
+      makeParticipant({ id: `part-${i}`, polarity: 'positive', occurredDaysAgo: i + 1 }),
+    );
+
+    mockFacade.findRecentIncidents
+      .mockResolvedValueOnce(positiveParticipants) // 14-day query
+      .mockResolvedValueOnce(positiveParticipants); // 30-day query
+
     const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
     expect(result.rawScore).toBe(0);
     expect(result.signals).toEqual([]);
-
-    // Verify the 14-day query included polarity: 'negative'
-    const call14d = mockPrisma.behaviourIncidentParticipant.findMany.mock.calls[0][0];
-    expect(call14d.where.incident.polarity).toBe('negative');
-
-    // Verify the 30-day query included polarity: 'negative'
-    const call30d = mockPrisma.behaviourIncidentParticipant.findMany.mock.calls[1][0];
-    expect(call30d.where.incident.polarity).toBe('negative');
   });
 
   // ─── Test 9: Multiple signals cap at 100 ──────────────────────────────
@@ -224,12 +222,12 @@ describe('BehaviourSignalCollector', () => {
     const manyParticipants = Array.from({ length: 12 }, (_, i) =>
       makeParticipant({ id: `part-${i}`, occurredDaysAgo: i + 1 }),
     );
-    mockPrisma.behaviourIncidentParticipant.findMany
+    mockFacade.findRecentIncidents
       .mockResolvedValueOnce(manyParticipants) // 14-day query
-      .mockResolvedValueOnce([]);              // 30-day query (no escalation data)
+      .mockResolvedValueOnce([]); // 30-day query (no escalation data)
 
     // active_sanction: suspension → 30
-    mockPrisma.behaviourSanction.findMany.mockResolvedValue([
+    mockFacade.findSanctionsForStudent.mockResolvedValue([
       {
         id: 'sanc-cap',
         type: 'suspension_external',
@@ -239,15 +237,20 @@ describe('BehaviourSignalCollector', () => {
     ]);
 
     // exclusion_history: 2+ → 35
-    mockPrisma.behaviourExclusionCase.findMany.mockResolvedValue([
+    mockFacade.findExclusionCasesForStudent.mockResolvedValue([
       { id: 'exc-cap-1', incident: { academic_year_id: ACADEMIC_YEAR_ID } },
       { id: 'exc-cap-2', incident: { academic_year_id: ACADEMIC_YEAR_ID } },
     ]);
 
     // failed_intervention: 2+ → 20
-    mockPrisma.behaviourIntervention.findMany.mockResolvedValue([
+    mockFacade.findInterventionsForStudent.mockResolvedValue([
       { id: 'int-cap-1', status: 'abandoned', outcome: null, target_end_date: null },
-      { id: 'int-cap-2', status: 'completed_intervention', outcome: 'deteriorated', target_end_date: null },
+      {
+        id: 'int-cap-2',
+        status: 'completed_intervention',
+        outcome: 'deteriorated',
+        target_end_date: null,
+      },
     ]);
 
     const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
@@ -264,12 +267,12 @@ describe('BehaviourSignalCollector', () => {
     const participants = Array.from({ length: 3 }, (_, i) =>
       makeParticipant({ id: `part-${i}`, occurredDaysAgo: i + 1 }),
     );
-    mockPrisma.behaviourIncidentParticipant.findMany
+    mockFacade.findRecentIncidents
       .mockResolvedValueOnce(participants) // 14-day query
-      .mockResolvedValueOnce([]);          // 30-day query
+      .mockResolvedValueOnce([]); // 30-day query
 
     // active_sanction: detention → 15
-    mockPrisma.behaviourSanction.findMany.mockResolvedValue([
+    mockFacade.findSanctionsForStudent.mockResolvedValue([
       {
         id: 'sanc-frag',
         type: 'detention',

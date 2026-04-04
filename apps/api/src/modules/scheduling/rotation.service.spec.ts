@@ -1,8 +1,8 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PrismaService } from '../prisma/prisma.service';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { PrismaService } from '../prisma/prisma.service';
 import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 
 import { RotationService } from './rotation.service';
@@ -20,17 +20,21 @@ const mockTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
-const makeSavedConfig = (overrides: Partial<{
-  id: string;
-  cycle_length: number;
-  week_labels_json: string[];
-  effective_start_date: Date;
-  updated_at: Date;
-}> = {}) => ({
+const makeSavedConfig = (
+  overrides: Partial<{
+    id: string;
+    cycle_length: number;
+    week_labels_json: string[];
+    effective_start_date: Date;
+    updated_at: Date;
+  }> = {},
+) => ({
   id: 'config-1',
   cycle_length: 2,
   week_labels_json: ['Week A', 'Week B'],
@@ -66,45 +70,51 @@ describe('RotationService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        { provide: AcademicReadFacade, useValue: {
-      findCurrentYear: jest.fn().mockResolvedValue(null),
-      findCurrentYearId: jest.fn().mockResolvedValue('year-1'),
-      findYearById: jest.fn().mockResolvedValue(null),
-      findYearByIdOrThrow: jest.fn().mockResolvedValue('year-1'),
-      findSubjectByIdOrThrow: jest.fn().mockResolvedValue('subject-1'),
-      findYearGroupByIdOrThrow: jest.fn().mockResolvedValue('yg-1'),
-      findYearGroupsWithActiveClasses: jest.fn().mockResolvedValue([]),
-      findYearGroupsWithClassesAndCounts: jest.fn().mockResolvedValue([]),
-      findAllYearGroups: jest.fn().mockResolvedValue([]),
-      findSubjectsByIdsWithOrder: jest.fn().mockResolvedValue([]),
-      findSubjectById: jest.fn().mockResolvedValue(null),
-      findYearGroupById: jest.fn().mockResolvedValue(null),
-      findPeriodById: jest.fn().mockResolvedValue(null),
-    } },
-        { provide: SchedulesReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findCoreById: jest.fn().mockResolvedValue(null),
-      existsById: jest.fn().mockResolvedValue(null),
-      findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
-      countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
-      findTeacherTimetable: jest.fn().mockResolvedValue([]),
-      findClassTimetable: jest.fn().mockResolvedValue([]),
-      findPinnedEntries: jest.fn().mockResolvedValue([]),
-      countPinnedEntries: jest.fn().mockResolvedValue(0),
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findScheduledClassIds: jest.fn().mockResolvedValue([]),
-      countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
-      count: jest.fn().mockResolvedValue(0),
-      hasRotationEntries: jest.fn().mockResolvedValue(false),
-      countByRoom: jest.fn().mockResolvedValue(0),
-      findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
-      findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
-      countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
-      findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
-      hasConflict: jest.fn().mockResolvedValue(false),
-      findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
-      findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
-    } },
+        {
+          provide: AcademicReadFacade,
+          useValue: {
+            findCurrentYear: jest.fn().mockResolvedValue(null),
+            findCurrentYearId: jest.fn().mockResolvedValue('year-1'),
+            findYearById: jest.fn().mockResolvedValue(null),
+            findYearByIdOrThrow: jest.fn().mockResolvedValue('year-1'),
+            findSubjectByIdOrThrow: jest.fn().mockResolvedValue('subject-1'),
+            findYearGroupByIdOrThrow: jest.fn().mockResolvedValue('yg-1'),
+            findYearGroupsWithActiveClasses: jest.fn().mockResolvedValue([]),
+            findYearGroupsWithClassesAndCounts: jest.fn().mockResolvedValue([]),
+            findAllYearGroups: jest.fn().mockResolvedValue([]),
+            findSubjectsByIdsWithOrder: jest.fn().mockResolvedValue([]),
+            findSubjectById: jest.fn().mockResolvedValue(null),
+            findYearGroupById: jest.fn().mockResolvedValue(null),
+            findPeriodById: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: SchedulesReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            findCoreById: jest.fn().mockResolvedValue(null),
+            existsById: jest.fn().mockResolvedValue(null),
+            findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
+            countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
+            findTeacherTimetable: jest.fn().mockResolvedValue([]),
+            findClassTimetable: jest.fn().mockResolvedValue([]),
+            findPinnedEntries: jest.fn().mockResolvedValue([]),
+            countPinnedEntries: jest.fn().mockResolvedValue(0),
+            findByAcademicYear: jest.fn().mockResolvedValue([]),
+            findScheduledClassIds: jest.fn().mockResolvedValue([]),
+            countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
+            count: jest.fn().mockResolvedValue(0),
+            hasRotationEntries: jest.fn().mockResolvedValue(false),
+            countByRoom: jest.fn().mockResolvedValue(0),
+            findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
+            findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
+            countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
+            findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
+            hasConflict: jest.fn().mockResolvedValue(false),
+            findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
+            findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
+          },
+        },
         RotationService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -135,7 +145,9 @@ describe('RotationService', () => {
 
     it('should update an existing rotation config when one exists', async () => {
       mockPrisma.rotationConfig.findFirst.mockResolvedValue({ id: 'existing-config' });
-      mockTx.rotationConfig.update.mockResolvedValue(makeSavedConfig({ cycle_length: 3, week_labels_json: ['W1', 'W2', 'W3'] }));
+      mockTx.rotationConfig.update.mockResolvedValue(
+        makeSavedConfig({ cycle_length: 3, week_labels_json: ['W1', 'W2', 'W3'] }),
+      );
 
       const result = await service.upsertRotationConfig(TENANT_ID, {
         academic_year_id: ACADEMIC_YEAR_ID,
@@ -175,7 +187,11 @@ describe('RotationService', () => {
       });
 
       // Same week as start
-      const result = await service.getCurrentRotationWeek(TENANT_ID, ACADEMIC_YEAR_ID, '2026-01-07');
+      const result = await service.getCurrentRotationWeek(
+        TENANT_ID,
+        ACADEMIC_YEAR_ID,
+        '2026-01-07',
+      );
 
       expect(result.week_index).toBe(0);
       expect(result.week_label).toBe('Week A');
@@ -190,7 +206,11 @@ describe('RotationService', () => {
       });
 
       // 7 days later = week 1
-      const result = await service.getCurrentRotationWeek(TENANT_ID, ACADEMIC_YEAR_ID, '2026-01-12');
+      const result = await service.getCurrentRotationWeek(
+        TENANT_ID,
+        ACADEMIC_YEAR_ID,
+        '2026-01-12',
+      );
 
       expect(result.week_index).toBe(1);
       expect(result.week_label).toBe('Week B');
@@ -205,7 +225,11 @@ describe('RotationService', () => {
       });
 
       // 14 days later = 2 full weeks = cycle wraps back to index 0
-      const result = await service.getCurrentRotationWeek(TENANT_ID, ACADEMIC_YEAR_ID, '2026-01-19');
+      const result = await service.getCurrentRotationWeek(
+        TENANT_ID,
+        ACADEMIC_YEAR_ID,
+        '2026-01-19',
+      );
 
       expect(result.week_index).toBe(0);
       expect(result.weeks_elapsed).toBe(2);
@@ -220,7 +244,11 @@ describe('RotationService', () => {
       });
 
       // 21 days = 3 weeks elapsed → index 3
-      const result = await service.getCurrentRotationWeek(TENANT_ID, ACADEMIC_YEAR_ID, '2026-01-26');
+      const result = await service.getCurrentRotationWeek(
+        TENANT_ID,
+        ACADEMIC_YEAR_ID,
+        '2026-01-26',
+      );
 
       expect(result.week_index).toBe(3);
       expect(result.week_label).toBe('W4');
@@ -235,7 +263,11 @@ describe('RotationService', () => {
       });
 
       // Date before the effective start
-      const result = await service.getCurrentRotationWeek(TENANT_ID, ACADEMIC_YEAR_ID, '2026-01-01');
+      const result = await service.getCurrentRotationWeek(
+        TENANT_ID,
+        ACADEMIC_YEAR_ID,
+        '2026-01-01',
+      );
 
       expect(result.week_index).toBe(0);
       expect(result.weeks_elapsed).toBe(0);
@@ -244,9 +276,9 @@ describe('RotationService', () => {
     it('should throw NotFoundException when no rotation config exists', async () => {
       mockPrisma.rotationConfig.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getCurrentRotationWeek(TENANT_ID, ACADEMIC_YEAR_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getCurrentRotationWeek(TENANT_ID, ACADEMIC_YEAR_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should fall back to Week N label when label array is shorter than cycle', async () => {
@@ -258,7 +290,11 @@ describe('RotationService', () => {
       });
 
       // 7 days = index 1, but no label at index 1
-      const result = await service.getCurrentRotationWeek(TENANT_ID, ACADEMIC_YEAR_ID, '2026-01-12');
+      const result = await service.getCurrentRotationWeek(
+        TENANT_ID,
+        ACADEMIC_YEAR_ID,
+        '2026-01-12',
+      );
 
       expect(result.week_label).toBe('Week 2');
     });
@@ -271,9 +307,9 @@ describe('RotationService', () => {
       mockPrisma.rotationConfig.findFirst.mockResolvedValue({ id: 'config-1' });
       mockPrisma.schedule.findFirst.mockResolvedValue({ id: 'schedule-1' });
 
-      await expect(
-        service.deleteRotationConfig(TENANT_ID, ACADEMIC_YEAR_ID),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.deleteRotationConfig(TENANT_ID, ACADEMIC_YEAR_ID)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should delete config when no schedules reference rotation weeks', async () => {

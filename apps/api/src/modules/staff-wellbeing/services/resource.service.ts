@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -40,21 +41,20 @@ const DEFAULT_RESULT: ResourcesResult = {
 
 @Injectable()
 export class ResourceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
+  ) {}
 
   async getResources(tenantId: string): Promise<ResourcesResult> {
-    const record = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const record = await this.configurationReadFacade.findSettings(tenantId);
 
     if (!record) {
       return DEFAULT_RESULT;
     }
 
     const settings = (record.settings as Record<string, unknown>) ?? {};
-    const wellbeing = settings['staff_wellbeing'] as
-      | Record<string, unknown>
-      | undefined;
+    const wellbeing = settings['staff_wellbeing'] as Record<string, unknown> | undefined;
 
     if (!wellbeing) {
       return DEFAULT_RESULT;

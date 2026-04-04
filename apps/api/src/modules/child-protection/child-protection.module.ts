@@ -5,10 +5,10 @@ import { PastoralCoreModule } from '../pastoral/pastoral-core.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
 import { SequenceModule } from '../sequence/sequence.module';
 
+import { ChildProtectionReadFacade } from './child-protection-read.facade';
 import { CpAccessController } from './controllers/cp-access.controller';
 import { CpExportController } from './controllers/cp-export.controller';
 import { CpRecordsController } from './controllers/cp-records.controller';
-import { ChildProtectionReadFacade } from './child-protection-read.facade';
 import { CpAccessGuard } from './guards/cp-access.guard';
 import { CpAccessService } from './services/cp-access.service';
 import { CpExportService } from './services/cp-export.service';

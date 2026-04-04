@@ -9,12 +9,14 @@ import type {
 
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 @Injectable()
 export class PayrollReportsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pdfRenderingService: PdfRenderingService,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   async getCostTrend(tenantId: string, year?: number): Promise<CostTrendPoint[]> {
@@ -267,9 +269,7 @@ export class PayrollReportsService {
     }
 
     // PDF: wrap data in simple HTML table
-    const branding = await this.prisma.tenantBranding.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const branding = await this.tenantReadFacade.findBranding(tenantId);
 
     const pdfBranding = {
       school_name: branding?.school_name_display ?? 'School',

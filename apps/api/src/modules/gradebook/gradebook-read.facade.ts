@@ -17,6 +17,7 @@
  * - Batch methods return arrays (empty array = nothing found).
  */
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -468,6 +469,175 @@ export class GradebookReadFacade {
         tenant_id: tenantId,
         created_at: { lt: cutoffDate },
       },
+    });
+  }
+
+  // ─── Generic Methods (reports-data-access + gradebook internal) ───────────
+
+  /**
+   * Generic findMany for grades with arbitrary where/select/orderBy.
+   * Used by reports-data-access for grade analytics.
+   */
+  async findGradesGeneric(
+    tenantId: string,
+    options: {
+      where?: Prisma.GradeWhereInput;
+      select?: Prisma.GradeSelect;
+      orderBy?: Prisma.GradeOrderByWithRelationInput;
+    },
+  ): Promise<unknown[]> {
+    return this.prisma.grade.findMany({
+      where: { tenant_id: tenantId, ...options.where },
+      ...(options.select && { select: options.select }),
+      ...(options.orderBy && { orderBy: options.orderBy }),
+    });
+  }
+
+  /**
+   * Group grades by scalar fields with counts and optional aggregations.
+   * Used by reports-data-access for grade analytics.
+   */
+  async groupGradesBy<K extends Prisma.GradeScalarFieldEnum>(
+    tenantId: string,
+    by: K[],
+    where?: Prisma.GradeWhereInput,
+    options?: { _avg?: Prisma.GradeAvgAggregateInputType },
+  ): Promise<Array<Record<string, unknown>>> {
+    const result = await this.prisma.grade.groupBy({
+      by,
+      where: { tenant_id: tenantId, ...where },
+      ...(options?._avg && { _avg: options._avg }),
+      _count: true,
+    });
+    return result as unknown as Array<Record<string, unknown>>;
+  }
+
+  /**
+   * Aggregate grade scores (avg). Converts Prisma Decimal to plain number.
+   * Used by reports-data-access for grade analytics.
+   */
+  async aggregateGrades(
+    tenantId: string,
+    where?: Prisma.GradeWhereInput,
+  ): Promise<{ _avg: { raw_score: number | null } }> {
+    const result = await this.prisma.grade.aggregate({
+      where: { tenant_id: tenantId, ...where },
+      _avg: { raw_score: true },
+    });
+    return {
+      _avg: { raw_score: result._avg.raw_score !== null ? Number(result._avg.raw_score) : null },
+    };
+  }
+
+  /**
+   * Generic findMany for assessments with arbitrary where/select.
+   * Used by reports-data-access for assessment analytics.
+   */
+  async findAssessmentsGeneric(
+    tenantId: string,
+    options: {
+      where?: Prisma.AssessmentWhereInput;
+      select?: Prisma.AssessmentSelect;
+    },
+  ): Promise<unknown[]> {
+    return this.prisma.assessment.findMany({
+      where: { tenant_id: tenantId, ...options.where },
+      ...(options.select && { select: options.select }),
+    });
+  }
+
+  /**
+   * Count assessments matching an arbitrary filter.
+   * Used by reports-data-access for assessment counts.
+   */
+  async countAssessments(tenantId: string, where?: Prisma.AssessmentWhereInput): Promise<number> {
+    return this.prisma.assessment.count({
+      where: { tenant_id: tenantId, ...where },
+    });
+  }
+
+  /**
+   * Generic findMany for period grade snapshots with arbitrary where/select/orderBy.
+   * Used by reports-data-access for grade analytics.
+   */
+  async findPeriodSnapshotsGeneric(
+    tenantId: string,
+    options: {
+      where?: Prisma.PeriodGradeSnapshotWhereInput;
+      select?: Prisma.PeriodGradeSnapshotSelect;
+      orderBy?: Prisma.PeriodGradeSnapshotOrderByWithRelationInput;
+    },
+  ): Promise<unknown[]> {
+    return this.prisma.periodGradeSnapshot.findMany({
+      where: { tenant_id: tenantId, ...options.where },
+      ...(options.select && { select: options.select }),
+      ...(options.orderBy && { orderBy: options.orderBy }),
+    });
+  }
+
+  /**
+   * Generic findMany for GPA snapshots with arbitrary where/select.
+   * Used by reports-data-access for GPA analytics.
+   */
+  async findGpaSnapshotsGeneric(
+    tenantId: string,
+    where?: Prisma.GpaSnapshotWhereInput,
+    select?: Prisma.GpaSnapshotSelect,
+  ): Promise<unknown[]> {
+    return this.prisma.gpaSnapshot.findMany({
+      where: { tenant_id: tenantId, ...where },
+      ...(select && { select }),
+    });
+  }
+
+  /**
+   * Count student academic risk alerts matching an arbitrary filter.
+   * Used by reports-data-access for risk alert counts.
+   */
+  async countRiskAlerts(
+    tenantId: string,
+    where?: Prisma.StudentAcademicRiskAlertWhereInput,
+  ): Promise<number> {
+    return this.prisma.studentAcademicRiskAlert.count({
+      where: { tenant_id: tenantId, ...where },
+    });
+  }
+
+  /**
+   * Generic findMany for student academic risk alerts.
+   * Used by reports-data-access for risk alert data queries.
+   */
+  async findRiskAlertsGeneric(
+    tenantId: string,
+    options: {
+      where?: Prisma.StudentAcademicRiskAlertWhereInput;
+      select?: Prisma.StudentAcademicRiskAlertSelect;
+      orderBy?: Prisma.StudentAcademicRiskAlertOrderByWithRelationInput;
+      take?: number;
+    },
+  ): Promise<unknown[]> {
+    return this.prisma.studentAcademicRiskAlert.findMany({
+      where: { tenant_id: tenantId, ...options.where },
+      ...(options.select && { select: options.select }),
+      ...(options.orderBy && { orderBy: options.orderBy }),
+      ...(options.take !== undefined && { take: options.take }),
+    });
+  }
+
+  /**
+   * Generic findMany for report cards with arbitrary where/select/orderBy.
+   * Used by reports-data-access for report card analytics.
+   */
+  async findReportCardsGeneric(
+    tenantId: string,
+    where?: Prisma.ReportCardWhereInput,
+    select?: Prisma.ReportCardSelect,
+    orderBy?: Prisma.ReportCardOrderByWithRelationInput,
+  ): Promise<unknown[]> {
+    return this.prisma.reportCard.findMany({
+      where: { tenant_id: tenantId, ...where },
+      ...(select && { select }),
+      ...(orderBy && { orderBy }),
     });
   }
 }

@@ -157,21 +157,23 @@ export class BehaviourAIService {
     // Audit log (anonymised prompt only)
     if (settings.ai_audit_logging) {
       try {
-        await this.prisma.auditLog.create({
-          data: {
-            tenant_id: tenantId,
-            actor_user_id: userId,
-            action: 'ai_query',
-            entity_type: 'behaviour_analytics',
-            entity_id: null,
-            metadata_json: {
-              context: 'ai_behaviour',
-              feature: 'nl_query',
-              anonymised_query: input.query,
-              model_used: 'claude-sonnet-4-5',
-              scope: scopeLabel,
+        await this.prisma.$transaction(async (tx) => {
+          await tx.auditLog.create({
+            data: {
+              tenant_id: tenantId,
+              actor_user_id: userId,
+              action: 'ai_query',
+              entity_type: 'behaviour_analytics',
+              entity_id: null,
+              metadata_json: {
+                context: 'ai_behaviour',
+                feature: 'nl_query',
+                anonymised_query: input.query,
+                model_used: 'claude-sonnet-4-5',
+                scope: scopeLabel,
+              },
             },
-          },
+          });
         });
       } catch {
         this.logger.warn('Failed to write AI audit log');
@@ -217,7 +219,7 @@ export class BehaviourAIService {
     page: number,
     pageSize: number,
   ): Promise<AIQueryHistoryResult> {
-    const auditWhere = {
+    const _auditWhere = {
       tenant_id: tenantId,
       actor_user_id: userId,
       action: 'ai_query',

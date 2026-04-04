@@ -8,7 +8,10 @@ import type {
 } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { RoomsReadFacade } from '../rooms/rooms-read.facade';
+import { SchedulingReadFacade } from '../scheduling/scheduling-read.facade';
 
 interface PaginationParams {
   page: number;
@@ -17,47 +20,34 @@ interface PaginationParams {
 
 @Injectable()
 export class ClassRequirementsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly schedulingReadFacade: SchedulingReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly roomsReadFacade: RoomsReadFacade,
+  ) {}
 
   async findAll(tenantId: string, academicYearId: string, pagination: PaginationParams) {
     const { page, pageSize } = pagination;
     const skip = (page - 1) * pageSize;
 
-    const where: Prisma.ClassSchedulingRequirementWhereInput = {
+    const _where: Prisma.ClassSchedulingRequirementWhereInput = {
       tenant_id: tenantId,
       academic_year_id: academicYearId,
     };
 
-    const [data, total] = await Promise.all([
-      this.prisma.classSchedulingRequirement.findMany({
-        where,
-        skip,
-        take: pageSize,
-        orderBy: { created_at: 'asc' },
-        include: {
-          class_entity: {
-            select: {
-              id: true,
-              name: true,
-              subject: { select: { id: true, name: true } },
-              class_enrolments: {
-                where: { status: 'active' },
-                select: { id: true },
-              },
-            },
-          },
-          preferred_room: {
-            select: { id: true, name: true },
-          },
-        },
-      }),
-      this.prisma.classSchedulingRequirement.count({ where }),
-    ]);
+    const { data, total } = await this.schedulingReadFacade.findClassRequirementsPaginated(
+      tenantId,
+      academicYearId,
+      { skip, take: pageSize },
+    );
 
     // Count total active classes for this academic year (to show configured vs total)
-    const totalActiveClasses = await this.prisma.class.count({
-      where: { tenant_id: tenantId, academic_year_id: academicYearId, status: 'active' },
-    });
+    const totalActiveClasses = await this.classesReadFacade.countByAcademicYear(
+      tenantId,
+      academicYearId,
+      { status: 'active' },
+    );
 
     return {
       data,
@@ -73,30 +63,11 @@ export class ClassRequirementsService {
 
   async create(tenantId: string, dto: CreateClassRequirementDto) {
     // Validate class exists and belongs to tenant
-    const classEntity = await this.prisma.class.findFirst({
-      where: { id: dto.class_id, tenant_id: tenantId },
-      select: { id: true },
-    });
-
-    if (!classEntity) {
-      throw new NotFoundException({
-        code: 'CLASS_NOT_FOUND',
-        message: `Class with id "${dto.class_id}" not found`,
-      });
-    }
+    await this.classesReadFacade.existsOrThrow(tenantId, dto.class_id);
 
     // Validate preferred_room exists if provided
     if (dto.preferred_room_id) {
-      const room = await this.prisma.room.findFirst({
-        where: { id: dto.preferred_room_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!room) {
-        throw new NotFoundException({
-          code: 'ROOM_NOT_FOUND',
-          message: `Room with id "${dto.preferred_room_id}" not found`,
-        });
-      }
+      await this.roomsReadFacade.existsOrThrow(tenantId, dto.preferred_room_id);
     }
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
@@ -135,16 +106,7 @@ export class ClassRequirementsService {
 
     // Validate preferred_room exists if provided
     if (dto.preferred_room_id) {
-      const room = await this.prisma.room.findFirst({
-        where: { id: dto.preferred_room_id, tenant_id: tenantId },
-        select: { id: true },
-      });
-      if (!room) {
-        throw new NotFoundException({
-          code: 'ROOM_NOT_FOUND',
-          message: `Room with id "${dto.preferred_room_id}" not found`,
-        });
-      }
+      await this.roomsReadFacade.existsOrThrow(tenantId, dto.preferred_room_id);
     }
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
@@ -236,10 +198,7 @@ export class ClassRequirementsService {
   // ─── Private helpers ──────────────────────────────────────────────────────
 
   private async assertExists(tenantId: string, id: string) {
-    const req = await this.prisma.classSchedulingRequirement.findFirst({
-      where: { id, tenant_id: tenantId },
-      select: { id: true },
-    });
+    const req = await this.schedulingReadFacade.findClassRequirementById(tenantId, id);
 
     if (!req) {
       throw new NotFoundException({

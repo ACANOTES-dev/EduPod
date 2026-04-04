@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
+import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 
-import { StaffPreferencesController } from './staff-preferences.controller';
 import { StaffPreferencesReadFacade } from './staff-preferences-read.facade';
+import { StaffPreferencesController } from './staff-preferences.controller';
 import { StaffPreferencesService } from './staff-preferences.service';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, StaffProfilesModule],
   controllers: [StaffPreferencesController],
   providers: [StaffPreferencesService, StaffPreferencesReadFacade],
   exports: [StaffPreferencesService, StaffPreferencesReadFacade],

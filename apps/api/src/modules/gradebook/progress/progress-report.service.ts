@@ -1,13 +1,9 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../../academics/academic-read.facade';
+import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { NotificationsService } from '../../communications/notifications.service';
-import { AcademicReadFacade } from '../academics/academic-read.facade';
-import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -46,35 +42,12 @@ export class ProgressReportService {
    * Generate draft progress reports for all active students in a class.
    * Computes current average per subject from grades entered so far.
    */
-  async generate(
-    tenantId: string,
-    userId: string,
-    dto: GenerateProgressReportsDto,
-  ) {
+  async generate(tenantId: string, userId: string, dto: GenerateProgressReportsDto) {
     // Validate class exists
-    const classEntity = await this.prisma.class.findFirst({
-      where: { id: dto.class_id, tenant_id: tenantId },
-      select: {
-        id: true,
-        name: true,
-        subject_id: true,
-      },
-    });
-
-    if (!classEntity) {
-      throw new NotFoundException({
-        error: {
-          code: 'CLASS_NOT_FOUND',
-          message: `Class "${dto.class_id}" not found`,
-        },
-      });
-    }
+    await this.classesReadFacade.existsOrThrow(tenantId, dto.class_id);
 
     // Validate period exists
-    const period = await this.prisma.academicPeriod.findFirst({
-      where: { id: dto.academic_period_id, tenant_id: tenantId },
-      select: { id: true, name: true },
-    });
+    const period = await this.academicReadFacade.findPeriodById(tenantId, dto.academic_period_id);
 
     if (!period) {
       throw new NotFoundException({
@@ -86,14 +59,11 @@ export class ProgressReportService {
     }
 
     // Get enrolled students
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
-        class_id: dto.class_id,
-        status: 'active',
-      },
-      select: { student_id: true },
-    });
+    const enrolments = (await this.classesReadFacade.findEnrolmentsGeneric(
+      tenantId,
+      { class_id: dto.class_id, status: 'active' },
+      { student_id: true },
+    )) as Array<{ student_id: string }>;
 
     if (enrolments.length === 0) {
       return { generated: 0, data: [] };
@@ -145,15 +115,11 @@ export class ProgressReportService {
     }
 
     // Get subjects in this class
-    const subjects = await this.prisma.subject.findMany({
-      where: {
-        tenant_id: tenantId,
-        id: {
-          in: [...new Set(assessments.map((a) => a.subject_id))],
-        },
-      },
-      select: { id: true, name: true },
-    });
+    const subjectIds = [...new Set(assessments.map((a) => a.subject_id))];
+    const subjects =
+      subjectIds.length > 0
+        ? await this.academicReadFacade.findSubjectsByIds(tenantId, subjectIds)
+        : [];
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
@@ -196,24 +162,13 @@ export class ProgressReportService {
           let currentAverage = 0;
 
           if (subjectData && subjectData.scores.length > 0) {
-            const totalMax = subjectData.maxScores.reduce(
-              (s: number, v: number) => s + v,
-              0,
-            );
-            const totalScore = subjectData.scores.reduce(
-              (s: number, v: number) => s + v,
-              0,
-            );
-            currentAverage =
-              totalMax > 0 ? (totalScore / totalMax) * 100 : 0;
+            const totalMax = subjectData.maxScores.reduce((s: number, v: number) => s + v, 0);
+            const totalScore = subjectData.scores.reduce((s: number, v: number) => s + v, 0);
+            currentAverage = totalMax > 0 ? (totalScore / totalMax) * 100 : 0;
           }
 
           // Determine trend from existing period grade snapshots (optional)
-          const trend = await this.computeTrend(
-            tenantId,
-            studentId,
-            subject.id,
-          );
+          const trend = await this.computeTrend(tenantId, studentId, subject.id);
 
           const entry = await db.progressReportEntry.create({
             data: {
@@ -239,11 +194,7 @@ export class ProgressReportService {
 
   // ─── Update Entry (teacher note) ─────────────────────────────────────────
 
-  async updateEntry(
-    tenantId: string,
-    entryId: string,
-    teacherNote: string | null,
-  ) {
+  async updateEntry(tenantId: string, entryId: string, teacherNote: string | null) {
     const entry = await this.prisma.progressReportEntry.findFirst({
       where: { id: entryId, tenant_id: tenantId },
       select: { id: true },
@@ -270,11 +221,7 @@ export class ProgressReportService {
 
   // ─── Send Progress Reports ────────────────────────────────────────────────
 
-  async send(
-    tenantId: string,
-    userId: string,
-    reportIds: string[],
-  ): Promise<{ sent: number }> {
+  async send(tenantId: string, userId: string, reportIds: string[]): Promise<{ sent: number }> {
     const reports = await this.prisma.progressReport.findMany({
       where: {
         id: { in: reportIds },
@@ -354,8 +301,7 @@ export class ProgressReportService {
 
     const where: Record<string, unknown> = { tenant_id: tenantId };
     if (query.class_id) where.class_id = query.class_id;
-    if (query.academic_period_id)
-      where.academic_period_id = query.academic_period_id;
+    if (query.academic_period_id) where.academic_period_id = query.academic_period_id;
     if (query.status) where.status = query.status;
 
     const [data, total] = await Promise.all([

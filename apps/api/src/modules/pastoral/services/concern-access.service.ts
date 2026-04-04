@@ -2,21 +2,20 @@ import { BadRequestException } from '@nestjs/common';
 
 import { pastoralTenantSettingsSchema } from '@school/shared/pastoral';
 
-import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
-
 import { ChildProtectionReadFacade } from '../../child-protection/child-protection-read.facade';
-
-import { RbacReadFacade } from '../../rbac/rbac-read.facade';
-
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RbacReadFacade } from '../../rbac/rbac-read.facade';
 
 import type { ValidatedCategory } from './concern.types';
 
 export class ConcernAccessService {
-  constructor(private readonly prisma: PrismaService,
+  constructor(
+    private readonly prisma: PrismaService,
     private readonly rbacReadFacade: RbacReadFacade,
     private readonly childProtectionReadFacade: ChildProtectionReadFacade,
-    private readonly configurationReadFacade: ConfigurationReadFacade) {}
+    private readonly configurationReadFacade: ConfigurationReadFacade,
+  ) {}
 
   async validateCategory(tenantId: string, categoryKey: string): Promise<ValidatedCategory> {
     const settings = await this.loadPastoralSettings(tenantId);
@@ -45,7 +44,9 @@ export class ConcernAccessService {
   }
 
   async checkCpAccess(tenantId: string, userId: string): Promise<boolean> {
-    const grant = await this.childProtectionReadFacade.hasActiveCpAccess(tenantId, userId) ? { id: "active" } : null;
+    const grant = (await this.childProtectionReadFacade.hasActiveCpAccess(tenantId, userId))
+      ? { id: 'active' }
+      : null;
 
     return !!grant;
   }

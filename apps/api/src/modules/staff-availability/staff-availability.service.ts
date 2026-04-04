@@ -1,10 +1,8 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 interface AvailabilityEntry {
   weekday: number;
@@ -14,7 +12,10 @@ interface AvailabilityEntry {
 
 @Injectable()
 export class StaffAvailabilityService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+  ) {}
 
   async findAll(tenantId: string, academicYearId: string, staffProfileId?: string) {
     const data = await this.prisma.staffAvailability.findMany({
@@ -44,17 +45,7 @@ export class StaffAvailabilityService {
     entries: AvailabilityEntry[],
   ) {
     // Validate staff exists and belongs to tenant
-    const staff = await this.prisma.staffProfile.findFirst({
-      where: { id: staffProfileId, tenant_id: tenantId },
-      select: { id: true },
-    });
-
-    if (!staff) {
-      throw new NotFoundException({
-        code: 'STAFF_PROFILE_NOT_FOUND',
-        message: `Staff profile with id "${staffProfileId}" not found`,
-      });
-    }
+    await this.staffProfileReadFacade.existsOrThrow(tenantId, staffProfileId);
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 

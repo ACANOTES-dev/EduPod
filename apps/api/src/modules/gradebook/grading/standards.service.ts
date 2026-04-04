@@ -1,13 +1,10 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
-import { AcademicReadFacade } from '../academics/academic-read.facade';
-import { StudentReadFacade } from '../students/student-read.facade';
+import { AcademicReadFacade } from '../../academics/academic-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StudentReadFacade } from '../../students/student-read.facade';
 import type {
   BulkImportStandardsDto,
   CreateCurriculumStandardDto,
@@ -28,7 +25,11 @@ interface CompetencyLevel {
 
 @Injectable()
 export class StandardsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
+  ) {}
   /**
    * Create a single curriculum standard.
    */
@@ -57,11 +58,7 @@ export class StandardsService {
    * Returns counts of created and updated records.
    */
   async bulkImportStandards(tenantId: string, dto: BulkImportStandardsDto) {
-    await this.validateSubjectAndYearGroup(
-      tenantId,
-      dto.subject_id,
-      dto.year_group_id,
-    );
+    await this.validateSubjectAndYearGroup(tenantId, dto.subject_id, dto.year_group_id);
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
@@ -231,11 +228,7 @@ export class StandardsService {
    * For each standard, averages scores from all assessments mapped to it.
    * Uses the active competency scale to determine the level label.
    */
-  async computeCompetencySnapshots(
-    tenantId: string,
-    studentId: string,
-    periodId: string,
-  ) {
+  async computeCompetencySnapshots(tenantId: string, studentId: string, periodId: string) {
     // 1. Get all assessments in this period that have standard mappings
     const assessmentsWithMappings = await this.prisma.assessment.findMany({
       where: {
@@ -357,15 +350,10 @@ export class StandardsService {
   /**
    * Get competency snapshots for a student, optionally filtered by period.
    */
-  async getCompetencySnapshots(
-    tenantId: string,
-    studentId: string,
-    periodId?: string,
-  ) {
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
+  async getCompetencySnapshots(tenantId: string, studentId: string, periodId?: string) {
+    const student = (await this.studentReadFacade.findOneGeneric(tenantId, studentId, {
       select: { id: true, first_name: true, last_name: true },
-    });
+    })) as { id: string; first_name: string; last_name: string } | null;
 
     if (!student) {
       throw new NotFoundException({
@@ -401,33 +389,11 @@ export class StandardsService {
     subjectId: string,
     yearGroupId: string,
   ) {
-    const subject = await this.prisma.subject.findFirst({
-      where: { id: subjectId, tenant_id: tenantId },
-      select: { id: true },
-    });
-    if (!subject) {
-      throw new NotFoundException({
-        code: 'SUBJECT_NOT_FOUND',
-        message: `Subject with id "${subjectId}" not found`,
-      });
-    }
-
-    const yearGroup = await this.prisma.yearGroup.findFirst({
-      where: { id: yearGroupId, tenant_id: tenantId },
-      select: { id: true },
-    });
-    if (!yearGroup) {
-      throw new NotFoundException({
-        code: 'YEAR_GROUP_NOT_FOUND',
-        message: `Year group with id "${yearGroupId}" not found`,
-      });
-    }
+    await this.academicReadFacade.findSubjectByIdOrThrow(tenantId, subjectId);
+    await this.academicReadFacade.findYearGroupByIdOrThrow(tenantId, yearGroupId);
   }
 
-  private resolveCompetencyLevel(
-    scorePercentage: number,
-    levels: CompetencyLevel[],
-  ): string {
+  private resolveCompetencyLevel(scorePercentage: number, levels: CompetencyLevel[]): string {
     // Sort descending by threshold_min, find first level where score >= threshold
     const sorted = [...levels].sort((a, b) => b.threshold_min - a.threshold_min);
     for (const level of sorted) {

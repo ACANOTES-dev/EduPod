@@ -443,22 +443,23 @@ export class ComplianceService {
         request.subject_id,
       );
 
-      // Delete consent records for the subject (compliance-owned write — not a cross-module read)
-      await this.prisma.consentRecord.deleteMany({
-        where: {
-          tenant_id: tenantId,
-          subject_type: request.subject_type,
-          subject_id: request.subject_id,
-        },
-      });
+      // Delete consent records and tokenisation mappings (cross-module writes via tx)
+      await this.prisma.$transaction(async (tx) => {
+        await tx.consentRecord.deleteMany({
+          where: {
+            tenant_id: tenantId,
+            subject_type: request.subject_type,
+            subject_id: request.subject_id,
+          },
+        });
 
-      // Delete tokenisation mappings for the subject (compliance-owned write — not a cross-module read)
-      await this.prisma.gdprAnonymisationToken.deleteMany({
-        where: {
-          tenant_id: tenantId,
-          entity_type: request.subject_type,
-          entity_id: request.subject_id,
-        },
+        await tx.gdprAnonymisationToken.deleteMany({
+          where: {
+            tenant_id: tenantId,
+            entity_type: request.subject_type,
+            entity_id: request.subject_id,
+          },
+        });
       });
     }
 

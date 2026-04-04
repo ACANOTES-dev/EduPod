@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client';
 import { SUBMISSION_VALID_TRANSITIONS, type SubmitFormDto } from '@school/shared/engagement';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Query types ──────────────────────────────────────────────────────────────
@@ -26,7 +27,10 @@ interface CompletionStatsQuery {
 
 @Injectable()
 export class FormSubmissionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly parentReadFacade: ParentReadFacade,
+  ) {}
 
   // ─── List (paginated) ───────────────────────────────────────────────────────
 
@@ -298,10 +302,7 @@ export class FormSubmissionsService {
    * Returns all pending form submissions for students linked to the given parent.
    */
   async getPendingFormsForParent(tenantId: string, userId: string) {
-    const parent = await this.prisma.parent.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-      select: { id: true },
-    });
+    const parent = await this.parentReadFacade.findByUserId(tenantId, userId);
 
     if (!parent) {
       throw new NotFoundException({
@@ -310,12 +311,7 @@ export class FormSubmissionsService {
       });
     }
 
-    const studentLinks = await this.prisma.studentParent.findMany({
-      where: { parent_id: parent.id, tenant_id: tenantId },
-      select: { student_id: true },
-    });
-
-    const studentIds = studentLinks.map((link) => link.student_id);
+    const studentIds = await this.parentReadFacade.findLinkedStudentIds(tenantId, parent.id);
 
     if (studentIds.length === 0) {
       return [];
@@ -349,10 +345,7 @@ export class FormSubmissionsService {
    * Returns a single submission if the student belongs to the requesting parent.
    */
   async getSubmissionForParent(tenantId: string, submissionId: string, userId: string) {
-    const parent = await this.prisma.parent.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-      select: { id: true },
-    });
+    const parent = await this.parentReadFacade.findByUserId(tenantId, userId);
 
     if (!parent) {
       throw new NotFoundException({
@@ -361,12 +354,7 @@ export class FormSubmissionsService {
       });
     }
 
-    const studentLinks = await this.prisma.studentParent.findMany({
-      where: { parent_id: parent.id, tenant_id: tenantId },
-      select: { student_id: true },
-    });
-
-    const studentIds = studentLinks.map((link) => link.student_id);
+    const studentIds = await this.parentReadFacade.findLinkedStudentIds(tenantId, parent.id);
 
     const submission = await this.prisma.engagementFormSubmission.findFirst({
       where: { id: submissionId, tenant_id: tenantId },

@@ -43,9 +43,11 @@ export class SchedulingDashboardService {
         }),
 
         // Classes that have at least one auto_generated schedule entry
-        this.schedulesReadFacade.findScheduledClassIds(tenantId, academicYearId, {
-          source: 'auto_generated',
-        }).then((ids) => ids.map((id) => ({ class_id: id }))),
+        this.schedulesReadFacade
+          .findScheduledClassIds(tenantId, academicYearId, {
+            source: 'auto_generated',
+          })
+          .then((ids) => ids.map((id) => ({ class_id: id }))),
 
         // Most recent completed / applied run
         this.schedulingRunsReadFacade.findLatestCompletedRun(tenantId, academicYearId),
@@ -54,7 +56,7 @@ export class SchedulingDashboardService {
         this.schedulingRunsReadFacade.countActiveRuns(tenantId, academicYearId),
       ]);
 
-    const effectiveFilter = {
+    const _effectiveFilter = {
       OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
     };
 
@@ -343,9 +345,7 @@ export class SchedulingDashboardService {
     // Load staff names
     const staffIds = [...staffSatisfaction.keys()];
     const staffProfiles =
-      staffIds.length > 0
-        ? await this.staffProfileReadFacade.findByIds(tenantId, staffIds)
-        : [];
+      staffIds.length > 0 ? await this.staffProfileReadFacade.findByIds(tenantId, staffIds) : [];
 
     const staffNameMap = new Map(
       staffProfiles.map((sp) => [sp.id, `${sp.user.first_name} ${sp.user.last_name}`.trim()]),
@@ -391,7 +391,7 @@ export class SchedulingDashboardService {
   // Per-room utilisation data for the academic year
 
   async roomUtilisation(tenantId: string, academicYearId: string) {
-    const effectiveFilter = {
+    const _effectiveFilter = {
       OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
     };
 
@@ -454,7 +454,10 @@ export class SchedulingDashboardService {
   async trends(tenantId: string, academicYearId: string) {
     const runs = await this.schedulingRunsReadFacade.findHistoricalRuns(tenantId, academicYearId);
 
-    const totalTeachingSlots = await this.schedulingReadFacade.countTeachingPeriods(tenantId, academicYearId);
+    const totalTeachingSlots = await this.schedulingReadFacade.countTeachingPeriods(
+      tenantId,
+      academicYearId,
+    );
     const totalActiveRooms = await this.roomsReadFacade.countActiveRooms(tenantId);
 
     const data = runs.map((run) => {

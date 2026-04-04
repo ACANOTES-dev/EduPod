@@ -4,7 +4,6 @@ import { pastoralTenantSettingsSchema } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
-
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -33,8 +32,10 @@ export interface ExamComparisonResult {
 export class CheckinAnalyticsService {
   private readonly logger = new Logger(CheckinAnalyticsService.name);
 
-  constructor(private readonly prisma: PrismaService,
-    private readonly configurationReadFacade: ConfigurationReadFacade) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
+  ) {}
 
   // ─── Year Group Mood Trends ─────────────────────────────────────────────
 

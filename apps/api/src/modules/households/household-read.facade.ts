@@ -14,6 +14,7 @@
  * - Batch methods return arrays (empty = nothing found).
  */
 import { Injectable, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -223,6 +224,33 @@ export class HouseholdReadFacade {
         display_order: true,
       },
       orderBy: { display_order: 'asc' },
+    });
+  }
+
+  /**
+   * Check if a household exists. Returns true/false.
+   * Used by imports rollback to check existence before deletion.
+   */
+  async exists(tenantId: string, householdId: string): Promise<boolean> {
+    const found = await this.prisma.household.findFirst({
+      where: { id: householdId, tenant_id: tenantId },
+      select: { id: true },
+    });
+    return !!found;
+  }
+
+  /**
+   * Generic findFirst for a household with arbitrary select.
+   * Used by reports-data-access for household data queries.
+   */
+  async findByIdGeneric(
+    tenantId: string,
+    householdId: string,
+    select?: Prisma.HouseholdSelect,
+  ): Promise<unknown | null> {
+    return this.prisma.household.findFirst({
+      where: { id: householdId, tenant_id: tenantId },
+      ...(select && { select }),
     });
   }
 }

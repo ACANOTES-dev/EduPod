@@ -4,9 +4,8 @@ import type { AddSstMemberDto, UpdateSstMemberDto } from '@school/shared/pastora
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
-import { RbacReadFacade } from '../../rbac/rbac-read.facade';
-
 import { PrismaService } from '../../prisma/prisma.service';
+import { RbacReadFacade } from '../../rbac/rbac-read.facade';
 
 import { PastoralEventService } from './pastoral-event.service';
 

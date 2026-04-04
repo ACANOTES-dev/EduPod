@@ -13,7 +13,7 @@ import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import type { SchedulesService as SchedulesServiceType } from '../schedules/schedules.service';
-import { StaffProfileReadFacade } from '../staff-profiles/staff-profiles-read.facade';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import type { AssignClassStaffDto } from './dto/assign-class-staff.dto';
 import type { CreateClassDto } from './dto/create-class.dto';

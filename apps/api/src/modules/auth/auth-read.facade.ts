@@ -159,4 +159,25 @@ export class AuthReadFacade {
       });
     }
   }
+
+  /**
+   * Find users with MFA secrets encrypted under a stale key ref.
+   * Used by key-rotation service to re-encrypt MFA secrets.
+   */
+  async findUsersWithStaleMfaKey(
+    currentKeyRef: string,
+    take: number,
+    skip: number,
+  ): Promise<Array<{ id: string; mfa_secret: string | null; mfa_secret_key_ref: string | null }>> {
+    return this.prisma.user.findMany({
+      where: {
+        mfa_secret: { not: null },
+        mfa_secret_key_ref: { not: null },
+        NOT: { mfa_secret_key_ref: currentKeyRef },
+      },
+      select: { id: true, mfa_secret: true, mfa_secret_key_ref: true },
+      take,
+      skip,
+    });
+  }
 }

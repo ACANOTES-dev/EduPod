@@ -13,25 +13,23 @@ import type {
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import type { PeriodTemplateRow } from '../scheduling/scheduling-read.facade';
+import { SchedulingReadFacade } from '../scheduling/scheduling-read.facade';
 
 @Injectable()
 export class PeriodGridService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly schedulingReadFacade: SchedulingReadFacade,
+  ) {}
 
   async findAll(tenantId: string, academicYearId: string, yearGroupId?: string) {
-    const where: Record<string, unknown> = {
-      tenant_id: tenantId,
+    const data = await this.schedulingReadFacade.findPeriodTemplatesFiltered(tenantId, {
       academic_year_id: academicYearId,
-    };
-    if (yearGroupId) {
-      where['year_group_id'] = yearGroupId;
-    }
-    const data = await this.prisma.schedulePeriodTemplate.findMany({
-      where,
-      orderBy: [{ weekday: 'asc' }, { period_order: 'asc' }],
+      ...(yearGroupId ? { year_group_id: yearGroupId } : {}),
     });
 
-    return data.map((p) => this.formatPeriod(p));
+    return data.map((p) => this.formatPeriod(this.toRecord(p)));
   }
 
   async create(tenantId: string, dto: CreatePeriodTemplateDto) {
@@ -221,15 +219,11 @@ export class PeriodGridService {
     academicYearId: string,
     yearGroupId?: string,
   ): Promise<number> {
-    const where: Record<string, unknown> = {
-      tenant_id: tenantId,
+    return this.schedulingReadFacade.countPeriodTemplates(tenantId, {
       academic_year_id: academicYearId,
       schedule_period_type: 'teaching',
-    };
-    if (yearGroupId) {
-      where['year_group_id'] = yearGroupId;
-    }
-    return this.prisma.schedulePeriodTemplate.count({ where });
+      ...(yearGroupId ? { year_group_id: yearGroupId } : {}),
+    });
   }
 
   async delete(tenantId: string, id: string) {
@@ -279,15 +273,15 @@ export class PeriodGridService {
   }
 
   async copyDay(tenantId: string, dto: CopyDayDto) {
-    const sourcePeriods = await this.prisma.schedulePeriodTemplate.findMany({
-      where: {
-        tenant_id: tenantId,
+    const sourcePeriods = await this.schedulingReadFacade.findPeriodTemplatesFiltered(
+      tenantId,
+      {
         academic_year_id: dto.academic_year_id,
         year_group_id: dto.year_group_id,
         weekday: dto.source_weekday,
       },
-      orderBy: { period_order: 'asc' },
-    });
+      [{ period_order: 'asc' }],
+    );
 
     if (sourcePeriods.length === 0) {
       throw new NotFoundException({
@@ -325,7 +319,7 @@ export class PeriodGridService {
               start_time: period.start_time,
               end_time: period.end_time,
               schedule_period_type: period.schedule_period_type,
-              supervision_mode: period.supervision_mode,
+              supervision_mode: period.supervision_mode ?? undefined,
               break_group_id: period.break_group_id,
             },
           });
@@ -384,18 +378,10 @@ export class PeriodGridService {
   }
 
   async copyYearGroup(tenantId: string, dto: CopyYearGroupDto) {
-    const whereSource: Record<string, unknown> = {
-      tenant_id: tenantId,
+    const sourcePeriods = await this.schedulingReadFacade.findPeriodTemplatesFiltered(tenantId, {
       academic_year_id: dto.academic_year_id,
       year_group_id: dto.source_year_group_id,
-    };
-    if (dto.weekdays && dto.weekdays.length > 0) {
-      whereSource['weekday'] = { in: dto.weekdays };
-    }
-
-    const sourcePeriods = await this.prisma.schedulePeriodTemplate.findMany({
-      where: whereSource,
-      orderBy: [{ weekday: 'asc' }, { period_order: 'asc' }],
+      ...(dto.weekdays && dto.weekdays.length > 0 ? { weekday: { in: dto.weekdays } } : {}),
     });
 
     if (sourcePeriods.length === 0) {
@@ -435,7 +421,7 @@ export class PeriodGridService {
               start_time: period.start_time,
               end_time: period.end_time,
               schedule_period_type: period.schedule_period_type,
-              supervision_mode: period.supervision_mode,
+              supervision_mode: period.supervision_mode ?? undefined,
               break_group_id: period.break_group_id,
             },
           });
@@ -448,17 +434,10 @@ export class PeriodGridService {
   }
 
   async getGridHash(tenantId: string, academicYearId: string): Promise<string> {
-    const periods = await this.prisma.schedulePeriodTemplate.findMany({
-      where: { tenant_id: tenantId, academic_year_id: academicYearId },
-      orderBy: [{ weekday: 'asc' }, { period_order: 'asc' }],
-      select: {
-        weekday: true,
-        period_order: true,
-        start_time: true,
-        end_time: true,
-        schedule_period_type: true,
-      },
-    });
+    const periods = await this.schedulingReadFacade.findPeriodTemplatesForHash(
+      tenantId,
+      academicYearId,
+    );
 
     const hashInput = periods
       .map(
@@ -471,6 +450,11 @@ export class PeriodGridService {
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────
+
+  /** Convert a typed PeriodTemplateRow to a plain record for formatPeriod. */
+  private toRecord(row: PeriodTemplateRow): Record<string, unknown> {
+    return { ...row } as Record<string, unknown>;
+  }
 
   private timeToDate(timeStr: string): Date {
     return new Date(`1970-01-01T${timeStr}:00.000Z`);
@@ -508,9 +492,7 @@ export class PeriodGridService {
   }
 
   private async assertExists(tenantId: string, id: string) {
-    const period = await this.prisma.schedulePeriodTemplate.findFirst({
-      where: { id, tenant_id: tenantId },
-    });
+    const period = await this.schedulingReadFacade.findPeriodTemplateById(tenantId, id);
 
     if (!period) {
       throw new NotFoundException({

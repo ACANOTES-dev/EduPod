@@ -1,8 +1,8 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PrismaService } from '../prisma/prisma.service';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { PrismaService } from '../prisma/prisma.service';
 import { RoomsReadFacade } from '../rooms/rooms-read.facade';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
@@ -30,7 +30,9 @@ const mockTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
@@ -99,40 +101,49 @@ describe('ExamSchedulingService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        { provide: AcademicReadFacade, useValue: {
-      findCurrentYear: jest.fn().mockResolvedValue(null),
-      findCurrentYearId: jest.fn().mockResolvedValue('year-1'),
-      findYearById: jest.fn().mockResolvedValue(null),
-      findYearByIdOrThrow: jest.fn().mockResolvedValue('year-1'),
-      findSubjectByIdOrThrow: jest.fn().mockResolvedValue('subject-1'),
-      findYearGroupByIdOrThrow: jest.fn().mockResolvedValue('yg-1'),
-      findYearGroupsWithActiveClasses: jest.fn().mockResolvedValue([]),
-      findYearGroupsWithClassesAndCounts: jest.fn().mockResolvedValue([]),
-      findAllYearGroups: jest.fn().mockResolvedValue([]),
-      findSubjectsByIdsWithOrder: jest.fn().mockResolvedValue([]),
-      findSubjectById: jest.fn().mockResolvedValue(null),
-      findYearGroupById: jest.fn().mockResolvedValue(null),
-      findPeriodById: jest.fn().mockResolvedValue(null),
-    } },
-        { provide: RoomsReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      exists: jest.fn().mockResolvedValue(false),
-      findActiveRooms: jest.fn().mockResolvedValue([]),
-      findActiveRoomBasics: jest.fn().mockResolvedValue([]),
-      countActiveRooms: jest.fn().mockResolvedValue(0),
-      findAllClosures: jest.fn().mockResolvedValue([]),
-      findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-      findClosureById: jest.fn().mockResolvedValue(null),
-    } },
-        { provide: StaffProfileReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findByIds: jest.fn().mockResolvedValue([]),
-      findByUserId: jest.fn().mockResolvedValue(null),
-      findActiveStaff: jest.fn().mockResolvedValue([]),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
-    } },
+        {
+          provide: AcademicReadFacade,
+          useValue: {
+            findCurrentYear: jest.fn().mockResolvedValue(null),
+            findCurrentYearId: jest.fn().mockResolvedValue('year-1'),
+            findYearById: jest.fn().mockResolvedValue(null),
+            findYearByIdOrThrow: jest.fn().mockResolvedValue('year-1'),
+            findSubjectByIdOrThrow: jest.fn().mockResolvedValue('subject-1'),
+            findYearGroupByIdOrThrow: jest.fn().mockResolvedValue('yg-1'),
+            findYearGroupsWithActiveClasses: jest.fn().mockResolvedValue([]),
+            findYearGroupsWithClassesAndCounts: jest.fn().mockResolvedValue([]),
+            findAllYearGroups: jest.fn().mockResolvedValue([]),
+            findSubjectsByIdsWithOrder: jest.fn().mockResolvedValue([]),
+            findSubjectById: jest.fn().mockResolvedValue(null),
+            findYearGroupById: jest.fn().mockResolvedValue(null),
+            findPeriodById: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: RoomsReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            exists: jest.fn().mockResolvedValue(false),
+            findActiveRooms: jest.fn().mockResolvedValue([]),
+            findActiveRoomBasics: jest.fn().mockResolvedValue([]),
+            countActiveRooms: jest.fn().mockResolvedValue(0),
+            findAllClosures: jest.fn().mockResolvedValue([]),
+            findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+            findClosureById: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: StaffProfileReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            findByIds: jest.fn().mockResolvedValue([]),
+            findByUserId: jest.fn().mockResolvedValue(null),
+            findActiveStaff: jest.fn().mockResolvedValue([]),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
+          },
+        },
         ExamSchedulingService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -235,9 +246,9 @@ describe('ExamSchedulingService', () => {
     it('should throw BadRequestException when session is published', async () => {
       mockPrisma.examSession.findFirst.mockResolvedValue(makePlanningSession('published'));
 
-      await expect(
-        service.deleteExamSession(TENANT_ID, SESSION_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.deleteExamSession(TENANT_ID, SESSION_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -314,25 +325,25 @@ describe('ExamSchedulingService', () => {
     it('should throw BadRequestException when session is already published', async () => {
       mockPrisma.examSession.findFirst.mockResolvedValue(makePlanningSession('published'));
 
-      await expect(
-        service.publishExamSchedule(TENANT_ID, SESSION_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.publishExamSchedule(TENANT_ID, SESSION_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException when session is completed', async () => {
       mockPrisma.examSession.findFirst.mockResolvedValue(makePlanningSession('completed'));
 
-      await expect(
-        service.publishExamSchedule(TENANT_ID, SESSION_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.publishExamSchedule(TENANT_ID, SESSION_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw NotFoundException when session does not exist', async () => {
       mockPrisma.examSession.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.publishExamSchedule(TENANT_ID, 'nonexistent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.publishExamSchedule(TENANT_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

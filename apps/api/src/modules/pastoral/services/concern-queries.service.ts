@@ -4,10 +4,8 @@ import { Prisma } from '@prisma/client';
 import { type ListConcernsQuery, pastoralTenantSettingsSchema } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
-import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
-
 import { ChildProtectionReadFacade } from '../../child-protection/child-protection-read.facade';
-
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import type {
@@ -31,9 +29,11 @@ import type {
 export class ConcernQueriesService {
   private readonly logger = new Logger(ConcernQueriesService.name);
 
-  constructor(private readonly prisma: PrismaService,
+  constructor(
+    private readonly prisma: PrismaService,
     private readonly childProtectionReadFacade: ChildProtectionReadFacade,
-    private readonly configurationReadFacade: ConfigurationReadFacade) {}
+    private readonly configurationReadFacade: ConfigurationReadFacade,
+  ) {}
 
   // ─── LIST ───────────────────────────────────────────────────────────────────
 
@@ -150,7 +150,9 @@ export class ConcernQueriesService {
    * Checks whether a user has an active (non-revoked) CP access grant.
    */
   private async checkCpAccess(tenantId: string, userId: string): Promise<boolean> {
-    const grant = await this.childProtectionReadFacade.hasActiveCpAccess(tenantId, userId) ? { id: "active" } : null;
+    const grant = (await this.childProtectionReadFacade.hasActiveCpAccess(tenantId, userId))
+      ? { id: 'active' }
+      : null;
 
     return !!grant;
   }

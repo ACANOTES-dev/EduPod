@@ -14,6 +14,7 @@ import {
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { SenScopeService } from './sen-scope.service';
 
@@ -115,21 +116,14 @@ export class SenSnaService {
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService,
     private readonly scopeService: SenScopeService,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
   ) {}
 
   // ─── Create ────────────────────────────────────────────────────────────────
 
   async create(tenantId: string, dto: CreateSnaAssignmentDto): Promise<SnaAssignmentSummary> {
     const [staffProfile, senProfile, schedule] = await Promise.all([
-      this.prisma.staffProfile.findFirst({
-        where: {
-          id: dto.sna_staff_profile_id,
-          tenant_id: tenantId,
-        },
-        select: {
-          id: true,
-        },
-      }),
+      this.staffProfileReadFacade.findById(tenantId, dto.sna_staff_profile_id),
       this.prisma.senProfile.findFirst({
         where: {
           id: dto.sen_profile_id,

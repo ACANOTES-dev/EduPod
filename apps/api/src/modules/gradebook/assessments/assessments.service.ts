@@ -7,11 +7,15 @@ import {
 import { Prisma, $Enums } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
-import { AcademicReadFacade } from '../academics/academic-read.facade';
-import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { AcademicReadFacade } from '../../academics/academic-read.facade';
+import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ClassGradeConfigsService } from '../class-grade-configs.service';
-import type { CreateAssessmentDto, UpdateAssessmentDto, TransitionAssessmentStatusDto } from '../dto/gradebook.dto';
+import type {
+  CreateAssessmentDto,
+  UpdateAssessmentDto,
+  TransitionAssessmentStatusDto,
+} from '../dto/gradebook.dto';
 
 interface ListAssessmentsParams {
   page: number;
@@ -93,7 +97,8 @@ export class AssessmentsService {
     if (!gradeConfig) {
       throw new BadRequestException({
         code: 'GRADE_CONFIG_REQUIRED',
-        message: 'A grade configuration must exist for this class and subject before creating assessments',
+        message:
+          'A grade configuration must exist for this class and subject before creating assessments',
       });
     }
 
@@ -125,7 +130,16 @@ export class AssessmentsService {
    * Supports teacher-only filtering by assignedClassIds.
    */
   async findAll(tenantId: string, params: ListAssessmentsParams) {
-    const { page, pageSize, class_id, subject_id, academic_period_id, category_id, status, assignedClassIds } = params;
+    const {
+      page,
+      pageSize,
+      class_id,
+      subject_id,
+      academic_period_id,
+      category_id,
+      status,
+      assignedClassIds,
+    } = params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.AssessmentWhereInput = { tenant_id: tenantId };
@@ -237,12 +251,9 @@ export class AssessmentsService {
     });
 
     // Count enrolled students in the class
-    const studentCount = await this.prisma.classEnrolment.count({
-      where: {
-        tenant_id: tenantId,
-        class_id: assessment.class_id,
-        status: 'active',
-      },
+    const studentCount = await this.classesReadFacade.countEnrolmentsGeneric(tenantId, {
+      class_id: assessment.class_id,
+      status: 'active',
     });
 
     return {
@@ -284,7 +295,8 @@ export class AssessmentsService {
       if (assessment.updated_at.getTime() !== expectedDate.getTime()) {
         throw new ConflictException({
           code: 'CONCURRENT_MODIFICATION',
-          message: 'The assessment has been modified by another user. Please refresh and try again.',
+          message:
+            'The assessment has been modified by another user. Please refresh and try again.',
         });
       }
     }
@@ -356,11 +368,7 @@ export class AssessmentsService {
    * VALID: draft->open, open->closed, closed->locked, closed->open
    * BLOCKED: locked->anything, draft->closed, draft->locked
    */
-  async transitionStatus(
-    tenantId: string,
-    id: string,
-    dto: TransitionAssessmentStatusDto,
-  ) {
+  async transitionStatus(tenantId: string, id: string, dto: TransitionAssessmentStatusDto) {
     const assessment = await this.prisma.assessment.findFirst({
       where: { id, tenant_id: tenantId },
       select: { id: true, status: true },

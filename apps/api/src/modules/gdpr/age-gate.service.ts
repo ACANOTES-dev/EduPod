@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 // ─── Age calculation ──────────────────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ function fullYearsBetween(dob: Date, reference: Date): number {
 
 @Injectable()
 export class AgeGateService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly studentReadFacade: StudentReadFacade) {}
 
   /**
    * Determines whether a student is age-gated (17+ years old).
@@ -32,10 +32,7 @@ export class AgeGateService {
    * Returns false when the student is not found.
    */
   async checkStudentAgeGated(tenantId: string, studentId: string): Promise<boolean> {
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
-      select: { date_of_birth: true },
-    });
+    const student = await this.studentReadFacade.findById(tenantId, studentId);
     if (!student) return false;
     return this.isStudentAgeGated(student);
   }

@@ -58,12 +58,6 @@ const PARENT_CONTACT_SELECT = {
   preferred_contact_channels: true,
 } as const;
 
-/** Minimal fields for identity resolution. */
-const PARENT_ID_SELECT = {
-  id: true,
-  user_id: true,
-} as const;
-
 // ─── Result types ─────────────────────────────────────────────────────────────
 
 export interface ParentSummaryRow {
@@ -261,12 +255,9 @@ export class ParentReadFacade {
    * Used by early-warning and attendance notifications to resolve parent user IDs.
    */
   async findParentUserIdsForStudent(tenantId: string, studentId: string): Promise<ParentIdRow[]> {
-    const links = await this.prisma.studentParent.findMany({
-      where: { student_id: studentId, tenant_id: tenantId },
-      include: { parent: { select: PARENT_ID_SELECT } },
-    });
-
-    return links.map((l) => l.parent);
+    return this.studentReadFacade.findParentIdsForStudent(tenantId, studentId) as Promise<
+      ParentIdRow[]
+    >;
   }
 
   /**
@@ -274,11 +265,7 @@ export class ParentReadFacade {
    * Returns `true` if the parent is linked to the student at this tenant.
    */
   async isLinkedToStudent(tenantId: string, parentId: string, studentId: string): Promise<boolean> {
-    const link = await this.prisma.studentParent.findFirst({
-      where: { tenant_id: tenantId, parent_id: parentId, student_id: studentId },
-      select: { student_id: true },
-    });
-    return !!link;
+    return this.studentReadFacade.isParentLinkedToStudent(tenantId, parentId, studentId);
   }
 
   /**
@@ -287,14 +274,7 @@ export class ParentReadFacade {
    * Used by audience resolution for year-group/class-scoped broadcasts.
    */
   async findParentIdsByStudentIds(tenantId: string, studentIds: string[]): Promise<string[]> {
-    if (studentIds.length === 0) return [];
-
-    const links = await this.prisma.studentParent.findMany({
-      where: { tenant_id: tenantId, student_id: { in: studentIds } },
-      select: { parent_id: true },
-    });
-
-    return [...new Set(links.map((l) => l.parent_id))];
+    return this.studentReadFacade.findParentIdsByStudentIds(tenantId, studentIds);
   }
 
   /**
@@ -314,19 +294,7 @@ export class ParentReadFacade {
       };
     }>
   > {
-    return this.prisma.studentParent.findMany({
-      where: { student_id: studentId, tenant_id: tenantId },
-      select: {
-        parent: {
-          select: {
-            user_id: true,
-            whatsapp_phone: true,
-            phone: true,
-            preferred_contact_channels: true,
-          },
-        },
-      },
-    });
+    return this.studentReadFacade.findParentContactsForStudent(tenantId, studentId);
   }
 
   /**
@@ -343,16 +311,7 @@ export class ParentReadFacade {
       student: { id: string; first_name: string; last_name: string; student_number: string | null };
     }>
   > {
-    return this.prisma.studentParent.findMany({
-      where: { parent_id: parentId, tenant_id: tenantId },
-      select: {
-        student_id: true,
-        parent_id: true,
-        student: {
-          select: { id: true, first_name: true, last_name: true, student_number: true },
-        },
-      },
-    });
+    return this.studentReadFacade.findStudentLinksForParent(tenantId, parentId);
   }
 
   /**
@@ -371,5 +330,4 @@ export class ParentReadFacade {
       },
     });
   }
-
 }

@@ -5,6 +5,7 @@ import type {
   AttendanceRecordStatus,
   AttendanceSessionStatus,
   DailyAttendanceStatus,
+  Prisma,
 } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -410,9 +411,7 @@ export class AttendanceReadFacade {
     tenantId: string,
     studentId: string,
     sinceDate: Date,
-  ): Promise<
-    Array<{ id: string; summary_date: Date; derived_status: DailyAttendanceStatus }>
-  > {
+  ): Promise<Array<{ id: string; summary_date: Date; derived_status: DailyAttendanceStatus }>> {
     return this.prisma.dailyAttendanceSummary.findMany({
       where: {
         tenant_id: tenantId,
@@ -640,5 +639,90 @@ export class AttendanceReadFacade {
       excused,
       partially_absent: partiallyAbsent,
     };
+  }
+
+  // ─── Generic Methods (reports-data-access) ─────────────────────────────────
+
+  /**
+   * Group attendance records by scalar fields with counts.
+   * Used by reports-data-access for attendance analytics.
+   */
+  async groupRecordsBy<K extends Prisma.AttendanceRecordScalarFieldEnum>(
+    tenantId: string,
+    by: K[],
+    where?: Prisma.AttendanceRecordWhereInput,
+  ): Promise<Array<Record<string, unknown> & { _count: number }>> {
+    const result = await this.prisma.attendanceRecord.groupBy({
+      by,
+      where: { tenant_id: tenantId, ...where },
+      _count: true,
+    });
+    return result as unknown as Array<Record<string, unknown> & { _count: number }>;
+  }
+
+  /**
+   * Count attendance records matching an arbitrary filter.
+   * Used by reports-data-access for attendance counts.
+   */
+  async countRecordsGeneric(
+    tenantId: string,
+    where?: Prisma.AttendanceRecordWhereInput,
+  ): Promise<number> {
+    return this.prisma.attendanceRecord.count({
+      where: { tenant_id: tenantId, ...where },
+    });
+  }
+
+  /**
+   * Generic findMany for attendance records with where/select/orderBy/take.
+   * Used by reports-data-access for attendance data queries.
+   */
+  async findRecordsGeneric(
+    tenantId: string,
+    options: {
+      where?: Prisma.AttendanceRecordWhereInput;
+      select?: Prisma.AttendanceRecordSelect;
+      orderBy?: Prisma.AttendanceRecordOrderByWithRelationInput;
+      take?: number;
+    },
+  ): Promise<unknown[]> {
+    return this.prisma.attendanceRecord.findMany({
+      where: { tenant_id: tenantId, ...options.where },
+      ...(options.select && { select: options.select }),
+      ...(options.orderBy && { orderBy: options.orderBy }),
+      ...(options.take !== undefined && { take: options.take }),
+    });
+  }
+
+  /**
+   * Generic findMany for attendance sessions with where/select/orderBy.
+   * Used by reports-data-access for session data queries.
+   */
+  async findSessionsGeneric(
+    tenantId: string,
+    options: {
+      where?: Prisma.AttendanceSessionWhereInput;
+      select?: Prisma.AttendanceSessionSelect;
+      orderBy?: Prisma.AttendanceSessionOrderByWithRelationInput;
+    },
+  ): Promise<unknown[]> {
+    return this.prisma.attendanceSession.findMany({
+      where: { tenant_id: tenantId, ...options.where },
+      ...(options.select && { select: options.select }),
+      ...(options.orderBy && { orderBy: options.orderBy }),
+    });
+  }
+
+  /**
+   * Count attendance sessions matching an arbitrary filter.
+   * Used by reports-data-access for session counts.
+   */
+  async countSessionsGeneric(
+    tenantId: string,
+    where?: Prisma.AttendanceSessionWhereInput,
+  ): Promise<number> {
+    return this.prisma.attendanceSession.count({
+      where: { tenant_id: tenantId, ...where },
+    });
   }
 }

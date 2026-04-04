@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
 import * as XLSX from 'xlsx';
 
@@ -141,13 +141,19 @@ export class AttendanceUploadService {
     const academicYearId = await this.academicReadFacade.findCurrentYearId(tenantId);
 
     // 4. Load all active homeroom classes (subject_id IS NULL) for the academic year
-    const classes = await this.classesReadFacade.findActiveHomeroomClasses(tenantId, academicYearId);
+    const classes = await this.classesReadFacade.findActiveHomeroomClasses(
+      tenantId,
+      academicYearId,
+    );
 
     // 5. For each class, load actively enrolled students
     const rows: string[] = [];
 
     for (const cls of classes) {
-      const enrolments = await this.classesReadFacade.findEnrolledStudentsWithNumber(tenantId, cls.id);
+      const enrolments = await this.classesReadFacade.findEnrolledStudentsWithNumber(
+        tenantId,
+        cls.id,
+      );
 
       for (const enrolment of enrolments) {
         const student = enrolment.student;
@@ -237,7 +243,10 @@ export class AttendanceUploadService {
     }
 
     // Load all active homeroom classes for this academic year
-    const classes = await this.classesReadFacade.findActiveHomeroomClasses(tenantId, academicYearId2);
+    const classes = await this.classesReadFacade.findActiveHomeroomClasses(
+      tenantId,
+      academicYearId2,
+    );
     const classByName = new Map<string, string>();
     for (const c of classes) {
       classByName.set(c.name, c.id);

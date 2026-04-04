@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 import { BlockImpersonationGuard } from '../../common/guards/block-impersonation.guard';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { RedisModule } from '../redis/redis.module';
+import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 
 import { AggregateWorkloadController } from './controllers/aggregate-workload.controller';
 import { BoardReportController } from './controllers/board-report.controller';
@@ -22,7 +23,12 @@ import { WorkloadDataService } from './services/workload-data.service';
 import { WorkloadMetricsService } from './services/workload-metrics.service';
 
 @Module({
-  imports: [ConfigurationModule, RedisModule, BullModule.registerQueue({ name: 'wellbeing' })],
+  imports: [
+    ConfigurationModule,
+    RedisModule,
+    StaffProfilesModule,
+    BullModule.registerQueue({ name: 'wellbeing' }),
+  ],
   controllers: [
     SurveyController,
     SurveyResultsController,

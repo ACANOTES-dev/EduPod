@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 export interface CostBreakdown {
   period_month: number;
@@ -40,7 +41,10 @@ export interface StaffCostForecastPoint {
 
 @Injectable()
 export class PayrollAnalyticsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+  ) {}
 
   async getCostDashboard(tenantId: string, months = 6) {
     const now = new Date();
@@ -73,8 +77,8 @@ export class PayrollAnalyticsService {
     }));
 
     // Active staff count (current)
-    const activeStaff = await this.prisma.staffProfile.count({
-      where: { tenant_id: tenantId, employment_status: 'active' },
+    const activeStaff = await this.staffProfileReadFacade.count(tenantId, {
+      employment_status: 'active',
     });
 
     // Cost by department from latest run
@@ -95,9 +99,10 @@ export class PayrollAnalyticsService {
 
       for (const entry of entries) {
         const dept = entry.staff_profile.department ?? 'Unassigned';
-        const pay = entry.override_total_pay != null
-          ? Number(entry.override_total_pay)
-          : Number(entry.total_pay);
+        const pay =
+          entry.override_total_pay != null
+            ? Number(entry.override_total_pay)
+            : Number(entry.total_pay);
 
         const existing = deptMap.get(dept);
         if (existing) {
@@ -124,7 +129,10 @@ export class PayrollAnalyticsService {
     };
   }
 
-  async getVarianceReport(tenantId: string, runId: string): Promise<{
+  async getVarianceReport(
+    tenantId: string,
+    runId: string,
+  ): Promise<{
     run_id: string;
     previous_run_id: string | null;
     items: VarianceItem[];
@@ -185,7 +193,8 @@ export class PayrollAnalyticsService {
 
     const currentMap = new Map<string, { name: string; total: number }>();
     for (const e of currentRun.entries) {
-      const total = e.override_total_pay != null ? Number(e.override_total_pay) : Number(e.total_pay);
+      const total =
+        e.override_total_pay != null ? Number(e.override_total_pay) : Number(e.total_pay);
       currentMap.set(e.staff_profile_id, {
         name: `${e.staff_profile.user.first_name} ${e.staff_profile.user.last_name}`,
         total,
@@ -195,7 +204,8 @@ export class PayrollAnalyticsService {
     const previousMap = new Map<string, number>();
     if (previousRun) {
       for (const e of previousRun.entries) {
-        const total = e.override_total_pay != null ? Number(e.override_total_pay) : Number(e.total_pay);
+        const total =
+          e.override_total_pay != null ? Number(e.override_total_pay) : Number(e.total_pay);
         previousMap.set(e.staff_profile_id, total);
       }
     }
@@ -261,10 +271,7 @@ export class PayrollAnalyticsService {
     return this.getVarianceReport(tenantId, runId);
   }
 
-  async getStaffCostForecast(
-    tenantId: string,
-    months = 6,
-  ): Promise<StaffCostForecastPoint[]> {
+  async getStaffCostForecast(tenantId: string, months = 6): Promise<StaffCostForecastPoint[]> {
     // Base: latest finalised run's total
     const latestRun = await this.prisma.payrollRun.findFirst({
       where: { tenant_id: tenantId, status: 'finalised' },
@@ -291,7 +298,20 @@ export class PayrollAnalyticsService {
         forecastYear++;
       }
 
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       forecast.push({
         period_label: `${monthNames[forecastMonth - 1]} ${forecastYear}`,
         period_month: forecastMonth,

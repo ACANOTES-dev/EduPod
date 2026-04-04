@@ -19,6 +19,7 @@ import {
 } from '@school/shared/gdpr';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 type TransactionClient = PrismaService;
@@ -48,7 +49,10 @@ type StudentPortalSubject = {
 
 @Injectable()
 export class ConsentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly parentReadFacade: ParentReadFacade,
+  ) {}
 
   async grantConsent(
     tenantId: string,
@@ -257,10 +261,7 @@ export class ConsentService {
     tenantId: string,
     userId: string,
   ): Promise<{ data: ParentPortalConsentItemDto[] }> {
-    const parent = await this.prisma.parent.findFirst({
-      where: { tenant_id: tenantId, user_id: userId, status: 'active' },
-      select: { id: true, first_name: true, last_name: true },
-    });
+    const parent = await this.parentReadFacade.findActiveByUserId(tenantId, userId);
 
     if (!parent) {
       throw new NotFoundException({
@@ -269,22 +270,13 @@ export class ConsentService {
       });
     }
 
-    const studentLinks = await this.prisma.studentParent.findMany({
-      where: { tenant_id: tenantId, parent_id: parent.id },
-      select: {
-        student: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-          },
-        },
-      },
-    });
+    const studentLinks = await this.parentReadFacade.findStudentLinksForParent(tenantId, parent.id);
 
-    const students = studentLinks
-      .map((link) => link.student)
-      .filter((student): student is StudentPortalSubject => student !== null);
+    const students: StudentPortalSubject[] = studentLinks.map((link) => ({
+      id: link.student.id,
+      first_name: link.student.first_name,
+      last_name: link.student.last_name,
+    }));
     const studentIds = students.map((student) => student.id);
 
     const studentConsents =
@@ -368,10 +360,7 @@ export class ConsentService {
   }
 
   async withdrawParentPortalConsent(tenantId: string, userId: string, consentId: string) {
-    const parent = await this.prisma.parent.findFirst({
-      where: { tenant_id: tenantId, user_id: userId, status: 'active' },
-      select: { id: true },
-    });
+    const parent = await this.parentReadFacade.findActiveByUserId(tenantId, userId);
 
     if (!parent) {
       throw new NotFoundException({
@@ -402,16 +391,13 @@ export class ConsentService {
       });
     }
 
-    const link = await this.prisma.studentParent.findFirst({
-      where: {
-        tenant_id: tenantId,
-        parent_id: parent.id,
-        student_id: consent.subject_id,
-      },
-      select: { student_id: true },
-    });
+    const isLinked = await this.parentReadFacade.isLinkedToStudent(
+      tenantId,
+      parent.id,
+      consent.subject_id,
+    );
 
-    if (!link) {
+    if (!isLinked) {
       throw new ForbiddenException({
         code: 'CONSENT_ACCESS_DENIED',
         message: 'You do not have access to this consent record',

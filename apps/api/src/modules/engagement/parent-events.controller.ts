@@ -23,6 +23,7 @@ import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { EventParticipantsService } from './event-participants.service';
@@ -38,6 +39,7 @@ export class ParentEventsController {
     private readonly prisma: PrismaService,
     private readonly eventsService: EventsService,
     private readonly eventParticipantsService: EventParticipantsService,
+    private readonly parentReadFacade: ParentReadFacade,
   ) {}
 
   // GET /v1/parent/engagement/events
@@ -167,9 +169,7 @@ export class ParentEventsController {
   // ─── Private Helpers ──────────────────────────────────────────────────────
 
   private async getParentStudentIds(userId: string, tenantId: string): Promise<string[]> {
-    const parent = await this.prisma.parent.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-    });
+    const parent = await this.parentReadFacade.findByUserId(tenantId, userId);
 
     if (!parent) {
       throw new NotFoundException(
@@ -177,12 +177,7 @@ export class ParentEventsController {
       );
     }
 
-    const links = await this.prisma.studentParent.findMany({
-      where: { parent_id: parent.id, tenant_id: tenantId },
-      select: { student_id: true },
-    });
-
-    return links.map((l) => l.student_id);
+    return this.parentReadFacade.findLinkedStudentIds(tenantId, parent.id);
   }
 
   private async verifyParentStudentLink(
@@ -190,9 +185,7 @@ export class ParentEventsController {
     tenantId: string,
     studentId: string,
   ): Promise<void> {
-    const parent = await this.prisma.parent.findFirst({
-      where: { user_id: userId, tenant_id: tenantId },
-    });
+    const parent = await this.parentReadFacade.findByUserId(tenantId, userId);
 
     if (!parent) {
       throw new NotFoundException(
@@ -200,13 +193,9 @@ export class ParentEventsController {
       );
     }
 
-    const link = await this.prisma.studentParent.findUnique({
-      where: {
-        student_id_parent_id: { student_id: studentId, parent_id: parent.id },
-      },
-    });
+    const isLinked = await this.parentReadFacade.isLinkedToStudent(tenantId, parent.id, studentId);
 
-    if (!link || link.tenant_id !== tenantId) {
+    if (!isLinked) {
       throw new ForbiddenException(
         apiError('NOT_LINKED_TO_STUDENT', 'You are not linked to this student'),
       );

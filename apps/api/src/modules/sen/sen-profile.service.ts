@@ -8,6 +8,7 @@ import type {
 } from '@school/shared/sen';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { SenScopeService } from './sen-scope.service';
@@ -89,6 +90,7 @@ export class SenProfileService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeService: SenScopeService,
+    private readonly academicReadFacade: AcademicReadFacade,
   ) {}
 
   // ─── Create ───────────────────────────────────────────────────────────────────
@@ -576,17 +578,16 @@ export class SenProfileService {
     const yearGroupIds = Object.keys(yearGroupCounts);
     let yearGroupNames: Record<string, string> = {};
     if (yearGroupIds.length > 0) {
-      const yearGroups = await this.prisma.yearGroup.findMany({
-        where: { id: { in: yearGroupIds }, tenant_id: tenantId },
-        select: { id: true, name: true },
-      });
-      yearGroupNames = yearGroups.reduce(
-        (acc, yg) => {
-          acc[yg.id] = yg.name;
-          return acc;
-        },
-        {} as Record<string, string>,
-      );
+      const yearGroups = await this.academicReadFacade.findAllYearGroups(tenantId);
+      yearGroupNames = yearGroups
+        .filter((yg) => yearGroupIds.includes(yg.id))
+        .reduce(
+          (acc, yg) => {
+            acc[yg.id] = yg.name;
+            return acc;
+          },
+          {} as Record<string, string>,
+        );
     }
 
     return {

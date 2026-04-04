@@ -5,7 +5,9 @@ import type { CreatePrivacyNoticeDto, UpdatePrivacyNoticeDto } from '@school/sha
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { RbacReadFacade } from '../rbac/rbac-read.facade';
 import { RedisService } from '../redis/redis.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 import { buildPrivacyNoticeTemplate } from './legal-content';
 
@@ -13,7 +15,9 @@ import { buildPrivacyNoticeTemplate } from './legal-content';
 export class PrivacyNoticesService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly rbacReadFacade: RbacReadFacade,
     private readonly redis: RedisService,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   async listVersions(tenantId: string) {
@@ -36,19 +40,12 @@ export class PrivacyNoticesService {
   }
 
   async createVersion(tenantId: string, userId: string, dto: CreatePrivacyNoticeDto) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: {
-        name: true,
-        branding: {
-          select: {
-            support_email: true,
-          },
-        },
-      },
-    });
+    const [tenantCore, tenantBranding] = await Promise.all([
+      this.tenantReadFacade.findById(tenantId),
+      this.tenantReadFacade.findBranding(tenantId),
+    ]);
 
-    const supportEmail = tenant?.branding?.support_email ?? 'support@edupod.app';
+    const supportEmail = tenantBranding?.support_email ?? 'support@edupod.app';
     const nextVersionNumber =
       (
         await this.prisma.privacyNoticeVersion.aggregate({
@@ -68,14 +65,14 @@ export class PrivacyNoticesService {
           content_html:
             dto.content_html ??
             buildPrivacyNoticeTemplate({
-              tenantName: tenant?.name ?? 'Your School',
+              tenantName: tenantCore?.name ?? 'Your School',
               supportEmail,
               locale: 'en',
             }),
           content_html_ar:
             dto.content_html_ar ??
             buildPrivacyNoticeTemplate({
-              tenantName: tenant?.name ?? 'مدرستكم',
+              tenantName: tenantCore?.name ?? 'مدرستكم',
               supportEmail,
               locale: 'ar',
             }),
@@ -236,16 +233,9 @@ export class PrivacyNoticesService {
   }
 
   async getParentPortalCurrent(tenantId: string, userId: string) {
-    const parentMembership = await this.prisma.tenantMembership.findFirst({
-      where: {
-        tenant_id: tenantId,
-        user_id: userId,
-        membership_status: 'active',
-      },
-      select: { id: true },
-    });
+    const parentMembership = await this.rbacReadFacade.findMembershipSummary(tenantId, userId);
 
-    if (!parentMembership) {
+    if (!parentMembership || parentMembership.membership_status !== 'active') {
       throw new NotFoundException({
         error: {
           code: 'PARENT_MEMBERSHIP_NOT_FOUND',
@@ -263,20 +253,7 @@ export class PrivacyNoticesService {
    * notification table to decouple GDPR from the Communications module.
    */
   private async notifyAllUsers(tenantId: string, versionNumber: number) {
-    const memberships = await this.prisma.tenantMembership.findMany({
-      where: {
-        tenant_id: tenantId,
-        membership_status: 'active',
-      },
-      select: {
-        user_id: true,
-        user: {
-          select: {
-            preferred_locale: true,
-          },
-        },
-      },
-    });
+    const memberships = await this.rbacReadFacade.findActiveMembershipsWithLocale(tenantId);
 
     if (memberships.length === 0) {
       return;
@@ -301,7 +278,9 @@ export class PrivacyNoticesService {
       delivered_at: new Date(),
     }));
 
-    await this.prisma.notification.createMany({ data });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.notification.createMany({ data });
+    });
 
     // Invalidate unread-count caches for all recipients
     const uniqueUserIds = [...new Set(memberships.map((m) => m.user_id))];

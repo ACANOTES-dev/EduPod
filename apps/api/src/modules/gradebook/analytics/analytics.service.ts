@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
 
-import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 
@@ -99,8 +99,7 @@ function computeDistribution(
     n % 2 === 0
       ? ((sorted[n / 2 - 1] ?? 0) + (sorted[n / 2] ?? 0)) / 2
       : (sorted[Math.floor(n / 2)] ?? 0);
-  const variance =
-    scores.reduce((s, v) => s + (v - mean) ** 2, 0) / n;
+  const variance = scores.reduce((s, v) => s + (v - mean) ** 2, 0) / n;
   const stddev = Math.sqrt(variance);
   const passCount = scores.filter((s) => s >= passingThreshold).length;
 
@@ -116,10 +115,7 @@ function computeDistribution(
   };
 }
 
-function buildHistogramBuckets(
-  scores: number[],
-  maxScore: number,
-): HistogramBucket[] {
+function buildHistogramBuckets(scores: number[], maxScore: number): HistogramBucket[] {
   const bucketCount = 10;
   const bucketSize = maxScore / bucketCount;
   const buckets: HistogramBucket[] = [];
@@ -204,9 +200,7 @@ export class AnalyticsService {
       select: { raw_score: true },
     });
 
-    const scores = grades
-      .map((g) => toNum(g.raw_score))
-      .filter((s): s is number => s !== null);
+    const scores = grades.map((g) => toNum(g.raw_score)).filter((s): s is number => s !== null);
 
     const maxScore = Number(assessment.max_score);
     // Default pass threshold: 50% of max score
@@ -296,16 +290,12 @@ export class AnalyticsService {
       const rawScore = toNum(g.raw_score);
       const maxScore = Number(g.assessment.max_score);
       const percentage =
-        rawScore !== null && maxScore > 0
-          ? Math.round((rawScore / maxScore) * 10000) / 100
-          : null;
+        rawScore !== null && maxScore > 0 ? Math.round((rawScore / maxScore) * 10000) / 100 : null;
 
       return {
         assessment_id: g.assessment.id,
         title: g.assessment.title,
-        due_date: g.assessment.due_date
-          ? g.assessment.due_date.toISOString().slice(0, 10)
-          : null,
+        due_date: g.assessment.due_date ? g.assessment.due_date.toISOString().slice(0, 10) : null,
         raw_score: rawScore,
         max_score: maxScore,
         percentage,
@@ -349,17 +339,12 @@ export class AnalyticsService {
     });
 
     return assessments.map((a) => {
-      const scores = a.grades
-        .map((g) => toNum(g.raw_score))
-        .filter((s): s is number => s !== null);
+      const scores = a.grades.map((g) => toNum(g.raw_score)).filter((s): s is number => s !== null);
 
       const maxScore = Number(a.max_score);
       const average =
         scores.length > 0
-          ? Math.round(
-              (scores.reduce((s, v) => s + v, 0) / scores.length / maxScore) *
-                10000,
-            ) / 100
+          ? Math.round((scores.reduce((s, v) => s + v, 0) / scores.length / maxScore) * 10000) / 100
           : 0;
 
       return {
@@ -388,23 +373,27 @@ export class AnalyticsService {
     }
 
     // Get classes taught by teachers, optionally filtered by subject/year group
-    const classStaffList = await this.classesReadFacade.findClassStaffGeneric(tenantId, undefined, {
-      class_id: true,
-      staff_profile_id: true,
-      class_entity: {
-        select: {
-          id: true,
-          name: true,
-          year_group_id: true,
+    const classStaffList = (await this.classesReadFacade.findClassStaffGeneric(
+      tenantId,
+      undefined,
+      {
+        class_id: true,
+        staff_profile_id: true,
+        class_entity: {
+          select: {
+            id: true,
+            name: true,
+            year_group_id: true,
+          },
+        },
+        staff_profile: {
+          select: {
+            id: true,
+            user: { select: { id: true, first_name: true, last_name: true } },
+          },
         },
       },
-      staff_profile: {
-        select: {
-          id: true,
-          user: { select: { id: true, first_name: true, last_name: true } },
-        },
-      },
-    }) as Array<{
+    )) as Array<{
       class_id: string;
       staff_profile_id: string;
       class_entity: { id: string; name: string; year_group_id: string | null };
@@ -413,9 +402,7 @@ export class AnalyticsService {
 
     // Filter by year group if specified
     const filteredClassStaff = yearGroupId
-      ? classStaffList.filter(
-          (cs) => cs.class_entity.year_group_id === yearGroupId,
-        )
+      ? classStaffList.filter((cs) => cs.class_entity.year_group_id === yearGroupId)
       : classStaffList;
 
     // For each class-teacher, get grades for all assessments in that class
@@ -478,8 +465,7 @@ export class AnalyticsService {
         const avg = data.scores.reduce((s, v) => s + v, 0) / n;
         const passCount = data.scores.filter((s) => s >= 50).length;
         const passRate = (passCount / n) * 100;
-        const variance =
-          data.scores.reduce((s, v) => s + (v - avg) ** 2, 0) / n;
+        const variance = data.scores.reduce((s, v) => s + (v - avg) ** 2, 0) / n;
         const stddev = Math.sqrt(variance);
 
         entries.push({
@@ -514,12 +500,7 @@ export class AnalyticsService {
       e.flagged = Math.abs(e.average - subjectMean) > 15;
     }
 
-    await client.set(
-      cacheKey,
-      JSON.stringify(entries),
-      'EX',
-      this.CACHE_TTL,
-    );
+    await client.set(cacheKey, JSON.stringify(entries), 'EX', this.CACHE_TTL);
 
     return entries;
   }
@@ -567,11 +548,8 @@ export class AnalyticsService {
     });
 
     // Group by class × subject × period
-    const groupKey = (s: {
-      class_id: string;
-      subject_id: string;
-      academic_period_id: string;
-    }) => `${s.class_id}|${s.subject_id}|${s.academic_period_id}`;
+    const groupKey = (s: { class_id: string; subject_id: string; academic_period_id: string }) =>
+      `${s.class_id}|${s.subject_id}|${s.academic_period_id}`;
 
     const groupMap = new Map<
       string,
@@ -609,8 +587,7 @@ export class AnalyticsService {
     for (const [, group] of groupMap.entries()) {
       const n = group.scores.length;
       if (n === 0) continue;
-      const avg =
-        group.scores.reduce((s, v) => s + v, 0) / n;
+      const avg = group.scores.reduce((s, v) => s + v, 0) / n;
       entries.push({
         class_id: group.classId,
         class_name: classMap.get(group.classId) ?? '',
@@ -623,12 +600,7 @@ export class AnalyticsService {
       });
     }
 
-    await client.set(
-      cacheKey,
-      JSON.stringify(entries),
-      'EX',
-      this.CACHE_TTL,
-    );
+    await client.set(cacheKey, JSON.stringify(entries), 'EX', this.CACHE_TTL);
 
     return entries;
   }
@@ -639,15 +611,10 @@ export class AnalyticsService {
    * Invalidate analytics cache for an assessment (called after grade save).
    * Best-effort: errors are logged but not re-thrown.
    */
-  async invalidateAssessmentCache(
-    tenantId: string,
-    assessmentId: string,
-  ): Promise<void> {
+  async invalidateAssessmentCache(tenantId: string, assessmentId: string): Promise<void> {
     try {
       const client = this.redis.getClient();
-      await client.del(
-        `analytics:distribution:${tenantId}:${assessmentId}`,
-      );
+      await client.del(`analytics:distribution:${tenantId}:${assessmentId}`);
     } catch (err) {
       this.logger.warn(
         `Failed to invalidate analytics cache for assessment ${assessmentId}: ${String(err)}`,

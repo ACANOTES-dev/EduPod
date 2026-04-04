@@ -2,8 +2,13 @@ import { ConflictException, Injectable, Logger, NotFoundException } from '@nestj
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../../academics/academic-read.facade';
+import { AttendanceReadFacade } from '../../attendance/attendance-read.facade';
+import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
+import { StudentReadFacade } from '../../students/student-read.facade';
+import { TenantReadFacade } from '../../tenants/tenant-read.facade';
 import type { UpdateReportCardDto } from '../dto/gradebook.dto';
 
 import { ReportCardGenerationService } from './report-card-generation.service';
@@ -18,9 +23,25 @@ export class ReportCardsService {
   constructor(
     private readonly prisma: PrismaService,
     redisService: RedisService,
+    academicReadFacade: AcademicReadFacade,
+    studentReadFacade: StudentReadFacade,
+    tenantReadFacade: TenantReadFacade,
+    attendanceReadFacade: AttendanceReadFacade,
+    classesReadFacade: ClassesReadFacade,
   ) {
-    this.generationService = new ReportCardGenerationService(this.prisma);
-    this.transcriptService = new ReportCardTranscriptService(this.prisma, redisService);
+    this.generationService = new ReportCardGenerationService(
+      this.prisma,
+      academicReadFacade,
+      studentReadFacade,
+      tenantReadFacade,
+      attendanceReadFacade,
+      classesReadFacade,
+    );
+    this.transcriptService = new ReportCardTranscriptService(
+      this.prisma,
+      redisService,
+      studentReadFacade,
+    );
   }
 
   /**

@@ -5,21 +5,22 @@ import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { AcademicReadFacade } from '../../academics/academic-read.facade';
 import { AttendanceReadFacade } from '../../attendance/attendance-read.facade';
 import { ClassesReadFacade } from '../../classes/classes-read.facade';
+import { PrismaService } from '../../prisma/prisma.service';
 import { StudentReadFacade } from '../../students/student-read.facade';
 import { TenantReadFacade } from '../../tenants/tenant-read.facade';
-import { PrismaService } from '../../prisma/prisma.service';
 
 export class ReportCardGenerationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly tenantReadFacade: TenantReadFacade,
+    private readonly attendanceReadFacade: AttendanceReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+  ) {}
+
   async generate(tenantId: string, studentIds: string[], periodId: string) {
-    const period = await this.prisma.academicPeriod.findFirst({
-      where: { id: periodId, tenant_id: tenantId },
-      include: {
-        academic_year: {
-          select: { id: true, name: true },
-        },
-      },
-    });
+    const period = await this.academicReadFacade.findPeriodById(tenantId, periodId);
 
     if (!period) {
       throw new NotFoundException({
@@ -28,11 +29,11 @@ export class ReportCardGenerationService {
       });
     }
 
-    const students = await this.prisma.student.findMany({
-      where: {
-        id: { in: studentIds },
-        tenant_id: tenantId,
-      },
+    // Need the academic year info — findPeriodById includes it
+    const periodWithYear = period as typeof period & { academic_year: { name: string } };
+
+    const students = (await this.studentReadFacade.findManyGeneric(tenantId, {
+      where: { id: { in: studentIds } },
       include: {
         year_group: {
           select: { id: true, name: true },
@@ -54,7 +55,21 @@ export class ReportCardGenerationService {
           },
         },
       },
-    });
+    })) as Array<{
+      id: string;
+      first_name: string;
+      last_name: string;
+      student_number: string | null;
+      year_group: { id: string; name: string } | null;
+      homeroom_class: { id: string; name: true } | null;
+      household: {
+        id: string;
+        billing_parent: {
+          id: string;
+          user: { preferred_locale: string | null } | null;
+        } | null;
+      } | null;
+    }>;
 
     if (students.length !== studentIds.length) {
       const foundIds = new Set(students.map((student) => student.id));
@@ -65,12 +80,8 @@ export class ReportCardGenerationService {
       });
     }
 
-    const tenant = await this.prisma.tenant.findFirst({
-      where: { id: tenantId },
-      select: { default_locale: true },
-    });
+    const tenantDefaultLocale = await this.tenantReadFacade.findDefaultLocale(tenantId);
 
-    const tenantDefaultLocale = tenant?.default_locale ?? 'en';
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
     const reportCards = [];
 
@@ -140,24 +151,17 @@ export class ReportCardGenerationService {
         };
       });
 
-      const attendanceSummaries = await this.prisma.dailyAttendanceSummary.groupBy({
-        by: ['derived_status'],
-        where: {
-          tenant_id: tenantId,
-          student_id: student.id,
-          summary_date: {
-            gte: period.start_date,
-            lte: period.end_date,
-          },
-        },
-        _count: { id: true },
-      });
-
-      const statusCounts = new Map(
-        attendanceSummaries.map((summary) => [summary.derived_status, summary._count.id]),
+      const attendanceSummaries = await this.attendanceReadFacade.groupSummariesByStatus(
+        tenantId,
+        student.id,
+        { from: period.start_date, to: period.end_date },
       );
 
-      const totalDays = attendanceSummaries.reduce((sum, summary) => sum + summary._count.id, 0);
+      const statusCounts = new Map(
+        attendanceSummaries.map((summary) => [summary.derived_status, summary._count._all]),
+      );
+
+      const totalDays = attendanceSummaries.reduce((sum, summary) => sum + summary._count._all, 0);
       const presentDays = (statusCounts.get('present') ?? 0) + (statusCounts.get('late') ?? 0);
       const absentDays =
         (statusCounts.get('absent') ?? 0) + (statusCounts.get('partially_absent') ?? 0);
@@ -185,7 +189,7 @@ export class ReportCardGenerationService {
         },
         period: {
           name: period.name,
-          academic_year: period.academic_year.name,
+          academic_year: periodWithYear.academic_year.name,
           start_date: period.start_date.toISOString().slice(0, 10),
           end_date: period.end_date.toISOString().slice(0, 10),
         },
@@ -217,12 +221,7 @@ export class ReportCardGenerationService {
   }
 
   async buildBatchSnapshots(tenantId: string, classId: string, periodId: string) {
-    const period = await this.prisma.academicPeriod.findFirst({
-      where: { id: periodId, tenant_id: tenantId },
-      include: {
-        academic_year: { select: { id: true, name: true } },
-      },
-    });
+    const period = await this.academicReadFacade.findPeriodById(tenantId, periodId);
 
     if (!period) {
       throw new NotFoundException({
@@ -231,13 +230,18 @@ export class ReportCardGenerationService {
       });
     }
 
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
-        class_id: classId,
-        status: 'active',
-      },
-      include: {
+    const periodWithYear = period as typeof period & { academic_year: { name: string } };
+
+    const enrolments = (await this.classesReadFacade.findEnrolmentsGeneric(
+      tenantId,
+      { class_id: classId, status: 'active' },
+      {
+        id: true,
+        class_id: true,
+        student_id: true,
+        status: true,
+        start_date: true,
+        end_date: true,
         student: {
           select: {
             id: true,
@@ -249,7 +253,17 @@ export class ReportCardGenerationService {
           },
         },
       },
-    });
+    )) as Array<{
+      student_id: string;
+      student: {
+        id: string;
+        first_name: string;
+        last_name: string;
+        student_number: string | null;
+        year_group: { name: string } | null;
+        homeroom_class: { name: string } | null;
+      };
+    }>;
 
     if (enrolments.length === 0) {
       return [];
@@ -293,24 +307,17 @@ export class ReportCardGenerationService {
         overridden_value: snapshot.overridden_value ?? null,
       }));
 
-      const attendanceSummaries = await this.prisma.dailyAttendanceSummary.groupBy({
-        by: ['derived_status'],
-        where: {
-          tenant_id: tenantId,
-          student_id: student.id,
-          summary_date: {
-            gte: period.start_date,
-            lte: period.end_date,
-          },
-        },
-        _count: { id: true },
-      });
-
-      const statusCounts = new Map(
-        attendanceSummaries.map((summary) => [summary.derived_status, summary._count.id]),
+      const attendanceSummaries = await this.attendanceReadFacade.groupSummariesByStatus(
+        tenantId,
+        student.id,
+        { from: period.start_date, to: period.end_date },
       );
 
-      const totalDays = attendanceSummaries.reduce((sum, summary) => sum + summary._count.id, 0);
+      const statusCounts = new Map(
+        attendanceSummaries.map((summary) => [summary.derived_status, summary._count._all]),
+      );
+
+      const totalDays = attendanceSummaries.reduce((sum, summary) => sum + summary._count._all, 0);
       const presentDays = (statusCounts.get('present') ?? 0) + (statusCounts.get('late') ?? 0);
       const absentDays =
         (statusCounts.get('absent') ?? 0) + (statusCounts.get('partially_absent') ?? 0);
@@ -335,7 +342,7 @@ export class ReportCardGenerationService {
         },
         period: {
           name: period.name,
-          academic_year: period.academic_year.name,
+          academic_year: periodWithYear.academic_year.name,
           start_date: period.start_date.toISOString().slice(0, 10),
           end_date: period.end_date.toISOString().slice(0, 10),
         },
@@ -356,10 +363,11 @@ export class ReportCardGenerationService {
   }
 
   async generateBulkDrafts(tenantId: string, classId: string, periodId: string) {
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: { tenant_id: tenantId, class_id: classId, status: 'active' },
-      select: { student_id: true },
-    });
+    const enrolments = (await this.classesReadFacade.findEnrolmentsGeneric(
+      tenantId,
+      { class_id: classId, status: 'active' },
+      { student_id: true },
+    )) as Array<{ student_id: string }>;
 
     if (enrolments.length === 0) {
       return { data: [], skipped: 0, generated: 0 };

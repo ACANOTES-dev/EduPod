@@ -79,12 +79,12 @@ export class PolicyReplayService {
     const conditions = PolicyConditionSchema.parse(rule.conditions);
 
     // Load incidents in the period
-    const incidents = await this.behaviourReadFacade.findIncidentsForReplay(
+    const incidents = (await this.behaviourReadFacade.findIncidentsForReplay(
       tenantId,
       fromDate,
       toDate,
       ['withdrawn', 'draft'],
-    ) as Array<{
+    )) as Array<{
       id: string;
       category_id: string;
       polarity: string;
@@ -227,7 +227,10 @@ export class PolicyReplayService {
 
     // Resolve year group name if ID provided
     if (dto.student_year_group_id) {
-      const yg = await this.academicReadFacade.findYearGroupById(tenantId, dto.student_year_group_id);
+      const yg = await this.academicReadFacade.findYearGroupById(
+        tenantId,
+        dto.student_year_group_id,
+      );
       if (yg) hypotheticalInput.year_group_name = yg.name;
     }
 
@@ -296,12 +299,13 @@ export class PolicyReplayService {
    * Full policy decision trace for an incident.
    */
   async getIncidentEvaluationTrace(tenantId: string, incidentId: string) {
-    const evaluations = await this.behaviourReadFacade.findPolicyEvaluationTrace(
+    const evaluations = (await this.behaviourReadFacade.findPolicyEvaluationTrace(
       tenantId,
       incidentId,
-    ) as Array<{
+    )) as Array<{
       stage: string;
-      rule_version: { stage: string } | null;
+      action_executions: Array<Record<string, unknown>>;
+      rule_version: { stage: string; name: string; [key: string]: unknown } | null;
       [key: string]: unknown;
     }>;
 

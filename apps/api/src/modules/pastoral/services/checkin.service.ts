@@ -5,7 +5,6 @@ import { pastoralTenantSettingsSchema } from '@school/shared/pastoral';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
-
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { CheckinAlertService } from './checkin-alert.service';

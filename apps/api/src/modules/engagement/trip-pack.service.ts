@@ -7,6 +7,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import type { PdfBranding } from '../pdf-rendering/pdf-rendering.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 // ─── Trip type constants ──────────────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ export class TripPackService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pdfRenderingService: PdfRenderingService,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   // ─── Shared trip leader pack data ─────────────────────────────────────────
@@ -146,17 +148,14 @@ export class TripPackService {
   async generateTripPack(tenantId: string, eventId: string, locale: string): Promise<Buffer> {
     const templateData = await this.getTripPackData(tenantId, eventId);
 
-    const tenant = await this.prisma.tenant.findFirst({
-      where: { id: tenantId },
-      select: {
-        name: true,
-        settings: true,
-      },
-    });
+    const [tenantCore, tenantSettings] = await Promise.all([
+      this.tenantReadFacade.findById(tenantId),
+      this.tenantReadFacade.findSettings(tenantId),
+    ]);
 
-    const settings = (tenant?.settings ?? {}) as Record<string, unknown>;
+    const settings = (tenantSettings ?? {}) as Record<string, unknown>;
     const branding: PdfBranding = {
-      school_name: (settings.school_name as string) ?? tenant?.name ?? '',
+      school_name: (settings.school_name as string) ?? tenantCore?.name ?? '',
       school_name_ar: settings.school_name_ar as string | undefined,
       logo_url: settings.logo_url as string | undefined,
       primary_color: settings.primary_color as string | undefined,

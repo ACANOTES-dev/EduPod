@@ -9,8 +9,8 @@ import * as XLSX from 'xlsx';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
-import { StudentReadFacade } from '../students/student-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import type { ImportProcessDto } from './dto/gradebook.dto';
 
@@ -36,7 +36,12 @@ export interface CsvValidationResult {
 
 @Injectable()
 export class BulkImportService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+  ) {}
   /**
    * Validate a CSV buffer against the database.
    * CSV columns: student_identifier, subject_code, assessment_title, score
@@ -44,10 +49,7 @@ export class BulkImportService {
    *           subject code first, then name
    *           assessment by title within matched student's enrolled classes for matched subject
    */
-  async validateCsv(
-    tenantId: string,
-    csvBuffer: Buffer,
-  ): Promise<CsvValidationResult> {
+  async validateCsv(tenantId: string, csvBuffer: Buffer): Promise<CsvValidationResult> {
     const lines = csvBuffer.toString('utf-8').split('\n');
     const rows: CsvValidationResult['rows'] = [];
 
@@ -80,21 +82,26 @@ export class BulkImportService {
     };
 
     // Load all students for this tenant for matching
-    const allStudents = await this.prisma.student.findMany({
-      where: { tenant_id: tenantId },
+    const allStudents = (await this.studentReadFacade.findManyGeneric(tenantId, {
       select: {
         id: true,
         student_number: true,
         first_name: true,
         last_name: true,
       },
-    });
+    })) as Array<{
+      id: string;
+      student_number: string | null;
+      first_name: string;
+      last_name: string;
+    }>;
 
     // Load all subjects for this tenant
-    const allSubjects = await this.prisma.subject.findMany({
-      where: { tenant_id: tenantId },
-      select: { id: true, name: true, code: true },
-    });
+    const allSubjects = (await this.academicReadFacade.findAllSubjects(tenantId, {
+      id: true,
+      name: true,
+      code: true,
+    })) as Array<{ id: string; name: string; code: string | null }>;
 
     // Build lookup maps
     const studentByNumber = new Map<string, string>();
@@ -168,14 +175,11 @@ export class BulkImportService {
       let matchedAssessmentId: string | null = null;
       if (matchedStudentId && matchedSubjectId && assessmentTitle) {
         // Find classes the student is enrolled in
-        const enrolments = await this.prisma.classEnrolment.findMany({
-          where: {
-            tenant_id: tenantId,
-            student_id: matchedStudentId,
-            status: 'active',
-          },
-          select: { class_id: true },
-        });
+        const enrolments = (await this.classesReadFacade.findEnrolmentsGeneric(
+          tenantId,
+          { student_id: matchedStudentId, status: 'active' },
+          { class_id: true },
+        )) as Array<{ class_id: string }>;
 
         const classIds = enrolments.map((e) => e.class_id);
 
@@ -237,29 +241,25 @@ export class BulkImportService {
   /**
    * Generate a CSV template with student names and assessment columns pre-filled.
    */
-  async generateTemplate(
-    tenantId: string,
-    classId?: string,
-    periodId?: string,
-  ) {
+  async generateTemplate(tenantId: string, classId?: string, periodId?: string) {
     // Get students — optionally filtered by class
-    const studentWhere: Record<string, unknown> = { tenant_id: tenantId };
-    let studentIds: string[] | undefined;
+    let studentFilter: { id?: { in: string[] } } = {};
 
     if (classId) {
-      const enrolments = await this.prisma.classEnrolment.findMany({
-        where: { tenant_id: tenantId, class_id: classId, status: 'active' },
-        select: { student_id: true },
-      });
-      studentIds = enrolments.map((e) => e.student_id);
-      studentWhere['id'] = { in: studentIds };
+      const enrolments = (await this.classesReadFacade.findEnrolmentsGeneric(
+        tenantId,
+        { class_id: classId, status: 'active' },
+        { student_id: true },
+      )) as Array<{ student_id: string }>;
+      const studentIds = enrolments.map((e) => e.student_id);
+      studentFilter = { id: { in: studentIds } };
     }
 
-    const students = await this.prisma.student.findMany({
-      where: studentWhere,
+    const students = (await this.studentReadFacade.findManyGeneric(tenantId, {
+      where: studentFilter,
       select: { student_number: true, first_name: true, last_name: true },
       orderBy: { last_name: 'asc' },
-    });
+    })) as Array<{ student_number: string | null; first_name: string; last_name: string }>;
 
     // Get assessments — optionally filtered by class and period
     const assessmentWhere: Record<string, unknown> = {
@@ -278,9 +278,7 @@ export class BulkImportService {
     });
 
     // Build template rows: one row per student × assessment combination
-    const rows: string[][] = [
-      ['student_identifier', 'subject_code', 'assessment_title', 'score'],
-    ];
+    const rows: string[][] = [['student_identifier', 'subject_code', 'assessment_title', 'score']];
 
     for (const student of students) {
       const identifier = student.student_number ?? `${student.first_name} ${student.last_name}`;
@@ -302,10 +300,7 @@ export class BulkImportService {
   /**
    * Validate an XLSX buffer by converting it to CSV format and running the CSV validator.
    */
-  async validateXlsx(
-    tenantId: string,
-    xlsxBuffer: Buffer,
-  ): Promise<CsvValidationResult> {
+  async validateXlsx(tenantId: string, xlsxBuffer: Buffer): Promise<CsvValidationResult> {
     const workbook = XLSX.read(xlsxBuffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     if (!sheetName) {
@@ -323,11 +318,7 @@ export class BulkImportService {
    * Process validated import rows.
    * Verifies assessments are draft/open, upserts grades in batches within transaction.
    */
-  async processImport(
-    tenantId: string,
-    userId: string,
-    rows: ImportProcessDto['rows'],
-  ) {
+  async processImport(tenantId: string, userId: string, rows: ImportProcessDto['rows']) {
     if (rows.length === 0) {
       throw new BadRequestException({
         code: 'NO_ROWS',

@@ -1,8 +1,8 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
-import { StudentReadFacade } from '../students/student-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 const TRANSCRIPT_CACHE_TTL_SECONDS = 300; // 5 minutes
 
@@ -40,7 +40,7 @@ export class TranscriptsService {
     }
 
     // 2. Verify student exists
-    const student = await this.studentReadFacade.findOneGeneric(tenantId, studentId, {
+    const student = (await this.studentReadFacade.findOneGeneric(tenantId, studentId, {
       select: {
         id: true,
         first_name: true,
@@ -50,7 +50,7 @@ export class TranscriptsService {
           select: { id: true, name: true },
         },
       },
-    }) as {
+    })) as {
       id: string;
       first_name: string;
       last_name: string;

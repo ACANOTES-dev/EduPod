@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { AdmissionsReadFacade } from '../admissions/admissions-read.facade';
+import { HouseholdReadFacade } from '../households/household-read.facade';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import { MeilisearchClient } from './meilisearch.client';
 
@@ -17,6 +22,11 @@ export class SearchIndexService {
   constructor(
     private readonly meilisearch: MeilisearchClient,
     private readonly prisma: PrismaService,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly parentReadFacade: ParentReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly householdReadFacade: HouseholdReadFacade,
+    private readonly admissionsReadFacade: AdmissionsReadFacade,
   ) {}
 
   async indexEntity(entityType: string, entity: EntityBase): Promise<void> {
@@ -99,7 +109,7 @@ export class SearchIndexService {
 
     for (const record of pending) {
       try {
-        const entity = await this.fetchEntity(record.entity_type, record.entity_id);
+        const entity = await this.fetchEntity(tenantId, record.entity_type, record.entity_id);
         if (entity) {
           await this.indexEntity(record.entity_type, entity);
           reindexed++;
@@ -119,29 +129,25 @@ export class SearchIndexService {
     return { reindexed, failed };
   }
 
-  private async fetchEntity(entityType: string, entityId: string): Promise<EntityBase | null> {
+  private async fetchEntity(
+    tenantId: string,
+    entityType: string,
+    entityId: string,
+  ): Promise<EntityBase | null> {
     switch (entityType) {
       case 'students':
-        return this.prisma.student.findUnique({
-          where: { id: entityId },
-        }) as Promise<EntityBase | null>;
+        return this.studentReadFacade.findById(tenantId, entityId) as Promise<EntityBase | null>;
       case 'parents':
-        return this.prisma.parent.findUnique({
-          where: { id: entityId },
-        }) as Promise<EntityBase | null>;
+        return this.parentReadFacade.findById(tenantId, entityId) as Promise<EntityBase | null>;
       case 'staff':
-        return this.prisma.staffProfile.findUnique({
-          where: { id: entityId },
-          include: { user: { select: { first_name: true, last_name: true } } },
-        }) as Promise<EntityBase | null>;
+        return this.staffProfileReadFacade.findById(
+          tenantId,
+          entityId,
+        ) as Promise<EntityBase | null>;
       case 'households':
-        return this.prisma.household.findUnique({
-          where: { id: entityId },
-        }) as Promise<EntityBase | null>;
+        return this.householdReadFacade.findById(tenantId, entityId) as Promise<EntityBase | null>;
       case 'applications':
-        return this.prisma.application.findUnique({
-          where: { id: entityId },
-        }) as Promise<EntityBase | null>;
+        return this.admissionsReadFacade.findById(tenantId, entityId) as Promise<EntityBase | null>;
       default:
         return null;
     }

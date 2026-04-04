@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { ReportCardDelivery } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -15,7 +11,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class ReportCardDeliveryService {
   private readonly logger = new Logger(ReportCardDeliveryService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
+  ) {}
   // ─── Deliver to all parents ───────────────────────────────────────────────
 
   async deliver(tenantId: string, reportCardId: string) {
@@ -107,12 +106,14 @@ export class ReportCardDeliveryService {
     // Best-effort: mark in_app deliveries as sent immediately (they're DB-stored)
     for (const delivery of deliveries) {
       if (delivery.channel === 'in_app') {
-        await this.prisma.reportCardDelivery.update({
-          where: { id: delivery.id },
-          data: { status: 'sent', sent_at: new Date() },
-        }).catch(() => {
-          this.logger.warn(`Failed to mark in_app delivery ${delivery.id} as sent`);
-        });
+        await this.prisma.reportCardDelivery
+          .update({
+            where: { id: delivery.id },
+            data: { status: 'sent', sent_at: new Date() },
+          })
+          .catch(() => {
+            this.logger.warn(`Failed to mark in_app delivery ${delivery.id} as sent`);
+          });
       }
     }
 
@@ -122,12 +123,21 @@ export class ReportCardDeliveryService {
   // ─── Bulk Deliver ─────────────────────────────────────────────────────────
 
   async bulkDeliver(tenantId: string, reportCardIds: string[]) {
-    const results: Array<{ report_card_id: string; success: boolean; delivered_count?: number; error?: string }> = [];
+    const results: Array<{
+      report_card_id: string;
+      success: boolean;
+      delivered_count?: number;
+      error?: string;
+    }> = [];
 
     for (const reportCardId of reportCardIds) {
       try {
         const result = await this.deliver(tenantId, reportCardId);
-        results.push({ report_card_id: reportCardId, success: true, delivered_count: result.delivered_count });
+        results.push({
+          report_card_id: reportCardId,
+          success: true,
+          delivered_count: result.delivered_count,
+        });
       } catch (err) {
         results.push({
           report_card_id: reportCardId,
@@ -221,12 +231,9 @@ export class ReportCardDeliveryService {
 
   private async getDeliveryChannel(tenantId: string): Promise<'email' | 'whatsapp' | 'in_app'> {
     try {
-      const settings = await this.prisma.tenantSetting.findUnique({
-        where: { tenant_id: tenantId },
-        select: { settings: true },
-      });
+      const settingsRow = await this.configurationReadFacade.findSettings(tenantId);
 
-      const s = settings?.settings as Record<string, unknown> | null;
+      const s = settingsRow?.settings as Record<string, unknown> | null;
       const reportCardSettings = s?.reportCards as Record<string, unknown> | undefined;
       const channel = reportCardSettings?.deliveryChannel as string | undefined;
 

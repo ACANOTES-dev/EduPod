@@ -9,16 +9,16 @@ import {
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 import { type GdprOutboundData, CONSENT_TYPES } from '@school/shared/gdpr';
 
+import { AcademicReadFacade } from '../../academics/academic-read.facade';
 import { AnthropicClientService } from '../../ai/anthropic-client.service';
+import { AttendanceReadFacade } from '../../attendance/attendance-read.facade';
 import { SettingsService } from '../../configuration/settings.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { ConsentService } from '../../gdpr/consent.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
-import { AcademicReadFacade } from '../academics/academic-read.facade';
-import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
-import { StudentReadFacade } from '../students/student-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
+import { StudentReadFacade } from '../../students/student-read.facade';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -250,7 +250,10 @@ export class AiProgressSummaryService {
     });
 
     // Attendance summary
-    const attendanceRecords = await this.attendanceReadFacade.findAllRecordsForStudent(tenantId, studentId);
+    const attendanceRecords = await this.attendanceReadFacade.findAllRecordsForStudent(
+      tenantId,
+      studentId,
+    );
 
     const totalDays = attendanceRecords.length;
     const presentDays = attendanceRecords.filter((r) => r.status === 'present').length;

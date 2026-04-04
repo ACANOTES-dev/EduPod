@@ -2,8 +2,8 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PrismaService } from '../prisma/prisma.service';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { PrismaService } from '../prisma/prisma.service';
 import { SchedulingRunsReadFacade } from '../scheduling-runs/scheduling-runs-read.facade';
 
 import { ScenarioService } from './scenario.service';
@@ -23,7 +23,9 @@ const mockTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
@@ -82,36 +84,42 @@ describe('ScenarioService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        { provide: AcademicReadFacade, useValue: {
-      findCurrentYear: jest.fn().mockResolvedValue(null),
-      findCurrentYearId: jest.fn().mockResolvedValue('year-1'),
-      findYearById: jest.fn().mockResolvedValue(null),
-      findYearByIdOrThrow: jest.fn().mockResolvedValue('year-1'),
-      findSubjectByIdOrThrow: jest.fn().mockResolvedValue('subject-1'),
-      findYearGroupByIdOrThrow: jest.fn().mockResolvedValue('yg-1'),
-      findYearGroupsWithActiveClasses: jest.fn().mockResolvedValue([]),
-      findYearGroupsWithClassesAndCounts: jest.fn().mockResolvedValue([]),
-      findAllYearGroups: jest.fn().mockResolvedValue([]),
-      findSubjectsByIdsWithOrder: jest.fn().mockResolvedValue([]),
-      findSubjectById: jest.fn().mockResolvedValue(null),
-      findYearGroupById: jest.fn().mockResolvedValue(null),
-      findPeriodById: jest.fn().mockResolvedValue(null),
-    } },
-        { provide: SchedulingRunsReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findStatusById: jest.fn().mockResolvedValue(null),
-      findActiveRun: jest.fn().mockResolvedValue(null),
-      countActiveRuns: jest.fn().mockResolvedValue(0),
-      findLatestCompletedRun: jest.fn().mockResolvedValue(null),
-      findLatestRunWithResult: jest.fn().mockResolvedValue(null),
-      findLatestAppliedRun: jest.fn().mockResolvedValue(null),
-      listRuns: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-      findHistoricalRuns: jest.fn().mockResolvedValue([]),
-      findScenarioById: jest.fn().mockResolvedValue(null),
-      findScenarioStatusById: jest.fn().mockResolvedValue(null),
-      listScenarios: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-      findScenariosForComparison: jest.fn().mockResolvedValue([]),
-    } },
+        {
+          provide: AcademicReadFacade,
+          useValue: {
+            findCurrentYear: jest.fn().mockResolvedValue(null),
+            findCurrentYearId: jest.fn().mockResolvedValue('year-1'),
+            findYearById: jest.fn().mockResolvedValue(null),
+            findYearByIdOrThrow: jest.fn().mockResolvedValue('year-1'),
+            findSubjectByIdOrThrow: jest.fn().mockResolvedValue('subject-1'),
+            findYearGroupByIdOrThrow: jest.fn().mockResolvedValue('yg-1'),
+            findYearGroupsWithActiveClasses: jest.fn().mockResolvedValue([]),
+            findYearGroupsWithClassesAndCounts: jest.fn().mockResolvedValue([]),
+            findAllYearGroups: jest.fn().mockResolvedValue([]),
+            findSubjectsByIdsWithOrder: jest.fn().mockResolvedValue([]),
+            findSubjectById: jest.fn().mockResolvedValue(null),
+            findYearGroupById: jest.fn().mockResolvedValue(null),
+            findPeriodById: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: SchedulingRunsReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            findStatusById: jest.fn().mockResolvedValue(null),
+            findActiveRun: jest.fn().mockResolvedValue(null),
+            countActiveRuns: jest.fn().mockResolvedValue(0),
+            findLatestCompletedRun: jest.fn().mockResolvedValue(null),
+            findLatestRunWithResult: jest.fn().mockResolvedValue(null),
+            findLatestAppliedRun: jest.fn().mockResolvedValue(null),
+            listRuns: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+            findHistoricalRuns: jest.fn().mockResolvedValue([]),
+            findScenarioById: jest.fn().mockResolvedValue(null),
+            findScenarioStatusById: jest.fn().mockResolvedValue(null),
+            listScenarios: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+            findScenariosForComparison: jest.fn().mockResolvedValue([]),
+          },
+        },
         ScenarioService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: getQueueToken('scheduling'), useValue: mockQueue },
@@ -189,7 +197,9 @@ describe('ScenarioService', () => {
     it('should throw NotFoundException when scenario does not exist', async () => {
       mockPrisma.schedulingScenario.findFirst.mockResolvedValue(null);
 
-      await expect(service.getScenario(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
+      await expect(service.getScenario(TENANT_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should set has_result=true when solver_result_json is populated', async () => {
@@ -249,9 +259,9 @@ describe('ScenarioService', () => {
     it('should throw BadRequestException when scenario is approved', async () => {
       mockPrisma.schedulingScenario.findFirst.mockResolvedValue(makeDraftScenario('approved'));
 
-      await expect(
-        service.deleteScenario(TENANT_ID, SCENARIO_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.deleteScenario(TENANT_ID, SCENARIO_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -261,7 +271,11 @@ describe('ScenarioService', () => {
     it('should return comparison data for all provided scenario IDs', async () => {
       mockPrisma.schedulingScenario.findMany.mockResolvedValue([
         makeDraftScenario('draft'),
-        { ...makeDraftScenario('solved'), id: 'scenario-2', solver_result_json: { entries_generated: 80 } },
+        {
+          ...makeDraftScenario('solved'),
+          id: 'scenario-2',
+          solver_result_json: { entries_generated: 80 },
+        },
       ]);
 
       const result = await service.compareScenarios(TENANT_ID, {
@@ -327,9 +341,9 @@ describe('ScenarioService', () => {
     it('should throw NotFoundException when scenario does not exist', async () => {
       mockPrisma.schedulingScenario.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.runScenarioSolver(TENANT_ID, 'nonexistent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.runScenarioSolver(TENANT_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

@@ -15,7 +15,6 @@ import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard'
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
-
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Validation Schema ──────────────────────────────────────────────────────
@@ -52,8 +51,10 @@ interface EscalationDashboardResponse {
 @ModuleEnabled('pastoral')
 @UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class PastoralAdminController {
-  constructor(private readonly prisma: PrismaService,
-    private readonly configurationReadFacade: ConfigurationReadFacade) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
+  ) {}
 
   // ─── 1. Get Escalation Settings ──────────────────────────────────────────
 
@@ -110,15 +111,17 @@ export class PastoralAdminController {
 
     const mergedSettings = { ...existingSettings, pastoral: mergedPastoral };
 
-    await this.prisma.tenantSetting.upsert({
-      where: { tenant_id: tenant.tenant_id },
-      create: {
-        tenant_id: tenant.tenant_id,
-        settings: JSON.parse(JSON.stringify(mergedSettings)),
-      },
-      update: {
-        settings: JSON.parse(JSON.stringify(mergedSettings)),
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.tenantSetting.upsert({
+        where: { tenant_id: tenant.tenant_id },
+        create: {
+          tenant_id: tenant.tenant_id,
+          settings: JSON.parse(JSON.stringify(mergedSettings)),
+        },
+        update: {
+          settings: JSON.parse(JSON.stringify(mergedSettings)),
+        },
+      });
     });
 
     // Return freshly-parsed settings so Zod defaults are applied

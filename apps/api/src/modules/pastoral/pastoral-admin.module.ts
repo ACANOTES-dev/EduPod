@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
 import { ChildProtectionModule } from '../child-protection/child-protection.module';
+import { ConfigurationModule } from '../configuration/configuration.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
 
 import { PastoralAdminController } from './controllers/pastoral-admin.controller';
@@ -16,7 +17,6 @@ import { PastoralReportSstActivityService } from './services/pastoral-report-sst
 import { PastoralReportStudentSummaryService } from './services/pastoral-report-student-summary.service';
 import { PastoralReportWellbeingService } from './services/pastoral-report-wellbeing.service';
 import { PastoralReportService } from './services/pastoral-report.service';
-import { ConfigurationModule } from '../configuration/configuration.module';
 
 // ─── PastoralAdminModule ───────────────────────────────────────────────────────
 // Admin, reports, export, import, parent portal.
@@ -24,12 +24,14 @@ import { ConfigurationModule } from '../configuration/configuration.module';
 // is broken: CP → PastoralCoreModule (leaf), PastoralAdminModule → CP.
 
 @Module({
-  imports: [AuthModule, ChildProtectionModule, PastoralCoreModule, PdfRenderingModule, ConfigurationModule],
-  controllers: [
-    PastoralAdminController,
-    PastoralImportController,
-    PastoralReportsController,
+  imports: [
+    AuthModule,
+    ChildProtectionModule,
+    PastoralCoreModule,
+    PdfRenderingModule,
+    ConfigurationModule,
   ],
+  controllers: [PastoralAdminController, PastoralImportController, PastoralReportsController],
   providers: [
     PastoralExportService,
     PastoralImportService,

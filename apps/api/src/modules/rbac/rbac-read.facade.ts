@@ -452,4 +452,15 @@ export class RbacReadFacade {
       select: { id: true, role_key: true },
     });
   }
+
+  /**
+   * Find all permission records (platform-level, no tenant scope).
+   * Used by tenant provisioning to map permission keys to IDs when assigning role permissions.
+   */
+  async findAllPermissions(): Promise<Array<{ id: string; permission_key: string }>> {
+    return this.prisma.permission.findMany({
+      take: 1000,
+      select: { id: true, permission_key: true },
+    });
+  }
 }

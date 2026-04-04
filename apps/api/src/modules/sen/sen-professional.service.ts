@@ -10,6 +10,7 @@ import {
 } from '@school/shared/sen';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { PastoralReadFacade } from '../pastoral/pastoral-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -65,7 +66,10 @@ type ProfessionalInvolvementRecord = Prisma.SenProfessionalInvolvementGetPayload
 
 @Injectable()
 export class SenProfessionalService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pastoralReadFacade: PastoralReadFacade,
+  ) {}
 
   // ─── Create ────────────────────────────────────────────────────────────────
 
@@ -324,10 +328,7 @@ export class SenProfessionalService {
   }
 
   private async assertPastoralReferralExists(tenantId: string, referralId: string): Promise<void> {
-    const referral = await this.prisma.pastoralReferral.findFirst({
-      where: { id: referralId, tenant_id: tenantId },
-      select: { id: true },
-    });
+    const referral = await this.pastoralReadFacade.findReferralById(tenantId, referralId);
 
     if (!referral) {
       throw new NotFoundException({

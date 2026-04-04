@@ -11,8 +11,8 @@ import { AnthropicClientService } from '../../ai/anthropic-client.service';
 import { SettingsService } from '../../configuration/settings.service';
 import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
-import { StudentReadFacade } from '../students/student-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StudentReadFacade } from '../../students/student-read.facade';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -329,7 +329,7 @@ Rules:
     const where: Record<string, unknown> = { tenant_id: tenantId };
     this.applyFilters(where, query.filters);
 
-    const students = await this.studentReadFacade.findManyGeneric(tenantId, {
+    const students = (await this.studentReadFacade.findManyGeneric(tenantId, {
       where,
       take: limit,
       select: {
@@ -341,7 +341,7 @@ Rules:
         homeroom_class: { select: { name: true } },
       },
       orderBy: this.buildOrderBy(query.sort) ?? { last_name: 'asc' },
-    }) as Array<{
+    })) as Array<{
       id: string;
       first_name: string;
       last_name: string;

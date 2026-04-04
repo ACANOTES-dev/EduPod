@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import type { CreateParentDto, UpdateParentDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AuthReadFacade } from '../auth/auth-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Query filter type ────────────────────────────────────────────────────────
@@ -71,7 +72,10 @@ export interface ParentDetail extends ParentListItem {
 
 @Injectable()
 export class ParentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly authReadFacade: AuthReadFacade,
+  ) {}
 
   // ─── Create ──────────────────────────────────────────────────────────────
 
@@ -80,10 +84,7 @@ export class ParentsService {
     let userId: string | null = null;
 
     if (dto.email) {
-      const user = await this.prisma.user.findUnique({
-        where: { email: dto.email },
-        select: { id: true },
-      });
+      const user = await this.authReadFacade.findUserByEmail(tenantId, dto.email);
       if (user) {
         userId = user.id;
       }

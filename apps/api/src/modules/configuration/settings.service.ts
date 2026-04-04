@@ -8,6 +8,7 @@ import type { TenantSettingsDto, TenantSettingsModuleKey } from '@school/shared'
 import { withRls } from '../../common/helpers/with-rls';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantReadFacade } from '../tenants/tenant-read.facade';
 
 /**
  * Deep merge utility for settings objects.
@@ -69,6 +70,7 @@ export class SettingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly securityAuditService: SecurityAuditService,
+    private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
   // ─── Read: full settings ────────────────────────────────────────────────────
@@ -374,9 +376,7 @@ export class SettingsService {
     const warnings: SettingsWarning[] = [];
 
     // Load tenant modules to check enabled status
-    const modules = await this.prisma.tenantModule.findMany({
-      where: { tenant_id: tenantId },
-    });
+    const modules = await this.tenantReadFacade.findModules(tenantId);
 
     const moduleMap = new Map<string, boolean>();
     for (const m of modules) {

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
@@ -50,7 +50,10 @@ interface BatchGradeInput {
 
 @Injectable()
 export class ResultsMatrixService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly classesReadFacade: ClassesReadFacade,
+  ) {}
   /**
    * Fetch the full results matrix for a class in a given academic period.
    * Returns students × subjects × assessments with all grades.
@@ -61,25 +64,19 @@ export class ResultsMatrixService {
     academicPeriodId: string,
   ): Promise<ResultsMatrixResponse> {
     // 1. Verify the class exists
-    const classEntity = await this.prisma.class.findFirst({
-      where: { id: classId, tenant_id: tenantId },
-      select: { id: true, name: true },
-    });
-    if (!classEntity) {
-      throw new NotFoundException({
-        code: 'CLASS_NOT_FOUND',
-        message: `Class with id "${classId}" not found`,
-      });
-    }
+    await this.classesReadFacade.existsOrThrow(tenantId, classId);
 
     // 2. Get actively enrolled students
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
-        class_id: classId,
-        status: 'active',
-      },
-      include: {
+    const enrolments = (await this.classesReadFacade.findEnrolmentsGeneric(
+      tenantId,
+      { class_id: classId, status: 'active' },
+      {
+        id: true,
+        class_id: true,
+        student_id: true,
+        status: true,
+        start_date: true,
+        end_date: true,
         student: {
           select: {
             id: true,
@@ -89,8 +86,15 @@ export class ResultsMatrixService {
           },
         },
       },
-      orderBy: { student: { last_name: 'asc' } },
-    });
+      { student: { last_name: 'asc' } },
+    )) as Array<{
+      student: {
+        id: string;
+        first_name: string;
+        last_name: string;
+        student_number: string | null;
+      };
+    }>;
 
     const students: MatrixStudent[] = enrolments.map((e) => ({
       id: e.student.id,
@@ -117,11 +121,7 @@ export class ResultsMatrixService {
           select: { id: true, name: true },
         },
       },
-      orderBy: [
-        { subject: { name: 'asc' } },
-        { category: { name: 'asc' } },
-        { title: 'asc' },
-      ],
+      orderBy: [{ subject: { name: 'asc' } }, { category: { name: 'asc' } }, { title: 'asc' }],
     });
 
     // 4. Group assessments by subject
@@ -148,21 +148,22 @@ export class ResultsMatrixService {
 
     // 5. Fetch all grades for these assessments and students in one query
     const assessmentIds = assessments.map((a) => a.id);
-    const allGrades = assessmentIds.length > 0 && studentIds.length > 0
-      ? await this.prisma.grade.findMany({
-          where: {
-            tenant_id: tenantId,
-            assessment_id: { in: assessmentIds },
-            student_id: { in: studentIds },
-          },
-          select: {
-            student_id: true,
-            assessment_id: true,
-            raw_score: true,
-            is_missing: true,
-          },
-        })
-      : [];
+    const allGrades =
+      assessmentIds.length > 0 && studentIds.length > 0
+        ? await this.prisma.grade.findMany({
+            where: {
+              tenant_id: tenantId,
+              assessment_id: { in: assessmentIds },
+              student_id: { in: studentIds },
+            },
+            select: {
+              student_id: true,
+              assessment_id: true,
+              raw_score: true,
+              is_missing: true,
+            },
+          })
+        : [];
 
     // 6. Build grades lookup: { student_id: { assessment_id: { raw_score, is_missing } } }
     const grades: Record<string, Record<string, GradeEntry>> = {};
@@ -203,9 +204,7 @@ export class ResultsMatrixService {
       select: { id: true, max_score: true },
     });
 
-    const validAssessmentMap = new Map(
-      validAssessments.map((a) => [a.id, Number(a.max_score)]),
-    );
+    const validAssessmentMap = new Map(validAssessments.map((a) => [a.id, Number(a.max_score)]));
 
     // Filter out grades for invalid/locked assessments
     const validGrades = grades.filter((g) => validAssessmentMap.has(g.assessment_id));
@@ -213,20 +212,14 @@ export class ResultsMatrixService {
 
     // Verify all students are enrolled in this class
     const studentIds = [...new Set(validGrades.map((g) => g.student_id))];
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
-        class_id: classId,
-        student_id: { in: studentIds },
-        status: 'active',
-      },
-      select: { student_id: true },
-    });
+    const enrolments = (await this.classesReadFacade.findEnrolmentsGeneric(
+      tenantId,
+      { class_id: classId, student_id: { in: studentIds }, status: 'active' },
+      { student_id: true },
+    )) as Array<{ student_id: string }>;
     const enrolledStudentIds = new Set(enrolments.map((e) => e.student_id));
 
-    const enrolledGrades = validGrades.filter((g) =>
-      enrolledStudentIds.has(g.student_id),
-    );
+    const enrolledGrades = validGrades.filter((g) => enrolledStudentIds.has(g.student_id));
 
     // Upsert within RLS transaction
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });

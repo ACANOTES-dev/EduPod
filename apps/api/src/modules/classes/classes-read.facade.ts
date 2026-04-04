@@ -606,6 +606,43 @@ export class ClassesReadFacade {
     });
   }
 
+  /**
+   * Find class IDs where any of the given students are actively enrolled.
+   * Used by engagement conferences to resolve teachers reachable from a parent's students.
+   */
+  async findClassIdsByStudentIds(tenantId: string, studentIds: string[]): Promise<string[]> {
+    if (studentIds.length === 0) return [];
+
+    const enrolments = await this.prisma.classEnrolment.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_id: { in: studentIds },
+        status: 'active',
+      },
+      select: { class_id: true },
+    });
+
+    return [...new Set(enrolments.map((e) => e.class_id))];
+  }
+
+  /**
+   * Find unique staff profile IDs assigned to any of the given classes.
+   * Used by engagement conferences to resolve teachers from a set of classes.
+   */
+  async findStaffProfileIdsByClassIds(tenantId: string, classIds: string[]): Promise<string[]> {
+    if (classIds.length === 0) return [];
+
+    const staffAssignments = await this.prisma.classStaff.findMany({
+      where: {
+        tenant_id: tenantId,
+        class_id: { in: classIds },
+      },
+      select: { staff_profile_id: true },
+    });
+
+    return [...new Set(staffAssignments.map((s) => s.staff_profile_id))];
+  }
+
   // ─── Generic reporting methods ──────────────────────────────────────────────
 
   /**

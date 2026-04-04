@@ -15,35 +15,25 @@ import type { UpsertGradeConfigDto } from './dto/gradebook.dto';
 
 @Injectable()
 export class ClassGradeConfigsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly academicReadFacade: AcademicReadFacade,
+  ) {}
   /**
    * Upsert a class-subject grade configuration.
    * Validates subject is academic, grading scale exists, and all category IDs exist.
    */
-  async upsert(
-    tenantId: string,
-    classId: string,
-    subjectId: string,
-    dto: UpsertGradeConfigDto,
-  ) {
+  async upsert(tenantId: string, classId: string, subjectId: string, dto: UpsertGradeConfigDto) {
     // 1. Validate class exists
-    const classEntity = await this.prisma.class.findFirst({
-      where: { id: classId, tenant_id: tenantId },
-      select: { id: true },
-    });
-
-    if (!classEntity) {
-      throw new NotFoundException({
-        code: 'CLASS_NOT_FOUND',
-        message: `Class with id "${classId}" not found`,
-      });
-    }
+    await this.classesReadFacade.existsOrThrow(tenantId, classId);
 
     // 2. Validate subject exists and is academic
-    const subject = await this.prisma.subject.findFirst({
-      where: { id: subjectId, tenant_id: tenantId },
+    const subjects = (await this.academicReadFacade.findSubjectsGeneric(tenantId, {
+      where: { id: subjectId },
       select: { id: true, subject_type: true },
-    });
+    })) as Array<{ id: string; subject_type: string }>;
+    const subject = subjects[0] ?? null;
 
     if (!subject) {
       throw new NotFoundException({
@@ -157,15 +147,16 @@ export class ClassGradeConfigsService {
       }
     }
 
-    const categories = allCategoryIds.size > 0
-      ? await this.prisma.assessmentCategory.findMany({
-          where: {
-            tenant_id: tenantId,
-            id: { in: [...allCategoryIds] },
-          },
-          select: { id: true, name: true },
-        })
-      : [];
+    const categories =
+      allCategoryIds.size > 0
+        ? await this.prisma.assessmentCategory.findMany({
+            where: {
+              tenant_id: tenantId,
+              id: { in: [...allCategoryIds] },
+            },
+            select: { id: true, name: true },
+          })
+        : [];
 
     const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
 
@@ -253,7 +244,8 @@ export class ClassGradeConfigsService {
     if (gradedAssessmentCount > 0) {
       throw new ConflictException({
         code: 'GRADE_CONFIG_HAS_GRADES',
-        message: 'Cannot delete grade configuration when graded assessments exist for this class and subject',
+        message:
+          'Cannot delete grade configuration when graded assessments exist for this class and subject',
       });
     }
 

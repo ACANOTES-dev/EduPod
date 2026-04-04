@@ -14,8 +14,10 @@ import {
 } from '@school/shared';
 
 import { SecurityAuditService } from '../audit-log/security-audit.service';
+import { AuthReadFacade } from '../auth/auth-read.facade';
 import { TokenService } from '../auth/auth-token.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RbacReadFacade } from '../rbac/rbac-read.facade';
 import { RedisService } from '../redis/redis.service';
 
 import type { CreateTenantDto } from './dto/create-tenant.dto';
@@ -126,6 +128,8 @@ export class TenantsService {
     private readonly redis: RedisService,
     private readonly tokenService: TokenService,
     private readonly securityAuditService: SecurityAuditService,
+    private readonly authReadFacade: AuthReadFacade,
+    private readonly rbacReadFacade: RbacReadFacade,
   ) {}
 
   /**
@@ -178,12 +182,14 @@ export class TenantsService {
       },
     });
 
-    // Create default settings
-    await this.prisma.tenantSetting.create({
-      data: {
-        tenant_id: tenant.id,
-        settings: DEFAULT_SETTINGS,
-      },
+    // Create default settings (via interactive transaction — cross-module write)
+    await this.prisma.$transaction(async (tx) => {
+      await tx.tenantSetting.create({
+        data: {
+          tenant_id: tenant.id,
+          settings: DEFAULT_SETTINGS,
+        },
+      });
     });
 
     // Create module rows for every supported module. SEN ships disabled by
@@ -198,17 +204,19 @@ export class TenantsService {
       });
     }
 
-    // Create notification settings (all enabled, email channel)
-    for (const notificationType of NOTIFICATION_TYPES) {
-      await this.prisma.tenantNotificationSetting.create({
-        data: {
-          tenant_id: tenant.id,
-          notification_type: notificationType,
-          is_enabled: true,
-          channels: ['email'],
-        },
-      });
-    }
+    // Create notification settings (all enabled, email channel) — cross-module write
+    await this.prisma.$transaction(async (tx) => {
+      for (const notificationType of NOTIFICATION_TYPES) {
+        await tx.tenantNotificationSetting.create({
+          data: {
+            tenant_id: tenant.id,
+            notification_type: notificationType,
+            is_enabled: true,
+            channels: ['email'],
+          },
+        });
+      }
+    });
 
     // Create sequences
     for (const sequenceType of SEQUENCE_TYPES) {
@@ -222,37 +230,39 @@ export class TenantsService {
     }
 
     // Create tenant-scoped system roles + assign permissions
-    const allPermissions = await this.prisma.permission.findMany({ take: 1000 });
+    const allPermissions = await this.rbacReadFacade.findAllPermissions();
     const permissionMap = new Map<string, string>();
     for (const p of allPermissions) {
       permissionMap.set(p.permission_key, p.id);
     }
 
-    for (const roleDef of TENANT_SYSTEM_ROLES) {
-      const role = await this.prisma.role.create({
-        data: {
-          tenant_id: tenant.id,
-          role_key: roleDef.role_key,
-          display_name: roleDef.display_name,
-          is_system_role: true,
-          role_tier: roleDef.role_tier,
-        },
-      });
+    await this.prisma.$transaction(async (tx) => {
+      for (const roleDef of TENANT_SYSTEM_ROLES) {
+        const role = await tx.role.create({
+          data: {
+            tenant_id: tenant.id,
+            role_key: roleDef.role_key,
+            display_name: roleDef.display_name,
+            is_system_role: true,
+            role_tier: roleDef.role_tier,
+          },
+        });
 
-      const permKeys = SYSTEM_ROLE_PERMISSIONS[roleDef.role_key] ?? [];
-      for (const permKey of permKeys) {
-        const permId = permissionMap.get(permKey);
-        if (permId) {
-          await this.prisma.rolePermission.create({
-            data: {
-              role_id: role.id,
-              permission_id: permId,
-              tenant_id: tenant.id,
-            },
-          });
+        const permKeys = SYSTEM_ROLE_PERMISSIONS[roleDef.role_key] ?? [];
+        for (const permKey of permKeys) {
+          const permId = permissionMap.get(permKey);
+          if (permId) {
+            await tx.rolePermission.create({
+              data: {
+                role_id: role.id,
+                permission_id: permId,
+                tenant_id: tenant.id,
+              },
+            });
+          }
         }
       }
-    }
+    });
 
     // Return tenant with related data
     return this.getTenant(tenant.id);
@@ -498,10 +508,8 @@ export class TenantsService {
         this.prisma.tenant.count({ where: { status: 'active' } }),
         this.prisma.tenant.count({ where: { status: 'suspended' } }),
         this.prisma.tenant.count({ where: { status: 'archived' } }),
-        this.prisma.user.count(),
-        this.prisma.tenantMembership.count({
-          where: { membership_status: 'active' },
-        }),
+        this.authReadFacade.countAllUsers(),
+        this.rbacReadFacade.countAllActiveMemberships(),
       ]);
 
     return {
@@ -534,14 +542,10 @@ export class TenantsService {
     }
 
     // Find the target user's membership at this tenant
-    const membership = await this.prisma.tenantMembership.findFirst({
-      where: {
-        tenant_id: targetTenantId,
-        user_id: targetUserId,
-        membership_status: 'active',
-      },
-      include: { user: true },
-    });
+    const membership = await this.rbacReadFacade.findMembershipWithUser(
+      targetTenantId,
+      targetUserId,
+    );
 
     if (!membership) {
       throw new NotFoundException({
@@ -580,9 +584,7 @@ export class TenantsService {
    * Reset MFA for a user. Disables MFA and deletes recovery codes.
    */
   async resetUserMfa(userId: string, actorUserId?: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
+    const user = await this.authReadFacade.findUserById('', userId);
 
     if (!user) {
       throw new NotFoundException({
@@ -591,18 +593,19 @@ export class TenantsService {
       });
     }
 
-    // Disable MFA and clear secret
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        mfa_enabled: false,
-        mfa_secret: null,
-      },
-    });
+    // Disable MFA and clear secret + delete recovery codes (cross-module write via tx)
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          mfa_enabled: false,
+          mfa_secret: null,
+        },
+      });
 
-    // Delete all recovery codes
-    await this.prisma.mfaRecoveryCode.deleteMany({
-      where: { user_id: userId },
+      await tx.mfaRecoveryCode.deleteMany({
+        where: { user_id: userId },
+      });
     });
 
     await this.securityAuditService.logMfaDisable(userId, null, 'admin_reset', actorUserId);
@@ -706,10 +709,7 @@ export class TenantsService {
    * Invalidate all sessions for all users who have memberships at this tenant.
    */
   private async invalidateAllTenantSessions(tenantId: string) {
-    const memberships = await this.prisma.tenantMembership.findMany({
-      where: { tenant_id: tenantId },
-      select: { id: true, user_id: true },
-    });
+    const memberships = await this.rbacReadFacade.findMembershipUserIds(tenantId);
 
     const client = this.redis.getClient();
 

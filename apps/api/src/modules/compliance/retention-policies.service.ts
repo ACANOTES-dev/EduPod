@@ -271,9 +271,9 @@ export class RetentionPoliciesService {
    */
   async listHolds(tenantId: string, query: RetentionHoldsQueryDto) {
     const { page, pageSize } = query;
-    const skip = (page - 1) * pageSize;
+    const _skip = (page - 1) * pageSize;
 
-    const where = {
+    const _where = {
       tenant_id: tenantId,
       released_at: null,
     };

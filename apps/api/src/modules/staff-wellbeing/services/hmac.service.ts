@@ -2,6 +2,7 @@ import { createHash, createHmac, randomBytes } from 'crypto';
 
 import { Injectable, Logger } from '@nestjs/common';
 
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
 import { EncryptionService } from '../../configuration/encryption.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -12,6 +13,7 @@ export class HmacService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly encryption: EncryptionService,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
   ) {}
 
   /**
@@ -21,17 +23,12 @@ export class HmacService {
    * Returns the decrypted secret (in-memory only — never log or return in API responses).
    */
   async getOrCreateHmacSecret(tenantId: string): Promise<string> {
-    const record = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const record = await this.configurationReadFacade.findSettings(tenantId);
 
     const settings = (record?.settings as Record<string, unknown>) ?? {};
-    const wellbeing =
-      (settings['staff_wellbeing'] as Record<string, unknown>) ?? {};
+    const wellbeing = (settings['staff_wellbeing'] as Record<string, unknown>) ?? {};
 
-    const existingEncrypted = wellbeing['hmac_secret_encrypted'] as
-      | string
-      | undefined;
+    const existingEncrypted = wellbeing['hmac_secret_encrypted'] as string | undefined;
     const existingKeyRef = wellbeing['hmac_key_ref'] as string | undefined;
 
     if (existingEncrypted && existingKeyRef) {
@@ -54,23 +51,19 @@ export class HmacService {
       staff_wellbeing: updatedWellbeing,
     };
 
-    await this.prisma.tenantSetting.update({
-      where: { tenant_id: tenantId },
-      data: { settings: updatedSettings },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.tenantSetting.update({
+        where: { tenant_id: tenantId },
+        data: { settings: updatedSettings },
+      });
     });
 
     // Re-read from DB to ensure we have the winning write (idempotency under concurrency)
-    const confirmRecord = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const confirmRecord = await this.configurationReadFacade.findSettings(tenantId);
 
-    const confirmSettings =
-      (confirmRecord?.settings as Record<string, unknown>) ?? {};
-    const confirmWellbeing =
-      (confirmSettings['staff_wellbeing'] as Record<string, unknown>) ?? {};
-    const confirmedEncrypted = confirmWellbeing[
-      'hmac_secret_encrypted'
-    ] as string;
+    const confirmSettings = (confirmRecord?.settings as Record<string, unknown>) ?? {};
+    const confirmWellbeing = (confirmSettings['staff_wellbeing'] as Record<string, unknown>) ?? {};
+    const confirmedEncrypted = confirmWellbeing['hmac_secret_encrypted'] as string;
     const confirmedKeyRef = confirmWellbeing['hmac_key_ref'] as string;
 
     return this.encryption.decrypt(confirmedEncrypted, confirmedKeyRef);
@@ -82,11 +75,7 @@ export class HmacService {
    * 2. tokenHash = SHA256(token)
    * Returns the tokenHash (hex string, 64 chars).
    */
-  async computeTokenHash(
-    tenantId: string,
-    surveyId: string,
-    userId: string,
-  ): Promise<string> {
+  async computeTokenHash(tenantId: string, surveyId: string, userId: string): Promise<string> {
     const secret = await this.getOrCreateHmacSecret(tenantId);
 
     const hmacResult = createHmac('sha256', secret)

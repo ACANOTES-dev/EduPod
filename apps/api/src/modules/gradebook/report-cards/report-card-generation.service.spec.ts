@@ -15,7 +15,12 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
+import type { AcademicReadFacade } from '../../academics/academic-read.facade';
+import type { AttendanceReadFacade } from '../../attendance/attendance-read.facade';
+import type { ClassesReadFacade } from '../../classes/classes-read.facade';
 import type { PrismaService } from '../../prisma/prisma.service';
+import type { StudentReadFacade } from '../../students/student-read.facade';
+import type { TenantReadFacade } from '../../tenants/tenant-read.facade';
 
 import { ReportCardGenerationService } from './report-card-generation.service';
 
@@ -28,14 +33,32 @@ const STUDENT_ID = 'student-1';
 
 function buildMockPrisma() {
   return {
-    academicPeriod: { findFirst: jest.fn() },
-    student: { findMany: jest.fn() },
-    tenant: { findFirst: jest.fn() },
     periodGradeSnapshot: { findMany: jest.fn() },
     assessment: { findMany: jest.fn() },
-    dailyAttendanceSummary: { groupBy: jest.fn() },
-    classEnrolment: { findMany: jest.fn() },
     reportCard: { findMany: jest.fn() },
+  };
+}
+
+function buildMockAcademicFacade() {
+  return { findPeriodById: jest.fn().mockResolvedValue(null) };
+}
+
+function buildMockStudentFacade() {
+  return { findManyGeneric: jest.fn().mockResolvedValue([]) };
+}
+
+function buildMockTenantFacade() {
+  return { findDefaultLocale: jest.fn().mockResolvedValue('en') };
+}
+
+function buildMockAttendanceFacade() {
+  return { groupSummariesByStatus: jest.fn().mockResolvedValue([]) };
+}
+
+function buildMockClassesFacade() {
+  return {
+    findEnrolmentsGeneric: jest.fn().mockResolvedValue([]),
+    findClassEnrolmentsWithStudents: jest.fn().mockResolvedValue([]),
   };
 }
 
@@ -63,23 +86,41 @@ const baseStudent = {
   },
 };
 
+function buildService(overrides?: {
+  prisma?: ReturnType<typeof buildMockPrisma>;
+  academic?: ReturnType<typeof buildMockAcademicFacade>;
+  student?: ReturnType<typeof buildMockStudentFacade>;
+  tenant?: ReturnType<typeof buildMockTenantFacade>;
+  attendance?: ReturnType<typeof buildMockAttendanceFacade>;
+  classes?: ReturnType<typeof buildMockClassesFacade>;
+}) {
+  const prisma = overrides?.prisma ?? buildMockPrisma();
+  const academic = overrides?.academic ?? buildMockAcademicFacade();
+  const student = overrides?.student ?? buildMockStudentFacade();
+  const tenant = overrides?.tenant ?? buildMockTenantFacade();
+  const attendance = overrides?.attendance ?? buildMockAttendanceFacade();
+  const classes = overrides?.classes ?? buildMockClassesFacade();
+
+  const service = new ReportCardGenerationService(
+    prisma as unknown as PrismaService,
+    academic as unknown as AcademicReadFacade,
+    student as unknown as StudentReadFacade,
+    tenant as unknown as TenantReadFacade,
+    attendance as unknown as AttendanceReadFacade,
+    classes as unknown as ClassesReadFacade,
+  );
+
+  return { service, prisma, academic, student, tenant, attendance, classes };
+}
+
 // ─── generate Tests ──────────────────────────────────────────────────────────
 
 describe('ReportCardGenerationService — generate', () => {
-  let service: ReportCardGenerationService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
-
-  beforeEach(() => {
-    mockPrisma = buildMockPrisma();
-    mockRlsTx.reportCard.create.mockReset().mockResolvedValue({ id: 'rc-1', status: 'draft' });
-
-    service = new ReportCardGenerationService(mockPrisma as unknown as PrismaService);
-  });
-
   afterEach(() => jest.clearAllMocks());
 
   it('should throw NotFoundException when period not found', async () => {
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue(null);
+    const { service, academic } = buildService();
+    academic.findPeriodById.mockResolvedValue(null);
 
     await expect(service.generate(TENANT_ID, [STUDENT_ID], PERIOD_ID)).rejects.toThrow(
       NotFoundException,
@@ -87,8 +128,9 @@ describe('ReportCardGenerationService — generate', () => {
   });
 
   it('should throw NotFoundException when some students not found', async () => {
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue(basePeriod);
-    mockPrisma.student.findMany.mockResolvedValue([]); // no students found
+    const { service, academic, student: studentFacade } = buildService();
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    studentFacade.findManyGeneric.mockResolvedValue([]); // no students found
 
     await expect(
       service.generate(TENANT_ID, [STUDENT_ID, 'missing-id'], PERIOD_ID),
@@ -96,10 +138,11 @@ describe('ReportCardGenerationService — generate', () => {
   });
 
   it('should generate a draft report card for a student', async () => {
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue(basePeriod);
-    mockPrisma.student.findMany.mockResolvedValue([baseStudent]);
-    mockPrisma.tenant.findFirst.mockResolvedValue({ default_locale: 'en' });
-    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
+    const { service, prisma, academic, student: studentFacade, attendance } = buildService();
+    mockRlsTx.reportCard.create.mockReset().mockResolvedValue({ id: 'rc-1', status: 'draft' });
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    studentFacade.findManyGeneric.mockResolvedValue([baseStudent]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([
       {
         subject_id: 's1',
         class_id: CLASS_ID,
@@ -109,8 +152,8 @@ describe('ReportCardGenerationService — generate', () => {
         subject: { id: 's1', name: 'Math', code: 'MATH' },
       },
     ]);
-    mockPrisma.assessment.findMany.mockResolvedValue([]);
-    mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue([]);
+    prisma.assessment.findMany.mockResolvedValue([]);
+    attendance.groupSummariesByStatus.mockResolvedValue([]);
 
     const result = await service.generate(TENANT_ID, [STUDENT_ID], PERIOD_ID);
 
@@ -123,31 +166,34 @@ describe('ReportCardGenerationService — generate', () => {
   });
 
   it('should include attendance summary when data exists', async () => {
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue(basePeriod);
-    mockPrisma.student.findMany.mockResolvedValue([baseStudent]);
-    mockPrisma.tenant.findFirst.mockResolvedValue({ default_locale: 'en' });
-    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
-    mockPrisma.assessment.findMany.mockResolvedValue([]);
-    mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue([
-      { derived_status: 'present', _count: { id: 45 } },
-      { derived_status: 'absent', _count: { id: 3 } },
-      { derived_status: 'late', _count: { id: 2 } },
+    const { service, prisma, academic, student: studentFacade, attendance } = buildService();
+    mockRlsTx.reportCard.create.mockReset().mockResolvedValue({ id: 'rc-1', status: 'draft' });
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    studentFacade.findManyGeneric.mockResolvedValue([baseStudent]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
+    prisma.assessment.findMany.mockResolvedValue([]);
+    attendance.groupSummariesByStatus.mockResolvedValue([
+      { derived_status: 'present', _count: { _all: 45 } },
+      { derived_status: 'absent', _count: { _all: 3 } },
+      { derived_status: 'late', _count: { _all: 2 } },
     ]);
 
     await service.generate(TENANT_ID, [STUDENT_ID], PERIOD_ID);
 
     const createCall = mockRlsTx.reportCard.create.mock.calls[0]?.[0];
     const payload = createCall?.data?.snapshot_payload_json as Record<string, unknown>;
-    const attendance = payload?.attendance_summary as Record<string, number>;
+    const attendanceSummary = payload?.attendance_summary as Record<string, number>;
 
-    expect(attendance?.total_days).toBe(50);
-    expect(attendance?.present_days).toBe(47); // present + late
-    expect(attendance?.absent_days).toBe(3);
-    expect(attendance?.late_days).toBe(2);
+    expect(attendanceSummary?.total_days).toBe(50);
+    expect(attendanceSummary?.present_days).toBe(47); // present + late
+    expect(attendanceSummary?.absent_days).toBe(3);
+    expect(attendanceSummary?.late_days).toBe(2);
   });
 
   it('should use billing parent locale for template_locale', async () => {
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue(basePeriod);
+    const { service, prisma, academic, student: studentFacade, attendance } = buildService();
+    mockRlsTx.reportCard.create.mockReset().mockResolvedValue({ id: 'rc-1', status: 'draft' });
+    academic.findPeriodById.mockResolvedValue(basePeriod);
     const arStudent = {
       ...baseStudent,
       household: {
@@ -158,11 +204,10 @@ describe('ReportCardGenerationService — generate', () => {
         },
       },
     };
-    mockPrisma.student.findMany.mockResolvedValue([arStudent]);
-    mockPrisma.tenant.findFirst.mockResolvedValue({ default_locale: 'en' });
-    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
-    mockPrisma.assessment.findMany.mockResolvedValue([]);
-    mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue([]);
+    studentFacade.findManyGeneric.mockResolvedValue([arStudent]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
+    prisma.assessment.findMany.mockResolvedValue([]);
+    attendance.groupSummariesByStatus.mockResolvedValue([]);
 
     await service.generate(TENANT_ID, [STUDENT_ID], PERIOD_ID);
 
@@ -174,19 +219,11 @@ describe('ReportCardGenerationService — generate', () => {
 // ─── buildBatchSnapshots Tests ───────────────────────────────────────────────
 
 describe('ReportCardGenerationService — buildBatchSnapshots', () => {
-  let service: ReportCardGenerationService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
-
-  beforeEach(() => {
-    mockPrisma = buildMockPrisma();
-
-    service = new ReportCardGenerationService(mockPrisma as unknown as PrismaService);
-  });
-
   afterEach(() => jest.clearAllMocks());
 
   it('should throw NotFoundException when period not found', async () => {
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue(null);
+    const { service, academic } = buildService();
+    academic.findPeriodById.mockResolvedValue(null);
 
     await expect(service.buildBatchSnapshots(TENANT_ID, CLASS_ID, PERIOD_ID)).rejects.toThrow(
       NotFoundException,
@@ -194,8 +231,9 @@ describe('ReportCardGenerationService — buildBatchSnapshots', () => {
   });
 
   it('should return empty array when no enrolments', async () => {
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue(basePeriod);
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+    const { service, academic, classes } = buildService();
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    classes.findEnrolmentsGeneric.mockResolvedValue([]);
 
     const result = await service.buildBatchSnapshots(TENANT_ID, CLASS_ID, PERIOD_ID);
 
@@ -203,9 +241,11 @@ describe('ReportCardGenerationService — buildBatchSnapshots', () => {
   });
 
   it('should build snapshot payloads for enrolled students', async () => {
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue(basePeriod);
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([
+    const { service, prisma, academic, classes, attendance } = buildService();
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    classes.findEnrolmentsGeneric.mockResolvedValue([
       {
+        student_id: STUDENT_ID,
         student: {
           id: STUDENT_ID,
           first_name: 'Ali',
@@ -216,8 +256,8 @@ describe('ReportCardGenerationService — buildBatchSnapshots', () => {
         },
       },
     ]);
-    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
-    mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue([]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
+    attendance.groupSummariesByStatus.mockResolvedValue([]);
 
     const result = await service.buildBatchSnapshots(TENANT_ID, CLASS_ID, PERIOD_ID);
 
@@ -230,20 +270,11 @@ describe('ReportCardGenerationService — buildBatchSnapshots', () => {
 // ─── generateBulkDrafts Tests ────────────────────────────────────────────────
 
 describe('ReportCardGenerationService — generateBulkDrafts', () => {
-  let service: ReportCardGenerationService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
-
-  beforeEach(() => {
-    mockPrisma = buildMockPrisma();
-    mockRlsTx.reportCard.create.mockReset().mockResolvedValue({ id: 'rc-1', status: 'draft' });
-
-    service = new ReportCardGenerationService(mockPrisma as unknown as PrismaService);
-  });
-
   afterEach(() => jest.clearAllMocks());
 
   it('should return empty when no enrolments', async () => {
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+    const { service, classes } = buildService();
+    classes.findEnrolmentsGeneric.mockResolvedValue([]);
 
     const result = await service.generateBulkDrafts(TENANT_ID, CLASS_ID, PERIOD_ID);
 
@@ -252,17 +283,26 @@ describe('ReportCardGenerationService — generateBulkDrafts', () => {
   });
 
   it('should skip students who already have report cards', async () => {
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([
+    const {
+      service,
+      prisma,
+      academic,
+      student: studentFacade,
+      attendance,
+      classes,
+    } = buildService();
+    mockRlsTx.reportCard.create.mockReset().mockResolvedValue({ id: 'rc-1', status: 'draft' });
+    classes.findEnrolmentsGeneric.mockResolvedValue([
       { student_id: STUDENT_ID },
       { student_id: 'student-2' },
     ]);
-    mockPrisma.reportCard.findMany.mockResolvedValue([
+    prisma.reportCard.findMany.mockResolvedValue([
       { student_id: STUDENT_ID }, // already has a report card
     ]);
 
     // Mock for the generate call for student-2
-    mockPrisma.academicPeriod.findFirst.mockResolvedValue(basePeriod);
-    mockPrisma.student.findMany.mockResolvedValue([
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    studentFacade.findManyGeneric.mockResolvedValue([
       {
         id: 'student-2',
         first_name: 'Sara',
@@ -273,10 +313,9 @@ describe('ReportCardGenerationService — generateBulkDrafts', () => {
         household: null,
       },
     ]);
-    mockPrisma.tenant.findFirst.mockResolvedValue({ default_locale: 'en' });
-    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
-    mockPrisma.assessment.findMany.mockResolvedValue([]);
-    mockPrisma.dailyAttendanceSummary.groupBy.mockResolvedValue([]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
+    prisma.assessment.findMany.mockResolvedValue([]);
+    attendance.groupSummariesByStatus.mockResolvedValue([]);
 
     const result = await service.generateBulkDrafts(TENANT_ID, CLASS_ID, PERIOD_ID);
 
@@ -285,8 +324,9 @@ describe('ReportCardGenerationService — generateBulkDrafts', () => {
   });
 
   it('should return skipped=all when all students already have report cards', async () => {
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: STUDENT_ID }]);
-    mockPrisma.reportCard.findMany.mockResolvedValue([{ student_id: STUDENT_ID }]);
+    const { service, prisma, classes } = buildService();
+    classes.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_ID }]);
+    prisma.reportCard.findMany.mockResolvedValue([{ student_id: STUDENT_ID }]);
 
     const result = await service.generateBulkDrafts(TENANT_ID, CLASS_ID, PERIOD_ID);
 

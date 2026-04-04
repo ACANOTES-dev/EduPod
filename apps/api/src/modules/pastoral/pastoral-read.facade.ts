@@ -137,6 +137,17 @@ export class PastoralReadFacade {
     }) as Promise<PastoralReferralRow[]>;
   }
 
+  /**
+   * Find a single referral by ID. Returns `null` if not found.
+   * Used by SEN professional involvement for referral validation.
+   */
+  async findReferralById(tenantId: string, referralId: string): Promise<{ id: string } | null> {
+    return this.prisma.pastoralReferral.findFirst({
+      where: { id: referralId, tenant_id: tenantId },
+      select: { id: true },
+    });
+  }
+
   // ─── Critical Incident Affected ──────────────────────────────────────────
 
   /**

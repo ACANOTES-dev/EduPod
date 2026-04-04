@@ -15,8 +15,8 @@ import { StudentsModule } from '../students/students.module';
 
 import { AnnouncementsController } from './announcements.controller';
 import { AnnouncementsService } from './announcements.service';
-import { CommunicationsReadFacade } from './communications-read.facade';
 import { AudienceResolutionService } from './audience-resolution.service';
+import { CommunicationsReadFacade } from './communications-read.facade';
 import { NotificationDispatchService } from './notification-dispatch.service';
 import { NotificationRateLimitService } from './notification-rate-limit.service';
 import { NotificationTemplatesController } from './notification-templates.controller';

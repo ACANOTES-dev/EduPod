@@ -10,8 +10,8 @@ import {
   UpdatePolicyRuleDto,
 } from '@school/shared/behaviour';
 
-import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Maps frontend-facing stage names to Prisma enum values */
@@ -280,10 +280,13 @@ export class PolicyRulesService {
       });
     }
 
-    // Soft-delete: set is_active = false
-    await this.prisma.behaviourPolicyRule.update({
-      where: { id: ruleId },
-      data: { is_active: false },
+    // Soft-delete: set is_active = false (cross-module write via tx)
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+    await rlsClient.$transaction(async (tx) => {
+      await tx.behaviourPolicyRule.update({
+        where: { id: ruleId },
+        data: { is_active: false },
+      });
     });
 
     return { success: true };
@@ -310,11 +313,11 @@ export class PolicyRulesService {
   }
 
   async getVersion(tenantId: string, ruleId: string, version: number) {
-    const versionRecord = await this.behaviourReadFacade.findPolicyRuleVersion(
+    const versionRecord = (await this.behaviourReadFacade.findPolicyRuleVersion(
       tenantId,
       ruleId,
       version,
-    ) as { stage: string } | null;
+    )) as { stage: string } | null;
 
     if (!versionRecord) {
       throw new NotFoundException({
@@ -336,9 +339,12 @@ export class PolicyRulesService {
       });
     }
 
-    const updated = await this.prisma.behaviourPolicyRule.update({
-      where: { id: ruleId },
-      data: { priority: dto.priority },
+    const rlsClientPriority = createRlsClient(this.prisma, { tenant_id: tenantId });
+    const updated = await rlsClientPriority.$transaction(async (tx) => {
+      return tx.behaviourPolicyRule.update({
+        where: { id: ruleId },
+        data: { priority: dto.priority },
+      });
     });
 
     return mapRuleToApi(updated as unknown as Record<string, unknown>);

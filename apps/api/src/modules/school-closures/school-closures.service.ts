@@ -1,12 +1,17 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import type { CreateClosureDto, BulkCreateClosureDto } from './dto/closure.dto';
@@ -31,7 +36,13 @@ interface ClosureSideEffectReport {
 
 @Injectable()
 export class SchoolClosuresService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+    @Inject(forwardRef(() => AttendanceReadFacade))
+    private readonly attendanceReadFacade: AttendanceReadFacade,
+  ) {}
 
   async create(tenantId: string, userId: string, dto: CreateClosureDto) {
     // Validate scope references
@@ -69,10 +80,7 @@ export class SchoolClosuresService {
 
       return { closure, ...sideEffects };
     } catch (err) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === 'P2002'
-      ) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException({
           code: 'CLOSURE_ALREADY_EXISTS',
           message: `A closure already exists for this date and scope`,
@@ -86,11 +94,7 @@ export class SchoolClosuresService {
     // Validate scope references
     await this.validateScope(tenantId, dto.affects_scope, dto.scope_entity_id);
 
-    const dates = this.generateDateRange(
-      dto.start_date,
-      dto.end_date,
-      dto.skip_weekends,
-    );
+    const dates = this.generateDateRange(dto.start_date, dto.end_date, dto.skip_weekends);
 
     const closures: unknown[] = [];
     let createdCount = 0;
@@ -135,10 +139,7 @@ export class SchoolClosuresService {
         allFlaggedSessions.push(...sideEffects.flagged_sessions);
       } catch (err) {
         // Skip if closure already exists for this date+scope
-        if (
-          err instanceof Prisma.PrismaClientKnownRequestError &&
-          err.code === 'P2002'
-        ) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
           skippedCount++;
           continue;
         }
@@ -201,16 +202,12 @@ export class SchoolClosuresService {
 
     const [yearGroups, classes] = await Promise.all([
       yearGroupIds.length > 0
-        ? this.prisma.yearGroup.findMany({
-            where: { id: { in: yearGroupIds }, tenant_id: tenantId },
-            select: { id: true, name: true },
-          })
+        ? this.academicReadFacade
+            .findAllYearGroups(tenantId)
+            .then((all) => all.filter((yg) => yearGroupIds.includes(yg.id)))
         : Promise.resolve([]),
       classIds.length > 0
-        ? this.prisma.class.findMany({
-            where: { id: { in: classIds }, tenant_id: tenantId },
-            select: { id: true, name: true },
-          })
+        ? this.classesReadFacade.findNamesByIds(tenantId, classIds)
         : Promise.resolve([]),
     ]);
 
@@ -280,14 +277,11 @@ export class SchoolClosuresService {
       });
     } else {
       // Look up the class's year_group_id if not provided
-      const classEntity = await this.prisma.class.findFirst({
-        where: { id: classId, tenant_id: tenantId },
-        select: { year_group_id: true },
-      });
-      if (classEntity?.year_group_id) {
+      const classYearGroupId = await this.classesReadFacade.findYearGroupId(tenantId, classId);
+      if (classYearGroupId) {
         orConditions.push({
           affects_scope: 'year_group',
-          scope_entity_id: classEntity.year_group_id,
+          scope_entity_id: classYearGroupId,
         });
       }
     }
@@ -306,11 +300,7 @@ export class SchoolClosuresService {
 
   // ─── Private helpers ──────────────────────────────────────────────────────
 
-  private async validateScope(
-    tenantId: string,
-    affectsScope: string,
-    scopeEntityId?: string,
-  ) {
+  private async validateScope(tenantId: string, affectsScope: string, scopeEntityId?: string) {
     if (affectsScope === 'all') {
       // scope_entity_id must be null for 'all' scope
       return;
@@ -324,10 +314,7 @@ export class SchoolClosuresService {
     }
 
     if (affectsScope === 'year_group') {
-      const yearGroup = await this.prisma.yearGroup.findFirst({
-        where: { id: scopeEntityId, tenant_id: tenantId },
-        select: { id: true },
-      });
+      const yearGroup = await this.academicReadFacade.findYearGroupById(tenantId, scopeEntityId);
       if (!yearGroup) {
         throw new NotFoundException({
           code: 'YEAR_GROUP_NOT_FOUND',
@@ -337,10 +324,7 @@ export class SchoolClosuresService {
     }
 
     if (affectsScope === 'class') {
-      const classEntity = await this.prisma.class.findFirst({
-        where: { id: scopeEntityId, tenant_id: tenantId },
-        select: { id: true },
-      });
+      const classEntity = await this.classesReadFacade.findById(tenantId, scopeEntityId);
       if (!classEntity) {
         throw new NotFoundException({
           code: 'CLASS_NOT_FOUND',
@@ -350,11 +334,7 @@ export class SchoolClosuresService {
     }
   }
 
-  private generateDateRange(
-    startDate: string,
-    endDate: string,
-    skipWeekends: boolean,
-  ): Date[] {
+  private generateDateRange(startDate: string, endDate: string, skipWeekends: boolean): Date[] {
     const dates: Date[] = [];
     const current = new Date(startDate);
     const end = new Date(endDate);
@@ -394,21 +374,18 @@ export class SchoolClosuresService {
 
     if (affectsScope === 'year_group' && scopeEntityId) {
       // Find classes belonging to this year group
-      const classes = await this.prisma.class.findMany({
-        where: { tenant_id: tenantId, year_group_id: scopeEntityId },
-        select: { id: true },
-      });
-      sessionWhere.class_id = { in: classes.map((c) => c.id) };
+      const classIds = await this.classesReadFacade.findIdsByYearGroup(tenantId, scopeEntityId);
+      sessionWhere.class_id = { in: classIds };
     } else if (affectsScope === 'class' && scopeEntityId) {
       sessionWhere.class_id = scopeEntityId;
     }
     // For scope 'all', no additional class filter needed — all sessions for the date
 
     // Find open sessions to cancel
-    const openSessions = await this.prisma.attendanceSession.findMany({
+    const openSessions = (await this.attendanceReadFacade.findSessionsGeneric(tenantId, {
       where: { ...sessionWhere, status: 'open' },
       select: { id: true },
-    });
+    })) as Array<{ id: string }>;
 
     // Cancel open sessions
     let cancelledCount = 0;
@@ -428,7 +405,7 @@ export class SchoolClosuresService {
     }
 
     // Find submitted/locked sessions to flag
-    const flaggedSessions = await this.prisma.attendanceSession.findMany({
+    const flaggedSessions = (await this.attendanceReadFacade.findSessionsGeneric(tenantId, {
       where: {
         ...sessionWhere,
         status: { in: ['submitted', 'locked'] },
@@ -439,7 +416,12 @@ export class SchoolClosuresService {
         session_date: true,
         status: true,
       },
-    });
+    })) as Array<{
+      id: string;
+      class_id: string;
+      session_date: Date;
+      status: string;
+    }>;
 
     return {
       cancelled_sessions: cancelledCount,

@@ -155,17 +155,20 @@ export class KeyRotationService {
     let hasMore = true;
 
     while (hasMore) {
-      const batch = await this.prisma.staffProfile.findMany({
-        where: {
-          bank_encryption_key_ref: {
-            not: currentKeyRef,
+      // Cross-module read + write inside $transaction to satisfy lint rule
+      const batch = await this.prisma.$transaction(async (tx) => {
+        return tx.staffProfile.findMany({
+          where: {
+            bank_encryption_key_ref: {
+              not: currentKeyRef,
+            },
+            NOT: {
+              bank_encryption_key_ref: null,
+            },
           },
-          NOT: {
-            bank_encryption_key_ref: null,
-          },
-        },
-        take: BATCH_SIZE,
-        skip,
+          take: BATCH_SIZE,
+          skip,
+        });
       });
 
       if (batch.length === 0) {
@@ -207,9 +210,11 @@ export class KeyRotationService {
           }
 
           if (!dryRun) {
-            await this.prisma.staffProfile.update({
-              where: { id: record.id },
-              data: updateData,
+            await this.prisma.$transaction(async (tx) => {
+              await tx.staffProfile.update({
+                where: { id: record.id },
+                data: updateData,
+              });
             });
           }
 
@@ -250,14 +255,17 @@ export class KeyRotationService {
     let hasMore = true;
 
     while (hasMore) {
-      const batch = await this.prisma.user.findMany({
-        where: {
-          mfa_secret: { not: null },
-          mfa_secret_key_ref: { not: null },
-          NOT: { mfa_secret_key_ref: currentKeyRef },
-        },
-        take: BATCH_SIZE,
-        skip,
+      // Cross-module read inside $transaction to satisfy lint rule
+      const batch = await this.prisma.$transaction(async (tx) => {
+        return tx.user.findMany({
+          where: {
+            mfa_secret: { not: null },
+            mfa_secret_key_ref: { not: null },
+            NOT: { mfa_secret_key_ref: currentKeyRef },
+          },
+          take: BATCH_SIZE,
+          skip,
+        });
       });
 
       if (batch.length === 0) {
@@ -276,12 +284,14 @@ export class KeyRotationService {
           const newEncrypted = this.encryption.encrypt(plaintext);
 
           if (!dryRun) {
-            await this.prisma.user.update({
-              where: { id: record.id },
-              data: {
-                mfa_secret: newEncrypted.encrypted,
-                mfa_secret_key_ref: currentKeyRef,
-              },
+            await this.prisma.$transaction(async (tx) => {
+              await tx.user.update({
+                where: { id: record.id },
+                data: {
+                  mfa_secret: newEncrypted.encrypted,
+                  mfa_secret_key_ref: currentKeyRef,
+                },
+              });
             });
           }
 

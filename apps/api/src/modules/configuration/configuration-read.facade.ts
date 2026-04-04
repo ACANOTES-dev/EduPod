@@ -159,4 +159,30 @@ export class ConfigurationReadFacade {
     });
     return row !== null;
   }
+
+  /**
+   * Find the full Stripe config for a tenant including encrypted keys.
+   * Used internally by services that need to decrypt the secret key (e.g., payment processing).
+   * WARNING: Encrypted keys are returned — callers MUST decrypt in-memory only, never log or expose.
+   */
+  async findStripeConfigFull(tenantId: string): Promise<{
+    id: string;
+    tenant_id: string;
+    stripe_publishable_key: string;
+    stripe_secret_key_encrypted: string;
+    stripe_webhook_secret_encrypted: string;
+    encryption_key_ref: string;
+  } | null> {
+    return this.prisma.tenantStripeConfig.findUnique({
+      where: { tenant_id: tenantId },
+      select: {
+        id: true,
+        tenant_id: true,
+        stripe_publishable_key: true,
+        stripe_secret_key_encrypted: true,
+        stripe_webhook_secret_encrypted: true,
+        encryption_key_ref: true,
+      },
+    });
+  }
 }

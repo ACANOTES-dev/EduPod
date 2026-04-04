@@ -8,6 +8,7 @@ import type {
   SenOverviewReportQuery,
 } from '@school/shared/sen';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { SenResourceService } from './sen-resource.service';
@@ -130,6 +131,7 @@ export class SenReportsService {
     private readonly prisma: PrismaService,
     private readonly scopeService: SenScopeService,
     private readonly senResourceService: SenResourceService,
+    private readonly academicReadFacade: AcademicReadFacade,
   ) {}
 
   async getNcseReturn(tenantId: string, query: NcseReturnQuery) {
@@ -512,16 +514,7 @@ export class SenReportsService {
   }
 
   private async getAcademicYearOrThrow(tenantId: string, academicYearId: string) {
-    const academicYear = await this.prisma.academicYear.findFirst({
-      where: {
-        id: academicYearId,
-        tenant_id: tenantId,
-      },
-      select: {
-        id: true,
-        name: true,
-      },
-    });
+    const academicYear = await this.academicReadFacade.findYearById(tenantId, academicYearId);
 
     if (!academicYear) {
       throw new NotFoundException({

@@ -1,13 +1,9 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
-import { AcademicReadFacade } from '../academics/academic-read.facade';
-import { ClassesReadFacade } from '../classes/classes-read.facade';
+import { AcademicReadFacade } from '../../academics/academic-read.facade';
+import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import type {
   CreateAssessmentFromTemplateDto,
@@ -32,11 +28,7 @@ export class AssessmentTemplateService {
   /**
    * Create a new assessment template.
    */
-  async create(
-    tenantId: string,
-    userId: string,
-    dto: CreateAssessmentTemplateDto,
-  ) {
+  async create(tenantId: string, userId: string, dto: CreateAssessmentTemplateDto) {
     await this.validateRefs(tenantId, dto);
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
@@ -128,11 +120,7 @@ export class AssessmentTemplateService {
   /**
    * Update an assessment template.
    */
-  async update(
-    tenantId: string,
-    id: string,
-    dto: UpdateAssessmentTemplateDto,
-  ) {
+  async update(tenantId: string, id: string, dto: UpdateAssessmentTemplateDto) {
     const template = await this.prisma.assessmentTemplate.findFirst({
       where: { id, tenant_id: tenantId },
       select: { id: true },
@@ -294,7 +282,8 @@ export class AssessmentTemplateService {
     if (!gradeConfig) {
       throw new BadRequestException({
         code: 'GRADE_CONFIG_REQUIRED',
-        message: 'A grade configuration must exist for this class and subject before creating assessments',
+        message:
+          'A grade configuration must exist for this class and subject before creating assessments',
       });
     }
 
@@ -354,10 +343,7 @@ export class AssessmentTemplateService {
 
   // ─── Private Helpers ──────────────────────────────────────────────────────
 
-  private async validateRefs(
-    tenantId: string,
-    dto: CreateAssessmentTemplateDto,
-  ) {
+  private async validateRefs(tenantId: string, dto: CreateAssessmentTemplateDto) {
     const category = await this.prisma.assessmentCategory.findFirst({
       where: { id: dto.category_id, tenant_id: tenantId },
       select: { id: true },

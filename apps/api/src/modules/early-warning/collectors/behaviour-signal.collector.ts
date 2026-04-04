@@ -26,7 +26,7 @@ export class BehaviourSignalCollector {
   async collectSignals(
     tenantId: string,
     studentId: string,
-    academicYearId: string,
+    _academicYearId: string,
   ): Promise<SignalResult> {
     // Fetch all data in parallel
     const [
@@ -53,12 +53,8 @@ export class BehaviourSignalCollector {
     ]);
 
     // Filter for negative polarity (facade returns all)
-    const negative14d = incidentParticipants14d.filter(
-      (p) => p.incident.polarity === 'negative',
-    );
-    const negative30d = incidentParticipants30d.filter(
-      (p) => p.incident.polarity === 'negative',
-    );
+    const negative14d = incidentParticipants14d.filter((p) => p.incident.polarity === 'negative');
+    const negative30d = incidentParticipants30d.filter((p) => p.incident.polarity === 'negative');
 
     // Filter sanctions: active ones
     const activeSanctions = sanctions.filter(

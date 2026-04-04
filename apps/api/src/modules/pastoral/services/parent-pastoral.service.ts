@@ -9,9 +9,7 @@ import { $Enums } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
-
 import { ParentReadFacade } from '../../parents/parent-read.facade';
-
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { PastoralEventService } from './pastoral-event.service';

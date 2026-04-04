@@ -1,6 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 
-import { PrismaService } from '../../prisma/prisma.service';
+import type { ChildProtectionReadFacade } from '../../child-protection/child-protection-read.facade';
+import type { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
+import type { PrismaService } from '../../prisma/prisma.service';
+import type { RbacReadFacade } from '../../rbac/rbac-read.facade';
 
 import { ConcernAccessService } from './concern-access.service';
 
@@ -34,29 +37,40 @@ const makeTenantSettingsRecord = (categories = DEFAULT_CATEGORIES) => ({
   updated_at: new Date(),
 });
 
-// ─── Mock Prisma ───────────────────────────────────────────────────────────
+// ─── Mock Factories ───────────────────────────────────────────────────────
 
-const buildMockPrisma = () => ({
-  tenantSetting: {
-    findUnique: jest.fn(),
-  },
-  cpAccessGrant: {
-    findFirst: jest.fn(),
-  },
-  membershipRole: {
-    findFirst: jest.fn(),
-  },
+const buildMockPrisma = () => ({});
+
+const buildMockRbacFacade = () => ({
+  findMembershipsByRoleKey: jest.fn().mockResolvedValue([]),
+});
+
+const buildMockCpFacade = () => ({
+  hasActiveCpAccess: jest.fn().mockResolvedValue(false),
+});
+
+const buildMockConfigFacade = () => ({
+  findSettings: jest.fn().mockResolvedValue(null),
 });
 
 // ─── Test Suite ────────────────────────────────────────────────────────────
 
 describe('ConcernAccessService', () => {
   let service: ConcernAccessService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRbacFacade: ReturnType<typeof buildMockRbacFacade>;
+  let mockCpFacade: ReturnType<typeof buildMockCpFacade>;
+  let mockConfigFacade: ReturnType<typeof buildMockConfigFacade>;
 
   beforeEach(() => {
-    mockPrisma = buildMockPrisma();
-    service = new ConcernAccessService(mockPrisma as unknown as PrismaService);
+    mockRbacFacade = buildMockRbacFacade();
+    mockCpFacade = buildMockCpFacade();
+    mockConfigFacade = buildMockConfigFacade();
+    service = new ConcernAccessService(
+      buildMockPrisma() as unknown as PrismaService,
+      mockRbacFacade as unknown as RbacReadFacade,
+      mockCpFacade as unknown as ChildProtectionReadFacade,
+      mockConfigFacade as unknown as ConfigurationReadFacade,
+    );
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -65,7 +79,7 @@ describe('ConcernAccessService', () => {
 
   describe('ConcernAccessService — validateCategory', () => {
     it('should return auto_tier for a valid active category', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(makeTenantSettingsRecord());
+      mockConfigFacade.findSettings.mockResolvedValue(makeTenantSettingsRecord());
 
       const result = await service.validateCategory(TENANT_ID, 'child_protection');
 
@@ -73,7 +87,7 @@ describe('ConcernAccessService', () => {
     });
 
     it('should return undefined auto_tier for category without auto_tier', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(makeTenantSettingsRecord());
+      mockConfigFacade.findSettings.mockResolvedValue(makeTenantSettingsRecord());
 
       const result = await service.validateCategory(TENANT_ID, 'academic');
 
@@ -81,7 +95,7 @@ describe('ConcernAccessService', () => {
     });
 
     it('should throw BadRequestException for an inactive category', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(makeTenantSettingsRecord());
+      mockConfigFacade.findSettings.mockResolvedValue(makeTenantSettingsRecord());
 
       await expect(service.validateCategory(TENANT_ID, 'inactive_cat')).rejects.toThrow(
         BadRequestException,
@@ -89,7 +103,7 @@ describe('ConcernAccessService', () => {
     });
 
     it('should throw BadRequestException for an unknown category', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(makeTenantSettingsRecord());
+      mockConfigFacade.findSettings.mockResolvedValue(makeTenantSettingsRecord());
 
       await expect(service.validateCategory(TENANT_ID, 'nonexistent')).rejects.toThrow(
         BadRequestException,
@@ -101,7 +115,7 @@ describe('ConcernAccessService', () => {
 
   describe('ConcernAccessService — loadPastoralSettings', () => {
     it('should parse settings from DB', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(makeTenantSettingsRecord());
+      mockConfigFacade.findSettings.mockResolvedValue(makeTenantSettingsRecord());
 
       const result = await service.loadPastoralSettings(TENANT_ID);
 
@@ -112,7 +126,7 @@ describe('ConcernAccessService', () => {
     });
 
     it('should return defaults when no settings exist', async () => {
-      mockPrisma.tenantSetting.findUnique.mockResolvedValue(null);
+      mockConfigFacade.findSettings.mockResolvedValue(null);
 
       const result = await service.loadPastoralSettings(TENANT_ID);
 
@@ -126,23 +140,16 @@ describe('ConcernAccessService', () => {
 
   describe('ConcernAccessService — checkCpAccess', () => {
     it('should return true when a non-revoked grant exists', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue({ id: 'grant-1' });
+      mockCpFacade.hasActiveCpAccess.mockResolvedValue(true);
 
       const result = await service.checkCpAccess(TENANT_ID, USER_ID);
 
       expect(result).toBe(true);
-      expect(mockPrisma.cpAccessGrant.findFirst).toHaveBeenCalledWith({
-        where: {
-          tenant_id: TENANT_ID,
-          user_id: USER_ID,
-          revoked_at: null,
-        },
-        select: { id: true },
-      });
+      expect(mockCpFacade.hasActiveCpAccess).toHaveBeenCalledWith(TENANT_ID, USER_ID);
     });
 
     it('should return false when no grant exists', async () => {
-      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
+      mockCpFacade.hasActiveCpAccess.mockResolvedValue(false);
 
       const result = await service.checkCpAccess(TENANT_ID, USER_ID);
 
@@ -154,23 +161,23 @@ describe('ConcernAccessService', () => {
 
   describe('ConcernAccessService — checkIsYearHead', () => {
     it('should return true when year_head role exists', async () => {
-      mockPrisma.membershipRole.findFirst.mockResolvedValue({ membership_id: MEMBERSHIP_ID });
+      mockRbacFacade.findMembershipsByRoleKey.mockResolvedValue([
+        {
+          membership_id: MEMBERSHIP_ID,
+          role_id: 'role-1',
+          tenant_id: TENANT_ID,
+          membership: { user_id: USER_ID },
+        },
+      ]);
 
       const result = await service.checkIsYearHead(TENANT_ID, MEMBERSHIP_ID);
 
       expect(result).toBe(true);
-      expect(mockPrisma.membershipRole.findFirst).toHaveBeenCalledWith({
-        where: {
-          membership_id: MEMBERSHIP_ID,
-          tenant_id: TENANT_ID,
-          role: { role_key: 'year_head' },
-        },
-        select: { membership_id: true },
-      });
+      expect(mockRbacFacade.findMembershipsByRoleKey).toHaveBeenCalledWith(TENANT_ID, 'year_head');
     });
 
     it('should return false when no year_head role exists', async () => {
-      mockPrisma.membershipRole.findFirst.mockResolvedValue(null);
+      mockRbacFacade.findMembershipsByRoleKey.mockResolvedValue([]);
 
       const result = await service.checkIsYearHead(TENANT_ID, MEMBERSHIP_ID);
 

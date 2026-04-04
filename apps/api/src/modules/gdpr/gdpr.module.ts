@@ -2,6 +2,10 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 
 import { AuthModule } from '../auth/auth.module';
+import { ParentsModule } from '../parents/parents.module';
+import { RbacModule } from '../rbac/rbac.module';
+import { StudentsModule } from '../students/students.module';
+import { TenantsModule } from '../tenants/tenants.module';
 
 import { AgeGateService } from './age-gate.service';
 import { AiAuditController } from './ai-audit.controller';
@@ -21,7 +25,7 @@ import { PublicSubProcessorsController } from './public-sub-processors.controlle
 import { SubProcessorsService } from './sub-processors.service';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, ParentsModule, RbacModule, StudentsModule, TenantsModule],
   controllers: [
     AiAuditController,
     GdprTokenController,

@@ -9,12 +9,18 @@ import type {
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
+import { SchoolClosuresReadFacade } from '../school-closures/school-closures-read.facade';
 
 @Injectable()
 export class ClassDeliveryService {
   private readonly logger = new Logger(ClassDeliveryService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
+    private readonly schoolClosuresReadFacade: SchoolClosuresReadFacade,
+  ) {}
 
   /**
    * Auto-populate class delivery records from schedule entries for a given month.
@@ -26,34 +32,21 @@ export class ClassDeliveryService {
     const lastDay = new Date(dto.year, dto.month, 0);
 
     // Fetch active schedules for the month
-    const schedules = await this.prisma.schedule.findMany({
-      where: {
-        tenant_id: tenantId,
-        effective_start_date: { lte: lastDay },
-        OR: [{ effective_end_date: null }, { effective_end_date: { gte: firstDay } }],
-      },
-      select: {
-        id: true,
-        teacher_staff_id: true,
-        weekday: true,
-      },
-    });
+    const schedules = await this.schedulesReadFacade.findEffectiveInRange(
+      tenantId,
+      firstDay,
+      lastDay,
+    );
 
     if (schedules.length === 0) {
       return { created: 0, skipped: 0, message: 'No active schedules found for this period' };
     }
 
     // Get school closures in the range
-    const closures = await this.prisma.schoolClosure.findMany({
-      where: {
-        tenant_id: tenantId,
-        closure_date: { gte: firstDay, lte: lastDay },
-      },
-      select: { closure_date: true },
-    });
-
-    const closureDates = new Set(
-      closures.map((c) => c.closure_date.toISOString().split('T')[0] ?? ''),
+    const closureDates = await this.schoolClosuresReadFacade.getClosureDateSet(
+      tenantId,
+      firstDay,
+      lastDay,
     );
 
     // Group schedules by weekday

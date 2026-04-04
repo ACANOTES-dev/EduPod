@@ -17,6 +17,7 @@ import type {
 } from '@school/shared/sen';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { SenScopeService } from './sen-scope.service';
@@ -211,6 +212,7 @@ export class SenResourceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeService: SenScopeService,
+    private readonly academicReadFacade: AcademicReadFacade,
   ) {}
 
   // ─── Resource Allocations ─────────────────────────────────────────────────
@@ -810,15 +812,7 @@ export class SenResourceService {
   }
 
   private async ensureAcademicYearExists(tenantId: string, academicYearId: string): Promise<void> {
-    const academicYear = await this.prisma.academicYear.findFirst({
-      where: {
-        id: academicYearId,
-        tenant_id: tenantId,
-      },
-      select: {
-        id: true,
-      },
-    });
+    const academicYear = await this.academicReadFacade.findYearById(tenantId, academicYearId);
 
     if (!academicYear) {
       throw new NotFoundException({

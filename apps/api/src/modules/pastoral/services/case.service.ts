@@ -15,7 +15,6 @@ import {
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { AuthReadFacade } from '../../auth/auth-read.facade';
-
 import { PrismaService } from '../../prisma/prisma.service';
 import { SequenceService } from '../../sequence/sequence.service';
 

@@ -1,13 +1,9 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
 import { EncryptionService } from '../configuration/encryption.service';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -39,14 +35,13 @@ export class AdmissionsPaymentService {
     private readonly encryption: EncryptionService,
     private readonly configService: ConfigService,
     private readonly settingsService: SettingsService,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
   ) {}
 
   // ─── Stripe Client ──────────────────────────────────────────────────────
 
   private async getStripeClient(tenantId: string): Promise<Stripe> {
-    const stripeConfig = await this.prisma.tenantStripeConfig.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    const stripeConfig = await this.configurationReadFacade.findStripeConfigFull(tenantId);
     if (!stripeConfig) {
       throw new BadRequestException({
         code: 'STRIPE_NOT_CONFIGURED',
@@ -68,7 +63,12 @@ export class AdmissionsPaymentService {
     feeAmount: number,
     tiers: EarlyBirdTier[],
     submissionDate: Date = new Date(),
-  ): { discount_percent: number; discount_amount: number; final_amount: number; tier_label: string | null } {
+  ): {
+    discount_percent: number;
+    discount_amount: number;
+    final_amount: number;
+    tier_label: string | null;
+  } {
     if (!tiers.length) {
       return { discount_percent: 0, discount_amount: 0, final_amount: feeAmount, tier_label: null };
     }
@@ -81,7 +81,7 @@ export class AdmissionsPaymentService {
     // Find the first tier where today < deadline
     for (const tier of sorted) {
       if (submissionDate < new Date(tier.deadline)) {
-        const discountAmount = Math.round((feeAmount * tier.discount_percent) / 100 * 100) / 100;
+        const discountAmount = Math.round(((feeAmount * tier.discount_percent) / 100) * 100) / 100;
         return {
           discount_percent: tier.discount_percent,
           discount_amount: discountAmount,
@@ -157,7 +157,9 @@ export class AdmissionsPaymentService {
     }
 
     if (application.status !== 'draft') {
-      this.logger.warn(`Application ${application.id} already has status ${application.status}, skipping`);
+      this.logger.warn(
+        `Application ${application.id} already has status ${application.status}, skipping`,
+      );
       return;
     }
 
@@ -177,7 +179,10 @@ export class AdmissionsPaymentService {
         data: {
           tenant_id: application.tenant_id,
           application_id: application.id,
-          author_user_id: application.submitted_by_parent_id ?? application.reviewed_by_user_id ?? '00000000-0000-0000-0000-000000000000',
+          author_user_id:
+            application.submitted_by_parent_id ??
+            application.reviewed_by_user_id ??
+            '00000000-0000-0000-0000-000000000000',
           note: `Online payment confirmed via Stripe (${paymentIntentId}). Application submitted.`,
           is_internal: true,
         },
@@ -220,11 +225,7 @@ export class AdmissionsPaymentService {
 
   // ─── Admin: Mark Payment Received ──────────────────────────────────────
 
-  async markPaymentReceived(
-    tenantId: string,
-    applicationId: string,
-    userId: string,
-  ) {
+  async markPaymentReceived(tenantId: string, applicationId: string, userId: string) {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
@@ -242,7 +243,10 @@ export class AdmissionsPaymentService {
 
       if (app.status !== 'draft') {
         throw new BadRequestException({
-          error: { code: 'INVALID_STATUS', message: 'Only draft applications can be marked as paid' },
+          error: {
+            code: 'INVALID_STATUS',
+            message: 'Only draft applications can be marked as paid',
+          },
         });
       }
 
@@ -272,11 +276,7 @@ export class AdmissionsPaymentService {
 
   // ─── Admin: Setup Payment Plan ─────────────────────────────────────────
 
-  async setupPaymentPlan(
-    tenantId: string,
-    applicationId: string,
-    userId: string,
-  ) {
+  async setupPaymentPlan(tenantId: string, applicationId: string, userId: string) {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
@@ -294,7 +294,10 @@ export class AdmissionsPaymentService {
 
       if (app.status !== 'draft') {
         throw new BadRequestException({
-          error: { code: 'INVALID_STATUS', message: 'Only draft applications can have payment plans' },
+          error: {
+            code: 'INVALID_STATUS',
+            message: 'Only draft applications can have payment plans',
+          },
         });
       }
 
@@ -324,11 +327,7 @@ export class AdmissionsPaymentService {
 
   // ─── Admin: Waive Fees ─────────────────────────────────────────────────
 
-  async waiveFees(
-    tenantId: string,
-    applicationId: string,
-    userId: string,
-  ) {
+  async waiveFees(tenantId: string, applicationId: string, userId: string) {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
@@ -346,7 +345,10 @@ export class AdmissionsPaymentService {
 
       if (app.status !== 'draft') {
         throw new BadRequestException({
-          error: { code: 'INVALID_STATUS', message: 'Only draft applications can have fees waived' },
+          error: {
+            code: 'INVALID_STATUS',
+            message: 'Only draft applications can have fees waived',
+          },
         });
       }
 

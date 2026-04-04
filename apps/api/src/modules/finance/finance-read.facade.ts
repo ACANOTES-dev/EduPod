@@ -26,6 +26,7 @@ import type {
   PaymentMethod,
   PaymentPlanStatus,
   PaymentStatus,
+  Prisma,
   RefundStatus,
   ScholarshipStatus,
 } from '@prisma/client';
@@ -400,6 +401,88 @@ export class FinanceReadFacade {
     return this.prisma.householdFeeAssignment.findMany({
       where: { household_id: householdId, tenant_id: tenantId },
       orderBy: { effective_from: 'desc' },
+    });
+  }
+
+  // ─── Generic Methods (reports-data-access) ─────────────────────────────────
+
+  /**
+   * Generic findMany for invoices with arbitrary where/select/orderBy/skip/take.
+   * Used by reports-data-access for invoice analytics.
+   */
+  async findInvoicesGeneric(
+    tenantId: string,
+    options: {
+      where?: Prisma.InvoiceWhereInput;
+      select?: Prisma.InvoiceSelect;
+      orderBy?: Prisma.InvoiceOrderByWithRelationInput;
+      skip?: number;
+      take?: number;
+    },
+  ): Promise<unknown[]> {
+    return this.prisma.invoice.findMany({
+      where: { tenant_id: tenantId, ...options.where },
+      ...(options.select && { select: options.select }),
+      ...(options.orderBy && { orderBy: options.orderBy }),
+      ...(options.skip !== undefined && { skip: options.skip }),
+      ...(options.take !== undefined && { take: options.take }),
+    });
+  }
+
+  /**
+   * Count invoices matching an arbitrary filter.
+   * Used by reports-data-access for invoice counts.
+   */
+  async countInvoices(tenantId: string, where?: Prisma.InvoiceWhereInput): Promise<number> {
+    return this.prisma.invoice.count({
+      where: { tenant_id: tenantId, ...where },
+    });
+  }
+
+  /**
+   * Aggregate invoice monetary totals. Returns plain number values.
+   * Used by reports-data-access for financial summaries.
+   */
+  async aggregateInvoices(
+    tenantId: string,
+    where?: Prisma.InvoiceWhereInput,
+  ): Promise<{
+    _sum: {
+      total_amount: number | null;
+      balance_amount: number | null;
+      discount_amount?: number | null;
+    };
+  }> {
+    return this.prisma.invoice.aggregate({
+      where: { tenant_id: tenantId, ...where },
+      _sum: { total_amount: true, balance_amount: true },
+    }) as unknown as {
+      _sum: {
+        total_amount: number | null;
+        balance_amount: number | null;
+        discount_amount?: number | null;
+      };
+    };
+  }
+
+  /**
+   * Generic findMany for payments with arbitrary where/select/orderBy/take.
+   * Used by reports-data-access for payment analytics.
+   */
+  async findPaymentsGeneric(
+    tenantId: string,
+    options: {
+      where?: Prisma.PaymentWhereInput;
+      select?: Prisma.PaymentSelect;
+      orderBy?: Prisma.PaymentOrderByWithRelationInput;
+      take?: number;
+    },
+  ): Promise<unknown[]> {
+    return this.prisma.payment.findMany({
+      where: { tenant_id: tenantId, ...options.where },
+      ...(options.select && { select: options.select }),
+      ...(options.orderBy && { orderBy: options.orderBy }),
+      ...(options.take !== undefined && { take: options.take }),
     });
   }
 }

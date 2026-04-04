@@ -1,15 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { AdmissionsReadFacade } from '../admissions/admissions-read.facade';
+import { ApprovalsReadFacade } from '../approvals/approvals-read.facade';
 import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
 import { AuditLogReadFacade } from '../audit-log/audit-log-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { CommunicationsReadFacade } from '../communications/communications-read.facade';
 import { FinanceReadFacade } from '../finance/finance-read.facade';
 import { GradebookReadFacade } from '../gradebook/gradebook-read.facade';
+import { HouseholdReadFacade } from '../households/household-read.facade';
 import { PayrollReadFacade } from '../payroll/payroll-read.facade';
-import { PrismaService } from '../prisma/prisma.service';
+import { SchedulesReadFacade } from '../schedules/schedules-read.facade';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 import { StudentReadFacade } from '../students/student-read.facade';
 
@@ -18,10 +21,6 @@ import { StudentReadFacade } from '../students/student-read.facade';
 // This service centralises ALL cross-module reads that the reports
 // and dashboard analytics services need. All cross-module reads now
 // delegate to the owning module's ReadFacade.
-//
-// Own-module tables (report-specific) that are still queried directly:
-//   schedules, approval_requests, households, notifications, audit_logs,
-//   year_groups, academic_periods, subjects, payroll_runs
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─── Return types ────────────────────────────────────────────────────────────
@@ -47,7 +46,6 @@ export interface StatusCount {
 @Injectable()
 export class ReportsDataAccessService {
   constructor(
-    private readonly prisma: PrismaService,
     private readonly studentReadFacade: StudentReadFacade,
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
     private readonly classesReadFacade: ClassesReadFacade,
@@ -58,6 +56,10 @@ export class ReportsDataAccessService {
     private readonly payrollReadFacade: PayrollReadFacade,
     private readonly communicationsReadFacade: CommunicationsReadFacade,
     private readonly auditLogReadFacade: AuditLogReadFacade,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly householdReadFacade: HouseholdReadFacade,
+    private readonly schedulesReadFacade: SchedulesReadFacade,
+    private readonly approvalsReadFacade: ApprovalsReadFacade,
   ) {}
 
   // ─── Students ──────────────────────────────────────────────────────────────
@@ -85,13 +87,7 @@ export class ReportsDataAccessService {
       orderBy?: Prisma.StudentOrderByWithRelationInput;
     },
   ): Promise<unknown[]> {
-    return this.prisma.student.findMany({
-      where: { tenant_id: tenantId, ...options.where },
-      ...(options.select && { select: options.select }),
-      ...(options.skip !== undefined && { skip: options.skip }),
-      ...(options.take !== undefined && { take: options.take }),
-      ...(options.orderBy && { orderBy: options.orderBy }),
-    });
+    return this.studentReadFacade.findManyGeneric(tenantId, options);
   }
 
   async findStudentById(
@@ -99,10 +95,11 @@ export class ReportsDataAccessService {
     studentId: string,
     select?: Prisma.StudentSelect,
   ): Promise<unknown | null> {
-    return this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
-      ...(select && { select }),
-    });
+    return this.studentReadFacade.findOneGeneric(
+      tenantId,
+      studentId,
+      select ? { select } : undefined,
+    );
   }
 
   /** Group students by one or more scalar fields, always scoped to the tenant. Returns `_count` per group. */
@@ -111,12 +108,7 @@ export class ReportsDataAccessService {
     by: K[],
     where?: Prisma.StudentWhereInput,
   ): Promise<Array<Record<string, unknown> & { _count: number }>> {
-    const result = await this.prisma.student.groupBy({
-      by,
-      where: { tenant_id: tenantId, ...where },
-      _count: true,
-    });
-    return result as unknown as Array<Record<string, unknown> & { _count: number }>;
+    return this.studentReadFacade.groupBy(tenantId, by, where);
   }
 
   // ─── Staff Profiles ────────────────────────────────────────────────────────
@@ -142,12 +134,7 @@ export class ReportsDataAccessService {
       take?: number;
     },
   ): Promise<unknown[]> {
-    return this.prisma.staffProfile.findMany({
-      where: { tenant_id: tenantId, ...options.where },
-      ...(options.select && { select: options.select }),
-      ...(options.skip !== undefined && { skip: options.skip }),
-      ...(options.take !== undefined && { take: options.take }),
-    });
+    return this.staffProfileReadFacade.findManyGeneric(tenantId, options);
   }
 
   async groupStaffBy<K extends Prisma.StaffProfileScalarFieldEnum>(
@@ -155,12 +142,7 @@ export class ReportsDataAccessService {
     by: K[],
     where?: Prisma.StaffProfileWhereInput,
   ): Promise<Array<Record<string, unknown> & { _count: number }>> {
-    const result = await this.prisma.staffProfile.groupBy({
-      by,
-      where: { tenant_id: tenantId, ...where },
-      _count: true,
-    });
-    return result as unknown as Array<Record<string, unknown> & { _count: number }>;
+    return this.staffProfileReadFacade.groupBy(tenantId, by, where);
   }
 
   // ─── Classes ───────────────────────────────────────────────────────────────
@@ -212,21 +194,14 @@ export class ReportsDataAccessService {
     by: K[],
     where?: Prisma.AttendanceRecordWhereInput,
   ): Promise<Array<Record<string, unknown> & { _count: number }>> {
-    const result = await this.prisma.attendanceRecord.groupBy({
-      by,
-      where: { tenant_id: tenantId, ...where },
-      _count: true,
-    });
-    return result as unknown as Array<Record<string, unknown> & { _count: number }>;
+    return this.attendanceReadFacade.groupRecordsBy(tenantId, by, where);
   }
 
   async countAttendanceRecords(
     tenantId: string,
     where?: Prisma.AttendanceRecordWhereInput,
   ): Promise<number> {
-    return this.prisma.attendanceRecord.count({
-      where: { tenant_id: tenantId, ...where },
-    });
+    return this.attendanceReadFacade.countRecordsGeneric(tenantId, where);
   }
 
   async findAttendanceRecords(
@@ -238,12 +213,7 @@ export class ReportsDataAccessService {
       take?: number;
     },
   ): Promise<unknown[]> {
-    return this.prisma.attendanceRecord.findMany({
-      where: { tenant_id: tenantId, ...options.where },
-      ...(options.select && { select: options.select }),
-      ...(options.orderBy && { orderBy: options.orderBy }),
-      ...(options.take !== undefined && { take: options.take }),
-    });
+    return this.attendanceReadFacade.findRecordsGeneric(tenantId, options);
   }
 
   async findAttendanceSessions(
@@ -254,20 +224,14 @@ export class ReportsDataAccessService {
       orderBy?: Prisma.AttendanceSessionOrderByWithRelationInput;
     },
   ): Promise<unknown[]> {
-    return this.prisma.attendanceSession.findMany({
-      where: { tenant_id: tenantId, ...options.where },
-      ...(options.select && { select: options.select }),
-      ...(options.orderBy && { orderBy: options.orderBy }),
-    });
+    return this.attendanceReadFacade.findSessionsGeneric(tenantId, options);
   }
 
   async countAttendanceSessions(
     tenantId: string,
     where?: Prisma.AttendanceSessionWhereInput,
   ): Promise<number> {
-    return this.prisma.attendanceSession.count({
-      where: { tenant_id: tenantId, ...where },
-    });
+    return this.attendanceReadFacade.countSessionsGeneric(tenantId, where);
   }
 
   // ─── Staff Attendance ──────────────────────────────────────────────────────
@@ -277,12 +241,7 @@ export class ReportsDataAccessService {
     by: K[],
     where?: Prisma.StaffAttendanceRecordWhereInput,
   ): Promise<Array<Record<string, unknown> & { _count: number }>> {
-    const result = await this.prisma.staffAttendanceRecord.groupBy({
-      by,
-      where: { tenant_id: tenantId, ...where },
-      _count: true,
-    });
-    return result as unknown as Array<Record<string, unknown> & { _count: number }>;
+    return this.payrollReadFacade.groupStaffAttendanceBy(tenantId, by, where);
   }
 
   // ─── Grades & Assessments ─────────────────────────────────────────────────
@@ -295,11 +254,7 @@ export class ReportsDataAccessService {
       orderBy?: Prisma.GradeOrderByWithRelationInput;
     },
   ): Promise<unknown[]> {
-    return this.prisma.grade.findMany({
-      where: { tenant_id: tenantId, ...options.where },
-      ...(options.select && { select: options.select }),
-      ...(options.orderBy && { orderBy: options.orderBy }),
-    });
+    return this.gradebookReadFacade.findGradesGeneric(tenantId, options);
   }
 
   async groupGradesBy<K extends Prisma.GradeScalarFieldEnum>(
@@ -308,13 +263,7 @@ export class ReportsDataAccessService {
     where?: Prisma.GradeWhereInput,
     options?: { _avg?: Prisma.GradeAvgAggregateInputType },
   ): Promise<Array<Record<string, unknown>>> {
-    const result = await this.prisma.grade.groupBy({
-      by,
-      where: { tenant_id: tenantId, ...where },
-      ...(options?._avg && { _avg: options._avg }),
-      _count: true,
-    });
-    return result as unknown as Array<Record<string, unknown>>;
+    return this.gradebookReadFacade.groupGradesBy(tenantId, by, where, options);
   }
 
   /** Aggregate grade scores. Converts Prisma Decimal to `number` so callers get a plain JS number, not a Decimal object. */
@@ -322,13 +271,7 @@ export class ReportsDataAccessService {
     tenantId: string,
     where?: Prisma.GradeWhereInput,
   ): Promise<{ _avg: { raw_score: number | null } }> {
-    const result = await this.prisma.grade.aggregate({
-      where: { tenant_id: tenantId, ...where },
-      _avg: { raw_score: true },
-    });
-    return {
-      _avg: { raw_score: result._avg.raw_score !== null ? Number(result._avg.raw_score) : null },
-    };
+    return this.gradebookReadFacade.aggregateGrades(tenantId, where);
   }
 
   async findAssessments(
@@ -338,16 +281,11 @@ export class ReportsDataAccessService {
       select?: Prisma.AssessmentSelect;
     },
   ): Promise<unknown[]> {
-    return this.prisma.assessment.findMany({
-      where: { tenant_id: tenantId, ...options.where },
-      ...(options.select && { select: options.select }),
-    });
+    return this.gradebookReadFacade.findAssessmentsGeneric(tenantId, options);
   }
 
   async countAssessments(tenantId: string, where?: Prisma.AssessmentWhereInput): Promise<number> {
-    return this.prisma.assessment.count({
-      where: { tenant_id: tenantId, ...where },
-    });
+    return this.gradebookReadFacade.countAssessments(tenantId, where);
   }
 
   async findPeriodGradeSnapshots(
@@ -358,11 +296,7 @@ export class ReportsDataAccessService {
       orderBy?: Prisma.PeriodGradeSnapshotOrderByWithRelationInput;
     },
   ): Promise<unknown[]> {
-    return this.prisma.periodGradeSnapshot.findMany({
-      where: { tenant_id: tenantId, ...options.where },
-      ...(options.select && { select: options.select }),
-      ...(options.orderBy && { orderBy: options.orderBy }),
-    });
+    return this.gradebookReadFacade.findPeriodSnapshotsGeneric(tenantId, options);
   }
 
   async findGpaSnapshots(
@@ -370,19 +304,14 @@ export class ReportsDataAccessService {
     where?: Prisma.GpaSnapshotWhereInput,
     select?: Prisma.GpaSnapshotSelect,
   ): Promise<unknown[]> {
-    return this.prisma.gpaSnapshot.findMany({
-      where: { tenant_id: tenantId, ...where },
-      ...(select && { select }),
-    });
+    return this.gradebookReadFacade.findGpaSnapshotsGeneric(tenantId, where, select);
   }
 
   async countStudentAcademicRiskAlerts(
     tenantId: string,
     where?: Prisma.StudentAcademicRiskAlertWhereInput,
   ): Promise<number> {
-    return this.prisma.studentAcademicRiskAlert.count({
-      where: { tenant_id: tenantId, ...where },
-    });
+    return this.gradebookReadFacade.countRiskAlerts(tenantId, where);
   }
 
   async findStudentAcademicRiskAlerts(
@@ -394,12 +323,7 @@ export class ReportsDataAccessService {
       take?: number;
     },
   ): Promise<unknown[]> {
-    return this.prisma.studentAcademicRiskAlert.findMany({
-      where: { tenant_id: tenantId, ...options.where },
-      ...(options.select && { select: options.select }),
-      ...(options.orderBy && { orderBy: options.orderBy }),
-      ...(options.take !== undefined && { take: options.take }),
-    });
+    return this.gradebookReadFacade.findRiskAlertsGeneric(tenantId, options);
   }
 
   async findReportCards(
@@ -408,11 +332,7 @@ export class ReportsDataAccessService {
     select?: Prisma.ReportCardSelect,
     orderBy?: Prisma.ReportCardOrderByWithRelationInput,
   ): Promise<unknown[]> {
-    return this.prisma.reportCard.findMany({
-      where: { tenant_id: tenantId, ...where },
-      ...(select && { select }),
-      ...(orderBy && { orderBy }),
-    });
+    return this.gradebookReadFacade.findReportCardsGeneric(tenantId, where, select, orderBy);
   }
 
   // ─── Finance ───────────────────────────────────────────────────────────────
@@ -427,19 +347,11 @@ export class ReportsDataAccessService {
       take?: number;
     },
   ): Promise<unknown[]> {
-    return this.prisma.invoice.findMany({
-      where: { tenant_id: tenantId, ...options.where },
-      ...(options.select && { select: options.select }),
-      ...(options.orderBy && { orderBy: options.orderBy }),
-      ...(options.skip !== undefined && { skip: options.skip }),
-      ...(options.take !== undefined && { take: options.take }),
-    });
+    return this.financeReadFacade.findInvoicesGeneric(tenantId, options);
   }
 
   async countInvoices(tenantId: string, where?: Prisma.InvoiceWhereInput): Promise<number> {
-    return this.prisma.invoice.count({
-      where: { tenant_id: tenantId, ...where },
-    });
+    return this.financeReadFacade.countInvoices(tenantId, where);
   }
 
   /** Aggregate invoice monetary totals. Returns plain `number` values — Prisma returns Decimal for NUMERIC columns which must be coerced. */
@@ -453,16 +365,7 @@ export class ReportsDataAccessService {
       discount_amount?: number | null;
     };
   }> {
-    return this.prisma.invoice.aggregate({
-      where: { tenant_id: tenantId, ...where },
-      _sum: { total_amount: true, balance_amount: true },
-    }) as unknown as {
-      _sum: {
-        total_amount: number | null;
-        balance_amount: number | null;
-        discount_amount?: number | null;
-      };
-    };
+    return this.financeReadFacade.aggregateInvoices(tenantId, where);
   }
 
   async findPayments(
@@ -474,12 +377,7 @@ export class ReportsDataAccessService {
       take?: number;
     },
   ): Promise<unknown[]> {
-    return this.prisma.payment.findMany({
-      where: { tenant_id: tenantId, ...options.where },
-      ...(options.select && { select: options.select }),
-      ...(options.orderBy && { orderBy: options.orderBy }),
-      ...(options.take !== undefined && { take: options.take }),
-    });
+    return this.financeReadFacade.findPaymentsGeneric(tenantId, options);
   }
 
   async findStaffCompensations(
@@ -487,10 +385,7 @@ export class ReportsDataAccessService {
     where?: Prisma.StaffCompensationWhereInput,
     select?: Prisma.StaffCompensationSelect,
   ): Promise<unknown[]> {
-    return this.prisma.staffCompensation.findMany({
-      where: { tenant_id: tenantId, ...where },
-      ...(select && { select }),
-    });
+    return this.payrollReadFacade.findCompensationsGeneric(tenantId, where, select);
   }
 
   // ─── Admissions ────────────────────────────────────────────────────────────
@@ -519,11 +414,7 @@ export class ReportsDataAccessService {
     select?: Prisma.YearGroupSelect,
     orderBy?: Prisma.YearGroupOrderByWithRelationInput,
   ): Promise<unknown[]> {
-    return this.prisma.yearGroup.findMany({
-      where: { tenant_id: tenantId },
-      ...(select && { select }),
-      ...(orderBy ? { orderBy } : { orderBy: { display_order: 'asc' } }),
-    });
+    return this.academicReadFacade.findYearGroupsGeneric(tenantId, select, orderBy);
   }
 
   async findAcademicPeriods(
@@ -531,17 +422,11 @@ export class ReportsDataAccessService {
     where?: Prisma.AcademicPeriodWhereInput,
     select?: Prisma.AcademicPeriodSelect,
   ): Promise<unknown[]> {
-    return this.prisma.academicPeriod.findMany({
-      where: { tenant_id: tenantId, ...where },
-      ...(select && { select }),
-    });
+    return this.academicReadFacade.findPeriodsGeneric(tenantId, where, select);
   }
 
   async findSubjects(tenantId: string, select?: Prisma.SubjectSelect): Promise<unknown[]> {
-    return this.prisma.subject.findMany({
-      where: { tenant_id: tenantId },
-      ...(select && { select }),
-    });
+    return this.academicReadFacade.findAllSubjects(tenantId, select);
   }
 
   // ─── Payroll ───────────────────────────────────────────────────────────────
@@ -562,10 +447,7 @@ export class ReportsDataAccessService {
     householdId: string,
     select?: Prisma.HouseholdSelect,
   ): Promise<unknown | null> {
-    return this.prisma.household.findFirst({
-      where: { id: householdId, tenant_id: tenantId },
-      ...(select && { select }),
-    });
+    return this.householdReadFacade.findByIdGeneric(tenantId, householdId, select);
   }
 
   // ─── Notifications ─────────────────────────────────────────────────────────
@@ -597,22 +479,20 @@ export class ReportsDataAccessService {
 
   async findFirstAuditLog(
     tenantId: string,
-    where?: Prisma.AuditLogWhereInput,
-    orderBy?: Prisma.AuditLogOrderByWithRelationInput,
+    _where?: Prisma.AuditLogWhereInput,
+    _orderBy?: Prisma.AuditLogOrderByWithRelationInput,
   ): Promise<unknown | null> {
     return this.auditLogReadFacade.findFirst(tenantId);
   }
 
-  async countAuditLogs(tenantId: string, where?: Prisma.AuditLogWhereInput): Promise<number> {
+  async countAuditLogs(tenantId: string, _where?: Prisma.AuditLogWhereInput): Promise<number> {
     return this.auditLogReadFacade.count(tenantId);
   }
 
   // ─── Schedules ─────────────────────────────────────────────────────────────
 
   async countSchedules(tenantId: string, where?: Prisma.ScheduleWhereInput): Promise<number> {
-    return this.prisma.schedule.count({
-      where: { tenant_id: tenantId, ...where },
-    });
+    return this.schedulesReadFacade.count(tenantId, where);
   }
 
   // ─── Approval Requests ─────────────────────────────────────────────────────
@@ -621,8 +501,6 @@ export class ReportsDataAccessService {
     tenantId: string,
     where?: Prisma.ApprovalRequestWhereInput,
   ): Promise<number> {
-    return this.prisma.approvalRequest.count({
-      where: { tenant_id: tenantId, ...where },
-    });
+    return this.approvalsReadFacade.countRequestsGeneric(tenantId, where);
   }
 }

@@ -19,6 +19,7 @@
  * - Batch methods return arrays (empty = nothing found).
  */
 import { Injectable } from '@nestjs/common';
+import type { SchedulePeriodType, SupervisionMode } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -31,11 +32,12 @@ export interface PeriodTemplateRow {
   year_group_id: string | null;
   weekday: number;
   period_order: number;
-  period_name: string | null;
+  period_name: string;
+  period_name_ar: string | null;
   start_time: Date;
   end_time: Date;
-  schedule_period_type: string;
-  supervision_mode: string | null;
+  schedule_period_type: SchedulePeriodType;
+  supervision_mode: SupervisionMode | null;
   break_group_id: string | null;
 }
 
@@ -150,6 +152,73 @@ export class SchedulingReadFacade {
   }
 
   /**
+   * Find period templates with arbitrary where filter. Used by period-grid for
+   * filtered views (by year group, weekday, etc.) and copy operations.
+   */
+  async findPeriodTemplatesFiltered(
+    tenantId: string,
+    where: Record<string, unknown>,
+    orderBy?: Array<Record<string, string>>,
+  ): Promise<PeriodTemplateRow[]> {
+    return this.prisma.schedulePeriodTemplate.findMany({
+      where: { tenant_id: tenantId, ...where },
+      orderBy: orderBy ?? [{ weekday: 'asc' }, { period_order: 'asc' }],
+    }) as unknown as Promise<PeriodTemplateRow[]>;
+  }
+
+  /**
+   * Count period templates with arbitrary where filter.
+   * Used by period-grid for teaching period counts.
+   */
+  async countPeriodTemplates(tenantId: string, where?: Record<string, unknown>): Promise<number> {
+    return this.prisma.schedulePeriodTemplate.count({
+      where: { tenant_id: tenantId, ...where },
+    });
+  }
+
+  /**
+   * Find a period template by ID. Returns null if not found.
+   * Used by period-grid for existence checks before updates/deletes.
+   */
+  async findPeriodTemplateById(
+    tenantId: string,
+    templateId: string,
+  ): Promise<PeriodTemplateRow | null> {
+    return this.prisma.schedulePeriodTemplate.findFirst({
+      where: { id: templateId, tenant_id: tenantId },
+    }) as unknown as Promise<PeriodTemplateRow | null>;
+  }
+
+  /**
+   * Find period templates with selected fields only (for hash computation).
+   * Used by period-grid for grid hash calculation.
+   */
+  async findPeriodTemplatesForHash(
+    tenantId: string,
+    academicYearId: string,
+  ): Promise<
+    Array<{
+      weekday: number;
+      period_order: number;
+      start_time: Date;
+      end_time: Date;
+      schedule_period_type: string;
+    }>
+  > {
+    return this.prisma.schedulePeriodTemplate.findMany({
+      where: { tenant_id: tenantId, academic_year_id: academicYearId },
+      orderBy: [{ weekday: 'asc' }, { period_order: 'asc' }],
+      select: {
+        weekday: true,
+        period_order: true,
+        start_time: true,
+        end_time: true,
+        schedule_period_type: true,
+      },
+    });
+  }
+
+  /**
    * Find distinct year_group_ids that have period templates configured.
    * Used by scheduler orchestration prerequisites to check coverage.
    */
@@ -246,6 +315,60 @@ export class SchedulingReadFacade {
         },
       },
     }) as unknown as Promise<ClassSchedulingRequirementRow[]>;
+  }
+
+  /**
+   * Find a single class scheduling requirement by ID. Returns null if not found.
+   * Used by class-requirements for existence checks before updates/deletes.
+   */
+  async findClassRequirementById(
+    tenantId: string,
+    requirementId: string,
+  ): Promise<{ id: string } | null> {
+    return this.prisma.classSchedulingRequirement.findFirst({
+      where: { id: requirementId, tenant_id: tenantId },
+      select: { id: true },
+    });
+  }
+
+  /**
+   * Find class scheduling requirements with full class/room details, paginated.
+   * Used by class-requirements list endpoint.
+   */
+  async findClassRequirementsPaginated(
+    tenantId: string,
+    academicYearId: string,
+    opts: { skip: number; take: number },
+  ): Promise<{ data: unknown[]; total: number }> {
+    const where = { tenant_id: tenantId, academic_year_id: academicYearId };
+
+    const [data, total] = await Promise.all([
+      this.prisma.classSchedulingRequirement.findMany({
+        where,
+        skip: opts.skip,
+        take: opts.take,
+        orderBy: { created_at: 'asc' },
+        include: {
+          class_entity: {
+            select: {
+              id: true,
+              name: true,
+              subject: { select: { id: true, name: true } },
+              class_enrolments: {
+                where: { status: 'active' },
+                select: { id: true },
+              },
+            },
+          },
+          preferred_room: {
+            select: { id: true, name: true },
+          },
+        },
+      }),
+      this.prisma.classSchedulingRequirement.count({ where }),
+    ]);
+
+    return { data, total };
   }
 
   // ─── Curriculum Requirements ────────────────────────────────────────────────

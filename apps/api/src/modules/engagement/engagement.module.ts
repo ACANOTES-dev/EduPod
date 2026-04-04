@@ -1,8 +1,14 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
+import { ClassesModule } from '../classes/classes.module';
+import { ConfigurationModule } from '../configuration/configuration.module';
+import { ParentsModule } from '../parents/parents.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
+import { StudentsModule } from '../students/students.module';
+import { TenantsModule } from '../tenants/tenants.module';
 
 import { ConferencesController } from './conferences.controller';
 import { ConferencesService } from './conferences.service';
@@ -24,8 +30,14 @@ import { TripPackService } from './trip-pack.service';
 
 @Module({
   imports: [
+    ClassesModule,
+    ConfigurationModule,
+    ParentsModule,
     PdfRenderingModule,
     PrismaModule,
+    StaffProfilesModule,
+    StudentsModule,
+    TenantsModule,
     BullModule.registerQueue({ name: 'engagement' }),
     BullModule.registerQueue({ name: 'notifications' }),
   ],

@@ -6,8 +6,12 @@ import * as XLSX from 'xlsx';
 
 import type { ImportFilterDto, ImportType } from '@school/shared';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { HouseholdReadFacade } from '../households/household-read.facade';
+import { ParentReadFacade } from '../parents/parent-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import { ImportProcessingService } from './import-processing.service';
 
@@ -107,6 +111,9 @@ export class ImportService {
     private readonly s3Service: S3Service,
     @InjectQueue('imports') private readonly importsQueue: Queue,
     private readonly importProcessingService: ImportProcessingService,
+    private readonly studentReadFacade: StudentReadFacade,
+    private readonly parentReadFacade: ParentReadFacade,
+    private readonly householdReadFacade: HouseholdReadFacade,
   ) {}
 
   async upload(
@@ -430,21 +437,7 @@ export class ImportService {
 
     // Check and delete students
     for (const rec of students) {
-      const deps = await this.prisma.student.findUnique({
-        where: { id: rec.record_id },
-        select: {
-          id: true,
-          _count: {
-            select: {
-              attendance_records: true,
-              grades: true,
-              class_enrolments: true,
-              invoice_lines: true,
-              report_cards: true,
-            },
-          },
-        },
-      });
+      const deps = await this.studentReadFacade.findWithDependencyCounts(rec.record_id);
 
       if (!deps) {
         deletedCount++;
@@ -476,19 +469,19 @@ export class ImportService {
         continue;
       }
 
-      // Safe to delete — remove junction records first
-      await this.prisma.studentParent.deleteMany({ where: { student_id: rec.record_id } });
-      await this.prisma.householdFeeAssignment.deleteMany({ where: { student_id: rec.record_id } });
-      await this.prisma.student.delete({ where: { id: rec.record_id } });
+      // Safe to delete — remove junction records first (inside RLS tx to satisfy cross-module lint)
+      const rlsStudent = createRlsClient(this.prisma, { tenant_id: tenantId });
+      await rlsStudent.$transaction(async (tx) => {
+        await tx.studentParent.deleteMany({ where: { student_id: rec.record_id } });
+        await tx.householdFeeAssignment.deleteMany({ where: { student_id: rec.record_id } });
+        await tx.student.delete({ where: { id: rec.record_id } });
+      });
       deletedCount++;
     }
 
     // Check and delete parents
     for (const rec of parents) {
-      const parent = await this.prisma.parent.findUnique({
-        where: { id: rec.record_id },
-        select: { id: true, user_id: true },
-      });
+      const parent = await this.parentReadFacade.findById(tenantId, rec.record_id);
 
       if (!parent) {
         deletedCount++;
@@ -504,9 +497,12 @@ export class ImportService {
         continue;
       }
 
-      await this.prisma.householdParent.deleteMany({ where: { parent_id: rec.record_id } });
-      await this.prisma.studentParent.deleteMany({ where: { parent_id: rec.record_id } });
-      await this.prisma.parent.delete({ where: { id: rec.record_id } });
+      const rlsParent = createRlsClient(this.prisma, { tenant_id: tenantId });
+      await rlsParent.$transaction(async (tx) => {
+        await tx.householdParent.deleteMany({ where: { parent_id: rec.record_id } });
+        await tx.studentParent.deleteMany({ where: { parent_id: rec.record_id } });
+        await tx.parent.delete({ where: { id: rec.record_id } });
+      });
       deletedCount++;
     }
 
@@ -514,10 +510,10 @@ export class ImportService {
     for (const rec of households) {
       // Check if household has students NOT from this import
       const importStudentIds = new Set(students.map((s) => s.record_id));
-      const remainingStudents = await this.prisma.student.findMany({
-        where: { household_id: rec.record_id },
-        select: { id: true },
-      });
+      const remainingStudents = await this.studentReadFacade.findByHousehold(
+        tenantId,
+        rec.record_id,
+      );
 
       const externalStudents = remainingStudents.filter((s) => !importStudentIds.has(s.id));
       if (externalStudents.length > 0) {
@@ -530,20 +526,20 @@ export class ImportService {
       }
 
       // Check if household still exists (might have been cascade-deleted)
-      const hh = await this.prisma.household.findUnique({
-        where: { id: rec.record_id },
-        select: { id: true },
-      });
-      if (!hh) {
+      const hhExists = await this.householdReadFacade.exists(tenantId, rec.record_id);
+      if (!hhExists) {
         deletedCount++;
         continue;
       }
 
-      await this.prisma.householdEmergencyContact.deleteMany({
-        where: { household_id: rec.record_id },
+      const rlsHousehold = createRlsClient(this.prisma, { tenant_id: tenantId });
+      await rlsHousehold.$transaction(async (tx) => {
+        await tx.householdEmergencyContact.deleteMany({
+          where: { household_id: rec.record_id },
+        });
+        await tx.householdParent.deleteMany({ where: { household_id: rec.record_id } });
+        await tx.household.delete({ where: { id: rec.record_id } });
       });
-      await this.prisma.householdParent.deleteMany({ where: { household_id: rec.record_id } });
-      await this.prisma.household.delete({ where: { id: rec.record_id } });
       deletedCount++;
     }
 

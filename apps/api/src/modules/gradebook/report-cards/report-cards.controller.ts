@@ -31,7 +31,6 @@ import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { PdfRenderingService } from '../../pdf-rendering/pdf-rendering.service';
 import { TenantReadFacade } from '../../tenants/tenant-read.facade';
-import { PrismaService } from '../../prisma/prisma.service';
 
 import { ReportCardsQueriesService } from './report-cards-queries.service';
 import { ReportCardsService } from './report-cards.service';
@@ -57,7 +56,6 @@ export class ReportCardsController {
     private readonly reportCardsService: ReportCardsService,
     private readonly reportCardsQueriesService: ReportCardsQueriesService,
     private readonly pdfRenderingService: PdfRenderingService,
-    private readonly prisma: PrismaService,
     private readonly tenantReadFacade: TenantReadFacade,
   ) {}
 
@@ -243,23 +241,11 @@ export class ReportCardsController {
   }
 
   private async loadBranding(tenantId: string) {
-    const tenant = await this.prisma.tenant.findFirst({
-      where: { id: tenantId },
-      select: { name: true },
-    });
-
-    const branding = await this.prisma.tenantBranding.findFirst({
-      where: { tenant_id: tenantId },
-      select: {
-        school_name_ar: true,
-        logo_url: true,
-        primary_color: true,
-        report_card_title: true,
-      },
-    });
+    const tenantName = await this.tenantReadFacade.findNameById(tenantId);
+    const branding = await this.tenantReadFacade.findBranding(tenantId);
 
     return {
-      school_name: tenant?.name ?? '',
+      school_name: tenantName ?? '',
       school_name_ar: branding?.school_name_ar ?? undefined,
       logo_url: branding?.logo_url ?? undefined,
       primary_color: branding?.primary_color ?? undefined,

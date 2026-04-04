@@ -372,4 +372,36 @@ export class PayrollReadFacade {
       ...(orderBy && { orderBy }),
     });
   }
+
+  /**
+   * Group staff attendance records by scalar fields with counts.
+   * Used by reports-data-access for staff attendance analytics.
+   */
+  async groupStaffAttendanceBy<K extends Prisma.StaffAttendanceRecordScalarFieldEnum>(
+    tenantId: string,
+    by: K[],
+    where?: Prisma.StaffAttendanceRecordWhereInput,
+  ): Promise<Array<Record<string, unknown> & { _count: number }>> {
+    const result = await this.prisma.staffAttendanceRecord.groupBy({
+      by,
+      where: { tenant_id: tenantId, ...where },
+      _count: true,
+    });
+    return result as unknown as Array<Record<string, unknown> & { _count: number }>;
+  }
+
+  /**
+   * Generic findMany for staff compensations with arbitrary where/select.
+   * Used by reports-data-access for compensation data queries.
+   */
+  async findCompensationsGeneric(
+    tenantId: string,
+    where?: Prisma.StaffCompensationWhereInput,
+    select?: Prisma.StaffCompensationSelect,
+  ): Promise<unknown[]> {
+    return this.prisma.staffCompensation.findMany({
+      where: { tenant_id: tenantId, ...where },
+      ...(select && { select }),
+    });
+  }
 }

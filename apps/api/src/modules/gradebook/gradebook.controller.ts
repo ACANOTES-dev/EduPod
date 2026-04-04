@@ -48,8 +48,8 @@ import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
-import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { AssessmentsService } from './assessments/assessments.service';
 import { BulkImportService } from './bulk-import.service';
@@ -174,7 +174,10 @@ export class GradebookController {
     // If user has enter_grades but NOT manage, filter to their assigned classes
     let assignedClassIds: string[] | undefined;
     if (!hasManage && staffProfileId) {
-      const classStaffRows = await this.classesReadFacade.findClassesByStaff(tenant.tenant_id, staffProfileId);
+      const classStaffRows = await this.classesReadFacade.findClassesByStaff(
+        tenant.tenant_id,
+        staffProfileId,
+      );
       assignedClassIds = classStaffRows.map((a) => a.class_id);
     }
 

@@ -23,7 +23,10 @@ import type {
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
 import { addValidatedJob } from '../../../common/utils/validated-job.util';
+import { ChildProtectionReadFacade } from '../../child-protection/child-protection-read.facade';
+import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RbacReadFacade } from '../../rbac/rbac-read.facade';
 
 import { ConcernAccessService } from './concern-access.service';
 import { ConcernProjectionService } from './concern-projection.service';
@@ -56,8 +59,16 @@ export class ConcernService {
     private readonly permissionCacheService: PermissionCacheService,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
     @InjectQueue('pastoral') private readonly pastoralQueue: Queue,
+    private readonly rbacReadFacade: RbacReadFacade,
+    private readonly childProtectionReadFacade: ChildProtectionReadFacade,
+    private readonly configurationReadFacade: ConfigurationReadFacade,
   ) {
-    this.accessService = new ConcernAccessService(this.prisma);
+    this.accessService = new ConcernAccessService(
+      this.prisma,
+      this.rbacReadFacade,
+      this.childProtectionReadFacade,
+      this.configurationReadFacade,
+    );
   }
 
   // ─── CREATE ─────────────────────────────────────────────────────────────────

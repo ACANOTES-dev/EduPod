@@ -5,16 +5,12 @@ import { Queue } from 'bullmq';
 
 import { pastoralTenantSettingsSchema } from '@school/shared/pastoral';
 
+import { ChildProtectionReadFacade } from '../../child-protection/child-protection-read.facade';
 import { NotificationsService } from '../../communications/notifications.service';
 import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
-
-import { ChildProtectionReadFacade } from '../../child-protection/child-protection-read.facade';
-
-import { RbacReadFacade } from '../../rbac/rbac-read.facade';
-
-import { StudentReadFacade } from '../../students/student-read.facade';
-
 import { PrismaService } from '../../prisma/prisma.service';
+import { RbacReadFacade } from '../../rbac/rbac-read.facade';
+import { StudentReadFacade } from '../../students/student-read.facade';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

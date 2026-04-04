@@ -1,10 +1,10 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PrismaService } from '../prisma/prisma.service';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { GradebookReadFacade } from '../gradebook/gradebook-read.facade';
+import { PrismaService } from '../prisma/prisma.service';
 
 import { CurriculumRequirementsService } from './curriculum-requirements.service';
 
@@ -26,7 +26,9 @@ const mockTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
@@ -57,38 +59,47 @@ describe('CurriculumRequirementsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        { provide: AcademicReadFacade, useValue: {
-      findCurrentYear: jest.fn().mockResolvedValue(null),
-      findCurrentYearId: jest.fn().mockResolvedValue('year-1'),
-      findYearById: jest.fn().mockResolvedValue(null),
-      findYearByIdOrThrow: jest.fn().mockResolvedValue('year-1'),
-      findSubjectByIdOrThrow: jest.fn().mockResolvedValue('subject-1'),
-      findYearGroupByIdOrThrow: jest.fn().mockResolvedValue('yg-1'),
-      findYearGroupsWithActiveClasses: jest.fn().mockResolvedValue([]),
-      findYearGroupsWithClassesAndCounts: jest.fn().mockResolvedValue([]),
-      findAllYearGroups: jest.fn().mockResolvedValue([]),
-      findSubjectsByIdsWithOrder: jest.fn().mockResolvedValue([]),
-      findSubjectById: jest.fn().mockResolvedValue(null),
-      findYearGroupById: jest.fn().mockResolvedValue(null),
-      findPeriodById: jest.fn().mockResolvedValue(null),
-    } },
-        { provide: ClassesReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
-      countEnrolledStudents: jest.fn().mockResolvedValue(0),
-      findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findByYearGroup: jest.fn().mockResolvedValue([]),
-      findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
-      countByAcademicYear: jest.fn().mockResolvedValue(0),
-      findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
-      findClassIdsForStudent: jest.fn().mockResolvedValue([]),
-      findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
-    } },
-        { provide: GradebookReadFacade, useValue: {
-      findClassSubjectConfigs: jest.fn().mockResolvedValue([]),
-    } },
+        {
+          provide: AcademicReadFacade,
+          useValue: {
+            findCurrentYear: jest.fn().mockResolvedValue(null),
+            findCurrentYearId: jest.fn().mockResolvedValue('year-1'),
+            findYearById: jest.fn().mockResolvedValue(null),
+            findYearByIdOrThrow: jest.fn().mockResolvedValue('year-1'),
+            findSubjectByIdOrThrow: jest.fn().mockResolvedValue('subject-1'),
+            findYearGroupByIdOrThrow: jest.fn().mockResolvedValue('yg-1'),
+            findYearGroupsWithActiveClasses: jest.fn().mockResolvedValue([]),
+            findYearGroupsWithClassesAndCounts: jest.fn().mockResolvedValue([]),
+            findAllYearGroups: jest.fn().mockResolvedValue([]),
+            findSubjectsByIdsWithOrder: jest.fn().mockResolvedValue([]),
+            findSubjectById: jest.fn().mockResolvedValue(null),
+            findYearGroupById: jest.fn().mockResolvedValue(null),
+            findPeriodById: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: ClassesReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
+            countEnrolledStudents: jest.fn().mockResolvedValue(0),
+            findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
+            findByAcademicYear: jest.fn().mockResolvedValue([]),
+            findByYearGroup: jest.fn().mockResolvedValue([]),
+            findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
+            countByAcademicYear: jest.fn().mockResolvedValue(0),
+            findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
+            findClassIdsForStudent: jest.fn().mockResolvedValue([]),
+            findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: GradebookReadFacade,
+          useValue: {
+            findClassSubjectConfigs: jest.fn().mockResolvedValue([]),
+          },
+        },
         CurriculumRequirementsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -104,7 +115,11 @@ describe('CurriculumRequirementsService', () => {
   describe('list', () => {
     it('should return paginated curriculum requirements', async () => {
       const records = [
-        { id: CR_ID, subject: { id: SUBJECT_ID, name: 'Math' }, year_group: { id: YG_ID, name: 'Y1' } },
+        {
+          id: CR_ID,
+          subject: { id: SUBJECT_ID, name: 'Math' },
+          year_group: { id: YG_ID, name: 'Y1' },
+        },
       ];
       mockPrisma.curriculumRequirement.findMany.mockResolvedValue(records);
       mockPrisma.curriculumRequirement.count.mockResolvedValue(1);
@@ -141,7 +156,11 @@ describe('CurriculumRequirementsService', () => {
       mockPrisma.curriculumRequirement.findMany.mockResolvedValue([]);
       mockPrisma.curriculumRequirement.count.mockResolvedValue(0);
 
-      const result = await service.list(TENANT_ID, { page: 1, pageSize: 20, academic_year_id: AY_ID });
+      const result = await service.list(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        academic_year_id: AY_ID,
+      });
 
       expect(result.data).toHaveLength(0);
       expect(result.meta.total).toBe(0);
@@ -338,9 +357,9 @@ describe('CurriculumRequirementsService', () => {
         .mockResolvedValueOnce({ id: AY_ID })
         .mockResolvedValueOnce(null);
 
-      await expect(
-        service.copyFromAcademicYear(TENANT_ID, AY_ID, 'nonexistent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.copyFromAcademicYear(TENANT_ID, AY_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException when source has no data', async () => {
@@ -349,9 +368,9 @@ describe('CurriculumRequirementsService', () => {
         .mockResolvedValueOnce({ id: AY_ID_TARGET });
       mockPrisma.curriculumRequirement.findMany.mockResolvedValue([]);
 
-      await expect(
-        service.copyFromAcademicYear(TENANT_ID, AY_ID, AY_ID_TARGET),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.copyFromAcademicYear(TENANT_ID, AY_ID, AY_ID_TARGET)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

@@ -8,7 +8,7 @@ import {
 
 import type { JwtPayload } from '@school/shared';
 
-import { PrismaService } from '../../prisma/prisma.service';
+import { RbacReadFacade } from '../../rbac/rbac-read.facade';
 import { RedisService } from '../../redis/redis.service';
 
 const REDIS_KEY = 'platform_owner_user_ids';
@@ -33,7 +33,7 @@ const CACHE_TTL = 300; // 5 minutes
 export class PlatformOwnerGuard implements CanActivate {
   constructor(
     private readonly redis: RedisService,
-    private readonly prisma: PrismaService,
+    private readonly rbacReadFacade: RbacReadFacade,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -69,9 +69,7 @@ export class PlatformOwnerGuard implements CanActivate {
 
     // Set doesn't contain user — try to rebuild from DB in case seed was re-run
     // Find the platform_owner role (global, tenant_id = null)
-    const platformRole = await this.prisma.role.findFirst({
-      where: { role_key: 'school_owner', tenant_id: null },
-    });
+    const platformRole = await this.rbacReadFacade.findSystemRoleByKey('school_owner');
 
     if (!platformRole) {
       await client.setex(userCacheKey, CACHE_TTL, 'false');

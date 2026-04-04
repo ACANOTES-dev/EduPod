@@ -3,7 +3,6 @@ import type { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { ChildProtectionReadFacade } from '../../child-protection/child-protection-read.facade';
-
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -51,7 +50,7 @@ export interface ChronologyFilters {
   page: number;
   pageSize: number;
   from?: string; // ISO date string
-  to?: string;   // ISO date string
+  to?: string; // ISO date string
   event_type?: string;
   entity_type?: ChronologyEntityType;
 }
@@ -169,9 +168,7 @@ function numOrDefault(value: unknown, fallback: string): string | number {
  * Maps an event_type to its corresponding ChronologyEntityType.
  * Falls back to the entity_type field from the event record.
  */
-function resolveEntityType(
-  eventEntityType: string,
-): ChronologyEntityType {
+function resolveEntityType(eventEntityType: string): ChronologyEntityType {
   const mapping: Record<string, ChronologyEntityType> = {
     concern: 'concern',
     case: 'case',
@@ -190,8 +187,10 @@ function resolveEntityType(
 export class StudentChronologyService {
   private readonly logger = new Logger(StudentChronologyService.name);
 
-  constructor(private readonly prisma: PrismaService,
-    private readonly childProtectionReadFacade: ChildProtectionReadFacade) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly childProtectionReadFacade: ChildProtectionReadFacade,
+  ) {}
 
   /**
    * Returns the complete pastoral timeline for a student, merging events
@@ -268,9 +267,7 @@ export class StudentChronologyService {
         db.pastoralEvent.count({ where }),
       ]);
 
-      const data = (events as PastoralEventRow[]).map((event) =>
-        this.toChronologyEntry(event),
-      );
+      const data = (events as PastoralEventRow[]).map((event) => this.toChronologyEntry(event));
 
       return {
         data,
@@ -285,11 +282,10 @@ export class StudentChronologyService {
    * Checks whether a user has an active (non-revoked) CP access grant.
    * This determines DLP status for tier 3 visibility.
    */
-  private async checkCpAccess(
-    tenantId: string,
-    userId: string,
-  ): Promise<boolean> {
-    const grant = await this.childProtectionReadFacade.hasActiveCpAccess(tenantId, userId) ? { id: "active" } : null;
+  private async checkCpAccess(tenantId: string, userId: string): Promise<boolean> {
+    const grant = (await this.childProtectionReadFacade.hasActiveCpAccess(tenantId, userId))
+      ? { id: 'active' }
+      : null;
 
     return !!grant;
   }

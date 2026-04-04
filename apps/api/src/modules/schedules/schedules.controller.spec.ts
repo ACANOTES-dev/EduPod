@@ -5,10 +5,10 @@ import type { JwtPayload, TenantContext } from '@school/shared';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
+import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { RoomsReadFacade } from '../rooms/rooms-read.facade';
 import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
-import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
 
 import { SchedulesController } from './schedules.controller';
 import { SchedulesService } from './schedules.service';
@@ -68,42 +68,54 @@ describe('SchedulesController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SchedulesController],
       providers: [
-        { provide: ClassesReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
-      countEnrolledStudents: jest.fn().mockResolvedValue(0),
-      findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findByYearGroup: jest.fn().mockResolvedValue([]),
-      findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
-      countByAcademicYear: jest.fn().mockResolvedValue(0),
-      findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
-      findClassIdsForStudent: jest.fn().mockResolvedValue([]),
-      findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
-    } },
-        { provide: RoomsReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      exists: jest.fn().mockResolvedValue(false),
-      findActiveRooms: jest.fn().mockResolvedValue([]),
-      findActiveRoomBasics: jest.fn().mockResolvedValue([]),
-      countActiveRooms: jest.fn().mockResolvedValue(0),
-      findAllClosures: jest.fn().mockResolvedValue([]),
-      findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
-      findClosureById: jest.fn().mockResolvedValue(null),
-    } },
-        { provide: StaffProfileReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findByIds: jest.fn().mockResolvedValue([]),
-      findByUserId: jest.fn().mockResolvedValue(null),
-      findActiveStaff: jest.fn().mockResolvedValue([]),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
-    } },
-        { provide: AttendanceReadFacade, useValue: {
-      countSessions: jest.fn().mockResolvedValue(0),
-    } },
+        {
+          provide: ClassesReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
+            countEnrolledStudents: jest.fn().mockResolvedValue(0),
+            findOtherClassEnrolmentsForStudents: jest.fn().mockResolvedValue([]),
+            findByAcademicYear: jest.fn().mockResolvedValue([]),
+            findByYearGroup: jest.fn().mockResolvedValue([]),
+            findIdsByAcademicYear: jest.fn().mockResolvedValue([]),
+            countByAcademicYear: jest.fn().mockResolvedValue(0),
+            findClassesWithoutTeachers: jest.fn().mockResolvedValue([]),
+            findClassIdsForStudent: jest.fn().mockResolvedValue([]),
+            findEnrolmentPairsForAcademicYear: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: RoomsReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            exists: jest.fn().mockResolvedValue(false),
+            findActiveRooms: jest.fn().mockResolvedValue([]),
+            findActiveRoomBasics: jest.fn().mockResolvedValue([]),
+            countActiveRooms: jest.fn().mockResolvedValue(0),
+            findAllClosures: jest.fn().mockResolvedValue([]),
+            findClosuresPaginated: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+            findClosureById: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: StaffProfileReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            findByIds: jest.fn().mockResolvedValue([]),
+            findByUserId: jest.fn().mockResolvedValue(null),
+            findActiveStaff: jest.fn().mockResolvedValue([]),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
+          },
+        },
+        {
+          provide: AttendanceReadFacade,
+          useValue: {
+            countSessions: jest.fn().mockResolvedValue(0),
+          },
+        },
         { provide: SchedulesService, useValue: mockService },
         { provide: PermissionCacheService, useValue: mockPermissionCache },
       ],
