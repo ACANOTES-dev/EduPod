@@ -104,6 +104,12 @@
       "reason": "SELECT FOR UPDATE lock ordering within RLS transaction for household operations"
     },
     {
+      "file": "apps/api/src/modules/households/households-structural.service.ts",
+      "methods": ["$queryRaw"],
+      "category": "select-for-update",
+      "reason": "SELECT FOR UPDATE lock ordering within RLS transaction for household merge/split operations (extracted from households.service.ts)"
+    },
+    {
       "file": "apps/api/src/modules/pastoral/services/concern-version.service.ts",
       "methods": ["$queryRaw"],
       "category": "select-for-update",
