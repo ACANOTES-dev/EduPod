@@ -145,7 +145,7 @@ jobs:
           REDIS_URL: redis://localhost:6379
 
       - name: Run integration and e2e tests
-        run: pnpm --filter @school/api run test:integration
+        run: NODE_OPTIONS="--max-old-space-size=6144" pnpm --filter @school/api run test:integration
         env:
           API_PORT: '0'
           APP_URL: http://localhost:3000
