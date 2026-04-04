@@ -425,10 +425,10 @@ export class AcademicReadFacade {
   async findSubjectById(
     tenantId: string,
     subjectId: string,
-  ): Promise<{ id: string; name: string; code: string | null } | null> {
+  ): Promise<{ id: string; name: string; code: string | null; subject_type: string } | null> {
     return this.prisma.subject.findFirst({
       where: { id: subjectId, tenant_id: tenantId },
-      select: { id: true, name: true, code: true },
+      select: { id: true, name: true, code: true, subject_type: true },
     });
   }
 

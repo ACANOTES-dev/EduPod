@@ -7,8 +7,10 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import { HomeworkAnalyticsService } from './homework-analytics.service';
 import { HomeworkCompletionAnalyticsService } from './homework-completion-analytics.service';
@@ -34,12 +36,14 @@ describe('Homework Performance Load Tests', () => {
   beforeAll(async () => {
     module = await Test.createTestingModule({
       providers: [
-        ...MOCK_FACADE_PROVIDERS,
         HomeworkAnalyticsService,
         HomeworkCompletionAnalyticsService,
         HomeworkLoadAnalyticsService,
         HomeworkStudentAnalyticsService,
         PrismaService,
+        AcademicReadFacade,
+        ClassesReadFacade,
+        StudentReadFacade,
       ],
     }).compile();
 

@@ -54,7 +54,7 @@ export class AssessmentsService {
       });
     }
 
-    if ((subject as { subject_type?: string }).subject_type !== 'academic') {
+    if (subject.subject_type !== 'academic') {
       throw new BadRequestException({
         code: 'SUBJECT_NOT_ACADEMIC',
         message: 'Assessments can only be created for academic subjects',
