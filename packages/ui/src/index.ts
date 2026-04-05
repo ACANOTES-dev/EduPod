@@ -76,3 +76,4 @@ export { CommandPalette, type CommandPaletteGroup } from './components/command-p
 export { ToastProvider } from './components/toast-provider';
 export { toast } from 'sonner';
 export { TipTapEditor } from './components/tiptap-editor';
+export * from './components/morph-bar';

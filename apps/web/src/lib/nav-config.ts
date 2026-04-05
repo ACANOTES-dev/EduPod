@@ -247,3 +247,123 @@ export function filterNavForRoles(
     }))
     .filter((section) => section.items.length > 0);
 }
+
+// ─── Hub configurations (Morph Bar) ──────────────────────────────────────────
+
+export interface HubConfig {
+  key: string;
+  labelKey: string;
+  basePaths: string[];
+  roles?: RoleKey[];
+}
+
+export const hubConfigs: HubConfig[] = [
+  {
+    key: 'home',
+    labelKey: 'nav.home',
+    basePaths: ['/dashboard'],
+  },
+  {
+    key: 'people',
+    labelKey: 'nav.people',
+    basePaths: ['/students', '/staff', '/households'],
+    roles: STAFF_ROLES,
+  },
+  {
+    key: 'learning',
+    labelKey: 'nav.learning',
+    basePaths: [
+      '/classes',
+      '/subjects',
+      '/curriculum-matrix',
+      '/class-assignments',
+      '/attendance',
+      '/gradebook',
+      '/homework',
+      '/report-cards',
+      '/promotion',
+      '/diary',
+    ],
+    roles: [...STAFF_ROLES, 'parent'],
+  },
+  {
+    key: 'operations',
+    labelKey: 'nav.operations',
+    basePaths: ['/admissions', '/communications', '/approvals', '/scheduling', '/rooms'],
+    roles: STAFF_ROLES,
+  },
+  {
+    key: 'finance',
+    labelKey: 'nav.finance',
+    basePaths: ['/finance', '/payroll'],
+    roles: [...ADMIN_ROLES, 'parent'],
+  },
+  {
+    key: 'reports',
+    labelKey: 'nav.reports',
+    basePaths: ['/reports'],
+  },
+  {
+    key: 'settings',
+    labelKey: 'nav.settings',
+    basePaths: ['/settings', '/closures', '/behaviour/settings', '/website'],
+    roles: ADMIN_ROLES,
+  },
+];
+
+// ─── Sub-strip configurations (Contextual tabs) ──────────────────────────────
+
+export interface SubStripTabConfig {
+  labelKey: string;
+  href: string;
+  overflow?: boolean;
+  roles?: RoleKey[];
+}
+
+export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
+  people: [
+    { labelKey: 'nav.students', href: '/students' },
+    { labelKey: 'nav.staff', href: '/staff', roles: ADMIN_ROLES },
+    { labelKey: 'nav.households', href: '/households', roles: ADMIN_ROLES },
+  ],
+  learning: [
+    { labelKey: 'nav.classes', href: '/classes' },
+    { labelKey: 'nav.attendance', href: '/attendance' },
+    { labelKey: 'nav.gradebook', href: '/gradebook' },
+    { labelKey: 'nav.reportCards', href: '/report-cards' },
+    { labelKey: 'nav.subjects', href: '/subjects', overflow: true, roles: ADMIN_ROLES },
+    { labelKey: 'nav.curriculum', href: '/curriculum-matrix', overflow: true, roles: ADMIN_ROLES },
+    { labelKey: 'nav.classAssignments', href: '/class-assignments', overflow: true },
+    { labelKey: 'nav.promotion', href: '/promotion', overflow: true, roles: ADMIN_ROLES },
+  ],
+  operations: [
+    { labelKey: 'nav.admissions', href: '/admissions' },
+    { labelKey: 'nav.communications', href: '/communications' },
+    { labelKey: 'nav.approvals', href: '/approvals' },
+    { labelKey: 'nav.scheduling', href: '/scheduling', overflow: true },
+    { labelKey: 'nav.rooms', href: '/rooms', overflow: true },
+  ],
+  finance: [
+    { labelKey: 'nav.financeOverview', href: '/finance' },
+    { labelKey: 'nav.feeStructures', href: '/finance/fee-structures' },
+    { labelKey: 'nav.invoices', href: '/finance/invoices' },
+    { labelKey: 'nav.payments', href: '/finance/payments' },
+    { labelKey: 'nav.credits', href: '/finance/credit-notes' },
+    { labelKey: 'nav.refunds', href: '/finance/refunds' },
+    { labelKey: 'nav.paymentPlans', href: '/finance/payment-plans' },
+    { labelKey: 'nav.statements', href: '/finance/statements' },
+    { labelKey: 'nav.financeReports', href: '/finance/reports' },
+    { labelKey: 'nav.audit', href: '/finance/audit', overflow: true },
+    { labelKey: 'nav.scholarships', href: '/finance/scholarships', overflow: true },
+    { labelKey: 'nav.discounts', href: '/finance/discounts', overflow: true },
+    { labelKey: 'nav.feeAssignments', href: '/finance/fee-assignments', overflow: true },
+  ],
+  reports: [],
+  settings: [
+    { labelKey: 'nav.generalSettings', href: '/settings' },
+    { labelKey: 'nav.behaviourSettings', href: '/behaviour/settings', overflow: true },
+    { labelKey: 'nav.roles', href: '/settings/roles' },
+    { labelKey: 'nav.closures', href: '/closures', overflow: true },
+    { labelKey: 'nav.website', href: '/website', overflow: true },
+  ],
+};

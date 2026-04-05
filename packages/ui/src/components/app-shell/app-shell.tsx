@@ -5,22 +5,22 @@ import * as React from 'react';
 import { cn } from '../../lib/utils';
 
 interface AppShellProps {
-  sidebar: React.ReactNode;
-  topBar: React.ReactNode;
+  morphBar?: React.ReactNode;
+  subStrip?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }
 
-export function AppShell({ sidebar, topBar, children, className }: AppShellProps) {
+export function AppShell({ morphBar, subStrip, children, className }: AppShellProps) {
   return (
-    <div className={cn('flex h-screen bg-background', className)}>
-      {sidebar}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {topBar}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          <div className="mx-auto max-w-content">{children}</div>
-        </main>
-      </div>
+    <div className={cn('flex flex-col h-screen bg-background', className)}>
+      {morphBar}
+      {subStrip}
+      <main className="flex-1 overflow-y-auto w-full relative p-4 sm:p-6 lg:p-8">
+        <div className="mx-auto max-w-content h-full">
+          {children}
+        </div>
+      </main>
     </div>
   );
 }

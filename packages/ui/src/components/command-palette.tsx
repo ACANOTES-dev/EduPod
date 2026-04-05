@@ -41,16 +41,16 @@ export function CommandPalette({
   open,
   onOpenChange,
   groups = [],
-  placeholder = 'Search...',
+  placeholder = 'Search students, invoices, staff...',
   emptyMessage = 'No results found.',
   className,
   onQueryChange,
 }: CommandPaletteProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn('overflow-hidden p-0 max-w-lg', className)}>
+      <DialogContent className={cn('overflow-hidden p-0 max-w-[520px] bg-[#1C1917] border border-[var(--color-strip-border)] sm:rounded-[20px] shadow-2xl', className)}>
         <DialogTitle className="sr-only">Search</DialogTitle>
-        <Command className="rounded-xl" shouldFilter={!onQueryChange}>
+        <Command shouldFilter={!onQueryChange}>
           <CommandInput placeholder={placeholder} onValueChange={onQueryChange} />
           <CommandList>
             <CommandEmpty>{emptyMessage}</CommandEmpty>
@@ -64,11 +64,11 @@ export function CommandPalette({
                       onOpenChange(false);
                     }}
                   >
-                    {item.icon && <span className="me-2 flex-shrink-0">{item.icon}</span>}
-                    <div>
-                      <p className="text-sm font-medium">{item.label}</p>
+                    {item.icon && <span className="me-3 flex-shrink-0 text-[var(--color-strip-text)] opacity-70">{item.icon}</span>}
+                    <div className="flex flex-col gap-0.5">
+                      <p className="font-medium text-[14px] leading-none">{item.label}</p>
                       {item.description && (
-                        <p className="text-xs text-text-tertiary">{item.description}</p>
+                        <p className="text-[12px] opacity-60 leading-none">{item.description}</p>
                       )}
                     </div>
                   </CommandItem>

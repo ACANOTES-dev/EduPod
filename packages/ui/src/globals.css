@@ -4,74 +4,200 @@
 
 @layer base {
   :root {
-    /* Background & Surface — Light */
-    --color-background: #FEFDFB;
-    --color-surface: #FFFFFF;
-    --color-surface-secondary: #F5F5F4;
-    --color-border: #E7E5E4;
-    --color-border-strong: #D6D3D1;
+    /* Background & Surface */
+    --color-background: #faf9f7;
+    --color-surface: #ffffff;
+    --color-surface-secondary: #f5f4f1;
+    --color-surface-hover: #f0efec;
+    --color-border: #e7e5e1;
+    --color-border-strong: #d6d3ce;
 
-    /* Text — Light */
-    --color-text-primary: #1C1917;
-    --color-text-secondary: #78716C;
-    --color-text-tertiary: #A8A29E;
+    /* Text */
+    --color-text-primary: #1c1917;
+    --color-text-secondary: #6b6560;
+    --color-text-tertiary: #9c9590;
 
-    /* Primary — Emerald Light */
-    --color-primary-50: #ECFDF5;
-    --color-primary-100: #D1FAE5;
-    --color-primary-500: #10B981;
+    /* Primary — Emerald */
+    --color-primary-50: #ecfdf5;
+    --color-primary-100: #d1fae5;
+    --color-primary-500: #10b981;
     --color-primary-600: #059669;
     --color-primary-700: #047857;
-    --color-primary-800: #065F46;
-    --color-primary-900: #064E3B;
+    --color-primary-800: #065f46;
+    --color-primary-900: #064e3b;
 
-    /* Semantic — Light */
-    --color-success-fill: #ECFDF5;
-    --color-success-text: #065F46;
-    --color-warning-fill: #FFFBEB;
-    --color-warning-text: #92400E;
-    --color-danger-fill: #FFF1F2;
-    --color-danger-text: #9F1239;
-    --color-info-fill: #EFF6FF;
-    --color-info-text: #1E40AF;
+    /* Morph Bar */
+    --color-bar-bg: #1c1917;
+    --color-bar-text: rgba(250, 250, 249, 0.5);
+    --color-bar-text-active: #6ee7b7;
+    --color-bar-active-bg: rgba(16, 185, 129, 0.2);
 
-    /* Radius */
-    --radius-sm: 6px;
-    --radius-md: 8px;
-    --radius-lg: 12px;
-    --radius-xl: 16px;
+    /* Sub-Strip */
+    --color-strip-bg: #292524;
+    --color-strip-text: rgba(250, 250, 249, 0.4);
+    --color-strip-text-active: #fafaf9;
+    --color-strip-active-bg: rgba(255, 255, 255, 0.1);
+    --color-strip-border: #3f3b39;
+
+    /* Semantic */
+    --color-success-fill: #ecfdf5;
+    --color-success-text: #065f46;
+    --color-warning-fill: #fffbeb;
+    --color-warning-text: #92400e;
+    --color-danger-fill: #fff1f2;
+    --color-danger-text: #9f1239;
+    --color-danger-dot: #f43f5e;
+    --color-info-fill: #eff6ff;
+    --color-info-text: #1e40af;
+
+    /* Button */
+    --color-btn-primary-text: #ffffff;
+
+    /* Radius — updated to spec */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --radius-pill: 9999px;
+
+    /* Fonts */
+    --font-sans: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --font-arabic: 'Noto Sans Arabic', 'Segoe UI', system-ui, sans-serif;
+  }
+
+  [dir='rtl'] {
+    font-family: var(--font-arabic);
   }
 
   .dark {
-    /* Background & Surface — Dark */
-    --color-background: #0C0A09;
-    --color-surface: #1C1917;
-    --color-surface-secondary: #292524;
-    --color-border: #44403C;
-    --color-border-strong: #57534E;
+    /* Background & Surface */
+    --color-background: #1a1816;
+    --color-surface: #242120;
+    --color-surface-secondary: #2d2926;
+    --color-surface-hover: #353130;
+    --color-border: #3a3532;
+    --color-border-strong: #4a4440;
 
-    /* Text — Dark */
-    --color-text-primary: #FAFAF9;
-    --color-text-secondary: #A8A29E;
-    --color-text-tertiary: #78716C;
+    /* Text */
+    --color-text-primary: #f5f0eb;
+    --color-text-secondary: #c8c0b8;
+    --color-text-tertiary: #9c9590;
 
     /* Primary — Emerald Dark */
-    --color-primary-50: #052e1c;
-    --color-primary-100: #064e3b;
-    --color-primary-500: #10B981;
-    --color-primary-600: #34D399;
-    --color-primary-700: #6EE7B7;
-    --color-primary-800: #A7F3D0;
-    --color-primary-900: #D1FAE5;
+    --color-primary-50: rgba(16, 185, 129, 0.1);
+    --color-primary-100: rgba(16, 185, 129, 0.15);
+    --color-primary-500: #10b981;
+    --color-primary-600: #34d399;
+    --color-primary-700: #6ee7b7;
+    --color-primary-800: #047857;
+    --color-primary-900: #064e3b;
 
-    /* Semantic — Dark */
-    --color-success-fill: #064E3B;
-    --color-success-text: #6EE7B7;
-    --color-warning-fill: #78350F;
-    --color-warning-text: #FCD34D;
-    --color-danger-fill: #881337;
-    --color-danger-text: #FDA4AF;
-    --color-info-fill: #1E3A5F;
-    --color-info-text: #93C5FD;
+    /* Morph Bar */
+    --color-bar-bg: #12100e;
+    --color-bar-text: rgba(245, 240, 235, 0.4);
+    --color-bar-text-active: #6ee7b7;
+    --color-bar-active-bg: rgba(16, 185, 129, 0.2);
+
+    /* Sub-Strip */
+    --color-strip-bg: #1e1b19;
+    --color-strip-text: rgba(245, 240, 235, 0.35);
+    --color-strip-text-active: #f5f0eb;
+    --color-strip-active-bg: rgba(255, 255, 255, 0.08);
+    --color-strip-border: #2a2623;
+
+    /* Semantic */
+    --color-success-fill: rgba(16, 185, 129, 0.1);
+    --color-success-text: #6ee7b7;
+    --color-warning-fill: rgba(245, 158, 11, 0.1);
+    --color-warning-text: #fbbf24;
+    --color-danger-fill: rgba(244, 63, 94, 0.1);
+    --color-danger-text: #fb7185;
+    --color-danger-dot: #fb7185;
+    --color-info-fill: rgba(59, 130, 246, 0.1);
+    --color-info-text: #60a5fa;
+
+    /* Button */
+    --color-btn-primary-text: #ffffff;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────────
+ * Chunk 10 — Polish Pass: Animations & Transitions
+ * ────────────────────────────────────────────────────────────────────────────── */
+
+/* Live Pulse Dot for Greeting Row */
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.3);
+  }
+}
+
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--color-primary-500);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Skeleton Shimmer */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-secondary) 25%,
+    var(--color-surface-hover) 50%,
+    var(--color-surface-secondary) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite;
+}
+
+/* Page fade-in macro */
+.page-fade-in {
+  animation: pageFadeIn 150ms ease-out forwards;
+}
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Focus States */
+*:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+header *:focus-visible,
+.sub-strip *:focus-visible {
+  outline: 2px solid var(--color-bar-text-active, #ffffff);
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
