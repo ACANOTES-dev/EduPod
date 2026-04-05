@@ -37,16 +37,15 @@ run_as_pm2_user() {
 restore_pm2_services() {
   local release_sha="$1"
 
+  # Delete and re-create from ecosystem config to ensure PM2 always reads
+  # fresh exec_mode/instances settings.  startOrGracefulReload caches stale
+  # config from the PM2 dump, which caused cluster-mode crashes on Node 24.
+  run_as_pm2_user pm2 delete all 2>/dev/null || true
   run_as_pm2_user env \
     APP_DIR="$APP_DIR" \
     SENTRY_ENVIRONMENT="$SENTRY_ENVIRONMENT" \
     SENTRY_RELEASE="$release_sha" \
-    pm2 startOrGracefulReload "$PM2_ECOSYSTEM_FILE" --only api,web --update-env
-  run_as_pm2_user env \
-    APP_DIR="$APP_DIR" \
-    SENTRY_ENVIRONMENT="$SENTRY_ENVIRONMENT" \
-    SENTRY_RELEASE="$release_sha" \
-    pm2 restart "$PM2_ECOSYSTEM_FILE" --only worker --update-env
+    pm2 start "$PM2_ECOSYSTEM_FILE" --update-env
   run_as_pm2_user pm2 save
   run_as_pm2_user pm2 list
 }
