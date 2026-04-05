@@ -30,6 +30,11 @@ export type RlsContext = {
   tenant_domain?: string;
 };
 
+// The bootstrap RLS policies cast all three settings to UUID, so missing values
+// must still be valid UUIDs or PostgreSQL can raise 22P02 before the intended
+// fallback policy branch is evaluated.
+const RLS_UUID_SENTINEL = SYSTEM_USER_SENTINEL;
+
 function validateUuid(value: string | undefined, label: string): void {
   if (value !== undefined && !UUID_RE.test(value)) {
     throw new Error(`Invalid ${label} format: ${value}`);
@@ -47,24 +52,17 @@ function validateRlsContext(context: RlsContext): void {
 }
 
 async function applyRlsContext(tx: RlsPrismaTransaction, context: RlsContext): Promise<void> {
-  if (context.tenant_id) {
-    await tx.$executeRawUnsafe(
-      `SELECT set_config('app.current_tenant_id', $1, true)`,
-      context.tenant_id,
-    );
-  }
+  const tenantId = context.tenant_id ?? RLS_UUID_SENTINEL;
+  await tx.$executeRawUnsafe(`SELECT set_config('app.current_tenant_id', $1, true)`, tenantId);
 
-  const userId = context.user_id ?? (context.tenant_id ? SYSTEM_USER_SENTINEL : undefined);
-  if (userId) {
-    await tx.$executeRawUnsafe(`SELECT set_config('app.current_user_id', $1, true)`, userId);
-  }
+  const userId = context.user_id ?? SYSTEM_USER_SENTINEL;
+  await tx.$executeRawUnsafe(`SELECT set_config('app.current_user_id', $1, true)`, userId);
 
-  if (context.membership_id) {
-    await tx.$executeRawUnsafe(
-      `SELECT set_config('app.current_membership_id', $1, true)`,
-      context.membership_id,
-    );
-  }
+  const membershipId = context.membership_id ?? RLS_UUID_SENTINEL;
+  await tx.$executeRawUnsafe(
+    `SELECT set_config('app.current_membership_id', $1, true)`,
+    membershipId,
+  );
 
   if (context.tenant_domain) {
     await tx.$executeRawUnsafe(

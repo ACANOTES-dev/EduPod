@@ -507,6 +507,8 @@ Consent changes are user-facing and must take effect immediately. This means con
 
 There is a second coupling inside the remediation path itself: `DpaService.getCurrentVersion()` calls `PlatformLegalService.ensureSeeded()`, and that seed path also writes sub-processor update notifications. The notification row's `source_entity_id` column is UUID-typed, so those writes must store the register version record UUID, not the human-readable version string. If legal seeding crashes here, `/api/v1/legal/dpa/*` fails and every DPA-gated page stays locked out.
 
+Bootstrap RLS reads for `/auth/*` and `/legal/*` are also brittle if any UUID-backed app settings are left unset. Policies on `tenant_domains`, `tenant_memberships`, `membership_roles`, and `role_permissions` cast `app.current_tenant_id`, `app.current_user_id`, and `app.current_membership_id` to UUID even during fallback reads, so bootstrap transactions must populate valid sentinel UUIDs for missing settings rather than leaving them empty.
+
 There is also a Jest-only bypass (`NODE_ENV === 'test' || JEST_WORKER_ID`) so legacy suites are not globally bricked by the new guard. Tests that need real guard behaviour must explicitly unset those env vars inside the spec.
 
 **Mitigation**: Treat guard allowlist edits as cross-cutting changes. When adding tenant-scoped endpoints used during onboarding or legal recovery, verify they remain reachable before DPA acceptance. Keep legal seed side effects schema-safe, and regression-test the notification write path whenever `PlatformLegalService` changes. When writing guard-specific tests, temporarily disable the test env bypass inside the test process.

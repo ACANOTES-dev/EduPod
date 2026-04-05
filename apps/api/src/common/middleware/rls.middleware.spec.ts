@@ -54,9 +54,20 @@ describe('RLS Middleware', () => {
       // Just verify the transaction runs
     });
 
-    expect(mockTx.$executeRawUnsafe).toHaveBeenCalledWith(
+    expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
+      1,
       `SELECT set_config('app.current_tenant_id', $1, true)`,
       '22222222-2222-2222-2222-222222222222',
+    );
+    expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
+      2,
+      `SELECT set_config('app.current_user_id', $1, true)`,
+      SYSTEM_USER_SENTINEL,
+    );
+    expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
+      3,
+      `SELECT set_config('app.current_membership_id', $1, true)`,
+      SYSTEM_USER_SENTINEL,
     );
   });
 
@@ -90,8 +101,8 @@ describe('RLS Middleware', () => {
       // transaction body
     });
 
-    // Should set tenant_id first, then user_id
-    expect(mockTx.$executeRawUnsafe).toHaveBeenCalledTimes(2);
+    // Should set tenant_id first, then user_id, then membership sentinel
+    expect(mockTx.$executeRawUnsafe).toHaveBeenCalledTimes(3);
     expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
       1,
       `SELECT set_config('app.current_tenant_id', $1, true)`,
@@ -101,6 +112,11 @@ describe('RLS Middleware', () => {
       2,
       `SELECT set_config('app.current_user_id', $1, true)`,
       '33333333-3333-3333-3333-333333333333',
+    );
+    expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
+      3,
+      `SELECT set_config('app.current_membership_id', $1, true)`,
+      SYSTEM_USER_SENTINEL,
     );
   });
 
@@ -133,11 +149,16 @@ describe('RLS Middleware', () => {
       // transaction body
     });
 
-    // Should set user_id to sentinel value
-    expect(mockTx.$executeRawUnsafe).toHaveBeenCalledTimes(2);
+    // Should set user_id and membership_id to sentinel values
+    expect(mockTx.$executeRawUnsafe).toHaveBeenCalledTimes(3);
     expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
       2,
       `SELECT set_config('app.current_user_id', $1, true)`,
+      SYSTEM_USER_SENTINEL,
+    );
+    expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
+      3,
+      `SELECT set_config('app.current_membership_id', $1, true)`,
       SYSTEM_USER_SENTINEL,
     );
   });
@@ -165,7 +186,7 @@ describe('RLS Middleware', () => {
     ).toThrow('Invalid user_id format: not-a-uuid');
   });
 
-  it('should set current_user_id without requiring tenant_id', async () => {
+  it('should set bootstrap sentinels when only user_id is provided', async () => {
     const mockTx = {
       $executeRawUnsafe: jest.fn().mockResolvedValue(undefined),
     };
@@ -179,14 +200,25 @@ describe('RLS Middleware', () => {
       async () => undefined,
     );
 
-    expect(mockTx.$executeRawUnsafe).toHaveBeenCalledTimes(1);
-    expect(mockTx.$executeRawUnsafe).toHaveBeenCalledWith(
+    expect(mockTx.$executeRawUnsafe).toHaveBeenCalledTimes(3);
+    expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
+      1,
+      `SELECT set_config('app.current_tenant_id', $1, true)`,
+      SYSTEM_USER_SENTINEL,
+    );
+    expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
+      2,
       `SELECT set_config('app.current_user_id', $1, true)`,
       '33333333-3333-3333-3333-333333333333',
     );
+    expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
+      3,
+      `SELECT set_config('app.current_membership_id', $1, true)`,
+      SYSTEM_USER_SENTINEL,
+    );
   });
 
-  it('should set tenant_domain and membership_id when provided', async () => {
+  it('should set tenant_domain, membership_id, and tenant/user sentinels when provided', async () => {
     const mockTx = {
       $executeRawUnsafe: jest.fn().mockResolvedValue(undefined),
     };
@@ -203,16 +235,63 @@ describe('RLS Middleware', () => {
       async () => undefined,
     );
 
-    expect(mockTx.$executeRawUnsafe).toHaveBeenCalledTimes(2);
+    expect(mockTx.$executeRawUnsafe).toHaveBeenCalledTimes(4);
     expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
       1,
+      `SELECT set_config('app.current_tenant_id', $1, true)`,
+      SYSTEM_USER_SENTINEL,
+    );
+    expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
+      2,
+      `SELECT set_config('app.current_user_id', $1, true)`,
+      SYSTEM_USER_SENTINEL,
+    );
+    expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
+      3,
       `SELECT set_config('app.current_membership_id', $1, true)`,
       '44444444-4444-4444-4444-444444444444',
     );
     expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
-      2,
+      4,
       `SELECT set_config('app.current_tenant_domain', $1, true)`,
       'al-noor.edupod.app',
+    );
+  });
+
+  it('should seed tenant and membership sentinels for domain-only bootstrap reads', async () => {
+    const mockTx = {
+      $executeRawUnsafe: jest.fn().mockResolvedValue(undefined),
+    };
+    const mockPrisma = {
+      $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    } as unknown as PrismaClient;
+
+    await runWithRlsContext(
+      mockPrisma,
+      { tenant_domain: 'nhqs.edupod.app' },
+      async () => undefined,
+    );
+
+    expect(mockTx.$executeRawUnsafe).toHaveBeenCalledTimes(4);
+    expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
+      1,
+      `SELECT set_config('app.current_tenant_id', $1, true)`,
+      SYSTEM_USER_SENTINEL,
+    );
+    expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
+      2,
+      `SELECT set_config('app.current_user_id', $1, true)`,
+      SYSTEM_USER_SENTINEL,
+    );
+    expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
+      3,
+      `SELECT set_config('app.current_membership_id', $1, true)`,
+      SYSTEM_USER_SENTINEL,
+    );
+    expect(mockTx.$executeRawUnsafe).toHaveBeenNthCalledWith(
+      4,
+      `SELECT set_config('app.current_tenant_domain', $1, true)`,
+      'nhqs.edupod.app',
     );
   });
 
