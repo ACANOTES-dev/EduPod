@@ -224,5 +224,96 @@ describe('ConcernProjectionService', () => {
 
       expect(result.versions).toEqual([]);
     });
+
+    it('should include behaviour_incident_id when set', () => {
+      const concern = makeConcernRow({ behaviour_incident_id: 'incident-123' });
+
+      const result = service.toConcernDetail(concern, false);
+
+      expect(result.behaviour_incident_id).toBe('incident-123');
+    });
+
+    it('should include null values for optional detail fields', () => {
+      const concern = makeConcernRow({
+        witnesses: null,
+        actions_taken: null,
+        follow_up_suggestion: null,
+        location: null,
+        behaviour_incident_id: null,
+        parent_shareable: false,
+        parent_share_level: null,
+        acknowledged_at: null,
+        acknowledged_by_user_id: null,
+      });
+
+      const result = service.toConcernDetail(concern, false);
+
+      expect(result.witnesses).toBeNull();
+      expect(result.actions_taken).toBeNull();
+      expect(result.follow_up_suggestion).toBeNull();
+      expect(result.location).toBeNull();
+      expect(result.parent_share_level).toBeNull();
+      expect(result.acknowledged_at).toBeNull();
+    });
+  });
+
+  // ─── toConcernListItem — involved_students undefined ────────────────────────
+
+  describe('ConcernProjectionService — toConcernListItem — involved_students undefined', () => {
+    it('should return empty array when involved_students is undefined', () => {
+      const concern = makeConcernRow({ involved_students: undefined });
+
+      const result = service.toConcernListItem(concern, false);
+
+      expect(result.students_involved).toEqual([]);
+    });
+
+    it('should handle multiple involved students', () => {
+      const addedAt = new Date('2026-03-02T10:00:00Z');
+      const concern = makeConcernRow({
+        involved_students: [
+          {
+            student_id: 'student-1',
+            added_at: addedAt,
+            student: { id: 'student-1', first_name: 'Alice', last_name: 'Jones' },
+          },
+          {
+            student_id: 'student-2',
+            added_at: addedAt,
+            student: { id: 'student-2', first_name: 'Bob', last_name: 'Brown' },
+          },
+        ],
+      });
+
+      const result = service.toConcernListItem(concern, false);
+
+      expect(result.students_involved).toHaveLength(2);
+      expect(result.students_involved[0]?.student_name).toBe('Alice Jones');
+      expect(result.students_involved[1]?.student_name).toBe('Bob Brown');
+    });
+  });
+
+  // ─── toConcernDetail — masking combined with detail ─────────────────────────
+
+  describe('ConcernProjectionService — toConcernDetail — author masking', () => {
+    it('should mask author in detail view when masked and no CP access', () => {
+      const concern = makeConcernRow({ author_masked: true });
+
+      const result = service.toConcernDetail(concern, false);
+
+      expect(result.author_name).toBe('Author masked');
+      expect(result.author_masked_for_viewer).toBe(true);
+      expect(result.logged_by_user_id).toBeNull();
+    });
+
+    it('should reveal author in detail view when masked but CP access granted', () => {
+      const concern = makeConcernRow({ author_masked: true });
+
+      const result = service.toConcernDetail(concern, true);
+
+      expect(result.author_name).toBe('Jane Teacher');
+      expect(result.author_masked_for_viewer).toBe(false);
+      expect(result.logged_by_user_id).toBe(USER_ID);
+    });
   });
 });

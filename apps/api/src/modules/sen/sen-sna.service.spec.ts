@@ -670,4 +670,72 @@ describe('SenSnaService', () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
+
+  // ─── Additional branch coverage ─────────────────────────────────────────────
+
+  describe('create — schedule validation rethrow', () => {
+    it('should rethrow non-ZodError from schedule validation', async () => {
+      mockStaffProfileReadFacade.findById.mockResolvedValue({ id: STAFF_ID });
+      senProfileMock.findFirst.mockResolvedValue({
+        id: PROFILE_ID,
+        student_id: STUDENT_ID,
+        is_active: true,
+      });
+      // Force the settings service to throw a non-Zod error
+      mockSettingsService.getModuleSettings.mockRejectedValue(new Error('Settings DB down'));
+
+      await expect(
+        service.create(TENANT_ID, {
+          sna_staff_profile_id: STAFF_ID,
+          student_id: STUDENT_ID,
+          sen_profile_id: PROFILE_ID,
+          schedule: { monday: [] },
+          start_date: '2026-04-01',
+        }),
+      ).rejects.toThrow('Settings DB down');
+    });
+  });
+
+  describe('update — date branch with explicit start_date and end_date', () => {
+    it('should validate new start_date against new end_date', async () => {
+      senSnaAssignmentMock.findFirst.mockResolvedValue({
+        id: ASSIGNMENT_ID,
+        start_date: new Date('2026-04-01'),
+        end_date: null,
+      });
+
+      await expect(
+        service.update(TENANT_ID, ASSIGNMENT_ID, {
+          start_date: '2026-06-01',
+          end_date: '2026-03-01',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('findAll — student_id in class scope', () => {
+    it('should allow student_id filter when student is in class scope', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: [STUDENT_ID, STUDENT_ID_2],
+      });
+      senSnaAssignmentMock.findMany.mockResolvedValue([createAssignmentRecord()]);
+      senSnaAssignmentMock.count.mockResolvedValue(1);
+
+      const result = await service.findAll(TENANT_ID, USER_ID, ['sen.view'], {
+        page: 1,
+        pageSize: 20,
+        student_id: STUDENT_ID,
+      });
+
+      expect(result.data).toHaveLength(1);
+      expect(senSnaAssignmentMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student_id: STUDENT_ID,
+          }),
+        }),
+      );
+    });
+  });
 });

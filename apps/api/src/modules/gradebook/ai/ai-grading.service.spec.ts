@@ -408,3 +408,524 @@ describe('AiGradingService — isAllowedMimeType (static)', () => {
     expect(AiGradingService.isAllowedMimeType('')).toBe(false);
   });
 });
+
+// ─── parseGradingResponse Tests ──────────────────────────────────────────────
+
+describe('AiGradingService — parseGradingResponse (via gradeInline)', () => {
+  let service: AiGradingService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockPrisma.assessment.findFirst.mockResolvedValue(baseAssessment);
+    mockPrisma.aiGradingInstruction.findFirst.mockResolvedValue(null);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AiGradingService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: buildMockRedis(1) },
+        { provide: SettingsService, useValue: buildMockSettingsService(true) },
+        { provide: ConsentService, useValue: buildMockConsentService(true) },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: buildMockAnthropicClient() },
+      ],
+    }).compile();
+
+    service = module.get<AiGradingService>(AiGradingService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should strip markdown code fences from response', async () => {
+    (
+      service['anthropicClient'] as unknown as { createMessage: jest.Mock }
+    ).createMessage.mockResolvedValueOnce({
+      content: [
+        {
+          type: 'text',
+          text: '```json\n{"suggested_score": 90, "confidence": "high", "reasoning": "Excellent"}\n```',
+        },
+      ],
+    });
+
+    const result = await service.gradeInline(
+      TENANT_ID,
+      ASSESSMENT_ID,
+      STUDENT_ID,
+      Buffer.from('img'),
+      'image/jpeg',
+    );
+
+    expect(result.suggested_score).toBe(90);
+    expect(result.confidence).toBe('high');
+  });
+
+  it('should return null score when suggested_score exceeds max_score', async () => {
+    (
+      service['anthropicClient'] as unknown as { createMessage: jest.Mock }
+    ).createMessage.mockResolvedValueOnce({
+      content: [
+        {
+          type: 'text',
+          text: '{"suggested_score": 200, "confidence": "high", "reasoning": "Over max"}',
+        },
+      ],
+    });
+
+    const result = await service.gradeInline(
+      TENANT_ID,
+      ASSESSMENT_ID,
+      STUDENT_ID,
+      Buffer.from('img'),
+      'image/jpeg',
+    );
+
+    expect(result.suggested_score).toBeNull();
+  });
+
+  it('should return null score when suggested_score is negative', async () => {
+    (
+      service['anthropicClient'] as unknown as { createMessage: jest.Mock }
+    ).createMessage.mockResolvedValueOnce({
+      content: [
+        {
+          type: 'text',
+          text: '{"suggested_score": -5, "confidence": "medium", "reasoning": "Invalid"}',
+        },
+      ],
+    });
+
+    const result = await service.gradeInline(
+      TENANT_ID,
+      ASSESSMENT_ID,
+      STUDENT_ID,
+      Buffer.from('img'),
+      'image/jpeg',
+    );
+
+    expect(result.suggested_score).toBeNull();
+  });
+
+  it('should return medium confidence when AI returns medium confidence', async () => {
+    (
+      service['anthropicClient'] as unknown as { createMessage: jest.Mock }
+    ).createMessage.mockResolvedValueOnce({
+      content: [
+        {
+          type: 'text',
+          text: '{"suggested_score": 70, "confidence": "medium", "reasoning": "Decent"}',
+        },
+      ],
+    });
+
+    const result = await service.gradeInline(
+      TENANT_ID,
+      ASSESSMENT_ID,
+      STUDENT_ID,
+      Buffer.from('img'),
+      'image/jpeg',
+    );
+
+    expect(result.confidence).toBe('medium');
+  });
+
+  it('should default to low confidence when confidence is unknown string', async () => {
+    (
+      service['anthropicClient'] as unknown as { createMessage: jest.Mock }
+    ).createMessage.mockResolvedValueOnce({
+      content: [
+        {
+          type: 'text',
+          text: '{"suggested_score": 70, "confidence": "unknown", "reasoning": "Uncertain"}',
+        },
+      ],
+    });
+
+    const result = await service.gradeInline(
+      TENANT_ID,
+      ASSESSMENT_ID,
+      STUDENT_ID,
+      Buffer.from('img'),
+      'image/jpeg',
+    );
+
+    expect(result.confidence).toBe('low');
+  });
+
+  it('should include criterion_scores when AI returns them', async () => {
+    (
+      service['anthropicClient'] as unknown as { createMessage: jest.Mock }
+    ).createMessage.mockResolvedValueOnce({
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            suggested_score: 85,
+            confidence: 'high',
+            reasoning: 'Good',
+            criterion_scores: [{ criterion_id: 'c1', points: 4, reasoning: 'Well done' }],
+          }),
+        },
+      ],
+    });
+
+    const result = await service.gradeInline(
+      TENANT_ID,
+      ASSESSMENT_ID,
+      STUDENT_ID,
+      Buffer.from('img'),
+      'image/jpeg',
+    );
+
+    expect(result.criterion_scores).toHaveLength(1);
+    expect(result.criterion_scores![0]!.criterion_id).toBe('c1');
+  });
+
+  it('should omit criterion_scores when AI does not return them', async () => {
+    (
+      service['anthropicClient'] as unknown as { createMessage: jest.Mock }
+    ).createMessage.mockResolvedValueOnce({
+      content: [
+        {
+          type: 'text',
+          text: '{"suggested_score": 85, "confidence": "high", "reasoning": "Good"}',
+        },
+      ],
+    });
+
+    const result = await service.gradeInline(
+      TENANT_ID,
+      ASSESSMENT_ID,
+      STUDENT_ID,
+      Buffer.from('img'),
+      'image/jpeg',
+    );
+
+    expect(result.criterion_scores).toBeUndefined();
+  });
+
+  it('should handle response with no text blocks', async () => {
+    (
+      service['anthropicClient'] as unknown as { createMessage: jest.Mock }
+    ).createMessage.mockResolvedValueOnce({
+      content: [{ type: 'tool_use', id: 'tool-1' }],
+    });
+
+    const result = await service.gradeInline(
+      TENANT_ID,
+      ASSESSMENT_ID,
+      STUDENT_ID,
+      Buffer.from('img'),
+      'image/jpeg',
+    );
+
+    expect(result.suggested_score).toBeNull();
+    expect(result.confidence).toBe('low');
+  });
+});
+
+// ─── buildGradingPrompt Tests (via gradeInline) ──────────────────────────────
+
+describe('AiGradingService — buildGradingPrompt with context', () => {
+  let service: AiGradingService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockAnthropicClient: ReturnType<typeof buildMockAnthropicClient>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockAnthropicClient = buildMockAnthropicClient();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AiGradingService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: buildMockRedis(1) },
+        { provide: SettingsService, useValue: buildMockSettingsService(true) },
+        { provide: ConsentService, useValue: buildMockConsentService(true) },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: mockAnthropicClient },
+      ],
+    }).compile();
+
+    service = module.get<AiGradingService>(AiGradingService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should include instruction text in prompt when instruction exists', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue(baseAssessment);
+    mockPrisma.aiGradingInstruction.findFirst.mockResolvedValue({
+      instruction_text: 'Grade on structure and clarity',
+    });
+
+    await service.gradeInline(
+      TENANT_ID,
+      ASSESSMENT_ID,
+      STUDENT_ID,
+      Buffer.from('img'),
+      'image/jpeg',
+    );
+
+    const callArgs = mockAnthropicClient.createMessage.mock.calls[0]![0] as {
+      messages: Array<{ content: Array<{ text?: string }> }>;
+    };
+    const textContent = callArgs.messages[0]!.content.find(
+      (c: { type: string }) => c.type === 'text',
+    ) as { text: string };
+    expect(textContent.text).toContain('Grade on structure and clarity');
+  });
+
+  it('should include rubric criteria in prompt when rubric template exists', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({
+      ...baseAssessment,
+      rubric_template: {
+        id: 'rubric-1',
+        criteria_json: [{ id: 'c1', name: 'Content', max_points: 4 }],
+      },
+    });
+    mockPrisma.aiGradingInstruction.findFirst.mockResolvedValue(null);
+
+    await service.gradeInline(
+      TENANT_ID,
+      ASSESSMENT_ID,
+      STUDENT_ID,
+      Buffer.from('img'),
+      'image/jpeg',
+    );
+
+    const callArgs = mockAnthropicClient.createMessage.mock.calls[0]![0] as {
+      messages: Array<{ content: Array<{ text?: string }> }>;
+    };
+    const textContent = callArgs.messages[0]!.content.find(
+      (c: { type: string }) => c.type === 'text',
+    ) as { text: string };
+    expect(textContent.text).toContain('Rubric Criteria');
+    expect(textContent.text).toContain('Content');
+  });
+});
+
+// ─── gradeBatch — additional error handling ──────────────────────────────────
+
+describe('AiGradingService — gradeBatch additional branches', () => {
+  let service: AiGradingService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockPrisma.assessment.findFirst.mockResolvedValue(baseAssessment);
+    mockPrisma.aiGradingInstruction.findFirst.mockResolvedValue(null);
+
+    const mockAnthropicClient = buildMockAnthropicClient();
+    mockAnthropicClient.createMessage.mockRejectedValue(new Error('API timeout'));
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AiGradingService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: buildMockRedis(1) },
+        { provide: SettingsService, useValue: buildMockSettingsService(true) },
+        { provide: ConsentService, useValue: buildMockConsentService(true) },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: mockAnthropicClient },
+      ],
+    }).compile();
+
+    service = module.get<AiGradingService>(AiGradingService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should return low confidence result when AI API throws an error in batch', async () => {
+    const results = await service.gradeBatch(TENANT_ID, ASSESSMENT_ID, [
+      { student_id: STUDENT_ID, image_buffer: Buffer.from('img'), mime_type: 'image/jpeg' },
+    ]);
+
+    expect(results).toHaveLength(1);
+    expect(results[0]!.confidence).toBe('low');
+    expect(results[0]!.reasoning).toContain('AI grading failed');
+    expect(results[0]!.suggested_score).toBeNull();
+  });
+
+  it('should use null for student_id when image has no student_id', async () => {
+    const results = await service.gradeBatch(TENANT_ID, ASSESSMENT_ID, [
+      { image_buffer: Buffer.from('img'), mime_type: 'image/jpeg' },
+    ]);
+
+    expect(results[0]!.student_id).toBeNull();
+  });
+
+  it('should skip consent check when batch image has no student_id', async () => {
+    // Build a service with a working anthropic client for this test
+    const mp = buildMockPrisma();
+    mp.assessment.findFirst.mockResolvedValue(baseAssessment);
+    mp.aiGradingInstruction.findFirst.mockResolvedValue(null);
+
+    const workingAnthropicClient = buildMockAnthropicClient();
+    workingAnthropicClient.createMessage.mockRejectedValue(new Error('API error'));
+
+    const mod: TestingModule = await Test.createTestingModule({
+      providers: [
+        AiGradingService,
+        { provide: PrismaService, useValue: mp },
+        { provide: RedisService, useValue: buildMockRedis(1) },
+        { provide: SettingsService, useValue: buildMockSettingsService(true) },
+        { provide: ConsentService, useValue: buildMockConsentService(true) },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: workingAnthropicClient },
+      ],
+    }).compile();
+    const svc = mod.get<AiGradingService>(AiGradingService);
+
+    // No student_id means consent check is skipped, but API error means it catches
+    const results = await svc.gradeBatch(TENANT_ID, ASSESSMENT_ID, [
+      { image_buffer: Buffer.from('img'), mime_type: 'image/jpeg' },
+    ]);
+
+    expect(results).toHaveLength(1);
+    expect(results[0]!.student_id).toBeNull();
+    expect(results[0]!.reasoning).toContain('AI grading failed');
+  });
+});
+
+// ─── enforceRateLimit — expire branch ────────────────────────────────────────
+
+describe('AiGradingService — enforceRateLimit expire on first call', () => {
+  it('should call expire when count is 1 (first call of the day)', async () => {
+    const mockPrisma = buildMockPrisma();
+    mockPrisma.assessment.findFirst.mockResolvedValue(baseAssessment);
+    mockPrisma.aiGradingInstruction.findFirst.mockResolvedValue(null);
+
+    const mockRedis = buildMockRedis(1);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AiGradingService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+        { provide: SettingsService, useValue: buildMockSettingsService(true) },
+        { provide: ConsentService, useValue: buildMockConsentService(true) },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: buildMockAnthropicClient() },
+      ],
+    }).compile();
+    const svc = module.get<AiGradingService>(AiGradingService);
+
+    await svc.gradeInline(TENANT_ID, ASSESSMENT_ID, STUDENT_ID, Buffer.from('img'), 'image/jpeg');
+
+    // The expire should have been called because incr returned 1
+    expect(mockRedis._client.expire).toHaveBeenCalledWith(
+      expect.stringContaining('gradebook:ai_grading:'),
+      86400,
+    );
+  });
+
+  it('should not call expire when count is > 1 (not first call)', async () => {
+    const mockPrisma = buildMockPrisma();
+    mockPrisma.assessment.findFirst.mockResolvedValue(baseAssessment);
+    mockPrisma.aiGradingInstruction.findFirst.mockResolvedValue(null);
+
+    const mockRedis = buildMockRedis(2);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AiGradingService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+        { provide: SettingsService, useValue: buildMockSettingsService(true) },
+        { provide: ConsentService, useValue: buildMockConsentService(true) },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest
+              .fn()
+              .mockImplementation((_t: string, _p: string, data: unknown) => ({
+                processedData: data,
+                tokenMap: new Map(),
+              })),
+            processInbound: jest
+              .fn()
+              .mockImplementation((_tokenMap: unknown, text: string) => text),
+          },
+        },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        { provide: AnthropicClientService, useValue: buildMockAnthropicClient() },
+      ],
+    }).compile();
+    const svc = module.get<AiGradingService>(AiGradingService);
+
+    await svc.gradeInline(TENANT_ID, ASSESSMENT_ID, STUDENT_ID, Buffer.from('img'), 'image/jpeg');
+
+    expect(mockRedis._client.expire).not.toHaveBeenCalled();
+  });
+});

@@ -386,4 +386,229 @@ describe('GradebookController', () => {
       PERIOD_ID,
     );
   });
+
+  // ─── Import validation branches ────────────────────────────────────────
+
+  it('should use validateXlsx when file extension is .xlsx', async () => {
+    const validated = { valid: true, rows: 10 };
+    mockBulkImportService.validateXlsx.mockResolvedValue(validated);
+
+    const file = {
+      buffer: Buffer.from('fake-xlsx'),
+      originalname: 'grades.xlsx',
+      mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      size: 1024,
+    };
+
+    const result = await controller.validateImport(tenantContext, file);
+
+    expect(mockBulkImportService.validateXlsx).toHaveBeenCalledWith(TENANT_ID, file.buffer);
+    expect(result).toEqual(validated);
+  });
+
+  it('should use validateXlsx when file extension is .xls', async () => {
+    const validated = { valid: true, rows: 5 };
+    mockBulkImportService.validateXlsx.mockResolvedValue(validated);
+
+    const file = {
+      buffer: Buffer.from('fake-xls'),
+      originalname: 'grades.xls',
+      mimetype: 'application/vnd.ms-excel',
+      size: 512,
+    };
+
+    const result = await controller.validateImport(tenantContext, file);
+
+    expect(mockBulkImportService.validateXlsx).toHaveBeenCalledWith(TENANT_ID, file.buffer);
+    expect(result).toEqual(validated);
+  });
+
+  it('should use validateCsv when file extension is .csv', async () => {
+    const validated = { valid: true, rows: 3 };
+    mockBulkImportService.validateCsv.mockResolvedValue(validated);
+
+    const file = {
+      buffer: Buffer.from('csv-data'),
+      originalname: 'grades.csv',
+      mimetype: 'text/csv',
+      size: 256,
+    };
+
+    const result = await controller.validateImport(tenantContext, file);
+
+    expect(mockBulkImportService.validateCsv).toHaveBeenCalledWith(TENANT_ID, file.buffer);
+    expect(result).toEqual(validated);
+  });
+
+  it('should use validateCsv as fallback when extension is unrecognized', async () => {
+    const validated = { valid: false, errors: [] };
+    mockBulkImportService.validateCsv.mockResolvedValue(validated);
+
+    const file = {
+      buffer: Buffer.from('unknown-data'),
+      originalname: 'grades.txt',
+      mimetype: 'text/plain',
+      size: 128,
+    };
+
+    const result = await controller.validateImport(tenantContext, file);
+
+    expect(mockBulkImportService.validateCsv).toHaveBeenCalledWith(TENANT_ID, file.buffer);
+    expect(result).toEqual(validated);
+  });
+
+  it('should process an import and delegate to the bulk import service', async () => {
+    const processed = { imported: 20, errors: [] };
+    mockBulkImportService.processImport.mockResolvedValue(processed);
+
+    const dto = {
+      rows: [
+        {
+          student_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab',
+          assessment_id: ASSESSMENT_ID,
+          score: 85,
+        },
+      ],
+    };
+    const result = await controller.processImport(tenantContext, userContext, dto);
+
+    expect(mockBulkImportService.processImport).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto.rows);
+    expect(result).toEqual(processed);
+  });
+
+  // ─── Period Grades extra branches ──────────────────────────────────────
+
+  it('should return student period grades for a specific student', async () => {
+    const snapshots = [{ id: SNAPSHOT_ID, subject: { name: 'Math' } }];
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue(snapshots);
+
+    const result = await controller.findStudentPeriodGrades(tenantContext, 'student-123');
+
+    expect(result).toEqual({ data: snapshots });
+    expect(mockPrisma.periodGradeSnapshot.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ student_id: 'student-123' }),
+      }),
+    );
+  });
+
+  // ─── Assessment status transition ──────────────────────────────────────
+
+  it('should transition assessment status', async () => {
+    const transitioned = { id: ASSESSMENT_ID, status: 'closed' };
+    mockAssessmentsService.transitionStatus.mockResolvedValue(transitioned);
+
+    const dto = { status: 'closed' as const };
+    const result = await controller.transitionAssessmentStatus(tenantContext, ASSESSMENT_ID, dto);
+
+    expect(result).toEqual(transitioned);
+    expect(mockAssessmentsService.transitionStatus).toHaveBeenCalledWith(
+      TENANT_ID,
+      ASSESSMENT_ID,
+      dto,
+    );
+  });
+
+  it('should update an assessment', async () => {
+    const updated = { id: ASSESSMENT_ID, title: 'Updated Assessment' };
+    mockAssessmentsService.update.mockResolvedValue(updated);
+
+    const dto = { title: 'Updated Assessment' };
+    const result = await controller.updateAssessment(tenantContext, ASSESSMENT_ID, dto);
+
+    expect(result).toEqual(updated);
+    expect(mockAssessmentsService.update).toHaveBeenCalledWith(TENANT_ID, ASSESSMENT_ID, dto);
+  });
+
+  // ─── findAllAssessments edge cases ─────────────────────────────────────
+
+  it('should handle user with no membership_id (empty permissions)', async () => {
+    const userNoMembership = { ...userContext, membership_id: undefined };
+    mockStaffProfileFacade.findByUserId.mockResolvedValue(null);
+    mockAssessmentsService.findAll.mockResolvedValue({
+      data: [],
+      meta: { page: 1, pageSize: 20, total: 0 },
+    });
+
+    const query = { page: 1, pageSize: 20 };
+    await controller.findAllAssessments(tenantContext, userNoMembership as never, query);
+
+    // No membership_id means empty permissions, assignedClassIds should be undefined
+    // because staffProfileId will be undefined
+    expect(mockAssessmentsService.findAll).toHaveBeenCalledWith(
+      TENANT_ID,
+      expect.objectContaining({ assignedClassIds: undefined }),
+    );
+  });
+
+  it('should find grade config for a class/subject pair', async () => {
+    const config = { id: 'cfg-1', grading_scale_id: 'scale-1' };
+    mockClassGradeConfigsService.findOne.mockResolvedValue(config);
+
+    const result = await controller.findOneGradeConfig(tenantContext, CLASS_ID, SUBJECT_ID);
+
+    expect(result).toEqual(config);
+    expect(mockClassGradeConfigsService.findOne).toHaveBeenCalledWith(
+      TENANT_ID,
+      CLASS_ID,
+      SUBJECT_ID,
+    );
+  });
+
+  // ─── Year Group Grade Weights ──────────────────────────────────────────
+
+  it('should upsert year group grade weights', async () => {
+    const dto = {
+      year_group_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab',
+      academic_period_id: PERIOD_ID,
+      category_weights: [{ category_id: CATEGORY_ID, weight: 100 }],
+    };
+    const upserted = { id: 'w-1', ...dto };
+    mockYearGroupGradeWeightsService.upsert.mockResolvedValue(upserted);
+
+    const result = await controller.upsertYearGroupGradeWeight(tenantContext, dto);
+
+    expect(result).toEqual(upserted);
+    expect(mockYearGroupGradeWeightsService.upsert).toHaveBeenCalledWith(TENANT_ID, dto);
+  });
+
+  it('should find year group grade weights', async () => {
+    const weights = [{ id: 'w-1' }];
+    mockYearGroupGradeWeightsService.findByYearGroup.mockResolvedValue(weights);
+
+    const result = await controller.findYearGroupGradeWeights(tenantContext, 'yg-1');
+
+    expect(result).toEqual(weights);
+    expect(mockYearGroupGradeWeightsService.findByYearGroup).toHaveBeenCalledWith(
+      TENANT_ID,
+      'yg-1',
+    );
+  });
+
+  it('should copy year group grade weights', async () => {
+    const copied = { copied: 5 };
+    mockYearGroupGradeWeightsService.copyFromYearGroup.mockResolvedValue(copied);
+
+    const dto = { source_year_group_id: 'yg-1', target_year_group_id: 'yg-2' };
+    const result = await controller.copyYearGroupGradeWeights(tenantContext, dto);
+
+    expect(result).toEqual(copied);
+    expect(mockYearGroupGradeWeightsService.copyFromYearGroup).toHaveBeenCalledWith(TENANT_ID, dto);
+  });
+
+  // ─── Download Import Template ──────────────────────────────────────────
+
+  it('should generate import template with no class_id and period_id', async () => {
+    const template = { url: 'https://example.com/template.xlsx' };
+    mockBulkImportService.generateTemplate.mockResolvedValue(template);
+
+    const result = await controller.downloadImportTemplate(tenantContext, undefined, undefined);
+
+    expect(result).toEqual(template);
+    expect(mockBulkImportService.generateTemplate).toHaveBeenCalledWith(
+      TENANT_ID,
+      undefined,
+      undefined,
+    );
+  });
 });

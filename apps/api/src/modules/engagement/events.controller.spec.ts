@@ -369,4 +369,138 @@ describe('EventsController', () => {
 
     expect(mockEventsService.listIncidents).toHaveBeenCalledWith(TENANT_ID, EVENT_ID);
   });
+
+  // ─── Additional branch coverage ──────────────────────────────────────────
+
+  it('findAll — defaults page to 1 and pageSize to 20 when not provided', async () => {
+    mockEventsService.findAll.mockResolvedValue({
+      data: [],
+      meta: { page: 1, pageSize: 20, total: 0 },
+    });
+
+    await controller.findAll(tenantCtx);
+
+    expect(mockEventsService.findAll).toHaveBeenCalledWith(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+      status: undefined,
+      event_type: undefined,
+      academic_year_id: undefined,
+      search: undefined,
+    });
+  });
+
+  it('findAll — applies all filter params', async () => {
+    mockEventsService.findAll.mockResolvedValue({
+      data: [],
+      meta: { page: 2, pageSize: 10, total: 50 },
+    });
+
+    await controller.findAll(tenantCtx, '2', '10', 'open', 'school_trip', 'ay-1', 'zoo');
+
+    expect(mockEventsService.findAll).toHaveBeenCalledWith(TENANT_ID, {
+      page: 2,
+      pageSize: 10,
+      status: 'open',
+      event_type: 'school_trip',
+      academic_year_id: 'ay-1',
+      search: 'zoo',
+    });
+  });
+
+  it('generateTripPack — uses explicit locale when provided', async () => {
+    mockTripPackService.generateTripPack.mockResolvedValue(Buffer.from('pdf'));
+
+    const result = await controller.generateTripPack(tenantCtx, EVENT_ID, 'ar');
+
+    expect(mockTripPackService.generateTripPack).toHaveBeenCalledWith(TENANT_ID, EVENT_ID, 'ar');
+    expect(result).toEqual({ generated: true, size: 3 });
+  });
+
+  it('generateTripPack — falls back to tenant default_locale when no locale param', async () => {
+    mockTripPackService.generateTripPack.mockResolvedValue(Buffer.from('pdf'));
+
+    await controller.generateTripPack(tenantCtx, EVENT_ID);
+
+    expect(mockTripPackService.generateTripPack).toHaveBeenCalledWith(TENANT_ID, EVENT_ID, 'en');
+  });
+
+  it('generateTripPack — falls back to "en" when both locale and default_locale are null', async () => {
+    mockTripPackService.generateTripPack.mockResolvedValue(Buffer.from('pdf'));
+
+    const noLocaleTenant = { ...tenantCtx, default_locale: undefined };
+    await controller.generateTripPack(noLocaleTenant, EVENT_ID);
+
+    expect(mockTripPackService.generateTripPack).toHaveBeenCalledWith(TENANT_ID, EVENT_ID, 'en');
+  });
+
+  it('downloadTripPack — uses explicit locale when provided', async () => {
+    const pdfBuffer = Buffer.from('ar-pdf');
+    mockTripPackService.generateTripPack.mockResolvedValue(pdfBuffer);
+
+    const result = await controller.downloadTripPack(tenantCtx, EVENT_ID, 'ar');
+
+    expect(mockTripPackService.generateTripPack).toHaveBeenCalledWith(TENANT_ID, EVENT_ID, 'ar');
+    expect(result).toBe(pdfBuffer);
+  });
+
+  it('downloadTripPack — falls back to default_locale then "en"', async () => {
+    const pdfBuffer = Buffer.from('en-pdf');
+    mockTripPackService.generateTripPack.mockResolvedValue(pdfBuffer);
+
+    const noLocaleTenant = { ...tenantCtx, default_locale: undefined };
+    await controller.downloadTripPack(noLocaleTenant, EVENT_ID);
+
+    expect(mockTripPackService.generateTripPack).toHaveBeenCalledWith(TENANT_ID, EVENT_ID, 'en');
+  });
+
+  it('findAllParticipants — applies all filter params', async () => {
+    mockEventParticipantsService.findAllForEvent.mockResolvedValue({
+      data: [],
+      meta: { page: 1, pageSize: 10, total: 0 },
+    });
+
+    await controller.findAllParticipants(
+      tenantCtx,
+      EVENT_ID,
+      '1',
+      '10',
+      'confirmed',
+      'granted',
+      'paid',
+    );
+
+    expect(mockEventParticipantsService.findAllForEvent).toHaveBeenCalledWith(TENANT_ID, EVENT_ID, {
+      page: 1,
+      pageSize: 10,
+      status: 'confirmed',
+      consent_status: 'granted',
+      payment_status: 'paid',
+    });
+  });
+
+  it('findAllParticipants — defaults page/pageSize when not provided', async () => {
+    mockEventParticipantsService.findAllForEvent.mockResolvedValue({
+      data: [],
+      meta: { page: 1, pageSize: 20, total: 0 },
+    });
+
+    await controller.findAllParticipants(tenantCtx, EVENT_ID);
+
+    expect(mockEventParticipantsService.findAllForEvent).toHaveBeenCalledWith(TENANT_ID, EVENT_ID, {
+      page: 1,
+      pageSize: 20,
+      status: undefined,
+      consent_status: undefined,
+      payment_status: undefined,
+    });
+  });
+
+  it('getTripPackPreview — delegates to tripPackService.getTripPackData', async () => {
+    mockTripPackService.getTripPackData = jest.fn().mockResolvedValue({ event: {}, students: [] });
+
+    await controller.getTripPackPreview(tenantCtx, EVENT_ID);
+
+    expect(mockTripPackService.getTripPackData).toHaveBeenCalledWith(TENANT_ID, EVENT_ID);
+  });
 });

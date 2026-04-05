@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -10,7 +11,9 @@ import { BehaviourHistoryService } from './behaviour-history.service';
 interface MockTx {
   behaviourGuardianRestriction: {
     count: jest.Mock;
+    findFirst: jest.Mock;
     findMany: jest.Mock;
+    create: jest.Mock;
     update: jest.Mock;
   };
   behaviourTask: {
@@ -38,13 +41,40 @@ interface MockPrisma {
   $extends: jest.Mock;
 }
 
+// ─── RLS mock ───────────────────────────────────────────────────────────────
+
+const mockRlsTx: MockTx = {
+  behaviourGuardianRestriction: {
+    count: jest.fn(),
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+  },
+  behaviourTask: {
+    findFirst: jest.fn(),
+    create: jest.fn(),
+  },
+  behaviourEntityHistory: {
+    create: jest.fn(),
+  },
+};
+
+jest.mock('../../common/middleware/rls.middleware', () => ({
+  createRlsClient: jest.fn().mockReturnValue({
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+  }),
+}));
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('BehaviourGuardianRestrictionsService', () => {
   let service: BehaviourGuardianRestrictionsService;
   let mockTx: MockTx;
   let mockPrisma: MockPrisma;
-  let mockHistoryService: { recordHistory: jest.Mock };
+  let mockHistoryService: { recordHistory: jest.Mock; getHistory: jest.Mock };
 
   const TENANT_ID = '11111111-1111-1111-1111-111111111111';
   const STUDENT_ID = '22222222-2222-2222-2222-222222222222';
@@ -56,7 +86,9 @@ describe('BehaviourGuardianRestrictionsService', () => {
     mockTx = {
       behaviourGuardianRestriction: {
         count: jest.fn(),
+        findFirst: jest.fn(),
         findMany: jest.fn(),
+        create: jest.fn(),
         update: jest.fn(),
       },
       behaviourTask: {
@@ -67,6 +99,13 @@ describe('BehaviourGuardianRestrictionsService', () => {
         create: jest.fn(),
       },
     };
+
+    // Reset RLS tx mocks
+    for (const model of Object.values(mockRlsTx)) {
+      for (const fn of Object.values(model)) {
+        fn.mockReset();
+      }
+    }
 
     mockPrisma = {
       behaviourGuardianRestriction: {
@@ -86,6 +125,7 @@ describe('BehaviourGuardianRestrictionsService', () => {
 
     mockHistoryService = {
       recordHistory: jest.fn().mockResolvedValue(undefined),
+      getHistory: jest.fn().mockResolvedValue({ data: [] }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -120,14 +160,11 @@ describe('BehaviourGuardianRestrictionsService', () => {
       );
 
       expect(result).toBe(true);
-      expect(
-        mockTx.behaviourGuardianRestriction.count,
-      ).toHaveBeenCalledTimes(1);
+      expect(mockTx.behaviourGuardianRestriction.count).toHaveBeenCalledTimes(1);
 
-      const callArgs =
-        mockTx.behaviourGuardianRestriction.count.mock.calls[0] as [
-          { where: Record<string, unknown> },
-        ];
+      const callArgs = mockTx.behaviourGuardianRestriction.count.mock.calls[0] as [
+        { where: Record<string, unknown> },
+      ];
       const where = callArgs[0].where;
 
       expect(where).toMatchObject({
@@ -181,18 +218,12 @@ describe('BehaviourGuardianRestrictionsService', () => {
       );
 
       expect(result).toBe(false);
-      expect(
-        mockTx.behaviourGuardianRestriction.count,
-      ).toHaveBeenCalledTimes(1);
+      expect(mockTx.behaviourGuardianRestriction.count).toHaveBeenCalledTimes(1);
 
-      const callArgs =
-        mockTx.behaviourGuardianRestriction.count.mock.calls[0] as [
-          { where: Record<string, unknown> },
-        ];
-      expect(callArgs[0].where).toHaveProperty(
-        'status',
-        'active_restriction',
-      );
+      const callArgs = mockTx.behaviourGuardianRestriction.count.mock.calls[0] as [
+        { where: Record<string, unknown> },
+      ];
+      expect(callArgs[0].where).toHaveProperty('status', 'active_restriction');
     });
   });
 
@@ -307,6 +338,575 @@ describe('BehaviourGuardianRestrictionsService', () => {
         entity_id: RESTRICTION_ID,
         due_date: reviewDate,
       });
+    });
+  });
+
+  // ─── expireEndedRestrictions ─────────────────────────────────────────────
+
+  describe('expireEndedRestrictions', () => {
+    it('should update active restrictions past their effective_until to expired', async () => {
+      const restriction = {
+        id: RESTRICTION_ID,
+        tenant_id: TENANT_ID,
+        status: 'active_restriction',
+        effective_until: new Date('2026-03-20'),
+      };
+      mockTx.behaviourGuardianRestriction.findMany.mockResolvedValue([restriction]);
+      mockTx.behaviourGuardianRestriction.update.mockResolvedValue({});
+
+      const result = await service.expireEndedRestrictions(
+        mockTx as unknown as PrismaService,
+        TENANT_ID,
+        '2026-03-25',
+      );
+
+      expect(result).toBe(1);
+      expect(mockTx.behaviourGuardianRestriction.update).toHaveBeenCalledWith({
+        where: { id: RESTRICTION_ID },
+        data: { status: 'expired' },
+      });
+      expect(mockHistoryService.recordHistory).toHaveBeenCalledWith(
+        mockTx,
+        TENANT_ID,
+        'guardian_restriction',
+        RESTRICTION_ID,
+        '00000000-0000-0000-0000-000000000000',
+        'expired',
+        { status: 'active_restriction' },
+        { status: 'expired' },
+      );
+    });
+
+    it('should return 0 when no restrictions are expired', async () => {
+      mockTx.behaviourGuardianRestriction.findMany.mockResolvedValue([]);
+
+      const result = await service.expireEndedRestrictions(
+        mockTx as unknown as PrismaService,
+        TENANT_ID,
+        '2026-03-25',
+      );
+
+      expect(result).toBe(0);
+    });
+  });
+
+  // ─── mapStatusToPrisma ────────────────────────────────────────────────────
+
+  describe('list — mapStatusToPrisma', () => {
+    it('should map "active" status to "active_restriction"', async () => {
+      mockPrisma.behaviourGuardianRestriction.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourGuardianRestriction.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        status: 'active',
+      });
+
+      expect(mockPrisma.behaviourGuardianRestriction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'active_restriction',
+          }),
+        }),
+      );
+    });
+
+    it('should map "superseded" status to "superseded_restriction"', async () => {
+      mockPrisma.behaviourGuardianRestriction.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourGuardianRestriction.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        status: 'superseded',
+      });
+
+      expect(mockPrisma.behaviourGuardianRestriction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'superseded_restriction',
+          }),
+        }),
+      );
+    });
+
+    it('should pass unmapped status directly', async () => {
+      mockPrisma.behaviourGuardianRestriction.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourGuardianRestriction.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        status: 'revoked',
+      });
+
+      expect(mockPrisma.behaviourGuardianRestriction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'revoked',
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── list — filter branches ─────────────────────────────────────────────
+
+  describe('list — filters', () => {
+    it('should filter by student_id and parent_id', async () => {
+      mockPrisma.behaviourGuardianRestriction.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourGuardianRestriction.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        student_id: STUDENT_ID,
+        parent_id: PARENT_ID,
+      });
+
+      expect(mockPrisma.behaviourGuardianRestriction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student_id: STUDENT_ID,
+            parent_id: PARENT_ID,
+          }),
+        }),
+      );
+    });
+
+    it('should return paginated results', async () => {
+      mockPrisma.behaviourGuardianRestriction.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourGuardianRestriction.count.mockResolvedValue(50);
+
+      const result = await service.list(TENANT_ID, {
+        page: 2,
+        pageSize: 10,
+      });
+
+      expect(result.meta).toEqual({ page: 2, pageSize: 10, total: 50 });
+    });
+  });
+
+  // ─── getDetail ────────────────────────────────────────────────────────────
+
+  describe('getDetail', () => {
+    it('should throw NotFoundException when restriction not found', async () => {
+      mockPrisma.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
+
+      await expect(service.getDetail(TENANT_ID, 'missing-id')).rejects.toThrow(NotFoundException);
+    });
+
+    it('should return restriction with history', async () => {
+      const restriction = {
+        id: RESTRICTION_ID,
+        tenant_id: TENANT_ID,
+        status: 'active_restriction',
+      };
+      mockPrisma.behaviourGuardianRestriction.findFirst.mockResolvedValue(restriction);
+      mockHistoryService.getHistory.mockResolvedValue({ data: [{ action: 'created' }] });
+
+      const result = await service.getDetail(TENANT_ID, RESTRICTION_ID);
+
+      expect(result.history).toHaveLength(1);
+    });
+  });
+
+  // ─── update ─────────────────────────────────────────────────────────────
+
+  describe('update', () => {
+    it('should throw NotFoundException when restriction not found', async () => {
+      mockPrisma.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(TENANT_ID, 'missing-id', SET_BY_ID, { legal_basis: 'Court order' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should return existing when no values change (empty dto)', async () => {
+      const existing = {
+        id: RESTRICTION_ID,
+        tenant_id: TENANT_ID,
+        legal_basis: null,
+        effective_until: null,
+        review_date: null,
+      };
+      mockPrisma.behaviourGuardianRestriction.findFirst.mockResolvedValue(existing);
+
+      const result = await service.update(TENANT_ID, RESTRICTION_ID, SET_BY_ID, {});
+
+      expect(result).toEqual(existing);
+      expect(mockRlsTx.behaviourGuardianRestriction.update).not.toHaveBeenCalled();
+    });
+
+    it('should update legal_basis field', async () => {
+      const existing = {
+        id: RESTRICTION_ID,
+        tenant_id: TENANT_ID,
+        legal_basis: null,
+        effective_until: null,
+        review_date: null,
+      };
+      mockPrisma.behaviourGuardianRestriction.findFirst.mockResolvedValue(existing);
+      mockRlsTx.behaviourGuardianRestriction.update.mockResolvedValue({
+        ...existing,
+        legal_basis: 'Court order',
+      });
+
+      const result = await service.update(TENANT_ID, RESTRICTION_ID, SET_BY_ID, {
+        legal_basis: 'Court order',
+      });
+
+      expect(mockRlsTx.behaviourGuardianRestriction.update).toHaveBeenCalledWith({
+        where: { id: RESTRICTION_ID },
+        data: expect.objectContaining({ legal_basis: 'Court order' }),
+      });
+      expect(result.legal_basis).toBe('Court order');
+    });
+
+    it('should update effective_until field', async () => {
+      const existing = {
+        id: RESTRICTION_ID,
+        tenant_id: TENANT_ID,
+        legal_basis: null,
+        effective_until: null,
+        review_date: null,
+      };
+      mockPrisma.behaviourGuardianRestriction.findFirst.mockResolvedValue(existing);
+      mockRlsTx.behaviourGuardianRestriction.update.mockResolvedValue({
+        ...existing,
+        effective_until: new Date('2026-12-31'),
+      });
+
+      await service.update(TENANT_ID, RESTRICTION_ID, SET_BY_ID, {
+        effective_until: '2026-12-31',
+      });
+
+      expect(mockRlsTx.behaviourGuardianRestriction.update).toHaveBeenCalledWith({
+        where: { id: RESTRICTION_ID },
+        data: expect.objectContaining({ effective_until: new Date('2026-12-31') }),
+      });
+    });
+
+    it('should clear effective_until to null', async () => {
+      const existing = {
+        id: RESTRICTION_ID,
+        tenant_id: TENANT_ID,
+        legal_basis: null,
+        effective_until: new Date('2026-06-30'),
+        review_date: null,
+      };
+      mockPrisma.behaviourGuardianRestriction.findFirst.mockResolvedValue(existing);
+      mockRlsTx.behaviourGuardianRestriction.update.mockResolvedValue({
+        ...existing,
+        effective_until: null,
+      });
+
+      await service.update(TENANT_ID, RESTRICTION_ID, SET_BY_ID, {
+        effective_until: null,
+      });
+
+      expect(mockRlsTx.behaviourGuardianRestriction.update).toHaveBeenCalledWith({
+        where: { id: RESTRICTION_ID },
+        data: expect.objectContaining({ effective_until: null }),
+      });
+    });
+
+    it('should update review_date field', async () => {
+      const existing = {
+        id: RESTRICTION_ID,
+        tenant_id: TENANT_ID,
+        legal_basis: null,
+        effective_until: null,
+        review_date: null,
+      };
+      mockPrisma.behaviourGuardianRestriction.findFirst.mockResolvedValue(existing);
+      mockRlsTx.behaviourGuardianRestriction.update.mockResolvedValue({
+        ...existing,
+        review_date: new Date('2026-06-01'),
+      });
+
+      await service.update(TENANT_ID, RESTRICTION_ID, SET_BY_ID, {
+        review_date: '2026-06-01',
+      });
+
+      expect(mockRlsTx.behaviourGuardianRestriction.update).toHaveBeenCalledWith({
+        where: { id: RESTRICTION_ID },
+        data: expect.objectContaining({ review_date: new Date('2026-06-01') }),
+      });
+    });
+
+    it('should clear review_date to null', async () => {
+      const existing = {
+        id: RESTRICTION_ID,
+        tenant_id: TENANT_ID,
+        legal_basis: null,
+        effective_until: null,
+        review_date: new Date('2026-06-01'),
+      };
+      mockPrisma.behaviourGuardianRestriction.findFirst.mockResolvedValue(existing);
+      mockRlsTx.behaviourGuardianRestriction.update.mockResolvedValue({
+        ...existing,
+        review_date: null,
+      });
+
+      await service.update(TENANT_ID, RESTRICTION_ID, SET_BY_ID, {
+        review_date: null,
+      });
+
+      expect(mockRlsTx.behaviourGuardianRestriction.update).toHaveBeenCalledWith({
+        where: { id: RESTRICTION_ID },
+        data: expect.objectContaining({ review_date: null }),
+      });
+    });
+
+    it('should clear legal_basis to null/undefined', async () => {
+      const existing = {
+        id: RESTRICTION_ID,
+        tenant_id: TENANT_ID,
+        legal_basis: 'Court order',
+        effective_until: null,
+        review_date: null,
+      };
+      mockPrisma.behaviourGuardianRestriction.findFirst.mockResolvedValue(existing);
+      mockRlsTx.behaviourGuardianRestriction.update.mockResolvedValue({
+        ...existing,
+        legal_basis: null,
+      });
+
+      await service.update(TENANT_ID, RESTRICTION_ID, SET_BY_ID, {
+        legal_basis: null,
+      });
+
+      expect(mockRlsTx.behaviourGuardianRestriction.update).toHaveBeenCalled();
+      expect(mockHistoryService.recordHistory).toHaveBeenCalled();
+    });
+  });
+
+  // ─── create ──────────────────────────────────────────────────────────────
+
+  describe('create', () => {
+    const baseDto = {
+      student_id: STUDENT_ID,
+      parent_id: PARENT_ID,
+      restriction_type: 'no_contact',
+      reason: 'Legal requirement',
+      effective_from: '2026-03-01',
+    };
+
+    it('should create restriction with basic fields', async () => {
+      mockRlsTx.behaviourGuardianRestriction.create.mockResolvedValue({
+        id: RESTRICTION_ID,
+        ...baseDto,
+        status: 'active_restriction',
+      });
+
+      const result = await service.create(TENANT_ID, SET_BY_ID, baseDto);
+
+      expect(result.id).toBe(RESTRICTION_ID);
+      expect(mockRlsTx.behaviourGuardianRestriction.create).toHaveBeenCalled();
+      expect(mockHistoryService.recordHistory).toHaveBeenCalledWith(
+        mockRlsTx,
+        TENANT_ID,
+        'guardian_restriction',
+        RESTRICTION_ID,
+        SET_BY_ID,
+        'created',
+        null,
+        expect.objectContaining({ status: 'active_restriction' }),
+      );
+    });
+
+    it('should create restriction with optional fields', async () => {
+      const dtoWithOptionals = {
+        ...baseDto,
+        legal_basis: 'Court order 2024/1234',
+        effective_until: '2026-12-31',
+        review_date: '2026-06-01',
+      };
+
+      mockRlsTx.behaviourGuardianRestriction.create.mockResolvedValue({
+        id: RESTRICTION_ID,
+        ...dtoWithOptionals,
+        status: 'active_restriction',
+      });
+
+      await service.create(TENANT_ID, SET_BY_ID, dtoWithOptionals);
+
+      expect(mockRlsTx.behaviourGuardianRestriction.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          legal_basis: 'Court order 2024/1234',
+          effective_until: new Date('2026-12-31'),
+          review_date: new Date('2026-06-01'),
+        }),
+      });
+    });
+
+    it('should create review task when review_date is within 14 days', async () => {
+      const today = new Date();
+      const inFiveDays = new Date(today);
+      inFiveDays.setDate(inFiveDays.getDate() + 5);
+      const dtoWithSoonReview = {
+        ...baseDto,
+        review_date: inFiveDays.toISOString().split('T')[0]!,
+      };
+
+      mockRlsTx.behaviourGuardianRestriction.create.mockResolvedValue({
+        id: RESTRICTION_ID,
+        status: 'active_restriction',
+      });
+      mockRlsTx.behaviourTask.create.mockResolvedValue({ id: 'task-1' });
+
+      await service.create(TENANT_ID, SET_BY_ID, dtoWithSoonReview);
+
+      expect(mockRlsTx.behaviourTask.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          task_type: 'guardian_restriction_review',
+          entity_type: 'guardian_restriction',
+          entity_id: RESTRICTION_ID,
+          priority: 'medium',
+        }),
+      });
+    });
+
+    it('should create review task with high priority when review_date is within 3 days', async () => {
+      const today = new Date();
+      const inTwoDays = new Date(today);
+      inTwoDays.setDate(inTwoDays.getDate() + 2);
+      const dtoWithUrgentReview = {
+        ...baseDto,
+        review_date: inTwoDays.toISOString().split('T')[0]!,
+      };
+
+      mockRlsTx.behaviourGuardianRestriction.create.mockResolvedValue({
+        id: RESTRICTION_ID,
+        status: 'active_restriction',
+      });
+      mockRlsTx.behaviourTask.create.mockResolvedValue({ id: 'task-1' });
+
+      await service.create(TENANT_ID, SET_BY_ID, dtoWithUrgentReview);
+
+      expect(mockRlsTx.behaviourTask.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          priority: 'high',
+        }),
+      });
+    });
+
+    it('should not create review task when review_date is more than 14 days away', async () => {
+      const today = new Date();
+      const inTwentyDays = new Date(today);
+      inTwentyDays.setDate(inTwentyDays.getDate() + 20);
+      const dtoWithFarReview = {
+        ...baseDto,
+        review_date: inTwentyDays.toISOString().split('T')[0]!,
+      };
+
+      mockRlsTx.behaviourGuardianRestriction.create.mockResolvedValue({
+        id: RESTRICTION_ID,
+        status: 'active_restriction',
+      });
+
+      await service.create(TENANT_ID, SET_BY_ID, dtoWithFarReview);
+
+      expect(mockRlsTx.behaviourTask.create).not.toHaveBeenCalled();
+    });
+
+    it('should not create review task when no review_date provided', async () => {
+      mockRlsTx.behaviourGuardianRestriction.create.mockResolvedValue({
+        id: RESTRICTION_ID,
+        status: 'active_restriction',
+      });
+
+      await service.create(TENANT_ID, SET_BY_ID, baseDto);
+
+      expect(mockRlsTx.behaviourTask.create).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── revoke ──────────────────────────────────────────────────────────────
+
+  describe('revoke', () => {
+    it('should throw NotFoundException when restriction not found', async () => {
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.revoke(TENANT_ID, 'missing-id', SET_BY_ID, 'No longer needed'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should revoke an active restriction', async () => {
+      const existing = {
+        id: RESTRICTION_ID,
+        tenant_id: TENANT_ID,
+        status: 'active_restriction',
+      };
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(existing);
+      mockRlsTx.behaviourGuardianRestriction.update.mockResolvedValue({
+        ...existing,
+        status: 'revoked',
+        revoked_at: new Date(),
+        revoked_by_id: SET_BY_ID,
+        revoke_reason: 'No longer needed',
+      });
+
+      const result = await service.revoke(TENANT_ID, RESTRICTION_ID, SET_BY_ID, 'No longer needed');
+
+      expect(result.status).toBe('revoked');
+      expect(mockRlsTx.behaviourGuardianRestriction.update).toHaveBeenCalledWith({
+        where: { id: RESTRICTION_ID },
+        data: expect.objectContaining({
+          status: 'revoked',
+          revoked_by_id: SET_BY_ID,
+          revoke_reason: 'No longer needed',
+        }),
+      });
+      expect(mockHistoryService.recordHistory).toHaveBeenCalledWith(
+        mockRlsTx,
+        TENANT_ID,
+        'guardian_restriction',
+        RESTRICTION_ID,
+        SET_BY_ID,
+        'revoked',
+        { status: 'active_restriction' },
+        { status: 'revoked', revoke_reason: 'No longer needed' },
+        'No longer needed',
+      );
+    });
+  });
+
+  // ─── listActive ──────────────────────────────────────────────────────────
+
+  describe('listActive', () => {
+    it('should return active restrictions within effective date range', async () => {
+      mockPrisma.behaviourGuardianRestriction.findMany.mockResolvedValue([
+        {
+          id: RESTRICTION_ID,
+          status: 'active_restriction',
+          student: { id: STUDENT_ID, first_name: 'Alice', last_name: 'Smith' },
+          parent: { id: PARENT_ID, first_name: 'Jane', last_name: 'Smith' },
+        },
+      ]);
+
+      const result = await service.listActive(TENANT_ID);
+
+      expect(result).toHaveLength(1);
+      expect(mockPrisma.behaviourGuardianRestriction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            status: 'active_restriction',
+          }),
+        }),
+      );
+    });
+
+    it('should return empty array when no active restrictions', async () => {
+      mockPrisma.behaviourGuardianRestriction.findMany.mockResolvedValue([]);
+
+      const result = await service.listActive(TENANT_ID);
+
+      expect(result).toEqual([]);
     });
   });
 });

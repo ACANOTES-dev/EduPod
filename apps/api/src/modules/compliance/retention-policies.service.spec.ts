@@ -4,7 +4,12 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 jest.mock('../../common/middleware/rls.middleware');
 
-import { MOCK_FACADE_PROVIDERS, GdprReadFacade, AttendanceReadFacade, AuditLogReadFacade } from '../../common/tests/mock-facades';
+import {
+  MOCK_FACADE_PROVIDERS,
+  GdprReadFacade,
+  AttendanceReadFacade,
+  AuditLogReadFacade,
+} from '../../common/tests/mock-facades';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 
 import { BehaviourReadFacade } from '../behaviour/behaviour-read.facade';
@@ -148,8 +153,14 @@ describe('RetentionPoliciesService', () => {
         { provide: FinanceReadFacade, useValue: financeFacade },
         { provide: BehaviourReadFacade, useValue: behaviourFacade },
         { provide: GdprReadFacade, useValue: gdprFacade },
-        { provide: AttendanceReadFacade, useValue: (attendanceFacade = { countAttendanceRecords: jest.fn().mockResolvedValue(0) }) },
-        { provide: AuditLogReadFacade, useValue: (auditLogFacade = { count: jest.fn().mockResolvedValue(0) }) },
+        {
+          provide: AttendanceReadFacade,
+          useValue: (attendanceFacade = { countAttendanceRecords: jest.fn().mockResolvedValue(0) }),
+        },
+        {
+          provide: AuditLogReadFacade,
+          useValue: (auditLogFacade = { count: jest.fn().mockResolvedValue(0) }),
+        },
       ],
     }).compile();
 
@@ -511,7 +522,179 @@ describe('RetentionPoliciesService', () => {
     });
   });
 
-  // ─── listHolds ────────────────────────────────────────────────────────────
+  // ─── previewRetention — countExpiredRecords branches ────────────────────────
+
+  describe('previewRetention — countExpiredRecords category branches', () => {
+    const setupPreview = (category: string, retentionMonths: number) => {
+      const policy = makePlatformDefault(category, retentionMonths);
+      gdprFacade.findPlatformDefaultPolicies.mockResolvedValue([policy]);
+      gdprFacade.findTenantPolicyOverrides.mockResolvedValue([]);
+    };
+
+    it('should count active_student_records via studentReadFacade.count', async () => {
+      setupPreview('active_student_records', 12);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(0);
+    });
+
+    it('should count graduated_withdrawn_students via studentReadFacade.count', async () => {
+      setupPreview('graduated_withdrawn_students', 24);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(0);
+    });
+
+    it('should count rejected_admissions via admissionsReadFacade', async () => {
+      setupPreview('rejected_admissions', 12);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(0);
+    });
+
+    it('should count financial_records via financeReadFacade', async () => {
+      setupPreview('financial_records', 84);
+      financeFacade.countInvoicesBeforeDate.mockResolvedValue(42);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(42);
+    });
+
+    it('should count payroll_records via payrollReadFacade', async () => {
+      setupPreview('payroll_records', 84);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(0);
+    });
+
+    it('should count staff_records_post_employment via staffProfileReadFacade', async () => {
+      setupPreview('staff_records_post_employment', 36);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(0);
+    });
+
+    it('should count attendance_records via attendanceReadFacade', async () => {
+      setupPreview('attendance_records', 24);
+      attendanceFacade.countAttendanceRecords.mockResolvedValue(500);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(500);
+    });
+
+    it('should count behaviour_records via behaviourReadFacade', async () => {
+      setupPreview('behaviour_records', 36);
+      behaviourFacade.countIncidentsBeforeDate.mockResolvedValue(25);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(25);
+    });
+
+    it('should return 0 for child_protection_safeguarding (never expires)', async () => {
+      setupPreview('child_protection_safeguarding', 12);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(0);
+    });
+
+    it('should count communications_notifications via communicationsReadFacade', async () => {
+      setupPreview('communications_notifications', 24);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(0);
+    });
+
+    it('should count audit_logs via auditLogReadFacade', async () => {
+      setupPreview('audit_logs', 84);
+      auditLogFacade.count.mockResolvedValue(1000);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(1000);
+    });
+
+    it('should count contact_form_submissions via websiteReadFacade', async () => {
+      setupPreview('contact_form_submissions', 12);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(0);
+    });
+
+    it('should count parent_inquiry_messages via parentInquiriesReadFacade', async () => {
+      setupPreview('parent_inquiry_messages', 24);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(0);
+    });
+
+    it('should count nl_query_history via gradebookReadFacade', async () => {
+      setupPreview('nl_query_history', 12);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(0);
+    });
+
+    it('should count ai_processing_logs via gdprReadFacade', async () => {
+      setupPreview('ai_processing_logs', 6);
+      gdprFacade.countTokenUsageLogsBeforeDate.mockResolvedValue(100);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(100);
+    });
+
+    it('should count tokenisation_usage_logs via gdprReadFacade', async () => {
+      setupPreview('tokenisation_usage_logs', 6);
+      gdprFacade.countTokenUsageLogsBeforeDate.mockResolvedValue(50);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(50);
+    });
+
+    it('should count s3_compliance_exports via prisma.complianceRequest', async () => {
+      setupPreview('s3_compliance_exports', 12);
+      prisma.complianceRequest.count.mockResolvedValue(5);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(5);
+    });
+
+    it('should return 0 for unknown category (default case)', async () => {
+      setupPreview(
+        'unknown_category' as ReturnType<typeof makePlatformDefault>['data_category'],
+        12,
+      );
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(0);
+    });
+
+    it('should return 0 when retentionMonths is 0 (indefinite)', async () => {
+      setupPreview('attendance_records', 0);
+
+      const result = await service.previewRetention(TENANT_ID);
+      expect(result.data[0]!.affected_count).toBe(0);
+      // countAttendanceRecords should not be called
+      expect(attendanceFacade.countAttendanceRecords).not.toHaveBeenCalled();
+    });
+
+    it('should call previewRetention without dto parameter', async () => {
+      const policies = [
+        makePlatformDefault('attendance_records', 24),
+        makePlatformDefault('audit_logs', 84, {
+          id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        }),
+      ];
+      gdprFacade.findPlatformDefaultPolicies.mockResolvedValue(policies);
+      gdprFacade.findTenantPolicyOverrides.mockResolvedValue([]);
+      attendanceFacade.countAttendanceRecords.mockResolvedValue(0);
+      auditLogFacade.count.mockResolvedValue(0);
+
+      const result = await service.previewRetention(TENANT_ID);
+      // No data_category filter, so both policies are processed
+      expect(result.data).toHaveLength(2);
+    });
+  });
+
+  // ─── listHolds ────────────────────────────────────────────────────────��───
 
   describe('listHolds', () => {
     it('should return paginated active holds', async () => {

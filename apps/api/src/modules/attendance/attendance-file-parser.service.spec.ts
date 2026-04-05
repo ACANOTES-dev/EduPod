@@ -270,6 +270,134 @@ describe('AttendanceFileParserService', () => {
 
       expect(() => service.parseXlsx(emptyBuffer)).toThrow();
     });
+
+    it('should parse valid XLSX content with proper headers', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const XLSX = require('xlsx');
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([
+        ['student_number', 'student_name', 'class_name', 'status'],
+        ['STU001', 'John Doe', 'Grade 1A', 'P'],
+        ['STU002', 'Jane Doe', 'Grade 1B', 'A'],
+      ]);
+      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+      const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+
+      const rows = service.parseXlsx(buf);
+
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toEqual({
+        student_number: 'STU001',
+        student_name: 'John Doe',
+        class_name: 'Grade 1A',
+        status: 'P',
+      });
+    });
+
+    it('should skip comment rows starting with # in XLSX', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const XLSX = require('xlsx');
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([
+        ['# This is a comment'],
+        ['student_number', 'student_name', 'class_name', 'status'],
+        ['STU001', 'John Doe', 'Grade 1A', 'P'],
+      ]);
+      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+      const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+
+      const rows = service.parseXlsx(buf);
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.student_number).toBe('STU001');
+    });
+
+    it('should throw BadRequestException when XLSX has missing required headers', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const XLSX = require('xlsx');
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([
+        ['student_number', 'student_name'],
+        ['STU001', 'John Doe'],
+      ]);
+      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+      const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+
+      expect(() => service.parseXlsx(buf)).toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException when XLSX has only empty/comment rows', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const XLSX = require('xlsx');
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([['# comment 1'], ['# comment 2']]);
+      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+      const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+
+      expect(() => service.parseXlsx(buf)).toThrow(BadRequestException);
+    });
+
+    it('should skip completely empty data rows in XLSX', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const XLSX = require('xlsx');
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([
+        ['student_number', 'student_name', 'class_name', 'status'],
+        ['STU001', 'John Doe', 'Grade 1A', 'P'],
+        ['', '', '', ''],
+        ['STU002', 'Jane Doe', 'Grade 1B', 'A'],
+      ]);
+      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+      const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+
+      const rows = service.parseXlsx(buf);
+
+      expect(rows).toHaveLength(2);
+    });
+
+    it('should throw BadRequestException when XLSX has zero data rows after header', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const XLSX = require('xlsx');
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([
+        ['student_number', 'student_name', 'class_name', 'status'],
+      ]);
+      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+      const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+
+      // This should NOT throw — it just returns 0 rows (no data rows)
+      const rows = service.parseXlsx(buf);
+      expect(rows).toHaveLength(0);
+    });
+
+    it('should handle XLSX with case-insensitive header names', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const XLSX = require('xlsx');
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([
+        ['Student_Number', 'Student_Name', 'Class_Name', 'STATUS'],
+        ['STU001', 'John Doe', 'Grade 1A', 'P'],
+      ]);
+      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+      const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+
+      const rows = service.parseXlsx(buf);
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.student_number).toBe('STU001');
+    });
+
+    it('should throw BadRequestException when XLSX sheet has only empty rows', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const XLSX = require('xlsx');
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([['', '', '', '']]);
+      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+      const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+
+      // After filtering, all rows are empty → filteredRows.length === 0
+      expect(() => service.parseXlsx(buf)).toThrow(BadRequestException);
+    });
   });
 
   // ─── escapeCsvField ──────────────────────────────────────────────────────

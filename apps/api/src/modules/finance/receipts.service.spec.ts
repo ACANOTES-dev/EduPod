@@ -174,5 +174,114 @@ describe('ReceiptsService', () => {
 
       await expect(service.renderPdf(TENANT_ID, 'bad-id', 'en')).rejects.toThrow(NotFoundException);
     });
+
+    it('should handle null branding with all null fields', async () => {
+      const pdfBuffer = Buffer.from('fake-pdf');
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: PAYMENT_ID,
+        payment_reference: 'PAY-002',
+        payment_method: 'stripe',
+        amount: '300.00',
+        currency_code: 'USD',
+        received_at: new Date('2026-03-24'),
+        household: { id: 'hh-1', household_name: 'Jones' },
+        allocations: [],
+        receipt: null,
+      });
+      mockPdfRenderingService.renderPdf.mockResolvedValue(pdfBuffer);
+
+      const result = await service.renderPdf(TENANT_ID, PAYMENT_ID, 'en');
+
+      expect(result).toBe(pdfBuffer);
+      expect(mockPdfRenderingService.renderPdf).toHaveBeenCalledWith(
+        'receipt',
+        'en',
+        expect.objectContaining({ receipt_number: '' }),
+        expect.objectContaining({ school_name: 'Test School' }),
+      );
+    });
+
+    it('should handle null branding and null tenant', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          ...MOCK_FACADE_PROVIDERS,
+          ReceiptsService,
+          { provide: PrismaService, useValue: mockPrisma },
+          { provide: PdfRenderingService, useValue: mockPdfRenderingService },
+          { provide: SequenceService, useValue: mockSequenceService },
+          {
+            provide: TenantReadFacade,
+            useValue: {
+              findBranding: jest.fn().mockResolvedValue(null),
+              findById: jest.fn().mockResolvedValue(null),
+            },
+          },
+        ],
+      }).compile();
+
+      const svc = module.get<ReceiptsService>(ReceiptsService);
+
+      const pdfBuffer = Buffer.from('fake-pdf');
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: PAYMENT_ID,
+        payment_reference: 'PAY-003',
+        payment_method: 'cash',
+        amount: '100.00',
+        currency_code: 'EUR',
+        received_at: new Date('2026-03-24'),
+        household: { id: 'hh-1', household_name: 'Null Family' },
+        allocations: [],
+        receipt: null,
+      });
+      mockPdfRenderingService.renderPdf.mockResolvedValue(pdfBuffer);
+
+      const result = await svc.renderPdf(TENANT_ID, PAYMENT_ID, 'en');
+
+      expect(result).toBe(pdfBuffer);
+      // school_name falls back to '' when both branding and tenant are null
+      expect(mockPdfRenderingService.renderPdf).toHaveBeenCalledWith(
+        'receipt',
+        'en',
+        expect.anything(),
+        expect.objectContaining({
+          school_name: '',
+          school_name_ar: undefined,
+          logo_url: undefined,
+          primary_color: undefined,
+        }),
+      );
+    });
+
+    it('should use custom receipt prefix from branding', async () => {
+      mockPrisma.tenantBranding.findUnique.mockResolvedValue({ receipt_prefix: 'CUST' });
+      mockPrisma.receipt.create.mockResolvedValue(makeReceipt());
+
+      await service.createForPayment(TENANT_ID, PAYMENT_ID, USER_ID, 'en');
+
+      expect(mockSequenceService.nextNumber).toHaveBeenCalledWith(
+        TENANT_ID,
+        'receipt',
+        undefined,
+        'CUST',
+      );
+    });
+
+    it('should pass tx to sequence service when provided', async () => {
+      const fakeTx = {
+        tenantBranding: { findUnique: jest.fn().mockResolvedValue(null) },
+        receipt: { create: jest.fn().mockResolvedValue(makeReceipt()) },
+      };
+      mockSequenceService.nextNumber.mockResolvedValue('REC-202603-000001');
+
+      await service.createForPayment(TENANT_ID, PAYMENT_ID, USER_ID, 'en', fakeTx);
+
+      expect(mockSequenceService.nextNumber).toHaveBeenCalledWith(
+        TENANT_ID,
+        'receipt',
+        fakeTx,
+        'REC',
+      );
+      expect(fakeTx.receipt.create).toHaveBeenCalled();
+    });
   });
 });

@@ -34,7 +34,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
-import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
+import { MOCK_FACADE_PROVIDERS, TenantReadFacade } from '../../common/tests/mock-facades';
 import { CircuitBreakerRegistry } from '../../common/services/circuit-breaker-registry';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -43,10 +43,10 @@ import { InvoicesService } from './invoices.service';
 import { ReceiptsService } from './receipts.service';
 import { StripeService } from './stripe.service';
 
-const TENANT_ID = 'tenant-uuid-1111';
-const INVOICE_ID = 'inv-uuid-1111';
-const PAYMENT_ID = 'pay-uuid-1111';
-const HOUSEHOLD_ID = 'hh-uuid-1111';
+const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const INVOICE_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const PAYMENT_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+const HOUSEHOLD_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 
 const mockPrisma = {
   tenantStripeConfig: {
@@ -89,8 +89,13 @@ const mockConfigService = {
   get: jest.fn(),
 };
 
+const mockCircuitBreaker = {
+  exec: jest.fn().mockImplementation((_name: string, fn: () => Promise<unknown>) => fn()),
+};
+
 describe('StripeService', () => {
   let service: StripeService;
+  let tenantReadFacade: Record<string, jest.Mock>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -104,18 +109,31 @@ describe('StripeService', () => {
         { provide: ConfigService, useValue: mockConfigService },
         {
           provide: CircuitBreakerRegistry,
+          useValue: mockCircuitBreaker,
+        },
+        {
+          provide: TenantReadFacade,
           useValue: {
-            exec: jest.fn().mockImplementation((_name: string, fn: () => Promise<unknown>) => fn()),
+            findById: jest.fn().mockResolvedValue({ currency_code: 'EUR' }),
           },
         },
       ],
     }).compile();
 
     service = module.get<StripeService>(StripeService);
+    tenantReadFacade = module.get(TenantReadFacade);
     jest.clearAllMocks();
+    // Re-set defaults after clearAllMocks
+    mockCircuitBreaker.exec.mockImplementation((_name: string, fn: () => Promise<unknown>) => fn());
+    mockEncryptionService.decrypt.mockReturnValue('sk_test_fake_key');
+    tenantReadFacade.findById!.mockResolvedValue({ currency_code: 'EUR' });
   });
 
-  describe('createCheckoutSession', () => {
+  afterEach(() => jest.clearAllMocks());
+
+  // ─── createCheckoutSession ────────────────────────────────────────────────
+
+  describe('StripeService — createCheckoutSession', () => {
     it('should create a checkout session for an issued invoice', async () => {
       mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue({
         stripe_secret_key_encrypted: 'enc',
@@ -216,9 +234,141 @@ describe('StripeService', () => {
         }),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('should use success_url as checkout_url when session.url is null', async () => {
+      mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue({
+        stripe_secret_key_encrypted: 'enc',
+        encryption_key_ref: 'ref',
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        status: 'issued',
+        balance_amount: '500.00',
+        currency_code: 'EUR',
+        household_id: HOUSEHOLD_ID,
+        invoice_number: null,
+        lines: [],
+        household: { id: HOUSEHOLD_ID, household_name: 'Smith' },
+      });
+      mockStripeCheckoutCreate.mockResolvedValue({
+        id: 'cs_test_456',
+        url: null,
+      });
+
+      const result = await service.createCheckoutSession(TENANT_ID, INVOICE_ID, {
+        success_url: 'https://example.com/success',
+        cancel_url: 'https://example.com/cancel',
+      });
+
+      expect(result.checkout_url).toBe('https://example.com/success');
+    });
+
+    it('should handle partially_paid invoice status as payable', async () => {
+      mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue({
+        stripe_secret_key_encrypted: 'enc',
+        encryption_key_ref: 'ref',
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        status: 'partially_paid',
+        balance_amount: '250.00',
+        currency_code: 'EUR',
+        household_id: HOUSEHOLD_ID,
+        invoice_number: 'INV-002',
+        lines: [],
+        household: { id: HOUSEHOLD_ID, household_name: 'Jones' },
+      });
+      mockStripeCheckoutCreate.mockResolvedValue({
+        id: 'cs_test_789',
+        url: 'https://checkout.stripe.com/partial',
+      });
+
+      const result = await service.createCheckoutSession(TENANT_ID, INVOICE_ID, {
+        success_url: 'https://example.com/success',
+        cancel_url: 'https://example.com/cancel',
+      });
+
+      expect(result.session_id).toBe('cs_test_789');
+    });
+
+    it('should handle overdue invoice status as payable', async () => {
+      mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue({
+        stripe_secret_key_encrypted: 'enc',
+        encryption_key_ref: 'ref',
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        status: 'overdue',
+        balance_amount: '750.00',
+        currency_code: 'EUR',
+        household_id: HOUSEHOLD_ID,
+        invoice_number: 'INV-003',
+        lines: [],
+        household: { id: HOUSEHOLD_ID, household_name: 'Late Family' },
+      });
+      mockStripeCheckoutCreate.mockResolvedValue({
+        id: 'cs_test_overdue',
+        url: 'https://checkout.stripe.com/overdue',
+      });
+
+      const result = await service.createCheckoutSession(TENANT_ID, INVOICE_ID, {
+        success_url: 'https://example.com/success',
+        cancel_url: 'https://example.com/cancel',
+      });
+
+      expect(result.session_id).toBe('cs_test_overdue');
+    });
+
+    it('should reject void invoice status as non-payable', async () => {
+      mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue({
+        stripe_secret_key_encrypted: 'enc',
+        encryption_key_ref: 'ref',
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        status: 'void',
+        balance_amount: '500.00',
+        currency_code: 'EUR',
+        household_id: HOUSEHOLD_ID,
+        lines: [],
+        household: { id: HOUSEHOLD_ID, household_name: 'Void Family' },
+      });
+
+      await expect(
+        service.createCheckoutSession(TENANT_ID, INVOICE_ID, {
+          success_url: 'https://example.com/success',
+          cancel_url: 'https://example.com/cancel',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject paid invoice status as non-payable', async () => {
+      mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue({
+        stripe_secret_key_encrypted: 'enc',
+        encryption_key_ref: 'ref',
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        status: 'paid',
+        balance_amount: '0.00',
+        currency_code: 'EUR',
+        household_id: HOUSEHOLD_ID,
+        lines: [],
+        household: { id: HOUSEHOLD_ID, household_name: 'Paid Family' },
+      });
+
+      await expect(
+        service.createCheckoutSession(TENANT_ID, INVOICE_ID, {
+          success_url: 'https://example.com/success',
+          cancel_url: 'https://example.com/cancel',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
-  describe('processRefund', () => {
+  // ─── processRefund ────────────────────────────────────────────────────────
+
+  describe('StripeService — processRefund', () => {
     it('should process a Stripe refund', async () => {
       mockPrisma.payment.findFirst.mockResolvedValue({
         id: PAYMENT_ID,
@@ -271,12 +421,33 @@ describe('StripeService', () => {
         InternalServerErrorException,
       );
     });
+
+    it('should use null fallback when refund status is null', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: PAYMENT_ID,
+        payment_method: 'stripe',
+        external_event_id: 'pi_test_456',
+      });
+      mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue({
+        stripe_secret_key_encrypted: 'enc',
+        encryption_key_ref: 'ref',
+      });
+      mockStripeRefundsCreate.mockResolvedValue({
+        id: 're_test_456',
+        status: null,
+      });
+
+      const result = await service.processRefund(TENANT_ID, PAYMENT_ID, 100);
+
+      expect(result.status).toBe('succeeded');
+    });
   });
 
-  describe('handleWebhook', () => {
-    it('should throw BadRequestException when webhook secret missing', async () => {
+  // ─── handleWebhook ────────────────────────────────────────────────────────
+
+  describe('StripeService — handleWebhook', () => {
+    it('should throw BadRequestException when webhook secret missing everywhere', async () => {
       mockConfigService.get.mockReturnValue(undefined);
-      // Wipe env fallback as well
       const originalEnv = process.env.STRIPE_WEBHOOK_SECRET;
       delete process.env.STRIPE_WEBHOOK_SECRET;
       mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue(null);
@@ -286,6 +457,369 @@ describe('StripeService', () => {
       );
 
       process.env.STRIPE_WEBHOOK_SECRET = originalEnv;
+    });
+
+    it('should throw BadRequestException when signature verification fails', async () => {
+      mockConfigService.get.mockReturnValue('whsec_test_secret');
+      mockStripeWebhooksConstructEvent.mockImplementation(() => {
+        throw new Error('Signature verification failed');
+      });
+
+      await expect(
+        service.handleWebhook(TENANT_ID, Buffer.from('body'), 'bad-sig'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should handle checkout.session.completed event successfully', async () => {
+      mockConfigService.get.mockReturnValue('whsec_test_secret');
+      mockStripeWebhooksConstructEvent.mockReturnValue({
+        type: 'checkout.session.completed',
+        id: 'evt_test_1',
+        data: {
+          object: {
+            id: 'cs_test_session',
+            metadata: {
+              tenant_id: TENANT_ID,
+              invoice_id: INVOICE_ID,
+              household_id: HOUSEHOLD_ID,
+            },
+            amount_total: 50000, // $500
+            payment_intent: 'pi_test_intent',
+          },
+        },
+      });
+
+      // Setup for handleCheckoutCompleted
+      mockPrisma.payment.findFirst.mockResolvedValue(null); // no duplicate
+      mockPrisma.payment.create.mockResolvedValue({
+        id: 'pay-new',
+        tenant_id: TENANT_ID,
+        household_id: HOUSEHOLD_ID,
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        balance_amount: '500.00',
+      });
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result).toEqual({ received: true });
+      expect(mockPrisma.payment.create).toHaveBeenCalled();
+    });
+
+    it('should handle payment_intent.payment_failed event (logs warning)', async () => {
+      mockConfigService.get.mockReturnValue('whsec_test_secret');
+      mockStripeWebhooksConstructEvent.mockReturnValue({
+        type: 'payment_intent.payment_failed',
+        id: 'evt_test_failed',
+        data: { object: {} },
+      });
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result).toEqual({ received: true });
+    });
+
+    it('should handle unknown event type gracefully', async () => {
+      mockConfigService.get.mockReturnValue('whsec_test_secret');
+      mockStripeWebhooksConstructEvent.mockReturnValue({
+        type: 'customer.subscription.created',
+        id: 'evt_test_unknown',
+        data: { object: {} },
+      });
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result).toEqual({ received: true });
+    });
+
+    it('should fall back to per-tenant webhook secret when global is missing', async () => {
+      mockConfigService.get.mockReturnValue(undefined);
+      const originalEnv = process.env.STRIPE_WEBHOOK_SECRET;
+      delete process.env.STRIPE_WEBHOOK_SECRET;
+
+      mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue({
+        stripe_webhook_secret_encrypted: 'enc_whsec',
+        encryption_key_ref: 'ref',
+      });
+      mockEncryptionService.decrypt.mockReturnValue('whsec_per_tenant');
+      mockStripeWebhooksConstructEvent.mockReturnValue({
+        type: 'customer.subscription.created',
+        id: 'evt_test_per_tenant',
+        data: { object: {} },
+      });
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result).toEqual({ received: true });
+
+      process.env.STRIPE_WEBHOOK_SECRET = originalEnv;
+    });
+
+    it('should handle decryption failure for per-tenant webhook secret and throw', async () => {
+      mockConfigService.get.mockReturnValue(undefined);
+      const originalEnv = process.env.STRIPE_WEBHOOK_SECRET;
+      delete process.env.STRIPE_WEBHOOK_SECRET;
+
+      mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue({
+        stripe_webhook_secret_encrypted: 'bad_enc',
+        encryption_key_ref: 'ref',
+      });
+      mockEncryptionService.decrypt.mockImplementation(() => {
+        throw new Error('Decryption failed');
+      });
+
+      await expect(service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig')).rejects.toThrow(
+        BadRequestException,
+      );
+
+      process.env.STRIPE_WEBHOOK_SECRET = originalEnv;
+    });
+
+    it('should handle non-Error thrown during decryption of per-tenant webhook secret', async () => {
+      mockConfigService.get.mockReturnValue(undefined);
+      const originalEnv = process.env.STRIPE_WEBHOOK_SECRET;
+      delete process.env.STRIPE_WEBHOOK_SECRET;
+
+      mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue({
+        stripe_webhook_secret_encrypted: 'bad_enc',
+        encryption_key_ref: 'ref',
+      });
+      mockEncryptionService.decrypt.mockImplementation(() => {
+        throw 'string error'; // eslint-disable-line no-throw-literal
+      });
+
+      await expect(service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig')).rejects.toThrow(
+        BadRequestException,
+      );
+
+      process.env.STRIPE_WEBHOOK_SECRET = originalEnv;
+    });
+
+    it('should handle non-Error thrown during signature verification', async () => {
+      mockConfigService.get.mockReturnValue('whsec_test_secret');
+      mockStripeWebhooksConstructEvent.mockImplementation(() => {
+        throw 'string signature error'; // eslint-disable-line no-throw-literal
+      });
+
+      await expect(service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  // ─── handleCheckoutCompleted ──────────────────────────────────────────────
+
+  describe('StripeService — handleCheckoutCompleted (via handleWebhook)', () => {
+    function setupWebhookEvent(sessionOverrides: Record<string, unknown>) {
+      mockConfigService.get.mockReturnValue('whsec_test_secret');
+      mockStripeWebhooksConstructEvent.mockReturnValue({
+        type: 'checkout.session.completed',
+        id: 'evt_test_checkout',
+        data: {
+          object: {
+            id: 'cs_test_session',
+            metadata: {
+              tenant_id: TENANT_ID,
+              invoice_id: INVOICE_ID,
+              household_id: HOUSEHOLD_ID,
+            },
+            amount_total: 50000,
+            payment_intent: 'pi_test_intent',
+            ...sessionOverrides,
+          },
+        },
+      });
+    }
+
+    it('should skip when invoice_id is missing in metadata', async () => {
+      mockConfigService.get.mockReturnValue('whsec_test_secret');
+      mockStripeWebhooksConstructEvent.mockReturnValue({
+        type: 'checkout.session.completed',
+        id: 'evt_test_no_invoice',
+        data: {
+          object: {
+            id: 'cs_test',
+            metadata: { tenant_id: TENANT_ID, household_id: HOUSEHOLD_ID },
+            amount_total: 50000,
+          },
+        },
+      });
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result).toEqual({ received: true });
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+    });
+
+    it('should skip when household_id is missing in metadata', async () => {
+      mockConfigService.get.mockReturnValue('whsec_test_secret');
+      mockStripeWebhooksConstructEvent.mockReturnValue({
+        type: 'checkout.session.completed',
+        id: 'evt_test_no_household',
+        data: {
+          object: {
+            id: 'cs_test',
+            metadata: { tenant_id: TENANT_ID, invoice_id: INVOICE_ID },
+            amount_total: 50000,
+          },
+        },
+      });
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result).toEqual({ received: true });
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+    });
+
+    it('should skip when amount_total is zero', async () => {
+      setupWebhookEvent({ amount_total: 0 });
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result).toEqual({ received: true });
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+    });
+
+    it('should skip when amount_total is null', async () => {
+      setupWebhookEvent({ amount_total: null });
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result).toEqual({ received: true });
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when tenant not found', async () => {
+      setupWebhookEvent({});
+      tenantReadFacade.findById!.mockResolvedValue(null);
+
+      await expect(service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should skip duplicate payment (idempotency check)', async () => {
+      setupWebhookEvent({});
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: 'existing-payment',
+        external_event_id: 'pi_test_intent',
+      });
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result).toEqual({ received: true });
+      expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+    });
+
+    it('should handle payment_intent as object with id property', async () => {
+      setupWebhookEvent({
+        payment_intent: { id: 'pi_object_id', status: 'succeeded' },
+      });
+      mockPrisma.payment.findFirst.mockResolvedValue(null);
+      mockPrisma.payment.create.mockResolvedValue({
+        id: 'pay-new',
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        balance_amount: '500.00',
+      });
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result).toEqual({ received: true });
+      expect(mockPrisma.payment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            external_event_id: 'pi_object_id',
+          }),
+        }),
+      );
+    });
+
+    it('should fall back to session.id when payment_intent is null', async () => {
+      setupWebhookEvent({
+        payment_intent: null,
+      });
+      mockPrisma.payment.findFirst.mockResolvedValue(null);
+      mockPrisma.payment.create.mockResolvedValue({
+        id: 'pay-new',
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        balance_amount: '500.00',
+      });
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result).toEqual({ received: true });
+      expect(mockPrisma.payment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            external_event_id: 'cs_test_session',
+          }),
+        }),
+      );
+    });
+
+    it('should skip allocation when invoice not found', async () => {
+      setupWebhookEvent({});
+      mockPrisma.payment.findFirst.mockResolvedValue(null);
+      mockPrisma.payment.create.mockResolvedValue({
+        id: 'pay-new',
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue(null);
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result).toEqual({ received: true });
+      expect(mockPrisma.paymentAllocation.create).not.toHaveBeenCalled();
+    });
+
+    it('should skip allocation when invoice balance is 0', async () => {
+      setupWebhookEvent({});
+      mockPrisma.payment.findFirst.mockResolvedValue(null);
+      mockPrisma.payment.create.mockResolvedValue({
+        id: 'pay-new',
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        balance_amount: '0.00',
+      });
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result).toEqual({ received: true });
+      expect(mockPrisma.paymentAllocation.create).not.toHaveBeenCalled();
+    });
+
+    it('should allocate min of payment amount and invoice balance', async () => {
+      // Payment is $500 but balance is only $300
+      setupWebhookEvent({ amount_total: 50000 }); // $500
+      mockPrisma.payment.findFirst.mockResolvedValue(null);
+      mockPrisma.payment.create.mockResolvedValue({
+        id: 'pay-new',
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        balance_amount: '300.00',
+      });
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result).toEqual({ received: true });
+      expect(mockPrisma.paymentAllocation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            allocated_amount: 300,
+          }),
+        }),
+      );
     });
   });
 });

@@ -215,21 +215,27 @@ describe('CurriculumRequirementsService', () => {
 
     it('should throw NotFoundException when subject does not exist', async () => {
       const acadFacade = module.get(AcademicReadFacade);
-      (acadFacade.findSubjectByIdOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Subject not found'));
+      (acadFacade.findSubjectByIdOrThrow as jest.Mock).mockRejectedValue(
+        new NotFoundException('Subject not found'),
+      );
 
       await expect(service.create(TENANT_ID, dto)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw NotFoundException when year group does not exist', async () => {
       const acadFacade = module.get(AcademicReadFacade);
-      (acadFacade.findYearGroupByIdOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Year group not found'));
+      (acadFacade.findYearGroupByIdOrThrow as jest.Mock).mockRejectedValue(
+        new NotFoundException('Year group not found'),
+      );
 
       await expect(service.create(TENANT_ID, dto)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw NotFoundException when academic year does not exist', async () => {
       const acadFacade = module.get(AcademicReadFacade);
-      (acadFacade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Year not found'));
+      (acadFacade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(
+        new NotFoundException('Year not found'),
+      );
 
       await expect(service.create(TENANT_ID, dto)).rejects.toThrow(NotFoundException);
     });
@@ -308,7 +314,9 @@ describe('CurriculumRequirementsService', () => {
 
     it('should throw NotFoundException when year group does not exist', async () => {
       const acadFacade = module.get(AcademicReadFacade);
-      (acadFacade.findYearGroupByIdOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Year group not found'));
+      (acadFacade.findYearGroupByIdOrThrow as jest.Mock).mockRejectedValue(
+        new NotFoundException('Year group not found'),
+      );
 
       await expect(service.bulkUpsert(TENANT_ID, AY_ID, 'nonexistent', items)).rejects.toThrow(
         NotFoundException,
@@ -343,7 +351,9 @@ describe('CurriculumRequirementsService', () => {
 
     it('should throw NotFoundException when source year does not exist', async () => {
       const acadFacade = module.get(AcademicReadFacade);
-      (acadFacade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Year not found'));
+      (acadFacade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(
+        new NotFoundException('Year not found'),
+      );
 
       await expect(
         service.copyFromAcademicYear(TENANT_ID, 'nonexistent', AY_ID_TARGET),
@@ -367,6 +377,253 @@ describe('CurriculumRequirementsService', () => {
 
       await expect(service.copyFromAcademicYear(TENANT_ID, AY_ID, AY_ID_TARGET)).rejects.toThrow(
         BadRequestException,
+      );
+    });
+  });
+
+  // ─── update — optional field branches ───────────────────────────────────────
+
+  describe('update — optional fields', () => {
+    beforeEach(() => {
+      mockPrisma.curriculumRequirement.findFirst.mockResolvedValue({ id: CR_ID });
+    });
+
+    it('should update max_periods_per_day when provided', async () => {
+      mockTx.curriculumRequirement.update.mockResolvedValue({
+        id: CR_ID,
+        max_periods_per_day: 3,
+      });
+
+      const result = await service.update(TENANT_ID, CR_ID, { max_periods_per_day: 3 });
+
+      expect(result).toEqual(expect.objectContaining({ max_periods_per_day: 3 }));
+    });
+
+    it('should update preferred_periods_per_week when provided', async () => {
+      mockTx.curriculumRequirement.update.mockResolvedValue({
+        id: CR_ID,
+        preferred_periods_per_week: 7,
+      });
+
+      const result = await service.update(TENANT_ID, CR_ID, { preferred_periods_per_week: 7 });
+
+      expect(result).toEqual(expect.objectContaining({ preferred_periods_per_week: 7 }));
+    });
+
+    it('should update requires_double_period when provided', async () => {
+      mockTx.curriculumRequirement.update.mockResolvedValue({
+        id: CR_ID,
+        requires_double_period: true,
+      });
+
+      const result = await service.update(TENANT_ID, CR_ID, { requires_double_period: true });
+
+      expect(result).toEqual(expect.objectContaining({ requires_double_period: true }));
+    });
+
+    it('should update double_period_count when provided', async () => {
+      mockTx.curriculumRequirement.update.mockResolvedValue({
+        id: CR_ID,
+        double_period_count: 2,
+      });
+
+      const result = await service.update(TENANT_ID, CR_ID, { double_period_count: 2 });
+
+      expect(result).toEqual(expect.objectContaining({ double_period_count: 2 }));
+    });
+
+    it('should update period_duration when provided', async () => {
+      mockTx.curriculumRequirement.update.mockResolvedValue({
+        id: CR_ID,
+        period_duration: 45,
+      });
+
+      const result = await service.update(TENANT_ID, CR_ID, { period_duration: 45 });
+
+      expect(result).toEqual(expect.objectContaining({ period_duration: 45 }));
+    });
+
+    it('should update multiple fields at once', async () => {
+      mockTx.curriculumRequirement.update.mockResolvedValue({
+        id: CR_ID,
+        min_periods_per_week: 4,
+        max_periods_per_day: 2,
+        requires_double_period: true,
+        double_period_count: 1,
+        period_duration: 60,
+      });
+
+      const result = await service.update(TENANT_ID, CR_ID, {
+        min_periods_per_week: 4,
+        max_periods_per_day: 2,
+        requires_double_period: true,
+        double_period_count: 1,
+        period_duration: 60,
+      });
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          min_periods_per_week: 4,
+          max_periods_per_day: 2,
+          requires_double_period: true,
+        }),
+      );
+    });
+  });
+
+  // ─── getMatrixSubjects ──────────────────────────────────────────────────────
+
+  describe('getMatrixSubjects', () => {
+    it('should return empty array when no active classes exist', async () => {
+      const classesFacade = module.get(ClassesReadFacade);
+      (classesFacade.findByYearGroup as jest.Mock).mockResolvedValue([]);
+
+      const result = await service.getMatrixSubjects(TENANT_ID, AY_ID, YG_ID);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should filter out non-active and wrong academic year classes', async () => {
+      const classesFacade = module.get(ClassesReadFacade);
+      (classesFacade.findByYearGroup as jest.Mock).mockResolvedValue([
+        { id: 'cls-1', name: '1A', academic_year_id: AY_ID, status: 'active' },
+        { id: 'cls-2', name: '1B', academic_year_id: AY_ID, status: 'archived' },
+        { id: 'cls-3', name: '1C', academic_year_id: 'other-ay', status: 'active' },
+      ]);
+
+      const gbFacade = module.get(GradebookReadFacade);
+      (gbFacade.findClassSubjectConfigs as jest.Mock).mockResolvedValue([]);
+
+      const result = await service.getMatrixSubjects(TENANT_ID, AY_ID, YG_ID);
+
+      // Only cls-1 should be passed to findClassSubjectConfigs
+      expect(gbFacade.findClassSubjectConfigs).toHaveBeenCalledWith(TENANT_ID, ['cls-1']);
+      expect(result).toEqual([]);
+    });
+
+    it('should group subjects across classes and sort by name', async () => {
+      const classesFacade = module.get(ClassesReadFacade);
+      (classesFacade.findByYearGroup as jest.Mock).mockResolvedValue([
+        { id: 'cls-1', name: '1A', academic_year_id: AY_ID, status: 'active' },
+        { id: 'cls-2', name: '1B', academic_year_id: AY_ID, status: 'active' },
+      ]);
+
+      const gbFacade = module.get(GradebookReadFacade);
+      (gbFacade.findClassSubjectConfigs as jest.Mock).mockResolvedValue([
+        { subject_id: 'sub-1', subject: { id: 'sub-1', name: 'Maths' }, class_name: '1A' },
+        { subject_id: 'sub-1', subject: { id: 'sub-1', name: 'Maths' }, class_name: '1B' },
+        { subject_id: 'sub-2', subject: { id: 'sub-2', name: 'English' }, class_name: '1A' },
+      ]);
+
+      const result = await service.getMatrixSubjects(TENANT_ID, AY_ID, YG_ID);
+
+      expect(result).toHaveLength(2);
+      // Sorted alphabetically by subject name
+      expect(result[0]!.subject.name).toBe('English');
+      expect(result[0]!.classes).toEqual(['1A']);
+      expect(result[1]!.subject.name).toBe('Maths');
+      expect(result[1]!.classes).toEqual(['1A', '1B']);
+    });
+
+    it('should return empty when all classes are inactive', async () => {
+      const classesFacade = module.get(ClassesReadFacade);
+      (classesFacade.findByYearGroup as jest.Mock).mockResolvedValue([
+        { id: 'cls-1', name: '1A', academic_year_id: AY_ID, status: 'archived' },
+      ]);
+
+      const result = await service.getMatrixSubjects(TENANT_ID, AY_ID, YG_ID);
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  // ─── create — optional nullable fields ──────────────────────────────────────
+
+  describe('create — with optional fields', () => {
+    it('should pass optional fields as null when not provided', async () => {
+      const dto = {
+        subject_id: SUBJECT_ID,
+        year_group_id: YG_ID,
+        academic_year_id: AY_ID,
+        min_periods_per_week: 5,
+        max_periods_per_day: 2,
+        requires_double_period: false,
+      };
+      mockTx.curriculumRequirement.create.mockResolvedValue({ id: CR_ID, ...dto });
+
+      await service.create(TENANT_ID, dto);
+
+      expect(mockTx.curriculumRequirement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            preferred_periods_per_week: null,
+            double_period_count: null,
+            period_duration: null,
+          }),
+        }),
+      );
+    });
+
+    it('should pass optional fields when provided', async () => {
+      const dto = {
+        subject_id: SUBJECT_ID,
+        year_group_id: YG_ID,
+        academic_year_id: AY_ID,
+        min_periods_per_week: 5,
+        max_periods_per_day: 2,
+        requires_double_period: true,
+        preferred_periods_per_week: 6,
+        double_period_count: 1,
+        period_duration: 50,
+      };
+      mockTx.curriculumRequirement.create.mockResolvedValue({ id: CR_ID, ...dto });
+
+      await service.create(TENANT_ID, dto);
+
+      expect(mockTx.curriculumRequirement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            preferred_periods_per_week: 6,
+            double_period_count: 1,
+            period_duration: 50,
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── bulkUpsert — with optional fields ──────────────────────────────────────
+
+  describe('bulkUpsert — optional fields', () => {
+    it('should pass optional fields in bulk create', async () => {
+      const items = [
+        {
+          subject_id: SUBJECT_ID,
+          year_group_id: YG_ID,
+          academic_year_id: AY_ID,
+          min_periods_per_week: 5,
+          max_periods_per_day: 2,
+          requires_double_period: true,
+          preferred_periods_per_week: 6,
+          double_period_count: 2,
+          period_duration: 40,
+        },
+      ];
+
+      mockTx.curriculumRequirement.deleteMany.mockResolvedValue({ count: 0 });
+      mockTx.curriculumRequirement.create.mockResolvedValue({ id: 'new-cr-1' });
+
+      const result = await service.bulkUpsert(TENANT_ID, AY_ID, YG_ID, items);
+
+      expect(result.data).toHaveLength(1);
+      expect(mockTx.curriculumRequirement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            preferred_periods_per_week: 6,
+            double_period_count: 2,
+            period_duration: 40,
+          }),
+        }),
       );
     });
   });

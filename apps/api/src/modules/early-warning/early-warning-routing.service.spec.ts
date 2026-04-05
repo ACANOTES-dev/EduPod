@@ -69,7 +69,10 @@ describe('EarlyWarningRoutingService', () => {
             }),
             findStaffByClass: jest.fn().mockImplementation(async () => {
               const rows = await mockPrisma.classStaff.findMany();
-              return rows.map((r: Record<string, unknown>) => ({ ...r, assignment_role: 'homeroom' }));
+              return rows.map((r: Record<string, unknown>) => ({
+                ...r,
+                assignment_role: 'homeroom',
+              }));
             }),
             findStaffByClasses: jest.fn().mockImplementation(async () => {
               const rows = await mockPrisma.classStaff.findMany();
@@ -113,19 +116,12 @@ describe('EarlyWarningRoutingService', () => {
   describe('resolveRecipients', () => {
     it('should resolve homeroom teacher for yellow tier', async () => {
       mockPrisma.classEnrolment.findFirst.mockResolvedValue({ class_id: CLASS_ID });
-      mockPrisma.classStaff.findMany.mockResolvedValue([
-        { staff_profile_id: STAFF_PROFILE_ID },
-      ]);
-      mockPrisma.staffProfile.findMany.mockResolvedValue([
-        { user_id: TEACHER_USER_ID },
-      ]);
+      mockPrisma.classStaff.findMany.mockResolvedValue([{ staff_profile_id: STAFF_PROFILE_ID }]);
+      mockPrisma.staffProfile.findMany.mockResolvedValue([{ user_id: TEACHER_USER_ID }]);
 
-      const result = await service.resolveRecipients(
-        TENANT_ID,
-        STUDENT_ID,
-        'yellow',
-        { yellow: { role: 'homeroom_teacher' } },
-      );
+      const result = await service.resolveRecipients(TENANT_ID, STUDENT_ID, 'yellow', {
+        yellow: { role: 'homeroom_teacher' },
+      });
 
       expect(result.recipientUserIds).toEqual([TEACHER_USER_ID]);
     });
@@ -136,19 +132,14 @@ describe('EarlyWarningRoutingService', () => {
         { membership: { user_id: YEAR_HEAD_USER_ID } },
       ]);
       mockPrisma.class.findMany.mockResolvedValue([{ id: CLASS_ID }]);
-      mockPrisma.classStaff.findMany.mockResolvedValue([
-        { staff_profile_id: STAFF_PROFILE_ID },
-      ]);
+      mockPrisma.classStaff.findMany.mockResolvedValue([{ staff_profile_id: STAFF_PROFILE_ID }]);
       mockPrisma.staffProfile.findMany.mockResolvedValue([
         { id: STAFF_PROFILE_ID, user_id: YEAR_HEAD_USER_ID },
       ]);
 
-      const result = await service.resolveRecipients(
-        TENANT_ID,
-        STUDENT_ID,
-        'amber',
-        { amber: { role: 'year_head' } },
-      );
+      const result = await service.resolveRecipients(TENANT_ID, STUDENT_ID, 'amber', {
+        amber: { role: 'year_head' },
+      });
 
       expect(result.recipientUserIds).toEqual([YEAR_HEAD_USER_ID]);
     });
@@ -158,12 +149,9 @@ describe('EarlyWarningRoutingService', () => {
         .mockResolvedValueOnce([{ membership: { user_id: PRINCIPAL_USER_ID } }])
         .mockResolvedValueOnce([{ membership: { user_id: YEAR_HEAD_USER_ID } }]);
 
-      const result = await service.resolveRecipients(
-        TENANT_ID,
-        STUDENT_ID,
-        'red',
-        { red: { roles: ['principal', 'pastoral_lead'] } },
-      );
+      const result = await service.resolveRecipients(TENANT_ID, STUDENT_ID, 'red', {
+        red: { roles: ['principal', 'pastoral_lead'] },
+      });
 
       expect(result.recipientUserIds).toHaveLength(2);
       expect(result.recipientUserIds).toContain(PRINCIPAL_USER_ID);
@@ -171,19 +159,10 @@ describe('EarlyWarningRoutingService', () => {
 
     it('should use fallback defaults when no routing rules configured', async () => {
       mockPrisma.classEnrolment.findFirst.mockResolvedValue({ class_id: CLASS_ID });
-      mockPrisma.classStaff.findMany.mockResolvedValue([
-        { staff_profile_id: STAFF_PROFILE_ID },
-      ]);
-      mockPrisma.staffProfile.findMany.mockResolvedValue([
-        { user_id: TEACHER_USER_ID },
-      ]);
+      mockPrisma.classStaff.findMany.mockResolvedValue([{ staff_profile_id: STAFF_PROFILE_ID }]);
+      mockPrisma.staffProfile.findMany.mockResolvedValue([{ user_id: TEACHER_USER_ID }]);
 
-      const result = await service.resolveRecipients(
-        TENANT_ID,
-        STUDENT_ID,
-        'yellow',
-        {},
-      );
+      const result = await service.resolveRecipients(TENANT_ID, STUDENT_ID, 'yellow', {});
 
       expect(result.recipientUserIds).toEqual([TEACHER_USER_ID]);
     });
@@ -193,12 +172,9 @@ describe('EarlyWarningRoutingService', () => {
         .mockResolvedValueOnce([{ membership: { user_id: PRINCIPAL_USER_ID } }])
         .mockResolvedValueOnce([{ membership: { user_id: PRINCIPAL_USER_ID } }]);
 
-      const result = await service.resolveRecipients(
-        TENANT_ID,
-        STUDENT_ID,
-        'red',
-        { red: { roles: ['principal', 'pastoral_lead'] } },
-      );
+      const result = await service.resolveRecipients(TENANT_ID, STUDENT_ID, 'red', {
+        red: { roles: ['principal', 'pastoral_lead'] },
+      });
 
       expect(result.recipientUserIds).toEqual([PRINCIPAL_USER_ID]);
     });
@@ -206,12 +182,7 @@ describe('EarlyWarningRoutingService', () => {
     it('should return empty array when student has no class enrolment', async () => {
       mockPrisma.classEnrolment.findFirst.mockResolvedValue(null);
 
-      const result = await service.resolveRecipients(
-        TENANT_ID,
-        STUDENT_ID,
-        'yellow',
-        {},
-      );
+      const result = await service.resolveRecipients(TENANT_ID, STUDENT_ID, 'yellow', {});
 
       expect(result.recipientUserIds).toEqual([]);
     });
@@ -219,14 +190,140 @@ describe('EarlyWarningRoutingService', () => {
     it('should return empty array when student has no year group', async () => {
       mockPrisma.student.findFirst.mockResolvedValue({ year_group_id: null });
 
-      const result = await service.resolveRecipients(
-        TENANT_ID,
-        STUDENT_ID,
-        'amber',
-        {},
-      );
+      const result = await service.resolveRecipients(TENANT_ID, STUDENT_ID, 'amber', {});
 
       expect(result.recipientUserIds).toEqual([]);
+    });
+
+    it('should use fallback defaults for amber tier when no routing rules', async () => {
+      mockPrisma.student.findFirst.mockResolvedValue({ year_group_id: 'yg-1' });
+      mockPrisma.membershipRole.findMany.mockResolvedValue([
+        { membership: { user_id: YEAR_HEAD_USER_ID } },
+      ]);
+      mockPrisma.class.findMany.mockResolvedValue([{ id: CLASS_ID }]);
+      mockPrisma.classStaff.findMany.mockResolvedValue([{ staff_profile_id: STAFF_PROFILE_ID }]);
+      mockPrisma.staffProfile.findMany.mockResolvedValue([
+        { id: STAFF_PROFILE_ID, user_id: YEAR_HEAD_USER_ID },
+      ]);
+
+      const result = await service.resolveRecipients(TENANT_ID, STUDENT_ID, 'amber', {});
+
+      expect(result.recipientUserIds).toContain(YEAR_HEAD_USER_ID);
+      expect(result.routedRole).toBe('year_head');
+    });
+
+    it('should use fallback defaults for red tier when no routing rules', async () => {
+      mockPrisma.membershipRole.findMany
+        .mockResolvedValueOnce([{ membership: { user_id: PRINCIPAL_USER_ID } }])
+        .mockResolvedValueOnce([{ membership: { user_id: YEAR_HEAD_USER_ID } }]);
+
+      const result = await service.resolveRecipients(TENANT_ID, STUDENT_ID, 'red', {});
+
+      expect(result.recipientUserIds).toContain(PRINCIPAL_USER_ID);
+      expect(result.routedRole).toBe('principal, pastoral_lead');
+    });
+
+    it('should resolve generic role via resolveByRole for unknown role keys', async () => {
+      mockPrisma.membershipRole.findMany.mockResolvedValue([
+        { membership: { user_id: PRINCIPAL_USER_ID } },
+      ]);
+
+      const result = await service.resolveRecipients(TENANT_ID, STUDENT_ID, 'yellow', {
+        yellow: { role: 'custom_role' },
+      });
+
+      expect(result.recipientUserIds).toContain(PRINCIPAL_USER_ID);
+      expect(result.routedRole).toBe('custom_role');
+    });
+
+    it('should handle tierRule with roles array', async () => {
+      mockPrisma.membershipRole.findMany
+        .mockResolvedValueOnce([{ membership: { user_id: PRINCIPAL_USER_ID } }])
+        .mockResolvedValueOnce([{ membership: { user_id: YEAR_HEAD_USER_ID } }]);
+
+      const result = await service.resolveRecipients(TENANT_ID, STUDENT_ID, 'amber', {
+        amber: { roles: ['principal', 'pastoral_lead'] },
+      });
+
+      // Both are resolved by resolveByRole, so the mocks return one user each
+      expect(result.recipientUserIds.length).toBeGreaterThanOrEqual(1);
+      expect(result.routedRole).toBe('principal, pastoral_lead');
+    });
+
+    it('should return empty homeroom teacher when class has no homeroom staff', async () => {
+      mockPrisma.classEnrolment.findFirst.mockResolvedValue({ class_id: CLASS_ID });
+      // findStaffByClass returns rows but they'll be mapped with assignment_role: 'homeroom'
+      // But the inner filter is on the mock level — classStaff.findMany returns empty
+      mockPrisma.classStaff.findMany.mockResolvedValue([]);
+      mockPrisma.staffProfile.findMany.mockResolvedValue([]);
+
+      const result = await service.resolveRecipients(TENANT_ID, STUDENT_ID, 'yellow', {
+        yellow: { role: 'homeroom_teacher' },
+      });
+
+      // No homeroom staff found in the class → empty result
+      // The mock maps all to homeroom, so this tests the case where no staff exist at all
+      expect(result.recipientUserIds).toEqual([]);
+    });
+
+    it('should fallback to all year heads when no scoped year heads in year group classes', async () => {
+      mockPrisma.student.findFirst.mockResolvedValue({ year_group_id: 'yg-1' });
+      // year heads by role
+      mockPrisma.membershipRole.findMany.mockResolvedValue([
+        { membership: { user_id: YEAR_HEAD_USER_ID } },
+      ]);
+      mockPrisma.class.findMany.mockResolvedValue([{ id: CLASS_ID }]);
+      // Class staff returns staff that are NOT year heads
+      mockPrisma.classStaff.findMany.mockResolvedValue([{ staff_profile_id: 'other-staff-id' }]);
+      mockPrisma.staffProfile.findMany.mockResolvedValue([
+        { id: 'other-staff-id', user_id: 'other-user-id' },
+      ]);
+
+      const result = await service.resolveRecipients(TENANT_ID, STUDENT_ID, 'amber', {
+        amber: { role: 'year_head' },
+      });
+
+      // scopedUserIds is empty since YEAR_HEAD_USER_ID is not in staffUserIds
+      // Falls back to allYearHeadUserIds
+      expect(result.recipientUserIds).toContain(YEAR_HEAD_USER_ID);
+    });
+
+    it('should return all year heads when no classes in year group', async () => {
+      mockPrisma.student.findFirst.mockResolvedValue({ year_group_id: 'yg-1' });
+      mockPrisma.membershipRole.findMany.mockResolvedValue([
+        { membership: { user_id: YEAR_HEAD_USER_ID } },
+      ]);
+      mockPrisma.class.findMany.mockResolvedValue([]); // No classes in year group
+
+      const result = await service.resolveRecipients(TENANT_ID, STUDENT_ID, 'amber', {
+        amber: { role: 'year_head' },
+      });
+
+      expect(result.recipientUserIds).toContain(YEAR_HEAD_USER_ID);
+    });
+
+    it('should return empty when year_head role returns no users', async () => {
+      mockPrisma.student.findFirst.mockResolvedValue({ year_group_id: 'yg-1' });
+      mockPrisma.membershipRole.findMany.mockResolvedValue([]); // No year heads
+
+      const result = await service.resolveRecipients(TENANT_ID, STUDENT_ID, 'amber', {
+        amber: { role: 'year_head' },
+      });
+
+      expect(result.recipientUserIds).toEqual([]);
+    });
+
+    it('should filter non-string values from roles array', async () => {
+      mockPrisma.membershipRole.findMany.mockResolvedValue([
+        { membership: { user_id: PRINCIPAL_USER_ID } },
+      ]);
+
+      const result = await service.resolveRecipients(TENANT_ID, STUDENT_ID, 'red', {
+        red: { roles: ['principal', 42, null, 'pastoral_lead'] },
+      });
+
+      // Only string roles should be processed
+      expect(result.routedRole).toBe('principal, pastoral_lead');
     });
   });
 });

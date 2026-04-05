@@ -292,9 +292,7 @@ describe('CheckinService', () => {
     });
 
     it('should reject when checkins are disabled (403)', async () => {
-      mockConfigFacade.findSettings.mockResolvedValue(
-        makeTenantSettingsRecord({ enabled: false }),
-      );
+      mockConfigFacade.findSettings.mockResolvedValue(makeTenantSettingsRecord({ enabled: false }));
 
       await expect(
         service.submitCheckin(TENANT_ID, STUDENT_ID, USER_ID, {
@@ -489,9 +487,7 @@ describe('CheckinService', () => {
 
   describe('getCheckinStatus', () => {
     it('should return enabled=false when checkins are disabled', async () => {
-      mockConfigFacade.findSettings.mockResolvedValue(
-        makeTenantSettingsRecord({ enabled: false }),
-      );
+      mockConfigFacade.findSettings.mockResolvedValue(makeTenantSettingsRecord({ enabled: false }));
 
       const result = await service.getCheckinStatus(TENANT_ID, STUDENT_ID);
 
@@ -547,6 +543,312 @@ describe('CheckinService', () => {
       const result = await service.getCheckinStatus(TENANT_ID, STUDENT_ID);
 
       expect(result.last_checkin_date).toBe('2026-03-25');
+    });
+
+    it('should return can_submit_today=true for weekly when no checkin in current week', async () => {
+      mockConfigFacade.findSettings.mockResolvedValue(
+        makeTenantSettingsRecord({ frequency: 'weekly' }),
+      );
+
+      // findFirst for last checkin (an old one, not this week)
+      mockRlsTx.studentCheckin.findFirst
+        .mockResolvedValueOnce(makeCheckinRecord({ checkin_date: new Date('2026-01-01') }))
+        // findFirst for week check returns null (no checkin this week)
+        .mockResolvedValueOnce(null);
+
+      const result = await service.getCheckinStatus(TENANT_ID, STUDENT_ID);
+
+      expect(result.enabled).toBe(true);
+      expect(result.can_submit_today).toBe(true);
+      expect(result.frequency).toBe('weekly');
+    });
+
+    it('should return frequency from settings', async () => {
+      mockConfigFacade.findSettings.mockResolvedValue(
+        makeTenantSettingsRecord({ enabled: false, frequency: 'weekly' }),
+      );
+
+      const result = await service.getCheckinStatus(TENANT_ID, STUDENT_ID);
+
+      expect(result.frequency).toBe('weekly');
+    });
+  });
+
+  // ─── submitCheckin — rethrow non-P2002 errors ──────────────────────────
+
+  describe('submitCheckin — error propagation', () => {
+    it('should rethrow non-P2002 Prisma errors', async () => {
+      const genericError = new Error('Connection lost');
+      mockRlsTx.studentCheckin.create.mockRejectedValue(genericError);
+
+      await expect(
+        service.submitCheckin(TENANT_ID, STUDENT_ID, USER_ID, { mood_score: 3 }),
+      ).rejects.toThrow('Connection lost');
+    });
+  });
+
+  // ─── getFlaggedCheckins — additional filter branches ─────────────────────
+
+  describe('getFlaggedCheckins — additional branches', () => {
+    it('should handle date_from only filter', async () => {
+      mockRlsTx.studentCheckin.findMany.mockResolvedValue([]);
+      mockRlsTx.studentCheckin.count.mockResolvedValue(0);
+
+      await service.getFlaggedCheckins(TENANT_ID, { date_from: '2026-03-01' }, 1, 20);
+
+      expect(mockRlsTx.studentCheckin.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            checkin_date: expect.objectContaining({
+              gte: expect.any(Date),
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should handle date_to only filter', async () => {
+      mockRlsTx.studentCheckin.findMany.mockResolvedValue([]);
+      mockRlsTx.studentCheckin.count.mockResolvedValue(0);
+
+      await service.getFlaggedCheckins(TENANT_ID, { date_to: '2026-03-31' }, 1, 20);
+
+      expect(mockRlsTx.studentCheckin.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            checkin_date: expect.objectContaining({
+              lte: expect.any(Date),
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should handle student_name fallback when student is null', async () => {
+      const records = [
+        makeCheckinRecord({
+          flagged: true,
+          flag_reason: 'keyword_match',
+          checkin_date: new Date('2026-03-27'),
+          student: null,
+        }),
+      ];
+      mockRlsTx.studentCheckin.findMany.mockResolvedValue(records);
+      mockRlsTx.studentCheckin.count.mockResolvedValue(1);
+
+      const result = await service.getFlaggedCheckins(TENANT_ID, {}, 1, 20);
+
+      expect(result.data[0]!.student_name).toBeNull();
+    });
+
+    it('should handle no filters at all', async () => {
+      mockRlsTx.studentCheckin.findMany.mockResolvedValue([]);
+      mockRlsTx.studentCheckin.count.mockResolvedValue(0);
+
+      const result = await service.getFlaggedCheckins(TENANT_ID, {}, 1, 20);
+
+      expect(result.data).toHaveLength(0);
+      expect(result.meta.total).toBe(0);
+    });
+  });
+
+  // ─── loadCheckinSettings — edge cases ──────────────────────────────────
+
+  describe('loadCheckinSettings — edge cases', () => {
+    it('should handle null settings record', async () => {
+      mockConfigFacade.findSettings.mockResolvedValue(null);
+
+      // Zod parse will use defaults for missing fields
+      const result = await service.getCheckinStatus(TENANT_ID, STUDENT_ID);
+
+      // With null settings, Zod defaults should provide enabled: false (or whatever the default is)
+      expect(result).toHaveProperty('enabled');
+      expect(result).toHaveProperty('frequency');
+    });
+
+    it('should handle settings with no pastoral key', async () => {
+      mockConfigFacade.findSettings.mockResolvedValue({
+        id: 'settings-1',
+        tenant_id: TENANT_ID,
+        settings: {},
+        created_at: new Date(),
+        updated_at: new Date(),
+      });
+
+      const result = await service.getCheckinStatus(TENANT_ID, STUDENT_ID);
+
+      expect(result).toHaveProperty('enabled');
+    });
+  });
+
+  // ─── Branch coverage: submitCheckin — weekly frequency success ─────────────
+
+  describe('submitCheckin — weekly no prior checkin', () => {
+    it('should succeed when weekly frequency and no prior checkin in current week', async () => {
+      mockConfigFacade.findSettings.mockResolvedValue(
+        makeTenantSettingsRecord({ frequency: 'weekly' }),
+      );
+      mockRlsTx.studentCheckin.findFirst.mockResolvedValue(null);
+      const createdCheckin = {
+        id: 'checkin-weekly-1',
+        tenant_id: TENANT_ID,
+        student_id: STUDENT_ID,
+        mood_score: 4,
+        freeform_text: null,
+        flagged: false,
+        flag_reason: null,
+        auto_concern_id: null,
+        checkin_date: new Date(),
+        created_at: new Date(),
+      };
+      mockRlsTx.studentCheckin.create.mockResolvedValue(createdCheckin);
+
+      const result = await service.submitCheckin(TENANT_ID, STUDENT_ID, USER_ID, {
+        mood_score: 4,
+      });
+
+      expect(result.id).toBe('checkin-weekly-1');
+      expect(result.mood_score).toBe(4);
+    });
+  });
+
+  // ─── Branch coverage: getCheckinStatus — weekly with existing checkin ──────
+
+  describe('getCheckinStatus — weekly frequency branches', () => {
+    it('should return can_submit_today=true for weekly when last checkin was last week', async () => {
+      mockConfigFacade.findSettings.mockResolvedValue(
+        makeTenantSettingsRecord({ frequency: 'weekly' }),
+      );
+      // Last checkin was 8 days ago
+      const lastWeek = new Date();
+      lastWeek.setDate(lastWeek.getDate() - 8);
+      mockRlsTx.studentCheckin.findFirst
+        .mockResolvedValueOnce({ checkin_date: lastWeek }) // most recent
+        .mockResolvedValueOnce(null); // no weekly checkin
+
+      const result = await service.getCheckinStatus(TENANT_ID, STUDENT_ID);
+
+      expect(result.enabled).toBe(true);
+      expect(result.can_submit_today).toBe(true);
+      expect(result.frequency).toBe('weekly');
+    });
+
+    it('should return can_submit_today=false for daily when last checkin is today', async () => {
+      mockConfigFacade.findSettings.mockResolvedValue(
+        makeTenantSettingsRecord({ frequency: 'daily' }),
+      );
+      const today = new Date();
+      mockRlsTx.studentCheckin.findFirst.mockResolvedValue({ checkin_date: today });
+
+      const result = await service.getCheckinStatus(TENANT_ID, STUDENT_ID);
+
+      expect(result.enabled).toBe(true);
+      expect(result.can_submit_today).toBe(false);
+    });
+
+    it('should handle null last_checkin_date when no checkins exist', async () => {
+      mockConfigFacade.findSettings.mockResolvedValue(
+        makeTenantSettingsRecord({ frequency: 'daily' }),
+      );
+      mockRlsTx.studentCheckin.findFirst.mockResolvedValue(null);
+
+      const result = await service.getCheckinStatus(TENANT_ID, STUDENT_ID);
+
+      expect(result.last_checkin_date).toBeNull();
+      expect(result.can_submit_today).toBe(true);
+    });
+  });
+
+  // ─── Branch coverage: submitCheckin with freeform_text ─────────────────────
+
+  describe('submitCheckin — freeform_text handling', () => {
+    it('should pass null freeform_text when not provided', async () => {
+      const createdCheckin = makeCheckinRecord({
+        id: 'checkin-no-text',
+        freeform_text: null,
+        checkin_date: new Date(todayDateStr()),
+      });
+      mockRlsTx.studentCheckin.create.mockResolvedValue(createdCheckin);
+
+      const result = await service.submitCheckin(TENANT_ID, STUDENT_ID, USER_ID, {
+        mood_score: 3,
+      });
+
+      expect(result.freeform_text).toBeNull();
+      expect(mockRlsTx.studentCheckin.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            freeform_text: null,
+          }),
+        }),
+      );
+    });
+
+    it('should store freeform_text when provided and return it', async () => {
+      const createdCheckin = makeCheckinRecord({
+        id: 'checkin-with-text',
+        mood_score: 2,
+        freeform_text: 'I feel sad',
+        checkin_date: new Date(todayDateStr()),
+      });
+      mockRlsTx.studentCheckin.create.mockResolvedValue(createdCheckin);
+
+      const result = await service.submitCheckin(TENANT_ID, STUDENT_ID, USER_ID, {
+        mood_score: 2,
+        freeform_text: 'I feel sad',
+      });
+
+      // The student-facing response includes freeform_text from the record
+      expect(result.freeform_text).toBe('I feel sad');
+    });
+  });
+
+  // ─── Branch coverage: getFlaggedCheckins — date_from AND date_to ──────────
+
+  describe('getFlaggedCheckins — combined date filter', () => {
+    it('should apply both date_from and date_to simultaneously', async () => {
+      mockRlsTx.studentCheckin.findMany.mockResolvedValue([]);
+      mockRlsTx.studentCheckin.count.mockResolvedValue(0);
+
+      await service.getFlaggedCheckins(
+        TENANT_ID,
+        { date_from: '2026-01-01', date_to: '2026-03-31' },
+        1,
+        20,
+      );
+
+      expect(mockRlsTx.studentCheckin.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            checkin_date: {
+              gte: expect.any(Date),
+              lte: expect.any(Date),
+            },
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── Branch coverage: getStudentCheckins — mapping ─────────────────────────
+
+  describe('getStudentCheckins — mapping', () => {
+    it('should include flag_reason and auto_concern_id', async () => {
+      const records = [
+        makeCheckinRecord({
+          flagged: true,
+          flag_reason: 'keyword_match',
+          auto_concern_id: 'concern-1',
+        }),
+      ];
+      mockRlsTx.studentCheckin.findMany.mockResolvedValue(records);
+      mockRlsTx.studentCheckin.count.mockResolvedValue(1);
+
+      const result = await service.getStudentCheckins(TENANT_ID, STUDENT_ID, 1, 20);
+
+      expect(result.data[0]?.flag_reason).toBe('keyword_match');
+      expect(result.data[0]?.auto_concern_id).toBe('concern-1');
+      expect(result.data[0]?.student_id).toBe(STUDENT_ID);
     });
   });
 });

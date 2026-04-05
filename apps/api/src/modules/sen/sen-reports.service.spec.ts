@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { AcademicReadFacade, MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
@@ -403,6 +404,224 @@ describe('SenReportsService', () => {
           { status: 'report_received', count: 1 },
         ]),
       );
+    });
+
+    it('handles grouped counts with same professional_type and status', async () => {
+      senProfessionalInvolvementMock.findMany.mockResolvedValue([
+        { professional_type: 'speech_therapist', status: 'pending' },
+        { professional_type: 'speech_therapist', status: 'pending' },
+      ]);
+
+      const result = await service.getProfessionalInvolvementReport(TENANT_ID);
+
+      expect(result.grouped_counts).toEqual(
+        expect.arrayContaining([
+          { professional_type: 'speech_therapist', status: 'pending', count: 2 },
+        ]),
+      );
+    });
+
+    it('handles empty involvement list', async () => {
+      senProfessionalInvolvementMock.findMany.mockResolvedValue([]);
+
+      const result = await service.getProfessionalInvolvementReport(TENANT_ID);
+
+      expect(result.summary.total_involvements).toBe(0);
+      expect(result.summary.pending_referrals).toBe(0);
+      expect(result.by_professional_type).toEqual([]);
+      expect(result.by_status).toEqual([]);
+    });
+  });
+
+  // ─── Additional branch coverage ─────────────────────────────────────────────
+
+  describe('getOverviewReport — scope branches', () => {
+    it('returns empty result when scope is none', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'none' });
+
+      const result = await service.getOverviewReport(TENANT_ID, USER_ID, [], {});
+
+      expect(result.total_sen_students).toBe(0);
+      expect(result.by_category).toEqual([]);
+      expect(result.by_support_level).toEqual([]);
+      expect(result.by_year_group).toEqual([]);
+    });
+
+    it('aggregates profiles without applying scope filter for "all" scope', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'all' });
+      senProfileMock.findMany.mockResolvedValue([
+        {
+          primary_category: 'learning',
+          support_level: 'school_support',
+          student: {
+            year_group: { id: 'yg-1', name: 'First Year' },
+          },
+        },
+      ]);
+
+      const result = await service.getOverviewReport(TENANT_ID, USER_ID, ['sen.admin'], {});
+
+      expect(result.total_sen_students).toBe(1);
+      expect(senProfileMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenant_id: TENANT_ID },
+        }),
+      );
+    });
+
+    it('handles profiles with null year groups in overview', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'all' });
+      senProfileMock.findMany.mockResolvedValue([
+        {
+          primary_category: 'asd',
+          support_level: 'school_support_plus',
+          student: {
+            year_group: null,
+          },
+        },
+      ]);
+
+      const result = await service.getOverviewReport(TENANT_ID, USER_ID, ['sen.admin'], {});
+
+      expect(result.total_sen_students).toBe(1);
+      expect(result.by_year_group).toEqual([
+        { year_group_id: 'unassigned', year_group_name: 'Unassigned', count: 1 },
+      ]);
+    });
+  });
+
+  describe('getPlanCompliance — scope branches', () => {
+    it('returns empty result when scope is none', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'none' });
+
+      const result = await service.getPlanCompliance(TENANT_ID, USER_ID, [], {
+        due_within_days: 14,
+        stale_goal_weeks: 4,
+      });
+
+      expect(result.due_for_review).toEqual([]);
+      expect(result.overdue_plans).toEqual([]);
+      expect(result.stale_goals).toEqual([]);
+    });
+
+    it('throws NotFoundException when academic_year_id does not exist', async () => {
+      mockAcademicReadFacade.findYearById.mockResolvedValue(null);
+
+      await expect(
+        service.getPlanCompliance(TENANT_ID, USER_ID, ['sen.view'], {
+          academic_year_id: 'non-existent',
+          due_within_days: 14,
+          stale_goal_weeks: 4,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('applies class scope filter in plan compliance queries', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: ['student-1'],
+      });
+      senSupportPlanMock.findMany.mockResolvedValue([]);
+      senGoalMock.findMany.mockResolvedValue([]);
+
+      const result = await service.getPlanCompliance(TENANT_ID, USER_ID, ['sen.view'], {
+        due_within_days: 14,
+        stale_goal_weeks: 4,
+      });
+
+      expect(result.due_for_review).toEqual([]);
+      expect(senSupportPlanMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            sen_profile: {
+              student_id: { in: ['student-1'] },
+            },
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('getResourceUtilisation', () => {
+    it('delegates to senResourceService.getUtilisation', async () => {
+      const mockResult = {
+        totals: { total_allocated_hours: 10, total_assigned_hours: 5, total_used_hours: 2 },
+        bySource: [],
+        byYearGroup: [],
+      };
+      mockResourceService.getUtilisation.mockResolvedValue(mockResult);
+
+      const result = await service.getResourceUtilisation(TENANT_ID, {
+        academic_year_id: YEAR_ID,
+      });
+
+      expect(result).toEqual(mockResult);
+      expect(mockResourceService.getUtilisation).toHaveBeenCalledWith(TENANT_ID, {
+        academic_year_id: YEAR_ID,
+      });
+    });
+  });
+
+  describe('getNcseReturn — additional branches', () => {
+    it('returns "All years" when no academic_year_id provided', async () => {
+      senProfileMock.findMany.mockResolvedValue([]);
+      mockResourceService.getUtilisation.mockResolvedValue({
+        totals: { total_allocated_hours: 0, total_assigned_hours: 0, total_used_hours: 0 },
+        bySource: [],
+      });
+      senSnaAssignmentMock.count.mockResolvedValue(0);
+      senAccommodationMock.count.mockResolvedValue(0);
+
+      const result = await service.getNcseReturn(TENANT_ID, {});
+
+      expect(result.academic_year).toBe('All years');
+    });
+
+    it('throws NotFoundException for non-existent academic year', async () => {
+      mockAcademicReadFacade.findYearById.mockResolvedValue(null);
+
+      await expect(
+        service.getNcseReturn(TENANT_ID, { academic_year_id: 'non-existent' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('handles profiles with null student (edge case)', async () => {
+      senProfileMock.findMany.mockResolvedValue([
+        {
+          primary_category: 'learning',
+          support_level: 'school_support',
+          student: null,
+        },
+      ]);
+      mockResourceService.getUtilisation.mockResolvedValue({
+        totals: { total_allocated_hours: 0, total_assigned_hours: 0, total_used_hours: 0 },
+        bySource: [],
+      });
+      senSnaAssignmentMock.count.mockResolvedValue(0);
+      senAccommodationMock.count.mockResolvedValue(0);
+
+      const result = await service.getNcseReturn(TENANT_ID, {});
+
+      expect(result.total_sen_students).toBe(1);
+      expect(result.by_gender).toEqual([{ gender: 'unspecified', count: 1 }]);
+      expect(result.by_year_group).toEqual([
+        { year_group_id: 'unassigned', year_group_name: 'Unassigned', count: 1 },
+      ]);
+    });
+
+    it('defaults resource sources to 0 when not in bySource', async () => {
+      senProfileMock.findMany.mockResolvedValue([]);
+      mockResourceService.getUtilisation.mockResolvedValue({
+        totals: { total_allocated_hours: 0, total_assigned_hours: 0, total_used_hours: 0 },
+        bySource: [],
+      });
+      senSnaAssignmentMock.count.mockResolvedValue(0);
+      senAccommodationMock.count.mockResolvedValue(0);
+
+      const result = await service.getNcseReturn(TENANT_ID, {});
+
+      expect(result.resource_hours.seno_allocated).toBe(0);
+      expect(result.resource_hours.school_allocated).toBe(0);
     });
   });
 });

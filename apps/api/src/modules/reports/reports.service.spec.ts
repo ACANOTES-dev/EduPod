@@ -950,5 +950,539 @@ describe('ReportsService', () => {
         { id: uuid(1), name: 'Tom Smith', status: 'active', year_group: 'Year 3' },
       ]);
     });
+
+    it('should handle household with billing_parent null', async () => {
+      const householdNoBilling = {
+        ...mockHousehold,
+        billing_parent: null,
+      };
+      mockDataAccess.findHouseholdById.mockResolvedValue(householdNoBilling);
+      mockDataAccess.findInvoices.mockResolvedValue([]);
+      mockDataAccess.findPayments.mockResolvedValue([]);
+
+      const result = await service.householdExportPack(TENANT_ID, HOUSEHOLD_ID);
+      const profileSection = result.sections.find((s) => s.section === 'profile')!;
+      const profile = profileSection.data[0] as Record<string, unknown>;
+
+      expect(profile.billing_parent).toBeNull();
+    });
+
+    it('should handle student with no year_group (null)', async () => {
+      const householdNoYG = {
+        ...mockHousehold,
+        students: [
+          {
+            id: uuid(1),
+            first_name: 'Tom',
+            last_name: 'Smith',
+            status: 'active',
+            year_group: null,
+          },
+        ],
+      };
+      mockDataAccess.findHouseholdById.mockResolvedValue(householdNoYG);
+      mockDataAccess.findInvoices.mockResolvedValue([]);
+      mockDataAccess.findPayments.mockResolvedValue([]);
+
+      const result = await service.householdExportPack(TENANT_ID, HOUSEHOLD_ID);
+      const profileSection = result.sections.find((s) => s.section === 'profile')!;
+      const profile = profileSection.data[0] as Record<string, unknown>;
+      const students = profile.students as Array<Record<string, unknown>>;
+
+      expect(students[0]!.year_group).toBeNull();
+    });
+
+    it('should handle invoice with issue_date null and write_off_amount null', async () => {
+      mockDataAccess.findHouseholdById.mockResolvedValue(mockHousehold);
+      mockDataAccess.findInvoices.mockResolvedValue([
+        {
+          id: uuid(1),
+          invoice_number: 'INV-001',
+          status: 'issued',
+          issue_date: null,
+          due_date: new Date('2025-07-01'),
+          total_amount: 5000,
+          balance_amount: 5000,
+          discount_amount: 0,
+          write_off_amount: null,
+          write_off_reason: null,
+          currency_code: 'AED',
+        },
+      ]);
+      mockDataAccess.findPayments.mockResolvedValue([]);
+
+      const result = await service.householdExportPack(TENANT_ID, HOUSEHOLD_ID);
+      const invoicesSection = result.sections.find((s) => s.section === 'invoices')!;
+      const inv = invoicesSection.data[0] as Record<string, unknown>;
+
+      expect(inv.issue_date).toBeNull();
+      expect(inv.write_off_amount).toBeNull();
+    });
+
+    it('should format payment data in payments section', async () => {
+      mockDataAccess.findHouseholdById.mockResolvedValue(mockHousehold);
+      mockDataAccess.findInvoices.mockResolvedValue([]);
+      mockDataAccess.findPayments.mockResolvedValue([
+        {
+          id: uuid(1),
+          payment_reference: 'PAY-001',
+          payment_method: 'bank_transfer',
+          amount: 2500,
+          currency_code: 'AED',
+          status: 'confirmed',
+          received_at: new Date('2025-06-15'),
+        },
+      ]);
+
+      const result = await service.householdExportPack(TENANT_ID, HOUSEHOLD_ID);
+      const paymentsSection = result.sections.find((s) => s.section === 'payments')!;
+      const payment = paymentsSection.data[0] as Record<string, unknown>;
+
+      expect(payment.payment_reference).toBe('PAY-001');
+      expect(payment.amount).toBe(2500);
+      expect(payment.received_at).toBe('2025-06-15T00:00:00.000Z');
+    });
+  });
+
+  // ─── promotionRollover() edge cases ──────────────────────────────────
+
+  describe('promotionRollover() — edge cases', () => {
+    it('edge: should default audit log metadata counts to 0 when undefined', async () => {
+      mockDataAccess.findFirstAuditLog.mockResolvedValue({
+        id: uuid(1),
+        metadata_json: {},
+      });
+      mockDataAccess.findYearGroups.mockResolvedValue([{ id: uuid(10), name: 'Year 1' }]);
+
+      const result = await service.promotionRollover(TENANT_ID, ACADEMIC_YEAR_ID);
+
+      expect(result.promoted).toBe(0);
+      expect(result.held_back).toBe(0);
+      expect(result.graduated).toBe(0);
+      expect(result.withdrawn).toBe(0);
+    });
+
+    it('edge: should handle student with empty class_enrolments array (enrolmentYearGroupId null)', async () => {
+      mockDataAccess.findFirstAuditLog.mockResolvedValue(null);
+      mockDataAccess.findYearGroups.mockResolvedValue([
+        { id: uuid(10), name: 'Year 1', next_year_group: null },
+      ]);
+      mockDataAccess.findStudents.mockResolvedValue([
+        {
+          id: uuid(1),
+          status: 'active',
+          year_group_id: uuid(10),
+          class_enrolments: [],
+        },
+      ]);
+
+      const result = await service.promotionRollover(TENANT_ID, ACADEMIC_YEAR_ID);
+
+      // No enrolmentYearGroupId -> originalYg is null -> falls through to held_back
+      expect(result.held_back).toBe(1);
+      expect(result.promoted).toBe(0);
+    });
+
+    it('edge: should handle student with class_enrolment having null year_group_id', async () => {
+      mockDataAccess.findFirstAuditLog.mockResolvedValue(null);
+      mockDataAccess.findYearGroups.mockResolvedValue([
+        { id: uuid(10), name: 'Year 1', next_year_group: null },
+      ]);
+      mockDataAccess.findStudents.mockResolvedValue([
+        {
+          id: uuid(1),
+          status: 'active',
+          year_group_id: uuid(10),
+          class_enrolments: [{ class_entity: { year_group_id: null } }],
+        },
+      ]);
+
+      const result = await service.promotionRollover(TENANT_ID, ACADEMIC_YEAR_ID);
+
+      // enrolmentYearGroupId is null -> originalYg is null -> held_back
+      expect(result.held_back).toBe(1);
+    });
+
+    it('edge: should filter details to only non-zero year groups', async () => {
+      mockDataAccess.findFirstAuditLog.mockResolvedValue(null);
+      mockDataAccess.findYearGroups.mockResolvedValue([
+        { id: uuid(10), name: 'Year 1', next_year_group: { id: uuid(11) } },
+        { id: uuid(11), name: 'Year 2', next_year_group: null },
+        { id: uuid(12), name: 'Year 3', next_year_group: null },
+      ]);
+      mockDataAccess.findStudents.mockResolvedValue([
+        {
+          id: uuid(1),
+          status: 'active',
+          year_group_id: uuid(11),
+          class_enrolments: [{ class_entity: { year_group_id: uuid(10) } }],
+        },
+      ]);
+
+      const result = await service.promotionRollover(TENANT_ID, ACADEMIC_YEAR_ID);
+
+      // Year 3 has zero counts across all categories, so it should be filtered out
+      expect(result.details.find((d) => d.year_group_id === uuid(12))).toBeUndefined();
+      expect(result.details.find((d) => d.year_group_id === uuid(10))).toBeDefined();
+    });
+
+    it('edge: graduated student should increment detailEntry.graduated when enrolmentYearGroupId exists', async () => {
+      mockDataAccess.findFirstAuditLog.mockResolvedValue(null);
+      mockDataAccess.findYearGroups.mockResolvedValue([
+        { id: uuid(10), name: 'Year 6', next_year_group: null },
+      ]);
+      mockDataAccess.findStudents.mockResolvedValue([
+        {
+          id: uuid(1),
+          status: 'graduated',
+          year_group_id: uuid(10),
+          class_enrolments: [{ class_entity: { year_group_id: uuid(10) } }],
+        },
+      ]);
+
+      const result = await service.promotionRollover(TENANT_ID, ACADEMIC_YEAR_ID);
+      const detail = result.details.find((d) => d.year_group_id === uuid(10));
+
+      expect(detail).toBeDefined();
+      expect(detail!.graduated).toBe(1);
+    });
+
+    it('edge: graduated student with no enrolment should not increment detailEntry', async () => {
+      mockDataAccess.findFirstAuditLog.mockResolvedValue(null);
+      mockDataAccess.findYearGroups.mockResolvedValue([
+        { id: uuid(10), name: 'Year 6', next_year_group: null },
+      ]);
+      mockDataAccess.findStudents.mockResolvedValue([
+        {
+          id: uuid(1),
+          status: 'graduated',
+          year_group_id: uuid(10),
+          class_enrolments: [],
+        },
+      ]);
+
+      const result = await service.promotionRollover(TENANT_ID, ACADEMIC_YEAR_ID);
+
+      // Graduated increments the top-level counter regardless
+      expect(result.graduated).toBe(1);
+      // But detail entry is not found since enrolmentYearGroupId is null
+      // Year group still appears because graduated > 0 is not incremented via detail
+      // Actually detail has graduated=0 since detailEntry is null, so it gets filtered
+      // unless there are other students. In this case year group has 0 across the board.
+      expect(result.details).toHaveLength(0);
+    });
+  });
+
+  // ─── notificationDelivery() edge cases ─────────────────────────────
+
+  describe('notificationDelivery() — edge cases', () => {
+    it('edge: should use "unknown" as template key when template_key is null', async () => {
+      mockDataAccess.findNotifications.mockResolvedValue([
+        {
+          id: uuid(1),
+          channel: 'email',
+          status: 'delivered',
+          template_key: null,
+          failure_reason: null,
+        },
+      ]);
+
+      const result = await service.notificationDelivery(TENANT_ID, {});
+
+      const unknownTemplate = result.by_template.find((t) => t.template_key === 'unknown');
+      expect(unknownTemplate).toBeDefined();
+      expect(unknownTemplate!.sent).toBe(1);
+    });
+
+    it('edge: should not add failure_reason when failed notification has null failure_reason', async () => {
+      mockDataAccess.findNotifications.mockResolvedValue([
+        {
+          id: uuid(1),
+          channel: 'email',
+          status: 'failed',
+          template_key: 't1',
+          failure_reason: null,
+        },
+      ]);
+
+      const result = await service.notificationDelivery(TENANT_ID, {});
+
+      expect(result.total_failed).toBe(1);
+      expect(result.failure_reasons).toHaveLength(0);
+    });
+
+    it('edge: should handle only start_date without end_date', async () => {
+      mockDataAccess.findNotifications.mockResolvedValue([]);
+
+      await service.notificationDelivery(TENANT_ID, { start_date: '2025-01-01' });
+
+      expect(mockDataAccess.findNotifications).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({
+          created_at: { gte: new Date('2025-01-01') },
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it('edge: should handle only end_date without start_date', async () => {
+      mockDataAccess.findNotifications.mockResolvedValue([]);
+
+      await service.notificationDelivery(TENANT_ID, { end_date: '2025-12-31' });
+
+      expect(mockDataAccess.findNotifications).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({
+          created_at: { lte: new Date('2025-12-31') },
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it('edge: should handle empty notifications list', async () => {
+      mockDataAccess.findNotifications.mockResolvedValue([]);
+
+      const result = await service.notificationDelivery(TENANT_ID, {});
+
+      expect(result.total_sent).toBe(0);
+      expect(result.total_delivered).toBe(0);
+      expect(result.total_failed).toBe(0);
+      expect(result.by_channel).toHaveLength(0);
+      expect(result.by_template).toHaveLength(0);
+      expect(result.failure_reasons).toHaveLength(0);
+    });
+  });
+
+  // ─── writeOffs() edge cases ──────────────────────────────────────────
+
+  describe('writeOffs() — edge cases', () => {
+    it('edge: should default write_off_amount to 0 when null', async () => {
+      mockDataAccess.findInvoices
+        .mockResolvedValueOnce([
+          {
+            id: uuid(1),
+            invoice_number: 'INV-001',
+            write_off_amount: null,
+            write_off_reason: null,
+            updated_at: new Date('2025-06-01'),
+            household: { household_name: 'Smith Family' },
+          },
+        ])
+        .mockResolvedValueOnce([]);
+      mockDataAccess.countInvoices.mockResolvedValue(1);
+
+      const result = await service.writeOffs(TENANT_ID, {});
+
+      expect(result.data.entries[0]!.amount).toBe(0);
+    });
+
+    it('edge: should handle only start_date without end_date in writeOffs', async () => {
+      mockDataAccess.findInvoices.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      mockDataAccess.countInvoices.mockResolvedValue(0);
+
+      await service.writeOffs(TENANT_ID, { start_date: '2025-01-01' });
+
+      expect(mockDataAccess.findInvoices).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({
+          where: expect.objectContaining({
+            updated_at: { gte: new Date('2025-01-01') },
+          }),
+        }),
+      );
+    });
+
+    it('edge: should handle only end_date without start_date in writeOffs', async () => {
+      mockDataAccess.findInvoices.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      mockDataAccess.countInvoices.mockResolvedValue(0);
+
+      await service.writeOffs(TENANT_ID, { end_date: '2025-12-31' });
+
+      expect(mockDataAccess.findInvoices).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({
+          where: expect.objectContaining({
+            updated_at: { lte: new Date('2025-12-31') },
+          }),
+        }),
+      );
+    });
+
+    it('edge: should use default page=1 and pageSize=20 when not provided', async () => {
+      mockDataAccess.findInvoices.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      mockDataAccess.countInvoices.mockResolvedValue(0);
+
+      const result = await service.writeOffs(TENANT_ID, {});
+
+      expect(result.meta.page).toBe(1);
+      expect(result.meta.pageSize).toBe(20);
+    });
+
+    it('edge: should apply discount date filter when date range given', async () => {
+      mockDataAccess.findInvoices
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ discount_amount: 100 }]);
+      mockDataAccess.countInvoices.mockResolvedValue(0);
+
+      await service.writeOffs(TENANT_ID, {
+        start_date: '2025-01-01',
+        end_date: '2025-12-31',
+      });
+
+      // Second call to findInvoices (discounts) should also have the date filter
+      const secondCall = mockDataAccess.findInvoices.mock.calls[1]![1] as Record<string, unknown>;
+      const where = secondCall.where as Record<string, unknown>;
+      expect(where.updated_at).toEqual({
+        gte: new Date('2025-01-01'),
+        lte: new Date('2025-12-31'),
+      });
+    });
+  });
+
+  // ─── feeGenerationRuns() edge cases ──────────────────────────────────
+
+  describe('feeGenerationRuns() — edge cases', () => {
+    it('edge: should use default page=1 and pageSize=20 when not provided', async () => {
+      mockDataAccess.findAuditLogs.mockResolvedValue([]);
+      mockDataAccess.countAuditLogs.mockResolvedValue(0);
+
+      const result = await service.feeGenerationRuns(TENANT_ID, {});
+
+      expect(result.meta.page).toBe(1);
+      expect(result.meta.pageSize).toBe(20);
+    });
+
+    it('edge: should not include metadata_json filter when academic_year_id is absent', async () => {
+      mockDataAccess.findAuditLogs.mockResolvedValue([]);
+      mockDataAccess.countAuditLogs.mockResolvedValue(0);
+
+      await service.feeGenerationRuns(TENANT_ID, {});
+
+      const callArgs = mockDataAccess.findAuditLogs.mock.calls[0]![1] as Record<string, unknown>;
+      const where = callArgs.where as Record<string, unknown>;
+      expect(where.metadata_json).toBeUndefined();
+    });
+  });
+
+  // ─── studentExportPack() edge cases ──────────────────────────────────
+
+  describe('studentExportPack() — edge cases', () => {
+    const mockStudentBasic = {
+      id: STUDENT_ID,
+      student_number: 'STU-001',
+      first_name: 'Ali',
+      last_name: 'Ahmed',
+      first_name_ar: null,
+      last_name_ar: null,
+      date_of_birth: new Date('2015-03-01'),
+      gender: 'male',
+      status: 'active',
+      entry_date: new Date('2022-09-01'),
+      exit_date: null,
+      year_group_id: uuid(10),
+      medical_notes: null,
+      has_allergy: false,
+      allergy_details: null,
+      year_group: { id: uuid(10), name: 'Year 3' },
+      household: { id: HOUSEHOLD_ID, household_name: 'Ahmed Family' },
+    };
+
+    it('edge: should handle grade with null raw_score', async () => {
+      mockDataAccess.findStudentById.mockResolvedValue(mockStudentBasic);
+      mockDataAccess.findAttendanceRecords.mockResolvedValue([]);
+      mockDataAccess.findGrades.mockResolvedValue([
+        {
+          id: uuid(1),
+          raw_score: null,
+          is_missing: true,
+          comment: null,
+          entered_at: null,
+          assessment: { id: uuid(2), title: 'Quiz 1', status: 'published', max_score: 50 },
+        },
+      ]);
+      mockDataAccess.findReportCards.mockResolvedValue([]);
+      mockDataAccess.findClassEnrolments.mockResolvedValue([]);
+
+      const result = await service.studentExportPack(TENANT_ID, STUDENT_ID);
+      const gradesSection = result.sections.find((s) => s.section === 'grades')!;
+      const grade = gradesSection.data[0] as Record<string, unknown>;
+
+      expect(grade.raw_score).toBeNull();
+      expect(grade.entered_at).toBeNull();
+      expect(grade.is_missing).toBe(true);
+    });
+
+    it('edge: should handle report card with null published_at', async () => {
+      mockDataAccess.findStudentById.mockResolvedValue(mockStudentBasic);
+      mockDataAccess.findAttendanceRecords.mockResolvedValue([]);
+      mockDataAccess.findGrades.mockResolvedValue([]);
+      mockDataAccess.findReportCards.mockResolvedValue([
+        {
+          id: uuid(1),
+          status: 'draft',
+          template_locale: 'en',
+          teacher_comment: null,
+          principal_comment: null,
+          published_at: null,
+          academic_period: { id: uuid(2), name: 'Term 1' },
+        },
+      ]);
+      mockDataAccess.findClassEnrolments.mockResolvedValue([]);
+
+      const result = await service.studentExportPack(TENANT_ID, STUDENT_ID);
+      const rcSection = result.sections.find((s) => s.section === 'report_cards')!;
+      const rc = rcSection.data[0] as Record<string, unknown>;
+
+      expect(rc.published_at).toBeNull();
+    });
+
+    it('edge: should handle class enrolment with null academic_year', async () => {
+      mockDataAccess.findStudentById.mockResolvedValue(mockStudentBasic);
+      mockDataAccess.findAttendanceRecords.mockResolvedValue([]);
+      mockDataAccess.findGrades.mockResolvedValue([]);
+      mockDataAccess.findReportCards.mockResolvedValue([]);
+      mockDataAccess.findClassEnrolments.mockResolvedValue([
+        {
+          id: uuid(1),
+          status: 'active',
+          start_date: new Date('2025-09-01'),
+          end_date: null,
+          class_entity: { id: uuid(2), name: 'Class 3A', academic_year: null },
+        },
+      ]);
+
+      const result = await service.studentExportPack(TENANT_ID, STUDENT_ID);
+      const enrolSection = result.sections.find((s) => s.section === 'class_enrolments')!;
+      const enrol = enrolSection.data[0] as Record<string, unknown>;
+
+      expect(enrol.academic_year_name).toBeNull();
+    });
+
+    it('edge: should format attendance records with session data', async () => {
+      mockDataAccess.findStudentById.mockResolvedValue(mockStudentBasic);
+      mockDataAccess.findAttendanceRecords.mockResolvedValue([
+        {
+          id: uuid(1),
+          status: 'present',
+          reason: null,
+          marked_at: new Date('2025-05-10T08:00:00Z'),
+          session: {
+            id: uuid(2),
+            session_date: new Date('2025-05-10'),
+            status: 'completed',
+          },
+        },
+      ]);
+      mockDataAccess.findGrades.mockResolvedValue([]);
+      mockDataAccess.findReportCards.mockResolvedValue([]);
+      mockDataAccess.findClassEnrolments.mockResolvedValue([]);
+
+      const result = await service.studentExportPack(TENANT_ID, STUDENT_ID);
+      const attendSection = result.sections.find((s) => s.section === 'attendance_records')!;
+      const record = attendSection.data[0] as Record<string, unknown>;
+
+      expect(record.status).toBe('present');
+      expect(record.marked_at).toBe('2025-05-10T08:00:00.000Z');
+    });
   });
 });

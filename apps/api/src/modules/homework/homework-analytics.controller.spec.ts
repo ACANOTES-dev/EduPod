@@ -53,9 +53,7 @@ describe('HomeworkAnalyticsController', () => {
 
     module = await Test.createTestingModule({
       controllers: [HomeworkAnalyticsController],
-      providers: [
-        { provide: HomeworkAnalyticsService, useValue: mockService },
-      ],
+      providers: [{ provide: HomeworkAnalyticsService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -87,16 +85,10 @@ describe('HomeworkAnalyticsController', () => {
       ];
       mockService.completionRates.mockResolvedValue(expected);
 
-      const result = await controller.getCompletionRates(
-        tenantContext,
-        baseQuery,
-      );
+      const result = await controller.getCompletionRates(tenantContext, baseQuery);
 
       expect(result).toEqual(expected);
-      expect(mockService.completionRates).toHaveBeenCalledWith(
-        TENANT_ID,
-        baseQuery,
-      );
+      expect(mockService.completionRates).toHaveBeenCalledWith(TENANT_ID, baseQuery);
     });
   });
 
@@ -107,16 +99,10 @@ describe('HomeworkAnalyticsController', () => {
       const expected = { by_class: [] };
       mockService.loadAnalysis.mockResolvedValue(expected);
 
-      const result = await controller.getLoadAnalysis(
-        tenantContext,
-        baseQuery,
-      );
+      const result = await controller.getLoadAnalysis(tenantContext, baseQuery);
 
       expect(result).toEqual(expected);
-      expect(mockService.loadAnalysis).toHaveBeenCalledWith(
-        TENANT_ID,
-        baseQuery,
-      );
+      expect(mockService.loadAnalysis).toHaveBeenCalledWith(TENANT_ID, baseQuery);
     });
   });
 
@@ -124,21 +110,13 @@ describe('HomeworkAnalyticsController', () => {
 
   describe('HomeworkAnalyticsController — getDailyLoadHeatmap', () => {
     it('should delegate to analyticsService.dailyLoadHeatmap', async () => {
-      const expected = [
-        { date: '2026-03-30', day_of_week: 'Monday', count: 5 },
-      ];
+      const expected = [{ date: '2026-03-30', day_of_week: 'Monday', count: 5 }];
       mockService.dailyLoadHeatmap.mockResolvedValue(expected);
 
-      const result = await controller.getDailyLoadHeatmap(
-        tenantContext,
-        baseQuery,
-      );
+      const result = await controller.getDailyLoadHeatmap(tenantContext, baseQuery);
 
       expect(result).toEqual(expected);
-      expect(mockService.dailyLoadHeatmap).toHaveBeenCalledWith(
-        TENANT_ID,
-        baseQuery,
-      );
+      expect(mockService.dailyLoadHeatmap).toHaveBeenCalledWith(TENANT_ID, baseQuery);
     });
   });
 
@@ -149,16 +127,10 @@ describe('HomeworkAnalyticsController', () => {
       const expected = { students: [] };
       mockService.nonCompleters.mockResolvedValue(expected);
 
-      const result = await controller.getNonCompleters(
-        tenantContext,
-        baseQuery,
-      );
+      const result = await controller.getNonCompleters(tenantContext, baseQuery);
 
       expect(result).toEqual(expected);
-      expect(mockService.nonCompleters).toHaveBeenCalledWith(
-        TENANT_ID,
-        baseQuery,
-      );
+      expect(mockService.nonCompleters).toHaveBeenCalledWith(TENANT_ID, baseQuery);
     });
   });
 
@@ -169,16 +141,10 @@ describe('HomeworkAnalyticsController', () => {
       const expected = { buckets: [] };
       mockService.correlationAnalysis.mockResolvedValue(expected);
 
-      const result = await controller.getCorrelation(
-        tenantContext,
-        baseQuery,
-      );
+      const result = await controller.getCorrelation(tenantContext, baseQuery);
 
       expect(result).toEqual(expected);
-      expect(mockService.correlationAnalysis).toHaveBeenCalledWith(
-        TENANT_ID,
-        baseQuery,
-      );
+      expect(mockService.correlationAnalysis).toHaveBeenCalledWith(TENANT_ID, baseQuery);
     });
   });
 
@@ -199,18 +165,10 @@ describe('HomeworkAnalyticsController', () => {
       };
       mockService.studentTrends.mockResolvedValue(expected);
 
-      const result = await controller.getStudentTrends(
-        tenantContext,
-        STUDENT_ID,
-        baseQuery,
-      );
+      const result = await controller.getStudentTrends(tenantContext, STUDENT_ID, baseQuery);
 
       expect(result).toEqual(expected);
-      expect(mockService.studentTrends).toHaveBeenCalledWith(
-        TENANT_ID,
-        STUDENT_ID,
-        baseQuery,
-      );
+      expect(mockService.studentTrends).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID, baseQuery);
     });
   });
 
@@ -228,18 +186,10 @@ describe('HomeworkAnalyticsController', () => {
       };
       mockService.classPatterns.mockResolvedValue(expected);
 
-      const result = await controller.getClassPatterns(
-        tenantContext,
-        CLASS_ID,
-        baseQuery,
-      );
+      const result = await controller.getClassPatterns(tenantContext, CLASS_ID, baseQuery);
 
       expect(result).toEqual(expected);
-      expect(mockService.classPatterns).toHaveBeenCalledWith(
-        TENANT_ID,
-        CLASS_ID,
-        baseQuery,
-      );
+      expect(mockService.classPatterns).toHaveBeenCalledWith(TENANT_ID, CLASS_ID, baseQuery);
     });
   });
 
@@ -257,18 +207,10 @@ describe('HomeworkAnalyticsController', () => {
       };
       mockService.subjectTrends.mockResolvedValue(expected);
 
-      const result = await controller.getSubjectTrends(
-        tenantContext,
-        SUBJECT_ID,
-        baseQuery,
-      );
+      const result = await controller.getSubjectTrends(tenantContext, SUBJECT_ID, baseQuery);
 
       expect(result).toEqual(expected);
-      expect(mockService.subjectTrends).toHaveBeenCalledWith(
-        TENANT_ID,
-        SUBJECT_ID,
-        baseQuery,
-      );
+      expect(mockService.subjectTrends).toHaveBeenCalledWith(TENANT_ID, SUBJECT_ID, baseQuery);
     });
   });
 
@@ -285,18 +227,10 @@ describe('HomeworkAnalyticsController', () => {
       };
       mockService.teacherPatterns.mockResolvedValue(expected);
 
-      const result = await controller.getTeacherPatterns(
-        tenantContext,
-        STAFF_ID,
-        baseQuery,
-      );
+      const result = await controller.getTeacherPatterns(tenantContext, STAFF_ID, baseQuery);
 
       expect(result).toEqual(expected);
-      expect(mockService.teacherPatterns).toHaveBeenCalledWith(
-        TENANT_ID,
-        STAFF_ID,
-        baseQuery,
-      );
+      expect(mockService.teacherPatterns).toHaveBeenCalledWith(TENANT_ID, STAFF_ID, baseQuery);
     });
   });
 
@@ -312,11 +246,7 @@ describe('HomeworkAnalyticsController', () => {
       };
       mockService.yearGroupOverview.mockResolvedValue(expected);
 
-      const result = await controller.getYearGroupOverview(
-        tenantContext,
-        YEAR_GROUP_ID,
-        baseQuery,
-      );
+      const result = await controller.getYearGroupOverview(tenantContext, YEAR_GROUP_ID, baseQuery);
 
       expect(result).toEqual(expected);
       expect(mockService.yearGroupOverview).toHaveBeenCalledWith(
@@ -327,14 +257,210 @@ describe('HomeworkAnalyticsController', () => {
     });
   });
 
+  // ─── getCompletionRates with optional filters ─────────────────────────────
+
+  describe('HomeworkAnalyticsController — getCompletionRates with filters', () => {
+    it('should pass academic_year_id filter to service', async () => {
+      const expected = [{ class_id: CLASS_ID }];
+      mockService.completionRates.mockResolvedValue(expected);
+
+      const query = { academic_year_id: 'aaaaaaaa-aaaa-aaaa-aaaa-bbbbbbbbbbbb' };
+      const result = await controller.getCompletionRates(tenantContext, query);
+
+      expect(result).toEqual(expected);
+      expect(mockService.completionRates).toHaveBeenCalledWith(TENANT_ID, query);
+    });
+
+    it('should pass academic_period_id filter to service', async () => {
+      mockService.completionRates.mockResolvedValue([]);
+
+      const query = { academic_period_id: 'aaaaaaaa-aaaa-aaaa-aaaa-cccccccccccc' };
+      await controller.getCompletionRates(tenantContext, query);
+
+      expect(mockService.completionRates).toHaveBeenCalledWith(TENANT_ID, query);
+    });
+
+    it('should pass date_from and date_to filters to service', async () => {
+      mockService.completionRates.mockResolvedValue([]);
+
+      const query = { date_from: '2026-01-01', date_to: '2026-03-31' };
+      await controller.getCompletionRates(tenantContext, query);
+
+      expect(mockService.completionRates).toHaveBeenCalledWith(TENANT_ID, query);
+    });
+  });
+
+  // ─── getLoadAnalysis with class_id filter ────────────────────────────────
+
+  describe('HomeworkAnalyticsController — getLoadAnalysis with filters', () => {
+    it('should pass class_id filter to service', async () => {
+      mockService.loadAnalysis.mockResolvedValue({ by_class: [] });
+
+      const query = { class_id: CLASS_ID };
+      await controller.getLoadAnalysis(tenantContext, query);
+
+      expect(mockService.loadAnalysis).toHaveBeenCalledWith(TENANT_ID, query);
+    });
+
+    it('should pass combined filters to service', async () => {
+      mockService.loadAnalysis.mockResolvedValue({ by_class: [] });
+
+      const query = { class_id: CLASS_ID, date_from: '2026-01-01' };
+      await controller.getLoadAnalysis(tenantContext, query);
+
+      expect(mockService.loadAnalysis).toHaveBeenCalledWith(TENANT_ID, query);
+    });
+  });
+
+  // ─── getDailyLoadHeatmap with filters ─────────────────────────────────
+
+  describe('HomeworkAnalyticsController — getDailyLoadHeatmap with filters', () => {
+    it('should pass date filters to service', async () => {
+      mockService.dailyLoadHeatmap.mockResolvedValue([]);
+
+      const query = { date_from: '2026-01-01', date_to: '2026-06-30' };
+      await controller.getDailyLoadHeatmap(tenantContext, query);
+
+      expect(mockService.dailyLoadHeatmap).toHaveBeenCalledWith(TENANT_ID, query);
+    });
+  });
+
+  // ─── getNonCompleters with filters ────────────────────────────────────
+
+  describe('HomeworkAnalyticsController — getNonCompleters with filters', () => {
+    it('should pass date filters to service', async () => {
+      mockService.nonCompleters.mockResolvedValue({ students: [] });
+
+      const query = { academic_year_id: 'aaaaaaaa-aaaa-aaaa-aaaa-bbbbbbbbbbbb' };
+      await controller.getNonCompleters(tenantContext, query);
+
+      expect(mockService.nonCompleters).toHaveBeenCalledWith(TENANT_ID, query);
+    });
+  });
+
+  // ─── getCorrelation with filters ──────────────────────────────────────
+
+  describe('HomeworkAnalyticsController — getCorrelation with filters', () => {
+    it('should pass academic_period_id filter to service', async () => {
+      mockService.correlationAnalysis.mockResolvedValue({ buckets: [] });
+
+      const query = { academic_period_id: 'aaaaaaaa-aaaa-aaaa-aaaa-cccccccccccc' };
+      await controller.getCorrelation(tenantContext, query);
+
+      expect(mockService.correlationAnalysis).toHaveBeenCalledWith(TENANT_ID, query);
+    });
+  });
+
+  // ─── getStudentTrends with filters ────────────────────────────────────
+
+  describe('HomeworkAnalyticsController — getStudentTrends with filters', () => {
+    it('should pass date filters and studentId to service', async () => {
+      mockService.studentTrends.mockResolvedValue({
+        student_id: STUDENT_ID,
+        overall: {
+          total_assigned: 0,
+          total_completed: 0,
+          completion_rate: 0,
+          avg_points_awarded: null,
+        },
+        by_subject: [],
+        trend: { current_period: 0, previous_period: 0 },
+      });
+
+      const query = { date_from: '2026-01-01' };
+      await controller.getStudentTrends(tenantContext, STUDENT_ID, query);
+
+      expect(mockService.studentTrends).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID, query);
+    });
+  });
+
+  // ─── getClassPatterns with filters ────────────────────────────────────
+
+  describe('HomeworkAnalyticsController — getClassPatterns with filters', () => {
+    it('should pass academic_year_id and classId to service', async () => {
+      mockService.classPatterns.mockResolvedValue({
+        class_id: CLASS_ID,
+        assignments_count: 0,
+        avg_completion_rate: 0,
+        by_type: [],
+        top_students: [],
+        struggling_students: [],
+      });
+
+      const query = { academic_year_id: 'aaaaaaaa-aaaa-aaaa-aaaa-bbbbbbbbbbbb' };
+      await controller.getClassPatterns(tenantContext, CLASS_ID, query);
+
+      expect(mockService.classPatterns).toHaveBeenCalledWith(TENANT_ID, CLASS_ID, query);
+    });
+  });
+
+  // ─── getSubjectTrends with filters ────────────────────────────────────
+
+  describe('HomeworkAnalyticsController — getSubjectTrends with filters', () => {
+    it('should pass date_to filter and subjectId to service', async () => {
+      mockService.subjectTrends.mockResolvedValue({
+        subject_id: SUBJECT_ID,
+        subject_name: null,
+        total_assignments: 0,
+        avg_completion_rate: 0,
+        by_class: [],
+        by_type: [],
+      });
+
+      const query = { date_to: '2026-12-31' };
+      await controller.getSubjectTrends(tenantContext, SUBJECT_ID, query);
+
+      expect(mockService.subjectTrends).toHaveBeenCalledWith(TENANT_ID, SUBJECT_ID, query);
+    });
+  });
+
+  // ─── getTeacherPatterns with filters ──────────────────────────────────
+
+  describe('HomeworkAnalyticsController — getTeacherPatterns with filters', () => {
+    it('should pass all filters and staffId to service', async () => {
+      mockService.teacherPatterns.mockResolvedValue({
+        staff_id: STAFF_ID,
+        total_set: 0,
+        by_type: [],
+        avg_completion_rate: 0,
+        trend: [],
+      });
+
+      const query = {
+        academic_year_id: 'aaaaaaaa-aaaa-aaaa-aaaa-bbbbbbbbbbbb',
+        academic_period_id: 'aaaaaaaa-aaaa-aaaa-aaaa-cccccccccccc',
+        date_from: '2026-01-01',
+        date_to: '2026-06-30',
+      };
+      await controller.getTeacherPatterns(tenantContext, STAFF_ID, query);
+
+      expect(mockService.teacherPatterns).toHaveBeenCalledWith(TENANT_ID, STAFF_ID, query);
+    });
+  });
+
+  // ─── getYearGroupOverview with filters ────────────────────────────────
+
+  describe('HomeworkAnalyticsController — getYearGroupOverview with filters', () => {
+    it('should pass date_from filter and ygId to service', async () => {
+      mockService.yearGroupOverview.mockResolvedValue({
+        year_group_id: YEAR_GROUP_ID,
+        classes: [],
+        total_assignments: 0,
+        avg_completion_rate: 0,
+      });
+
+      const query = { date_from: '2026-01-01' };
+      await controller.getYearGroupOverview(tenantContext, YEAR_GROUP_ID, query);
+
+      expect(mockService.yearGroupOverview).toHaveBeenCalledWith(TENANT_ID, YEAR_GROUP_ID, query);
+    });
+  });
+
   // ─── Permission guard metadata ──────────────────────────────────────────────
 
   describe('Permission guards', () => {
     it('should have AuthGuard and PermissionGuard applied at class level', () => {
-      const guards = Reflect.getMetadata(
-        '__guards__',
-        HomeworkAnalyticsController,
-      );
+      const guards = Reflect.getMetadata('__guards__', HomeworkAnalyticsController);
       expect(guards).toBeDefined();
       expect(guards.length).toBeGreaterThanOrEqual(2);
     });

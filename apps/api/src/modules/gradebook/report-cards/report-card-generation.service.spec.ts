@@ -216,6 +216,281 @@ describe('ReportCardGenerationService — generate', () => {
   });
 });
 
+// ─── generate — additional branch coverage ──────────────────────────────────
+
+describe('ReportCardGenerationService — generate additional branches', () => {
+  afterEach(() => jest.clearAllMocks());
+
+  it('should use tenant default locale when billing parent locale is null', async () => {
+    const {
+      service,
+      prisma,
+      academic,
+      student: studentFacade,
+      attendance,
+      tenant,
+    } = buildService();
+    mockRlsTx.reportCard.create.mockReset().mockResolvedValue({ id: 'rc-1', status: 'draft' });
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    const studentNoLocale = {
+      ...baseStudent,
+      household: {
+        id: 'h-1',
+        billing_parent: {
+          id: 'p-1',
+          user: { preferred_locale: null },
+        },
+      },
+    };
+    studentFacade.findManyGeneric.mockResolvedValue([studentNoLocale]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
+    prisma.assessment.findMany.mockResolvedValue([]);
+    attendance.groupSummariesByStatus.mockResolvedValue([]);
+    tenant.findDefaultLocale.mockResolvedValue('ar');
+
+    await service.generate(TENANT_ID, [STUDENT_ID], PERIOD_ID);
+
+    const createCall = mockRlsTx.reportCard.create.mock.calls[0]?.[0];
+    expect(createCall?.data?.template_locale).toBe('ar');
+  });
+
+  it('should use tenant default locale when household is null', async () => {
+    const {
+      service,
+      prisma,
+      academic,
+      student: studentFacade,
+      attendance,
+      tenant,
+    } = buildService();
+    mockRlsTx.reportCard.create.mockReset().mockResolvedValue({ id: 'rc-1', status: 'draft' });
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    const studentNoHousehold = {
+      ...baseStudent,
+      household: null,
+    };
+    studentFacade.findManyGeneric.mockResolvedValue([studentNoHousehold]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
+    prisma.assessment.findMany.mockResolvedValue([]);
+    attendance.groupSummariesByStatus.mockResolvedValue([]);
+    tenant.findDefaultLocale.mockResolvedValue('en');
+
+    await service.generate(TENANT_ID, [STUDENT_ID], PERIOD_ID);
+
+    const createCall = mockRlsTx.reportCard.create.mock.calls[0]?.[0];
+    expect(createCall?.data?.template_locale).toBe('en');
+  });
+
+  it('should use tenant default locale when billing_parent is null', async () => {
+    const {
+      service,
+      prisma,
+      academic,
+      student: studentFacade,
+      attendance,
+      tenant,
+    } = buildService();
+    mockRlsTx.reportCard.create.mockReset().mockResolvedValue({ id: 'rc-1', status: 'draft' });
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    const studentNoBillingParent = {
+      ...baseStudent,
+      household: { id: 'h-1', billing_parent: null },
+    };
+    studentFacade.findManyGeneric.mockResolvedValue([studentNoBillingParent]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
+    prisma.assessment.findMany.mockResolvedValue([]);
+    attendance.groupSummariesByStatus.mockResolvedValue([]);
+    tenant.findDefaultLocale.mockResolvedValue('en');
+
+    await service.generate(TENANT_ID, [STUDENT_ID], PERIOD_ID);
+
+    const createCall = mockRlsTx.reportCard.create.mock.calls[0]?.[0];
+    expect(createCall?.data?.template_locale).toBe('en');
+  });
+
+  it('should set empty string for year_group when null', async () => {
+    const { service, prisma, academic, student: studentFacade, attendance } = buildService();
+    mockRlsTx.reportCard.create.mockReset().mockResolvedValue({ id: 'rc-1', status: 'draft' });
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    const studentNoYearGroup = {
+      ...baseStudent,
+      year_group: null,
+      homeroom_class: null,
+    };
+    studentFacade.findManyGeneric.mockResolvedValue([studentNoYearGroup]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
+    prisma.assessment.findMany.mockResolvedValue([]);
+    attendance.groupSummariesByStatus.mockResolvedValue([]);
+
+    await service.generate(TENANT_ID, [STUDENT_ID], PERIOD_ID);
+
+    const createCall = mockRlsTx.reportCard.create.mock.calls[0]?.[0];
+    const payload = createCall?.data?.snapshot_payload_json as Record<string, unknown>;
+    const student = payload?.student as Record<string, unknown>;
+    expect(student?.year_group).toBe('');
+    expect(student?.class_homeroom).toBeNull();
+  });
+
+  it('should set attendance_summary to undefined when totalDays is 0', async () => {
+    const { service, prisma, academic, student: studentFacade, attendance } = buildService();
+    mockRlsTx.reportCard.create.mockReset().mockResolvedValue({ id: 'rc-1', status: 'draft' });
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    studentFacade.findManyGeneric.mockResolvedValue([baseStudent]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
+    prisma.assessment.findMany.mockResolvedValue([]);
+    attendance.groupSummariesByStatus.mockResolvedValue([]);
+
+    await service.generate(TENANT_ID, [STUDENT_ID], PERIOD_ID);
+
+    const createCall = mockRlsTx.reportCard.create.mock.calls[0]?.[0];
+    const payload = createCall?.data?.snapshot_payload_json as Record<string, unknown>;
+    expect(payload?.attendance_summary).toBeUndefined();
+  });
+
+  it('should include partially_absent in absent_days count', async () => {
+    const { service, prisma, academic, student: studentFacade, attendance } = buildService();
+    mockRlsTx.reportCard.create.mockReset().mockResolvedValue({ id: 'rc-1', status: 'draft' });
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    studentFacade.findManyGeneric.mockResolvedValue([baseStudent]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
+    prisma.assessment.findMany.mockResolvedValue([]);
+    attendance.groupSummariesByStatus.mockResolvedValue([
+      { derived_status: 'present', _count: { _all: 30 } },
+      { derived_status: 'absent', _count: { _all: 2 } },
+      { derived_status: 'partially_absent', _count: { _all: 3 } },
+      { derived_status: 'late', _count: { _all: 5 } },
+    ]);
+
+    await service.generate(TENANT_ID, [STUDENT_ID], PERIOD_ID);
+
+    const createCall = mockRlsTx.reportCard.create.mock.calls[0]?.[0];
+    const payload = createCall?.data?.snapshot_payload_json as Record<string, unknown>;
+    const summary = payload?.attendance_summary as Record<string, number>;
+    expect(summary?.absent_days).toBe(5); // 2 + 3
+    expect(summary?.present_days).toBe(35); // 30 + 5
+    expect(summary?.late_days).toBe(5);
+    expect(summary?.total_days).toBe(40);
+  });
+
+  it('should map assessment grades and handle missing grades', async () => {
+    const { service, prisma, academic, student: studentFacade, attendance } = buildService();
+    mockRlsTx.reportCard.create.mockReset().mockResolvedValue({ id: 'rc-1', status: 'draft' });
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    studentFacade.findManyGeneric.mockResolvedValue([baseStudent]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      {
+        subject_id: 's1',
+        class_id: CLASS_ID,
+        computed_value: 85,
+        display_value: 'A',
+        overridden_value: null,
+        subject: { id: 's1', name: 'Math', code: 'MATH' },
+      },
+    ]);
+    prisma.assessment.findMany.mockResolvedValue([
+      {
+        subject_id: 's1',
+        class_id: CLASS_ID,
+        title: 'Quiz 1',
+        max_score: 100,
+        category: { name: 'Quizzes' },
+        grades: [{ raw_score: 90, is_missing: false }],
+      },
+      {
+        subject_id: 's1',
+        class_id: CLASS_ID,
+        title: 'Quiz 2',
+        max_score: 100,
+        category: { name: 'Quizzes' },
+        grades: [], // no grade for this student
+      },
+    ]);
+    attendance.groupSummariesByStatus.mockResolvedValue([]);
+
+    await service.generate(TENANT_ID, [STUDENT_ID], PERIOD_ID);
+
+    const createCall = mockRlsTx.reportCard.create.mock.calls[0]?.[0];
+    const payload = createCall?.data?.snapshot_payload_json as Record<string, unknown>;
+    const subjects = payload?.subjects as Array<{
+      assessments: Array<{ raw_score: number | null; is_missing: boolean }>;
+    }>;
+    expect(subjects).toHaveLength(1);
+    expect(subjects[0]!.assessments).toHaveLength(2);
+    // First assessment has a grade
+    expect(subjects[0]!.assessments[0]!.raw_score).toBe(90);
+    expect(subjects[0]!.assessments[0]!.is_missing).toBe(false);
+    // Second assessment has no grade => is_missing defaults to true
+    expect(subjects[0]!.assessments[1]!.is_missing).toBe(true);
+  });
+
+  it('should use overridden_value as display_value when present', async () => {
+    const { service, prisma, academic, student: studentFacade, attendance } = buildService();
+    mockRlsTx.reportCard.create.mockReset().mockResolvedValue({ id: 'rc-1', status: 'draft' });
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    studentFacade.findManyGeneric.mockResolvedValue([baseStudent]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      {
+        subject_id: 's1',
+        class_id: CLASS_ID,
+        computed_value: 85,
+        display_value: 'A',
+        overridden_value: 'A+',
+        subject: { id: 's1', name: 'Math', code: null },
+      },
+    ]);
+    prisma.assessment.findMany.mockResolvedValue([]);
+    attendance.groupSummariesByStatus.mockResolvedValue([]);
+
+    await service.generate(TENANT_ID, [STUDENT_ID], PERIOD_ID);
+
+    const createCall = mockRlsTx.reportCard.create.mock.calls[0]?.[0];
+    const payload = createCall?.data?.snapshot_payload_json as Record<string, unknown>;
+    const subjects = payload?.subjects as Array<{
+      display_value: string;
+      subject_code: string | null;
+      overridden_value: string | null;
+    }>;
+    expect(subjects[0]!.display_value).toBe('A+');
+    expect(subjects[0]!.overridden_value).toBe('A+');
+    expect(subjects[0]!.subject_code).toBeNull();
+  });
+
+  it('should set student_number to null when not present', async () => {
+    const { service, prisma, academic, student: studentFacade, attendance } = buildService();
+    mockRlsTx.reportCard.create.mockReset().mockResolvedValue({ id: 'rc-1', status: 'draft' });
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    const studentNoNumber = {
+      ...baseStudent,
+      student_number: null,
+    };
+    studentFacade.findManyGeneric.mockResolvedValue([studentNoNumber]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
+    prisma.assessment.findMany.mockResolvedValue([]);
+    attendance.groupSummariesByStatus.mockResolvedValue([]);
+
+    await service.generate(TENANT_ID, [STUDENT_ID], PERIOD_ID);
+
+    const createCall = mockRlsTx.reportCard.create.mock.calls[0]?.[0];
+    const payload = createCall?.data?.snapshot_payload_json as Record<string, unknown>;
+    const student = payload?.student as Record<string, unknown>;
+    expect(student?.student_number).toBeNull();
+  });
+
+  it('should skip assessments when subjectIds is empty', async () => {
+    const { service, prisma, academic, student: studentFacade, attendance } = buildService();
+    mockRlsTx.reportCard.create.mockReset().mockResolvedValue({ id: 'rc-1', status: 'draft' });
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    studentFacade.findManyGeneric.mockResolvedValue([baseStudent]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([]); // no snapshots => empty subjectIds
+    attendance.groupSummariesByStatus.mockResolvedValue([]);
+
+    await service.generate(TENANT_ID, [STUDENT_ID], PERIOD_ID);
+
+    // assessment.findMany should NOT be called because subjectIds.length === 0
+    expect(prisma.assessment.findMany).not.toHaveBeenCalled();
+  });
+});
+
 // ─── buildBatchSnapshots Tests ───────────────────────────────────────────────
 
 describe('ReportCardGenerationService — buildBatchSnapshots', () => {
@@ -264,6 +539,145 @@ describe('ReportCardGenerationService — buildBatchSnapshots', () => {
     expect(result).toHaveLength(1);
     expect(result[0]?.studentId).toBe(STUDENT_ID);
     expect(result[0]?.studentName).toBe('Ali Hassan');
+  });
+});
+
+// ─── buildBatchSnapshots — additional branch coverage ─────────────────────────
+
+describe('ReportCardGenerationService — buildBatchSnapshots additional branches', () => {
+  afterEach(() => jest.clearAllMocks());
+
+  it('should build payloads with attendance data when totalDays > 0', async () => {
+    const { service, prisma, academic, classes, attendance } = buildService();
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    classes.findEnrolmentsGeneric.mockResolvedValue([
+      {
+        student_id: STUDENT_ID,
+        student: {
+          id: STUDENT_ID,
+          first_name: 'Ali',
+          last_name: 'Hassan',
+          student_number: null,
+          year_group: null,
+          homeroom_class: null,
+        },
+      },
+    ]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      {
+        student_id: STUDENT_ID,
+        subject_id: 's1',
+        computed_value: 90,
+        display_value: 'A',
+        overridden_value: 'A+',
+        subject: { id: 's1', name: 'Math', code: 'MATH' },
+      },
+    ]);
+    attendance.groupSummariesByStatus.mockResolvedValue([
+      { derived_status: 'present', _count: { _all: 20 } },
+      { derived_status: 'late', _count: { _all: 1 } },
+      { derived_status: 'absent', _count: { _all: 2 } },
+      { derived_status: 'partially_absent', _count: { _all: 1 } },
+    ]);
+
+    const result = await service.buildBatchSnapshots(TENANT_ID, CLASS_ID, PERIOD_ID);
+
+    expect(result).toHaveLength(1);
+    const payload = result[0]!.payload as Record<string, unknown>;
+    const student = payload.student as Record<string, unknown>;
+    expect(student.student_number).toBeNull();
+    expect(student.year_group).toBe('');
+    expect(student.class_homeroom).toBeNull();
+
+    const subjects = payload.subjects as Array<{
+      overridden_value: string | null;
+      display_value: string;
+    }>;
+    expect(subjects[0]!.overridden_value).toBe('A+');
+    expect(subjects[0]!.display_value).toBe('A+');
+
+    const attendanceSummary = payload.attendance_summary as Record<string, number>;
+    expect(attendanceSummary.total_days).toBe(24);
+    expect(attendanceSummary.present_days).toBe(21); // 20 + 1
+    expect(attendanceSummary.absent_days).toBe(3); // 2 + 1
+    expect(attendanceSummary.late_days).toBe(1);
+  });
+
+  it('should set attendance_summary to undefined when no attendance data', async () => {
+    const { service, prisma, academic, classes, attendance } = buildService();
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    classes.findEnrolmentsGeneric.mockResolvedValue([
+      {
+        student_id: STUDENT_ID,
+        student: {
+          id: STUDENT_ID,
+          first_name: 'Ali',
+          last_name: 'Hassan',
+          student_number: 'STU001',
+          year_group: { name: 'Year 5' },
+          homeroom_class: { name: '5A' },
+        },
+      },
+    ]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
+    attendance.groupSummariesByStatus.mockResolvedValue([]);
+
+    const result = await service.buildBatchSnapshots(TENANT_ID, CLASS_ID, PERIOD_ID);
+
+    const payload = result[0]!.payload as Record<string, unknown>;
+    expect(payload.attendance_summary).toBeUndefined();
+  });
+
+  it('should handle multiple students with different snapshot distributions', async () => {
+    const { service, prisma, academic, classes, attendance } = buildService();
+    academic.findPeriodById.mockResolvedValue(basePeriod);
+    classes.findEnrolmentsGeneric.mockResolvedValue([
+      {
+        student_id: 'student-1',
+        student: {
+          id: 'student-1',
+          first_name: 'Ali',
+          last_name: 'A',
+          student_number: 'S1',
+          year_group: { name: 'Y5' },
+          homeroom_class: { name: '5A' },
+        },
+      },
+      {
+        student_id: 'student-2',
+        student: {
+          id: 'student-2',
+          first_name: 'Sara',
+          last_name: 'B',
+          student_number: 'S2',
+          year_group: { name: 'Y5' },
+          homeroom_class: { name: '5A' },
+        },
+      },
+    ]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      {
+        student_id: 'student-1',
+        subject_id: 's1',
+        computed_value: 80,
+        display_value: 'B',
+        overridden_value: null,
+        subject: { id: 's1', name: 'Math', code: null },
+      },
+    ]);
+    attendance.groupSummariesByStatus.mockResolvedValue([]);
+
+    const result = await service.buildBatchSnapshots(TENANT_ID, CLASS_ID, PERIOD_ID);
+
+    expect(result).toHaveLength(2);
+    // student-1 has one subject
+    const s1Payload = result[0]!.payload as Record<string, unknown>;
+    const s1Subjects = s1Payload.subjects as Array<unknown>;
+    expect(s1Subjects).toHaveLength(1);
+    // student-2 has no subjects (no snapshots)
+    const s2Payload = result[1]!.payload as Record<string, unknown>;
+    const s2Subjects = s2Payload.subjects as Array<unknown>;
+    expect(s2Subjects).toHaveLength(0);
   });
 });
 

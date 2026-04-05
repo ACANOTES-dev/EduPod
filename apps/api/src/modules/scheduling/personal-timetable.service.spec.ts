@@ -547,5 +547,166 @@ describe('PersonalTimetableService', () => {
       // ICS special characters should be escaped
       expect(ics).toContain('\\,');
     });
+
+    it('should handle schedule with null subject in ICS generation', async () => {
+      mockPrisma.calendarSubscriptionToken.findFirst.mockResolvedValue({
+        entity_type: 'teacher',
+        entity_id: STAFF_ID,
+        tenant: { name: 'Test School' },
+      });
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findTeacherTimetable as jest.Mock).mockResolvedValue([
+        {
+          id: 'sch-1',
+          weekday: 1,
+          period_order: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T10:00:00Z'),
+          rotation_week: null,
+          class_entity: { name: '10A', subject: null },
+          teacher: null,
+          room: null,
+        },
+      ]);
+
+      const ics = await service.generateIcsCalendar(TENANT_ID, TOKEN);
+
+      expect(ics).toContain('SUMMARY:Class');
+      expect(ics).not.toContain('LOCATION:');
+    });
+
+    it('should handle schedule with all entity fields populated', async () => {
+      mockPrisma.calendarSubscriptionToken.findFirst.mockResolvedValue({
+        entity_type: 'teacher',
+        entity_id: STAFF_ID,
+        tenant: { name: 'Test School' },
+      });
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findTeacherTimetable as jest.Mock).mockResolvedValue([
+        {
+          id: 'sch-1',
+          weekday: 1,
+          period_order: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T10:00:00Z'),
+          rotation_week: null,
+          class_entity: { name: '10A', subject: { name: 'Physics' } },
+          teacher: { user: { first_name: 'John', last_name: 'Doe' } },
+          room: { name: 'Lab 201' },
+        },
+      ]);
+
+      const ics = await service.generateIcsCalendar(TENANT_ID, TOKEN);
+
+      expect(ics).toContain('Physics');
+      expect(ics).toContain('10A');
+      expect(ics).toContain('LOCATION:Lab 201');
+      expect(ics).toContain('Teacher: John Doe');
+    });
+
+    it('should handle schedule with null class_entity in ICS', async () => {
+      mockPrisma.calendarSubscriptionToken.findFirst.mockResolvedValue({
+        entity_type: 'teacher',
+        entity_id: STAFF_ID,
+        tenant: { name: 'Test School' },
+      });
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findTeacherTimetable as jest.Mock).mockResolvedValue([
+        {
+          id: 'sch-1',
+          weekday: 1,
+          period_order: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T10:00:00Z'),
+          rotation_week: null,
+          class_entity: null,
+          teacher: null,
+          room: null,
+        },
+      ]);
+
+      const ics = await service.generateIcsCalendar(TENANT_ID, TOKEN);
+
+      expect(ics).toContain('SUMMARY:Class');
+    });
+
+    it('should handle schedule with class_entity but no class name', async () => {
+      mockPrisma.calendarSubscriptionToken.findFirst.mockResolvedValue({
+        entity_type: 'teacher',
+        entity_id: STAFF_ID,
+        tenant: { name: 'Test School' },
+      });
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findTeacherTimetable as jest.Mock).mockResolvedValue([
+        {
+          id: 'sch-1',
+          weekday: 3,
+          period_order: 1,
+          start_time: new Date('1970-01-01T08:00:00Z'),
+          end_time: new Date('1970-01-01T09:00:00Z'),
+          rotation_week: null,
+          class_entity: { name: '', subject: { name: 'Art' } },
+          teacher: null,
+          room: { name: 'Studio' },
+        },
+      ]);
+
+      const ics = await service.generateIcsCalendar(TENANT_ID, TOKEN);
+
+      // Summary should just be the subject without class name separator
+      expect(ics).toContain('SUMMARY:Art');
+      expect(ics).not.toContain('Art —');
+    });
+  });
+
+  // ─── getClassTimetable — more edge cases ────────────────────────────────
+
+  describe('getClassTimetable — null fields', () => {
+    it('should handle schedule with null class_entity in class timetable', async () => {
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findClassTimetable as jest.Mock).mockResolvedValue([
+        {
+          id: 'sch-1',
+          weekday: 1,
+          period_order: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T10:00:00Z'),
+          rotation_week: null,
+          class_entity: null,
+          teacher: null,
+          room: null,
+        },
+      ]);
+
+      const result = await service.getClassTimetable(TENANT_ID, CLASS_ID, {});
+
+      expect(result.data[0]!.class_name).toBe('');
+      expect(result.data[0]!.subject_name).toBeNull();
+      expect(result.data[0]!.teacher_name).toBeNull();
+      expect(result.data[0]!.room_name).toBeNull();
+    });
+
+    it('should handle schedule with class_entity but null subject', async () => {
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findClassTimetable as jest.Mock).mockResolvedValue([
+        {
+          id: 'sch-1',
+          weekday: 1,
+          period_order: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T10:00:00Z'),
+          rotation_week: null,
+          class_entity: { name: '10A', subject: null },
+          teacher: { user: { first_name: 'Jane', last_name: 'Doe' } },
+          room: null,
+        },
+      ]);
+
+      const result = await service.getClassTimetable(TENANT_ID, CLASS_ID, {});
+
+      expect(result.data[0]!.class_name).toBe('10A');
+      expect(result.data[0]!.subject_name).toBeNull();
+      expect(result.data[0]!.teacher_name).toBe('Jane Doe');
+    });
   });
 });

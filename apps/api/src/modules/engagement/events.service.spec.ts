@@ -862,4 +862,453 @@ describe('EventsService', () => {
       // For general transitions, we test valid ones don't throw
     });
   });
+
+  // ─── Additional branch coverage ──────────────────────────────────────────
+
+  describe('findAll — filter branches', () => {
+    it('should apply event_type filter', async () => {
+      mockPrisma.engagementEvent.findMany.mockResolvedValue([]);
+      mockPrisma.engagementEvent.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        event_type: 'school_trip',
+      });
+
+      expect(mockPrisma.engagementEvent.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ event_type: 'school_trip' }),
+        }),
+      );
+    });
+
+    it('should apply academic_year_id filter', async () => {
+      mockPrisma.engagementEvent.findMany.mockResolvedValue([]);
+      mockPrisma.engagementEvent.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        academic_year_id: ACADEMIC_YEAR_ID,
+      });
+
+      expect(mockPrisma.engagementEvent.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ academic_year_id: ACADEMIC_YEAR_ID }),
+        }),
+      );
+    });
+
+    it('should apply search filter with OR clause', async () => {
+      mockPrisma.engagementEvent.findMany.mockResolvedValue([]);
+      mockPrisma.engagementEvent.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        search: 'trip',
+      });
+
+      expect(mockPrisma.engagementEvent.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: [
+              { title: { contains: 'trip', mode: 'insensitive' } },
+              { description: { contains: 'trip', mode: 'insensitive' } },
+            ],
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('findAll — fee_amount mapping', () => {
+    it('should convert non-null fee_amount to Number', async () => {
+      const eventWithFee = {
+        ...mockEvent,
+        fee_amount: '25.50',
+        _count: { staff: 1, participants: 5 },
+        academic_year: { id: ACADEMIC_YEAR_ID, name: '2025-2026' },
+      };
+      mockPrisma.engagementEvent.findMany.mockResolvedValue([eventWithFee]);
+      mockPrisma.engagementEvent.count.mockResolvedValue(1);
+
+      const result = await service.findAll(TENANT_ID, { page: 1, pageSize: 20 });
+
+      expect(result.data[0]!.fee_amount).toBe(25.5);
+    });
+  });
+
+  describe('findOne — fee_amount branch', () => {
+    it('should convert non-null fee_amount to Number', async () => {
+      const eventWithFee = {
+        ...mockEvent,
+        fee_amount: '15.00',
+        staff: [],
+        _count: { participants: 3 },
+        consent_form_template: null,
+        risk_assessment_template: null,
+        academic_year: { id: ACADEMIC_YEAR_ID, name: '2025-2026' },
+      };
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(eventWithFee);
+
+      const result = await service.findOne(TENANT_ID, EVENT_ID);
+
+      expect(result.fee_amount).toBe(15);
+    });
+  });
+
+  describe('update — additional branches', () => {
+    it('should allow updating a published event', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue({
+        ...mockEvent,
+        status: 'published',
+      });
+      mockTx.engagementEvent.update.mockResolvedValue({
+        ...mockEvent,
+        status: 'published',
+        title: 'Updated',
+      });
+
+      const result = await service.update(TENANT_ID, EVENT_ID, { title: 'Updated' });
+
+      expect((result as Record<string, unknown>).title).toBe('Updated');
+    });
+
+    it('should delete existing staff and NOT create when staff_ids is empty array', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockEvent);
+      mockTx.engagementEvent.update.mockResolvedValue(mockEvent);
+      mockTx.engagementEventStaff.deleteMany.mockResolvedValue({ count: 2 });
+
+      await service.update(TENANT_ID, EVENT_ID, { staff_ids: [] });
+
+      expect(mockTx.engagementEventStaff.deleteMany).toHaveBeenCalled();
+      expect(mockTx.engagementEventStaff.createMany).not.toHaveBeenCalled();
+    });
+
+    it('should not touch staff when staff_ids is undefined', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockEvent);
+      mockTx.engagementEvent.update.mockResolvedValue(mockEvent);
+
+      await service.update(TENANT_ID, EVENT_ID, { title: 'No Staff Change' });
+
+      expect(mockTx.engagementEventStaff.deleteMany).not.toHaveBeenCalled();
+      expect(mockTx.engagementEventStaff.createMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('create — optional date fields', () => {
+    it('should handle all optional date fields as null when absent', async () => {
+      const dto = {
+        title: 'Basic Event',
+        event_type: 'in_school_event' as const,
+        academic_year_id: ACADEMIC_YEAR_ID,
+        target_type: 'whole_school' as const,
+        risk_assessment_required: false,
+      };
+      mockTx.engagementEvent.create.mockResolvedValue(mockEvent);
+
+      await service.create(TENANT_ID, USER_ID, dto);
+
+      expect(mockTx.engagementEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          start_date: null,
+          end_date: null,
+          start_time: null,
+          end_time: null,
+          consent_deadline: null,
+          payment_deadline: null,
+          booking_deadline: null,
+        }),
+      });
+    });
+
+    it('should parse date strings when provided', async () => {
+      const dto = {
+        title: 'Dated Event',
+        event_type: 'school_trip' as const,
+        academic_year_id: ACADEMIC_YEAR_ID,
+        target_type: 'whole_school' as const,
+        risk_assessment_required: false,
+        start_date: '2026-06-01',
+        end_date: '2026-06-02',
+        start_time: '09:00',
+        end_time: '15:00',
+        consent_deadline: '2026-05-25',
+        payment_deadline: '2026-05-28',
+        booking_deadline: '2026-05-30',
+      };
+      mockTx.engagementEvent.create.mockResolvedValue(mockEvent);
+
+      await service.create(TENANT_ID, USER_ID, dto);
+
+      expect(mockTx.engagementEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          start_date: expect.any(Date),
+          end_date: expect.any(Date),
+          start_time: expect.any(Date),
+          end_time: expect.any(Date),
+          consent_deadline: expect.any(Date),
+          payment_deadline: expect.any(Date),
+          booking_deadline: expect.any(Date),
+        }),
+      });
+    });
+  });
+
+  describe('open — non-trip event skips risk assessment gate', () => {
+    it('should allow opening a non-trip event without risk assessment', async () => {
+      const inSchoolEvent = {
+        ...mockEvent,
+        status: 'published',
+        event_type: 'in_school_event',
+        risk_assessment_required: false,
+        risk_assessment_approved: false,
+      };
+      mockPrisma.engagementEvent.findFirst
+        .mockResolvedValueOnce(inSchoolEvent)
+        .mockResolvedValueOnce(inSchoolEvent);
+      mockTx.engagementEvent.update.mockResolvedValue({ ...inSchoolEvent, status: 'open' });
+
+      const result = await service.open(TENANT_ID, EVENT_ID, USER_ID);
+
+      expect((result as Record<string, unknown>).status).toBe('open');
+    });
+
+    it('should skip risk assessment for overnight_trip with approved assessment', async () => {
+      const overnightTrip = {
+        ...mockEvent,
+        status: 'published',
+        event_type: 'overnight_trip',
+        risk_assessment_required: true,
+        risk_assessment_approved: true,
+      };
+      mockPrisma.engagementEvent.findFirst
+        .mockResolvedValueOnce(overnightTrip)
+        .mockResolvedValueOnce(overnightTrip);
+      mockTx.engagementEvent.update.mockResolvedValue({ ...overnightTrip, status: 'open' });
+
+      const result = await service.open(TENANT_ID, EVENT_ID, USER_ID);
+
+      expect((result as Record<string, unknown>).status).toBe('open');
+    });
+
+    it('should block overnight_trip without approved risk assessment', async () => {
+      const overnightTrip = {
+        ...mockEvent,
+        status: 'published',
+        event_type: 'overnight_trip',
+        risk_assessment_required: true,
+        risk_assessment_approved: false,
+      };
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(overnightTrip);
+
+      await expect(service.open(TENANT_ID, EVENT_ID, USER_ID)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should NOT enqueue invoices when fee_amount is zero', async () => {
+      const zeroFeeEvent = {
+        ...mockEvent,
+        status: 'published',
+        fee_amount: 0,
+      };
+      mockPrisma.engagementEvent.findFirst
+        .mockResolvedValueOnce(zeroFeeEvent)
+        .mockResolvedValueOnce(zeroFeeEvent);
+      mockTx.engagementEvent.update.mockResolvedValue({ ...zeroFeeEvent, status: 'open' });
+
+      await service.open(TENANT_ID, EVENT_ID, USER_ID);
+
+      expect(mockQueue.add).not.toHaveBeenCalledWith(
+        'engagement:generate-event-invoices',
+        expect.anything(),
+      );
+    });
+  });
+
+  describe('getDashboard — additional branches', () => {
+    it('edge: should return null ratio when staff > 0 but total_registered is 0', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockEvent);
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([
+        { status: 'invited', consent_status: 'pending', payment_status: 'not_required' },
+        { status: 'withdrawn', consent_status: null, payment_status: 'not_required' },
+      ]);
+      mockPrisma.engagementEventStaff.count.mockResolvedValue(3);
+
+      const result = await service.getDashboard(TENANT_ID, EVENT_ID);
+
+      expect(result.staff_to_student_ratio).toBeNull();
+      expect(result.staff_count).toBe(3);
+      expect(result.total_registered).toBe(0);
+    });
+
+    it('should count consent_stats.expired for null consent_status', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockEvent);
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([
+        { status: 'registered', consent_status: null, payment_status: 'not_required' },
+      ]);
+      mockPrisma.engagementEventStaff.count.mockResolvedValue(0);
+
+      const result = await service.getDashboard(TENANT_ID, EVENT_ID);
+
+      expect(result.consent_stats.expired).toBe(1);
+    });
+
+    it('should count payment_stats.waived correctly', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockEvent);
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([
+        { status: 'confirmed', consent_status: 'granted', payment_status: 'waived' },
+        { status: 'registered', consent_status: 'granted', payment_status: 'waived' },
+      ]);
+      mockPrisma.engagementEventStaff.count.mockResolvedValue(1);
+
+      const result = await service.getDashboard(TENANT_ID, EVENT_ID);
+
+      expect(result.payment_stats.waived).toBe(2);
+    });
+
+    it('should count capacity_used excluding withdrawn/absent/consent_declined/invited', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockEvent);
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([
+        { status: 'registered', consent_status: 'granted', payment_status: 'paid' },
+        { status: 'invited', consent_status: 'pending', payment_status: 'not_required' },
+        { status: 'withdrawn', consent_status: null, payment_status: 'not_required' },
+        { status: 'absent', consent_status: 'granted', payment_status: 'paid' },
+        { status: 'consent_declined', consent_status: 'declined', payment_status: 'not_required' },
+        { status: 'confirmed', consent_status: 'granted', payment_status: 'paid' },
+      ]);
+      mockPrisma.engagementEventStaff.count.mockResolvedValue(1);
+
+      const result = await service.getDashboard(TENANT_ID, EVENT_ID);
+
+      // Only registered + confirmed count for capacity
+      expect(result.capacity_used).toBe(2);
+    });
+  });
+
+  describe('getAttendance — summary branches', () => {
+    it('should compute summary with marked_present, marked_absent, and unmarked', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockEvent);
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([
+        {
+          id: 'p1',
+          student_id: 's1',
+          attendance_marked: true,
+          attendance_marked_at: new Date(),
+          student: { first_name: 'A', last_name: 'B', full_name: 'A B', household: null },
+        },
+        {
+          id: 'p2',
+          student_id: 's2',
+          attendance_marked: false,
+          attendance_marked_at: new Date(),
+          student: { first_name: 'C', last_name: 'D', full_name: 'C D', household: null },
+        },
+        {
+          id: 'p3',
+          student_id: 's3',
+          attendance_marked: null,
+          attendance_marked_at: null,
+          student: { first_name: 'E', last_name: 'F', full_name: 'E F', household: null },
+        },
+      ]);
+
+      const result = await service.getAttendance(TENANT_ID, EVENT_ID);
+
+      expect(result.summary).toEqual({
+        total: 3,
+        marked_present: 1,
+        marked_absent: 1,
+        unmarked: 1,
+      });
+    });
+  });
+
+  describe('confirmHeadcount — non-closed status branch', () => {
+    it('should return event directly when status is not closed', async () => {
+      const inProgressEvent = { ...mockEvent, status: 'in_progress' };
+      mockPrisma.engagementEvent.findFirst.mockResolvedValueOnce(inProgressEvent);
+      mockPrisma.engagementEventParticipant.count.mockResolvedValueOnce(5);
+
+      const result = await service.confirmHeadcount(TENANT_ID, EVENT_ID, 5);
+
+      expect(result).toEqual(inProgressEvent);
+      expect(mockTx.engagementEvent.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('completeEvent — refunded payment_status', () => {
+    it('should count refunded payments in financial reconciliation', async () => {
+      const inProgressEvent = { ...mockEvent, status: 'in_progress', fee_amount: '50.00' };
+      mockPrisma.engagementEvent.findFirst
+        .mockResolvedValueOnce(inProgressEvent)
+        .mockResolvedValueOnce(inProgressEvent);
+      mockPrisma.engagementEventParticipant.count.mockResolvedValueOnce(0);
+      mockTx.engagementEvent.update.mockResolvedValueOnce({
+        ...inProgressEvent,
+        status: 'completed',
+      });
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValueOnce([
+        { payment_status: 'paid' },
+        { payment_status: 'refunded' },
+        { payment_status: 'pending' },
+        { payment_status: 'not_required' },
+      ]);
+
+      const result = await service.completeEvent(TENANT_ID, EVENT_ID);
+
+      expect(result.financial_reconciliation.refunded).toBe(1);
+      expect(result.financial_reconciliation.payment_required).toBe(3);
+      expect(result.financial_reconciliation.total_fee_amount).toBe(150);
+      expect(result.financial_reconciliation.total_collected).toBe(50);
+    });
+  });
+
+  describe('update — date field parsing', () => {
+    it('should parse optional date strings in update DTO', async () => {
+      const draftEvent = { ...mockEvent, status: 'draft' };
+      mockPrisma.engagementEvent.findFirst.mockResolvedValueOnce(draftEvent);
+      mockTx.engagementEvent.update.mockResolvedValueOnce(draftEvent);
+
+      await service.update(TENANT_ID, EVENT_ID, {
+        start_date: '2026-07-01',
+        end_date: '2026-07-02',
+        consent_deadline: '2026-06-25',
+        payment_deadline: '2026-06-28',
+        booking_deadline: '2026-06-30',
+      });
+
+      expect(mockTx.engagementEvent.update).toHaveBeenCalledWith({
+        where: { id: EVENT_ID },
+        data: expect.objectContaining({
+          start_date: expect.any(Date),
+          end_date: expect.any(Date),
+          consent_deadline: expect.any(Date),
+          payment_deadline: expect.any(Date),
+          booking_deadline: expect.any(Date),
+        }),
+      });
+    });
+
+    it('should leave date fields as undefined when not in DTO', async () => {
+      const draftEvent = { ...mockEvent, status: 'draft' };
+      mockPrisma.engagementEvent.findFirst.mockResolvedValueOnce(draftEvent);
+      mockTx.engagementEvent.update.mockResolvedValueOnce(draftEvent);
+
+      await service.update(TENANT_ID, EVENT_ID, { title: 'Just Title' });
+
+      expect(mockTx.engagementEvent.update).toHaveBeenCalledWith({
+        where: { id: EVENT_ID },
+        data: expect.objectContaining({
+          title: 'Just Title',
+          start_date: undefined,
+          end_date: undefined,
+          consent_deadline: undefined,
+          payment_deadline: undefined,
+          booking_deadline: undefined,
+        }),
+      });
+    });
+  });
 });

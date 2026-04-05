@@ -1689,5 +1689,463 @@ describe('ImportExecutorService', () => {
         }),
       });
     });
+
+    it('should catch error creating standalone household and continue', async () => {
+      const rows = [
+        { first_name: 'Error', last_name: 'Student' },
+        { first_name: 'OK', last_name: 'Student' },
+      ];
+      mockTx.household.create
+        .mockRejectedValueOnce(new Error('DB constraint'))
+        .mockResolvedValueOnce({ id: HOUSEHOLD_ID });
+      mockTx.student.create.mockResolvedValue({ id: STUDENT_ID });
+
+      const stats = await service.processStudentRows(
+        mockRlsClient as unknown as ReturnType<typeof createRlsClient>,
+        TENANT_ID,
+        rows,
+        new Set<number>(),
+        JOB_ID,
+      );
+
+      // First row failed (household creation error), second succeeded
+      expect(stats.skipped_rows).toContainEqual(
+        expect.objectContaining({ row: 2, reason: expect.stringContaining('Error') }),
+      );
+      expect(stats.students_created).toBe(1);
+    });
+
+    it('should use household_name from row when provided for standalone household', async () => {
+      const rows = [{ first_name: 'Ali', last_name: 'Test', household_name: 'Custom HH Name' }];
+      mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+      mockTx.student.create.mockResolvedValue({ id: STUDENT_ID });
+
+      await service.processStudentRows(
+        mockRlsClient as unknown as ReturnType<typeof createRlsClient>,
+        TENANT_ID,
+        rows,
+        new Set<number>(),
+        JOB_ID,
+      );
+
+      expect(mockTx.household.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ household_name: 'Custom HH Name' }),
+        }),
+      );
+    });
+
+    it('should fall back to "{lastName} Family" when household_name is empty for standalone', async () => {
+      const rows = [{ first_name: 'Ali', last_name: 'Khan', household_name: '' }];
+      mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+      mockTx.student.create.mockResolvedValue({ id: STUDENT_ID });
+
+      await service.processStudentRows(
+        mockRlsClient as unknown as ReturnType<typeof createRlsClient>,
+        TENANT_ID,
+        rows,
+        new Set<number>(),
+        JOB_ID,
+      );
+
+      expect(mockTx.household.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ household_name: 'Khan Family' }),
+        }),
+      );
+    });
+
+    it('should skip parent1 creation when parent1_first_name is empty', async () => {
+      const rows = [
+        {
+          parent1_email: 'test@test.com',
+          parent1_first_name: '',
+          parent1_last_name: 'Smith',
+          first_name: 'Alice',
+          last_name: 'Smith',
+        },
+      ];
+
+      mockTx.parent.findFirst.mockResolvedValue(null);
+      mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+      mockTx.student.create.mockResolvedValue({ id: STUDENT_ID });
+
+      const stats = await service.processStudentRows(
+        mockRlsClient as unknown as ReturnType<typeof createRlsClient>,
+        TENANT_ID,
+        rows,
+        new Set<number>(),
+        JOB_ID,
+      );
+
+      // Parent not created because first_name is empty
+      expect(stats.parents_created).toBe(0);
+      expect(stats.students_created).toBe(1);
+    });
+
+    it('should skip parent2 creation when parent2_first_name is empty', async () => {
+      const rows = [
+        {
+          parent1_email: 'dad@test.com',
+          parent1_first_name: 'John',
+          parent1_last_name: 'Smith',
+          parent2_first_name: '',
+          parent2_last_name: 'Smith',
+          first_name: 'Alice',
+          last_name: 'Smith',
+        },
+      ];
+
+      mockTx.parent.findFirst.mockResolvedValue(null);
+      mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+      mockTx.parent.create.mockResolvedValue({ id: PARENT_ID });
+      mockTx.student.create.mockResolvedValue({ id: STUDENT_ID });
+
+      const stats = await service.processStudentRows(
+        mockRlsClient as unknown as ReturnType<typeof createRlsClient>,
+        TENANT_ID,
+        rows,
+        new Set<number>(),
+        JOB_ID,
+      );
+
+      // Only parent1 created
+      expect(stats.parents_created).toBe(1);
+    });
+
+    it('should resolve year group by exact name match', async () => {
+      const rows = [{ year_group: 'Year 5', first_name: 'Ali', last_name: 'Test' }];
+      mockTx.yearGroup.findMany.mockResolvedValue([
+        { id: 'yg-1', name: 'Year 1' },
+        { id: YEAR_GROUP_ID, name: 'Year 5' },
+      ]);
+      mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+      mockTx.student.create.mockResolvedValue({ id: STUDENT_ID });
+
+      await service.processStudentRows(
+        mockRlsClient as unknown as ReturnType<typeof createRlsClient>,
+        TENANT_ID,
+        rows,
+        new Set<number>(),
+        JOB_ID,
+      );
+
+      expect(mockTx.student.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ year_group_id: YEAR_GROUP_ID }),
+        }),
+      );
+    });
+
+    it('should return null year_group_id when no match found', async () => {
+      const rows = [{ year_group: 'NonExistent', first_name: 'Ali', last_name: 'Test' }];
+      mockTx.yearGroup.findMany.mockResolvedValue([{ id: YEAR_GROUP_ID, name: 'Year 1' }]);
+      mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+      mockTx.student.create.mockResolvedValue({ id: STUDENT_ID });
+
+      await service.processStudentRows(
+        mockRlsClient as unknown as ReturnType<typeof createRlsClient>,
+        TENANT_ID,
+        rows,
+        new Set<number>(),
+        JOB_ID,
+      );
+
+      expect(mockTx.student.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ year_group_id: null }),
+        }),
+      );
+    });
+
+    it('should use year_group_name alias when year_group is not present', async () => {
+      const rows = [{ year_group_name: 'Year 3', first_name: 'Ali', last_name: 'Test' }];
+      mockTx.yearGroup.findMany.mockResolvedValue([{ id: YEAR_GROUP_ID, name: 'Year 3' }]);
+      mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+      mockTx.student.create.mockResolvedValue({ id: STUDENT_ID });
+
+      await service.processStudentRows(
+        mockRlsClient as unknown as ReturnType<typeof createRlsClient>,
+        TENANT_ID,
+        rows,
+        new Set<number>(),
+        JOB_ID,
+      );
+
+      expect(mockTx.student.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ year_group_id: YEAR_GROUP_ID }),
+        }),
+      );
+    });
+
+    it('should set gender to undefined when empty string provided', async () => {
+      const rows = [{ first_name: 'Ali', last_name: 'Test', gender: '' }];
+      mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+      mockTx.student.create.mockResolvedValue({ id: STUDENT_ID });
+
+      await service.processStudentRows(
+        mockRlsClient as unknown as ReturnType<typeof createRlsClient>,
+        TENANT_ID,
+        rows,
+        new Set<number>(),
+        JOB_ID,
+      );
+
+      expect(mockTx.student.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ gender: undefined }),
+        }),
+      );
+    });
+
+    it('should set optional fields to null when empty', async () => {
+      const rows = [
+        {
+          first_name: 'Ali',
+          last_name: 'Test',
+          middle_name: '',
+          nationality: '',
+          city_of_birth: '',
+          medical_notes: '',
+          allergies: '',
+        },
+      ];
+      mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+      mockTx.student.create.mockResolvedValue({ id: STUDENT_ID });
+
+      await service.processStudentRows(
+        mockRlsClient as unknown as ReturnType<typeof createRlsClient>,
+        TENANT_ID,
+        rows,
+        new Set<number>(),
+        JOB_ID,
+      );
+
+      expect(mockTx.student.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            middle_name: null,
+            nationality: null,
+            city_of_birth: null,
+            medical_notes: null,
+            allergy_details: null,
+            has_allergy: false,
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── processStaffRow — additional branches ────────────────────────────────
+
+  describe('ImportExecutorService — processStaffRow additional', () => {
+    function setupStaffMocks(): void {
+      mockTx.staffProfile.findFirst.mockResolvedValue(null);
+      mockTx.user.findUnique.mockResolvedValue(null);
+      mockTx.user.create.mockResolvedValue({ id: USER_ID });
+      mockTx.tenantMembership.findUnique.mockResolvedValue(null);
+      mockTx.tenantMembership.create.mockResolvedValue({ id: MEMBERSHIP_ID });
+      mockTx.role.findFirst.mockResolvedValue(null);
+      mockTx.staffProfile.create.mockResolvedValue({ id: STAFF_PROFILE_ID });
+    }
+
+    it('should encrypt only IBAN when bank_account_number is empty', async () => {
+      setupStaffMocks();
+
+      const row = {
+        first_name: 'Sarah',
+        last_name: 'Johnson',
+        email: 'sarah@school.com',
+        phone: '',
+        role: '',
+        job_title: '',
+        department: '',
+        employment_type: '',
+        employment_status: '',
+        bank_name: 'Some Bank',
+        bank_account_number: '',
+        bank_iban: 'GB29NWBK60161331926819',
+      };
+
+      await service.processRow(
+        mockTx as unknown as PrismaService,
+        TENANT_ID,
+        'staff',
+        row,
+        USER_ID,
+      );
+
+      // Only IBAN encrypted, not account number
+      expect(mockEncryptionService.encrypt).toHaveBeenCalledTimes(1);
+      expect(mockEncryptionService.encrypt).toHaveBeenCalledWith('GB29NWBK60161331926819');
+
+      expect(mockTx.staffProfile.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          bank_account_number_encrypted: null,
+          bank_iban_encrypted: 'enc-data',
+          bank_encryption_key_ref: 'key-v1',
+        }),
+      });
+    });
+
+    it('should skip role name lookup when role field is empty', async () => {
+      setupStaffMocks();
+
+      const row = {
+        first_name: 'John',
+        last_name: 'Doe',
+        email: 'john@school.com',
+        role: '',
+      };
+
+      await service.processRow(
+        mockTx as unknown as PrismaService,
+        TENANT_ID,
+        'staff',
+        row,
+        USER_ID,
+      );
+
+      expect(mockTx.role.findFirst).not.toHaveBeenCalled();
+      expect(mockTx.membershipRole.create).not.toHaveBeenCalled();
+    });
+
+    it('should set phone to null when empty', async () => {
+      setupStaffMocks();
+
+      const row = {
+        first_name: 'John',
+        last_name: 'Doe',
+        email: 'john@school.com',
+        phone: '',
+      };
+
+      await service.processRow(
+        mockTx as unknown as PrismaService,
+        TENANT_ID,
+        'staff',
+        row,
+        USER_ID,
+      );
+
+      expect(mockTx.user.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ phone: null }),
+      });
+    });
+
+    it('should set job_title and department to null when empty', async () => {
+      setupStaffMocks();
+
+      const row = {
+        first_name: 'John',
+        last_name: 'Doe',
+        email: 'john@school.com',
+        job_title: '',
+        department: '',
+      };
+
+      await service.processRow(
+        mockTx as unknown as PrismaService,
+        TENANT_ID,
+        'staff',
+        row,
+        USER_ID,
+      );
+
+      expect(mockTx.staffProfile.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          job_title: null,
+          department: null,
+        }),
+      });
+    });
+  });
+
+  // ─── processStaffCompensationRow — additional branches ────────────────────
+
+  describe('ImportExecutorService — processStaffCompensationRow additional', () => {
+    it('should default compensation_type to salaried for empty string', async () => {
+      mockTx.staffProfile.findFirst.mockResolvedValue({ id: STAFF_PROFILE_ID });
+      mockTx.staffCompensation.create.mockResolvedValue({ id: 'comp-1' });
+
+      const row: Record<string, string> = {
+        staff_number: 'ABC1234-5',
+        compensation_type: '',
+        amount: '50000',
+        effective_from: '',
+        effective_to: '',
+      };
+
+      await service.processRow(
+        mockTx as unknown as PrismaService,
+        TENANT_ID,
+        'staff_compensation',
+        row,
+        USER_ID,
+      );
+
+      expect(mockTx.staffCompensation.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ compensation_type: 'salaried' }),
+      });
+    });
+
+    it('should use effective_from and effective_to dates when provided', async () => {
+      mockTx.staffProfile.findFirst.mockResolvedValue({ id: STAFF_PROFILE_ID });
+      mockTx.staffCompensation.create.mockResolvedValue({ id: 'comp-1' });
+
+      const row: Record<string, string> = {
+        staff_number: 'ABC1234-5',
+        compensation_type: 'salaried',
+        base_salary: '60000',
+        effective_from: '2025-01-01',
+        effective_to: '2025-12-31',
+      };
+
+      await service.processRow(
+        mockTx as unknown as PrismaService,
+        TENANT_ID,
+        'staff_compensation',
+        row,
+        USER_ID,
+      );
+
+      expect(mockTx.staffCompensation.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          effective_from: new Date('2025-01-01'),
+          effective_to: new Date('2025-12-31'),
+        }),
+      });
+    });
+
+    it('should set per_class_rate to null for salaried type when amount and per_class_rate are both empty', async () => {
+      mockTx.staffProfile.findFirst.mockResolvedValue({ id: STAFF_PROFILE_ID });
+      mockTx.staffCompensation.create.mockResolvedValue({ id: 'comp-1' });
+
+      const row: Record<string, string> = {
+        staff_number: 'ABC1234-5',
+        compensation_type: 'per_class',
+        base_salary: '',
+        per_class_rate: '',
+        amount: '',
+        effective_from: '',
+        effective_to: '',
+      };
+
+      await service.processRow(
+        mockTx as unknown as PrismaService,
+        TENANT_ID,
+        'staff_compensation',
+        row,
+        USER_ID,
+      );
+
+      expect(mockTx.staffCompensation.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          base_salary: null,
+          per_class_rate: null,
+        }),
+      });
+    });
   });
 });

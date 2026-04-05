@@ -1,4 +1,4 @@
-import { ForbiddenException, type INestApplication } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, type INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 
@@ -447,6 +447,241 @@ describe('AttendanceController', () => {
       ['attendance.view', 'attendance.take'],
       undefined, // staffProfileId is undefined when staff profile not found
     );
+  });
+
+  // ─── uploadAttendance branches ──────────────────────────────────────────
+
+  describe('AttendanceController — uploadAttendance', () => {
+    it('should throw BadRequestException when no file is provided', async () => {
+      await expect(
+        controller.uploadAttendance(TENANT, user, undefined, { session_date: '2026-03-10' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException when file type is invalid', async () => {
+      const file = {
+        buffer: Buffer.from('data'),
+        originalname: 'file.txt',
+        mimetype: 'text/plain',
+        size: 100,
+      };
+
+      await expect(
+        controller.uploadAttendance(TENANT, user, file, { session_date: '2026-03-10' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException when file exceeds size limit', async () => {
+      const file = {
+        buffer: Buffer.from('data'),
+        originalname: 'file.csv',
+        mimetype: 'text/csv',
+        size: 11 * 1024 * 1024, // 11MB
+      };
+
+      await expect(
+        controller.uploadAttendance(TENANT, user, file, { session_date: '2026-03-10' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should accept a .csv extension file', async () => {
+      mockAttendanceUploadService.processUpload.mockResolvedValue({
+        valid: true,
+        sessions_created: 1,
+        records_created: 1,
+      });
+      const file = {
+        buffer: Buffer.from('data'),
+        originalname: 'attendance.csv',
+        mimetype: 'application/octet-stream',
+        size: 100,
+      };
+
+      await controller.uploadAttendance(TENANT, user, file, { session_date: '2026-03-10' });
+
+      expect(mockAttendanceUploadService.processUpload).toHaveBeenCalled();
+    });
+
+    it('should accept a .xlsx extension file', async () => {
+      mockAttendanceUploadService.processUpload.mockResolvedValue({
+        valid: true,
+        sessions_created: 1,
+        records_created: 1,
+      });
+      const file = {
+        buffer: Buffer.from('data'),
+        originalname: 'attendance.xlsx',
+        mimetype: 'application/octet-stream',
+        size: 100,
+      };
+
+      await controller.uploadAttendance(TENANT, user, file, { session_date: '2026-03-10' });
+
+      expect(mockAttendanceUploadService.processUpload).toHaveBeenCalled();
+    });
+
+    it('should accept a .xls extension file', async () => {
+      mockAttendanceUploadService.processUpload.mockResolvedValue({
+        valid: true,
+        sessions_created: 1,
+        records_created: 1,
+      });
+      const file = {
+        buffer: Buffer.from('data'),
+        originalname: 'attendance.xls',
+        mimetype: 'application/octet-stream',
+        size: 100,
+      };
+
+      await controller.uploadAttendance(TENANT, user, file, { session_date: '2026-03-10' });
+
+      expect(mockAttendanceUploadService.processUpload).toHaveBeenCalled();
+    });
+
+    it('should accept a file with csv mimetype regardless of extension', async () => {
+      mockAttendanceUploadService.processUpload.mockResolvedValue({
+        valid: true,
+        sessions_created: 1,
+        records_created: 1,
+      });
+      const file = {
+        buffer: Buffer.from('data'),
+        originalname: 'file.unknown',
+        mimetype: 'text/csv',
+        size: 100,
+      };
+
+      await controller.uploadAttendance(TENANT, user, file, { session_date: '2026-03-10' });
+
+      expect(mockAttendanceUploadService.processUpload).toHaveBeenCalled();
+    });
+
+    it('should accept a file with spreadsheet mimetype', async () => {
+      mockAttendanceUploadService.processUpload.mockResolvedValue({
+        valid: true,
+        sessions_created: 1,
+        records_created: 1,
+      });
+      const file = {
+        buffer: Buffer.from('data'),
+        originalname: 'file.unknown',
+        mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        size: 100,
+      };
+
+      await controller.uploadAttendance(TENANT, user, file, { session_date: '2026-03-10' });
+
+      expect(mockAttendanceUploadService.processUpload).toHaveBeenCalled();
+    });
+
+    it('should accept a file with excel mimetype', async () => {
+      mockAttendanceUploadService.processUpload.mockResolvedValue({
+        valid: true,
+        sessions_created: 1,
+        records_created: 1,
+      });
+      const file = {
+        buffer: Buffer.from('data'),
+        originalname: 'file.unknown',
+        mimetype: 'application/vnd.ms-excel',
+        size: 100,
+      };
+
+      await controller.uploadAttendance(TENANT, user, file, { session_date: '2026-03-10' });
+
+      expect(mockAttendanceUploadService.processUpload).toHaveBeenCalled();
+    });
+  });
+
+  // ─── scanAttendanceImage branches ───────────────────────────────────────
+
+  describe('AttendanceController — scanAttendanceImage', () => {
+    it('should throw BadRequestException when no image file is provided', async () => {
+      await expect(
+        controller.scanAttendanceImage(TENANT, user, undefined, { session_date: '2026-03-10' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException when image mime type is not allowed', async () => {
+      const file = {
+        buffer: Buffer.from('data'),
+        originalname: 'doc.pdf',
+        mimetype: 'application/pdf',
+        size: 100,
+      };
+
+      await expect(
+        controller.scanAttendanceImage(TENANT, user, file, { session_date: '2026-03-10' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException when image exceeds size limit', async () => {
+      const file = {
+        buffer: Buffer.from('data'),
+        originalname: 'photo.jpeg',
+        mimetype: 'image/jpeg',
+        size: 11 * 1024 * 1024, // 11MB
+      };
+
+      await expect(
+        controller.scanAttendanceImage(TENANT, user, file, { session_date: '2026-03-10' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should delegate to scan service for valid image', async () => {
+      mockAttendanceScanService.scanImage.mockResolvedValue({
+        scan_id: 'scan-1',
+        entries: [],
+      });
+
+      const file = {
+        buffer: Buffer.from('image-data'),
+        originalname: 'photo.jpeg',
+        mimetype: 'image/jpeg',
+        size: 1024,
+      };
+
+      const result = await controller.scanAttendanceImage(TENANT, user, file, {
+        session_date: '2026-03-10',
+      });
+
+      expect(mockAttendanceScanService.scanImage).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        file.buffer,
+        'image/jpeg',
+        '2026-03-10',
+      );
+      expect(result).toEqual({ scan_id: 'scan-1', entries: [] });
+    });
+  });
+
+  // ─── downloadTemplate ───────────────────────────────────────────────────
+
+  describe('AttendanceController — downloadTemplate', () => {
+    it('should set CSV response headers and send the template', async () => {
+      mockAttendanceUploadService.generateTemplate.mockResolvedValue(
+        'student_number,student_name,class_name,status',
+      );
+
+      const mockRes = {
+        setHeader: jest.fn(),
+        send: jest.fn(),
+      };
+
+      await controller.downloadTemplate(
+        TENANT,
+        { session_date: '2026-03-10' },
+        mockRes as unknown as import('express').Response,
+      );
+
+      expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Type', 'text/csv');
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Disposition',
+        'attachment; filename="attendance-2026-03-10.csv"',
+      );
+      expect(mockRes.send).toHaveBeenCalledWith('student_number,student_name,class_name,status');
+    });
   });
 });
 

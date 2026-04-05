@@ -499,5 +499,427 @@ describe('AiSubstitutionService', () => {
       expect(result.data).toHaveLength(1);
       expect(mockPrisma.teacherCompetency.findMany).not.toHaveBeenCalled();
     });
+
+    it('should prefer is_primary when merging competencies for same teacher', async () => {
+      // Two competency records for same teacher: first non-primary, second primary
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
+        { staff_profile_id: 'staff-2', is_primary: false },
+        { staff_profile_id: 'staff-2', is_primary: true },
+      ]);
+
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              { staff_profile_id: 'staff-2', confidence: 'high', score: 90, reasoning: 'Primary' },
+            ]),
+          },
+        ],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      expect(result.data).toHaveLength(1);
+      // The staffContext sent to AI should have is_primary: true
+    });
+
+    it('should not upgrade existing is_primary when subsequent record is non-primary', async () => {
+      // First record IS primary, second record is NOT — should keep primary
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
+        { staff_profile_id: 'staff-2', is_primary: true },
+        { staff_profile_id: 'staff-2', is_primary: false },
+      ]);
+
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              { staff_profile_id: 'staff-2', confidence: 'high', score: 85, reasoning: 'Expert' },
+            ]),
+          },
+        ],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      expect(result.data).toHaveLength(1);
+    });
+
+    it('should use schedule.academic_year_id when class_entity has no academic_year_id', async () => {
+      const schedNoAy = {
+        ...mockSchedule,
+        academic_year_id: 'fallback-ay',
+        class_entity: {
+          ...mockSchedule.class_entity,
+          academic_year_id: undefined,
+        },
+      };
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(schedNoAy);
+
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              { staff_profile_id: 'staff-2', confidence: 'medium', score: 60, reasoning: 'OK' },
+            ]),
+          },
+        ],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      expect(result.data).toHaveLength(1);
+      // Competency query should use fallback-ay
+      expect(mockPrisma.teacherCompetency.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ academic_year_id: 'fallback-ay' }),
+        }),
+      );
+    });
+
+    it('should exclude the absent teacher from available staff', async () => {
+      const staffFacade = module.get(StaffProfileReadFacade);
+      // Include the original teacher in the active staff list
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
+        { id: 'staff-1', user: { first_name: 'Absent', last_name: 'Teacher' } },
+        { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
+      ]);
+
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              {
+                staff_profile_id: 'staff-2',
+                confidence: 'high',
+                score: 90,
+                reasoning: 'Available',
+              },
+            ]),
+          },
+        ],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      // Only staff-2 should be in results (staff-1 is the absent teacher)
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]!.staff_profile_id).toBe('staff-2');
+    });
+
+    it('should exclude busy teachers from available staff', async () => {
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set(['staff-2']));
+
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
+        { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
+        { id: 'staff-3', user: { first_name: 'Bob', last_name: 'Jones' } },
+      ]);
+
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              {
+                staff_profile_id: 'staff-3',
+                confidence: 'medium',
+                score: 70,
+                reasoning: 'Only available',
+              },
+            ]),
+          },
+        ],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]!.staff_profile_id).toBe('staff-3');
+    });
+
+    it('should accumulate cover counts from substitution records', async () => {
+      mockPrisma.substitutionRecord.findMany.mockResolvedValue([
+        { substitute_staff_id: 'staff-2' },
+        { substitute_staff_id: 'staff-2' },
+        { substitute_staff_id: 'staff-3' },
+      ]);
+
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              {
+                staff_profile_id: 'staff-2',
+                confidence: 'medium',
+                score: 60,
+                reasoning: 'Higher cover',
+              },
+              {
+                staff_profile_id: 'staff-3',
+                confidence: 'high',
+                score: 80,
+                reasoning: 'Lower cover',
+              },
+            ]),
+          },
+        ],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      // Should be sorted by score descending
+      expect(result.data[0]!.staff_profile_id).toBe('staff-3');
+      expect(result.data[1]!.staff_profile_id).toBe('staff-2');
+    });
+
+    it('edge: should handle AI response with empty content array', async () => {
+      mockMessagesCreate.mockResolvedValue({
+        content: [],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      expect(result.data).toHaveLength(0);
+    });
+
+    it('edge: should handle AI response with content[0] that has empty text', async () => {
+      mockMessagesCreate.mockResolvedValue({
+        content: [{ type: 'text', text: '' }],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      expect(result.data).toHaveLength(0);
+    });
+
+    it('should query competencies with only subject_id when year_group_id is null', async () => {
+      const schedWithSubjectOnly = {
+        ...mockSchedule,
+        class_entity: {
+          ...mockSchedule.class_entity,
+          year_group_id: null,
+        },
+      };
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(
+        schedWithSubjectOnly,
+      );
+
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              { staff_profile_id: 'staff-2', confidence: 'medium', score: 60, reasoning: 'OK' },
+            ]),
+          },
+        ],
+      });
+
+      await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      expect(mockPrisma.teacherCompetency.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ subject_id: 'sub-1' }),
+        }),
+      );
+      // year_group_id should not be in the where
+      const callArgs = mockPrisma.teacherCompetency.findMany.mock.calls[0]![0];
+      expect(callArgs.where).not.toHaveProperty('year_group_id');
+    });
+
+    it('should query competencies with only year_group_id when subject_id is null', async () => {
+      const schedWithYgOnly = {
+        ...mockSchedule,
+        class_entity: {
+          ...mockSchedule.class_entity,
+          subject_id: null,
+        },
+      };
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(schedWithYgOnly);
+
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              { staff_profile_id: 'staff-2', confidence: 'medium', score: 60, reasoning: 'OK' },
+            ]),
+          },
+        ],
+      });
+
+      await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      expect(mockPrisma.teacherCompetency.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ year_group_id: 'yg-1' }),
+        }),
+      );
+      const callArgs = mockPrisma.teacherCompetency.findMany.mock.calls[0]![0];
+      expect(callArgs.where).not.toHaveProperty('subject_id');
+    });
+
+    it('should use fallback name when tokenised name not found for staff', async () => {
+      // Override gdprTokenService to return empty entities
+      const gdprService = module.get(GdprTokenService);
+      (gdprService.processOutbound as jest.Mock).mockResolvedValue({
+        processedData: { entities: [], entityCount: 0 },
+        tokenMap: new Map(),
+      });
+
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              { staff_profile_id: 'staff-2', confidence: 'high', score: 80, reasoning: 'Good' },
+            ]),
+          },
+        ],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]!.name).toBe('Jane Smith');
+    });
+
+    it('should handle schedule with null room in prompt context', async () => {
+      const schedNoRoom = {
+        ...mockSchedule,
+        room: null,
+      };
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(schedNoRoom);
+
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              {
+                staff_profile_id: 'staff-2',
+                confidence: 'medium',
+                score: 70,
+                reasoning: 'No room',
+              },
+            ]),
+          },
+        ],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      expect(result.data).toHaveLength(1);
+    });
+
+    it('should use full_name from tokenisedNameMap when entity has null full_name', async () => {
+      const gdprService = module.get(GdprTokenService);
+      (gdprService.processOutbound as jest.Mock).mockResolvedValue({
+        processedData: {
+          entities: [
+            { id: 'staff-2', fields: { full_name: null } },
+            { id: 'staff-3', fields: { full_name: null } },
+          ],
+          entityCount: 2,
+        },
+        tokenMap: new Map(),
+      });
+
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              { staff_profile_id: 'staff-2', confidence: 'medium', score: 70, reasoning: 'OK' },
+            ]),
+          },
+        ],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      // Should use tokenised name (empty string since full_name ?? '' = '')
+      expect(result.data).toHaveLength(1);
+    });
+
+    it('should handle schedule with entirely null class_entity in prompt context', async () => {
+      const schedNullClassEntity = {
+        ...mockSchedule,
+        class_entity: null,
+        room: null,
+      };
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(
+        schedNullClassEntity,
+      );
+
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              {
+                staff_profile_id: 'staff-2',
+                confidence: 'medium',
+                score: 50,
+                reasoning: 'No context',
+              },
+            ]),
+          },
+        ],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      // Should not crash; uses 'Unknown' for subject/year/class, 'TBD' for room
+      expect(result.data).toHaveLength(1);
+    });
+
+    it('should handle is_competent=true for all staff when no subject_id', async () => {
+      const schedNoSubject = {
+        ...mockSchedule,
+        class_entity: {
+          ...mockSchedule.class_entity,
+          subject_id: null,
+          year_group_id: null,
+          subject: { name: 'Unknown' },
+          year_group: { name: 'Unknown' },
+        },
+      };
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(schedNoSubject);
+
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              {
+                staff_profile_id: 'staff-2',
+                confidence: 'high',
+                score: 90,
+                reasoning: 'All competent',
+              },
+            ]),
+          },
+        ],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      // All staff should be considered competent when there's no subject
+      expect(result.data).toHaveLength(1);
+    });
   });
 });

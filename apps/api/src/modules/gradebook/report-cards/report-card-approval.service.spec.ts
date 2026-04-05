@@ -89,10 +89,7 @@ describe('ReportCardApprovalService — createConfig', () => {
     mockRlsTx.reportCardApprovalConfig.create.mockReset().mockResolvedValue(baseConfig);
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReportCardApprovalService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ReportCardApprovalService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardApprovalService>(ReportCardApprovalService);
@@ -155,10 +152,7 @@ describe('ReportCardApprovalService — findOneConfig', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReportCardApprovalService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ReportCardApprovalService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardApprovalService>(ReportCardApprovalService);
@@ -181,6 +175,314 @@ describe('ReportCardApprovalService — findOneConfig', () => {
   });
 });
 
+// ─── findAllConfigs ──────────────────────────────────────────────────────────
+
+describe('ReportCardApprovalService — findAllConfigs', () => {
+  let service: ReportCardApprovalService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [ReportCardApprovalService, { provide: PrismaService, useValue: mockPrisma }],
+    }).compile();
+
+    service = module.get<ReportCardApprovalService>(ReportCardApprovalService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should return all configs for a tenant', async () => {
+    mockPrisma.reportCardApprovalConfig.findMany.mockResolvedValue([baseConfig]);
+
+    const result = await service.findAllConfigs(TENANT_ID);
+
+    expect(result).toHaveLength(1);
+    expect(mockPrisma.reportCardApprovalConfig.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tenant_id: TENANT_ID },
+      }),
+    );
+  });
+
+  it('should return empty array when no configs exist', async () => {
+    mockPrisma.reportCardApprovalConfig.findMany.mockResolvedValue([]);
+
+    const result = await service.findAllConfigs(TENANT_ID);
+
+    expect(result).toHaveLength(0);
+  });
+});
+
+// ─── updateConfig ────────────────────────────────────────────────────────────
+
+describe('ReportCardApprovalService — updateConfig', () => {
+  let service: ReportCardApprovalService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRlsTx.reportCardApprovalConfig.updateMany.mockReset().mockResolvedValue({ count: 0 });
+    mockRlsTx.reportCardApprovalConfig.update.mockReset().mockResolvedValue({
+      ...baseConfig,
+      name: 'Updated',
+    });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [ReportCardApprovalService, { provide: PrismaService, useValue: mockPrisma }],
+    }).compile();
+
+    service = module.get<ReportCardApprovalService>(ReportCardApprovalService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should throw NotFoundException when config does not exist', async () => {
+    mockPrisma.reportCardApprovalConfig.findFirst.mockResolvedValue(null);
+
+    await expect(service.updateConfig(TENANT_ID, CONFIG_ID, { name: 'Updated' })).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('should throw ConflictException when renaming to an existing name', async () => {
+    mockPrisma.reportCardApprovalConfig.findFirst
+      .mockResolvedValueOnce(baseConfig) // found the config
+      .mockResolvedValueOnce({ id: 'other-id', name: 'Existing Name' }); // conflict
+
+    await expect(
+      service.updateConfig(TENANT_ID, CONFIG_ID, { name: 'Existing Name' }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('should not check name conflict when name is unchanged', async () => {
+    mockPrisma.reportCardApprovalConfig.findFirst.mockResolvedValue(baseConfig);
+
+    await service.updateConfig(TENANT_ID, CONFIG_ID, { name: baseConfig.name });
+
+    // findFirst should only be called once (existence check), not twice (no name conflict check)
+    expect(mockPrisma.reportCardApprovalConfig.findFirst).toHaveBeenCalledTimes(1);
+  });
+
+  it('should deactivate other configs when is_active is set to true', async () => {
+    mockPrisma.reportCardApprovalConfig.findFirst.mockResolvedValue(baseConfig);
+
+    await service.updateConfig(TENANT_ID, CONFIG_ID, { is_active: true });
+
+    expect(mockRlsTx.reportCardApprovalConfig.updateMany).toHaveBeenCalledWith({
+      where: { tenant_id: TENANT_ID, is_active: true, id: { not: CONFIG_ID } },
+      data: { is_active: false },
+    });
+  });
+
+  it('should not deactivate other configs when is_active is false', async () => {
+    mockPrisma.reportCardApprovalConfig.findFirst.mockResolvedValue(baseConfig);
+
+    await service.updateConfig(TENANT_ID, CONFIG_ID, { is_active: false });
+
+    expect(mockRlsTx.reportCardApprovalConfig.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('should update steps_json when provided', async () => {
+    mockPrisma.reportCardApprovalConfig.findFirst.mockResolvedValue(baseConfig);
+    const newSteps: ApprovalStep[] = [
+      { order: 1, role_key: 'teacher', label: 'Teacher', required: true },
+    ];
+
+    await service.updateConfig(TENANT_ID, CONFIG_ID, { steps_json: newSteps });
+
+    expect(mockRlsTx.reportCardApprovalConfig.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          steps_json: newSteps,
+        }),
+      }),
+    );
+  });
+
+  it('should update all fields when all provided', async () => {
+    mockPrisma.reportCardApprovalConfig.findFirst
+      .mockResolvedValueOnce(baseConfig) // existence check
+      .mockResolvedValueOnce(null); // name conflict check — no conflict
+    const newSteps: ApprovalStep[] = [{ order: 1, role_key: 'hod', label: 'HOD', required: true }];
+
+    await service.updateConfig(TENANT_ID, CONFIG_ID, {
+      name: 'New Name',
+      steps_json: newSteps,
+      is_active: true,
+    });
+
+    expect(mockRlsTx.reportCardApprovalConfig.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          name: 'New Name',
+          steps_json: newSteps,
+          is_active: true,
+        }),
+      }),
+    );
+  });
+
+  it('should skip name conflict check when name is not provided', async () => {
+    mockPrisma.reportCardApprovalConfig.findFirst.mockResolvedValue(baseConfig);
+
+    await service.updateConfig(TENANT_ID, CONFIG_ID, { is_active: true });
+
+    // findFirst only called once for existence
+    expect(mockPrisma.reportCardApprovalConfig.findFirst).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─── removeConfig ────────────────────────────────────────────────────────────
+
+describe('ReportCardApprovalService — removeConfig', () => {
+  let service: ReportCardApprovalService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRlsTx.reportCardApprovalConfig.delete.mockReset().mockResolvedValue(baseConfig);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [ReportCardApprovalService, { provide: PrismaService, useValue: mockPrisma }],
+    }).compile();
+
+    service = module.get<ReportCardApprovalService>(ReportCardApprovalService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should throw NotFoundException when config does not exist', async () => {
+    mockPrisma.reportCardApprovalConfig.findFirst.mockResolvedValue(null);
+
+    await expect(service.removeConfig(TENANT_ID, CONFIG_ID)).rejects.toThrow(NotFoundException);
+  });
+
+  it('should delete config and return { deleted: true }', async () => {
+    mockPrisma.reportCardApprovalConfig.findFirst.mockResolvedValue(baseConfig);
+
+    const result = await service.removeConfig(TENANT_ID, CONFIG_ID);
+
+    expect(result).toEqual({ deleted: true });
+    expect(mockRlsTx.reportCardApprovalConfig.delete).toHaveBeenCalledWith({
+      where: { id: CONFIG_ID },
+    });
+  });
+});
+
+// ─── getPendingApprovals ─────────────────────────────────────────────────────
+
+describe('ReportCardApprovalService — getPendingApprovals', () => {
+  let service: ReportCardApprovalService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [ReportCardApprovalService, { provide: PrismaService, useValue: mockPrisma }],
+    }).compile();
+
+    service = module.get<ReportCardApprovalService>(ReportCardApprovalService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should return paginated pending approvals for a role', async () => {
+    mockPrisma.reportCardApproval.findMany.mockResolvedValue([
+      { id: APPROVAL_ID, status: 'pending', role_key: 'class_teacher' },
+    ]);
+    mockPrisma.reportCardApproval.count.mockResolvedValue(1);
+
+    const result = await service.getPendingApprovals(TENANT_ID, USER_ID, 'class_teacher', {
+      page: 1,
+      pageSize: 20,
+    });
+
+    expect(result.data).toHaveLength(1);
+    expect(result.meta.total).toBe(1);
+    expect(result.meta.page).toBe(1);
+    expect(result.meta.pageSize).toBe(20);
+    expect(result.user_id).toBe(USER_ID);
+  });
+
+  it('should apply correct skip based on page and pageSize', async () => {
+    mockPrisma.reportCardApproval.findMany.mockResolvedValue([]);
+    mockPrisma.reportCardApproval.count.mockResolvedValue(0);
+
+    await service.getPendingApprovals(TENANT_ID, USER_ID, 'principal', {
+      page: 3,
+      pageSize: 10,
+    });
+
+    expect(mockPrisma.reportCardApproval.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 20, // (3-1) * 10
+        take: 10,
+      }),
+    );
+  });
+});
+
+// ─── submitForApproval — additional branches ──────────────────────────────────
+
+describe('ReportCardApprovalService — submitForApproval additional branches', () => {
+  let service: ReportCardApprovalService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRlsTx.reportCardApproval.create.mockReset().mockResolvedValue({
+      id: APPROVAL_ID,
+      status: 'pending',
+    });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [ReportCardApprovalService, { provide: PrismaService, useValue: mockPrisma }],
+    }).compile();
+
+    service = module.get<ReportCardApprovalService>(ReportCardApprovalService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should return no-op when active config has empty steps_json array', async () => {
+    mockPrisma.reportCard.findFirst.mockResolvedValue({
+      id: REPORT_CARD_ID,
+      status: 'draft',
+    });
+    mockPrisma.reportCardApproval.count.mockResolvedValue(0);
+    mockPrisma.reportCardApprovalConfig.findFirst.mockResolvedValue({
+      ...baseConfig,
+      is_active: true,
+      steps_json: [],
+    });
+
+    const result = await service.submitForApproval(TENANT_ID, REPORT_CARD_ID);
+
+    expect(result).toHaveProperty('message');
+    expect(result).toHaveProperty('approvals');
+  });
+
+  it('should return no-op when active config steps_json is not an array', async () => {
+    mockPrisma.reportCard.findFirst.mockResolvedValue({
+      id: REPORT_CARD_ID,
+      status: 'draft',
+    });
+    mockPrisma.reportCardApproval.count.mockResolvedValue(0);
+    mockPrisma.reportCardApprovalConfig.findFirst.mockResolvedValue({
+      ...baseConfig,
+      is_active: true,
+      steps_json: 'invalid',
+    });
+
+    const result = await service.submitForApproval(TENANT_ID, REPORT_CARD_ID);
+
+    expect(result).toHaveProperty('message');
+  });
+});
+
 // ─── submitForApproval ────────────────────────────────────────────────────────
 
 describe('ReportCardApprovalService — submitForApproval', () => {
@@ -195,10 +497,7 @@ describe('ReportCardApprovalService — submitForApproval', () => {
     });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReportCardApprovalService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ReportCardApprovalService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardApprovalService>(ReportCardApprovalService);
@@ -289,10 +588,7 @@ describe('ReportCardApprovalService — approve', () => {
     mockRlsTx.reportCard.update.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReportCardApprovalService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ReportCardApprovalService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardApprovalService>(ReportCardApprovalService);
@@ -313,7 +609,11 @@ describe('ReportCardApprovalService — approve', () => {
       { status: 'pending' }, // second step still pending
     ]);
 
-    const result = await service.approve(TENANT_ID, APPROVAL_ID, USER_ID) as { auto_published: boolean; approval: unknown; report_card: unknown };
+    const result = (await service.approve(TENANT_ID, APPROVAL_ID, USER_ID)) as {
+      auto_published: boolean;
+      approval: unknown;
+      report_card: unknown;
+    };
 
     expect(result.auto_published).toBe(false);
     expect(mockRlsTx.reportCard.update).not.toHaveBeenCalled();
@@ -337,7 +637,11 @@ describe('ReportCardApprovalService — approve', () => {
       published_at: new Date(),
     });
 
-    const result = await service.approve(TENANT_ID, APPROVAL_ID, USER_ID) as { auto_published: boolean; approval: unknown; report_card: unknown };
+    const result = (await service.approve(TENANT_ID, APPROVAL_ID, USER_ID)) as {
+      auto_published: boolean;
+      approval: unknown;
+      report_card: unknown;
+    };
 
     expect(result.auto_published).toBe(true);
     expect(mockRlsTx.reportCard.update).toHaveBeenCalledWith(
@@ -383,10 +687,7 @@ describe('ReportCardApprovalService — reject', () => {
     mockRlsTx.reportCardApproval.updateMany.mockReset().mockResolvedValue({ count: 1 });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReportCardApprovalService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ReportCardApprovalService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardApprovalService>(ReportCardApprovalService);
@@ -401,7 +702,9 @@ describe('ReportCardApprovalService — reject', () => {
       status: 'pending',
     });
 
-    const result = await service.reject(TENANT_ID, APPROVAL_ID, USER_ID, 'Missing signature') as { approval: { status: string } };
+    const result = (await service.reject(TENANT_ID, APPROVAL_ID, USER_ID, 'Missing signature')) as {
+      approval: { status: string };
+    };
 
     expect(result.approval.status).toBe('rejected');
     expect(mockRlsTx.reportCardApproval.updateMany).toHaveBeenCalledWith(
@@ -420,9 +723,9 @@ describe('ReportCardApprovalService — reject', () => {
   it('should throw NotFoundException when approval not found', async () => {
     mockPrisma.reportCardApproval.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.reject(TENANT_ID, APPROVAL_ID, USER_ID, 'reason'),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.reject(TENANT_ID, APPROVAL_ID, USER_ID, 'reason')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should throw ConflictException when approval is not pending', async () => {
@@ -431,9 +734,9 @@ describe('ReportCardApprovalService — reject', () => {
       status: 'rejected',
     });
 
-    await expect(
-      service.reject(TENANT_ID, APPROVAL_ID, USER_ID, 'reason'),
-    ).rejects.toThrow(ConflictException);
+    await expect(service.reject(TENANT_ID, APPROVAL_ID, USER_ID, 'reason')).rejects.toThrow(
+      ConflictException,
+    );
   });
 });
 
@@ -447,17 +750,16 @@ describe('ReportCardApprovalService — bulkApprove', () => {
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
-    mockRlsTx.reportCardApproval.update.mockReset().mockResolvedValue({ id: APPROVAL_ID, status: 'approved' });
-    mockRlsTx.reportCardApproval.findMany.mockReset().mockResolvedValue([
-      { status: 'approved' },
-    ]);
-    mockRlsTx.reportCard.update.mockReset().mockResolvedValue({ id: REPORT_CARD_ID, status: 'published' });
+    mockRlsTx.reportCardApproval.update
+      .mockReset()
+      .mockResolvedValue({ id: APPROVAL_ID, status: 'approved' });
+    mockRlsTx.reportCardApproval.findMany.mockReset().mockResolvedValue([{ status: 'approved' }]);
+    mockRlsTx.reportCard.update
+      .mockReset()
+      .mockResolvedValue({ id: REPORT_CARD_ID, status: 'published' });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReportCardApprovalService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ReportCardApprovalService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardApprovalService>(ReportCardApprovalService);
@@ -468,7 +770,12 @@ describe('ReportCardApprovalService — bulkApprove', () => {
   it('should report success count and failure count', async () => {
     // First approval succeeds
     mockPrisma.reportCardApproval.findFirst
-      .mockResolvedValueOnce({ id: APPROVAL_ID, report_card_id: REPORT_CARD_ID, status: 'pending', role_key: 'teacher' })
+      .mockResolvedValueOnce({
+        id: APPROVAL_ID,
+        report_card_id: REPORT_CARD_ID,
+        status: 'pending',
+        role_key: 'teacher',
+      })
       // Second approval not found → fails
       .mockResolvedValueOnce(null);
 
@@ -485,5 +792,14 @@ describe('ReportCardApprovalService — bulkApprove', () => {
     expect(result.succeeded).toBe(0);
     expect(result.failed).toBe(0);
     expect(result.results).toHaveLength(0);
+  });
+
+  it('should handle non-Error thrown during approval', async () => {
+    mockPrisma.reportCardApproval.findFirst.mockRejectedValueOnce('string error');
+
+    const result = await service.bulkApprove(TENANT_ID, [APPROVAL_ID], USER_ID);
+
+    expect(result.failed).toBe(1);
+    expect(result.results[0]?.error).toBe('Unknown error');
   });
 });

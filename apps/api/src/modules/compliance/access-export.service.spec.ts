@@ -156,23 +156,29 @@ describe('AccessExportService', () => {
       const uploadCall = mockS3Service.upload.mock.calls[0];
       const uploadedJson = JSON.parse(uploadCall[2].toString('utf-8'));
 
-      expect(uploadedJson.data.profile).toEqual(expect.objectContaining({
-        id: PARENT_ID,
-        first_name: 'John',
-        last_name: 'Doe',
-      }));
+      expect(uploadedJson.data.profile).toEqual(
+        expect.objectContaining({
+          id: PARENT_ID,
+          first_name: 'John',
+          last_name: 'Doe',
+        }),
+      );
       expect(uploadedJson.data.linked_students).toHaveLength(1);
-      expect(uploadedJson.data.linked_students[0]).toEqual(expect.objectContaining({
-        student_id: STUDENT_ID,
-        student_name: 'Alice Doe',
-        relationship: 'father',
-      }));
+      expect(uploadedJson.data.linked_students[0]).toEqual(
+        expect.objectContaining({
+          student_id: STUDENT_ID,
+          student_name: 'Alice Doe',
+          relationship: 'father',
+        }),
+      );
       expect(uploadedJson.data.household_memberships).toHaveLength(1);
-      expect(uploadedJson.data.household_memberships[0]).toEqual(expect.objectContaining({
-        household_id: HOUSEHOLD_ID,
-        household_name: 'The Does',
-        role: 'head',
-      }));
+      expect(uploadedJson.data.household_memberships[0]).toEqual(
+        expect.objectContaining({
+          household_id: HOUSEHOLD_ID,
+          household_name: 'The Does',
+          role: 'head',
+        }),
+      );
     });
 
     it('should export student data with profile, attendance, grades, enrolments', async () => {
@@ -240,18 +246,22 @@ describe('AccessExportService', () => {
       const uploadCall = mockS3Service.upload.mock.calls[0];
       const uploadedJson = JSON.parse(uploadCall[2].toString('utf-8'));
 
-      expect(uploadedJson.data.profile).toEqual(expect.objectContaining({
-        id: STUDENT_ID,
-        first_name: 'Alice',
-        student_number: 'STU-001',
-      }));
+      expect(uploadedJson.data.profile).toEqual(
+        expect.objectContaining({
+          id: STUDENT_ID,
+          first_name: 'Alice',
+          student_number: 'STU-001',
+        }),
+      );
       expect(uploadedJson.data.attendance_records).toHaveLength(1);
       expect(uploadedJson.data.grades).toHaveLength(1);
       expect(uploadedJson.data.class_enrolments).toHaveLength(1);
-      expect(uploadedJson.data.class_enrolments[0]).toEqual(expect.objectContaining({
-        class_id: 'class-1',
-        class_name: 'Grade 5A',
-      }));
+      expect(uploadedJson.data.class_enrolments[0]).toEqual(
+        expect.objectContaining({
+          class_id: 'class-1',
+          class_name: 'Grade 5A',
+        }),
+      );
     });
 
     it('should merge extra export sections into the uploaded payload', async () => {
@@ -278,21 +288,11 @@ describe('AccessExportService', () => {
       mockAttendanceRecord.findMany.mockResolvedValue([]);
       mockGrade.findMany.mockResolvedValue([]);
       mockClassEnrolment.findMany.mockResolvedValue([]);
-      mockS3Service.upload.mockResolvedValue(
-        `${TENANT_ID}/compliance-exports/${REQUEST_ID}.json`,
-      );
+      mockS3Service.upload.mockResolvedValue(`${TENANT_ID}/compliance-exports/${REQUEST_ID}.json`);
 
-      await service.exportSubjectData(
-        TENANT_ID,
-        'student',
-        STUDENT_ID,
-        REQUEST_ID,
-        {
-          pastoral_dsar_records: [
-            { entity_type: 'cp_record', decision: 'include' },
-          ],
-        },
-      );
+      await service.exportSubjectData(TENANT_ID, 'student', STUDENT_ID, REQUEST_ID, {
+        pastoral_dsar_records: [{ entity_type: 'cp_record', decision: 'include' }],
+      });
 
       const uploadCall = mockS3Service.upload.mock.calls[0];
       const uploadedJson = JSON.parse(uploadCall[2].toString('utf-8'));
@@ -364,22 +364,31 @@ describe('AccessExportService', () => {
       const expectedS3Key = `${TENANT_ID}/compliance-exports/${REQUEST_ID}.json`;
       mockS3Service.upload.mockResolvedValue(expectedS3Key);
 
-      const result = await service.exportSubjectData(TENANT_ID, 'household', HOUSEHOLD_ID, REQUEST_ID);
+      const result = await service.exportSubjectData(
+        TENANT_ID,
+        'household',
+        HOUSEHOLD_ID,
+        REQUEST_ID,
+      );
 
       expect(result.s3Key).toBe(expectedS3Key);
 
       const uploadCall = mockS3Service.upload.mock.calls[0];
       const uploadedJson = JSON.parse(uploadCall[2].toString('utf-8'));
 
-      expect(uploadedJson.data.profile).toEqual(expect.objectContaining({
-        id: HOUSEHOLD_ID,
-        household_name: 'The Does',
-      }));
+      expect(uploadedJson.data.profile).toEqual(
+        expect.objectContaining({
+          id: HOUSEHOLD_ID,
+          household_name: 'The Does',
+        }),
+      );
       expect(uploadedJson.data.linked_parents).toHaveLength(1);
-      expect(uploadedJson.data.linked_parents[0]).toEqual(expect.objectContaining({
-        parent_id: PARENT_ID,
-        parent_name: 'John Doe',
-      }));
+      expect(uploadedJson.data.linked_parents[0]).toEqual(
+        expect.objectContaining({
+          parent_id: PARENT_ID,
+          parent_name: 'John Doe',
+        }),
+      );
       expect(uploadedJson.data.linked_students).toHaveLength(1);
       expect(uploadedJson.data.invoices).toHaveLength(1);
       expect(uploadedJson.data.payments).toHaveLength(1);
@@ -407,12 +416,14 @@ describe('AccessExportService', () => {
       const uploadCall = mockS3Service.upload.mock.calls[0];
       const uploadedJson = JSON.parse(uploadCall[2].toString('utf-8'));
 
-      expect(uploadedJson.data.profile).toEqual(expect.objectContaining({
-        id: USER_ID,
-        first_name: 'Admin',
-        last_name: 'User',
-        email: 'admin@school.edu',
-      }));
+      expect(uploadedJson.data.profile).toEqual(
+        expect.objectContaining({
+          id: USER_ID,
+          first_name: 'Admin',
+          last_name: 'User',
+          email: 'admin@school.edu',
+        }),
+      );
     });
 
     it('should upload JSON to S3 with correct key format', async () => {
@@ -501,11 +512,7 @@ describe('AccessExportService', () => {
       const expectedS3Key = `${TENANT_ID}/compliance-exports/${REQUEST_ID}.json`;
       mockS3Service.upload.mockResolvedValue(expectedS3Key);
 
-      const result = await service.exportDataPackage(
-        TENANT_ID,
-        REQUEST_ID,
-        dataPackage,
-      );
+      const result = await service.exportDataPackage(TENANT_ID, REQUEST_ID, dataPackage);
 
       expect(result.s3Key).toBe(expectedS3Key);
       expect(mockS3Service.upload).toHaveBeenCalledWith(
@@ -561,12 +568,7 @@ describe('AccessExportService', () => {
         pastoral_dsar_records: [{ entity_type: 'cp_record', decision: 'include' }],
       };
 
-      await service.exportDataPackage(
-        TENANT_ID,
-        REQUEST_ID,
-        dataPackage,
-        extraSections,
-      );
+      await service.exportDataPackage(TENANT_ID, REQUEST_ID, dataPackage, extraSections);
 
       const uploadCall = mockS3Service.upload.mock.calls[0];
       const uploadedJson = JSON.parse(uploadCall[2].toString('utf-8'));
@@ -575,6 +577,179 @@ describe('AccessExportService', () => {
       ]);
       // Original categories should still be present
       expect(uploadedJson.categories.profile).toEqual({ first_name: 'Alice', last_name: 'Doe' });
+    });
+
+    it('should export CSV with object categories as field/value pairs', async () => {
+      const expectedS3Key = `${TENANT_ID}/compliance-exports/${REQUEST_ID}.csv`;
+      mockS3Service.upload.mockResolvedValue(expectedS3Key);
+
+      const pkg = {
+        subject_type: 'student',
+        subject_id: STUDENT_ID,
+        collected_at: new Date().toISOString(),
+        categories: {
+          profile: { first_name: 'Alice', last_name: 'Doe', email: 'alice@school.com' },
+        },
+      };
+
+      await service.exportDataPackage(TENANT_ID, REQUEST_ID, pkg, {}, 'csv');
+
+      const uploadCall = mockS3Service.upload.mock.calls[0];
+      const csvContent = (uploadCall[2] as Buffer).toString('utf-8');
+      expect(csvContent).toContain('## profile');
+      expect(csvContent).toContain('field,value');
+      expect(csvContent).toContain('first_name,Alice');
+      expect(csvContent).toContain('last_name,Doe');
+    });
+
+    it('should escape CSV values containing commas, quotes, and newlines', async () => {
+      const expectedS3Key = `${TENANT_ID}/compliance-exports/${REQUEST_ID}.csv`;
+      mockS3Service.upload.mockResolvedValue(expectedS3Key);
+
+      const pkg = {
+        subject_type: 'student',
+        subject_id: STUDENT_ID,
+        collected_at: new Date().toISOString(),
+        categories: {
+          notes: [
+            { id: '1', text: 'Hello, world', comment: 'Said "hello"' },
+            { id: '2', text: 'Line1\nLine2', comment: 'normal' },
+          ],
+        },
+      };
+
+      await service.exportDataPackage(TENANT_ID, REQUEST_ID, pkg, {}, 'csv');
+
+      const uploadCall = mockS3Service.upload.mock.calls[0];
+      const csvContent = (uploadCall[2] as Buffer).toString('utf-8');
+      expect(csvContent).toContain('## notes');
+      expect(csvContent).toContain('id,text,comment');
+      // Values with commas should be quoted
+      expect(csvContent).toContain('"Hello, world"');
+      // Values with quotes should be double-quoted
+      expect(csvContent).toContain('"Said ""hello"""');
+    });
+
+    it('should handle null and undefined values in CSV export', async () => {
+      const expectedS3Key = `${TENANT_ID}/compliance-exports/${REQUEST_ID}.csv`;
+      mockS3Service.upload.mockResolvedValue(expectedS3Key);
+
+      const pkg = {
+        subject_type: 'student',
+        subject_id: STUDENT_ID,
+        collected_at: new Date().toISOString(),
+        categories: {
+          items: [{ id: '1', name: null, value: undefined }],
+        },
+      };
+
+      await service.exportDataPackage(TENANT_ID, REQUEST_ID, pkg, {}, 'csv');
+
+      const uploadCall = mockS3Service.upload.mock.calls[0];
+      const csvContent = (uploadCall[2] as Buffer).toString('utf-8');
+      // null/undefined should become empty strings
+      expect(csvContent).toContain('## items');
+      expect(csvContent).toContain('id,name,value');
+      expect(csvContent).toContain('1,,');
+    });
+
+    it('should handle empty array categories in CSV', async () => {
+      const expectedS3Key = `${TENANT_ID}/compliance-exports/${REQUEST_ID}.csv`;
+      mockS3Service.upload.mockResolvedValue(expectedS3Key);
+
+      const pkg = {
+        subject_type: 'student',
+        subject_id: STUDENT_ID,
+        collected_at: new Date().toISOString(),
+        categories: {
+          empty_list: [],
+          profile: { first_name: 'Bob' },
+        },
+      };
+
+      await service.exportDataPackage(TENANT_ID, REQUEST_ID, pkg, {}, 'csv');
+
+      const uploadCall = mockS3Service.upload.mock.calls[0];
+      const csvContent = (uploadCall[2] as Buffer).toString('utf-8');
+      // Empty arrays should just show the header and nothing else
+      expect(csvContent).toContain('## empty_list');
+      expect(csvContent).toContain('## profile');
+    });
+
+    it('should include metadata header in CSV export', async () => {
+      const expectedS3Key = `${TENANT_ID}/compliance-exports/${REQUEST_ID}.csv`;
+      mockS3Service.upload.mockResolvedValue(expectedS3Key);
+
+      const pkg = {
+        subject_type: 'student',
+        subject_id: STUDENT_ID,
+        collected_at: new Date().toISOString(),
+        categories: {},
+      };
+
+      await service.exportDataPackage(TENANT_ID, REQUEST_ID, pkg, {}, 'csv');
+
+      const uploadCall = mockS3Service.upload.mock.calls[0];
+      const csvContent = (uploadCall[2] as Buffer).toString('utf-8');
+      expect(csvContent).toContain('# Subject Type: student');
+      expect(csvContent).toContain(`# Subject ID: ${STUDENT_ID}`);
+    });
+
+    it('should handle object category with comma/quote values in CSV', async () => {
+      const expectedS3Key = `${TENANT_ID}/compliance-exports/${REQUEST_ID}.csv`;
+      mockS3Service.upload.mockResolvedValue(expectedS3Key);
+
+      const pkg = {
+        subject_type: 'student',
+        subject_id: STUDENT_ID,
+        collected_at: new Date().toISOString(),
+        categories: {
+          profile: { name: 'Doe, Jane', nickname: '"JD"' },
+        },
+      };
+
+      await service.exportDataPackage(TENANT_ID, REQUEST_ID, pkg, {}, 'csv');
+
+      const uploadCall = mockS3Service.upload.mock.calls[0];
+      const csvContent = (uploadCall[2] as Buffer).toString('utf-8');
+      expect(csvContent).toContain('"Doe, Jane"');
+      expect(csvContent).toContain('"""JD"""');
+    });
+
+    it('should export as JSON when no format specified (default)', async () => {
+      const expectedS3Key = `${TENANT_ID}/compliance-exports/${REQUEST_ID}.json`;
+      mockS3Service.upload.mockResolvedValue(expectedS3Key);
+
+      const result = await service.exportDataPackage(TENANT_ID, REQUEST_ID, dataPackage);
+
+      expect(result.s3Key).toBe(expectedS3Key);
+      expect(mockS3Service.upload).toHaveBeenCalledWith(
+        TENANT_ID,
+        `compliance-exports/${REQUEST_ID}.json`,
+        expect.any(Buffer),
+        'application/json',
+      );
+    });
+
+    it('should handle null/undefined values in object category for CSV', async () => {
+      const expectedS3Key = `${TENANT_ID}/compliance-exports/${REQUEST_ID}.csv`;
+      mockS3Service.upload.mockResolvedValue(expectedS3Key);
+
+      const pkg = {
+        subject_type: 'student',
+        subject_id: STUDENT_ID,
+        collected_at: new Date().toISOString(),
+        categories: {
+          meta: { field_a: null, field_b: undefined, field_c: 'valid' },
+        },
+      };
+
+      await service.exportDataPackage(TENANT_ID, REQUEST_ID, pkg, {}, 'csv');
+
+      const uploadCall = mockS3Service.upload.mock.calls[0];
+      const csvContent = (uploadCall[2] as Buffer).toString('utf-8');
+      expect(csvContent).toContain('field,value');
+      expect(csvContent).toContain('field_c,valid');
     });
   });
 });

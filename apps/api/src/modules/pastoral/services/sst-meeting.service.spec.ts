@@ -780,4 +780,541 @@ describe('SstMeetingService', () => {
       ).resolves.not.toThrow();
     });
   });
+
+  // ─── listMeetings status mapping ──────────────────────────────────────────
+
+  describe('listMeetings — status mapping', () => {
+    it('should map in_progress to sst_in_progress Prisma enum', async () => {
+      mockRlsTx.sstMeeting.findMany.mockResolvedValue([]);
+      mockRlsTx.sstMeeting.count.mockResolvedValue(0);
+
+      await service.listMeetings(TENANT_ID, {
+        status: 'in_progress',
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(mockRlsTx.sstMeeting.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'sst_in_progress',
+          }),
+        }),
+      );
+    });
+
+    it('should map completed to sst_completed Prisma enum', async () => {
+      mockRlsTx.sstMeeting.findMany.mockResolvedValue([]);
+      mockRlsTx.sstMeeting.count.mockResolvedValue(0);
+
+      await service.listMeetings(TENANT_ID, {
+        status: 'completed',
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(mockRlsTx.sstMeeting.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'sst_completed',
+          }),
+        }),
+      );
+    });
+
+    it('should not add status filter when status is undefined', async () => {
+      mockRlsTx.sstMeeting.findMany.mockResolvedValue([]);
+      mockRlsTx.sstMeeting.count.mockResolvedValue(0);
+
+      await service.listMeetings(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+      });
+
+      const callArg = mockRlsTx.sstMeeting.findMany.mock.calls[0]?.[0] as {
+        where: Record<string, unknown>;
+      };
+      expect(callArg.where.status).toBeUndefined();
+    });
+
+    it('should not add status filter for unmapped status value', async () => {
+      mockRlsTx.sstMeeting.findMany.mockResolvedValue([]);
+      mockRlsTx.sstMeeting.count.mockResolvedValue(0);
+
+      await service.listMeetings(TENANT_ID, {
+        status: 'nonexistent_status' as 'scheduled',
+        page: 1,
+        pageSize: 20,
+      });
+
+      // The MEETING_STATUS_TO_ENUM has no entry for 'nonexistent_status', so prismaStatus is undefined
+      // so the if(prismaStatus) branch is false, and status is not set on where
+      const callArg = mockRlsTx.sstMeeting.findMany.mock.calls[0]?.[0] as {
+        where: Record<string, unknown>;
+      };
+      expect(callArg.where.status).toBeUndefined();
+    });
+  });
+
+  // ─── Action Methods ──────────────────────────────────────────────────────
+
+  describe('listActionsForMeeting', () => {
+    it('should return actions for a specific meeting', async () => {
+      const actions = [{ id: 'action-1', meeting_id: MEETING_ID, description: 'Follow up' }];
+      mockRlsTx.sstMeetingAction.findMany.mockResolvedValue(actions);
+
+      const result = await service.listActionsForMeeting(TENANT_ID, MEETING_ID);
+
+      expect(result.data).toEqual(actions);
+      expect(mockRlsTx.sstMeetingAction.findMany).toHaveBeenCalledWith({
+        where: { meeting_id: MEETING_ID, tenant_id: TENANT_ID },
+        orderBy: { created_at: 'asc' },
+      });
+    });
+  });
+
+  describe('listAllActions', () => {
+    it('should return paginated actions with default page/pageSize', async () => {
+      const actions = [{ id: 'action-1', description: 'Test' }];
+      mockRlsTx.sstMeetingAction.findMany.mockResolvedValue(actions);
+      mockRlsTx.sstMeetingAction.count.mockResolvedValue(1);
+
+      const result = await service.listAllActions(TENANT_ID, {});
+
+      expect(result.data).toEqual(actions);
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
+    });
+
+    it('should filter by status when provided', async () => {
+      mockRlsTx.sstMeetingAction.findMany.mockResolvedValue([]);
+      mockRlsTx.sstMeetingAction.count.mockResolvedValue(0);
+
+      await service.listAllActions(TENANT_ID, { status: 'pc_pending' });
+
+      expect(mockRlsTx.sstMeetingAction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: 'pc_pending' }),
+        }),
+      );
+    });
+
+    it('should filter by assigned_to_user_id when provided', async () => {
+      mockRlsTx.sstMeetingAction.findMany.mockResolvedValue([]);
+      mockRlsTx.sstMeetingAction.count.mockResolvedValue(0);
+
+      await service.listAllActions(TENANT_ID, { assigned_to_user_id: ACTOR_USER_ID });
+
+      expect(mockRlsTx.sstMeetingAction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ assigned_to_user_id: ACTOR_USER_ID }),
+        }),
+      );
+    });
+
+    it('should respect custom page and pageSize', async () => {
+      mockRlsTx.sstMeetingAction.findMany.mockResolvedValue([]);
+      mockRlsTx.sstMeetingAction.count.mockResolvedValue(0);
+
+      await service.listAllActions(TENANT_ID, { page: 3, pageSize: 10 });
+
+      expect(mockRlsTx.sstMeetingAction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 20,
+          take: 10,
+        }),
+      );
+    });
+  });
+
+  describe('listMyActions', () => {
+    it('should delegate to listAllActions with assigned_to_user_id set to userId', async () => {
+      mockRlsTx.sstMeetingAction.findMany.mockResolvedValue([]);
+      mockRlsTx.sstMeetingAction.count.mockResolvedValue(0);
+
+      await service.listMyActions(TENANT_ID, ACTOR_USER_ID);
+
+      expect(mockRlsTx.sstMeetingAction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ assigned_to_user_id: ACTOR_USER_ID }),
+        }),
+      );
+    });
+
+    it('should pass through status filter', async () => {
+      mockRlsTx.sstMeetingAction.findMany.mockResolvedValue([]);
+      mockRlsTx.sstMeetingAction.count.mockResolvedValue(0);
+
+      await service.listMyActions(TENANT_ID, ACTOR_USER_ID, { status: 'pc_completed' });
+
+      expect(mockRlsTx.sstMeetingAction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            assigned_to_user_id: ACTOR_USER_ID,
+            status: 'pc_completed',
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('createAction', () => {
+    it('should create an action with correct data and write audit event', async () => {
+      const actionData = {
+        description: 'Follow up with parents',
+        assigned_to_user_id: USER_ID_B,
+        due_date: '2026-04-20',
+        student_id: 'student-1',
+        case_id: 'case-1',
+        agenda_item_id: 'agenda-1',
+      };
+      const createdAction = {
+        id: 'action-new',
+        meeting_id: MEETING_ID,
+        ...actionData,
+        status: 'pc_pending',
+      };
+      mockRlsTx.sstMeetingAction.create.mockResolvedValue(createdAction);
+
+      const result = await service.createAction(TENANT_ID, MEETING_ID, actionData, ACTOR_USER_ID);
+
+      expect(result.data).toEqual(createdAction);
+      expect(mockRlsTx.sstMeetingAction.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          meeting_id: MEETING_ID,
+          description: 'Follow up with parents',
+          assigned_to_user_id: USER_ID_B,
+          status: 'pc_pending',
+          student_id: 'student-1',
+          case_id: 'case-1',
+          agenda_item_id: 'agenda-1',
+        }),
+      });
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'action_assigned',
+          entity_type: 'meeting',
+          entity_id: MEETING_ID,
+        }),
+      );
+    });
+
+    it('should handle optional fields defaulting to null', async () => {
+      const actionData = {
+        description: 'Simple action',
+        assigned_to_user_id: USER_ID_B,
+        due_date: '2026-04-20',
+      };
+      const createdAction = {
+        id: 'action-new',
+        meeting_id: MEETING_ID,
+        ...actionData,
+        status: 'pc_pending',
+      };
+      mockRlsTx.sstMeetingAction.create.mockResolvedValue(createdAction);
+
+      await service.createAction(TENANT_ID, MEETING_ID, actionData, ACTOR_USER_ID);
+
+      expect(mockRlsTx.sstMeetingAction.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          agenda_item_id: null,
+          student_id: null,
+          case_id: null,
+        }),
+      });
+    });
+  });
+
+  describe('updateAction', () => {
+    it('should update only description when provided', async () => {
+      const updatedAction = { id: 'action-1', description: 'Updated description' };
+      mockRlsTx.sstMeetingAction.update.mockResolvedValue(updatedAction);
+
+      const result = await service.updateAction(
+        TENANT_ID,
+        'action-1',
+        { description: 'Updated description' },
+        ACTOR_USER_ID,
+      );
+
+      expect(result.data).toEqual(updatedAction);
+      expect(mockRlsTx.sstMeetingAction.update).toHaveBeenCalledWith({
+        where: { id: 'action-1' },
+        data: { description: 'Updated description' },
+      });
+    });
+
+    it('should update status when provided', async () => {
+      const updatedAction = { id: 'action-1', status: 'pc_in_progress' };
+      mockRlsTx.sstMeetingAction.update.mockResolvedValue(updatedAction);
+
+      await service.updateAction(
+        TENANT_ID,
+        'action-1',
+        { status: 'pc_in_progress' },
+        ACTOR_USER_ID,
+      );
+
+      expect(mockRlsTx.sstMeetingAction.update).toHaveBeenCalledWith({
+        where: { id: 'action-1' },
+        data: { status: 'pc_in_progress' },
+      });
+    });
+
+    it('should update due_date as Date object when provided', async () => {
+      const updatedAction = { id: 'action-1', due_date: new Date('2026-05-01') };
+      mockRlsTx.sstMeetingAction.update.mockResolvedValue(updatedAction);
+
+      await service.updateAction(TENANT_ID, 'action-1', { due_date: '2026-05-01' }, ACTOR_USER_ID);
+
+      expect(mockRlsTx.sstMeetingAction.update).toHaveBeenCalledWith({
+        where: { id: 'action-1' },
+        data: { due_date: expect.any(Date) },
+      });
+    });
+
+    it('should handle empty DTO with no fields to update', async () => {
+      const updatedAction = { id: 'action-1' };
+      mockRlsTx.sstMeetingAction.update.mockResolvedValue(updatedAction);
+
+      await service.updateAction(TENANT_ID, 'action-1', {}, ACTOR_USER_ID);
+
+      expect(mockRlsTx.sstMeetingAction.update).toHaveBeenCalledWith({
+        where: { id: 'action-1' },
+        data: {},
+      });
+    });
+  });
+
+  describe('completeAction', () => {
+    it('should mark action as completed with timestamp and actor', async () => {
+      const completedAction = {
+        id: 'action-1',
+        meeting_id: MEETING_ID,
+        status: 'pc_completed',
+        completed_at: new Date(),
+        completed_by_user_id: ACTOR_USER_ID,
+      };
+      mockRlsTx.sstMeetingAction.update.mockResolvedValue(completedAction);
+
+      const result = await service.completeAction(TENANT_ID, 'action-1', ACTOR_USER_ID);
+
+      expect(result.data.status).toBe('pc_completed');
+      expect(mockRlsTx.sstMeetingAction.update).toHaveBeenCalledWith({
+        where: { id: 'action-1' },
+        data: {
+          status: 'pc_completed',
+          completed_at: expect.any(Date),
+          completed_by_user_id: ACTOR_USER_ID,
+        },
+      });
+    });
+
+    it('should write action_completed audit event', async () => {
+      const completedAction = {
+        id: 'action-1',
+        meeting_id: MEETING_ID,
+        status: 'pc_completed',
+        completed_at: new Date(),
+        completed_by_user_id: ACTOR_USER_ID,
+      };
+      mockRlsTx.sstMeetingAction.update.mockResolvedValue(completedAction);
+
+      await service.completeAction(TENANT_ID, 'action-1', ACTOR_USER_ID);
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'action_completed',
+          entity_type: 'meeting',
+          entity_id: MEETING_ID,
+          payload: expect.objectContaining({
+            action_id: 'action-1',
+            completed_by_user_id: ACTOR_USER_ID,
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── cancelMeeting without reason ──────────────────────────────────────────
+
+  describe('cancelMeeting — no reason', () => {
+    it('should include null reason in audit event when no reason provided', async () => {
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting({ status: 'scheduled' }));
+      mockRlsTx.sstMeeting.update.mockResolvedValue(makeMeeting({ status: 'sst_cancelled' }));
+
+      await service.cancelMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID);
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            reason: null,
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── Branch coverage: updateAttendees — present/absent counts ──────────────
+
+  describe('updateAttendees — present/absent count in audit', () => {
+    it('should count present and absent attendees correctly in audit event', async () => {
+      const meeting = makeMeeting({ status: 'sst_in_progress' });
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(meeting);
+      mockRlsTx.sstMeeting.update.mockResolvedValue(meeting);
+
+      const attendees = [
+        { user_id: ACTOR_USER_ID, name: 'User A', present: true },
+        { user_id: USER_ID_B, name: 'User B', present: false },
+        { user_id: USER_ID_C, name: 'User C', present: null },
+      ];
+
+      await service.updateAttendees(TENANT_ID, MEETING_ID, attendees, ACTOR_USER_ID);
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            attendees_present: 1,
+            attendees_absent: 1,
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── Branch coverage: listMeetings — cancelled status mapping ──────────────
+
+  describe('listMeetings — cancelled status mapping', () => {
+    it('should map cancelled to sst_cancelled Prisma enum', async () => {
+      mockRlsTx.sstMeeting.findMany.mockResolvedValue([]);
+      mockRlsTx.sstMeeting.count.mockResolvedValue(0);
+
+      await service.listMeetings(TENANT_ID, {
+        status: 'cancelled',
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(mockRlsTx.sstMeeting.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'sst_cancelled',
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── Branch coverage: assertMeetingEditable for unknown status ─────────────
+
+  describe('assertMeetingEditable — unknown status', () => {
+    it('edge: should not throw for an unknown status (falls through to non-completed)', () => {
+      const unknownStatusMeeting = makeMeeting({ status: 'some_unknown_status' });
+      expect(() => service.assertMeetingEditable(unknownStatusMeeting as never)).not.toThrow();
+    });
+  });
+
+  // ─── Branch coverage: createAction — student_id in audit ───────────────────
+
+  describe('createAction — audit event student_id', () => {
+    it('should pass null student_id in audit event when no student_id', async () => {
+      const actionData = {
+        description: 'No student action',
+        assigned_to_user_id: USER_ID_B,
+        due_date: '2026-04-20',
+      };
+      const createdAction = {
+        id: 'action-no-student',
+        meeting_id: MEETING_ID,
+        ...actionData,
+        status: 'pc_pending',
+      };
+      mockRlsTx.sstMeetingAction.create.mockResolvedValue(createdAction);
+
+      await service.createAction(TENANT_ID, MEETING_ID, actionData, ACTOR_USER_ID);
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          student_id: null,
+        }),
+      );
+    });
+
+    it('should pass student_id in audit event when provided', async () => {
+      const actionData = {
+        description: 'Student action',
+        assigned_to_user_id: USER_ID_B,
+        due_date: '2026-04-20',
+        student_id: 'student-xyz',
+      };
+      const createdAction = {
+        id: 'action-with-student',
+        meeting_id: MEETING_ID,
+        ...actionData,
+        status: 'pc_pending',
+      };
+      mockRlsTx.sstMeetingAction.create.mockResolvedValue(createdAction);
+
+      await service.createAction(TENANT_ID, MEETING_ID, actionData, ACTOR_USER_ID);
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          student_id: 'student-xyz',
+        }),
+      );
+    });
+  });
+
+  // ─── Branch coverage: updateAction — all fields at once ────────────────────
+
+  describe('updateAction — multiple fields', () => {
+    it('should update all fields simultaneously', async () => {
+      const updatedAction = {
+        id: 'action-1',
+        description: 'New desc',
+        status: 'pc_in_progress',
+        due_date: new Date('2026-06-01'),
+      };
+      mockRlsTx.sstMeetingAction.update.mockResolvedValue(updatedAction);
+
+      await service.updateAction(
+        TENANT_ID,
+        'action-1',
+        { description: 'New desc', status: 'pc_in_progress', due_date: '2026-06-01' },
+        ACTOR_USER_ID,
+      );
+
+      expect(mockRlsTx.sstMeetingAction.update).toHaveBeenCalledWith({
+        where: { id: 'action-1' },
+        data: {
+          description: 'New desc',
+          status: 'pc_in_progress',
+          due_date: expect.any(Date),
+        },
+      });
+    });
+  });
+
+  // ─── Branch coverage: listMyActions — custom pagination ────────────────────
+
+  describe('listMyActions — custom pagination', () => {
+    it('should pass custom page and pageSize through to listAllActions', async () => {
+      mockRlsTx.sstMeetingAction.findMany.mockResolvedValue([]);
+      mockRlsTx.sstMeetingAction.count.mockResolvedValue(0);
+
+      const result = await service.listMyActions(TENANT_ID, ACTOR_USER_ID, {
+        page: 2,
+        pageSize: 5,
+      });
+
+      expect(result.meta).toEqual({ page: 2, pageSize: 5, total: 0 });
+      expect(mockRlsTx.sstMeetingAction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 5,
+          take: 5,
+        }),
+      );
+    });
+  });
 });

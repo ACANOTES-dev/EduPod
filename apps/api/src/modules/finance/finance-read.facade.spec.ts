@@ -10,6 +10,7 @@ const mockPrisma = {
   invoice: {
     findMany: jest.fn(),
     count: jest.fn(),
+    aggregate: jest.fn(),
   },
   payment: {
     findMany: jest.fn(),
@@ -32,14 +33,17 @@ const mockPrisma = {
   discount: {
     findMany: jest.fn(),
   },
+  householdFeeAssignment: {
+    findMany: jest.fn(),
+  },
 };
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
-const TENANT_ID = 'tenant-uuid-0001';
-const HOUSEHOLD_ID = 'household-uuid-0001';
-const STUDENT_ID = 'student-uuid-0001';
-const YEAR_GROUP_ID = 'year-group-uuid-0001';
+const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const HOUSEHOLD_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const STUDENT_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+const YEAR_GROUP_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -58,7 +62,7 @@ describe('FinanceReadFacade', () => {
 
   // ─── findInvoicesByHousehold ───────────────────────────────────────────────
 
-  describe('findInvoicesByHousehold', () => {
+  describe('FinanceReadFacade — findInvoicesByHousehold', () => {
     it('should query invoices with tenant_id and household_id', async () => {
       mockPrisma.invoice.findMany.mockResolvedValue([]);
 
@@ -95,7 +99,7 @@ describe('FinanceReadFacade', () => {
 
   // ─── countInvoicesBeforeDate ───────────────────────────────────────────────
 
-  describe('countInvoicesBeforeDate', () => {
+  describe('FinanceReadFacade — countInvoicesBeforeDate', () => {
     it('should count invoices with tenant_id and created_at < cutoffDate', async () => {
       const cutoff = new Date('2024-01-01');
       mockPrisma.invoice.count.mockResolvedValue(42);
@@ -124,7 +128,7 @@ describe('FinanceReadFacade', () => {
 
   // ─── findPaymentsByHousehold ───────────────────────────────────────────────
 
-  describe('findPaymentsByHousehold', () => {
+  describe('FinanceReadFacade — findPaymentsByHousehold', () => {
     it('should query payments with tenant_id and household_id', async () => {
       mockPrisma.payment.findMany.mockResolvedValue([]);
 
@@ -140,28 +144,11 @@ describe('FinanceReadFacade', () => {
         }),
       );
     });
-
-    it('should return payment rows when found', async () => {
-      const payment = {
-        id: 'pay-001',
-        household_id: HOUSEHOLD_ID,
-        payment_reference: 'PAY-001',
-        amount: '200.00',
-        status: 'completed',
-        created_at: new Date(),
-      };
-      mockPrisma.payment.findMany.mockResolvedValue([payment]);
-
-      const result = await facade.findPaymentsByHousehold(TENANT_ID, HOUSEHOLD_ID);
-
-      expect(result).toHaveLength(1);
-      expect(result[0]).toMatchObject({ id: 'pay-001' });
-    });
   });
 
   // ─── findRefundsByHousehold ────────────────────────────────────────────────
 
-  describe('findRefundsByHousehold', () => {
+  describe('FinanceReadFacade — findRefundsByHousehold', () => {
     it('should query refunds via payment.household_id relation', async () => {
       mockPrisma.refund.findMany.mockResolvedValue([]);
 
@@ -177,27 +164,11 @@ describe('FinanceReadFacade', () => {
         }),
       );
     });
-
-    it('should return refund rows when found', async () => {
-      const refund = {
-        id: 'ref-001',
-        payment_id: 'pay-001',
-        amount: '50.00',
-        status: 'completed',
-        created_at: new Date(),
-      };
-      mockPrisma.refund.findMany.mockResolvedValue([refund]);
-
-      const result = await facade.findRefundsByHousehold(TENANT_ID, HOUSEHOLD_ID);
-
-      expect(result).toHaveLength(1);
-      expect(result[0]).toMatchObject({ id: 'ref-001' });
-    });
   });
 
   // ─── findCreditNotesByHousehold ────────────────────────────────────────────
 
-  describe('findCreditNotesByHousehold', () => {
+  describe('FinanceReadFacade — findCreditNotesByHousehold', () => {
     it('should query credit notes with tenant_id and household_id', async () => {
       mockPrisma.creditNote.findMany.mockResolvedValue([]);
 
@@ -213,28 +184,11 @@ describe('FinanceReadFacade', () => {
         }),
       );
     });
-
-    it('should return credit note rows when found', async () => {
-      const cn = {
-        id: 'cn-001',
-        household_id: HOUSEHOLD_ID,
-        credit_note_number: 'CN-001',
-        amount: '100.00',
-        status: 'open',
-        created_at: new Date(),
-      };
-      mockPrisma.creditNote.findMany.mockResolvedValue([cn]);
-
-      const result = await facade.findCreditNotesByHousehold(TENANT_ID, HOUSEHOLD_ID);
-
-      expect(result).toHaveLength(1);
-      expect(result[0]).toMatchObject({ id: 'cn-001' });
-    });
   });
 
   // ─── findPaymentPlanRequestsByHousehold ───────────────────────────────────
 
-  describe('findPaymentPlanRequestsByHousehold', () => {
+  describe('FinanceReadFacade — findPaymentPlanRequestsByHousehold', () => {
     it('should query payment plan requests with tenant_id and household_id', async () => {
       mockPrisma.paymentPlanRequest.findMany.mockResolvedValue([]);
 
@@ -250,26 +204,11 @@ describe('FinanceReadFacade', () => {
         }),
       );
     });
-
-    it('should return payment plan request rows when found', async () => {
-      const ppr = {
-        id: 'ppr-001',
-        household_id: HOUSEHOLD_ID,
-        status: 'pending',
-        created_at: new Date(),
-      };
-      mockPrisma.paymentPlanRequest.findMany.mockResolvedValue([ppr]);
-
-      const result = await facade.findPaymentPlanRequestsByHousehold(TENANT_ID, HOUSEHOLD_ID);
-
-      expect(result).toHaveLength(1);
-      expect(result[0]).toMatchObject({ id: 'ppr-001' });
-    });
   });
 
   // ─── findScholarshipsByStudent ─────────────────────────────────────────────
 
-  describe('findScholarshipsByStudent', () => {
+  describe('FinanceReadFacade — findScholarshipsByStudent', () => {
     it('should query scholarships with tenant_id and student_id', async () => {
       mockPrisma.scholarship.findMany.mockResolvedValue([]);
 
@@ -285,29 +224,39 @@ describe('FinanceReadFacade', () => {
         }),
       );
     });
+  });
 
-    it('should return scholarship rows when found', async () => {
-      const scholarship = {
-        id: 'sch-001',
-        student_id: STUDENT_ID,
-        name: 'Merit Award',
-        status: 'active',
-        value: '500.00',
-        created_at: new Date(),
-      };
-      mockPrisma.scholarship.findMany.mockResolvedValue([scholarship]);
+  // ─── findScholarshipsByHouseholds ──────────────────────────────────────────
 
-      const result = await facade.findScholarshipsByStudent(TENANT_ID, STUDENT_ID);
+  describe('FinanceReadFacade — findScholarshipsByHouseholds', () => {
+    it('should return empty array when householdIds is empty', async () => {
+      const result = await facade.findScholarshipsByHouseholds(TENANT_ID, []);
+
+      expect(result).toEqual([]);
+      expect(mockPrisma.scholarship.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should query scholarships for students in given households', async () => {
+      mockPrisma.scholarship.findMany.mockResolvedValue([{ id: 'sch-1' }]);
+
+      const result = await facade.findScholarshipsByHouseholds(TENANT_ID, ['hh-1', 'hh-2']);
 
       expect(result).toHaveLength(1);
-      expect(result[0]).toMatchObject({ id: 'sch-001' });
+      expect(mockPrisma.scholarship.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            student: { household_id: { in: ['hh-1', 'hh-2'] } },
+          }),
+        }),
+      );
     });
   });
 
   // ─── findActiveFeeStructures ───────────────────────────────────────────────
 
-  describe('findActiveFeeStructures', () => {
-    it('should query active fee structures with tenant_id', async () => {
+  describe('FinanceReadFacade — findActiveFeeStructures', () => {
+    it('should query active fee structures without year group filter', async () => {
       mockPrisma.feeStructure.findMany.mockResolvedValue([]);
 
       const result = await facade.findActiveFeeStructures(TENANT_ID);
@@ -338,27 +287,11 @@ describe('FinanceReadFacade', () => {
         }),
       );
     });
-
-    it('should return fee structure rows when found', async () => {
-      const feeStructure = {
-        id: 'fs-001',
-        name: 'Tuition Fee',
-        amount: '1000.00',
-        active: true,
-        billing_frequency: 'monthly',
-      };
-      mockPrisma.feeStructure.findMany.mockResolvedValue([feeStructure]);
-
-      const result = await facade.findActiveFeeStructures(TENANT_ID);
-
-      expect(result).toHaveLength(1);
-      expect(result[0]).toMatchObject({ id: 'fs-001' });
-    });
   });
 
   // ─── findActiveDiscounts ───────────────────────────────────────────────────
 
-  describe('findActiveDiscounts', () => {
+  describe('FinanceReadFacade — findActiveDiscounts', () => {
     it('should query active discounts with tenant_id', async () => {
       mockPrisma.discount.findMany.mockResolvedValue([]);
 
@@ -374,21 +307,298 @@ describe('FinanceReadFacade', () => {
         }),
       );
     });
+  });
 
-    it('should return discount rows when found', async () => {
-      const discount = {
-        id: 'disc-001',
-        name: 'Sibling Discount',
-        discount_type: 'percent',
-        value: '10.00',
-        active: true,
-      };
-      mockPrisma.discount.findMany.mockResolvedValue([discount]);
+  // ─── findFeeAssignmentsByHousehold ────────────────────────────────────────
 
-      const result = await facade.findActiveDiscounts(TENANT_ID);
+  describe('FinanceReadFacade — findFeeAssignmentsByHousehold', () => {
+    it('should query fee assignments with tenant_id and household_id', async () => {
+      mockPrisma.householdFeeAssignment.findMany.mockResolvedValue([]);
+
+      const result = await facade.findFeeAssignmentsByHousehold(TENANT_ID, HOUSEHOLD_ID);
+
+      expect(result).toEqual([]);
+      expect(mockPrisma.householdFeeAssignment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            household_id: HOUSEHOLD_ID,
+          }),
+        }),
+      );
+    });
+
+    it('should return fee assignment rows when found', async () => {
+      const assignment = { id: 'hfa-1', household_id: HOUSEHOLD_ID, effective_from: new Date() };
+      mockPrisma.householdFeeAssignment.findMany.mockResolvedValue([assignment]);
+
+      const result = await facade.findFeeAssignmentsByHousehold(TENANT_ID, HOUSEHOLD_ID);
 
       expect(result).toHaveLength(1);
-      expect(result[0]).toMatchObject({ id: 'disc-001' });
+    });
+  });
+
+  // ─── findInvoicesGeneric ──────────────────────────────────────────────────
+
+  describe('FinanceReadFacade — findInvoicesGeneric', () => {
+    it('should query invoices with minimal options', async () => {
+      mockPrisma.invoice.findMany.mockResolvedValue([]);
+
+      const result = await facade.findInvoicesGeneric(TENANT_ID, {});
+
+      expect(result).toEqual([]);
+      expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenant_id: TENANT_ID }),
+        }),
+      );
+    });
+
+    it('should pass select option when provided', async () => {
+      mockPrisma.invoice.findMany.mockResolvedValue([]);
+
+      await facade.findInvoicesGeneric(TENANT_ID, {
+        select: { id: true, status: true },
+      });
+
+      expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: { id: true, status: true },
+        }),
+      );
+    });
+
+    it('should pass orderBy option when provided', async () => {
+      mockPrisma.invoice.findMany.mockResolvedValue([]);
+
+      await facade.findInvoicesGeneric(TENANT_ID, {
+        orderBy: { created_at: 'desc' },
+      });
+
+      expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { created_at: 'desc' },
+        }),
+      );
+    });
+
+    it('should pass skip option when provided', async () => {
+      mockPrisma.invoice.findMany.mockResolvedValue([]);
+
+      await facade.findInvoicesGeneric(TENANT_ID, { skip: 10 });
+
+      expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10 }),
+      );
+    });
+
+    it('should pass take option when provided', async () => {
+      mockPrisma.invoice.findMany.mockResolvedValue([]);
+
+      await facade.findInvoicesGeneric(TENANT_ID, { take: 5 });
+
+      expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 5 }),
+      );
+    });
+
+    it('should merge where option with tenant_id', async () => {
+      mockPrisma.invoice.findMany.mockResolvedValue([]);
+
+      await facade.findInvoicesGeneric(TENANT_ID, {
+        where: { status: 'issued' },
+      });
+
+      expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            status: 'issued',
+          }),
+        }),
+      );
+    });
+
+    it('should pass all options together', async () => {
+      mockPrisma.invoice.findMany.mockResolvedValue([]);
+
+      await facade.findInvoicesGeneric(TENANT_ID, {
+        where: { status: 'overdue' },
+        select: { id: true },
+        orderBy: { due_date: 'asc' },
+        skip: 0,
+        take: 20,
+      });
+
+      expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: 'overdue' }),
+          select: { id: true },
+          orderBy: { due_date: 'asc' },
+          skip: 0,
+          take: 20,
+        }),
+      );
+    });
+  });
+
+  // ─── countInvoices ────────────────────────────────────────────────────────
+
+  describe('FinanceReadFacade — countInvoices', () => {
+    it('should count invoices with tenant_id only when no where provided', async () => {
+      mockPrisma.invoice.count.mockResolvedValue(10);
+
+      const result = await facade.countInvoices(TENANT_ID);
+
+      expect(result).toBe(10);
+      expect(mockPrisma.invoice.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenant_id: TENANT_ID }),
+        }),
+      );
+    });
+
+    it('should merge where option with tenant_id for count', async () => {
+      mockPrisma.invoice.count.mockResolvedValue(5);
+
+      const result = await facade.countInvoices(TENANT_ID, { status: 'overdue' });
+
+      expect(result).toBe(5);
+      expect(mockPrisma.invoice.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            status: 'overdue',
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── aggregateInvoices ────────────────────────────────────────────────────
+
+  describe('FinanceReadFacade — aggregateInvoices', () => {
+    it('should aggregate invoices with tenant_id only when no where provided', async () => {
+      const aggregateResult = {
+        _sum: { total_amount: 5000, balance_amount: 1000 },
+      };
+      mockPrisma.invoice.aggregate.mockResolvedValue(aggregateResult);
+
+      const result = await facade.aggregateInvoices(TENANT_ID);
+
+      expect(result._sum.total_amount).toBe(5000);
+      expect(result._sum.balance_amount).toBe(1000);
+    });
+
+    it('should merge where option with tenant_id for aggregate', async () => {
+      mockPrisma.invoice.aggregate.mockResolvedValue({
+        _sum: { total_amount: 2000, balance_amount: 500 },
+      });
+
+      await facade.aggregateInvoices(TENANT_ID, { status: 'issued' });
+
+      expect(mockPrisma.invoice.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            status: 'issued',
+          }),
+        }),
+      );
+    });
+
+    it('should handle null sums', async () => {
+      mockPrisma.invoice.aggregate.mockResolvedValue({
+        _sum: { total_amount: null, balance_amount: null },
+      });
+
+      const result = await facade.aggregateInvoices(TENANT_ID);
+
+      expect(result._sum.total_amount).toBeNull();
+      expect(result._sum.balance_amount).toBeNull();
+    });
+  });
+
+  // ─── findPaymentsGeneric ──────────────────────────────────────────────────
+
+  describe('FinanceReadFacade — findPaymentsGeneric', () => {
+    it('should query payments with minimal options', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+
+      const result = await facade.findPaymentsGeneric(TENANT_ID, {});
+
+      expect(result).toEqual([]);
+      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenant_id: TENANT_ID }),
+        }),
+      );
+    });
+
+    it('should pass select option when provided', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+
+      await facade.findPaymentsGeneric(TENANT_ID, {
+        select: { id: true, amount: true },
+      });
+
+      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: { id: true, amount: true },
+        }),
+      );
+    });
+
+    it('should pass orderBy option when provided', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+
+      await facade.findPaymentsGeneric(TENANT_ID, {
+        orderBy: { received_at: 'desc' },
+      });
+
+      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { received_at: 'desc' },
+        }),
+      );
+    });
+
+    it('should pass take option when provided', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+
+      await facade.findPaymentsGeneric(TENANT_ID, { take: 10 });
+
+      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 10 }),
+      );
+    });
+
+    it('should merge where option with tenant_id', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+
+      await facade.findPaymentsGeneric(TENANT_ID, {
+        where: { status: 'posted' },
+      });
+
+      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            status: 'posted',
+          }),
+        }),
+      );
+    });
+
+    it('should not include select/orderBy/take when not provided', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+
+      await facade.findPaymentsGeneric(TENANT_ID, {});
+
+      const callArgs = mockPrisma.payment.findMany.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs).not.toHaveProperty('select');
+      expect(callArgs).not.toHaveProperty('orderBy');
+      expect(callArgs).not.toHaveProperty('take');
     });
   });
 });

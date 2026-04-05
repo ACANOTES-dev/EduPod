@@ -414,4 +414,101 @@ describe('SafeguardingController', () => {
     );
     expect(result).toEqual({ id: 'bg-1', reviewed: true });
   });
+
+  // ─── Null membership_id fallback ──────────────────────────────────────
+
+  it('should pass empty string for membership_id when null in listConcerns', async () => {
+    const userWithoutMembership: JwtPayload = { ...USER, membership_id: undefined };
+    const query = { page: 1, pageSize: 20 };
+    mockSafeguardingService.listConcerns.mockResolvedValue({ data: [] });
+
+    await controller.listConcerns(TENANT, userWithoutMembership, query as never);
+
+    expect(mockSafeguardingService.listConcerns).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'user-uuid',
+      '',
+      query,
+    );
+  });
+
+  it('should pass empty string for membership_id when null in getConcernDetail', async () => {
+    const userWithoutMembership: JwtPayload = { ...USER, membership_id: undefined };
+    mockSafeguardingService.getConcernDetail.mockResolvedValue({ id: 'c-1' });
+
+    await controller.getConcernDetail(TENANT, userWithoutMembership, 'concern-1');
+
+    expect(mockSafeguardingService.getConcernDetail).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'user-uuid',
+      '',
+      'concern-1',
+    );
+  });
+
+  it('should pass empty string for membership_id when null in getActions', async () => {
+    const userWithoutMembership: JwtPayload = { ...USER, membership_id: undefined };
+    const query = { page: 1, pageSize: 20 };
+    mockSafeguardingService.getActions.mockResolvedValue({ data: [] });
+
+    await controller.getActions(TENANT, userWithoutMembership, 'concern-1', query as never);
+
+    expect(mockSafeguardingService.getActions).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'user-uuid',
+      '',
+      'concern-1',
+      query,
+    );
+  });
+
+  it('should pass empty string for membership_id when null in downloadAttachment', async () => {
+    const userWithoutMembership: JwtPayload = { ...USER, membership_id: undefined };
+    mockAttachmentService.generateDownloadUrl.mockResolvedValue({ url: 'https://s3/dl' });
+
+    await controller.downloadAttachment(TENANT, userWithoutMembership, 'concern-1', 'att-1');
+
+    expect(mockAttachmentService.generateDownloadUrl).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'user-uuid',
+      '',
+      'concern-1',
+      'att-1',
+      expect.any(Function),
+    );
+  });
+
+  // ─── Download attachment callback invokes checkEffectivePermission ────
+
+  it('should pass checkEffectivePermission callback to downloadAttachment', async () => {
+    mockAttachmentService.generateDownloadUrl.mockImplementation(
+      async (
+        _tenantId: string,
+        _userId: string,
+        _membershipId: string,
+        _concernId: string,
+        _attachmentId: string,
+        checkFn: (
+          userId: string,
+          tenantId: string,
+          membershipId: string,
+          concernId: string,
+        ) => Promise<unknown>,
+      ) => {
+        // Call the callback to exercise the branch
+        await checkFn('user-uuid', 'tenant-uuid', 'mem-1', 'concern-1');
+        return { url: 'https://s3/dl' };
+      },
+    );
+    mockSafeguardingService.checkEffectivePermission.mockResolvedValue({ allowed: true });
+
+    await controller.downloadAttachment(TENANT, USER, 'concern-1', 'att-1');
+
+    expect(mockSafeguardingService.checkEffectivePermission).toHaveBeenCalledWith(
+      'user-uuid',
+      'tenant-uuid',
+      'mem-1',
+      'concern-1',
+    );
+  });
 });

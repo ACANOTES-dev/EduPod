@@ -372,5 +372,141 @@ describe('SenTransitionService', () => {
       expect(result.resource_hours).toBeNull();
       expect(result.sna_assignment).toBeNull();
     });
+
+    it('throws when scope is none', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'none' });
+
+      await expect(
+        service.generateHandoverPack(TENANT_ID, USER_ID, [], STUDENT_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws when student is not in class scope', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: ['other-student-id'],
+      });
+
+      await expect(
+        service.generateHandoverPack(TENANT_ID, USER_ID, ['sen.view'], STUDENT_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws when SEN profile not found for student', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'all' });
+      senProfileMock.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.generateHandoverPack(TENANT_ID, USER_ID, ['sen.manage'], STUDENT_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('handles a goal strategy with no responsible user', async () => {
+      senProfileMock.findFirst.mockResolvedValue(baseProfile);
+      senSupportPlanMock.findFirst.mockResolvedValue({
+        id: 'plan-1',
+        plan_number: 'SSP-001',
+        status: 'active',
+        goals: [
+          {
+            id: 'goal-1',
+            title: 'Reading',
+            target: 'Target',
+            baseline: 'Baseline',
+            current_level: null,
+            status: 'in_progress',
+            strategies: [
+              {
+                id: 'strategy-1',
+                description: 'Self-directed reading',
+                frequency: 'weekly',
+                responsible: null,
+              },
+            ],
+            progress_notes: [],
+          },
+        ],
+      });
+      senAccommodationMock.findMany.mockResolvedValue([]);
+      senProfessionalInvolvementMock.findMany.mockResolvedValue([]);
+      senTransitionNoteMock.findMany.mockResolvedValue([]);
+      senStudentHoursMock.findMany.mockResolvedValue([]);
+      senSnaAssignmentMock.findFirst.mockResolvedValue(null);
+
+      const result = await service.generateHandoverPack(
+        TENANT_ID,
+        USER_ID,
+        ['sen.manage'],
+        STUDENT_ID,
+      );
+
+      expect(result.active_plan?.goals[0]?.strategies[0]?.responsible).toBeNull();
+    });
+  });
+
+  describe('findNotes — scope branches', () => {
+    it('returns empty when scope is none', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'none' });
+
+      const result = await service.findNotes(TENANT_ID, USER_ID, [], PROFILE_ID, {});
+
+      expect(result).toEqual([]);
+    });
+
+    it('returns empty when profile is not accessible in class scope', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: ['other-student'],
+      });
+      senProfileMock.findFirst.mockResolvedValue(null);
+
+      const result = await service.findNotes(TENANT_ID, USER_ID, ['sen.view'], PROFILE_ID, {});
+
+      expect(result).toEqual([]);
+    });
+
+    it('applies note_type filter when provided', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'all' });
+      senProfileMock.findFirst.mockResolvedValue({ id: PROFILE_ID });
+      senTransitionNoteMock.findMany.mockResolvedValue([]);
+
+      await service.findNotes(TENANT_ID, USER_ID, ['sen.manage'], PROFILE_ID, {
+        note_type: 'year_to_year',
+      });
+
+      expect(senTransitionNoteMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            note_type: 'year_to_year',
+          }),
+        }),
+      );
+    });
+
+    it('returns notes for class-scoped user with accessible profile', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: [STUDENT_ID],
+      });
+      senProfileMock.findFirst.mockResolvedValue({ id: PROFILE_ID });
+      senTransitionNoteMock.findMany.mockResolvedValue([
+        {
+          id: 'note-1',
+          sen_profile_id: PROFILE_ID,
+          note_type: 'general',
+          content: 'Note content',
+          created_at: new Date('2026-03-01T09:00:00.000Z'),
+          created_by: {
+            id: USER_ID,
+            first_name: 'Maeve',
+            last_name: 'Byrne',
+          },
+        },
+      ]);
+
+      const result = await service.findNotes(TENANT_ID, USER_ID, ['sen.view'], PROFILE_ID, {});
+
+      expect(result).toHaveLength(1);
+    });
   });
 });

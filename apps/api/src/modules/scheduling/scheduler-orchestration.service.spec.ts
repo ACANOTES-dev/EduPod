@@ -947,5 +947,1195 @@ describe('SchedulerOrchestrationService', () => {
         ]),
       );
     });
+
+    it('should report multiple year groups missing grids independently', async () => {
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([
+        { id: 'yg-1', name: 'Year 1' },
+        { id: 'yg-2', name: 'Year 2' },
+      ]);
+      // Only yg-1 has a grid, yg-2 does not, no shared grid
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: 'yg-1' }]);
+      mockPrisma.curriculumRequirement.findMany
+        .mockResolvedValueOnce([{ year_group_id: 'yg-1' }, { year_group_id: 'yg-2' }])
+        .mockResolvedValueOnce([]);
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([]);
+
+      const result = await service.checkPrerequisites(TENANT_ID, AY_ID);
+
+      expect(result.ready).toBe(false);
+      const gridMissing = result.missing.filter((m) => m.includes('No period grid'));
+      expect(gridMissing).toHaveLength(1);
+      expect(gridMissing[0]).toContain('Year 2');
+    });
+  });
+
+  // ─── triggerSolverRun — success paths ──────────────────────────────────────
+
+  describe('triggerSolverRun — success paths', () => {
+    function setupPassingPrerequisites() {
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([
+        { id: 'yg-1', name: 'Y1' },
+      ]);
+      (acadFacade.findYearGroupsWithClassesAndCounts as jest.Mock).mockResolvedValue([
+        {
+          id: 'yg-1',
+          name: 'Y1',
+          classes: [{ id: 'cls-1', name: '1A', _count: { class_enrolments: 20 } }],
+        },
+      ]);
+
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([
+        {
+          year_group_id: null,
+          weekday: 1,
+          period_order: 1,
+          start_time: new Date('1970-01-01T08:00:00Z'),
+          end_time: new Date('1970-01-01T09:00:00Z'),
+          schedule_period_type: 'teaching',
+          supervision_mode: null,
+          break_group_id: null,
+        },
+      ]);
+      mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
+        {
+          year_group_id: 'yg-1',
+          subject_id: 's1',
+          subject: { name: 'M' },
+          year_group: { name: 'Y1' },
+          min_periods_per_week: 5,
+          max_periods_per_day: 2,
+          preferred_periods_per_week: null,
+          requires_double_period: false,
+          double_period_count: null,
+        },
+      ]);
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
+        { staff_profile_id: 'staff-1', subject_id: 's1', year_group_id: 'yg-1', is_primary: true },
+      ]);
+      mockPrisma.teacherSchedulingConfig.findMany.mockResolvedValue([
+        {
+          staff_profile_id: 'staff-1',
+          max_periods_per_week: 25,
+          max_periods_per_day: 6,
+          max_supervision_duties_per_week: 3,
+        },
+      ]);
+      mockPrisma.breakGroup.findMany.mockResolvedValue([
+        {
+          id: 'bg-1',
+          name: 'Break A',
+          year_groups: [{ year_group_id: 'yg-1' }],
+          required_supervisor_count: 2,
+        },
+      ]);
+
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([]);
+
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findActiveRun as jest.Mock).mockResolvedValue(null);
+
+      const staffAvailFacade = module.get(StaffAvailabilityReadFacade);
+      (staffAvailFacade.findByAcademicYear as jest.Mock).mockResolvedValue([
+        {
+          staff_profile_id: 'staff-1',
+          weekday: 1,
+          available_from: new Date('1970-01-01T08:00:00Z'),
+          available_to: new Date('1970-01-01T16:00:00Z'),
+        },
+      ]);
+
+      const staffPrefFacade = module.get(StaffPreferencesReadFacade);
+      (staffPrefFacade.findByAcademicYear as jest.Mock).mockResolvedValue([
+        {
+          id: 'pref-1',
+          staff_profile_id: 'staff-1',
+          preference_type: 'preferred_time',
+          preference_payload: {},
+          priority: 'medium',
+        },
+      ]);
+
+      const staffProfileFacade = module.get(StaffProfileReadFacade);
+      (staffProfileFacade.findByIds as jest.Mock).mockResolvedValue([
+        { id: 'staff-1', user: { first_name: 'Alice', last_name: 'Brown' } },
+      ]);
+
+      const roomsFacade = module.get(RoomsReadFacade);
+      (roomsFacade.findActiveRooms as jest.Mock).mockResolvedValue([
+        { id: 'room-1', room_type: 'classroom', capacity: 30, is_exclusive: false },
+      ]);
+      (roomsFacade.findAllClosures as jest.Mock).mockResolvedValue([
+        {
+          room_id: 'room-1',
+          date_from: new Date('2026-06-01'),
+          date_to: new Date('2026-06-05'),
+        },
+      ]);
+
+      const classesFacade = module.get(ClassesReadFacade);
+      (classesFacade.findEnrolmentPairsForAcademicYear as jest.Mock).mockResolvedValue([
+        { student_id: 'stu-1', class_id: 'cls-1' },
+        { student_id: 'stu-1', class_id: 'cls-2' },
+      ]);
+
+      const configFacade = module.get(ConfigurationReadFacade);
+      (configFacade.findSettings as jest.Mock).mockResolvedValue({
+        settings: {
+          scheduling: {
+            maxSolverDurationSeconds: 60,
+            preferenceWeights: { low: 1, medium: 3, high: 5 },
+            globalSoftWeights: {
+              evenSubjectSpread: 3,
+              minimiseTeacherGaps: 2,
+              roomConsistency: 1,
+              workloadBalance: 2,
+              breakDutyBalance: 1,
+            },
+          },
+        },
+      });
+
+      const runCreated = new Date('2026-03-01T10:00:00Z');
+      mockTx.schedulingRun.create.mockResolvedValue({
+        id: RUN_ID,
+        status: 'queued',
+        created_at: runCreated,
+      });
+    }
+
+    it('should create a solver run in auto mode when no pinned entries', async () => {
+      setupPassingPrerequisites();
+
+      const result = await service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID);
+
+      expect(result.id).toBe(RUN_ID);
+      expect(result.status).toBe('queued');
+      expect(result.mode).toBe('auto');
+      expect(result.academic_year_id).toBe(AY_ID);
+      expect(mockQueue.add).toHaveBeenCalledWith('scheduling:solve-v2', {
+        tenant_id: TENANT_ID,
+        run_id: RUN_ID,
+      });
+    });
+
+    it('should create a solver run in hybrid mode when pinned entries exist', async () => {
+      setupPassingPrerequisites();
+
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([
+        {
+          id: 'pin-1',
+          class_id: 'cls-1',
+          class_entity: { subject_id: 's1', year_group_id: 'yg-1' },
+          room_id: 'room-1',
+          teacher_staff_id: 'staff-1',
+          weekday: 1,
+          period_order: 1,
+          start_time: new Date('1970-01-01T08:00:00Z'),
+          end_time: new Date('1970-01-01T09:00:00Z'),
+        },
+      ]);
+
+      const result = await service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID);
+
+      expect(result.mode).toBe('hybrid');
+    });
+
+    it('should apply solver_seed override when provided', async () => {
+      setupPassingPrerequisites();
+
+      await service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID, {
+        solver_seed: 42,
+      });
+
+      expect(mockTx.schedulingRun.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            solver_seed: BigInt(42),
+          }),
+        }),
+      );
+    });
+
+    it('should apply max_solver_duration_seconds override when provided', async () => {
+      setupPassingPrerequisites();
+
+      await service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID, {
+        max_solver_duration_seconds: 300,
+      });
+
+      // The config_snapshot should reflect the overridden value
+      const createCall = mockTx.schedulingRun.create.mock.calls[0]![0];
+      const config = JSON.parse(JSON.stringify(createCall.data.config_snapshot));
+      expect(config.settings.max_solver_duration_seconds).toBe(300);
+    });
+
+    it('should not override solver_seed when it is null', async () => {
+      setupPassingPrerequisites();
+
+      await service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID, {
+        solver_seed: null,
+      });
+
+      expect(mockTx.schedulingRun.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            solver_seed: null,
+          }),
+        }),
+      );
+    });
+
+    it('should handle empty teacherIds list (no staff profile query)', async () => {
+      setupPassingPrerequisites();
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
+
+      // Prerequisites will fail but assembleSolverInput is separate — test via trigger
+      // Use direct assembleSolverInput call instead
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findYearGroupsWithClassesAndCounts as jest.Mock).mockResolvedValue([]);
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(input.teachers).toHaveLength(0);
+    });
+  });
+
+  // ─── assembleSolverInput ────────────────────────────────────────────────────
+
+  describe('assembleSolverInput', () => {
+    function setupAssembleData() {
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findYearGroupsWithClassesAndCounts as jest.Mock).mockResolvedValue([
+        {
+          id: 'yg-1',
+          name: 'Y1',
+          classes: [{ id: 'cls-1', name: '1A', _count: { class_enrolments: 20 } }],
+        },
+      ]);
+
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([
+        {
+          year_group_id: null,
+          weekday: 1,
+          period_order: 1,
+          start_time: new Date('1970-01-01T08:00:00Z'),
+          end_time: new Date('1970-01-01T09:00:00Z'),
+          schedule_period_type: 'teaching',
+          supervision_mode: null,
+          break_group_id: null,
+        },
+        {
+          year_group_id: 'yg-1',
+          weekday: 2,
+          period_order: 1,
+          start_time: new Date('1970-01-01T08:00:00Z'),
+          end_time: new Date('1970-01-01T09:00:00Z'),
+          schedule_period_type: 'teaching',
+          supervision_mode: null,
+          break_group_id: null,
+        },
+      ]);
+
+      mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
+        {
+          year_group_id: 'yg-1',
+          subject_id: 's1',
+          subject: { name: 'Maths' },
+          min_periods_per_week: 5,
+          max_periods_per_day: 2,
+          preferred_periods_per_week: 6,
+          requires_double_period: true,
+          double_period_count: 1,
+        },
+      ]);
+
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
+        { staff_profile_id: 'staff-1', subject_id: 's1', year_group_id: 'yg-1', is_primary: true },
+      ]);
+
+      mockPrisma.teacherSchedulingConfig.findMany.mockResolvedValue([
+        {
+          staff_profile_id: 'staff-1',
+          max_periods_per_week: 25,
+          max_periods_per_day: 6,
+          max_supervision_duties_per_week: 3,
+        },
+      ]);
+
+      mockPrisma.breakGroup.findMany.mockResolvedValue([
+        {
+          id: 'bg-1',
+          name: 'Break A',
+          year_groups: [{ year_group_id: 'yg-1' }],
+          required_supervisor_count: 2,
+        },
+      ]);
+
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([
+        {
+          id: 'pin-1',
+          class_id: 'cls-1',
+          class_entity: { subject_id: 's1', year_group_id: 'yg-1' },
+          room_id: 'room-1',
+          teacher_staff_id: 'staff-1',
+          weekday: 1,
+          period_order: 1,
+        },
+      ]);
+
+      const staffAvailFacade = module.get(StaffAvailabilityReadFacade);
+      (staffAvailFacade.findByAcademicYear as jest.Mock).mockResolvedValue([
+        {
+          staff_profile_id: 'staff-1',
+          weekday: 1,
+          available_from: new Date('1970-01-01T08:00:00Z'),
+          available_to: new Date('1970-01-01T16:00:00Z'),
+        },
+      ]);
+
+      const staffPrefFacade = module.get(StaffPreferencesReadFacade);
+      (staffPrefFacade.findByAcademicYear as jest.Mock).mockResolvedValue([
+        {
+          id: 'pref-1',
+          staff_profile_id: 'staff-1',
+          preference_type: 'preferred_time',
+          preference_payload: { slot: 'morning' },
+          priority: 'high',
+        },
+      ]);
+
+      const staffProfileFacade = module.get(StaffProfileReadFacade);
+      (staffProfileFacade.findByIds as jest.Mock).mockResolvedValue([
+        { id: 'staff-1', user: { first_name: 'Alice', last_name: 'Brown' } },
+      ]);
+
+      const roomsFacade = module.get(RoomsReadFacade);
+      (roomsFacade.findActiveRooms as jest.Mock).mockResolvedValue([
+        { id: 'room-1', room_type: 'classroom', capacity: 30, is_exclusive: false },
+      ]);
+      (roomsFacade.findAllClosures as jest.Mock).mockResolvedValue([
+        {
+          room_id: 'room-1',
+          date_from: new Date('2026-06-01'),
+          date_to: new Date('2026-06-05'),
+        },
+      ]);
+
+      const classesFacade = module.get(ClassesReadFacade);
+      (classesFacade.findEnrolmentPairsForAcademicYear as jest.Mock).mockResolvedValue([
+        { student_id: 'stu-1', class_id: 'cls-1' },
+        { student_id: 'stu-1', class_id: 'cls-2' },
+        { student_id: 'stu-2', class_id: 'cls-1' },
+      ]);
+
+      const configFacade = module.get(ConfigurationReadFacade);
+      (configFacade.findSettings as jest.Mock).mockResolvedValue(null);
+    }
+
+    it('should assemble complete solver input with all sections', async () => {
+      setupAssembleData();
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(input.year_groups).toHaveLength(1);
+      expect(input.year_groups[0]!.year_group_id).toBe('yg-1');
+      expect(input.year_groups[0]!.sections).toHaveLength(1);
+      expect(input.year_groups[0]!.sections[0]!.student_count).toBe(20);
+    });
+
+    it('should build period grid from shared and year-group-specific templates', async () => {
+      setupAssembleData();
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      // yg-1 should include both shared (null) and yg-1-specific templates
+      expect(input.year_groups[0]!.period_grid.length).toBe(2);
+    });
+
+    it('should build curriculum entries with all fields', async () => {
+      setupAssembleData();
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(input.curriculum).toHaveLength(1);
+      expect(input.curriculum[0]!.subject_name).toBe('Maths');
+      expect(input.curriculum[0]!.min_periods_per_week).toBe(5);
+      expect(input.curriculum[0]!.requires_double_period).toBe(true);
+      expect(input.curriculum[0]!.double_period_count).toBe(1);
+      expect(input.curriculum[0]!.required_room_type).toBeNull();
+      expect(input.curriculum[0]!.preferred_room_id).toBeNull();
+    });
+
+    it('should build teacher inputs with competencies, availability, preferences, and config', async () => {
+      setupAssembleData();
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(input.teachers).toHaveLength(1);
+      const teacher = input.teachers[0]!;
+      expect(teacher.staff_profile_id).toBe('staff-1');
+      expect(teacher.name).toBe('Alice Brown');
+      expect(teacher.competencies).toHaveLength(1);
+      expect(teacher.competencies[0]!.is_primary).toBe(true);
+      expect(teacher.availability).toHaveLength(1);
+      expect(teacher.availability[0]!.from).toBe('08:00');
+      expect(teacher.preferences).toHaveLength(1);
+      expect(teacher.preferences[0]!.preference_type).toBe('preferred_time');
+      expect(teacher.max_periods_per_week).toBe(25);
+      expect(teacher.max_periods_per_day).toBe(6);
+      expect(teacher.max_supervision_duties_per_week).toBe(3);
+    });
+
+    it('should fallback to teacherId as name when staff profile not found', async () => {
+      setupAssembleData();
+
+      const staffProfileFacade = module.get(StaffProfileReadFacade);
+      (staffProfileFacade.findByIds as jest.Mock).mockResolvedValue([]);
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(input.teachers[0]!.name).toBe('staff-1');
+    });
+
+    it('should use null defaults when no teacher scheduling config exists', async () => {
+      setupAssembleData();
+      mockPrisma.teacherSchedulingConfig.findMany.mockResolvedValue([]);
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      const teacher = input.teachers[0]!;
+      expect(teacher.max_periods_per_week).toBeNull();
+      expect(teacher.max_periods_per_day).toBeNull();
+      expect(teacher.max_supervision_duties_per_week).toBeNull();
+    });
+
+    it('should build room info and room closures', async () => {
+      setupAssembleData();
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(input.rooms).toHaveLength(1);
+      expect(input.rooms[0]!.room_type).toBe('classroom');
+      expect(input.room_closures).toHaveLength(1);
+      expect(input.room_closures[0]!.room_id).toBe('room-1');
+    });
+
+    it('should build break groups from raw data', async () => {
+      setupAssembleData();
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(input.break_groups).toHaveLength(1);
+      expect(input.break_groups[0]!.name).toBe('Break A');
+      expect(input.break_groups[0]!.year_group_ids).toEqual(['yg-1']);
+      expect(input.break_groups[0]!.required_supervisor_count).toBe(2);
+    });
+
+    it('should build pinned entries from schedules', async () => {
+      setupAssembleData();
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(input.pinned_entries).toHaveLength(1);
+      expect(input.pinned_entries[0]!.schedule_id).toBe('pin-1');
+      expect(input.pinned_entries[0]!.subject_id).toBe('s1');
+      expect(input.pinned_entries[0]!.year_group_id).toBe('yg-1');
+    });
+
+    it('should handle pinned entries with null class_entity', async () => {
+      setupAssembleData();
+
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([
+        {
+          id: 'pin-1',
+          class_id: 'cls-1',
+          class_entity: null,
+          room_id: null,
+          teacher_staff_id: null,
+          weekday: 1,
+          period_order: 1,
+        },
+      ]);
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(input.pinned_entries[0]!.subject_id).toBeNull();
+      expect(input.pinned_entries[0]!.year_group_id).toBeNull();
+    });
+
+    it('should default period_order to 0 when null in pinned entries', async () => {
+      setupAssembleData();
+
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([
+        {
+          id: 'pin-1',
+          class_id: 'cls-1',
+          class_entity: { subject_id: 's1', year_group_id: 'yg-1' },
+          room_id: 'room-1',
+          teacher_staff_id: 'staff-1',
+          weekday: 1,
+          period_order: null,
+        },
+      ]);
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(input.pinned_entries[0]!.period_order).toBe(0);
+    });
+
+    it('should compute student overlaps from enrolment pairs', async () => {
+      setupAssembleData();
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      // stu-1 enrolled in cls-1 and cls-2 → one overlap pair
+      expect(input.student_overlaps).toHaveLength(1);
+      const pair = input.student_overlaps[0]!;
+      const sortedPair = [pair.class_id_a, pair.class_id_b].sort();
+      expect(sortedPair).toEqual(['cls-1', 'cls-2']);
+    });
+
+    it('should not create duplicate student overlap entries', async () => {
+      setupAssembleData();
+
+      // Two students share the same pair of classes
+      const classesFacade = module.get(ClassesReadFacade);
+      (classesFacade.findEnrolmentPairsForAcademicYear as jest.Mock).mockResolvedValue([
+        { student_id: 'stu-1', class_id: 'cls-1' },
+        { student_id: 'stu-1', class_id: 'cls-2' },
+        { student_id: 'stu-2', class_id: 'cls-1' },
+        { student_id: 'stu-2', class_id: 'cls-2' },
+      ]);
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(input.student_overlaps).toHaveLength(1);
+    });
+
+    it('should use default settings when tenantSettings is null', async () => {
+      setupAssembleData();
+
+      const configFacade = module.get(ConfigurationReadFacade);
+      (configFacade.findSettings as jest.Mock).mockResolvedValue(null);
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(input.settings.max_solver_duration_seconds).toBe(120);
+      expect(input.settings.preference_weights.low).toBe(1);
+      expect(input.settings.preference_weights.medium).toBe(2);
+      expect(input.settings.preference_weights.high).toBe(3);
+      expect(input.settings.global_soft_weights.even_subject_spread).toBe(2);
+      expect(input.settings.solver_seed).toBeNull();
+    });
+
+    it('should use tenant settings when they are provided', async () => {
+      setupAssembleData();
+
+      const configFacade = module.get(ConfigurationReadFacade);
+      (configFacade.findSettings as jest.Mock).mockResolvedValue({
+        settings: {
+          scheduling: {
+            maxSolverDurationSeconds: 200,
+            preferenceWeights: { low: 2, medium: 4, high: 8 },
+            globalSoftWeights: {
+              evenSubjectSpread: 5,
+              minimiseTeacherGaps: 3,
+              roomConsistency: 2,
+              workloadBalance: 4,
+              breakDutyBalance: 3,
+            },
+          },
+        },
+      });
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(input.settings.max_solver_duration_seconds).toBe(200);
+      expect(input.settings.preference_weights.low).toBe(2);
+      expect(input.settings.preference_weights.medium).toBe(4);
+      expect(input.settings.preference_weights.high).toBe(8);
+      expect(input.settings.global_soft_weights.even_subject_spread).toBe(5);
+    });
+
+    it('should handle student enrolled in only one class (no overlaps)', async () => {
+      setupAssembleData();
+
+      const classesFacade = module.get(ClassesReadFacade);
+      (classesFacade.findEnrolmentPairsForAcademicYear as jest.Mock).mockResolvedValue([
+        { student_id: 'stu-1', class_id: 'cls-1' },
+      ]);
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(input.student_overlaps).toHaveLength(0);
+    });
+
+    it('should handle student enrolled in three classes (three overlap pairs)', async () => {
+      setupAssembleData();
+
+      const classesFacade = module.get(ClassesReadFacade);
+      (classesFacade.findEnrolmentPairsForAcademicYear as jest.Mock).mockResolvedValue([
+        { student_id: 'stu-1', class_id: 'cls-1' },
+        { student_id: 'stu-1', class_id: 'cls-2' },
+        { student_id: 'stu-1', class_id: 'cls-3' },
+      ]);
+
+      const input = await service.assembleSolverInput(TENANT_ID, AY_ID);
+
+      expect(input.student_overlaps).toHaveLength(3);
+    });
+  });
+
+  // ─── applyRun — full paths ──────────────────────────────────────────────────
+
+  describe('applyRun — success and validation', () => {
+    const { validateSchedule } = jest.requireMock('@school/shared/scheduler') as {
+      validateSchedule: jest.Mock;
+    };
+
+    it('should apply entries successfully and return result', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        academic_year_id: AY_ID,
+        result_json: {
+          entries: [
+            {
+              class_id: 'cls-1',
+              weekday: 1,
+              period_order: 1,
+              room_id: 'room-1',
+              teacher_staff_id: 'staff-1',
+              year_group_id: 'yg-1',
+              is_pinned: false,
+              is_supervision: false,
+              start_time: '08:00',
+              end_time: '09:00',
+            },
+          ],
+          unassigned: [],
+        },
+        config_snapshot: null,
+      });
+
+      mockTx.schedulePeriodTemplate.findMany.mockResolvedValue([]);
+      mockTx.schedule.findMany.mockResolvedValue([]);
+      mockTx.schedulingRun.update.mockResolvedValue({
+        id: RUN_ID,
+        status: 'applied',
+        applied_at: new Date('2026-03-02T10:00:00Z'),
+      });
+
+      const result = await service.applyRun(TENANT_ID, RUN_ID, USER_ID);
+
+      expect(result.id).toBe(RUN_ID);
+      expect(result.status).toBe('applied');
+      expect(result.entries_applied).toBe(1);
+      expect(mockTx.schedule.create).toHaveBeenCalled();
+    });
+
+    it('should skip supervision entries during apply', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        academic_year_id: AY_ID,
+        result_json: {
+          entries: [
+            {
+              class_id: 'cls-1',
+              weekday: 1,
+              period_order: 1,
+              room_id: null,
+              teacher_staff_id: 'staff-1',
+              year_group_id: 'yg-1',
+              is_pinned: false,
+              is_supervision: true,
+              start_time: '08:00',
+              end_time: '09:00',
+            },
+          ],
+          unassigned: [],
+        },
+        config_snapshot: null,
+      });
+
+      mockTx.schedulePeriodTemplate.findMany.mockResolvedValue([]);
+      mockTx.schedule.findMany.mockResolvedValue([]);
+      mockTx.schedulingRun.update.mockResolvedValue({
+        id: RUN_ID,
+        status: 'applied',
+        applied_at: new Date('2026-03-02T10:00:00Z'),
+      });
+
+      const result = await service.applyRun(TENANT_ID, RUN_ID, USER_ID);
+
+      expect(result.entries_applied).toBe(0);
+      expect(mockTx.schedule.create).not.toHaveBeenCalled();
+    });
+
+    it('should resolve times from period templates when entry has no start_time/end_time', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        academic_year_id: AY_ID,
+        result_json: {
+          entries: [
+            {
+              class_id: 'cls-1',
+              weekday: 1,
+              period_order: 1,
+              room_id: 'room-1',
+              teacher_staff_id: 'staff-1',
+              year_group_id: 'yg-1',
+              is_pinned: false,
+              is_supervision: false,
+              start_time: null,
+              end_time: null,
+            },
+          ],
+          unassigned: [],
+        },
+        config_snapshot: null,
+      });
+
+      const periodStart = new Date('1970-01-01T08:00:00Z');
+      const periodEnd = new Date('1970-01-01T09:00:00Z');
+      mockTx.schedulePeriodTemplate.findMany.mockResolvedValue([
+        {
+          weekday: 1,
+          period_order: 1,
+          start_time: periodStart,
+          end_time: periodEnd,
+          year_group_id: 'yg-1',
+        },
+      ]);
+      mockTx.schedule.findMany.mockResolvedValue([]);
+      mockTx.schedulingRun.update.mockResolvedValue({
+        id: RUN_ID,
+        status: 'applied',
+        applied_at: new Date(),
+      });
+
+      await service.applyRun(TENANT_ID, RUN_ID, USER_ID);
+
+      expect(mockTx.schedule.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            start_time: periodStart,
+            end_time: periodEnd,
+          }),
+        }),
+      );
+    });
+
+    it('should fall back to shared template when year-group-specific not found', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        academic_year_id: AY_ID,
+        result_json: {
+          entries: [
+            {
+              class_id: 'cls-1',
+              weekday: 1,
+              period_order: 1,
+              room_id: 'room-1',
+              teacher_staff_id: 'staff-1',
+              year_group_id: 'yg-1',
+              is_pinned: false,
+              is_supervision: false,
+              start_time: null,
+              end_time: null,
+            },
+          ],
+          unassigned: [],
+        },
+        config_snapshot: null,
+      });
+
+      const sharedStart = new Date('1970-01-01T08:30:00Z');
+      const sharedEnd = new Date('1970-01-01T09:30:00Z');
+      mockTx.schedulePeriodTemplate.findMany.mockResolvedValue([
+        {
+          weekday: 1,
+          period_order: 1,
+          start_time: sharedStart,
+          end_time: sharedEnd,
+          year_group_id: null,
+        },
+      ]);
+      mockTx.schedule.findMany.mockResolvedValue([]);
+      mockTx.schedulingRun.update.mockResolvedValue({
+        id: RUN_ID,
+        status: 'applied',
+        applied_at: new Date(),
+      });
+
+      await service.applyRun(TENANT_ID, RUN_ID, USER_ID);
+
+      expect(mockTx.schedule.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            start_time: sharedStart,
+            end_time: sharedEnd,
+          }),
+        }),
+      );
+    });
+
+    it('should skip entries with no matching period template', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        academic_year_id: AY_ID,
+        result_json: {
+          entries: [
+            {
+              class_id: 'cls-1',
+              weekday: 5,
+              period_order: 99,
+              room_id: null,
+              teacher_staff_id: null,
+              year_group_id: 'yg-1',
+              is_pinned: false,
+              is_supervision: false,
+              start_time: null,
+              end_time: null,
+            },
+          ],
+          unassigned: [],
+        },
+        config_snapshot: null,
+      });
+
+      mockTx.schedulePeriodTemplate.findMany.mockResolvedValue([]);
+      mockTx.schedule.findMany.mockResolvedValue([]);
+      mockTx.schedulingRun.update.mockResolvedValue({
+        id: RUN_ID,
+        status: 'applied',
+        applied_at: new Date(),
+      });
+
+      const result = await service.applyRun(TENANT_ID, RUN_ID, USER_ID);
+
+      expect(mockTx.schedule.create).not.toHaveBeenCalled();
+      // entries_applied counts non-supervision entries (not skipped-template ones)
+      expect(result.entries_applied).toBe(1);
+    });
+
+    it('should end-date existing auto_generated schedules that have attendance sessions', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        academic_year_id: AY_ID,
+        result_json: { entries: [], unassigned: [] },
+        config_snapshot: null,
+      });
+
+      mockTx.schedulePeriodTemplate.findMany.mockResolvedValue([]);
+      mockTx.schedule.findMany.mockResolvedValue([
+        { id: 'old-sched-1', _count: { attendance_sessions: 3 } },
+      ]);
+      mockTx.schedulingRun.update.mockResolvedValue({
+        id: RUN_ID,
+        status: 'applied',
+        applied_at: new Date(),
+      });
+
+      await service.applyRun(TENANT_ID, RUN_ID, USER_ID);
+
+      expect(mockTx.schedule.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'old-sched-1' },
+          data: expect.objectContaining({ effective_end_date: expect.any(Date) }),
+        }),
+      );
+      expect(mockTx.schedule.delete).not.toHaveBeenCalled();
+    });
+
+    it('should delete existing auto_generated schedules that have no attendance sessions', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        academic_year_id: AY_ID,
+        result_json: { entries: [], unassigned: [] },
+        config_snapshot: null,
+      });
+
+      mockTx.schedulePeriodTemplate.findMany.mockResolvedValue([]);
+      mockTx.schedule.findMany.mockResolvedValue([
+        { id: 'old-sched-2', _count: { attendance_sessions: 0 } },
+      ]);
+      mockTx.schedulingRun.update.mockResolvedValue({
+        id: RUN_ID,
+        status: 'applied',
+        applied_at: new Date(),
+      });
+
+      await service.applyRun(TENANT_ID, RUN_ID, USER_ID);
+
+      expect(mockTx.schedule.delete).toHaveBeenCalledWith({ where: { id: 'old-sched-2' } });
+      expect(mockTx.schedule.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException on tier-1 violations', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        academic_year_id: AY_ID,
+        result_json: {
+          entries: [
+            {
+              class_id: 'cls-1',
+              weekday: 1,
+              period_order: 1,
+              is_pinned: false,
+              is_supervision: false,
+              start_time: '08:00',
+              end_time: '09:00',
+            },
+          ],
+          unassigned: [],
+        },
+        config_snapshot: {
+          year_groups: [],
+          curriculum: [],
+          teachers: [],
+          rooms: [],
+          room_closures: [],
+          break_groups: [],
+          pinned_entries: [],
+          student_overlaps: [],
+          settings: {},
+        },
+      });
+
+      validateSchedule.mockReturnValue({
+        violations: [{ tier: 1, type: 'teacher_double_booking', message: 'T1 conflict' }],
+        health_score: 50,
+        summary: { tier1: 1, tier2: 0, tier3: 0 },
+        cell_violations: {},
+      });
+
+      await expect(service.applyRun(TENANT_ID, RUN_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      // Reset validateSchedule
+      validateSchedule.mockReturnValue({
+        violations: [],
+        health_score: 100,
+        summary: { tier1: 0, tier2: 0, tier3: 0 },
+        cell_violations: {},
+      });
+    });
+
+    it('should return tier-2 acknowledgement prompt when not acknowledged', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        academic_year_id: AY_ID,
+        result_json: {
+          entries: [
+            {
+              class_id: 'cls-1',
+              weekday: 1,
+              period_order: 1,
+              is_pinned: false,
+              is_supervision: false,
+              start_time: '08:00',
+              end_time: '09:00',
+            },
+          ],
+          unassigned: [],
+        },
+        config_snapshot: {
+          year_groups: [],
+          curriculum: [],
+          teachers: [],
+          rooms: [],
+          room_closures: [],
+          break_groups: [],
+          pinned_entries: [],
+          student_overlaps: [],
+          settings: {},
+        },
+      });
+
+      validateSchedule.mockReturnValue({
+        violations: [{ tier: 2, type: 'soft_constraint', message: 'T2 issue' }],
+        health_score: 80,
+        summary: { tier1: 0, tier2: 1, tier3: 0 },
+        cell_violations: {},
+      });
+
+      const result = await service.applyRun(TENANT_ID, RUN_ID, USER_ID, false);
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          requires_acknowledgement: true,
+          tier2_count: 1,
+        }),
+      );
+
+      // Reset validateSchedule
+      validateSchedule.mockReturnValue({
+        violations: [],
+        health_score: 100,
+        summary: { tier1: 0, tier2: 0, tier3: 0 },
+        cell_violations: {},
+      });
+    });
+
+    it('should proceed with apply when tier-2 violations are acknowledged', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        academic_year_id: AY_ID,
+        result_json: {
+          entries: [
+            {
+              class_id: 'cls-1',
+              weekday: 1,
+              period_order: 1,
+              room_id: 'room-1',
+              teacher_staff_id: 'staff-1',
+              year_group_id: 'yg-1',
+              is_pinned: false,
+              is_supervision: false,
+              start_time: '08:00',
+              end_time: '09:00',
+            },
+          ],
+          unassigned: [],
+        },
+        config_snapshot: {
+          year_groups: [],
+          curriculum: [],
+          teachers: [],
+          rooms: [],
+          room_closures: [],
+          break_groups: [],
+          pinned_entries: [],
+          student_overlaps: [],
+          settings: {},
+        },
+      });
+
+      validateSchedule.mockReturnValue({
+        violations: [{ tier: 2, type: 'soft_constraint', message: 'T2 issue' }],
+        health_score: 80,
+        summary: { tier1: 0, tier2: 1, tier3: 0 },
+        cell_violations: {},
+      });
+
+      mockTx.schedulePeriodTemplate.findMany.mockResolvedValue([]);
+      mockTx.schedule.findMany.mockResolvedValue([]);
+      mockTx.schedulingRun.update.mockResolvedValue({
+        id: RUN_ID,
+        status: 'applied',
+        applied_at: new Date('2026-03-02T10:00:00Z'),
+      });
+
+      const result = await service.applyRun(TENANT_ID, RUN_ID, USER_ID, true);
+
+      expect(result.status).toBe('applied');
+      expect(result.entries_applied).toBe(1);
+
+      // Reset validateSchedule
+      validateSchedule.mockReturnValue({
+        violations: [],
+        health_score: 100,
+        summary: { tier1: 0, tier2: 0, tier3: 0 },
+        cell_violations: {},
+      });
+    });
+
+    it('should coalesce undefined room_id and teacher_staff_id to null', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        academic_year_id: AY_ID,
+        result_json: {
+          entries: [
+            {
+              class_id: 'cls-1',
+              weekday: 1,
+              period_order: 1,
+              year_group_id: 'yg-1',
+              is_pinned: false,
+              is_supervision: false,
+              start_time: '08:00',
+              end_time: '09:00',
+              // room_id and teacher_staff_id are undefined (not present)
+            },
+          ],
+          unassigned: [],
+        },
+        config_snapshot: null,
+      });
+
+      mockTx.schedulePeriodTemplate.findMany.mockResolvedValue([]);
+      mockTx.schedule.findMany.mockResolvedValue([]);
+      mockTx.schedulingRun.update.mockResolvedValue({
+        id: RUN_ID,
+        status: 'applied',
+        applied_at: new Date(),
+      });
+
+      await service.applyRun(TENANT_ID, RUN_ID, USER_ID);
+
+      expect(mockTx.schedule.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            room_id: null,
+            teacher_staff_id: null,
+          }),
+        }),
+      );
+    });
+
+    it('should handle applied_at being null in result', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        academic_year_id: AY_ID,
+        result_json: { entries: [], unassigned: [] },
+        config_snapshot: null,
+      });
+
+      mockTx.schedulePeriodTemplate.findMany.mockResolvedValue([]);
+      mockTx.schedule.findMany.mockResolvedValue([]);
+      mockTx.schedulingRun.update.mockResolvedValue({
+        id: RUN_ID,
+        status: 'applied',
+        applied_at: null,
+      });
+
+      const result = await service.applyRun(TENANT_ID, RUN_ID, USER_ID);
+
+      expect(result.applied_at).toBeNull();
+    });
   });
 });

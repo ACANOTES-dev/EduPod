@@ -1458,4 +1458,1129 @@ describe('PayrollRunsService', () => {
       expect(result).toHaveProperty('status', 'finalised');
     });
   });
+
+  // ─── createRun — per_class with auto-populate ─────────────────────────────────
+
+  describe('createRun — per_class with auto-populate', () => {
+    const createDto = {
+      period_label: 'March 2026',
+      period_month: 3,
+      period_year: 2026,
+      total_working_days: 22,
+    };
+
+    it('should auto-populate class counts for per_class staff when setting is enabled', async () => {
+      mockPrisma.payrollRun.findFirst
+        .mockResolvedValueOnce(null) // duplicate check
+        .mockResolvedValueOnce({
+          id: RUN_ID,
+          tenant_id: TENANT_ID,
+          period_label: 'March 2026',
+          period_month: 3,
+          period_year: 2026,
+          total_working_days: 22,
+          status: 'draft',
+          total_basic_pay: null,
+          total_bonus_pay: null,
+          total_pay: null,
+          created_by: null,
+          finalised_by: null,
+          entries: [],
+          _count: { entries: 0 },
+        });
+
+      mockPrisma.payrollRun.create.mockResolvedValue({
+        id: RUN_ID,
+        tenant_id: TENANT_ID,
+        status: 'draft',
+        period_month: 3,
+        period_year: 2026,
+        total_working_days: 22,
+      });
+
+      mockPrisma.staffCompensation.findMany.mockResolvedValue([
+        {
+          id: 'comp-1',
+          tenant_id: TENANT_ID,
+          staff_profile_id: STAFF_PROFILE_ID,
+          compensation_type: 'per_class',
+          base_salary: null,
+          per_class_rate: 200,
+          assigned_class_count: 10,
+          bonus_class_rate: 50,
+          bonus_day_multiplier: null,
+          staff_profile: {
+            id: STAFF_PROFILE_ID,
+            employment_status: 'active',
+          },
+        },
+      ]);
+
+      mockSettingsService.getSettings.mockResolvedValue({
+        payroll: { autoPopulateClassCounts: true },
+      });
+
+      // Schedule count for auto-populate
+      mockPrisma.schedule.count.mockResolvedValue(8);
+
+      mockCalculationService.calculate.mockReturnValue({
+        basic_pay: 1600,
+        bonus_pay: 0,
+        total_pay: 1600,
+      });
+
+      mockPrisma.payrollEntry.create.mockResolvedValue({ id: 'entry-1' });
+
+      await service.createRun(TENANT_ID, USER_ID, createDto);
+
+      expect(mockPrisma.schedule.count).toHaveBeenCalled();
+      expect(mockCalculationService.calculate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          compensation_type: 'per_class',
+          snapshot_per_class_rate: 200,
+          snapshot_assigned_class_count: 10,
+          snapshot_bonus_class_rate: 50,
+          classes_taught: 8,
+          days_worked: null,
+        }),
+      );
+
+      expect(mockPrisma.payrollEntry.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          compensation_type: 'per_class',
+          snapshot_per_class_rate: 200,
+          snapshot_bonus_class_rate: 50,
+          classes_taught: 8,
+          auto_populated_class_count: 8,
+          days_worked: null,
+        }),
+      });
+    });
+
+    it('should skip inactive staff during createRun', async () => {
+      mockPrisma.payrollRun.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
+        id: RUN_ID,
+        tenant_id: TENANT_ID,
+        status: 'draft',
+        entries: [],
+        created_by: null,
+        finalised_by: null,
+        _count: { entries: 0 },
+      });
+
+      mockPrisma.payrollRun.create.mockResolvedValue({
+        id: RUN_ID,
+        tenant_id: TENANT_ID,
+        status: 'draft',
+      });
+
+      mockPrisma.staffCompensation.findMany.mockResolvedValue([
+        {
+          id: 'comp-1',
+          tenant_id: TENANT_ID,
+          staff_profile_id: STAFF_PROFILE_ID,
+          compensation_type: 'salaried',
+          base_salary: 5000,
+          per_class_rate: null,
+          assigned_class_count: null,
+          bonus_class_rate: null,
+          bonus_day_multiplier: null,
+          staff_profile: {
+            id: STAFF_PROFILE_ID,
+            employment_status: 'inactive', // inactive staff
+          },
+        },
+      ]);
+
+      mockSettingsService.getSettings.mockResolvedValue({
+        payroll: { autoPopulateClassCounts: false },
+      });
+
+      await service.createRun(TENANT_ID, USER_ID, createDto);
+
+      expect(mockPrisma.payrollEntry.create).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── finalise — concurrency conflict ──────────────────────────────────────────
+
+  describe('finalise — concurrency conflict', () => {
+    it('should throw CONCURRENT_MODIFICATION when timestamps do not match', async () => {
+      const runTime = new Date('2026-03-15T10:00:00.000Z');
+      const staleTime = new Date('2026-03-14T08:00:00.000Z');
+
+      mockPrisma.payrollRun.findFirst.mockResolvedValue({
+        id: RUN_ID,
+        tenant_id: TENANT_ID,
+        status: 'draft',
+        updated_at: runTime,
+        entries: [],
+      });
+
+      await expect(
+        service.finalise(
+          TENANT_ID,
+          RUN_ID,
+          USER_ID,
+          { expected_updated_at: staleTime.toISOString() },
+          true,
+        ),
+      ).rejects.toThrow(ConflictException);
+
+      await expect(
+        service.finalise(
+          TENANT_ID,
+          RUN_ID,
+          USER_ID,
+          { expected_updated_at: staleTime.toISOString() },
+          true,
+        ),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'CONCURRENT_MODIFICATION' }),
+      });
+    });
+
+    it('should throw NotFoundException when run does not exist during finalise', async () => {
+      mockPrisma.payrollRun.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.finalise(
+          TENANT_ID,
+          RUN_ID,
+          USER_ID,
+          { expected_updated_at: new Date().toISOString() },
+          true,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── executeFinalisation — additional branches ────────────────────────────────
+
+  describe('executeFinalisation — override_total_pay', () => {
+    it('should use override_total_pay in totals when set', async () => {
+      mockPrisma.payrollRun.findFirst
+        // Inner findFirst for status check
+        .mockResolvedValueOnce({ status: 'draft' })
+        // getRun call at end
+        .mockResolvedValueOnce({
+          id: RUN_ID,
+          tenant_id: TENANT_ID,
+          status: 'finalised',
+          total_basic_pay: 5000,
+          total_bonus_pay: 200,
+          total_pay: 4500,
+          created_by: null,
+          finalised_by: null,
+          entries: [],
+          _count: { entries: 1 },
+        });
+
+      mockPrisma.payrollEntry.findMany.mockResolvedValue([
+        {
+          id: 'entry-1',
+          basic_pay: 5000,
+          bonus_pay: 200,
+          total_pay: 5200,
+          override_total_pay: 4500, // override set
+        },
+      ]);
+
+      mockPrisma.payrollRun.update.mockResolvedValue({ id: RUN_ID });
+      mockPayslipsService.generatePayslipsForRun.mockResolvedValue(undefined);
+
+      await service.executeFinalisation(TENANT_ID, RUN_ID, USER_ID);
+
+      expect(mockPrisma.payrollRun.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            total_pay: 4500,
+            total_basic_pay: 5000,
+            total_bonus_pay: 200,
+          }),
+        }),
+      );
+    });
+
+    it('should throw NotFoundException when run not found inside executeFinalisation', async () => {
+      mockPrisma.payrollRun.findFirst.mockResolvedValue(null);
+
+      await expect(service.executeFinalisation(TENANT_ID, RUN_ID, USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw INVALID_STATUS_TRANSITION when run status cannot transition to finalised', async () => {
+      mockPrisma.payrollRun.findFirst.mockResolvedValue({ status: 'cancelled' });
+
+      await expect(service.executeFinalisation(TENANT_ID, RUN_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      await expect(service.executeFinalisation(TENANT_ID, RUN_ID, USER_ID)).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'INVALID_STATUS_TRANSITION' }),
+      });
+    });
+  });
+
+  // ─── refreshEntries — inactive staff, per_class auto-populate, classes_taught ─
+
+  describe('refreshEntries — additional branches', () => {
+    const draftRun = {
+      id: RUN_ID,
+      tenant_id: TENANT_ID,
+      period_label: 'March 2026',
+      period_month: 3,
+      period_year: 2026,
+      total_working_days: 22,
+      status: 'draft',
+    };
+
+    it('should skip inactive staff during entry update in refresh', async () => {
+      mockPrisma.payrollRun.findFirst.mockResolvedValueOnce(draftRun).mockResolvedValueOnce({
+        ...draftRun,
+        entries: [],
+        created_by: null,
+        finalised_by: null,
+        _count: { entries: 0 },
+      });
+
+      mockPrisma.staffCompensation.findMany.mockResolvedValue([
+        {
+          id: 'comp-1',
+          tenant_id: TENANT_ID,
+          staff_profile_id: STAFF_PROFILE_ID,
+          compensation_type: 'salaried',
+          base_salary: 5000,
+          per_class_rate: null,
+          assigned_class_count: null,
+          bonus_class_rate: null,
+          bonus_day_multiplier: null,
+          staff_profile: {
+            id: STAFF_PROFILE_ID,
+            employment_status: 'inactive',
+          },
+        },
+      ]);
+
+      mockPrisma.payrollEntry.findMany.mockResolvedValue([
+        {
+          id: 'entry-1',
+          payroll_run_id: RUN_ID,
+          tenant_id: TENANT_ID,
+          staff_profile_id: STAFF_PROFILE_ID,
+          compensation_type: 'salaried',
+          snapshot_base_salary: 5000,
+          days_worked: 22,
+          classes_taught: null,
+        },
+      ]);
+
+      mockSettingsService.getSettings.mockResolvedValue({
+        payroll: { autoPopulateClassCounts: false },
+      });
+
+      await service.refreshEntries(TENANT_ID, RUN_ID);
+
+      // Should skip the inactive staff — no update, no create
+      expect(mockPrisma.payrollEntry.update).not.toHaveBeenCalled();
+      expect(mockPrisma.payrollEntry.create).not.toHaveBeenCalled();
+    });
+
+    it('should skip existing entries with no matching comp during refresh', async () => {
+      mockPrisma.payrollRun.findFirst.mockResolvedValueOnce(draftRun).mockResolvedValueOnce({
+        ...draftRun,
+        entries: [],
+        created_by: null,
+        finalised_by: null,
+        _count: { entries: 0 },
+      });
+
+      // No compensations match
+      mockPrisma.staffCompensation.findMany.mockResolvedValue([]);
+
+      mockPrisma.payrollEntry.findMany.mockResolvedValue([
+        {
+          id: 'entry-1',
+          payroll_run_id: RUN_ID,
+          tenant_id: TENANT_ID,
+          staff_profile_id: STAFF_PROFILE_ID,
+          compensation_type: 'salaried',
+          snapshot_base_salary: 5000,
+          days_worked: 22,
+          classes_taught: null,
+        },
+      ]);
+
+      mockSettingsService.getSettings.mockResolvedValue({
+        payroll: { autoPopulateClassCounts: false },
+      });
+
+      await service.refreshEntries(TENANT_ID, RUN_ID);
+
+      // No comp found for existing entry — skipped
+      expect(mockPrisma.payrollEntry.update).not.toHaveBeenCalled();
+      expect(mockPrisma.payrollEntry.create).not.toHaveBeenCalled();
+    });
+
+    it('should use existing classes_taught when present during refresh', async () => {
+      mockPrisma.payrollRun.findFirst.mockResolvedValueOnce(draftRun).mockResolvedValueOnce({
+        ...draftRun,
+        entries: [],
+        created_by: null,
+        finalised_by: null,
+        _count: { entries: 0 },
+      });
+
+      mockPrisma.staffCompensation.findMany.mockResolvedValue([
+        {
+          id: 'comp-1',
+          tenant_id: TENANT_ID,
+          staff_profile_id: STAFF_PROFILE_ID,
+          compensation_type: 'per_class',
+          base_salary: null,
+          per_class_rate: 200,
+          assigned_class_count: 10,
+          bonus_class_rate: null,
+          bonus_day_multiplier: null,
+          staff_profile: {
+            id: STAFF_PROFILE_ID,
+            employment_status: 'active',
+          },
+        },
+      ]);
+
+      mockPrisma.payrollEntry.findMany.mockResolvedValue([
+        {
+          id: 'entry-1',
+          payroll_run_id: RUN_ID,
+          tenant_id: TENANT_ID,
+          staff_profile_id: STAFF_PROFILE_ID,
+          compensation_type: 'per_class',
+          snapshot_per_class_rate: 200,
+          days_worked: null,
+          classes_taught: 12, // manually set — should be preserved
+        },
+      ]);
+
+      mockSettingsService.getSettings.mockResolvedValue({
+        payroll: { autoPopulateClassCounts: false },
+      });
+
+      mockCalculationService.calculate.mockReturnValue({
+        basic_pay: 2400,
+        bonus_pay: 0,
+        total_pay: 2400,
+      });
+
+      mockPrisma.payrollEntry.update.mockResolvedValue({ id: 'entry-1' });
+
+      await service.refreshEntries(TENANT_ID, RUN_ID);
+
+      // classes_taught from entry (12) should be preserved, not overwritten
+      expect(mockCalculationService.calculate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          classes_taught: 12,
+        }),
+      );
+    });
+
+    it('should auto-populate class counts for per_class entries during refresh', async () => {
+      mockPrisma.payrollRun.findFirst.mockResolvedValueOnce(draftRun).mockResolvedValueOnce({
+        ...draftRun,
+        entries: [],
+        created_by: null,
+        finalised_by: null,
+        _count: { entries: 0 },
+      });
+
+      mockPrisma.staffCompensation.findMany.mockResolvedValue([
+        {
+          id: 'comp-1',
+          tenant_id: TENANT_ID,
+          staff_profile_id: STAFF_PROFILE_ID,
+          compensation_type: 'per_class',
+          base_salary: null,
+          per_class_rate: 200,
+          assigned_class_count: 10,
+          bonus_class_rate: null,
+          bonus_day_multiplier: null,
+          staff_profile: {
+            id: STAFF_PROFILE_ID,
+            employment_status: 'active',
+          },
+        },
+      ]);
+
+      mockPrisma.payrollEntry.findMany.mockResolvedValue([
+        {
+          id: 'entry-1',
+          payroll_run_id: RUN_ID,
+          tenant_id: TENANT_ID,
+          staff_profile_id: STAFF_PROFILE_ID,
+          compensation_type: 'per_class',
+          snapshot_per_class_rate: 200,
+          days_worked: null,
+          classes_taught: null, // not manually set
+        },
+      ]);
+
+      mockSettingsService.getSettings.mockResolvedValue({
+        payroll: { autoPopulateClassCounts: true },
+      });
+
+      mockPrisma.schedule.count.mockResolvedValue(7);
+
+      mockCalculationService.calculate.mockReturnValue({
+        basic_pay: 1400,
+        bonus_pay: 0,
+        total_pay: 1400,
+      });
+
+      mockPrisma.payrollEntry.update.mockResolvedValue({ id: 'entry-1' });
+
+      await service.refreshEntries(TENANT_ID, RUN_ID);
+
+      expect(mockPrisma.schedule.count).toHaveBeenCalled();
+      // auto_populated_class_count should be 7, and classes_taught should be 7 (null fallback)
+      expect(mockPrisma.payrollEntry.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            auto_populated_class_count: 7,
+            classes_taught: 7,
+          }),
+        }),
+      );
+    });
+
+    it('should handle non-null bonus_class_rate and bonus_day_multiplier during refresh', async () => {
+      const draftRun2 = {
+        id: RUN_ID,
+        tenant_id: TENANT_ID,
+        period_label: 'March 2026',
+        period_month: 3,
+        period_year: 2026,
+        total_working_days: 22,
+        status: 'draft',
+      };
+
+      mockPrisma.payrollRun.findFirst.mockResolvedValueOnce(draftRun2).mockResolvedValueOnce({
+        ...draftRun2,
+        entries: [],
+        created_by: null,
+        finalised_by: null,
+        _count: { entries: 0 },
+      });
+
+      mockPrisma.staffCompensation.findMany.mockResolvedValue([
+        {
+          id: 'comp-bonus',
+          tenant_id: TENANT_ID,
+          staff_profile_id: STAFF_PROFILE_ID,
+          compensation_type: 'per_class',
+          base_salary: null,
+          per_class_rate: 200,
+          assigned_class_count: 10,
+          bonus_class_rate: 50,
+          bonus_day_multiplier: 1.5,
+          staff_profile: {
+            id: STAFF_PROFILE_ID,
+            employment_status: 'active',
+          },
+        },
+      ]);
+
+      mockPrisma.payrollEntry.findMany.mockResolvedValue([
+        {
+          id: 'entry-bonus',
+          payroll_run_id: RUN_ID,
+          tenant_id: TENANT_ID,
+          staff_profile_id: STAFF_PROFILE_ID,
+          compensation_type: 'per_class',
+          snapshot_per_class_rate: 180,
+          days_worked: null,
+          classes_taught: 10,
+        },
+      ]);
+
+      mockSettingsService.getSettings.mockResolvedValue({
+        payroll: { autoPopulateClassCounts: false },
+      });
+
+      mockCalculationService.calculate.mockReturnValue({
+        basic_pay: 2000,
+        bonus_pay: 500,
+        total_pay: 2500,
+      });
+
+      mockPrisma.payrollEntry.update.mockResolvedValue({ id: 'entry-bonus' });
+
+      await service.refreshEntries(TENANT_ID, RUN_ID);
+
+      expect(mockPrisma.payrollEntry.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            snapshot_bonus_class_rate: 50,
+            snapshot_bonus_day_multiplier: 1.5,
+            snapshot_per_class_rate: 200,
+          }),
+        }),
+      );
+
+      expect(mockCalculationService.calculate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          snapshot_bonus_class_rate: 50,
+          snapshot_bonus_day_multiplier: 1.5,
+        }),
+      );
+    });
+
+    it('should skip inactive staff when adding new entries during refresh', async () => {
+      mockPrisma.payrollRun.findFirst.mockResolvedValueOnce(draftRun).mockResolvedValueOnce({
+        ...draftRun,
+        entries: [],
+        created_by: null,
+        finalised_by: null,
+        _count: { entries: 0 },
+      });
+
+      mockPrisma.staffCompensation.findMany.mockResolvedValue([
+        {
+          id: 'comp-new',
+          tenant_id: TENANT_ID,
+          staff_profile_id: '66666666-6666-6666-6666-666666666666',
+          compensation_type: 'salaried',
+          base_salary: 3000,
+          per_class_rate: null,
+          assigned_class_count: null,
+          bonus_class_rate: null,
+          bonus_day_multiplier: null,
+          staff_profile: {
+            id: '66666666-6666-6666-6666-666666666666',
+            employment_status: 'inactive', // inactive — should be skipped
+          },
+        },
+      ]);
+
+      mockPrisma.payrollEntry.findMany.mockResolvedValue([]);
+
+      mockSettingsService.getSettings.mockResolvedValue({
+        payroll: { autoPopulateClassCounts: false },
+      });
+
+      await service.refreshEntries(TENANT_ID, RUN_ID);
+
+      expect(mockPrisma.payrollEntry.create).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── getPayrollSetting — error handling branches ──────────────────────────────
+
+  describe('getPayrollSetting — error handling', () => {
+    it('edge: should fallback to default when tenant has no settings (404)', async () => {
+      const notFoundError = { status: 404, message: 'Not found' };
+      mockSettingsService.getSettings.mockRejectedValue(notFoundError);
+
+      // createRun calls getPayrollSetting internally
+      mockPrisma.payrollRun.findFirst
+        .mockResolvedValueOnce(null) // duplicate check
+        .mockResolvedValueOnce({
+          id: RUN_ID,
+          tenant_id: TENANT_ID,
+          status: 'draft',
+          entries: [],
+          created_by: null,
+          finalised_by: null,
+          _count: { entries: 0 },
+        });
+
+      mockPrisma.payrollRun.create.mockResolvedValue({
+        id: RUN_ID,
+        tenant_id: TENANT_ID,
+        status: 'draft',
+        period_month: 3,
+        period_year: 2026,
+        total_working_days: 22,
+      });
+
+      mockPrisma.staffCompensation.findMany.mockResolvedValue([]);
+
+      const result = await service.createRun(TENANT_ID, USER_ID, {
+        period_label: 'March 2026',
+        period_month: 3,
+        period_year: 2026,
+        total_working_days: 22,
+      });
+
+      // Should succeed — uses default value for autoPopulateClassCounts
+      expect(result).toHaveProperty('id', RUN_ID);
+    });
+
+    it('edge: should re-throw non-404 errors from settings service', async () => {
+      const serverError = new Error('Internal server error');
+      mockSettingsService.getSettings.mockRejectedValue(serverError);
+
+      mockPrisma.payrollRun.findFirst.mockResolvedValueOnce(null);
+
+      mockPrisma.payrollRun.create.mockResolvedValue({
+        id: RUN_ID,
+        tenant_id: TENANT_ID,
+        status: 'draft',
+      });
+
+      mockPrisma.staffCompensation.findMany.mockResolvedValue([
+        {
+          id: 'comp-1',
+          tenant_id: TENANT_ID,
+          staff_profile_id: STAFF_PROFILE_ID,
+          compensation_type: 'salaried',
+          base_salary: 5000,
+          per_class_rate: null,
+          assigned_class_count: null,
+          bonus_class_rate: null,
+          bonus_day_multiplier: null,
+          staff_profile: {
+            id: STAFF_PROFILE_ID,
+            employment_status: 'active',
+          },
+        },
+      ]);
+
+      await expect(
+        service.createRun(TENANT_ID, USER_ID, {
+          period_label: 'March 2026',
+          period_month: 3,
+          period_year: 2026,
+          total_working_days: 22,
+        }),
+      ).rejects.toThrow('Internal server error');
+    });
+  });
+
+  // ─── finalise — approval approved immediately ─────────────────────────────────
+
+  describe('finalise — approval approved immediately', () => {
+    const now = new Date('2026-03-15T10:00:00.000Z');
+
+    it('should proceed to finalise when approval service returns approved=true', async () => {
+      const completeDraftRun = {
+        id: RUN_ID,
+        tenant_id: TENANT_ID,
+        status: 'draft',
+        updated_at: now,
+        entries: [
+          {
+            id: 'entry-1',
+            compensation_type: 'salaried',
+            days_worked: 22,
+            classes_taught: null,
+          },
+        ],
+      };
+
+      mockPrisma.payrollRun.findFirst
+        .mockResolvedValueOnce(completeDraftRun)
+        // executeFinalisation inner findFirst
+        .mockResolvedValueOnce({ status: 'draft' })
+        // getRun call at end
+        .mockResolvedValueOnce({
+          ...completeDraftRun,
+          status: 'finalised',
+          total_basic_pay: 5000,
+          total_bonus_pay: 0,
+          total_pay: 5000,
+          created_by: null,
+          finalised_by: null,
+          _count: { entries: 1 },
+        });
+
+      mockSettingsService.getSettings.mockResolvedValue({
+        payroll: { requireApprovalForNonPrincipal: true },
+      });
+
+      // Approval returns approved=true (already approved)
+      mockApprovalRequestsService.checkAndCreateIfNeeded.mockResolvedValue({
+        approved: true,
+        request_id: null,
+      });
+
+      mockPrisma.payrollEntry.findMany.mockResolvedValue([
+        {
+          id: 'entry-1',
+          basic_pay: 5000,
+          bonus_pay: 0,
+          total_pay: 5000,
+          override_total_pay: null,
+        },
+      ]);
+
+      mockPrisma.payrollRun.update.mockResolvedValue({ id: RUN_ID });
+      mockPayslipsService.generatePayslipsForRun.mockResolvedValue(undefined);
+
+      const result = await service.finalise(
+        TENANT_ID,
+        RUN_ID,
+        USER_ID,
+        { expected_updated_at: now.toISOString() },
+        false, // NOT school owner, but approval returns approved
+      );
+
+      expect(result).toHaveProperty('status', 'finalised');
+    });
+  });
+
+  // ─── refreshEntries — new salaried staff during refresh ────────────────────────
+
+  describe('refreshEntries — new salaried staff', () => {
+    it('should add new salaried staff with days_worked=total_working_days during refresh', async () => {
+      const draftRun = {
+        id: RUN_ID,
+        tenant_id: TENANT_ID,
+        period_label: 'March 2026',
+        period_month: 3,
+        period_year: 2026,
+        total_working_days: 22,
+        status: 'draft',
+      };
+      const newSalariedStaffId = '88888888-8888-8888-8888-888888888888';
+
+      mockPrisma.payrollRun.findFirst.mockResolvedValueOnce(draftRun).mockResolvedValueOnce({
+        ...draftRun,
+        entries: [],
+        created_by: null,
+        finalised_by: null,
+        _count: { entries: 0 },
+      });
+
+      mockPrisma.staffCompensation.findMany.mockResolvedValue([
+        {
+          id: 'comp-sal',
+          tenant_id: TENANT_ID,
+          staff_profile_id: newSalariedStaffId,
+          compensation_type: 'salaried',
+          base_salary: 6000,
+          per_class_rate: null,
+          assigned_class_count: null,
+          bonus_class_rate: null,
+          bonus_day_multiplier: 2.0,
+          staff_profile: {
+            id: newSalariedStaffId,
+            employment_status: 'active',
+          },
+        },
+      ]);
+
+      mockPrisma.payrollEntry.findMany.mockResolvedValue([]);
+
+      mockSettingsService.getSettings.mockResolvedValue({
+        payroll: { autoPopulateClassCounts: false },
+      });
+
+      mockCalculationService.calculate.mockReturnValue({
+        basic_pay: 6000,
+        bonus_pay: 0,
+        total_pay: 6000,
+      });
+
+      mockPrisma.payrollEntry.create.mockResolvedValue({ id: 'entry-sal' });
+
+      await service.refreshEntries(TENANT_ID, RUN_ID);
+
+      expect(mockPrisma.payrollEntry.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          staff_profile_id: newSalariedStaffId,
+          compensation_type: 'salaried',
+          snapshot_base_salary: 6000,
+          snapshot_bonus_day_multiplier: 2.0,
+          days_worked: 22, // total_working_days for salaried
+        }),
+      });
+    });
+  });
+
+  // ─── refreshEntries — new per_class staff with auto-populate ─────────────────
+
+  describe('refreshEntries — new per_class staff with auto-populate', () => {
+    it('should auto-populate class counts for new per_class staff added during refresh', async () => {
+      const draftRun = {
+        id: RUN_ID,
+        tenant_id: TENANT_ID,
+        period_label: 'March 2026',
+        period_month: 3,
+        period_year: 2026,
+        total_working_days: 22,
+        status: 'draft',
+      };
+      const newPerClassStaffId = '77777777-7777-7777-7777-777777777777';
+
+      mockPrisma.payrollRun.findFirst.mockResolvedValueOnce(draftRun).mockResolvedValueOnce({
+        ...draftRun,
+        entries: [],
+        created_by: null,
+        finalised_by: null,
+        _count: { entries: 0 },
+      });
+
+      mockPrisma.staffCompensation.findMany.mockResolvedValue([
+        {
+          id: 'comp-new',
+          tenant_id: TENANT_ID,
+          staff_profile_id: newPerClassStaffId,
+          compensation_type: 'per_class',
+          base_salary: null,
+          per_class_rate: 150,
+          assigned_class_count: 8,
+          bonus_class_rate: 30,
+          bonus_day_multiplier: null,
+          staff_profile: {
+            id: newPerClassStaffId,
+            employment_status: 'active',
+          },
+        },
+      ]);
+
+      mockPrisma.payrollEntry.findMany.mockResolvedValue([]);
+
+      mockSettingsService.getSettings.mockResolvedValue({
+        payroll: { autoPopulateClassCounts: true },
+      });
+
+      mockPrisma.schedule.count.mockResolvedValue(5);
+
+      mockCalculationService.calculate.mockReturnValue({
+        basic_pay: 750,
+        bonus_pay: 150,
+        total_pay: 900,
+      });
+
+      mockPrisma.payrollEntry.create.mockResolvedValue({ id: 'entry-new' });
+
+      await service.refreshEntries(TENANT_ID, RUN_ID);
+
+      expect(mockPrisma.schedule.count).toHaveBeenCalled();
+      expect(mockPrisma.payrollEntry.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          staff_profile_id: newPerClassStaffId,
+          compensation_type: 'per_class',
+          snapshot_per_class_rate: 150,
+          snapshot_bonus_class_rate: 30,
+          classes_taught: 5,
+          auto_populated_class_count: 5,
+        }),
+      });
+    });
+  });
+
+  // ─── serializeRun — null/undefined decimal fields ─────────────────────────────
+
+  describe('serializeRun — null decimal fields', () => {
+    it('should not convert null decimal fields to numbers', async () => {
+      const runWithNullDecimals = {
+        id: RUN_ID,
+        tenant_id: TENANT_ID,
+        status: 'draft',
+        total_basic_pay: null,
+        total_bonus_pay: null,
+        total_pay: null,
+        created_by: null,
+        finalised_by: null,
+        _count: { entries: 0 },
+      };
+
+      mockPrisma.payrollRun.findMany.mockResolvedValue([runWithNullDecimals]);
+      mockPrisma.payrollRun.count.mockResolvedValue(1);
+
+      const result = await service.listRuns(TENANT_ID, { page: 1, pageSize: 20 });
+
+      const run = result.data[0]!;
+      expect(run.total_basic_pay).toBeNull();
+      expect(run.total_bonus_pay).toBeNull();
+      expect(run.total_pay).toBeNull();
+    });
+  });
+
+  // ─── listRuns — sort without explicit order ────────────────────────────────
+
+  describe('listRuns — sort defaults', () => {
+    it('should default order to desc when sort is valid but order is not provided', async () => {
+      mockPrisma.payrollRun.findMany.mockResolvedValue([]);
+      mockPrisma.payrollRun.count.mockResolvedValue(0);
+
+      await service.listRuns(TENANT_ID, {
+        page: 1,
+        pageSize: 10,
+        sort: 'total_pay',
+        // order is undefined
+      });
+
+      expect(mockPrisma.payrollRun.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { total_pay: 'desc' },
+        }),
+      );
+    });
+  });
+
+  // ─── listEntries — non-null snapshot_per_class_rate ──────────��──────────────
+
+  describe('listEntries — non-null snapshot fields', () => {
+    it('should serialize non-null snapshot_per_class_rate as number', async () => {
+      mockPrisma.payrollEntry.findMany.mockResolvedValue([
+        {
+          id: 'entry-3',
+          payroll_run_id: RUN_ID,
+          staff_profile_id: STAFF_PROFILE_ID,
+          compensation_type: 'per_class',
+          basic_pay: 2000,
+          bonus_pay: 0,
+          total_pay: 2000,
+          override_total_pay: 1800,
+          snapshot_base_salary: null,
+          snapshot_per_class_rate: 200,
+          days_worked: null,
+          classes_taught: 10,
+          created_at: new Date('2026-03-01'),
+          staff_profile: {
+            id: STAFF_PROFILE_ID,
+            staff_number: 'STF-002',
+            user: { first_name: 'Per', last_name: 'Class' },
+          },
+        },
+      ]);
+
+      const result = await service.listEntries(TENANT_ID, RUN_ID);
+
+      const entry = result.data[0]!;
+      expect(entry.snapshot_base_salary).toBeNull();
+      expect(entry.snapshot_per_class_rate).toBe(200);
+      expect(entry.override_total_pay).toBe(1800);
+    });
+  });
+
+  // ─── updateRun — recalculate with null snapshot values ────────────────────────
+
+  describe('updateRun — null snapshot values', () => {
+    it('edge: should handle null snapshot_base_salary and snapshot_bonus_day_multiplier during recalculation', async () => {
+      const now = new Date('2026-03-15T10:00:00.000Z');
+      const draftRun = {
+        id: RUN_ID,
+        tenant_id: TENANT_ID,
+        total_working_days: 22,
+        status: 'draft',
+        updated_at: now,
+      };
+
+      mockPrisma.payrollRun.findFirst.mockResolvedValueOnce(draftRun).mockResolvedValueOnce({
+        ...draftRun,
+        entries: [],
+        created_by: null,
+        finalised_by: null,
+        _count: { entries: 0 },
+      });
+
+      mockPrisma.payrollRun.update.mockResolvedValue({ ...draftRun, total_working_days: 20 });
+
+      mockPrisma.payrollEntry.findMany.mockResolvedValue([
+        {
+          id: 'entry-null',
+          payroll_run_id: RUN_ID,
+          tenant_id: TENANT_ID,
+          staff_profile_id: STAFF_PROFILE_ID,
+          compensation_type: 'salaried',
+          snapshot_base_salary: null,
+          snapshot_per_class_rate: null,
+          snapshot_bonus_day_multiplier: null,
+          days_worked: 22,
+          classes_taught: null,
+        },
+      ]);
+
+      mockCalculationService.calculate.mockReturnValue({
+        basic_pay: 0,
+        bonus_pay: 0,
+        total_pay: 0,
+      });
+
+      mockPrisma.payrollEntry.update.mockResolvedValue({ id: 'entry-null' });
+
+      await service.updateRun(TENANT_ID, RUN_ID, {
+        total_working_days: 20,
+        expected_updated_at: now.toISOString(),
+      });
+
+      expect(mockCalculationService.calculate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          snapshot_base_salary: null,
+          snapshot_bonus_day_multiplier: null,
+        }),
+      );
+    });
+  });
+
+  // ─── serializeRunFull — entries with null/undefined decimal fields ─────────────
+
+  describe('serializeRunFull — entries with null decimal fields', () => {
+    it('should not convert null entry decimal fields to numbers', async () => {
+      mockPrisma.payrollRun.findFirst.mockResolvedValue({
+        id: RUN_ID,
+        tenant_id: TENANT_ID,
+        status: 'draft',
+        total_basic_pay: null,
+        total_bonus_pay: null,
+        total_pay: null,
+        created_by: null,
+        finalised_by: null,
+        entries: [
+          {
+            id: 'entry-1',
+            snapshot_base_salary: null,
+            snapshot_per_class_rate: null,
+            snapshot_bonus_class_rate: null,
+            snapshot_bonus_day_multiplier: null,
+            basic_pay: 5000,
+            bonus_pay: 0,
+            total_pay: 5000,
+            override_total_pay: null,
+            staff_profile: {
+              id: STAFF_PROFILE_ID,
+              staff_number: 'STF-001',
+              job_title: 'Teacher',
+              department: 'Math',
+              employment_type: 'full_time',
+              user: { id: USER_ID, first_name: 'Ali', last_name: 'Khan', email: 'a@b.com' },
+            },
+            payslip: null,
+          },
+        ],
+        _count: { entries: 1 },
+      });
+
+      const result = await service.getRun(TENANT_ID, RUN_ID);
+
+      const entries = result.entries as Array<Record<string, unknown>>;
+      expect(entries[0]!.snapshot_base_salary).toBeNull();
+      expect(entries[0]!.snapshot_per_class_rate).toBeNull();
+      expect(entries[0]!.override_total_pay).toBeNull();
+      expect(entries[0]!.basic_pay).toBe(5000);
+    });
+
+    it('should handle run with no entries array in serializeRunFull', async () => {
+      mockPrisma.payrollRun.findFirst.mockResolvedValue({
+        id: RUN_ID,
+        tenant_id: TENANT_ID,
+        status: 'draft',
+        total_basic_pay: null,
+        total_bonus_pay: null,
+        total_pay: null,
+        created_by: null,
+        finalised_by: null,
+        _count: { entries: 0 },
+      });
+
+      const result = await service.getRun(TENANT_ID, RUN_ID);
+
+      // entries is undefined — serializeRunFull should not crash
+      expect(result).toHaveProperty('id', RUN_ID);
+    });
+  });
 });

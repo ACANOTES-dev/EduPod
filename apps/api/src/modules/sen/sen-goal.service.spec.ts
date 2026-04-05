@@ -531,4 +531,251 @@ describe('SenGoalService', () => {
       ).rejects.toThrow(NotFoundException);
     });
   });
+
+  // ─── Additional branch coverage ─────────────────────────────────────────────
+
+  describe('update — nullable field branches', () => {
+    it('should handle setting description to null', async () => {
+      senGoalMock.findFirst.mockResolvedValue({ id: GOAL_ID });
+      senGoalMock.update.mockResolvedValue({ id: GOAL_ID, description: null });
+
+      await service.update(TENANT_ID, GOAL_ID, {
+        description: null,
+      });
+
+      expect(senGoalMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            description: null,
+          }),
+        }),
+      );
+    });
+
+    it('should handle setting current_level to null', async () => {
+      senGoalMock.findFirst.mockResolvedValue({ id: GOAL_ID });
+      senGoalMock.update.mockResolvedValue({ id: GOAL_ID, current_level: null });
+
+      await service.update(TENANT_ID, GOAL_ID, {
+        current_level: null,
+      });
+
+      expect(senGoalMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            current_level: null,
+          }),
+        }),
+      );
+    });
+
+    it('should handle setting target_date as date string', async () => {
+      senGoalMock.findFirst.mockResolvedValue({ id: GOAL_ID });
+      senGoalMock.update.mockResolvedValue({ id: GOAL_ID });
+
+      await service.update(TENANT_ID, GOAL_ID, {
+        target_date: '2026-12-31',
+      });
+
+      expect(senGoalMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            target_date: new Date('2026-12-31'),
+          }),
+        }),
+      );
+    });
+
+    it('should handle setting display_order', async () => {
+      senGoalMock.findFirst.mockResolvedValue({ id: GOAL_ID });
+      senGoalMock.update.mockResolvedValue({ id: GOAL_ID, display_order: 5 });
+
+      await service.update(TENANT_ID, GOAL_ID, {
+        display_order: 5,
+      });
+
+      expect(senGoalMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            display_order: 5,
+          }),
+        }),
+      );
+    });
+
+    it('should pass undefined for fields not present in dto', async () => {
+      senGoalMock.findFirst.mockResolvedValue({ id: GOAL_ID });
+      senGoalMock.update.mockResolvedValue({ id: GOAL_ID });
+
+      await service.update(TENANT_ID, GOAL_ID, {
+        title: 'Only title changed',
+      });
+
+      const updateArgs = senGoalMock.update.mock.calls[0]?.[0];
+      expect(updateArgs?.data?.description).toBeUndefined();
+      expect(updateArgs?.data?.current_level).toBeUndefined();
+      expect(updateArgs?.data?.target_date).toBeUndefined();
+      expect(updateArgs?.data?.display_order).toBeUndefined();
+    });
+  });
+
+  describe('updateStrategy — nullable field branches', () => {
+    it('should handle setting responsible_user_id to null', async () => {
+      senGoalStrategyMock.findFirst.mockResolvedValue({ id: STRATEGY_ID });
+      senGoalStrategyMock.update.mockResolvedValue({ id: STRATEGY_ID });
+
+      await service.updateStrategy(TENANT_ID, STRATEGY_ID, {
+        responsible_user_id: null,
+      });
+
+      expect(senGoalStrategyMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            responsible_user_id: null,
+          }),
+        }),
+      );
+    });
+
+    it('should handle setting frequency to null', async () => {
+      senGoalStrategyMock.findFirst.mockResolvedValue({ id: STRATEGY_ID });
+      senGoalStrategyMock.update.mockResolvedValue({ id: STRATEGY_ID });
+
+      await service.updateStrategy(TENANT_ID, STRATEGY_ID, {
+        frequency: null,
+      });
+
+      expect(senGoalStrategyMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            frequency: null,
+          }),
+        }),
+      );
+    });
+
+    it('should handle setting is_active to false', async () => {
+      senGoalStrategyMock.findFirst.mockResolvedValue({ id: STRATEGY_ID });
+      senGoalStrategyMock.update.mockResolvedValue({ id: STRATEGY_ID, is_active: false });
+
+      await service.updateStrategy(TENANT_ID, STRATEGY_ID, {
+        is_active: false,
+      });
+
+      expect(senGoalStrategyMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            is_active: false,
+          }),
+        }),
+      );
+    });
+
+    it('should pass undefined for fields not present in update dto', async () => {
+      senGoalStrategyMock.findFirst.mockResolvedValue({ id: STRATEGY_ID });
+      senGoalStrategyMock.update.mockResolvedValue({ id: STRATEGY_ID });
+
+      await service.updateStrategy(TENANT_ID, STRATEGY_ID, {
+        description: 'Only description',
+      });
+
+      const updateArgs = senGoalStrategyMock.update.mock.calls[0]?.[0];
+      expect(updateArgs?.data?.responsible_user_id).toBeUndefined();
+      expect(updateArgs?.data?.frequency).toBeUndefined();
+      expect(updateArgs?.data?.is_active).toBeUndefined();
+    });
+  });
+
+  describe('create — default values for optional fields', () => {
+    it('should default description and current_level to null', async () => {
+      senSupportPlanMock.findFirst.mockResolvedValue({ id: PLAN_ID, status: 'draft' });
+      senGoalMock.aggregate.mockResolvedValue({ _max: { display_order: 0 } });
+      senGoalMock.create.mockResolvedValue({ id: GOAL_ID });
+
+      await service.create(TENANT_ID, PLAN_ID, {
+        title: 'Goal',
+        target: 'Target',
+        baseline: 'Baseline',
+        target_date: '2026-06-30',
+      });
+
+      expect(senGoalMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            description: null,
+            current_level: null,
+          }),
+        }),
+      );
+    });
+
+    it('should accept optional description and current_level', async () => {
+      senSupportPlanMock.findFirst.mockResolvedValue({ id: PLAN_ID, status: 'active' });
+      senGoalMock.aggregate.mockResolvedValue({ _max: { display_order: 1 } });
+      senGoalMock.create.mockResolvedValue({ id: GOAL_ID });
+
+      await service.create(TENANT_ID, PLAN_ID, {
+        title: 'Goal',
+        target: 'Target',
+        baseline: 'Baseline',
+        target_date: '2026-06-30',
+        description: 'A detailed description',
+        current_level: 'Independent',
+      });
+
+      expect(senGoalMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            description: 'A detailed description',
+            current_level: 'Independent',
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('transitionStatus — current_level handling', () => {
+    it('should not update current_level when not provided in transition dto', async () => {
+      senGoalMock.findFirst.mockResolvedValue({ id: GOAL_ID, status: 'not_started' });
+      senGoalMock.update.mockResolvedValue({ id: GOAL_ID, status: 'in_progress' });
+
+      await service.transitionStatus(TENANT_ID, GOAL_ID, { status: 'in_progress' }, USER_ID);
+
+      const updateArgs = senGoalMock.update.mock.calls[0]?.[0];
+      expect(updateArgs?.data?.current_level).toBeUndefined();
+    });
+
+    it('should update current_level when provided in transition dto', async () => {
+      senGoalMock.findFirst.mockResolvedValue({ id: GOAL_ID, status: 'not_started' });
+      senGoalMock.update.mockResolvedValue({ id: GOAL_ID, status: 'in_progress' });
+
+      await service.transitionStatus(
+        TENANT_ID,
+        GOAL_ID,
+        { status: 'in_progress', current_level: 'Emerging' },
+        USER_ID,
+      );
+
+      expect(senGoalMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            current_level: 'Emerging',
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('findAllByPlan — all scope without status filter', () => {
+    it('should return all goals without status filter', async () => {
+      senSupportPlanMock.findFirst.mockResolvedValue({ id: PLAN_ID });
+      senGoalMock.findMany.mockResolvedValue([{ id: GOAL_ID }]);
+
+      const result = await service.findAllByPlan(TENANT_ID, USER_ID, ['sen.admin'], PLAN_ID, {});
+
+      expect(result).toEqual([{ id: GOAL_ID }]);
+      const whereArg = senGoalMock.findMany.mock.calls[0]?.[0]?.where;
+      expect(whereArg?.status).toBeUndefined();
+    });
+  });
 });

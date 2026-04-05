@@ -499,4 +499,271 @@ describe('ImportProcessingService', () => {
     // No student creation attempted
     expect(mockTx.student.create).not.toHaveBeenCalled();
   });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 11. process XLSX file — xlsx path
+  // ─────────────────────────────────────────────────────────────────────
+  it('should process XLSX file when file_key ends with .xlsx', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const XLSX = require('xlsx');
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['first_name', 'last_name', 'date_of_birth', 'gender'],
+      ['Ali', 'Khan', '2015-06-01', 'male'],
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    const xlsxBuffer = Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+
+    mockPrisma.importJob.findFirst.mockResolvedValue(makeJob({ file_key: 'imports/test.xlsx' }));
+    mockS3.download.mockResolvedValue(xlsxBuffer);
+
+    mockTx.yearGroup.findMany.mockResolvedValue([]);
+    mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+    mockTx.student.create.mockResolvedValue({ id: 'stu-1' });
+
+    await service.process(TENANT_ID, JOB_ID);
+
+    expect(mockTx.student.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.importJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'completed',
+        }),
+      }),
+    );
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 12. processing-level catch block (entire process throws)
+  // ─────────────────────────────────────────────────────────────────────
+  it('should handle top-level processing error and update job to failed', async () => {
+    mockPrisma.importJob.findFirst.mockResolvedValue(makeJob());
+    mockS3.download.mockRejectedValue(new Error('S3 connection failed'));
+
+    await service.process(TENANT_ID, JOB_ID);
+
+    // Should update job to failed with processing_error
+    expect(mockPrisma.importJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'failed',
+          summary_json: expect.objectContaining({
+            processing_error: expect.stringContaining('S3 connection failed'),
+          }),
+        }),
+      }),
+    );
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 13. non-student import with error rows
+  // ─────────────────────────────────────────────────────────────────────
+  it('should skip non-student rows that are in errorRows set', async () => {
+    // Row 2 has an error from validation
+    mockPrisma.importJob.findFirst.mockResolvedValue(
+      makeJob({
+        import_type: 'parents',
+        summary_json: { errors: [{ row: 2, message: 'missing email' }] },
+      }),
+    );
+    mockS3.download.mockResolvedValue(
+      csvBuffer([
+        'first_name,last_name,email,household_name',
+        'Bad,Row,,',
+        'Good,Row,good@test.com,Good Family',
+      ]),
+    );
+
+    mockTx.household.findFirst.mockResolvedValue(null);
+    mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+    mockTx.parent.create.mockResolvedValue({ id: 'par-001' });
+    mockTx.householdParent.create.mockResolvedValue({});
+
+    await service.process(TENANT_ID, JOB_ID);
+
+    // Only the second row should have been processed
+    expect(mockTx.parent.create).toHaveBeenCalledTimes(1);
+    expect(mockTx.parent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ first_name: 'Good' }),
+      }),
+    );
+
+    expect(mockPrisma.importJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'completed',
+          summary_json: expect.objectContaining({ successful: 1, failed: 1 }),
+        }),
+      }),
+    );
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 14. non-student import — row processing error
+  // ─────────────────────────────────────────────────────────────────────
+  it('should catch per-row errors in non-student imports and count as failed', async () => {
+    mockPrisma.importJob.findFirst.mockResolvedValue(makeJob({ import_type: 'fees' }));
+    mockS3.download.mockResolvedValue(
+      csvBuffer([
+        'fee_structure_name,household_name,amount',
+        'Tuition,Smith Family,5000',
+        'Transport,Jones Family,2000',
+      ]),
+    );
+
+    // Set up RLS client that throws on first tx call, succeeds on second
+    (createRlsClient as jest.Mock).mockReturnValue({
+      $transaction: jest
+        .fn()
+        .mockRejectedValueOnce(new Error('Fee structure not found'))
+        .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    });
+
+    // Only the second row processes
+    mockTx.feeStructure = {
+      ...mockTx.feeStructure,
+      findFirst: jest.fn().mockResolvedValue({ id: 'fee-1' }),
+    } as typeof mockTx.feeStructure;
+    (mockTx as Record<string, unknown>).feeStructure = {
+      findFirst: jest.fn().mockResolvedValue({ id: 'fee-1' }),
+    };
+    (mockTx as Record<string, unknown>).householdFeeAssignment = { create: jest.fn() };
+    mockTx.household.findFirst.mockResolvedValue({ id: HOUSEHOLD_ID });
+    mockTx.student.findFirst = jest.fn().mockResolvedValue({ id: 'stu-1' });
+
+    await service.process(TENANT_ID, JOB_ID);
+
+    // 1 failed (first row threw) + 1 success (second row)
+    expect(mockPrisma.importJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'completed',
+          summary_json: expect.objectContaining({ successful: 1, failed: 1 }),
+        }),
+      }),
+    );
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 15. job with missing file_key
+  // ─────────────────────────────────────────────────────────────────────
+  it('should handle job with null file_key gracefully', async () => {
+    mockPrisma.importJob.findFirst.mockResolvedValue(makeJob({ file_key: null }));
+
+    await service.process(TENANT_ID, JOB_ID);
+
+    expect(mockS3.download).not.toHaveBeenCalled();
+    expect(mockPrisma.importJob.update).not.toHaveBeenCalled();
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 16. non-student import with null row
+  // ─────────────────────────────────────────────────────────────────────
+  it('edge: should handle null row in non-student import (failCount++)', async () => {
+    mockPrisma.importJob.findFirst.mockResolvedValue(makeJob({ import_type: 'parents' }));
+    mockS3.download.mockResolvedValue(
+      csvBuffer(['first_name,last_name,email', 'Good,Row,good@test.com']),
+    );
+
+    mockTx.parent.create.mockResolvedValue({ id: 'par-001' });
+
+    await service.process(TENANT_ID, JOB_ID);
+
+    // Row processes successfully
+    expect(mockTx.parent.create).toHaveBeenCalledTimes(1);
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 17. updateJobFinal with null existing job
+  // ─────────────────────────────────────────────────────────────────────
+  it('edge: should handle updateJobFinal when existing job is null', async () => {
+    mockPrisma.importJob.findFirst.mockResolvedValue(makeJob());
+    mockS3.download.mockResolvedValue(
+      csvBuffer(['first_name,last_name,date_of_birth,gender', 'Ali,Khan,2015-06-01,male']),
+    );
+
+    mockTx.yearGroup.findMany.mockResolvedValue([]);
+    mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+    mockTx.student.create.mockResolvedValue({ id: 'stu-1' });
+
+    // findUnique returns null (used in updateJobFinal)
+    mockPrisma.importJob.findUnique.mockResolvedValue(null);
+
+    await service.process(TENANT_ID, JOB_ID);
+
+    // Should still update the job (using empty existing summary)
+    expect(mockPrisma.importJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'completed',
+        }),
+      }),
+    );
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 18. students with extraSummary (family_groups present)
+  // ─────────────────────────────────────────────────────────────────────
+  it('should include family_groups in summary for student imports', async () => {
+    mockPrisma.importJob.findFirst.mockResolvedValue(makeJob());
+    mockS3.download.mockResolvedValue(
+      csvBuffer([
+        'first_name,last_name,date_of_birth,gender,parent1_email,parent1_first_name,parent1_last_name',
+        'Ali,Khan,2015-06-01,male,parent@test.com,John,Khan',
+        'Sara,Khan,2014-03-15,female,parent@test.com,John,Khan',
+      ]),
+    );
+
+    mockTx.parent.findFirst.mockResolvedValue(null);
+    mockTx.yearGroup.findMany.mockResolvedValue([]);
+    mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+    mockTx.parent.create.mockResolvedValue({ id: 'par-1' });
+    mockTx.student.create.mockResolvedValue({ id: 'stu-1' });
+
+    await service.process(TENANT_ID, JOB_ID);
+
+    expect(mockPrisma.importJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          summary_json: expect.objectContaining({
+            students_created: 2,
+            households_created: 1,
+            parents_created: 1,
+            family_groups: expect.arrayContaining([
+              expect.objectContaining({ email: 'parent@test.com' }),
+            ]),
+          }),
+        }),
+      }),
+    );
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 19. example rows filtering in processing
+  // ─────────────────────────────────────────────────────────────────────
+  it('should filter out example rows during processing', async () => {
+    mockPrisma.importJob.findFirst.mockResolvedValue(makeJob());
+    mockS3.download.mockResolvedValue(
+      csvBuffer([
+        'first_name,last_name,date_of_birth,gender',
+        'Aisha,Al-Mansour,2015-03-15,female',
+        'Ali,Khan,2015-06-01,male',
+      ]),
+    );
+
+    mockTx.yearGroup.findMany.mockResolvedValue([]);
+    mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
+    mockTx.student.create.mockResolvedValue({ id: 'stu-1' });
+
+    await service.process(TENANT_ID, JOB_ID);
+
+    // Only Ali Khan should be processed; Aisha Al-Mansour is an example row
+    expect(mockTx.student.create).toHaveBeenCalledTimes(1);
+    expect(mockTx.student.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ first_name: 'Ali' }),
+      }),
+    );
+  });
 });

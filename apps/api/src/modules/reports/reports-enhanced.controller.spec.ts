@@ -177,7 +177,12 @@ describe('ReportsEnhancedController', () => {
   // ─── Staff Analytics ──────────────────────────────────────────────────────
 
   it('should call staffAnalytics.staffStudentRatio with tenant_id', async () => {
-    const ratioData = { active_staff: 10, active_students: 200, ratio: '1:20', students_per_teacher: 20 };
+    const ratioData = {
+      active_staff: 10,
+      active_students: 200,
+      ratio: '1:20',
+      students_per_teacher: 20,
+    };
     mockStaffAnalytics.staffStudentRatio.mockResolvedValue(ratioData);
 
     const result = await controller.staffStudentRatio(tenantContext);
@@ -327,5 +332,626 @@ describe('ReportsEnhancedController', () => {
 
     expect(mockBoardReport.listBoardReports).toHaveBeenCalledWith(TENANT_ID, 1, 20);
     expect(result).toEqual(boardList);
+  });
+
+  // ─── Cross-Module Insights ────────────────────────────────────────────
+
+  it('should call crossModuleInsights.attendanceVsGrades', async () => {
+    mockCrossModuleInsights.attendanceVsGrades.mockResolvedValue([]);
+
+    const result = await controller.attendanceVsGrades(tenantContext, {
+      start_date: '2025-01-01',
+      end_date: '2025-12-31',
+    });
+
+    expect(mockCrossModuleInsights.attendanceVsGrades).toHaveBeenCalledWith(
+      TENANT_ID,
+      '2025-01-01',
+      '2025-12-31',
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('should call crossModuleInsights.costPerStudent', async () => {
+    mockCrossModuleInsights.costPerStudent.mockResolvedValue({ cost: 5000 });
+
+    const result = await controller.costPerStudent(tenantContext);
+
+    expect(mockCrossModuleInsights.costPerStudent).toHaveBeenCalledWith(TENANT_ID);
+    expect(result).toEqual({ cost: 5000 });
+  });
+
+  it('should call crossModuleInsights.yearGroupHealthScores', async () => {
+    mockCrossModuleInsights.yearGroupHealthScores.mockResolvedValue([]);
+
+    const result = await controller.yearGroupHealth(tenantContext);
+
+    expect(mockCrossModuleInsights.yearGroupHealthScores).toHaveBeenCalledWith(TENANT_ID);
+    expect(result).toEqual([]);
+  });
+
+  it('should call crossModuleInsights.teacherEffectivenessIndex', async () => {
+    mockCrossModuleInsights.teacherEffectivenessIndex.mockResolvedValue([]);
+
+    const result = await controller.teacherEffectiveness(tenantContext);
+
+    expect(mockCrossModuleInsights.teacherEffectivenessIndex).toHaveBeenCalledWith(TENANT_ID);
+    expect(result).toEqual([]);
+  });
+
+  // ─── Attendance Analytics ─────────────────────────────────────────────
+
+  it('should call attendanceAnalytics.chronicAbsenteeism', async () => {
+    mockAttendanceAnalytics.chronicAbsenteeism.mockResolvedValue([]);
+
+    const result = await controller.chronicAbsenteeism(tenantContext, {
+      threshold: 20,
+      start_date: '2025-01-01',
+      end_date: '2025-12-31',
+    });
+
+    expect(mockAttendanceAnalytics.chronicAbsenteeism).toHaveBeenCalledWith(
+      TENANT_ID,
+      20,
+      '2025-01-01',
+      '2025-12-31',
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('should call attendanceAnalytics.dayOfWeekHeatmap', async () => {
+    mockAttendanceAnalytics.dayOfWeekHeatmap.mockResolvedValue([]);
+
+    const result = await controller.dayOfWeekHeatmap(tenantContext, {
+      start_date: '2025-01-01',
+      end_date: '2025-12-31',
+    });
+
+    expect(mockAttendanceAnalytics.dayOfWeekHeatmap).toHaveBeenCalledWith(
+      TENANT_ID,
+      '2025-01-01',
+      '2025-12-31',
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('should call attendanceAnalytics.teacherMarkingCompliance', async () => {
+    mockAttendanceAnalytics.teacherMarkingCompliance.mockResolvedValue([]);
+
+    const result = await controller.teacherMarkingCompliance(tenantContext);
+
+    expect(mockAttendanceAnalytics.teacherMarkingCompliance).toHaveBeenCalledWith(TENANT_ID);
+    expect(result).toEqual([]);
+  });
+
+  it('should call attendanceAnalytics.attendanceTrends', async () => {
+    mockAttendanceAnalytics.attendanceTrends.mockResolvedValue([]);
+
+    const result = await controller.attendanceTrends(tenantContext, {
+      start_date: '2025-01-01',
+      end_date: '2025-12-31',
+    });
+
+    expect(mockAttendanceAnalytics.attendanceTrends).toHaveBeenCalledWith(
+      TENANT_ID,
+      '2025-01-01',
+      '2025-12-31',
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('should call attendanceAnalytics.excusedVsUnexcused', async () => {
+    mockAttendanceAnalytics.excusedVsUnexcused.mockResolvedValue([]);
+
+    const result = await controller.excusedVsUnexcused(tenantContext, {
+      start_date: '2025-01-01',
+      end_date: '2025-12-31',
+      year_group_id: 'yg-1',
+    });
+
+    expect(mockAttendanceAnalytics.excusedVsUnexcused).toHaveBeenCalledWith(
+      TENANT_ID,
+      '2025-01-01',
+      '2025-12-31',
+      'yg-1',
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('should call attendanceAnalytics.classComparison', async () => {
+    mockAttendanceAnalytics.classComparison.mockResolvedValue([]);
+
+    const result = await controller.classComparison(tenantContext, 'yg-uuid', {
+      start_date: '2025-01-01',
+      end_date: '2025-12-31',
+    });
+
+    expect(mockAttendanceAnalytics.classComparison).toHaveBeenCalledWith(
+      TENANT_ID,
+      'yg-uuid',
+      '2025-01-01',
+      '2025-12-31',
+    );
+    expect(result).toEqual([]);
+  });
+
+  // ─── Grade Analytics ──────────────────────────────────────────────────
+
+  it('should call gradeAnalytics.passFailRates', async () => {
+    mockGradeAnalytics.passFailRates.mockResolvedValue({});
+
+    const result = await controller.passFailRates(tenantContext, {});
+
+    expect(mockGradeAnalytics.passFailRates).toHaveBeenCalledWith(
+      TENANT_ID,
+      undefined,
+      undefined,
+      undefined,
+    );
+    expect(result).toEqual({});
+  });
+
+  it('should call gradeAnalytics.gradeDistribution', async () => {
+    mockGradeAnalytics.gradeDistribution.mockResolvedValue([]);
+
+    const result = await controller.gradeDistribution(tenantContext, {
+      year_group_id: 'yg-1',
+      subject_id: 'sub-1',
+      academic_period_id: 'ap-1',
+    });
+
+    expect(mockGradeAnalytics.gradeDistribution).toHaveBeenCalledWith(
+      TENANT_ID,
+      'yg-1',
+      'sub-1',
+      'ap-1',
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('should call gradeAnalytics.topBottomPerformers', async () => {
+    mockGradeAnalytics.topBottomPerformers.mockResolvedValue([]);
+
+    const result = await controller.topBottomPerformers(tenantContext, {
+      year_group_id: 'yg-1',
+      subject_id: 'sub-1',
+    });
+
+    expect(mockGradeAnalytics.topBottomPerformers).toHaveBeenCalledWith(
+      TENANT_ID,
+      10,
+      'yg-1',
+      'sub-1',
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('should call gradeAnalytics.gradeTrends', async () => {
+    mockGradeAnalytics.gradeTrends.mockResolvedValue([]);
+
+    const result = await controller.gradeTrends(tenantContext, {
+      year_group_id: 'yg-1',
+      subject_id: 'sub-1',
+    });
+
+    expect(mockGradeAnalytics.gradeTrends).toHaveBeenCalledWith(TENANT_ID, 'yg-1', 'sub-1');
+    expect(result).toEqual([]);
+  });
+
+  it('should call gradeAnalytics.subjectDifficulty', async () => {
+    mockGradeAnalytics.subjectDifficulty.mockResolvedValue([]);
+
+    const result = await controller.subjectDifficulty(tenantContext, { year_group_id: 'yg-1' });
+
+    expect(mockGradeAnalytics.subjectDifficulty).toHaveBeenCalledWith(TENANT_ID, 'yg-1');
+    expect(result).toEqual([]);
+  });
+
+  it('should call gradeAnalytics.gpaDistribution', async () => {
+    mockGradeAnalytics.gpaDistribution.mockResolvedValue([]);
+
+    const result = await controller.gpaDistribution(tenantContext, { year_group_id: 'yg-1' });
+
+    expect(mockGradeAnalytics.gpaDistribution).toHaveBeenCalledWith(TENANT_ID, 'yg-1');
+    expect(result).toEqual([]);
+  });
+
+  // ─── Demographics ─────────────────────────────────────────────────────
+
+  it('should call demographics.nationalityBreakdown', async () => {
+    mockDemographics.nationalityBreakdown.mockResolvedValue([]);
+
+    const result = await controller.nationalityBreakdown(tenantContext, { year_group_id: 'yg-1' });
+
+    expect(mockDemographics.nationalityBreakdown).toHaveBeenCalledWith(TENANT_ID, 'yg-1');
+    expect(result).toEqual([]);
+  });
+
+  it('should call demographics.ageDistribution', async () => {
+    mockDemographics.ageDistribution.mockResolvedValue([]);
+
+    const result = await controller.ageDistribution(tenantContext, {});
+
+    expect(mockDemographics.ageDistribution).toHaveBeenCalledWith(TENANT_ID, undefined);
+    expect(result).toEqual([]);
+  });
+
+  it('should call demographics.yearGroupSizes', async () => {
+    mockDemographics.yearGroupSizes.mockResolvedValue([]);
+
+    const result = await controller.yearGroupSizes(tenantContext);
+
+    expect(mockDemographics.yearGroupSizes).toHaveBeenCalledWith(TENANT_ID);
+    expect(result).toEqual([]);
+  });
+
+  it('should call demographics.enrolmentTrends', async () => {
+    mockDemographics.enrolmentTrends.mockResolvedValue([]);
+
+    const result = await controller.enrolmentTrends(tenantContext);
+
+    expect(mockDemographics.enrolmentTrends).toHaveBeenCalledWith(TENANT_ID);
+    expect(result).toEqual([]);
+  });
+
+  it('should call demographics.statusDistribution', async () => {
+    mockDemographics.statusDistribution.mockResolvedValue([]);
+
+    const result = await controller.statusDistribution(tenantContext);
+
+    expect(mockDemographics.statusDistribution).toHaveBeenCalledWith(TENANT_ID);
+    expect(result).toEqual([]);
+  });
+
+  // ─── Admissions Analytics ─────────────────────────────────────────────
+
+  it('should call admissionsAnalytics.pipelineFunnel', async () => {
+    mockAdmissionsAnalytics.pipelineFunnel.mockResolvedValue({});
+
+    const result = await controller.admissionsFunnel(tenantContext, {
+      start_date: '2025-01-01',
+      end_date: '2025-12-31',
+    });
+
+    expect(mockAdmissionsAnalytics.pipelineFunnel).toHaveBeenCalledWith(
+      TENANT_ID,
+      '2025-01-01',
+      '2025-12-31',
+    );
+    expect(result).toEqual({});
+  });
+
+  it('should call admissionsAnalytics.processingTime', async () => {
+    mockAdmissionsAnalytics.processingTime.mockResolvedValue({});
+
+    const result = await controller.admissionsProcessingTime(tenantContext, {
+      start_date: '2025-01-01',
+      end_date: '2025-12-31',
+    });
+
+    expect(mockAdmissionsAnalytics.processingTime).toHaveBeenCalledWith(
+      TENANT_ID,
+      '2025-01-01',
+      '2025-12-31',
+    );
+    expect(result).toEqual({});
+  });
+
+  it('should call admissionsAnalytics.rejectionReasons', async () => {
+    mockAdmissionsAnalytics.rejectionReasons.mockResolvedValue([]);
+
+    const result = await controller.rejectionReasons(tenantContext, {
+      start_date: '2025-01-01',
+      end_date: '2025-12-31',
+    });
+
+    expect(mockAdmissionsAnalytics.rejectionReasons).toHaveBeenCalledWith(
+      TENANT_ID,
+      '2025-01-01',
+      '2025-12-31',
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('should call admissionsAnalytics.monthlyApplications', async () => {
+    mockAdmissionsAnalytics.monthlyApplications.mockResolvedValue([]);
+
+    const result = await controller.monthlyApplications(tenantContext, {
+      start_date: '2025-01-01',
+      end_date: '2025-12-31',
+    });
+
+    expect(mockAdmissionsAnalytics.monthlyApplications).toHaveBeenCalledWith(
+      TENANT_ID,
+      '2025-01-01',
+      '2025-12-31',
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('should call admissionsAnalytics.yearGroupDemand', async () => {
+    mockAdmissionsAnalytics.yearGroupDemand.mockResolvedValue([]);
+
+    const result = await controller.yearGroupDemand(tenantContext, {
+      start_date: '2025-01-01',
+      end_date: '2025-12-31',
+    });
+
+    expect(mockAdmissionsAnalytics.yearGroupDemand).toHaveBeenCalledWith(
+      TENANT_ID,
+      '2025-01-01',
+      '2025-12-31',
+    );
+    expect(result).toEqual([]);
+  });
+
+  // ─── Staff Analytics (remaining endpoints) ───────────────────────────
+
+  it('should call staffAnalytics.tenureDistribution', async () => {
+    mockStaffAnalytics.tenureDistribution.mockResolvedValue([]);
+
+    const result = await controller.tenureDistribution(tenantContext);
+
+    expect(mockStaffAnalytics.tenureDistribution).toHaveBeenCalledWith(TENANT_ID);
+    expect(result).toEqual([]);
+  });
+
+  it('should call staffAnalytics.staffAttendanceRate', async () => {
+    mockStaffAnalytics.staffAttendanceRate.mockResolvedValue({});
+
+    const result = await controller.staffAttendanceRate(tenantContext);
+
+    expect(mockStaffAnalytics.staffAttendanceRate).toHaveBeenCalledWith(TENANT_ID);
+    expect(result).toEqual({});
+  });
+
+  it('should call staffAnalytics.qualificationCoverage', async () => {
+    mockStaffAnalytics.qualificationCoverage.mockResolvedValue([]);
+
+    const result = await controller.qualificationCoverage(tenantContext);
+
+    expect(mockStaffAnalytics.qualificationCoverage).toHaveBeenCalledWith(TENANT_ID);
+    expect(result).toEqual([]);
+  });
+
+  it('should call staffAnalytics.compensationDistribution', async () => {
+    mockStaffAnalytics.compensationDistribution.mockResolvedValue([]);
+
+    const result = await controller.compensationDistribution(tenantContext);
+
+    expect(mockStaffAnalytics.compensationDistribution).toHaveBeenCalledWith(TENANT_ID);
+    expect(result).toEqual([]);
+  });
+
+  // ─── Custom Report Builder (remaining endpoints) ─────────────────────
+
+  it('should call customReportBuilder.getSavedReport', async () => {
+    mockCustomReportBuilder.getSavedReport.mockResolvedValue({ id: 'r-1' });
+
+    const result = await controller.getSavedReport(tenantContext, 'r-1');
+
+    expect(mockCustomReportBuilder.getSavedReport).toHaveBeenCalledWith(TENANT_ID, 'r-1');
+    expect(result).toEqual({ id: 'r-1' });
+  });
+
+  it('should call customReportBuilder.createSavedReport', async () => {
+    mockCustomReportBuilder.createSavedReport.mockResolvedValue({ id: 'r-1' });
+
+    const body = { name: 'My Report', config_json: {} as Record<string, unknown> };
+    const result = await controller.createSavedReport(tenantContext, userPayload, body);
+
+    expect(mockCustomReportBuilder.createSavedReport).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      body,
+    );
+    expect(result).toEqual({ id: 'r-1' });
+  });
+
+  it('should call customReportBuilder.updateSavedReport', async () => {
+    mockCustomReportBuilder.updateSavedReport.mockResolvedValue({ id: 'r-1' });
+
+    const body = { name: 'Updated Report' };
+    const result = await controller.updateSavedReport(tenantContext, 'r-1', body);
+
+    expect(mockCustomReportBuilder.updateSavedReport).toHaveBeenCalledWith(TENANT_ID, 'r-1', body);
+    expect(result).toEqual({ id: 'r-1' });
+  });
+
+  it('should call customReportBuilder.deleteSavedReport', async () => {
+    mockCustomReportBuilder.deleteSavedReport.mockResolvedValue(undefined);
+
+    await controller.deleteSavedReport(tenantContext, 'r-1');
+
+    expect(mockCustomReportBuilder.deleteSavedReport).toHaveBeenCalledWith(TENANT_ID, 'r-1');
+  });
+
+  it('should call customReportBuilder.executeReport', async () => {
+    mockCustomReportBuilder.executeReport.mockResolvedValue({ data: [], meta: {} });
+
+    const result = await controller.executeReport(tenantContext, 'r-1', {
+      page: 2,
+      pageSize: 10,
+    });
+
+    expect(mockCustomReportBuilder.executeReport).toHaveBeenCalledWith(TENANT_ID, 'r-1', 2, 10);
+    expect(result).toEqual({ data: [], meta: {} });
+  });
+
+  // ─── Board Reports (remaining endpoints) ─────────────────────────────
+
+  it('should call boardReport.getBoardReport', async () => {
+    mockBoardReport.getBoardReport.mockResolvedValue({ id: 'br-1' });
+
+    const result = await controller.getBoardReport(tenantContext, 'br-1');
+
+    expect(mockBoardReport.getBoardReport).toHaveBeenCalledWith(TENANT_ID, 'br-1');
+    expect(result).toEqual({ id: 'br-1' });
+  });
+
+  it('should call boardReport.generateBoardReport', async () => {
+    mockBoardReport.generateBoardReport.mockResolvedValue({ id: 'br-1' });
+
+    const body = { title: 'Q1 Board Report', sections_json: [] as unknown[] };
+    const result = await controller.generateBoardReport(tenantContext, userPayload, body);
+
+    expect(mockBoardReport.generateBoardReport).toHaveBeenCalledWith(TENANT_ID, USER_ID, body);
+    expect(result).toEqual({ id: 'br-1' });
+  });
+
+  it('should call boardReport.deleteBoardReport', async () => {
+    mockBoardReport.deleteBoardReport.mockResolvedValue(undefined);
+
+    await controller.deleteBoardReport(tenantContext, 'br-1');
+
+    expect(mockBoardReport.deleteBoardReport).toHaveBeenCalledWith(TENANT_ID, 'br-1');
+  });
+
+  // ─── Compliance (remaining endpoints) ─────────────────────────────────
+
+  it('should call complianceReport.getTemplate', async () => {
+    mockComplianceReport.getTemplate.mockResolvedValue({ id: 'tmpl-1' });
+
+    const result = await controller.getComplianceTemplate(tenantContext, 'tmpl-1');
+
+    expect(mockComplianceReport.getTemplate).toHaveBeenCalledWith(TENANT_ID, 'tmpl-1');
+    expect(result).toEqual({ id: 'tmpl-1' });
+  });
+
+  it('should call complianceReport.createTemplate', async () => {
+    mockComplianceReport.createTemplate.mockResolvedValue({ id: 'tmpl-1' });
+
+    const body = { name: 'DES Ireland', sections_json: [] as unknown[] };
+    const result = await controller.createComplianceTemplate(tenantContext, body);
+
+    expect(mockComplianceReport.createTemplate).toHaveBeenCalledWith(TENANT_ID, body);
+    expect(result).toEqual({ id: 'tmpl-1' });
+  });
+
+  it('should call complianceReport.updateTemplate', async () => {
+    mockComplianceReport.updateTemplate.mockResolvedValue({ id: 'tmpl-1' });
+
+    const body = { name: 'Updated Template' };
+    const result = await controller.updateComplianceTemplate(tenantContext, 'tmpl-1', body);
+
+    expect(mockComplianceReport.updateTemplate).toHaveBeenCalledWith(TENANT_ID, 'tmpl-1', body);
+    expect(result).toEqual({ id: 'tmpl-1' });
+  });
+
+  it('should call complianceReport.deleteTemplate', async () => {
+    mockComplianceReport.deleteTemplate.mockResolvedValue(undefined);
+
+    await controller.deleteComplianceTemplate(tenantContext, 'tmpl-1');
+
+    expect(mockComplianceReport.deleteTemplate).toHaveBeenCalledWith(TENANT_ID, 'tmpl-1');
+  });
+
+  it('should call complianceReport.autoPopulate', async () => {
+    mockComplianceReport.autoPopulate.mockResolvedValue({ populated: true });
+
+    const result = await controller.populateComplianceReport(tenantContext, 'tmpl-1');
+
+    expect(mockComplianceReport.autoPopulate).toHaveBeenCalledWith(TENANT_ID, 'tmpl-1');
+    expect(result).toEqual({ populated: true });
+  });
+
+  // ─── Scheduled Reports (remaining endpoints) ─────────────────────────
+
+  it('should call scheduledReports.get', async () => {
+    mockScheduledReports.get.mockResolvedValue({ id: 'sr-1' });
+
+    const result = await controller.getScheduledReport(tenantContext, 'sr-1');
+
+    expect(mockScheduledReports.get).toHaveBeenCalledWith(TENANT_ID, 'sr-1');
+    expect(result).toEqual({ id: 'sr-1' });
+  });
+
+  it('should call scheduledReports.create', async () => {
+    mockScheduledReports.create.mockResolvedValue({ id: 'sr-1' });
+
+    const body = {
+      name: 'Weekly Report',
+      schedule_cron: '0 9 * * 1',
+      report_config_json: {} as Record<string, unknown>,
+    };
+    const result = await controller.createScheduledReport(tenantContext, userPayload, body);
+
+    expect(mockScheduledReports.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, body);
+    expect(result).toEqual({ id: 'sr-1' });
+  });
+
+  it('should call scheduledReports.update', async () => {
+    mockScheduledReports.update.mockResolvedValue({ id: 'sr-1' });
+
+    const body = { name: 'Updated Schedule' };
+    const result = await controller.updateScheduledReport(tenantContext, 'sr-1', body);
+
+    expect(mockScheduledReports.update).toHaveBeenCalledWith(TENANT_ID, 'sr-1', body);
+    expect(result).toEqual({ id: 'sr-1' });
+  });
+
+  it('should call scheduledReports.delete', async () => {
+    mockScheduledReports.delete.mockResolvedValue(undefined);
+
+    await controller.deleteScheduledReport(tenantContext, 'sr-1');
+
+    expect(mockScheduledReports.delete).toHaveBeenCalledWith(TENANT_ID, 'sr-1');
+  });
+
+  it('should call scheduledReports.list', async () => {
+    mockScheduledReports.list.mockResolvedValue({
+      data: [],
+      meta: { page: 1, pageSize: 20, total: 0 },
+    });
+
+    const result = await controller.listScheduledReports(tenantContext, { page: 1, pageSize: 20 });
+
+    expect(mockScheduledReports.list).toHaveBeenCalledWith(TENANT_ID, 1, 20);
+    expect(result).toEqual({ data: [], meta: { page: 1, pageSize: 20, total: 0 } });
+  });
+
+  // ─── Report Alerts (remaining endpoints) ──────────────────────────────
+
+  it('should call reportAlerts.get', async () => {
+    mockReportAlerts.get.mockResolvedValue({ id: 'alert-1' });
+
+    const result = await controller.getReportAlert(tenantContext, 'alert-1');
+
+    expect(mockReportAlerts.get).toHaveBeenCalledWith(TENANT_ID, 'alert-1');
+    expect(result).toEqual({ id: 'alert-1' });
+  });
+
+  it('should call reportAlerts.update', async () => {
+    mockReportAlerts.update.mockResolvedValue({ id: 'alert-1' });
+
+    const body = { name: 'Updated Alert' };
+    const result = await controller.updateReportAlert(tenantContext, 'alert-1', body);
+
+    expect(mockReportAlerts.update).toHaveBeenCalledWith(TENANT_ID, 'alert-1', body);
+    expect(result).toEqual({ id: 'alert-1' });
+  });
+
+  it('should call reportAlerts.delete', async () => {
+    mockReportAlerts.delete.mockResolvedValue(undefined);
+
+    await controller.deleteReportAlert(tenantContext, 'alert-1');
+
+    expect(mockReportAlerts.delete).toHaveBeenCalledWith(TENANT_ID, 'alert-1');
+  });
+
+  // ─── Export ───────────────────────────────────────────────────────────
+
+  it('should call reportExport.generateFormattedExcel with body data and config', async () => {
+    const buffer = Buffer.from('xlsx-content');
+    mockReportExport.generateFormattedExcel.mockResolvedValue(buffer);
+
+    const body = {
+      data: [{ name: 'Alice', score: 90 }],
+      config: { title: 'Student Report', school_name: 'Test School', date_range: '2025 Q1' },
+    };
+    const result = await controller.exportExcel({}, body);
+
+    expect(mockReportExport.generateFormattedExcel).toHaveBeenCalledWith(body.data, body.config);
+    expect(result).toEqual(buffer);
   });
 });

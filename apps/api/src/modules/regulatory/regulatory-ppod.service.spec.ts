@@ -120,6 +120,7 @@ describe('RegulatoryPpodService', () => {
       groupBy: jest.Mock;
       findMany: jest.Mock;
       findFirst: jest.Mock;
+      count: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
     };
@@ -146,6 +147,7 @@ describe('RegulatoryPpodService', () => {
         groupBy: jest.fn().mockResolvedValue([]),
         findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(0),
         create: jest.fn().mockResolvedValue({ id: MAPPING_ID }),
         update: jest.fn().mockResolvedValue({ id: MAPPING_ID }),
       },
@@ -912,6 +914,655 @@ describe('RegulatoryPpodService', () => {
 
       expect(newEntries).toHaveLength(1);
       expect(changedEntries).toHaveLength(1);
+    });
+  });
+
+  // ─── syncSingleStudent — additional branches ──────────────────────────────
+
+  describe('RegulatoryPpodService — syncSingleStudent additional branches', () => {
+    it('should throw NotFoundException when no mapping found', async () => {
+      mockPrisma.ppodStudentMapping.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.syncSingleStudent(TENANT_ID, STUDENT_ID, USER_ID, PodDatabaseType.ppod),
+      ).rejects.toThrow();
+    });
+
+    it('should return unchanged when hash matches', async () => {
+      // To get a hash-match, we need to compute what the service would compute.
+      // Instead, we force the stored hash to match the computed hash by having the
+      // service compute it first via calculateDiff, then use that hash.
+      // But simpler: mock findFirst to return a mapping whose last_sync_hash
+      // equals the actual computed hash. We do this by first running calculateDiff.
+
+      // Since we can't easily predict the hash, we use a trick:
+      // call the service to get the hash for MOCK_STUDENT, then set last_sync_hash to that.
+      mockPrisma.ppodStudentMapping.findMany.mockResolvedValue([
+        { ...MOCK_MAPPING, last_sync_hash: null, student: MOCK_STUDENT },
+      ]);
+
+      const diff = await service.calculateDiff(TENANT_ID, PodDatabaseType.ppod);
+      const computedHash = diff[0]!.current_hash;
+
+      // Now test syncSingleStudent with this matching hash
+      mockPrisma.ppodStudentMapping.findFirst.mockResolvedValue({
+        ...MOCK_MAPPING,
+        last_sync_hash: computedHash,
+        student: MOCK_STUDENT,
+      });
+
+      const result = await service.syncSingleStudent(
+        TENANT_ID,
+        STUDENT_ID,
+        USER_ID,
+        PodDatabaseType.ppod,
+      );
+
+      expect(result).toEqual({
+        status: 'unchanged',
+        student_id: STUDENT_ID,
+        mapping_id: MAPPING_ID,
+      });
+      expect(mockTransport.push).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── mapPodToStudent — conditional field branches ─────────────────────────
+
+  describe('RegulatoryPpodService — mapPodToStudent branches (via importFromPpod)', () => {
+    it('should map all optional PodRecord fields to student data', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+
+      const mockTxFull: Record<string, Record<string, jest.Mock>> = {
+        ppodSyncLog: {
+          create: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
+          update: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
+        },
+        ppodStudentMapping: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: MAPPING_ID,
+            student_id: STUDENT_ID,
+          }),
+          update: jest.fn().mockResolvedValue({ id: MAPPING_ID }),
+        },
+        student: {
+          update: jest.fn().mockResolvedValue({ id: STUDENT_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTxFull)),
+      });
+
+      const pullResult: PodTransportResult = {
+        success: true,
+        records: [
+          {
+            external_id: 'EXT-ALL',
+            first_name: 'Full',
+            last_name: 'Record',
+            date_of_birth: '2010-06-15',
+            gender: 'Female',
+            nationality: 'Irish',
+            pps_number: '7654321B',
+            enrolment_date: '2023-09-01',
+            leaving_date: '2026-06-30',
+          },
+        ],
+        errors: [],
+      };
+      mockTransport.pull.mockResolvedValue(pullResult);
+
+      const result = (await service.importFromPpod(TENANT_ID, USER_ID, {
+        database_type: 'ppod',
+        file_content: 'test',
+      })) as ImportResult;
+
+      expect(result.records_updated).toBe(1);
+      // Verify all optional fields were mapped (Prisma calls update with a single { where, data } arg)
+      const updateArg = mockTxFull.student.update.mock.calls[0]![0] as {
+        data: Record<string, unknown>;
+      };
+      expect(updateArg.data.date_of_birth).toEqual(new Date('2010-06-15'));
+      expect(updateArg.data.gender).toBe('female'); // Mapped Female → female
+      expect(updateArg.data.nationality).toBe('Irish');
+      expect(updateArg.data.national_id).toBe('7654321B');
+      expect(updateArg.data.entry_date).toEqual(new Date('2023-09-01'));
+      expect(updateArg.data.exit_date).toEqual(new Date('2026-06-30'));
+    });
+
+    it('should handle gender mapping for M/F and Other values', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+
+      const updateCalls: Array<{ data: Record<string, unknown> }> = [];
+      const mockTxGender: Record<string, Record<string, jest.Mock>> = {
+        ppodSyncLog: {
+          create: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
+          update: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
+        },
+        ppodStudentMapping: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: MAPPING_ID,
+            student_id: STUDENT_ID,
+          }),
+          update: jest.fn().mockResolvedValue({ id: MAPPING_ID }),
+        },
+        student: {
+          update: jest.fn().mockImplementation((_args: unknown) => {
+            updateCalls.push(_args as { data: Record<string, unknown> });
+            return Promise.resolve({ id: STUDENT_ID });
+          }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTxGender)),
+      });
+
+      const pullResult: PodTransportResult = {
+        success: true,
+        records: [
+          {
+            external_id: 'EXT-M',
+            first_name: 'Male',
+            last_name: 'Student',
+            date_of_birth: '2010-01-01',
+            gender: 'M',
+          },
+          {
+            external_id: 'EXT-O',
+            first_name: 'Other',
+            last_name: 'Student',
+            date_of_birth: '2010-01-01',
+            gender: 'Other',
+          },
+          {
+            external_id: 'EXT-UNK',
+            first_name: 'Unknown',
+            last_name: 'Student',
+            date_of_birth: '2010-01-01',
+            gender: 'nonbinary', // not in the map → kept as-is
+          },
+        ],
+        errors: [],
+      };
+      mockTransport.pull.mockResolvedValue(pullResult);
+
+      await service.importFromPpod(TENANT_ID, USER_ID, {
+        database_type: 'ppod',
+        file_content: 'test',
+      });
+
+      expect(updateCalls).toHaveLength(3);
+      expect(updateCalls[0]!.data.gender).toBe('male'); // M → male
+      expect(updateCalls[1]!.data.gender).toBe('other'); // Other → other
+      expect(updateCalls[2]!.data.gender).toBe('nonbinary'); // unmapped → kept as-is
+    });
+
+    it('should not set optional fields when they are empty/missing', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+
+      const mockTxMinimal: Record<string, Record<string, jest.Mock>> = {
+        ppodSyncLog: {
+          create: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
+          update: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
+        },
+        ppodStudentMapping: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: MAPPING_ID,
+            student_id: STUDENT_ID,
+          }),
+          update: jest.fn().mockResolvedValue({ id: MAPPING_ID }),
+        },
+        student: {
+          update: jest.fn().mockResolvedValue({ id: STUDENT_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTxMinimal)),
+      });
+
+      // Record with only required fields
+      const pullResult: PodTransportResult = {
+        success: true,
+        records: [
+          {
+            external_id: 'EXT-MIN',
+            first_name: 'Min',
+            last_name: 'Record',
+            date_of_birth: '', // empty
+            gender: '', // empty
+          },
+        ],
+        errors: [],
+      };
+      mockTransport.pull.mockResolvedValue(pullResult);
+
+      await service.importFromPpod(TENANT_ID, USER_ID, {
+        database_type: 'ppod',
+        file_content: 'test',
+      });
+
+      const updateArg = mockTxMinimal.student.update.mock.calls[0]![0] as {
+        data: Record<string, unknown>;
+      };
+      // Only first_name and last_name should be set
+      expect(updateArg.data.first_name).toBe('Min');
+      expect(updateArg.data.last_name).toBe('Record');
+      // Optional fields should not be set
+      expect(updateArg.data.date_of_birth).toBeUndefined();
+      expect(updateArg.data.gender).toBeUndefined();
+      expect(updateArg.data.nationality).toBeUndefined();
+      expect(updateArg.data.national_id).toBeUndefined();
+      expect(updateArg.data.entry_date).toBeUndefined();
+      expect(updateArg.data.exit_date).toBeUndefined();
+    });
+  });
+
+  // ─── mapStudentToPod — conditional field branches ─────────────────────────
+
+  describe('RegulatoryPpodService — mapStudentToPod branches (via calculateDiff)', () => {
+    it('should include all optional fields when student has full data', async () => {
+      mockPrisma.ppodStudentMapping.findMany.mockResolvedValue([
+        { ...MOCK_MAPPING, last_sync_hash: null, student: MOCK_STUDENT },
+      ]);
+
+      const result = (await service.calculateDiff(TENANT_ID, PodDatabaseType.ppod)) as DiffEntry[];
+
+      expect(result).toHaveLength(1);
+      const record = result[0]!.record!;
+      expect(record.external_id).toBe('STU-001'); // uses student_number
+      expect(record.nationality).toBe('Irish');
+      expect(record.pps_number).toBe('1234567A');
+      expect(record.enrolment_date).toBe('2023-09-01');
+      expect(record.year_group).toBe('1st Year');
+      expect(record.class_group).toBe('1A');
+      expect(record.address_line1).toBe('123 Main St');
+      expect(record.address_city).toBe('Dublin');
+      expect(record.address_eircode).toBe('D01 X1Y2');
+      expect(record.leaving_date).toBeUndefined(); // exit_date is null
+    });
+
+    it('should use student.id as external_id when student_number is null', async () => {
+      const studentNoNumber = {
+        ...MOCK_STUDENT,
+        student_number: null,
+      };
+      mockPrisma.ppodStudentMapping.findMany.mockResolvedValue([
+        { ...MOCK_MAPPING, last_sync_hash: null, student: studentNoNumber },
+      ]);
+
+      const result = (await service.calculateDiff(TENANT_ID, PodDatabaseType.ppod)) as DiffEntry[];
+
+      expect(result[0]!.record!.external_id).toBe(STUDENT_ID);
+    });
+
+    it('should omit optional fields when student data is null', async () => {
+      const minimalStudent = {
+        ...MOCK_STUDENT,
+        student_number: null,
+        national_id: null,
+        nationality: null,
+        entry_date: null,
+        exit_date: null,
+        household: null,
+        year_group: null,
+        homeroom_class: null,
+        gender: null,
+      };
+      mockPrisma.ppodStudentMapping.findMany.mockResolvedValue([
+        { ...MOCK_MAPPING, last_sync_hash: null, student: minimalStudent },
+      ]);
+
+      const result = (await service.calculateDiff(TENANT_ID, PodDatabaseType.ppod)) as DiffEntry[];
+
+      const record = result[0]!.record!;
+      expect(record.external_id).toBe(STUDENT_ID);
+      expect(record.gender).toBe('');
+      expect(record.nationality).toBeUndefined();
+      expect(record.pps_number).toBeUndefined();
+      expect(record.enrolment_date).toBeUndefined();
+      expect(record.year_group).toBeUndefined();
+      expect(record.class_group).toBeUndefined();
+      expect(record.leaving_date).toBeUndefined();
+      expect(record.address_line1).toBeUndefined();
+    });
+
+    it('should include leaving_date when exit_date is set', async () => {
+      const leavingStudent = {
+        ...MOCK_STUDENT,
+        exit_date: new Date('2026-01-15'),
+      };
+      mockPrisma.ppodStudentMapping.findMany.mockResolvedValue([
+        { ...MOCK_MAPPING, last_sync_hash: null, student: leavingStudent },
+      ]);
+
+      const result = (await service.calculateDiff(TENANT_ID, PodDatabaseType.ppod)) as DiffEntry[];
+
+      expect(result[0]!.record!.leaving_date).toBe('2026-01-15');
+    });
+
+    it('should handle household with null sub-fields using null-coalescing', async () => {
+      const studentNullHousehold = {
+        ...MOCK_STUDENT,
+        household: {
+          address_line_1: null,
+          address_line_2: null,
+          city: null,
+          country: null,
+          postal_code: null,
+        },
+      };
+      mockPrisma.ppodStudentMapping.findMany.mockResolvedValue([
+        { ...MOCK_MAPPING, last_sync_hash: null, student: studentNullHousehold },
+      ]);
+
+      const result = (await service.calculateDiff(TENANT_ID, PodDatabaseType.ppod)) as DiffEntry[];
+
+      const record = result[0]!.record!;
+      // null ?? undefined → undefined
+      expect(record.address_line1).toBeUndefined();
+      expect(record.address_line2).toBeUndefined();
+      expect(record.address_city).toBeUndefined();
+      expect(record.address_county).toBeUndefined();
+      expect(record.address_eircode).toBeUndefined();
+    });
+  });
+
+  // ─── buildDataSnapshot — filtering branches ───────────────────────────────
+
+  describe('RegulatoryPpodService — buildDataSnapshot branches (via calculateDiff)', () => {
+    it('should filter out empty and undefined values from snapshot', async () => {
+      const studentSparse = {
+        ...MOCK_STUDENT,
+        national_id: null,
+        nationality: null,
+        household: null,
+        year_group: null,
+        homeroom_class: null,
+      };
+      mockPrisma.ppodStudentMapping.findMany.mockResolvedValue([
+        { ...MOCK_MAPPING, last_sync_hash: null, student: studentSparse },
+      ]);
+
+      const result = (await service.calculateDiff(TENANT_ID, PodDatabaseType.ppod)) as DiffEntry[];
+
+      // The hash should be computed from a snapshot that excludes undefined/empty values
+      expect(result[0]!.current_hash).toBeTruthy();
+      // Ensure the record itself does not have undefined optional fields included
+      const record = result[0]!.record!;
+      expect(record.nationality).toBeUndefined();
+      expect(record.pps_number).toBeUndefined();
+    });
+  });
+
+  // ─── importFromPpod — completed_with_errors status ────────────────────────
+
+  describe('RegulatoryPpodService — importFromPpod completed_with_errors', () => {
+    it('should set completed_with_errors when some records fail and some succeed', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+
+      let _studentFindCallCount = 0;
+      const mockTxMixed: Record<string, Record<string, jest.Mock>> = {
+        ppodSyncLog: {
+          create: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
+          update: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
+        },
+        ppodStudentMapping: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValueOnce({ id: MAPPING_ID, student_id: STUDENT_ID }) // first record: has mapping
+            .mockResolvedValueOnce(null), // second record: no mapping
+          update: jest.fn().mockResolvedValue({ id: MAPPING_ID }),
+          create: jest.fn().mockResolvedValue({ id: 'new-mapping' }),
+        },
+        student: {
+          findFirst: jest.fn().mockImplementation(() => {
+            _studentFindCallCount++;
+            return Promise.resolve(null); // No matching student for second record
+          }),
+          update: jest.fn().mockResolvedValue({ id: STUDENT_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTxMixed)),
+      });
+
+      const pullResult: PodTransportResult = {
+        success: true,
+        records: [
+          {
+            external_id: 'EXT-OK',
+            first_name: 'Good',
+            last_name: 'Student',
+            date_of_birth: '2010-01-01',
+            gender: 'male',
+          },
+          {
+            external_id: 'EXT-FAIL',
+            first_name: 'Missing',
+            last_name: 'Student',
+            date_of_birth: '2010-01-01',
+            gender: 'male',
+          },
+        ],
+        errors: [],
+      };
+      mockTransport.pull.mockResolvedValue(pullResult);
+
+      const result = (await service.importFromPpod(TENANT_ID, USER_ID, {
+        database_type: 'ppod',
+        file_content: 'test',
+      })) as ImportResult;
+
+      // One updated, one failed → completed_with_errors
+      expect(result.records_updated).toBe(1);
+      expect(result.records_failed).toBe(1);
+      // Verify final status was set correctly
+      const updateCall = mockTxMixed.ppodSyncLog.update.mock.calls[0] as unknown[];
+      const updateData = (updateCall[0] as { data: { status: string } }).data;
+      expect(updateData.status).toBe('completed_with_errors');
+    });
+
+    it('edge: should handle non-Error object in catch block', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+
+      const mockTxNonError: Record<string, Record<string, jest.Mock>> = {
+        ppodSyncLog: {
+          create: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
+          update: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
+        },
+        ppodStudentMapping: {
+          findFirst: jest.fn().mockRejectedValue('string error'), // not an Error instance
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTxNonError)),
+      });
+
+      const pullResult: PodTransportResult = {
+        success: true,
+        records: [
+          {
+            external_id: 'EXT-ERR2',
+            first_name: 'String',
+            last_name: 'Error',
+            date_of_birth: '2010-01-01',
+            gender: 'male',
+          },
+        ],
+        errors: [],
+      };
+      mockTransport.pull.mockResolvedValue(pullResult);
+
+      const result = (await service.importFromPpod(TENANT_ID, USER_ID, {
+        database_type: 'ppod',
+        file_content: 'test',
+      })) as ImportResult;
+
+      expect(result.records_failed).toBe(1);
+      expect(result.errors[0]!.message).toBe('Unknown error');
+    });
+  });
+
+  // ─── importFromPpod — skip null record in loop ────────────────────────────
+
+  describe('RegulatoryPpodService — importFromPpod null record guard', () => {
+    it('edge: should skip null/undefined records in parse result', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+
+      const mockTxSkip: Record<string, Record<string, jest.Mock>> = {
+        ppodSyncLog: {
+          create: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
+          update: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
+        },
+        ppodStudentMapping: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: MAPPING_ID,
+            student_id: STUDENT_ID,
+          }),
+          update: jest.fn().mockResolvedValue({ id: MAPPING_ID }),
+        },
+        student: {
+          update: jest.fn().mockResolvedValue({ id: STUDENT_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTxSkip)),
+      });
+
+      const pullResult: PodTransportResult = {
+        success: true,
+        records: [
+          // Simulate a sparse array with a null entry
+          undefined as unknown as PodRecord,
+          {
+            external_id: 'EXT-OK',
+            first_name: 'Valid',
+            last_name: 'Student',
+            date_of_birth: '2010-01-01',
+            gender: 'male',
+          },
+        ],
+        errors: [],
+      };
+      mockTransport.pull.mockResolvedValue(pullResult);
+
+      const result = (await service.importFromPpod(TENANT_ID, USER_ID, {
+        database_type: 'ppod',
+        file_content: 'test',
+      })) as ImportResult;
+
+      // Only the valid record should be processed
+      expect(result.records_updated).toBe(1);
+      expect(result.records_failed).toBe(0);
+    });
+  });
+
+  // ─── exportForPpod — entry.record undefined in mapping update ─────────────
+
+  describe('RegulatoryPpodService — exportForPpod data_snapshot branch', () => {
+    it('should handle export where entry.record may be undefined in filter', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+
+      // Setup mappings that will produce changed diff entries
+      mockPrisma.ppodStudentMapping.findMany.mockResolvedValue([
+        { ...MOCK_MAPPING, last_sync_hash: 'old-hash', student: MOCK_STUDENT },
+      ]);
+
+      const mockTxExport = {
+        ppodSyncLog: {
+          create: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
+        },
+        ppodStudentMapping: {
+          update: jest.fn().mockResolvedValue({ id: MAPPING_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTxExport)),
+      });
+
+      const pushResult: PodTransportResult = {
+        success: true,
+        records: [],
+        errors: [],
+        raw_content: undefined, // raw_content is undefined → should default to ''
+      };
+      mockTransport.push.mockResolvedValue(pushResult);
+
+      const result = (await service.exportForPpod(TENANT_ID, USER_ID, {
+        database_type: 'ppod',
+        scope: 'incremental',
+      })) as ExportResult;
+
+      expect(result.csv_content).toBe('');
+      expect(result.records_pushed).toBe(1);
+    });
+  });
+
+  // ─── listMappedStudents ───────────────────────────────────────────────────
+
+  describe('RegulatoryPpodService — listMappedStudents', () => {
+    it('should return paginated mapped students', async () => {
+      mockPrisma.ppodStudentMapping.findMany.mockResolvedValue([
+        {
+          id: MAPPING_ID,
+          student_id: STUDENT_ID,
+          student: {
+            id: STUDENT_ID,
+            first_name: 'John',
+            last_name: 'Doe',
+            student_number: 'STU-001',
+          },
+        },
+      ]);
+      mockPrisma.ppodStudentMapping.count.mockResolvedValue(1);
+
+      const result = await service.listMappedStudents(TENANT_ID, PodDatabaseType.ppod, 1, 20);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
+    });
+
+    it('should handle custom page/pageSize', async () => {
+      mockPrisma.ppodStudentMapping.findMany.mockResolvedValue([]);
+      mockPrisma.ppodStudentMapping.count.mockResolvedValue(50);
+
+      const result = await service.listMappedStudents(TENANT_ID, PodDatabaseType.ppod, 3, 10);
+
+      expect(result.meta).toEqual({ page: 3, pageSize: 10, total: 50 });
+      expect(mockPrisma.ppodStudentMapping.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 20,
+          take: 10,
+        }),
+      );
     });
   });
 

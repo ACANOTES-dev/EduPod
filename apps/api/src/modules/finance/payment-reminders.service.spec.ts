@@ -216,4 +216,77 @@ describe('PaymentRemindersService', () => {
       expect(mockPrisma.invoice.findMany).toHaveBeenCalled();
     });
   });
+
+  // ─── Nullish coalescing branches ───────────────────────────────────────────
+
+  describe('PaymentRemindersService — nullish coalescing defaults', () => {
+    it('should use default dueSoonReminderDays (3) when setting is null', async () => {
+      mockSettingsService.getSettings.mockResolvedValue({
+        finance: {
+          paymentReminderEnabled: true,
+          dueSoonReminderDays: null,
+          reminderChannel: null,
+          finalNoticeAfterDays: null,
+        },
+      });
+      mockPrisma.invoice.findMany.mockResolvedValue([]);
+
+      await service.sendDueSoonReminders(TENANT_ID);
+
+      expect(mockPrisma.invoice.findMany).toHaveBeenCalled();
+    });
+
+    it('should use default reminderChannel (email) when setting is null for overdue', async () => {
+      mockSettingsService.getSettings.mockResolvedValue({
+        finance: {
+          paymentReminderEnabled: true,
+          reminderChannel: null,
+          finalNoticeAfterDays: null,
+        },
+      });
+      mockPrisma.invoice.findMany.mockResolvedValue([{ id: INVOICE_ID, reminders: [] }]);
+      mockPrisma.invoiceReminder.create.mockResolvedValue({ id: 'r1' });
+
+      const count = await service.sendOverdueReminders(TENANT_ID);
+
+      expect(count).toBe(1);
+      expect(mockPrisma.invoiceReminder.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ channel: 'email' }),
+        }),
+      );
+    });
+
+    it('should use default finalNoticeAfterDays (14) when setting is null', async () => {
+      mockSettingsService.getSettings.mockResolvedValue({
+        finance: {
+          paymentReminderEnabled: true,
+          reminderChannel: null,
+          finalNoticeAfterDays: null,
+        },
+      });
+      mockPrisma.invoice.findMany.mockResolvedValue([{ id: INVOICE_ID, reminders: [] }]);
+      mockPrisma.invoiceReminder.create.mockResolvedValue({ id: 'r1' });
+
+      const count = await service.sendFinalNotices(TENANT_ID);
+
+      expect(count).toBe(1);
+    });
+
+    it('should use default reminderChannel (email) when setting is undefined for due soon', async () => {
+      mockSettingsService.getSettings.mockResolvedValue({
+        finance: {
+          paymentReminderEnabled: true,
+          dueSoonReminderDays: undefined,
+          reminderChannel: undefined,
+        },
+      });
+      mockPrisma.invoice.findMany.mockResolvedValue([{ id: INVOICE_ID, reminders: [] }]);
+      mockPrisma.invoiceReminder.create.mockResolvedValue({ id: 'r1' });
+
+      const count = await service.sendDueSoonReminders(TENANT_ID);
+
+      expect(count).toBe(1);
+    });
+  });
 });

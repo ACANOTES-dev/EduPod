@@ -579,3 +579,190 @@ describe('FormTemplatesService — distribute', () => {
     );
   });
 });
+
+// ─── Additional branch coverage ──────────────────────────────────────────────
+
+describe('FormTemplatesService — findAll — consent_type filter', () => {
+  let service: FormTemplatesService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockQueue: { add: jest.Mock };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockQueue = { add: jest.fn() };
+
+    mockRlsTx.engagementFormTemplate.create.mockReset();
+    mockRlsTx.engagementFormTemplate.update.mockReset();
+    mockRlsTx.engagementFormTemplate.delete.mockReset();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        FormTemplatesService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: getQueueToken('engagement'), useValue: mockQueue },
+      ],
+    }).compile();
+
+    service = module.get<FormTemplatesService>(FormTemplatesService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should apply consent_type filter when provided', async () => {
+    mockPrisma.engagementFormTemplate.findMany.mockResolvedValue([]);
+    mockPrisma.engagementFormTemplate.count.mockResolvedValue(0);
+
+    await service.findAll(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+      consent_type: 'annual',
+    });
+
+    expect(mockPrisma.engagementFormTemplate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          consent_type: 'annual',
+        }),
+      }),
+    );
+  });
+
+  it('should apply all three filters at once', async () => {
+    mockPrisma.engagementFormTemplate.findMany.mockResolvedValue([]);
+    mockPrisma.engagementFormTemplate.count.mockResolvedValue(0);
+
+    await service.findAll(TENANT_ID, {
+      page: 1,
+      pageSize: 10,
+      status: 'published',
+      form_type: 'consent_form',
+      consent_type: 'standing',
+    });
+
+    expect(mockPrisma.engagementFormTemplate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: 'published',
+          form_type: 'consent_form',
+          consent_type: 'standing',
+        }),
+      }),
+    );
+  });
+});
+
+describe('FormTemplatesService — update — multiple field conditionals', () => {
+  let service: FormTemplatesService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockQueue: { add: jest.Mock };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockQueue = { add: jest.fn() };
+
+    mockRlsTx.engagementFormTemplate.create.mockReset();
+    mockRlsTx.engagementFormTemplate.update
+      .mockReset()
+      .mockResolvedValue({ ...baseTemplate, name: 'Updated' });
+    mockRlsTx.engagementFormTemplate.delete.mockReset();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        FormTemplatesService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: getQueueToken('engagement'), useValue: mockQueue },
+      ],
+    }).compile();
+
+    service = module.get<FormTemplatesService>(FormTemplatesService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should set all fields when all provided in update DTO', async () => {
+    mockPrisma.engagementFormTemplate.findFirst.mockResolvedValue({ id: TEMPLATE_ID });
+    mockPrisma.engagementFormSubmission.count.mockResolvedValue(0);
+
+    const fullDto = {
+      name: 'New Name',
+      description: 'New Desc',
+      form_type: 'survey' as const,
+      consent_type: 'standing' as const,
+      fields_json: [
+        {
+          id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+          field_key: 'q1',
+          label: { en: 'Question 1' },
+          field_type: 'text' as const,
+          required: false,
+          display_order: 1,
+        },
+      ],
+      requires_signature: false,
+      academic_year_id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+    };
+
+    await service.update(TENANT_ID, TEMPLATE_ID, fullDto);
+
+    expect(mockRlsTx.engagementFormTemplate.update).toHaveBeenCalledWith({
+      where: { id: TEMPLATE_ID },
+      data: expect.objectContaining({
+        name: 'New Name',
+        description: 'New Desc',
+        form_type: 'survey',
+        consent_type: 'standing',
+        fields_json: fullDto.fields_json,
+        requires_signature: false,
+        academic_year_id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      }),
+    });
+  });
+
+  it('should only set fields that are defined in update DTO', async () => {
+    mockPrisma.engagementFormTemplate.findFirst.mockResolvedValue({ id: TEMPLATE_ID });
+    mockPrisma.engagementFormSubmission.count.mockResolvedValue(0);
+
+    await service.update(TENANT_ID, TEMPLATE_ID, { description: 'Only description' });
+
+    expect(mockRlsTx.engagementFormTemplate.update).toHaveBeenCalledWith({
+      where: { id: TEMPLATE_ID },
+      data: { description: 'Only description' },
+    });
+  });
+});
+
+describe('FormTemplatesService — validateTransition — unknown status fallback', () => {
+  let service: FormTemplatesService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockQueue: { add: jest.Mock };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockQueue = { add: jest.fn() };
+
+    mockRlsTx.engagementFormTemplate.create.mockReset();
+    mockRlsTx.engagementFormTemplate.update.mockReset();
+    mockRlsTx.engagementFormTemplate.delete.mockReset();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        FormTemplatesService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: getQueueToken('engagement'), useValue: mockQueue },
+      ],
+    }).compile();
+
+    service = module.get<FormTemplatesService>(FormTemplatesService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('edge: should throw for transition from unknown status (fallback to empty array)', async () => {
+    mockPrisma.engagementFormTemplate.findFirst.mockResolvedValue({
+      id: TEMPLATE_ID,
+      status: 'unknown_status',
+    });
+
+    await expect(service.publish(TENANT_ID, TEMPLATE_ID)).rejects.toThrow(BadRequestException);
+  });
+});

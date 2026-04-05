@@ -737,4 +737,82 @@ describe('SenSupportPlanService', () => {
       expect(updateCall?.data?.review_date).toBeInstanceOf(Date);
     });
   });
+
+  // ─── Additional branch coverage ─────────────────────────────────────────────
+
+  describe('create — default prefix fallback', () => {
+    it('should use default prefix "SSP" when plan_number_prefix is null', async () => {
+      mockSettingsService.getModuleSettings.mockResolvedValue({
+        plan_number_prefix: null,
+        default_review_cycle_weeks: 12,
+      });
+      senProfileMock.findFirst.mockResolvedValue({ id: PROFILE_ID });
+      mockSequenceService.nextNumber.mockResolvedValue('SSP-202603-000001');
+      senSupportPlanMock.create.mockResolvedValue({ id: PLAN_ID });
+
+      await service.create(TENANT_ID, PROFILE_ID, { academic_year_id: 'year-id' }, USER_ID);
+
+      expect(mockSequenceService.nextNumber).toHaveBeenCalledWith(
+        TENANT_ID,
+        'sen_support_plan',
+        mockPrisma,
+        'SSP',
+      );
+    });
+  });
+
+  describe('update — undefined fields remain undefined', () => {
+    it('should pass undefined for fields not in the dto', async () => {
+      senSupportPlanMock.findFirst.mockResolvedValue({ id: PLAN_ID });
+      senSupportPlanMock.update.mockResolvedValue({ id: PLAN_ID });
+
+      await service.update(TENANT_ID, PLAN_ID, {
+        parent_input: 'Only parent input updated',
+      });
+
+      const updateArgs = senSupportPlanMock.update.mock.calls[0]?.[0];
+      expect(updateArgs?.data?.review_date).toBeUndefined();
+      expect(updateArgs?.data?.next_review_date).toBeUndefined();
+      expect(updateArgs?.data?.review_notes).toBeUndefined();
+      expect(updateArgs?.data?.academic_period_id).toBeUndefined();
+    });
+
+    it('should handle academic_period_id set to null', async () => {
+      senSupportPlanMock.findFirst.mockResolvedValue({ id: PLAN_ID });
+      senSupportPlanMock.update.mockResolvedValue({ id: PLAN_ID });
+
+      await service.update(TENANT_ID, PLAN_ID, {
+        academic_period_id: null,
+      });
+
+      expect(senSupportPlanMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            academic_period_id: null,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('transitionStatus — closed without review_notes undefined key', () => {
+    it('should not include review_notes when dto.review_notes is undefined for closed', async () => {
+      senSupportPlanMock.findFirst.mockResolvedValue({
+        id: PLAN_ID,
+        status: 'active',
+      });
+      senSupportPlanMock.update.mockResolvedValue({
+        id: PLAN_ID,
+        status: 'closed',
+      });
+
+      await service.transitionStatus(TENANT_ID, PLAN_ID, { status: 'closed' }, USER_ID);
+
+      const updateData = senSupportPlanMock.update.mock.calls[0]?.[0]?.data;
+      expect(updateData?.status).toBe('closed');
+      expect(updateData?.reviewed_by).toEqual({ connect: { id: USER_ID } });
+      // review_notes should not be set when dto.review_notes is undefined
+      expect('review_notes' in (updateData ?? {})).toBe(false);
+    });
+  });
 });

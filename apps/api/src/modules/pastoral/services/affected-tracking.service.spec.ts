@@ -806,5 +806,389 @@ describe('AffectedTrackingService', () => {
         }),
       );
     });
+
+    it('should apply no extra filters when filters object is empty', async () => {
+      mockRlsTx.criticalIncidentAffected.findMany.mockResolvedValue([]);
+
+      await service.listAffectedPersons(TENANT_ID, INCIDENT_ID, {});
+
+      const callArg = mockRlsTx.criticalIncidentAffected.findMany.mock.calls[0]?.[0] as {
+        where: Record<string, unknown>;
+      };
+      expect(callArg.where.affected_type).toBeUndefined();
+      expect(callArg.where.impact_level).toBeUndefined();
+      expect(callArg.where.support_offered).toBeUndefined();
+    });
+  });
+
+  // ─── Additional branch coverage ──────────────────────────────────────────
+
+  describe('updateAffectedPerson — notes field', () => {
+    it('should update notes when provided in DTO', async () => {
+      const existing = makeAffectedPerson();
+      mockRlsTx.criticalIncidentAffected.findFirst.mockResolvedValue(existing);
+      mockRlsTx.criticalIncidentAffected.update.mockResolvedValue({
+        ...existing,
+        notes: 'Updated notes about this person',
+      });
+
+      const dto: UpdateAffectedPersonDto = {
+        notes: 'Updated notes about this person',
+      };
+
+      const result = await service.updateAffectedPerson(
+        TENANT_ID,
+        AFFECTED_PERSON_ID,
+        USER_ID,
+        dto,
+      );
+
+      expect(result.data).toBeDefined();
+      expect(mockRlsTx.criticalIncidentAffected.update).toHaveBeenCalledWith({
+        where: { id: AFFECTED_PERSON_ID },
+        data: expect.objectContaining({
+          notes: 'Updated notes about this person',
+        }),
+      });
+    });
+
+    it('should handle multiple fields updated simultaneously', async () => {
+      const existing = makeAffectedPerson();
+      mockRlsTx.criticalIncidentAffected.findFirst.mockResolvedValue(existing);
+      mockRlsTx.criticalIncidentAffected.update.mockResolvedValue({
+        ...existing,
+        impact_level: 'indirect',
+        support_offered: true,
+        notes: 'All fields updated',
+      });
+
+      const dto: UpdateAffectedPersonDto = {
+        impact_level: 'indirectly_affected',
+        support_offered: true,
+        notes: 'All fields updated',
+      };
+
+      await service.updateAffectedPerson(TENANT_ID, AFFECTED_PERSON_ID, USER_ID, dto);
+
+      expect(mockRlsTx.criticalIncidentAffected.update).toHaveBeenCalledWith({
+        where: { id: AFFECTED_PERSON_ID },
+        data: {
+          impact_level: 'indirect',
+          support_offered: true,
+          notes: 'All fields updated',
+        },
+      });
+    });
+
+    it('should report changed fields in audit event', async () => {
+      const existing = makeAffectedPerson();
+      mockRlsTx.criticalIncidentAffected.findFirst.mockResolvedValue(existing);
+      mockRlsTx.criticalIncidentAffected.update.mockResolvedValue(existing);
+
+      await service.updateAffectedPerson(TENANT_ID, AFFECTED_PERSON_ID, USER_ID, {
+        impact_level: 'directly_affected',
+        notes: 'test',
+      });
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            changed_fields: expect.arrayContaining(['impact_level', 'notes']),
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('bulkAddAffected — error handling', () => {
+    it('should rethrow non-P2002 errors', async () => {
+      const incident = makeIncident();
+      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
+
+      const genericError = new Error('Some unexpected database error');
+      mockRlsTx.criticalIncidentAffected.create.mockRejectedValue(genericError);
+
+      const persons: AddAffectedPersonDto[] = [
+        {
+          person_type: 'student',
+          student_id: STUDENT_ID,
+          impact_level: 'directly_affected',
+        },
+      ];
+
+      await expect(
+        service.bulkAddAffected(TENANT_ID, INCIDENT_ID, USER_ID, persons),
+      ).rejects.toThrow('Some unexpected database error');
+    });
+
+    it('should record audit event with correct total_attempted count', async () => {
+      const incident = makeIncident();
+      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
+      mockRlsTx.criticalIncidentAffected.create.mockResolvedValue(makeAffectedPerson());
+
+      const persons: AddAffectedPersonDto[] = [
+        { person_type: 'student', student_id: STUDENT_ID, impact_level: 'directly_affected' },
+        { person_type: 'staff', staff_id: STAFF_ID, impact_level: 'indirectly_affected' },
+      ];
+
+      await service.bulkAddAffected(TENANT_ID, INCIDENT_ID, USER_ID, persons);
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'affected_persons_bulk_added',
+          payload: expect.objectContaining({
+            total_attempted: 2,
+            added: 2,
+            skipped: 0,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('addAffectedPerson — staff type validation', () => {
+    it('should set student_id to null for staff type', async () => {
+      const incident = makeIncident();
+      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
+
+      const created = makeAffectedPerson({
+        affected_type: 'staff',
+        student_id: null,
+        staff_profile_id: STAFF_ID,
+      });
+      mockRlsTx.criticalIncidentAffected.create.mockResolvedValue(created);
+
+      const dto: AddAffectedPersonDto = {
+        person_type: 'staff',
+        staff_id: STAFF_ID,
+        impact_level: 'directly_affected',
+      };
+
+      await service.addAffectedPerson(TENANT_ID, INCIDENT_ID, USER_ID, dto);
+
+      expect(mockRlsTx.criticalIncidentAffected.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          student_id: null,
+          staff_profile_id: STAFF_ID,
+        }),
+      });
+    });
+
+    it('should record staff_id as null in audit event for student type', async () => {
+      const incident = makeIncident();
+      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
+      mockRlsTx.student.findFirst.mockResolvedValue({ id: STUDENT_ID, tenant_id: TENANT_ID });
+      mockRlsTx.criticalIncidentAffected.create.mockResolvedValue(makeAffectedPerson());
+
+      const dto: AddAffectedPersonDto = {
+        person_type: 'student',
+        student_id: STUDENT_ID,
+        impact_level: 'directly_affected',
+      };
+
+      await service.addAffectedPerson(TENANT_ID, INCIDENT_ID, USER_ID, dto);
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          student_id: STUDENT_ID,
+          payload: expect.objectContaining({
+            staff_id: null,
+          }),
+        }),
+      );
+    });
+
+    it('should set student_id to null in audit event for staff type', async () => {
+      const incident = makeIncident();
+      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
+      mockRlsTx.criticalIncidentAffected.create.mockResolvedValue(
+        makeAffectedPerson({
+          affected_type: 'staff',
+          student_id: null,
+          staff_profile_id: STAFF_ID,
+        }),
+      );
+
+      const dto: AddAffectedPersonDto = {
+        person_type: 'staff',
+        staff_id: STAFF_ID,
+        impact_level: 'directly_affected',
+      };
+
+      await service.addAffectedPerson(TENANT_ID, INCIDENT_ID, USER_ID, dto);
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          student_id: null,
+        }),
+      );
+    });
+  });
+
+  describe('removeAffectedPerson — audit event details', () => {
+    it('should include person_type in audit event payload', async () => {
+      const existing = makeAffectedPerson({ affected_type: 'staff' });
+      mockRlsTx.criticalIncidentAffected.findFirst.mockResolvedValue(existing);
+      mockRlsTx.criticalIncidentAffected.delete.mockResolvedValue(existing);
+
+      await service.removeAffectedPerson(TENANT_ID, AFFECTED_PERSON_ID, USER_ID, 'Test removal');
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            person_type: 'staff',
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── Branch coverage: addAffectedPerson — impact level fallback ────────────
+
+  describe('addAffectedPerson — impact level mapping', () => {
+    it('should map directly_affected to direct prisma enum', async () => {
+      const incident = { id: INCIDENT_ID, tenant_id: TENANT_ID };
+      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
+      mockRlsTx.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
+      mockRlsTx.criticalIncidentAffected.create.mockResolvedValue(
+        makeAffectedPerson({ impact_level: 'direct' }),
+      );
+
+      await service.addAffectedPerson(TENANT_ID, INCIDENT_ID, USER_ID, {
+        person_type: 'student',
+        student_id: STUDENT_ID,
+        impact_level: 'directly_affected',
+      });
+
+      expect(mockRlsTx.criticalIncidentAffected.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            impact_level: 'direct',
+          }),
+        }),
+      );
+    });
+
+    it('should map indirectly_affected to indirect prisma enum', async () => {
+      const incident = { id: INCIDENT_ID, tenant_id: TENANT_ID };
+      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
+      mockRlsTx.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
+      mockRlsTx.criticalIncidentAffected.create.mockResolvedValue(
+        makeAffectedPerson({ impact_level: 'indirect' }),
+      );
+
+      await service.addAffectedPerson(TENANT_ID, INCIDENT_ID, USER_ID, {
+        person_type: 'student',
+        student_id: STUDENT_ID,
+        impact_level: 'indirectly_affected',
+      });
+
+      expect(mockRlsTx.criticalIncidentAffected.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            impact_level: 'indirect',
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── Branch coverage: listAffectedPersons — impact_level mapping ──────────
+
+  describe('listAffectedPersons — impact_level filter mapping', () => {
+    it('should map directly_affected filter to direct', async () => {
+      mockRlsTx.criticalIncidentAffected.findMany.mockResolvedValue([]);
+
+      await service.listAffectedPersons(TENANT_ID, INCIDENT_ID, {
+        impact_level: 'directly_affected',
+      });
+
+      expect(mockRlsTx.criticalIncidentAffected.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            impact_level: 'direct',
+          }),
+        }),
+      );
+    });
+
+    it('should map indirectly_affected filter to indirect', async () => {
+      mockRlsTx.criticalIncidentAffected.findMany.mockResolvedValue([]);
+
+      await service.listAffectedPersons(TENANT_ID, INCIDENT_ID, {
+        impact_level: 'indirectly_affected',
+      });
+
+      expect(mockRlsTx.criticalIncidentAffected.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            impact_level: 'indirect',
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── Branch coverage: updateAffectedPerson — impact_level mapping ─────────
+
+  describe('updateAffectedPerson — impact_level mapping', () => {
+    it('should map directly_affected to direct in update', async () => {
+      const existing = makeAffectedPerson();
+      mockRlsTx.criticalIncidentAffected.findFirst.mockResolvedValue(existing);
+      mockRlsTx.criticalIncidentAffected.update.mockResolvedValue({
+        ...existing,
+        impact_level: 'direct',
+      });
+
+      await service.updateAffectedPerson(TENANT_ID, AFFECTED_PERSON_ID, USER_ID, {
+        impact_level: 'directly_affected',
+      });
+
+      expect(mockRlsTx.criticalIncidentAffected.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            impact_level: 'direct',
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── Branch coverage: bulkAddAffected — impact_level mapping in bulk ──────
+
+  describe('bulkAddAffected — impact_level mapping', () => {
+    it('should map indirectly_affected to indirect in bulk add', async () => {
+      const incident = { id: INCIDENT_ID, tenant_id: TENANT_ID };
+      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
+      mockRlsTx.criticalIncidentAffected.create.mockResolvedValue(makeAffectedPerson());
+
+      await service.bulkAddAffected(TENANT_ID, INCIDENT_ID, USER_ID, [
+        {
+          person_type: 'student',
+          student_id: STUDENT_ID,
+          impact_level: 'indirectly_affected',
+        },
+      ]);
+
+      expect(mockRlsTx.criticalIncidentAffected.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            impact_level: 'indirect',
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── Branch coverage: getStudentWellbeingFlags — empty results ────────────
+
+  describe('getStudentWellbeingFlags — empty result', () => {
+    it('should return empty data array when no active flags', async () => {
+      mockRlsTx.criticalIncidentAffected.findMany.mockResolvedValue([]);
+
+      const result = await service.getStudentWellbeingFlags(TENANT_ID, STUDENT_ID);
+
+      expect(result.data).toEqual([]);
+    });
   });
 });

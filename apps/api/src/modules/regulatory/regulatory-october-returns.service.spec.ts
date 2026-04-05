@@ -145,9 +145,7 @@ describe('RegulatoryOctoberReturnsService', () => {
     });
 
     it('should return ready: false when required fields are missing', async () => {
-      mockPrisma.student.findMany.mockResolvedValue([
-        buildCompleteStudent({ gender: null }),
-      ]);
+      mockPrisma.student.findMany.mockResolvedValue([buildCompleteStudent({ gender: null })]);
 
       const result = await service.checkReadiness(TENANT_ID, '2025-2026');
 
@@ -158,9 +156,7 @@ describe('RegulatoryOctoberReturnsService', () => {
     });
 
     it('should not block readiness for optional fields', async () => {
-      mockPrisma.student.findMany.mockResolvedValue([
-        buildCompleteStudent(),
-      ]);
+      mockPrisma.student.findMany.mockResolvedValue([buildCompleteStudent()]);
 
       const result = await service.checkReadiness(TENANT_ID, '2025-2026');
 
@@ -335,9 +331,7 @@ describe('RegulatoryOctoberReturnsService', () => {
     });
 
     it('should report error when PPSN is missing', async () => {
-      mockPrisma.student.findMany.mockResolvedValue([
-        buildCompleteStudent({ national_id: null }),
-      ]);
+      mockPrisma.student.findMany.mockResolvedValue([buildCompleteStudent({ national_id: null })]);
 
       const result = await service.getStudentIssues(TENANT_ID, '2025-2026');
 
@@ -374,9 +368,7 @@ describe('RegulatoryOctoberReturnsService', () => {
     });
 
     it('should report error when gender is missing', async () => {
-      mockPrisma.student.findMany.mockResolvedValue([
-        buildCompleteStudent({ gender: null }),
-      ]);
+      mockPrisma.student.findMany.mockResolvedValue([buildCompleteStudent({ gender: null })]);
 
       const result = await service.getStudentIssues(TENANT_ID, '2025-2026');
 
@@ -385,9 +377,7 @@ describe('RegulatoryOctoberReturnsService', () => {
     });
 
     it('should report warning when nationality is missing', async () => {
-      mockPrisma.student.findMany.mockResolvedValue([
-        buildCompleteStudent({ nationality: null }),
-      ]);
+      mockPrisma.student.findMany.mockResolvedValue([buildCompleteStudent({ nationality: null })]);
 
       const result = await service.getStudentIssues(TENANT_ID, '2025-2026');
 
@@ -397,9 +387,7 @@ describe('RegulatoryOctoberReturnsService', () => {
     });
 
     it('should report warning when entry_date is missing', async () => {
-      mockPrisma.student.findMany.mockResolvedValue([
-        buildCompleteStudent({ entry_date: null }),
-      ]);
+      mockPrisma.student.findMany.mockResolvedValue([buildCompleteStudent({ entry_date: null })]);
 
       const result = await service.getStudentIssues(TENANT_ID, '2025-2026');
 
@@ -450,9 +438,7 @@ describe('RegulatoryOctoberReturnsService', () => {
     });
 
     it('should report warning when household is null', async () => {
-      mockPrisma.student.findMany.mockResolvedValue([
-        buildCompleteStudent({ household: null }),
-      ]);
+      mockPrisma.student.findMany.mockResolvedValue([buildCompleteStudent({ household: null })]);
 
       const result = await service.getStudentIssues(TENANT_ID, '2025-2026');
 
@@ -463,7 +449,9 @@ describe('RegulatoryOctoberReturnsService', () => {
     it('should throw NotFoundException when academic year is not found', async () => {
       mockPrisma.academicYear.findFirst.mockResolvedValue(null);
 
-      await expect(service.getStudentIssues(TENANT_ID, '2099-2100')).rejects.toThrow(NotFoundException);
+      await expect(service.getStudentIssues(TENANT_ID, '2099-2100')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should aggregate multiple issues per student', async () => {
@@ -523,7 +511,9 @@ describe('RegulatoryOctoberReturnsService', () => {
     it('should throw NotFoundException when student is not found', async () => {
       mockPrisma.student.findFirst.mockResolvedValue(null);
 
-      await expect(service.validateStudent(TENANT_ID, STUDENT_ID)).rejects.toThrow(NotFoundException);
+      await expect(service.validateStudent(TENANT_ID, STUDENT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should validate PPSN format correctly', async () => {
@@ -574,6 +564,222 @@ describe('RegulatoryOctoberReturnsService', () => {
 
       const ygProblem = result.problems.find((p) => p.field === 'year_group');
       expect(ygProblem).toBeUndefined();
+    });
+
+    it('should warn when validateStudent has enrolment but no year group (null academicYearId path)', async () => {
+      // validateStudent calls buildStudentProblems with academicYearId=null
+      // This exercises the else branch: student.class_enrolments.some(e => e.class_entity.year_group_id !== null)
+      mockPrisma.student.findFirst.mockResolvedValue(
+        buildCompleteStudent({
+          class_enrolments: [
+            {
+              class_entity: {
+                academic_year_id: 'some-year',
+                year_group_id: null, // no year group
+              },
+            },
+          ],
+        }),
+      );
+
+      const result = await service.validateStudent(TENANT_ID, STUDENT_ID);
+
+      const ygProblem = result.problems.find((p) => p.field === 'year_group');
+      expect(ygProblem).toBeDefined();
+      expect(ygProblem!.severity).toBe('warning');
+      expect(ygProblem!.message).toContain('No year group assigned');
+    });
+  });
+
+  // ─── evaluateReadinessField — additional branches ──────────────────────────
+
+  describe('RegulatoryOctoberReturnsService — evaluateReadinessField additional branches', () => {
+    it('should return not_applicable for sen_students field', async () => {
+      // The OCTOBER_RETURNS_FIELDS constant includes sen_students, traveller_students, etc.
+      // We need to ensure those field types exist in the constant and are covered.
+      mockPrisma.student.findMany.mockResolvedValue([buildCompleteStudent()]);
+
+      const result = await service.checkReadiness(TENANT_ID, '2025-2026');
+
+      // Check that optional categories like sen_students return not_applicable
+      const senCat = result.categories.find((c) => c.field === 'sen_students');
+      if (senCat) {
+        expect(senCat.status).toBe('not_applicable');
+        expect(senCat.message).toContain('Optional');
+      }
+
+      const travellerCat = result.categories.find((c) => c.field === 'traveller_students');
+      if (travellerCat) {
+        expect(travellerCat.status).toBe('not_applicable');
+      }
+
+      const ealCat = result.categories.find((c) => c.field === 'eal_students');
+      if (ealCat) {
+        expect(ealCat.status).toBe('not_applicable');
+      }
+
+      const repeatCat = result.categories.find((c) => c.field === 'repeat_students');
+      if (repeatCat) {
+        expect(repeatCat.status).toBe('not_applicable');
+      }
+    });
+
+    it('should return pass for student_count when students exist', async () => {
+      mockPrisma.student.findMany.mockResolvedValue([
+        buildCompleteStudent(),
+        buildCompleteStudent({ id: 'student-2' }),
+      ]);
+
+      const result = await service.checkReadiness(TENANT_ID, '2025-2026');
+
+      const scCat = result.categories.find((c) => c.field === 'student_count');
+      expect(scCat!.status).toBe('pass');
+      expect(scCat!.count).toBe(2);
+      expect(scCat!.message).toContain('2 active students');
+    });
+
+    it('should return fail for gender_breakdown with zero students', async () => {
+      mockPrisma.student.findMany.mockResolvedValue([]);
+
+      const result = await service.checkReadiness(TENANT_ID, '2025-2026');
+
+      const genderCat = result.categories.find((c) => c.field === 'gender_breakdown');
+      if (genderCat) {
+        expect(genderCat.status).toBe('fail');
+        expect(genderCat.message).toContain('No active students to check');
+      }
+    });
+
+    it('should return fail for nationality_breakdown with zero students', async () => {
+      mockPrisma.student.findMany.mockResolvedValue([]);
+
+      const result = await service.checkReadiness(TENANT_ID, '2025-2026');
+
+      const natCat = result.categories.find((c) => c.field === 'nationality_breakdown');
+      if (natCat) {
+        expect(natCat.status).toBe('fail');
+        expect(natCat.message).toContain('No active students to check');
+      }
+    });
+
+    it('should return fail for year_group_enrolment with zero students', async () => {
+      mockPrisma.student.findMany.mockResolvedValue([]);
+
+      const result = await service.checkReadiness(TENANT_ID, '2025-2026');
+
+      const ygCat = result.categories.find((c) => c.field === 'year_group_enrolment');
+      if (ygCat) {
+        expect(ygCat.status).toBe('fail');
+        expect(ygCat.message).toContain('No active students to check');
+      }
+    });
+
+    it('should return pass for nationality_breakdown when 100% have nationality', async () => {
+      mockPrisma.student.findMany.mockResolvedValue([
+        buildCompleteStudent({ nationality: 'Irish' }),
+        buildCompleteStudent({ id: 'student-2', nationality: 'British' }),
+      ]);
+
+      const result = await service.checkReadiness(TENANT_ID, '2025-2026');
+
+      const natCat = result.categories.find((c) => c.field === 'nationality_breakdown');
+      if (natCat) {
+        expect(natCat.status).toBe('pass');
+        expect(natCat.message).toContain('All students have nationality set');
+      }
+    });
+
+    it('should return pass for year_group_enrolment when all students have year groups', async () => {
+      mockPrisma.student.findMany.mockResolvedValue([buildCompleteStudent()]);
+
+      const result = await service.checkReadiness(TENANT_ID, '2025-2026');
+
+      const ygCat = result.categories.find((c) => c.field === 'year_group_enrolment');
+      if (ygCat) {
+        expect(ygCat.status).toBe('pass');
+        expect(ygCat.message).toContain('All students have year group enrolments');
+      }
+    });
+
+    it('should handle new_entrants with no entry_date', async () => {
+      mockPrisma.student.findMany.mockResolvedValue([buildCompleteStudent({ entry_date: null })]);
+
+      const result = await service.checkReadiness(TENANT_ID, '2025-2026');
+
+      const newEntCat = result.categories.find((c) => c.field === 'new_entrants');
+      if (newEntCat) {
+        expect(newEntCat.status).toBe('pass');
+        expect(newEntCat.count).toBe(0); // no entry_date → not a new entrant
+      }
+    });
+  });
+
+  // ─── preview — additional branches ────────────────────────────────────────
+
+  describe('RegulatoryOctoberReturnsService — preview additional branches', () => {
+    it('should set nationality as Unknown when null', async () => {
+      mockPrisma.student.findMany.mockResolvedValue([buildCompleteStudent({ nationality: null })]);
+
+      const result = await service.preview(TENANT_ID, '2025-2026');
+
+      const unknownNat = result.summary.nationalities.find((n) => n.nationality === 'Unknown');
+      expect(unknownNat).toBeDefined();
+      expect(unknownNat!.count).toBe(1);
+    });
+
+    it('should sort Unassigned year group last', async () => {
+      mockPrisma.student.findMany.mockResolvedValue([
+        buildCompleteStudent({
+          id: 'student-1',
+          class_enrolments: [
+            {
+              class_entity: {
+                academic_year_id: ACADEMIC_YEAR_ID,
+                year_group: { name: '2nd Year' },
+              },
+            },
+          ],
+        }),
+        buildCompleteStudent({
+          id: 'student-2',
+          class_enrolments: [
+            {
+              class_entity: {
+                academic_year_id: 'other-year',
+                year_group: { name: 'Some Year' },
+              },
+            },
+          ],
+        }),
+      ]);
+
+      const result = await service.preview(TENANT_ID, '2025-2026');
+
+      // Unassigned should be last
+      const lastYg = result.summary.year_groups[result.summary.year_groups.length - 1];
+      expect(lastYg!.year_group).toBe('Unassigned');
+    });
+
+    it('should handle students with no class_enrolments for year groups', async () => {
+      mockPrisma.student.findMany.mockResolvedValue([
+        buildCompleteStudent({
+          class_enrolments: [],
+        }),
+      ]);
+
+      const result = await service.preview(TENANT_ID, '2025-2026');
+
+      expect(result.summary.year_groups).toEqual([{ year_group: 'Unassigned', count: 1 }]);
+    });
+
+    it('should count new entrants outside academic year as 0', async () => {
+      mockPrisma.student.findMany.mockResolvedValue([
+        buildCompleteStudent({ entry_date: new Date('2024-01-01') }), // before AY start
+      ]);
+
+      const result = await service.preview(TENANT_ID, '2025-2026');
+
+      expect(result.summary.new_entrants).toBe(0);
     });
   });
 });

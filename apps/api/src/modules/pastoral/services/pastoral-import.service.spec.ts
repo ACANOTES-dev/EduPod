@@ -47,9 +47,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -76,7 +74,8 @@ const makeStudentRecord = (overrides: Record<string, unknown> = {}) => ({
 });
 
 function buildCsvBuffer(rows: string[]): Buffer {
-  const header = 'date,student_identifier,category,severity,narrative,actions_taken,follow_up_notes';
+  const header =
+    'date,student_identifier,category,severity,narrative,actions_taken,follow_up_notes';
   return Buffer.from([header, ...rows].join('\n'), 'utf-8');
 }
 
@@ -85,7 +84,8 @@ function buildValidRow(overrides: Partial<Record<string, string>> = {}): string 
   const studentId = overrides.student_identifier ?? 'ENR-001';
   const category = overrides.category ?? 'academic';
   const severity = overrides.severity ?? 'routine';
-  const narrative = overrides.narrative ?? 'Student appears withdrawn in class and not engaging with group work';
+  const narrative =
+    overrides.narrative ?? 'Student appears withdrawn in class and not engaging with group work';
   const actions = overrides.actions_taken ?? 'Spoke with student';
   const followUp = overrides.follow_up_notes ?? 'Monitor';
   return `${date},${studentId},${category},${severity},"${narrative}",${actions},${followUp}`;
@@ -127,8 +127,8 @@ describe('PastoralImportService', () => {
     mockRlsTx.pastoralConcern.findFirst.mockResolvedValue(null);
 
     // Default mock: create returns a concern with id
-    mockRlsTx.pastoralConcern.create.mockImplementation(
-      (args: { data: Record<string, unknown> }) => Promise.resolve({
+    mockRlsTx.pastoralConcern.create.mockImplementation((args: { data: Record<string, unknown> }) =>
+      Promise.resolve({
         id: 'new-concern-id-' + String(Math.random()).slice(2, 8),
         ...args.data,
       }),
@@ -168,7 +168,7 @@ describe('PastoralImportService', () => {
   // ─── 2. Missing required fields produce row-level errors ──────────────────
 
   it('should produce errors for missing required fields', async () => {
-    const csv = buildCsvBuffer([',,,,,,'  ]); // all fields empty
+    const csv = buildCsvBuffer([',,,,,,']); // all fields empty
     const result = await service.validate(TENANT_ID, ACTOR_USER_ID, csv);
 
     expect(result.error_rows).toBe(1);
@@ -240,7 +240,9 @@ describe('PastoralImportService', () => {
 
     expect(result.error_rows).toBe(1);
     expect(result.errors[0]?.field).toBe('category');
-    expect(result.errors[0]?.message).toContain('Child protection records cannot be imported in bulk');
+    expect(result.errors[0]?.message).toContain(
+      'Child protection records cannot be imported in bulk',
+    );
     expect(result.errors[0]?.message).toContain('DLP interface');
   });
 
@@ -352,9 +354,7 @@ describe('PastoralImportService', () => {
   });
 
   it('should throw with code VALIDATION_EXPIRED for expired token', async () => {
-    await expect(
-      service.confirm(TENANT_ID, ACTOR_USER_ID, 'expired-token'),
-    ).rejects.toThrow(
+    await expect(service.confirm(TENANT_ID, ACTOR_USER_ID, 'expired-token')).rejects.toThrow(
       expect.objectContaining({
         response: expect.objectContaining({
           code: 'VALIDATION_EXPIRED',
@@ -397,17 +397,15 @@ describe('PastoralImportService', () => {
   it('should resolve students by name+DOB format', async () => {
     // First call: no match by student_number
     // Second call: match by name+DOB
-    mockRlsTx.student.findFirst
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(makeStudentRecord({
+    mockRlsTx.student.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(
+      makeStudentRecord({
         id: STUDENT_ID_2,
         first_name: 'Jane',
         last_name: 'Smith',
-      }));
+      }),
+    );
 
-    const csv = buildCsvBuffer([
-      buildValidRow({ student_identifier: 'Jane Smith (2012-05-20)' }),
-    ]);
+    const csv = buildCsvBuffer([buildValidRow({ student_identifier: 'Jane Smith (2012-05-20)' })]);
     const result = await service.validate(TENANT_ID, ACTOR_USER_ID, csv);
 
     expect(result.valid_rows).toBe(1);
@@ -470,7 +468,9 @@ describe('PastoralImportService', () => {
     const buffer = service.generateTemplate();
     const content = buffer.toString('utf-8');
 
-    expect(content).toContain('date,student_identifier,category,severity,narrative,actions_taken,follow_up_notes');
+    expect(content).toContain(
+      'date,student_identifier,category,severity,narrative,actions_taken,follow_up_notes',
+    );
     expect(content).toContain('2025-09-15');
     expect(content).toContain('MDAD-S-00001');
     expect(content).toContain('academic');
@@ -503,7 +503,8 @@ describe('PastoralImportService', () => {
   });
 
   it('should handle \\r\\n line endings', async () => {
-    const header = 'date,student_identifier,category,severity,narrative,actions_taken,follow_up_notes';
+    const header =
+      'date,student_identifier,category,severity,narrative,actions_taken,follow_up_notes';
     const row = buildValidRow();
     const content = header + '\r\n' + row + '\r\n';
     const buffer = Buffer.from(content, 'utf-8');
@@ -565,5 +566,184 @@ describe('PastoralImportService', () => {
     expect(result.total_imported).toBe(0);
     expect(result.skipped_duplicates).toBe(1);
     expect(mockRlsTx.pastoralConcern.create).not.toHaveBeenCalled();
+  });
+
+  // ─── Additional branch coverage ──────────────────────────────────────────
+
+  it('should throw BadRequestException when CSV has no header row', async () => {
+    // An empty buffer with no content
+    const emptyBuffer = Buffer.from('', 'utf-8');
+    await expect(service.validate(TENANT_ID, ACTOR_USER_ID, emptyBuffer)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('should throw BadRequestException with INVALID_HEADERS when required column is missing', async () => {
+    const csvMissingColumn = Buffer.from(
+      'date,student_identifier,severity,narrative\n2025-09-15,ENR-001,routine,Test narrative text long enough',
+      'utf-8',
+    );
+    await expect(service.validate(TENANT_ID, ACTOR_USER_ID, csvMissingColumn)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('should produce an error for invalid date format', async () => {
+    const csv = buildCsvBuffer([buildValidRow({ date: 'not-a-date' })]);
+    const result = await service.validate(TENANT_ID, ACTOR_USER_ID, csv);
+
+    expect(result.error_rows).toBe(1);
+    expect(result.errors[0]?.field).toBe('date');
+    expect(result.errors[0]?.message).toContain('Invalid date format');
+  });
+
+  it('should truncate narrative preview to 80 characters with ellipsis', async () => {
+    const longNarrative = 'A'.repeat(100);
+    const csv = buildCsvBuffer([buildValidRow({ narrative: longNarrative })]);
+    const result = await service.validate(TENANT_ID, ACTOR_USER_ID, csv);
+
+    expect(result.valid_rows).toBe(1);
+    expect(result.preview[0]?.narrative_preview).toHaveLength(83); // 80 + '...'
+    expect(result.preview[0]?.narrative_preview).toMatch(/\.\.\.$/);
+  });
+
+  it('should not truncate narrative preview when 80 characters or less', async () => {
+    const shortNarrative = 'A short but valid narrative text for testing';
+    const csv = buildCsvBuffer([buildValidRow({ narrative: shortNarrative })]);
+    const result = await service.validate(TENANT_ID, ACTOR_USER_ID, csv);
+
+    expect(result.valid_rows).toBe(1);
+    expect(result.preview[0]?.narrative_preview).toBe(shortNarrative);
+  });
+
+  it('should use default categories when tenant settings have no pastoral concern_categories', async () => {
+    mockRlsTx.tenantSetting.findUnique.mockResolvedValue({
+      id: 'settings-1',
+      tenant_id: TENANT_ID,
+      settings: {},
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
+
+    const csv = buildCsvBuffer([buildValidRow({ category: 'academic' })]);
+    const result = await service.validate(TENANT_ID, ACTOR_USER_ID, csv);
+
+    // Default categories include 'academic', so this should be valid
+    expect(result.valid_rows).toBe(1);
+  });
+
+  it('should use default categories when tenantSetting record is null', async () => {
+    mockRlsTx.tenantSetting.findUnique.mockResolvedValue(null);
+
+    const csv = buildCsvBuffer([buildValidRow({ category: 'emotional' })]);
+    const result = await service.validate(TENANT_ID, ACTOR_USER_ID, csv);
+
+    expect(result.valid_rows).toBe(1);
+  });
+
+  it('should handle CSV with quoted fields containing commas', async () => {
+    const header =
+      'date,student_identifier,category,severity,narrative,actions_taken,follow_up_notes';
+    const row =
+      '2025-09-15,ENR-001,academic,routine,"Student appears withdrawn, not engaging with group work, and isolated",Spoke with student,Monitor';
+    const csv = Buffer.from([header, row].join('\n'), 'utf-8');
+
+    const result = await service.validate(TENANT_ID, ACTOR_USER_ID, csv);
+
+    expect(result.valid_rows).toBe(1);
+    expect(result.preview[0]?.category).toBe('academic');
+  });
+
+  it('should handle CSV with escaped double quotes inside quoted fields', async () => {
+    const header =
+      'date,student_identifier,category,severity,narrative,actions_taken,follow_up_notes';
+    const row =
+      '2025-09-15,ENR-001,academic,routine,"Student said ""I feel lonely"" during class",Spoke with student,Monitor';
+    const csv = Buffer.from([header, row].join('\n'), 'utf-8');
+
+    const result = await service.validate(TENANT_ID, ACTOR_USER_ID, csv);
+
+    expect(result.valid_rows).toBe(1);
+  });
+
+  it('should skip validation-time duplicates during confirm', async () => {
+    // First call: duplicate at validation time
+    mockRlsTx.pastoralConcern.findFirst.mockResolvedValue({ id: 'existing-concern' });
+
+    const csv = buildCsvBuffer([
+      buildValidRow({ narrative: 'Concern that is already imported text' }),
+    ]);
+    const validation = await service.validate(TENANT_ID, ACTOR_USER_ID, csv);
+    expect(validation.skipped_rows).toBe(1);
+
+    // Now confirm — validation-time duplicates should be skipped
+    const result = await service.confirm(TENANT_ID, ACTOR_USER_ID, validation.validation_token);
+    expect(result.total_imported).toBe(0);
+    expect(result.skipped_duplicates).toBe(1);
+  });
+
+  it('edge: should handle student resolution failure for name+DOB when no match on DOB', async () => {
+    // No match by student_number, no match by name+DOB
+    mockRlsTx.student.findFirst.mockResolvedValue(null);
+
+    const csv = buildCsvBuffer([
+      buildValidRow({ student_identifier: 'Unknown Person (2010-01-01)' }),
+    ]);
+    const result = await service.validate(TENANT_ID, ACTOR_USER_ID, csv);
+
+    expect(result.error_rows).toBe(1);
+    expect(result.errors[0]?.field).toBe('student_identifier');
+    expect(result.errors[0]?.message).toContain('Student not found');
+  });
+
+  it('edge: should return null for student identifier that does not match name+DOB regex', async () => {
+    // No match by student_number, identifier doesn't match name+DOB regex
+    mockRlsTx.student.findFirst.mockResolvedValue(null);
+
+    const csv = buildCsvBuffer([buildValidRow({ student_identifier: 'just-some-text' })]);
+    const result = await service.validate(TENANT_ID, ACTOR_USER_ID, csv);
+
+    expect(result.error_rows).toBe(1);
+    expect(result.errors[0]?.field).toBe('student_identifier');
+  });
+
+  it('should use Tier 2 for a category with auto_tier=2 even with routine severity', async () => {
+    mockRlsTx.tenantSetting.findUnique.mockResolvedValue({
+      id: 'settings-1',
+      tenant_id: TENANT_ID,
+      settings: {
+        pastoral: {
+          concern_categories: [{ key: 'bullying', label: 'Bullying', auto_tier: 2, active: true }],
+        },
+      },
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
+
+    const csv = buildCsvBuffer([buildValidRow({ category: 'bullying', severity: 'routine' })]);
+    const validation = await service.validate(TENANT_ID, ACTOR_USER_ID, csv);
+    await service.confirm(TENANT_ID, ACTOR_USER_ID, validation.validation_token);
+
+    expect(mockRlsTx.pastoralConcern.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ tier: 2 }),
+      }),
+    );
+  });
+
+  it('should handle confirm with actions_taken and follow_up_notes as empty strings', async () => {
+    const csv = buildCsvBuffer([buildValidRow({ actions_taken: '', follow_up_notes: '' })]);
+    const validation = await service.validate(TENANT_ID, ACTOR_USER_ID, csv);
+    const result = await service.confirm(TENANT_ID, ACTOR_USER_ID, validation.validation_token);
+
+    expect(result.total_imported).toBe(1);
+    expect(mockRlsTx.pastoralConcern.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          actions_taken: null,
+          follow_up_suggestion: null,
+        }),
+      }),
+    );
   });
 });

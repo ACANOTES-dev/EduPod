@@ -15,6 +15,7 @@ import {
   MOCK_FACADE_PROVIDERS,
   ClassesReadFacade,
   SchedulesReadFacade,
+  StaffProfileReadFacade,
 } from '../../common/tests/mock-facades';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -509,6 +510,179 @@ describe('AttendanceSessionService', () => {
         start_time: '08:00',
         end_time: '08:45',
       });
+    });
+
+    it('should throw NotFoundException when session does not exist', async () => {
+      mockPrisma.attendanceSession.findFirst.mockResolvedValue(null);
+
+      await expect(service.findOneSession(TENANT_ID, 'non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('findAllSessions — end_date only filter', () => {
+    it('should filter by only end_date when start_date is not provided', async () => {
+      mockPrisma.attendanceSession.findMany.mockResolvedValue([]);
+      mockPrisma.attendanceSession.count.mockResolvedValue(0);
+
+      await service.findAllSessions(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        end_date: '2025-05-31',
+      });
+
+      expect(mockPrisma.attendanceSession.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            session_date: { lte: new Date('2025-05-31') },
+          }),
+        }),
+      );
+    });
+
+    it('should filter by class_id without teacher context', async () => {
+      mockPrisma.attendanceSession.findMany.mockResolvedValue([]);
+      mockPrisma.attendanceSession.count.mockResolvedValue(0);
+
+      await service.findAllSessions(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        class_id: 'class-1',
+      });
+
+      expect(mockPrisma.attendanceSession.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            class_id: 'class-1',
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('createSession — year_group_id null path', () => {
+    it('should pass undefined when class year_group_id is null', async () => {
+      mockClassesFacade.findByIdWithAcademicYear.mockResolvedValue({
+        id: CLASS_ID,
+        year_group_id: null,
+        academic_year: {
+          start_date: new Date('2024-09-01'),
+          end_date: new Date('2025-06-30'),
+        },
+      });
+      mockTx.attendanceSession.findFirst.mockResolvedValue(null);
+      mockTx.attendanceSession.create.mockResolvedValue({ id: 'sess-1' });
+
+      const dto = {
+        class_id: CLASS_ID,
+        session_date: '2025-05-14T00:00:00.000Z', // Wednesday
+      };
+
+      await service.createSession(TENANT_ID, USER_ID, dto, ['attendance.manage']);
+
+      expect(mockClosures.isClosureDate).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.any(Date),
+        CLASS_ID,
+        undefined,
+      );
+    });
+
+    it('should pass year_group_id when class has one', async () => {
+      mockClassesFacade.findByIdWithAcademicYear.mockResolvedValue({
+        id: CLASS_ID,
+        year_group_id: 'yg-1',
+        academic_year: {
+          start_date: new Date('2024-09-01'),
+          end_date: new Date('2025-06-30'),
+        },
+      });
+      mockTx.attendanceSession.findFirst.mockResolvedValue(null);
+      mockTx.attendanceSession.create.mockResolvedValue({ id: 'sess-1' });
+
+      const dto = {
+        class_id: CLASS_ID,
+        session_date: '2025-05-14T00:00:00.000Z',
+      };
+
+      await service.createSession(TENANT_ID, USER_ID, dto, ['attendance.manage']);
+
+      expect(mockClosures.isClosureDate).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.any(Date),
+        CLASS_ID,
+        'yg-1',
+      );
+    });
+  });
+
+  describe('createSession — rethrow non-P2002 error', () => {
+    it('should rethrow non-Prisma errors from the transaction', async () => {
+      mockClassesFacade.findByIdWithAcademicYear.mockResolvedValue({
+        id: CLASS_ID,
+        academic_year: {
+          start_date: new Date('2024-09-01'),
+          end_date: new Date('2025-06-30'),
+        },
+      });
+      mockTx.attendanceSession.findFirst.mockResolvedValue(null);
+      mockTx.attendanceSession.create.mockRejectedValue(new Error('DB connection lost'));
+
+      const dto = {
+        class_id: CLASS_ID,
+        session_date: '2025-05-14T00:00:00.000Z',
+      };
+
+      await expect(
+        service.createSession(TENANT_ID, USER_ID, dto, ['attendance.manage']),
+      ).rejects.toThrow('DB connection lost');
+    });
+  });
+
+  describe('getTeacherDashboard', () => {
+    it('should return formatted schedules and sessions for today', async () => {
+      const mockStaffFacade = {
+        resolveProfileId: jest.fn().mockResolvedValue(STAFF_PROFILE_ID),
+      };
+
+      const localModule = await Test.createTestingModule({
+        providers: [
+          ...MOCK_FACADE_PROVIDERS,
+          AttendanceSessionService,
+          { provide: PrismaService, useValue: mockPrisma },
+          { provide: SettingsService, useValue: mockSettings },
+          { provide: SchoolClosuresService, useValue: mockClosures },
+          { provide: ClassesReadFacade, useValue: mockClassesFacade },
+          { provide: SchedulesReadFacade, useValue: mockSchedulesFacade },
+          { provide: StaffProfileReadFacade, useValue: mockStaffFacade },
+        ],
+      }).compile();
+
+      const localService = localModule.get<AttendanceSessionService>(AttendanceSessionService);
+
+      mockClassesFacade.findClassIdsByStaff.mockResolvedValue(['class-1']);
+      mockSchedulesFacade.findByClassIdsAndWeekday = jest.fn().mockResolvedValue([
+        {
+          id: 'sched-1',
+          class_id: 'class-1',
+          start_time: new Date('2025-05-14T08:00:00.000Z'),
+          end_time: new Date('2025-05-14T08:45:00.000Z'),
+        },
+      ]);
+      mockPrisma.attendanceSession.findMany.mockResolvedValue([
+        { id: 'sess-1', class_entity: { id: 'class-1', name: 'Grade 1A' } },
+      ]);
+
+      const result = await localService.getTeacherDashboard(TENANT_ID, USER_ID);
+
+      expect(result.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(result.schedules).toHaveLength(1);
+      expect(result.schedules[0]).toMatchObject({
+        start_time: '08:00',
+        end_time: '08:45',
+      });
+      expect(result.sessions).toHaveLength(1);
     });
   });
 

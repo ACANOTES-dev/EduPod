@@ -332,4 +332,226 @@ describe('ReportAlertsService', () => {
 
     expect(result.data[0]!.last_triggered_at).toBe('2026-03-15T00:00:00.000Z');
   });
+
+  // ─── Edge: create with active defaulting to true ──────────────────────
+
+  it('edge: should default active to true when not provided in create dto', async () => {
+    const dto = {
+      name: 'Alert No Active',
+      metric: 'attendance_rate' as const,
+      operator: 'lt' as const,
+      threshold: 80,
+      check_frequency: 'daily' as const,
+      notification_recipients_json: ['admin@school.com'],
+      // active is NOT provided, so dto.active ?? true should be used
+    };
+
+    await service.create(TENANT_ID, USER_ID, dto);
+
+    expect(mockTx.reportAlert.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ active: true }),
+      }),
+    );
+  });
+
+  it('edge: should respect active=false when explicitly provided in create dto', async () => {
+    const dto = {
+      name: 'Inactive Alert',
+      metric: 'attendance_rate' as const,
+      operator: 'lt' as const,
+      threshold: 80,
+      check_frequency: 'daily' as const,
+      notification_recipients_json: ['admin@school.com'],
+      active: false,
+    };
+
+    await service.create(TENANT_ID, USER_ID, dto);
+
+    expect(mockTx.reportAlert.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ active: false }),
+      }),
+    );
+  });
+
+  // ─── Edge: update with all optional fields undefined ──────────────────
+
+  it('edge: should send empty data object when all update fields are undefined', async () => {
+    await service.update(TENANT_ID, ALERT_ID, {});
+
+    expect(mockTx.reportAlert.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: ALERT_ID },
+        data: {},
+      }),
+    );
+  });
+
+  it('edge: should spread each defined field in update dto', async () => {
+    const fullDto = {
+      name: 'Full Update',
+      metric: 'collection_rate' as const,
+      operator: 'gt' as const,
+      threshold: 95,
+      check_frequency: 'weekly' as const,
+      notification_recipients_json: ['cfo@school.com'],
+      active: false,
+    };
+
+    await service.update(TENANT_ID, ALERT_ID, fullDto);
+
+    expect(mockTx.reportAlert.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          name: 'Full Update',
+          metric: 'collection_rate',
+          operator: 'gt',
+          threshold: 95,
+          check_frequency: 'weekly',
+          notification_recipients_json: ['cfo@school.com'],
+          active: false,
+        }),
+      }),
+    );
+  });
+
+  // ─── Edge: staff_absence_rate with 0 active staff ─────────────────────
+
+  it('edge: should return 0 for staff_absence_rate when active_staff_count is 0', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, metric: 'staff_absence_rate', threshold: 50, operator: 'gt' },
+    ]);
+    mockUnifiedDashboard.getKpiDashboard.mockResolvedValue({
+      total_students: 100,
+      active_staff_count: 0,
+      attendance_rate: 75,
+      fee_collection_rate: 90,
+      overdue_invoices_count: 5,
+      at_risk_students_count: 3,
+      average_grade: 70,
+      pending_applications: 12,
+      scheduled_classes_today: 10,
+      generated_at: new Date().toISOString(),
+    });
+
+    const results = await service.checkThresholds();
+
+    expect(results[0]!.current_value).toBe(0);
+    expect(results[0]!.triggered).toBe(false);
+  });
+
+  // ─── Edge: checkThresholds updates last_triggered_at ──────────────────
+
+  it('edge: should update last_triggered_at when alert is triggered', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([MOCK_ALERT_DB]);
+
+    await service.checkThresholds();
+
+    // attendance_rate=75 < threshold=80, operator=lt -> triggered
+    expect(mockPrisma.reportAlert.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: ALERT_ID },
+        data: { last_triggered_at: expect.any(Date) },
+      }),
+    );
+  });
+
+  it('edge: should NOT update last_triggered_at when alert is not triggered', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, threshold: 50, operator: 'lt' },
+    ]);
+
+    await service.checkThresholds();
+
+    // attendance_rate=75, threshold=50, lt -> not triggered
+    expect(mockPrisma.reportAlert.update).not.toHaveBeenCalled();
+  });
+
+  // ─── Edge: attendance_rate metric with null kpi ───────────────────────
+
+  it('edge: should return 0 for attendance_rate when kpi returns null', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, metric: 'attendance_rate', threshold: 80, operator: 'lt' },
+    ]);
+    mockUnifiedDashboard.getKpiDashboard.mockResolvedValue({
+      total_students: 100,
+      active_staff_count: 20,
+      attendance_rate: null,
+      fee_collection_rate: null,
+      overdue_invoices_count: 5,
+      at_risk_students_count: 3,
+      average_grade: null,
+      pending_applications: 12,
+      scheduled_classes_today: 10,
+      generated_at: new Date().toISOString(),
+    });
+
+    const results = await service.checkThresholds();
+
+    // attendance_rate is null, ?? 0 -> current_value = 0
+    expect(results[0]!.current_value).toBe(0);
+  });
+
+  it('edge: should return 0 for collection_rate when kpi returns null', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, metric: 'collection_rate', threshold: 80, operator: 'gt' },
+    ]);
+    mockUnifiedDashboard.getKpiDashboard.mockResolvedValue({
+      total_students: 100,
+      active_staff_count: 20,
+      attendance_rate: 75,
+      fee_collection_rate: null,
+      overdue_invoices_count: 5,
+      at_risk_students_count: 3,
+      average_grade: 70,
+      pending_applications: 12,
+      scheduled_classes_today: 10,
+      generated_at: new Date().toISOString(),
+    });
+
+    const results = await service.checkThresholds();
+
+    expect(results[0]!.current_value).toBe(0);
+  });
+
+  it('edge: should return 0 for average_grade when kpi returns null', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, metric: 'average_grade', threshold: 80, operator: 'lt' },
+    ]);
+    mockUnifiedDashboard.getKpiDashboard.mockResolvedValue({
+      total_students: 100,
+      active_staff_count: 20,
+      attendance_rate: 75,
+      fee_collection_rate: 90,
+      overdue_invoices_count: 5,
+      at_risk_students_count: 3,
+      average_grade: null,
+      pending_applications: 12,
+      scheduled_classes_today: 10,
+      generated_at: new Date().toISOString(),
+    });
+
+    const results = await service.checkThresholds();
+
+    expect(results[0]!.current_value).toBe(0);
+  });
+
+  // ─── Edge: pagination offset calculation ──────────────────────────────
+
+  it('edge: should compute correct skip for page 3 with pageSize 10', async () => {
+    mockTx.reportAlert.findMany.mockResolvedValue([]);
+    mockTx.reportAlert.count.mockResolvedValue(0);
+
+    const result = await service.list(TENANT_ID, 3, 10);
+
+    expect(result.meta.page).toBe(3);
+    expect(result.meta.pageSize).toBe(10);
+    expect(mockTx.reportAlert.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 20,
+        take: 10,
+      }),
+    );
+  });
 });

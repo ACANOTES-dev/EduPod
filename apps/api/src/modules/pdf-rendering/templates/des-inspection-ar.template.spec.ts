@@ -102,11 +102,173 @@ describe('renderDesInspectionAr', () => {
     expect(result).toContain('Noto Sans Arabic');
   });
 
-  it('should handle empty SST composition', () => {
+  // ─── Branch coverage: SST composition empty vs populated ──────────────
+
+  it('should render empty message when SST composition is empty', () => {
     const data = { ...DES_DATA, sst_composition: [] };
     const result = renderDesInspectionAr(data, BRANDING);
 
-    expect(typeof result).toBe('string');
-    expect(result.length).toBeGreaterThan(0);
+    expect(result).toContain('لم يتم تكوين الفريق بعد');
+  });
+
+  it('should render SST table when composition is populated', () => {
+    const result = renderDesInspectionAr(DES_DATA, BRANDING);
+
+    expect(result).not.toContain('لم يتم تكوين الفريق بعد');
+    expect(result).toContain('د. فاطمة أحمد');
+  });
+
+  // ─── Branch coverage: logo_url present vs absent ───────────────────────
+
+  it('should render logo when logo_url is provided', () => {
+    const result = renderDesInspectionAr(DES_DATA, BRANDING);
+
+    expect(result).toContain('<img src="https://example.com/logo.png"');
+  });
+
+  it('should not render logo when logo_url is absent', () => {
+    const brandingNoLogo: PdfBranding = { school_name: 'Test', school_name_ar: 'اختبار' };
+    const result = renderDesInspectionAr(DES_DATA, brandingNoLogo);
+
+    expect(result).not.toContain('<img');
+  });
+
+  // ─── Branch coverage: pastoral_care_policy null fields ────────────────
+
+  it('should render policy title when present', () => {
+    const result = renderDesInspectionAr(DES_DATA, BRANDING);
+
+    expect(result).toContain('سياسة الرعاية الرعوية');
+  });
+
+  it('should render dash when policy_title is null', () => {
+    const data = {
+      ...DES_DATA,
+      pastoral_care_policy: { ...DES_DATA.pastoral_care_policy, policy_title: null },
+    };
+    const result = renderDesInspectionAr(data, BRANDING);
+
+    expect(result).toContain('>—</span>');
+  });
+
+  it('should render dash when last_reviewed is null', () => {
+    const data = {
+      ...DES_DATA,
+      pastoral_care_policy: { ...DES_DATA.pastoral_care_policy, last_reviewed: null },
+    };
+    const result = renderDesInspectionAr(data, BRANDING);
+
+    expect(result).toContain('>—</span>');
+  });
+
+  it('should render dash when next_review_due is null', () => {
+    const data = {
+      ...DES_DATA,
+      pastoral_care_policy: { ...DES_DATA.pastoral_care_policy, next_review_due: null },
+    };
+    const result = renderDesInspectionAr(data, BRANDING);
+
+    expect(result).toContain('>—</span>');
+  });
+
+  // ─── Branch coverage: meeting_frequency null fields ───────────────────
+
+  it('should render attendance rate when not null', () => {
+    const result = renderDesInspectionAr(DES_DATA, BRANDING);
+
+    expect(result).toContain('85%');
+  });
+
+  it('should render dash when average_attendance_rate is null', () => {
+    const data = {
+      ...DES_DATA,
+      meeting_frequency: { ...DES_DATA.meeting_frequency, average_attendance_rate: null },
+    };
+    const result = renderDesInspectionAr(data, BRANDING);
+
+    expect(result).toContain('>—</span>');
+  });
+
+  it('should render dash when last_meeting_date is null', () => {
+    const data = {
+      ...DES_DATA,
+      meeting_frequency: { ...DES_DATA.meeting_frequency, last_meeting_date: null },
+    };
+    const result = renderDesInspectionAr(data, BRANDING);
+
+    expect(result).toContain('>—</span>');
+  });
+
+  // ─── Branch coverage: concern_logging by_category empty ───────────────
+
+  it('should not render category table when empty', () => {
+    const data = {
+      ...DES_DATA,
+      concern_logging_activity: { ...DES_DATA.concern_logging_activity, by_category: {} },
+    };
+    const result = renderDesInspectionAr(data, BRANDING);
+
+    // No category rows
+    expect(result).not.toContain('سلوكي');
+  });
+
+  // ─── Branch coverage: referral_pathways.by_type empty ─────────────────
+
+  it('should render referral type table when populated', () => {
+    const result = renderDesInspectionAr(DES_DATA, BRANDING);
+
+    expect(result).toContain('CAMHS');
+  });
+
+  it('should not render referral type table when empty', () => {
+    const data = {
+      ...DES_DATA,
+      referral_pathways: { ...DES_DATA.referral_pathways, by_type: {} },
+    };
+    const result = renderDesInspectionAr(data, BRANDING);
+
+    expect(result).not.toContain('CAMHS');
+  });
+
+  // ─── Branch coverage: totalContinuum > 0 vs 0 ────────────────────────
+
+  it('should render percentages when totalContinuum > 0', () => {
+    const result = renderDesInspectionAr(DES_DATA, BRANDING);
+
+    // total = 25+8+2 = 35; level_1 = 25/35*100 = 71%
+    expect(result).toContain('71%');
+  });
+
+  it('should render 0% when totalContinuum is 0', () => {
+    const data = {
+      ...DES_DATA,
+      continuum_evidence: {
+        level_1_count: 0,
+        level_2_count: 0,
+        level_3_count: 0,
+        coverage_rate: 0,
+      },
+    };
+    const result = renderDesInspectionAr(data, BRANDING);
+
+    expect(result).toContain('>0%</div>');
+  });
+
+  // ─── Branch coverage: default primary_color ────────────────────────────
+
+  it('should use default primary color when not set', () => {
+    const brandingNoColor: PdfBranding = { school_name: 'Test' };
+    const result = renderDesInspectionAr(DES_DATA, brandingNoColor);
+
+    expect(result).toContain('#1e40af');
+  });
+
+  // ─── Branch coverage: school_name_ar fallback ──────────────────────────
+
+  it('should fall back to school_name when school_name_ar is absent', () => {
+    const brandingNoAr: PdfBranding = { school_name: 'Test Academy' };
+    const result = renderDesInspectionAr(DES_DATA, brandingNoAr);
+
+    expect(result).toContain('Test Academy');
   });
 });

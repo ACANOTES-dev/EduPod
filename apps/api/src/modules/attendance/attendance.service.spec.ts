@@ -1447,6 +1447,86 @@ describe('AttendanceService — lockExpiredSessions', () => {
   });
 });
 
+// ─── Delegation method coverage ─────────────────────────────────────────────
+
+describe('AttendanceService — delegation methods', () => {
+  let service: AttendanceService;
+  let mockSessionService: Record<string, jest.Mock>;
+  let mockReportingService: Record<string, jest.Mock>;
+
+  beforeEach(async () => {
+    mockSessionService = {
+      findOneSession: jest.fn().mockResolvedValue({ id: 'sess-1' }),
+      batchGenerateSessions: jest.fn().mockResolvedValue({ created: 1, skipped: 0 }),
+      getTeacherDashboard: jest
+        .fn()
+        .mockResolvedValue({ today: '2026-03-10', schedules: [], sessions: [] }),
+      createSession: jest.fn(),
+      findAllSessions: jest.fn(),
+      cancelSession: jest.fn(),
+      createDefaultPresentRecords: jest.fn(),
+    };
+
+    mockReportingService = {
+      getExceptions: jest.fn().mockResolvedValue({ pending_sessions: [] }),
+      getStudentAttendance: jest.fn().mockResolvedValue({ records: [] }),
+      getParentStudentAttendance: jest.fn().mockResolvedValue({ summaries: [] }),
+    };
+
+    const module: TestingModule = await buildModule(
+      {
+        attendanceSession: { findFirst: jest.fn() },
+        attendanceRecord: { findMany: jest.fn().mockResolvedValue([]) },
+        tenantSetting: { findFirst: jest.fn().mockResolvedValue(null) },
+      },
+      {},
+    );
+
+    service = module.get<AttendanceService>(AttendanceService);
+
+    // Manually override the injected sub-services for delegation tests
+    Object.assign(service as unknown as Record<string, unknown>, {
+      sessionService: mockSessionService,
+      reportingService: mockReportingService,
+    });
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should delegate findOneSession', async () => {
+    await service.findOneSession(TENANT_ID, 'sess-1');
+    expect(mockSessionService.findOneSession).toHaveBeenCalledWith(TENANT_ID, 'sess-1');
+  });
+
+  it('should delegate batchGenerateSessions', async () => {
+    const date = new Date('2026-03-10');
+    await service.batchGenerateSessions(TENANT_ID, date);
+    expect(mockSessionService.batchGenerateSessions).toHaveBeenCalledWith(TENANT_ID, date);
+  });
+
+  it('should delegate getTeacherDashboard', async () => {
+    await service.getTeacherDashboard(TENANT_ID, USER_ID);
+    expect(mockSessionService.getTeacherDashboard).toHaveBeenCalledWith(TENANT_ID, USER_ID);
+  });
+
+  it('should delegate getStudentAttendance', async () => {
+    await service.getStudentAttendance(TENANT_ID, 'student-1', { start_date: '2026-01-01' });
+    expect(mockReportingService.getStudentAttendance).toHaveBeenCalledWith(TENANT_ID, 'student-1', {
+      start_date: '2026-01-01',
+    });
+  });
+
+  it('should delegate getParentStudentAttendance', async () => {
+    await service.getParentStudentAttendance(TENANT_ID, USER_ID, 'student-1', {});
+    expect(mockReportingService.getParentStudentAttendance).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      'student-1',
+      {},
+    );
+  });
+});
+
 // ─── P4: Teacher permissions — class assignment filtering, ForbiddenException ───
 
 describe('AttendanceService — teacher permission filtering', () => {

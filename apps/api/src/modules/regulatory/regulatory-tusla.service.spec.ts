@@ -26,7 +26,7 @@ const mockStudentA = {
 const mockStudentB = {
   id: STUDENT_B,
   first_name: 'Brian',
-  last_name: 'O\'Brien',
+  last_name: "O'Brien",
   student_number: 'STU-002',
   date_of_birth: new Date('2010-06-22'),
   year_group: { id: 'yg-1', name: '1st Year' },
@@ -189,7 +189,7 @@ describe('RegulatoryTuslaService', () => {
       expect(result.total_students).toBe(2);
       expect(result.rows).toHaveLength(2);
 
-      const aliceRow = result.rows.find(r => r.student!.id === STUDENT_A);
+      const aliceRow = result.rows.find((r) => r.student!.id === STUDENT_A);
       expect(aliceRow!.total_absent_days).toBe(2);
       expect(aliceRow!.categories['illness']).toBe(1);
       expect(aliceRow!.categories['unexplained']).toBe(1);
@@ -352,7 +352,12 @@ describe('RegulatoryTuslaService', () => {
         hearing_date: new Date('2025-11-10'),
         created_at: new Date(),
         student: mockStudentA,
-        sanction: { id: SANCTION_ID, sanction_number: 'SNC-001', type: 'expulsion', suspension_days: null },
+        sanction: {
+          id: SANCTION_ID,
+          sanction_number: 'SNC-001',
+          type: 'expulsion',
+          suspension_days: null,
+        },
       };
       mockBehaviourReadFacade.findExclusionCasesForTusla.mockResolvedValue([mockExclusion]);
 
@@ -380,6 +385,235 @@ describe('RegulatoryTuslaService', () => {
           },
         }),
       );
+    });
+
+    it('should pass undefined dateFilter when academic year not provided', async () => {
+      mockBehaviourReadFacade.findExclusionCasesForTusla.mockResolvedValue([]);
+
+      await service.getExpulsions(TENANT_ID);
+
+      expect(mockBehaviourReadFacade.findExclusionCasesForTusla).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({
+          dateFilter: undefined,
+        }),
+      );
+    });
+  });
+
+  // ─── Threshold Monitor — additional branches ────────────────────────────────
+
+  describe('RegulatoryTuslaService — getThresholdMonitor additional branches', () => {
+    it('should filter out students that no longer exist in studentMap', async () => {
+      mockAttendanceReadFacade.groupDailySummariesByStudent.mockResolvedValue([
+        { student_id: STUDENT_A, _count: { student_id: 22 } },
+        { student_id: 'non-existent-id', _count: { student_id: 25 } },
+      ]);
+      // Only return student A; the non-existent student is not in the results
+      mockStudentReadFacade.findManyGeneric.mockResolvedValue([mockStudentA]);
+
+      const result = await service.getThresholdMonitor(TENANT_ID, { threshold_days: 20 });
+
+      // Should only include the student that exists in studentMap
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]!.student!.id).toBe(STUDENT_A);
+    });
+
+    it('should sort results by absent_days descending', async () => {
+      mockAttendanceReadFacade.groupDailySummariesByStudent.mockResolvedValue([
+        { student_id: STUDENT_B, _count: { student_id: 18 } },
+        { student_id: STUDENT_A, _count: { student_id: 25 } },
+      ]);
+      mockStudentReadFacade.findManyGeneric.mockResolvedValue([mockStudentA, mockStudentB]);
+
+      const result = await service.getThresholdMonitor(TENANT_ID, { threshold_days: 20 });
+
+      expect(result.data[0]!.absent_days).toBe(25);
+      expect(result.data[1]!.absent_days).toBe(18);
+    });
+
+    it('should pass no dateFilter when neither start_date nor end_date is provided', async () => {
+      mockAttendanceReadFacade.groupDailySummariesByStudent.mockResolvedValue([]);
+
+      await service.getThresholdMonitor(TENANT_ID, { threshold_days: 20 });
+
+      expect(mockAttendanceReadFacade.groupDailySummariesByStudent).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({
+          dateFilter: undefined,
+        }),
+      );
+    });
+
+    it('should pass partial dateFilter when only start_date is provided', async () => {
+      mockAttendanceReadFacade.groupDailySummariesByStudent.mockResolvedValue([]);
+
+      await service.getThresholdMonitor(TENANT_ID, {
+        threshold_days: 20,
+        start_date: '2025-09-01',
+      });
+
+      expect(mockAttendanceReadFacade.groupDailySummariesByStudent).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({
+          dateFilter: { gte: new Date('2025-09-01') },
+        }),
+      );
+    });
+
+    it('should pass partial dateFilter when only end_date is provided', async () => {
+      mockAttendanceReadFacade.groupDailySummariesByStudent.mockResolvedValue([]);
+
+      await service.getThresholdMonitor(TENANT_ID, {
+        threshold_days: 20,
+        end_date: '2025-12-20',
+      });
+
+      expect(mockAttendanceReadFacade.groupDailySummariesByStudent).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({
+          dateFilter: { lte: new Date('2025-12-20') },
+        }),
+      );
+    });
+  });
+
+  // ─── SAR Generation — additional branches ──────────────────────────────────
+
+  describe('RegulatoryTuslaService — generateSar additional branches', () => {
+    it('should return empty rows when no attendance records exist', async () => {
+      mockAttendanceReadFacade.findRecordsByStatusWithSession.mockResolvedValue([]);
+      mockPrisma.tuslaAbsenceCodeMapping.findMany.mockResolvedValue([]);
+
+      const result = await service.generateSar(TENANT_ID, {
+        academic_year: '2025-2026',
+        period: 1,
+        start_date: '2025-09-01',
+        end_date: '2025-12-20',
+      });
+
+      expect(result.total_students).toBe(0);
+      expect(result.rows).toHaveLength(0);
+      // Students should not have been fetched since studentIds is empty
+      expect(mockStudentReadFacade.findManyGeneric).not.toHaveBeenCalled();
+    });
+
+    it('should filter out rows where student not found in studentMap', async () => {
+      mockAttendanceReadFacade.findRecordsByStatusWithSession.mockResolvedValue([
+        {
+          student_id: 'non-existent-student',
+          status: 'absent_excused',
+          session: { session_date: new Date('2025-10-01') },
+        },
+      ]);
+      mockPrisma.tuslaAbsenceCodeMapping.findMany.mockResolvedValue([
+        { attendance_status: 'absent_excused', tusla_category: 'illness' },
+      ]);
+      // Return empty students list — no match
+      mockStudentReadFacade.findManyGeneric.mockResolvedValue([]);
+
+      const result = await service.generateSar(TENANT_ID, {
+        academic_year: '2025-2026',
+        period: 1,
+        start_date: '2025-09-01',
+        end_date: '2025-12-20',
+      });
+
+      // Row for non-existent student should be filtered out
+      expect(result.total_students).toBe(0);
+      expect(result.rows).toHaveLength(0);
+    });
+
+    it('should use tusla_category mapping from Prisma enum to API string', async () => {
+      mockAttendanceReadFacade.findRecordsByStatusWithSession.mockResolvedValue([
+        {
+          student_id: STUDENT_A,
+          status: 'absent_excused',
+          session: { session_date: new Date('2025-10-01') },
+        },
+      ]);
+      mockPrisma.tuslaAbsenceCodeMapping.findMany.mockResolvedValue([
+        { attendance_status: 'absent_excused', tusla_category: 'urgent_family_reason' },
+      ]);
+      mockStudentReadFacade.findManyGeneric.mockResolvedValue([mockStudentA]);
+
+      const result = await service.generateSar(TENANT_ID, {
+        academic_year: '2025-2026',
+        period: 1,
+        start_date: '2025-09-01',
+        end_date: '2025-12-20',
+      });
+
+      expect(result.rows[0]!.categories['urgent_family_reason']).toBe(1);
+    });
+
+    it('should sort SAR rows by total_absent_days descending', async () => {
+      mockAttendanceReadFacade.findRecordsByStatusWithSession.mockResolvedValue([
+        {
+          student_id: STUDENT_A,
+          status: 'absent_excused',
+          session: { session_date: new Date('2025-10-01') },
+        },
+        {
+          student_id: STUDENT_B,
+          status: 'absent_excused',
+          session: { session_date: new Date('2025-10-01') },
+        },
+        {
+          student_id: STUDENT_B,
+          status: 'absent_excused',
+          session: { session_date: new Date('2025-10-02') },
+        },
+      ]);
+      mockPrisma.tuslaAbsenceCodeMapping.findMany.mockResolvedValue([
+        { attendance_status: 'absent_excused', tusla_category: 'illness' },
+      ]);
+      mockStudentReadFacade.findManyGeneric.mockResolvedValue([mockStudentA, mockStudentB]);
+
+      const result = await service.generateSar(TENANT_ID, {
+        academic_year: '2025-2026',
+        period: 1,
+        start_date: '2025-09-01',
+        end_date: '2025-12-20',
+      });
+
+      // Student B has 2 days, Student A has 1 day → B should be first
+      expect(result.rows[0]!.total_absent_days).toBe(2);
+      expect(result.rows[1]!.total_absent_days).toBe(1);
+    });
+  });
+
+  // ─── Suspensions — additional branches ──────────────────────────────────────
+
+  describe('RegulatoryTuslaService — getSuspensions additional branches', () => {
+    it('should pass undefined dateFilter when academic year not provided', async () => {
+      mockBehaviourReadFacade.findSanctionsForTusla.mockResolvedValue([]);
+
+      await service.getSuspensions(TENANT_ID);
+
+      expect(mockBehaviourReadFacade.findSanctionsForTusla).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({
+          dateFilter: undefined,
+        }),
+      );
+    });
+  });
+
+  // ─── AAR — additional branches ──────────────────────────────────────────────
+
+  describe('RegulatoryTuslaService — generateAar additional branches', () => {
+    it('should count only students with 20+ absent days', async () => {
+      mockStudentReadFacade.count.mockResolvedValue(50);
+      mockAttendanceReadFacade.countDailySummaries.mockResolvedValue(100);
+      mockAttendanceReadFacade.groupDailySummariesByStudent.mockResolvedValue([
+        { student_id: STUDENT_A, _count: { student_id: 25 } }, // >= 20 → counted
+        { student_id: STUDENT_B, _count: { student_id: 15 } }, // < 20 → not counted
+      ]);
+
+      const result = await service.generateAar(TENANT_ID, { academic_year: '2025-2026' });
+
+      expect(result.students_over_20_days).toBe(1); // only Student A
     });
   });
 });

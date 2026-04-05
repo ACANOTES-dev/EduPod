@@ -87,6 +87,40 @@ describe('EngagementAnalyticsController', () => {
 
     expect(mockAnalyticsService.getCalendarEvents).toHaveBeenCalledWith(TENANT_ID, query);
   });
+
+  it('getOverview — calls with empty query', async () => {
+    mockAnalyticsService.getOverview.mockResolvedValue({ summary: {} });
+
+    await controller.getOverview(tenantCtx, {});
+
+    expect(mockAnalyticsService.getOverview).toHaveBeenCalledWith(TENANT_ID, {});
+  });
+
+  it('getCompletionRates — calls with all filter params', async () => {
+    const query = {
+      academic_year_id: '00000000-0000-0000-0000-000000000010',
+      event_type: 'school_trip' as const,
+      date_from: '2026-01-01',
+      date_to: '2026-12-31',
+    };
+    mockAnalyticsService.getCompletionRates.mockResolvedValue({
+      event_type_completion: [],
+      events: [],
+      forms: [],
+    });
+
+    await controller.getCompletionRates(tenantCtx, query);
+
+    expect(mockAnalyticsService.getCompletionRates).toHaveBeenCalledWith(TENANT_ID, query);
+  });
+
+  it('getCalendarEvents — calls with empty query', async () => {
+    mockAnalyticsService.getCalendarEvents.mockResolvedValue({ data: [] });
+
+    await controller.getCalendarEvents(tenantCtx, {});
+
+    expect(mockAnalyticsService.getCalendarEvents).toHaveBeenCalledWith(TENANT_ID, {});
+  });
 });
 
 // ─── Permission denied (guard rejection via HTTP) ──────────────────────────────

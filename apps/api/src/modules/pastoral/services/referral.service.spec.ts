@@ -941,4 +941,174 @@ describe('ReferralService', () => {
       );
     });
   });
+
+  // ─── Branch coverage: list — sort and order defaults/overrides ─────────────
+
+  describe('list — sort/order branches', () => {
+    it('should use custom sort field when provided', async () => {
+      mockRlsTx.pastoralReferral.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralReferral.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { sort: 'submitted_at', order: 'asc', page: 1, pageSize: 20 });
+
+      expect(mockRlsTx.pastoralReferral.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { submitted_at: 'asc' },
+        }),
+      );
+    });
+  });
+
+  // ─── Branch coverage: list — date_from AND date_to combined ────────────────
+
+  describe('list — combined date filter', () => {
+    it('should apply both date_from and date_to simultaneously', async () => {
+      mockRlsTx.pastoralReferral.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralReferral.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, {
+        date_from: '2026-01-01',
+        date_to: '2026-06-30',
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(mockRlsTx.pastoralReferral.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            created_at: {
+              gte: expect.any(Date),
+              lte: expect.any(Date),
+            },
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── Branch coverage: getWaitlist — referral_type filter ───────────────────
+
+  describe('getWaitlist — no filter', () => {
+    it('should return waitlist without referral_type filter', async () => {
+      mockRlsTx.pastoralReferral.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralReferral.count.mockResolvedValue(0);
+
+      const result = await service.getWaitlist(TENANT_ID, { page: 1, pageSize: 20 });
+
+      expect(result.data).toEqual([]);
+      expect(result.meta.total).toBe(0);
+    });
+  });
+
+  // ─── Branch coverage: update — referral_body_name only ─────────────────────
+
+  describe('update — single field updates', () => {
+    it('should update referral_body_name only', async () => {
+      const existing = makeReferral({ status: 'draft' });
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(existing);
+      mockRlsTx.pastoralReferral.update.mockResolvedValue({
+        ...existing,
+        referral_body_name: 'NEPS Dublin',
+      });
+
+      await service.update(TENANT_ID, REFERRAL_ID, { referral_body_name: 'NEPS Dublin' });
+
+      expect(mockRlsTx.pastoralReferral.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { referral_body_name: 'NEPS Dublin' },
+        }),
+      );
+    });
+  });
+
+  // ─── Branch coverage: withdraw — audit event includes reason ───────────────
+
+  describe('withdraw — audit event content', () => {
+    it('should include reason in audit event payload on withdraw', async () => {
+      const existing = makeReferral({ status: 'submitted' });
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(existing);
+      const updated = makeReferral({ status: 'withdrawn' });
+      mockRlsTx.pastoralReferral.update.mockResolvedValue(updated);
+
+      await service.withdraw(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID, {
+        reason: 'No longer needed',
+      });
+
+      expect(mockEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'referral_withdrawn',
+          payload: expect.objectContaining({
+            reason: 'No longer needed',
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── Branch coverage: markRecommendationsImplemented — success ─────────────
+
+  describe('markRecommendationsImplemented — transition event type', () => {
+    it('should use recommendations_implemented event type', async () => {
+      mockRecommendationService.allComplete.mockResolvedValue(true);
+      const existing = makeReferral({ status: 'report_received' });
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(existing);
+      const updated = makeReferral({ status: 'recommendations_implemented' });
+      mockRlsTx.pastoralReferral.update.mockResolvedValue(updated);
+
+      await service.markRecommendationsImplemented(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID);
+
+      expect(mockEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'referral_recommendations_implemented',
+        }),
+      );
+    });
+  });
+
+  // ─── Branch coverage: scheduleAssessment — date conversion ────────────────
+
+  describe('scheduleAssessment — date handling', () => {
+    it('should convert string date to Date object', async () => {
+      const existing = makeReferral({ status: 'acknowledged' });
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(existing);
+      const updated = makeReferral({ status: 'assessment_scheduled' });
+      mockRlsTx.pastoralReferral.update.mockResolvedValue(updated);
+
+      await service.scheduleAssessment(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID, {
+        assessment_scheduled_date: '2026-05-15',
+      });
+
+      expect(mockRlsTx.pastoralReferral.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            assessment_scheduled_date: expect.any(Date),
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── Branch coverage: receiveReport — report_summary passed ────────────────
+
+  describe('receiveReport — data handling', () => {
+    it('should pass report_summary in additional data', async () => {
+      const existing = makeReferral({ status: 'assessment_complete' });
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(existing);
+      const updated = makeReferral({ status: 'report_received' });
+      mockRlsTx.pastoralReferral.update.mockResolvedValue(updated);
+
+      await service.receiveReport(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID, {
+        report_summary: 'Full assessment completed with recommendations',
+      });
+
+      expect(mockRlsTx.pastoralReferral.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            report_summary: 'Full assessment completed with recommendations',
+            report_received_at: expect.any(Date),
+          }),
+        }),
+      );
+    });
+  });
 });

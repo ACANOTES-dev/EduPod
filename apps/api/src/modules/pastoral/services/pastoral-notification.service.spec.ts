@@ -584,5 +584,422 @@ describe('PastoralNotificationService', () => {
       // No further escalation timeout enqueued (chain terminates)
       expect(mockPastoralQueue.add).not.toHaveBeenCalled();
     });
+
+    it('should skip notifications when no recipients resolved for second round', async () => {
+      // All critical recipients are the author, so they get excluded
+      mockConfigFacade.findSettings.mockResolvedValue(
+        makeSettings({
+          notification_recipients: {
+            urgent: [],
+            critical: [AUTHOR_ID],
+          },
+        }),
+      );
+
+      const concern = makeConcern({
+        severity: 'critical',
+        tier: 3,
+        logged_by_user_id: AUTHOR_ID,
+      });
+
+      await service.dispatchSecondRoundCritical(TENANT_ID, concern);
+
+      expect(mockNotificationsService.createBatch).not.toHaveBeenCalled();
+    });
+
+    it('should calculate minutes elapsed in second round payload', async () => {
+      const createdAt = new Date(Date.now() - 45 * 60_000); // 45 minutes ago
+      const concern = makeConcern({
+        severity: 'critical',
+        tier: 3,
+        logged_by_user_id: AUTHOR_ID,
+        created_at: createdAt,
+      });
+
+      await service.dispatchSecondRoundCritical(TENANT_ID, concern);
+
+      expect(mockNotificationsService.createBatch).toHaveBeenCalledTimes(1);
+
+      const batchCall = mockNotificationsService.createBatch.mock.calls[0] as [
+        string,
+        Array<{ payload_json: Record<string, unknown> }>,
+      ];
+      const payload = batchCall[1][0]?.payload_json;
+      expect(payload?.notification_round).toBe(2);
+      expect(payload?.escalation_reason).toContain('minutes');
+    });
+  });
+
+  // ─── Error handling (best-effort) ────────────────────────────────────────
+
+  describe('error handling — best-effort', () => {
+    it('should not throw when dispatchForConcern encounters an error', async () => {
+      mockConfigFacade.findSettings.mockRejectedValue(new Error('Settings fetch failed'));
+
+      const concern = makeConcern({ severity: 'urgent', tier: 2 });
+
+      await expect(
+        service.dispatchForConcern(TENANT_ID, concern, AUTHOR_ID),
+      ).resolves.not.toThrow();
+    });
+
+    it('should not throw when dispatchCriticalEscalation encounters an error', async () => {
+      mockConfigFacade.findSettings.mockRejectedValue(new Error('Settings fetch failed'));
+
+      const concern = makeConcern({ severity: 'critical', tier: 3 });
+
+      await expect(service.dispatchCriticalEscalation(TENANT_ID, concern)).resolves.not.toThrow();
+    });
+
+    it('should not throw when dispatchSecondRoundCritical encounters an error', async () => {
+      mockConfigFacade.findSettings.mockRejectedValue(new Error('Settings fetch failed'));
+
+      const concern = makeConcern({ severity: 'critical', tier: 3 });
+
+      await expect(service.dispatchSecondRoundCritical(TENANT_ID, concern)).resolves.not.toThrow();
+    });
+
+    it('should not throw when cancelEscalationTimeout encounters an error on job removal', async () => {
+      const mockJob = { remove: jest.fn().mockRejectedValue(new Error('Redis error')) };
+      mockPastoralQueue.getJob.mockResolvedValue(mockJob);
+
+      await expect(service.cancelEscalationTimeout(TENANT_ID, CONCERN_ID)).resolves.not.toThrow();
+    });
+  });
+
+  // ─── dispatchCriticalEscalation — no recipients ──────────────────────────
+
+  describe('dispatchCriticalEscalation — edge cases', () => {
+    it('should skip when no recipients resolved for critical escalation', async () => {
+      mockConfigFacade.findSettings.mockResolvedValue(
+        makeSettings({
+          notification_recipients: {
+            urgent: [],
+            critical: [AUTHOR_ID],
+          },
+        }),
+      );
+
+      const concern = makeConcern({
+        severity: 'critical',
+        tier: 3,
+        logged_by_user_id: AUTHOR_ID,
+      });
+
+      await service.dispatchCriticalEscalation(TENANT_ID, concern);
+
+      expect(mockNotificationsService.createBatch).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Student name formatting ─────────────────────────────────────────────
+
+  describe('student name formatting', () => {
+    it('should format as "First L." when student info is present', async () => {
+      const concern = makeConcern({
+        severity: 'urgent',
+        tier: 2,
+        student: {
+          first_name: 'Ahmed',
+          last_name: 'Hassan',
+          year_group_id: YEAR_GROUP_ID,
+        },
+      });
+
+      await service.dispatchForConcern(TENANT_ID, concern, AUTHOR_ID);
+
+      const batchCall = mockNotificationsService.createBatch.mock.calls[0] as [
+        string,
+        Array<{ payload_json: Record<string, unknown> }>,
+      ];
+      const payload = batchCall[1][0]?.payload_json;
+      expect(payload?.student_name).toBe('Ahmed H.');
+    });
+
+    it('should return "Student" when no student info available', async () => {
+      const concern = makeConcern({
+        severity: 'urgent',
+        tier: 2,
+        student: null,
+      });
+
+      await service.dispatchForConcern(TENANT_ID, concern, AUTHOR_ID);
+
+      const batchCall = mockNotificationsService.createBatch.mock.calls[0] as [
+        string,
+        Array<{ payload_json: Record<string, unknown> }>,
+      ];
+      const payload = batchCall[1][0]?.payload_json;
+      expect(payload?.student_name).toBe('Student');
+    });
+
+    it('should handle student with first name but no last name', async () => {
+      const concern = makeConcern({
+        severity: 'urgent',
+        tier: 2,
+        student: {
+          first_name: 'Ahmed',
+          last_name: '',
+          year_group_id: YEAR_GROUP_ID,
+        },
+      });
+
+      await service.dispatchForConcern(TENANT_ID, concern, AUTHOR_ID);
+
+      const batchCall = mockNotificationsService.createBatch.mock.calls[0] as [
+        string,
+        Array<{ payload_json: Record<string, unknown> }>,
+      ];
+      const payload = batchCall[1][0]?.payload_json;
+      expect(payload?.student_name).toBe('Ahmed');
+    });
+  });
+
+  // ─── Year head resolution ─────────────────────────────────────────────────
+
+  describe('year head resolution', () => {
+    it('should return empty when student has no year_group_id', async () => {
+      mockConfigFacade.findSettings.mockResolvedValue(
+        makeSettings({
+          notification_recipients: {
+            urgent: [],
+            critical: [],
+          },
+        }),
+      );
+
+      // Student has no year_group_id
+      mockStudentFacade.findById.mockResolvedValue({ year_group_id: null });
+      mockRbacFacade.findActiveUserIdsByRoleKey.mockResolvedValue([]);
+
+      const concern = makeConcern({ severity: 'elevated', tier: 1 });
+
+      // elevated fallback roles: ['year_head', 'pastoral_coordinator']
+      // year_head -> resolveYearHeadForStudent -> student has no year_group_id -> returns []
+      // pastoral_coordinator -> rbac returns []
+      // No recipients -> skips
+      await service.dispatchForConcern(TENANT_ID, concern, AUTHOR_ID);
+
+      // No notifications (no recipients)
+      expect(mockNotificationsService.createBatch).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Dispatch job priority ──────────────────────────────────────────────
+
+  describe('dispatch job priority', () => {
+    it('should set priority=1 for urgent dispatch jobs', async () => {
+      const concern = makeConcern({ severity: 'urgent', tier: 2 });
+
+      await service.dispatchForConcern(TENANT_ID, concern, AUTHOR_ID);
+
+      expect(mockNotificationsQueue.add).toHaveBeenCalledWith(
+        'communications:dispatch-notifications',
+        expect.anything(),
+        expect.objectContaining({ priority: 1 }),
+      );
+    });
+
+    it('should set priority=1 for critical dispatch jobs', async () => {
+      const concern = makeConcern({ severity: 'critical', tier: 3 });
+
+      await service.dispatchForConcern(TENANT_ID, concern, AUTHOR_ID);
+
+      expect(mockNotificationsQueue.add).toHaveBeenCalledWith(
+        'communications:dispatch-notifications',
+        expect.anything(),
+        expect.objectContaining({ priority: 1 }),
+      );
+    });
+
+    it('should not set priority for elevated dispatch jobs', async () => {
+      mockRbacFacade.findActiveUserIdsByRoleKey.mockResolvedValue([YEAR_HEAD_ID]);
+
+      const concern = makeConcern({ severity: 'elevated', tier: 1 });
+
+      await service.dispatchForConcern(TENANT_ID, concern, AUTHOR_ID);
+
+      expect(mockNotificationsQueue.add).toHaveBeenCalledWith(
+        'communications:dispatch-notifications',
+        expect.anything(),
+        expect.objectContaining({ priority: undefined }),
+      );
+    });
+  });
+
+  // ─── Branch coverage: dispatchForConcern — routine (no external channels) ──
+
+  describe('dispatchForConcern — routine (no external)', () => {
+    it('should NOT enqueue dispatch job for routine severity (no email/whatsapp)', async () => {
+      // Routine: only in_app, no email/push/whatsapp
+      const concern = makeConcern({ severity: 'routine', tier: 1 });
+
+      await service.dispatchForConcern(TENANT_ID, concern, AUTHOR_ID);
+
+      // Should not enqueue external dispatch
+      expect(mockNotificationsQueue.add).not.toHaveBeenCalledWith(
+        'communications:dispatch-notifications',
+        expect.anything(),
+        expect.anything(),
+      );
+    });
+
+    it('should NOT enqueue escalation for routine severity', async () => {
+      const concern = makeConcern({ severity: 'routine', tier: 1 });
+
+      await service.dispatchForConcern(TENANT_ID, concern, AUTHOR_ID);
+
+      expect(mockPastoralQueue.add).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Branch coverage: dispatchForConcern — elevated ────────────────────────
+
+  describe('dispatchForConcern — elevated severity', () => {
+    it('should resolve recipients from fallback roles for elevated (no explicit IDs)', async () => {
+      mockRbacFacade.findActiveUserIdsByRoleKey.mockResolvedValue([YEAR_HEAD_ID]);
+
+      const concern = makeConcern({ severity: 'elevated', tier: 1 });
+
+      await service.dispatchForConcern(TENANT_ID, concern, AUTHOR_ID);
+
+      // Elevated falls back to role-based: year_head, pastoral_coordinator
+      expect(mockRbacFacade.findActiveUserIdsByRoleKey).toHaveBeenCalled();
+    });
+
+    it('should NOT enqueue escalation for elevated severity', async () => {
+      mockRbacFacade.findActiveUserIdsByRoleKey.mockResolvedValue([YEAR_HEAD_ID]);
+
+      const concern = makeConcern({ severity: 'elevated', tier: 1 });
+
+      await service.dispatchForConcern(TENANT_ID, concern, AUTHOR_ID);
+
+      expect(mockPastoralQueue.add).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Branch coverage: in-app notification push flag ────────────────────────
+
+  describe('notification channel — push priority flag', () => {
+    it('should add priority=high to in-app payload for urgent concerns', async () => {
+      const concern = makeConcern({ severity: 'urgent', tier: 2 });
+
+      await service.dispatchForConcern(TENANT_ID, concern, AUTHOR_ID);
+
+      expect(mockNotificationsService.createBatch).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.arrayContaining([
+          expect.objectContaining({
+            channel: 'in_app',
+            payload_json: expect.objectContaining({
+              priority: 'high',
+            }),
+          }),
+        ]),
+      );
+    });
+
+    it('should NOT add priority flag to in-app payload for elevated concerns', async () => {
+      mockRbacFacade.findActiveUserIdsByRoleKey.mockResolvedValue([YEAR_HEAD_ID]);
+
+      const concern = makeConcern({ severity: 'elevated', tier: 1 });
+
+      await service.dispatchForConcern(TENANT_ID, concern, AUTHOR_ID);
+
+      expect(mockNotificationsService.createBatch).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.arrayContaining([
+          expect.objectContaining({
+            channel: 'in_app',
+            payload_json: expect.not.objectContaining({
+              priority: 'high',
+            }),
+          }),
+        ]),
+      );
+    });
+  });
+
+  // ─── Branch coverage: cancelEscalationTimeout — job removal success ────────
+
+  describe('cancelEscalationTimeout — removal branches', () => {
+    it('should log cancellation when job is found and removed', async () => {
+      const mockJob = { remove: jest.fn().mockResolvedValue(undefined) };
+      mockPastoralQueue.getJob.mockResolvedValue(mockJob);
+
+      await service.cancelEscalationTimeout(TENANT_ID, CONCERN_ID);
+
+      // Should attempt removal for both escalation types
+      expect(mockPastoralQueue.getJob).toHaveBeenCalledTimes(2);
+      expect(mockJob.remove).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // ─── Branch coverage: dispatchForConcern — empty createBatch ───────────────
+
+  describe('dispatchForConcern — zero notifications created', () => {
+    it('should skip createBatch when recipient list is empty', async () => {
+      // All role-based lookups return empty
+      mockRbacFacade.findActiveUserIdsByRoleKey.mockResolvedValue([]);
+
+      const concern = makeConcern({ severity: 'elevated', tier: 1 });
+
+      await service.dispatchForConcern(TENANT_ID, concern, AUTHOR_ID);
+
+      expect(mockNotificationsService.createBatch).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Branch coverage: resolveUsersForRole — generic role ───────────────────
+
+  describe('resolveUsersForRole — generic roles', () => {
+    it('should resolve pastoral_coordinator via generic roleKey lookup', async () => {
+      mockRbacFacade.findActiveUserIdsByRoleKey.mockResolvedValue([DEPUTY_ID]);
+
+      const concern = makeConcern({ severity: 'elevated', tier: 1 });
+
+      await service.dispatchForConcern(TENANT_ID, concern, AUTHOR_ID);
+
+      // elevated fallback roles: year_head, pastoral_coordinator
+      expect(mockRbacFacade.findActiveUserIdsByRoleKey).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.stringMatching(/year_head|pastoral_coordinator/),
+      );
+    });
+
+    it('should resolve deputy_principal and principal via generic roleKey for critical fallback', async () => {
+      // Critical: explicit IDs are configured, so this tests the explicit path
+      // But if we clear them, it falls back to roles: dlp, principal
+      mockConfigFacade.findSettings.mockResolvedValue({
+        id: 'settings-1',
+        tenant_id: TENANT_ID,
+        settings: {
+          pastoral: {
+            notification_recipients: {
+              urgent: [],
+              critical: [],
+            },
+            escalation: {
+              urgent_timeout_minutes: 120,
+              critical_timeout_minutes: 30,
+            },
+          },
+        },
+        created_at: new Date(),
+        updated_at: new Date(),
+      });
+      mockCpFacade.findDlpUserIds.mockResolvedValue([DLP_USER_ID]);
+      mockRbacFacade.findActiveUserIdsByRoleKey.mockResolvedValue([PRINCIPAL_ID]);
+
+      const concern = makeConcern({ severity: 'critical', tier: 2 });
+
+      await service.dispatchForConcern(TENANT_ID, concern, AUTHOR_ID);
+
+      expect(mockCpFacade.findDlpUserIds).toHaveBeenCalledWith(TENANT_ID);
+      expect(mockRbacFacade.findActiveUserIdsByRoleKey).toHaveBeenCalledWith(
+        TENANT_ID,
+        'principal',
+      );
+    });
   });
 });

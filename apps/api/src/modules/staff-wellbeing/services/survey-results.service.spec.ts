@@ -19,14 +19,16 @@ const RESPONSE_ID_3 = 'aaaa3333-3333-3333-3333-333333333333';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const makeSurvey = (overrides: Partial<{
-  id: string;
-  status: string;
-  min_response_threshold: number;
-  dept_drill_down_threshold: number;
-  results_released: boolean;
-  moderation_enabled: boolean;
-}> = {}) => ({
+const makeSurvey = (
+  overrides: Partial<{
+    id: string;
+    status: string;
+    min_response_threshold: number;
+    dept_drill_down_threshold: number;
+    results_released: boolean;
+    moderation_enabled: boolean;
+  }> = {},
+) => ({
   id: overrides.id ?? SURVEY_ID,
   tenant_id: TENANT_ID,
   title: 'Staff Wellbeing Check',
@@ -81,25 +83,129 @@ const makeFreeformQuestion = () => ({
 });
 
 const makeLikertResponses = () => [
-  { id: 'r1', survey_id: SURVEY_ID, question_id: QUESTION_ID_LIKERT, answer_value: 4, answer_text: null, submitted_date: new Date('2026-01-02'), moderation_status: 'approved' },
-  { id: 'r2', survey_id: SURVEY_ID, question_id: QUESTION_ID_LIKERT, answer_value: 3, answer_text: null, submitted_date: new Date('2026-01-02'), moderation_status: 'approved' },
-  { id: 'r3', survey_id: SURVEY_ID, question_id: QUESTION_ID_LIKERT, answer_value: 5, answer_text: null, submitted_date: new Date('2026-01-03'), moderation_status: 'approved' },
-  { id: 'r4', survey_id: SURVEY_ID, question_id: QUESTION_ID_LIKERT, answer_value: 2, answer_text: null, submitted_date: new Date('2026-01-03'), moderation_status: 'approved' },
-  { id: 'r5', survey_id: SURVEY_ID, question_id: QUESTION_ID_LIKERT, answer_value: 4, answer_text: null, submitted_date: new Date('2026-01-04'), moderation_status: 'approved' },
+  {
+    id: 'r1',
+    survey_id: SURVEY_ID,
+    question_id: QUESTION_ID_LIKERT,
+    answer_value: 4,
+    answer_text: null,
+    submitted_date: new Date('2026-01-02'),
+    moderation_status: 'approved',
+  },
+  {
+    id: 'r2',
+    survey_id: SURVEY_ID,
+    question_id: QUESTION_ID_LIKERT,
+    answer_value: 3,
+    answer_text: null,
+    submitted_date: new Date('2026-01-02'),
+    moderation_status: 'approved',
+  },
+  {
+    id: 'r3',
+    survey_id: SURVEY_ID,
+    question_id: QUESTION_ID_LIKERT,
+    answer_value: 5,
+    answer_text: null,
+    submitted_date: new Date('2026-01-03'),
+    moderation_status: 'approved',
+  },
+  {
+    id: 'r4',
+    survey_id: SURVEY_ID,
+    question_id: QUESTION_ID_LIKERT,
+    answer_value: 2,
+    answer_text: null,
+    submitted_date: new Date('2026-01-03'),
+    moderation_status: 'approved',
+  },
+  {
+    id: 'r5',
+    survey_id: SURVEY_ID,
+    question_id: QUESTION_ID_LIKERT,
+    answer_value: 4,
+    answer_text: null,
+    submitted_date: new Date('2026-01-04'),
+    moderation_status: 'approved',
+  },
 ];
 
 const makeChoiceResponses = () => [
-  { id: 'c1', survey_id: SURVEY_ID, question_id: QUESTION_ID_CHOICE, answer_value: 0, answer_text: null, submitted_date: new Date('2026-01-02'), moderation_status: 'approved' },
-  { id: 'c2', survey_id: SURVEY_ID, question_id: QUESTION_ID_CHOICE, answer_value: 0, answer_text: null, submitted_date: new Date('2026-01-02'), moderation_status: 'approved' },
-  { id: 'c3', survey_id: SURVEY_ID, question_id: QUESTION_ID_CHOICE, answer_value: 1, answer_text: null, submitted_date: new Date('2026-01-03'), moderation_status: 'approved' },
-  { id: 'c4', survey_id: SURVEY_ID, question_id: QUESTION_ID_CHOICE, answer_value: 2, answer_text: null, submitted_date: new Date('2026-01-03'), moderation_status: 'approved' },
-  { id: 'c5', survey_id: SURVEY_ID, question_id: QUESTION_ID_CHOICE, answer_value: 2, answer_text: null, submitted_date: new Date('2026-01-04'), moderation_status: 'approved' },
+  {
+    id: 'c1',
+    survey_id: SURVEY_ID,
+    question_id: QUESTION_ID_CHOICE,
+    answer_value: 0,
+    answer_text: null,
+    submitted_date: new Date('2026-01-02'),
+    moderation_status: 'approved',
+  },
+  {
+    id: 'c2',
+    survey_id: SURVEY_ID,
+    question_id: QUESTION_ID_CHOICE,
+    answer_value: 0,
+    answer_text: null,
+    submitted_date: new Date('2026-01-02'),
+    moderation_status: 'approved',
+  },
+  {
+    id: 'c3',
+    survey_id: SURVEY_ID,
+    question_id: QUESTION_ID_CHOICE,
+    answer_value: 1,
+    answer_text: null,
+    submitted_date: new Date('2026-01-03'),
+    moderation_status: 'approved',
+  },
+  {
+    id: 'c4',
+    survey_id: SURVEY_ID,
+    question_id: QUESTION_ID_CHOICE,
+    answer_value: 2,
+    answer_text: null,
+    submitted_date: new Date('2026-01-03'),
+    moderation_status: 'approved',
+  },
+  {
+    id: 'c5',
+    survey_id: SURVEY_ID,
+    question_id: QUESTION_ID_CHOICE,
+    answer_value: 2,
+    answer_text: null,
+    submitted_date: new Date('2026-01-04'),
+    moderation_status: 'approved',
+  },
 ];
 
 const makeFreeformResponses = () => [
-  { id: RESPONSE_ID_1, survey_id: SURVEY_ID, question_id: QUESTION_ID_FREE, answer_value: null, answer_text: 'Great place to work', submitted_date: new Date('2026-01-02'), moderation_status: 'approved' },
-  { id: RESPONSE_ID_2, survey_id: SURVEY_ID, question_id: QUESTION_ID_FREE, answer_value: null, answer_text: 'Needs improvement', submitted_date: new Date('2026-01-03'), moderation_status: 'pending' },
-  { id: RESPONSE_ID_3, survey_id: SURVEY_ID, question_id: QUESTION_ID_FREE, answer_value: null, answer_text: '[Response redacted by moderator]', submitted_date: new Date('2026-01-04'), moderation_status: 'redacted' },
+  {
+    id: RESPONSE_ID_1,
+    survey_id: SURVEY_ID,
+    question_id: QUESTION_ID_FREE,
+    answer_value: null,
+    answer_text: 'Great place to work',
+    submitted_date: new Date('2026-01-02'),
+    moderation_status: 'approved',
+  },
+  {
+    id: RESPONSE_ID_2,
+    survey_id: SURVEY_ID,
+    question_id: QUESTION_ID_FREE,
+    answer_value: null,
+    answer_text: 'Needs improvement',
+    submitted_date: new Date('2026-01-03'),
+    moderation_status: 'pending',
+  },
+  {
+    id: RESPONSE_ID_3,
+    survey_id: SURVEY_ID,
+    question_id: QUESTION_ID_FREE,
+    answer_value: null,
+    answer_text: '[Response redacted by moderator]',
+    submitted_date: new Date('2026-01-04'),
+    moderation_status: 'redacted',
+  },
 ];
 
 // ─── RLS Mock ───────────────────────────────────────────────────────────────
@@ -126,7 +232,9 @@ const mockRlsTx = {
 
 jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -301,9 +409,7 @@ describe('SurveyResultsService', () => {
 
       const result = await service.getResults(TENANT_ID, SURVEY_ID);
 
-      const maths = result.department_drill_down?.departments.find(
-        (d) => d.department === 'Maths',
-      );
+      const maths = result.department_drill_down?.departments.find((d) => d.department === 'Maths');
       expect(maths).toBeDefined();
       expect(maths?.eligible).toBe(false);
       expect(maths?.staff_count).toBe(5);
@@ -382,13 +488,11 @@ describe('SurveyResultsService', () => {
       // dept_drill_down_threshold=3 so it passes dept check,
       // but min_response_threshold=10 so cross-filter blocking kicks in
       setupClosedSurvey({ dept_drill_down_threshold: 3, min_response_threshold: 10 });
-      mockRlsTx.staffProfile.groupBy.mockResolvedValue([
-        { department: 'PE', _count: { _all: 5 } },
-      ]);
+      mockRlsTx.staffProfile.groupBy.mockResolvedValue([{ department: 'PE', _count: { _all: 5 } }]);
 
-      await expect(
-        service.getResults(TENANT_ID, SURVEY_ID, { department: 'PE' }),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.getResults(TENANT_ID, SURVEY_ID, { department: 'PE' })).rejects.toThrow(
+        ForbiddenException,
+      );
 
       await expect(
         service.getResults(TENANT_ID, SURVEY_ID, { department: 'PE' }),
@@ -407,13 +511,9 @@ describe('SurveyResultsService', () => {
       const survey = makeSurvey({ status: 'active' });
       mockRlsTx.staffSurvey.findFirst.mockResolvedValue(survey);
 
-      await expect(
-        service.getResults(TENANT_ID, SURVEY_ID),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.getResults(TENANT_ID, SURVEY_ID)).rejects.toThrow(ForbiddenException);
 
-      await expect(
-        service.getResults(TENANT_ID, SURVEY_ID),
-      ).rejects.toMatchObject({
+      await expect(service.getResults(TENANT_ID, SURVEY_ID)).rejects.toMatchObject({
         response: { error: { code: 'SURVEY_STILL_ACTIVE' } },
       });
     });
@@ -422,9 +522,7 @@ describe('SurveyResultsService', () => {
       const survey = makeSurvey({ status: 'draft' });
       mockRlsTx.staffSurvey.findFirst.mockResolvedValue(survey);
 
-      await expect(
-        service.getResults(TENANT_ID, SURVEY_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getResults(TENANT_ID, SURVEY_ID)).rejects.toThrow(NotFoundException);
     });
 
     it('should return results when survey is closed', async () => {
@@ -458,8 +556,18 @@ describe('SurveyResultsService', () => {
       mockRlsTx.staffSurvey.findFirst.mockResolvedValue(survey);
 
       const pendingAndFlagged = [
-        { id: RESPONSE_ID_1, answer_text: 'Some feedback', submitted_date: new Date('2026-01-02'), moderation_status: 'pending' },
-        { id: RESPONSE_ID_2, answer_text: 'Flagged feedback', submitted_date: new Date('2026-01-03'), moderation_status: 'flagged' },
+        {
+          id: RESPONSE_ID_1,
+          answer_text: 'Some feedback',
+          submitted_date: new Date('2026-01-02'),
+          moderation_status: 'pending',
+        },
+        {
+          id: RESPONSE_ID_2,
+          answer_text: 'Flagged feedback',
+          submitted_date: new Date('2026-01-03'),
+          moderation_status: 'flagged',
+        },
       ];
       mockRlsTx.surveyResponse.findMany.mockResolvedValue(pendingAndFlagged);
 
@@ -497,9 +605,9 @@ describe('SurveyResultsService', () => {
     it('should throw 404 when survey does not exist', async () => {
       mockRlsTx.staffSurvey.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.listModerationQueue(TENANT_ID, SURVEY_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.listModerationQueue(TENANT_ID, SURVEY_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -520,7 +628,9 @@ describe('SurveyResultsService', () => {
       mockRlsTx.surveyResponse.update.mockResolvedValue({});
 
       const result = await service.moderateResponse(
-        TENANT_ID, SURVEY_ID, RESPONSE_ID_1,
+        TENANT_ID,
+        SURVEY_ID,
+        RESPONSE_ID_1,
         { status: 'approved' },
         USER_ID,
       );
@@ -544,7 +654,9 @@ describe('SurveyResultsService', () => {
       mockRlsTx.surveyResponse.update.mockResolvedValue({});
 
       const result = await service.moderateResponse(
-        TENANT_ID, SURVEY_ID, RESPONSE_ID_1,
+        TENANT_ID,
+        SURVEY_ID,
+        RESPONSE_ID_1,
         { status: 'redacted', reason: 'PII detected' },
         USER_ID,
       );
@@ -586,7 +698,9 @@ describe('SurveyResultsService', () => {
       mockRlsTx.surveyResponse.update.mockResolvedValue({});
 
       const result = await service.moderateResponse(
-        TENANT_ID, SURVEY_ID, RESPONSE_ID_1,
+        TENANT_ID,
+        SURVEY_ID,
+        RESPONSE_ID_1,
         { status: 'flagged', reason: 'Needs review' },
         USER_ID,
       );
@@ -605,7 +719,9 @@ describe('SurveyResultsService', () => {
 
       await expect(
         service.moderateResponse(
-          TENANT_ID, SURVEY_ID, RESPONSE_ID_1,
+          TENANT_ID,
+          SURVEY_ID,
+          RESPONSE_ID_1,
           { status: 'approved' },
           USER_ID,
         ),
@@ -617,7 +733,9 @@ describe('SurveyResultsService', () => {
 
       await expect(
         service.moderateResponse(
-          TENANT_ID, SURVEY_ID, RESPONSE_ID_1,
+          TENANT_ID,
+          SURVEY_ID,
+          RESPONSE_ID_1,
           { status: 'approved' },
           USER_ID,
         ),
@@ -636,8 +754,18 @@ describe('SurveyResultsService', () => {
       mockRlsTx.surveyParticipationToken.count.mockResolvedValue(10);
 
       const comments = [
-        { id: RESPONSE_ID_1, answer_text: 'Great workplace', submitted_date: new Date('2026-01-02'), moderation_status: 'approved' },
-        { id: RESPONSE_ID_3, answer_text: '[Response redacted by moderator]', submitted_date: new Date('2026-01-04'), moderation_status: 'redacted' },
+        {
+          id: RESPONSE_ID_1,
+          answer_text: 'Great workplace',
+          submitted_date: new Date('2026-01-02'),
+          moderation_status: 'approved',
+        },
+        {
+          id: RESPONSE_ID_3,
+          answer_text: '[Response redacted by moderator]',
+          submitted_date: new Date('2026-01-04'),
+          moderation_status: 'redacted',
+        },
       ];
       mockRlsTx.surveyResponse.findMany.mockResolvedValue(comments);
 
@@ -680,13 +808,11 @@ describe('SurveyResultsService', () => {
       const survey = makeSurvey({ status: 'active' });
       mockRlsTx.staffSurvey.findFirst.mockResolvedValue(survey);
 
-      await expect(
-        service.getModeratedComments(TENANT_ID, SURVEY_ID),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.getModeratedComments(TENANT_ID, SURVEY_ID)).rejects.toThrow(
+        ForbiddenException,
+      );
 
-      await expect(
-        service.getModeratedComments(TENANT_ID, SURVEY_ID),
-      ).rejects.toMatchObject({
+      await expect(service.getModeratedComments(TENANT_ID, SURVEY_ID)).rejects.toMatchObject({
         response: { error: { code: 'SURVEY_STILL_ACTIVE' } },
       });
     });
@@ -695,17 +821,17 @@ describe('SurveyResultsService', () => {
       const survey = makeSurvey({ status: 'draft' });
       mockRlsTx.staffSurvey.findFirst.mockResolvedValue(survey);
 
-      await expect(
-        service.getModeratedComments(TENANT_ID, SURVEY_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getModeratedComments(TENANT_ID, SURVEY_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw 404 when survey does not exist', async () => {
       mockRlsTx.staffSurvey.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getModeratedComments(TENANT_ID, SURVEY_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getModeratedComments(TENANT_ID, SURVEY_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -734,6 +860,297 @@ describe('SurveyResultsService', () => {
       expect(asRecord['text']).toBeUndefined();
       expect(asRecord['answer_text']).toBeUndefined();
       expect(asRecord['response_text']).toBeUndefined();
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADDITIONAL BRANCH COVERAGE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  describe('getResults — likert_5 edge cases', () => {
+    it('should compute median correctly for even number of responses', async () => {
+      setupClosedSurvey();
+      mockRlsTx.surveyQuestion.findMany.mockResolvedValue([makeLikertQuestion()]);
+      // 4 responses — even count, median = (3+4)/2 = 3.5
+      mockRlsTx.surveyResponse.findMany.mockResolvedValue([
+        {
+          id: 'r1',
+          survey_id: SURVEY_ID,
+          question_id: QUESTION_ID_LIKERT,
+          answer_value: 2,
+          answer_text: null,
+          submitted_date: new Date(),
+          moderation_status: 'approved',
+        },
+        {
+          id: 'r2',
+          survey_id: SURVEY_ID,
+          question_id: QUESTION_ID_LIKERT,
+          answer_value: 3,
+          answer_text: null,
+          submitted_date: new Date(),
+          moderation_status: 'approved',
+        },
+        {
+          id: 'r3',
+          survey_id: SURVEY_ID,
+          question_id: QUESTION_ID_LIKERT,
+          answer_value: 4,
+          answer_text: null,
+          submitted_date: new Date(),
+          moderation_status: 'approved',
+        },
+        {
+          id: 'r4',
+          survey_id: SURVEY_ID,
+          question_id: QUESTION_ID_LIKERT,
+          answer_value: 5,
+          answer_text: null,
+          submitted_date: new Date(),
+          moderation_status: 'approved',
+        },
+      ]);
+
+      const result = await service.getResults(TENANT_ID, SURVEY_ID);
+      const likert = result.results?.find((r) => r.question_type === 'likert_5');
+
+      // Sorted: [2,3,4,5], median = (3+4)/2 = 3.5
+      expect(likert?.median).toBe(3.5);
+    });
+
+    it('should return zero mean/median/distribution when all answer_values are null', async () => {
+      setupClosedSurvey();
+      mockRlsTx.surveyQuestion.findMany.mockResolvedValue([makeLikertQuestion()]);
+      mockRlsTx.surveyResponse.findMany.mockResolvedValue([
+        {
+          id: 'r1',
+          survey_id: SURVEY_ID,
+          question_id: QUESTION_ID_LIKERT,
+          answer_value: null,
+          answer_text: null,
+          submitted_date: new Date(),
+          moderation_status: 'approved',
+        },
+        {
+          id: 'r2',
+          survey_id: SURVEY_ID,
+          question_id: QUESTION_ID_LIKERT,
+          answer_value: null,
+          answer_text: null,
+          submitted_date: new Date(),
+          moderation_status: 'approved',
+        },
+      ]);
+
+      const result = await service.getResults(TENANT_ID, SURVEY_ID);
+      const likert = result.results?.find((r) => r.question_type === 'likert_5');
+
+      expect(likert).toBeDefined();
+      expect(likert?.mean).toBe(0);
+      expect(likert?.median).toBe(0);
+      expect(likert?.distribution).toEqual({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
+    });
+  });
+
+  describe('getResults — single_choice edge cases', () => {
+    it('should handle non-array options gracefully', async () => {
+      setupClosedSurvey();
+      const question = {
+        ...makeChoiceQuestion(),
+        options: null, // non-array
+      };
+      mockRlsTx.surveyQuestion.findMany.mockResolvedValue([question]);
+      mockRlsTx.surveyResponse.findMany.mockResolvedValue([
+        {
+          id: 'c1',
+          survey_id: SURVEY_ID,
+          question_id: QUESTION_ID_CHOICE,
+          answer_value: 0,
+          answer_text: null,
+          submitted_date: new Date(),
+          moderation_status: 'approved',
+        },
+      ]);
+
+      const result = await service.getResults(TENANT_ID, SURVEY_ID);
+      const choice = result.results?.find((r) => r.question_type === 'single_choice');
+
+      expect(choice).toBeDefined();
+      expect(choice?.options).toEqual([]); // empty because options is not an array
+    });
+
+    it('should ignore responses with null answer_value for single_choice', async () => {
+      setupClosedSurvey();
+      mockRlsTx.surveyQuestion.findMany.mockResolvedValue([makeChoiceQuestion()]);
+      mockRlsTx.surveyResponse.findMany.mockResolvedValue([
+        {
+          id: 'c1',
+          survey_id: SURVEY_ID,
+          question_id: QUESTION_ID_CHOICE,
+          answer_value: null,
+          answer_text: null,
+          submitted_date: new Date(),
+          moderation_status: 'approved',
+        },
+        {
+          id: 'c2',
+          survey_id: SURVEY_ID,
+          question_id: QUESTION_ID_CHOICE,
+          answer_value: 0,
+          answer_text: null,
+          submitted_date: new Date(),
+          moderation_status: 'approved',
+        },
+      ]);
+
+      const result = await service.getResults(TENANT_ID, SURVEY_ID);
+      const choice = result.results?.find((r) => r.question_type === 'single_choice');
+
+      expect(choice?.options?.[0]?.count).toBe(1); // Only the non-null response counted
+      expect(choice?.response_count).toBe(2); // But total response count includes all
+    });
+
+    it('should handle out-of-range answer_value for single_choice', async () => {
+      setupClosedSurvey();
+      mockRlsTx.surveyQuestion.findMany.mockResolvedValue([makeChoiceQuestion()]);
+      mockRlsTx.surveyResponse.findMany.mockResolvedValue([
+        {
+          id: 'c1',
+          survey_id: SURVEY_ID,
+          question_id: QUESTION_ID_CHOICE,
+          answer_value: 99,
+          answer_text: null,
+          submitted_date: new Date(),
+          moderation_status: 'approved',
+        },
+      ]);
+
+      const result = await service.getResults(TENANT_ID, SURVEY_ID);
+      const choice = result.results?.find((r) => r.question_type === 'single_choice');
+
+      // All counts should be 0 since idx=99 is out of range
+      for (const opt of choice?.options ?? []) {
+        expect(opt.count).toBe(0);
+      }
+    });
+
+    it('should handle zero total responses for percentage calculation', async () => {
+      setupClosedSurvey();
+      mockRlsTx.surveyQuestion.findMany.mockResolvedValue([makeChoiceQuestion()]);
+      mockRlsTx.surveyResponse.findMany.mockResolvedValue([]); // no responses
+
+      const result = await service.getResults(TENANT_ID, SURVEY_ID);
+      const choice = result.results?.find((r) => r.question_type === 'single_choice');
+
+      expect(choice?.response_count).toBe(0);
+      for (const opt of choice?.options ?? []) {
+        expect(opt.percentage).toBe(0);
+      }
+    });
+  });
+
+  describe('getResults — department filter edge cases', () => {
+    it('should use 0 for staff_count when department not found in list', async () => {
+      setupClosedSurvey({ dept_drill_down_threshold: 10, min_response_threshold: 5 });
+      // No departments match the filter
+      mockRlsTx.staffProfile.groupBy.mockResolvedValue([
+        { department: 'Maths', _count: { _all: 20 } },
+      ]);
+
+      // Filter by non-existent department => deptInfo undefined => deptStaffCount 0 => below threshold
+      await expect(
+        service.getResults(TENANT_ID, SURVEY_ID, { department: 'NonExistent' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should handle null department in groupBy results', async () => {
+      setupClosedSurvey({ dept_drill_down_threshold: 5 });
+      mockRlsTx.staffProfile.groupBy.mockResolvedValue([
+        { department: null, _count: { _all: 20 } },
+      ]);
+      mockRlsTx.surveyQuestion.findMany.mockResolvedValue([]);
+      mockRlsTx.surveyResponse.findMany.mockResolvedValue([]);
+
+      const result = await service.getResults(TENANT_ID, SURVEY_ID);
+
+      // null department is mapped to empty string
+      const dept = result.department_drill_down?.departments[0];
+      expect(dept?.department).toBe('');
+    });
+  });
+
+  describe('moderateResponse — edge cases', () => {
+    it('should pass null reason to audit log when reason is undefined', async () => {
+      const survey = makeSurvey();
+      mockRlsTx.staffSurvey.findFirst.mockResolvedValue(survey);
+      mockRlsTx.surveyResponse.findFirst.mockResolvedValue({
+        id: RESPONSE_ID_1,
+        survey_id: SURVEY_ID,
+        moderation_status: 'pending',
+        answer_text: 'Text',
+      });
+      mockRlsTx.surveyResponse.update.mockResolvedValue({});
+
+      await service.moderateResponse(
+        TENANT_ID,
+        SURVEY_ID,
+        RESPONSE_ID_1,
+        { status: 'approved' },
+        USER_ID,
+      );
+
+      expect(mockAuditLogService.write).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        'survey_response',
+        RESPONSE_ID_1,
+        'moderation.approved',
+        {
+          reason: null,
+          response_id: RESPONSE_ID_1,
+          survey_id: SURVEY_ID,
+        },
+        null,
+      );
+    });
+  });
+
+  describe('listModerationQueue — edge cases', () => {
+    it('should map null answer_text to empty string', async () => {
+      const survey = makeSurvey();
+      mockRlsTx.staffSurvey.findFirst.mockResolvedValue(survey);
+      mockRlsTx.surveyResponse.findMany.mockResolvedValue([
+        {
+          id: RESPONSE_ID_1,
+          answer_text: null,
+          submitted_date: new Date(),
+          moderation_status: 'pending',
+        },
+      ]);
+
+      const result = await service.listModerationQueue(TENANT_ID, SURVEY_ID);
+
+      expect(result[0]!.response_text).toBe('');
+    });
+  });
+
+  describe('getModeratedComments — edge cases', () => {
+    it('should map null answer_text to empty string in comments', async () => {
+      const survey = makeSurvey();
+      mockRlsTx.staffSurvey.findFirst.mockResolvedValue(survey);
+      mockRlsTx.surveyParticipationToken.count.mockResolvedValue(10);
+      mockRlsTx.surveyResponse.findMany.mockResolvedValue([
+        {
+          id: RESPONSE_ID_1,
+          answer_text: null,
+          submitted_date: new Date(),
+          moderation_status: 'approved',
+        },
+      ]);
+
+      const result = await service.getModeratedComments(TENANT_ID, SURVEY_ID);
+
+      expect(result.comments![0]!.text).toBe('');
     });
   });
 });

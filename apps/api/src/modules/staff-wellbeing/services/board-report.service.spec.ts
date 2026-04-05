@@ -23,7 +23,10 @@ const MOCK_WORKLOAD_SUMMARY = {
 };
 
 const MOCK_COVER_FAIRNESS = {
-  distribution: [{ cover_count: 3, staff_count: 5 }, { cover_count: 6, staff_count: 3 }],
+  distribution: [
+    { cover_count: 3, staff_count: 5 },
+    { cover_count: 6, staff_count: 3 },
+  ],
   gini_coefficient: 0.18,
   range: { min: 1, max: 9, median: 4 },
   assessment: 'Moderate concentration' as const,
@@ -38,7 +41,10 @@ const MOCK_TIMETABLE_QUALITY = {
 };
 
 const MOCK_ABSENCE_TRENDS = {
-  monthly_rates: [{ month: '2026-01', rate: 0.04 }, { month: '2026-02', rate: 0.05 }],
+  monthly_rates: [
+    { month: '2026-01', rate: 0.04 },
+    { month: '2026-02', rate: 0.05 },
+  ],
   day_of_week_pattern: [
     { weekday: 1, rate: 0.06 },
     { weekday: 2, rate: 0.03 },
@@ -91,7 +97,8 @@ const MOCK_CORRELATION_AVAILABLE = {
   dataPoints: 14,
   series: [{ month: '2025-01', coverPressure: 0.5, absenceRate: 0.04 }],
   trendDescription: 'Months with higher cover duty loads were followed by higher staff absence.',
-  disclaimer: 'This shows patterns that occurred together. It does not prove that one caused the other.',
+  disclaimer:
+    'This shows patterns that occurred together. It does not prove that one caused the other.',
 };
 
 const MOCK_CORRELATION_ZERO = {
@@ -111,9 +118,9 @@ const mockTx = {
 
 jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(
-      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx),
-    ),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
@@ -188,12 +195,12 @@ describe('BoardReportService', () => {
 
     it('should use cached aggregate data when available', async () => {
       mockCacheService.getCachedAggregate
-        .mockResolvedValueOnce(MOCK_WORKLOAD_SUMMARY)  // workload-summary cached
-        .mockResolvedValueOnce(MOCK_COVER_FAIRNESS)    // cover-fairness cached
-        .mockResolvedValueOnce(null)                    // timetable-quality miss
-        .mockResolvedValueOnce(null)                    // absence-trends miss
-        .mockResolvedValueOnce(null)                    // substitution-pressure miss
-        .mockResolvedValueOnce(null);                   // correlation miss
+        .mockResolvedValueOnce(MOCK_WORKLOAD_SUMMARY) // workload-summary cached
+        .mockResolvedValueOnce(MOCK_COVER_FAIRNESS) // cover-fairness cached
+        .mockResolvedValueOnce(null) // timetable-quality miss
+        .mockResolvedValueOnce(null) // absence-trends miss
+        .mockResolvedValueOnce(null) // substitution-pressure miss
+        .mockResolvedValueOnce(null); // correlation miss
 
       await service.generateTermlySummary(TENANT_ID);
 
@@ -278,9 +285,7 @@ describe('BoardReportService', () => {
     it('should throw NotFoundException when no active academic year', async () => {
       mockTx.academicYear.findFirst.mockResolvedValue(null);
 
-      await expect(service.generateTermlySummary(TENANT_ID)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.generateTermlySummary(TENANT_ID)).rejects.toThrow(NotFoundException);
     });
 
     // ─── Privacy ────────────────────────────────────────────────────────
@@ -293,6 +298,208 @@ describe('BoardReportService', () => {
       expect(serialised).not.toMatch(
         /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
       );
+    });
+
+    // ─── Cover Distribution Shape ────────────────────────────────────────
+
+    it('should label gini 0.0 as "Normal distribution"', async () => {
+      mockComputeService.getCoverFairness.mockResolvedValue({
+        ...MOCK_COVER_FAIRNESS,
+        gini_coefficient: 0.1,
+      });
+
+      const result = await service.generateTermlySummary(TENANT_ID);
+
+      expect(result.cover_fairness.distribution_shape).toBe('Normal distribution');
+    });
+
+    it('should label gini 0.18 as "Slightly right-skewed"', async () => {
+      // MOCK_COVER_FAIRNESS already has gini 0.18
+      const result = await service.generateTermlySummary(TENANT_ID);
+
+      expect(result.cover_fairness.distribution_shape).toBe(
+        'Slightly right-skewed — some staff carry a heavier share',
+      );
+    });
+
+    it('should label high gini as "Right-skewed"', async () => {
+      mockComputeService.getCoverFairness.mockResolvedValue({
+        ...MOCK_COVER_FAIRNESS,
+        gini_coefficient: 0.5,
+      });
+
+      const result = await service.generateTermlySummary(TENANT_ID);
+
+      expect(result.cover_fairness.distribution_shape).toBe(
+        'Right-skewed — a few staff carry disproportionate load',
+      );
+    });
+
+    // ─── Timetable Quality Label ─────────────────────────────────────────
+
+    it('should label timetable quality score >= 70 as "Good"', async () => {
+      // High scores: low consecutive, high clumping, low split, low room changes
+      mockComputeService.getAggregateTimetableQuality.mockResolvedValue({
+        consecutive_periods: { mean: 1, median: 1, range: { min: 1, max: 1 } },
+        free_period_clumping: { mean: 5, median: 5, range: { min: 5, max: 5 } },
+        split_timetable_pct: 0,
+        room_changes: { mean: 0, median: 0, range: { min: 0, max: 0 } },
+        trend: null,
+      });
+
+      const result = await service.generateTermlySummary(TENANT_ID);
+
+      expect(result.timetable_quality.label).toBe('Good');
+    });
+
+    it('should label timetable quality score < 45 as "Needs attention"', async () => {
+      // Bad scores: high consecutive, low clumping, high split, high room changes
+      mockComputeService.getAggregateTimetableQuality.mockResolvedValue({
+        consecutive_periods: { mean: 10, median: 10, range: { min: 8, max: 12 } },
+        free_period_clumping: { mean: 0, median: 0, range: { min: 0, max: 0 } },
+        split_timetable_pct: 1,
+        room_changes: { mean: 10, median: 10, range: { min: 8, max: 12 } },
+        trend: null,
+      });
+
+      const result = await service.generateTermlySummary(TENANT_ID);
+
+      expect(result.timetable_quality.label).toBe('Needs attention');
+    });
+
+    // ─── Trend Direction — Stable and Short ──────────────────────────────
+
+    it('should return null trend_direction when trend has fewer than 6 points', async () => {
+      mockComputeService.getSubstitutionPressure.mockResolvedValue({
+        ...MOCK_SUBSTITUTION_PRESSURE_IMPROVING,
+        trend: [
+          { month: '2026-01', score: 5 },
+          { month: '2026-02', score: 5 },
+          { month: '2026-03', score: 5 },
+        ],
+      });
+
+      const result = await service.generateTermlySummary(TENANT_ID);
+
+      expect(result.substitution_pressure.trend_direction).toBeNull();
+    });
+
+    it('should return stable trend_direction when delta is small', async () => {
+      mockComputeService.getSubstitutionPressure.mockResolvedValue({
+        ...MOCK_SUBSTITUTION_PRESSURE_IMPROVING,
+        trend: [
+          { month: '2025-10', score: 5 },
+          { month: '2025-11', score: 5 },
+          { month: '2025-12', score: 5 },
+          { month: '2026-01', score: 5 },
+          { month: '2026-02', score: 5 },
+          { month: '2026-03', score: 5 },
+        ],
+      });
+
+      const result = await service.generateTermlySummary(TENANT_ID);
+
+      expect(result.substitution_pressure.trend_direction).toBe('stable');
+    });
+
+    // ─── Absence Pattern — Empty Pattern ─────────────────────────────────
+
+    it('should set highest_day to null when day_of_week_pattern is empty', async () => {
+      mockComputeService.getAbsenceTrends.mockResolvedValue({
+        ...MOCK_ABSENCE_TRENDS,
+        day_of_week_pattern: [],
+      });
+
+      const result = await service.generateTermlySummary(TENANT_ID);
+
+      expect(result.absence_pattern.highest_day).toBeNull();
+    });
+
+    it('should identify highest day when it is not the first entry', async () => {
+      mockComputeService.getAbsenceTrends.mockResolvedValue({
+        ...MOCK_ABSENCE_TRENDS,
+        day_of_week_pattern: [
+          { weekday: 1, rate: 0.02 },
+          { weekday: 3, rate: 0.08 }, // Wednesday — highest
+          { weekday: 5, rate: 0.04 },
+        ],
+      });
+
+      const result = await service.generateTermlySummary(TENANT_ID);
+
+      expect(result.absence_pattern.highest_day).toBe('Wednesday');
+    });
+
+    it('should return null for highest_day when weekday index is out of WEEKDAY_NAMES range', async () => {
+      mockComputeService.getAbsenceTrends.mockResolvedValue({
+        ...MOCK_ABSENCE_TRENDS,
+        day_of_week_pattern: [
+          { weekday: 99, rate: 0.05 }, // out of range
+        ],
+      });
+
+      const result = await service.generateTermlySummary(TENANT_ID);
+
+      expect(result.absence_pattern.highest_day).toBeNull();
+    });
+
+    it('should use 0 for current_term_rate when term_comparison is null', async () => {
+      mockComputeService.getAbsenceTrends.mockResolvedValue({
+        ...MOCK_ABSENCE_TRENDS,
+        term_comparison: null,
+      });
+
+      const result = await service.generateTermlySummary(TENANT_ID);
+
+      expect(result.absence_pattern.current_term_rate).toBe(0);
+      expect(result.absence_pattern.previous_term_rate).toBeNull();
+    });
+
+    // ─── Academic Context Fallback ───────────────────────────────────────
+
+    it('should fall back to "Current Term" when no current academic period', async () => {
+      mockTx.academicPeriod.findFirst.mockResolvedValue(null);
+
+      const result = await service.generateTermlySummary(TENANT_ID);
+
+      expect(result.term_name).toBe('Current Term');
+    });
+
+    // ─── Correlation Insight — Available ─────────────────────────────────
+
+    it('should use trendDescription for available correlation insight', async () => {
+      mockComputeService.getCorrelation.mockResolvedValue(MOCK_CORRELATION_AVAILABLE);
+
+      const result = await service.generateTermlySummary(TENANT_ID);
+
+      expect(result.correlation_insight!.status).toBe('available');
+      expect(result.correlation_insight!.summary).toBe(
+        'Months with higher cover duty loads were followed by higher staff absence.',
+      );
+    });
+
+    // ─── Full Cache Hit ──────────────────────────────────────────────────
+
+    it('should skip all compute calls when every metric is cached', async () => {
+      mockCacheService.getCachedAggregate
+        .mockResolvedValueOnce(MOCK_WORKLOAD_SUMMARY)
+        .mockResolvedValueOnce(MOCK_COVER_FAIRNESS)
+        .mockResolvedValueOnce(MOCK_TIMETABLE_QUALITY)
+        .mockResolvedValueOnce(MOCK_ABSENCE_TRENDS)
+        .mockResolvedValueOnce(MOCK_SUBSTITUTION_PRESSURE_IMPROVING)
+        .mockResolvedValueOnce(MOCK_CORRELATION_ACCUMULATING);
+
+      await service.generateTermlySummary(TENANT_ID);
+
+      // None of the compute methods should be called
+      expect(mockComputeService.getAggregateWorkloadSummary).not.toHaveBeenCalled();
+      expect(mockComputeService.getCoverFairness).not.toHaveBeenCalled();
+      expect(mockComputeService.getAggregateTimetableQuality).not.toHaveBeenCalled();
+      expect(mockComputeService.getAbsenceTrends).not.toHaveBeenCalled();
+      expect(mockComputeService.getSubstitutionPressure).not.toHaveBeenCalled();
+      expect(mockComputeService.getCorrelation).not.toHaveBeenCalled();
+      // No new cache writes either
+      expect(mockCacheService.setCachedAggregate).not.toHaveBeenCalled();
     });
   });
 });

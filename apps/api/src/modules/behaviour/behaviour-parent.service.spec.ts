@@ -57,9 +57,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(
-      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx),
-    ),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -480,11 +480,7 @@ describe('BehaviourParentService', () => {
       mockRlsTx.behaviourParentAcknowledgement.count.mockResolvedValue(0);
       mockRlsTx.behaviourIncident.update.mockResolvedValue({});
 
-      const result = (await service.acknowledge(
-        TENANT_ID,
-        USER_ID,
-        ACK_ID,
-      )) as AcknowledgeResult;
+      const result = (await service.acknowledge(TENANT_ID, USER_ID, ACK_ID)) as AcknowledgeResult;
 
       expect(mockRlsTx.behaviourParentAcknowledgement.update).toHaveBeenCalledWith({
         where: { id: ACK_ID },
@@ -529,11 +525,7 @@ describe('BehaviourParentService', () => {
         incident_id: null,
       });
 
-      const result = (await service.acknowledge(
-        TENANT_ID,
-        USER_ID,
-        ACK_ID,
-      )) as AcknowledgeResult;
+      const result = (await service.acknowledge(TENANT_ID, USER_ID, ACK_ID)) as AcknowledgeResult;
 
       expect(result.data).toEqual({ acknowledged: true, already_acknowledged: true });
       expect(mockRlsTx.behaviourParentAcknowledgement.update).not.toHaveBeenCalled();
@@ -591,6 +583,304 @@ describe('BehaviourParentService', () => {
     });
   });
 
+  // ─── getPointsAwards ─────────────────────────────────────────────────────
+
+  describe('getPointsAwards', () => {
+    it('should return points and awards for a non-restricted student', async () => {
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourIncidentParticipant.aggregate
+        .mockResolvedValueOnce({ _sum: { points_awarded: 50 } }) // total
+        .mockResolvedValueOnce({ _sum: { points_awarded: 10 } }); // recent
+      mockRlsTx.behaviourRecognitionAward.findMany.mockResolvedValue([
+        {
+          award_type: { name: 'Star Student', tier_level: 1 },
+          awarded_at: new Date('2026-03-01'),
+        },
+      ]);
+
+      const result = (await service.getPointsAwards(TENANT_ID, USER_ID, STUDENT_ID)) as {
+        data: { points_total: number; points_change_7d: number; awards: unknown[] };
+      };
+
+      expect(result.data.points_total).toBe(50);
+      expect(result.data.points_change_7d).toBe(10);
+      expect(result.data.awards).toHaveLength(1);
+    });
+
+    it('should return zeros for restricted student', async () => {
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue({
+        id: 'restriction-1',
+      });
+
+      const result = (await service.getPointsAwards(TENANT_ID, USER_ID, STUDENT_ID)) as {
+        data: { points_total: number; points_change_7d: number; awards: unknown[] };
+      };
+
+      expect(result.data.points_total).toBe(0);
+      expect(result.data.points_change_7d).toBe(0);
+      expect(result.data.awards).toHaveLength(0);
+    });
+
+    it('edge: should handle null points_awarded in aggregate', async () => {
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourIncidentParticipant.aggregate
+        .mockResolvedValueOnce({ _sum: { points_awarded: null } })
+        .mockResolvedValueOnce({ _sum: { points_awarded: null } });
+      mockRlsTx.behaviourRecognitionAward.findMany.mockResolvedValue([]);
+
+      const result = (await service.getPointsAwards(TENANT_ID, USER_ID, STUDENT_ID)) as {
+        data: { points_total: number; points_change_7d: number };
+      };
+
+      expect(result.data.points_total).toBe(0);
+      expect(result.data.points_change_7d).toBe(0);
+    });
+  });
+
+  // ─── getSanctions ──────────────────────────────────────────────────────────
+
+  describe('getSanctions', () => {
+    it('should split sanctions into upcoming and recent', async () => {
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
+
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 7);
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 7);
+
+      mockRlsTx.behaviourSanction.findMany.mockResolvedValue([
+        {
+          id: 's-1',
+          sanction_number: 'SN-001',
+          type: 'detention',
+          scheduled_date: futureDate,
+          suspension_start_date: null,
+          suspension_end_date: null,
+          status: 'scheduled',
+        },
+        {
+          id: 's-2',
+          sanction_number: 'SN-002',
+          type: 'after_school_detention',
+          scheduled_date: pastDate,
+          suspension_start_date: null,
+          suspension_end_date: null,
+          status: 'served',
+        },
+      ]);
+
+      const result = (await service.getSanctions(TENANT_ID, USER_ID, STUDENT_ID)) as {
+        data: { upcoming: unknown[]; recent: unknown[] };
+      };
+
+      expect(result.data.upcoming).toHaveLength(1);
+      expect(result.data.recent).toHaveLength(1);
+    });
+
+    it('should return empty for restricted student', async () => {
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue({
+        id: 'restriction-1',
+      });
+
+      const result = (await service.getSanctions(TENANT_ID, USER_ID, STUDENT_ID)) as {
+        data: { upcoming: unknown[]; recent: unknown[] };
+      };
+
+      expect(result.data.upcoming).toHaveLength(0);
+      expect(result.data.recent).toHaveLength(0);
+    });
+
+    it('edge: should use suspension_start_date as fallback for categorisation', async () => {
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
+
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 7);
+
+      mockRlsTx.behaviourSanction.findMany.mockResolvedValue([
+        {
+          id: 's-1',
+          sanction_number: 'SN-001',
+          type: 'suspension_internal',
+          scheduled_date: null,
+          suspension_start_date: futureDate,
+          suspension_end_date: futureDate,
+          status: 'scheduled',
+        },
+      ]);
+
+      const result = (await service.getSanctions(TENANT_ID, USER_ID, STUDENT_ID)) as {
+        data: { upcoming: unknown[]; recent: unknown[] };
+      };
+
+      expect(result.data.upcoming).toHaveLength(1);
+    });
+
+    it('edge: should classify sanctions with no dates as recent', async () => {
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
+
+      mockRlsTx.behaviourSanction.findMany.mockResolvedValue([
+        {
+          id: 's-1',
+          sanction_number: 'SN-001',
+          type: 'verbal_warning',
+          scheduled_date: null,
+          suspension_start_date: null,
+          suspension_end_date: null,
+          status: 'served',
+        },
+      ]);
+
+      const result = (await service.getSanctions(TENANT_ID, USER_ID, STUDENT_ID)) as {
+        data: { upcoming: unknown[]; recent: unknown[] };
+      };
+
+      expect(result.data.recent).toHaveLength(1);
+    });
+  });
+
+  // ─── submitAppeal ─────────────────────────────────────────────────────────
+
+  describe('submitAppeal', () => {
+    let mockAppealsService: { submit: jest.Mock };
+
+    beforeEach(() => {
+      mockAppealsService = { submit: jest.fn().mockResolvedValue({ id: 'appeal-1' }) };
+      (service as unknown as { appealsService: { submit: jest.Mock } }).appealsService =
+        mockAppealsService;
+    });
+
+    it('should verify parent-student link and delegate to appeals service', async () => {
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
+
+      await service.submitAppeal(TENANT_ID, USER_ID, {
+        entity_type: 'incident',
+        incident_id: INCIDENT_ID,
+        student_id: STUDENT_ID,
+        grounds: 'Test grounds',
+        grounds_category: 'procedural_error',
+      });
+
+      expect(mockAppealsService.submit).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        expect.objectContaining({
+          appellant_type: 'parent',
+          appellant_parent_id: PARENT_ID,
+          entity_type: 'incident',
+          student_id: STUDENT_ID,
+        }),
+      );
+    });
+
+    it('should throw ForbiddenException when parent-student link does not exist', async () => {
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.submitAppeal(TENANT_ID, USER_ID, {
+          entity_type: 'incident',
+          incident_id: INCIDENT_ID,
+          student_id: 'unlinked-student',
+          grounds: 'Test grounds',
+          grounds_category: 'procedural_error',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  // ─── getIncidents — teacher name visibility ─────────────────────────────
+
+  describe('getIncidents — teacher name visibility', () => {
+    it('should show teacher name when parent_visibility_show_teacher_name is true', async () => {
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({
+        settings: {
+          behaviour: { parent_visibility_show_teacher_name: true },
+        },
+      });
+      mockRlsTx.behaviourIncident.findMany.mockResolvedValue([
+        makeIncident({
+          parent_description: 'Desc',
+          reported_by: { first_name: 'Jane', last_name: 'Teacher' },
+        }),
+      ]);
+      mockRlsTx.behaviourIncident.count.mockResolvedValue(1);
+      mockRlsTx.behaviourParentAcknowledgement.findMany.mockResolvedValue([]);
+
+      const result = (await service.getIncidents(
+        TENANT_ID,
+        USER_ID,
+        STUDENT_ID,
+        1,
+        20,
+      )) as IncidentsResult;
+
+      expect(result.data[0]!.reported_by_name).toBe('Jane Teacher');
+    });
+
+    it('should include pending acknowledgement ID when present', async () => {
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({
+        settings: { behaviour: {} },
+      });
+      mockRlsTx.behaviourIncident.findMany.mockResolvedValue([
+        makeIncident({ parent_description: 'Desc' }),
+      ]);
+      mockRlsTx.behaviourIncident.count.mockResolvedValue(1);
+      mockRlsTx.behaviourParentAcknowledgement.findMany.mockResolvedValue([
+        { id: 'ack-99', incident_id: INCIDENT_ID },
+      ]);
+
+      const result = (await service.getIncidents(
+        TENANT_ID,
+        USER_ID,
+        STUDENT_ID,
+        1,
+        20,
+      )) as IncidentsResult;
+
+      expect(result.data[0]!.pending_acknowledgement_id).toBe('ack-99');
+    });
+  });
+
+  // ─── getSummary — multiple children ─────────────────────────────────────
+
+  describe('getSummary — multiple children', () => {
+    it('should handle null points_awarded aggregate', async () => {
+      mockParentReadFacade.findActiveByUserIdWithLocale.mockResolvedValue(makeParent());
+      mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink()]);
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourIncident.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+      mockRlsTx.behaviourIncidentParticipant.aggregate.mockResolvedValue({
+        _sum: { points_awarded: null },
+      });
+      mockRlsTx.behaviourParentAcknowledgement.count.mockResolvedValue(0);
+
+      const result = (await service.getSummary(TENANT_ID, USER_ID)) as SummaryResult;
+
+      expect(result.data[0]!.points_total).toBe(0);
+    });
+  });
+
   // ─── getRecognitionWall ───────────────────────────────────────────────────
 
   describe('getRecognitionWall', () => {
@@ -614,9 +904,7 @@ describe('BehaviourParentService', () => {
         makeWallAward('award-2'),
       ]);
       // Only award-1 has consent granted
-      mockRlsTx.behaviourPublicationApproval.findMany.mockResolvedValue([
-        { entity_id: 'award-1' },
-      ]);
+      mockRlsTx.behaviourPublicationApproval.findMany.mockResolvedValue([{ entity_id: 'award-1' }]);
 
       const result = await service.getRecognitionWall(TENANT_ID, USER_ID);
 
@@ -646,9 +934,7 @@ describe('BehaviourParentService', () => {
       mockRlsTx.tenantSetting.findFirst.mockResolvedValue({
         settings: { behaviour: { recognition_wall_requires_consent: true } },
       });
-      mockRlsTx.behaviourRecognitionAward.findMany.mockResolvedValue([
-        makeWallAward('award-1'),
-      ]);
+      mockRlsTx.behaviourRecognitionAward.findMany.mockResolvedValue([makeWallAward('award-1')]);
       // No approvals
       mockRlsTx.behaviourPublicationApproval.findMany.mockResolvedValue([]);
 

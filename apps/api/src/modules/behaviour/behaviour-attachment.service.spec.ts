@@ -328,5 +328,140 @@ describe('BehaviourAttachmentService', () => {
         }),
       ).rejects.toThrow(ForbiddenException);
     });
+
+    it('should throw ForbiddenException when incident is closed_after_appeal', async () => {
+      mockDb.behaviourIncident.findFirst.mockResolvedValue(
+        makeIncident({ status: 'closed_after_appeal', category: { name: 'N/A' } }),
+      );
+
+      await expect(
+        service.recordFollowUp(TENANT_ID, USER_ID, INCIDENT_ID, {
+          action_taken: 'Test',
+          create_task: false,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should not update follow_up_required when already false', async () => {
+      mockDb.behaviourIncident.findFirst.mockResolvedValue(
+        makeIncident({ follow_up_required: false, category: { name: 'Disruption' } }),
+      );
+
+      await service.recordFollowUp(TENANT_ID, USER_ID, INCIDENT_ID, {
+        action_taken: 'Test',
+        create_task: false,
+      });
+
+      expect(mockDb.behaviourIncident.update).not.toHaveBeenCalled();
+    });
+
+    it('should create task with custom assigned_to_id and due_date', async () => {
+      mockDb.behaviourIncident.findFirst.mockResolvedValue(
+        makeIncident({ follow_up_required: false, category: { name: 'Disruption' } }),
+      );
+
+      await service.recordFollowUp(TENANT_ID, USER_ID, INCIDENT_ID, {
+        action_taken: 'Emailed parents',
+        create_task: true,
+        task_title: 'Check on student',
+        task_assigned_to_id: 'other-staff',
+        task_due_date: '2026-04-10',
+      });
+
+      expect(mockDb.behaviourTask.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          assigned_to_id: 'other-staff',
+          due_date: new Date('2026-04-10'),
+        }),
+      });
+    });
+
+    it('should pass outcome to history when provided', async () => {
+      mockDb.behaviourIncident.findFirst.mockResolvedValue(
+        makeIncident({ follow_up_required: false, category: { name: 'Disruption' } }),
+      );
+
+      await service.recordFollowUp(TENANT_ID, USER_ID, INCIDENT_ID, {
+        action_taken: 'Called parents',
+        outcome: 'resolved',
+        create_task: false,
+      });
+
+      expect(mockHistory.recordHistory).toHaveBeenCalledWith(
+        expect.anything(),
+        TENANT_ID,
+        'incident',
+        INCIDENT_ID,
+        USER_ID,
+        'follow_up_recorded',
+        null,
+        expect.objectContaining({
+          action_taken: 'Called parents',
+          outcome: 'resolved',
+        }),
+      );
+    });
+  });
+
+  // ─── uploadAttachment — additional branches ───────────────────────────────
+
+  describe('uploadAttachment — additional branches', () => {
+    it('should throw ForbiddenException when incident is closed_after_appeal', async () => {
+      mockDb.behaviourIncident.findFirst.mockResolvedValue(
+        makeIncident({ status: 'closed_after_appeal' }),
+      );
+
+      await expect(
+        service.uploadAttachment(TENANT_ID, USER_ID, INCIDENT_ID, makeFile(), {
+          classification: 'supporting_evidence',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('edge: should continue when scan job queue fails', async () => {
+      mockDb.behaviourIncident.findFirst.mockResolvedValue(makeIncident());
+      mockQueue.add.mockRejectedValue(new Error('Queue down'));
+
+      const result = await service.uploadAttachment(TENANT_ID, USER_ID, INCIDENT_ID, makeFile(), {
+        classification: 'supporting_evidence',
+      });
+
+      // Upload still succeeds even if scan queue fails
+      expect(result.data.id).toBe(ATTACHMENT_ID);
+    });
+  });
+
+  // ─── getAttachment — scan_failed branch ───────────────────────────────────
+
+  describe('getAttachment — scan_failed', () => {
+    it('should throw ForbiddenException when scan failed', async () => {
+      mockPrisma.behaviourIncident.findFirst.mockResolvedValue(makeIncident());
+      mockPrisma.behaviourAttachment.findFirst.mockResolvedValue(
+        makeAttachment({ scan_status: 'scan_failed' }),
+      );
+
+      await expect(
+        service.getAttachment(TENANT_ID, USER_ID, INCIDENT_ID, ATTACHMENT_ID),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw NotFoundException when incident does not exist', async () => {
+      mockPrisma.behaviourIncident.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getAttachment(TENANT_ID, USER_ID, INCIDENT_ID, ATTACHMENT_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException when attachment has different entity_type', async () => {
+      mockPrisma.behaviourIncident.findFirst.mockResolvedValue(makeIncident());
+      mockPrisma.behaviourAttachment.findFirst.mockResolvedValue(
+        makeAttachment({ entity_type: 'sanction' }),
+      );
+
+      await expect(
+        service.getAttachment(TENANT_ID, USER_ID, INCIDENT_ID, ATTACHMENT_ID),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 });

@@ -797,5 +797,752 @@ describe('BehaviourInterventionsService', () => {
         service.createReview(TENANT_ID, INTERVENTION_ID, USER_ID, baseReviewDto),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('should allow review for monitoring status', async () => {
+      setupReviewMocks({ status: 'monitoring' });
+
+      const result = await service.createReview(TENANT_ID, INTERVENTION_ID, USER_ID, baseReviewDto);
+
+      expect(result).toBeDefined();
+      expect(mockRlsTx.behaviourInterventionReview.create).toHaveBeenCalled();
+    });
+
+    it('should use start_date as sinceDate when no previous review exists', async () => {
+      const intervention = makeIntervention({ status: 'active_intervention' });
+      mockRlsTx.behaviourIntervention.findFirst.mockResolvedValue(intervention);
+      mockRlsTx.behaviourInterventionReview.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourIncidentParticipant.aggregate.mockResolvedValue({
+        _sum: { points_awarded: null },
+      });
+      mockRlsTx.behaviourInterventionReview.create.mockResolvedValue(makeReview());
+      mockRlsTx.behaviourIntervention.update.mockResolvedValue(intervention);
+      mockRlsTx.behaviourTask.create.mockResolvedValue({ id: 'task-1' });
+
+      await service.createReview(TENANT_ID, INTERVENTION_ID, USER_ID, baseReviewDto);
+
+      // Points aggregate should use start_date as sinceDate
+      expect(mockRlsTx.behaviourIncidentParticipant.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            created_at: { gte: intervention.start_date },
+          }),
+        }),
+      );
+    });
+
+    it('should use last review date as sinceDate when previous review exists', async () => {
+      const lastReviewDate = new Date('2026-03-10');
+      setupReviewMocks();
+      mockRlsTx.behaviourInterventionReview.findFirst.mockResolvedValue({
+        review_date: lastReviewDate,
+      });
+
+      await service.createReview(TENANT_ID, INTERVENTION_ID, USER_ID, baseReviewDto);
+
+      expect(mockRlsTx.behaviourIncidentParticipant.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            created_at: { gte: lastReviewDate },
+          }),
+        }),
+      );
+    });
+
+    it('should not update intervention when no next_review_date provided', async () => {
+      setupReviewMocks();
+
+      const dtoNoNext = {
+        review_date: '2026-03-15',
+        progress: 'on_track' as const,
+        goal_updates: [{ goal: 'Test', status: 'progressing' as const, notes: null }],
+        notes: 'Good',
+      };
+
+      await service.createReview(TENANT_ID, INTERVENTION_ID, USER_ID, dtoNoNext);
+
+      expect(mockRlsTx.behaviourIntervention.update).not.toHaveBeenCalled();
+    });
+
+    it('edge: should handle null points_awarded in review', async () => {
+      setupReviewMocks();
+      mockRlsTx.behaviourIncidentParticipant.aggregate.mockResolvedValue({
+        _sum: { points_awarded: null },
+      });
+
+      await service.createReview(TENANT_ID, INTERVENTION_ID, USER_ID, baseReviewDto);
+
+      expect(mockRlsTx.behaviourInterventionReview.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          behaviour_points_since_last: 0,
+        }),
+      });
+    });
+  });
+
+  // ─── update — review_frequency_days ───────────────────────────────────────
+
+  describe('update — review_frequency_days', () => {
+    it('should recalculate next_review_date from last review when review_frequency_days changes', async () => {
+      const existing = makeIntervention({ review_frequency_days: 14 });
+      const lastReviewDate = new Date('2026-03-20');
+      mockPrisma.behaviourIntervention.findFirst.mockResolvedValue(existing);
+      mockRlsTx.behaviourInterventionReview.findFirst.mockResolvedValue({
+        review_date: lastReviewDate,
+      });
+      mockRlsTx.behaviourIntervention.update.mockResolvedValue(
+        makeIntervention({ review_frequency_days: 7 }),
+      );
+
+      await service.update(TENANT_ID, INTERVENTION_ID, USER_ID, {
+        review_frequency_days: 7,
+      });
+
+      expect(mockRlsTx.behaviourIntervention.update).toHaveBeenCalledWith({
+        where: { id: INTERVENTION_ID },
+        data: expect.objectContaining({
+          review_frequency_days: 7,
+          next_review_date: new Date('2026-03-27'),
+        }),
+      });
+    });
+
+    it('should use start_date as base when no previous reviews exist', async () => {
+      const startDate = new Date('2026-03-01');
+      const existing = makeIntervention({ start_date: startDate, review_frequency_days: 14 });
+      mockPrisma.behaviourIntervention.findFirst.mockResolvedValue(existing);
+      mockRlsTx.behaviourInterventionReview.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourIntervention.update.mockResolvedValue(
+        makeIntervention({ review_frequency_days: 7 }),
+      );
+
+      await service.update(TENANT_ID, INTERVENTION_ID, USER_ID, {
+        review_frequency_days: 7,
+      });
+
+      expect(mockRlsTx.behaviourIntervention.update).toHaveBeenCalledWith({
+        where: { id: INTERVENTION_ID },
+        data: expect.objectContaining({
+          next_review_date: new Date('2026-03-08'),
+        }),
+      });
+    });
+
+    it('should return existing when no values differ in update dto', async () => {
+      const existing = makeIntervention();
+      mockPrisma.behaviourIntervention.findFirst.mockResolvedValue(existing);
+
+      const result = await service.update(TENANT_ID, INTERVENTION_ID, USER_ID, {});
+
+      expect(result).toEqual(existing);
+      expect(mockRlsTx.behaviourIntervention.update).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── transitionStatus — not found ─────────────────────────────────────────
+
+  describe('transitionStatus — NotFoundException', () => {
+    it('should throw NotFoundException when intervention not found', async () => {
+      mockRlsTx.behaviourIntervention.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.transitionStatus(TENANT_ID, INTERVENTION_ID, USER_ID, { status: 'active' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── getAutoPopulateData ──────────────────────────────────────────────────
+
+  describe('getAutoPopulateData', () => {
+    it('should throw NotFoundException when intervention not found', async () => {
+      mockPrisma.behaviourIntervention.findFirst.mockResolvedValue(null);
+
+      await expect(service.getAutoPopulateData(TENANT_ID, 'missing')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should return points since last review date', async () => {
+      mockPrisma.behaviourIntervention.findFirst.mockResolvedValue(makeIntervention());
+      mockPrisma.behaviourInterventionReview.findFirst.mockResolvedValue({
+        review_date: new Date('2026-03-10'),
+      });
+      mockPrisma.behaviourIncidentParticipant.aggregate.mockResolvedValue({
+        _sum: { points_awarded: 15 },
+      });
+
+      const result = await service.getAutoPopulateData(TENANT_ID, INTERVENTION_ID);
+
+      expect(result.behaviour_points_since_last).toBe(15);
+      expect(result.attendance_rate_since_last).toBeNull();
+    });
+
+    it('should use start_date when no previous review exists', async () => {
+      const intervention = makeIntervention();
+      mockPrisma.behaviourIntervention.findFirst.mockResolvedValue(intervention);
+      mockPrisma.behaviourInterventionReview.findFirst.mockResolvedValue(null);
+      mockPrisma.behaviourIncidentParticipant.aggregate.mockResolvedValue({
+        _sum: { points_awarded: null },
+      });
+
+      const result = await service.getAutoPopulateData(TENANT_ID, INTERVENTION_ID);
+
+      expect(result.behaviour_points_since_last).toBe(0);
+    });
+  });
+
+  // ─── list — additional filters ────────────────────────────────────────────
+
+  describe('list — additional filters', () => {
+    const baseQuery = { page: 1, pageSize: 20 };
+
+    it('should filter by assigned_to_id when provided', async () => {
+      mockPrisma.behaviourIntervention.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourIntervention.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { ...baseQuery, assigned_to_id: ASSIGNED_TO_ID }, true);
+
+      expect(mockPrisma.behaviourIntervention.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            assigned_to_id: ASSIGNED_TO_ID,
+          }),
+        }),
+      );
+    });
+
+    it('should filter by type when provided', async () => {
+      mockPrisma.behaviourIntervention.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourIntervention.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { ...baseQuery, type: 'other' }, true);
+
+      expect(mockPrisma.behaviourIntervention.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            type: 'other_intervention',
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── listReviews ──────────────────────────────────────────────────────────
+
+  describe('listReviews', () => {
+    it('should return paginated reviews for an intervention', async () => {
+      mockPrisma.behaviourInterventionReview.findMany.mockResolvedValue([makeReview()]);
+      mockPrisma.behaviourInterventionReview.count.mockResolvedValue(1);
+
+      const result = await service.listReviews(TENANT_ID, INTERVENTION_ID, 1, 20);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
+    });
+  });
+
+  // ─── complete ─────────────────────────────────────────────────────────────
+
+  describe('complete', () => {
+    it('should delegate to transitionStatus with completed status', async () => {
+      mockRlsTx.behaviourIntervention.findFirst.mockResolvedValue(
+        makeIntervention({ status: 'active_intervention' }),
+      );
+      mockRlsTx.behaviourIntervention.update.mockImplementation(
+        async ({ data }: { data: Record<string, unknown> }) => makeIntervention({ ...data }),
+      );
+      mockRlsTx.behaviourTask.create.mockResolvedValue({ id: 'task-1' });
+
+      const result = (await service.complete(TENANT_ID, INTERVENTION_ID, USER_ID, {
+        outcome: 'improved',
+        outcome_notes: 'Great improvement',
+      })) as { status: string };
+
+      expect(result.status).toBe('completed_intervention');
+    });
+  });
+
+  // ─── listOverdue ──────────────────────────────────────────────────────────
+
+  describe('listOverdue', () => {
+    it('should return overdue interventions', async () => {
+      const overdue = makeIntervention({
+        next_review_date: new Date('2026-01-01'),
+        status: 'active_intervention',
+      });
+      mockPrisma.behaviourIntervention.findMany.mockResolvedValue([overdue]);
+      mockPrisma.behaviourIntervention.count.mockResolvedValue(1);
+
+      const result = await service.listOverdue(TENANT_ID, 1, 20);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.meta.total).toBe(1);
+    });
+  });
+
+  // ─── listMy ───────────────────────────────────────────────────────────────
+
+  describe('listMy', () => {
+    it('should return interventions assigned to the user', async () => {
+      mockPrisma.behaviourIntervention.findMany.mockResolvedValue([makeIntervention()]);
+      mockPrisma.behaviourIntervention.count.mockResolvedValue(1);
+
+      const result = await service.listMy(TENANT_ID, ASSIGNED_TO_ID, 1, 20);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.meta.total).toBe(1);
+    });
+  });
+
+  // ─── getOutcomeAnalytics ──────────────────────────────────────────────────
+
+  describe('getOutcomeAnalytics', () => {
+    it('should group completed interventions by type, outcome, and send_aware', async () => {
+      mockPrisma.behaviourIntervention.findMany.mockResolvedValue([
+        { type: 'behaviour_plan', outcome: 'improved', send_aware: false },
+        { type: 'behaviour_plan', outcome: 'improved', send_aware: false },
+        { type: 'behaviour_plan', outcome: 'no_change', send_aware: true },
+        { type: 'mentoring', outcome: null, send_aware: false },
+      ]);
+
+      const result = await service.getOutcomeAnalytics(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(result).toHaveLength(3);
+      const bpImproved = result.find(
+        (r) => r.type === 'behaviour_plan' && r.outcome === 'improved',
+      );
+      expect(bpImproved!.count).toBe(2);
+
+      const nullOutcome = result.find((r) => r.outcome === 'unknown');
+      expect(nullOutcome!.count).toBe(1);
+    });
+
+    it('should filter by year_group_id when provided', async () => {
+      mockPrisma.behaviourIntervention.findMany.mockResolvedValue([]);
+
+      await service.getOutcomeAnalytics(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        year_group_id: 'yg-1',
+      });
+
+      expect(mockPrisma.behaviourIntervention.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student: { year_group_id: 'yg-1' },
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── create — optional fields ──────────────────────────────────────────
+
+  describe('create — optional fields', () => {
+    const baseDto = {
+      student_id: STUDENT_ID,
+      title: 'Support Plan',
+      type: 'behaviour_plan' as const,
+      trigger_description: 'Repeated disruptions',
+      goals: [{ goal: 'Goal 1', measurable_target: 'Target 1', deadline: null }],
+      strategies: [
+        { strategy: 'Strategy 1', responsible_staff_id: ASSIGNED_TO_ID, frequency: 'daily' },
+      ],
+      assigned_to_id: ASSIGNED_TO_ID,
+      start_date: '2026-03-01',
+    };
+
+    it('should use default review_frequency_days of 14 when not provided', async () => {
+      mockRlsTx.behaviourIntervention.create.mockResolvedValue(makeIntervention());
+      mockRlsTx.behaviourTask.create.mockResolvedValue({ id: 'task-1' });
+
+      await service.create(TENANT_ID, USER_ID, baseDto);
+
+      expect(mockRlsTx.behaviourIntervention.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          review_frequency_days: 14,
+          send_aware: false,
+          send_notes: null,
+          target_end_date: null,
+        }),
+      });
+    });
+
+    it('should pass target_end_date when provided', async () => {
+      mockRlsTx.behaviourIntervention.create.mockResolvedValue(makeIntervention());
+      mockRlsTx.behaviourTask.create.mockResolvedValue({ id: 'task-1' });
+
+      await service.create(TENANT_ID, USER_ID, {
+        ...baseDto,
+        target_end_date: '2026-06-01',
+        send_aware: true,
+        send_notes: 'Sensitive SEND info',
+      });
+
+      expect(mockRlsTx.behaviourIntervention.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          target_end_date: new Date('2026-06-01'),
+          send_aware: true,
+          send_notes: 'Sensitive SEND info',
+        }),
+      });
+    });
+
+    it('should not link incidents when incident_ids is empty', async () => {
+      mockRlsTx.behaviourIntervention.create.mockResolvedValue(makeIntervention());
+      mockRlsTx.behaviourTask.create.mockResolvedValue({ id: 'task-1' });
+
+      await service.create(TENANT_ID, USER_ID, {
+        ...baseDto,
+        incident_ids: [],
+      });
+
+      expect(mockRlsTx.behaviourInterventionIncident.create).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── transitionStatus — outcome and outcome_notes ─────────────────────
+
+  describe('transitionStatus — outcome fields', () => {
+    it('should set outcome and outcome_notes on completion', async () => {
+      mockRlsTx.behaviourIntervention.findFirst.mockResolvedValue(
+        makeIntervention({ status: 'active_intervention' }),
+      );
+      mockRlsTx.behaviourIntervention.update.mockResolvedValue(
+        makeIntervention({ status: 'completed_intervention' }),
+      );
+
+      await service.transitionStatus(TENANT_ID, INTERVENTION_ID, USER_ID, {
+        status: 'completed',
+        outcome: 'improved',
+        outcome_notes: 'Student behaviour greatly improved',
+      });
+
+      expect(mockRlsTx.behaviourIntervention.update).toHaveBeenCalledWith({
+        where: { id: INTERVENTION_ID },
+        data: expect.objectContaining({
+          status: 'completed_intervention',
+          actual_end_date: expect.any(Date),
+          outcome: 'improved',
+          outcome_notes: 'Student behaviour greatly improved',
+        }),
+      });
+    });
+
+    it('should set outcome on abandonment', async () => {
+      mockRlsTx.behaviourIntervention.findFirst.mockResolvedValue(
+        makeIntervention({ status: 'active_intervention' }),
+      );
+      mockRlsTx.behaviourIntervention.update.mockResolvedValue(
+        makeIntervention({ status: 'abandoned' }),
+      );
+
+      await service.transitionStatus(TENANT_ID, INTERVENTION_ID, USER_ID, {
+        status: 'abandoned',
+        outcome: 'no_change',
+      });
+
+      expect(mockRlsTx.behaviourIntervention.update).toHaveBeenCalledWith({
+        where: { id: INTERVENTION_ID },
+        data: expect.objectContaining({
+          status: 'abandoned',
+          actual_end_date: expect.any(Date),
+          outcome: 'no_change',
+        }),
+      });
+    });
+
+    it('should NOT set actual_end_date on activation', async () => {
+      mockRlsTx.behaviourIntervention.findFirst.mockResolvedValue(
+        makeIntervention({ status: 'planned' }),
+      );
+      mockRlsTx.behaviourIntervention.update.mockResolvedValue(
+        makeIntervention({ status: 'active_intervention' }),
+      );
+      mockRlsTx.behaviourTask.create.mockResolvedValue({ id: 'task-1' });
+
+      await service.transitionStatus(TENANT_ID, INTERVENTION_ID, USER_ID, {
+        status: 'active',
+      });
+
+      const updateCall = mockRlsTx.behaviourIntervention.update.mock.calls[0]![0] as {
+        data: Record<string, unknown>;
+      };
+      expect(updateCall.data.actual_end_date).toBeUndefined();
+    });
+
+    it('should use next_review_date fallback when null in activation task', async () => {
+      mockRlsTx.behaviourIntervention.findFirst.mockResolvedValue(
+        makeIntervention({ status: 'planned', next_review_date: null }),
+      );
+      mockRlsTx.behaviourIntervention.update.mockResolvedValue(
+        makeIntervention({ status: 'active_intervention' }),
+      );
+      mockRlsTx.behaviourTask.create.mockResolvedValue({ id: 'task-1' });
+
+      await service.transitionStatus(TENANT_ID, INTERVENTION_ID, USER_ID, {
+        status: 'active',
+      });
+
+      // Should use new Date() as fallback for due_date
+      expect(mockRlsTx.behaviourTask.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          due_date: expect.any(Date),
+        }),
+      });
+    });
+  });
+
+  // ─── update — additional field branches ────────────────────────────────
+
+  describe('update — additional fields', () => {
+    it('should update goals field', async () => {
+      const existing = makeIntervention();
+      mockPrisma.behaviourIntervention.findFirst.mockResolvedValue(existing);
+      mockRlsTx.behaviourIntervention.update.mockResolvedValue(
+        makeIntervention({ goals: [{ goal: 'New goal' }] }),
+      );
+
+      await service.update(TENANT_ID, INTERVENTION_ID, USER_ID, {
+        goals: [{ goal: 'New goal', measurable_target: 'New target', deadline: null }],
+      });
+
+      expect(mockRlsTx.behaviourIntervention.update).toHaveBeenCalledWith({
+        where: { id: INTERVENTION_ID },
+        data: expect.objectContaining({
+          goals: expect.any(Array),
+        }),
+      });
+    });
+
+    it('should update strategies field', async () => {
+      const existing = makeIntervention();
+      mockPrisma.behaviourIntervention.findFirst.mockResolvedValue(existing);
+      mockRlsTx.behaviourIntervention.update.mockResolvedValue(
+        makeIntervention({ strategies: [{ strategy: 'New strategy' }] }),
+      );
+
+      await service.update(TENANT_ID, INTERVENTION_ID, USER_ID, {
+        strategies: [
+          { strategy: 'New strategy', responsible_staff_id: ASSIGNED_TO_ID, frequency: 'weekly' },
+        ],
+      });
+
+      expect(mockRlsTx.behaviourIntervention.update).toHaveBeenCalledWith({
+        where: { id: INTERVENTION_ID },
+        data: expect.objectContaining({
+          strategies: expect.any(Array),
+        }),
+      });
+    });
+
+    it('should update target_end_date field', async () => {
+      const existing = makeIntervention({ target_end_date: null });
+      mockPrisma.behaviourIntervention.findFirst.mockResolvedValue(existing);
+      mockRlsTx.behaviourIntervention.update.mockResolvedValue(
+        makeIntervention({ target_end_date: new Date('2026-06-01') }),
+      );
+
+      await service.update(TENANT_ID, INTERVENTION_ID, USER_ID, {
+        target_end_date: '2026-06-01',
+      });
+
+      expect(mockRlsTx.behaviourIntervention.update).toHaveBeenCalledWith({
+        where: { id: INTERVENTION_ID },
+        data: expect.objectContaining({
+          target_end_date: new Date('2026-06-01'),
+        }),
+      });
+    });
+
+    it('should clear target_end_date to null', async () => {
+      const existing = makeIntervention({ target_end_date: new Date('2026-06-01') });
+      mockPrisma.behaviourIntervention.findFirst.mockResolvedValue(existing);
+      mockRlsTx.behaviourIntervention.update.mockResolvedValue(
+        makeIntervention({ target_end_date: null }),
+      );
+
+      await service.update(TENANT_ID, INTERVENTION_ID, USER_ID, {
+        target_end_date: null,
+      });
+
+      expect(mockRlsTx.behaviourIntervention.update).toHaveBeenCalledWith({
+        where: { id: INTERVENTION_ID },
+        data: expect.objectContaining({
+          target_end_date: null,
+        }),
+      });
+    });
+
+    it('should update send_notes field', async () => {
+      const existing = makeIntervention({ send_notes: null });
+      mockPrisma.behaviourIntervention.findFirst.mockResolvedValue(existing);
+      mockRlsTx.behaviourIntervention.update.mockResolvedValue(
+        makeIntervention({ send_notes: 'New SEND notes' }),
+      );
+
+      await service.update(TENANT_ID, INTERVENTION_ID, USER_ID, {
+        send_notes: 'New SEND notes',
+      });
+
+      expect(mockRlsTx.behaviourIntervention.update).toHaveBeenCalledWith({
+        where: { id: INTERVENTION_ID },
+        data: expect.objectContaining({
+          send_notes: 'New SEND notes',
+        }),
+      });
+    });
+
+    it('should recalculate next_review_date from last review when review_frequency_days changes', async () => {
+      const existing = makeIntervention({ review_frequency_days: 14 });
+      mockPrisma.behaviourIntervention.findFirst.mockResolvedValue(existing);
+      mockRlsTx.behaviourInterventionReview.findFirst.mockResolvedValue({
+        review_date: new Date('2026-03-10'),
+      });
+      mockRlsTx.behaviourIntervention.update.mockResolvedValue(
+        makeIntervention({ review_frequency_days: 7 }),
+      );
+
+      await service.update(TENANT_ID, INTERVENTION_ID, USER_ID, {
+        review_frequency_days: 7,
+      });
+
+      expect(mockRlsTx.behaviourIntervention.update).toHaveBeenCalledWith({
+        where: { id: INTERVENTION_ID },
+        data: expect.objectContaining({
+          review_frequency_days: 7,
+          next_review_date: new Date('2026-03-17'), // 10 + 7
+        }),
+      });
+    });
+  });
+
+  // ─── list — no filters ────────────────────────────────────────────────
+
+  describe('list — no filters', () => {
+    it('should list all interventions with no filters', async () => {
+      mockPrisma.behaviourIntervention.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourIntervention.count.mockResolvedValue(0);
+
+      const result = await service.list(TENANT_ID, { page: 1, pageSize: 20 }, true);
+
+      expect(result.data).toEqual([]);
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 0 });
+    });
+  });
+
+  // ─── createReview — no next_review_date ─────────────────────────────────
+
+  describe('createReview — without next_review_date', () => {
+    it('should not create task or update intervention when no next_review_date', async () => {
+      mockRlsTx.behaviourIntervention.findFirst.mockResolvedValue(
+        makeIntervention({ status: 'active_intervention' }),
+      );
+      mockRlsTx.behaviourInterventionReview.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourIncidentParticipant.aggregate.mockResolvedValue({
+        _sum: { points_awarded: 5 },
+      });
+      mockRlsTx.behaviourInterventionReview.create.mockResolvedValue(
+        makeReview({ next_review_date: null }),
+      );
+
+      await service.createReview(TENANT_ID, INTERVENTION_ID, USER_ID, {
+        review_date: '2026-03-15',
+        progress: 'on_track',
+        goal_updates: [],
+        notes: 'All good',
+      });
+
+      expect(mockRlsTx.behaviourInterventionReview.create).toHaveBeenCalled();
+      // Should NOT create a new task (no next_review_date)
+      expect(mockRlsTx.behaviourTask.create).not.toHaveBeenCalled();
+      // Should NOT update the intervention (no next_review_date)
+      expect(mockRlsTx.behaviourIntervention.update).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── list — type filter mapping ───────────────────────────────────────
+
+  describe('list — type mapping', () => {
+    it('should map type "other" to "other_intervention"', async () => {
+      mockPrisma.behaviourIntervention.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourIntervention.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { page: 1, pageSize: 20, type: 'other' }, true);
+
+      expect(mockPrisma.behaviourIntervention.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            type: 'other_intervention',
+          }),
+        }),
+      );
+    });
+
+    it('should pass non-other types directly', async () => {
+      mockPrisma.behaviourIntervention.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourIntervention.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { page: 1, pageSize: 20, type: 'mentoring' }, true);
+
+      expect(mockPrisma.behaviourIntervention.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            type: 'mentoring',
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── list — status mapping ────────────────────────────────────────────
+
+  describe('list — status mapping', () => {
+    it('should map status "active" to "active_intervention"', async () => {
+      mockPrisma.behaviourIntervention.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourIntervention.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { page: 1, pageSize: 20, status: 'active' }, true);
+
+      expect(mockPrisma.behaviourIntervention.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'active_intervention',
+          }),
+        }),
+      );
+    });
+
+    it('should map status "completed" to "completed_intervention"', async () => {
+      mockPrisma.behaviourIntervention.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourIntervention.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { page: 1, pageSize: 20, status: 'completed' }, true);
+
+      expect(mockPrisma.behaviourIntervention.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'completed_intervention',
+          }),
+        }),
+      );
+    });
+
+    it('should pass unmapped status directly (e.g. planned)', async () => {
+      mockPrisma.behaviourIntervention.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourIntervention.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { page: 1, pageSize: 20, status: 'planned' }, true);
+
+      expect(mockPrisma.behaviourIntervention.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'planned',
+          }),
+        }),
+      );
+    });
   });
 });

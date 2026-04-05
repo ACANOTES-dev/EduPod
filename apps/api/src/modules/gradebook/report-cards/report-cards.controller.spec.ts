@@ -208,4 +208,270 @@ describe('ReportCardsController', () => {
       expect(result).toEqual(overview);
     });
   });
+
+  // ─── renderPdf ──────────────────────────────────────────────────────────────
+
+  describe('renderPdf', () => {
+    it('should render PDF and send it as response', async () => {
+      const reportCard = {
+        id: REPORT_CARD_ID,
+        template_locale: 'en',
+        snapshot_payload_json: { student: 'Alice' },
+      };
+      mockReportCardsQueriesService.findOne.mockResolvedValue(reportCard);
+
+      // Mock tenant read facade methods accessed via MOCK_FACADE_PROVIDERS
+      const tenantFacade = controller['tenantReadFacade'] as {
+        findNameById: jest.Mock;
+        findBranding: jest.Mock;
+      };
+      tenantFacade.findNameById.mockResolvedValue('Test School');
+      tenantFacade.findBranding.mockResolvedValue({
+        school_name_ar: 'مدرسة',
+        logo_url: 'https://example.com/logo.png',
+        primary_color: '#003366',
+        report_card_title: 'Student Report',
+      });
+
+      mockPdfRenderingService.renderPdf.mockResolvedValue(Buffer.from('pdf-content'));
+
+      const mockRes = {
+        set: jest.fn(),
+        send: jest.fn(),
+      };
+
+      await controller.renderPdf(tenantContext, REPORT_CARD_ID, mockRes as never);
+
+      expect(mockReportCardsQueriesService.findOne).toHaveBeenCalledWith(TENANT_ID, REPORT_CARD_ID);
+      expect(mockPdfRenderingService.renderPdf).toHaveBeenCalledWith(
+        'report-card',
+        'en',
+        { student: 'Alice' },
+        expect.objectContaining({ school_name: 'Test School' }),
+      );
+      expect(mockRes.set).toHaveBeenCalledWith(
+        expect.objectContaining({ 'Content-Type': 'application/pdf' }),
+      );
+      expect(mockRes.send).toHaveBeenCalledWith(Buffer.from('pdf-content'));
+    });
+
+    it('should use empty string for school_name when tenant name is null', async () => {
+      mockReportCardsQueriesService.findOne.mockResolvedValue({
+        id: REPORT_CARD_ID,
+        template_locale: 'ar',
+        snapshot_payload_json: {},
+      });
+
+      const tenantFacade = controller['tenantReadFacade'] as {
+        findNameById: jest.Mock;
+        findBranding: jest.Mock;
+      };
+      tenantFacade.findNameById.mockResolvedValue(null);
+      tenantFacade.findBranding.mockResolvedValue(null);
+
+      mockPdfRenderingService.renderPdf.mockResolvedValue(Buffer.from('pdf'));
+
+      const mockRes = { set: jest.fn(), send: jest.fn() };
+
+      await controller.renderPdf(tenantContext, REPORT_CARD_ID, mockRes as never);
+
+      expect(mockPdfRenderingService.renderPdf).toHaveBeenCalledWith(
+        'report-card',
+        'ar',
+        {},
+        expect.objectContaining({
+          school_name: '',
+          school_name_ar: undefined,
+          logo_url: undefined,
+          primary_color: undefined,
+          report_card_title: undefined,
+        }),
+      );
+    });
+  });
+
+  // ─── generateBatchPdf ───────────────────────────────────────────────────────
+
+  describe('generateBatchPdf', () => {
+    it('should return NO_CONTENT when no snapshots are generated', async () => {
+      mockReportCardsQueriesService.buildBatchSnapshots.mockResolvedValue([]);
+
+      const mockRes = {
+        status: jest.fn().mockReturnThis(),
+        send: jest.fn(),
+        set: jest.fn(),
+      };
+
+      await controller.generateBatchPdf(
+        tenantContext,
+        {
+          class_id: 'class-1',
+          academic_period_id: 'period-1',
+        },
+        mockRes as never,
+      );
+
+      expect(mockRes.status).toHaveBeenCalledWith(204);
+      expect(mockRes.send).toHaveBeenCalled();
+    });
+
+    it('should render combined PDF from multiple snapshots', async () => {
+      const snapshots = [{ payload: { student: 'Alice' } }, { payload: { student: 'Bob' } }];
+      mockReportCardsQueriesService.buildBatchSnapshots.mockResolvedValue(snapshots);
+
+      const tenantFacade = controller['tenantReadFacade'] as {
+        findNameById: jest.Mock;
+        findBranding: jest.Mock;
+      };
+      tenantFacade.findNameById.mockResolvedValue('School');
+      tenantFacade.findBranding.mockResolvedValue(null);
+
+      mockPdfRenderingService.renderHtml
+        .mockReturnValueOnce(
+          '<html><head><style>body{color:red}</style></head><body><p>Alice</p></body></html>',
+        )
+        .mockReturnValueOnce(
+          '<html><head><style>body{color:red}</style></head><body><p>Bob</p></body></html>',
+        );
+      mockPdfRenderingService.renderFromHtml.mockResolvedValue(Buffer.from('combined-pdf'));
+
+      const mockRes = { set: jest.fn(), send: jest.fn() };
+
+      await controller.generateBatchPdf(
+        tenantContext,
+        { class_id: 'class-1', academic_period_id: 'period-1' },
+        mockRes as never,
+      );
+
+      expect(mockPdfRenderingService.renderHtml).toHaveBeenCalledTimes(2);
+      expect(mockPdfRenderingService.renderFromHtml).toHaveBeenCalledWith(
+        expect.stringContaining('Alice'),
+      );
+      expect(mockRes.set).toHaveBeenCalledWith(
+        expect.objectContaining({ 'Content-Type': 'application/pdf' }),
+      );
+      expect(mockRes.send).toHaveBeenCalledWith(Buffer.from('combined-pdf'));
+    });
+
+    it('should use report-card-modern template when template_id is modern', async () => {
+      const snapshots = [{ payload: { student: 'Alice' } }];
+      mockReportCardsQueriesService.buildBatchSnapshots.mockResolvedValue(snapshots);
+
+      const tenantFacade = controller['tenantReadFacade'] as {
+        findNameById: jest.Mock;
+        findBranding: jest.Mock;
+      };
+      tenantFacade.findNameById.mockResolvedValue('School');
+      tenantFacade.findBranding.mockResolvedValue(null);
+
+      mockPdfRenderingService.renderHtml.mockReturnValue(
+        '<html><head></head><body>content</body></html>',
+      );
+      mockPdfRenderingService.renderFromHtml.mockResolvedValue(Buffer.from('pdf'));
+
+      const mockRes = { set: jest.fn(), send: jest.fn() };
+
+      await controller.generateBatchPdf(
+        tenantContext,
+        { class_id: 'class-1', academic_period_id: 'period-1', template_id: 'modern' },
+        mockRes as never,
+      );
+
+      expect(mockPdfRenderingService.renderHtml).toHaveBeenCalledWith(
+        'report-card-modern',
+        'en',
+        expect.anything(),
+        expect.anything(),
+      );
+    });
+
+    it('should use default template when template_id is not modern', async () => {
+      const snapshots = [{ payload: { student: 'Alice' } }];
+      mockReportCardsQueriesService.buildBatchSnapshots.mockResolvedValue(snapshots);
+
+      const tenantFacade = controller['tenantReadFacade'] as {
+        findNameById: jest.Mock;
+        findBranding: jest.Mock;
+      };
+      tenantFacade.findNameById.mockResolvedValue('School');
+      tenantFacade.findBranding.mockResolvedValue(null);
+
+      mockPdfRenderingService.renderHtml.mockReturnValue(
+        '<html><head></head><body>content</body></html>',
+      );
+      mockPdfRenderingService.renderFromHtml.mockResolvedValue(Buffer.from('pdf'));
+
+      const mockRes = { set: jest.fn(), send: jest.fn() };
+
+      await controller.generateBatchPdf(
+        tenantContext,
+        { class_id: 'class-1', academic_period_id: 'period-1', template_id: 'classic' },
+        mockRes as never,
+      );
+
+      expect(mockPdfRenderingService.renderHtml).toHaveBeenCalledWith(
+        'report-card',
+        'en',
+        expect.anything(),
+        expect.anything(),
+      );
+    });
+
+    it('edge: should handle HTML without body tags gracefully', async () => {
+      const snapshots = [{ payload: { student: 'Alice' } }];
+      mockReportCardsQueriesService.buildBatchSnapshots.mockResolvedValue(snapshots);
+
+      const tenantFacade = controller['tenantReadFacade'] as {
+        findNameById: jest.Mock;
+        findBranding: jest.Mock;
+      };
+      tenantFacade.findNameById.mockResolvedValue('School');
+      tenantFacade.findBranding.mockResolvedValue(null);
+
+      // Return HTML without body tags
+      mockPdfRenderingService.renderHtml.mockReturnValue('<div>No body tag here</div>');
+      mockPdfRenderingService.renderFromHtml.mockResolvedValue(Buffer.from('pdf'));
+
+      const mockRes = { set: jest.fn(), send: jest.fn() };
+
+      await controller.generateBatchPdf(
+        tenantContext,
+        { class_id: 'class-1', academic_period_id: 'period-1' },
+        mockRes as never,
+      );
+
+      // Should still render, using the full HTML as fallback
+      expect(mockPdfRenderingService.renderFromHtml).toHaveBeenCalledWith(
+        expect.stringContaining('No body tag here'),
+      );
+    });
+
+    it('edge: should handle HTML without style tags gracefully', async () => {
+      const snapshots = [{ payload: { student: 'Alice' } }];
+      mockReportCardsQueriesService.buildBatchSnapshots.mockResolvedValue(snapshots);
+
+      const tenantFacade = controller['tenantReadFacade'] as {
+        findNameById: jest.Mock;
+        findBranding: jest.Mock;
+      };
+      tenantFacade.findNameById.mockResolvedValue('School');
+      tenantFacade.findBranding.mockResolvedValue(null);
+
+      // Return HTML without style tags
+      mockPdfRenderingService.renderHtml.mockReturnValue(
+        '<html><head></head><body><p>A</p></body></html>',
+      );
+      mockPdfRenderingService.renderFromHtml.mockResolvedValue(Buffer.from('pdf'));
+
+      const mockRes = { set: jest.fn(), send: jest.fn() };
+
+      await controller.generateBatchPdf(
+        tenantContext,
+        { class_id: 'class-1', academic_period_id: 'period-1' },
+        mockRes as never,
+      );
+
+      expect(mockPdfRenderingService.renderFromHtml).toHaveBeenCalled();
+    });
+  });
 });

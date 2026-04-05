@@ -207,4 +207,121 @@ describe('StaffAnalyticsService', () => {
     const totalPct = result.reduce((s, b) => s + b.percentage, 0);
     expect(Math.round(totalPct)).toBe(100);
   });
+
+  // ─── Edge cases for compensationDistribution ─────────────────────────
+
+  it('edge: should return empty array when all salaries are 0 or null', async () => {
+    mockDataAccess.findStaffCompensations.mockResolvedValue([
+      { base_salary: '0' },
+      { base_salary: null },
+    ]);
+
+    const result = await service.compensationDistribution(TENANT_ID);
+
+    // All salaries filter to 0 after Number(...) > 0 check, so salaries.length === 0
+    expect(result).toHaveLength(0);
+  });
+
+  it('edge: should handle all same salary (range = 0, bucketSize = 1000)', async () => {
+    mockDataAccess.findStaffCompensations.mockResolvedValue([
+      { base_salary: '50000' },
+      { base_salary: '50000' },
+      { base_salary: '50000' },
+    ]);
+
+    const result = await service.compensationDistribution(TENANT_ID);
+
+    expect(result).toHaveLength(5);
+    // All 3 should be in one bucket
+    const totalCount = result.reduce((s, b) => s + b.count, 0);
+    expect(totalCount).toBe(3);
+  });
+
+  // ─── Edge cases for headcountByDepartment ────────────────────────────
+
+  it('edge: should return 0 active_count when department has no active staff in activeMap', async () => {
+    mockDataAccess.groupStaffBy
+      .mockResolvedValueOnce([{ department: 'Admin', _count: 3 }])
+      .mockResolvedValueOnce([
+        // No entry for 'Admin' in active groups
+      ]);
+
+    const result = await service.headcountByDepartment(TENANT_ID);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]!.active_count).toBe(0);
+  });
+
+  // ─── Edge cases for tenureDistribution ───────────────────────────────
+
+  it('edge: should return all zero counts and percentages when no staff exist', async () => {
+    mockDataAccess.findStaffProfiles.mockResolvedValue([]);
+
+    const result = await service.tenureDistribution(TENANT_ID);
+
+    expect(result).toHaveLength(5);
+    for (const bucket of result) {
+      expect(bucket.count).toBe(0);
+      expect(bucket.percentage).toBe(0);
+    }
+  });
+
+  // ─── Edge cases for staffAttendanceRate ──────────────────────────────
+
+  it('edge: should count half_day, paid_leave, sick_leave as present', async () => {
+    mockDataAccess.groupStaffAttendanceBy.mockResolvedValue([
+      { status: 'half_day', _count: 5 },
+      { status: 'paid_leave', _count: 3 },
+      { status: 'sick_leave', _count: 2 },
+    ]);
+
+    const result = await service.staffAttendanceRate(TENANT_ID);
+
+    expect(result.present_count).toBe(10);
+    expect(result.absent_count).toBe(0);
+    expect(result.total_records).toBe(10);
+    expect(result.attendance_rate).toBe(100);
+  });
+
+  it('edge: should count unpaid_leave as absent', async () => {
+    mockDataAccess.groupStaffAttendanceBy.mockResolvedValue([
+      { status: 'present', _count: 80 },
+      { status: 'unpaid_leave', _count: 10 },
+      { status: 'absent', _count: 10 },
+    ]);
+
+    const result = await service.staffAttendanceRate(TENANT_ID);
+
+    expect(result.present_count).toBe(80);
+    expect(result.absent_count).toBe(20);
+    expect(result.total_records).toBe(100);
+    expect(result.attendance_rate).toBe(80);
+  });
+
+  // ─── Edge cases for qualificationCoverage ────────────────────────────
+
+  it('edge: should sort unqualified subjects after qualified ones', async () => {
+    mockDataAccess.findSubjects.mockResolvedValue([
+      { id: 'sub-1', name: 'Physics' },
+      { id: 'sub-2', name: 'Chemistry' },
+    ]);
+    // Physics has classes + teachers, Chemistry has no classes
+    mockDataAccess.findClasses.mockResolvedValueOnce([{ id: 'class-1' }]).mockResolvedValueOnce([]);
+    mockDataAccess.countClassStaff.mockResolvedValueOnce(1);
+
+    const result = await service.qualificationCoverage(TENANT_ID);
+
+    expect(result[0]!.has_qualified_teacher).toBe(true);
+    expect(result[0]!.subject_name).toBe('Physics');
+    expect(result[1]!.has_qualified_teacher).toBe(false);
+    expect(result[1]!.subject_name).toBe('Chemistry');
+  });
+
+  it('edge: should return empty array when no subjects exist', async () => {
+    mockDataAccess.findSubjects.mockResolvedValue([]);
+
+    const result = await service.qualificationCoverage(TENANT_ID);
+
+    expect(result).toHaveLength(0);
+  });
 });

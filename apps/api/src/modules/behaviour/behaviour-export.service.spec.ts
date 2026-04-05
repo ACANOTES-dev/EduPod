@@ -159,5 +159,144 @@ describe('BehaviourExportService', () => {
       const htmlArg = mockPdfService.renderFromHtml.mock.calls[0][0] as string;
       expect(htmlArg).toContain('N/A');
     });
+
+    it('should use MV summary data when available', async () => {
+      mockDb.student.findFirst.mockResolvedValue(makeStudent());
+      mockDb.$queryRaw.mockResolvedValue([
+        {
+          positive_count: BigInt(10),
+          negative_count: BigInt(5),
+          neutral_count: BigInt(2),
+          total_points: BigInt(45),
+          positive_ratio: 0.588,
+        },
+      ]);
+
+      await service.generateStudentPackPdf(TENANT_ID, STUDENT_ID, USER_ID, 'en');
+
+      const htmlArg = mockPdfService.renderFromHtml.mock.calls[0][0] as string;
+      // MV total = 10+5+2 = 17 incidents
+      expect(htmlArg).toContain('17');
+      expect(htmlArg).toContain('58.8%');
+      expect(htmlArg).toContain('45');
+    });
+
+    it('should handle interventions with and without outcome', async () => {
+      mockDb.student.findFirst.mockResolvedValue(makeStudent());
+      mockDb.behaviourIntervention.findMany.mockResolvedValue([
+        {
+          title: 'Mentoring',
+          type: 'individual_mentoring',
+          status: 'active_intervention',
+          outcome: 'improved',
+        },
+        {
+          title: 'Counselling',
+          type: 'group_session',
+          status: 'completed_intervention',
+          outcome: null,
+        },
+      ]);
+
+      await service.generateStudentPackPdf(TENANT_ID, STUDENT_ID, USER_ID, 'en');
+
+      const htmlArg = mockPdfService.renderFromHtml.mock.calls[0][0] as string;
+      expect(htmlArg).toContain('Mentoring');
+      expect(htmlArg).toContain('improved');
+      expect(htmlArg).toContain('Counselling');
+    });
+
+    it('should show served/no-show status correctly for sanctions', async () => {
+      mockDb.student.findFirst.mockResolvedValue(makeStudent());
+      mockDb.behaviourSanction.findMany.mockResolvedValue([
+        makeSanction({ status: 'served', served_at: new Date() }),
+        makeSanction({ status: 'no_show', served_at: null }),
+        makeSanction({ status: 'scheduled', served_at: null }),
+      ]);
+
+      await service.generateStudentPackPdf(TENANT_ID, STUDENT_ID, USER_ID, 'en');
+
+      const htmlArg = mockPdfService.renderFromHtml.mock.calls[0][0] as string;
+      expect(htmlArg).toContain('Served');
+      expect(htmlArg).toContain('No-show');
+    });
+
+    it('should handle awards with and without notes', async () => {
+      mockDb.student.findFirst.mockResolvedValue(makeStudent());
+      mockDb.behaviourRecognitionAward.findMany.mockResolvedValue([
+        {
+          award_type: { name: 'Gold Star' },
+          awarded_at: new Date('2026-03-10'),
+          notes: 'Outstanding work',
+        },
+        {
+          award_type: null,
+          awarded_at: new Date('2026-03-05'),
+          notes: null,
+        },
+      ]);
+
+      await service.generateStudentPackPdf(TENANT_ID, STUDENT_ID, USER_ID, 'en');
+
+      const htmlArg = mockPdfService.renderFromHtml.mock.calls[0][0] as string;
+      expect(htmlArg).toContain('Gold Star');
+      expect(htmlArg).toContain('Outstanding work');
+      expect(htmlArg).toContain('Award');
+    });
+
+    it('should handle tenant settings with no school_name', async () => {
+      mockDb.student.findFirst.mockResolvedValue(makeStudent());
+      mockDb.tenantSetting.findFirst.mockResolvedValue({
+        settings: {},
+      });
+
+      await service.generateStudentPackPdf(TENANT_ID, STUDENT_ID, USER_ID, 'en');
+
+      const htmlArg = mockPdfService.renderFromHtml.mock.calls[0][0] as string;
+      expect(htmlArg).toContain('School');
+    });
+
+    it('should handle null tenant settings', async () => {
+      mockDb.student.findFirst.mockResolvedValue(makeStudent());
+      mockDb.tenantSetting.findFirst.mockResolvedValue(null);
+
+      await service.generateStudentPackPdf(TENANT_ID, STUDENT_ID, USER_ID, 'en');
+
+      const htmlArg = mockPdfService.renderFromHtml.mock.calls[0][0] as string;
+      expect(htmlArg).toContain('School');
+    });
+
+    it('should handle incident with null parent_description and category', async () => {
+      mockDb.student.findFirst.mockResolvedValue(makeStudent());
+      mockDb.behaviourIncident.findMany.mockResolvedValue([
+        makeIncident({
+          parent_description: null,
+          category: null,
+        }),
+      ]);
+
+      await service.generateStudentPackPdf(TENANT_ID, STUDENT_ID, USER_ID, 'en');
+
+      const htmlArg = mockPdfService.renderFromHtml.mock.calls[0][0] as string;
+      expect(htmlArg).toContain('N/A');
+    });
+
+    it('should handle MV summary with null positive_ratio', async () => {
+      mockDb.student.findFirst.mockResolvedValue(makeStudent());
+      mockDb.$queryRaw.mockResolvedValue([
+        {
+          positive_count: BigInt(0),
+          negative_count: BigInt(0),
+          neutral_count: BigInt(0),
+          total_points: BigInt(0),
+          positive_ratio: null,
+        },
+      ]);
+
+      await service.generateStudentPackPdf(TENANT_ID, STUDENT_ID, USER_ID, 'en');
+
+      const htmlArg = mockPdfService.renderFromHtml.mock.calls[0][0] as string;
+      expect(htmlArg).toContain('N/A');
+    });
   });
 });

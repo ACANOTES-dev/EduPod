@@ -159,6 +159,55 @@ describe('AttendanceScanService — parseScanResponse', () => {
 
     expect(entries[0]).toMatchObject({ reason: 'sick' });
   });
+
+  it('should return empty array when AI response is a JSON object (not an array)', () => {
+    const raw = JSON.stringify({ student_number: '1001', status: 'absent' });
+
+    const entries = service.parseScanResponse(raw);
+
+    expect(entries).toHaveLength(0);
+  });
+
+  it('should strip markdown code fences without language specifier', () => {
+    const raw = '```\n[{"student_number":"3001","status":"late","confidence":"high"}]\n```';
+
+    const entries = service.parseScanResponse(raw);
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ student_number: '3001', status: 'late' });
+  });
+
+  it('should set reason to undefined when reason field is absent', () => {
+    const raw = JSON.stringify([{ student_number: '1010', status: 'absent', confidence: 'high' }]);
+
+    const entries = service.parseScanResponse(raw);
+
+    expect(entries[0]?.reason).toBeUndefined();
+  });
+
+  it('should handle absent_unexcused and absent_excused status directly', () => {
+    const raw = JSON.stringify([
+      { student_number: '1011', status: 'absent_unexcused', confidence: 'high' },
+      { student_number: '1012', status: 'absent_excused', confidence: 'high' },
+    ]);
+
+    const entries = service.parseScanResponse(raw);
+
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toMatchObject({ status: 'absent_unexcused' });
+    expect(entries[1]).toMatchObject({ status: 'absent_excused' });
+  });
+
+  it('should handle left_early status', () => {
+    const raw = JSON.stringify([
+      { student_number: '1013', status: 'left_early', confidence: 'low' },
+    ]);
+
+    const entries = service.parseScanResponse(raw);
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ status: 'left_early', confidence: 'low' });
+  });
 });
 
 // ─── resolveStudentNames ────────────────────────────────────────────────────
@@ -258,6 +307,22 @@ describe('AttendanceScanService — resolveStudentNames', () => {
     ]);
 
     expect(mockStudentFacade.findByStudentNumbers).toHaveBeenCalledTimes(1);
+  });
+
+  it('should skip students with null student_number in the lookup map', async () => {
+    mockStudentFacade.findByStudentNumbers.mockResolvedValue([
+      { id: 'stu-1', student_number: null, first_name: 'Ghost', last_name: 'Student' },
+      { id: 'stu-2', student_number: '2001', first_name: 'Real', last_name: 'Student' },
+    ]);
+
+    const result = await service.resolveStudentNames(TENANT_ID, [
+      { student_number: '2001', status: 'absent_unexcused', confidence: 'high' },
+    ]);
+
+    expect(result[0]).toMatchObject({
+      resolved_student_id: 'stu-2',
+      resolved_student_name: 'Real Student',
+    });
   });
 });
 
@@ -445,6 +510,176 @@ describe('AttendanceScanService — AI audit trail', () => {
         tokenised: true,
       }),
     );
+  });
+
+  afterEach(() => jest.clearAllMocks());
+});
+
+// ─── scanImage — full flow ─────────────────────────────────────────────────
+
+describe('AttendanceScanService — scanImage full flow', () => {
+  it('should complete full scan flow and store result in Redis', async () => {
+    const mockAnthropicCreate = jest.fn().mockResolvedValue({
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify([{ student_number: '1001', status: 'absent', confidence: 'high' }]),
+        },
+      ],
+    });
+
+    const mockStudentFacadeLocal = {
+      findByStudentNumbers: jest
+        .fn()
+        .mockResolvedValue([
+          { id: 'stu-1', student_number: '1001', first_name: 'Ahmad', last_name: 'Hassan' },
+        ]),
+    };
+
+    const localRedisClient = {
+      incr: jest.fn().mockResolvedValue(1),
+      expire: jest.fn().mockResolvedValue(1),
+      set: jest.fn().mockResolvedValue('OK'),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        AttendanceScanService,
+        { provide: PrismaService, useValue: {} },
+        { provide: RedisService, useValue: { getClient: () => localRedisClient } },
+        { provide: SettingsService, useValue: mockSettingsService },
+        {
+          provide: GdprTokenService,
+          useValue: { processOutbound: jest.fn().mockResolvedValue(undefined) },
+        },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: { isConfigured: true, createMessage: mockAnthropicCreate },
+        },
+        { provide: StudentReadFacade, useValue: mockStudentFacadeLocal },
+      ],
+    }).compile();
+
+    const svc = module.get<AttendanceScanService>(AttendanceScanService);
+
+    const result = await svc.scanImage(
+      TENANT_ID,
+      USER_ID,
+      Buffer.from('image-data'),
+      'image/jpeg',
+      '2026-03-10',
+    );
+
+    expect(result.scan_id).toBeDefined();
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0]).toMatchObject({
+      student_number: '1001',
+      status: 'absent_unexcused',
+      resolved_student_id: 'stu-1',
+    });
+
+    // Redis set should have been called to store the scan result
+    expect(localRedisClient.set).toHaveBeenCalledWith(
+      expect.stringContaining('attendance:scan:'),
+      expect.any(String),
+      'EX',
+      1800,
+    );
+
+    // Rate limit: first call should trigger expire
+    expect(localRedisClient.incr).toHaveBeenCalled();
+    expect(localRedisClient.expire).toHaveBeenCalled();
+  });
+
+  it('should not call expire on Redis when count is not 1 (subsequent calls)', async () => {
+    const mockAnthropicCreate = jest.fn().mockResolvedValue({
+      content: [{ type: 'text', text: '[]' }],
+    });
+
+    const localRedisClient = {
+      incr: jest.fn().mockResolvedValue(5), // 5th call today
+      expire: jest.fn(),
+      set: jest.fn().mockResolvedValue('OK'),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        AttendanceScanService,
+        { provide: PrismaService, useValue: {} },
+        { provide: RedisService, useValue: { getClient: () => localRedisClient } },
+        { provide: SettingsService, useValue: mockSettingsService },
+        {
+          provide: GdprTokenService,
+          useValue: { processOutbound: jest.fn().mockResolvedValue(undefined) },
+        },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: { isConfigured: true, createMessage: mockAnthropicCreate },
+        },
+        {
+          provide: StudentReadFacade,
+          useValue: { findByStudentNumbers: jest.fn().mockResolvedValue([]) },
+        },
+      ],
+    }).compile();
+
+    const svc = module.get<AttendanceScanService>(AttendanceScanService);
+
+    await svc.scanImage(TENANT_ID, USER_ID, Buffer.from('img'), 'image/jpeg', '2026-03-10');
+
+    expect(localRedisClient.expire).not.toHaveBeenCalled();
+  });
+
+  it('should handle AI response without text block gracefully', async () => {
+    const mockAnthropicCreate = jest.fn().mockResolvedValue({
+      content: [{ type: 'tool_use', id: 'tool-1', name: 'unknown', input: {} }],
+    });
+
+    const localRedisClient = {
+      incr: jest.fn().mockResolvedValue(1),
+      expire: jest.fn().mockResolvedValue(1),
+      set: jest.fn().mockResolvedValue('OK'),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        AttendanceScanService,
+        { provide: PrismaService, useValue: {} },
+        { provide: RedisService, useValue: { getClient: () => localRedisClient } },
+        { provide: SettingsService, useValue: mockSettingsService },
+        {
+          provide: GdprTokenService,
+          useValue: { processOutbound: jest.fn().mockResolvedValue(undefined) },
+        },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: { isConfigured: true, createMessage: mockAnthropicCreate },
+        },
+        {
+          provide: StudentReadFacade,
+          useValue: { findByStudentNumbers: jest.fn().mockResolvedValue([]) },
+        },
+      ],
+    }).compile();
+
+    const svc = module.get<AttendanceScanService>(AttendanceScanService);
+
+    const result = await svc.scanImage(
+      TENANT_ID,
+      USER_ID,
+      Buffer.from('img'),
+      'image/jpeg',
+      '2026-03-10',
+    );
+
+    // No text block → empty string → parseScanResponse returns []
+    expect(result.entries).toHaveLength(0);
   });
 
   afterEach(() => jest.clearAllMocks());

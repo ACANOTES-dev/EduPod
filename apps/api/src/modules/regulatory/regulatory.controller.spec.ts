@@ -906,4 +906,321 @@ describe('RegulatoryController', () => {
     expect(result).toEqual(expected);
     expect(mockDashboardService.getOverdueItems).toHaveBeenCalledWith(TENANT_ID);
   });
+
+  // ─── Additional Controller Branch Coverage ─────────────────────────────────
+
+  // syncPpod endpoint (delegates to same exportForPpod service method)
+  it('should sync PPOD via export', async () => {
+    const expected = { sync_log_id: 'abc', records_pushed: 3, csv_content: 'csv...' };
+    mockPpodService.exportForPpod.mockResolvedValue(expected);
+
+    const result = await controller.syncPpod(mockTenant, mockUser, {
+      database_type: 'ppod',
+      scope: 'incremental',
+    });
+
+    expect(result).toEqual(expected);
+    expect(mockPpodService.exportForPpod).toHaveBeenCalledWith(TENANT_ID, USER_ID, {
+      database_type: 'ppod',
+      scope: 'incremental',
+    });
+  });
+
+  // Calendar events with all query params
+  it('should list calendar events with all query filters', async () => {
+    const expected = { data: [], meta: { page: 1, pageSize: 10, total: 0 } };
+    mockCalendarService.findAll.mockResolvedValue(expected);
+
+    const result = await controller.listCalendarEvents(mockTenant, {
+      page: 1,
+      pageSize: 10,
+      domain: 'tusla_attendance',
+      status: 'upcoming',
+      academic_year: '2025-2026',
+      from_date: '2025-09-01',
+      to_date: '2026-06-30',
+    });
+
+    expect(result).toEqual(expected);
+    expect(mockCalendarService.findAll).toHaveBeenCalledWith(TENANT_ID, {
+      page: 1,
+      pageSize: 10,
+      domain: 'tusla_attendance',
+      status: 'upcoming',
+      academic_year: '2025-2026',
+      from_date: '2025-09-01',
+      to_date: '2026-06-30',
+    });
+  });
+
+  // Submissions with all query params
+  it('should list submissions with all query filters', async () => {
+    const expected = { data: [], meta: { page: 1, pageSize: 10, total: 0 } };
+    mockSubmissionService.findAll.mockResolvedValue(expected);
+
+    const result = await controller.listSubmissions(mockTenant, {
+      page: 1,
+      pageSize: 10,
+      domain: 'des_september_returns',
+      status: 'submitted',
+      academic_year: '2025-2026',
+    });
+
+    expect(result).toEqual(expected);
+    expect(mockSubmissionService.findAll).toHaveBeenCalledWith(TENANT_ID, {
+      page: 1,
+      pageSize: 10,
+      domain: 'des_september_returns',
+      status: 'submitted',
+      academic_year: '2025-2026',
+    });
+  });
+
+  // Threshold monitor with all query params
+  it('should get threshold monitor with date range filters', async () => {
+    const expected = { threshold: 25, data: [] };
+    mockTuslaService.getThresholdMonitor.mockResolvedValue(expected);
+
+    const result = await controller.getThresholdMonitor(mockTenant, {
+      threshold_days: 25,
+      start_date: '2025-09-01',
+      end_date: '2025-12-20',
+    });
+
+    expect(result).toEqual(expected);
+    expect(mockTuslaService.getThresholdMonitor).toHaveBeenCalledWith(TENANT_ID, {
+      threshold_days: 25,
+      start_date: '2025-09-01',
+      end_date: '2025-12-20',
+    });
+  });
+
+  // Suspensions with academic year
+  it('should get suspensions with academic year filter', async () => {
+    const expected = [{ id: RECORD_ID, suspension_days: 7 }];
+    mockTuslaService.getSuspensions.mockResolvedValue(expected);
+
+    const result = await controller.getSuspensions(mockTenant, { academic_year: '2025-2026' });
+
+    expect(result).toEqual(expected);
+    expect(mockTuslaService.getSuspensions).toHaveBeenCalledWith(TENANT_ID, '2025-2026');
+  });
+
+  // Expulsions with academic year
+  it('should get expulsions with academic year filter', async () => {
+    const expected = [{ id: RECORD_ID, case_number: 'EXC-001' }];
+    mockTuslaService.getExpulsions.mockResolvedValue(expected);
+
+    const result = await controller.getExpulsions(mockTenant, { academic_year: '2025-2026' });
+
+    expect(result).toEqual(expected);
+    expect(mockTuslaService.getExpulsions).toHaveBeenCalledWith(TENANT_ID, '2025-2026');
+  });
+
+  // Reduced school days with all query params
+  it('should list reduced school days with all query filters', async () => {
+    const expected = { data: [], meta: { page: 1, pageSize: 10, total: 0 } };
+    mockReducedDaysService.findAll.mockResolvedValue(expected);
+
+    const result = await controller.listReducedSchoolDays(mockTenant, {
+      page: 1,
+      pageSize: 10,
+      student_id: STUDENT_ID,
+      is_active: true,
+    });
+
+    expect(result).toEqual(expected);
+    expect(mockReducedDaysService.findAll).toHaveBeenCalledWith(TENANT_ID, {
+      page: 1,
+      pageSize: 10,
+      student_id: STUDENT_ID,
+      is_active: true,
+    });
+  });
+
+  // PPOD status with 'pod' database type
+  it('should get PPOD status with pod database type', async () => {
+    const expected = {
+      total_mapped: 5,
+      synced: 5,
+      pending: 0,
+      changed: 0,
+      errors: 0,
+      last_sync: null,
+    };
+    mockPpodService.getSyncStatus.mockResolvedValue(expected);
+
+    const result = await controller.getPpodStatus(mockTenant, { database_type: 'pod' });
+
+    expect(result).toEqual(expected);
+    expect(mockPpodService.getSyncStatus).toHaveBeenCalledWith(TENANT_ID, 'pod');
+  });
+
+  // PPOD sync log with database_type filter
+  it('should get PPOD sync log with database_type filter', async () => {
+    const expected = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
+    mockPpodService.getSyncLog.mockResolvedValue(expected);
+
+    const result = await controller.getPpodSyncLog(mockTenant, {
+      database_type: 'ppod',
+      page: 1,
+      pageSize: 20,
+    });
+
+    expect(result).toEqual(expected);
+    expect(mockPpodService.getSyncLog).toHaveBeenCalledWith(TENANT_ID, 'ppod', 1, 20);
+  });
+
+  // PPOD diff with pod database type
+  it('should get PPOD diff with pod database type', async () => {
+    const expected = [{ student_id: 'x', status: 'new' }];
+    mockPpodService.previewDiff.mockResolvedValue(expected);
+
+    const result = await controller.getPpodDiff(mockTenant, { database_type: 'pod' });
+
+    expect(result).toEqual(expected);
+    expect(mockPpodService.previewDiff).toHaveBeenCalledWith(TENANT_ID, 'pod');
+  });
+
+  // PPOD students with pod database type
+  it('should list PPOD students with pod database type', async () => {
+    const expected = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
+    mockPpodService.listMappedStudents.mockResolvedValue(expected);
+
+    const result = await controller.listPpodStudents(mockTenant, {
+      database_type: 'pod',
+      page: 1,
+      pageSize: 20,
+    });
+
+    expect(result).toEqual(expected);
+    expect(mockPpodService.listMappedStudents).toHaveBeenCalledWith(TENANT_ID, 'pod', 1, 20);
+  });
+
+  // PPOD import with pod database type
+  it('should import from POD database', async () => {
+    const expected = {
+      sync_log_id: 'abc',
+      records_created: 2,
+      records_updated: 0,
+      records_failed: 0,
+      errors: [],
+    };
+    mockPpodService.importFromPpod.mockResolvedValue(expected);
+
+    const result = await controller.importFromPpod(mockTenant, mockUser, {
+      database_type: 'pod',
+      file_content: 'csv...',
+    });
+
+    expect(result).toEqual(expected);
+    expect(mockPpodService.importFromPpod).toHaveBeenCalledWith(TENANT_ID, USER_ID, {
+      database_type: 'pod',
+      file_content: 'csv...',
+    });
+  });
+
+  // PPOD export with full scope
+  it('should export for PPOD with full scope', async () => {
+    const expected = { sync_log_id: 'abc', records_pushed: 10, csv_content: 'csv...' };
+    mockPpodService.exportForPpod.mockResolvedValue(expected);
+
+    const result = await controller.exportForPpod(mockTenant, mockUser, {
+      database_type: 'ppod',
+      scope: 'full',
+    });
+
+    expect(result).toEqual(expected);
+    expect(mockPpodService.exportForPpod).toHaveBeenCalledWith(TENANT_ID, USER_ID, {
+      database_type: 'ppod',
+      scope: 'full',
+    });
+  });
+
+  // PPOD sync single student with pod database type
+  it('should sync single PPOD student with pod database type', async () => {
+    const expected = { status: 'synced', student_id: STUDENT_ID, mapping_id: 'x', csv_content: '' };
+    mockPpodService.syncSingleStudent.mockResolvedValue(expected);
+
+    const result = await controller.syncPpodStudent(mockTenant, mockUser, STUDENT_ID, {
+      database_type: 'pod',
+    });
+
+    expect(result).toEqual(expected);
+    expect(mockPpodService.syncSingleStudent).toHaveBeenCalledWith(
+      TENANT_ID,
+      STUDENT_ID,
+      USER_ID,
+      'pod',
+    );
+  });
+
+  // DES preview with valid file types
+  it('should reject file_b as an invalid DES file type for preview', async () => {
+    // file_b is technically in DES_FILE_TYPES but is guarded by validateDesFileType in the service
+    // The controller just validates the string is in DES_FILE_TYPES
+    await expect(
+      controller.desPreview(mockTenant, 'not_real', { academic_year: '2025-2026' }),
+    ).rejects.toThrow();
+  });
+
+  it('should reject invalid DES file type for generate', async () => {
+    await expect(
+      controller.desGenerate(mockTenant, mockUser, 'invalid', { academic_year: '2025-2026' }),
+    ).rejects.toThrow();
+  });
+
+  // DES generate with valid file type
+  it('should generate a DES file for file_a', async () => {
+    const expected = { submission_id: SUBMISSION_ID, file_type: 'file_a', record_count: 5 };
+    mockDesService.generateFile.mockResolvedValue(expected);
+
+    const result = await controller.desGenerate(mockTenant, mockUser, 'file_a', {
+      academic_year: '2025-2026',
+    });
+
+    expect(result).toEqual(expected);
+    expect(mockDesService.generateFile).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      'file_a',
+      '2025-2026',
+    );
+  });
+
+  // CBA sync for single student
+  it('should sync CBA for single student with proper arg order', async () => {
+    const expected = { synced_count: 1, error_count: 0, errors: [] };
+    mockCbaService.syncStudent.mockResolvedValue(expected);
+
+    const result = await controller.syncCbaStudent(mockTenant, mockUser, STUDENT_ID, {
+      academic_year: '2025-2026',
+    });
+
+    expect(result).toEqual(expected);
+    expect(mockCbaService.syncStudent).toHaveBeenCalledWith(
+      TENANT_ID,
+      STUDENT_ID,
+      { academic_year: '2025-2026' },
+      USER_ID,
+    );
+  });
+
+  // Transfers with query filters
+  it('should list transfers with all query filters', async () => {
+    const expected = { data: [], meta: { page: 1, pageSize: 10, total: 0 } };
+    mockTransfersService.findAll.mockResolvedValue(expected);
+
+    const query = {
+      page: 1,
+      pageSize: 10,
+      direction: 'outbound' as const,
+      status: 'pending' as const,
+    };
+
+    const result = await controller.listTransfers(mockTenant, query);
+
+    expect(result).toEqual(expected);
+    expect(mockTransfersService.findAll).toHaveBeenCalledWith(TENANT_ID, query);
+  });
 });

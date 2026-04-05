@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
+import { MOCK_FACADE_PROVIDERS, ClassesReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AssessmentTemplateService } from './assessments/assessment-template.service';
@@ -85,6 +86,11 @@ const mockGradesService = {
   bulkUpsert: jest.fn(),
 };
 
+const mockClassesReadFacade = {
+  findEnrolledStudentIds: jest.fn().mockResolvedValue([]),
+  findClassesByStaff: jest.fn().mockResolvedValue([]),
+};
+
 const mockPrisma = {
   assessment: { findFirst: jest.fn() },
   classEnrolment: { findMany: jest.fn() },
@@ -99,6 +105,7 @@ describe('GradebookAdvancedController', () => {
       controllers: [GradebookAdvancedController],
       providers: [
         ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
         { provide: RubricService, useValue: mockRubricService },
         { provide: StandardsService, useValue: mockStandardsService },
         { provide: CompetencyScaleService, useValue: mockCompetencyScaleService },
@@ -126,19 +133,26 @@ describe('GradebookAdvancedController', () => {
     const templates = [{ id: RUBRIC_ID, name: 'Essay Rubric' }];
     mockRubricService.listTemplates.mockResolvedValue({ data: templates, meta: { total: 1 } });
 
-    const result = await controller.listRubricTemplates(
-      tenantContext,
-      { page: 1, pageSize: 20 },
-    );
+    const result = await controller.listRubricTemplates(tenantContext, { page: 1, pageSize: 20 });
 
     expect(result).toEqual({ data: templates, meta: { total: 1 } });
-    expect(mockRubricService.listTemplates).toHaveBeenCalledWith(TENANT_ID, { page: 1, pageSize: 20 });
+    expect(mockRubricService.listTemplates).toHaveBeenCalledWith(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+    });
   });
 
   it('should create a rubric template and return the new record', async () => {
     const dto = {
       name: 'Essay Rubric',
-      criteria: [{ id: 'c1', name: 'Content', max_points: 4, levels: [{ label: 'Excellent', points: 4, description: 'Outstanding work' }] }],
+      criteria: [
+        {
+          id: 'c1',
+          name: 'Content',
+          max_points: 4,
+          levels: [{ label: 'Excellent', points: 4, description: 'Outstanding work' }],
+        },
+      ],
     };
     const created = { id: RUBRIC_ID, ...dto };
     mockRubricService.createTemplate.mockResolvedValue(created);
@@ -163,17 +177,25 @@ describe('GradebookAdvancedController', () => {
     const standards = [{ id: STANDARD_ID, code: 'MAT.1.A' }];
     mockStandardsService.listStandards.mockResolvedValue({ data: standards });
 
-    const result = await controller.listCurriculumStandards(
-      tenantContext,
-      { page: 1, pageSize: 20 },
-    );
+    const result = await controller.listCurriculumStandards(tenantContext, {
+      page: 1,
+      pageSize: 20,
+    });
 
     expect(result).toEqual({ data: standards });
-    expect(mockStandardsService.listStandards).toHaveBeenCalledWith(TENANT_ID, { page: 1, pageSize: 20 });
+    expect(mockStandardsService.listStandards).toHaveBeenCalledWith(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+    });
   });
 
   it('should create a curriculum standard and return the new record', async () => {
-    const dto = { code: 'MAT.1.A', description: 'Count to 10', subject_id: 'sub-id', year_group_id: 'yg-id' };
+    const dto = {
+      code: 'MAT.1.A',
+      description: 'Count to 10',
+      subject_id: 'sub-id',
+      year_group_id: 'yg-id',
+    };
     const created = { id: STANDARD_ID, ...dto };
     mockStandardsService.createStandard.mockResolvedValue(created);
 
@@ -225,11 +247,9 @@ describe('GradebookAdvancedController', () => {
     const snapshot = { gpa: 3.5, academic_period_id: PERIOD_ID };
     mockGpaService.getGpaSnapshot.mockResolvedValue(snapshot);
 
-    const result = await controller.getStudentGpa(
-      tenantContext,
-      STUDENT_ID,
-      { academic_period_id: PERIOD_ID },
-    );
+    const result = await controller.getStudentGpa(tenantContext, STUDENT_ID, {
+      academic_period_id: PERIOD_ID,
+    });
 
     expect(result).toEqual(snapshot);
     expect(mockGpaService.getGpaSnapshot).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID, PERIOD_ID);
@@ -257,7 +277,10 @@ describe('GradebookAdvancedController', () => {
 
     expect(result).toEqual(applied);
     expect(mockGradeCurveService.applyCurve).toHaveBeenCalledWith(
-      TENANT_ID, ASSESSMENT_ID, USER_ID, dto,
+      TENANT_ID,
+      ASSESSMENT_ID,
+      USER_ID,
+      dto,
     );
   });
 
@@ -277,30 +300,314 @@ describe('GradebookAdvancedController', () => {
     const templates = [{ id: TEMPLATE_ID, title: 'Quiz Template' }];
     mockAssessmentTemplateService.list.mockResolvedValue({ data: templates });
 
-    const result = await controller.listAssessmentTemplates(
-      tenantContext,
-      { page: 1, pageSize: 20 },
-    );
+    const result = await controller.listAssessmentTemplates(tenantContext, {
+      page: 1,
+      pageSize: 20,
+    });
 
     expect(result).toEqual({ data: templates });
-    expect(mockAssessmentTemplateService.list).toHaveBeenCalledWith(
-      TENANT_ID,
-      { page: 1, pageSize: 20 },
-    );
+    expect(mockAssessmentTemplateService.list).toHaveBeenCalledWith(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+    });
   });
 
   it('should create an assessment from a template', async () => {
-    const dto = { class_id: 'cl-id', subject_id: 'sub-id', academic_period_id: PERIOD_ID, date: '2026-04-01' };
+    const dto = {
+      class_id: 'cl-id',
+      subject_id: 'sub-id',
+      academic_period_id: PERIOD_ID,
+      date: '2026-04-01',
+    };
     const created = { id: ASSESSMENT_ID, title: 'Quiz from template' };
     mockAssessmentTemplateService.createAssessmentFromTemplate.mockResolvedValue(created);
 
     const result = await controller.createAssessmentFromTemplate(
-      tenantContext, userContext, TEMPLATE_ID, dto,
+      tenantContext,
+      userContext,
+      TEMPLATE_ID,
+      dto,
     );
 
     expect(result).toEqual(created);
     expect(mockAssessmentTemplateService.createAssessmentFromTemplate).toHaveBeenCalledWith(
-      TENANT_ID, TEMPLATE_ID, USER_ID, dto,
+      TENANT_ID,
+      TEMPLATE_ID,
+      USER_ID,
+      dto,
     );
+  });
+
+  // ─── setDefaultGrade branches ──────────────────────────────────────────
+
+  it('should throw NotFoundException when assessment is not found for default grade', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue(null);
+
+    await expect(
+      controller.setDefaultGrade(tenantContext, userContext, ASSESSMENT_ID, {
+        assessment_id: ASSESSMENT_ID,
+        default_score: 50,
+      }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should throw NotFoundException when default_score exceeds max_score', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({
+      id: ASSESSMENT_ID,
+      class_id: 'cl-1',
+      max_score: 100,
+      status: 'open',
+    });
+
+    await expect(
+      controller.setDefaultGrade(tenantContext, userContext, ASSESSMENT_ID, {
+        assessment_id: ASSESSMENT_ID,
+        default_score: 150,
+      }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should return filled=0 when no enrolled students found', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({
+      id: ASSESSMENT_ID,
+      class_id: 'cl-1',
+      max_score: 100,
+      status: 'open',
+    });
+    mockClassesReadFacade.findEnrolledStudentIds.mockResolvedValue([]);
+
+    const result = await controller.setDefaultGrade(tenantContext, userContext, ASSESSMENT_ID, {
+      assessment_id: ASSESSMENT_ID,
+      default_score: 50,
+    });
+
+    expect(result).toEqual({ filled: 0, message: 'No enrolled students found' });
+  });
+
+  it('should return filled=0 when all students already have grades', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({
+      id: ASSESSMENT_ID,
+      class_id: 'cl-1',
+      max_score: 100,
+      status: 'open',
+    });
+    mockClassesReadFacade.findEnrolledStudentIds.mockResolvedValue([STUDENT_ID]);
+    mockPrisma.grade.findMany.mockResolvedValue([{ student_id: STUDENT_ID }]);
+
+    const result = await controller.setDefaultGrade(tenantContext, userContext, ASSESSMENT_ID, {
+      assessment_id: ASSESSMENT_ID,
+      default_score: 50,
+    });
+
+    expect(result).toEqual({ filled: 0, message: 'All students already have grades' });
+  });
+
+  it('should fill default grades for students without grades', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({
+      id: ASSESSMENT_ID,
+      class_id: 'cl-1',
+      max_score: 100,
+      status: 'open',
+    });
+    mockClassesReadFacade.findEnrolledStudentIds.mockResolvedValue([STUDENT_ID, 'st-2']);
+    mockPrisma.grade.findMany.mockResolvedValue([{ student_id: STUDENT_ID }]);
+    mockGradesService.bulkUpsert.mockResolvedValue({ data: [{ id: 'grade-new' }] });
+
+    const result = await controller.setDefaultGrade(tenantContext, userContext, ASSESSMENT_ID, {
+      assessment_id: ASSESSMENT_ID,
+      default_score: 75,
+    });
+
+    expect(mockGradesService.bulkUpsert).toHaveBeenCalledWith(
+      TENANT_ID,
+      ASSESSMENT_ID,
+      USER_ID,
+      expect.objectContaining({
+        grades: [expect.objectContaining({ student_id: 'st-2', raw_score: 75 })],
+      }),
+    );
+    expect(result).toMatchObject({ filled: 1 });
+  });
+
+  // ─── Additional controller methods ──────────────────────────────────────
+
+  it('should get a rubric template by id', async () => {
+    const template = { id: RUBRIC_ID, name: 'Essay Rubric' };
+    mockRubricService.getTemplate.mockResolvedValue(template);
+
+    const result = await controller.getRubricTemplate(tenantContext, RUBRIC_ID);
+
+    expect(mockRubricService.getTemplate).toHaveBeenCalledWith(TENANT_ID, RUBRIC_ID);
+    expect(result).toEqual(template);
+  });
+
+  it('should update a rubric template', async () => {
+    const updated = { id: RUBRIC_ID, name: 'Updated Rubric' };
+    mockRubricService.updateTemplate.mockResolvedValue(updated);
+
+    const result = await controller.updateRubricTemplate(tenantContext, RUBRIC_ID, {
+      name: 'Updated Rubric',
+    });
+
+    expect(mockRubricService.updateTemplate).toHaveBeenCalledWith(TENANT_ID, RUBRIC_ID, {
+      name: 'Updated Rubric',
+    });
+    expect(result).toEqual(updated);
+  });
+
+  it('should save rubric grades for a grade', async () => {
+    const saved = { saved: 4 };
+    mockRubricService.saveRubricGrades.mockResolvedValue(saved);
+
+    const dto = { rubric_template_id: RUBRIC_ID, criteria_scores: [] };
+    const result = await controller.saveRubricGrades(tenantContext, 'grade-1', dto);
+
+    expect(mockRubricService.saveRubricGrades).toHaveBeenCalledWith(TENANT_ID, 'grade-1', dto);
+    expect(result).toEqual(saved);
+  });
+
+  it('should delete a curriculum standard', async () => {
+    mockStandardsService.deleteStandard.mockResolvedValue(undefined);
+
+    await controller.deleteCurriculumStandard(tenantContext, STANDARD_ID);
+
+    expect(mockStandardsService.deleteStandard).toHaveBeenCalledWith(TENANT_ID, STANDARD_ID);
+  });
+
+  it('should bulk import standards', async () => {
+    const imported = { imported: 10 };
+    mockStandardsService.bulkImportStandards.mockResolvedValue(imported);
+
+    const dto = {
+      subject_id: 'sub-id',
+      year_group_id: 'yg-id',
+      standards: [{ code: 'MAT.1', description: 'Count to 10' }],
+    };
+    const result = await controller.bulkImportStandards(tenantContext, dto);
+
+    expect(mockStandardsService.bulkImportStandards).toHaveBeenCalledWith(TENANT_ID, dto);
+    expect(result).toEqual(imported);
+  });
+
+  it('should map assessment standards', async () => {
+    const mapped = { mapped: 3 };
+    mockStandardsService.mapAssessmentStandards.mockResolvedValue(mapped);
+
+    const dto = { standard_ids: ['std-1', 'std-2'] };
+    const result = await controller.mapAssessmentStandards(tenantContext, ASSESSMENT_ID, dto);
+
+    expect(mockStandardsService.mapAssessmentStandards).toHaveBeenCalledWith(
+      TENANT_ID,
+      ASSESSMENT_ID,
+      dto,
+    );
+    expect(result).toEqual(mapped);
+  });
+
+  it('should get competency snapshots for a student', async () => {
+    const snapshots = [{ standard_id: 'std-1', level: 'proficient' }];
+    mockStandardsService.getCompetencySnapshots.mockResolvedValue(snapshots);
+
+    const result = await controller.getCompetencySnapshots(tenantContext, STUDENT_ID, {
+      academic_period_id: PERIOD_ID,
+    });
+
+    expect(mockStandardsService.getCompetencySnapshots).toHaveBeenCalledWith(
+      TENANT_ID,
+      STUDENT_ID,
+      PERIOD_ID,
+    );
+    expect(result).toEqual(snapshots);
+  });
+
+  it('should get a single competency scale', async () => {
+    const scale = { id: SCALE_ID };
+    mockCompetencyScaleService.findOne.mockResolvedValue(scale);
+
+    const result = await controller.getCompetencyScale(tenantContext, SCALE_ID);
+
+    expect(mockCompetencyScaleService.findOne).toHaveBeenCalledWith(TENANT_ID, SCALE_ID);
+    expect(result).toEqual(scale);
+  });
+
+  it('should update a competency scale', async () => {
+    const updated = { id: SCALE_ID, name: 'Updated' };
+    mockCompetencyScaleService.update.mockResolvedValue(updated);
+
+    const result = await controller.updateCompetencyScale(tenantContext, SCALE_ID, {
+      name: 'Updated',
+    });
+
+    expect(mockCompetencyScaleService.update).toHaveBeenCalledWith(TENANT_ID, SCALE_ID, {
+      name: 'Updated',
+    });
+    expect(result).toEqual(updated);
+  });
+
+  it('should delete a competency scale', async () => {
+    mockCompetencyScaleService.delete.mockResolvedValue(undefined);
+
+    await controller.deleteCompetencyScale(tenantContext, SCALE_ID);
+
+    expect(mockCompetencyScaleService.delete).toHaveBeenCalledWith(TENANT_ID, SCALE_ID);
+  });
+
+  it('should undo a grade curve', async () => {
+    const undone = { reverted: 25 };
+    mockGradeCurveService.undoCurve.mockResolvedValue(undone);
+
+    const dto = { audit_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab' };
+    const result = await controller.undoCurve(tenantContext, ASSESSMENT_ID, dto);
+
+    expect(mockGradeCurveService.undoCurve).toHaveBeenCalledWith(TENANT_ID, ASSESSMENT_ID, dto);
+    expect(result).toEqual(undone);
+  });
+
+  it('should get a single assessment template', async () => {
+    const template = { id: TEMPLATE_ID, title: 'Quiz' };
+    mockAssessmentTemplateService.findOne.mockResolvedValue(template);
+
+    const result = await controller.getAssessmentTemplate(tenantContext, TEMPLATE_ID);
+
+    expect(mockAssessmentTemplateService.findOne).toHaveBeenCalledWith(TENANT_ID, TEMPLATE_ID);
+    expect(result).toEqual(template);
+  });
+
+  it('should update an assessment template', async () => {
+    const updated = { id: TEMPLATE_ID, name: 'Updated' };
+    mockAssessmentTemplateService.update.mockResolvedValue(updated);
+
+    const result = await controller.updateAssessmentTemplate(tenantContext, TEMPLATE_ID, {
+      name: 'Updated',
+    });
+
+    expect(mockAssessmentTemplateService.update).toHaveBeenCalledWith(TENANT_ID, TEMPLATE_ID, {
+      name: 'Updated',
+    });
+    expect(result).toEqual(updated);
+  });
+
+  it('should delete an assessment template', async () => {
+    mockAssessmentTemplateService.delete.mockResolvedValue(undefined);
+
+    await controller.deleteAssessmentTemplate(tenantContext, TEMPLATE_ID);
+
+    expect(mockAssessmentTemplateService.delete).toHaveBeenCalledWith(TENANT_ID, TEMPLATE_ID);
+  });
+
+  it('should create an assessment template', async () => {
+    const created = { id: 'new-tmpl', name: 'New' };
+    mockAssessmentTemplateService.create.mockResolvedValue(created);
+
+    const dto = {
+      name: 'New',
+      max_score: 100,
+      category_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+      counts_toward_report_card: true,
+    };
+    const result = await controller.createAssessmentTemplate(tenantContext, userContext, dto);
+
+    expect(mockAssessmentTemplateService.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
+    expect(result).toEqual(created);
   });
 });

@@ -71,9 +71,11 @@ describe('ReportCardDeliveryService — deliver', () => {
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRlsTx.reportCardDelivery.findFirst.mockReset().mockResolvedValue(null);
-    mockRlsTx.reportCardDelivery.create.mockReset().mockImplementation(
-      ({ data }: { data: { channel: string } }) => Promise.resolve({ ...baseDelivery, channel: data.channel }),
-    );
+    mockRlsTx.reportCardDelivery.create
+      .mockReset()
+      .mockImplementation(({ data }: { data: { channel: string } }) =>
+        Promise.resolve({ ...baseDelivery, channel: data.channel }),
+      );
     mockConfigFacade.findSettings.mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
@@ -162,6 +164,104 @@ describe('ReportCardDeliveryService — deliver', () => {
     expect(mockRlsTx.reportCardDelivery.create).not.toHaveBeenCalled();
   });
 
+  it('should default to email when settings have a non-whatsapp channel', async () => {
+    mockPrisma.reportCard.findFirst.mockResolvedValue({
+      id: REPORT_CARD_ID,
+      status: 'published',
+      student: {
+        id: 'student-1',
+        student_parents: [{ parent_id: PARENT_ID_1 }],
+      },
+    });
+    mockConfigFacade.findSettings.mockResolvedValue({
+      tenant_id: TENANT_ID,
+      settings: { reportCards: { deliveryChannel: 'sms' } },
+    });
+    mockPrisma.reportCardDelivery.update.mockResolvedValue({
+      ...baseDelivery,
+      channel: 'in_app',
+      status: 'sent',
+    });
+
+    const result = await service.deliver(TENANT_ID, REPORT_CARD_ID);
+
+    // 2 deliveries per parent: email (default) + in_app
+    expect(result.delivered_count).toBe(2);
+    const firstCall = mockRlsTx.reportCardDelivery.create.mock.calls[0] as [
+      { data: { channel: string } },
+    ];
+    expect(firstCall[0].data.channel).toBe('email');
+  });
+
+  it('should default to email when settings has no reportCards key', async () => {
+    mockPrisma.reportCard.findFirst.mockResolvedValue({
+      id: REPORT_CARD_ID,
+      status: 'published',
+      student: {
+        id: 'student-1',
+        student_parents: [{ parent_id: PARENT_ID_1 }],
+      },
+    });
+    mockConfigFacade.findSettings.mockResolvedValue({
+      tenant_id: TENANT_ID,
+      settings: {},
+    });
+    mockPrisma.reportCardDelivery.update.mockResolvedValue({
+      ...baseDelivery,
+      channel: 'in_app',
+      status: 'sent',
+    });
+
+    const result = await service.deliver(TENANT_ID, REPORT_CARD_ID);
+
+    expect(result.delivered_count).toBe(2);
+  });
+
+  it('should handle in_app delivery update failure gracefully', async () => {
+    mockPrisma.reportCard.findFirst.mockResolvedValue({
+      id: REPORT_CARD_ID,
+      status: 'published',
+      student: {
+        id: 'student-1',
+        student_parents: [{ parent_id: PARENT_ID_1 }],
+      },
+    });
+    mockConfigFacade.findSettings.mockResolvedValue(null);
+    // The post-tx update for in_app channel fails
+    mockPrisma.reportCardDelivery.update.mockRejectedValue(new Error('DB error'));
+
+    const result = await service.deliver(TENANT_ID, REPORT_CARD_ID);
+
+    // Should still return the deliveries despite the update failure
+    expect(result.delivered_count).toBe(2);
+  });
+
+  it('should default to email when getDeliveryChannel throws', async () => {
+    mockPrisma.reportCard.findFirst.mockResolvedValue({
+      id: REPORT_CARD_ID,
+      status: 'published',
+      student: {
+        id: 'student-1',
+        student_parents: [{ parent_id: PARENT_ID_1 }],
+      },
+    });
+    mockConfigFacade.findSettings.mockRejectedValue(new Error('settings error'));
+    mockPrisma.reportCardDelivery.update.mockResolvedValue({
+      ...baseDelivery,
+      channel: 'in_app',
+      status: 'sent',
+    });
+
+    const result = await service.deliver(TENANT_ID, REPORT_CARD_ID);
+
+    // Should use 'email' as default, so 2 deliveries (email + in_app)
+    expect(result.delivered_count).toBe(2);
+    const firstCall = mockRlsTx.reportCardDelivery.create.mock.calls[0] as [
+      { data: { channel: string } },
+    ];
+    expect(firstCall[0].data.channel).toBe('email');
+  });
+
   it('should use whatsapp channel from tenant settings', async () => {
     mockPrisma.reportCard.findFirst.mockResolvedValue({
       id: REPORT_CARD_ID,
@@ -184,7 +284,9 @@ describe('ReportCardDeliveryService — deliver', () => {
     await service.deliver(TENANT_ID, REPORT_CARD_ID);
 
     // First create call should be whatsapp
-    const firstCall = mockRlsTx.reportCardDelivery.create.mock.calls[0] as [{ data: { channel: string } }];
+    const firstCall = mockRlsTx.reportCardDelivery.create.mock.calls[0] as [
+      { data: { channel: string } },
+    ];
     expect(firstCall[0].data.channel).toBe('whatsapp');
   });
 });
@@ -236,6 +338,16 @@ describe('ReportCardDeliveryService — bulkDeliver', () => {
 
     expect(result.succeeded).toBe(0);
     expect(result.failed).toBe(0);
+  });
+
+  it('should handle non-Error thrown during delivery', async () => {
+    // First card throws a string (non-Error object)
+    mockPrisma.reportCard.findFirst.mockRejectedValueOnce('string error');
+
+    const result = await service.bulkDeliver(TENANT_ID, [REPORT_CARD_ID]);
+
+    expect(result.failed).toBe(1);
+    expect(result.results[0]?.error).toBe('Unknown error');
   });
 });
 
@@ -294,5 +406,88 @@ describe('ReportCardDeliveryService — markViewed', () => {
     mockPrisma.reportCardDelivery.findFirst.mockResolvedValue(null);
 
     await expect(service.markViewed(TENANT_ID, DELIVERY_ID)).rejects.toThrow(NotFoundException);
+  });
+});
+
+// ─── getDeliveryStatus ───────────────────────────────────────────────────────
+
+describe('ReportCardDeliveryService — getDeliveryStatus', () => {
+  let service: ReportCardDeliveryService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ReportCardDeliveryService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
+    }).compile();
+
+    service = module.get<ReportCardDeliveryService>(ReportCardDeliveryService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should throw NotFoundException when report card not found', async () => {
+    mockPrisma.reportCard.findFirst.mockResolvedValue(null);
+
+    await expect(service.getDeliveryStatus(TENANT_ID, REPORT_CARD_ID)).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('should return delivery summary with status counts', async () => {
+    mockPrisma.reportCard.findFirst.mockResolvedValue({ id: REPORT_CARD_ID });
+    mockPrisma.reportCardDelivery.findMany.mockResolvedValue([
+      {
+        ...baseDelivery,
+        id: 'd1',
+        status: 'pending_delivery',
+        parent: { id: PARENT_ID_1, first_name: 'Dad', last_name: 'Smith', email: 'd@e.com' },
+      },
+      {
+        ...baseDelivery,
+        id: 'd2',
+        status: 'sent',
+        parent: { id: PARENT_ID_1, first_name: 'Dad', last_name: 'Smith', email: 'd@e.com' },
+      },
+      {
+        ...baseDelivery,
+        id: 'd3',
+        status: 'viewed',
+        parent: { id: PARENT_ID_1, first_name: 'Dad', last_name: 'Smith', email: 'd@e.com' },
+      },
+      {
+        ...baseDelivery,
+        id: 'd4',
+        status: 'failed',
+        parent: { id: PARENT_ID_1, first_name: 'Dad', last_name: 'Smith', email: 'd@e.com' },
+      },
+    ]);
+
+    const result = await service.getDeliveryStatus(TENANT_ID, REPORT_CARD_ID);
+
+    expect(result.summary.total).toBe(4);
+    expect(result.summary.pending).toBe(1);
+    expect(result.summary.sent).toBe(1);
+    expect(result.summary.viewed).toBe(1);
+    expect(result.summary.failed).toBe(1);
+    expect(result.deliveries).toHaveLength(4);
+  });
+
+  it('should return empty summary when no deliveries exist', async () => {
+    mockPrisma.reportCard.findFirst.mockResolvedValue({ id: REPORT_CARD_ID });
+    mockPrisma.reportCardDelivery.findMany.mockResolvedValue([]);
+
+    const result = await service.getDeliveryStatus(TENANT_ID, REPORT_CARD_ID);
+
+    expect(result.summary.total).toBe(0);
+    expect(result.summary.pending).toBe(0);
+    expect(result.summary.sent).toBe(0);
+    expect(result.summary.viewed).toBe(0);
+    expect(result.summary.failed).toBe(0);
   });
 });

@@ -589,5 +589,437 @@ describe('SenResourceService', () => {
         }),
       ]);
     });
+
+    it('should handle students without a year group as "Unassigned"', async () => {
+      resourceAllocationMock.findMany.mockResolvedValue([
+        {
+          id: RESOURCE_ID,
+          academic_year_id: ACADEMIC_YEAR_ID,
+          total_hours: new Prisma.Decimal('10.00'),
+          source: 'seno',
+          student_allocations: [
+            {
+              allocated_hours: new Prisma.Decimal('3.00'),
+              used_hours: new Prisma.Decimal('1.00'),
+              student: {
+                year_group: null,
+              },
+            },
+          ],
+        },
+      ]);
+
+      const result = await service.getUtilisation(TENANT_ID, {
+        academic_year_id: ACADEMIC_YEAR_ID,
+      });
+
+      expect(result.byYearGroup).toEqual([
+        expect.objectContaining({
+          year_group_id: null,
+          year_group_name: 'Unassigned',
+          total_assigned_hours: 3,
+          total_used_hours: 1,
+        }),
+      ]);
+    });
+
+    it('should return zero totals when no allocations exist', async () => {
+      resourceAllocationMock.findMany.mockResolvedValue([]);
+
+      const result = await service.getUtilisation(TENANT_ID, {});
+
+      expect(result.totals.total_allocated_hours).toBe(0);
+      expect(result.totals.total_assigned_hours).toBe(0);
+      expect(result.totals.total_used_hours).toBe(0);
+      expect(result.totals.assigned_percentage).toBe(0);
+      expect(result.totals.used_percentage).toBe(0);
+      expect(result.byYearGroup).toEqual([]);
+    });
+
+    it('should handle an unknown source that is not in the predefined source order', async () => {
+      resourceAllocationMock.findMany.mockResolvedValue([
+        {
+          id: RESOURCE_ID,
+          academic_year_id: ACADEMIC_YEAR_ID,
+          total_hours: new Prisma.Decimal('5.00'),
+          source: 'external_grant',
+          student_allocations: [],
+        },
+      ]);
+
+      const result = await service.getUtilisation(TENANT_ID, {
+        academic_year_id: ACADEMIC_YEAR_ID,
+      });
+
+      expect(result.bySource).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            source: 'external_grant',
+            total_allocated_hours: 5,
+          }),
+        ]),
+      );
+    });
+
+    it('should return null academic_year_id when no filter provided', async () => {
+      resourceAllocationMock.findMany.mockResolvedValue([]);
+
+      const result = await service.getUtilisation(TENANT_ID, {});
+
+      expect(result.academic_year_id).toBeNull();
+    });
+  });
+
+  // ─── Additional branch coverage ─────────────────────────────────────────────
+
+  describe('createAllocation — error branches', () => {
+    it('should rethrow non-P2002 Prisma errors', async () => {
+      mockAcademicReadFacade.findYearById.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
+
+      const genericError = new Error('Connection refused');
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware');
+      createRlsClient.mockReturnValue({
+        $transaction: jest.fn(() => {
+          throw genericError;
+        }),
+      });
+
+      await expect(
+        service.createAllocation(TENANT_ID, {
+          academic_year_id: ACADEMIC_YEAR_ID,
+          total_hours: 20,
+          source: 'seno',
+        }),
+      ).rejects.toThrow('Connection refused');
+    });
+
+    it('should throw NotFoundException when academic year does not exist', async () => {
+      mockAcademicReadFacade.findYearById.mockResolvedValue(null);
+
+      await expect(
+        service.createAllocation(TENANT_ID, {
+          academic_year_id: ACADEMIC_YEAR_ID,
+          total_hours: 20,
+          source: 'seno',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findAllAllocations — minimal filters', () => {
+    it('should query without academic_year_id or source when not provided', async () => {
+      resourceAllocationMock.findMany.mockResolvedValue([]);
+      resourceAllocationMock.count.mockResolvedValue(0);
+
+      const result = await service.findAllAllocations(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(result.meta.total).toBe(0);
+      expect(resourceAllocationMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenant_id: TENANT_ID },
+        }),
+      );
+    });
+  });
+
+  describe('updateAllocation — additional branches', () => {
+    it('should skip capacity check when total_hours is not provided', async () => {
+      resourceAllocationMock.findFirst.mockResolvedValue({
+        id: RESOURCE_ID,
+        total_hours: new Prisma.Decimal('20.00'),
+      });
+      resourceAllocationMock.update.mockResolvedValue(
+        createAllocationRecord({ notes: 'Notes only update' }),
+      );
+
+      const result = await service.updateAllocation(TENANT_ID, RESOURCE_ID, {
+        notes: 'Notes only update',
+      });
+
+      expect(result.notes).toBe('Notes only update');
+      expect(studentHoursMock.aggregate).not.toHaveBeenCalled();
+    });
+
+    it('should throw HOURS_EXCEEDED when reducing total below assigned', async () => {
+      resourceAllocationMock.findFirst.mockResolvedValue({
+        id: RESOURCE_ID,
+        total_hours: new Prisma.Decimal('20.00'),
+      });
+      studentHoursMock.aggregate.mockResolvedValue({
+        _sum: { allocated_hours: new Prisma.Decimal('15.00') },
+      });
+
+      await expect(
+        service.updateAllocation(TENANT_ID, RESOURCE_ID, { total_hours: 10 }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'HOURS_EXCEEDED',
+          details: expect.objectContaining({
+            assigned_hours: 15,
+          }),
+        }),
+      });
+    });
+
+    it('should handle null assigned hours aggregate as zero', async () => {
+      resourceAllocationMock.findFirst.mockResolvedValue({
+        id: RESOURCE_ID,
+        total_hours: new Prisma.Decimal('20.00'),
+      });
+      studentHoursMock.aggregate.mockResolvedValue({
+        _sum: { allocated_hours: null },
+      });
+      resourceAllocationMock.update.mockResolvedValue(
+        createAllocationRecord({ total_hours: new Prisma.Decimal('5.00') }),
+      );
+
+      const result = await service.updateAllocation(TENANT_ID, RESOURCE_ID, {
+        total_hours: 5,
+      });
+
+      expect(result.total_hours).toBe(5);
+    });
+  });
+
+  describe('assignStudentHours — additional branches', () => {
+    it('should throw when allocation does not exist', async () => {
+      resourceAllocationMock.findFirst.mockResolvedValue(null);
+      senProfileMock.findFirst.mockResolvedValue({
+        id: PROFILE_ID,
+        student_id: STUDENT_ID,
+        is_active: true,
+      });
+
+      await expect(
+        service.assignStudentHours(TENANT_ID, {
+          resource_allocation_id: RESOURCE_ID,
+          student_id: STUDENT_ID,
+          sen_profile_id: PROFILE_ID,
+          allocated_hours: 5,
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'RESOURCE_ALLOCATION_NOT_FOUND',
+        }),
+      });
+    });
+
+    it('should rethrow non-P2002 errors from RLS transaction', async () => {
+      resourceAllocationMock.findFirst.mockResolvedValue({
+        id: RESOURCE_ID,
+        total_hours: new Prisma.Decimal('20.00'),
+      });
+      senProfileMock.findFirst.mockResolvedValue({
+        id: PROFILE_ID,
+        student_id: STUDENT_ID,
+        is_active: true,
+      });
+      studentHoursMock.aggregate.mockResolvedValue({
+        _sum: { allocated_hours: new Prisma.Decimal('0.00') },
+      });
+
+      const genericError = new Error('DB timeout');
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware');
+      createRlsClient.mockReturnValue({
+        $transaction: jest.fn(() => {
+          throw genericError;
+        }),
+      });
+
+      await expect(
+        service.assignStudentHours(TENANT_ID, {
+          resource_allocation_id: RESOURCE_ID,
+          student_id: STUDENT_ID,
+          sen_profile_id: PROFILE_ID,
+          allocated_hours: 5,
+        }),
+      ).rejects.toThrow('DB timeout');
+    });
+
+    it('should handle null aggregate allocated_hours in capacity check', async () => {
+      resourceAllocationMock.findFirst.mockResolvedValue({
+        id: RESOURCE_ID,
+        total_hours: new Prisma.Decimal('20.00'),
+      });
+      senProfileMock.findFirst.mockResolvedValue({
+        id: PROFILE_ID,
+        student_id: STUDENT_ID,
+        is_active: true,
+      });
+      studentHoursMock.aggregate.mockResolvedValue({
+        _sum: { allocated_hours: null },
+      });
+      studentHoursMock.create.mockResolvedValue(createStudentHoursRecord());
+
+      const result = await service.assignStudentHours(TENANT_ID, {
+        resource_allocation_id: RESOURCE_ID,
+        student_id: STUDENT_ID,
+        sen_profile_id: PROFILE_ID,
+        allocated_hours: 5,
+      });
+
+      expect(result.id).toBe(HOURS_ID);
+    });
+  });
+
+  describe('findStudentHours — scope branches', () => {
+    it('should return empty array when scope is none', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'none' });
+
+      const result = await service.findStudentHours(TENANT_ID, USER_ID, [], {});
+
+      expect(result).toEqual([]);
+    });
+
+    it('should filter by class scope studentIds', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: [STUDENT_ID],
+      });
+      studentHoursMock.findMany.mockResolvedValue([]);
+
+      const result = await service.findStudentHours(TENANT_ID, USER_ID, ['sen.view'], {});
+
+      expect(result).toEqual([]);
+      expect(studentHoursMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student_id: { in: [STUDENT_ID] },
+          }),
+        }),
+      );
+    });
+
+    it('should return empty when student_id is not in class scope', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: [STUDENT_ID],
+      });
+
+      const result = await service.findStudentHours(TENANT_ID, USER_ID, ['sen.view'], {
+        student_id: STUDENT_ID_2,
+      });
+
+      expect(result).toEqual([]);
+    });
+
+    it('should filter by resource_allocation_id', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'all' });
+      studentHoursMock.findMany.mockResolvedValue([]);
+
+      await service.findStudentHours(TENANT_ID, USER_ID, ['sen.admin'], {
+        resource_allocation_id: RESOURCE_ID,
+      });
+
+      expect(studentHoursMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            resource_allocation_id: RESOURCE_ID,
+          }),
+        }),
+      );
+    });
+
+    it('should filter by sen_profile_id', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'all' });
+      studentHoursMock.findMany.mockResolvedValue([]);
+
+      await service.findStudentHours(TENANT_ID, USER_ID, ['sen.admin'], {
+        sen_profile_id: PROFILE_ID,
+      });
+
+      expect(studentHoursMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            sen_profile_id: PROFILE_ID,
+          }),
+        }),
+      );
+    });
+
+    it('should allow student_id filter when it is in class scope', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: [STUDENT_ID],
+      });
+      studentHoursMock.findMany.mockResolvedValue([createStudentHoursRecord()]);
+
+      const result = await service.findStudentHours(TENANT_ID, USER_ID, ['sen.view'], {
+        student_id: STUDENT_ID,
+      });
+
+      expect(result).toHaveLength(1);
+      expect(studentHoursMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student_id: STUDENT_ID,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('updateStudentHours — additional branches', () => {
+    it('should throw when student hours assignment not found', async () => {
+      studentHoursMock.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateStudentHours(TENANT_ID, HOURS_ID, { allocated_hours: 5 }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'STUDENT_HOURS_NOT_FOUND',
+        }),
+      });
+    });
+
+    it('should use existing hours when only used_hours is updated', async () => {
+      studentHoursMock.findFirst.mockResolvedValue({
+        id: HOURS_ID,
+        allocated_hours: new Prisma.Decimal('10.00'),
+        used_hours: new Prisma.Decimal('2.00'),
+        resource_allocation: {
+          id: RESOURCE_ID,
+          total_hours: new Prisma.Decimal('20.00'),
+        },
+      });
+      studentHoursMock.update.mockResolvedValue(
+        createStudentHoursRecord({
+          used_hours: new Prisma.Decimal('5.00'),
+        }),
+      );
+
+      const result = await service.updateStudentHours(TENANT_ID, HOURS_ID, {
+        used_hours: 5,
+      });
+
+      expect(result.used_hours).toBe(5);
+      // Should not call aggregate since allocated_hours was not changed
+      expect(studentHoursMock.aggregate).not.toHaveBeenCalled();
+    });
+
+    it('should throw when used_hours exceeds existing allocated_hours (only used_hours updated)', async () => {
+      studentHoursMock.findFirst.mockResolvedValue({
+        id: HOURS_ID,
+        allocated_hours: new Prisma.Decimal('5.00'),
+        used_hours: new Prisma.Decimal('2.00'),
+        resource_allocation: {
+          id: RESOURCE_ID,
+          total_hours: new Prisma.Decimal('20.00'),
+        },
+      });
+
+      await expect(
+        service.updateStudentHours(TENANT_ID, HOURS_ID, {
+          used_hours: 6,
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'USED_HOURS_EXCEED_ALLOCATED',
+        }),
+      });
+    });
   });
 });

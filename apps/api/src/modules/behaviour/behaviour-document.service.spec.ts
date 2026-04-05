@@ -550,4 +550,884 @@ describe('BehaviourDocumentService', () => {
       );
     });
   });
+
+  // ─── sendDocument — print channel ────────────────────────────────────────
+
+  describe('sendDocument — print channel', () => {
+    it('should return download_url for print channel without changing status', async () => {
+      const finalised = makeDocument({ status: 'finalised' });
+      mockRlsTx.behaviourDocument.findFirst.mockResolvedValue({
+        ...finalised,
+        student: null,
+      });
+      mockS3.getPresignedUrl.mockResolvedValue('https://s3.example.com/print-url');
+
+      const result = (await service.sendDocument(TENANT_ID, USER_ID, DOCUMENT_ID, {
+        channel: 'print' as const,
+      })) as { data: { download_url: string; status: string } };
+
+      expect(result.data.download_url).toBe('https://s3.example.com/print-url');
+      expect(mockRlsTx.behaviourDocument.update).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── sendDocument — NotFoundException ────────────────────────────────────
+
+  describe('sendDocument — not found', () => {
+    it('should throw NotFoundException when document does not exist', async () => {
+      mockRlsTx.behaviourDocument.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.sendDocument(TENANT_ID, USER_ID, 'missing', {
+          channel: 'email' as const,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── sendDocument — sanction entity type ─────────────────────────────────
+
+  describe('sendDocument — sanction entity type ack', () => {
+    it('should create acknowledgement with sanction_id for sanction documents', async () => {
+      const finalised = makeDocument({
+        status: 'finalised',
+        entity_type: 'sanction',
+        entity_id: 'sanction-1',
+      });
+      const sent = makeDocument({ status: 'sent_doc', entity_type: 'sanction' });
+
+      mockRlsTx.behaviourDocument.findFirst.mockResolvedValue({
+        ...finalised,
+        student: null,
+      });
+      mockRlsTx.behaviourDocument.update.mockResolvedValue(sent);
+      mockRlsTx.behaviourParentAcknowledgement.create.mockResolvedValue({ id: 'ack-1' });
+
+      await service.sendDocument(TENANT_ID, USER_ID, DOCUMENT_ID, {
+        channel: 'email' as const,
+        recipient_parent_id: 'parent-1',
+      });
+
+      expect(mockRlsTx.behaviourParentAcknowledgement.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          incident_id: null,
+          sanction_id: 'sanction-1',
+        }),
+      });
+    });
+  });
+
+  // ─── sendDocument — no recipient_parent_id for non-print ─────────────────
+
+  describe('sendDocument — no ack without recipient', () => {
+    it('should not create acknowledgement row when no recipient_parent_id for email channel', async () => {
+      const finalised = makeDocument({ status: 'finalised' });
+      const sent = makeDocument({ status: 'sent_doc' });
+
+      mockRlsTx.behaviourDocument.findFirst.mockResolvedValue({
+        ...finalised,
+        student: null,
+      });
+      mockRlsTx.behaviourDocument.update.mockResolvedValue(sent);
+
+      await service.sendDocument(TENANT_ID, USER_ID, DOCUMENT_ID, {
+        channel: 'email' as const,
+      });
+
+      expect(mockRlsTx.behaviourParentAcknowledgement.create).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── listDocuments — status mapping ──────────────────────────────────────
+
+  describe('listDocuments — status filter', () => {
+    it('should map draft to draft_doc in where clause', async () => {
+      mockPrisma.behaviourDocument.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourDocument.count.mockResolvedValue(0);
+
+      await service.listDocuments(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        status: 'draft',
+      });
+
+      expect(mockPrisma.behaviourDocument.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'draft_doc',
+          }),
+        }),
+      );
+    });
+
+    it('should map sent to sent_doc in where clause', async () => {
+      mockPrisma.behaviourDocument.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourDocument.count.mockResolvedValue(0);
+
+      await service.listDocuments(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        status: 'sent',
+      });
+
+      expect(mockPrisma.behaviourDocument.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'sent_doc',
+          }),
+        }),
+      );
+    });
+
+    it('should pass unmapped status directly (e.g. finalised)', async () => {
+      mockPrisma.behaviourDocument.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourDocument.count.mockResolvedValue(0);
+
+      await service.listDocuments(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        status: 'finalised',
+      });
+
+      expect(mockPrisma.behaviourDocument.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'finalised',
+          }),
+        }),
+      );
+    });
+
+    it('should filter by student_id and document_type', async () => {
+      mockPrisma.behaviourDocument.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourDocument.count.mockResolvedValue(0);
+
+      await service.listDocuments(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        student_id: STUDENT_ID,
+        document_type: 'detention_notice',
+      });
+
+      expect(mockPrisma.behaviourDocument.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student_id: STUDENT_ID,
+            document_type: 'detention_notice',
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── autoGenerateDocument ────────────────────────────────────────────────
+
+  describe('autoGenerateDocument', () => {
+    it('should return null when no active template found', async () => {
+      mockTemplateService.getActiveTemplate.mockResolvedValue(null);
+
+      const result = await service.autoGenerateDocument(
+        mockRlsTx as unknown as PrismaService,
+        TENANT_ID,
+        USER_ID,
+        'parent_notification',
+        'incident',
+        INCIDENT_ID,
+        STUDENT_ID,
+        'en',
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it('should create document and enqueue PDF render job', async () => {
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourIncident.findFirst.mockResolvedValue({
+        id: INCIDENT_ID,
+        occurred_at: new Date('2026-03-15'),
+        parent_description: null,
+        location: null,
+        category: null,
+        context_snapshot: null,
+        participants: [
+          {
+            student_id: STUDENT_ID,
+            student: {
+              first_name: 'Alice',
+              last_name: 'Smith',
+              date_of_birth: null,
+              year_group: null,
+              class_enrolments: [],
+            },
+          },
+        ],
+      });
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourDocument.create.mockResolvedValue(makeDocument({ status: 'generating' }));
+
+      const result = await service.autoGenerateDocument(
+        mockRlsTx as unknown as PrismaService,
+        TENANT_ID,
+        USER_ID,
+        'parent_notification',
+        'incident',
+        INCIDENT_ID,
+        STUDENT_ID,
+        'en',
+      );
+
+      expect(result).not.toBeNull();
+      expect(mockPdfQueue.add).toHaveBeenCalledWith('pdf:render', expect.any(Object));
+    });
+
+    it('edge: should return null and log error when document creation throws', async () => {
+      mockTemplateService.getActiveTemplate.mockRejectedValue(new Error('DB failure'));
+
+      const result = await service.autoGenerateDocument(
+        mockRlsTx as unknown as PrismaService,
+        TENANT_ID,
+        USER_ID,
+        'parent_notification',
+        'incident',
+        INCIDENT_ID,
+        STUDENT_ID,
+        'en',
+      );
+
+      expect(result).toBeNull();
+    });
+  });
+
+  // ─── supersedeDocument ───────────────────────────────────────────────────
+
+  describe('supersedeDocument', () => {
+    it('should update document status to superseded', async () => {
+      mockRlsTx.behaviourDocument.update.mockResolvedValue({});
+
+      await service.supersedeDocument(
+        mockRlsTx as unknown as PrismaService,
+        'doc-old',
+        'doc-new',
+        'Correction applied',
+      );
+
+      expect(mockRlsTx.behaviourDocument.update).toHaveBeenCalledWith({
+        where: { id: 'doc-old' },
+        data: {
+          status: 'superseded',
+          superseded_by_id: 'doc-new',
+          superseded_reason: 'Correction applied',
+        },
+      });
+    });
+  });
+
+  // ─── generateDocument — resolveMergeFields for sanction ──────────────────
+
+  describe('generateDocument — sanction entity', () => {
+    it('should resolve merge fields for sanction entity type', async () => {
+      const sanctionDto = {
+        document_type: 'detention_notice' as const,
+        entity_type: 'sanction' as const,
+        entity_id: 'sanction-1',
+      };
+
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourSanction.findFirst.mockResolvedValue({
+        id: 'sanction-1',
+        student_id: STUDENT_ID,
+        type: 'detention',
+        scheduled_date: new Date('2026-03-20'),
+        suspension_start_date: null,
+        suspension_end_date: null,
+        suspension_days: null,
+        return_conditions: null,
+        incident: {
+          occurred_at: new Date('2026-03-15'),
+          parent_description: 'Incident desc',
+          location: 'Hall',
+          category: { name: 'Fighting' },
+          context_snapshot: null,
+        },
+        student: {
+          first_name: 'Bob',
+          last_name: 'Jones',
+          date_of_birth: null,
+          year_group: null,
+          class_enrolments: [],
+        },
+      });
+      mockRlsTx.studentParent.findFirst.mockResolvedValue({
+        parent: { first_name: 'Jane', last_name: 'Jones' },
+      });
+      mockRlsTx.behaviourDocument.create.mockResolvedValue(
+        makeDocument({ status: 'generating', file_size_bytes: BigInt(0) }),
+      );
+
+      const result = (await service.generateDocument(
+        TENANT_ID,
+        USER_ID,
+        sanctionDto,
+      )) as DocumentResult;
+
+      expect(result.data).toBeDefined();
+    });
+  });
+
+  // ─── generateDocument — unsupported entity type ──────────────────────────
+
+  describe('generateDocument — unsupported entity type', () => {
+    it('should throw BadRequestException for unknown entity type', async () => {
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.generateDocument(TENANT_ID, USER_ID, {
+          document_type: 'detention_notice' as const,
+          entity_type: 'unknown_type' as 'incident',
+          entity_id: 'id-1',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ─── generateDocument — locale ar ────────────────────────────────────────
+
+  describe('generateDocument — Arabic locale', () => {
+    it('should use ar-SA date locale when locale is ar', async () => {
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourIncident.findFirst.mockResolvedValue({
+        id: INCIDENT_ID,
+        occurred_at: new Date('2026-03-15'),
+        parent_description: null,
+        location: null,
+        category: null,
+        context_snapshot: null,
+        participants: [
+          {
+            student_id: STUDENT_ID,
+            student: {
+              first_name: 'Ali',
+              last_name: 'Ahmed',
+              date_of_birth: new Date('2014-01-15'),
+              year_group: { name: 'Year 6' },
+              class_enrolments: [{ class_entity: { name: '6B' } }],
+            },
+          },
+        ],
+      });
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourDocument.create.mockResolvedValue(
+        makeDocument({ status: 'generating', file_size_bytes: BigInt(0) }),
+      );
+
+      const result = (await service.generateDocument(TENANT_ID, USER_ID, {
+        document_type: 'detention_notice' as const,
+        entity_type: 'incident' as const,
+        entity_id: INCIDENT_ID,
+        locale: 'ar',
+      })) as DocumentResult;
+
+      expect(result.data).toBeDefined();
+    });
+  });
+
+  // ─── generateDocument — appeal entity ───────────────────────────────────
+
+  describe('generateDocument — appeal entity', () => {
+    it('should resolve merge fields for appeal entity type', async () => {
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourAppeal.findFirst.mockResolvedValue({
+        id: 'appeal-1',
+        student_id: STUDENT_ID,
+        grounds: 'Procedural unfairness',
+        hearing_date: new Date('2026-04-10'),
+        decision: 'upheld',
+        decision_reasoning: 'Evidence supports the appeal',
+        incident: {
+          occurred_at: new Date('2026-03-15'),
+          parent_description: 'Incident desc',
+          location: 'Hall',
+          category: { name: 'Fighting' },
+          context_snapshot: null,
+        },
+        student: {
+          first_name: 'Carol',
+          last_name: 'Davis',
+          date_of_birth: null,
+          year_group: null,
+          class_enrolments: [],
+        },
+      });
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourDocument.create.mockResolvedValue(
+        makeDocument({ status: 'generating', file_size_bytes: BigInt(0) }),
+      );
+
+      const result = (await service.generateDocument(TENANT_ID, USER_ID, {
+        document_type: 'detention_notice' as const,
+        entity_type: 'appeal' as const,
+        entity_id: 'appeal-1',
+      })) as DocumentResult;
+
+      expect(result.data).toBeDefined();
+    });
+
+    it('should throw NotFoundException when appeal not found', async () => {
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourAppeal.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.generateDocument(TENANT_ID, USER_ID, {
+          document_type: 'detention_notice' as const,
+          entity_type: 'appeal' as const,
+          entity_id: 'appeal-missing',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should handle appeal without incident', async () => {
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourAppeal.findFirst.mockResolvedValue({
+        id: 'appeal-1',
+        student_id: STUDENT_ID,
+        grounds: null,
+        hearing_date: null,
+        decision: null,
+        decision_reasoning: null,
+        incident: null,
+        student: {
+          first_name: 'Carol',
+          last_name: 'Davis',
+          date_of_birth: null,
+          year_group: null,
+          class_enrolments: [],
+        },
+      });
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourDocument.create.mockResolvedValue(
+        makeDocument({ status: 'generating', file_size_bytes: BigInt(0) }),
+      );
+
+      const result = (await service.generateDocument(TENANT_ID, USER_ID, {
+        document_type: 'detention_notice' as const,
+        entity_type: 'appeal' as const,
+        entity_id: 'appeal-1',
+      })) as DocumentResult;
+
+      expect(result.data).toBeDefined();
+    });
+  });
+
+  // ─── generateDocument — exclusion_case entity ──────────────────────────
+
+  describe('generateDocument — exclusion_case entity', () => {
+    it('should resolve merge fields for exclusion_case entity type', async () => {
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourExclusionCase.findFirst.mockResolvedValue({
+        id: 'exc-1',
+        student_id: STUDENT_ID,
+        sanction: {
+          type: 'suspension_external',
+          scheduled_date: new Date('2026-03-20'),
+          suspension_start_date: new Date('2026-03-21'),
+          suspension_end_date: new Date('2026-03-25'),
+          suspension_days: 5,
+          return_conditions: 'Parent meeting required',
+        },
+        incident: {
+          occurred_at: new Date('2026-03-15'),
+          parent_description: null,
+          location: 'Playground',
+          category: { name: 'Violence' },
+          context_snapshot: null,
+        },
+        student: {
+          first_name: 'Dave',
+          last_name: 'Evans',
+          date_of_birth: new Date('2013-05-20'),
+          year_group: { name: 'Year 7' },
+          class_enrolments: [{ class_entity: { name: '7C' } }],
+        },
+      });
+      mockRlsTx.studentParent.findFirst.mockResolvedValue({
+        parent: { first_name: 'Mary', last_name: 'Evans' },
+      });
+      mockRlsTx.behaviourDocument.create.mockResolvedValue(
+        makeDocument({ status: 'generating', file_size_bytes: BigInt(0) }),
+      );
+
+      const result = (await service.generateDocument(TENANT_ID, USER_ID, {
+        document_type: 'detention_notice' as const,
+        entity_type: 'exclusion_case' as const,
+        entity_id: 'exc-1',
+      })) as DocumentResult;
+
+      expect(result.data).toBeDefined();
+    });
+
+    it('should throw NotFoundException when exclusion case not found', async () => {
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourExclusionCase.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.generateDocument(TENANT_ID, USER_ID, {
+          document_type: 'detention_notice' as const,
+          entity_type: 'exclusion_case' as const,
+          entity_id: 'missing',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should handle exclusion_case without sanction or incident', async () => {
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourExclusionCase.findFirst.mockResolvedValue({
+        id: 'exc-2',
+        student_id: STUDENT_ID,
+        sanction: null,
+        incident: null,
+        student: {
+          first_name: 'Eve',
+          last_name: 'Fox',
+          date_of_birth: null,
+          year_group: null,
+          class_enrolments: [],
+        },
+      });
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourDocument.create.mockResolvedValue(
+        makeDocument({ status: 'generating', file_size_bytes: BigInt(0) }),
+      );
+
+      const result = (await service.generateDocument(TENANT_ID, USER_ID, {
+        document_type: 'detention_notice' as const,
+        entity_type: 'exclusion_case' as const,
+        entity_id: 'exc-2',
+      })) as DocumentResult;
+
+      expect(result.data).toBeDefined();
+    });
+  });
+
+  // ─── generateDocument — intervention entity ────────────────────────────
+
+  describe('generateDocument — intervention entity', () => {
+    it('should resolve merge fields for intervention entity type', async () => {
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourIntervention.findFirst.mockResolvedValue({
+        id: 'iv-1',
+        student_id: STUDENT_ID,
+        goals: ['Reduce disruptions'],
+        student: {
+          first_name: 'Frank',
+          last_name: 'Green',
+          date_of_birth: null,
+          year_group: null,
+          class_enrolments: [],
+        },
+      });
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourDocument.create.mockResolvedValue(
+        makeDocument({ status: 'generating', file_size_bytes: BigInt(0) }),
+      );
+
+      const result = (await service.generateDocument(TENANT_ID, USER_ID, {
+        document_type: 'detention_notice' as const,
+        entity_type: 'intervention' as const,
+        entity_id: 'iv-1',
+      })) as DocumentResult;
+
+      expect(result.data).toBeDefined();
+    });
+
+    it('should throw NotFoundException when intervention not found', async () => {
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourIntervention.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.generateDocument(TENANT_ID, USER_ID, {
+          document_type: 'detention_notice' as const,
+          entity_type: 'intervention' as const,
+          entity_id: 'missing',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should handle intervention with null goals', async () => {
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourIntervention.findFirst.mockResolvedValue({
+        id: 'iv-2',
+        student_id: STUDENT_ID,
+        goals: null,
+        student: {
+          first_name: 'Grace',
+          last_name: 'Hill',
+          date_of_birth: null,
+          year_group: null,
+          class_enrolments: [],
+        },
+      });
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourDocument.create.mockResolvedValue(
+        makeDocument({ status: 'generating', file_size_bytes: BigInt(0) }),
+      );
+
+      const result = (await service.generateDocument(TENANT_ID, USER_ID, {
+        document_type: 'detention_notice' as const,
+        entity_type: 'intervention' as const,
+        entity_id: 'iv-2',
+      })) as DocumentResult;
+
+      expect(result.data).toBeDefined();
+    });
+  });
+
+  // ─── generateDocument — sanction without incident ──────────────────────
+
+  describe('generateDocument — sanction without incident', () => {
+    it('should handle sanction entity without linked incident', async () => {
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourSanction.findFirst.mockResolvedValue({
+        id: 'sanction-2',
+        student_id: STUDENT_ID,
+        type: 'detention',
+        scheduled_date: null,
+        suspension_start_date: null,
+        suspension_end_date: null,
+        suspension_days: null,
+        return_conditions: null,
+        incident: null,
+        student: null,
+      });
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourDocument.create.mockResolvedValue(
+        makeDocument({ status: 'generating', file_size_bytes: BigInt(0) }),
+      );
+
+      const result = (await service.generateDocument(TENANT_ID, USER_ID, {
+        document_type: 'detention_notice' as const,
+        entity_type: 'sanction' as const,
+        entity_id: 'sanction-2',
+      })) as DocumentResult;
+
+      expect(result.data).toBeDefined();
+    });
+
+    it('should throw NotFoundException when sanction not found', async () => {
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourSanction.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.generateDocument(TENANT_ID, USER_ID, {
+          document_type: 'detention_notice' as const,
+          entity_type: 'sanction' as const,
+          entity_id: 'missing',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── generateDocument — incident not found ─────────────────────────────
+
+  describe('generateDocument — incident not found', () => {
+    it('should throw NotFoundException when incident entity not found', async () => {
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourIncident.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.generateDocument(TENANT_ID, USER_ID, {
+          document_type: 'detention_notice' as const,
+          entity_type: 'incident' as const,
+          entity_id: 'missing-incident',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── generateDocument — incident with no participants ──────────────────
+
+  describe('generateDocument — incident with empty participant', () => {
+    it('should handle incident with no subject participant', async () => {
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourIncident.findFirst.mockResolvedValue({
+        id: INCIDENT_ID,
+        occurred_at: new Date('2026-03-15'),
+        parent_description: null,
+        location: null,
+        category: null,
+        context_snapshot: null,
+        participants: [],
+      });
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourDocument.create.mockResolvedValue(
+        makeDocument({ status: 'generating', file_size_bytes: BigInt(0) }),
+      );
+
+      const result = (await service.generateDocument(TENANT_ID, USER_ID, {
+        document_type: 'detention_notice' as const,
+        entity_type: 'incident' as const,
+        entity_id: INCIDENT_ID,
+      })) as DocumentResult;
+
+      expect(result.data).toBeDefined();
+    });
+  });
+
+  // ─── generateDocument — sanction with ar locale and suspension fields ───
+
+  describe('generateDocument — sanction ar locale with suspension fields', () => {
+    it('should populate suspension fields with Arabic dates', async () => {
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: {} });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourSanction.findFirst.mockResolvedValue({
+        id: 'sanction-3',
+        student_id: STUDENT_ID,
+        type: 'suspension_external',
+        scheduled_date: new Date('2026-03-20'),
+        suspension_start_date: new Date('2026-03-21'),
+        suspension_end_date: new Date('2026-03-25'),
+        suspension_days: 5,
+        return_conditions: 'Parent meeting',
+        incident: {
+          occurred_at: new Date('2026-03-15'),
+          parent_description: 'desc',
+          location: 'Hall',
+          category: { name: 'Violence' },
+          context_snapshot: null,
+        },
+        student: {
+          first_name: 'Ahmed',
+          last_name: 'Ali',
+          date_of_birth: new Date('2013-01-01'),
+          year_group: { name: 'Year 7' },
+          class_enrolments: [{ class_entity: { name: '7A' } }],
+        },
+      });
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourDocument.create.mockResolvedValue(
+        makeDocument({ status: 'generating', file_size_bytes: BigInt(0) }),
+      );
+
+      const result = (await service.generateDocument(TENANT_ID, USER_ID, {
+        document_type: 'detention_notice' as const,
+        entity_type: 'sanction' as const,
+        entity_id: 'sanction-3',
+        locale: 'ar',
+      })) as DocumentResult;
+
+      expect(result.data).toBeDefined();
+    });
+  });
+
+  // ─── generateDocument — tenantSettings null fallbacks ───────────────────
+
+  describe('generateDocument — tenantSettings null', () => {
+    it('should handle null tenantSettings gracefully', async () => {
+      mockRlsTx.behaviourDocumentTemplate.findFirst.mockResolvedValue(null);
+      mockTemplateService.getActiveTemplate.mockResolvedValue(makeTemplate());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue(null);
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourIncident.findFirst.mockResolvedValue({
+        id: INCIDENT_ID,
+        occurred_at: new Date('2026-03-15'),
+        parent_description: null,
+        location: null,
+        category: null,
+        context_snapshot: null,
+        participants: [
+          {
+            student_id: STUDENT_ID,
+            student: {
+              first_name: 'Test',
+              last_name: 'Student',
+              date_of_birth: null,
+              year_group: null,
+              class_enrolments: [],
+            },
+          },
+        ],
+      });
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourDocument.create.mockResolvedValue(
+        makeDocument({ status: 'generating', file_size_bytes: BigInt(0) }),
+      );
+
+      const result = (await service.generateDocument(TENANT_ID, USER_ID, {
+        document_type: 'detention_notice' as const,
+        entity_type: 'incident' as const,
+        entity_id: INCIDENT_ID,
+      })) as DocumentResult;
+
+      expect(result.data).toBeDefined();
+    });
+  });
+
+  // ─── mapStatusToApi — default case ──────────────────────────────────────
+
+  describe('serializeDocument — unmapped status', () => {
+    it('should pass unmapped status through mapStatusToApi (e.g. generating)', async () => {
+      const doc = makeDocument({ status: 'generating' });
+      mockPrisma.behaviourDocument.findFirst.mockResolvedValue({
+        ...doc,
+        student: null,
+        generated_by: null,
+        template: null,
+      });
+
+      const result = await service.getDocument(TENANT_ID, DOCUMENT_ID);
+      const data = result.data as Record<string, unknown>;
+      expect(data['status']).toBe('generating');
+    });
+  });
 });

@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { MOCK_FACADE_PROVIDERS, PastoralReadFacade } from '../../common/tests/mock-facades';
@@ -76,7 +76,10 @@ describe('SenProfessionalService', () => {
         ...MOCK_FACADE_PROVIDERS,
         SenProfessionalService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: PastoralReadFacade, useValue: { findReferralById: pastoralReferralMock.findFirst } },
+        {
+          provide: PastoralReadFacade,
+          useValue: { findReferralById: pastoralReferralMock.findFirst },
+        },
       ],
     }).compile();
 
@@ -149,10 +152,7 @@ describe('SenProfessionalService', () => {
       });
 
       expect(result.pastoral_referral_id).toBe(PASTORAL_REFERRAL_ID);
-      expect(pastoralReferralMock.findFirst).toHaveBeenCalledWith(
-        TENANT_ID,
-        PASTORAL_REFERRAL_ID,
-      );
+      expect(pastoralReferralMock.findFirst).toHaveBeenCalledWith(TENANT_ID, PASTORAL_REFERRAL_ID);
     });
 
     it('should throw NotFoundException when pastoral referral does not exist', async () => {
@@ -278,6 +278,159 @@ describe('SenProfessionalService', () => {
           pastoral_referral_id: PASTORAL_REFERRAL_ID,
         }),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should reject an invalid referral status transition', async () => {
+      senProfessionalInvolvementMock.findFirst.mockResolvedValue({
+        id: INVOLVEMENT_ID,
+        status: 'completed',
+      });
+
+      await expect(
+        service.update(TENANT_ID, INVOLVEMENT_ID, { status: 'pending' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should allow a valid referral status transition', async () => {
+      senProfessionalInvolvementMock.findFirst.mockResolvedValue({
+        id: INVOLVEMENT_ID,
+        status: 'pending',
+      });
+      senProfessionalInvolvementMock.update.mockResolvedValue(
+        createInvolvementRecord({ status: 'scheduled' }),
+      );
+
+      const result = await service.update(TENANT_ID, INVOLVEMENT_ID, { status: 'scheduled' });
+
+      expect(result.status).toBe('scheduled');
+    });
+
+    it('should skip transition validation when status is unchanged', async () => {
+      senProfessionalInvolvementMock.findFirst.mockResolvedValue({
+        id: INVOLVEMENT_ID,
+        status: 'pending',
+      });
+      senProfessionalInvolvementMock.update.mockResolvedValue(
+        createInvolvementRecord({ professional_name: 'Dr. Jones', status: 'pending' }),
+      );
+
+      const result = await service.update(TENANT_ID, INVOLVEMENT_ID, {
+        professional_name: 'Dr. Jones',
+        status: 'pending',
+      });
+
+      expect(result.professional_name).toBe('Dr. Jones');
+    });
+
+    it('should skip transition validation when status is undefined', async () => {
+      senProfessionalInvolvementMock.findFirst.mockResolvedValue({
+        id: INVOLVEMENT_ID,
+        status: 'pending',
+      });
+      senProfessionalInvolvementMock.update.mockResolvedValue(
+        createInvolvementRecord({ professional_name: 'Dr. Jones' }),
+      );
+
+      const result = await service.update(TENANT_ID, INVOLVEMENT_ID, {
+        professional_name: 'Dr. Jones',
+      });
+
+      expect(result.professional_name).toBe('Dr. Jones');
+    });
+
+    it('should validate and link pastoral referral on update when valid', async () => {
+      senProfessionalInvolvementMock.findFirst.mockResolvedValue({
+        id: INVOLVEMENT_ID,
+        status: 'pending',
+      });
+      pastoralReferralMock.findFirst.mockResolvedValue({ id: PASTORAL_REFERRAL_ID });
+      senProfessionalInvolvementMock.update.mockResolvedValue(
+        createInvolvementRecord({ pastoral_referral_id: PASTORAL_REFERRAL_ID }),
+      );
+
+      const result = await service.update(TENANT_ID, INVOLVEMENT_ID, {
+        pastoral_referral_id: PASTORAL_REFERRAL_ID,
+      });
+
+      expect(result.pastoral_referral_id).toBe(PASTORAL_REFERRAL_ID);
+    });
+
+    it('should handle nullable date fields: referral_date set to null', async () => {
+      senProfessionalInvolvementMock.findFirst.mockResolvedValue({
+        id: INVOLVEMENT_ID,
+        status: 'pending',
+      });
+      senProfessionalInvolvementMock.update.mockResolvedValue(
+        createInvolvementRecord({ referral_date: null }),
+      );
+
+      const result = await service.update(TENANT_ID, INVOLVEMENT_ID, {
+        referral_date: null,
+      });
+
+      expect(result.referral_date).toBeNull();
+    });
+
+    it('should handle nullable date fields: assessment_date set to null', async () => {
+      senProfessionalInvolvementMock.findFirst.mockResolvedValue({
+        id: INVOLVEMENT_ID,
+        status: 'pending',
+      });
+      senProfessionalInvolvementMock.update.mockResolvedValue(
+        createInvolvementRecord({ assessment_date: null }),
+      );
+
+      const result = await service.update(TENANT_ID, INVOLVEMENT_ID, {
+        assessment_date: null,
+      });
+
+      expect(result.assessment_date).toBeNull();
+    });
+
+    it('should handle nullable date fields: report_received_date set to null', async () => {
+      senProfessionalInvolvementMock.findFirst.mockResolvedValue({
+        id: INVOLVEMENT_ID,
+        status: 'pending',
+      });
+      senProfessionalInvolvementMock.update.mockResolvedValue(
+        createInvolvementRecord({ report_received_date: null }),
+      );
+
+      const result = await service.update(TENANT_ID, INVOLVEMENT_ID, {
+        report_received_date: null,
+      });
+
+      expect(result.report_received_date).toBeNull();
+    });
+
+    it('should convert date strings to Date objects on update', async () => {
+      senProfessionalInvolvementMock.findFirst.mockResolvedValue({
+        id: INVOLVEMENT_ID,
+        status: 'pending',
+      });
+      senProfessionalInvolvementMock.update.mockResolvedValue(
+        createInvolvementRecord({
+          referral_date: new Date('2026-05-01'),
+          assessment_date: new Date('2026-05-15'),
+          report_received_date: new Date('2026-06-01'),
+        }),
+      );
+
+      await service.update(TENANT_ID, INVOLVEMENT_ID, {
+        referral_date: '2026-05-01',
+        assessment_date: '2026-05-15',
+        report_received_date: '2026-06-01',
+      });
+
+      expect(senProfessionalInvolvementMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            referral_date: new Date('2026-05-01'),
+            assessment_date: new Date('2026-05-15'),
+            report_received_date: new Date('2026-06-01'),
+          }),
+        }),
+      );
     });
   });
 

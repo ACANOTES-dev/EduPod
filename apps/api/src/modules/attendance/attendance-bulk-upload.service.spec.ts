@@ -378,6 +378,52 @@ describe('AttendanceBulkUploadService', () => {
       ).rejects.toThrow(); // xlsx library will throw on invalid data
     });
 
+    it('should return validation failure when student_number is not found in database', async () => {
+      mockStudentFacade.findAllStudentNumbers.mockResolvedValue([
+        { id: 'stu-1', student_number: 'STU001' },
+      ]);
+      mockClassesFacade.findActiveHomeroomClasses.mockResolvedValue([
+        { id: 'cls-1', name: 'Grade 1A' },
+      ]);
+
+      const csv = buildCsvBuffer(['UNKNOWN,John Doe,Grade 1A,P']);
+      const result = await service.processUpload(TENANT_ID, USER_ID, csv, 'file.csv', '2026-03-10');
+
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.errors[0]?.field).toBe('student_number');
+        expect(result.errors[0]?.message).toContain('not found');
+      }
+    });
+
+    it('should handle xls extension path for Excel parsing', async () => {
+      // An invalid xls buffer will throw from the xlsx library
+      const buf = Buffer.from('not-real-xls');
+
+      await expect(
+        service.processUpload(TENANT_ID, USER_ID, buf, 'file.xls', '2026-03-10'),
+      ).rejects.toThrow(); // xlsx library will throw on invalid data
+    });
+
+    it('should throw BadRequestException when existing session status is locked', async () => {
+      mockStudentFacade.findAllStudentNumbers.mockResolvedValue([
+        { id: 'stu-1', student_number: 'STU001' },
+      ]);
+      mockClassesFacade.findActiveHomeroomClasses.mockResolvedValue([
+        { id: 'cls-1', name: 'Grade 1A' },
+      ]);
+
+      mockRlsTx.attendanceSession.findFirst.mockResolvedValue({
+        id: 'sess-1',
+        status: 'locked',
+      });
+
+      const csv = buildCsvBuffer(['STU001,John Doe,Grade 1A,P']);
+      await expect(
+        service.processUpload(TENANT_ID, USER_ID, csv, 'file.csv', '2026-03-10'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('should recalculate daily summary for each affected student', async () => {
       mockStudentFacade.findAllStudentNumbers.mockResolvedValue([
         { id: 'stu-1', student_number: 'STU001' },

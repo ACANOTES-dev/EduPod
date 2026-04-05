@@ -108,6 +108,55 @@ function buildBaseProviders(overrides: {
   ];
 }
 
+describe('AttendanceUploadService — generateTemplate', () => {
+  let service: AttendanceUploadService;
+  let mockSettings: { getSettings: jest.Mock };
+  let mockAcademicReadFacade: { findCurrentYearId: jest.Mock };
+  let mockClassesReadFacade: {
+    findActiveHomeroomClasses: jest.Mock;
+    findEnrolledStudentsWithNumber: jest.Mock;
+  };
+
+  beforeEach(async () => {
+    mockSettings = {
+      getSettings: jest.fn().mockResolvedValue({
+        attendance: { workDays: [0, 1, 2, 3, 4, 5, 6] },
+      }),
+    };
+    mockAcademicReadFacade = { findCurrentYearId: jest.fn().mockResolvedValue('ay-1') };
+    mockClassesReadFacade = {
+      findActiveHomeroomClasses: jest.fn().mockResolvedValue([]),
+      findEnrolledStudentsWithNumber: jest.fn().mockResolvedValue([]),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: buildBaseProviders({
+        settings: mockSettings,
+        academicReadFacade: mockAcademicReadFacade,
+        classesReadFacade: mockClassesReadFacade,
+      }),
+    }).compile();
+
+    service = module.get<AttendanceUploadService>(AttendanceUploadService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should delegate to bulk upload service and return CSV', async () => {
+    mockClassesReadFacade.findActiveHomeroomClasses.mockResolvedValue([
+      { id: 'cls-1', name: 'Grade 1A' },
+    ]);
+    mockClassesReadFacade.findEnrolledStudentsWithNumber.mockResolvedValue([
+      { student: { first_name: 'John', last_name: 'Doe', student_number: 'STU001' } },
+    ]);
+
+    const csv = await service.generateTemplate(TENANT_ID, '2026-03-10');
+
+    expect(csv).toContain('student_number,student_name,class_name,status');
+    expect(csv).toContain('STU001');
+  });
+});
+
 describe('AttendanceUploadService — parseQuickMarkText', () => {
   let service: AttendanceUploadService;
 
@@ -280,6 +329,91 @@ describe('AttendanceUploadService — processExceptionsUpload', () => {
 
     expect(result.success).toBe(false);
     expect(result.errors).toHaveLength(1);
+  });
+
+  it('should handle student with null student_number in the lookup map', async () => {
+    mockStudentReadFacade.findAllStudentNumbers.mockResolvedValue([
+      { id: 'stu-1', student_number: null }, // null student_number — should be skipped in map
+      { id: 'stu-2', student_number: 'STU002' },
+    ]);
+    (mockRlsTx.attendanceRecord.findMany as jest.Mock).mockResolvedValue([
+      { id: 'rec-1', status: 'present', attendance_session_id: 'sess-1' },
+    ]);
+
+    const result = await service.processExceptionsUpload(TENANT_ID, USER_ID, '2026-03-10', [
+      { student_number: 'STU002', status: 'absent_unexcused' },
+    ]);
+
+    expect(result.updated).toBe(1);
+  });
+});
+
+// ─── processExceptionsUpload — notification failure ────────────────────────
+
+describe('AttendanceUploadService — processExceptionsUpload notification failure', () => {
+  let service: AttendanceUploadService;
+  let mockStudentReadFacade: { findAllStudentNumbers: jest.Mock };
+  let mockParentNotification: { triggerAbsenceNotification: jest.Mock };
+
+  beforeEach(async () => {
+    mockStudentReadFacade = {
+      findAllStudentNumbers: jest.fn(),
+    };
+    mockParentNotification = {
+      triggerAbsenceNotification: jest
+        .fn()
+        .mockRejectedValue(new Error('Notification service down')),
+    };
+
+    mockRlsTx.attendanceRecord.findMany = jest.fn();
+    mockRlsTx.attendanceRecord.update = jest.fn().mockResolvedValue({});
+    mockRedisClient.set.mockResolvedValue('OK');
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: buildBaseProviders({
+        studentReadFacade: mockStudentReadFacade,
+        parentNotification: mockParentNotification,
+      }),
+    }).compile();
+
+    service = module.get<AttendanceUploadService>(AttendanceUploadService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('edge: should continue operation when parent notification throws an error', async () => {
+    mockStudentReadFacade.findAllStudentNumbers.mockResolvedValue([
+      { id: 'stu-1', student_number: 'STU001' },
+    ]);
+    (mockRlsTx.attendanceRecord.findMany as jest.Mock).mockResolvedValue([
+      { id: 'rec-1', status: 'present', attendance_session_id: 'sess-1' },
+    ]);
+
+    const result = await service.processExceptionsUpload(TENANT_ID, USER_ID, '2026-03-10', [
+      { student_number: 'STU001', status: 'absent_unexcused' },
+    ]);
+
+    // Should still succeed despite notification failure
+    expect(result.updated).toBe(1);
+    expect(result.success).toBe(true);
+    expect(mockParentNotification.triggerAbsenceNotification).toHaveBeenCalled();
+  });
+
+  it('edge: should handle non-Error throw in notification catch block', async () => {
+    mockParentNotification.triggerAbsenceNotification.mockRejectedValue('string error');
+    mockStudentReadFacade.findAllStudentNumbers.mockResolvedValue([
+      { id: 'stu-1', student_number: 'STU001' },
+    ]);
+    (mockRlsTx.attendanceRecord.findMany as jest.Mock).mockResolvedValue([
+      { id: 'rec-1', status: 'present', attendance_session_id: 'sess-1' },
+    ]);
+
+    const result = await service.processExceptionsUpload(TENANT_ID, USER_ID, '2026-03-10', [
+      { student_number: 'STU001', status: 'absent_unexcused' },
+    ]);
+
+    expect(result.updated).toBe(1);
+    expect(result.success).toBe(true);
   });
 });
 

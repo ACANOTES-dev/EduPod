@@ -132,11 +132,7 @@ describe('AttendanceSignalCollector', () => {
   // ─── Test 1: Empty data ───────────────────────────────────────────────────
 
   it('should return score 0 with empty signals when no data exists', async () => {
-    const result = await collector.collectSignals(
-      TENANT_ID,
-      STUDENT_ID,
-      ACADEMIC_YEAR_ID,
-    );
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
     expect(result.domain).toBe('attendance');
     expect(result.rawScore).toBe(0);
@@ -164,15 +160,9 @@ describe('AttendanceSignalCollector', () => {
 
     mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue(summaries);
 
-    const result = await collector.collectSignals(
-      TENANT_ID,
-      STUDENT_ID,
-      ACADEMIC_YEAR_ID,
-    );
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
-    const signal = result.signals.find(
-      (s) => s.signalType === 'attendance_rate_decline',
-    );
+    const signal = result.signals.find((s) => s.signalType === 'attendance_rate_decline');
     expect(signal).toBeDefined();
     expect(signal!.scoreContribution).toBe(20);
     expect(signal!.severity).toBe('medium');
@@ -198,15 +188,9 @@ describe('AttendanceSignalCollector', () => {
 
     mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue(summaries);
 
-    const result = await collector.collectSignals(
-      TENANT_ID,
-      STUDENT_ID,
-      ACADEMIC_YEAR_ID,
-    );
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
-    const signal = result.signals.find(
-      (s) => s.signalType === 'consecutive_absences',
-    );
+    const signal = result.signals.find((s) => s.signalType === 'consecutive_absences');
     expect(signal).toBeDefined();
     expect(signal!.scoreContribution).toBe(15);
     expect(signal!.severity).toBe('medium');
@@ -226,15 +210,9 @@ describe('AttendanceSignalCollector', () => {
 
     mockPrisma.attendancePatternAlert.findMany.mockResolvedValue(alerts);
 
-    const result = await collector.collectSignals(
-      TENANT_ID,
-      STUDENT_ID,
-      ACADEMIC_YEAR_ID,
-    );
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
-    const signal = result.signals.find(
-      (s) => s.signalType === 'recurring_day_pattern',
-    );
+    const signal = result.signals.find((s) => s.signalType === 'recurring_day_pattern');
     expect(signal).toBeDefined();
     expect(signal!.scoreContribution).toBe(10);
     expect(signal!.severity).toBe('low');
@@ -261,15 +239,9 @@ describe('AttendanceSignalCollector', () => {
 
     mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue(summaries);
 
-    const result = await collector.collectSignals(
-      TENANT_ID,
-      STUDENT_ID,
-      ACADEMIC_YEAR_ID,
-    );
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
-    const signal = result.signals.find(
-      (s) => s.signalType === 'chronic_tardiness',
-    );
+    const signal = result.signals.find((s) => s.signalType === 'chronic_tardiness');
     expect(signal).toBeDefined();
     expect(signal!.scoreContribution).toBe(10);
     expect(signal!.summaryFragment).toContain('Late');
@@ -365,15 +337,9 @@ describe('AttendanceSignalCollector', () => {
 
       mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue(summaries);
 
-      const result = await collector.collectSignals(
-        TENANT_ID,
-        STUDENT_ID,
-        ACADEMIC_YEAR_ID,
-      );
+      const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
-      const signal = result.signals.find(
-        (s) => s.signalType === 'attendance_trajectory',
-      );
+      const signal = result.signals.find((s) => s.signalType === 'attendance_trajectory');
       expect(signal).toBeDefined();
       expect(signal!.scoreContribution).toBe(20);
       expect(signal!.severity).toBe('medium');
@@ -459,19 +425,12 @@ describe('AttendanceSignalCollector', () => {
     mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue(summaries);
     mockPrisma.attendancePatternAlert.findMany.mockResolvedValue(alerts);
 
-    const result = await collector.collectSignals(
-      TENANT_ID,
-      STUDENT_ID,
-      ACADEMIC_YEAR_ID,
-    );
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
     // The sum of score contributions should exceed rawScore when capped.
     // Signals: rate_decline(30) + consecutive(25) + tardiness(15) + recurring(20) = 90+
     // Any trajectory signal would push it higher.
-    const rawSum = result.signals.reduce(
-      (sum, s) => sum + s.scoreContribution,
-      0,
-    );
+    const rawSum = result.signals.reduce((sum, s) => sum + s.scoreContribution, 0);
     expect(rawSum).toBeGreaterThanOrEqual(90);
     expect(result.rawScore).toBe(Math.min(100, rawSum));
     expect(result.rawScore).toBeLessThanOrEqual(100);
@@ -507,11 +466,7 @@ describe('AttendanceSignalCollector', () => {
     mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue(summaries);
     mockPrisma.attendancePatternAlert.findMany.mockResolvedValue(alerts);
 
-    const result = await collector.collectSignals(
-      TENANT_ID,
-      STUDENT_ID,
-      ACADEMIC_YEAR_ID,
-    );
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
     expect(result.signals.length).toBeGreaterThan(0);
     expect(result.summaryFragments.length).toBe(result.signals.length);
@@ -521,7 +476,263 @@ describe('AttendanceSignalCollector', () => {
     }
   });
 
-  // ─── Test 9: Source entity IDs populated ──────────────────────────────────
+  // ─── Test 9: attendance_rate_decline — rate 85% → score 10 (80-89%) ───────
+
+  it('should detect attendance_rate_decline with 85% rate → score 10', async () => {
+    // 20 school days: 17 present + 3 absent = 85%
+    const summaries = [];
+    for (let i = 0; i < 17; i++) {
+      summaries.push(makeSummary({ daysAgo: i + 4, status: 'present' }));
+    }
+    for (let i = 0; i < 3; i++) {
+      summaries.push(makeSummary({ id: `abs-${i}`, daysAgo: i + 1, status: 'absent' }));
+    }
+
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue(summaries);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'attendance_rate_decline');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(10);
+  });
+
+  // ─── Test 10: attendance_rate_decline — rate < 70% → score 30 ─────────────
+
+  it('should detect attendance_rate_decline with rate below 70% → score 30', async () => {
+    // 10 school days: 6 present + 4 absent = 60%
+    const summaries = [];
+    for (let i = 0; i < 6; i++) {
+      summaries.push(makeSummary({ daysAgo: i + 5, status: 'present' }));
+    }
+    for (let i = 0; i < 4; i++) {
+      summaries.push(makeSummary({ id: `abs-${i}`, daysAgo: i + 1, status: 'absent' }));
+    }
+
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue(summaries);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'attendance_rate_decline');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(30);
+  });
+
+  // ─── Test 11: attendance_rate_decline — 90%+ rate → no signal ─────────────
+
+  it('should not detect attendance_rate_decline when rate is 90% or above', async () => {
+    // 20 school days: 18 present + 2 absent = 90%
+    const summaries = [];
+    for (let i = 0; i < 18; i++) {
+      summaries.push(makeSummary({ daysAgo: i + 3, status: 'present' }));
+    }
+    for (let i = 0; i < 2; i++) {
+      summaries.push(makeSummary({ id: `abs-${i}`, daysAgo: i + 1, status: 'absent' }));
+    }
+
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue(summaries);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'attendance_rate_decline');
+    expect(signal).toBeUndefined();
+  });
+
+  // ─── Test 12: consecutive_absences — 4 days → score 20 ────────────────────
+
+  it('should detect consecutive_absences with 4 absent days → score 20', async () => {
+    const summaries = [
+      makeSummary({ id: 'absent-1', daysAgo: 1, status: 'absent' }),
+      makeSummary({ id: 'absent-2', daysAgo: 2, status: 'absent' }),
+      makeSummary({ id: 'absent-3', daysAgo: 3, status: 'absent' }),
+      makeSummary({ id: 'absent-4', daysAgo: 4, status: 'absent' }),
+      makeSummary({ daysAgo: 5, status: 'present' }),
+    ];
+
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue(summaries);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'consecutive_absences');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(20);
+  });
+
+  // ─── Test 13: consecutive_absences — 5+ days → score 25 ───────────────────
+
+  it('should detect consecutive_absences with 5 absent days → score 25', async () => {
+    const summaries = [
+      makeSummary({ id: 'absent-1', daysAgo: 1, status: 'absent' }),
+      makeSummary({ id: 'absent-2', daysAgo: 2, status: 'absent' }),
+      makeSummary({ id: 'absent-3', daysAgo: 3, status: 'absent' }),
+      makeSummary({ id: 'absent-4', daysAgo: 4, status: 'absent' }),
+      makeSummary({ id: 'absent-5', daysAgo: 5, status: 'absent' }),
+      makeSummary({ daysAgo: 6, status: 'present' }),
+    ];
+
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue(summaries);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'consecutive_absences');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(25);
+  });
+
+  // ─── Test 14: consecutive_absences — < 3 days → no signal ─────────────────
+
+  it('should not detect consecutive_absences with only 2 absent days', async () => {
+    const summaries = [
+      makeSummary({ id: 'absent-1', daysAgo: 1, status: 'absent' }),
+      makeSummary({ id: 'absent-2', daysAgo: 2, status: 'absent' }),
+      makeSummary({ daysAgo: 3, status: 'present' }),
+    ];
+
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue(summaries);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'consecutive_absences');
+    expect(signal).toBeUndefined();
+  });
+
+  // ─── Test 15: recurring_day_pattern — 2+ alerts → score 20 ────────────────
+
+  it('should detect recurring_day_pattern with 2+ alerts → score 20', async () => {
+    const alerts = [
+      makePatternAlert({
+        id: 'recur-1',
+        alert_type: 'recurring_day',
+        details_json: { day_name: 'Monday', count: 3 },
+      }),
+      makePatternAlert({
+        id: 'recur-2',
+        alert_type: 'recurring_day',
+        details_json: { day_name: 'Friday', count: 2 },
+      }),
+    ];
+
+    mockPrisma.attendancePatternAlert.findMany.mockResolvedValue(alerts);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'recurring_day_pattern');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(20);
+  });
+
+  // ─── Test 16: recurring_day_pattern — inactive alerts ignored ─────────────
+
+  it('should not detect recurring_day_pattern from inactive alerts', async () => {
+    const alerts = [
+      makePatternAlert({
+        id: 'recur-1',
+        alert_type: 'recurring_day',
+        status: 'resolved',
+        details_json: { day_name: 'Monday', count: 3 },
+      }),
+    ];
+
+    mockPrisma.attendancePatternAlert.findMany.mockResolvedValue(alerts);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'recurring_day_pattern');
+    expect(signal).toBeUndefined();
+  });
+
+  // ─── Test 17: chronic_tardiness — lateRate > 50% → score 15 ───────────────
+
+  it('should detect chronic_tardiness with late rate > 50% → score 15', async () => {
+    // 10 attended days: 4 present + 6 late = 60% late rate
+    const summaries = [];
+    for (let i = 0; i < 4; i++) {
+      summaries.push(makeSummary({ daysAgo: i + 7, status: 'present' }));
+    }
+    for (let i = 0; i < 6; i++) {
+      summaries.push(makeSummary({ id: `late-${i}`, daysAgo: i + 1, status: 'late' }));
+    }
+
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue(summaries);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'chronic_tardiness');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(15);
+  });
+
+  // ─── Test 18: chronic_tardiness — lateRate <= 20% → no rate signal ────────
+
+  it('should not trigger chronic_tardiness rate signal when late rate <= 20%', async () => {
+    // 10 attended: 8 present + 2 late = 20% late rate → rateScore = 0
+    const summaries = [];
+    for (let i = 0; i < 8; i++) {
+      summaries.push(makeSummary({ daysAgo: i + 3, status: 'present' }));
+    }
+    for (let i = 0; i < 2; i++) {
+      summaries.push(makeSummary({ id: `late-${i}`, daysAgo: i + 1, status: 'late' }));
+    }
+
+    // No tardiness pattern alerts either
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue(summaries);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'chronic_tardiness');
+    expect(signal).toBeUndefined();
+  });
+
+  // ─── Test 19: chronic_tardiness — pattern alert only → score 10 ───────────
+
+  it('should detect chronic_tardiness from pattern alert only when no late summaries', async () => {
+    // All present, no late days → rateScore = 0
+    const summaries = [];
+    for (let i = 0; i < 5; i++) {
+      summaries.push(makeSummary({ daysAgo: i + 1, status: 'present' }));
+    }
+
+    const alerts = [
+      makePatternAlert({
+        id: 'tard-1',
+        alert_type: 'chronic_tardiness',
+        details_json: {},
+      }),
+    ];
+
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue(summaries);
+    mockPrisma.attendancePatternAlert.findMany.mockResolvedValue(alerts);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'chronic_tardiness');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(10);
+    expect(signal!.sourceEntityType).toBe('AttendancePatternAlert');
+  });
+
+  // ─── Test 20: chronic_tardiness — lateRate 21-30% → rateScore 5 ───────────
+
+  it('edge: should detect chronic_tardiness with 25% late rate → score 5', async () => {
+    // 20 attended: 15 present + 5 late = 25% late rate → rateScore = 5
+    const summaries = [];
+    for (let i = 0; i < 15; i++) {
+      summaries.push(makeSummary({ daysAgo: i + 6, status: 'present' }));
+    }
+    for (let i = 0; i < 5; i++) {
+      summaries.push(makeSummary({ id: `late-${i}`, daysAgo: i + 1, status: 'late' }));
+    }
+
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue(summaries);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'chronic_tardiness');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(5);
+  });
+
+  // ─── Test 21: Source entity IDs populated ──────────────────────────────────
 
   it('should populate sourceEntityType and sourceEntityId on every signal', async () => {
     // Trigger attendance_rate_decline + consecutive_absences
@@ -540,11 +751,7 @@ describe('AttendanceSignalCollector', () => {
 
     mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue(summaries);
 
-    const result = await collector.collectSignals(
-      TENANT_ID,
-      STUDENT_ID,
-      ACADEMIC_YEAR_ID,
-    );
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
     expect(result.signals.length).toBeGreaterThan(0);
     for (const signal of result.signals) {
@@ -553,9 +760,7 @@ describe('AttendanceSignalCollector', () => {
       expect(signal.sourceEntityId).toBeDefined();
       expect(signal.sourceEntityId.length).toBeGreaterThan(0);
       expect(
-        ['DailyAttendanceSummary', 'AttendancePatternAlert'].includes(
-          signal.sourceEntityType,
-        ),
+        ['DailyAttendanceSummary', 'AttendancePatternAlert'].includes(signal.sourceEntityType),
       ).toBe(true);
     }
   });

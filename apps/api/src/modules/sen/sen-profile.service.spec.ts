@@ -538,5 +538,319 @@ describe('SenProfileService', () => {
       expect(result.byYearGroup).toHaveLength(1);
       expect(result.byYearGroup[0]!.count).toBe(1);
     });
+
+    it('should return "Unknown" for year groups not found in academic facade', async () => {
+      mockPrisma.senProfile.count.mockResolvedValue(1);
+      mockPrisma.senProfile.groupBy
+        .mockResolvedValueOnce([{ primary_category: 'learning', _count: { id: 1 } }])
+        .mockResolvedValueOnce([{ support_level: 'school_support', _count: { id: 1 } }]);
+      mockPrisma.senProfile.findMany.mockResolvedValue([
+        { student: { year_group_id: 'yg-unknown' } },
+      ]);
+      mockAcademicReadFacade.findAllYearGroups.mockResolvedValue([]);
+
+      const result = await service.getOverview(TENANT_ID);
+
+      expect(result.byYearGroup).toHaveLength(1);
+      expect(result.byYearGroup[0]!.yearGroupName).toBe('Unknown');
+    });
+
+    it('should skip fetching year group names when no year groups found', async () => {
+      mockPrisma.senProfile.count.mockResolvedValue(1);
+      mockPrisma.senProfile.groupBy
+        .mockResolvedValueOnce([{ primary_category: 'learning', _count: { id: 1 } }])
+        .mockResolvedValueOnce([{ support_level: 'school_support', _count: { id: 1 } }]);
+      mockPrisma.senProfile.findMany.mockResolvedValue([{ student: { year_group_id: null } }]);
+
+      const result = await service.getOverview(TENANT_ID);
+
+      expect(result.byYearGroup).toHaveLength(0);
+      expect(mockAcademicReadFacade.findAllYearGroups).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Additional branch coverage ─────────────────────────────────────────────
+
+  describe('findAll — additional filters', () => {
+    it('should filter by student_id', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'all' });
+      mockPrisma.senProfile.findMany.mockResolvedValue([]);
+      mockPrisma.senProfile.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, USER_ID, ['sen.admin'], {
+        page: 1,
+        pageSize: 20,
+        student_id: STUDENT_ID,
+      });
+
+      expect(mockPrisma.senProfile.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student_id: STUDENT_ID,
+          }),
+        }),
+      );
+    });
+
+    it('should filter by sen_coordinator_user_id', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'all' });
+      mockPrisma.senProfile.findMany.mockResolvedValue([]);
+      mockPrisma.senProfile.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, USER_ID, ['sen.admin'], {
+        page: 1,
+        pageSize: 20,
+        sen_coordinator_user_id: COORDINATOR_ID,
+      });
+
+      expect(mockPrisma.senProfile.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            sen_coordinator_user_id: COORDINATOR_ID,
+          }),
+        }),
+      );
+    });
+
+    it('should filter by is_active', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'all' });
+      mockPrisma.senProfile.findMany.mockResolvedValue([]);
+      mockPrisma.senProfile.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, USER_ID, ['sen.admin'], {
+        page: 1,
+        pageSize: 20,
+        is_active: false,
+      });
+
+      expect(mockPrisma.senProfile.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            is_active: false,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('create — additional branches', () => {
+    it('should rethrow non-P2002 errors', async () => {
+      const dto: CreateSenProfileDto = {
+        student_id: STUDENT_ID,
+        sen_categories: ['learning'],
+        primary_category: 'learning',
+        support_level: 'school_support',
+        is_active: true,
+      };
+
+      const genericError = new Error('Connection timeout');
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware');
+      createRlsClient.mockReturnValue({
+        $transaction: jest.fn(() => {
+          throw genericError;
+        }),
+      });
+
+      await expect(service.create(TENANT_ID, dto)).rejects.toThrow('Connection timeout');
+    });
+
+    it('should handle optional fields defaulting to null', async () => {
+      const dto: CreateSenProfileDto = {
+        student_id: STUDENT_ID,
+        sen_categories: ['learning'],
+        primary_category: 'learning',
+        support_level: 'school_support',
+      };
+
+      const mockProfile = createMockProfile({
+        sen_coordinator_user_id: null,
+        diagnosis: null,
+        diagnosis_date: null,
+        diagnosis_source: null,
+        assessment_notes: null,
+        flagged_date: null,
+        unflagged_date: null,
+      });
+      mockPrisma.senProfile.create.mockResolvedValue(mockProfile);
+
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware');
+      createRlsClient.mockReturnValue({
+        $transaction: jest.fn((fn: (client: unknown) => unknown) => fn(mockPrisma)),
+      });
+
+      const result = await service.create(TENANT_ID, dto);
+
+      expect(result).toBeDefined();
+      expect(mockPrisma.senProfile.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            sen_coordinator_user_id: null,
+            diagnosis: null,
+            diagnosis_date: null,
+            diagnosis_source: null,
+            assessment_notes: null,
+            is_active: true,
+            flagged_date: null,
+            unflagged_date: null,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('findByStudent — class scope with student in scope', () => {
+    it('should return profile when student is in class scope', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: [STUDENT_ID],
+      });
+      const mockProfile = createMockProfile();
+      mockPrisma.senProfile.findFirst.mockResolvedValue(mockProfile);
+
+      const result = await service.findByStudent(TENANT_ID, USER_ID, ['sen.view'], STUDENT_ID);
+
+      expect(result.student_id).toBe(STUDENT_ID);
+    });
+
+    it('should show sensitive fields with sen.view_sensitive permission', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'all' });
+      const mockProfile = createMockProfile();
+      mockPrisma.senProfile.findFirst.mockResolvedValue(mockProfile);
+
+      const result = await service.findByStudent(
+        TENANT_ID,
+        USER_ID,
+        ['sen.view', 'sen.view_sensitive'],
+        STUDENT_ID,
+      );
+
+      expect(result.diagnosis).toBe('Dyslexia');
+      expect(result.assessment_notes).toBe('Assessment notes');
+      expect(result.involvements).toEqual([]);
+    });
+  });
+
+  describe('update — nullable field branches', () => {
+    it('should handle setting unflagged_date to a date string', async () => {
+      const dto = {
+        unflagged_date: '2026-05-01',
+      };
+
+      const mockProfile = createMockProfile({ unflagged_date: new Date('2026-05-01') });
+      mockPrisma.senProfile.findFirst.mockResolvedValue({ id: PROFILE_ID });
+      mockPrisma.senProfile.update.mockResolvedValue(mockProfile);
+
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware');
+      createRlsClient.mockReturnValue({
+        $transaction: jest.fn((fn: (client: unknown) => unknown) => fn(mockPrisma)),
+      });
+
+      await service.update(TENANT_ID, PROFILE_ID, dto);
+
+      expect(mockPrisma.senProfile.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            unflagged_date: new Date('2026-05-01'),
+          }),
+        }),
+      );
+    });
+
+    it('should handle setting flagged_date to null', async () => {
+      const dto = {
+        flagged_date: null,
+        unflagged_date: null,
+        diagnosis_date: null,
+      };
+
+      const mockProfile = createMockProfile({
+        flagged_date: null,
+        unflagged_date: null,
+        diagnosis_date: null,
+      });
+      mockPrisma.senProfile.findFirst.mockResolvedValue({ id: PROFILE_ID });
+      mockPrisma.senProfile.update.mockResolvedValue(mockProfile);
+
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware');
+      createRlsClient.mockReturnValue({
+        $transaction: jest.fn((fn: (client: unknown) => unknown) => fn(mockPrisma)),
+      });
+
+      await service.update(TENANT_ID, PROFILE_ID, dto);
+
+      expect(mockPrisma.senProfile.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            flagged_date: null,
+            unflagged_date: null,
+            diagnosis_date: null,
+          }),
+        }),
+      );
+    });
+
+    it('should handle setting sen_categories', async () => {
+      const dto = {
+        sen_categories: ['sensory', 'physical'],
+      };
+
+      mockPrisma.senProfile.findFirst.mockResolvedValue({ id: PROFILE_ID });
+      mockPrisma.senProfile.update.mockResolvedValue(createMockProfile());
+
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware');
+      createRlsClient.mockReturnValue({
+        $transaction: jest.fn((fn: (client: unknown) => unknown) => fn(mockPrisma)),
+      });
+
+      await service.update(TENANT_ID, PROFILE_ID, dto);
+
+      expect(mockPrisma.senProfile.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            sen_categories: ['sensory', 'physical'],
+          }),
+        }),
+      );
+    });
+
+    it('should handle setting diagnosis_source to null', async () => {
+      const dto = {
+        diagnosis_source: null,
+      };
+
+      mockPrisma.senProfile.findFirst.mockResolvedValue({ id: PROFILE_ID });
+      mockPrisma.senProfile.update.mockResolvedValue(createMockProfile());
+
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware');
+      createRlsClient.mockReturnValue({
+        $transaction: jest.fn((fn: (client: unknown) => unknown) => fn(mockPrisma)),
+      });
+
+      await service.update(TENANT_ID, PROFILE_ID, dto);
+
+      expect(mockPrisma.senProfile.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            diagnosis_source: null,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('findOne — class scope with found profile', () => {
+    it('should return and redact profile when class scope matches', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: [STUDENT_ID],
+      });
+      const mockProfile = createMockProfile();
+      mockPrisma.senProfile.findFirst.mockResolvedValue(mockProfile);
+
+      const result = await service.findOne(TENANT_ID, USER_ID, ['sen.view'], PROFILE_ID);
+
+      expect(result.diagnosis).toBeNull();
+      expect(result.assessment_notes).toBeNull();
+    });
   });
 });

@@ -406,3 +406,520 @@ describe('ReportCardVerificationController', () => {
     expect(mockVerificationService.verify).toHaveBeenCalledWith('some-complex-token_abc-123');
   });
 });
+
+// ─── Template update/get/convert ─────────────────────────────────────────────
+
+describe('ReportCardsEnhancedController — template CRUD extra branches', () => {
+  let controller: ReportCardsEnhancedController;
+
+  beforeEach(async () => {
+    controller = await buildModule();
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should call templateService.findOne and return a single template', async () => {
+    const template = { id: 'tmpl-1', name: 'Modern' };
+    mockTemplateService.findOne.mockResolvedValue(template);
+
+    const result = await controller.getTemplate(tenantContext, 'tmpl-1');
+
+    expect(mockTemplateService.findOne).toHaveBeenCalledWith(TENANT_ID, 'tmpl-1');
+    expect(result).toEqual(template);
+  });
+
+  it('should call templateService.update with id and dto', async () => {
+    const updated = { id: 'tmpl-1', name: 'Updated' };
+    mockTemplateService.update.mockResolvedValue(updated);
+
+    const result = await controller.updateTemplate(tenantContext, 'tmpl-1', {
+      name: 'Updated',
+    });
+
+    expect(mockTemplateService.update).toHaveBeenCalledWith(TENANT_ID, 'tmpl-1', {
+      name: 'Updated',
+    });
+    expect(result).toEqual(updated);
+  });
+
+  it('should call templateService.convertFromImage with buffer and mime type', async () => {
+    const converted = { id: 'tmpl-2', name: 'AI Template' };
+    mockTemplateService.convertFromImage.mockResolvedValue(converted);
+
+    const mockReq = {
+      body: Buffer.from('fake-image-data'),
+      headers: { 'content-type': 'image/png' },
+    };
+
+    const result = await controller.convertTemplateFromImage(
+      tenantContext,
+      jwtUser as never,
+      mockReq as never,
+    );
+
+    expect(mockTemplateService.convertFromImage).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      expect.any(Buffer),
+      'image/png',
+    );
+    expect(result).toEqual(converted);
+  });
+
+  it('should default mime type to image/jpeg when content-type header is missing', async () => {
+    mockTemplateService.convertFromImage.mockResolvedValue({ id: 'tmpl-3' });
+
+    const mockReq = {
+      body: Buffer.from('fake'),
+      headers: {},
+    };
+
+    await controller.convertTemplateFromImage(tenantContext, jwtUser as never, mockReq as never);
+
+    expect(mockTemplateService.convertFromImage).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      expect.any(Buffer),
+      'image/jpeg',
+    );
+  });
+});
+
+// ─── Approval Config extra branches ──────────────────────────────────────────
+
+describe('ReportCardsEnhancedController — approval config CRUD', () => {
+  let controller: ReportCardsEnhancedController;
+
+  beforeEach(async () => {
+    controller = await buildModule();
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should get a single approval config', async () => {
+    const config = { id: 'cfg-1', name: 'Standard' };
+    mockApprovalService.findOneConfig.mockResolvedValue(config);
+
+    const result = await controller.getApprovalConfig(tenantContext, 'cfg-1');
+
+    expect(mockApprovalService.findOneConfig).toHaveBeenCalledWith(TENANT_ID, 'cfg-1');
+    expect(result).toEqual(config);
+  });
+
+  it('should update an approval config', async () => {
+    const updated = { id: 'cfg-1', name: 'Updated' };
+    mockApprovalService.updateConfig.mockResolvedValue(updated);
+
+    const result = await controller.updateApprovalConfig(tenantContext, 'cfg-1', {
+      name: 'Updated',
+    });
+
+    expect(mockApprovalService.updateConfig).toHaveBeenCalledWith(TENANT_ID, 'cfg-1', {
+      name: 'Updated',
+    });
+    expect(result).toEqual(updated);
+  });
+
+  it('should delete an approval config', async () => {
+    mockApprovalService.removeConfig.mockResolvedValue({ deleted: true });
+
+    const result = await controller.deleteApprovalConfig(tenantContext, 'cfg-1');
+
+    expect(mockApprovalService.removeConfig).toHaveBeenCalledWith(TENANT_ID, 'cfg-1');
+    expect(result).toEqual({ deleted: true });
+  });
+
+  it('should bulk approve multiple approvals', async () => {
+    mockApprovalService.bulkApprove.mockResolvedValue({ results: [], succeeded: 2, failed: 0 });
+
+    const result = await controller.bulkApprove(tenantContext, jwtUser as never, {
+      approval_ids: [APPROVAL_ID, 'ap-2'],
+    });
+
+    expect(mockApprovalService.bulkApprove).toHaveBeenCalledWith(
+      TENANT_ID,
+      [APPROVAL_ID, 'ap-2'],
+      USER_ID,
+    );
+    expect(result).toMatchObject({ succeeded: 2 });
+  });
+});
+
+// ─── Delivery endpoints ──────────────────────────────────────────────────────
+
+describe('ReportCardsEnhancedController — delivery', () => {
+  let controller: ReportCardsEnhancedController;
+
+  beforeEach(async () => {
+    controller = await buildModule();
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should call deliveryService.deliver for a single report card', async () => {
+    mockDeliveryService.deliver.mockResolvedValue({ delivered_count: 2 });
+
+    const result = await controller.deliverReportCard(tenantContext, REPORT_CARD_ID);
+
+    expect(mockDeliveryService.deliver).toHaveBeenCalledWith(TENANT_ID, REPORT_CARD_ID);
+    expect(result).toMatchObject({ delivered_count: 2 });
+  });
+
+  it('should call deliveryService.getDeliveryStatus', async () => {
+    const status = { summary: { total: 5 }, deliveries: [] };
+    mockDeliveryService.getDeliveryStatus.mockResolvedValue(status);
+
+    const result = await controller.getDeliveryStatus(tenantContext, REPORT_CARD_ID);
+
+    expect(mockDeliveryService.getDeliveryStatus).toHaveBeenCalledWith(TENANT_ID, REPORT_CARD_ID);
+    expect(result).toEqual(status);
+  });
+
+  it('should call deliveryService.bulkDeliver', async () => {
+    mockDeliveryService.bulkDeliver.mockResolvedValue({ results: [], succeeded: 3, failed: 0 });
+
+    const result = await controller.bulkDeliver(tenantContext, {
+      report_card_ids: [REPORT_CARD_ID, 'rc-2', 'rc-3'],
+    });
+
+    expect(mockDeliveryService.bulkDeliver).toHaveBeenCalledWith(TENANT_ID, [
+      REPORT_CARD_ID,
+      'rc-2',
+      'rc-3',
+    ]);
+    expect(result).toMatchObject({ succeeded: 3 });
+  });
+});
+
+// ─── Custom Fields endpoints ─────────────────────────────────────────────────
+
+describe('ReportCardsEnhancedController — custom fields', () => {
+  let controller: ReportCardsEnhancedController;
+
+  beforeEach(async () => {
+    controller = await buildModule();
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should get a single custom field definition', async () => {
+    const field = { id: 'cf-1', name: 'Behaviour' };
+    mockCustomFieldsService.findOneFieldDef.mockResolvedValue(field);
+
+    const result = await controller.getCustomField(tenantContext, 'cf-1');
+
+    expect(mockCustomFieldsService.findOneFieldDef).toHaveBeenCalledWith(TENANT_ID, 'cf-1');
+    expect(result).toEqual(field);
+  });
+
+  it('should update a custom field definition', async () => {
+    const updated = { id: 'cf-1', label: 'Updated Behaviour' };
+    mockCustomFieldsService.updateFieldDef.mockResolvedValue(updated);
+
+    const result = await controller.updateCustomField(tenantContext, 'cf-1', {
+      label: 'Updated Behaviour',
+    });
+
+    expect(mockCustomFieldsService.updateFieldDef).toHaveBeenCalledWith(TENANT_ID, 'cf-1', {
+      label: 'Updated Behaviour',
+    });
+    expect(result).toEqual(updated);
+  });
+
+  it('should delete a custom field definition', async () => {
+    mockCustomFieldsService.removeFieldDef.mockResolvedValue({ deleted: true });
+
+    const result = await controller.deleteCustomField(tenantContext, 'cf-1');
+
+    expect(mockCustomFieldsService.removeFieldDef).toHaveBeenCalledWith(TENANT_ID, 'cf-1');
+    expect(result).toEqual({ deleted: true });
+  });
+
+  it('should save custom field values for a report card', async () => {
+    mockCustomFieldsService.saveFieldValues.mockResolvedValue({ saved: 3 });
+
+    const result = await controller.saveCustomFieldValues(
+      tenantContext,
+      jwtUser as never,
+      REPORT_CARD_ID,
+      { values: [{ field_def_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc', value: 'Good' }] },
+    );
+
+    expect(mockCustomFieldsService.saveFieldValues).toHaveBeenCalledWith(
+      TENANT_ID,
+      REPORT_CARD_ID,
+      USER_ID,
+      [{ field_def_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc', value: 'Good' }],
+    );
+    expect(result).toMatchObject({ saved: 3 });
+  });
+
+  it('should get custom field values for a report card', async () => {
+    const values = [{ field_id: 'cf-1', value: 'Good' }];
+    mockCustomFieldsService.getFieldValues.mockResolvedValue(values);
+
+    const result = await controller.getCustomFieldValues(tenantContext, REPORT_CARD_ID);
+
+    expect(mockCustomFieldsService.getFieldValues).toHaveBeenCalledWith(TENANT_ID, REPORT_CARD_ID);
+    expect(result).toEqual(values);
+  });
+
+  it('should list all custom field definitions', async () => {
+    const fields = [{ id: 'cf-1' }];
+    mockCustomFieldsService.findAllFieldDefs.mockResolvedValue(fields);
+
+    const result = await controller.listCustomFields(tenantContext);
+
+    expect(mockCustomFieldsService.findAllFieldDefs).toHaveBeenCalledWith(TENANT_ID);
+    expect(result).toEqual(fields);
+  });
+
+  it('should create a custom field definition', async () => {
+    const created = { id: 'cf-2', name: 'Sports' };
+    mockCustomFieldsService.createFieldDef.mockResolvedValue(created);
+
+    const result = await controller.createCustomField(tenantContext, {
+      name: 'Sports',
+      label: 'Sports Activity',
+      field_type: 'text',
+      section_type: 'extracurricular',
+    });
+
+    expect(mockCustomFieldsService.createFieldDef).toHaveBeenCalledWith(
+      TENANT_ID,
+      expect.objectContaining({ name: 'Sports' }),
+    );
+    expect(result).toEqual(created);
+  });
+});
+
+// ─── Grade Thresholds endpoints ──────────────────────────────────────────────
+
+describe('ReportCardsEnhancedController — grade thresholds', () => {
+  let controller: ReportCardsEnhancedController;
+
+  beforeEach(async () => {
+    controller = await buildModule();
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should get a single threshold config', async () => {
+    const threshold = { id: 'th-1', name: 'Standard' };
+    mockThresholdService.findOne.mockResolvedValue(threshold);
+
+    const result = await controller.getThreshold(tenantContext, 'th-1');
+
+    expect(mockThresholdService.findOne).toHaveBeenCalledWith(TENANT_ID, 'th-1');
+    expect(result).toEqual(threshold);
+  });
+
+  it('should update a threshold config', async () => {
+    const updated = { id: 'th-1', name: 'Updated' };
+    mockThresholdService.update.mockResolvedValue(updated);
+
+    const result = await controller.updateThreshold(tenantContext, 'th-1', { name: 'Updated' });
+
+    expect(mockThresholdService.update).toHaveBeenCalledWith(TENANT_ID, 'th-1', {
+      name: 'Updated',
+    });
+    expect(result).toEqual(updated);
+  });
+
+  it('should delete a threshold config', async () => {
+    mockThresholdService.remove.mockResolvedValue({ deleted: true });
+
+    const result = await controller.deleteThreshold(tenantContext, 'th-1');
+
+    expect(mockThresholdService.remove).toHaveBeenCalledWith(TENANT_ID, 'th-1');
+    expect(result).toEqual({ deleted: true });
+  });
+
+  it('should list all threshold configs', async () => {
+    const thresholds = [{ id: 'th-1' }];
+    mockThresholdService.findAll.mockResolvedValue(thresholds);
+
+    const result = await controller.listThresholds(tenantContext);
+
+    expect(mockThresholdService.findAll).toHaveBeenCalledWith(TENANT_ID);
+    expect(result).toEqual(thresholds);
+  });
+
+  it('should create a threshold config', async () => {
+    const created = { id: 'th-2' };
+    mockThresholdService.create.mockResolvedValue(created);
+
+    const result = await controller.createThreshold(tenantContext, {
+      name: 'New',
+      thresholds_json: [{ min_score: 90, label: 'A', label_ar: 'ممتاز' }],
+    });
+
+    expect(mockThresholdService.create).toHaveBeenCalledWith(
+      TENANT_ID,
+      expect.objectContaining({ name: 'New' }),
+    );
+    expect(result).toEqual(created);
+  });
+});
+
+// ─── Acknowledgment endpoints ────────────────────────────────────────────────
+
+describe('ReportCardsEnhancedController — acknowledgment', () => {
+  let controller: ReportCardsEnhancedController;
+
+  beforeEach(async () => {
+    controller = await buildModule();
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should acknowledge a report card with IP from x-forwarded-for', async () => {
+    mockAcknowledgmentService.acknowledge.mockResolvedValue({ acknowledged: true });
+
+    const mockReq = {
+      headers: { 'x-forwarded-for': '1.2.3.4' },
+      socket: { remoteAddress: '127.0.0.1' },
+    };
+
+    const result = await controller.acknowledgeReportCard(
+      tenantContext,
+      REPORT_CARD_ID,
+      { parent_id: 'parent-1' },
+      mockReq as never,
+    );
+
+    expect(mockAcknowledgmentService.acknowledge).toHaveBeenCalledWith(
+      TENANT_ID,
+      REPORT_CARD_ID,
+      'parent-1',
+      '1.2.3.4',
+    );
+    expect(result).toEqual({ acknowledged: true });
+  });
+
+  it('should fall back to socket remoteAddress when x-forwarded-for is missing', async () => {
+    mockAcknowledgmentService.acknowledge.mockResolvedValue({ acknowledged: true });
+
+    const mockReq = {
+      headers: {},
+      socket: { remoteAddress: '10.0.0.1' },
+    };
+
+    await controller.acknowledgeReportCard(
+      tenantContext,
+      REPORT_CARD_ID,
+      { parent_id: 'parent-1' },
+      mockReq as never,
+    );
+
+    expect(mockAcknowledgmentService.acknowledge).toHaveBeenCalledWith(
+      TENANT_ID,
+      REPORT_CARD_ID,
+      'parent-1',
+      '10.0.0.1',
+    );
+  });
+
+  it('should pass undefined IP when both forwarded-for and remoteAddress are absent', async () => {
+    mockAcknowledgmentService.acknowledge.mockResolvedValue({ acknowledged: true });
+
+    const mockReq = {
+      headers: {},
+      socket: {},
+    };
+
+    await controller.acknowledgeReportCard(
+      tenantContext,
+      REPORT_CARD_ID,
+      { parent_id: 'parent-1' },
+      mockReq as never,
+    );
+
+    expect(mockAcknowledgmentService.acknowledge).toHaveBeenCalledWith(
+      TENANT_ID,
+      REPORT_CARD_ID,
+      'parent-1',
+      undefined,
+    );
+  });
+
+  it('should get acknowledgment status', async () => {
+    const status = { acknowledged: true, acknowledged_at: '2026-01-01' };
+    mockAcknowledgmentService.getAcknowledgmentStatus.mockResolvedValue(status);
+
+    const result = await controller.getAcknowledgmentStatus(tenantContext, REPORT_CARD_ID);
+
+    expect(mockAcknowledgmentService.getAcknowledgmentStatus).toHaveBeenCalledWith(
+      TENANT_ID,
+      REPORT_CARD_ID,
+    );
+    expect(result).toEqual(status);
+  });
+});
+
+// ─── Verification token and class comparison ─────────────────────────────────
+
+describe('ReportCardsEnhancedController — verification and analytics branches', () => {
+  let controller: ReportCardsEnhancedController;
+
+  beforeEach(async () => {
+    controller = await buildModule();
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should generate a verification token', async () => {
+    const token = { token: 'abc-123', url: 'https://example.com/verify/abc-123' };
+    mockVerificationService.generateToken.mockResolvedValue(token);
+
+    const result = await controller.generateVerificationToken(tenantContext, REPORT_CARD_ID);
+
+    expect(mockVerificationService.generateToken).toHaveBeenCalledWith(TENANT_ID, REPORT_CARD_ID);
+    expect(result).toEqual(token);
+  });
+
+  it('should use empty string for class comparison when academic_period_id is undefined', async () => {
+    mockAnalyticsService.getClassComparison.mockResolvedValue({ classes: [] });
+
+    const result = await controller.getClassComparison(tenantContext, {});
+
+    expect(mockAnalyticsService.getClassComparison).toHaveBeenCalledWith(TENANT_ID, '');
+    expect(result).toEqual({ classes: [] });
+  });
+
+  it('should pass analytics dashboard query with undefined academic_period_id', async () => {
+    mockAnalyticsService.getDashboard.mockResolvedValue({ data: {} });
+
+    const result = await controller.getAnalyticsDashboard(tenantContext, {});
+
+    expect(mockAnalyticsService.getDashboard).toHaveBeenCalledWith(TENANT_ID, undefined);
+    expect(result).toEqual({ data: {} });
+  });
+
+  it('should call list approval configs', async () => {
+    mockApprovalService.findAllConfigs.mockResolvedValue([{ id: 'cfg-1' }]);
+
+    const result = await controller.listApprovalConfigs(tenantContext);
+
+    expect(mockApprovalService.findAllConfigs).toHaveBeenCalledWith(TENANT_ID);
+    expect(result).toEqual([{ id: 'cfg-1' }]);
+  });
+
+  it('should enqueue batch PDF with template_id when provided', async () => {
+    mockGradebookQueue.add.mockResolvedValue({ id: 'job-2' });
+
+    const result = await controller.enqueueBatchPdf(tenantContext, jwtUser as never, {
+      class_id: 'class-1',
+      academic_period_id: 'period-1',
+      template_id: 'tmpl-x',
+    });
+
+    expect(mockGradebookQueue.add).toHaveBeenCalledWith(
+      'gradebook:batch-pdf',
+      expect.objectContaining({
+        template_id: 'tmpl-x',
+      }),
+    );
+    expect(result).toMatchObject({ status: 'queued' });
+  });
+});

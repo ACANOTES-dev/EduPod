@@ -123,14 +123,15 @@ describe('GradebookInsightsController', () => {
 
     expect(result).toEqual(distribution);
     expect(mockAnalyticsService.getGradeDistribution).toHaveBeenCalledWith(
-      TENANT_ID, ASSESSMENT_ID,
+      TENANT_ID,
+      ASSESSMENT_ID,
     );
   });
 
   it('should throw BadRequestException when period distribution is called without required query params', async () => {
-    await expect(
-      controller.getPeriodDistribution(tenantContext, {}),
-    ).rejects.toThrow(BadRequestException);
+    await expect(controller.getPeriodDistribution(tenantContext, {})).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should return period distribution when all required params are provided', async () => {
@@ -145,7 +146,10 @@ describe('GradebookInsightsController', () => {
 
     expect(result).toEqual(distribution);
     expect(mockAnalyticsService.getPeriodDistribution).toHaveBeenCalledWith(
-      TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID,
+      TENANT_ID,
+      CLASS_ID,
+      SUBJECT_ID,
+      PERIOD_ID,
     );
   });
 
@@ -153,15 +157,15 @@ describe('GradebookInsightsController', () => {
     const trend = [{ period: 'T1', average: 82 }];
     mockAnalyticsService.getStudentTrend.mockResolvedValue(trend);
 
-    const result = await controller.getStudentTrend(
-      tenantContext,
-      STUDENT_ID,
-      { subject_id: SUBJECT_ID },
-    );
+    const result = await controller.getStudentTrend(tenantContext, STUDENT_ID, {
+      subject_id: SUBJECT_ID,
+    });
 
     expect(result).toEqual(trend);
     expect(mockAnalyticsService.getStudentTrend).toHaveBeenCalledWith(
-      TENANT_ID, STUDENT_ID, SUBJECT_ID,
+      TENANT_ID,
+      STUDENT_ID,
+      SUBJECT_ID,
     );
   });
 
@@ -169,15 +173,17 @@ describe('GradebookInsightsController', () => {
     const trend = [{ period: 'T1', average: 78 }];
     mockAnalyticsService.getClassTrend.mockResolvedValue(trend);
 
-    const result = await controller.getClassTrend(
-      tenantContext,
-      CLASS_ID,
-      { subject_id: SUBJECT_ID, period_id: PERIOD_ID },
-    );
+    const result = await controller.getClassTrend(tenantContext, CLASS_ID, {
+      subject_id: SUBJECT_ID,
+      period_id: PERIOD_ID,
+    });
 
     expect(result).toEqual(trend);
     expect(mockAnalyticsService.getClassTrend).toHaveBeenCalledWith(
-      TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID,
+      TENANT_ID,
+      CLASS_ID,
+      SUBJECT_ID,
+      PERIOD_ID,
     );
   });
 
@@ -194,7 +200,10 @@ describe('GradebookInsightsController', () => {
 
     expect(result).toEqual(benchmark);
     expect(mockAnalyticsService.getBenchmark).toHaveBeenCalledWith(
-      TENANT_ID, YEAR_GROUP_ID, SUBJECT_ID, PERIOD_ID,
+      TENANT_ID,
+      YEAR_GROUP_ID,
+      SUBJECT_ID,
+      PERIOD_ID,
     );
   });
 
@@ -207,9 +216,7 @@ describe('GradebookInsightsController', () => {
     const result = await controller.generateComment(tenantContext, REPORT_CARD_ID);
 
     expect(result).toEqual(generated);
-    expect(mockAiCommentsService.generateComment).toHaveBeenCalledWith(
-      TENANT_ID, REPORT_CARD_ID,
-    );
+    expect(mockAiCommentsService.generateComment).toHaveBeenCalledWith(TENANT_ID, REPORT_CARD_ID);
   });
 
   it('should generate batch AI comments for multiple report cards', async () => {
@@ -220,9 +227,9 @@ describe('GradebookInsightsController', () => {
     const result = await controller.generateBatchComments(tenantContext, dto);
 
     expect(result).toEqual(generated);
-    expect(mockAiCommentsService.generateBatchComments).toHaveBeenCalledWith(
-      TENANT_ID, [REPORT_CARD_ID],
-    );
+    expect(mockAiCommentsService.generateBatchComments).toHaveBeenCalledWith(TENANT_ID, [
+      REPORT_CARD_ID,
+    ]);
   });
 
   // ─── AI Grading Instructions ─────────────────────────────────────────────
@@ -250,17 +257,18 @@ describe('GradebookInsightsController', () => {
 
     expect(result).toEqual(upserted);
     expect(mockAiGradingInstructionService.upsertInstruction).toHaveBeenCalledWith(
-      TENANT_ID, USER_ID, dto,
+      TENANT_ID,
+      USER_ID,
+      dto,
     );
   });
 
   it('should throw BadRequestException when grading inline with no file uploaded', async () => {
     await expect(
-      controller.gradeInline(
-        tenantContext,
-        undefined,
-        { assessment_id: ASSESSMENT_ID, student_id: STUDENT_ID },
-      ),
+      controller.gradeInline(tenantContext, undefined, {
+        assessment_id: ASSESSMENT_ID,
+        student_id: STUDENT_ID,
+      }),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -274,20 +282,17 @@ describe('GradebookInsightsController', () => {
     const result = await controller.nlQuery(tenantContext, userContext, dto);
 
     expect(result).toEqual(response);
-    expect(mockNlQueryService.processQuery).toHaveBeenCalledWith(
-      TENANT_ID, USER_ID, dto.question,
-    );
+    expect(mockNlQueryService.processQuery).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto.question);
   });
 
   it('should return NL query history for the current user', async () => {
     const history = { data: [{ id: 'q-1', question: 'Which students are at risk?' }] };
     mockNlQueryService.getQueryHistory.mockResolvedValue(history);
 
-    const result = await controller.getNlQueryHistory(
-      tenantContext,
-      userContext,
-      { page: 1, pageSize: 20 },
-    );
+    const result = await controller.getNlQueryHistory(tenantContext, userContext, {
+      page: 1,
+      pageSize: 20,
+    });
 
     expect(result).toEqual(history);
     expect(mockNlQueryService.getQueryHistory).toHaveBeenCalledWith(TENANT_ID, USER_ID, 1, 20);
@@ -305,10 +310,10 @@ describe('GradebookInsightsController', () => {
     });
 
     expect(result).toEqual(dashboard);
-    expect(mockGradePublishingService.getReadinessDashboard).toHaveBeenCalledWith(
-      TENANT_ID,
-      { period_id: PERIOD_ID, class_id: CLASS_ID },
-    );
+    expect(mockGradePublishingService.getReadinessDashboard).toHaveBeenCalledWith(TENANT_ID, {
+      period_id: PERIOD_ID,
+      class_id: CLASS_ID,
+    });
   });
 
   it('should publish grades for a list of assessments', async () => {
@@ -319,9 +324,9 @@ describe('GradebookInsightsController', () => {
     const result = await controller.publishGrades(tenantContext, userContext, dto);
 
     expect(result).toEqual(published);
-    expect(mockGradePublishingService.publishGrades).toHaveBeenCalledWith(
-      TENANT_ID, USER_ID, [ASSESSMENT_ID],
-    );
+    expect(mockGradePublishingService.publishGrades).toHaveBeenCalledWith(TENANT_ID, USER_ID, [
+      ASSESSMENT_ID,
+    ]);
   });
 
   it('should publish period grades for a class/period pair', async () => {
@@ -333,7 +338,10 @@ describe('GradebookInsightsController', () => {
 
     expect(result).toEqual(published);
     expect(mockGradePublishingService.publishPeriodGrades).toHaveBeenCalledWith(
-      TENANT_ID, USER_ID, CLASS_ID, PERIOD_ID,
+      TENANT_ID,
+      USER_ID,
+      CLASS_ID,
+      PERIOD_ID,
     );
   });
 
@@ -347,11 +355,10 @@ describe('GradebookInsightsController', () => {
     const result = await controller.generateProgressReports(tenantContext, userContext, dto);
 
     expect(result).toEqual(generated);
-    expect(mockProgressReportService.generate).toHaveBeenCalledWith(
-      TENANT_ID,
-      USER_ID,
-      { class_id: CLASS_ID, academic_period_id: PERIOD_ID },
-    );
+    expect(mockProgressReportService.generate).toHaveBeenCalledWith(TENANT_ID, USER_ID, {
+      class_id: CLASS_ID,
+      academic_period_id: PERIOD_ID,
+    });
   });
 
   it('should list progress reports with pagination', async () => {
@@ -363,5 +370,274 @@ describe('GradebookInsightsController', () => {
 
     expect(result).toEqual(listResult);
     expect(mockProgressReportService.list).toHaveBeenCalledWith(TENANT_ID, query);
+  });
+
+  // ─── Additional branch coverage ────────────────────────────────────────
+
+  it('should throw BadRequestException for AI grading with unsupported mime type', async () => {
+    const invalidFile = {
+      buffer: Buffer.from('fake'),
+      originalname: 'test.txt',
+      mimetype: 'text/plain',
+      size: 100,
+    };
+
+    // Mock AiGradingService.isAllowedMimeType to return false
+    jest.spyOn(AiGradingService, 'isAllowedMimeType').mockReturnValue(false);
+
+    await expect(
+      controller.gradeInline(tenantContext, invalidFile, {
+        assessment_id: ASSESSMENT_ID,
+        student_id: STUDENT_ID,
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('should call gradeInline when file is valid', async () => {
+    const validFile = {
+      buffer: Buffer.from('fake-image'),
+      originalname: 'test.jpg',
+      mimetype: 'image/jpeg',
+      size: 1000,
+    };
+
+    jest.spyOn(AiGradingService, 'isAllowedMimeType').mockReturnValue(true);
+    const graded = { score: 85, confidence: 0.9 };
+    mockAiGradingService.gradeInline.mockResolvedValue(graded);
+
+    const result = await controller.gradeInline(tenantContext, validFile, {
+      assessment_id: ASSESSMENT_ID,
+      student_id: STUDENT_ID,
+    });
+
+    expect(mockAiGradingService.gradeInline).toHaveBeenCalledWith(
+      TENANT_ID,
+      ASSESSMENT_ID,
+      STUDENT_ID,
+      validFile.buffer,
+      'image/jpeg',
+    );
+    expect(result).toEqual(graded);
+  });
+
+  it('should get a single AI grading instruction', async () => {
+    const instruction = { id: INSTRUCTION_ID, instruction_text: 'Grade carefully' };
+    mockAiGradingInstructionService.findOneInstruction.mockResolvedValue(instruction);
+
+    const result = await controller.getGradingInstruction(tenantContext, INSTRUCTION_ID);
+
+    expect(mockAiGradingInstructionService.findOneInstruction).toHaveBeenCalledWith(
+      TENANT_ID,
+      INSTRUCTION_ID,
+    );
+    expect(result).toEqual(instruction);
+  });
+
+  it('should review an AI grading instruction (approve/reject)', async () => {
+    const reviewed = { id: INSTRUCTION_ID, status: 'active' };
+    mockAiGradingInstructionService.reviewInstruction.mockResolvedValue(reviewed);
+
+    const dto = { status: 'active' as const };
+    const result = await controller.reviewGradingInstruction(
+      tenantContext,
+      userContext,
+      INSTRUCTION_ID,
+      dto,
+    );
+
+    expect(mockAiGradingInstructionService.reviewInstruction).toHaveBeenCalledWith(
+      TENANT_ID,
+      INSTRUCTION_ID,
+      USER_ID,
+      dto,
+    );
+    expect(result).toEqual(reviewed);
+  });
+
+  it('should delete an AI grading instruction', async () => {
+    mockAiGradingInstructionService.deleteInstruction.mockResolvedValue(undefined);
+
+    await controller.deleteGradingInstruction(tenantContext, userContext, INSTRUCTION_ID);
+
+    expect(mockAiGradingInstructionService.deleteInstruction).toHaveBeenCalledWith(
+      TENANT_ID,
+      INSTRUCTION_ID,
+      USER_ID,
+    );
+  });
+
+  it('should create an AI grading reference', async () => {
+    const reference = { id: 'ref-1', assessment_id: ASSESSMENT_ID };
+    mockAiGradingInstructionService.createReference.mockResolvedValue(reference);
+
+    const dto = {
+      assessment_id: ASSESSMENT_ID,
+      file_url: 'https://example.com/ref.pdf',
+      file_type: 'pdf',
+      auto_approve: false,
+    };
+    const result = await controller.createGradingReference(tenantContext, userContext, dto);
+
+    expect(mockAiGradingInstructionService.createReference).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      dto,
+    );
+    expect(result).toEqual(reference);
+  });
+
+  it('should list AI grading references for an assessment', async () => {
+    const references = [{ id: 'ref-1' }];
+    mockAiGradingInstructionService.listReferences.mockResolvedValue(references);
+
+    const result = await controller.listGradingReferences(tenantContext, ASSESSMENT_ID);
+
+    expect(mockAiGradingInstructionService.listReferences).toHaveBeenCalledWith(
+      TENANT_ID,
+      ASSESSMENT_ID,
+    );
+    expect(result).toEqual(references);
+  });
+
+  it('should review an AI grading reference', async () => {
+    const reviewed = { id: 'ref-1', status: 'active' };
+    mockAiGradingInstructionService.reviewReference.mockResolvedValue(reviewed);
+
+    const dto = { status: 'active' as const };
+    const result = await controller.reviewGradingReference(
+      tenantContext,
+      userContext,
+      'ref-1',
+      dto,
+    );
+
+    expect(mockAiGradingInstructionService.reviewReference).toHaveBeenCalledWith(
+      TENANT_ID,
+      'ref-1',
+      USER_ID,
+      dto,
+    );
+    expect(result).toEqual(reviewed);
+  });
+
+  it('should delete an AI grading reference', async () => {
+    mockAiGradingInstructionService.deleteReference.mockResolvedValue(undefined);
+
+    await controller.deleteGradingReference(tenantContext, 'ref-1');
+
+    expect(mockAiGradingInstructionService.deleteReference).toHaveBeenCalledWith(
+      TENANT_ID,
+      'ref-1',
+    );
+  });
+
+  it('should get AI progress summary', async () => {
+    const summary = { summary: 'Good progress' };
+    mockAiProgressSummaryService.generateSummary.mockResolvedValue(summary);
+
+    const result = await controller.getProgressSummary(tenantContext, {
+      student_id: STUDENT_ID,
+      period_id: PERIOD_ID,
+      locale: 'en',
+    });
+
+    expect(mockAiProgressSummaryService.generateSummary).toHaveBeenCalledWith(
+      TENANT_ID,
+      STUDENT_ID,
+      PERIOD_ID,
+      'en',
+    );
+    expect(result).toEqual(summary);
+  });
+
+  it('should update a progress report entry', async () => {
+    const updated = { id: 'entry-1', teacher_note: 'Good work' };
+    mockProgressReportService.updateEntry.mockResolvedValue(updated);
+
+    const result = await controller.updateProgressReportEntry(tenantContext, 'entry-1', {
+      teacher_note: 'Good work',
+    });
+
+    expect(mockProgressReportService.updateEntry).toHaveBeenCalledWith(
+      TENANT_ID,
+      'entry-1',
+      'Good work',
+    );
+    expect(result).toEqual(updated);
+  });
+
+  it('should pass null when teacher_note is undefined in updateProgressReportEntry', async () => {
+    mockProgressReportService.updateEntry.mockResolvedValue({ id: 'entry-1' });
+
+    await controller.updateProgressReportEntry(tenantContext, 'entry-1', {});
+
+    expect(mockProgressReportService.updateEntry).toHaveBeenCalledWith(TENANT_ID, 'entry-1', null);
+  });
+
+  it('should send progress reports', async () => {
+    const sent = { sent: 25 };
+    mockProgressReportService.send.mockResolvedValue(sent);
+
+    const result = await controller.sendProgressReports(tenantContext, userContext, {
+      progress_report_id: 'pr-1',
+    });
+
+    expect(mockProgressReportService.send).toHaveBeenCalledWith(TENANT_ID, USER_ID, ['pr-1']);
+    expect(result).toEqual(sent);
+  });
+
+  it('should get teacher consistency analytics', async () => {
+    const consistency = { teachers: [] };
+    mockAnalyticsService.getTeacherConsistency.mockResolvedValue(consistency);
+
+    const result = await controller.getTeacherConsistency(tenantContext, {
+      subject_id: SUBJECT_ID,
+    });
+
+    expect(mockAnalyticsService.getTeacherConsistency).toHaveBeenCalledWith(
+      TENANT_ID,
+      SUBJECT_ID,
+      undefined,
+    );
+    expect(result).toEqual(consistency);
+  });
+
+  it('should get readiness dashboard with no filters', async () => {
+    const dashboard = { ready: true };
+    mockGradePublishingService.getReadinessDashboard.mockResolvedValue(dashboard);
+
+    const result = await controller.getReadinessDashboard(tenantContext, {});
+
+    expect(mockGradePublishingService.getReadinessDashboard).toHaveBeenCalledWith(TENANT_ID, {
+      period_id: undefined,
+      class_id: undefined,
+    });
+    expect(result).toEqual(dashboard);
+  });
+
+  it('should throw BadRequestException for period distribution with only class_id', async () => {
+    await expect(
+      controller.getPeriodDistribution(tenantContext, { class_id: CLASS_ID }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('should throw BadRequestException for period distribution with only subject_id', async () => {
+    await expect(
+      controller.getPeriodDistribution(tenantContext, { subject_id: SUBJECT_ID }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('should get student trend with no subject_id', async () => {
+    const trend = [{ period: 'T1', average: 80 }];
+    mockAnalyticsService.getStudentTrend.mockResolvedValue(trend);
+
+    const result = await controller.getStudentTrend(tenantContext, STUDENT_ID, {});
+
+    expect(mockAnalyticsService.getStudentTrend).toHaveBeenCalledWith(
+      TENANT_ID,
+      STUDENT_ID,
+      undefined,
+    );
+    expect(result).toEqual(trend);
   });
 });

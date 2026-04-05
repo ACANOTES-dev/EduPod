@@ -1341,5 +1341,206 @@ describe('InterventionService', () => {
         service.recordReview(TENANT_ID, INTERVENTION_ID, {}, ACTOR_USER_ID),
       ).rejects.toThrow(NotFoundException);
     });
+
+    it('should write progress note if review_notes has content', async () => {
+      const existing = makeIntervention();
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
+      mockRlsTx.pastoralIntervention.update.mockResolvedValue(existing);
+      mockRlsTx.pastoralInterventionProgress.create.mockResolvedValue({ id: 'progress-1' });
+
+      await service.recordReview(
+        TENANT_ID,
+        INTERVENTION_ID,
+        { review_notes: 'Student making good progress' },
+        ACTOR_USER_ID,
+      );
+
+      expect(mockRlsTx.pastoralInterventionProgress.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            note: 'Student making good progress',
+            recorded_by_user_id: ACTOR_USER_ID,
+          }),
+        }),
+      );
+    });
+
+    it('should not write progress note when review_notes is undefined', async () => {
+      const existing = makeIntervention();
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
+      mockRlsTx.pastoralIntervention.update.mockResolvedValue(existing);
+
+      await service.recordReview(TENANT_ID, INTERVENTION_ID, {}, ACTOR_USER_ID);
+
+      expect(mockRlsTx.pastoralInterventionProgress.create).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── changeStatus — all terminal statuses ─────────────────────────────────
+
+  describe('changeStatus — all valid terminal statuses', () => {
+    it('should accept partially_achieved as target status', async () => {
+      const existing = makeIntervention();
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
+      const updated = makeIntervention({ status: 'partially_achieved' });
+      mockRlsTx.pastoralIntervention.update.mockResolvedValue(updated);
+      mockPrisma.pastoralIntervention.findUnique.mockResolvedValue(updated);
+
+      const result = await service.changeStatus(
+        TENANT_ID,
+        INTERVENTION_ID,
+        { status: 'partially_achieved', outcome_notes: 'Some goals met' },
+        ACTOR_USER_ID,
+      );
+
+      expect(result.status).toBe('partially_achieved');
+    });
+
+    it('should accept not_achieved as target status', async () => {
+      const existing = makeIntervention();
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
+      const updated = makeIntervention({ status: 'not_achieved' });
+      mockRlsTx.pastoralIntervention.update.mockResolvedValue(updated);
+      mockPrisma.pastoralIntervention.findUnique.mockResolvedValue(updated);
+
+      const result = await service.changeStatus(
+        TENANT_ID,
+        INTERVENTION_ID,
+        { status: 'not_achieved', outcome_notes: 'Goals not met' },
+        ACTOR_USER_ID,
+      );
+
+      expect(result.status).toBe('not_achieved');
+    });
+
+    it('should accept withdrawn as target status', async () => {
+      const existing = makeIntervention();
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
+      const updated = makeIntervention({ status: 'withdrawn' });
+      mockRlsTx.pastoralIntervention.update.mockResolvedValue(updated);
+      mockPrisma.pastoralIntervention.findUnique.mockResolvedValue(updated);
+
+      const result = await service.changeStatus(
+        TENANT_ID,
+        INTERVENTION_ID,
+        { status: 'withdrawn', outcome_notes: 'No longer relevant' },
+        ACTOR_USER_ID,
+      );
+
+      expect(result.status).toBe('withdrawn');
+    });
+
+    it('should reject empty outcome_notes (null)', async () => {
+      const existing = makeIntervention();
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
+
+      await expect(
+        service.changeStatus(
+          TENANT_ID,
+          INTERVENTION_ID,
+          { status: 'achieved', outcome_notes: undefined as unknown as string },
+          ACTOR_USER_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ─── addProgressNote — intervention not found ─────────────────────────────
+
+  describe('addProgressNote — branch coverage', () => {
+    it('should throw NotFoundException when intervention does not exist', async () => {
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.addProgressNote(TENANT_ID, INTERVENTION_ID, { note: 'Test note' }, ACTOR_USER_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── loadInterventionTypes — null settings ────────────────────────────────
+
+  describe('getInterventionTypes — branch coverage', () => {
+    it('should return defaults when tenantSetting has null settings', async () => {
+      mockRlsTx.tenantSetting.findUnique.mockResolvedValue({
+        tenant_id: TENANT_ID,
+        settings: null,
+      });
+
+      const types = await service.getInterventionTypes(TENANT_ID);
+
+      expect(types.length).toBeGreaterThan(0);
+      expect(types[0]).toHaveProperty('key');
+      expect(types[0]).toHaveProperty('label');
+    });
+  });
+
+  // ─── cancelReviewReminder — job exists ────────────────────────────────────
+
+  describe('cancelReviewReminder — job removal', () => {
+    it('edge: should remove job when it exists', async () => {
+      const existing = makeIntervention();
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
+      const updated = makeIntervention({ status: 'achieved', outcome_notes: 'Done' });
+      mockRlsTx.pastoralIntervention.update.mockResolvedValue(updated);
+
+      // Mock: findUnique for cancelReviewReminder
+      mockPrisma.pastoralIntervention.findUnique.mockResolvedValue({
+        next_review_date: new Date('2026-05-01'),
+      });
+
+      const mockJob = { remove: jest.fn().mockResolvedValue(undefined) };
+      mockNotificationsQueue.getJob.mockResolvedValue(mockJob);
+
+      await service.changeStatus(
+        TENANT_ID,
+        INTERVENTION_ID,
+        { status: 'achieved', outcome_notes: 'Completed successfully' },
+        ACTOR_USER_ID,
+      );
+
+      expect(mockJob.remove).toHaveBeenCalled();
+    });
+
+    it('edge: should handle when no job exists for cancellation', async () => {
+      const existing = makeIntervention();
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
+      const updated = makeIntervention({ status: 'achieved', outcome_notes: 'Done' });
+      mockRlsTx.pastoralIntervention.update.mockResolvedValue(updated);
+
+      mockPrisma.pastoralIntervention.findUnique.mockResolvedValue({
+        next_review_date: new Date('2026-05-01'),
+      });
+      mockNotificationsQueue.getJob.mockResolvedValue(null);
+
+      const result = await service.changeStatus(
+        TENANT_ID,
+        INTERVENTION_ID,
+        { status: 'achieved', outcome_notes: 'Done' },
+        ACTOR_USER_ID,
+      );
+
+      expect(result.status).toBe('achieved');
+    });
+
+    it('edge: should handle when intervention has no next_review_date', async () => {
+      const existing = makeIntervention();
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
+      const updated = makeIntervention({ status: 'achieved', outcome_notes: 'Done' });
+      mockRlsTx.pastoralIntervention.update.mockResolvedValue(updated);
+
+      mockPrisma.pastoralIntervention.findUnique.mockResolvedValue({
+        next_review_date: null,
+      });
+
+      const result = await service.changeStatus(
+        TENANT_ID,
+        INTERVENTION_ID,
+        { status: 'achieved', outcome_notes: 'Done' },
+        ACTOR_USER_ID,
+      );
+
+      expect(result.status).toBe('achieved');
+      expect(mockNotificationsQueue.getJob).not.toHaveBeenCalled();
+    });
   });
 });

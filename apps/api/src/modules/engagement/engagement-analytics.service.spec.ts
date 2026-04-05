@@ -757,4 +757,591 @@ describe('EngagementAnalyticsService', () => {
       );
     });
   });
+
+  // ─── Outstanding items sort branches ───────────────────────────────────────
+
+  describe('getOverview — outstanding_items sort branches', () => {
+    function setupOverviewMocks(
+      events: Record<string, unknown>[],
+      formGroups: Record<string, unknown>[],
+    ) {
+      // Reset all mocks to avoid pollution from prior tests
+      Object.values(mockPrisma).forEach((model) => {
+        Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset());
+      });
+      mockPrisma.engagementEvent.count.mockResolvedValueOnce(events.length);
+      mockPrisma.engagementEvent.groupBy.mockResolvedValueOnce([]);
+      mockPrisma.engagementFormSubmission.findMany.mockResolvedValueOnce([]);
+      mockPrisma.engagementFormSubmission.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0);
+      // findMany is called twice: once for buildCompletionRateData events query, once for getOverview event query
+      // Actually: getOverview calls buildCompletionRateData which calls findMany for events
+      // and the parent getOverview itself does NOT call findMany for events directly
+      // So just one findMany call for events
+      mockPrisma.engagementEvent.findMany.mockResolvedValueOnce(events);
+      mockPrisma.engagementFormSubmission.groupBy
+        .mockResolvedValueOnce(
+          events.map((e) => ({
+            event_id: e.id,
+            status: 'pending',
+            _count: { _all: 5 },
+          })),
+        )
+        .mockResolvedValueOnce(formGroups);
+      mockPrisma.engagementFormTemplate.findMany.mockResolvedValueOnce([]);
+    }
+
+    it('edge: sorts by due_date ascending when outstanding_count is the same', async () => {
+      const events = [
+        {
+          id: 'ev-1',
+          title: 'Later Due',
+          title_ar: null,
+          event_type: 'school_trip',
+          start_date: null,
+          end_date: null,
+          consent_deadline: new Date('2026-12-01T00:00:00Z'),
+          payment_deadline: null,
+        },
+        {
+          id: 'ev-2',
+          title: 'Earlier Due',
+          title_ar: null,
+          event_type: 'school_trip',
+          start_date: null,
+          end_date: null,
+          consent_deadline: new Date('2026-06-01T00:00:00Z'),
+          payment_deadline: null,
+        },
+      ];
+      setupOverviewMocks(events, []);
+
+      const result = await service.getOverview(TENANT_ID, {});
+
+      // Both have outstanding_count=5 (5 pending, 0 submitted, 0 expired)
+      // Should sort by due_date ascending: Earlier Due first
+      expect(result.outstanding_items[0]?.name).toBe('Earlier Due');
+      expect(result.outstanding_items[1]?.name).toBe('Later Due');
+    });
+
+    it('edge: items with due_date sort before items without due_date', async () => {
+      const events = [
+        {
+          id: 'ev-no-date',
+          title: 'No Deadline',
+          title_ar: null,
+          event_type: 'school_trip',
+          start_date: null,
+          end_date: null,
+          consent_deadline: null,
+          payment_deadline: null,
+        },
+        {
+          id: 'ev-with-date',
+          title: 'Has Deadline',
+          title_ar: null,
+          event_type: 'school_trip',
+          start_date: null,
+          end_date: null,
+          consent_deadline: new Date('2026-06-01T00:00:00Z'),
+          payment_deadline: null,
+        },
+      ];
+      setupOverviewMocks(events, []);
+
+      const result = await service.getOverview(TENANT_ID, {});
+
+      // Both have same outstanding_count. Has Deadline (due_date set) should come first
+      expect(result.outstanding_items[0]?.name).toBe('Has Deadline');
+      expect(result.outstanding_items[1]?.name).toBe('No Deadline');
+    });
+
+    it('edge: items without due_date sort by name when both lack due_date', async () => {
+      const events = [
+        {
+          id: 'ev-z',
+          title: 'Zebra Event',
+          title_ar: null,
+          event_type: 'school_trip',
+          start_date: null,
+          end_date: null,
+          consent_deadline: null,
+          payment_deadline: null,
+        },
+        {
+          id: 'ev-a',
+          title: 'Alpha Event',
+          title_ar: null,
+          event_type: 'school_trip',
+          start_date: null,
+          end_date: null,
+          consent_deadline: null,
+          payment_deadline: null,
+        },
+      ];
+      setupOverviewMocks(events, []);
+
+      const result = await service.getOverview(TENANT_ID, {});
+
+      // Same outstanding_count, both null due_date -> sort by name
+      expect(result.outstanding_items[0]?.name).toBe('Alpha Event');
+      expect(result.outstanding_items[1]?.name).toBe('Zebra Event');
+    });
+
+    it('edge: right has due_date but left does not — right sorts first', async () => {
+      const events = [
+        {
+          id: 'ev-no-due',
+          title: 'No Due',
+          title_ar: null,
+          event_type: 'school_trip',
+          start_date: null,
+          end_date: null,
+          consent_deadline: null,
+          payment_deadline: null,
+        },
+        {
+          id: 'ev-has-due',
+          title: 'Has Due',
+          title_ar: null,
+          event_type: 'school_trip',
+          start_date: null,
+          end_date: null,
+          consent_deadline: null,
+          payment_deadline: new Date('2026-08-01T00:00:00Z'),
+        },
+      ];
+      setupOverviewMocks(events, []);
+
+      const result = await service.getOverview(TENANT_ID, {});
+
+      // Has Due has a due_date (payment_deadline), No Due does not
+      expect(result.outstanding_items[0]?.name).toBe('Has Due');
+    });
+  });
+
+  // ─── createStatusBucketMap — status branch coverage ──────────────────────
+
+  describe('getCompletionRates — status bucket aggregation branches', () => {
+    beforeEach(() => {
+      // Reset all mocks to avoid pollution from prior tests
+      Object.values(mockPrisma).forEach((model) => {
+        Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset());
+      });
+    });
+
+    it('should aggregate acknowledged status as submitted', async () => {
+      mockPrisma.engagementEvent.findMany.mockResolvedValueOnce([
+        {
+          id: EVENT_ID,
+          title: 'Test Event',
+          title_ar: null,
+          event_type: 'school_trip',
+          start_date: null,
+          end_date: null,
+          consent_deadline: null,
+          payment_deadline: null,
+        },
+      ]);
+      mockPrisma.engagementFormSubmission.groupBy
+        .mockResolvedValueOnce([
+          { event_id: EVENT_ID, status: 'acknowledged', _count: { _all: 3 } },
+          { event_id: EVENT_ID, status: 'pending', _count: { _all: 2 } },
+        ])
+        .mockResolvedValueOnce([]);
+      mockPrisma.engagementFormTemplate.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.getCompletionRates(TENANT_ID, {});
+
+      expect(result.events[0]?.submitted).toBe(3);
+      expect(result.events[0]?.total_distributed).toBe(5);
+    });
+
+    it('should aggregate revoked status as submitted', async () => {
+      mockPrisma.engagementEvent.findMany.mockResolvedValueOnce([
+        {
+          id: EVENT_ID,
+          title: 'Test Event',
+          title_ar: null,
+          event_type: 'school_trip',
+          start_date: null,
+          end_date: null,
+          consent_deadline: null,
+          payment_deadline: null,
+        },
+      ]);
+      mockPrisma.engagementFormSubmission.groupBy
+        .mockResolvedValueOnce([{ event_id: EVENT_ID, status: 'revoked', _count: { _all: 2 } }])
+        .mockResolvedValueOnce([]);
+      mockPrisma.engagementFormTemplate.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.getCompletionRates(TENANT_ID, {});
+
+      expect(result.events[0]?.submitted).toBe(2);
+    });
+
+    it('should count expired status separately', async () => {
+      mockPrisma.engagementEvent.findMany.mockResolvedValueOnce([
+        {
+          id: EVENT_ID,
+          title: 'Test Event',
+          title_ar: null,
+          event_type: 'school_trip',
+          start_date: null,
+          end_date: null,
+          consent_deadline: null,
+          payment_deadline: null,
+        },
+      ]);
+      mockPrisma.engagementFormSubmission.groupBy
+        .mockResolvedValueOnce([
+          { event_id: EVENT_ID, status: 'expired', _count: { _all: 4 } },
+          { event_id: EVENT_ID, status: 'submitted', _count: { _all: 6 } },
+        ])
+        .mockResolvedValueOnce([]);
+      mockPrisma.engagementFormTemplate.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.getCompletionRates(TENANT_ID, {});
+
+      expect(result.events[0]?.expired).toBe(4);
+      expect(result.events[0]?.submitted).toBe(6);
+      expect(result.events[0]?.outstanding_count).toBe(0);
+    });
+
+    it('should handle form template submissions with multiple statuses', async () => {
+      mockPrisma.engagementEvent.findMany.mockResolvedValueOnce([]);
+      // When events is empty, eventGroups resolves to [] WITHOUT calling groupBy.
+      // So only ONE groupBy call happens (for formGroups).
+      mockPrisma.engagementFormSubmission.groupBy.mockResolvedValueOnce([
+        { form_template_id: TEMPLATE_ID, status: 'submitted', _count: { _all: 10 } },
+        { form_template_id: TEMPLATE_ID, status: 'expired', _count: { _all: 3 } },
+        { form_template_id: TEMPLATE_ID, status: 'pending', _count: { _all: 7 } },
+      ]);
+      mockPrisma.engagementFormTemplate.findMany.mockResolvedValueOnce([
+        { id: TEMPLATE_ID, name: 'Medical Form', form_type: 'consent_form' },
+      ]);
+
+      const result = await service.getCompletionRates(TENANT_ID, {});
+
+      expect(result.forms[0]?.total_distributed).toBe(20);
+      expect(result.forms[0]?.submitted).toBe(10);
+      expect(result.forms[0]?.expired).toBe(3);
+      expect(result.forms[0]?.outstanding_count).toBe(7);
+      expect(result.forms[0]?.completion_percentage).toBe(50);
+    });
+  });
+
+  // ─── buildCreatedAtFilter — partial date branches ──────────────────────────
+
+  describe('getOverview — buildCreatedAtFilter partial dates', () => {
+    beforeEach(() => {
+      Object.values(mockPrisma).forEach((model) => {
+        Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset());
+      });
+    });
+
+    function setupMinimalOverviewMocks() {
+      mockPrisma.engagementEvent.count.mockResolvedValueOnce(0);
+      mockPrisma.engagementEvent.groupBy.mockResolvedValueOnce([]);
+      mockPrisma.engagementFormSubmission.findMany.mockResolvedValueOnce([]);
+      mockPrisma.engagementFormSubmission.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0);
+      mockPrisma.engagementEvent.findMany.mockResolvedValueOnce([]);
+      mockPrisma.engagementFormSubmission.groupBy
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+      mockPrisma.engagementFormTemplate.findMany.mockResolvedValueOnce([]);
+    }
+
+    it('should apply only gte when only date_from provided (no date_to)', async () => {
+      setupMinimalOverviewMocks();
+
+      await service.getOverview(TENANT_ID, {
+        date_from: '2026-01-01',
+      });
+
+      expect(mockPrisma.engagementFormSubmission.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            created_at: { gte: expect.any(Date) },
+          }),
+        }),
+      );
+    });
+
+    it('should apply only lte when only date_to provided (no date_from)', async () => {
+      setupMinimalOverviewMocks();
+
+      await service.getOverview(TENANT_ID, {
+        date_to: '2026-12-31',
+      });
+
+      expect(mockPrisma.engagementFormSubmission.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            created_at: { lte: expect.any(Date) },
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── buildEventDateRangeFilter — both dates ────────────────────────────────
+
+  describe('getOverview — buildEventDateRangeFilter with both dates', () => {
+    beforeEach(() => {
+      Object.values(mockPrisma).forEach((model) => {
+        Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset());
+      });
+    });
+
+    it('should apply full OR range filter when both date_from and date_to provided', async () => {
+      mockPrisma.engagementEvent.count.mockResolvedValueOnce(0);
+      mockPrisma.engagementEvent.groupBy.mockResolvedValueOnce([]);
+      mockPrisma.engagementFormSubmission.findMany.mockResolvedValueOnce([]);
+      mockPrisma.engagementFormSubmission.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0);
+      mockPrisma.engagementEvent.findMany.mockResolvedValueOnce([]);
+      mockPrisma.engagementFormSubmission.groupBy
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+      mockPrisma.engagementFormTemplate.findMany.mockResolvedValueOnce([]);
+
+      await service.getOverview(TENANT_ID, {
+        date_from: '2026-01-01',
+        date_to: '2026-12-31',
+      });
+
+      expect(mockPrisma.engagementEvent.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  expect.objectContaining({
+                    start_date: expect.objectContaining({
+                      gte: expect.any(Date),
+                      lte: expect.any(Date),
+                    }),
+                  }),
+                ]),
+              }),
+            ]),
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── getCalendarEvents — buildCalendarWhere additional branches ────────────
+
+  describe('getCalendarEvents — buildCalendarWhere with existing date filters', () => {
+    beforeEach(() => {
+      Object.values(mockPrisma).forEach((model) => {
+        Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset());
+      });
+    });
+
+    it('should merge start_date not-null with existing date filter', async () => {
+      mockPrisma.engagementEvent.findMany.mockResolvedValueOnce([]);
+
+      await service.getCalendarEvents(TENANT_ID, {
+        date_from: '2026-03-01',
+        date_to: '2026-03-31',
+      });
+
+      expect(mockPrisma.engagementEvent.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: {
+              in: ['published', 'open', 'closed', 'in_progress', 'completed'],
+            },
+            start_date: expect.objectContaining({ not: null }),
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── buildEventWhere — AND coercion branch ─────────────────────────────────
+
+  describe('getOverview — buildEventWhere AND coercion', () => {
+    beforeEach(() => {
+      Object.values(mockPrisma).forEach((model) => {
+        Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset());
+      });
+    });
+
+    it('should handle academic_year_id + date filters together', async () => {
+      mockPrisma.engagementEvent.count.mockResolvedValueOnce(0);
+      mockPrisma.engagementEvent.groupBy.mockResolvedValueOnce([]);
+      mockPrisma.engagementFormSubmission.findMany.mockResolvedValueOnce([]);
+      mockPrisma.engagementFormSubmission.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0);
+      mockPrisma.engagementEvent.findMany.mockResolvedValueOnce([]);
+      mockPrisma.engagementFormSubmission.groupBy
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+      mockPrisma.engagementFormTemplate.findMany.mockResolvedValueOnce([]);
+
+      await service.getOverview(TENANT_ID, {
+        academic_year_id: ACADEMIC_YEAR_ID,
+        event_type: 'school_trip',
+        date_from: '2026-01-01',
+        date_to: '2026-12-31',
+      });
+
+      expect(mockPrisma.engagementEvent.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            academic_year_id: ACADEMIC_YEAR_ID,
+            event_type: 'school_trip',
+            AND: expect.any(Array),
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── getCompletionRates — date serialization ──────────────────────────────
+
+  describe('getCompletionRates — date serialization', () => {
+    beforeEach(() => {
+      Object.values(mockPrisma).forEach((model) => {
+        Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset());
+      });
+    });
+
+    it('should serialize dates to ISO strings in events output', async () => {
+      mockPrisma.engagementEvent.findMany.mockResolvedValueOnce([
+        {
+          id: EVENT_ID,
+          title: 'Test',
+          title_ar: null,
+          event_type: 'school_trip',
+          start_date: new Date('2026-01-10T00:00:00Z'),
+          end_date: new Date('2026-01-11T00:00:00Z'),
+          consent_deadline: new Date('2026-01-08T00:00:00Z'),
+          payment_deadline: null,
+        },
+      ]);
+      mockPrisma.engagementFormSubmission.groupBy
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+      mockPrisma.engagementFormTemplate.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.getCompletionRates(TENANT_ID, {});
+
+      expect(result.events[0]?.start_date).toBe('2026-01-10T00:00:00.000Z');
+      expect(result.events[0]?.end_date).toBe('2026-01-11T00:00:00.000Z');
+      expect(result.events[0]?.due_date).toBe('2026-01-08T00:00:00.000Z');
+    });
+
+    it('should serialize null dates as null in events output', async () => {
+      mockPrisma.engagementEvent.findMany.mockResolvedValueOnce([
+        {
+          id: EVENT_ID,
+          title: 'No Dates',
+          title_ar: null,
+          event_type: 'school_trip',
+          start_date: null,
+          end_date: null,
+          consent_deadline: null,
+          payment_deadline: null,
+        },
+      ]);
+      mockPrisma.engagementFormSubmission.groupBy
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+      mockPrisma.engagementFormTemplate.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.getCompletionRates(TENANT_ID, {});
+
+      expect(result.events[0]?.start_date).toBeNull();
+      expect(result.events[0]?.end_date).toBeNull();
+      expect(result.events[0]?.due_date).toBeNull();
+    });
+
+    it('should serialize form dates as null (forms have no dates)', async () => {
+      mockPrisma.engagementEvent.findMany.mockResolvedValueOnce([]);
+      // When events is empty, only ONE groupBy call (for formGroups)
+      mockPrisma.engagementFormSubmission.groupBy.mockResolvedValueOnce([
+        { form_template_id: TEMPLATE_ID, status: 'pending', _count: { _all: 1 } },
+      ]);
+      mockPrisma.engagementFormTemplate.findMany.mockResolvedValueOnce([
+        { id: TEMPLATE_ID, name: 'Survey', form_type: 'survey' },
+      ]);
+
+      const result = await service.getCompletionRates(TENANT_ID, {});
+
+      expect(result.forms[0]?.start_date).toBeNull();
+      expect(result.forms[0]?.end_date).toBeNull();
+      expect(result.forms[0]?.due_date).toBeNull();
+    });
+  });
+
+  // ─── eventIds empty → skip event group query ──────────────────────────────
+
+  describe('getCompletionRates — empty eventIds', () => {
+    beforeEach(() => {
+      Object.values(mockPrisma).forEach((model) => {
+        Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset());
+      });
+    });
+
+    it('should skip event group query when no events found', async () => {
+      mockPrisma.engagementEvent.findMany.mockResolvedValueOnce([]);
+      // When events is empty, only ONE groupBy call (formGroups)
+      mockPrisma.engagementFormSubmission.groupBy.mockResolvedValueOnce([]);
+
+      const result = await service.getCompletionRates(TENANT_ID, {});
+
+      expect(result.events).toEqual([]);
+    });
+  });
+
+  // ─── buildSubmissionWhere — academic_year_id ──────────���───────────────────
+
+  describe('getOverview — buildSubmissionWhere academic_year_id', () => {
+    beforeEach(() => {
+      Object.values(mockPrisma).forEach((model) => {
+        Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset());
+      });
+    });
+
+    it('should apply academic_year_id to submission where clause', async () => {
+      mockPrisma.engagementEvent.count.mockResolvedValueOnce(0);
+      mockPrisma.engagementEvent.groupBy.mockResolvedValueOnce([]);
+      mockPrisma.engagementFormSubmission.findMany.mockResolvedValueOnce([]);
+      mockPrisma.engagementFormSubmission.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0);
+      mockPrisma.engagementEvent.findMany.mockResolvedValueOnce([]);
+      mockPrisma.engagementFormSubmission.groupBy
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+      mockPrisma.engagementFormTemplate.findMany.mockResolvedValueOnce([]);
+
+      await service.getOverview(TENANT_ID, {
+        academic_year_id: ACADEMIC_YEAR_ID,
+      });
+
+      expect(mockPrisma.engagementFormSubmission.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            academic_year_id: ACADEMIC_YEAR_ID,
+          }),
+        }),
+      );
+    });
+  });
 });

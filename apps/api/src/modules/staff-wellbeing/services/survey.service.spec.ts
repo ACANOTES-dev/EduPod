@@ -34,14 +34,16 @@ const pastDate = (daysAgo: number): Date => {
   return d;
 };
 
-const makeQuestion = (overrides: Partial<{
-  id: string;
-  question_type: string;
-  display_order: number;
-  question_text: string;
-  options: unknown;
-  is_required: boolean;
-}> = {}) => ({
+const makeQuestion = (
+  overrides: Partial<{
+    id: string;
+    question_type: string;
+    display_order: number;
+    question_text: string;
+    options: unknown;
+    is_required: boolean;
+  }> = {},
+) => ({
   id: overrides.id ?? QUESTION_ID_1,
   tenant_id: TENANT_ID,
   survey_id: SURVEY_ID,
@@ -53,15 +55,17 @@ const makeQuestion = (overrides: Partial<{
   created_at: new Date(),
 });
 
-const makeSurvey = (overrides: Partial<{
-  id: string;
-  status: string;
-  window_opens_at: Date;
-  window_closes_at: Date;
-  moderation_enabled: boolean;
-  questions: ReturnType<typeof makeQuestion>[];
-  created_by: string;
-}> = {}) => ({
+const makeSurvey = (
+  overrides: Partial<{
+    id: string;
+    status: string;
+    window_opens_at: Date;
+    window_closes_at: Date;
+    moderation_enabled: boolean;
+    questions: ReturnType<typeof makeQuestion>[];
+    created_by: string;
+  }> = {},
+) => ({
   id: overrides.id ?? SURVEY_ID,
   tenant_id: TENANT_ID,
   title: 'Staff Wellbeing Check',
@@ -80,12 +84,14 @@ const makeSurvey = (overrides: Partial<{
   questions: overrides.questions ?? [makeQuestion()],
 });
 
-const makeCreateDto = (overrides: Partial<{
-  window_opens_at: string;
-  window_closes_at: string;
-  min_response_threshold: number;
-  dept_drill_down_threshold: number;
-}> = {}) => ({
+const makeCreateDto = (
+  overrides: Partial<{
+    window_opens_at: string;
+    window_closes_at: string;
+    min_response_threshold: number;
+    dept_drill_down_threshold: number;
+  }> = {},
+) => ({
   title: 'Staff Wellbeing Check',
   description: 'Weekly check-in',
   frequency: 'fortnightly' as const,
@@ -135,7 +141,9 @@ const mockRlsTx = {
 
 jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -358,13 +366,9 @@ describe('SurveyService', () => {
     });
 
     it('should throw 409 when updating non-draft survey', async () => {
-      mockRlsTx.staffSurvey.findFirst.mockResolvedValue(
-        makeSurvey({ status: 'active' }),
-      );
+      mockRlsTx.staffSurvey.findFirst.mockResolvedValue(makeSurvey({ status: 'active' }));
 
-      await expect(
-        service.update(TENANT_ID, SURVEY_ID, { title: 'New Title' }),
-      ).rejects.toThrow(
+      await expect(service.update(TENANT_ID, SURVEY_ID, { title: 'New Title' })).rejects.toThrow(
         expect.objectContaining({
           response: expect.objectContaining({
             error: expect.objectContaining({ code: 'SURVEY_NOT_DRAFT' }),
@@ -376,9 +380,7 @@ describe('SurveyService', () => {
     it('should throw SURVEY_NOT_FOUND if survey does not exist', async () => {
       mockRlsTx.staffSurvey.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.update(TENANT_ID, SURVEY_ID, { title: 'New' }),
-      ).rejects.toThrow(
+      await expect(service.update(TENANT_ID, SURVEY_ID, { title: 'New' })).rejects.toThrow(
         expect.objectContaining({
           response: expect.objectContaining({
             error: expect.objectContaining({ code: 'SURVEY_NOT_FOUND' }),
@@ -512,8 +514,8 @@ describe('SurveyService', () => {
       const activated = { ...survey, status: 'active' };
 
       mockRlsTx.staffSurvey.findFirst
-        .mockResolvedValueOnce(survey)   // find the survey
-        .mockResolvedValueOnce(null);    // no other active
+        .mockResolvedValueOnce(survey) // find the survey
+        .mockResolvedValueOnce(null); // no other active
       mockRlsTx.staffSurvey.update.mockResolvedValue(activated);
 
       const result = await service.activate(TENANT_ID, SURVEY_ID);
@@ -533,7 +535,7 @@ describe('SurveyService', () => {
       const otherActive = makeSurvey({ id: SURVEY_ID_B, status: 'active' });
 
       mockRlsTx.staffSurvey.findFirst
-        .mockResolvedValueOnce(survey)      // find the survey
+        .mockResolvedValueOnce(survey) // find the survey
         .mockResolvedValueOnce(otherActive); // another active exists
 
       await expect(service.activate(TENANT_ID, SURVEY_ID)).rejects.toThrow(
@@ -670,10 +672,12 @@ describe('SurveyService', () => {
   // ─── B4: SUBMIT RESPONSE ─────────────────────────────────────────────────
 
   describe('submitResponse', () => {
-    const makeActiveSurveyInWindow = (overrides: Partial<{
-      moderation_enabled: boolean;
-      questions: ReturnType<typeof makeQuestion>[];
-    }> = {}) =>
+    const makeActiveSurveyInWindow = (
+      overrides: Partial<{
+        moderation_enabled: boolean;
+        questions: ReturnType<typeof makeQuestion>[];
+      }> = {},
+    ) =>
       makeSurvey({
         status: 'active',
         window_opens_at: pastDate(1),
@@ -782,7 +786,9 @@ describe('SurveyService', () => {
         answers: [{ question_id: QUESTION_ID_1, answer_text: 'Open text' }],
       });
 
-      const data = (mockRlsTx.surveyResponse.create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+      const data = (
+        mockRlsTx.surveyResponse.create.mock.calls[0][0] as { data: Record<string, unknown> }
+      ).data;
       expect(data.moderation_status).toBe('approved');
 
       // No moderation scan when moderation is disabled
@@ -940,9 +946,9 @@ describe('SurveyService', () => {
       mockRlsTx.surveyParticipationToken.findUnique.mockResolvedValue(null);
       mockRlsTx.surveyParticipationToken.create.mockResolvedValue({});
       mockRlsTx.surveyResponse.create
-        .mockResolvedValueOnce({ id: RESPONSE_ID_1, moderation_status: 'approved' })   // likert
-        .mockResolvedValueOnce({ id: RESPONSE_ID_2, moderation_status: 'pending' })    // freeform 1
-        .mockResolvedValueOnce({ id: RESPONSE_ID_3, moderation_status: 'pending' });   // freeform 2
+        .mockResolvedValueOnce({ id: RESPONSE_ID_1, moderation_status: 'approved' }) // likert
+        .mockResolvedValueOnce({ id: RESPONSE_ID_2, moderation_status: 'pending' }) // freeform 1
+        .mockResolvedValueOnce({ id: RESPONSE_ID_3, moderation_status: 'pending' }); // freeform 2
 
       await service.submitResponse(TENANT_ID, SURVEY_ID, USER_ID, {
         answers: [
@@ -1014,11 +1020,7 @@ describe('SurveyService', () => {
 
       await service.getActiveSurvey(TENANT_ID, USER_ID);
 
-      expect(mockHmacService.computeTokenHash).toHaveBeenCalledWith(
-        TENANT_ID,
-        SURVEY_ID,
-        USER_ID,
-      );
+      expect(mockHmacService.computeTokenHash).toHaveBeenCalledWith(TENANT_ID, SURVEY_ID, USER_ID);
     });
   });
 
@@ -1036,8 +1038,8 @@ describe('SurveyService', () => {
       });
 
       mockRlsTx.staffSurvey.findFirst
-        .mockResolvedValueOnce(surveyB)   // find survey B
-        .mockResolvedValueOnce(surveyA);  // found active survey A
+        .mockResolvedValueOnce(surveyB) // find survey B
+        .mockResolvedValueOnce(surveyA); // found active survey A
 
       await expect(service.activate(TENANT_ID, SURVEY_ID_B)).rejects.toThrow(
         expect.objectContaining({
@@ -1046,6 +1048,274 @@ describe('SurveyService', () => {
           }),
         }),
       );
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADDITIONAL BRANCH COVERAGE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  describe('create — branches', () => {
+    it('should skip createMany when questions array is empty', async () => {
+      const dto = {
+        ...makeCreateDto(),
+        questions: [],
+      };
+      const createdSurvey = { ...makeSurvey(), questions: [] };
+
+      mockRlsTx.staffSurvey.create.mockResolvedValue(createdSurvey);
+      mockRlsTx.staffSurvey.findUnique.mockResolvedValue(createdSurvey);
+
+      await service.create(TENANT_ID, USER_ID, dto);
+
+      expect(mockRlsTx.surveyQuestion.createMany).not.toHaveBeenCalled();
+    });
+
+    it('should use default values for optional DTO fields', async () => {
+      const dto = {
+        title: 'Minimal',
+        window_opens_at: futureDate(1).toISOString(),
+        window_closes_at: futureDate(8).toISOString(),
+        questions: [{ question_text: 'Q1', question_type: 'likert_5' as const, display_order: 0 }],
+      };
+      const createdSurvey = makeSurvey();
+      mockRlsTx.staffSurvey.create.mockResolvedValue(createdSurvey);
+      mockRlsTx.surveyQuestion.createMany.mockResolvedValue({ count: 1 });
+      mockRlsTx.staffSurvey.findUnique.mockResolvedValue(createdSurvey);
+
+      await service.create(TENANT_ID, USER_ID, dto);
+
+      expect(mockRlsTx.staffSurvey.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          description: null,
+          frequency: 'fortnightly',
+          min_response_threshold: 5,
+          dept_drill_down_threshold: 10,
+          moderation_enabled: true,
+        }),
+      });
+    });
+  });
+
+  describe('update — branches', () => {
+    it('should not call staffSurvey.update when no update fields provided', async () => {
+      const existing = makeSurvey({ status: 'draft' });
+      mockRlsTx.staffSurvey.findFirst.mockResolvedValue(existing);
+      mockRlsTx.staffSurvey.findUnique.mockResolvedValue(existing);
+
+      // Provide only empty object — no updatable fields
+      await service.update(TENANT_ID, SURVEY_ID, {});
+
+      expect(mockRlsTx.staffSurvey.update).not.toHaveBeenCalled();
+      // Should not touch questions either
+      expect(mockRlsTx.surveyQuestion.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('should replace questions with empty array when explicitly provided', async () => {
+      const existing = makeSurvey({ status: 'draft' });
+      mockRlsTx.staffSurvey.findFirst.mockResolvedValue(existing);
+      mockRlsTx.surveyQuestion.deleteMany.mockResolvedValue({ count: 1 });
+      mockRlsTx.staffSurvey.findUnique.mockResolvedValue({ ...existing, questions: [] });
+
+      await service.update(TENANT_ID, SURVEY_ID, { questions: [] });
+
+      expect(mockRlsTx.surveyQuestion.deleteMany).toHaveBeenCalledWith({
+        where: { survey_id: SURVEY_ID },
+      });
+      // Should NOT call createMany since the array is empty
+      expect(mockRlsTx.surveyQuestion.createMany).not.toHaveBeenCalled();
+    });
+
+    it('should reject invalid window dates when both are provided', async () => {
+      await expect(
+        service.update(TENANT_ID, SURVEY_ID, {
+          window_opens_at: futureDate(8).toISOString(),
+          window_closes_at: futureDate(1).toISOString(),
+        }),
+      ).rejects.toThrow(
+        expect.objectContaining({
+          response: expect.objectContaining({
+            error: expect.objectContaining({ code: 'INVALID_WINDOW_DATES' }),
+          }),
+        }),
+      );
+    });
+
+    it('should not validate window dates when only opens_at is provided', async () => {
+      const existing = makeSurvey({ status: 'draft' });
+      mockRlsTx.staffSurvey.findFirst.mockResolvedValue(existing);
+      mockRlsTx.staffSurvey.update.mockResolvedValue(existing);
+      mockRlsTx.staffSurvey.findUnique.mockResolvedValue(existing);
+
+      await expect(
+        service.update(TENANT_ID, SURVEY_ID, {
+          window_opens_at: futureDate(8).toISOString(),
+        }),
+      ).resolves.toBeDefined();
+    });
+
+    it('should not validate window dates when only closes_at is provided', async () => {
+      const existing = makeSurvey({ status: 'draft' });
+      mockRlsTx.staffSurvey.findFirst.mockResolvedValue(existing);
+      mockRlsTx.staffSurvey.update.mockResolvedValue(existing);
+      mockRlsTx.staffSurvey.findUnique.mockResolvedValue(existing);
+
+      await expect(
+        service.update(TENANT_ID, SURVEY_ID, {
+          window_closes_at: futureDate(8).toISOString(),
+        }),
+      ).resolves.toBeDefined();
+    });
+
+    it('should update individual fields separately', async () => {
+      const existing = makeSurvey({ status: 'draft' });
+      const updated = { ...existing, title: 'New Title' };
+      mockRlsTx.staffSurvey.findFirst.mockResolvedValue(existing);
+      mockRlsTx.staffSurvey.update.mockResolvedValue(updated);
+      mockRlsTx.staffSurvey.findUnique.mockResolvedValue(updated);
+
+      await service.update(TENANT_ID, SURVEY_ID, {
+        title: 'New Title',
+        description: 'New desc',
+        frequency: 'weekly',
+        min_response_threshold: 3,
+        dept_drill_down_threshold: 8,
+        moderation_enabled: false,
+      });
+
+      expect(mockRlsTx.staffSurvey.update).toHaveBeenCalledWith({
+        where: { id: SURVEY_ID },
+        data: expect.objectContaining({
+          title: 'New Title',
+          description: 'New desc',
+          frequency: 'weekly',
+          min_response_threshold: 3,
+          dept_drill_down_threshold: 8,
+          moderation_enabled: false,
+        }),
+      });
+    });
+  });
+
+  describe('clone — branches', () => {
+    it('should skip createMany when source has no questions', async () => {
+      const source = makeSurvey({ status: 'closed', questions: [] });
+      const cloned = { ...source, id: SURVEY_ID_B, status: 'draft', created_by: USER_ID };
+
+      mockRlsTx.staffSurvey.findFirst.mockResolvedValue(source);
+      mockRlsTx.staffSurvey.create.mockResolvedValue(cloned);
+      mockRlsTx.staffSurvey.findUnique.mockResolvedValue({ ...cloned, questions: [] });
+
+      const result = await service.clone(TENANT_ID, SURVEY_ID, USER_ID);
+
+      expect(result.status).toBe('draft');
+      expect(mockRlsTx.surveyQuestion.createMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findOne — branches', () => {
+    it('should not compute eligible_staff_count or response_rate for draft survey', async () => {
+      const survey = makeSurvey({ status: 'draft' });
+      mockRlsTx.staffSurvey.findFirst.mockResolvedValue(survey);
+      mockRlsTx.surveyResponse.count.mockResolvedValue(0);
+
+      const result = await service.findOne(TENANT_ID, SURVEY_ID);
+
+      expect(result.eligible_staff_count).toBeUndefined();
+      expect(result.response_rate).toBeUndefined();
+    });
+  });
+
+  describe('findAll — branches', () => {
+    it('should apply custom sort', async () => {
+      mockRlsTx.staffSurvey.findMany.mockResolvedValue([]);
+      mockRlsTx.staffSurvey.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, {
+        page: 2,
+        pageSize: 10,
+        sortBy: 'title',
+        sortOrder: 'asc',
+      });
+
+      expect(mockRlsTx.staffSurvey.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { title: 'asc' },
+          skip: 10,
+          take: 10,
+        }),
+      );
+    });
+  });
+
+  describe('activate — branches', () => {
+    it('should throw WINDOW_DATES_REQUIRED when only opens_at is epoch', async () => {
+      const survey = makeSurvey({
+        status: 'draft',
+        window_opens_at: new Date(0),
+        window_closes_at: futureDate(7),
+        questions: [makeQuestion()],
+      });
+      mockRlsTx.staffSurvey.findFirst.mockResolvedValue(survey);
+
+      await expect(service.activate(TENANT_ID, SURVEY_ID)).rejects.toThrow(
+        expect.objectContaining({
+          response: expect.objectContaining({
+            error: expect.objectContaining({ code: 'WINDOW_DATES_REQUIRED' }),
+          }),
+        }),
+      );
+    });
+
+    it('should throw WINDOW_DATES_REQUIRED when only closes_at is epoch', async () => {
+      const survey = makeSurvey({
+        status: 'draft',
+        window_opens_at: futureDate(1),
+        window_closes_at: new Date(0),
+        questions: [makeQuestion()],
+      });
+      mockRlsTx.staffSurvey.findFirst.mockResolvedValue(survey);
+
+      await expect(service.activate(TENANT_ID, SURVEY_ID)).rejects.toThrow(
+        expect.objectContaining({
+          response: expect.objectContaining({
+            error: expect.objectContaining({ code: 'WINDOW_DATES_REQUIRED' }),
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('submitResponse — branches', () => {
+    it('should set approved status for answer whose question_id is not in the map', async () => {
+      const survey = makeSurvey({
+        status: 'active',
+        window_opens_at: pastDate(1),
+        window_closes_at: futureDate(7),
+        moderation_enabled: true,
+        questions: [makeQuestion({ id: QUESTION_ID_1, question_type: 'likert_5' })],
+      });
+      const staffProfile = { id: STAFF_PROFILE_ID, tenant_id: TENANT_ID, user_id: USER_ID };
+
+      mockRlsTx.staffSurvey.findFirst.mockResolvedValue(survey);
+      mockRlsTx.staffProfile.findFirst.mockResolvedValue(staffProfile);
+      mockRlsTx.surveyParticipationToken.findUnique.mockResolvedValue(null);
+      mockRlsTx.surveyParticipationToken.create.mockResolvedValue({});
+      mockRlsTx.surveyResponse.create.mockResolvedValue({
+        id: RESPONSE_ID_1,
+        moderation_status: 'approved',
+      });
+
+      // Answer with question_id that is NOT in the question map
+      await service.submitResponse(TENANT_ID, SURVEY_ID, USER_ID, {
+        answers: [{ question_id: 'unknown-question-id', answer_value: 4 }],
+      });
+
+      // question is undefined, so isFreeform = false, moderationStatus = 'approved'
+      const data = (
+        mockRlsTx.surveyResponse.create.mock.calls[0]![0] as { data: Record<string, unknown> }
+      ).data;
+      expect(data.moderation_status).toBe('approved');
     });
   });
 });

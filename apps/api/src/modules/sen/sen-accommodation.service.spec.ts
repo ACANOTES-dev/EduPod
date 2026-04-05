@@ -556,4 +556,126 @@ describe('SenAccommodationService', () => {
       expect(result).toHaveLength(0);
     });
   });
+
+  // ─── Additional branch coverage ─────────────────────────────────────────────
+
+  describe('create — optional field defaults', () => {
+    it('should default details to empty object when not provided', async () => {
+      senProfileMock.findFirst.mockResolvedValue({ id: PROFILE_ID });
+      senAccommodationMock.create.mockResolvedValue(createAccommodationRecord({ details: {} }));
+
+      await service.create(TENANT_ID, PROFILE_ID, {
+        accommodation_type: 'exam',
+        description: 'Extra time',
+        is_active: true,
+      });
+
+      expect(senAccommodationMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            details: {},
+          }),
+        }),
+      );
+    });
+
+    it('should default is_active to true when not provided', async () => {
+      senProfileMock.findFirst.mockResolvedValue({ id: PROFILE_ID });
+      senAccommodationMock.create.mockResolvedValue(createAccommodationRecord());
+
+      await service.create(TENANT_ID, PROFILE_ID, {
+        accommodation_type: 'exam',
+        description: 'Extra time',
+      });
+
+      expect(senAccommodationMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            is_active: true,
+          }),
+        }),
+      );
+    });
+
+    it('should set start_date and end_date to null when not provided', async () => {
+      senProfileMock.findFirst.mockResolvedValue({ id: PROFILE_ID });
+      senAccommodationMock.create.mockResolvedValue(
+        createAccommodationRecord({ start_date: null, end_date: null }),
+      );
+
+      await service.create(TENANT_ID, PROFILE_ID, {
+        accommodation_type: 'exam',
+        description: 'Extra time',
+        is_active: true,
+      });
+
+      expect(senAccommodationMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            start_date: null,
+            end_date: null,
+          }),
+        }),
+      );
+    });
+
+    it('should convert start_date and end_date strings to Dates on create', async () => {
+      senProfileMock.findFirst.mockResolvedValue({ id: PROFILE_ID });
+      senAccommodationMock.create.mockResolvedValue(createAccommodationRecord());
+
+      await service.create(TENANT_ID, PROFILE_ID, {
+        accommodation_type: 'exam',
+        description: 'Extra time',
+        start_date: '2026-09-01',
+        end_date: '2027-06-30',
+        is_active: true,
+      });
+
+      expect(senAccommodationMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            start_date: new Date('2026-09-01'),
+            end_date: new Date('2027-06-30'),
+          }),
+        }),
+      );
+    });
+
+    it('should accept is_active as false', async () => {
+      senProfileMock.findFirst.mockResolvedValue({ id: PROFILE_ID });
+      senAccommodationMock.create.mockResolvedValue(
+        createAccommodationRecord({ is_active: false }),
+      );
+
+      await service.create(TENANT_ID, PROFILE_ID, {
+        accommodation_type: 'classroom',
+        description: 'Seating',
+        is_active: false,
+      });
+
+      expect(senAccommodationMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            is_active: false,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('findAllByProfile — no filters', () => {
+    it('should query without optional filters when none provided', async () => {
+      senAccommodationMock.findMany.mockResolvedValue([]);
+      senAccommodationMock.count.mockResolvedValue(0);
+
+      await service.findAllByProfile(TENANT_ID, PROFILE_ID, {
+        page: 1,
+        pageSize: 20,
+      });
+
+      const whereArg = senAccommodationMock.findMany.mock.calls[0]?.[0]?.where;
+      expect(whereArg?.accommodation_type).toBeUndefined();
+      expect(whereArg?.is_active).toBeUndefined();
+    });
+  });
 });

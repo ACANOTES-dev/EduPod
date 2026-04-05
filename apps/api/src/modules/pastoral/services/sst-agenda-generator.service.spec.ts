@@ -37,6 +37,9 @@ const mockRlsTx = {
   sstMeetingAgendaItem: {
     findMany: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    count: jest.fn(),
   },
   sstMeetingAction: {
     findMany: jest.fn(),
@@ -62,9 +65,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -76,9 +77,7 @@ const DEFAULT_SST_SETTINGS = {
   precompute_minutes_before: 30,
 };
 
-const makeTenantSettingsRecord = (
-  sstOverrides: Record<string, unknown> = {},
-) => ({
+const makeTenantSettingsRecord = (sstOverrides: Record<string, unknown> = {}) => ({
   id: 'settings-1',
   tenant_id: TENANT_ID,
   settings: {
@@ -163,9 +162,7 @@ const setupDefaultMocks = () => {
   );
 
   // Meeting update for agenda_precomputed_at
-  mockRlsTx.sstMeeting.update.mockResolvedValue(
-    makeMeeting({ agenda_precomputed_at: new Date() }),
-  );
+  mockRlsTx.sstMeeting.update.mockResolvedValue(makeMeeting({ agenda_precomputed_at: new Date() }));
 
   // Default: no items from any source
   mockRlsTx.pastoralConcern.findMany.mockResolvedValue([]);
@@ -464,11 +461,7 @@ describe('SstAgendaGeneratorService', () => {
             tenant_id: TENANT_ID,
             referral_type: 'neps',
             status: {
-              in: expect.arrayContaining([
-                'submitted',
-                'acknowledged',
-                'assessment_scheduled',
-              ]),
+              in: expect.arrayContaining(['submitted', 'acknowledged', 'assessment_scheduled']),
             },
           }),
         }),
@@ -673,9 +666,7 @@ describe('SstAgendaGeneratorService', () => {
       // Manual item is preserved in the result
       const manualItems = result.filter((i) => i.source === 'manual');
       expect(manualItems).toHaveLength(1);
-      expect(manualItems[0]!.description).toBe(
-        'Discuss student progress update from parent',
-      );
+      expect(manualItems[0]!.description).toBe('Discuss student progress update from parent');
 
       // New auto item was also created
       const autoItems = result.filter((i) => i.source === 'auto_new_concern');
@@ -899,13 +890,507 @@ describe('SstAgendaGeneratorService', () => {
       setupDefaultMocks();
       mockRlsTx.sstMeeting.findUnique.mockResolvedValue(null);
 
-      const result = await service.generateAgenda(
+      const result = await service.generateAgenda(TENANT_ID, MEETING_ID, ACTOR_USER_ID);
+
+      expect(result).toEqual([]);
+    });
+
+    it('generates agenda with only new_concerns source', async () => {
+      setupDefaultMocks();
+
+      mockConfigFacade.findSettings.mockResolvedValue(
+        makeTenantSettingsRecord({
+          auto_agenda_sources: ['new_concerns'],
+        }),
+      );
+
+      mockRlsTx.pastoralConcern.findMany.mockResolvedValue([
+        {
+          id: CONCERN_ID_A,
+          student_id: STUDENT_ID_A,
+          category: 'academic',
+          severity: 'routine',
+        },
+      ]);
+
+      const result = await service.generateAgenda(TENANT_ID, MEETING_ID, ACTOR_USER_ID);
+
+      expect(mockRlsTx.pastoralConcern.findMany).toHaveBeenCalledTimes(1);
+      expect(result.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  // ─── Early Warning: multiple reasons per student ──────────────────────────
+
+  describe('queryEarlyWarningFlags — multiple reasons', () => {
+    it('should show suffix "+N more signals" when more than 2 reasons', async () => {
+      setupDefaultMocks();
+
+      mockRlsTx.studentAcademicRiskAlert.findMany.mockResolvedValue([
+        { id: 'a1', student_id: STUDENT_ID_A, trigger_reason: 'Reason one' },
+        { id: 'a2', student_id: STUDENT_ID_A, trigger_reason: 'Reason two' },
+        { id: 'a3', student_id: STUDENT_ID_A, trigger_reason: 'Reason three' },
+        { id: 'a4', student_id: STUDENT_ID_A, trigger_reason: 'Reason four' },
+      ]);
+
+      const items = await service.queryEarlyWarningFlags(
+        mockRlsTx as unknown as PrismaService,
+        TENANT_ID,
+        NOW,
+      );
+
+      expect(items).toHaveLength(1);
+      expect(items[0]!.description).toContain('Reason one; Reason two');
+      expect(items[0]!.description).toContain('(+2 more signals)');
+    });
+
+    it('should show "+1 more signal" (singular) when exactly 3 reasons', async () => {
+      setupDefaultMocks();
+
+      mockRlsTx.studentAcademicRiskAlert.findMany.mockResolvedValue([
+        { id: 'a1', student_id: STUDENT_ID_A, trigger_reason: 'Reason one' },
+        { id: 'a2', student_id: STUDENT_ID_A, trigger_reason: 'Reason two' },
+        { id: 'a3', student_id: STUDENT_ID_A, trigger_reason: 'Reason three' },
+      ]);
+
+      const items = await service.queryEarlyWarningFlags(
+        mockRlsTx as unknown as PrismaService,
+        TENANT_ID,
+        NOW,
+      );
+
+      expect(items).toHaveLength(1);
+      expect(items[0]!.description).toContain('(+1 more signal)');
+      expect(items[0]!.description).not.toContain('signals');
+    });
+
+    it('should skip alerts with empty trigger_reason', async () => {
+      setupDefaultMocks();
+
+      mockRlsTx.studentAcademicRiskAlert.findMany.mockResolvedValue([
+        { id: 'a1', student_id: STUDENT_ID_A, trigger_reason: '' },
+        { id: 'a2', student_id: STUDENT_ID_A, trigger_reason: '  ' },
+        { id: 'a3', student_id: STUDENT_ID_B, trigger_reason: 'Valid reason' },
+      ]);
+
+      const items = await service.queryEarlyWarningFlags(
+        mockRlsTx as unknown as PrismaService,
+        TENANT_ID,
+        NOW,
+      );
+
+      // Student A has no valid reasons (all empty/whitespace), so they should not appear
+      // Student B has one valid reason
+      expect(items).toHaveLength(1);
+      expect(items[0]!.student_id).toBe(STUDENT_ID_B);
+    });
+
+    it('should deduplicate identical trigger_reasons for same student', async () => {
+      setupDefaultMocks();
+
+      mockRlsTx.studentAcademicRiskAlert.findMany.mockResolvedValue([
+        { id: 'a1', student_id: STUDENT_ID_A, trigger_reason: 'Same reason' },
+        { id: 'a2', student_id: STUDENT_ID_A, trigger_reason: 'Same reason' },
+      ]);
+
+      const items = await service.queryEarlyWarningFlags(
+        mockRlsTx as unknown as PrismaService,
+        TENANT_ID,
+        NOW,
+      );
+
+      expect(items).toHaveLength(1);
+      expect(items[0]!.description).toBe('Review recommended: Same reason');
+      // No "+N more" suffix since only 1 unique reason
+      expect(items[0]!.description).not.toContain('+');
+    });
+  });
+
+  // ─── Manual Item CRUD ──────────────────────────────────────────────────────
+
+  describe('addManualItem', () => {
+    it('should create a manual agenda item with correct display_order', async () => {
+      setupDefaultMocks();
+
+      mockRlsTx.sstMeetingAgendaItem.count.mockResolvedValue(3);
+      mockRlsTx.sstMeetingAgendaItem.create.mockResolvedValue({
+        id: 'manual-new',
+        source: 'manual',
+        description: 'Review safety policy',
+        display_order: 3,
+      });
+
+      const result = await service.addManualItem(
         TENANT_ID,
         MEETING_ID,
+        { description: 'Review safety policy' },
         ACTOR_USER_ID,
       );
 
+      expect(result.data.source).toBe('manual');
+      expect(mockRlsTx.sstMeetingAgendaItem.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          meeting_id: MEETING_ID,
+          source: 'manual',
+          description: 'Review safety policy',
+          display_order: 3,
+        }),
+      });
+    });
+
+    it('should use provided display_order when specified', async () => {
+      setupDefaultMocks();
+
+      mockRlsTx.sstMeetingAgendaItem.count.mockResolvedValue(5);
+      mockRlsTx.sstMeetingAgendaItem.create.mockResolvedValue({
+        id: 'manual-new',
+        source: 'manual',
+        description: 'Priority item',
+        display_order: 0,
+      });
+
+      await service.addManualItem(
+        TENANT_ID,
+        MEETING_ID,
+        { description: 'Priority item', display_order: 0 },
+        ACTOR_USER_ID,
+      );
+
+      expect(mockRlsTx.sstMeetingAgendaItem.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          display_order: 0,
+        }),
+      });
+    });
+
+    it('should write audit event for manual item addition', async () => {
+      setupDefaultMocks();
+
+      mockRlsTx.sstMeetingAgendaItem.count.mockResolvedValue(0);
+      mockRlsTx.sstMeetingAgendaItem.create.mockResolvedValue({
+        id: 'manual-new',
+        source: 'manual',
+        description: 'Test',
+        display_order: 0,
+      });
+
+      await service.addManualItem(
+        TENANT_ID,
+        MEETING_ID,
+        { description: 'Test', student_id: STUDENT_ID_A },
+        ACTOR_USER_ID,
+      );
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'agenda_item_added_manual',
+          entity_type: 'meeting',
+          entity_id: MEETING_ID,
+          student_id: STUDENT_ID_A,
+        }),
+      );
+    });
+  });
+
+  describe('updateItem', () => {
+    it('should update agenda item and write audit event', async () => {
+      setupDefaultMocks();
+
+      mockRlsTx.sstMeetingAgendaItem.update.mockResolvedValue({
+        id: 'item-1',
+        discussion_notes: 'Updated notes',
+      });
+
+      const result = await service.updateItem(
+        TENANT_ID,
+        MEETING_ID,
+        'item-1',
+        { discussion_notes: 'Updated notes', decisions: 'Decided to proceed' },
+        ACTOR_USER_ID,
+      );
+
+      expect(result.data).toBeDefined();
+      expect(mockRlsTx.sstMeetingAgendaItem.update).toHaveBeenCalledWith({
+        where: { id: 'item-1' },
+        data: { discussion_notes: 'Updated notes', decisions: 'Decided to proceed' },
+      });
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'agenda_item_updated',
+          entity_id: MEETING_ID,
+          payload: expect.objectContaining({
+            agenda_item_id: 'item-1',
+            fields_updated: expect.arrayContaining(['discussion_notes', 'decisions']),
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('removeManualItem', () => {
+    it('should delete the agenda item', async () => {
+      setupDefaultMocks();
+
+      mockRlsTx.sstMeetingAgendaItem.delete.mockResolvedValue({});
+
+      await service.removeManualItem(TENANT_ID, MEETING_ID, 'item-1', ACTOR_USER_ID);
+
+      expect(mockRlsTx.sstMeetingAgendaItem.delete).toHaveBeenCalledWith({
+        where: { id: 'item-1' },
+      });
+    });
+  });
+
+  // ─── Merge: student_id-based dedup ─────────────────────────────────────────
+
+  describe('mergeAgendaItems — student_id-based dedup', () => {
+    it('should dedup early warning items by student_id', () => {
+      const existingItems: SstMeetingAgendaItemRow[] = [
+        makeExistingAgendaItem({
+          id: 'existing-ew',
+          source: 'auto_early_warning',
+          student_id: STUDENT_ID_A,
+          concern_id: null,
+          case_id: null,
+        }),
+      ];
+
+      const newItems: AgendaSourceItem[] = [
+        {
+          source: 'auto_early_warning',
+          student_id: STUDENT_ID_A,
+          case_id: null,
+          concern_id: null,
+          description: 'Review recommended: new alerts',
+        },
+      ];
+
+      const result = service.mergeAgendaItems(MEETING_ID, existingItems, newItems);
+
+      // Should be filtered out as duplicate (same source + same student_id)
+      expect(result).toHaveLength(0);
+    });
+
+    it('should not dedup when all reference fields are null', () => {
+      const existingItems: SstMeetingAgendaItemRow[] = [
+        makeExistingAgendaItem({
+          id: 'existing-x',
+          source: 'auto_overdue_action',
+          student_id: null,
+          concern_id: null,
+          case_id: null,
+        }),
+      ];
+
+      const newItems: AgendaSourceItem[] = [
+        {
+          source: 'auto_overdue_action',
+          student_id: null,
+          case_id: null,
+          concern_id: null,
+          description: 'Some overdue action',
+        },
+      ];
+
+      const result = service.mergeAgendaItems(MEETING_ID, existingItems, newItems);
+
+      // No match since all reference fields are null — the item passes through
+      expect(result).toHaveLength(1);
+    });
+
+    it('should dedup on case_id match when concern_id is null', () => {
+      const existingItems: SstMeetingAgendaItemRow[] = [
+        makeExistingAgendaItem({
+          id: 'existing-case',
+          source: 'auto_case_review',
+          student_id: 'student-1',
+          concern_id: null,
+          case_id: 'case-1',
+        }),
+      ];
+
+      const newItems: AgendaSourceItem[] = [
+        {
+          source: 'auto_case_review',
+          student_id: 'student-1',
+          case_id: 'case-1',
+          concern_id: null,
+          description: 'Case review due',
+        },
+      ];
+
+      const result = service.mergeAgendaItems(MEETING_ID, existingItems, newItems);
+
+      expect(result).toHaveLength(0);
+    });
+
+    it('should not dedup items with different sources', () => {
+      const existingItems: SstMeetingAgendaItemRow[] = [
+        makeExistingAgendaItem({
+          id: 'existing-concern',
+          source: 'auto_new_concern',
+          student_id: 'student-1',
+          concern_id: 'concern-1',
+          case_id: null,
+        }),
+      ];
+
+      const newItems: AgendaSourceItem[] = [
+        {
+          source: 'auto_case_review',
+          student_id: 'student-1',
+          case_id: null,
+          concern_id: 'concern-1',
+          description: 'Different source same concern',
+        },
+      ];
+
+      const result = service.mergeAgendaItems(MEETING_ID, existingItems, newItems);
+
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  // ─── Branch coverage: querySource — unknown source returns [] ──────────────
+
+  describe('querySource — empty sources config', () => {
+    it('should generate empty agenda when no sources are enabled', async () => {
+      mockConfigFacade.findSettings.mockResolvedValue(
+        makeTenantSettingsRecord({ auto_agenda_sources: [] }),
+      );
+
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting());
+      mockRlsTx.sstMeeting.findFirst.mockResolvedValue(null);
+      mockRlsTx.sstMeetingAgendaItem.findMany.mockResolvedValue([]);
+      mockRlsTx.sstMeeting.update.mockResolvedValue(makeMeeting());
+
+      const result = await service.generateAgenda(TENANT_ID, MEETING_ID, ACTOR_USER_ID);
+
       expect(result).toEqual([]);
+    });
+
+    it('should only query sources that are configured', async () => {
+      mockConfigFacade.findSettings.mockResolvedValue(
+        makeTenantSettingsRecord({ auto_agenda_sources: ['new_concerns'] }),
+      );
+
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting());
+      mockRlsTx.sstMeeting.findFirst.mockResolvedValue(null);
+      mockRlsTx.pastoralConcern.findMany.mockResolvedValue([]);
+      mockRlsTx.sstMeetingAgendaItem.findMany.mockResolvedValue([]);
+      mockRlsTx.sstMeeting.update.mockResolvedValue(makeMeeting());
+
+      await service.generateAgenda(TENANT_ID, MEETING_ID, ACTOR_USER_ID);
+
+      // Only new_concerns should be queried, not case_reviews or overdue_actions
+      expect(mockRlsTx.pastoralConcern.findMany).toHaveBeenCalled();
+      expect(mockRlsTx.pastoralCase.findMany).not.toHaveBeenCalled();
+      expect(mockRlsTx.sstMeetingAction.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Branch coverage: queryEarlyWarningFlags — single reason ───────────────
+
+  describe('queryEarlyWarningFlags — single reason', () => {
+    it('should not show suffix when exactly 1 reason', async () => {
+      mockRlsTx.studentAcademicRiskAlert.findMany.mockResolvedValue([
+        { id: 'alert-1', student_id: 'student-1', trigger_reason: 'Low attendance' },
+      ]);
+
+      const result = await service.queryEarlyWarningFlags(
+        mockRlsTx as unknown as PrismaService,
+        TENANT_ID,
+        new Date(),
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0]!.description).toBe('Review recommended: Low attendance');
+      expect(result[0]!.description).not.toContain('+');
+    });
+
+    it('should show exactly 2 reasons without suffix', async () => {
+      mockRlsTx.studentAcademicRiskAlert.findMany.mockResolvedValue([
+        { id: 'alert-1', student_id: 'student-1', trigger_reason: 'Low attendance' },
+        { id: 'alert-2', student_id: 'student-1', trigger_reason: 'Grade decline' },
+      ]);
+
+      const result = await service.queryEarlyWarningFlags(
+        mockRlsTx as unknown as PrismaService,
+        TENANT_ID,
+        new Date(),
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0]!.description).toBe('Review recommended: Low attendance; Grade decline');
+      expect(result[0]!.description).not.toContain('+');
+    });
+  });
+
+  // ─── Branch coverage: addManualItem — student_id and case_id provided ─────
+
+  describe('addManualItem — with student_id and case_id', () => {
+    it('should pass student_id and case_id when provided', async () => {
+      mockRlsTx.sstMeetingAgendaItem.count.mockResolvedValue(5);
+      const createdItem = {
+        id: 'item-new',
+        source: 'manual',
+        description: 'Manual item',
+        student_id: 'student-1',
+        case_id: 'case-1',
+        display_order: 5,
+      };
+      mockRlsTx.sstMeetingAgendaItem.create.mockResolvedValue(createdItem);
+
+      const result = await service.addManualItem(
+        TENANT_ID,
+        MEETING_ID,
+        {
+          description: 'Manual item',
+          student_id: 'student-1',
+          case_id: 'case-1',
+        },
+        ACTOR_USER_ID,
+      );
+
+      expect(result.data).toEqual(createdItem);
+      expect(mockRlsTx.sstMeetingAgendaItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            student_id: 'student-1',
+            case_id: 'case-1',
+          }),
+        }),
+      );
+    });
+
+    it('should use null for student_id and case_id when not provided', async () => {
+      mockRlsTx.sstMeetingAgendaItem.count.mockResolvedValue(0);
+      mockRlsTx.sstMeetingAgendaItem.create.mockResolvedValue({
+        id: 'item-bare',
+        source: 'manual',
+        description: 'Bare item',
+        student_id: null,
+        case_id: null,
+        display_order: 0,
+      });
+
+      await service.addManualItem(
+        TENANT_ID,
+        MEETING_ID,
+        { description: 'Bare item' },
+        ACTOR_USER_ID,
+      );
+
+      expect(mockRlsTx.sstMeetingAgendaItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            student_id: null,
+            case_id: null,
+          }),
+        }),
+      );
     });
   });
 });

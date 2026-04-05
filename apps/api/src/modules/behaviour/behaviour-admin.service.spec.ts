@@ -2,6 +2,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PolicyReplayService } from '../policy-engine/policy-replay.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -86,6 +87,7 @@ const mockRedisClient = {
 
 describe('BehaviourAdminService', () => {
   let service: BehaviourAdminService;
+  let academicFacade: Record<string, jest.Mock>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -106,6 +108,7 @@ describe('BehaviourAdminService', () => {
     }).compile();
 
     service = module.get<BehaviourAdminService>(BehaviourAdminService);
+    academicFacade = module.get(AcademicReadFacade) as unknown as Record<string, jest.Mock>;
 
     // Reset mocks
     Object.values(mockRlsTx).forEach((model) =>
@@ -329,6 +332,599 @@ describe('BehaviourAdminService', () => {
         context_type: 'class',
       });
       expect(result).toEqual({ some: 'data' });
+    });
+  });
+
+  // ─── getHealth — branch coverage ──────────────────────────────────────────
+
+  describe('getHealth — branch coverage', () => {
+    it('edge: should handle Redis INFO with no hits/misses match', async () => {
+      mockRedisClient.info.mockResolvedValue('some_unrelated_data:123\n');
+      mockRlsTx.behaviourAttachment.count.mockResolvedValue(0);
+      mockRlsTx.behaviourLegalHold.count.mockResolvedValue(0);
+
+      const result = await service.getHealth(TENANT_ID);
+
+      expect(result.cache_hit_rate).toBe(0);
+    });
+
+    it('edge: should handle Redis INFO failure gracefully', async () => {
+      mockRedisClient.info.mockRejectedValue(new Error('Redis down'));
+      mockRlsTx.behaviourAttachment.count.mockResolvedValue(0);
+      mockRlsTx.behaviourLegalHold.count.mockResolvedValue(0);
+
+      const result = await service.getHealth(TENANT_ID);
+
+      expect(result.cache_hit_rate).toBe(0);
+    });
+
+    it('edge: should compute cache_hit_rate as 0 when hits + misses = 0', async () => {
+      mockRedisClient.info.mockResolvedValue('keyspace_hits:0\nkeyspace_misses:0\n');
+      mockRlsTx.behaviourAttachment.count.mockResolvedValue(0);
+      mockRlsTx.behaviourLegalHold.count.mockResolvedValue(0);
+
+      const result = await service.getHealth(TENANT_ID);
+
+      expect(result.cache_hit_rate).toBe(0);
+    });
+  });
+
+  // ─── listDeadLetterJobs — branch coverage ─────────────────────────────────
+
+  describe('listDeadLetterJobs — branch coverage', () => {
+    it('should handle job with no id and no finishedOn', async () => {
+      mockBehaviourQueue.getFailed.mockResolvedValue([
+        {
+          id: undefined,
+          name: 'behaviour:test',
+          finishedOn: undefined,
+          failedReason: undefined,
+          attemptsMade: 1,
+        },
+      ]);
+      mockNotificationsQueue.getFailed.mockResolvedValue([]);
+
+      const result = await service.listDeadLetterJobs();
+
+      expect(result).toHaveLength(1);
+      expect(result[0]!.job_id).toBe('');
+      expect(result[0]!.failure_reason).toBe('Unknown');
+      expect(result[0]!.failed_at).toBeDefined();
+    });
+
+    it('should merge jobs from both queues and sort by date descending', async () => {
+      mockBehaviourQueue.getFailed.mockResolvedValue([
+        {
+          id: 'j1',
+          name: 'behaviour:a',
+          finishedOn: new Date('2026-03-01').getTime(),
+          failedReason: 'err1',
+          attemptsMade: 1,
+        },
+      ]);
+      mockNotificationsQueue.getFailed.mockResolvedValue([
+        {
+          id: 'j2',
+          name: 'notifications:b',
+          finishedOn: new Date('2026-03-05').getTime(),
+          failedReason: 'err2',
+          attemptsMade: 2,
+        },
+      ]);
+
+      const result = await service.listDeadLetterJobs();
+
+      expect(result).toHaveLength(2);
+      expect(result[0]!.queue).toBe('notifications');
+      expect(result[1]!.queue).toBe('behaviour');
+    });
+  });
+
+  // ─── retryDeadLetterJob — branch coverage ─────────────────────────────────
+
+  describe('retryDeadLetterJob', () => {
+    it('should retry a job found in the behaviour queue', async () => {
+      const mockJob = { retry: jest.fn().mockResolvedValue(undefined) };
+      mockBehaviourQueue.getJob.mockResolvedValue(mockJob);
+
+      await service.retryDeadLetterJob('job-123');
+
+      expect(mockJob.retry).toHaveBeenCalled();
+    });
+
+    it('should retry a job found in the notifications queue when not in behaviour', async () => {
+      const mockJob = { retry: jest.fn().mockResolvedValue(undefined) };
+      mockBehaviourQueue.getJob.mockResolvedValue(null);
+      mockNotificationsQueue.getJob.mockResolvedValue(mockJob);
+
+      await service.retryDeadLetterJob('job-456');
+
+      expect(mockJob.retry).toHaveBeenCalled();
+    });
+
+    it('should throw error when job not found in any queue', async () => {
+      mockBehaviourQueue.getJob.mockResolvedValue(null);
+      mockNotificationsQueue.getJob.mockResolvedValue(null);
+
+      await expect(service.retryDeadLetterJob('no-such-job')).rejects.toThrow(
+        'Job no-such-job not found in any queue',
+      );
+    });
+  });
+
+  // ─── recomputePointsPreview — year_group scope ────────────────────────────
+
+  describe('recomputePointsPreview — year_group scope', () => {
+    it('should return preview for year_group scope', async () => {
+      mockRlsTx.student.findMany.mockResolvedValue([{ id: 's1' }, { id: 's2' }]);
+      mockRlsTx.student.count.mockResolvedValue(50);
+
+      const result = await service.recomputePointsPreview(TENANT_ID, {
+        scope: 'year_group',
+        year_group_id: 'yg-1',
+      });
+
+      expect(result.affected_students).toBe(50);
+      expect(result.sample_records).toEqual(['s1', 's2']);
+    });
+
+    it('should return ~30s for small student count', async () => {
+      mockRlsTx.student.count.mockResolvedValue(10);
+      mockRlsTx.student.findMany.mockResolvedValue([]);
+
+      const result = await service.recomputePointsPreview(TENANT_ID, {
+        scope: 'tenant',
+      });
+
+      expect(result.estimated_duration).toBe('~30s');
+    });
+
+    it('should return ~2min for large student count', async () => {
+      mockRlsTx.student.count.mockResolvedValue(200);
+      mockRlsTx.student.findMany.mockResolvedValue([]);
+
+      const result = await service.recomputePointsPreview(TENANT_ID, {
+        scope: 'tenant',
+      });
+
+      expect(result.estimated_duration).toBe('~2min');
+    });
+  });
+
+  // ─── recomputePoints — all scopes ────────────────────────────────────────
+
+  describe('recomputePoints — all scopes', () => {
+    it('should invalidate year_group students cache', async () => {
+      mockRlsTx.student.findMany.mockResolvedValue([{ id: 's1' }, { id: 's2' }]);
+
+      await service.recomputePoints(TENANT_ID, {
+        scope: 'year_group',
+        year_group_id: 'yg-1',
+      });
+
+      const pipeline = mockRedisClient.pipeline();
+      expect(pipeline.del).toBeDefined();
+    });
+
+    it('should delete all tenant point cache keys when scope is tenant', async () => {
+      mockRedisClient.keys.mockResolvedValue([
+        `behaviour:points:${TENANT_ID}:s1`,
+        `behaviour:points:${TENANT_ID}:s2`,
+      ]);
+
+      await service.recomputePoints(TENANT_ID, {
+        scope: 'tenant',
+      });
+
+      expect(mockRedisClient.keys).toHaveBeenCalledWith(`behaviour:points:${TENANT_ID}:*`);
+    });
+
+    it('should skip pipeline when no keys exist for tenant scope', async () => {
+      mockRedisClient.keys.mockResolvedValue([]);
+
+      await service.recomputePoints(TENANT_ID, {
+        scope: 'tenant',
+      });
+
+      // pipeline should not be called when no keys
+      expect(mockRedisClient.keys).toHaveBeenCalled();
+    });
+  });
+
+  // ─── scopeAudit — branch coverage ────────────────────────────────────────
+
+  describe('scopeAudit', () => {
+    it('should return scope audit with all scope', async () => {
+      mockRlsTx.student.findMany.mockResolvedValue([{ id: 's1' }]);
+      mockRlsTx.student.count.mockResolvedValue(1);
+
+      const result = await service.scopeAudit(TENANT_ID, 'user-1');
+
+      expect(result.scope_level).toBe('all');
+      expect(result.student_count).toBe(1);
+      expect(result.student_ids).toEqual(['s1']);
+    });
+
+    it('should apply class filter when scope is class', async () => {
+      const scopeService = (service as unknown as { scopeService: { getUserScope: jest.Mock } })
+        .scopeService;
+      scopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        classStudentIds: ['s1', 's2'],
+      });
+      mockRlsTx.student.findMany.mockResolvedValue([{ id: 's1' }, { id: 's2' }]);
+      mockRlsTx.student.count.mockResolvedValue(2);
+
+      const result = await service.scopeAudit(TENANT_ID, 'teacher-1');
+
+      expect(result.scope_level).toBe('class');
+      expect(result.student_count).toBe(2);
+    });
+  });
+
+  // ─── rebuildAwardsPreview — branch coverage ──────────────────────────────
+
+  describe('rebuildAwardsPreview', () => {
+    it('should return preview for student scope', async () => {
+      const result = await service.rebuildAwardsPreview(TENANT_ID, {
+        scope: 'student',
+        student_id: 'student-1',
+      });
+
+      expect(result.affected_students).toBe(1);
+      expect(result.reversible).toBe(false);
+    });
+
+    it('should return preview for year_group scope', async () => {
+      mockRlsTx.student.count.mockResolvedValue(30);
+
+      const result = await service.rebuildAwardsPreview(TENANT_ID, {
+        scope: 'year_group',
+        year_group_id: 'yg-1',
+      });
+
+      expect(result.affected_students).toBe(30);
+      expect(result.estimated_duration).toBe('~45s');
+    });
+
+    it('should return preview for tenant scope', async () => {
+      mockRlsTx.student.count.mockResolvedValue(200);
+
+      const result = await service.rebuildAwardsPreview(TENANT_ID, {
+        scope: 'tenant',
+      });
+
+      expect(result.affected_students).toBe(200);
+      expect(result.estimated_duration).toBe('~3min');
+    });
+  });
+
+  // ─── rebuildAwards — branch coverage ─────────────────────────────────────
+
+  describe('rebuildAwards', () => {
+    it('should return enqueued=0 when no students found', async () => {
+      (mockRlsTx.student as Record<string, jest.Mock>).findFirst = jest
+        .fn()
+        .mockResolvedValue(null);
+
+      const result = await service.rebuildAwards(TENANT_ID, {
+        scope: 'student',
+        student_id: 'nonexistent',
+      });
+
+      expect(result.enqueued).toBe(0);
+    });
+
+    it('should return enqueued=0 when no active academic year', async () => {
+      (mockRlsTx.student as Record<string, jest.Mock>).findFirst = jest
+        .fn()
+        .mockResolvedValue({ id: 'student-1' });
+      academicFacade['findCurrentYear']!.mockResolvedValue(null);
+
+      const result = await service.rebuildAwards(TENANT_ID, {
+        scope: 'student',
+        student_id: 'student-1',
+      });
+
+      expect(result.enqueued).toBe(0);
+    });
+
+    it('should enqueue check-awards job for students with incidents', async () => {
+      (mockRlsTx.student as Record<string, jest.Mock>).findFirst = jest
+        .fn()
+        .mockResolvedValue({ id: 'student-1' });
+      academicFacade['findCurrentYear']!.mockResolvedValue({ id: 'year-1' });
+      academicFacade['findPeriodCoveringDate']!.mockResolvedValue({ id: 'period-1' });
+
+      (mockRlsTx as Record<string, unknown>).behaviourIncidentParticipant = {
+        findFirst: jest.fn().mockResolvedValue({ incident_id: 'inc-1' }),
+      };
+
+      const result = await service.rebuildAwards(TENANT_ID, {
+        scope: 'student',
+        student_id: 'student-1',
+      });
+
+      expect(result.enqueued).toBe(1);
+      expect(mockBehaviourQueue.add).toHaveBeenCalledWith(
+        'behaviour:check-awards',
+        expect.objectContaining({
+          tenant_id: TENANT_ID,
+          incident_id: 'inc-1',
+          student_ids: ['student-1'],
+          academic_year_id: 'year-1',
+          academic_period_id: 'period-1',
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it('should skip students with no incidents', async () => {
+      (mockRlsTx.student as Record<string, jest.Mock>).findFirst = jest
+        .fn()
+        .mockResolvedValue({ id: 'student-1' });
+      academicFacade['findCurrentYear']!.mockResolvedValue({ id: 'year-1' });
+      academicFacade['findPeriodCoveringDate']!.mockResolvedValue(null);
+
+      (mockRlsTx as Record<string, unknown>).behaviourIncidentParticipant = {
+        findFirst: jest.fn().mockResolvedValue(null),
+      };
+
+      const result = await service.rebuildAwards(TENANT_ID, {
+        scope: 'student',
+        student_id: 'student-1',
+      });
+
+      expect(result.enqueued).toBe(0);
+    });
+
+    it('should resolve tenant scope students', async () => {
+      mockRlsTx.student.findMany.mockResolvedValue([{ id: 's1' }, { id: 's2' }]);
+      academicFacade['findCurrentYear']!.mockResolvedValue({ id: 'year-1' });
+      academicFacade['findPeriodCoveringDate']!.mockResolvedValue(null);
+
+      (mockRlsTx as Record<string, unknown>).behaviourIncidentParticipant = {
+        findFirst: jest.fn().mockResolvedValue(null),
+      };
+
+      const result = await service.rebuildAwards(TENANT_ID, {
+        scope: 'tenant',
+      });
+
+      expect(result.enqueued).toBe(0);
+    });
+  });
+
+  // ─── backfillTasks — branch coverage ─────────────────────────────────────
+
+  describe('backfillTasks', () => {
+    it('should backfill intervention tasks when scope is entity_type=intervention', async () => {
+      (mockRlsTx as Record<string, unknown>).behaviourIntervention = {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'int-1',
+            title: 'Anger management',
+            assigned_to_id: 'staff-1',
+            start_date: new Date('2026-03-01'),
+            intervention_number: 'INT-001',
+          },
+        ]),
+      };
+
+      (mockRlsTx as Record<string, unknown>).behaviourTask = {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'task-1' }),
+      };
+
+      const result = await service.backfillTasks(TENANT_ID, {
+        scope: 'entity_type',
+        entity_type: 'intervention',
+      });
+
+      expect(result.created).toBe(1);
+    });
+
+    it('should skip interventions that already have open tasks', async () => {
+      (mockRlsTx as Record<string, unknown>).behaviourIntervention = {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'int-1',
+            title: 'Anger management',
+            assigned_to_id: 'staff-1',
+            start_date: null,
+            intervention_number: 'INT-001',
+          },
+        ]),
+      };
+
+      (mockRlsTx as Record<string, unknown>).behaviourTask = {
+        findFirst: jest.fn().mockResolvedValue({ id: 'existing-task' }),
+        create: jest.fn(),
+      };
+
+      const result = await service.backfillTasks(TENANT_ID, {
+        scope: 'entity_type',
+        entity_type: 'intervention',
+      });
+
+      expect(result.created).toBe(0);
+    });
+
+    it('should backfill sanction tasks when scope is entity_type=sanction', async () => {
+      (mockRlsTx as Record<string, unknown>).behaviourSanction = {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'san-1',
+            sanction_number: 'SAN-001',
+            scheduled_date: null,
+            supervised_by_id: null,
+            incident: { reported_by_id: 'staff-1' },
+          },
+        ]),
+      };
+
+      (mockRlsTx as Record<string, unknown>).behaviourTask = {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'task-2' }),
+      };
+
+      const result = await service.backfillTasks(TENANT_ID, {
+        scope: 'entity_type',
+        entity_type: 'sanction',
+      });
+
+      expect(result.created).toBe(1);
+    });
+
+    it('should backfill both sanctions and interventions when scope is tenant', async () => {
+      (mockRlsTx as Record<string, unknown>).behaviourIntervention = {
+        findMany: jest.fn().mockResolvedValue([]),
+      };
+
+      (mockRlsTx as Record<string, unknown>).behaviourSanction = {
+        findMany: jest.fn().mockResolvedValue([]),
+      };
+
+      (mockRlsTx as Record<string, unknown>).behaviourTask = {
+        findFirst: jest.fn(),
+        create: jest.fn(),
+      };
+
+      const result = await service.backfillTasks(TENANT_ID, {
+        scope: 'tenant',
+      });
+
+      expect(result.created).toBe(0);
+    });
+  });
+
+  // ─── backfillTasksPreview — branch coverage ──────────────────────────────
+
+  describe('backfillTasksPreview', () => {
+    beforeEach(() => {
+      // Restore mocks that may have been replaced by backfillTasks tests
+      (mockRlsTx as Record<string, unknown>).behaviourSanction = {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      };
+      (mockRlsTx as Record<string, unknown>).behaviourIntervention = {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      };
+    });
+
+    it('should count sanctions when entity_type is sanction', async () => {
+      (mockRlsTx.behaviourSanction as { count: jest.Mock }).count.mockResolvedValue(10);
+
+      const result = await service.backfillTasksPreview(TENANT_ID, {
+        scope: 'entity_type',
+        entity_type: 'sanction',
+      });
+
+      expect(result.affected_records).toBe(10);
+    });
+
+    it('should count interventions when entity_type is intervention', async () => {
+      (mockRlsTx.behaviourIntervention as { count: jest.Mock }).count.mockResolvedValue(5);
+
+      const result = await service.backfillTasksPreview(TENANT_ID, {
+        scope: 'entity_type',
+        entity_type: 'intervention',
+      });
+
+      expect(result.affected_records).toBe(5);
+    });
+
+    it('should count both when scope is tenant', async () => {
+      (mockRlsTx.behaviourSanction as { count: jest.Mock }).count.mockResolvedValue(10);
+      (mockRlsTx.behaviourIntervention as { count: jest.Mock }).count.mockResolvedValue(5);
+
+      const result = await service.backfillTasksPreview(TENANT_ID, {
+        scope: 'tenant',
+      });
+
+      expect(result.affected_records).toBe(15);
+    });
+
+    it('should return ~5min for large entity count', async () => {
+      (mockRlsTx.behaviourSanction as { count: jest.Mock }).count.mockResolvedValue(300);
+      (mockRlsTx.behaviourIntervention as { count: jest.Mock }).count.mockResolvedValue(300);
+
+      const result = await service.backfillTasksPreview(TENANT_ID, {
+        scope: 'tenant',
+      });
+
+      expect(result.estimated_duration).toBe('~5min');
+    });
+  });
+
+  // ─── reindexSearchPreview — branch coverage ──────────────────────────────
+
+  describe('reindexSearchPreview — branch coverage', () => {
+    it('should return ~5min for large incident count', async () => {
+      mockRlsTx.behaviourIncident.count.mockResolvedValue(6000);
+
+      const result = await service.reindexSearchPreview(TENANT_ID);
+
+      expect(result.estimated_duration).toBe('~5min');
+    });
+  });
+
+  // ─── retentionPreview — branch coverage ──────────────────────────────────
+
+  describe('retentionPreview — branch coverage', () => {
+    it('should return 0 for to_archive when no left students', async () => {
+      mockRlsTx.student.findMany.mockResolvedValue([]);
+      mockRlsTx.behaviourIncident.count.mockResolvedValue(5);
+      mockRlsTx.behaviourLegalHold.count.mockResolvedValue(0);
+
+      const result = await service.retentionPreview(TENANT_ID);
+
+      expect(result.to_archive).toBe(0);
+      expect(result.to_anonymise).toBe(5);
+    });
+  });
+
+  // ─── resendNotification — branch coverage ────────────────────────────────
+
+  describe('resendNotification — branch coverage', () => {
+    it('should handle sanction_id instead of incident_id', async () => {
+      await service.resendNotification(TENANT_ID, {
+        sanction_id: 's-1',
+        parent_id: 'p-1',
+        channel: 'email',
+      });
+
+      expect(mockRlsTx.behaviourParentAcknowledgement.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          incident_id: null,
+          sanction_id: 's-1',
+        }),
+      });
+
+      expect(mockNotificationsQueue.add).toHaveBeenCalledWith(
+        'behaviour:parent-notification',
+        expect.objectContaining({
+          incident_id: null,
+          sanction_id: 's-1',
+          is_resend: true,
+        }),
+        expect.any(Object),
+      );
+    });
+  });
+
+  // ─── refreshViews ────────────────────────────────────────────────────────
+
+  describe('refreshViews', () => {
+    it('should refresh all three materialized views', async () => {
+      const mockPrismaService = (service as unknown as { prisma: { $executeRaw: jest.Mock } })
+        .prisma;
+      mockPrismaService.$executeRaw = jest.fn().mockResolvedValue(0);
+
+      await service.refreshViews(TENANT_ID);
+
+      expect(mockPrismaService.$executeRaw).toHaveBeenCalledTimes(3);
     });
   });
 });

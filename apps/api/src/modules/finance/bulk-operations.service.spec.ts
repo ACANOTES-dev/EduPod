@@ -190,7 +190,7 @@ describe('BulkOperationsService', () => {
       expect(result.errors[0]?.invoice_id).toBe(INVOICE_2);
     });
 
-    it('should handle non-Error thrown objects', async () => {
+    it('should handle non-Error thrown objects in bulkIssue', async () => {
       mockInvoicesService.issue
         .mockResolvedValueOnce({ id: INVOICE_1, status: 'issued' })
         .mockRejectedValueOnce('string error');
@@ -201,6 +201,40 @@ describe('BulkOperationsService', () => {
 
       expect(result.failed).toBe(1);
       expect(result.errors[0]?.error).toBe('Unknown error');
+    });
+
+    it('should handle non-Error thrown objects in bulkVoid', async () => {
+      mockInvoicesService.voidInvoice.mockRejectedValueOnce('string void error');
+
+      const result = await service.bulkVoid(TENANT_ID, {
+        invoice_ids: [INVOICE_1],
+      });
+
+      expect(result.failed).toBe(1);
+      expect(result.errors[0]?.error).toBe('Unknown error');
+    });
+
+    it('should handle non-Error thrown objects in bulkRemind', async () => {
+      mockPrisma.invoiceReminder.findFirst.mockRejectedValueOnce('string remind error');
+
+      const result = await service.bulkRemind(TENANT_ID, {
+        invoice_ids: [INVOICE_1],
+      });
+
+      expect(result.failed).toBe(1);
+      expect(result.errors[0]?.error).toBe('Unknown error');
+    });
+  });
+
+  describe('bulkExport — format fallback', () => {
+    it('should default to csv format when format is undefined', async () => {
+      mockPrisma.invoice.findMany.mockResolvedValue([]);
+
+      const result = await service.bulkExport(TENANT_ID, {
+        invoice_ids: [INVOICE_1],
+      } as never);
+
+      expect(result.format).toBe('csv');
     });
   });
 });

@@ -172,7 +172,12 @@ describe('HomeworkController', () => {
     const expected = { id: HOMEWORK_ID, title: 'Updated Title' };
     service.update.mockResolvedValue(expected);
 
-    const result = await controller.update(mockTenant as never, mockUser as never, HOMEWORK_ID, dto as never);
+    const result = await controller.update(
+      mockTenant as never,
+      mockUser as never,
+      HOMEWORK_ID,
+      dto as never,
+    );
 
     expect(service.update).toHaveBeenCalledWith(TENANT_ID, HOMEWORK_ID, USER_ID, dto);
     expect(result).toBe(expected);
@@ -198,7 +203,12 @@ describe('HomeworkController', () => {
     const expected = { id: 'new-id', copied_from_id: HOMEWORK_ID };
     service.copy.mockResolvedValue(expected);
 
-    const result = await controller.copy(mockTenant as never, mockUser as never, HOMEWORK_ID, dto as never);
+    const result = await controller.copy(
+      mockTenant as never,
+      mockUser as never,
+      HOMEWORK_ID,
+      dto as never,
+    );
 
     expect(service.copy).toHaveBeenCalledWith(TENANT_ID, HOMEWORK_ID, USER_ID, dto);
     expect(result).toBe(expected);
@@ -267,7 +277,11 @@ describe('HomeworkController', () => {
     const expected = { id: RECURRENCE_RULE_ID, interval: 2 };
     service.updateRecurrenceRule.mockResolvedValue(expected);
 
-    const result = await controller.updateRecurrenceRule(mockTenant as never, RECURRENCE_RULE_ID, dto as never);
+    const result = await controller.updateRecurrenceRule(
+      mockTenant as never,
+      RECURRENCE_RULE_ID,
+      dto as never,
+    );
 
     expect(service.updateRecurrenceRule).toHaveBeenCalledWith(TENANT_ID, RECURRENCE_RULE_ID, dto);
     expect(result).toBe(expected);
@@ -298,9 +312,127 @@ describe('HomeworkController', () => {
     const expected = { data: [], count: 5 };
     service.bulkCreate.mockResolvedValue(expected);
 
-    const result = await controller.bulkCreate(mockTenant as never, mockUser as never, dto as never);
+    const result = await controller.bulkCreate(
+      mockTenant as never,
+      mockUser as never,
+      dto as never,
+    );
 
     expect(service.bulkCreate).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
+    expect(result).toBe(expected);
+  });
+
+  // ─── GET /v1/homework/by-class/:classId/week — no week_start ─────────────────
+
+  it('findByClassWeek — delegates without week_start when not provided', async () => {
+    const query = {};
+    const expected = { data: [] };
+    service.findByClassWeek.mockResolvedValue(expected);
+
+    const result = await controller.findByClassWeek(mockTenant as never, CLASS_ID, query as never);
+
+    expect(service.findByClassWeek).toHaveBeenCalledWith(TENANT_ID, CLASS_ID, undefined);
+    expect(result).toBe(expected);
+  });
+
+  // ─── PATCH /v1/homework/:id/status — archived ──────────────────────────────
+
+  it('updateStatus — delegates archived status to service', async () => {
+    const dto = { status: 'archived' as const };
+    const expected = { id: HOMEWORK_ID, status: 'archived' };
+    service.updateStatus.mockResolvedValue(expected);
+
+    const result = await controller.updateStatus(mockTenant as never, HOMEWORK_ID, dto as never);
+
+    expect(service.updateStatus).toHaveBeenCalledWith(TENANT_ID, HOMEWORK_ID, dto);
+    expect(result).toBe(expected);
+  });
+
+  // ─── POST /v1/homework/:id/copy — with due_time ───────────────────────────
+
+  it('copy — delegates with due_time when provided', async () => {
+    const dto = { due_date: '2026-05-01', due_time: '14:30' };
+    const expected = { id: 'new-id', copied_from_id: HOMEWORK_ID };
+    service.copy.mockResolvedValue(expected);
+
+    const result = await controller.copy(
+      mockTenant as never,
+      mockUser as never,
+      HOMEWORK_ID,
+      dto as never,
+    );
+
+    expect(service.copy).toHaveBeenCalledWith(TENANT_ID, HOMEWORK_ID, USER_ID, dto);
+    expect(result).toBe(expected);
+  });
+
+  // ─── GET /v1/homework/templates — with search filter ──────────────────────
+
+  it('findTemplates — delegates with search and class_id filters', async () => {
+    const query = { page: 1, pageSize: 10, class_id: CLASS_ID, search: 'math' };
+    const expected = { data: [], meta: { page: 1, pageSize: 10, total: 0 } };
+    service.findTemplates.mockResolvedValue(expected);
+
+    const result = await controller.findTemplates(mockTenant as never, query as never);
+
+    expect(service.findTemplates).toHaveBeenCalledWith(TENANT_ID, query);
+    expect(result).toBe(expected);
+  });
+
+  // ─── POST /v1/homework/recurrence-rules — daily frequency ────────────────
+
+  it('createRecurrenceRule — delegates with daily frequency', async () => {
+    const dto = {
+      frequency: 'daily' as const,
+      interval: 1,
+      days_of_week: [],
+      start_date: '2026-04-01',
+      end_date: '2026-06-30',
+    };
+    const expected = { id: RECURRENCE_RULE_ID, ...dto };
+    service.createRecurrenceRule.mockResolvedValue(expected);
+
+    const result = await controller.createRecurrenceRule(mockTenant as never, dto as never);
+
+    expect(service.createRecurrenceRule).toHaveBeenCalledWith(TENANT_ID, dto);
+    expect(result).toBe(expected);
+  });
+
+  // ─── POST /v1/homework — with optional fields ────────────────────────────
+
+  it('create — delegates with optional description and max_points', async () => {
+    const dto = {
+      class_id: CLASS_ID,
+      academic_year_id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      title: 'Math HW',
+      homework_type: 'written' as const,
+      due_date: '2026-04-15',
+      description: 'Complete exercises 1-10',
+      max_points: 50,
+    };
+    const expected = { id: HOMEWORK_ID, ...dto };
+    service.create.mockResolvedValue(expected);
+
+    const result = await controller.create(mockTenant as never, mockUser as never, dto as never);
+
+    expect(service.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
+    expect(result).toBe(expected);
+  });
+
+  // ─── POST /v1/homework/:id/attachments — link type ─────────────────────────
+
+  it('addAttachment — delegates link attachment to service', async () => {
+    const dto = {
+      attachment_type: 'link' as const,
+      url: 'https://example.com/resource',
+      display_order: 1,
+    };
+    const expected = { id: ATTACHMENT_ID, ...dto };
+    service.addAttachment.mockResolvedValue(expected);
+
+    const result = await controller.addAttachment(mockTenant as never, HOMEWORK_ID, dto as never);
+
+    expect(service.addAttachment).toHaveBeenCalledWith(TENANT_ID, HOMEWORK_ID, dto);
     expect(result).toBe(expected);
   });
 
