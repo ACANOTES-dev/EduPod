@@ -18,6 +18,13 @@ interface ExpectedQueueConfig {
 type QueueKey = keyof typeof QUEUE_NAMES;
 
 const EXPECTED_QUEUE_CONFIGS: Record<QueueKey, ExpectedQueueConfig> = {
+  AUDIT_LOG: {
+    attempts: 3,
+    backoffType: 'exponential',
+    backoffDelay: 2000,
+    removeOnComplete: 10,
+    removeOnFail: 50,
+  },
   APPROVALS: {
     attempts: 2,
     backoffType: 'exponential',
@@ -101,6 +108,13 @@ const EXPECTED_QUEUE_CONFIGS: Record<QueueKey, ExpectedQueueConfig> = {
     backoffDelay: 5000,
     removeOnComplete: 50,
     removeOnFail: 200,
+  },
+  AUDIT_LOG: {
+    attempts: 3,
+    backoffType: 'exponential',
+    backoffDelay: 2000,
+    removeOnComplete: 10,
+    removeOnFail: 50,
   },
   BEHAVIOUR: {
     attempts: 3,
@@ -274,9 +288,9 @@ describe('BullMQ queue configuration — drift detection', () => {
     expect(extraInExpected).toEqual([]);
   });
 
-  it('should register exactly 21 queues in worker.module.ts', () => {
+  it('should register exactly 22 queues in worker.module.ts', () => {
     const parsedCount = Object.keys(parsedConfigs).length;
-    expect(parsedCount).toBe(21);
+    expect(parsedCount).toBe(22);
   });
 
   it('should have a parsed config for every QUEUE_NAMES key', () => {

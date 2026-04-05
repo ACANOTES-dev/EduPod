@@ -254,6 +254,12 @@
       "reason": "RLS context-setting via set_config() and sequence lock SELECT FOR UPDATE within transaction"
     },
     {
+      "file": "apps/worker/src/processors/security/anomaly-scan.processor.ts",
+      "methods": ["$executeRaw"],
+      "category": "rls-infrastructure",
+      "reason": "RLS context-setting via set_config() within per-tenant transaction for anomaly detection rules"
+    },
+    {
       "file": "apps/worker/src/processors/security/rules/auth-spike.rule.ts",
       "methods": ["$queryRaw"],
       "category": "anomaly-detection",

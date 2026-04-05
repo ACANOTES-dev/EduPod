@@ -21,15 +21,26 @@ jest.mock('crypto', () => ({
 // ─── Mock Redis client ──────────────────────────────────────────────────────
 
 const mockRedis = {
-  set: jest.fn().mockResolvedValue('OK'),
-  get: jest.fn().mockResolvedValue(null),
-  del: jest.fn().mockResolvedValue(1),
+  duplicate: jest.fn().mockReturnThis(),
 };
 
-// ─── Mock Queue ─────────────────────────────────────────────────────────────
+// ─── Mock echo job returned by Queue.getJob ─────────────────────────────────
+
+const mockEchoJobCompleted = {
+  getState: jest.fn().mockResolvedValue('completed'),
+  remove: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockEchoJobWaiting = {
+  getState: jest.fn().mockResolvedValue('waiting'),
+  remove: jest.fn().mockResolvedValue(undefined),
+};
+
+// ─── Mock dynamic Queue ─────────────────────────────────────────────────────
 
 const mockDynamicQueueAdd = jest.fn().mockResolvedValue({});
 const mockDynamicQueueClose = jest.fn().mockResolvedValue(undefined);
+const mockDynamicQueueGetJob = jest.fn().mockResolvedValue(null);
 
 jest.mock('bullmq', () => {
   const actual = jest.requireActual('bullmq');
@@ -38,6 +49,7 @@ jest.mock('bullmq', () => {
     Queue: jest.fn().mockImplementation(() => ({
       add: mockDynamicQueueAdd,
       close: mockDynamicQueueClose,
+      getJob: mockDynamicQueueGetJob,
     })),
   };
 });
@@ -72,57 +84,25 @@ describe('CanaryProcessor', () => {
     it('should ignore jobs with unknown names', async () => {
       await processor.process(buildJob('some:other-job'));
 
-      expect(mockRedis.set).not.toHaveBeenCalled();
-      expect(mockRedis.get).not.toHaveBeenCalled();
       expect(Sentry.captureMessage).not.toHaveBeenCalled();
     });
-  });
 
-  // ─── Echo ───────────────────────────────────────────────────────────────────
-
-  describe('process — canary echo', () => {
-    it('should write ACK to Redis on echo', async () => {
+    it('should handle echo jobs as no-op (job completion is sufficient)', async () => {
       const job = buildJob(CANARY_ECHO_JOB, {
         canary_id: 'test-id',
         source_queue: 'notifications',
       });
 
+      // Should not throw
       await processor.process(job);
-
-      expect(mockRedis.set).toHaveBeenCalledWith(
-        'canary:ack:test-id:notifications',
-        expect.any(String),
-        'EX',
-        600,
-      );
-    });
-
-    it('should use the source_queue in the Redis key', async () => {
-      const job = buildJob(CANARY_ECHO_JOB, {
-        canary_id: 'abc-123',
-        source_queue: 'payroll',
-      });
-
-      await processor.process(job);
-
-      expect(mockRedis.set).toHaveBeenCalledWith(
-        'canary:ack:abc-123:payroll',
-        expect.any(String),
-        'EX',
-        600,
-      );
     });
   });
 
   // ─── Check ──────────────────────────────────────────────────────────────────
 
   describe('process — canary check', () => {
-    it('should pass when all queues ACK', async () => {
-      mockRedis.get.mockImplementation((key: string) => {
-        if (key.startsWith('canary:ack:')) return Promise.resolve(Date.now().toString());
-        if (key.startsWith('canary:pending:')) return Promise.resolve(Date.now().toString());
-        return Promise.resolve(null);
-      });
+    it('should pass when all echo jobs are completed', async () => {
+      mockDynamicQueueGetJob.mockResolvedValue(mockEchoJobCompleted);
 
       const job = buildJob(CANARY_CHECK_JOB, {
         canary_id: 'test-id',
@@ -132,15 +112,14 @@ describe('CanaryProcessor', () => {
       await processor.process(job);
 
       expect(Sentry.captureMessage).not.toHaveBeenCalled();
+      // Should clean up completed echo jobs
+      expect(mockEchoJobCompleted.remove).toHaveBeenCalled();
     });
 
-    it('should alert via Sentry when a queue misses its SLA', async () => {
-      mockRedis.get.mockImplementation((key: string) => {
-        if (key === 'canary:ack:test-id:notifications')
-          return Promise.resolve(Date.now().toString());
-        if (key === 'canary:ack:test-id:payroll') return Promise.resolve(null); // missed
-        if (key.startsWith('canary:pending:')) return Promise.resolve(Date.now().toString());
-        return Promise.resolve(null);
+    it('should alert via Sentry when an echo job is still waiting', async () => {
+      mockDynamicQueueGetJob.mockImplementation(async (jobId: string) => {
+        if (jobId.includes('payroll')) return mockEchoJobWaiting;
+        return mockEchoJobCompleted;
       });
 
       const job = buildJob(CANARY_CHECK_JOB, {
@@ -156,9 +135,8 @@ describe('CanaryProcessor', () => {
       );
     });
 
-    it('should not alert when pending key is also missing (expired canary)', async () => {
-      // Both ack and pending are null — the canary expired, not a failure
-      mockRedis.get.mockResolvedValue(null);
+    it('should alert when echo job is not found (missing)', async () => {
+      mockDynamicQueueGetJob.mockResolvedValue(null);
 
       const job = buildJob(CANARY_CHECK_JOB, {
         canary_id: 'test-id',
@@ -167,33 +145,14 @@ describe('CanaryProcessor', () => {
 
       await processor.process(job);
 
-      expect(Sentry.captureMessage).not.toHaveBeenCalled();
-    });
-
-    it('should clean up Redis keys after check', async () => {
-      mockRedis.get.mockResolvedValue(null);
-
-      const queues = ['notifications', 'payroll'];
-      const job = buildJob(CANARY_CHECK_JOB, {
-        canary_id: 'test-id',
-        queues,
-      });
-
-      await processor.process(job);
-
-      for (const q of queues) {
-        expect(mockRedis.del).toHaveBeenCalledWith(`canary:pending:test-id:${q}`);
-        expect(mockRedis.del).toHaveBeenCalledWith(`canary:ack:test-id:${q}`);
-      }
+      expect(Sentry.captureMessage).toHaveBeenCalledWith(
+        expect.stringContaining('notifications'),
+        'error',
+      );
     });
 
     it('should report multiple missed queues in a single Sentry message', async () => {
-      mockRedis.get.mockImplementation((key: string) => {
-        // All ACKs missing, all pending present
-        if (key.startsWith('canary:ack:')) return Promise.resolve(null);
-        if (key.startsWith('canary:pending:')) return Promise.resolve(Date.now().toString());
-        return Promise.resolve(null);
-      });
+      mockDynamicQueueGetJob.mockResolvedValue(mockEchoJobWaiting);
 
       const job = buildJob(CANARY_CHECK_JOB, {
         canary_id: 'test-id',
@@ -203,10 +162,23 @@ describe('CanaryProcessor', () => {
       await processor.process(job);
 
       expect(Sentry.captureMessage).toHaveBeenCalledTimes(1);
-      const message = (Sentry.captureMessage as jest.Mock).mock.calls[0][0] as string;
+      const message = (Sentry.captureMessage as jest.Mock).mock.calls[0]![0] as string;
       expect(message).toContain('notifications');
       expect(message).toContain('payroll');
       expect(message).toContain('behaviour');
+    });
+
+    it('should attempt cleanup of stale echo jobs', async () => {
+      mockDynamicQueueGetJob.mockResolvedValue(mockEchoJobWaiting);
+
+      const job = buildJob(CANARY_CHECK_JOB, {
+        canary_id: 'test-id',
+        queues: ['payroll'],
+      });
+
+      await processor.process(job);
+
+      expect(mockEchoJobWaiting.remove).toHaveBeenCalled();
     });
   });
 
@@ -227,21 +199,19 @@ describe('CanaryProcessor', () => {
       expect(mockDynamicQueueClose).toHaveBeenCalledTimes(criticalQueues.length);
     });
 
-    it('should set pending keys in Redis for each critical queue', async () => {
+    it('should use deterministic jobIds for echo jobs', async () => {
       const job = buildJob(CANARY_PING_JOB);
 
       await processor.process(job);
 
-      const criticalQueues = Object.keys(CANARY_CRITICAL_QUEUES);
-
-      for (const queueName of criticalQueues) {
-        expect(mockRedis.set).toHaveBeenCalledWith(
-          `canary:pending:test-canary-id:${queueName}`,
-          expect.any(String),
-          'EX',
-          expect.any(Number),
-        );
-      }
+      expect(mockDynamicQueueAdd).toHaveBeenCalledWith(
+        CANARY_ECHO_JOB,
+        expect.objectContaining({ canary_id: 'test-canary-id' }),
+        expect.objectContaining({
+          jobId: expect.stringContaining('canary-echo:test-canary-id:'),
+          removeOnComplete: false,
+        }),
+      );
     });
 
     it('should schedule a check job with delay on the notifications queue', async () => {

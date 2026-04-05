@@ -41,9 +41,10 @@ interface SecurityIncidentEventDelegate {
 
 // ─── Job ─────────────────────────────────────────────────────────────────────
 //
-// Runs all breach detection rules and creates or updates SecurityIncident records.
-// Platform-level job — extends CrossTenantSystemJob (intentionally no RLS context),
-// because it scans across all tenants in one pass.
+// Runs all breach detection rules per-tenant with RLS context, then creates
+// or updates SecurityIncident records (platform-level, no RLS).
+// Extends CrossTenantSystemJob and uses forEachTenant() to iterate all active
+// tenants, setting RLS context for each so audit_logs queries succeed.
 
 class AnomalyScanJob extends CrossTenantSystemJob {
   constructor(prisma: PrismaClient) {
@@ -77,29 +78,38 @@ class AnomalyScanJob extends CrossTenantSystemJob {
     let incidentsCreated = 0;
     let incidentsUpdated = 0;
 
-    for (const rule of rules) {
-      let violations: Violation[];
+    const { processed, failed } = await this.forEachTenant(async (tenantId) => {
+      for (const rule of rules) {
+        let violations: Violation[];
 
-      try {
-        violations = await rule.evaluate(this.prisma);
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        this.logger.error(`Rule "${rule.name}" failed: ${message}`);
-        continue;
+        try {
+          // Run rule within RLS context for this tenant.
+          // audit_logs has RLS so we must set app.current_tenant_id.
+          violations = await this.prisma.$transaction(async (tx) => {
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}::text, true)`;
+            return rule.evaluate(tx as unknown as PrismaClient);
+          });
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          this.logger.error(`Rule "${rule.name}" failed for tenant ${tenantId}: ${message}`);
+          continue;
+        }
+
+        totalViolations += violations.length;
+
+        for (const violation of violations) {
+          const result = await this.processViolation(violation);
+          if (result === 'created') incidentsCreated++;
+          else incidentsUpdated++;
+        }
       }
-
-      totalViolations += violations.length;
-
-      for (const violation of violations) {
-        const result = await this.processViolation(violation);
-        if (result === 'created') incidentsCreated++;
-        else incidentsUpdated++;
-      }
-    }
+    });
 
     this.logger.log(
-      `Anomaly scan complete: ${rules.length} rules checked, ${totalViolations} violations found, ` +
-        `${incidentsCreated} incidents created, ${incidentsUpdated} incidents updated`,
+      `Anomaly scan complete: ${rules.length} rules × ${processed + failed} tenants, ` +
+        `${totalViolations} violations found, ` +
+        `${incidentsCreated} incidents created, ${incidentsUpdated} incidents updated` +
+        (failed > 0 ? ` (${failed} tenant(s) failed)` : ''),
     );
   }
 

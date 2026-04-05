@@ -13,14 +13,13 @@ import {
   QUEUE_NAMES,
 } from '../../base/queue.constants';
 
-// ─── Redis key helpers ──────────────────────────────────────────────────────
-
-const CANARY_PREFIX = 'canary:';
-const pendingKey = (canaryId: string, queue: string) =>
-  `${CANARY_PREFIX}pending:${canaryId}:${queue}`;
-const ackKey = (canaryId: string, queue: string) => `${CANARY_PREFIX}ack:${canaryId}:${queue}`;
-
 // ─── Processor ──────────────────────────────────────────────────────────────
+//
+// Canary system: sends lightweight echo jobs to critical queues and verifies
+// they are completed within SLA.  Any BullMQ processor on the target queue
+// will pick up the echo job and return (unknown job name → `return` → job
+// completes).  The check phase queries the echo job's completion state.
+// No explicit ACK handling required in target processors.
 
 @Processor(QUEUE_NAMES.NOTIFICATIONS, {
   lockDuration: 30_000,
@@ -40,7 +39,7 @@ export class CanaryProcessor extends WorkerHost {
         await this.handlePing();
         break;
       case CANARY_ECHO_JOB:
-        await this.handleEcho(job);
+        // Echo landed on NOTIFICATIONS queue — no-op, job completion is sufficient
         break;
       case CANARY_CHECK_JOB:
         await this.handleCheck(job);
@@ -60,19 +59,18 @@ export class CanaryProcessor extends WorkerHost {
     this.logger.log(`Canary ping ${canaryId}: enqueueing echoes to ${queueNames.length} queues`);
 
     for (const queueName of queueNames) {
-      const sla = CANARY_CRITICAL_QUEUES[queueName] ?? 300_000; // default 5 min if missing
-      const ttlSeconds = Math.ceil(sla / 1000) + 60; // SLA + 60s buffer
+      const jobId = `canary-echo:${canaryId}:${queueName}`;
 
-      // Mark pending in Redis
-      await redis.set(pendingKey(canaryId, queueName), Date.now().toString(), 'EX', ttlSeconds);
-
-      // Enqueue echo on the target queue
-      const q = new Queue(queueName, { connection: redis });
+      const q = new Queue(queueName, { connection: redis.duplicate() });
       try {
         await q.add(
           CANARY_ECHO_JOB,
           { canary_id: canaryId, source_queue: queueName },
-          { removeOnComplete: 5, removeOnFail: 10 },
+          {
+            jobId,
+            removeOnComplete: false, // Keep for check phase
+            removeOnFail: false,
+          },
         );
       } finally {
         await q.close();
@@ -90,17 +88,7 @@ export class CanaryProcessor extends WorkerHost {
     );
   }
 
-  // ─── Echo: ACK that this queue's worker is alive ────────────────────
-
-  private async handleEcho(job: Job<{ canary_id: string; source_queue: string }>): Promise<void> {
-    const { canary_id, source_queue } = job.data;
-    const redis = await this.notificationsQueue.client;
-
-    await redis.set(ackKey(canary_id, source_queue), Date.now().toString(), 'EX', 600);
-    this.logger.debug(`Canary echo ACK: ${source_queue} for ping ${canary_id}`);
-  }
-
-  // ─── Check: verify all echoes completed within SLA ──────────────────
+  // ─── Check: verify all echo jobs completed within SLA ──────────────
 
   private async handleCheck(job: Job<{ canary_id: string; queues: string[] }>): Promise<void> {
     const { canary_id, queues } = job.data;
@@ -108,12 +96,34 @@ export class CanaryProcessor extends WorkerHost {
     const missed: string[] = [];
 
     for (const queueName of queues) {
-      const ack = await redis.get(ackKey(canary_id, queueName));
-      const pending = await redis.get(pendingKey(canary_id, queueName));
+      const jobId = `canary-echo:${canary_id}:${queueName}`;
+      const q = new Queue(queueName, { connection: redis.duplicate() });
 
-      if (!ack && pending) {
-        // Pending was set but never ACK-ed — queue is not processing
-        missed.push(queueName);
+      try {
+        const echoJob = await q.getJob(jobId);
+
+        if (!echoJob) {
+          // Job doesn't exist — either never created or already removed
+          // Treat as missed since we set removeOnComplete: false
+          missed.push(queueName);
+          continue;
+        }
+
+        const state = await echoJob.getState();
+
+        if (state === 'completed') {
+          // Queue is alive — clean up the echo job
+          await echoJob.remove();
+        } else {
+          // Job still waiting/active/delayed/failed — queue is stalled
+          missed.push(queueName);
+          // Clean up the stale echo job
+          await echoJob.remove().catch(() => {
+            /* job may be active, ignore */
+          });
+        }
+      } finally {
+        await q.close();
       }
     }
 
@@ -125,12 +135,6 @@ export class CanaryProcessor extends WorkerHost {
       this.logger.log(
         `Canary check passed — all ${queues.length} queues responded (ping ${canary_id})`,
       );
-    }
-
-    // Cleanup Redis keys
-    for (const queueName of queues) {
-      await redis.del(pendingKey(canary_id, queueName));
-      await redis.del(ackKey(canary_id, queueName));
     }
   }
 }

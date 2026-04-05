@@ -40,7 +40,14 @@ function buildViolation(overrides: Partial<Violation> = {}): Violation {
 }
 
 function buildMockPrisma() {
+  const mockTx = {
+    $executeRaw: jest.fn().mockResolvedValue(0),
+  };
+
   return {
+    tenant: {
+      findMany: jest.fn().mockResolvedValue([{ id: TENANT_ID }]),
+    },
     securityIncident: {
       findFirst: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue({ id: INCIDENT_ID }),
@@ -49,6 +56,11 @@ function buildMockPrisma() {
     securityIncidentEvent: {
       create: jest.fn().mockResolvedValue({ id: 'event-1' }),
     },
+    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      // Pass the mockTx which has $executeRaw; the callback calls rule.evaluate(tx)
+      return fn(mockTx);
+    }),
+    _mockTx: mockTx,
   };
 }
 
@@ -85,9 +97,7 @@ describe('AnomalyScanProcessor', () => {
   beforeEach(() => {
     mockPrisma = buildMockPrisma();
     configureRuleMocks();
-    processor = new AnomalyScanProcessor(
-      mockPrisma as unknown as PrismaClient,
-    );
+    processor = new AnomalyScanProcessor(mockPrisma as unknown as PrismaClient);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -97,16 +107,30 @@ describe('AnomalyScanProcessor', () => {
   it('should skip jobs with wrong name', async () => {
     await processor.process(buildJob('some-other-job') as never);
 
+    expect(mockPrisma.tenant.findMany).not.toHaveBeenCalled();
     expect(mockPrisma.securityIncident.findFirst).not.toHaveBeenCalled();
-    expect(mockPrisma.securityIncident.create).not.toHaveBeenCalled();
+  });
+
+  // ─── Per-tenant scanning ─────────────────────────────────────────────
+
+  it('should iterate active tenants and set RLS context per-tenant', async () => {
+    await processor.process(buildJob() as never);
+
+    // Should fetch active tenants
+    expect(mockPrisma.tenant.findMany).toHaveBeenCalledWith({
+      where: { status: 'active' },
+      select: { id: true },
+    });
+
+    // Should set RLS context inside transaction
+    expect(mockPrisma._mockTx.$executeRaw).toHaveBeenCalled();
   });
 
   // ─── All rules evaluated ──────────────────────────────────────────────
 
-  it('should run all 7 detection rules', async () => {
+  it('should run all 7 detection rules per tenant', async () => {
     await processor.process(buildJob() as never);
 
-    // Each mocked class should have been instantiated exactly once
     expect(UnusualAccessRule).toHaveBeenCalledTimes(1);
     expect(AuthSpikeRule).toHaveBeenCalledTimes(1);
     expect(CrossTenantAttemptRule).toHaveBeenCalledTimes(1);
@@ -121,18 +145,12 @@ describe('AnomalyScanProcessor', () => {
   it('should create new incident for new violation', async () => {
     const violation = buildViolation();
 
-    // Only the first rule returns a violation; others return empty
     (UnusualAccessRule as jest.Mock).mockImplementation(() => ({
       name: 'unusual_access',
       evaluate: jest.fn().mockResolvedValue([violation]),
     }));
 
-    // Recreate processor so it picks up the new mock
-    processor = new AnomalyScanProcessor(
-      mockPrisma as unknown as PrismaClient,
-    );
-
-    // findFirst returns null — no existing open incident
+    processor = new AnomalyScanProcessor(mockPrisma as unknown as PrismaClient);
     mockPrisma.securityIncident.findFirst.mockResolvedValue(null);
 
     await processor.process(buildJob() as never);
@@ -168,9 +186,7 @@ describe('AnomalyScanProcessor', () => {
       evaluate: jest.fn().mockResolvedValue([violation]),
     }));
 
-    processor = new AnomalyScanProcessor(
-      mockPrisma as unknown as PrismaClient,
-    );
+    processor = new AnomalyScanProcessor(mockPrisma as unknown as PrismaClient);
 
     const existingIncident = {
       id: INCIDENT_ID,
@@ -183,10 +199,8 @@ describe('AnomalyScanProcessor', () => {
 
     await processor.process(buildJob() as never);
 
-    // Should NOT create a new incident
     expect(mockPrisma.securityIncident.create).not.toHaveBeenCalled();
 
-    // Should add evidence event
     expect(mockPrisma.securityIncidentEvent.create).toHaveBeenCalledWith({
       data: {
         incident_id: INCIDENT_ID,
@@ -196,7 +210,6 @@ describe('AnomalyScanProcessor', () => {
       },
     });
 
-    // Should update detected_at
     expect(mockPrisma.securityIncident.update).toHaveBeenCalledWith({
       where: { id: INCIDENT_ID },
       data: { detected_at: expect.any(Date) },
@@ -206,20 +219,25 @@ describe('AnomalyScanProcessor', () => {
   // ─── Rule failure isolation ───────────────────────────────────────────
 
   it('should continue scanning after a rule throws', async () => {
-    // First rule throws; remaining rules return empty violations
     (UnusualAccessRule as jest.Mock).mockImplementation(() => ({
       name: 'unusual_access',
       evaluate: jest.fn().mockRejectedValue(new Error('rule error')),
     }));
 
-    processor = new AnomalyScanProcessor(
-      mockPrisma as unknown as PrismaClient,
-    );
+    processor = new AnomalyScanProcessor(mockPrisma as unknown as PrismaClient);
 
-    // Should not throw — other rules continue
     await expect(processor.process(buildJob() as never)).resolves.toBeUndefined();
 
-    // No incidents created since the only violation came from the failing rule
     expect(mockPrisma.securityIncident.create).not.toHaveBeenCalled();
+  });
+
+  // ─── No tenants ──────────────────────────────────────────────────────
+
+  it('should complete gracefully when no active tenants exist', async () => {
+    mockPrisma.tenant.findMany.mockResolvedValue([]);
+
+    await expect(processor.process(buildJob() as never)).resolves.toBeUndefined();
+
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 });
