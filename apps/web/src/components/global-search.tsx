@@ -102,21 +102,48 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
 
   const entityTypes: SearchResult['entity_type'][] = ['students', 'parents', 'staff', 'households'];
 
-  const groups: CommandPaletteGroup[] = entityTypes
-    .filter((type) => grouped[type]?.length > 0)
-    .map((type) => ({
-      heading: t(`resultTypes.${type}`),
-      items: grouped[type].map((result) => ({
-        id: result.id,
-        label: result.primary_label,
-        description: result.secondary_label,
-        icon: ENTITY_ICONS[result.entity_type],
-        onSelect: () => {
-          router.push(result.url);
-          onOpenChange(false);
-        },
-      })),
-    }));
+  let groups: CommandPaletteGroup[] = [];
+  
+  if (query.trim() && results.length > 0) {
+    groups = entityTypes
+      .filter((type) => grouped[type]?.length > 0)
+      .map((type) => ({
+        heading: t(`resultTypes.${type}`),
+        items: grouped[type].slice(0, 3).map((result) => ({
+          id: result.id,
+          label: result.primary_label,
+          description: result.secondary_label,
+          icon: ENTITY_ICONS[result.entity_type],
+          onSelect: () => {
+            router.push(result.url);
+            onOpenChange(false);
+          },
+        })),
+      }));
+  } else if (!query.trim()) {
+    // Show empty state shortcuts natively if input is empty
+    const quickActions = [
+      { id: 'new-student', label: 'New Student', url: '/students/new', icon: ENTITY_ICONS['students'] },
+      { id: 'new-invoice', label: 'New Invoice', url: '/finance/invoices/new', icon: ENTITY_ICONS['households'] },
+      { id: 'new-staff', label: 'New Staff', url: '/staff/new', icon: ENTITY_ICONS['staff'] },
+    ];
+    
+    // Only add if there are valid roles to display (assuming if they can search they can see, backend scopes form submission anyway)
+    groups = [
+      {
+        heading: 'Create new...',
+        items: quickActions.map(action => ({
+          id: action.id,
+          label: action.label,
+          icon: action.icon,
+          onSelect: () => {
+            router.push(action.url);
+            onOpenChange(false);
+          }
+        }))
+      }
+    ];
+  }
 
   const emptyMessage = loading ? '...' : query.trim() ? t('noResults') : '';
 

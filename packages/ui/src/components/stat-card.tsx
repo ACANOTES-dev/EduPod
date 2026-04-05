@@ -56,9 +56,9 @@ export function StatCard({ label, value, trend, className }: StatCardProps) {
   }, [value]);
 
   return (
-    <div className={cn('rounded-2xl bg-surface-secondary p-5', className)}>
-      <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">{label}</p>
-      <p className="mt-1 text-[28px] font-semibold leading-tight text-text-primary">{displayValue}</p>
+    <div className={cn('rounded-[16px] border border-border bg-surface p-4 shadow-sm', className)}>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">{label}</p>
+      <p className="mt-1 text-[28px] font-bold leading-tight text-text-primary">{displayValue}</p>
       {trend && (
         <p
           className={cn(

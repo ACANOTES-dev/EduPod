@@ -1,21 +1,21 @@
-import { JetBrains_Mono, Plus_Jakarta_Sans } from 'next/font/google';
+import { Figtree, JetBrains_Mono } from 'next/font/google';
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+const figtree = Figtree({
   subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
   variable: '--font-sans',
-  weight: ['400', '500', '600', '700'],
   display: 'swap',
 });
 
 const jetBrainsMono = JetBrains_Mono({
   subsets: ['latin'],
-  variable: '--font-mono',
   weight: ['400', '500'],
+  variable: '--font-mono',
   display: 'swap',
 });
 
 export const fonts = {
-  className: `${plusJakartaSans.variable} ${jetBrainsMono.variable}`,
-  sans: plusJakartaSans,
+  className: `${figtree.variable} ${jetBrainsMono.variable}`,
+  sans: figtree,
   mono: jetBrainsMono,
 };
