@@ -605,7 +605,11 @@ describe('CriticalIncidentService', () => {
 
       expect(result.data).toEqual(plan);
       expect(mockResponseService.updateResponsePlanItem).toHaveBeenCalledWith(
-        mockRlsTx, TENANT_ID, INCIDENT_ID, USER_ID, dto,
+        mockRlsTx,
+        TENANT_ID,
+        INCIDENT_ID,
+        USER_ID,
+        dto,
       );
     });
   });
@@ -627,7 +631,11 @@ describe('CriticalIncidentService', () => {
 
       expect(result.data).toEqual(plan);
       expect(mockResponseService.addResponsePlanItem).toHaveBeenCalledWith(
-        mockRlsTx, TENANT_ID, INCIDENT_ID, USER_ID, dto,
+        mockRlsTx,
+        TENANT_ID,
+        INCIDENT_ID,
+        USER_ID,
+        dto,
       );
     });
   });
@@ -648,7 +656,9 @@ describe('CriticalIncidentService', () => {
 
       expect(result.data).toEqual(progress);
       expect(mockResponseService.getResponsePlanProgress).toHaveBeenCalledWith(
-        mockRlsTx, TENANT_ID, INCIDENT_ID,
+        mockRlsTx,
+        TENANT_ID,
+        INCIDENT_ID,
       );
     });
   });
@@ -677,7 +687,11 @@ describe('CriticalIncidentService', () => {
 
       expect(result.data).toEqual(entry);
       expect(mockResponseService.addExternalSupport).toHaveBeenCalledWith(
-        mockRlsTx, TENANT_ID, INCIDENT_ID, USER_ID, dto,
+        mockRlsTx,
+        TENANT_ID,
+        INCIDENT_ID,
+        USER_ID,
+        dto,
       );
     });
   });
@@ -697,11 +711,22 @@ describe('CriticalIncidentService', () => {
 
       const dto = { outcome_notes: 'Supported 5 students, follow-up scheduled' };
 
-      const result = await service.updateExternalSupport(TENANT_ID, INCIDENT_ID, entryId, USER_ID, dto);
+      const result = await service.updateExternalSupport(
+        TENANT_ID,
+        INCIDENT_ID,
+        entryId,
+        USER_ID,
+        dto,
+      );
 
       expect(result.data).toEqual(updatedEntry);
       expect(mockResponseService.updateExternalSupport).toHaveBeenCalledWith(
-        mockRlsTx, TENANT_ID, INCIDENT_ID, entryId, USER_ID, dto,
+        mockRlsTx,
+        TENANT_ID,
+        INCIDENT_ID,
+        entryId,
+        USER_ID,
+        dto,
       );
     });
   });
@@ -780,8 +805,314 @@ describe('CriticalIncidentService', () => {
 
       expect(result.data).toEqual(entries);
       expect(mockResponseService.listExternalSupport).toHaveBeenCalledWith(
-        mockRlsTx, TENANT_ID, INCIDENT_ID,
+        mockRlsTx,
+        TENANT_ID,
+        INCIDENT_ID,
       );
+    });
+  });
+
+  // ─── DECLARE — additional branch coverage ─────────────────────────────
+
+  describe('declare — branch coverage', () => {
+    const baseDto: DeclareIncidentDto = {
+      incident_type: 'bereavement',
+      description: 'A significant bereavement affecting the school community',
+      incident_date: '2026-03-15',
+      scope: 'whole_school',
+    };
+
+    it('should validate class scope with empty scope_class_ids array', async () => {
+      const dto: DeclareIncidentDto = {
+        ...baseDto,
+        scope: 'class',
+        scope_class_ids: [],
+      };
+
+      await expect(service.declare(TENANT_ID, USER_ID, dto)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should handle other incident_type with empty string for incident_type_other', async () => {
+      const dto: DeclareIncidentDto = {
+        ...baseDto,
+        incident_type: 'other',
+        incident_type_other: '   ',
+      };
+
+      await expect(service.declare(TENANT_ID, USER_ID, dto)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should map individual scope correctly (no scope_ids)', async () => {
+      const dto: DeclareIncidentDto = {
+        ...baseDto,
+        scope: 'individual',
+      };
+
+      const created = makeIncident({ scope: 'individual' });
+      mockRlsTx.criticalIncident.create.mockResolvedValue(created);
+
+      await service.declare(TENANT_ID, USER_ID, dto);
+
+      expect(mockRlsTx.criticalIncident.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          scope: 'individual',
+          scope_ids: expect.anything(), // JsonNull for individual scope
+        }),
+      });
+    });
+
+    it('should map serious_accident incident_type directly', async () => {
+      const dto: DeclareIncidentDto = {
+        ...baseDto,
+        incident_type: 'serious_accident',
+      };
+
+      const created = makeIncident({ incident_type: 'serious_accident' });
+      mockRlsTx.criticalIncident.create.mockResolvedValue(created);
+
+      await service.declare(TENANT_ID, USER_ID, dto);
+
+      expect(mockRlsTx.criticalIncident.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          incident_type: 'serious_accident',
+        }),
+      });
+    });
+
+    it('edge: should handle notification queue failure gracefully', async () => {
+      const created = makeIncident();
+      mockRlsTx.criticalIncident.create.mockResolvedValue(created);
+      mockPastoralQueue.add.mockRejectedValue(new Error('Queue connection failed'));
+
+      // Should not throw — notification is fire-and-forget
+      const result = await service.declare(TENANT_ID, USER_ID, baseDto);
+      expect(result.data).toBeDefined();
+    });
+  });
+
+  // ─── TRANSITION STATUS — additional branch coverage ────────────────────
+
+  describe('transitionStatus — branch coverage', () => {
+    it('should reject invalid target status string', async () => {
+      const dto = {
+        new_status: 'nonexistent_status' as 'active',
+        reason: 'Test',
+      };
+
+      await expect(service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should reject closure with whitespace-only closure_notes', async () => {
+      const dto: TransitionStatusDto = {
+        new_status: 'closed',
+        reason: 'Done',
+        closure_notes: '   ',
+      };
+
+      await expect(service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should transition from ci_monitoring to ci_active', async () => {
+      const existing = makeIncident({ status: 'ci_monitoring' });
+      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(existing);
+      mockRlsTx.criticalIncident.update.mockResolvedValue({
+        ...existing,
+        status: 'ci_active',
+      });
+
+      const dto: TransitionStatusDto = {
+        new_status: 'active',
+        reason: 'Situation escalated',
+      };
+
+      const result = await service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, dto);
+      expect(result.data).toBeDefined();
+    });
+
+    it('should reject ci_monitoring to ci_monitoring (self-transition)', async () => {
+      const existing = makeIncident({ status: 'ci_monitoring' });
+      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(existing);
+
+      const dto: TransitionStatusDto = {
+        new_status: 'monitoring',
+        reason: 'No change',
+      };
+
+      await expect(service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  // ─── LIST — additional branch coverage ─────────────────────────────────
+
+  describe('list — branch coverage', () => {
+    it('should apply incident_type filter (other maps to ci_other)', async () => {
+      mockRlsTx.criticalIncident.findMany.mockResolvedValue([]);
+      mockRlsTx.criticalIncident.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { incident_type: 'other' }, 1, 20);
+
+      expect(mockRlsTx.criticalIncident.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            incident_type: 'ci_other',
+          }),
+        }),
+      );
+    });
+
+    it('should apply incident_type filter (bereavement maps directly)', async () => {
+      mockRlsTx.criticalIncident.findMany.mockResolvedValue([]);
+      mockRlsTx.criticalIncident.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { incident_type: 'bereavement' }, 1, 20);
+
+      expect(mockRlsTx.criticalIncident.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            incident_type: 'bereavement',
+          }),
+        }),
+      );
+    });
+
+    it('should apply date_from filter only', async () => {
+      mockRlsTx.criticalIncident.findMany.mockResolvedValue([]);
+      mockRlsTx.criticalIncident.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { date_from: '2026-01-01' }, 1, 20);
+
+      expect(mockRlsTx.criticalIncident.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            occurred_at: expect.objectContaining({
+              gte: expect.any(Date),
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should apply date_to filter only', async () => {
+      mockRlsTx.criticalIncident.findMany.mockResolvedValue([]);
+      mockRlsTx.criticalIncident.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { date_to: '2026-12-31' }, 1, 20);
+
+      expect(mockRlsTx.criticalIncident.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            occurred_at: expect.objectContaining({
+              lte: expect.any(Date),
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should apply both date_from and date_to filters', async () => {
+      mockRlsTx.criticalIncident.findMany.mockResolvedValue([]);
+      mockRlsTx.criticalIncident.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { date_from: '2026-01-01', date_to: '2026-12-31' }, 1, 20);
+
+      expect(mockRlsTx.criticalIncident.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            occurred_at: expect.objectContaining({
+              gte: expect.any(Date),
+              lte: expect.any(Date),
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should handle unknown status filter gracefully (no where.status)', async () => {
+      mockRlsTx.criticalIncident.findMany.mockResolvedValue([]);
+      mockRlsTx.criticalIncident.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { status: 'nonexistent_status' }, 1, 20);
+
+      // STATUS_TO_PRISMA has no mapping for nonexistent, so no status filter applied
+      const calledWith = mockRlsTx.criticalIncident.findMany.mock.calls[0]![0];
+      expect((calledWith as Record<string, Record<string, unknown>>).where.status).toBeUndefined();
+    });
+  });
+
+  // ─── GET BY ID — additional branch coverage ────────────────────────────
+
+  describe('getById — branch coverage', () => {
+    it('should parse null response_plan as empty phases', async () => {
+      const incident = makeIncident({
+        response_plan: null,
+        external_support_log: null,
+      });
+      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
+      mockRlsTx.criticalIncidentAffected.count.mockResolvedValue(0);
+
+      const result = await service.getById(TENANT_ID, INCIDENT_ID);
+
+      const plan = result.data.response_plan as Record<string, unknown[]>;
+      expect(plan.immediate).toEqual([]);
+      expect(plan.short_term).toEqual([]);
+      expect(plan.medium_term).toEqual([]);
+      expect(plan.long_term).toEqual([]);
+    });
+
+    it('should parse non-object response_plan as empty phases', async () => {
+      const incident = makeIncident({
+        response_plan: 'invalid_string',
+        external_support_log: 42,
+      });
+      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
+      mockRlsTx.criticalIncidentAffected.count.mockResolvedValue(0);
+
+      const result = await service.getById(TENANT_ID, INCIDENT_ID);
+
+      const plan = result.data.response_plan as Record<string, unknown[]>;
+      expect(plan.immediate).toEqual([]);
+      expect(plan.short_term).toEqual([]);
+    });
+
+    it('should parse partial response_plan (missing phases)', async () => {
+      const incident = makeIncident({
+        response_plan: { immediate: [{ id: '1', label: 'Test' }] },
+        external_support_log: [],
+      });
+      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
+      mockRlsTx.criticalIncidentAffected.count.mockResolvedValue(0);
+
+      const result = await service.getById(TENANT_ID, INCIDENT_ID);
+
+      const plan = result.data.response_plan as Record<string, unknown[]>;
+      expect(plan.immediate).toHaveLength(1);
+      expect(plan.short_term).toEqual([]);
+      expect(plan.medium_term).toEqual([]);
+      expect(plan.long_term).toEqual([]);
+    });
+  });
+
+  // ─── UPDATE — additional branch coverage ───────────────────────────────
+
+  describe('update — branch coverage', () => {
+    it('should send empty update data when no fields provided', async () => {
+      const existing = makeIncident();
+      mockRlsTx.criticalIncident.findFirst.mockResolvedValue(existing);
+      mockRlsTx.criticalIncident.update.mockResolvedValue(existing);
+
+      const dto: UpdateIncidentDto = {};
+      await service.update(TENANT_ID, INCIDENT_ID, USER_ID, dto);
+
+      expect(mockRlsTx.criticalIncident.update).toHaveBeenCalledWith({
+        where: { id: INCIDENT_ID },
+        data: {},
+      });
     });
   });
 });

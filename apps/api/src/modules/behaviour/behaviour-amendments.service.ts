@@ -226,185 +226,200 @@ export class BehaviourAmendmentsService {
   async sendCorrection(tenantId: string, id: string, userId: string) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    return rlsClient.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
+    // Run the DB-heavy work inside a transaction with explicit timeout (DZ-20)
+    const { updated, noticeForEnqueue } = (await rlsClient.$transaction(
+      async (tx) => {
+        const db = tx as unknown as PrismaService;
 
-      const notice = await db.behaviourAmendmentNotice.findFirst({
-        where: { id, tenant_id: tenantId },
-      });
-      if (!notice) {
-        throw new NotFoundException({
-          code: 'AMENDMENT_NOTICE_NOT_FOUND',
-          message: 'Amendment notice not found',
+        const notice = await db.behaviourAmendmentNotice.findFirst({
+          where: { id, tenant_id: tenantId },
         });
-      }
+        if (!notice) {
+          throw new NotFoundException({
+            code: 'AMENDMENT_NOTICE_NOT_FOUND',
+            message: 'Amendment notice not found',
+          });
+        }
 
-      // ── Step 2-3: Resolve student_id + incident/sanction IDs from entity ──
-      const entityRefs = await this.resolveEntityReferences(
-        db,
-        tenantId,
-        notice.entity_type,
-        notice.entity_id,
-      );
+        // ── Step 2-3: Resolve student_id + incident/sanction IDs from entity ──
+        const entityRefs = await this.resolveEntityReferences(
+          db,
+          tenantId,
+          notice.entity_type,
+          notice.entity_id,
+        );
 
-      // ── Step 4: Find parents for the student ─────────────────────────────
-      const now = new Date();
-      if (entityRefs.studentId) {
-        const studentParents = await db.studentParent.findMany({
-          where: {
-            student_id: entityRefs.studentId,
-            tenant_id: tenantId,
-          },
-          include: {
-            parent: {
-              select: { id: true, user_id: true, status: true },
+        // ── Step 4: Find parents for the student ─────────────────────────────
+        const now = new Date();
+        if (entityRefs.studentId) {
+          const studentParents = await db.studentParent.findMany({
+            where: {
+              student_id: entityRefs.studentId,
+              tenant_id: tenantId,
             },
-          },
-        });
-
-        for (const sp of studentParents) {
-          if (sp.parent.status !== 'active') continue;
-
-          // ── Step 5: Create acknowledgement row with amendment_notice_id ─
-          try {
-            await db.behaviourParentAcknowledgement.create({
-              data: {
-                tenant_id: tenantId,
-                incident_id: entityRefs.incidentId ?? null,
-                sanction_id: entityRefs.sanctionId ?? null,
-                amendment_notice_id: notice.id,
-                parent_id: sp.parent.id,
-                channel: 'in_app',
-                sent_at: now,
+            include: {
+              parent: {
+                select: { id: true, user_id: true, status: true },
               },
-            });
-          } catch (err) {
-            this.logger.warn(
-              `Failed to create parent acknowledgement row for amendment ${notice.id} — correction continues`,
-              err instanceof Error ? err.stack : String(err),
-            );
-          }
+            },
+          });
 
-          // ── Step 6: Create in-app notification for correction ──────────
-          if (sp.parent.user_id) {
+          for (const sp of studentParents) {
+            if (sp.parent.status !== 'active') continue;
+
+            // ── Step 5: Create acknowledgement row with amendment_notice_id ─
             try {
-              await db.notification.create({
+              await db.behaviourParentAcknowledgement.create({
                 data: {
                   tenant_id: tenantId,
-                  recipient_user_id: sp.parent.user_id,
+                  incident_id: entityRefs.incidentId ?? null,
+                  sanction_id: entityRefs.sanctionId ?? null,
+                  amendment_notice_id: notice.id,
+                  parent_id: sp.parent.id,
                   channel: 'in_app',
-                  template_key: notice.requires_parent_reacknowledgement
-                    ? 'behaviour_reacknowledgement_request'
-                    : 'behaviour_correction_parent',
-                  locale: 'en',
-                  status: 'delivered',
-                  payload_json: {
-                    amendment_notice_id: notice.id,
-                    entity_type: notice.entity_type,
-                    entity_id: notice.entity_id,
-                    requires_reacknowledgement: notice.requires_parent_reacknowledgement,
-                  },
-                  source_entity_type: 'behaviour_amendment_notice',
-                  source_entity_id: notice.id,
-                  delivered_at: now,
+                  sent_at: now,
                 },
               });
             } catch (err) {
               this.logger.warn(
-                `Failed to create in-app notification for amendment ${notice.id} — correction continues`,
+                `Failed to create parent acknowledgement row for amendment ${notice.id} — correction continues`,
                 err instanceof Error ? err.stack : String(err),
               );
             }
+
+            // ── Step 6: Create in-app notification for correction ──────────
+            if (sp.parent.user_id) {
+              try {
+                await db.notification.create({
+                  data: {
+                    tenant_id: tenantId,
+                    recipient_user_id: sp.parent.user_id,
+                    channel: 'in_app',
+                    template_key: notice.requires_parent_reacknowledgement
+                      ? 'behaviour_reacknowledgement_request'
+                      : 'behaviour_correction_parent',
+                    locale: 'en',
+                    status: 'delivered',
+                    payload_json: {
+                      amendment_notice_id: notice.id,
+                      entity_type: notice.entity_type,
+                      entity_id: notice.entity_id,
+                      requires_reacknowledgement: notice.requires_parent_reacknowledgement,
+                    },
+                    source_entity_type: 'behaviour_amendment_notice',
+                    source_entity_id: notice.id,
+                    delivered_at: now,
+                  },
+                });
+              } catch (err) {
+                this.logger.warn(
+                  `Failed to create in-app notification for amendment ${notice.id} — correction continues`,
+                  err instanceof Error ? err.stack : String(err),
+                );
+              }
+            }
           }
         }
-      }
 
-      // ── Step 7: Update correction_notification_sent flags ───────────────
-      const updated = await db.behaviourAmendmentNotice.update({
-        where: { id },
-        data: {
-          correction_notification_sent: true,
-          correction_notification_sent_at: now,
-        },
-      });
-
-      // ── Step 8: Document supersession ──────────────────────────────────
-      try {
-        const existingSentDoc = await db.behaviourDocument.findFirst({
-          where: {
-            tenant_id: tenantId,
-            entity_id: notice.entity_id,
-            status: 'sent_doc',
+        // ── Step 7: Update correction_notification_sent flags ───────────────
+        const txUpdated = await db.behaviourAmendmentNotice.update({
+          where: { id },
+          data: {
+            correction_notification_sent: true,
+            correction_notification_sent_at: now,
           },
-          orderBy: { generated_at: 'desc' },
         });
 
-        if (existingSentDoc) {
-          await db.behaviourDocument.update({
-            where: { id: existingSentDoc.id },
-            data: {
-              status: 'superseded',
-              superseded_reason: `Amendment: ${notice.change_reason ?? 'Post-notification correction'}`,
-            },
-          });
-        }
-      } catch (err) {
-        this.logger.warn(
-          `Failed to supersede existing behaviour document for amendment ${id} — correction continues`,
-          err instanceof Error ? err.stack : String(err),
-        );
-      }
-
-      // Enqueue correction notification to parent (async delivery)
-      try {
-        await this.notificationsQueue.add('behaviour:correction-parent', {
-          tenant_id: tenantId,
-          amendment_notice_id: id,
-          entity_type: notice.entity_type,
-          entity_id: notice.entity_id,
-        });
-      } catch (err) {
-        this.logger.warn(
-          'Failed to enqueue behaviour:correction-parent — correction send succeeded',
-          err instanceof Error ? err.stack : String(err),
-        );
-      }
-
-      // If requires re-acknowledgement, enqueue re-ack request
-      if (notice.requires_parent_reacknowledgement) {
+        // ── Step 8: Document supersession ──────────────────────────────────
         try {
-          await this.notificationsQueue.add('behaviour:parent-reacknowledgement', {
-            tenant_id: tenantId,
-            amendment_notice_id: id,
-            entity_type: notice.entity_type,
-            entity_id: notice.entity_id,
+          const existingSentDoc = await db.behaviourDocument.findFirst({
+            where: {
+              tenant_id: tenantId,
+              entity_id: notice.entity_id,
+              status: 'sent_doc',
+            },
+            orderBy: { generated_at: 'desc' },
           });
+
+          if (existingSentDoc) {
+            await db.behaviourDocument.update({
+              where: { id: existingSentDoc.id },
+              data: {
+                status: 'superseded',
+                superseded_reason: `Amendment: ${notice.change_reason ?? 'Post-notification correction'}`,
+              },
+            });
+          }
         } catch (err) {
           this.logger.warn(
-            'Failed to enqueue behaviour:parent-reacknowledgement — correction send succeeded',
+            `Failed to supersede existing behaviour document for amendment ${id} — correction continues`,
             err instanceof Error ? err.stack : String(err),
           );
         }
-      }
 
-      // Record entity history
-      await this.historyService.recordHistory(
-        db,
-        tenantId,
-        notice.entity_type,
-        notice.entity_id,
-        userId,
-        'correction_sent',
-        { correction_notification_sent: false },
-        {
-          correction_notification_sent: true,
-          amendment_notice_id: id,
-          requires_reacknowledgement: notice.requires_parent_reacknowledgement,
-        },
+        // Record entity history
+        await this.historyService.recordHistory(
+          db,
+          tenantId,
+          notice.entity_type,
+          notice.entity_id,
+          userId,
+          'correction_sent',
+          { correction_notification_sent: false },
+          {
+            correction_notification_sent: true,
+            amendment_notice_id: id,
+            requires_reacknowledgement: notice.requires_parent_reacknowledgement,
+          },
+        );
+
+        return {
+          updated: txUpdated,
+          noticeForEnqueue: {
+            entityType: notice.entity_type,
+            entityId: notice.entity_id,
+            requiresReack: notice.requires_parent_reacknowledgement,
+          },
+        };
+      },
+      { timeout: 15000 },
+    )) as {
+      updated: unknown;
+      noticeForEnqueue: { entityType: string; entityId: string; requiresReack: boolean };
+    };
+
+    // ── Post-commit: enqueue notifications outside the transaction (DZ-20) ──
+    try {
+      await this.notificationsQueue.add('behaviour:correction-parent', {
+        tenant_id: tenantId,
+        amendment_notice_id: id,
+        entity_type: noticeForEnqueue.entityType,
+        entity_id: noticeForEnqueue.entityId,
+      });
+    } catch (err) {
+      this.logger.warn(
+        'Failed to enqueue behaviour:correction-parent — correction send succeeded',
+        err instanceof Error ? err.stack : String(err),
       );
+    }
 
-      return updated;
-    });
+    if (noticeForEnqueue.requiresReack) {
+      try {
+        await this.notificationsQueue.add('behaviour:parent-reacknowledgement', {
+          tenant_id: tenantId,
+          amendment_notice_id: id,
+          entity_type: noticeForEnqueue.entityType,
+          entity_id: noticeForEnqueue.entityId,
+        });
+      } catch (err) {
+        this.logger.warn(
+          'Failed to enqueue behaviour:parent-reacknowledgement — correction send succeeded',
+          err instanceof Error ? err.stack : String(err),
+        );
+      }
+    }
+
+    return updated;
   }
 
   // ─── Get Pending (unsent corrections) ───────────────────────────────────────

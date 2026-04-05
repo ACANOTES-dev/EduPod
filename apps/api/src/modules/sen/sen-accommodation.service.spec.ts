@@ -254,6 +254,154 @@ describe('SenAccommodationService', () => {
         }),
       ).rejects.toThrow(NotFoundException);
     });
+
+    it('should handle nullable start_date: set to null when explicitly null', async () => {
+      senAccommodationMock.findFirst.mockResolvedValue({ id: ACCOMMODATION_ID });
+      senAccommodationMock.update.mockResolvedValue(
+        createAccommodationRecord({ start_date: null }),
+      );
+
+      const result = await service.update(TENANT_ID, ACCOMMODATION_ID, {
+        start_date: null,
+      });
+
+      expect(result.start_date).toBeNull();
+      expect(senAccommodationMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            start_date: null,
+          }),
+        }),
+      );
+    });
+
+    it('should convert start_date string to Date when provided', async () => {
+      senAccommodationMock.findFirst.mockResolvedValue({ id: ACCOMMODATION_ID });
+      senAccommodationMock.update.mockResolvedValue(
+        createAccommodationRecord({ start_date: new Date('2026-10-01') }),
+      );
+
+      await service.update(TENANT_ID, ACCOMMODATION_ID, {
+        start_date: '2026-10-01',
+      });
+
+      expect(senAccommodationMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            start_date: new Date('2026-10-01'),
+          }),
+        }),
+      );
+    });
+
+    it('should handle nullable end_date: set to null when explicitly null', async () => {
+      senAccommodationMock.findFirst.mockResolvedValue({ id: ACCOMMODATION_ID });
+      senAccommodationMock.update.mockResolvedValue(createAccommodationRecord({ end_date: null }));
+
+      await service.update(TENANT_ID, ACCOMMODATION_ID, {
+        end_date: null,
+      });
+
+      expect(senAccommodationMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            end_date: null,
+          }),
+        }),
+      );
+    });
+
+    it('should convert end_date string to Date when provided', async () => {
+      senAccommodationMock.findFirst.mockResolvedValue({ id: ACCOMMODATION_ID });
+      senAccommodationMock.update.mockResolvedValue(
+        createAccommodationRecord({ end_date: new Date('2027-06-30') }),
+      );
+
+      await service.update(TENANT_ID, ACCOMMODATION_ID, {
+        end_date: '2027-06-30',
+      });
+
+      expect(senAccommodationMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            end_date: new Date('2027-06-30'),
+          }),
+        }),
+      );
+    });
+
+    it('should handle nullable approved_at: set to null when explicitly null', async () => {
+      senAccommodationMock.findFirst.mockResolvedValue({ id: ACCOMMODATION_ID });
+      senAccommodationMock.update.mockResolvedValue(
+        createAccommodationRecord({ approved_at: null }),
+      );
+
+      await service.update(TENANT_ID, ACCOMMODATION_ID, {
+        approved_at: null,
+      });
+
+      expect(senAccommodationMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            approved_at: null,
+          }),
+        }),
+      );
+    });
+
+    it('should convert approved_at string to Date when provided', async () => {
+      senAccommodationMock.findFirst.mockResolvedValue({ id: ACCOMMODATION_ID });
+      senAccommodationMock.update.mockResolvedValue(
+        createAccommodationRecord({ approved_at: new Date('2026-05-01T10:00:00Z') }),
+      );
+
+      await service.update(TENANT_ID, ACCOMMODATION_ID, {
+        approved_at: '2026-05-01T10:00:00Z',
+      });
+
+      expect(senAccommodationMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            approved_at: new Date('2026-05-01T10:00:00Z'),
+          }),
+        }),
+      );
+    });
+
+    it('should pass undefined for fields not included in dto', async () => {
+      senAccommodationMock.findFirst.mockResolvedValue({ id: ACCOMMODATION_ID });
+      senAccommodationMock.update.mockResolvedValue(createAccommodationRecord());
+
+      await service.update(TENANT_ID, ACCOMMODATION_ID, {
+        description: 'Only description changed',
+      });
+
+      const updateArgs = senAccommodationMock.update.mock.calls[0]?.[0];
+      expect(updateArgs?.data?.start_date).toBeUndefined();
+      expect(updateArgs?.data?.end_date).toBeUndefined();
+      expect(updateArgs?.data?.approved_at).toBeUndefined();
+      expect(updateArgs?.data?.approved_by_user_id).toBeUndefined();
+      expect(updateArgs?.data?.details).toBeUndefined();
+    });
+
+    it('should pass details as InputJsonValue when provided', async () => {
+      senAccommodationMock.findFirst.mockResolvedValue({ id: ACCOMMODATION_ID });
+      senAccommodationMock.update.mockResolvedValue(
+        createAccommodationRecord({ details: { percentage: 50 } }),
+      );
+
+      await service.update(TENANT_ID, ACCOMMODATION_ID, {
+        details: { percentage: 50 },
+      });
+
+      expect(senAccommodationMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            details: { percentage: 50 },
+          }),
+        }),
+      );
+    });
   });
 
   // ─── delete ──────────────────────────────────────────────────────────────

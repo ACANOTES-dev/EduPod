@@ -1,5 +1,7 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+import type { Queue } from 'bullmq';
 
 import type {
   AuditLogCategory,
@@ -11,13 +13,28 @@ import type {
 
 import { PrismaService } from '../prisma/prisma.service';
 
+export const AUDIT_LOG_WRITE_JOB = 'audit-log:write';
+
+export interface AuditLogWritePayload {
+  tenantId: string | null;
+  actorUserId: string | null;
+  entityType: string;
+  entityId: string | null;
+  action: string;
+  metadata: Record<string, unknown>;
+  ipAddress: string | null;
+}
+
 const MAX_AUDIT_ACTION_LENGTH = 100;
 
 @Injectable()
 export class AuditLogService {
   private readonly logger = new Logger(AuditLogService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @InjectQueue('audit-log') private readonly auditLogQueue: Queue,
+  ) {}
 
   /**
    * Non-blocking audit log write. Catches all errors and logs to console.
@@ -50,6 +67,37 @@ export class AuditLogService {
     } catch (error: unknown) {
       this.logger.error(
         `Failed to write audit log: entity_type=${entityType} action=${action}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
+  /**
+   * Enqueue an audit log write via BullMQ. Used by the interceptor so that
+   * mutation responses are not delayed by the audit DB write.
+   */
+  async enqueue(
+    tenantId: string | null,
+    actorUserId: string | null,
+    entityType: string,
+    entityId: string | null,
+    action: string,
+    metadata: Record<string, unknown>,
+    ipAddress: string | null,
+  ): Promise<void> {
+    try {
+      await this.auditLogQueue.add(AUDIT_LOG_WRITE_JOB, {
+        tenantId,
+        actorUserId,
+        entityType,
+        entityId,
+        action,
+        metadata,
+        ipAddress,
+      } satisfies AuditLogWritePayload);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to enqueue audit log: entity_type=${entityType} action=${action}`,
         error instanceof Error ? error.stack : String(error),
       );
     }

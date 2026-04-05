@@ -176,6 +176,20 @@ describe('SecurityAuditService', () => {
         null,
       );
     });
+
+    it('should default tenantId to null when not provided', async () => {
+      await service.logMfaSetup(USER_ID);
+
+      expect(mockAuditLogService.write).toHaveBeenCalledWith(
+        null,
+        USER_ID,
+        'auth',
+        USER_ID,
+        'mfa_setup',
+        expect.objectContaining({ category: 'security_event' }),
+        null,
+      );
+    });
   });
 
   // ─── logMfaDisable ────────────────────────────────────────────────────────────
@@ -229,6 +243,59 @@ describe('SecurityAuditService', () => {
           category: 'security_event',
           sensitivity: 'normal',
           reason: 'user_requested',
+        },
+        null,
+      );
+    });
+
+    it('should not include target_user_id when actorUserId equals userId', async () => {
+      await service.logMfaDisable(USER_ID, TENANT_ID, undefined, USER_ID);
+
+      expect(mockAuditLogService.write).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        'auth',
+        USER_ID,
+        'mfa_disable',
+        {
+          category: 'security_event',
+          sensitivity: 'normal',
+        },
+        null,
+      );
+    });
+
+    it('should include both reason and target_user_id when admin disables for another user', async () => {
+      await service.logMfaDisable(USER_ID, TENANT_ID, 'admin_override', ACTOR_USER_ID);
+
+      expect(mockAuditLogService.write).toHaveBeenCalledWith(
+        TENANT_ID,
+        ACTOR_USER_ID,
+        'auth',
+        USER_ID,
+        'mfa_disable',
+        {
+          category: 'security_event',
+          sensitivity: 'normal',
+          reason: 'admin_override',
+          target_user_id: USER_ID,
+        },
+        null,
+      );
+    });
+
+    it('should handle null tenantId', async () => {
+      await service.logMfaDisable(USER_ID);
+
+      expect(mockAuditLogService.write).toHaveBeenCalledWith(
+        null,
+        USER_ID,
+        'auth',
+        USER_ID,
+        'mfa_disable',
+        {
+          category: 'security_event',
+          sensitivity: 'normal',
         },
         null,
       );
@@ -293,6 +360,65 @@ describe('SecurityAuditService', () => {
         null,
       );
     });
+
+    it('should not include target_user_id when actorUserId equals userId', async () => {
+      await service.logPasswordReset(USER_ID, 'email', undefined, TENANT_ID, USER_ID);
+
+      expect(mockAuditLogService.write).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        'auth',
+        USER_ID,
+        'password_reset_request',
+        {
+          category: 'security_event',
+          sensitivity: 'normal',
+          method: 'email',
+        },
+        null,
+      );
+    });
+
+    it('edge: should not include target_user_id when userId is null', async () => {
+      await service.logPasswordReset(null, 'admin', 'user@example.com', TENANT_ID, ACTOR_USER_ID);
+
+      const metadata = mockAuditLogService.write.mock.calls[0][5] as Record<string, unknown>;
+      expect(metadata).not.toHaveProperty('target_user_id');
+    });
+
+    it('edge: should use actorUserId as actor when provided with null userId', async () => {
+      await service.logPasswordReset(null, 'admin', 'user@example.com', TENANT_ID, ACTOR_USER_ID);
+
+      expect(mockAuditLogService.write).toHaveBeenCalledWith(
+        TENANT_ID,
+        ACTOR_USER_ID,
+        'auth',
+        null,
+        'password_reset_request',
+        expect.objectContaining({
+          method: 'admin',
+          attempted_email: 'user@example.com',
+        }),
+        null,
+      );
+    });
+
+    it('edge: should use null as actor when both userId and actorUserId are absent', async () => {
+      await service.logPasswordReset(null, 'email', 'user@example.com');
+
+      expect(mockAuditLogService.write).toHaveBeenCalledWith(
+        null,
+        null,
+        'auth',
+        null,
+        'password_reset_request',
+        expect.objectContaining({
+          method: 'email',
+          attempted_email: 'user@example.com',
+        }),
+        null,
+      );
+    });
   });
 
   // ─── logPasswordChange ────────────────────────────────────────────────────────
@@ -311,6 +437,20 @@ describe('SecurityAuditService', () => {
           category: 'security_event',
           sensitivity: 'normal',
         },
+        null,
+      );
+    });
+
+    it('should default tenantId to null when not provided', async () => {
+      await service.logPasswordChange(USER_ID);
+
+      expect(mockAuditLogService.write).toHaveBeenCalledWith(
+        null,
+        USER_ID,
+        'auth',
+        USER_ID,
+        'password_change',
+        expect.objectContaining({ category: 'security_event' }),
         null,
       );
     });
@@ -352,6 +492,20 @@ describe('SecurityAuditService', () => {
           revoked_session_id: SESSION_ID,
           target_user_id: USER_ID,
         },
+        null,
+      );
+    });
+
+    it('should default tenantId to null when not provided', async () => {
+      await service.logSessionRevocation(USER_ID, ACTOR_USER_ID, SESSION_ID);
+
+      expect(mockAuditLogService.write).toHaveBeenCalledWith(
+        null,
+        ACTOR_USER_ID,
+        'auth',
+        USER_ID,
+        'session_revocation',
+        expect.objectContaining({ revoked_session_id: SESSION_ID }),
         null,
       );
     });
@@ -401,6 +555,20 @@ describe('SecurityAuditService', () => {
           duration_minutes: 15,
           user_agent: 'Firefox/115',
         },
+        '1.2.3.4',
+      );
+    });
+
+    it('should default tenantId to null when not provided', async () => {
+      await service.logBruteForceLockout('user@example.com', '1.2.3.4', 30);
+
+      expect(mockAuditLogService.write).toHaveBeenCalledWith(
+        null,
+        null,
+        'auth',
+        null,
+        'brute_force_lockout',
+        expect.objectContaining({ duration_minutes: 30 }),
         '1.2.3.4',
       );
     });
@@ -485,6 +653,22 @@ describe('SecurityAuditService', () => {
           reason: 'insufficient_role',
           user_agent: 'Chrome/120',
         },
+        '1.2.3.4',
+      );
+    });
+
+    it('should default tenantId to null when not provided', async () => {
+      await service.logPermissionDenied(USER_ID, 'students.delete', '/v1/students/123', '1.2.3.4');
+
+      expect(mockAuditLogService.write).toHaveBeenCalledWith(
+        null,
+        USER_ID,
+        'permissions',
+        USER_ID,
+        'permission_denied',
+        expect.objectContaining({
+          required_permissions: ['students.delete'],
+        }),
         '1.2.3.4',
       );
     });

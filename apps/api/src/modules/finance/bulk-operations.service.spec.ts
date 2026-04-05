@@ -87,9 +87,9 @@ describe('BulkOperationsService', () => {
 
   describe('bulkRemind', () => {
     it('should throw BadRequestException with no invoice IDs', async () => {
-      await expect(
-        service.bulkRemind(TENANT_ID, { invoice_ids: [] }),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.bulkRemind(TENANT_ID, { invoice_ids: [] })).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should skip invoices already reminded today', async () => {
@@ -142,6 +142,64 @@ describe('BulkOperationsService', () => {
       const inv = result.invoices[0] as Record<string, unknown>;
       expect(inv['total_amount']).toBe(1000);
       expect(inv['balance_amount']).toBe(500);
+    });
+
+    it('should use default format when not specified', async () => {
+      mockPrisma.invoice.findMany.mockResolvedValue([]);
+
+      const result = await service.bulkExport(TENANT_ID, {
+        invoice_ids: [INVOICE_1],
+      });
+
+      expect(result.format).toBe('csv');
+    });
+  });
+
+  describe('bulkVoid — error handling', () => {
+    it('should capture errors per invoice and continue', async () => {
+      mockInvoicesService.voidInvoice
+        .mockResolvedValueOnce({ id: INVOICE_1, status: 'void' })
+        .mockRejectedValueOnce(new Error('Payments exist'));
+
+      const result = await service.bulkVoid(TENANT_ID, {
+        invoice_ids: [INVOICE_1, INVOICE_2],
+      });
+
+      expect(result.succeeded).toBe(1);
+      expect(result.failed).toBe(1);
+      expect(result.errors[0]?.invoice_id).toBe(INVOICE_2);
+      expect(result.errors[0]?.error).toBe('Payments exist');
+    });
+  });
+
+  describe('bulkRemind — error handling', () => {
+    it('should capture errors per invoice and continue', async () => {
+      mockPrisma.invoiceReminder.findFirst
+        .mockResolvedValueOnce(null) // first invoice: no recent reminder
+        .mockRejectedValueOnce(new Error('DB error')); // second invoice: error
+
+      mockPrisma.invoiceReminder.create.mockResolvedValue({ id: 'r1' });
+
+      const result = await service.bulkRemind(TENANT_ID, {
+        invoice_ids: [INVOICE_1, INVOICE_2],
+      });
+
+      expect(result.succeeded).toBe(1);
+      expect(result.failed).toBe(1);
+      expect(result.errors[0]?.invoice_id).toBe(INVOICE_2);
+    });
+
+    it('should handle non-Error thrown objects', async () => {
+      mockInvoicesService.issue
+        .mockResolvedValueOnce({ id: INVOICE_1, status: 'issued' })
+        .mockRejectedValueOnce('string error');
+
+      const result = await service.bulkIssue(TENANT_ID, USER_ID, {
+        invoice_ids: [INVOICE_1, INVOICE_2],
+      });
+
+      expect(result.failed).toBe(1);
+      expect(result.errors[0]?.error).toBe('Unknown error');
     });
   });
 });

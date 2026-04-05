@@ -1,7 +1,4 @@
-import {
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { MOCK_FACADE_PROVIDERS, RbacReadFacade } from '../../common/tests/mock-facades';
@@ -142,9 +139,7 @@ describe('ApprovalWorkflowsService', () => {
     it('should throw BadRequestException when workflow already exists for action type', async () => {
       const role = { id: ROLE_ID, role_key: 'admin' };
       mockRbacReadFacade.findRoleById.mockResolvedValue(role);
-      mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(
-        buildMockWorkflow(),
-      );
+      mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(buildMockWorkflow());
 
       await expect(
         service.createWorkflow(TENANT_ID, {
@@ -158,9 +153,7 @@ describe('ApprovalWorkflowsService', () => {
 
   describe('updateWorkflow', () => {
     it('should update a workflow when it exists', async () => {
-      mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(
-        buildMockWorkflow(),
-      );
+      mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(buildMockWorkflow());
       const updated = buildMockWorkflow({ is_enabled: false });
       mockPrisma.approvalWorkflow.update.mockResolvedValue(updated);
 
@@ -182,9 +175,7 @@ describe('ApprovalWorkflowsService', () => {
     });
 
     it('should throw NotFoundException when new approver role does not exist', async () => {
-      mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(
-        buildMockWorkflow(),
-      );
+      mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(buildMockWorkflow());
       mockRbacReadFacade.findRoleById.mockResolvedValue(null);
 
       await expect(
@@ -193,13 +184,68 @@ describe('ApprovalWorkflowsService', () => {
         }),
       ).rejects.toThrow(NotFoundException);
     });
+
+    it('should skip role validation when approver_role_id is not provided', async () => {
+      mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(buildMockWorkflow());
+      const updated = buildMockWorkflow({ is_enabled: false });
+      mockPrisma.approvalWorkflow.update.mockResolvedValue(updated);
+
+      const result = await service.updateWorkflow(TENANT_ID, WORKFLOW_ID, {
+        is_enabled: false,
+      });
+
+      expect(result).toEqual(updated);
+      expect(mockRbacReadFacade.findRoleById).not.toHaveBeenCalled();
+    });
+
+    it('should update both approver_role_id and is_enabled when both provided', async () => {
+      const newRole = { id: 'role-uuid-2', role_key: 'principal' };
+      mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(buildMockWorkflow());
+      mockRbacReadFacade.findRoleById.mockResolvedValue(newRole);
+      const updated = buildMockWorkflow({
+        approver_role_id: 'role-uuid-2',
+        is_enabled: false,
+      });
+      mockPrisma.approvalWorkflow.update.mockResolvedValue(updated);
+
+      const result = await service.updateWorkflow(TENANT_ID, WORKFLOW_ID, {
+        approver_role_id: 'role-uuid-2',
+        is_enabled: false,
+      });
+
+      expect(result).toEqual(updated);
+      expect(mockPrisma.approvalWorkflow.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            approver_role_id: 'role-uuid-2',
+            is_enabled: false,
+          }),
+        }),
+      );
+    });
+
+    it('edge: should build empty data object when neither field provided', async () => {
+      mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(buildMockWorkflow());
+      const updated = buildMockWorkflow();
+      mockPrisma.approvalWorkflow.update.mockResolvedValue(updated);
+
+      const result = await service.updateWorkflow(TENANT_ID, WORKFLOW_ID, {});
+
+      expect(result).toEqual(updated);
+      // No role validation, no fields spread
+      expect(mockRbacReadFacade.findRoleById).not.toHaveBeenCalled();
+      expect(mockPrisma.approvalWorkflow.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: WORKFLOW_ID },
+          data: {},
+        }),
+      );
+    });
   });
 
   describe('deleteWorkflow', () => {
     it('should delete a workflow when no pending requests exist', async () => {
-      mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(
-        buildMockWorkflow(),
-      );
+      mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(buildMockWorkflow());
       mockPrisma.approvalRequest.count.mockResolvedValue(0);
       mockPrisma.approvalWorkflow.delete.mockResolvedValue(undefined);
 
@@ -214,20 +260,18 @@ describe('ApprovalWorkflowsService', () => {
     it('should throw NotFoundException when workflow does not exist', async () => {
       mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.deleteWorkflow(TENANT_ID, 'non-existent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.deleteWorkflow(TENANT_ID, 'non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException when pending requests exist', async () => {
-      mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(
-        buildMockWorkflow(),
-      );
+      mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(buildMockWorkflow());
       mockPrisma.approvalRequest.count.mockResolvedValue(3);
 
-      await expect(
-        service.deleteWorkflow(TENANT_ID, WORKFLOW_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.deleteWorkflow(TENANT_ID, WORKFLOW_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

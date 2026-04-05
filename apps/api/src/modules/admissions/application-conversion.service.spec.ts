@@ -312,6 +312,80 @@ describe('ApplicationConversionService', () => {
       );
     });
 
+    it('should link existing parent2 when parent2_link_existing_id is provided', async () => {
+      setupHappyPathMocks();
+      const parent2Id = '44444444-4444-4444-4444-444444444444';
+      // parent.findFirst is called to check parent2 existence
+      // parent1 is created (not linked), so no findFirst for parent1
+      mockPrisma.parent.findFirst.mockResolvedValueOnce({
+        id: parent2Id,
+        tenant_id: TENANT_ID,
+      });
+
+      const dto = {
+        ...baseDto,
+        parent2_link_existing_id: parent2Id,
+      };
+
+      const result = await service.convert(TENANT_ID, APP_ID, dto as never, USER_ID);
+
+      expect(result.parent2_id).toBe(parent2Id);
+      expect(mockPrisma.householdParent.create).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.studentParent.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('should throw NotFoundException when parent2_link_existing_id points to nonexistent parent', async () => {
+      setupHappyPathMocks();
+      // parent.findFirst for parent2 returns null
+      mockPrisma.parent.findFirst.mockResolvedValueOnce(null);
+
+      const dto = {
+        ...baseDto,
+        parent2_link_existing_id: 'nonexistent-parent-2',
+      };
+
+      await expect(service.convert(TENANT_ID, APP_ID, dto as never, USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should rethrow P2002 error when no conversion note found (race condition)', async () => {
+      const p2002Error = new Prisma.PrismaClientKnownRequestError('Unique constraint', {
+        code: 'P2002',
+        clientVersion: '5.0.0',
+      });
+
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      createRlsClient.mockReturnValueOnce({
+        $transaction: jest.fn().mockRejectedValue(p2002Error),
+      });
+
+      // After the error, service checks for existing conversion note — none found
+      mockPrisma.applicationNote.findFirst.mockResolvedValue(null);
+
+      // Should rethrow the original P2002 since no conversion note exists
+      await expect(service.convert(TENANT_ID, APP_ID, baseDto as never, USER_ID)).rejects.toThrow(
+        Prisma.PrismaClientKnownRequestError,
+      );
+    });
+
+    it('should rethrow non-P2002 errors from transaction', async () => {
+      const genericError = new Error('Database connection lost');
+
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      createRlsClient.mockReturnValueOnce({
+        $transaction: jest.fn().mockRejectedValue(genericError),
+      });
+
+      await expect(service.convert(TENANT_ID, APP_ID, baseDto as never, USER_ID)).rejects.toThrow(
+        'Database connection lost',
+      );
+    });
+
     it('should enqueue search indexing after successful conversion', async () => {
       setupHappyPathMocks();
 

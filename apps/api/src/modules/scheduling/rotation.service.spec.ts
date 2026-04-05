@@ -166,7 +166,9 @@ describe('RotationService', () => {
 
     it('should throw NotFoundException when academic year does not exist', async () => {
       const facade = module.get(AcademicReadFacade);
-      (facade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Year not found'));
+      (facade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(
+        new NotFoundException('Year not found'),
+      );
 
       await expect(
         service.upsertRotationConfig(TENANT_ID, {
@@ -325,6 +327,67 @@ describe('RotationService', () => {
 
       expect(result.deleted).toBe(true);
       expect(mockTx.rotationConfig.delete).toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when config does not exist', async () => {
+      mockPrisma.rotationConfig.findFirst.mockResolvedValue(null);
+
+      await expect(service.deleteRotationConfig(TENANT_ID, ACADEMIC_YEAR_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ─── getRotationConfig ────────────────────────────────────────────────────
+
+  describe('getRotationConfig', () => {
+    it('should return formatted rotation config', async () => {
+      mockPrisma.rotationConfig.findFirst.mockResolvedValue({
+        id: 'config-1',
+        academic_year_id: ACADEMIC_YEAR_ID,
+        cycle_length: 2,
+        week_labels_json: ['Week A', 'Week B'],
+        effective_start_date: new Date('2026-09-01'),
+        created_at: new Date('2026-03-01'),
+        updated_at: new Date('2026-03-01'),
+      });
+
+      const result = await service.getRotationConfig(TENANT_ID, ACADEMIC_YEAR_ID);
+
+      expect(result.id).toBe('config-1');
+      expect(result.cycle_length).toBe(2);
+      expect(result.week_labels).toEqual(['Week A', 'Week B']);
+      expect(result.effective_start_date).toBe('2026-09-01');
+      expect(result.created_at).toBeDefined();
+      expect(result.updated_at).toBeDefined();
+    });
+
+    it('should throw NotFoundException when no config exists', async () => {
+      mockPrisma.rotationConfig.findFirst.mockResolvedValue(null);
+
+      await expect(service.getRotationConfig(TENANT_ID, ACADEMIC_YEAR_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ─── getCurrentRotationWeek — additional edge cases ───────────────────────
+
+  describe('getCurrentRotationWeek — edge cases', () => {
+    it('should use current date when no date parameter provided', async () => {
+      mockPrisma.rotationConfig.findFirst.mockResolvedValue({
+        id: 'config-1',
+        cycle_length: 2,
+        week_labels_json: ['Week A', 'Week B'],
+        effective_start_date: new Date('2020-01-06'), // very old date
+      });
+
+      const result = await service.getCurrentRotationWeek(TENANT_ID, ACADEMIC_YEAR_ID);
+
+      // Should not throw and should calculate based on current date
+      expect(result.cycle_length).toBe(2);
+      expect(result.weeks_elapsed).toBeGreaterThan(0);
+      expect([0, 1]).toContain(result.week_index);
     });
   });
 });

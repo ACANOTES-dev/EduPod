@@ -604,3 +604,428 @@ describe('AnalyticsService — invalidateAssessmentCache', () => {
     ).resolves.toBeUndefined();
   });
 });
+
+// ─── getGradeDistribution — additional branch coverage ──────────────────────
+
+describe('AnalyticsService — getGradeDistribution (extra branches)', () => {
+  let service: AnalyticsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRedis: ReturnType<typeof buildMockRedis>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRedis = buildMockRedis();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        AnalyticsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+      ],
+    }).compile();
+
+    service = module.get<AnalyticsService>(AnalyticsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should compute correct median for even number of scores', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({
+      id: ASSESSMENT_ID,
+      max_score: 100,
+      category: { id: 'cat-1' },
+    });
+    // 4 scores: 40, 60, 70, 90 => median = (60+70)/2 = 65
+    mockPrisma.grade.findMany.mockResolvedValue([
+      { raw_score: decimal(40) },
+      { raw_score: decimal(90) },
+      { raw_score: decimal(60) },
+      { raw_score: decimal(70) },
+    ]);
+
+    const result = await service.getGradeDistribution(TENANT_ID, ASSESSMENT_ID);
+
+    expect(result.count).toBe(4);
+    expect(result.median).toBe(65);
+    expect(result.min).toBe(40);
+    expect(result.max).toBe(90);
+  });
+
+  it('should compute correct stddev', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({
+      id: ASSESSMENT_ID,
+      max_score: 100,
+      category: { id: 'cat-1' },
+    });
+    // Scores: 50, 50 => mean = 50, stddev = 0
+    mockPrisma.grade.findMany.mockResolvedValue([
+      { raw_score: decimal(50) },
+      { raw_score: decimal(50) },
+    ]);
+
+    const result = await service.getGradeDistribution(TENANT_ID, ASSESSMENT_ID);
+
+    expect(result.stddev).toBe(0);
+    expect(result.mean).toBe(50);
+  });
+
+  it('should filter null raw_score values', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({
+      id: ASSESSMENT_ID,
+      max_score: 100,
+      category: { id: 'cat-1' },
+    });
+    mockPrisma.grade.findMany.mockResolvedValue([{ raw_score: decimal(80) }, { raw_score: null }]);
+
+    const result = await service.getGradeDistribution(TENANT_ID, ASSESSMENT_ID);
+
+    expect(result.count).toBe(1);
+    expect(result.mean).toBe(80);
+  });
+});
+
+// ─── getPeriodDistribution — cache branch ───────────────────────────────────
+
+describe('AnalyticsService — getPeriodDistribution (cache hit)', () => {
+  let service: AnalyticsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRedis: ReturnType<typeof buildMockRedis>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRedis = buildMockRedis();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        AnalyticsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+      ],
+    }).compile();
+
+    service = module.get<AnalyticsService>(AnalyticsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should return cached result if available', async () => {
+    const cached = {
+      mean: 80,
+      median: 80,
+      stddev: 0,
+      min: 80,
+      max: 80,
+      passRate: 100,
+      count: 1,
+      histogram: [],
+    };
+    mockRedis._client.get.mockResolvedValue(JSON.stringify(cached));
+
+    const result = await service.getPeriodDistribution(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
+
+    expect(result).toEqual(cached);
+    expect(mockPrisma.periodGradeSnapshot.findMany).not.toHaveBeenCalled();
+  });
+});
+
+// ─── getStudentTrend — additional branches ──────────────────────────────────
+
+describe('AnalyticsService — getStudentTrend (edge cases)', () => {
+  let service: AnalyticsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRedis: ReturnType<typeof buildMockRedis>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRedis = buildMockRedis();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        AnalyticsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+      ],
+    }).compile();
+
+    service = module.get<AnalyticsService>(AnalyticsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should handle null due_date on assessment', async () => {
+    mockPrisma.grade.findMany.mockResolvedValue([
+      {
+        raw_score: decimal(70),
+        assessment: {
+          id: 'a1',
+          title: 'Quiz 1',
+          due_date: null,
+          max_score: decimal(100),
+          subject_id: SUBJECT_ID,
+        },
+      },
+    ]);
+
+    const result = await service.getStudentTrend(TENANT_ID, STUDENT_ID);
+
+    expect(result[0]?.due_date).toBeNull();
+    expect(result[0]?.percentage).toBe(70);
+  });
+
+  it('edge: should handle max_score of 0 (percentage = null)', async () => {
+    mockPrisma.grade.findMany.mockResolvedValue([
+      {
+        raw_score: decimal(0),
+        assessment: {
+          id: 'a1',
+          title: 'Quiz 1',
+          due_date: null,
+          max_score: decimal(0),
+          subject_id: SUBJECT_ID,
+        },
+      },
+    ]);
+
+    const result = await service.getStudentTrend(TENANT_ID, STUDENT_ID);
+
+    expect(result[0]?.percentage).toBeNull();
+  });
+});
+
+// ─── getClassTrend — additional branches ────────────────────────────────────
+
+describe('AnalyticsService — getClassTrend (with period filter)', () => {
+  let service: AnalyticsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRedis: ReturnType<typeof buildMockRedis>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRedis = buildMockRedis();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        AnalyticsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+      ],
+    }).compile();
+
+    service = module.get<AnalyticsService>(AnalyticsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should filter by periodId when provided', async () => {
+    mockPrisma.assessment.findMany.mockResolvedValue([]);
+
+    await service.getClassTrend(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
+
+    expect(mockPrisma.assessment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ academic_period_id: PERIOD_ID }),
+      }),
+    );
+  });
+
+  it('should handle assessments with null raw_score grades', async () => {
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        title: 'Quiz 1',
+        due_date: new Date('2026-01-15'),
+        max_score: decimal(100),
+        grades: [{ raw_score: null }, { raw_score: decimal(80) }],
+      },
+    ]);
+
+    const result = await service.getClassTrend(TENANT_ID, CLASS_ID, SUBJECT_ID);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.count).toBe(1); // only non-null grade
+    expect(result[0]?.average).toBe(80);
+  });
+});
+
+// ─── getTeacherConsistency — additional branches ────────────────────────────
+
+describe('AnalyticsService — getTeacherConsistency (cache and yearGroup filter)', () => {
+  let service: AnalyticsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRedis: ReturnType<typeof buildMockRedis>;
+  const mockClassesFacade = { findClassStaffGeneric: jest.fn() };
+  const mockAcademicFacade = { findSubjectsByIds: jest.fn() };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRedis = buildMockRedis();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
+        AnalyticsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+      ],
+    }).compile();
+
+    service = module.get<AnalyticsService>(AnalyticsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should return cached consistency results', async () => {
+    const cached = [{ teacher_id: 'staff-1', flagged: false }];
+    mockRedis._client.get.mockResolvedValue(JSON.stringify(cached));
+
+    const result = await service.getTeacherConsistency(TENANT_ID);
+
+    expect(result).toEqual(cached);
+    expect(mockClassesFacade.findClassStaffGeneric).not.toHaveBeenCalled();
+  });
+
+  it('should filter by year group', async () => {
+    mockClassesFacade.findClassStaffGeneric.mockResolvedValue([
+      {
+        class_id: 'class-a',
+        staff_profile_id: 'staff-1',
+        class_entity: { id: 'class-a', name: 'Class A', year_group_id: YEAR_GROUP_ID },
+        staff_profile: {
+          id: 'staff-1',
+          user: { id: 'user-1', first_name: 'Alice', last_name: 'Smith' },
+        },
+      },
+      {
+        class_id: 'class-b',
+        staff_profile_id: 'staff-2',
+        class_entity: { id: 'class-b', name: 'Class B', year_group_id: 'other-yg' },
+        staff_profile: {
+          id: 'staff-2',
+          user: { id: 'user-2', first_name: 'Bob', last_name: 'Jones' },
+        },
+      },
+    ]);
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        subject_id: SUBJECT_ID,
+        max_score: decimal(100),
+        grades: [{ raw_score: decimal(80) }],
+      },
+    ]);
+    mockAcademicFacade.findSubjectsByIds.mockResolvedValue([
+      { id: SUBJECT_ID, name: 'Math', code: null },
+    ]);
+
+    const result = await service.getTeacherConsistency(TENANT_ID, undefined, YEAR_GROUP_ID);
+
+    // Only Alice (year_group_id matches) should be included
+    expect(result).toHaveLength(1);
+    expect(result[0]?.teacher_name).toBe('Alice Smith');
+  });
+
+  it('should skip class-staff entries with no assessments', async () => {
+    mockClassesFacade.findClassStaffGeneric.mockResolvedValue([
+      {
+        class_id: 'class-a',
+        staff_profile_id: 'staff-1',
+        class_entity: { id: 'class-a', name: 'Class A', year_group_id: null },
+        staff_profile: {
+          id: 'staff-1',
+          user: { id: 'user-1', first_name: 'Alice', last_name: 'Smith' },
+        },
+      },
+    ]);
+    mockPrisma.assessment.findMany.mockResolvedValue([]);
+    mockAcademicFacade.findSubjectsByIds.mockResolvedValue([]);
+
+    const result = await service.getTeacherConsistency(TENANT_ID);
+
+    expect(result).toEqual([]);
+  });
+});
+
+// ─── getBenchmark — additional branches ─────────────────────────────────────
+
+describe('AnalyticsService — getBenchmark (cache and filters)', () => {
+  let service: AnalyticsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRedis: ReturnType<typeof buildMockRedis>;
+  const mockClassesFacade = { findByYearGroup: jest.fn() };
+  const mockAcademicFacade = {
+    findSubjectsByIds: jest.fn(),
+    findPeriodsByIds: jest.fn(),
+  };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRedis = buildMockRedis();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
+        AnalyticsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+      ],
+    }).compile();
+
+    service = module.get<AnalyticsService>(AnalyticsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should return cached benchmark results', async () => {
+    const cached = [{ class_id: CLASS_ID, average: 80 }];
+    mockRedis._client.get.mockResolvedValue(JSON.stringify(cached));
+
+    const result = await service.getBenchmark(TENANT_ID, YEAR_GROUP_ID);
+
+    expect(result).toEqual(cached);
+    expect(mockClassesFacade.findByYearGroup).not.toHaveBeenCalled();
+  });
+
+  it('should filter by subjectId and periodId', async () => {
+    mockClassesFacade.findByYearGroup.mockResolvedValue([{ id: CLASS_ID, name: 'Grade 5A' }]);
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
+    mockAcademicFacade.findSubjectsByIds.mockResolvedValue([]);
+    mockAcademicFacade.findPeriodsByIds.mockResolvedValue([]);
+
+    await service.getBenchmark(TENANT_ID, YEAR_GROUP_ID, SUBJECT_ID, PERIOD_ID);
+
+    expect(mockPrisma.periodGradeSnapshot.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          subject_id: SUBJECT_ID,
+          academic_period_id: PERIOD_ID,
+        }),
+      }),
+    );
+  });
+
+  it('should handle snapshots with null computed_value', async () => {
+    mockClassesFacade.findByYearGroup.mockResolvedValue([{ id: CLASS_ID, name: 'Grade 5A' }]);
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      {
+        class_id: CLASS_ID,
+        subject_id: SUBJECT_ID,
+        academic_period_id: PERIOD_ID,
+        computed_value: null,
+      },
+    ]);
+    mockAcademicFacade.findSubjectsByIds.mockResolvedValue([{ id: SUBJECT_ID, name: 'Math' }]);
+    mockAcademicFacade.findPeriodsByIds.mockResolvedValue([{ id: PERIOD_ID, name: 'Term 1' }]);
+
+    const result = await service.getBenchmark(TENANT_ID, YEAR_GROUP_ID);
+
+    // null computed_value is filtered out, so no entries should have data
+    expect(result).toEqual([]);
+  });
+});

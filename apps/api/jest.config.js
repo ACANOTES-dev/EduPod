@@ -30,14 +30,14 @@ module.exports = {
   coverageDirectory: '<rootDir>/coverage',
   coverageReporters: ['text', 'text-summary', 'json-summary', 'lcov'],
   coveragePathIgnorePatterns: ['/node_modules/', '/test/', '/dist/'],
-  // Coverage baselines measured 2026-04-04 (post Wave 6D): stmts 83.05%, branch 65.92%, fn 80.83%, lines 83.73%
+  // Coverage baselines measured 2026-04-05: stmts 90.85%, branch 76.82%, fn 87.58%, lines 91.30%
   // Thresholds set at baseline minus 2% — ratchet enforced per health recovery plan
   coverageThreshold: {
     global: {
-      statements: 81,
-      branches: 63,
-      functions: 78,
-      lines: 82,
+      statements: 88,
+      branches: 74,
+      functions: 85,
+      lines: 89,
     },
   },
 };

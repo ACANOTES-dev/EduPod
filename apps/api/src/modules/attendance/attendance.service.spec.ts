@@ -1068,6 +1068,73 @@ describe('AttendanceService — saveRecords', () => {
 
     expect(mockParentNotification.triggerAbsenceNotification).not.toHaveBeenCalled();
   });
+
+  it('edge: should not fail when parent notification throws an error', async () => {
+    mockRlsRecordFindFirst.mockResolvedValue(null);
+    mockRlsRecordCreate.mockResolvedValue({
+      id: 'rec-1',
+      student_id: 'student-1',
+      status: 'absent_unexcused',
+    });
+    // Notification throws — should be swallowed silently
+    mockParentNotification.triggerAbsenceNotification.mockRejectedValue(
+      new Error('Notification service down'),
+    );
+
+    const result = await service.saveRecords(TENANT_ID, SESSION_ID, USER_ID, {
+      records: [{ student_id: 'student-1', status: 'absent_unexcused' }],
+    });
+
+    // Should still return the saved records despite notification failure
+    expect(result.data).toHaveLength(1);
+  });
+
+  it('should set reason to null when no reason is provided', async () => {
+    mockRlsRecordFindFirst.mockResolvedValue(null);
+    mockRlsRecordCreate.mockResolvedValue({
+      id: 'rec-1',
+      student_id: 'student-1',
+      status: 'present',
+    });
+
+    await service.saveRecords(TENANT_ID, SESSION_ID, USER_ID, {
+      records: [{ student_id: 'student-1', status: 'present' }],
+    });
+
+    expect(mockRlsRecordCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ reason: null }),
+      }),
+    );
+  });
+
+  it('should handle multiple records with mixed create and update paths', async () => {
+    // First record: existing -> update
+    mockRlsRecordFindFirst
+      .mockResolvedValueOnce({ id: 'existing-rec' })
+      .mockResolvedValueOnce(null);
+    mockRlsRecordUpdate.mockResolvedValue({
+      id: 'existing-rec',
+      student_id: 'student-1',
+      status: 'late',
+    });
+    mockRlsRecordCreate.mockResolvedValue({
+      id: 'new-rec',
+      student_id: 'student-2',
+      status: 'present',
+    });
+
+    const result = await service.saveRecords(TENANT_ID, SESSION_ID, USER_ID, {
+      records: [
+        { student_id: 'student-1', status: 'late' },
+        { student_id: 'student-2', status: 'present' },
+      ],
+    });
+
+    expect(result.data).toHaveLength(2);
+    expect(mockRlsRecordUpdate).toHaveBeenCalledTimes(1);
+    expect(mockRlsRecordCreate).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('AttendanceService — amendRecord', () => {

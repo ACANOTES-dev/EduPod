@@ -54,7 +54,10 @@ describe('RegistrationService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SequenceService, useValue: mockSequenceService },
         { provide: InvoicesService, useValue: mockInvoicesService },
-        { provide: AuthReadFacade, useValue: (mockAuthReadFacade = { findUserByEmail: jest.fn().mockResolvedValue(null) }) },
+        {
+          provide: AuthReadFacade,
+          useValue: (mockAuthReadFacade = { findUserByEmail: jest.fn().mockResolvedValue(null) }),
+        },
       ],
     }).compile();
 
@@ -547,6 +550,562 @@ describe('RegistrationService', () => {
       )) as RegistrationResult;
 
       expect(result.invoice.status).toBe('issued');
+    });
+
+    it('should apply fixed discount on fee assignment', async () => {
+      const dto = buildMinimalDto();
+      dto.fee_assignments = [{ student_index: 0, fee_structure_id: 'fs-1' }];
+      dto.applied_discounts = [{ fee_assignment_index: 0, discount_id: 'd-1' }];
+      const mockTx = buildMockTx();
+      mockTx.feeStructure.findFirst.mockResolvedValue({
+        id: 'fs-1',
+        name: 'Tuition',
+        amount: 3000,
+        billing_frequency: 'one_off',
+      });
+      mockTx.discount.findFirst.mockResolvedValue({
+        id: 'd-1',
+        name: 'Sibling',
+        discount_type: 'fixed',
+        value: 500,
+      });
+      setupMockTransaction(mockTx);
+
+      const result = (await service.registerFamily(
+        TENANT_ID,
+        USER_ID,
+        dto as never,
+      )) as RegistrationResult;
+
+      // Invoice line should include discount line
+      expect(mockTx.invoice.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            discount_amount: 500,
+          }),
+        }),
+      );
+      expect(result.invoice).toBeDefined();
+    });
+
+    it('should apply percent discount on fee assignment', async () => {
+      const dto = buildMinimalDto();
+      dto.fee_assignments = [{ student_index: 0, fee_structure_id: 'fs-1' }];
+      dto.applied_discounts = [{ fee_assignment_index: 0, discount_id: 'd-1' }];
+      const mockTx = buildMockTx();
+      mockTx.feeStructure.findFirst.mockResolvedValue({
+        id: 'fs-1',
+        name: 'Tuition',
+        amount: 1000,
+        billing_frequency: 'one_off',
+      });
+      mockTx.discount.findFirst.mockResolvedValue({
+        id: 'd-1',
+        name: '10% Off',
+        discount_type: 'percent',
+        value: 10,
+      });
+      setupMockTransaction(mockTx);
+
+      await service.registerFamily(TENANT_ID, USER_ID, dto as never);
+
+      expect(mockTx.invoice.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            discount_amount: 100, // 10% of 1000
+          }),
+        }),
+      );
+    });
+
+    it('should handle adhoc_adjustments as negative invoice lines', async () => {
+      const dto = buildMinimalDto();
+      dto.adhoc_adjustments = [{ label: 'Early-bird discount', amount: 200 }];
+      const mockTx = buildMockTx();
+      setupMockTransaction(mockTx);
+
+      await service.registerFamily(TENANT_ID, USER_ID, dto as never);
+
+      expect(mockTx.invoice.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            discount_amount: 200,
+            total_amount: -200,
+          }),
+        }),
+      );
+    });
+
+    it('should throw BadRequestException when fee structure not found', async () => {
+      const dto = buildMinimalDto();
+      dto.fee_assignments = [{ student_index: 0, fee_structure_id: 'fs-nonexistent' }];
+      const mockTx = buildMockTx();
+      mockTx.feeStructure.findFirst.mockResolvedValue(null);
+      setupMockTransaction(mockTx);
+
+      await expect(service.registerFamily(TENANT_ID, USER_ID, dto as never)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should calculate term billing frequency in invoice lines', async () => {
+      const dto = buildMinimalDto();
+      dto.fee_assignments = [{ student_index: 0, fee_structure_id: 'fs-1' }];
+      const mockTx = buildMockTx();
+      mockTx.feeStructure.findFirst.mockResolvedValue({
+        id: 'fs-1',
+        name: 'Tuition',
+        amount: 1000,
+        billing_frequency: 'term',
+      });
+      setupMockTransaction(mockTx);
+
+      await service.registerFamily(TENANT_ID, USER_ID, dto as never);
+
+      // 1000 * 3 terms = 3000
+      expect(mockTx.invoice.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            subtotal_amount: 3000,
+          }),
+        }),
+      );
+    });
+
+    it('should calculate monthly billing frequency in invoice lines', async () => {
+      const dto = buildMinimalDto();
+      dto.fee_assignments = [{ student_index: 0, fee_structure_id: 'fs-1' }];
+      const mockTx = buildMockTx();
+      mockTx.feeStructure.findFirst.mockResolvedValue({
+        id: 'fs-1',
+        name: 'Transport',
+        amount: 100,
+        billing_frequency: 'monthly',
+      });
+      setupMockTransaction(mockTx);
+
+      await service.registerFamily(TENANT_ID, USER_ID, dto as never);
+
+      // 100 * 12 months = 1200
+      expect(mockTx.invoice.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            subtotal_amount: 1200,
+          }),
+        }),
+      );
+    });
+
+    it('should use default invoice prefix INV when no branding', async () => {
+      const dto = buildMinimalDto();
+      const mockTx = buildMockTx();
+      mockTx.tenantBranding.findUnique.mockResolvedValue(null);
+      setupMockTransaction(mockTx);
+
+      await service.registerFamily(TENANT_ID, USER_ID, dto as never);
+
+      expect(mockSequenceService.nextNumber).toHaveBeenCalledWith(
+        TENANT_ID,
+        'invoice',
+        expect.anything(),
+        'INV',
+      );
+    });
+
+    it('should link secondary parent user_id when email matches existing user', async () => {
+      const dto = buildMinimalDto();
+      dto.secondary_parent = {
+        first_name: 'Mary',
+        last_name: 'Smith',
+        phone: '+353111222',
+        email: 'mary@example.com',
+        relationship_label: 'Mother',
+      };
+      mockAuthReadFacade.findUserByEmail
+        .mockResolvedValueOnce(null) // primary
+        .mockResolvedValueOnce({ id: 'user-secondary' }); // secondary
+      const mockTx = buildMockTx();
+      setupMockTransaction(mockTx);
+
+      await service.registerFamily(TENANT_ID, USER_ID, dto as never);
+
+      expect(mockAuthReadFacade.findUserByEmail).toHaveBeenCalledWith(
+        TENANT_ID,
+        'mary@example.com',
+      );
+      expect(mockTx.parent.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle custom billing frequency as base amount', async () => {
+      const dto = buildMinimalDto();
+      dto.fee_assignments = [{ student_index: 0, fee_structure_id: 'fs-1' }];
+      const mockTx = buildMockTx();
+      mockTx.feeStructure.findFirst.mockResolvedValue({
+        id: 'fs-1',
+        name: 'Custom Fee',
+        amount: 750,
+        billing_frequency: 'custom',
+      });
+      setupMockTransaction(mockTx);
+
+      await service.registerFamily(TENANT_ID, USER_ID, dto as never);
+
+      expect(mockTx.invoice.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            subtotal_amount: 750,
+          }),
+        }),
+      );
+    });
+
+    it('should handle default (unknown) billing frequency as base amount', async () => {
+      const dto = buildMinimalDto();
+      dto.fee_assignments = [{ student_index: 0, fee_structure_id: 'fs-1' }];
+      const mockTx = buildMockTx();
+      mockTx.feeStructure.findFirst.mockResolvedValue({
+        id: 'fs-1',
+        name: 'Misc Fee',
+        amount: 250,
+        billing_frequency: 'unknown_type',
+      });
+      setupMockTransaction(mockTx);
+
+      await service.registerFamily(TENANT_ID, USER_ID, dto as never);
+
+      expect(mockTx.invoice.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            subtotal_amount: 250,
+          }),
+        }),
+      );
+    });
+  });
+
+  // ── addStudentToHousehold ─────────────────────────────────────────────
+
+  describe('addStudentToHousehold()', () => {
+    const HOUSEHOLD_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+
+    function buildAddStudentDto() {
+      return {
+        first_name: 'Alex',
+        last_name: 'Smith',
+        middle_name: undefined as string | undefined,
+        date_of_birth: '2016-05-15',
+        gender: 'male',
+        year_group_id: 'yg-2',
+        national_id: '67890',
+        nationality: undefined as string | undefined,
+        city_of_birth: undefined as string | undefined,
+      };
+    }
+
+    function buildAddStudentMockTx() {
+      return {
+        household: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValue({ id: HOUSEHOLD_ID, household_name: 'Smith Family' }),
+        },
+        householdParent: {
+          findMany: jest
+            .fn()
+            .mockResolvedValue([{ parent_id: 'p-1', role_label: 'Father', parent: { id: 'p-1' } }]),
+        },
+        student: {
+          create: jest.fn().mockResolvedValue({ id: 'stu-new' }),
+        },
+        studentParent: {
+          create: jest.fn().mockResolvedValue({}),
+        },
+        feeStructure: {
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+        householdFeeAssignment: {
+          create: jest.fn().mockResolvedValue({ id: 'fa-new' }),
+        },
+        tenant: {
+          findUnique: jest.fn().mockResolvedValue({ id: TENANT_ID, currency_code: 'EUR' }),
+        },
+        tenantBranding: {
+          findUnique: jest.fn().mockResolvedValue({ invoice_prefix: 'INV' }),
+        },
+        academicYear: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'ay-1', _count: { periods: 3 } }),
+        },
+        invoice: {
+          create: jest.fn().mockResolvedValue({
+            id: 'inv-new',
+            invoice_number: 'INV-202603-0002',
+            total_amount: 0,
+            balance_amount: 0,
+            status: 'draft',
+          }),
+        },
+      };
+    }
+
+    beforeEach(() => {
+      mockSequenceService.nextNumber = jest
+        .fn()
+        .mockResolvedValueOnce('STU-202603-0002')
+        .mockResolvedValueOnce('INV-202603-0002');
+    });
+
+    it('should add a student to an existing household', async () => {
+      const dto = buildAddStudentDto();
+      const mockTx = buildAddStudentMockTx();
+      mockCreateRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      const result = (await service.addStudentToHousehold(
+        TENANT_ID,
+        USER_ID,
+        HOUSEHOLD_ID,
+        dto as never,
+      )) as {
+        student: { first_name: string; student_number: string };
+        invoice: { status: string };
+      };
+
+      expect(result.student.first_name).toBe('Alex');
+      expect(result.student.student_number).toBe('STU-202603-0002');
+      expect(mockTx.student.create).toHaveBeenCalledTimes(1);
+      expect(mockTx.studentParent.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw NotFoundException when household not found', async () => {
+      const dto = buildAddStudentDto();
+      const mockTx = buildAddStudentMockTx();
+      mockTx.household.findFirst.mockResolvedValue(null);
+      mockCreateRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await expect(
+        service.addStudentToHousehold(TENANT_ID, USER_ID, HOUSEHOLD_ID, dto as never),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException when household has no parents', async () => {
+      const dto = buildAddStudentDto();
+      const mockTx = buildAddStudentMockTx();
+      mockTx.householdParent.findMany.mockResolvedValue([]);
+      mockCreateRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await expect(
+        service.addStudentToHousehold(TENANT_ID, USER_ID, HOUSEHOLD_ID, dto as never),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should derive last_name from household_name when not provided', async () => {
+      const dto = buildAddStudentDto();
+      dto.last_name = '';
+      const mockTx = buildAddStudentMockTx();
+      mockTx.household.findFirst.mockResolvedValue({
+        id: HOUSEHOLD_ID,
+        household_name: 'The Johnson Family',
+      });
+      mockCreateRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.addStudentToHousehold(TENANT_ID, USER_ID, HOUSEHOLD_ID, dto as never);
+
+      expect(mockTx.student.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            last_name: 'Johnson',
+          }),
+        }),
+      );
+    });
+
+    it('should throw NotFoundException when tenant not found during add student', async () => {
+      const dto = buildAddStudentDto();
+      const mockTx = buildAddStudentMockTx();
+      mockTx.tenant.findUnique.mockResolvedValue(null);
+      mockCreateRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await expect(
+        service.addStudentToHousehold(TENANT_ID, USER_ID, HOUSEHOLD_ID, dto as never),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should auto-assign fees for the student year group', async () => {
+      const dto = buildAddStudentDto();
+      const mockTx = buildAddStudentMockTx();
+      mockTx.feeStructure.findMany.mockResolvedValue([
+        { id: 'fs-1', name: 'Tuition', amount: 1000, billing_frequency: 'term' },
+        { id: 'fs-2', name: 'Lunch', amount: 100, billing_frequency: 'monthly' },
+      ]);
+      mockCreateRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.addStudentToHousehold(TENANT_ID, USER_ID, HOUSEHOLD_ID, dto as never);
+
+      expect(mockTx.householdFeeAssignment.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('should use default INV prefix when no branding', async () => {
+      const dto = buildAddStudentDto();
+      const mockTx = buildAddStudentMockTx();
+      mockTx.tenantBranding.findUnique.mockResolvedValue(null);
+      mockCreateRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.addStudentToHousehold(TENANT_ID, USER_ID, HOUSEHOLD_ID, dto as never);
+
+      expect(mockSequenceService.nextNumber).toHaveBeenCalledWith(
+        TENANT_ID,
+        'invoice',
+        expect.anything(),
+        'INV',
+      );
+    });
+
+    it('should still return result when invoice issuing fails for addStudent', async () => {
+      const dto = buildAddStudentDto();
+      const mockTx = buildAddStudentMockTx();
+      mockCreateRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+      });
+      mockInvoicesService.issue.mockRejectedValue(new Error('Approval required'));
+
+      const result = (await service.addStudentToHousehold(
+        TENANT_ID,
+        USER_ID,
+        HOUSEHOLD_ID,
+        dto as never,
+      )) as {
+        invoice: { status: string };
+      };
+
+      expect(result.invoice.status).toBe('draft');
+    });
+
+    it('should calculate term and monthly billing in invoice lines', async () => {
+      const dto = buildAddStudentDto();
+      const mockTx = buildAddStudentMockTx();
+      mockTx.feeStructure.findMany.mockResolvedValue([
+        { id: 'fs-1', name: 'Tuition', amount: 1000, billing_frequency: 'term' },
+        { id: 'fs-2', name: 'Lunch', amount: 100, billing_frequency: 'monthly' },
+      ]);
+      mockCreateRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.addStudentToHousehold(TENANT_ID, USER_ID, HOUSEHOLD_ID, dto as never);
+
+      // Tuition: 1000 * 3 terms = 3000, Lunch: 100 * 12 = 1200 => subtotal = 4200
+      expect(mockTx.invoice.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            subtotal_amount: 4200,
+            total_amount: 4200,
+          }),
+        }),
+      );
+    });
+
+    it('should handle one_off and custom billing frequency in addStudent', async () => {
+      const dto = buildAddStudentDto();
+      const mockTx = buildAddStudentMockTx();
+      mockTx.feeStructure.findMany.mockResolvedValue([
+        { id: 'fs-1', name: 'Registration', amount: 500, billing_frequency: 'one_off' },
+        { id: 'fs-2', name: 'Custom', amount: 300, billing_frequency: 'custom' },
+      ]);
+      mockCreateRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.addStudentToHousehold(TENANT_ID, USER_ID, HOUSEHOLD_ID, dto as never);
+
+      expect(mockTx.invoice.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            subtotal_amount: 800,
+            total_amount: 800,
+          }),
+        }),
+      );
+    });
+
+    it('should handle default (unknown) billing frequency in addStudent', async () => {
+      const dto = buildAddStudentDto();
+      const mockTx = buildAddStudentMockTx();
+      mockTx.feeStructure.findMany.mockResolvedValue([
+        { id: 'fs-1', name: 'Misc', amount: 150, billing_frequency: 'weekly' },
+      ]);
+      mockCreateRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.addStudentToHousehold(TENANT_ID, USER_ID, HOUSEHOLD_ID, dto as never);
+
+      expect(mockTx.invoice.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            subtotal_amount: 150,
+          }),
+        }),
+      );
+    });
+
+    it('should default term count to 3 when no active academic year in addStudent', async () => {
+      const dto = buildAddStudentDto();
+      const mockTx = buildAddStudentMockTx();
+      mockTx.academicYear.findFirst.mockResolvedValue(null);
+      mockTx.feeStructure.findMany.mockResolvedValue([
+        { id: 'fs-1', name: 'Tuition', amount: 500, billing_frequency: 'term' },
+      ]);
+      mockCreateRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.addStudentToHousehold(TENANT_ID, USER_ID, HOUSEHOLD_ID, dto as never);
+
+      // 500 * 3 (default) = 1500
+      expect(mockTx.invoice.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            subtotal_amount: 1500,
+          }),
+        }),
+      );
     });
   });
 });

@@ -105,7 +105,7 @@ export class AuditLogInterceptor implements NestInterceptor {
                   result,
                 );
 
-            void this.auditLogService.write(
+            void this.auditLogService.enqueue(
               tenantId,
               actorUserId,
               entityType,

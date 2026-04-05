@@ -125,6 +125,150 @@ describe('DemographicsService', () => {
     });
   });
 
+  describe('nationalityBreakdown — edge cases', () => {
+    it('should filter by yearGroupId when provided', async () => {
+      mockDataAccess.groupStudentsBy.mockResolvedValue([]);
+
+      await service.nationalityBreakdown(TENANT_ID, 'yg-1');
+
+      const callArg = mockDataAccess.groupStudentsBy.mock.calls[0]?.[2];
+      expect(callArg?.year_group_id).toBe('yg-1');
+    });
+
+    it('should filter out null nationalities', async () => {
+      mockDataAccess.groupStudentsBy.mockResolvedValue([
+        { nationality: null, _count: 5 },
+        { nationality: 'Saudi', _count: 10 },
+      ]);
+
+      const result = await service.nationalityBreakdown(TENANT_ID);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.nationality).toBe('Saudi');
+    });
+  });
+
+  describe('genderBalance — edge cases', () => {
+    it('should skip year groups with zero total students', async () => {
+      mockDataAccess.findYearGroups.mockResolvedValue([{ id: 'yg-1', name: 'Grade 1' }]);
+      mockDataAccess.groupStudentsBy.mockResolvedValue([]);
+
+      const result = await service.genderBalance(TENANT_ID);
+
+      expect(result).toHaveLength(0);
+    });
+
+    it('should count other and prefer_not_to_say together as other_count', async () => {
+      mockDataAccess.findYearGroups.mockResolvedValue([{ id: 'yg-1', name: 'Grade 1' }]);
+      mockDataAccess.groupStudentsBy.mockResolvedValue([
+        { gender: 'male', _count: 5 },
+        { gender: 'other', _count: 2 },
+        { gender: 'prefer_not_to_say', _count: 1 },
+      ]);
+
+      const result = await service.genderBalance(TENANT_ID);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.other_count).toBe(3);
+      expect(result[0]?.total).toBe(8);
+    });
+  });
+
+  describe('ageDistribution — edge cases', () => {
+    it('should filter by yearGroupId', async () => {
+      mockDataAccess.findStudents.mockResolvedValue([]);
+
+      await service.ageDistribution(TENANT_ID, 'yg-1');
+
+      const callArg = mockDataAccess.findStudents.mock.calls[0]?.[1];
+      expect(callArg?.where?.year_group_id).toBe('yg-1');
+    });
+
+    it('should skip students with null date_of_birth in age calculation', async () => {
+      mockDataAccess.findStudents.mockResolvedValue([{ date_of_birth: null }]);
+
+      const result = await service.ageDistribution(TENANT_ID);
+
+      expect(result).toEqual([]);
+    });
+
+    it('edge: should adjust age when birthday has not occurred yet this year', async () => {
+      const futureMonthDob = new Date();
+      futureMonthDob.setFullYear(futureMonthDob.getFullYear() - 10);
+      futureMonthDob.setMonth(futureMonthDob.getMonth() + 1); // birthday next month
+
+      mockDataAccess.findStudents.mockResolvedValue([{ date_of_birth: futureMonthDob }]);
+
+      const result = await service.ageDistribution(TENANT_ID);
+
+      const bucket = result[0];
+      expect(bucket?.age).toBe(9); // not yet turned 10
+    });
+  });
+
+  describe('yearGroupSizes — with data', () => {
+    it('should return sizes for each year group', async () => {
+      mockDataAccess.findYearGroups.mockResolvedValue([{ id: 'yg-1', name: 'Grade 1' }]);
+      mockDataAccess.countStudents.mockResolvedValueOnce(30).mockResolvedValueOnce(25);
+
+      const result = await service.yearGroupSizes(TENANT_ID);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.student_count).toBe(30);
+      expect(result[0]?.active_count).toBe(25);
+      expect(result[0]?.capacity).toBeNull();
+    });
+  });
+
+  describe('enrolmentTrends', () => {
+    it('should return empty when no students', async () => {
+      const result = await service.enrolmentTrends(TENANT_ID);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should compute new enrolments and withdrawals per month', async () => {
+      mockDataAccess.findStudents.mockResolvedValue([
+        { entry_date: new Date('2026-01-15'), status: 'active', exit_date: null },
+        {
+          entry_date: new Date('2026-01-20'),
+          status: 'withdrawn',
+          exit_date: new Date('2026-03-01'),
+        },
+        { entry_date: new Date('2026-02-01'), status: 'active', exit_date: null },
+      ]);
+
+      const result = await service.enrolmentTrends(TENANT_ID);
+
+      const jan = result.find((r) => r.month === '2026-01');
+      expect(jan?.new_enrolments).toBe(2);
+      expect(jan?.withdrawals).toBe(0);
+      expect(jan?.net_change).toBe(2);
+
+      const mar = result.find((r) => r.month === '2026-03');
+      expect(mar?.new_enrolments).toBe(0);
+      expect(mar?.withdrawals).toBe(1);
+      expect(mar?.net_change).toBe(-1);
+    });
+
+    it('should handle student with both entry_date and exit_date in same month', async () => {
+      mockDataAccess.findStudents.mockResolvedValue([
+        {
+          entry_date: new Date('2026-01-01'),
+          status: 'withdrawn',
+          exit_date: new Date('2026-01-30'),
+        },
+      ]);
+
+      const result = await service.enrolmentTrends(TENANT_ID);
+
+      const jan = result.find((r) => r.month === '2026-01');
+      expect(jan?.new_enrolments).toBe(1);
+      expect(jan?.withdrawals).toBe(1);
+      expect(jan?.net_change).toBe(0);
+    });
+  });
+
   describe('RLS isolation', () => {
     it('should pass tenantId to groupStudentsBy', async () => {
       await service.nationalityBreakdown(TENANT_ID);

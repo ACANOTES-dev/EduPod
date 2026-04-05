@@ -248,6 +248,161 @@ describe('TripPackService', () => {
       expect(templateData.students).toHaveLength(1);
     });
 
+    it('should handle overnight_trip event type', async () => {
+      const event = buildMockEvent({ event_type: 'overnight_trip' });
+      const participant = buildMockParticipant(STUDENT_ID_1);
+      const pdfBuffer = Buffer.from('pdf-content');
+
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(event);
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([participant]);
+      mockPrisma.engagementFormSubmission.findMany.mockResolvedValue([]);
+      mockPrisma.tenant.findFirst.mockResolvedValue({
+        name: 'Test School',
+        settings: {},
+      });
+      mockPdfRenderingService.renderPdf.mockResolvedValue(pdfBuffer);
+
+      const result = await service.generateTripPack(TENANT_ID, EVENT_ID, 'en');
+
+      expect(result).toBe(pdfBuffer);
+    });
+
+    it('edge: student with null full_name uses first_name + last_name', async () => {
+      const participant = buildMockParticipant(STUDENT_ID_1, {
+        student: {
+          ...buildMockParticipant(STUDENT_ID_1).student,
+          full_name: null,
+        },
+      });
+      const event = buildMockEvent();
+      const pdfBuffer = Buffer.from('pdf-content');
+
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(event);
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([participant]);
+      mockPrisma.engagementFormSubmission.findMany.mockResolvedValue([]);
+      mockPrisma.tenant.findFirst.mockResolvedValue({ name: 'School', settings: {} });
+      mockPdfRenderingService.renderPdf.mockResolvedValue(pdfBuffer);
+
+      await service.generateTripPack(TENANT_ID, EVENT_ID, 'en');
+
+      const renderCall = mockPdfRenderingService.renderPdf.mock.calls[0];
+      const templateData = renderCall[2] as { students: { name: string }[] };
+      expect(templateData.students[0]?.name).toBe('Test Student');
+    });
+
+    it('edge: student with null household has empty emergency_contacts', async () => {
+      const participant = buildMockParticipant(STUDENT_ID_1, {
+        student: {
+          ...buildMockParticipant(STUDENT_ID_1).student,
+          household: null,
+        },
+      });
+      const event = buildMockEvent();
+      const pdfBuffer = Buffer.from('pdf-content');
+
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(event);
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([participant]);
+      mockPrisma.engagementFormSubmission.findMany.mockResolvedValue([]);
+      mockPrisma.tenant.findFirst.mockResolvedValue({ name: 'School', settings: {} });
+      mockPdfRenderingService.renderPdf.mockResolvedValue(pdfBuffer);
+
+      await service.generateTripPack(TENANT_ID, EVENT_ID, 'en');
+
+      const renderCall = mockPdfRenderingService.renderPdf.mock.calls[0];
+      const templateData = renderCall[2] as {
+        students: { emergency_contacts: unknown[] }[];
+      };
+      expect(templateData.students[0]?.emergency_contacts).toEqual([]);
+    });
+
+    it('edge: student with no class_enrolments has empty year_group and class_name', async () => {
+      const participant = buildMockParticipant(STUDENT_ID_1, {
+        student: {
+          ...buildMockParticipant(STUDENT_ID_1).student,
+          class_enrolments: [],
+        },
+      });
+      const event = buildMockEvent();
+      const pdfBuffer = Buffer.from('pdf-content');
+
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(event);
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([participant]);
+      mockPrisma.engagementFormSubmission.findMany.mockResolvedValue([]);
+      mockPrisma.tenant.findFirst.mockResolvedValue({ name: 'School', settings: {} });
+      mockPdfRenderingService.renderPdf.mockResolvedValue(pdfBuffer);
+
+      await service.generateTripPack(TENANT_ID, EVENT_ID, 'en');
+
+      const renderCall = mockPdfRenderingService.renderPdf.mock.calls[0];
+      const templateData = renderCall[2] as {
+        students: { year_group: string; class_name: string }[];
+      };
+      expect(templateData.students[0]?.year_group).toBe('');
+      expect(templateData.students[0]?.class_name).toBe('');
+    });
+
+    it('edge: null start_date/end_date on event produce empty strings', async () => {
+      const event = buildMockEvent({ start_date: null, end_date: null });
+      const pdfBuffer = Buffer.from('pdf-content');
+
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(event);
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([]);
+      mockPrisma.engagementFormSubmission.findMany.mockResolvedValue([]);
+      mockPrisma.tenant.findFirst.mockResolvedValue({ name: 'School', settings: {} });
+      mockPdfRenderingService.renderPdf.mockResolvedValue(pdfBuffer);
+
+      await service.generateTripPack(TENANT_ID, EVENT_ID, 'en');
+
+      const renderCall = mockPdfRenderingService.renderPdf.mock.calls[0];
+      const templateData = renderCall[2] as { event: { start_date: string; end_date: string } };
+      expect(templateData.event.start_date).toBe('');
+      expect(templateData.event.end_date).toBe('');
+    });
+
+    it('edge: null tenant settings use fallback branding', async () => {
+      const event = buildMockEvent();
+      const pdfBuffer = Buffer.from('pdf-content');
+
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(event);
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([]);
+      mockPrisma.engagementFormSubmission.findMany.mockResolvedValue([]);
+      mockPrisma.tenant.findFirst.mockResolvedValue({
+        name: 'Fallback School',
+        settings: null,
+      });
+      mockPdfRenderingService.renderPdf.mockResolvedValue(pdfBuffer);
+
+      await service.generateTripPack(TENANT_ID, EVENT_ID, 'en');
+
+      const renderCall = mockPdfRenderingService.renderPdf.mock.calls[0];
+      const branding = renderCall[3] as { school_name: string };
+      // When settings is null, falls back to tenantCore?.name
+      expect(branding.school_name).toBe('Fallback School');
+    });
+
+    it('edge: null date_of_birth on student produces empty string', async () => {
+      const participant = buildMockParticipant(STUDENT_ID_1, {
+        student: {
+          ...buildMockParticipant(STUDENT_ID_1).student,
+          date_of_birth: null,
+        },
+      });
+      const event = buildMockEvent();
+      const pdfBuffer = Buffer.from('pdf-content');
+
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(event);
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([participant]);
+      mockPrisma.engagementFormSubmission.findMany.mockResolvedValue([]);
+      mockPrisma.tenant.findFirst.mockResolvedValue({ name: 'School', settings: {} });
+      mockPdfRenderingService.renderPdf.mockResolvedValue(pdfBuffer);
+
+      await service.generateTripPack(TENANT_ID, EVENT_ID, 'en');
+
+      const renderCall = mockPdfRenderingService.renderPdf.mock.calls[0];
+      const templateData = renderCall[2] as { students: { date_of_birth: string }[] };
+      expect(templateData.students[0]?.date_of_birth).toBe('');
+    });
+
     it('should map emergency contacts from household', async () => {
       const emergencyContacts = [
         {

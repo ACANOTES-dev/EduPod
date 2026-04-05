@@ -24,7 +24,9 @@ const mockTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
@@ -75,38 +77,44 @@ describe('PersonalTimetableService', () => {
     module = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
-        { provide: SchedulesReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findCoreById: jest.fn().mockResolvedValue(null),
-      existsById: jest.fn().mockResolvedValue(null),
-      findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
-      countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
-      findTeacherTimetable: jest.fn().mockResolvedValue([]),
-      findClassTimetable: jest.fn().mockResolvedValue([]),
-      findPinnedEntries: jest.fn().mockResolvedValue([]),
-      countPinnedEntries: jest.fn().mockResolvedValue(0),
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findScheduledClassIds: jest.fn().mockResolvedValue([]),
-      countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
-      count: jest.fn().mockResolvedValue(0),
-      hasRotationEntries: jest.fn().mockResolvedValue(false),
-      countByRoom: jest.fn().mockResolvedValue(0),
-      findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
-      findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
-      countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
-      findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
-      hasConflict: jest.fn().mockResolvedValue(false),
-      findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
-      findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
-    } },
-        { provide: StaffProfileReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findByIds: jest.fn().mockResolvedValue([]),
-      findByUserId: jest.fn().mockResolvedValue(null),
-      findActiveStaff: jest.fn().mockResolvedValue([]),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
-    } },
+        {
+          provide: SchedulesReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            findCoreById: jest.fn().mockResolvedValue(null),
+            existsById: jest.fn().mockResolvedValue(null),
+            findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
+            countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
+            findTeacherTimetable: jest.fn().mockResolvedValue([]),
+            findClassTimetable: jest.fn().mockResolvedValue([]),
+            findPinnedEntries: jest.fn().mockResolvedValue([]),
+            countPinnedEntries: jest.fn().mockResolvedValue(0),
+            findByAcademicYear: jest.fn().mockResolvedValue([]),
+            findScheduledClassIds: jest.fn().mockResolvedValue([]),
+            countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
+            count: jest.fn().mockResolvedValue(0),
+            hasRotationEntries: jest.fn().mockResolvedValue(false),
+            countByRoom: jest.fn().mockResolvedValue(0),
+            findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
+            findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
+            countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
+            findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
+            hasConflict: jest.fn().mockResolvedValue(false),
+            findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
+            findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: StaffProfileReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            findByIds: jest.fn().mockResolvedValue([]),
+            findByUserId: jest.fn().mockResolvedValue(null),
+            findActiveStaff: jest.fn().mockResolvedValue([]),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
+          },
+        },
         PersonalTimetableService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -262,9 +270,9 @@ describe('PersonalTimetableService', () => {
     it('should throw NotFoundException when token does not exist', async () => {
       mockPrisma.calendarSubscriptionToken.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.generateIcsCalendar(TENANT_ID, 'invalid-token'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.generateIcsCalendar(TENANT_ID, 'invalid-token')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should handle class-type tokens by querying by class_id', async () => {
@@ -352,9 +360,192 @@ describe('PersonalTimetableService', () => {
         user_id: 'another-user',
       });
 
+      await expect(service.revokeSubscriptionToken(TENANT_ID, USER_ID, TOKEN_ID)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  // ─── getTeacherTimetableByUserId ─────────────────────────────────────────
+
+  describe('getTeacherTimetableByUserId', () => {
+    it('should resolve staff profile from user ID and return timetable', async () => {
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findByUserId as jest.Mock).mockResolvedValue({ id: STAFF_ID });
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findTeacherTimetable as jest.Mock).mockResolvedValue([makeSchedule(1, 1)]);
+
+      const result = await service.getTeacherTimetableByUserId(TENANT_ID, USER_ID, {});
+
+      expect(result.data).toHaveLength(1);
+      expect(schedFacade.findTeacherTimetable).toHaveBeenCalledWith(
+        TENANT_ID,
+        STAFF_ID,
+        expect.any(Object),
+      );
+    });
+
+    it('should throw NotFoundException when no staff profile found for user', async () => {
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findByUserId as jest.Mock).mockResolvedValue(null);
+
       await expect(
-        service.revokeSubscriptionToken(TENANT_ID, USER_ID, TOKEN_ID),
-      ).rejects.toThrow(ForbiddenException);
+        service.getTeacherTimetableByUserId(TENANT_ID, 'unknown-user', {}),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── listSubscriptionTokens ──────────────────────────────────────────────
+
+  describe('listSubscriptionTokens', () => {
+    it('should return all tokens for the user', async () => {
+      mockPrisma.calendarSubscriptionToken.findMany.mockResolvedValue([
+        {
+          id: TOKEN_ID,
+          token: TOKEN,
+          entity_type: 'teacher',
+          entity_id: STAFF_ID,
+          created_at: new Date('2026-03-01T00:00:00Z'),
+        },
+      ]);
+
+      const result = await service.listSubscriptionTokens(TENANT_ID, USER_ID);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]!.id).toBe(TOKEN_ID);
+      expect(result.data[0]!.entity_type).toBe('teacher');
+      expect(result.data[0]!.created_at).toBe('2026-03-01T00:00:00.000Z');
+    });
+
+    it('should return empty array when user has no tokens', async () => {
+      mockPrisma.calendarSubscriptionToken.findMany.mockResolvedValue([]);
+
+      const result = await service.listSubscriptionTokens(TENANT_ID, USER_ID);
+
+      expect(result.data).toHaveLength(0);
+    });
+  });
+
+  // ─── getTeacherTimetable — edge cases ────────────────────────────────────
+
+  describe('getTeacherTimetable — edge cases', () => {
+    it('should use week_date when provided', async () => {
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findTeacherTimetable as jest.Mock).mockResolvedValue([]);
+
+      await service.getTeacherTimetable(TENANT_ID, STAFF_ID, { week_date: '2026-05-01' });
+
+      expect(schedFacade.findTeacherTimetable).toHaveBeenCalledWith(
+        TENANT_ID,
+        STAFF_ID,
+        expect.objectContaining({ asOfDate: new Date('2026-05-01') }),
+      );
+    });
+
+    it('should handle schedule with null class_entity', async () => {
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findTeacherTimetable as jest.Mock).mockResolvedValue([
+        {
+          id: 'sch-1',
+          weekday: 1,
+          period_order: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T10:00:00Z'),
+          rotation_week: null,
+          class_entity: null,
+          room: null,
+        },
+      ]);
+
+      const result = await service.getTeacherTimetable(TENANT_ID, STAFF_ID, {});
+
+      expect(result.data[0]!.class_name).toBe('');
+      expect(result.data[0]!.subject_name).toBeNull();
+      expect(result.data[0]!.room_name).toBeNull();
+    });
+  });
+
+  // ─── getClassTimetable — edge cases ──────────────────────────────────────
+
+  describe('getClassTimetable — edge cases', () => {
+    it('should handle null teacher in class timetable entries', async () => {
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findClassTimetable as jest.Mock).mockResolvedValue([
+        {
+          id: 'sch-1',
+          weekday: 1,
+          period_order: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T10:00:00Z'),
+          rotation_week: null,
+          class_entity: { name: '10A', subject: { name: 'Maths' } },
+          teacher: null,
+          room: { name: 'Room 101' },
+        },
+      ]);
+
+      const result = await service.getClassTimetable(TENANT_ID, CLASS_ID, {});
+
+      expect(result.data[0]!.teacher_name).toBeNull();
+    });
+
+    it('should use week_date and rotation_week from query', async () => {
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findClassTimetable as jest.Mock).mockResolvedValue([]);
+
+      await service.getClassTimetable(TENANT_ID, CLASS_ID, {
+        week_date: '2026-05-01',
+        rotation_week: 1,
+      });
+
+      expect(schedFacade.findClassTimetable).toHaveBeenCalledWith(
+        TENANT_ID,
+        CLASS_ID,
+        expect.objectContaining({
+          asOfDate: new Date('2026-05-01'),
+          rotationWeek: 1,
+        }),
+      );
+    });
+  });
+
+  // ─── generateIcsCalendar — edge cases ────────────────────────────────────
+
+  describe('generateIcsCalendar — edge cases', () => {
+    it('should produce valid ICS even when no schedules exist', async () => {
+      mockPrisma.calendarSubscriptionToken.findFirst.mockResolvedValue({
+        entity_type: 'teacher',
+        entity_id: STAFF_ID,
+        tenant: { name: 'Test School' },
+      });
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findTeacherTimetable as jest.Mock).mockResolvedValue([]);
+
+      const ics = await service.generateIcsCalendar(TENANT_ID, TOKEN);
+
+      expect(ics).toContain('BEGIN:VCALENDAR');
+      expect(ics).toContain('END:VCALENDAR');
+      expect(ics).not.toContain('BEGIN:VEVENT');
+    });
+
+    it('should escape special characters in ICS fields', async () => {
+      mockPrisma.calendarSubscriptionToken.findFirst.mockResolvedValue({
+        entity_type: 'teacher',
+        entity_id: STAFF_ID,
+        tenant: { name: 'Test, School; Special' },
+      });
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findTeacherTimetable as jest.Mock).mockResolvedValue([
+        {
+          ...makeSchedule(1, 1),
+          class_entity: { name: 'Class,With;Special', subject: { name: 'Maths\\101' } },
+        },
+      ]);
+
+      const ics = await service.generateIcsCalendar(TENANT_ID, TOKEN);
+
+      // ICS special characters should be escaped
+      expect(ics).toContain('\\,');
     });
   });
 });

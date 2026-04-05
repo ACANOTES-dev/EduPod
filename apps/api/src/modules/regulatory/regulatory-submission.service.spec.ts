@@ -7,7 +7,9 @@ import { RegulatorySubmissionService } from './regulatory-submission.service';
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn({})),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn({})),
   }),
 }));
 
@@ -39,10 +41,7 @@ describe('RegulatorySubmissionService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        RegulatorySubmissionService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [RegulatorySubmissionService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<RegulatorySubmissionService>(RegulatorySubmissionService);
@@ -56,11 +55,15 @@ describe('RegulatorySubmissionService', () => {
     };
     const mockTx = {
       regulatorySubmission: {
-        create: jest.fn().mockResolvedValue({ id: SUBMISSION_ID, submission_type: 'tusla_sar_period_1' }),
+        create: jest
+          .fn()
+          .mockResolvedValue({ id: SUBMISSION_ID, submission_type: 'tusla_sar_period_1' }),
       },
     };
     createRlsClient.mockReturnValue({
-      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
     });
 
     const result = await service.create(TENANT_ID, USER_ID, {
@@ -106,5 +109,285 @@ describe('RegulatorySubmissionService', () => {
     await expect(
       service.update(TENANT_ID, SUBMISSION_ID, USER_ID, { status: 'submitted' }),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  // ─── findAll — filter branches ─────────────────────────────────────────────
+
+  describe('RegulatorySubmissionService — findAll filters', () => {
+    it('should apply domain filter', async () => {
+      mockPrisma.regulatorySubmission.findMany.mockResolvedValue([]);
+      mockPrisma.regulatorySubmission.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        domain: 'tusla_attendance',
+      });
+
+      expect(mockPrisma.regulatorySubmission.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            domain: 'tusla_attendance',
+          }),
+        }),
+      );
+    });
+
+    it('should apply status filter mapped to Prisma enum', async () => {
+      mockPrisma.regulatorySubmission.findMany.mockResolvedValue([]);
+      mockPrisma.regulatorySubmission.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        status: 'submitted',
+      });
+
+      expect(mockPrisma.regulatorySubmission.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: expect.anything(),
+          }),
+        }),
+      );
+    });
+
+    it('should apply academic_year filter', async () => {
+      mockPrisma.regulatorySubmission.findMany.mockResolvedValue([]);
+      mockPrisma.regulatorySubmission.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        academic_year: '2025-2026',
+      });
+
+      expect(mockPrisma.regulatorySubmission.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            academic_year: '2025-2026',
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── update — field branches ───────────────────────────────────────────────
+
+  describe('RegulatorySubmissionService — update branches', () => {
+    it('should set submitted_at and submitted_by_id when status is submitted', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.regulatorySubmission.findFirst.mockResolvedValue({ id: SUBMISSION_ID });
+      const mockTx = {
+        regulatorySubmission: {
+          update: jest.fn().mockResolvedValue({ id: SUBMISSION_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, SUBMISSION_ID, USER_ID, { status: 'submitted' });
+
+      expect(mockTx.regulatorySubmission.update).toHaveBeenCalledWith({
+        where: { id: SUBMISSION_ID },
+        data: expect.objectContaining({
+          submitted_at: expect.any(Date),
+          submitted_by_id: USER_ID,
+        }),
+      });
+    });
+
+    it('should update file_key when provided', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.regulatorySubmission.findFirst.mockResolvedValue({ id: SUBMISSION_ID });
+      const mockTx = {
+        regulatorySubmission: {
+          update: jest.fn().mockResolvedValue({ id: SUBMISSION_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, SUBMISSION_ID, USER_ID, { file_key: 'uploads/test.csv' });
+
+      expect(mockTx.regulatorySubmission.update).toHaveBeenCalledWith({
+        where: { id: SUBMISSION_ID },
+        data: expect.objectContaining({
+          file_key: 'uploads/test.csv',
+        }),
+      });
+    });
+
+    it('should update file_hash when provided', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.regulatorySubmission.findFirst.mockResolvedValue({ id: SUBMISSION_ID });
+      const mockTx = {
+        regulatorySubmission: {
+          update: jest.fn().mockResolvedValue({ id: SUBMISSION_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, SUBMISSION_ID, USER_ID, { file_hash: 'abc123' });
+
+      expect(mockTx.regulatorySubmission.update).toHaveBeenCalledWith({
+        where: { id: SUBMISSION_ID },
+        data: expect.objectContaining({
+          file_hash: 'abc123',
+        }),
+      });
+    });
+
+    it('should update record_count when provided', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.regulatorySubmission.findFirst.mockResolvedValue({ id: SUBMISSION_ID });
+      const mockTx = {
+        regulatorySubmission: {
+          update: jest.fn().mockResolvedValue({ id: SUBMISSION_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, SUBMISSION_ID, USER_ID, { record_count: 42 });
+
+      expect(mockTx.regulatorySubmission.update).toHaveBeenCalledWith({
+        where: { id: SUBMISSION_ID },
+        data: expect.objectContaining({
+          record_count: 42,
+        }),
+      });
+    });
+
+    it('should update notes when provided', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.regulatorySubmission.findFirst.mockResolvedValue({ id: SUBMISSION_ID });
+      const mockTx = {
+        regulatorySubmission: {
+          update: jest.fn().mockResolvedValue({ id: SUBMISSION_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, SUBMISSION_ID, USER_ID, { notes: 'Updated notes' });
+
+      expect(mockTx.regulatorySubmission.update).toHaveBeenCalledWith({
+        where: { id: SUBMISSION_ID },
+        data: expect.objectContaining({
+          notes: 'Updated notes',
+        }),
+      });
+    });
+
+    it('should convert submitted_at string to Date', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.regulatorySubmission.findFirst.mockResolvedValue({ id: SUBMISSION_ID });
+      const mockTx = {
+        regulatorySubmission: {
+          update: jest.fn().mockResolvedValue({ id: SUBMISSION_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, SUBMISSION_ID, USER_ID, {
+        submitted_at: '2026-06-15T12:00:00Z',
+      });
+
+      expect(mockTx.regulatorySubmission.update).toHaveBeenCalledWith({
+        where: { id: SUBMISSION_ID },
+        data: expect.objectContaining({
+          submitted_at: expect.any(Date),
+        }),
+      });
+    });
+
+    it('should set submitted_at to null when provided as null string', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.regulatorySubmission.findFirst.mockResolvedValue({ id: SUBMISSION_ID });
+      const mockTx = {
+        regulatorySubmission: {
+          update: jest.fn().mockResolvedValue({ id: SUBMISSION_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, SUBMISSION_ID, USER_ID, {
+        submitted_at: null as unknown as string,
+      });
+
+      expect(mockTx.regulatorySubmission.update).toHaveBeenCalledWith({
+        where: { id: SUBMISSION_ID },
+        data: expect.objectContaining({
+          submitted_at: null,
+        }),
+      });
+    });
+
+    it('should set validation_errors to DbNull when null', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.regulatorySubmission.findFirst.mockResolvedValue({ id: SUBMISSION_ID });
+      const mockTx = {
+        regulatorySubmission: {
+          update: jest.fn().mockResolvedValue({ id: SUBMISSION_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, SUBMISSION_ID, USER_ID, {
+        validation_errors: null,
+      });
+
+      expect(mockTx.regulatorySubmission.update).toHaveBeenCalledWith({
+        where: { id: SUBMISSION_ID },
+        data: expect.objectContaining({
+          validation_errors: expect.anything(),
+        }),
+      });
+    });
   });
 });

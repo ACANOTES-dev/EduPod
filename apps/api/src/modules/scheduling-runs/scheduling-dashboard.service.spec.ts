@@ -321,9 +321,7 @@ describe('SchedulingDashboardService', () => {
         },
       ]);
 
-      mockSchedulesReadFacade.countEntriesPerClass.mockResolvedValue(
-        new Map([['cls-1', 3]]),
-      );
+      mockSchedulesReadFacade.countEntriesPerClass.mockResolvedValue(new Map([['cls-1', 3]]));
 
       mockSchedulingRunsReadFacade.findLatestRunWithResult.mockResolvedValue(null);
 
@@ -354,9 +352,7 @@ describe('SchedulingDashboardService', () => {
           },
         },
       ]);
-      mockSchedulesReadFacade.countEntriesPerClass.mockResolvedValue(
-        new Map([['cls-1', 3]]),
-      );
+      mockSchedulesReadFacade.countEntriesPerClass.mockResolvedValue(new Map([['cls-1', 3]]));
       mockSchedulingRunsReadFacade.findLatestRunWithResult.mockResolvedValue(null);
 
       const result = await service.unassigned(TENANT_ID, AY_ID);
@@ -558,6 +554,368 @@ describe('SchedulingDashboardService', () => {
       const result = await service.trends(TENANT_ID, AY_ID);
 
       expect(result.data).toHaveLength(0);
+    });
+
+    it('should handle runs with null result_json', async () => {
+      mockSchedulingRunsReadFacade.findHistoricalRuns.mockResolvedValue([
+        {
+          id: 'run-1',
+          soft_preference_score: null,
+          soft_preference_max: null,
+          created_at: NOW,
+          result_json: null,
+        },
+      ]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(25);
+      mockRoomsReadFacade.countActiveRooms.mockResolvedValue(5);
+
+      const result = await service.trends(TENANT_ID, AY_ID);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]?.room_utilisation).toBe(0);
+      expect(result.data[0]?.teacher_utilisation).toBe(0);
+      expect(result.data[0]?.avg_gaps).toBe(0);
+      expect(result.data[0]?.preference_score).toBe(0);
+    });
+
+    it('should handle zero teaching slots for utilisation computation', async () => {
+      mockSchedulingRunsReadFacade.findHistoricalRuns.mockResolvedValue([
+        {
+          id: 'run-1',
+          soft_preference_score: 50,
+          soft_preference_max: 100,
+          created_at: NOW,
+          result_json: {
+            entries: [{ room_id: 'r1', teacher_staff_id: 't1', weekday: 0, period_order: 1 }],
+            unassigned: [],
+          },
+        },
+      ]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(0);
+      mockRoomsReadFacade.countActiveRooms.mockResolvedValue(0);
+
+      const result = await service.trends(TENANT_ID, AY_ID);
+
+      expect(result.data[0]?.room_utilisation).toBe(0);
+      expect(result.data[0]?.teacher_utilisation).toBe(0);
+    });
+  });
+
+  // ─── overview — edge cases ────────────────────────────────────────────────
+
+  describe('overview — edge cases', () => {
+    it('should return null preference_score when latest run has zero soft_preference_max', async () => {
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockSchedulesReadFacade.findScheduledClassIds.mockResolvedValue([]);
+      mockSchedulingRunsReadFacade.findLatestCompletedRun.mockResolvedValue({
+        id: 'run-1',
+        status: 'completed',
+        mode: 'auto',
+        soft_preference_score: 0,
+        soft_preference_max: 0,
+        created_at: NOW,
+        applied_at: null,
+      });
+      mockSchedulingRunsReadFacade.countActiveRuns.mockResolvedValue(0);
+      mockSchedulesReadFacade.countPinnedEntries.mockResolvedValue(0);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(0);
+      mockRoomsReadFacade.countActiveRooms.mockResolvedValue(0);
+      mockSchedulesReadFacade.countRoomAssignedEntries.mockResolvedValue(0);
+      mockSchedulesReadFacade.findTeacherScheduleEntries.mockResolvedValue([]);
+
+      const result = await service.overview(TENANT_ID, AY_ID);
+
+      expect(result.preference_score).toBeNull();
+    });
+
+    it('should return null preference_score when scores are null', async () => {
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockSchedulesReadFacade.findScheduledClassIds.mockResolvedValue([]);
+      mockSchedulingRunsReadFacade.findLatestCompletedRun.mockResolvedValue({
+        id: 'run-1',
+        status: 'completed',
+        mode: 'auto',
+        soft_preference_score: null,
+        soft_preference_max: null,
+        created_at: NOW,
+        applied_at: NOW,
+      });
+      mockSchedulingRunsReadFacade.countActiveRuns.mockResolvedValue(0);
+      mockSchedulesReadFacade.countPinnedEntries.mockResolvedValue(0);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(0);
+      mockRoomsReadFacade.countActiveRooms.mockResolvedValue(0);
+      mockSchedulesReadFacade.countRoomAssignedEntries.mockResolvedValue(0);
+      mockSchedulesReadFacade.findTeacherScheduleEntries.mockResolvedValue([]);
+
+      const result = await service.overview(TENANT_ID, AY_ID);
+
+      expect(result.preference_score).toBeNull();
+      // applied_at should be stringified
+      expect(result.latest_run?.applied_at).toBe(NOW.toISOString());
+    });
+  });
+
+  // ─── workload — teacher with no teacher field ─────────────────────────────
+
+  describe('workload — edge cases', () => {
+    it('should skip entries without teacher_staff_id or teacher info', async () => {
+      mockSchedulesReadFacade.findTeacherWorkloadEntries.mockResolvedValue([
+        { teacher_staff_id: null, teacher: null },
+        { teacher_staff_id: 'staff-1', teacher: null },
+      ]);
+      mockStaffAvailabilityReadFacade.findByStaffIds.mockResolvedValue([]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(25);
+
+      const result = await service.workload(TENANT_ID, AY_ID);
+
+      expect(result.data).toHaveLength(0);
+    });
+
+    it('should handle zero teaching periods for utilisation', async () => {
+      mockSchedulesReadFacade.findTeacherWorkloadEntries.mockResolvedValue([
+        {
+          teacher_staff_id: 'staff-1',
+          teacher: { id: 'staff-1', user: { first_name: 'Alice', last_name: 'Smith' } },
+        },
+      ]);
+      mockStaffAvailabilityReadFacade.findByStaffIds.mockResolvedValue([]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(0);
+
+      const result = await service.workload(TENANT_ID, AY_ID);
+
+      expect(result.data[0]?.utilisation_pct).toBe(0);
+    });
+  });
+
+  // ─── unassigned — with reason from run ────────────────────────────────────
+
+  describe('unassigned — reason from run', () => {
+    it('should include reason from latest run result_json', async () => {
+      mockSchedulingReadFacade.findClassRequirementsWithDetails.mockResolvedValue([
+        {
+          class_id: 'cls-1',
+          periods_per_week: 5,
+          class_entity: {
+            id: 'cls-1',
+            name: 'Math 1A',
+            subject: null,
+            year_group: null,
+          },
+        },
+      ]);
+      mockSchedulesReadFacade.countEntriesPerClass.mockResolvedValue(new Map());
+      mockSchedulingRunsReadFacade.findLatestRunWithResult.mockResolvedValue({
+        id: 'run-1',
+        result_json: {
+          entries: [],
+          unassigned: [{ class_id: 'cls-1', reason: 'No teacher available' }],
+        },
+      });
+
+      const result = await service.unassigned(TENANT_ID, AY_ID);
+
+      expect(result.data[0]?.reason).toBe('No teacher available');
+      expect(result.data[0]?.subject_name).toBeNull();
+      expect(result.data[0]?.year_group_name).toBeNull();
+    });
+
+    it('should handle latest run with no unassigned array in result_json', async () => {
+      mockSchedulingReadFacade.findClassRequirementsWithDetails.mockResolvedValue([
+        {
+          class_id: 'cls-1',
+          periods_per_week: 3,
+          class_entity: {
+            id: 'cls-1',
+            name: 'Eng',
+            subject: { name: 'English' },
+            year_group: { name: 'Y1' },
+          },
+        },
+      ]);
+      mockSchedulesReadFacade.countEntriesPerClass.mockResolvedValue(new Map());
+      mockSchedulingRunsReadFacade.findLatestRunWithResult.mockResolvedValue({
+        id: 'run-1',
+        result_json: {
+          entries: [],
+          // No unassigned field
+        },
+      });
+
+      const result = await service.unassigned(TENANT_ID, AY_ID);
+
+      expect(result.data[0]?.reason).toBeNull();
+    });
+  });
+
+  // ─── preferences — edge cases ─────────────────────────────────────────────
+
+  describe('preferences — edge cases', () => {
+    it('should return null result data message when result_json has no entries', async () => {
+      mockSchedulingRunsReadFacade.findLatestRunWithResult.mockResolvedValue({
+        id: 'run-1',
+        status: 'completed',
+        result_json: { entries: 'not-an-array' },
+      });
+
+      const result = await service.preferences(TENANT_ID, AY_ID);
+
+      expect(result.run_id).toBe('run-1');
+      expect(result.overall_satisfaction_pct).toBeNull();
+    });
+
+    it('should handle entries without teacher_staff_id', async () => {
+      mockSchedulingRunsReadFacade.findLatestRunWithResult.mockResolvedValue({
+        id: 'run-1',
+        status: 'completed',
+        soft_preference_score: 90,
+        soft_preference_max: 100,
+        created_at: NOW,
+        result_json: {
+          entries: [
+            {
+              teacher_staff_id: null,
+              preference_satisfaction: [{ type: 'time', weight: 1, satisfied: true }],
+            },
+          ],
+          unassigned: [],
+        },
+      });
+
+      const result = await service.preferences(TENANT_ID, AY_ID);
+
+      expect(result.staff_satisfaction).toHaveLength(0);
+    });
+
+    it('should use staffId as fallback name when profile not found', async () => {
+      mockSchedulingRunsReadFacade.findLatestRunWithResult.mockResolvedValue({
+        id: 'run-1',
+        status: 'completed',
+        soft_preference_score: 50,
+        soft_preference_max: 100,
+        created_at: NOW,
+        result_json: {
+          entries: [
+            {
+              teacher_staff_id: 'staff-unknown',
+              preference_satisfaction: [{ type: 'time', weight: 1, satisfied: false }],
+            },
+          ],
+          unassigned: [],
+        },
+      });
+      mockStaffProfileReadFacade.findByIds.mockResolvedValue([]);
+
+      const result = await service.preferences(TENANT_ID, AY_ID);
+
+      expect(result.staff_satisfaction[0]?.name).toBe('staff-unknown');
+    });
+
+    it('should return null overall_satisfaction when soft_preference_max is zero', async () => {
+      mockSchedulingRunsReadFacade.findLatestRunWithResult.mockResolvedValue({
+        id: 'run-1',
+        status: 'completed',
+        soft_preference_score: 0,
+        soft_preference_max: 0,
+        created_at: NOW,
+        result_json: {
+          entries: [],
+          unassigned: [],
+        },
+      });
+
+      const result = await service.preferences(TENANT_ID, AY_ID);
+
+      expect(result.overall_satisfaction_pct).toBeNull();
+    });
+
+    it('should return null overall_satisfaction when scores are null', async () => {
+      mockSchedulingRunsReadFacade.findLatestRunWithResult.mockResolvedValue({
+        id: 'run-1',
+        status: 'completed',
+        soft_preference_score: null,
+        soft_preference_max: null,
+        created_at: NOW,
+        result_json: {
+          entries: [],
+          unassigned: [],
+        },
+      });
+
+      const result = await service.preferences(TENANT_ID, AY_ID);
+
+      expect(result.overall_satisfaction_pct).toBeNull();
+    });
+  });
+
+  // ─── roomUtilisation — edge cases ──────────────────────────────────────────
+
+  describe('roomUtilisation — edge cases', () => {
+    it('should handle entries with null room_id', async () => {
+      mockRoomsReadFacade.findActiveRooms.mockResolvedValue([
+        { id: 'room-1', name: 'Room 1', room_type: 'classroom', capacity: 30 },
+      ]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(25);
+      mockSchedulesReadFacade.findRoomScheduleEntries.mockResolvedValue([
+        { room_id: null, period_order: 1, schedule_period_template: null },
+      ]);
+
+      const result = await service.roomUtilisation(TENANT_ID, AY_ID);
+
+      expect(result.data[0]?.utilisation_pct).toBe(0);
+      expect(result.data[0]?.peak_period).toBeNull();
+    });
+
+    it('should fall back to P{order} for period label when no template', async () => {
+      mockRoomsReadFacade.findActiveRooms.mockResolvedValue([
+        { id: 'room-1', name: 'Room 1', room_type: 'classroom', capacity: null },
+      ]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(25);
+      mockSchedulesReadFacade.findRoomScheduleEntries.mockResolvedValue([
+        { room_id: 'room-1', period_order: 3, schedule_period_template: null },
+      ]);
+
+      const result = await service.roomUtilisation(TENANT_ID, AY_ID);
+
+      expect(result.data[0]?.capacity).toBe(0);
+      expect(result.data[0]?.peak_period).toBe('P3');
+    });
+
+    it('should handle zero teaching periods', async () => {
+      mockRoomsReadFacade.findActiveRooms.mockResolvedValue([
+        { id: 'room-1', name: 'Room 1', room_type: 'classroom', capacity: 25 },
+      ]);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(0);
+      mockSchedulesReadFacade.findRoomScheduleEntries.mockResolvedValue([]);
+
+      const result = await service.roomUtilisation(TENANT_ID, AY_ID);
+
+      expect(result.data[0]?.utilisation_pct).toBe(0);
+    });
+  });
+
+  // ─── computeAvgGaps — edge cases ──────────────────────────────────────────
+
+  describe('overview — computeAvgGaps edge cases', () => {
+    it('should return null avg_gaps when all entries have null teacher or period_order', async () => {
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockSchedulesReadFacade.findScheduledClassIds.mockResolvedValue([]);
+      mockSchedulingRunsReadFacade.findLatestCompletedRun.mockResolvedValue(null);
+      mockSchedulingRunsReadFacade.countActiveRuns.mockResolvedValue(0);
+      mockSchedulesReadFacade.countPinnedEntries.mockResolvedValue(0);
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(25);
+      mockRoomsReadFacade.countActiveRooms.mockResolvedValue(0);
+      mockSchedulesReadFacade.countRoomAssignedEntries.mockResolvedValue(0);
+      mockSchedulesReadFacade.findTeacherScheduleEntries.mockResolvedValue([
+        { teacher_staff_id: null, weekday: 0, period_order: 1 },
+        { teacher_staff_id: 't1', weekday: 0, period_order: null },
+      ]);
+
+      const result = await service.overview(TENANT_ID, AY_ID);
+
+      expect(result.avg_gaps).toBeNull();
     });
   });
 });

@@ -9,7 +9,9 @@ import { RoomsService } from './rooms.service';
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn({})),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn({})),
   }),
 }));
 
@@ -72,10 +74,16 @@ describe('RoomsService', () => {
       },
     };
     createRlsClient.mockReturnValue({
-      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
     });
 
-    const result = await service.create(TENANT_ID, { name: 'Lab 1', room_type: 'classroom', is_exclusive: true });
+    const result = await service.create(TENANT_ID, {
+      name: 'Lab 1',
+      room_type: 'classroom',
+      is_exclusive: true,
+    });
 
     expect(result).toEqual({ id: ROOM_ID, name: 'Lab 1', room_type: 'classroom' });
   });
@@ -85,16 +93,18 @@ describe('RoomsService', () => {
       createRlsClient: jest.Mock;
     };
 
-    const prismaError = new Prisma.PrismaClientKnownRequestError(
-      'Unique constraint failed',
-      { code: 'P2002', clientVersion: '5.0.0' },
-    );
+    const prismaError = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+      code: 'P2002',
+      clientVersion: '5.0.0',
+    });
 
     createRlsClient.mockReturnValue({
       $transaction: jest.fn().mockRejectedValue(prismaError),
     });
 
-    await expect(service.create(TENANT_ID, { name: 'Room A', room_type: 'classroom', is_exclusive: true })).rejects.toThrow(ConflictException);
+    await expect(
+      service.create(TENANT_ID, { name: 'Room A', room_type: 'classroom', is_exclusive: true }),
+    ).rejects.toThrow(ConflictException);
   });
 
   // ─── findAll ────────────────────────────────────────────────────────────────
@@ -143,7 +153,102 @@ describe('RoomsService', () => {
   it('should throw NotFoundException when updating a non-existent room', async () => {
     mockPrisma.room.findFirst.mockResolvedValue(null);
 
-    await expect(service.update(TENANT_ID, ROOM_ID, { name: 'Updated' })).rejects.toThrow(NotFoundException);
+    await expect(service.update(TENANT_ID, ROOM_ID, { name: 'Updated' })).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('should update a room successfully', async () => {
+    mockPrisma.room.findFirst.mockResolvedValue({ id: ROOM_ID });
+
+    const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+      createRlsClient: jest.Mock;
+    };
+    const mockTx = {
+      room: {
+        update: jest
+          .fn()
+          .mockResolvedValue({
+            id: ROOM_ID,
+            name: 'Updated',
+            room_type: 'lab',
+            capacity: 30,
+            active: false,
+          }),
+      },
+    };
+    createRlsClient.mockReturnValue({
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    });
+
+    const result = await service.update(TENANT_ID, ROOM_ID, {
+      name: 'Updated',
+      room_type: 'lab' as never,
+      capacity: 30,
+      is_exclusive: false,
+      active: false,
+    });
+
+    expect(result.name).toBe('Updated');
+    expect(mockTx.room.update).toHaveBeenCalledWith({
+      where: { id: ROOM_ID },
+      data: expect.objectContaining({
+        name: 'Updated',
+        room_type: 'lab',
+        capacity: 30,
+        is_exclusive: false,
+        active: false,
+      }),
+    });
+  });
+
+  it('should throw ConflictException on duplicate room name during update', async () => {
+    mockPrisma.room.findFirst.mockResolvedValue({ id: ROOM_ID });
+
+    const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+      createRlsClient: jest.Mock;
+    };
+    const prismaError = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+      code: 'P2002',
+      clientVersion: '5.0.0',
+    });
+    createRlsClient.mockReturnValue({
+      $transaction: jest.fn().mockRejectedValue(prismaError),
+    });
+
+    await expect(service.update(TENANT_ID, ROOM_ID, { name: 'Duplicate' })).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
+  it('should re-throw non-P2002 errors during update', async () => {
+    mockPrisma.room.findFirst.mockResolvedValue({ id: ROOM_ID });
+
+    const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+      createRlsClient: jest.Mock;
+    };
+    createRlsClient.mockReturnValue({
+      $transaction: jest.fn().mockRejectedValue(new Error('DB connection lost')),
+    });
+
+    await expect(service.update(TENANT_ID, ROOM_ID, { name: 'Test' })).rejects.toThrow(
+      'DB connection lost',
+    );
+  });
+
+  it('should re-throw non-P2002 errors during create', async () => {
+    const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+      createRlsClient: jest.Mock;
+    };
+    createRlsClient.mockReturnValue({
+      $transaction: jest.fn().mockRejectedValue(new Error('Connection refused')),
+    });
+
+    await expect(
+      service.create(TENANT_ID, { name: 'Room X', room_type: 'classroom', is_exclusive: true }),
+    ).rejects.toThrow('Connection refused');
   });
 
   // ─── remove ─────────────────────────────────────────────────────────────────
@@ -166,7 +271,9 @@ describe('RoomsService', () => {
       room: { delete: jest.fn().mockResolvedValue({ id: ROOM_ID }) },
     };
     createRlsClient.mockReturnValue({
-      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
     });
 
     const result = await service.remove(TENANT_ID, ROOM_ID);

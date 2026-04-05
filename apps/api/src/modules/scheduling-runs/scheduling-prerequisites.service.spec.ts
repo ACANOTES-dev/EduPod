@@ -307,4 +307,224 @@ describe('SchedulingPrerequisitesService', () => {
       expect(keys).toContain('no_pinned_availability_violations');
     });
   });
+
+  // ─── all_classes_configured — zero active classes ────────────────────────
+
+  describe('check (zero active classes)', () => {
+    it('should fail all_classes_configured when there are zero active classes', async () => {
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(0);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(0);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([]);
+
+      const result = await service.check(TENANT_ID, AY_ID);
+
+      const configCheck = result.checks.find((c) => c.key === 'all_classes_configured');
+      expect(configCheck?.passed).toBe(false);
+    });
+  });
+
+  // ─── Pinned entries — same day non-overlapping times ─────────────────────
+
+  describe('check (pinned entries — non-overlapping same day)', () => {
+    it('should pass when same-day entries do not overlap in time', async () => {
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
+
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([
+        {
+          id: 'sched-1',
+          teacher_staff_id: 'staff-1',
+          room_id: 'room-1',
+          weekday: 1,
+          start_time: new Date('1970-01-01T08:00:00Z'),
+          end_time: new Date('1970-01-01T08:45:00Z'),
+        },
+        {
+          id: 'sched-2',
+          teacher_staff_id: 'staff-1',
+          room_id: 'room-1',
+          weekday: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T09:45:00Z'),
+        },
+      ]);
+
+      const result = await service.check(TENANT_ID, AY_ID);
+
+      const conflictCheck = result.checks.find((c) => c.key === 'no_pinned_conflicts');
+      expect(conflictCheck?.passed).toBe(true);
+    });
+  });
+
+  // ─── Pinned entries — null teacher and room IDs ─────────────────────────
+
+  describe('check (pinned entries — null teacher/room)', () => {
+    it('should not flag conflicts for entries with null teacher_staff_id and room_id', async () => {
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
+
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([
+        {
+          id: 'sched-1',
+          teacher_staff_id: null,
+          room_id: null,
+          weekday: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T09:45:00Z'),
+        },
+        {
+          id: 'sched-2',
+          teacher_staff_id: null,
+          room_id: null,
+          weekday: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T09:45:00Z'),
+        },
+      ]);
+
+      const result = await service.check(TENANT_ID, AY_ID);
+
+      const conflictCheck = result.checks.find((c) => c.key === 'no_pinned_conflicts');
+      expect(conflictCheck?.passed).toBe(true);
+    });
+  });
+
+  // ─── Availability — teacher has constraints but none for entry's day ──────
+
+  describe('check (availability — no constraint for day)', () => {
+    it('should flag violation when teacher has constraints but not for the entry weekday', async () => {
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
+
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([
+        {
+          id: 'sched-1',
+          teacher_staff_id: 'staff-1',
+          room_id: null,
+          weekday: 3,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T09:45:00Z'),
+        },
+      ]);
+
+      // Teacher has availability on weekday 1 only — not weekday 3
+      mockStaffAvailabilityReadFacade.findByStaffIds.mockResolvedValue([
+        {
+          staff_profile_id: 'staff-1',
+          weekday: 1,
+          available_from: new Date('1970-01-01T08:00:00Z'),
+          available_to: new Date('1970-01-01T14:00:00Z'),
+        },
+      ]);
+
+      const result = await service.check(TENANT_ID, AY_ID);
+
+      const availCheck = result.checks.find((c) => c.key === 'no_pinned_availability_violations');
+      expect(availCheck?.passed).toBe(false);
+      expect(availCheck?.message).toContain('violate teacher availability');
+    });
+  });
+
+  // ─── Availability — pinned entry without teacher ─────────────────────────
+
+  describe('check (availability — null teacher on pinned entry)', () => {
+    it('should not check availability for pinned entries without a teacher', async () => {
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
+
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([
+        {
+          id: 'sched-1',
+          teacher_staff_id: null,
+          room_id: 'room-1',
+          weekday: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T09:45:00Z'),
+        },
+      ]);
+
+      const result = await service.check(TENANT_ID, AY_ID);
+
+      const availCheck = result.checks.find((c) => c.key === 'no_pinned_availability_violations');
+      expect(availCheck?.passed).toBe(true);
+      // findByStaffIds should NOT be called since no teacher IDs
+      expect(mockStaffAvailabilityReadFacade.findByStaffIds).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Availability — teacher has no constraints (fully available) ──────────
+
+  describe('check (availability — no constraints)', () => {
+    it('should pass when teacher has no availability records (fully available)', async () => {
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
+
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([
+        {
+          id: 'sched-1',
+          teacher_staff_id: 'staff-1',
+          room_id: null,
+          weekday: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T09:45:00Z'),
+        },
+      ]);
+
+      // No availability records → fully available
+      mockStaffAvailabilityReadFacade.findByStaffIds.mockResolvedValue([]);
+
+      const result = await service.check(TENANT_ID, AY_ID);
+
+      const availCheck = result.checks.find((c) => c.key === 'no_pinned_availability_violations');
+      expect(availCheck?.passed).toBe(true);
+    });
+  });
+
+  // ─── Availability — within window ───────────────────────────────────────
+
+  describe('check (availability — within window)', () => {
+    it('should pass when pinned entry is within teacher availability window', async () => {
+      mockSchedulingReadFacade.countTeachingPeriods.mockResolvedValue(10);
+      mockClassesReadFacade.countByAcademicYear.mockResolvedValue(5);
+      mockSchedulingReadFacade.countClassRequirements.mockResolvedValue(5);
+      mockClassesReadFacade.findClassesWithoutTeachers.mockResolvedValue([]);
+
+      mockSchedulesReadFacade.findPinnedEntries.mockResolvedValue([
+        {
+          id: 'sched-1',
+          teacher_staff_id: 'staff-1',
+          room_id: null,
+          weekday: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T09:45:00Z'),
+        },
+      ]);
+
+      mockStaffAvailabilityReadFacade.findByStaffIds.mockResolvedValue([
+        {
+          staff_profile_id: 'staff-1',
+          weekday: 1,
+          available_from: new Date('1970-01-01T08:00:00Z'),
+          available_to: new Date('1970-01-01T14:00:00Z'),
+        },
+      ]);
+
+      const result = await service.check(TENANT_ID, AY_ID);
+
+      const availCheck = result.checks.find((c) => c.key === 'no_pinned_availability_violations');
+      expect(availCheck?.passed).toBe(true);
+    });
+  });
 });

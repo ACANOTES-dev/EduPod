@@ -26,10 +26,7 @@ describe('WebhookService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        WebhookService,
-        { provide: PrismaService, useValue: prisma },
-      ],
+      providers: [WebhookService, { provide: PrismaService, useValue: prisma }],
     }).compile();
 
     service = module.get<WebhookService>(WebhookService);
@@ -132,6 +129,20 @@ describe('WebhookService', () => {
       });
 
       expect(prisma.notification.findFirst).not.toHaveBeenCalled();
+      expect(prisma.notification.update).not.toHaveBeenCalled();
+    });
+
+    it('should not update notification for unhandled Resend event type', async () => {
+      const notification = makeNotification();
+      prisma.notification.findFirst.mockResolvedValue(notification);
+
+      await service.handleResendEvent({
+        type: 'email.opened',
+        data: { message_id: 'msg-123' },
+      });
+
+      expect(prisma.notification.findFirst).toHaveBeenCalled();
+      // Should not update — unhandled type falls to default case
       expect(prisma.notification.update).not.toHaveBeenCalled();
     });
   });
@@ -279,6 +290,40 @@ describe('WebhookService', () => {
         where: { provider_message_id: 'SM-unknown' },
       });
       expect(prisma.notification.update).not.toHaveBeenCalled();
+    });
+
+    it('should not update or create fallback for unhandled Twilio status', async () => {
+      const notification = makeNotification({
+        channel: 'sms',
+        provider_message_id: 'SM999',
+      });
+      prisma.notification.findFirst.mockResolvedValue(notification);
+
+      await service.handleTwilioEvent({
+        MessageSid: 'SM999',
+        MessageStatus: 'accepted',
+      });
+
+      expect(prisma.notification.findFirst).toHaveBeenCalled();
+      // "accepted" is not delivered, failed, or undelivered, so no update
+      expect(prisma.notification.update).not.toHaveBeenCalled();
+      expect(prisma.notification.create).not.toHaveBeenCalled();
+    });
+
+    it('edge: should not update when MessageStatus is undefined', async () => {
+      const notification = makeNotification({
+        channel: 'sms',
+        provider_message_id: 'SM-no-status',
+      });
+      prisma.notification.findFirst.mockResolvedValue(notification);
+
+      await service.handleTwilioEvent({
+        MessageSid: 'SM-no-status',
+      });
+
+      // No status match, nothing should be updated
+      expect(prisma.notification.update).not.toHaveBeenCalled();
+      expect(prisma.notification.create).not.toHaveBeenCalled();
     });
   });
 });

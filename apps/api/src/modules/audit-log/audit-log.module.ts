@@ -1,3 +1,4 @@
+import { BullModule } from '@nestjs/bullmq';
 import { Global, Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 
@@ -10,6 +11,7 @@ import { SecurityAuditService } from './security-audit.service';
 
 @Global()
 @Module({
+  imports: [BullModule.registerQueue({ name: 'audit-log' })],
   controllers: [AuditLogController, PlatformAuditLogController, EngagementController],
   providers: [
     AuditLogService,

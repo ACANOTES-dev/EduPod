@@ -36,7 +36,10 @@ describe('SchedulingAnalyticsService', () => {
   const mockPrisma = {
     teacherSchedulingConfig: { findMany: jest.fn().mockResolvedValue([]) },
     schedulePeriodTemplate: { findMany: jest.fn().mockResolvedValue([]) },
-    substitutionRecord: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+    substitutionRecord: {
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+    },
   };
 
   beforeEach(async () => {
@@ -137,6 +140,76 @@ describe('SchedulingAnalyticsService', () => {
 
       expect(result.substitution_total_count).toBe(42);
     });
+
+    it('should return null preference satisfaction when prefMax is 0', async () => {
+      mockSchedulingRunsReadFacade.findLatestAppliedRun.mockResolvedValue({
+        soft_preference_score: '0',
+        soft_preference_max: '0',
+        entries_unassigned: 0,
+        entries_generated: 10,
+      });
+
+      const result = await service.getEfficiencyDashboard(TENANT_ID, DEFAULT_QUERY);
+
+      expect(result.preference_satisfaction_percent).toBeNull();
+    });
+
+    it('should return null preference when score is null but max is set', async () => {
+      mockSchedulingRunsReadFacade.findLatestAppliedRun.mockResolvedValue({
+        soft_preference_score: null,
+        soft_preference_max: '100',
+        entries_unassigned: 0,
+        entries_generated: 10,
+      });
+
+      const result = await service.getEfficiencyDashboard(TENANT_ID, DEFAULT_QUERY);
+
+      expect(result.preference_satisfaction_percent).toBeNull();
+    });
+
+    it('should skip teachers without max config for utilization', async () => {
+      mockSchedulesReadFacade.findByAcademicYear.mockResolvedValue([
+        { teacher_staff_id: 'staff-1', room_id: null },
+        { teacher_staff_id: 'staff-2', room_id: null },
+      ]);
+      // Only staff-1 has a config, staff-2 does not
+      mockPrisma.teacherSchedulingConfig.findMany.mockResolvedValue([
+        { staff_profile_id: 'staff-1', max_periods_per_week: 10 },
+      ]);
+
+      const result = await service.getEfficiencyDashboard(TENANT_ID, DEFAULT_QUERY);
+
+      // Only staff-1 contributes (1/10 = 10%)
+      expect(result.teacher_utilization_avg_percent).toBe(10);
+    });
+
+    it('should handle schedules without teacher_staff_id or room_id', async () => {
+      mockSchedulesReadFacade.findByAcademicYear.mockResolvedValue([
+        { teacher_staff_id: null, room_id: null },
+      ]);
+
+      const result = await service.getEfficiencyDashboard(TENANT_ID, DEFAULT_QUERY);
+
+      expect(result.teacher_utilization_avg_percent).toBe(0);
+      expect(result.room_utilization_rate_percent).toBe(0);
+      expect(result.total_active_schedules).toBe(1);
+    });
+
+    it('should average utilization across multiple teachers', async () => {
+      // staff-1: 5/10=50%, staff-2: 8/20=40% => avg=45%
+      mockSchedulesReadFacade.findByAcademicYear.mockResolvedValue([
+        ...Array(5).fill({ teacher_staff_id: 'staff-1', room_id: null }),
+        ...Array(8).fill({ teacher_staff_id: 'staff-2', room_id: null }),
+      ]);
+      mockPrisma.teacherSchedulingConfig.findMany.mockResolvedValue([
+        { staff_profile_id: 'staff-1', max_periods_per_week: 10 },
+        { staff_profile_id: 'staff-2', max_periods_per_week: 20 },
+      ]);
+
+      const result = await service.getEfficiencyDashboard(TENANT_ID, DEFAULT_QUERY);
+
+      expect(result.teacher_utilization_avg_percent).toBe(45);
+    });
   });
 
   // ─── getWorkloadHeatmap ───────────────────────────────────────────────────
@@ -168,10 +241,30 @@ describe('SchedulingAnalyticsService', () => {
 
     it('should sort by total_periods descending', async () => {
       mockSchedulesReadFacade.findTeacherWorkloadEntries.mockResolvedValue([
-        { teacher_staff_id: 'staff-2', weekday: 1, period_order: 1, teacher: { user: { first_name: 'Bob', last_name: 'Smith' } } },
-        { teacher_staff_id: 'staff-1', weekday: 1, period_order: 1, teacher: { user: { first_name: 'Alice', last_name: 'Brown' } } },
-        { teacher_staff_id: 'staff-1', weekday: 2, period_order: 1, teacher: { user: { first_name: 'Alice', last_name: 'Brown' } } },
-        { teacher_staff_id: 'staff-1', weekday: 3, period_order: 1, teacher: { user: { first_name: 'Alice', last_name: 'Brown' } } },
+        {
+          teacher_staff_id: 'staff-2',
+          weekday: 1,
+          period_order: 1,
+          teacher: { user: { first_name: 'Bob', last_name: 'Smith' } },
+        },
+        {
+          teacher_staff_id: 'staff-1',
+          weekday: 1,
+          period_order: 1,
+          teacher: { user: { first_name: 'Alice', last_name: 'Brown' } },
+        },
+        {
+          teacher_staff_id: 'staff-1',
+          weekday: 2,
+          period_order: 1,
+          teacher: { user: { first_name: 'Alice', last_name: 'Brown' } },
+        },
+        {
+          teacher_staff_id: 'staff-1',
+          weekday: 3,
+          period_order: 1,
+          teacher: { user: { first_name: 'Alice', last_name: 'Brown' } },
+        },
       ]);
 
       const result = await service.getWorkloadHeatmap(TENANT_ID, DEFAULT_QUERY);
@@ -182,7 +275,12 @@ describe('SchedulingAnalyticsService', () => {
 
     it('should include cover_count from recent substitution records', async () => {
       mockSchedulesReadFacade.findTeacherWorkloadEntries.mockResolvedValue([
-        { teacher_staff_id: 'staff-1', weekday: 1, period_order: 1, teacher: { user: { first_name: 'Alice', last_name: 'Brown' } } },
+        {
+          teacher_staff_id: 'staff-1',
+          weekday: 1,
+          period_order: 1,
+          teacher: { user: { first_name: 'Alice', last_name: 'Brown' } },
+        },
       ]);
       mockPrisma.substitutionRecord.findMany.mockResolvedValue([
         { substitute_staff_id: 'staff-1' },
@@ -200,6 +298,39 @@ describe('SchedulingAnalyticsService', () => {
 
       expect(result.data).toHaveLength(0);
     });
+
+    it('should skip entries without teacher_staff_id', async () => {
+      mockSchedulesReadFacade.findTeacherWorkloadEntries.mockResolvedValue([
+        { teacher_staff_id: null, teacher: null },
+        { teacher_staff_id: 'staff-1', teacher: { user: { first_name: 'A', last_name: 'B' } } },
+      ]);
+
+      const result = await service.getWorkloadHeatmap(TENANT_ID, DEFAULT_QUERY);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]!.staff_profile_id).toBe('staff-1');
+    });
+
+    it('should use staff_profile_id as name when teacher relation is null', async () => {
+      mockSchedulesReadFacade.findTeacherWorkloadEntries.mockResolvedValue([
+        { teacher_staff_id: 'staff-1', teacher: null },
+      ]);
+
+      const result = await service.getWorkloadHeatmap(TENANT_ID, DEFAULT_QUERY);
+
+      expect(result.data[0]!.name).toBe('staff-1');
+    });
+
+    it('should return 0 cover_count when no substitution records exist for teacher', async () => {
+      mockSchedulesReadFacade.findTeacherWorkloadEntries.mockResolvedValue([
+        { teacher_staff_id: 'staff-1', teacher: { user: { first_name: 'A', last_name: 'B' } } },
+      ]);
+      mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
+
+      const result = await service.getWorkloadHeatmap(TENANT_ID, DEFAULT_QUERY);
+
+      expect(result.data[0]!.cover_count).toBe(0);
+    });
   });
 
   // ─── getRoomUtilization ───────────────────────────────────────────────────
@@ -210,9 +341,7 @@ describe('SchedulingAnalyticsService', () => {
         { id: 'room-1', name: 'Lab A', capacity: 25 },
         { id: 'room-2', name: 'Hall B', capacity: 100 },
       ]);
-      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue(
-        Array(20).fill({ weekday: 1 }),
-      );
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue(Array(20).fill({ weekday: 1 }));
       // room-1 used 10 times out of 20 possible → 50%
       // room-2 used 0 times → 0%
       mockSchedulesReadFacade.findByAcademicYear.mockResolvedValue(
@@ -234,9 +363,7 @@ describe('SchedulingAnalyticsService', () => {
         { id: 'room-1', name: 'Lab A', capacity: 25 },
         { id: 'room-2', name: 'Hall B', capacity: 100 },
       ]);
-      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue(
-        Array(10).fill({ weekday: 1 }),
-      );
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue(Array(10).fill({ weekday: 1 }));
       // room-2 has higher utilization
       mockSchedulesReadFacade.findByAcademicYear.mockResolvedValue([
         ...Array(8).fill({ room_id: 'room-2' }),
@@ -266,6 +393,108 @@ describe('SchedulingAnalyticsService', () => {
       const result = await service.getRoomUtilization(TENANT_ID, DEFAULT_QUERY);
 
       expect(result.data).toHaveLength(0);
+    });
+
+    it('should skip schedules without room_id', async () => {
+      mockRoomsReadFacade.findActiveRoomBasics.mockResolvedValue([
+        { id: 'room-1', name: 'Lab A', capacity: 25 },
+      ]);
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue(Array(10).fill({ weekday: 1 }));
+      mockSchedulesReadFacade.findByAcademicYear.mockResolvedValue([
+        { room_id: null },
+        { room_id: 'room-1' },
+      ]);
+
+      const result = await service.getRoomUtilization(TENANT_ID, DEFAULT_QUERY);
+
+      expect(result.data[0]!.slots_filled).toBe(1);
+    });
+  });
+
+  // ─── getHistoricalComparison ──────────────────────────────────────────────
+
+  describe('getHistoricalComparison', () => {
+    it('should return comparison between two academic years', async () => {
+      mockSchedulesReadFacade.count
+        .mockResolvedValueOnce(100) // year A schedule count
+        .mockResolvedValueOnce(120); // year B schedule count
+      mockPrisma.substitutionRecord.count
+        .mockResolvedValueOnce(10) // year A substitutions
+        .mockResolvedValueOnce(15); // year B substitutions
+      mockSchedulingRunsReadFacade.findLatestAppliedRun
+        .mockResolvedValueOnce({
+          entries_unassigned: 2,
+          soft_preference_score: '80',
+          soft_preference_max: '100',
+        })
+        .mockResolvedValueOnce({
+          entries_unassigned: 1,
+          soft_preference_score: '90',
+          soft_preference_max: '100',
+        });
+
+      const result = await service.getHistoricalComparison(TENANT_ID, {
+        year_id_a: 'ay-1',
+        year_id_b: 'ay-2',
+      });
+
+      expect(result.year_a.academic_year_id).toBe('ay-1');
+      expect(result.year_b.academic_year_id).toBe('ay-2');
+      expect(result.year_a.schedule_count).toBe(100);
+      expect(result.year_b.schedule_count).toBe(120);
+      expect(result.comparison.schedule_count_delta).toBe(20);
+      expect(result.comparison.substitution_delta).toBe(5);
+      expect(result.comparison.unassigned_delta).toBe(-1);
+    });
+
+    it('should handle years with no applied runs', async () => {
+      mockSchedulesReadFacade.count.mockResolvedValue(50);
+      mockPrisma.substitutionRecord.count.mockResolvedValue(0);
+      mockSchedulingRunsReadFacade.findLatestAppliedRun.mockResolvedValue(null);
+
+      const result = await service.getHistoricalComparison(TENANT_ID, {
+        year_id_a: 'ay-1',
+        year_id_b: 'ay-2',
+      });
+
+      expect(result.year_a.unassigned_count).toBeNull();
+      expect(result.year_b.unassigned_count).toBeNull();
+      expect(result.year_a.preference_satisfaction_percent).toBeNull();
+      expect(result.comparison.unassigned_delta).toBe(0);
+    });
+
+    it('should return null preference when prefMax is 0', async () => {
+      mockSchedulesReadFacade.count.mockResolvedValue(10);
+      mockPrisma.substitutionRecord.count.mockResolvedValue(0);
+      mockSchedulingRunsReadFacade.findLatestAppliedRun.mockResolvedValue({
+        entries_unassigned: 0,
+        soft_preference_score: '0',
+        soft_preference_max: '0',
+      });
+
+      const result = await service.getHistoricalComparison(TENANT_ID, {
+        year_id_a: 'ay-1',
+        year_id_b: 'ay-2',
+      });
+
+      expect(result.year_a.preference_satisfaction_percent).toBeNull();
+    });
+
+    it('should return null preference when score is null', async () => {
+      mockSchedulesReadFacade.count.mockResolvedValue(10);
+      mockPrisma.substitutionRecord.count.mockResolvedValue(0);
+      mockSchedulingRunsReadFacade.findLatestAppliedRun.mockResolvedValue({
+        entries_unassigned: 0,
+        soft_preference_score: null,
+        soft_preference_max: '100',
+      });
+
+      const result = await service.getHistoricalComparison(TENANT_ID, {
+        year_id_a: 'ay-1',
+        year_id_b: 'ay-2',
+      });
+
+      expect(result.year_a.preference_satisfaction_percent).toBeNull();
     });
   });
 });

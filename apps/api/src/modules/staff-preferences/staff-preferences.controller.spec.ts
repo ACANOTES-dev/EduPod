@@ -168,4 +168,76 @@ describe('StaffPreferencesController', () => {
       'schedule.manage_preferences',
     ]);
   });
+
+  it('should pass empty permissions when update user has no membership_id', async () => {
+    const mockJwtPayload: JwtPayload = {
+      sub: USER_ID,
+      email: 'user@school.test',
+      tenant_id: TENANT_ID,
+      membership_id: null,
+      type: 'access',
+      iat: 0,
+      exp: 0,
+    };
+
+    await controller.update(mockTenant, mockJwtPayload, PREF_ID, { priority: 'high' });
+
+    expect(mockPermissionCache.getPermissions).not.toHaveBeenCalled();
+    expect(mockService.update).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      PREF_ID,
+      { priority: 'high' },
+      [],
+    );
+  });
+
+  it('should pass empty permissions when delete user has no membership_id', async () => {
+    const mockJwtPayload: JwtPayload = {
+      sub: USER_ID,
+      email: 'user@school.test',
+      tenant_id: TENANT_ID,
+      membership_id: null,
+      type: 'access',
+      iat: 0,
+      exp: 0,
+    };
+
+    await controller.remove(mockTenant, mockJwtPayload, PREF_ID);
+
+    expect(mockPermissionCache.getPermissions).not.toHaveBeenCalled();
+    expect(mockService.delete).toHaveBeenCalledWith(TENANT_ID, USER_ID, PREF_ID, []);
+  });
+
+  it('should call findAll with staff_profile_id when provided in query', async () => {
+    const STAFF_PROFILE_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+    const query = { academic_year_id: ACADEMIC_YEAR_ID, staff_profile_id: STAFF_PROFILE_ID };
+
+    await controller.findAll(mockTenant, query);
+
+    expect(mockService.findAll).toHaveBeenCalledWith(TENANT_ID, ACADEMIC_YEAR_ID, STAFF_PROFILE_ID);
+  });
+
+  it('should call update with resolved permissions from cache', async () => {
+    const mockJwtPayload: JwtPayload = {
+      sub: USER_ID,
+      email: 'user@school.test',
+      tenant_id: TENANT_ID,
+      membership_id: MEMBERSHIP_ID,
+      type: 'access',
+      iat: 0,
+      exp: 0,
+    };
+
+    await controller.update(mockTenant, mockJwtPayload, PREF_ID, { priority: 'low' });
+
+    expect(mockPermissionCache.getPermissions).toHaveBeenCalledWith(MEMBERSHIP_ID);
+    expect(mockService.update).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      PREF_ID,
+      { priority: 'low' },
+      ['schedule.manage_preferences'],
+    );
+  });
 });

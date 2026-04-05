@@ -203,4 +203,106 @@ describe('TemplateRendererService', () => {
       expect(instanceResult).toBe(staticResult);
     });
   });
+
+  // ─── Handlebars helpers — formatDate ─────────────────────────────────────
+
+  describe('TemplateRendererService — formatDate helper', () => {
+    it('should format a valid Date object', () => {
+      const result = service.render('{{formatDate myDate}}', {
+        myDate: new Date('2025-03-15T12:00:00Z'),
+      });
+      expect(result).toContain('March');
+      expect(result).toContain('15');
+      expect(result).toContain('2025');
+    });
+
+    it('should format a valid ISO date string', () => {
+      const result = service.render('{{formatDate myDate}}', {
+        myDate: '2025-06-01T00:00:00Z',
+      });
+      expect(result).toContain('June');
+      expect(result).toContain('2025');
+    });
+
+    it('should return empty string when date is null/undefined/empty', () => {
+      const result = service.render('Date: {{formatDate myDate}}', {
+        myDate: null,
+      });
+      expect(result).toBe('Date: ');
+    });
+
+    it('should return original value as string when date is invalid', () => {
+      const result = service.render('Date: {{formatDate myDate}}', {
+        myDate: 'not-a-date',
+      });
+      expect(result).toBe('Date: not-a-date');
+    });
+
+    it('should accept a locale parameter for formatting', () => {
+      const result = service.render('{{formatDate myDate "en"}}', {
+        myDate: new Date('2025-12-25T00:00:00Z'),
+      });
+      expect(result).toContain('December');
+      expect(result).toContain('25');
+    });
+
+    it('should fallback to en locale when invalid locale is passed', () => {
+      // This tests the catch block inside the formatDate helper
+      const result = service.render('{{formatDate myDate "invalid-locale-xxx"}}', {
+        myDate: new Date('2025-01-10T00:00:00Z'),
+      });
+      // Should still produce a formatted date (fallback to 'en')
+      expect(result).toContain('2025');
+    });
+
+    it('should use en locale when locale param is not a string', () => {
+      // When the second argument is not a string (e.g., Handlebars options hash),
+      // the helper defaults to 'en'
+      const result = service.render('{{formatDate myDate}}', {
+        myDate: new Date('2025-07-04T00:00:00Z'),
+      });
+      expect(result).toContain('July');
+    });
+  });
+
+  // ─── Handlebars helpers — stripHtml ──────────────────────────────────────
+
+  describe('TemplateRendererService — stripHtml Handlebars helper', () => {
+    it('should strip HTML tags within a template via the helper', () => {
+      const result = service.render('{{{stripHtml myHtml}}}', {
+        myHtml: '<p>Hello <b>World</b></p>',
+      });
+      expect(result).toContain('Hello');
+      expect(result).toContain('World');
+      expect(result).not.toContain('<p>');
+      expect(result).not.toContain('<b>');
+    });
+
+    it('should return empty string when input is not a string', () => {
+      const result = service.render('Result: {{{stripHtml myVal}}}', {
+        myVal: 12345,
+      });
+      expect(result).toBe('Result: ');
+    });
+
+    it('should return empty string when input is null', () => {
+      const result = service.render('Result: {{{stripHtml myVal}}}', {
+        myVal: null,
+      });
+      expect(result).toBe('Result: ');
+    });
+  });
+
+  // ─── render() — error handling ──────────────────────────────────────────
+
+  describe('TemplateRendererService — render — error handling', () => {
+    it('should return raw template body when render throws', () => {
+      // Force a render error by using an invalid block helper that throws at runtime
+      // We need to use a helper that will throw during execution
+      const brokenTemplate = '{{#each}}no-args{{/each}}';
+      const result = service.render(brokenTemplate, {});
+      // Should return the raw template body (error path)
+      expect(result).toBe(brokenTemplate);
+    });
+  });
 });

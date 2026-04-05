@@ -1,11 +1,11 @@
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, HouseholdReadFacade } from '../../common/tests/mock-facades';
+import {
+  MOCK_FACADE_PROVIDERS,
+  HouseholdReadFacade,
+  StudentReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { FeeAssignmentsService } from './fee-assignments.service';
@@ -48,7 +48,12 @@ const makeAssignment = (overrides: Record<string, unknown> = {}) => ({
   discount_id: null,
   effective_from: new Date(),
   effective_to: null,
-  fee_structure: { id: FEE_STRUCTURE_ID, name: 'Tuition', amount: '1000.00', billing_frequency: 'monthly' },
+  fee_structure: {
+    id: FEE_STRUCTURE_ID,
+    name: 'Tuition',
+    amount: '1000.00',
+    billing_frequency: 'monthly',
+  },
   discount: null,
   household: { id: HOUSEHOLD_ID, household_name: 'Smith Family' },
   student: null,
@@ -61,10 +66,14 @@ describe('FeeAssignmentsService', () => {
   let service: FeeAssignmentsService;
 
   let mockHouseholdReadFacade: { findById: jest.Mock };
+  let mockStudentReadFacade: { findById: jest.Mock };
 
   beforeEach(async () => {
     mockHouseholdReadFacade = {
       findById: jest.fn().mockResolvedValue({ id: HOUSEHOLD_ID }),
+    };
+    mockStudentReadFacade = {
+      findById: jest.fn().mockResolvedValue({ id: _STUDENT_ID }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -73,6 +82,7 @@ describe('FeeAssignmentsService', () => {
         FeeAssignmentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: HouseholdReadFacade, useValue: mockHouseholdReadFacade },
+        { provide: StudentReadFacade, useValue: mockStudentReadFacade },
       ],
     }).compile();
 
@@ -203,13 +213,102 @@ describe('FeeAssignmentsService', () => {
         }),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('should throw BadRequestException when fee structure not found', async () => {
+      mockPrisma.feeStructure.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(TENANT_ID, {
+          household_id: HOUSEHOLD_ID,
+          fee_structure_id: 'bad-fs',
+          effective_from: '2026-01-01',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should check duplicate with student_id when provided', async () => {
+      mockPrisma.feeStructure.findFirst.mockResolvedValue({ id: FEE_STRUCTURE_ID, active: true });
+      mockPrisma.householdFeeAssignment.findFirst.mockResolvedValue(null); // no duplicate
+      mockPrisma.householdFeeAssignment.create.mockResolvedValue(
+        makeAssignment({ student_id: _STUDENT_ID }),
+      );
+
+      await service.create(TENANT_ID, {
+        household_id: HOUSEHOLD_ID,
+        fee_structure_id: FEE_STRUCTURE_ID,
+        effective_from: '2026-01-01',
+        student_id: _STUDENT_ID,
+      });
+
+      // Duplicate check should include student_id
+      expect(mockPrisma.householdFeeAssignment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student_id: _STUDENT_ID,
+          }),
+        }),
+      );
+    });
+
+    it('should check duplicate with null student_id when not provided', async () => {
+      mockPrisma.feeStructure.findFirst.mockResolvedValue({ id: FEE_STRUCTURE_ID, active: true });
+      mockPrisma.householdFeeAssignment.findFirst.mockResolvedValue(null);
+      mockPrisma.householdFeeAssignment.create.mockResolvedValue(makeAssignment());
+
+      await service.create(TENANT_ID, {
+        household_id: HOUSEHOLD_ID,
+        fee_structure_id: FEE_STRUCTURE_ID,
+        effective_from: '2026-01-01',
+      });
+
+      // Duplicate check should set student_id to null
+      expect(mockPrisma.householdFeeAssignment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student_id: null,
+          }),
+        }),
+      );
+    });
+
+    it('should validate student exists when student_id provided', async () => {
+      mockPrisma.feeStructure.findFirst.mockResolvedValue({ id: FEE_STRUCTURE_ID, active: true });
+
+      const mockStudentFacade = {
+        findById: jest.fn().mockResolvedValue(null),
+      };
+
+      const modStudent: TestingModule = await Test.createTestingModule({
+        providers: [
+          ...MOCK_FACADE_PROVIDERS,
+          FeeAssignmentsService,
+          { provide: PrismaService, useValue: mockPrisma },
+          { provide: HouseholdReadFacade, useValue: mockHouseholdReadFacade },
+          { provide: StudentReadFacade, useValue: mockStudentFacade },
+        ],
+      }).compile();
+
+      const svc = modStudent.get<FeeAssignmentsService>(FeeAssignmentsService);
+
+      await expect(
+        svc.create(TENANT_ID, {
+          household_id: HOUSEHOLD_ID,
+          fee_structure_id: FEE_STRUCTURE_ID,
+          effective_from: '2026-01-01',
+          student_id: 'bad-student',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('update', () => {
     it('should update an assignment', async () => {
       mockPrisma.householdFeeAssignment.findFirst.mockResolvedValue(makeAssignment());
       mockPrisma.householdFeeAssignment.update.mockResolvedValue(
-        makeAssignment({ discount_id: DISCOUNT_ID, discount: { id: DISCOUNT_ID, name: 'D', discount_type: 'percent', value: '10.00' } }),
+        makeAssignment({
+          discount_id: DISCOUNT_ID,
+          discount: { id: DISCOUNT_ID, name: 'D', discount_type: 'percent', value: '10.00' },
+        }),
       );
       mockPrisma.discount.findFirst.mockResolvedValue({ id: DISCOUNT_ID });
 

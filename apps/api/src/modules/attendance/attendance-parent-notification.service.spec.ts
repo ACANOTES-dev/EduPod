@@ -80,7 +80,9 @@ describe('AttendanceParentNotificationService', () => {
     mockNotifications = { createBatch: jest.fn().mockResolvedValue([]) };
     mockQueue = { add: jest.fn().mockResolvedValue({ id: 'job-1' }) };
     mockCommsFacade = { hasNotificationForSourceEntity: jest.fn().mockResolvedValue(false) };
-    mockParentFacade = { findParentContactsForStudent: jest.fn().mockResolvedValue([parentWithUser]) };
+    mockParentFacade = {
+      findParentContactsForStudent: jest.fn().mockResolvedValue([parentWithUser]),
+    };
     mockStudentFacade = { findById: jest.fn().mockResolvedValue(studentRecord) };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -97,9 +99,7 @@ describe('AttendanceParentNotificationService', () => {
       ],
     }).compile();
 
-    service = module.get<AttendanceParentNotificationService>(
-      AttendanceParentNotificationService,
-    );
+    service = module.get<AttendanceParentNotificationService>(AttendanceParentNotificationService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -165,7 +165,14 @@ describe('AttendanceParentNotificationService', () => {
   // ─── 5. No parent users — skips silently ────────────────────────────────
   it('should skip notification when no parent users are found', async () => {
     mockParentFacade.findParentContactsForStudent.mockResolvedValue([
-      { parent: { user_id: null, whatsapp_phone: null, phone: null, preferred_contact_channels: [] } },
+      {
+        parent: {
+          user_id: null,
+          whatsapp_phone: null,
+          phone: null,
+          preferred_contact_channels: [],
+        },
+      },
     ]);
 
     await service.triggerAbsenceNotification(
@@ -242,9 +249,116 @@ describe('AttendanceParentNotificationService', () => {
 
     expect(mockNotifications.createBatch).toHaveBeenCalledWith(
       TENANT_ID,
-      expect.arrayContaining([
-        expect.objectContaining({ template_key: 'attendance.left_early' }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ template_key: 'attendance.left_early' })]),
+    );
+  });
+
+  // ─── 9. Unmapped status returns null template key — skip ───────────────
+  it('should skip notification for an unknown status that maps to no template', async () => {
+    await service.triggerAbsenceNotification(
+      TENANT_ID,
+      STUDENT_ID,
+      RECORD_ID,
+      'some_unknown_status',
+      SESSION_DATE,
+    );
+
+    expect(mockNotifications.createBatch).not.toHaveBeenCalled();
+  });
+
+  // ─── 10. Student not found — skip ─────────────────────────────────────
+  it('should skip notification when student is not found', async () => {
+    mockStudentFacade.findById.mockResolvedValue(null);
+
+    await service.triggerAbsenceNotification(
+      TENANT_ID,
+      STUDENT_ID,
+      RECORD_ID,
+      'absent_unexcused',
+      SESSION_DATE,
+    );
+
+    expect(mockNotifications.createBatch).not.toHaveBeenCalled();
+  });
+
+  // ─── 11. Queue error is caught and logged ──────────────────────────────
+  it('should catch and log error when queue add fails', async () => {
+    mockParentFacade.findParentContactsForStudent.mockResolvedValue([parentWithWhatsApp]);
+    mockQueue.add.mockRejectedValue(new Error('Queue connection lost'));
+
+    // Should not throw
+    await service.triggerAbsenceNotification(
+      TENANT_ID,
+      STUDENT_ID,
+      RECORD_ID,
+      'absent_unexcused',
+      SESSION_DATE,
+    );
+
+    // In-app notification should still have been created
+    expect(mockNotifications.createBatch).toHaveBeenCalled();
+  });
+
+  // ─── 12. Parent with phone but no WhatsApp ────────────────────────────
+  it('should enqueue external notification when parent has phone but not WhatsApp', async () => {
+    const parentWithPhone = {
+      parent: {
+        user_id: 'parent-user-3',
+        whatsapp_phone: null,
+        phone: '+353871234567',
+      },
+    };
+    mockParentFacade.findParentContactsForStudent.mockResolvedValue([parentWithPhone]);
+
+    await service.triggerAbsenceNotification(
+      TENANT_ID,
+      STUDENT_ID,
+      RECORD_ID,
+      'late',
+      SESSION_DATE,
+    );
+
+    expect(mockQueue.add).toHaveBeenCalledWith(
+      'communications:attendance-parent-notify',
+      expect.objectContaining({
+        phone: '+353871234567',
+        whatsapp_phone: null,
+      }),
+      expect.objectContaining({ attempts: 3 }),
+    );
+  });
+
+  // ─── 13. Parent without contact channels — no queue job ────────────────
+  it('should not enqueue external notification when parent has no phone or whatsapp', async () => {
+    mockParentFacade.findParentContactsForStudent.mockResolvedValue([parentWithUser]);
+
+    await service.triggerAbsenceNotification(
+      TENANT_ID,
+      STUDENT_ID,
+      RECORD_ID,
+      'absent_unexcused',
+      SESSION_DATE,
+    );
+
+    expect(mockNotifications.createBatch).toHaveBeenCalled();
+    expect(mockQueue.add).not.toHaveBeenCalled();
+  });
+
+  // ─── 14. absent_excused maps to attendance.absent template ─────────────
+  it('should use attendance.absent template for absent_excused status', async () => {
+    mockParentFacade.findParentContactsForStudent.mockResolvedValue([parentWithUser]);
+
+    await service.triggerAbsenceNotification(
+      TENANT_ID,
+      STUDENT_ID,
+      RECORD_ID,
+      'absent_excused',
+      SESSION_DATE,
+    );
+
+    expect(mockNotifications.createBatch).toHaveBeenCalledWith(
+      TENANT_ID,
+      expect.arrayContaining([expect.objectContaining({ template_key: 'attendance.absent' })]),
     );
   });
 });

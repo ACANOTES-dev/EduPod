@@ -306,6 +306,66 @@ describe('AuthController', () => {
       );
     });
 
+    it('should use "unknown" when both x-forwarded-for and req.ip are absent', async () => {
+      const loginResult = {
+        access_token: 'at',
+        refresh_token: 'rt',
+        user: { id: USER_ID },
+      };
+      service.login.mockResolvedValue(loginResult);
+
+      const req = buildMockRequest({
+        headers: { 'user-agent': 'jest-test' },
+        ip: undefined,
+      });
+
+      await controller.login(
+        { email: 'user@school.test', password: 'pass123' },
+        req,
+        buildMockResponse(),
+        null,
+      );
+
+      expect(service.login).toHaveBeenCalledWith(
+        'user@school.test',
+        'pass123',
+        'unknown',
+        'jest-test',
+        undefined,
+        undefined,
+      );
+    });
+
+    it('should use "unknown" when user-agent header is absent', async () => {
+      const loginResult = {
+        access_token: 'at',
+        refresh_token: 'rt',
+        user: { id: USER_ID },
+      };
+      service.login.mockResolvedValue(loginResult);
+
+      const req = buildMockRequest({
+        headers: {},
+        ip: '127.0.0.1',
+      });
+
+      await controller.login(
+        { email: 'user@school.test', password: 'pass123' },
+        req,
+        buildMockResponse(),
+        null,
+      );
+
+      expect(service.login).toHaveBeenCalledWith(
+        'user@school.test',
+        'pass123',
+        '127.0.0.1',
+        'unknown',
+        undefined,
+        undefined,
+      );
+    });
+
     it('should pass mfa_code from dto when present', async () => {
       const loginResult = {
         access_token: 'at',

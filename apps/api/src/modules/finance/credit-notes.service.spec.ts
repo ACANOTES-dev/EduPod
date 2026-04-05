@@ -186,5 +186,181 @@ describe('CreditNotesService', () => {
         }),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('should throw NotFoundException when invoice not found', async () => {
+      mockPrisma.creditNote.findFirst.mockResolvedValue({
+        id: CN_ID,
+        remaining_balance: '500.00',
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.applyToInvoice(TENANT_ID, USER_ID, {
+          credit_note_id: CN_ID,
+          invoice_id: 'bad-id',
+          applied_amount: 100,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException when invoice has zero balance', async () => {
+      mockPrisma.creditNote.findFirst.mockResolvedValue({
+        id: CN_ID,
+        remaining_balance: '500.00',
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        status: 'issued',
+        balance_amount: '0.00',
+      });
+
+      await expect(
+        service.applyToInvoice(TENANT_ID, USER_ID, {
+          credit_note_id: CN_ID,
+          invoice_id: INVOICE_ID,
+          applied_amount: 100,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should apply credit note to invoice and set status to paid when balance becomes zero', async () => {
+      mockPrisma.creditNote.findFirst.mockResolvedValue({
+        id: CN_ID,
+        remaining_balance: '500.00',
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        status: 'issued',
+        balance_amount: '200.00',
+      });
+      mockPrisma.creditNoteApplication.create.mockResolvedValue({});
+      mockPrisma.creditNote.update.mockResolvedValue({});
+      mockPrisma.invoice.update.mockResolvedValue({});
+
+      const result = await service.applyToInvoice(TENANT_ID, USER_ID, {
+        credit_note_id: CN_ID,
+        invoice_id: INVOICE_ID,
+        applied_amount: 200,
+      });
+
+      expect(result).toEqual({
+        applied_amount: 200,
+        invoice_id: INVOICE_ID,
+        credit_note_id: CN_ID,
+      });
+
+      // Should update invoice status to 'paid' since balance becomes 0
+      expect(mockPrisma.invoice.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            balance_amount: 0,
+            status: 'paid',
+          }),
+        }),
+      );
+
+      // Should reduce credit note remaining balance
+      expect(mockPrisma.creditNote.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { remaining_balance: 300 },
+        }),
+      );
+    });
+
+    it('should cap applied amount to invoice balance when requested amount exceeds it', async () => {
+      mockPrisma.creditNote.findFirst.mockResolvedValue({
+        id: CN_ID,
+        remaining_balance: '500.00',
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        status: 'issued',
+        balance_amount: '100.00',
+      });
+      mockPrisma.creditNoteApplication.create.mockResolvedValue({});
+      mockPrisma.creditNote.update.mockResolvedValue({});
+      mockPrisma.invoice.update.mockResolvedValue({});
+
+      const result = await service.applyToInvoice(TENANT_ID, USER_ID, {
+        credit_note_id: CN_ID,
+        invoice_id: INVOICE_ID,
+        applied_amount: 300, // Requested 300 but invoice only has 100
+      });
+
+      expect(result.applied_amount).toBe(100);
+    });
+
+    it('should set invoice status to partially_paid when balance not fully covered', async () => {
+      mockPrisma.creditNote.findFirst.mockResolvedValue({
+        id: CN_ID,
+        remaining_balance: '500.00',
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        status: 'issued',
+        balance_amount: '500.00',
+      });
+      mockPrisma.creditNoteApplication.create.mockResolvedValue({});
+      mockPrisma.creditNote.update.mockResolvedValue({});
+      mockPrisma.invoice.update.mockResolvedValue({});
+
+      await service.applyToInvoice(TENANT_ID, USER_ID, {
+        credit_note_id: CN_ID,
+        invoice_id: INVOICE_ID,
+        applied_amount: 200,
+      });
+
+      expect(mockPrisma.invoice.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            balance_amount: 300,
+            status: 'partially_paid',
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('findOne', () => {
+    it('should return serialized credit note with numeric amounts', async () => {
+      mockPrisma.creditNote.findFirst.mockResolvedValue({
+        id: CN_ID,
+        amount: '500.00',
+        remaining_balance: '300.00',
+        applications: [{ applied_amount: '200.00', applied_at: new Date() }],
+      });
+
+      const result = (await service.findOne(TENANT_ID, CN_ID)) as {
+        amount: number;
+        remaining_balance: number;
+        applications: Array<{ applied_amount: number }>;
+      };
+
+      expect(result.amount).toBe(500);
+      expect(result.remaining_balance).toBe(300);
+      expect(result.applications[0]?.applied_amount).toBe(200);
+    });
+
+    it('should throw NotFoundException when not found', async () => {
+      mockPrisma.creditNote.findFirst.mockResolvedValue(null);
+
+      await expect(service.findOne(TENANT_ID, 'bad-id')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findAll — serialize without applications', () => {
+    it('should handle credit notes without applications array', async () => {
+      mockPrisma.creditNote.findMany.mockResolvedValue([
+        { id: CN_ID, amount: '100.00', remaining_balance: '100.00' },
+      ]);
+      mockPrisma.creditNote.count.mockResolvedValue(1);
+
+      const result = (await service.findAll(TENANT_ID, { page: 1, pageSize: 20 })) as {
+        data: Array<{ amount: number; applications: unknown }>;
+      };
+
+      expect(result.data[0]?.amount).toBe(100);
+      expect(result.data[0]?.applications).toBeUndefined();
+    });
   });
 });

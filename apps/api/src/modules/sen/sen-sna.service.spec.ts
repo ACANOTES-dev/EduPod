@@ -425,5 +425,249 @@ describe('SenSnaService', () => {
         }),
       );
     });
+
+    it('should return empty when scope is none', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'none' });
+
+      const result = await service.findByStudent(TENANT_ID, USER_ID, ['sen.view'], STUDENT_ID);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should return empty when student not in class scope', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: ['other-student'],
+      });
+
+      const result = await service.findByStudent(TENANT_ID, USER_ID, ['sen.view'], STUDENT_ID);
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('findAll — scope branches', () => {
+    it('should return empty when scope is none', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'none' });
+
+      const result = await service.findAll(TENANT_ID, USER_ID, ['sen.view'], {
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(result).toEqual({
+        data: [],
+        meta: { page: 1, pageSize: 20, total: 0 },
+      });
+    });
+
+    it('should apply class scope studentIds filter', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: ['student-1', 'student-2'],
+      });
+      senSnaAssignmentMock.findMany.mockResolvedValue([]);
+      senSnaAssignmentMock.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, USER_ID, ['sen.view'], {
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(senSnaAssignmentMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student_id: { in: ['student-1', 'student-2'] },
+          }),
+        }),
+      );
+    });
+
+    it('should return empty when student_id not in class scope studentIds', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: ['other-student'],
+      });
+
+      const result = await service.findAll(TENANT_ID, USER_ID, ['sen.view'], {
+        page: 1,
+        pageSize: 20,
+        student_id: STUDENT_ID,
+      });
+
+      expect(result).toEqual({
+        data: [],
+        meta: { page: 1, pageSize: 20, total: 0 },
+      });
+    });
+
+    it('should apply sen_profile_id filter when provided', async () => {
+      senSnaAssignmentMock.findMany.mockResolvedValue([]);
+      senSnaAssignmentMock.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, USER_ID, ['sen.admin'], {
+        page: 1,
+        pageSize: 20,
+        sen_profile_id: PROFILE_ID,
+      });
+
+      expect(senSnaAssignmentMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            sen_profile_id: PROFILE_ID,
+          }),
+        }),
+      );
+    });
+
+    it('should default to active status when not provided', async () => {
+      senSnaAssignmentMock.findMany.mockResolvedValue([]);
+      senSnaAssignmentMock.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, USER_ID, ['sen.admin'], {
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(senSnaAssignmentMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'active',
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('findBySna — scope branches', () => {
+    it('should return empty when scope is none', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'none' });
+
+      const result = await service.findBySna(TENANT_ID, USER_ID, ['sen.view'], STAFF_ID);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should apply class scope studentIds filter', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: ['student-1'],
+      });
+      senSnaAssignmentMock.findMany.mockResolvedValue([]);
+
+      await service.findBySna(TENANT_ID, USER_ID, ['sen.view'], STAFF_ID);
+
+      expect(senSnaAssignmentMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student_id: { in: ['student-1'] },
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('create — date validation', () => {
+    it('should reject when end_date is before start_date', async () => {
+      mockStaffProfileReadFacade.findById.mockResolvedValue({ id: STAFF_ID });
+      senProfileMock.findFirst.mockResolvedValue({
+        id: PROFILE_ID,
+        student_id: STUDENT_ID,
+        is_active: true,
+      });
+
+      await expect(
+        service.create(TENANT_ID, {
+          sna_staff_profile_id: STAFF_ID,
+          student_id: STUDENT_ID,
+          sen_profile_id: PROFILE_ID,
+          schedule: {
+            monday: [{ start: '09:00', end: '11:00' }],
+            tuesday: [],
+            wednesday: [],
+            thursday: [],
+            friday: [],
+          },
+          start_date: '2026-06-01',
+          end_date: '2026-03-01',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('update — additional branches', () => {
+    it('should throw when assignment not found', async () => {
+      senSnaAssignmentMock.findFirst.mockResolvedValue(null);
+
+      await expect(service.update(TENANT_ID, ASSIGNMENT_ID, { notes: 'test' })).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should use existing start_date when not provided in dto', async () => {
+      senSnaAssignmentMock.findFirst.mockResolvedValue({
+        id: ASSIGNMENT_ID,
+        start_date: new Date('2026-04-01'),
+        end_date: null,
+      });
+      senSnaAssignmentMock.update.mockResolvedValue(createAssignmentRecord({ notes: 'Updated' }));
+
+      await service.update(TENANT_ID, ASSIGNMENT_ID, {
+        notes: 'Updated',
+      });
+
+      expect(senSnaAssignmentMock.update).toHaveBeenCalled();
+    });
+
+    it('should use existing end_date when not provided in dto', async () => {
+      senSnaAssignmentMock.findFirst.mockResolvedValue({
+        id: ASSIGNMENT_ID,
+        start_date: new Date('2026-04-01'),
+        end_date: new Date('2026-12-31'),
+      });
+      senSnaAssignmentMock.update.mockResolvedValue(createAssignmentRecord());
+
+      await service.update(TENANT_ID, ASSIGNMENT_ID, {
+        notes: 'Test',
+      });
+
+      expect(senSnaAssignmentMock.update).toHaveBeenCalled();
+    });
+
+    it('should allow clearing end_date by passing null', async () => {
+      senSnaAssignmentMock.findFirst.mockResolvedValue({
+        id: ASSIGNMENT_ID,
+        start_date: new Date('2026-04-01'),
+        end_date: new Date('2026-12-31'),
+      });
+      senSnaAssignmentMock.update.mockResolvedValue(createAssignmentRecord({ end_date: null }));
+
+      const result = await service.update(TENANT_ID, ASSIGNMENT_ID, {
+        end_date: null,
+      });
+
+      expect(result.end_date).toBeNull();
+    });
+  });
+
+  describe('endAssignment — additional branches', () => {
+    it('should throw when assignment not found', async () => {
+      senSnaAssignmentMock.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.endAssignment(TENANT_ID, ASSIGNMENT_ID, { end_date: '2026-06-30' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should reject when end_date is before start_date', async () => {
+      senSnaAssignmentMock.findFirst.mockResolvedValue({
+        id: ASSIGNMENT_ID,
+        start_date: new Date('2026-06-01'),
+      });
+
+      await expect(
+        service.endAssignment(TENANT_ID, ASSIGNMENT_ID, { end_date: '2026-03-01' }),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 });

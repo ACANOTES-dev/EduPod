@@ -14,6 +14,7 @@ import { AttendanceAutoLockProcessor } from './processors/attendance-auto-lock.p
 import { AttendancePatternDetectionProcessor } from './processors/attendance-pattern-detection.processor';
 import { AttendancePendingDetectionProcessor } from './processors/attendance-pending-detection.processor';
 import { AttendanceSessionGenerationProcessor } from './processors/attendance-session-generation.processor';
+import { AuditLogWriteProcessor } from './processors/audit-log/audit-log-write.processor';
 import { BehaviourCheckAwardsProcessor } from './processors/behaviour/check-awards.processor';
 import { BehaviourCronDispatchProcessor } from './processors/behaviour/cron-dispatch.processor';
 import { DetectPatternsProcessor } from './processors/behaviour/detect-patterns.processor';
@@ -126,6 +127,15 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     }),
     // Register all queues with retry/backoff configuration
     BullModule.registerQueue(
+      {
+        name: QUEUE_NAMES.AUDIT_LOG,
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 2000 },
+          removeOnComplete: 10,
+          removeOnFail: 50,
+        },
+      },
       {
         name: QUEUE_NAMES.APPROVALS,
         defaultJobOptions: {
@@ -332,6 +342,8 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     ClamavScannerService,
     // Health service
     WorkerHealthService,
+    // Audit log queue processors
+    AuditLogWriteProcessor,
     // Approvals queue processors
     ApprovalCallbackReconciliationProcessor,
     // Admissions queue processors

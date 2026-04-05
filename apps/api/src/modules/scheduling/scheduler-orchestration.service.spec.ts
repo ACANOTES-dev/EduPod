@@ -266,7 +266,9 @@ describe('SchedulerOrchestrationService', () => {
     it('should return ready=true when all prerequisites are met', async () => {
       // Year groups with classes via facade
       const acadFacade = module.get(AcademicReadFacade);
-      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([{ id: 'yg-1', name: 'Year 1' }]);
+      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([
+        { id: 'yg-1', name: 'Year 1' },
+      ]);
       // Period grid exists (shared)
       mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: null }]);
       // Curriculum requirements exist for yg-1
@@ -294,7 +296,9 @@ describe('SchedulerOrchestrationService', () => {
 
     it('should report missing period grid for a year group', async () => {
       const acadFacade = module.get(AcademicReadFacade);
-      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([{ id: 'yg-1', name: 'Year 1' }]);
+      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([
+        { id: 'yg-1', name: 'Year 1' },
+      ]);
       // No period templates at all
       mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([]);
       mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
@@ -321,7 +325,9 @@ describe('SchedulerOrchestrationService', () => {
 
     it('should report missing curriculum requirements', async () => {
       const acadFacade = module.get(AcademicReadFacade);
-      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([{ id: 'yg-1', name: 'Year 1' }]);
+      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([
+        { id: 'yg-1', name: 'Year 1' },
+      ]);
       mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: null }]);
       // No curriculum requirements
       mockPrisma.curriculumRequirement.findMany.mockResolvedValue([]);
@@ -373,7 +379,9 @@ describe('SchedulerOrchestrationService', () => {
   describe('triggerSolverRun', () => {
     it('should throw NotFoundException when academic year does not exist', async () => {
       const acadFacade = module.get(AcademicReadFacade);
-      (acadFacade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Year not found'));
+      (acadFacade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(
+        new NotFoundException('Year not found'),
+      );
 
       await expect(service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID)).rejects.toThrow(
         NotFoundException,
@@ -392,7 +400,9 @@ describe('SchedulerOrchestrationService', () => {
     it('should throw ConflictException when a run is already active', async () => {
       // Prerequisites pass
       const acadFacade = module.get(AcademicReadFacade);
-      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([{ id: 'yg-1', name: 'Y1' }]);
+      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([
+        { id: 'yg-1', name: 'Y1' },
+      ]);
       mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: null }]);
       mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
         {
@@ -425,7 +435,10 @@ describe('SchedulerOrchestrationService', () => {
   describe('discardRun', () => {
     it('should discard a completed run', async () => {
       const runsFacade = module.get(SchedulingRunsReadFacade);
-      (runsFacade.findStatusById as jest.Mock).mockResolvedValue({ id: RUN_ID, status: 'completed' });
+      (runsFacade.findStatusById as jest.Mock).mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+      });
       mockTx.schedulingRun.update.mockResolvedValue({ id: RUN_ID, status: 'discarded' });
 
       const result = await service.discardRun(TENANT_ID, RUN_ID);
@@ -587,6 +600,351 @@ describe('SchedulerOrchestrationService', () => {
 
       await expect(service.applyRun(TENANT_ID, RUN_ID, USER_ID)).rejects.toThrow(
         BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException when result_json.entries is not an array', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findById as jest.Mock).mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        result_json: { entries: 'not-an-array' },
+        config_snapshot: null,
+      });
+
+      await expect(service.applyRun(TENANT_ID, RUN_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  // ─── listRuns — formatting edge cases ────────────────────────────────────
+
+  describe('listRuns — formatting', () => {
+    it('should handle solver_seed as bigint', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.listRuns as jest.Mock).mockResolvedValue({
+        data: [
+          {
+            id: RUN_ID,
+            solver_seed: BigInt(12345),
+            soft_preference_score: null,
+            soft_preference_max: null,
+            created_at: new Date('2026-03-01'),
+            updated_at: new Date('2026-03-01'),
+            applied_at: null,
+          },
+        ],
+        total: 1,
+      });
+
+      const result = await service.listRuns(TENANT_ID, AY_ID, 1, 20);
+
+      expect(result.data[0]!['solver_seed']).toBe(12345);
+    });
+
+    it('should convert soft_preference_score to number', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.listRuns as jest.Mock).mockResolvedValue({
+        data: [
+          {
+            id: RUN_ID,
+            solver_seed: null,
+            soft_preference_score: '80',
+            soft_preference_max: '100',
+            created_at: new Date('2026-03-01'),
+            updated_at: new Date('2026-03-01'),
+            applied_at: new Date('2026-03-02'),
+          },
+        ],
+        total: 1,
+      });
+
+      const result = await service.listRuns(TENANT_ID, AY_ID, 1, 20);
+
+      expect(result.data[0]!['soft_preference_score']).toBe(80);
+      expect(result.data[0]!['soft_preference_max']).toBe(100);
+      expect(result.data[0]!['applied_at']).toBe('2026-03-02T00:00:00.000Z');
+    });
+
+    it('should handle null soft_preference_score/max', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.listRuns as jest.Mock).mockResolvedValue({
+        data: [
+          {
+            id: RUN_ID,
+            solver_seed: null,
+            soft_preference_score: null,
+            soft_preference_max: null,
+            created_at: '2026-03-01T00:00:00.000Z',
+            updated_at: '2026-03-01T00:00:00.000Z',
+            applied_at: null,
+          },
+        ],
+        total: 1,
+      });
+
+      const result = await service.listRuns(TENANT_ID, AY_ID, 1, 20);
+
+      expect(result.data[0]!['soft_preference_score']).toBeNull();
+      expect(result.data[0]!['soft_preference_max']).toBeNull();
+      // When dates are already strings, they pass through unchanged
+      expect(result.data[0]!['created_at']).toBe('2026-03-01T00:00:00.000Z');
+    });
+
+    it('should pass through already-formatted date strings', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.listRuns as jest.Mock).mockResolvedValue({
+        data: [
+          {
+            id: RUN_ID,
+            solver_seed: undefined,
+            soft_preference_score: null,
+            soft_preference_max: null,
+            created_at: 'already-string',
+            updated_at: 'already-string',
+            applied_at: null,
+          },
+        ],
+        total: 1,
+      });
+
+      const result = await service.listRuns(TENANT_ID, AY_ID, 1, 20);
+
+      expect(result.data[0]!['solver_seed']).toBeNull();
+      expect(result.data[0]!['created_at']).toBe('already-string');
+    });
+  });
+
+  // ─── checkPrerequisites — pinned entry edge cases ─────────────────────────
+
+  describe('checkPrerequisites — pinned entry room double-booking', () => {
+    it('should detect pinned entry room double-booking', async () => {
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([
+        {
+          id: 'pin-1',
+          teacher_staff_id: 'teacher-1',
+          room_id: 'room-1',
+          weekday: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T10:00:00Z'),
+        },
+        {
+          id: 'pin-2',
+          teacher_staff_id: 'teacher-2',
+          room_id: 'room-1',
+          weekday: 1,
+          start_time: new Date('1970-01-01T09:30:00Z'),
+          end_time: new Date('1970-01-01T10:30:00Z'),
+        },
+      ]);
+
+      const result = await service.checkPrerequisites(TENANT_ID, AY_ID);
+
+      expect(result.ready).toBe(false);
+      expect(result.missing).toEqual(
+        expect.arrayContaining([expect.stringContaining('room double-booking')]),
+      );
+    });
+
+    it('should not flag pinned entries on different weekdays', async () => {
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([
+        { id: 'yg-1', name: 'Year 1' },
+      ]);
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: null }]);
+      mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
+        {
+          year_group_id: 'yg-1',
+          subject_id: 's1',
+          subject: { name: 'M' },
+          year_group: { name: 'Y1' },
+        },
+      ]);
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
+        { subject_id: 's1', year_group_id: 'yg-1' },
+      ]);
+
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([
+        {
+          id: 'pin-1',
+          teacher_staff_id: 'teacher-1',
+          room_id: 'room-1',
+          weekday: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T10:00:00Z'),
+        },
+        {
+          id: 'pin-2',
+          teacher_staff_id: 'teacher-1',
+          room_id: 'room-1',
+          weekday: 2, // Different weekday
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T10:00:00Z'),
+        },
+      ]);
+
+      const result = await service.checkPrerequisites(TENANT_ID, AY_ID);
+
+      expect(result.ready).toBe(true);
+    });
+
+    it('should not flag pinned entries that do not overlap in time', async () => {
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([
+        { id: 'yg-1', name: 'Year 1' },
+      ]);
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: null }]);
+      mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
+        {
+          year_group_id: 'yg-1',
+          subject_id: 's1',
+          subject: { name: 'M' },
+          year_group: { name: 'Y1' },
+        },
+      ]);
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
+        { subject_id: 's1', year_group_id: 'yg-1' },
+      ]);
+
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([
+        {
+          id: 'pin-1',
+          teacher_staff_id: 'teacher-1',
+          room_id: 'room-1',
+          weekday: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T10:00:00Z'),
+        },
+        {
+          id: 'pin-2',
+          teacher_staff_id: 'teacher-1',
+          room_id: 'room-1',
+          weekday: 1,
+          start_time: new Date('1970-01-01T10:00:00Z'), // Starts exactly when pin-1 ends
+          end_time: new Date('1970-01-01T11:00:00Z'),
+        },
+      ]);
+
+      const result = await service.checkPrerequisites(TENANT_ID, AY_ID);
+
+      expect(result.ready).toBe(true);
+    });
+
+    it('should not flag overlapping pinned entries with different teachers and rooms', async () => {
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([
+        {
+          id: 'pin-1',
+          teacher_staff_id: 'teacher-1',
+          room_id: 'room-1',
+          weekday: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T10:00:00Z'),
+        },
+        {
+          id: 'pin-2',
+          teacher_staff_id: 'teacher-2',
+          room_id: 'room-2',
+          weekday: 1,
+          start_time: new Date('1970-01-01T09:30:00Z'),
+          end_time: new Date('1970-01-01T10:30:00Z'),
+        },
+      ]);
+
+      const result = await service.checkPrerequisites(TENANT_ID, AY_ID);
+
+      // Missing year groups, but no pinned conflict
+      const pinConflicts = result.missing.filter((m) => m.includes('double-booking'));
+      expect(pinConflicts).toHaveLength(0);
+    });
+
+    it('should not flag pinned entries with null teacher_staff_id or room_id', async () => {
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([
+        {
+          id: 'pin-1',
+          teacher_staff_id: null,
+          room_id: null,
+          weekday: 1,
+          start_time: new Date('1970-01-01T09:00:00Z'),
+          end_time: new Date('1970-01-01T10:00:00Z'),
+        },
+        {
+          id: 'pin-2',
+          teacher_staff_id: null,
+          room_id: null,
+          weekday: 1,
+          start_time: new Date('1970-01-01T09:30:00Z'),
+          end_time: new Date('1970-01-01T10:30:00Z'),
+        },
+      ]);
+
+      const result = await service.checkPrerequisites(TENANT_ID, AY_ID);
+
+      const pinConflicts = result.missing.filter((m) => m.includes('double-booking'));
+      expect(pinConflicts).toHaveLength(0);
+    });
+  });
+
+  // ─── checkPrerequisites — year-group-specific period grid ─────────────────
+
+  describe('checkPrerequisites — year-group-specific grid', () => {
+    it('should accept year-group-specific period grid (not shared)', async () => {
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([
+        { id: 'yg-1', name: 'Year 1' },
+      ]);
+      // Year-group-specific grid, not shared (null)
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: 'yg-1' }]);
+      mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
+        {
+          year_group_id: 'yg-1',
+          subject_id: 's1',
+          subject: { name: 'M' },
+          year_group: { name: 'Y1' },
+        },
+      ]);
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
+        { subject_id: 's1', year_group_id: 'yg-1' },
+      ]);
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([]);
+
+      const result = await service.checkPrerequisites(TENANT_ID, AY_ID);
+
+      expect(result.ready).toBe(true);
+    });
+
+    it('should report missing teacher for subject+year group combo', async () => {
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findYearGroupsWithActiveClasses as jest.Mock).mockResolvedValue([
+        { id: 'yg-1', name: 'Year 1' },
+      ]);
+      mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([{ year_group_id: null }]);
+      mockPrisma.curriculumRequirement.findMany.mockResolvedValue([
+        {
+          year_group_id: 'yg-1',
+          subject_id: 's1',
+          subject: { name: 'Maths' },
+          year_group: { name: 'Year 1' },
+        },
+      ]);
+      // No competency for s1:yg-1
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findPinnedEntries as jest.Mock).mockResolvedValue([]);
+
+      const result = await service.checkPrerequisites(TENANT_ID, AY_ID);
+
+      expect(result.ready).toBe(false);
+      expect(result.missing).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('No eligible teacher for Maths in Year 1'),
+        ]),
       );
     });
   });

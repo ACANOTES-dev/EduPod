@@ -100,4 +100,73 @@ describe('SequenceService', () => {
     // Original prisma should NOT have been called
     expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
   });
+
+  // ─── formatNumber — prefix overrides switch ──────────────────────────────
+
+  it('should use prefix when provided instead of switch logic', async () => {
+    mockTx.$queryRaw.mockResolvedValue([{ current_value: BigInt(0) }]);
+    mockTx.$executeRaw.mockResolvedValue(1);
+
+    const result = await service.nextNumber(TENANT_ID, 'invoice', mockTx, 'INV');
+
+    const now = new Date();
+    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+    expect(result).toBe(`INV-${yearMonth}-000001`);
+  });
+
+  it('should use default UPPER_CASE format for unknown sequence types without prefix', async () => {
+    mockTx.$queryRaw.mockResolvedValue([{ current_value: BigInt(2) }]);
+    mockTx.$executeRaw.mockResolvedValue(1);
+
+    const result = await service.nextNumber(TENANT_ID, 'receipt', mockTx);
+
+    const now = new Date();
+    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+    expect(result).toBe(`RECEIPT-${yearMonth}-000003`);
+  });
+
+  // ─── generateHouseholdReference ──────────────────────────────────────────
+
+  describe('SequenceService — generateHouseholdReference', () => {
+    it('should return a sequential reference in HH-YYYYMM-000001 format', async () => {
+      mockTx.$queryRaw.mockResolvedValue([{ current_value: BigInt(0) }]);
+      mockTx.$executeRaw.mockResolvedValue(1);
+
+      const result = await service.generateHouseholdReference(TENANT_ID, mockTx);
+
+      const now = new Date();
+      const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+      expect(result).toBe(`HH-${yearMonth}-000001`);
+    });
+
+    it('should increment sequentially', async () => {
+      mockTx.$queryRaw.mockResolvedValueOnce([{ current_value: BigInt(41) }]);
+      mockTx.$executeRaw.mockResolvedValueOnce(1);
+
+      const result = await service.generateHouseholdReference(TENANT_ID, mockTx);
+
+      expect(result).toMatch(/HH-\d{6}-000042$/);
+    });
+
+    it('should create its own RLS transaction when no tx is provided', async () => {
+      mockTx.$queryRaw.mockResolvedValue([{ current_value: BigInt(0) }]);
+      mockTx.$executeRaw.mockResolvedValue(1);
+
+      const result = await service.generateHouseholdReference(TENANT_ID);
+
+      expect(result).toMatch(/^HH-\d{6}-000001$/);
+      expect(mockPrisma.$extends).toHaveBeenCalled();
+    });
+  });
+
+  // ─── edge: nextNumber with null current_value ────────────────────────────
+
+  it('edge: should handle null current_value by defaulting to 0', async () => {
+    mockTx.$queryRaw.mockResolvedValue([{ current_value: null }]);
+    mockTx.$executeRaw.mockResolvedValue(1);
+
+    const result = await service.nextNumber(TENANT_ID, 'application', mockTx);
+
+    expect(result).toMatch(/000001$/);
+  });
 });

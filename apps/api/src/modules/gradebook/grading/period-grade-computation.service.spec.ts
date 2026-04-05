@@ -10,7 +10,11 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
-import { MOCK_FACADE_PROVIDERS, ClassesReadFacade, ConfigurationReadFacade } from '../../../common/tests/mock-facades';
+import {
+  MOCK_FACADE_PROVIDERS,
+  ClassesReadFacade,
+  ConfigurationReadFacade,
+} from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { GpaService } from './gpa.service';
@@ -379,5 +383,321 @@ describe('PeriodGradeComputationService — compute', () => {
     // 85% should map to 'A' (>= 80)
     const upsertCall = mockRlsTx.periodGradeSnapshot.upsert.mock.calls[0]?.[0];
     expect(upsertCall?.create?.display_value).toBe('A');
+  });
+
+  it('should use year-group weights when available', async () => {
+    mockClassesFacade.findClassesGeneric.mockResolvedValue([{ year_group_id: 'yg-1' }]);
+    mockPrisma.yearGroupGradeWeight.findFirst.mockResolvedValue({
+      category_weights_json: {
+        weights: [
+          { category_id: 'cat-1', weight: 70 },
+          { category_id: 'cat-2', weight: 30 },
+        ],
+      },
+    });
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue(baseGradeConfig);
+    mockConfigFacade.findSettings.mockResolvedValue(null);
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        max_score: 100,
+        category_id: 'cat-1',
+        category: { id: 'cat-1', name: 'Exam', assessment_type: 'summative' },
+        grades: [{ student_id: 's1', raw_score: 80, is_missing: false }],
+      },
+      {
+        id: 'a2',
+        max_score: 100,
+        category_id: 'cat-2',
+        category: { id: 'cat-2', name: 'Quiz', assessment_type: 'summative' },
+        grades: [{ student_id: 's1', raw_score: 60, is_missing: false }],
+      },
+    ]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: 's1' }]);
+
+    const result = await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
+
+    // cat-1: 80% * 70 = 5600, cat-2: 60% * 30 = 1800, total: 7400/100 = 74%
+    expect(result.data).toHaveLength(1);
+  });
+
+  it('should fall back to class-subject config when no year-group weights', async () => {
+    mockClassesFacade.findClassesGeneric.mockResolvedValue([{ year_group_id: 'yg-1' }]);
+    mockPrisma.yearGroupGradeWeight.findFirst.mockResolvedValue(null);
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue(baseGradeConfig);
+    mockConfigFacade.findSettings.mockResolvedValue(null);
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        max_score: 100,
+        category_id: 'cat-1',
+        category: { id: 'cat-1', name: 'Exam', assessment_type: 'summative' },
+        grades: [{ student_id: 's1', raw_score: 90, is_missing: false }],
+      },
+    ]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: 's1' }]);
+
+    const result = await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
+
+    expect(result.data).toHaveLength(1);
+  });
+
+  it('should handle class with no year_group_id', async () => {
+    mockClassesFacade.findClassesGeneric.mockResolvedValue([{ year_group_id: null }]);
+    mockPrisma.yearGroupGradeWeight.findFirst.mockResolvedValue(null);
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue(baseGradeConfig);
+    mockConfigFacade.findSettings.mockResolvedValue(null);
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        max_score: 100,
+        category_id: 'cat-1',
+        category: { id: 'cat-1', name: 'Exam', assessment_type: 'summative' },
+        grades: [{ student_id: 's1', raw_score: 70, is_missing: false }],
+      },
+    ]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: 's1' }]);
+
+    const result = await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
+
+    expect(result.data).toHaveLength(1);
+  });
+
+  it('should handle class not found (returns empty array)', async () => {
+    mockClassesFacade.findClassesGeneric.mockResolvedValue([]);
+    mockPrisma.yearGroupGradeWeight.findFirst.mockResolvedValue(null);
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue(baseGradeConfig);
+    mockConfigFacade.findSettings.mockResolvedValue(null);
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        max_score: 100,
+        category_id: 'cat-1',
+        category: { id: 'cat-1', name: 'Exam', assessment_type: 'summative' },
+        grades: [{ student_id: 's1', raw_score: 70, is_missing: false }],
+      },
+    ]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: 's1' }]);
+
+    const result = await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
+
+    expect(result.data).toHaveLength(1);
+  });
+
+  it('should apply formative weight cap when configured', async () => {
+    mockClassesFacade.findClassesGeneric.mockResolvedValue([{ year_group_id: 'yg-1' }]);
+    mockPrisma.yearGroupGradeWeight.findFirst.mockResolvedValue(null);
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue({
+      grading_scale: baseGradeConfig.grading_scale,
+      category_weight_json: {
+        weights: [
+          { category_id: 'cat-formative', weight: 60 },
+          { category_id: 'cat-summative', weight: 40 },
+        ],
+      },
+    });
+    mockConfigFacade.findSettings.mockResolvedValue({
+      settings: { gradebook: { formativeWeightCap: 30 } },
+    });
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        max_score: 100,
+        category_id: 'cat-formative',
+        category: { id: 'cat-formative', name: 'Homework', assessment_type: 'formative' },
+        grades: [{ student_id: 's1', raw_score: 90, is_missing: false }],
+      },
+      {
+        id: 'a2',
+        max_score: 100,
+        category_id: 'cat-summative',
+        category: { id: 'cat-summative', name: 'Exam', assessment_type: 'summative' },
+        grades: [{ student_id: 's1', raw_score: 70, is_missing: false }],
+      },
+    ]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: 's1' }]);
+
+    const result = await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
+
+    expect(result.warnings.some((w) => w.code === 'FORMATIVE_CAP_APPLIED')).toBe(true);
+    expect(result.meta.formative_cap_applied).toBe(true);
+  });
+
+  it('should display percentage when no grading scale config is available', async () => {
+    mockClassesFacade.findClassesGeneric.mockResolvedValue([{ year_group_id: 'yg-1' }]);
+    mockPrisma.yearGroupGradeWeight.findFirst.mockResolvedValue(null);
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue({
+      grading_scale: { config_json: null },
+      category_weight_json: {
+        weights: [{ category_id: 'cat-1', weight: 100 }],
+      },
+    });
+    mockConfigFacade.findSettings.mockResolvedValue(null);
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        max_score: 100,
+        category_id: 'cat-1',
+        category: { id: 'cat-1', name: 'Exam', assessment_type: 'summative' },
+        grades: [{ student_id: 's1', raw_score: 85, is_missing: false }],
+      },
+    ]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: 's1' }]);
+
+    await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
+
+    const upsertCall = mockRlsTx.periodGradeSnapshot.upsert.mock.calls[0]?.[0];
+    expect(upsertCall?.create?.display_value).toContain('%');
+  });
+
+  it('should fall back to percentage when numeric range does not match', async () => {
+    mockClassesFacade.findClassesGeneric.mockResolvedValue([{ year_group_id: 'yg-1' }]);
+    mockPrisma.yearGroupGradeWeight.findFirst.mockResolvedValue(null);
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue({
+      grading_scale: {
+        config_json: {
+          type: 'numeric',
+          ranges: [{ min: 90, max: 100, label: 'A' }],
+        },
+      },
+      category_weight_json: {
+        weights: [{ category_id: 'cat-1', weight: 100 }],
+      },
+    });
+    mockConfigFacade.findSettings.mockResolvedValue(null);
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        max_score: 100,
+        category_id: 'cat-1',
+        category: { id: 'cat-1', name: 'Exam', assessment_type: 'summative' },
+        grades: [{ student_id: 's1', raw_score: 50, is_missing: false }],
+      },
+    ]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: 's1' }]);
+
+    await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
+
+    const upsertCall = mockRlsTx.periodGradeSnapshot.upsert.mock.calls[0]?.[0];
+    expect(upsertCall?.create?.display_value).toContain('%');
+  });
+
+  it('should use custom grading scale with grades that have no numeric_value', async () => {
+    mockClassesFacade.findClassesGeneric.mockResolvedValue([{ year_group_id: 'yg-1' }]);
+    mockPrisma.yearGroupGradeWeight.findFirst.mockResolvedValue(null);
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue({
+      grading_scale: {
+        config_json: {
+          type: 'custom',
+          grades: [{ label: 'Pass' }, { label: 'Fail' }],
+        },
+      },
+      category_weight_json: {
+        weights: [{ category_id: 'cat-1', weight: 100 }],
+      },
+    });
+    mockConfigFacade.findSettings.mockResolvedValue(null);
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        max_score: 100,
+        category_id: 'cat-1',
+        category: { id: 'cat-1', name: 'Exam', assessment_type: 'summative' },
+        grades: [{ student_id: 's1', raw_score: 50, is_missing: false }],
+      },
+    ]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: 's1' }]);
+
+    await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
+
+    // Grades have no numeric_value, so it should fall back to percentage
+    const upsertCall = mockRlsTx.periodGradeSnapshot.upsert.mock.calls[0]?.[0];
+    expect(upsertCall?.create?.display_value).toContain('%');
+  });
+
+  it('should return lowest grade label when percentage is below all numeric_values', async () => {
+    mockClassesFacade.findClassesGeneric.mockResolvedValue([{ year_group_id: 'yg-1' }]);
+    mockPrisma.yearGroupGradeWeight.findFirst.mockResolvedValue(null);
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue({
+      grading_scale: {
+        config_json: {
+          type: 'letter',
+          grades: [
+            { label: 'A+', numeric_value: 90 },
+            { label: 'A', numeric_value: 80 },
+            { label: 'B', numeric_value: 70 },
+            { label: 'C', numeric_value: 60 },
+          ],
+        },
+      },
+      category_weight_json: {
+        weights: [{ category_id: 'cat-1', weight: 100 }],
+      },
+    });
+    mockConfigFacade.findSettings.mockResolvedValue(null);
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        max_score: 100,
+        category_id: 'cat-1',
+        category: { id: 'cat-1', name: 'Exam', assessment_type: 'summative' },
+        grades: [{ student_id: 's1', raw_score: 20, is_missing: false }],
+      },
+    ]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: 's1' }]);
+
+    await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
+
+    const upsertCall = mockRlsTx.periodGradeSnapshot.upsert.mock.calls[0]?.[0];
+    expect(upsertCall?.create?.display_value).toBe('C');
+  });
+
+  it('should throw when formative excluded and no summative assessments remain', async () => {
+    mockClassesFacade.findClassesGeneric.mockResolvedValue([{ year_group_id: 'yg-1' }]);
+    mockPrisma.yearGroupGradeWeight.findFirst.mockResolvedValue(null);
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue(baseGradeConfig);
+    mockConfigFacade.findSettings.mockResolvedValue({
+      settings: { gradebook: { formativeIncludedInPeriodGrade: false } },
+    });
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        max_score: 100,
+        category_id: 'cat-1',
+        category: { id: 'cat-1', name: 'Homework', assessment_type: 'formative' },
+        grades: [{ student_id: 's1', raw_score: 90, is_missing: false }],
+      },
+    ]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: 's1' }]);
+
+    await expect(service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('should handle zero policy for missing grades', async () => {
+    mockClassesFacade.findClassesGeneric.mockResolvedValue([{ year_group_id: 'yg-1' }]);
+    mockPrisma.yearGroupGradeWeight.findFirst.mockResolvedValue(null);
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue(baseGradeConfig);
+    mockConfigFacade.findSettings.mockResolvedValue({
+      settings: { gradebook: { defaultMissingGradePolicy: 'zero' } },
+    });
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        max_score: 100,
+        category_id: 'cat-1',
+        category: { id: 'cat-1', name: 'Exam', assessment_type: 'summative' },
+        grades: [{ student_id: 's1', raw_score: null, is_missing: true }],
+      },
+    ]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: 's1' }]);
+
+    const result = await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
+
+    expect(result.meta.missing_grade_policy).toBe('zero');
+    const upsertCall = mockRlsTx.periodGradeSnapshot.upsert.mock.calls[0]?.[0];
+    // Score should be 0 since missing grade is treated as 0
+    expect(upsertCall?.create?.computed_value).toBe(0);
   });
 });

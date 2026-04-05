@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -42,10 +38,7 @@ describe('DiscountsService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        DiscountsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [DiscountsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<DiscountsService>(DiscountsService);
@@ -128,7 +121,7 @@ describe('DiscountsService', () => {
     it('should update a discount', async () => {
       mockPrisma.discount.findFirst
         .mockResolvedValueOnce(makeDiscount()) // existing
-        .mockResolvedValueOnce(null);          // no duplicate name
+        .mockResolvedValueOnce(null); // no duplicate name
       mockPrisma.discount.update.mockResolvedValue(
         makeDiscount({ name: 'Updated', value: '15.00' }),
       );
@@ -141,9 +134,9 @@ describe('DiscountsService', () => {
     it('should throw NotFoundException when not found', async () => {
       mockPrisma.discount.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.update(TENANT_ID, 'bad-id', { name: 'X' }),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.update(TENANT_ID, 'bad-id', { name: 'X' })).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException when percent value > 100', async () => {
@@ -154,6 +147,58 @@ describe('DiscountsService', () => {
       await expect(
         service.update(TENANT_ID, DISCOUNT_ID, { name: 'Big', value: 150 }),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw ConflictException on duplicate name during update', async () => {
+      mockPrisma.discount.findFirst
+        .mockResolvedValueOnce(makeDiscount({ name: 'Old Name' }))
+        .mockResolvedValueOnce(makeDiscount({ id: 'other-id', name: 'Taken' }));
+
+      await expect(service.update(TENANT_ID, DISCOUNT_ID, { name: 'Taken' })).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('should skip name uniqueness check when name unchanged', async () => {
+      mockPrisma.discount.findFirst.mockResolvedValueOnce(
+        makeDiscount({ name: 'Sibling Discount' }),
+      );
+      mockPrisma.discount.update.mockResolvedValue(
+        makeDiscount({ name: 'Sibling Discount', value: '20.00' }),
+      );
+
+      const result = await service.update(TENANT_ID, DISCOUNT_ID, {
+        name: 'Sibling Discount',
+        value: 20,
+      });
+
+      // findFirst should only be called once (for existence check, not duplicate check)
+      expect(mockPrisma.discount.findFirst).toHaveBeenCalledTimes(1);
+      expect(result.value).toBe(20);
+    });
+
+    it('should validate percent when only discount_type changes (uses existing value)', async () => {
+      mockPrisma.discount.findFirst.mockResolvedValueOnce(
+        makeDiscount({ discount_type: 'fixed', value: '150.00' }),
+      );
+
+      // Changing type to percent but value stays 150 => should throw
+      await expect(
+        service.update(TENANT_ID, DISCOUNT_ID, { discount_type: 'percent' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should allow percent update when value is within range', async () => {
+      mockPrisma.discount.findFirst.mockResolvedValueOnce(
+        makeDiscount({ discount_type: 'percent', value: '10.00' }),
+      );
+      mockPrisma.discount.update.mockResolvedValue(
+        makeDiscount({ discount_type: 'percent', value: '50.00' }),
+      );
+
+      const result = await service.update(TENANT_ID, DISCOUNT_ID, { value: 50 });
+
+      expect(result.value).toBe(50);
     });
   });
 
@@ -178,9 +223,7 @@ describe('DiscountsService', () => {
       mockPrisma.discount.findFirst.mockResolvedValue(makeDiscount());
       mockPrisma.householdFeeAssignment.count.mockResolvedValue(2);
 
-      await expect(service.deactivate(TENANT_ID, DISCOUNT_ID)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.deactivate(TENANT_ID, DISCOUNT_ID)).rejects.toThrow(BadRequestException);
     });
   });
 });

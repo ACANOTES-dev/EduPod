@@ -265,7 +265,7 @@ describe('RefundsService', () => {
       await expect(service.execute(TENANT_ID, REFUND_ID)).rejects.toThrow(BadRequestException);
     });
 
-    it('should execute an approved refund and update payment status', async () => {
+    it('should execute an approved refund and update payment status to refunded_full', async () => {
       mockPrisma.refund.findFirst
         .mockResolvedValueOnce(makeRefund({ status: 'approved' })) // initial find
         .mockResolvedValueOnce(makeRefund({ status: 'executed', executed_at: new Date() })); // re-read after update
@@ -281,6 +281,253 @@ describe('RefundsService', () => {
       const result = (await service.execute(TENANT_ID, REFUND_ID)) as { amount: number };
 
       expect(result.amount).toBe(200);
+      expect(mockPrisma.payment.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { status: 'refunded_full' },
+        }),
+      );
+    });
+
+    it('should set payment status to refunded_partial when partial refund', async () => {
+      mockPrisma.refund.findFirst
+        .mockResolvedValueOnce(makeRefund({ status: 'approved', amount: '100.00' }))
+        .mockResolvedValueOnce(makeRefund({ status: 'executed', amount: '100.00' }));
+      mockPrisma.refund.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
+      mockPrisma.payment.findUnique.mockResolvedValue({
+        id: PAYMENT_ID,
+        amount: '500.00',
+        refunds: [{ status: 'executed', amount: '100.00' }],
+      });
+      mockPrisma.payment.update.mockResolvedValue({ id: PAYMENT_ID, status: 'refunded_partial' });
+
+      await service.execute(TENANT_ID, REFUND_ID);
+
+      expect(mockPrisma.payment.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { status: 'refunded_partial' },
+        }),
+      );
+    });
+
+    it('should keep payment status as posted when zero total refunded (excluded non-executed)', async () => {
+      mockPrisma.refund.findFirst
+        .mockResolvedValueOnce(makeRefund({ status: 'approved', amount: '100.00' }))
+        .mockResolvedValueOnce(makeRefund({ status: 'executed', amount: '100.00' }));
+      mockPrisma.refund.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
+      mockPrisma.payment.findUnique.mockResolvedValue({
+        id: PAYMENT_ID,
+        amount: '500.00',
+        refunds: [
+          { status: 'rejected', amount: '100.00' },
+          { status: 'pending_approval', amount: '200.00' },
+        ], // No executed refunds
+      });
+      mockPrisma.payment.update.mockResolvedValue({});
+
+      await service.execute(TENANT_ID, REFUND_ID);
+
+      expect(mockPrisma.payment.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { status: 'posted' },
+        }),
+      );
+    });
+
+    it('should throw BadRequestException on concurrent execution (updateMany returns 0)', async () => {
+      mockPrisma.refund.findFirst.mockResolvedValue(makeRefund({ status: 'approved' }));
+      mockPrisma.refund.updateMany.mockResolvedValue({ count: 0 }); // concurrent execution
+
+      await expect(service.execute(TENANT_ID, REFUND_ID)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reverse allocations LIFO with full and partial reversal', async () => {
+      mockPrisma.refund.findFirst
+        .mockResolvedValueOnce(makeRefund({ status: 'approved', amount: '350.00' }))
+        .mockResolvedValueOnce(makeRefund({ status: 'executed', amount: '350.00' }));
+      mockPrisma.refund.updateMany.mockResolvedValue({ count: 1 });
+      // LIFO: newest first
+      mockPrisma.paymentAllocation.findMany.mockResolvedValue([
+        {
+          id: 'alloc-2',
+          allocated_amount: '200.00',
+          invoice_id: 'inv-2',
+          created_at: new Date('2026-03-02'),
+        },
+        {
+          id: 'alloc-1',
+          allocated_amount: '300.00',
+          invoice_id: 'inv-1',
+          created_at: new Date('2026-03-01'),
+        },
+      ]);
+      mockPrisma.payment.findUnique.mockResolvedValue({
+        id: PAYMENT_ID,
+        amount: '500.00', // Total payment
+        refunds: [{ status: 'executed', amount: '350.00' }],
+      });
+      mockPrisma.paymentAllocation.delete.mockResolvedValue({});
+      mockPrisma.paymentAllocation.update.mockResolvedValue({});
+      mockPrisma.payment.update.mockResolvedValue({});
+      mockInvoicesService.recalculateBalance.mockResolvedValue(undefined);
+
+      await service.execute(TENANT_ID, REFUND_ID);
+
+      // alloc-2 (200) should be fully deleted (200 <= 350)
+      expect(mockPrisma.paymentAllocation.delete).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'alloc-2' } }),
+      );
+      // alloc-1 (300) should be partially reversed (150 of 300) => updated to 150
+      expect(mockPrisma.paymentAllocation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'alloc-1' },
+          data: { allocated_amount: 150 },
+        }),
+      );
+      // recalculateBalance should be called for both invoices
+      expect(mockInvoicesService.recalculateBalance).toHaveBeenCalledTimes(2);
+    });
+
+    it('should deduct from unallocated amount first during LIFO reversal', async () => {
+      mockPrisma.refund.findFirst
+        .mockResolvedValueOnce(makeRefund({ status: 'approved', amount: '100.00' }))
+        .mockResolvedValueOnce(makeRefund({ status: 'executed', amount: '100.00' }));
+      mockPrisma.refund.updateMany.mockResolvedValue({ count: 1 });
+      // Only 300 allocated of 500 total => 200 unallocated
+      mockPrisma.paymentAllocation.findMany.mockResolvedValue([
+        { id: 'alloc-1', allocated_amount: '300.00', invoice_id: 'inv-1', created_at: new Date() },
+      ]);
+      mockPrisma.payment.findUnique.mockResolvedValue({
+        id: PAYMENT_ID,
+        amount: '500.00',
+        refunds: [{ status: 'executed', amount: '100.00' }],
+      });
+      mockPrisma.payment.update.mockResolvedValue({});
+      mockInvoicesService.recalculateBalance.mockResolvedValue(undefined);
+
+      await service.execute(TENANT_ID, REFUND_ID);
+
+      // 100 refund should be fully consumed by unallocated (200), so no allocation changes
+      expect(mockPrisma.paymentAllocation.delete).not.toHaveBeenCalled();
+      expect(mockPrisma.paymentAllocation.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('create — void/written-off invoice guard', () => {
+    it('should throw BadRequestException when payment allocated to void invoice', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: PAYMENT_ID,
+        amount: '500.00',
+        status: 'posted',
+        refunds: [],
+        allocations: [{ invoice: { id: 'inv-1', status: 'void' } }],
+      });
+
+      await expect(
+        service.create(TENANT_ID, USER_ID, {
+          payment_id: PAYMENT_ID,
+          amount: 100,
+          reason: 'Test',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException when payment allocated to written_off invoice', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: PAYMENT_ID,
+        amount: '500.00',
+        status: 'posted',
+        refunds: [],
+        allocations: [{ invoice: { id: 'inv-1', status: 'written_off' } }],
+      });
+
+      await expect(
+        service.create(TENANT_ID, USER_ID, {
+          payment_id: PAYMENT_ID,
+          amount: 100,
+          reason: 'Test',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should exclude rejected and failed refunds from total when calculating available', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: PAYMENT_ID,
+        amount: '500.00',
+        status: 'posted',
+        refunds: [
+          { status: 'rejected', amount: '300.00' },
+          { status: 'failed', amount: '100.00' },
+          { status: 'executed', amount: '100.00' },
+        ],
+        allocations: [],
+      });
+      mockPrisma.tenantBranding.findUnique.mockResolvedValue(null);
+      mockPrisma.refund.create.mockResolvedValue({
+        ...makeRefund({ amount: '350.00' }),
+        payment: { id: PAYMENT_ID, payment_reference: 'PAY-001', amount: '500.00' },
+        requested_by: { id: USER_ID, first_name: 'John', last_name: 'Doe' },
+      });
+
+      // Available = 500 - 100 (executed) = 400. Requesting 350 should succeed.
+      const result = (await service.create(TENANT_ID, USER_ID, {
+        payment_id: PAYMENT_ID,
+        amount: 350,
+        reason: 'Partial refund',
+      })) as { amount: number };
+
+      expect(result.amount).toBe(350);
+    });
+
+    it('should allow refund from refunded_partial status', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: PAYMENT_ID,
+        amount: '500.00',
+        status: 'refunded_partial',
+        refunds: [{ status: 'executed', amount: '100.00' }],
+        allocations: [],
+      });
+      mockPrisma.tenantBranding.findUnique.mockResolvedValue({ receipt_prefix: 'REC' });
+      mockPrisma.refund.create.mockResolvedValue({
+        ...makeRefund({ amount: '200.00' }),
+        payment: { id: PAYMENT_ID, payment_reference: 'PAY-001', amount: '500.00' },
+        requested_by: { id: USER_ID, first_name: 'John', last_name: 'Doe' },
+      });
+
+      const result = (await service.create(TENANT_ID, USER_ID, {
+        payment_id: PAYMENT_ID,
+        amount: 200,
+        reason: 'Additional refund',
+      })) as { amount: number };
+
+      expect(result.amount).toBe(200);
+    });
+  });
+
+  describe('findAll — filter branches', () => {
+    it('should filter by payment_id', async () => {
+      mockPrisma.refund.findMany.mockResolvedValue([]);
+      mockPrisma.refund.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, { page: 1, pageSize: 20, payment_id: PAYMENT_ID });
+
+      expect(mockPrisma.refund.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ payment_id: PAYMENT_ID }),
+        }),
+      );
+    });
+  });
+
+  describe('reject — concurrent status check', () => {
+    it('should throw BadRequestException when updateMany returns 0 (concurrent modification)', async () => {
+      mockPrisma.refund.findFirst.mockResolvedValue(makeRefund());
+      mockPrisma.refund.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.reject(TENANT_ID, REFUND_ID, APPROVER_ID, 'Nope')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

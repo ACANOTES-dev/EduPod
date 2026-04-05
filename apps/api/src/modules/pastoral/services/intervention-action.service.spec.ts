@@ -1,7 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -36,9 +33,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -270,12 +265,7 @@ describe('InterventionActionService', () => {
       );
 
       await expect(
-        service.updateAction(
-          TENANT_ID,
-          ACTION_ID,
-          { status: 'pending' },
-          ACTOR_USER_ID,
-        ),
+        service.updateAction(TENANT_ID, ACTION_ID, { status: 'pending' }, ACTOR_USER_ID),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -285,12 +275,7 @@ describe('InterventionActionService', () => {
       );
 
       await expect(
-        service.updateAction(
-          TENANT_ID,
-          ACTION_ID,
-          { status: 'in_progress' },
-          ACTOR_USER_ID,
-        ),
+        service.updateAction(TENANT_ID, ACTION_ID, { status: 'in_progress' }, ACTOR_USER_ID),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -305,12 +290,7 @@ describe('InterventionActionService', () => {
       });
       mockRlsTx.pastoralInterventionAction.update.mockResolvedValue(updated);
 
-      await service.updateAction(
-        TENANT_ID,
-        ACTION_ID,
-        { status: 'completed' },
-        ACTOR_USER_ID,
-      );
+      await service.updateAction(TENANT_ID, ACTION_ID, { status: 'completed' }, ACTOR_USER_ID);
 
       expect(mockRlsTx.pastoralInterventionAction.update).toHaveBeenCalledWith({
         where: { id: ACTION_ID },
@@ -329,12 +309,7 @@ describe('InterventionActionService', () => {
       const updated = makeAction({ status: 'pc_completed' });
       mockRlsTx.pastoralInterventionAction.update.mockResolvedValue(updated);
 
-      await service.updateAction(
-        TENANT_ID,
-        ACTION_ID,
-        { status: 'completed' },
-        ACTOR_USER_ID,
-      );
+      await service.updateAction(TENANT_ID, ACTION_ID, { status: 'completed' }, ACTOR_USER_ID);
 
       expect(mockEventService.write).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -380,9 +355,9 @@ describe('InterventionActionService', () => {
         makeAction({ status: 'pc_completed' }),
       );
 
-      await expect(
-        service.completeAction(TENANT_ID, ACTION_ID, ACTOR_USER_ID),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.completeAction(TENANT_ID, ACTION_ID, ACTOR_USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw when action is cancelled (terminal)', async () => {
@@ -390,9 +365,9 @@ describe('InterventionActionService', () => {
         makeAction({ status: 'pc_cancelled' }),
       );
 
-      await expect(
-        service.completeAction(TENANT_ID, ACTION_ID, ACTOR_USER_ID),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.completeAction(TENANT_ID, ACTION_ID, ACTOR_USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should complete overdue action successfully', async () => {
@@ -488,10 +463,7 @@ describe('InterventionActionService', () => {
 
   describe('listActionsForIntervention', () => {
     it('should return all actions for an intervention', async () => {
-      const actions = [
-        makeAction({ id: 'action-1' }),
-        makeAction({ id: 'action-2' }),
-      ];
+      const actions = [makeAction({ id: 'action-1' }), makeAction({ id: 'action-2' })];
       mockRlsTx.pastoralInterventionAction.findMany.mockResolvedValue(actions);
 
       const result = await service.listActionsForIntervention(TENANT_ID, INTERVENTION_ID);
@@ -512,7 +484,12 @@ describe('InterventionActionService', () => {
       mockRlsTx.pastoralInterventionAction.findMany.mockResolvedValue(actions);
       mockRlsTx.pastoralInterventionAction.count.mockResolvedValue(1);
 
-      const result = await service.listAllActions(TENANT_ID, { page: 1, pageSize: 20, sort: 'due_date', order: 'asc' });
+      const result = await service.listAllActions(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        sort: 'due_date',
+        order: 'asc',
+      });
 
       expect(result.data).toHaveLength(1);
       expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
@@ -538,6 +515,257 @@ describe('InterventionActionService', () => {
         skip: 0,
         take: 10,
       });
+    });
+
+    it('should apply assigned_to_user_id filter', async () => {
+      mockRlsTx.pastoralInterventionAction.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralInterventionAction.count.mockResolvedValue(0);
+
+      await service.listAllActions(TENANT_ID, {
+        assigned_to_user_id: ASSIGNED_USER_ID,
+        page: 1,
+        pageSize: 20,
+        sort: 'due_date',
+        order: 'asc',
+      });
+
+      expect(mockRlsTx.pastoralInterventionAction.findMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          assigned_to_user_id: ASSIGNED_USER_ID,
+        }),
+        orderBy: { created_at: 'desc' },
+        skip: 0,
+        take: 20,
+      });
+    });
+
+    it('should use default page and pageSize when not provided', async () => {
+      mockRlsTx.pastoralInterventionAction.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralInterventionAction.count.mockResolvedValue(0);
+
+      const result = await service.listAllActions(TENANT_ID, {
+        sort: 'due_date',
+        order: 'asc',
+      });
+
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 0 });
+    });
+  });
+
+  // ─── createAction — additional branch coverage ─────────────────────────
+
+  describe('createAction — branch coverage', () => {
+    it('should throw NotFoundException when intervention does not exist', async () => {
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createAction(TENANT_ID, INTERVENTION_ID, baseCreateDto, ACTOR_USER_ID),
+      ).rejects.toThrow();
+    });
+
+    it('should use default frequency once when not specified', async () => {
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(makeIntervention());
+      mockRlsTx.pastoralInterventionAction.create.mockResolvedValue(makeAction());
+
+      await service.createAction(
+        TENANT_ID,
+        INTERVENTION_ID,
+        { ...baseCreateDto, frequency: undefined, due_date: '2026-04-10' },
+        ACTOR_USER_ID,
+      );
+
+      expect(mockRlsTx.pastoralInterventionAction.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          frequency: 'once',
+        }),
+      });
+    });
+
+    it('should create action with null due_date for daily frequency', async () => {
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(makeIntervention());
+      const action = makeAction({ frequency: 'daily', due_date: null });
+      mockRlsTx.pastoralInterventionAction.create.mockResolvedValue(action);
+
+      await service.createAction(
+        TENANT_ID,
+        INTERVENTION_ID,
+        { ...baseCreateDto, frequency: 'daily' as 'once', due_date: undefined },
+        ACTOR_USER_ID,
+      );
+
+      expect(mockRlsTx.pastoralInterventionAction.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          due_date: null,
+        }),
+      });
+    });
+  });
+
+  // ─── updateAction — additional branch coverage ─────────────────────────
+
+  describe('updateAction — branch coverage', () => {
+    it('should throw NotFoundException when action does not exist', async () => {
+      mockRlsTx.pastoralInterventionAction.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateAction(TENANT_ID, ACTION_ID, { status: 'in_progress' }, ACTOR_USER_ID),
+      ).rejects.toThrow();
+    });
+
+    it('should update description without status change', async () => {
+      mockRlsTx.pastoralInterventionAction.findFirst.mockResolvedValue(
+        makeAction({ status: 'pc_pending' }),
+      );
+      const updated = makeAction({ description: 'Updated description' });
+      mockRlsTx.pastoralInterventionAction.update.mockResolvedValue(updated);
+
+      await service.updateAction(
+        TENANT_ID,
+        ACTION_ID,
+        { description: 'Updated description' },
+        ACTOR_USER_ID,
+      );
+
+      expect(mockRlsTx.pastoralInterventionAction.update).toHaveBeenCalledWith({
+        where: { id: ACTION_ID },
+        data: { description: 'Updated description' },
+      });
+    });
+
+    it('should update due_date', async () => {
+      mockRlsTx.pastoralInterventionAction.findFirst.mockResolvedValue(
+        makeAction({ status: 'pc_pending' }),
+      );
+      const updated = makeAction({ due_date: new Date('2026-05-01') });
+      mockRlsTx.pastoralInterventionAction.update.mockResolvedValue(updated);
+
+      await service.updateAction(TENANT_ID, ACTION_ID, { due_date: '2026-05-01' }, ACTOR_USER_ID);
+
+      expect(mockRlsTx.pastoralInterventionAction.update).toHaveBeenCalledWith({
+        where: { id: ACTION_ID },
+        data: { due_date: expect.any(Date) },
+      });
+    });
+
+    it('should set due_date to null when explicitly provided as null', async () => {
+      mockRlsTx.pastoralInterventionAction.findFirst.mockResolvedValue(
+        makeAction({ status: 'pc_pending' }),
+      );
+      const updated = makeAction({ due_date: null });
+      mockRlsTx.pastoralInterventionAction.update.mockResolvedValue(updated);
+
+      await service.updateAction(TENANT_ID, ACTION_ID, { due_date: null }, ACTOR_USER_ID);
+
+      expect(mockRlsTx.pastoralInterventionAction.update).toHaveBeenCalledWith({
+        where: { id: ACTION_ID },
+        data: { due_date: null },
+      });
+    });
+
+    it('should not emit action_completed event for non-completion status change', async () => {
+      mockRlsTx.pastoralInterventionAction.findFirst.mockResolvedValue(
+        makeAction({ status: 'pc_pending' }),
+      );
+      const updated = makeAction({ status: 'pc_in_progress' });
+      mockRlsTx.pastoralInterventionAction.update.mockResolvedValue(updated);
+
+      await service.updateAction(TENANT_ID, ACTION_ID, { status: 'in_progress' }, ACTOR_USER_ID);
+
+      expect(mockEventService.write).not.toHaveBeenCalled();
+    });
+
+    it('should allow pending -> cancelled transition', async () => {
+      mockRlsTx.pastoralInterventionAction.findFirst.mockResolvedValue(
+        makeAction({ status: 'pc_pending' }),
+      );
+      const updated = makeAction({ status: 'pc_cancelled' });
+      mockRlsTx.pastoralInterventionAction.update.mockResolvedValue(updated);
+
+      const result = await service.updateAction(
+        TENANT_ID,
+        ACTION_ID,
+        { status: 'cancelled' },
+        ACTOR_USER_ID,
+      );
+
+      expect(result.status).toBe('pc_cancelled');
+    });
+
+    it('should allow pending -> overdue transition', async () => {
+      mockRlsTx.pastoralInterventionAction.findFirst.mockResolvedValue(
+        makeAction({ status: 'pc_pending' }),
+      );
+      const updated = makeAction({ status: 'pc_overdue' });
+      mockRlsTx.pastoralInterventionAction.update.mockResolvedValue(updated);
+
+      const result = await service.updateAction(
+        TENANT_ID,
+        ACTION_ID,
+        { status: 'overdue' },
+        ACTOR_USER_ID,
+      );
+
+      expect(result.status).toBe('pc_overdue');
+    });
+
+    it('should reject invalid transition from pending to unknown status', async () => {
+      mockRlsTx.pastoralInterventionAction.findFirst.mockResolvedValue(
+        makeAction({ status: 'pc_pending' }),
+      );
+
+      await expect(
+        service.updateAction(
+          TENANT_ID,
+          ACTION_ID,
+          { status: 'nonexistent' as 'pending' },
+          ACTOR_USER_ID,
+        ),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should reject in_progress -> pending (invalid backward)', async () => {
+      mockRlsTx.pastoralInterventionAction.findFirst.mockResolvedValue(
+        makeAction({ status: 'pc_in_progress' }),
+      );
+
+      await expect(
+        service.updateAction(TENANT_ID, ACTION_ID, { status: 'pending' }, ACTOR_USER_ID),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  // ─── completeAction — additional branch coverage ───────────────────────
+
+  describe('completeAction — branch coverage', () => {
+    it('should throw NotFoundException when action does not exist', async () => {
+      mockRlsTx.pastoralInterventionAction.findFirst.mockResolvedValue(null);
+
+      await expect(service.completeAction(TENANT_ID, ACTION_ID, ACTOR_USER_ID)).rejects.toThrow();
+    });
+
+    it('should complete in_progress action', async () => {
+      mockRlsTx.pastoralInterventionAction.findFirst.mockResolvedValue(
+        makeAction({ status: 'pc_in_progress' }),
+      );
+      mockRlsTx.pastoralInterventionAction.update.mockResolvedValue(
+        makeAction({ status: 'pc_completed', completed_at: new Date() }),
+      );
+
+      const result = await service.completeAction(TENANT_ID, ACTION_ID, ACTOR_USER_ID);
+      expect(result.status).toBe('pc_completed');
+    });
+  });
+
+  // ─── listMyActions — additional branch coverage ────────────────────────
+
+  describe('listMyActions — branch coverage', () => {
+    it('should use default values when no filter provided', async () => {
+      mockRlsTx.pastoralInterventionAction.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralInterventionAction.count.mockResolvedValue(0);
+
+      const result = await service.listMyActions(TENANT_ID, ACTOR_USER_ID);
+
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 0 });
     });
   });
 });

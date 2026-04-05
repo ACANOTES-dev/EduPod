@@ -25,9 +25,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(
-        async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
@@ -90,9 +88,7 @@ describe('SafeguardingAttachmentService', () => {
       ],
     }).compile();
 
-    service = module.get<SafeguardingAttachmentService>(
-      SafeguardingAttachmentService,
-    );
+    service = module.get<SafeguardingAttachmentService>(SafeguardingAttachmentService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -150,13 +146,7 @@ describe('SafeguardingAttachmentService', () => {
       const largeFile = { ...mockFile, size: 11 * 1024 * 1024 };
 
       await expect(
-        service.uploadAttachment(
-          TENANT_ID,
-          USER_ID,
-          CONCERN_ID,
-          largeFile,
-          baseDto,
-        ),
+        service.uploadAttachment(TENANT_ID, USER_ID, CONCERN_ID, largeFile, baseDto),
       ).rejects.toThrow(PayloadTooLargeException);
     });
 
@@ -164,13 +154,7 @@ describe('SafeguardingAttachmentService', () => {
       const exeFile = { ...mockFile, originalname: 'malware.exe' };
 
       await expect(
-        service.uploadAttachment(
-          TENANT_ID,
-          USER_ID,
-          CONCERN_ID,
-          exeFile,
-          baseDto,
-        ),
+        service.uploadAttachment(TENANT_ID, USER_ID, CONCERN_ID, exeFile, baseDto),
       ).rejects.toThrow(UnprocessableEntityException);
     });
 
@@ -178,13 +162,7 @@ describe('SafeguardingAttachmentService', () => {
       mockTx.safeguardingConcern.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.uploadAttachment(
-          TENANT_ID,
-          USER_ID,
-          CONCERN_ID,
-          mockFile,
-          baseDto,
-        ),
+        service.uploadAttachment(TENANT_ID, USER_ID, CONCERN_ID, mockFile, baseDto),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -195,24 +173,12 @@ describe('SafeguardingAttachmentService', () => {
       });
 
       await expect(
-        service.uploadAttachment(
-          TENANT_ID,
-          USER_ID,
-          CONCERN_ID,
-          mockFile,
-          baseDto,
-        ),
+        service.uploadAttachment(TENANT_ID, USER_ID, CONCERN_ID, mockFile, baseDto),
       ).rejects.toThrow(ForbiddenException);
     });
 
     it('should compute and store SHA-256 hash', async () => {
-      await service.uploadAttachment(
-        TENANT_ID,
-        USER_ID,
-        CONCERN_ID,
-        mockFile,
-        baseDto,
-      );
+      await service.uploadAttachment(TENANT_ID, USER_ID, CONCERN_ID, mockFile, baseDto);
 
       const createCall = mockTx.behaviourAttachment.create.mock.calls[0] as [
         { data: { sha256_hash: string } },
@@ -223,11 +189,25 @@ describe('SafeguardingAttachmentService', () => {
       expect(sha256).toMatch(/^[a-f0-9]{64}$/);
       // Must be deterministic for the same input
       const crypto = await import('crypto');
-      const expected = crypto
-        .createHash('sha256')
-        .update(mockFile.buffer)
-        .digest('hex');
+      const expected = crypto.createHash('sha256').update(mockFile.buffer).digest('hex');
       expect(sha256).toBe(expected);
+    });
+
+    it('edge: should gracefully handle scan job enqueue failure', async () => {
+      mockBehaviourQueue.add.mockRejectedValueOnce(new Error('Queue unavailable'));
+
+      const result = await service.uploadAttachment(
+        TENANT_ID,
+        USER_ID,
+        CONCERN_ID,
+        mockFile,
+        baseDto,
+      );
+
+      // Should still succeed — scan job failure is non-blocking
+      expect(result).toEqual({
+        data: { attachment_id: ATTACHMENT_ID, status: 'pending' },
+      });
     });
 
     it('should return 202-style response with attachment_id', async () => {
@@ -262,9 +242,7 @@ describe('SafeguardingAttachmentService', () => {
     };
 
     beforeEach(() => {
-      mockPrisma.behaviourAttachment!.findFirst!.mockResolvedValue(
-        cleanAttachment,
-      );
+      mockPrisma.behaviourAttachment!.findFirst!.mockResolvedValue(cleanAttachment);
       mockTx.safeguardingAction.create.mockResolvedValue({ id: 'action-1' });
     });
 
@@ -332,6 +310,111 @@ describe('SafeguardingAttachmentService', () => {
           mockCheckPermission,
         ),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw ForbiddenException for scan_failed attachment', async () => {
+      mockPrisma.behaviourAttachment!.findFirst!.mockResolvedValue({
+        ...cleanAttachment,
+        scan_status: 'scan_failed',
+      });
+
+      await expect(
+        service.generateDownloadUrl(
+          TENANT_ID,
+          USER_ID,
+          MEMBERSHIP_ID,
+          CONCERN_ID,
+          ATTACHMENT_ID,
+          mockCheckPermission,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      try {
+        await service.generateDownloadUrl(
+          TENANT_ID,
+          USER_ID,
+          MEMBERSHIP_ID,
+          CONCERN_ID,
+          ATTACHMENT_ID,
+          mockCheckPermission,
+        );
+      } catch (err) {
+        const response = (err as ForbiddenException).getResponse() as {
+          code: string;
+        };
+        expect(response.code).toBe('SCAN_FAILED');
+      }
+    });
+
+    it('should throw ForbiddenException when access is denied', async () => {
+      const denyPermission = jest.fn().mockResolvedValue({
+        allowed: false,
+        context: 'normal' as const,
+      });
+
+      await expect(
+        service.generateDownloadUrl(
+          TENANT_ID,
+          USER_ID,
+          MEMBERSHIP_ID,
+          CONCERN_ID,
+          ATTACHMENT_ID,
+          denyPermission,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw NotFoundException when attachment not found', async () => {
+      mockPrisma.behaviourAttachment!.findFirst!.mockResolvedValue(null);
+
+      await expect(
+        service.generateDownloadUrl(
+          TENANT_ID,
+          USER_ID,
+          MEMBERSHIP_ID,
+          CONCERN_ID,
+          ATTACHMENT_ID,
+          mockCheckPermission,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException when attachment entity_type mismatches', async () => {
+      mockPrisma.behaviourAttachment!.findFirst!.mockResolvedValue({
+        ...cleanAttachment,
+        entity_type: 'behaviour_incident',
+      });
+
+      const { BadRequestException: BadReq } = await import('@nestjs/common');
+      await expect(
+        service.generateDownloadUrl(
+          TENANT_ID,
+          USER_ID,
+          MEMBERSHIP_ID,
+          CONCERN_ID,
+          ATTACHMENT_ID,
+          mockCheckPermission,
+        ),
+      ).rejects.toThrow(BadReq);
+    });
+
+    it('should throw BadRequestException when attachment entity_id mismatches', async () => {
+      mockPrisma.behaviourAttachment!.findFirst!.mockResolvedValue({
+        ...cleanAttachment,
+        entity_id: 'different-concern-id',
+      });
+
+      const { BadRequestException: BadReq } = await import('@nestjs/common');
+      await expect(
+        service.generateDownloadUrl(
+          TENANT_ID,
+          USER_ID,
+          MEMBERSHIP_ID,
+          CONCERN_ID,
+          ATTACHMENT_ID,
+          mockCheckPermission,
+        ),
+      ).rejects.toThrow(BadReq);
     });
 
     it('should create safeguarding_actions entry with document_downloaded', async () => {

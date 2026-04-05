@@ -1,4 +1,4 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
@@ -27,7 +27,9 @@ const mockTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
@@ -36,10 +38,20 @@ describe('SubstitutionService', () => {
   let module: TestingModule;
   let mockPrisma: {
     staffProfile: { findFirst: jest.Mock; findMany: jest.Mock };
-    teacherAbsence: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock; delete: jest.Mock };
+    teacherAbsence: {
+      findFirst: jest.Mock;
+      findMany: jest.Mock;
+      count: jest.Mock;
+      delete: jest.Mock;
+    };
     schedule: { findFirst: jest.Mock; findMany: jest.Mock };
     teacherCompetency: { findMany: jest.Mock };
-    substitutionRecord: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock; create: jest.Mock };
+    substitutionRecord: {
+      findFirst: jest.Mock;
+      findMany: jest.Mock;
+      count: jest.Mock;
+      create: jest.Mock;
+    };
   };
 
   beforeEach(async () => {
@@ -82,38 +94,44 @@ describe('SubstitutionService', () => {
     module = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
-        { provide: SchedulesReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findCoreById: jest.fn().mockResolvedValue(null),
-      existsById: jest.fn().mockResolvedValue(null),
-      findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
-      countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
-      findTeacherTimetable: jest.fn().mockResolvedValue([]),
-      findClassTimetable: jest.fn().mockResolvedValue([]),
-      findPinnedEntries: jest.fn().mockResolvedValue([]),
-      countPinnedEntries: jest.fn().mockResolvedValue(0),
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findScheduledClassIds: jest.fn().mockResolvedValue([]),
-      countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
-      count: jest.fn().mockResolvedValue(0),
-      hasRotationEntries: jest.fn().mockResolvedValue(false),
-      countByRoom: jest.fn().mockResolvedValue(0),
-      findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
-      findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
-      countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
-      findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
-      hasConflict: jest.fn().mockResolvedValue(false),
-      findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
-      findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
-    } },
-        { provide: StaffProfileReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findByIds: jest.fn().mockResolvedValue([]),
-      findByUserId: jest.fn().mockResolvedValue(null),
-      findActiveStaff: jest.fn().mockResolvedValue([]),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
-    } },
+        {
+          provide: SchedulesReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            findCoreById: jest.fn().mockResolvedValue(null),
+            existsById: jest.fn().mockResolvedValue(null),
+            findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
+            countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
+            findTeacherTimetable: jest.fn().mockResolvedValue([]),
+            findClassTimetable: jest.fn().mockResolvedValue([]),
+            findPinnedEntries: jest.fn().mockResolvedValue([]),
+            countPinnedEntries: jest.fn().mockResolvedValue(0),
+            findByAcademicYear: jest.fn().mockResolvedValue([]),
+            findScheduledClassIds: jest.fn().mockResolvedValue([]),
+            countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
+            count: jest.fn().mockResolvedValue(0),
+            hasRotationEntries: jest.fn().mockResolvedValue(false),
+            countByRoom: jest.fn().mockResolvedValue(0),
+            findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
+            findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
+            countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
+            findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
+            hasConflict: jest.fn().mockResolvedValue(false),
+            findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
+            findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: StaffProfileReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            findByIds: jest.fn().mockResolvedValue([]),
+            findByUserId: jest.fn().mockResolvedValue(null),
+            findActiveStaff: jest.fn().mockResolvedValue([]),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
+          },
+        },
         SubstitutionService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -155,7 +173,9 @@ describe('SubstitutionService', () => {
 
     it('should throw NotFoundException when staff does not exist', async () => {
       const staffFacade = module.get(StaffProfileReadFacade);
-      (staffFacade.existsOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Staff not found'));
+      (staffFacade.existsOrThrow as jest.Mock).mockRejectedValue(
+        new NotFoundException('Staff not found'),
+      );
 
       await expect(
         service.reportAbsence(TENANT_ID, USER_ID, {
@@ -397,6 +417,361 @@ describe('SubstitutionService', () => {
 
       expect(result.today).toHaveLength(0);
       expect(result.upcoming).toHaveLength(0);
+    });
+  });
+
+  // ─── getAbsences ─────────────────────────────────────────────────────────
+
+  describe('getAbsences', () => {
+    it('should return paginated absences with staff name and substitutions', async () => {
+      mockPrisma.teacherAbsence.findMany.mockResolvedValue([
+        {
+          id: ABSENCE_ID,
+          staff_profile_id: STAFF_ID,
+          staff_profile: { user: { first_name: 'Alice', last_name: 'Brown' } },
+          absence_date: new Date('2026-03-20'),
+          full_day: true,
+          period_from: null,
+          period_to: null,
+          reason: 'Sick',
+          reported_at: new Date('2026-03-19T08:00:00Z'),
+          substitution_records: [
+            {
+              id: 'sr-1',
+              status: 'assigned',
+              substitute_staff_id: 'staff-2',
+              substitute: { user: { first_name: 'Bob', last_name: 'Smith' } },
+            },
+          ],
+        },
+      ]);
+      mockPrisma.teacherAbsence.count.mockResolvedValue(1);
+
+      const result = await service.getAbsences(TENANT_ID, { page: 1, pageSize: 20 });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]!.staff_name).toBe('Alice Brown');
+      expect(result.data[0]!.absence_date).toBe('2026-03-20');
+      expect(result.data[0]!.substitution_count).toBe(1);
+      expect(result.data[0]!.substitutions[0]!.substitute_name).toBe('Bob Smith');
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
+    });
+
+    it('should filter by staff_id', async () => {
+      mockPrisma.teacherAbsence.findMany.mockResolvedValue([]);
+      mockPrisma.teacherAbsence.count.mockResolvedValue(0);
+
+      await service.getAbsences(TENANT_ID, { page: 1, pageSize: 20, staff_id: STAFF_ID });
+
+      expect(mockPrisma.teacherAbsence.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ staff_profile_id: STAFF_ID }),
+        }),
+      );
+    });
+
+    it('should filter by date_from only', async () => {
+      mockPrisma.teacherAbsence.findMany.mockResolvedValue([]);
+      mockPrisma.teacherAbsence.count.mockResolvedValue(0);
+
+      await service.getAbsences(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        date_from: '2026-03-01',
+      });
+
+      expect(mockPrisma.teacherAbsence.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            absence_date: expect.objectContaining({ gte: expect.any(Date) }),
+          }),
+        }),
+      );
+    });
+
+    it('should filter by date_to only', async () => {
+      mockPrisma.teacherAbsence.findMany.mockResolvedValue([]);
+      mockPrisma.teacherAbsence.count.mockResolvedValue(0);
+
+      await service.getAbsences(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        date_to: '2026-03-31',
+      });
+
+      expect(mockPrisma.teacherAbsence.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            absence_date: expect.objectContaining({ lte: expect.any(Date) }),
+          }),
+        }),
+      );
+    });
+
+    it('should filter by both date_from and date_to', async () => {
+      mockPrisma.teacherAbsence.findMany.mockResolvedValue([]);
+      mockPrisma.teacherAbsence.count.mockResolvedValue(0);
+
+      await service.getAbsences(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        date_from: '2026-03-01',
+        date_to: '2026-03-31',
+      });
+
+      expect(mockPrisma.teacherAbsence.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            absence_date: expect.objectContaining({
+              gte: expect.any(Date),
+              lte: expect.any(Date),
+            }),
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── getSubstitutionRecords ──────────────────────────────────────────────
+
+  describe('getSubstitutionRecords', () => {
+    it('should return paginated substitution records', async () => {
+      mockPrisma.substitutionRecord.findMany.mockResolvedValue([
+        {
+          id: 'sr-1',
+          absence_id: ABSENCE_ID,
+          schedule_id: SCHEDULE_ID,
+          substitute_staff_id: 'staff-2',
+          status: 'assigned',
+          assigned_at: new Date('2026-03-20T08:00:00Z'),
+          confirmed_at: null,
+          notes: null,
+          absence: {
+            absence_date: new Date('2026-03-20'),
+            staff_profile: { user: { first_name: 'Alice', last_name: 'Brown' } },
+          },
+          substitute: { user: { first_name: 'Bob', last_name: 'Smith' } },
+        },
+      ]);
+      mockPrisma.substitutionRecord.count.mockResolvedValue(1);
+
+      const result = await service.getSubstitutionRecords(TENANT_ID, { page: 1, pageSize: 20 });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]!.substitute_name).toBe('Bob Smith');
+      expect(result.data[0]!.absent_staff_name).toBe('Alice Brown');
+      expect(result.data[0]!.absence_date).toBe('2026-03-20');
+      expect(result.data[0]!.confirmed_at).toBeNull();
+    });
+
+    it('should filter by staff_id', async () => {
+      mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
+      mockPrisma.substitutionRecord.count.mockResolvedValue(0);
+
+      await service.getSubstitutionRecords(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        staff_id: 'staff-2',
+      });
+
+      expect(mockPrisma.substitutionRecord.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ substitute_staff_id: 'staff-2' }),
+        }),
+      );
+    });
+
+    it('should filter by status', async () => {
+      mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
+      mockPrisma.substitutionRecord.count.mockResolvedValue(0);
+
+      await service.getSubstitutionRecords(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        status: 'assigned',
+      });
+
+      expect(mockPrisma.substitutionRecord.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: 'assigned' }),
+        }),
+      );
+    });
+
+    it('should filter by date range', async () => {
+      mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
+      mockPrisma.substitutionRecord.count.mockResolvedValue(0);
+
+      await service.getSubstitutionRecords(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        date_from: '2026-03-01',
+        date_to: '2026-03-31',
+      });
+
+      expect(mockPrisma.substitutionRecord.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            created_at: expect.objectContaining({
+              gte: expect.any(Date),
+              lte: expect.any(Date),
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should format confirmed_at when present', async () => {
+      mockPrisma.substitutionRecord.findMany.mockResolvedValue([
+        {
+          id: 'sr-1',
+          absence_id: ABSENCE_ID,
+          schedule_id: SCHEDULE_ID,
+          substitute_staff_id: 'staff-2',
+          status: 'confirmed',
+          assigned_at: new Date('2026-03-20T08:00:00Z'),
+          confirmed_at: new Date('2026-03-20T09:00:00Z'),
+          notes: 'Confirmed via phone',
+          absence: {
+            absence_date: new Date('2026-03-20'),
+            staff_profile: { user: { first_name: 'A', last_name: 'B' } },
+          },
+          substitute: { user: { first_name: 'C', last_name: 'D' } },
+        },
+      ]);
+      mockPrisma.substitutionRecord.count.mockResolvedValue(1);
+
+      const result = await service.getSubstitutionRecords(TENANT_ID, { page: 1, pageSize: 20 });
+
+      expect(result.data[0]!.confirmed_at).toBe('2026-03-20T09:00:00.000Z');
+      expect(result.data[0]!.notes).toBe('Confirmed via phone');
+    });
+  });
+
+  // ─── validateAbsenceExists ───────────────────────────────────────────────
+
+  describe('validateAbsenceExists', () => {
+    it('should resolve when absence exists', async () => {
+      mockPrisma.teacherAbsence.findFirst.mockResolvedValue({ id: ABSENCE_ID });
+
+      await expect(service.validateAbsenceExists(TENANT_ID, ABSENCE_ID)).resolves.toBeUndefined();
+    });
+
+    it('should throw NotFoundException when absence does not exist', async () => {
+      mockPrisma.teacherAbsence.findFirst.mockResolvedValue(null);
+
+      await expect(service.validateAbsenceExists(TENANT_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ─── deleteAbsence ───────────────────────────────────────────────────────
+
+  describe('deleteAbsence', () => {
+    it('should delete an absence without substitution records', async () => {
+      mockPrisma.teacherAbsence.findFirst.mockResolvedValue({ id: ABSENCE_ID });
+      mockPrisma.substitutionRecord.findFirst.mockResolvedValue(null);
+
+      const result = await service.deleteAbsence(TENANT_ID, ABSENCE_ID);
+
+      expect(result.deleted).toBe(true);
+      expect(mockTx.teacherAbsence.delete).toHaveBeenCalledWith({ where: { id: ABSENCE_ID } });
+    });
+
+    it('should throw BadRequestException when absence has substitution records', async () => {
+      mockPrisma.teacherAbsence.findFirst.mockResolvedValue({ id: ABSENCE_ID });
+      mockPrisma.substitutionRecord.findFirst.mockResolvedValue({ id: 'sr-1' });
+
+      await expect(service.deleteAbsence(TENANT_ID, ABSENCE_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw NotFoundException when absence does not exist', async () => {
+      mockPrisma.teacherAbsence.findFirst.mockResolvedValue(null);
+
+      await expect(service.deleteAbsence(TENANT_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ─── findEligibleSubstitutes — edge cases ────────────────────────────────
+
+  describe('findEligibleSubstitutes — edge cases', () => {
+    const mockSchedule = {
+      id: SCHEDULE_ID,
+      teacher_staff_id: STAFF_ID,
+      weekday: 1,
+      start_time: new Date('1970-01-01T09:00:00Z'),
+      end_time: new Date('1970-01-01T10:00:00Z'),
+      academic_year_id: 'ay-1',
+      class_entity: { year_group_id: 'yg-1', subject_id: null, academic_year_id: 'ay-1' },
+    };
+
+    it('edge: should treat all teachers as competent when no subject_id', async () => {
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(mockSchedule);
+      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set());
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
+        { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
+      ]);
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
+      mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
+
+      const result = await service.findEligibleSubstitutes(TENANT_ID, SCHEDULE_ID, '2026-03-20');
+
+      expect(result.data[0]!.is_competent).toBe(true);
+    });
+
+    it('edge: should assign primary competency correctly when both primary and non-primary exist', async () => {
+      const schedWithSubject = {
+        ...mockSchedule,
+        class_entity: { year_group_id: 'yg-1', subject_id: 'sub-1', academic_year_id: 'ay-1' },
+      };
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(
+        schedWithSubject,
+      );
+      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set());
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
+        { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
+      ]);
+      // Two competency records for same teacher: non-primary then primary
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
+        { staff_profile_id: 'staff-2', is_primary: false },
+        { staff_profile_id: 'staff-2', is_primary: true },
+      ]);
+      mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
+
+      const result = await service.findEligibleSubstitutes(TENANT_ID, SCHEDULE_ID, '2026-03-20');
+
+      expect(result.data[0]!.is_primary).toBe(true);
+    });
+
+    it('edge: should use schedule academic_year_id when class_entity has none', async () => {
+      const schedNoClassYear = {
+        ...mockSchedule,
+        class_entity: { year_group_id: 'yg-1', subject_id: 'sub-1', academic_year_id: undefined },
+      };
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(
+        schedNoClassYear,
+      );
+      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set());
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
+        { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
+      ]);
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
+      mockPrisma.substitutionRecord.findMany.mockResolvedValue([]);
+
+      const result = await service.findEligibleSubstitutes(TENANT_ID, SCHEDULE_ID, '2026-03-20');
+
+      expect(result.data).toHaveLength(1);
     });
   });
 });

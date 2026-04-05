@@ -96,7 +96,10 @@ describe('AudienceResolutionService', () => {
               const parents = await mockPrisma.parent.findMany();
               return (parents as Array<Record<string, unknown>>)
                 .filter((p) => p.user_id)
-                .map((p) => ({ user_id: p.user_id as string, preferred_contact_channels: p.preferred_contact_channels }));
+                .map((p) => ({
+                  user_id: p.user_id as string,
+                  preferred_contact_channels: p.preferred_contact_channels,
+                }));
             }),
           },
         },
@@ -423,6 +426,23 @@ describe('AudienceResolutionService', () => {
   // ─── Edge cases: de-duplication ────────────────────────────────────────────
 
   describe('edge cases — de-duplication', () => {
+    it('edge: same user_id appearing in multiple parent records should be de-duplicated', async () => {
+      // Same user_id for two different parent records
+      mockPrisma.parent.findMany
+        .mockResolvedValueOnce([{ id: 'parent-1' }, { id: 'parent-2' }])
+        .mockResolvedValueOnce([
+          buildMockParent({ id: 'parent-1', user_id: 'user-shared' }),
+          buildMockParent({ id: 'parent-2', user_id: 'user-shared' }),
+        ]);
+      mockNotificationSettings(['email']);
+
+      const result = await service.resolve(TENANT_ID, 'school', {});
+
+      // Both parents point to same user_id — should produce only 1 target
+      expect(result).toHaveLength(1);
+      expect(result[0]!.user_id).toBe('user-shared');
+    });
+
     it('edge: parent linked to multiple students in same class returns 1 target', async () => {
       // Two students in same class, both linked to same parent
       mockPrisma.classEnrolment.findMany.mockResolvedValue([
@@ -480,19 +500,65 @@ describe('AudienceResolutionService', () => {
     });
   });
 
+  // ─── Channel resolution — null coalescing edge cases ───────────────────────
+
+  describe('channel resolution — null coalescing', () => {
+    it('should default to email channels when notification setting has null channels', async () => {
+      mockPrisma.parent.findMany.mockResolvedValueOnce([{ id: 'parent-1' }]).mockResolvedValueOnce([
+        buildMockParent({
+          id: 'parent-1',
+          user_id: 'user-1',
+          preferred_contact_channels: ['email'],
+        }),
+      ]);
+      // Setting is enabled but channels is null -> should fallback to ['email']
+      mockPrisma.tenantNotificationSetting.findFirst.mockResolvedValue({
+        tenant_id: TENANT_ID,
+        notification_type: 'announcement.published',
+        is_enabled: true,
+        channels: null,
+      });
+
+      const result = await service.resolve(TENANT_ID, 'school', {});
+
+      expect(result).toHaveLength(1);
+      // Parent has email, enabled channels defaults to ['email'], so email is in intersection
+      expect(result[0]!.channels).toContain('email');
+      expect(result[0]!.channels).toContain('in_app');
+    });
+
+    it('should default preferred_contact_channels to email when parent has null', async () => {
+      mockPrisma.parent.findMany.mockResolvedValueOnce([{ id: 'parent-1' }]).mockResolvedValueOnce([
+        buildMockParent({
+          id: 'parent-1',
+          user_id: 'user-1',
+          preferred_contact_channels: null,
+        }),
+      ]);
+      mockNotificationSettings(['email', 'sms']);
+
+      const result = await service.resolve(TENANT_ID, 'school', {});
+
+      expect(result).toHaveLength(1);
+      // null preferred_contact_channels -> defaults to ['email']
+      // Intersection with enabled ['email', 'sms'] -> ['email']
+      expect(result[0]!.channels).toContain('email');
+      expect(result[0]!.channels).toContain('in_app');
+      expect(result[0]!.channels).not.toContain('sms');
+    });
+  });
+
   // ─── Channel resolution per parent ────────────────────────────────────────
 
   describe('channel resolution per parent', () => {
     it('should always include in_app when parent has a user account', async () => {
-      mockPrisma.parent.findMany
-        .mockResolvedValueOnce([{ id: 'parent-1' }])
-        .mockResolvedValueOnce([
-          buildMockParent({
-            id: 'parent-1',
-            user_id: 'user-1',
-            preferred_contact_channels: ['email'],
-          }),
-        ]);
+      mockPrisma.parent.findMany.mockResolvedValueOnce([{ id: 'parent-1' }]).mockResolvedValueOnce([
+        buildMockParent({
+          id: 'parent-1',
+          user_id: 'user-1',
+          preferred_contact_channels: ['email'],
+        }),
+      ]);
       mockNotificationSettings(['email']);
 
       const result = await service.resolve(TENANT_ID, 'school', {});

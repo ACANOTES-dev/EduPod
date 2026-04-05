@@ -1,7 +1,11 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, ClassesReadFacade, AcademicReadFacade } from '../../../common/tests/mock-facades';
+import {
+  MOCK_FACADE_PROVIDERS,
+  ClassesReadFacade,
+  AcademicReadFacade,
+} from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ClassGradeConfigsService } from '../class-grade-configs.service';
 
@@ -101,7 +105,10 @@ describe('AssessmentsService — create', () => {
     mockRlsTx.assessment.create.mockReset().mockResolvedValue(baseAssessment);
 
     mockClassesFacade.existsOrThrow.mockResolvedValue(true);
-    mockAcademicFacade.findSubjectById.mockResolvedValue({ id: SUBJECT_ID, subject_type: 'academic' });
+    mockAcademicFacade.findSubjectById.mockResolvedValue({
+      id: SUBJECT_ID,
+      subject_type: 'academic',
+    });
     mockAcademicFacade.findPeriodById.mockResolvedValue({ id: PERIOD_ID });
     mockPrisma.assessmentCategory.findFirst.mockResolvedValue({ id: CATEGORY_ID });
     mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue({ id: 'config-1' });
@@ -139,7 +146,10 @@ describe('AssessmentsService — create', () => {
   });
 
   it('should throw BadRequestException when subject is not academic', async () => {
-    mockAcademicFacade.findSubjectById.mockResolvedValue({ id: SUBJECT_ID, subject_type: 'non_academic' });
+    mockAcademicFacade.findSubjectById.mockResolvedValue({
+      id: SUBJECT_ID,
+      subject_type: 'non_academic',
+    });
 
     await expect(service.create(TENANT_ID, USER_ID, validCreateDto)).rejects.toThrow(
       BadRequestException,
@@ -331,9 +341,9 @@ describe('AssessmentsService — update', () => {
   it('should throw NotFoundException when assessment does not exist', async () => {
     mockPrisma.assessment.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.update(TENANT_ID, ASSESSMENT_ID, { title: 'New Title' }),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.update(TENANT_ID, ASSESSMENT_ID, { title: 'New Title' })).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should throw ConflictException when assessment is locked', async () => {
@@ -342,9 +352,9 @@ describe('AssessmentsService — update', () => {
       status: 'locked',
     });
 
-    await expect(
-      service.update(TENANT_ID, ASSESSMENT_ID, { title: 'New Title' }),
-    ).rejects.toThrow(ConflictException);
+    await expect(service.update(TENANT_ID, ASSESSMENT_ID, { title: 'New Title' })).rejects.toThrow(
+      ConflictException,
+    );
   });
 
   it('should throw ConflictException on optimistic concurrency mismatch', async () => {
@@ -366,9 +376,9 @@ describe('AssessmentsService — update', () => {
     mockPrisma.assessment.findFirst.mockResolvedValue({ ...baseAssessment, status: 'open' });
     mockPrisma.grade.findFirst.mockResolvedValue({ raw_score: 95 });
 
-    await expect(
-      service.update(TENANT_ID, ASSESSMENT_ID, { max_score: 80 }),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.update(TENANT_ID, ASSESSMENT_ID, { max_score: 80 })).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should update title successfully on a draft assessment', async () => {
@@ -394,7 +404,9 @@ describe('AssessmentsService — transitionStatus', () => {
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
-    mockRlsTx.assessment.update.mockReset().mockResolvedValue({ ...baseAssessment, status: 'open' });
+    mockRlsTx.assessment.update
+      .mockReset()
+      .mockResolvedValue({ ...baseAssessment, status: 'open' });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -509,5 +521,370 @@ describe('AssessmentsService — delete', () => {
     await service.delete(TENANT_ID, ASSESSMENT_ID);
 
     expect(mockRlsTx.assessment.delete).toHaveBeenCalledWith({ where: { id: ASSESSMENT_ID } });
+  });
+});
+
+// ─── findAll — additional branch coverage ────────────────────────────────────
+
+describe('AssessmentsService — findAll (filter branches)', () => {
+  let service: AssessmentsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockPrisma.assessment.findMany.mockResolvedValue([]);
+    mockPrisma.assessment.count.mockResolvedValue(0);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        AssessmentsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: ClassGradeConfigsService, useValue: mockClassGradeConfigsService },
+      ],
+    }).compile();
+
+    service = module.get<AssessmentsService>(AssessmentsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should filter by subject_id', async () => {
+    await service.findAll(TENANT_ID, { page: 1, pageSize: 20, subject_id: SUBJECT_ID });
+
+    expect(mockPrisma.assessment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ subject_id: SUBJECT_ID }),
+      }),
+    );
+  });
+
+  it('should filter by academic_period_id', async () => {
+    await service.findAll(TENANT_ID, { page: 1, pageSize: 20, academic_period_id: PERIOD_ID });
+
+    expect(mockPrisma.assessment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ academic_period_id: PERIOD_ID }),
+      }),
+    );
+  });
+
+  it('should filter by category_id', async () => {
+    await service.findAll(TENANT_ID, { page: 1, pageSize: 20, category_id: CATEGORY_ID });
+
+    expect(mockPrisma.assessment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ category_id: CATEGORY_ID }),
+      }),
+    );
+  });
+
+  it('should filter by status', async () => {
+    await service.findAll(TENANT_ID, { page: 1, pageSize: 20, status: 'open' });
+
+    expect(mockPrisma.assessment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: 'open' }),
+      }),
+    );
+  });
+
+  it('should allow teacher to access own assigned class', async () => {
+    mockPrisma.assessment.findMany.mockResolvedValue([baseAssessment]);
+    mockPrisma.assessment.count.mockResolvedValue(1);
+
+    const result = await service.findAll(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+      class_id: CLASS_ID,
+      assignedClassIds: [CLASS_ID],
+    });
+
+    expect(result.data).toHaveLength(1);
+  });
+
+  it('should handle null max_score in findAll results', async () => {
+    mockPrisma.assessment.findMany.mockResolvedValue([{ ...baseAssessment, max_score: null }]);
+    mockPrisma.assessment.count.mockResolvedValue(1);
+
+    const result = await service.findAll(TENANT_ID, { page: 1, pageSize: 20 });
+
+    expect(result.data[0]?.max_score).toBeNull();
+  });
+});
+
+// ─── update — additional branch coverage ─────────────────────────────────────
+
+describe('AssessmentsService — update (field branches)', () => {
+  let service: AssessmentsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRlsTx.assessment.update.mockReset().mockResolvedValue(baseAssessment);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        AssessmentsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: ClassGradeConfigsService, useValue: mockClassGradeConfigsService },
+      ],
+    }).compile();
+
+    service = module.get<AssessmentsService>(AssessmentsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should update due_date when provided as a string', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({ ...baseAssessment, status: 'draft' });
+
+    await service.update(TENANT_ID, ASSESSMENT_ID, { due_date: '2026-06-15' });
+
+    expect(mockRlsTx.assessment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ due_date: new Date('2026-06-15') }),
+      }),
+    );
+  });
+
+  it('should clear due_date when provided as null', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({ ...baseAssessment, status: 'open' });
+
+    await service.update(TENANT_ID, ASSESSMENT_ID, { due_date: null });
+
+    expect(mockRlsTx.assessment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ due_date: null }),
+      }),
+    );
+  });
+
+  it('should update grading_deadline', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({ ...baseAssessment, status: 'draft' });
+
+    await service.update(TENANT_ID, ASSESSMENT_ID, { grading_deadline: '2026-07-01' });
+
+    expect(mockRlsTx.assessment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ grading_deadline: new Date('2026-07-01') }),
+      }),
+    );
+  });
+
+  it('should clear grading_deadline when null', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({ ...baseAssessment, status: 'draft' });
+
+    await service.update(TENANT_ID, ASSESSMENT_ID, { grading_deadline: null });
+
+    expect(mockRlsTx.assessment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ grading_deadline: null }),
+      }),
+    );
+  });
+
+  it('should validate category_id when changing it', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({ ...baseAssessment, status: 'draft' });
+    mockPrisma.assessmentCategory.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.update(TENANT_ID, ASSESSMENT_ID, { category_id: 'nonexistent' }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should update category via connect', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({ ...baseAssessment, status: 'draft' });
+    mockPrisma.assessmentCategory.findFirst.mockResolvedValue({ id: 'new-cat' });
+
+    await service.update(TENANT_ID, ASSESSMENT_ID, { category_id: 'new-cat' });
+
+    expect(mockRlsTx.assessment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          category: { connect: { id: 'new-cat' } },
+        }),
+      }),
+    );
+  });
+
+  it('should allow update on open assessment', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({ ...baseAssessment, status: 'open' });
+
+    await service.update(TENANT_ID, ASSESSMENT_ID, { title: 'Open Title' });
+
+    expect(mockRlsTx.assessment.update).toHaveBeenCalled();
+  });
+
+  it('should throw ConflictException when assessment status is closed', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({ ...baseAssessment, status: 'closed' });
+
+    await expect(service.update(TENANT_ID, ASSESSMENT_ID, { title: 'New' })).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
+  it('should pass optimistic concurrency check when timestamps match', async () => {
+    const ts = '2025-10-01T00:00:00.000Z';
+    mockPrisma.assessment.findFirst.mockResolvedValue({
+      ...baseAssessment,
+      status: 'draft',
+      updated_at: new Date(ts),
+    });
+
+    await service.update(TENANT_ID, ASSESSMENT_ID, {
+      title: 'Updated',
+      expected_updated_at: ts,
+    });
+
+    expect(mockRlsTx.assessment.update).toHaveBeenCalled();
+  });
+
+  it('should allow max_score update when existing max grade is within limit', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({ ...baseAssessment, status: 'draft' });
+    mockPrisma.grade.findFirst.mockResolvedValue({ raw_score: 80 });
+
+    await service.update(TENANT_ID, ASSESSMENT_ID, { max_score: 100 });
+
+    expect(mockRlsTx.assessment.update).toHaveBeenCalled();
+  });
+
+  it('should allow max_score update when no grades exist', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({ ...baseAssessment, status: 'draft' });
+    mockPrisma.grade.findFirst.mockResolvedValue(null);
+
+    await service.update(TENANT_ID, ASSESSMENT_ID, { max_score: 50 });
+
+    expect(mockRlsTx.assessment.update).toHaveBeenCalled();
+  });
+});
+
+// ─── create — additional branch coverage ─────────────────────────────────────
+
+describe('AssessmentsService — create (optional fields)', () => {
+  let service: AssessmentsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  const mockClassesFacade = { existsOrThrow: jest.fn(), countEnrolmentsGeneric: jest.fn() };
+  const mockAcademicFacade = { findSubjectById: jest.fn(), findPeriodById: jest.fn() };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRlsTx.assessment.create.mockReset().mockResolvedValue(baseAssessment);
+
+    mockClassesFacade.existsOrThrow.mockResolvedValue(true);
+    mockAcademicFacade.findSubjectById.mockResolvedValue({
+      id: SUBJECT_ID,
+      subject_type: 'academic',
+    });
+    mockAcademicFacade.findPeriodById.mockResolvedValue({ id: PERIOD_ID });
+    mockPrisma.assessmentCategory.findFirst.mockResolvedValue({ id: CATEGORY_ID });
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue({ id: 'config-1' });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
+        AssessmentsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: ClassGradeConfigsService, useValue: mockClassGradeConfigsService },
+      ],
+    }).compile();
+
+    service = module.get<AssessmentsService>(AssessmentsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should create with due_date and grading_deadline', async () => {
+    await service.create(TENANT_ID, USER_ID, {
+      ...validCreateDto,
+      due_date: '2026-06-15',
+      grading_deadline: '2026-06-20',
+    });
+
+    expect(mockRlsTx.assessment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          due_date: new Date('2026-06-15'),
+          grading_deadline: new Date('2026-06-20'),
+        }),
+      }),
+    );
+  });
+
+  it('should set due_date to null when not provided', async () => {
+    await service.create(TENANT_ID, USER_ID, validCreateDto);
+
+    expect(mockRlsTx.assessment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          due_date: null,
+          grading_deadline: null,
+        }),
+      }),
+    );
+  });
+});
+
+// ─── transitionStatus — additional branch coverage ───────────────────────────
+
+describe('AssessmentsService — transitionStatus (more transitions)', () => {
+  let service: AssessmentsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRlsTx.assessment.update.mockReset().mockResolvedValue(baseAssessment);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        AssessmentsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: ClassGradeConfigsService, useValue: mockClassGradeConfigsService },
+      ],
+    }).compile();
+
+    service = module.get<AssessmentsService>(AssessmentsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should transition from open to closed', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({ id: ASSESSMENT_ID, status: 'open' });
+
+    await service.transitionStatus(TENANT_ID, ASSESSMENT_ID, { status: 'closed' });
+
+    expect(mockRlsTx.assessment.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'closed' } }),
+    );
+  });
+
+  it('should transition from closed to locked', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({ id: ASSESSMENT_ID, status: 'closed' });
+
+    await service.transitionStatus(TENANT_ID, ASSESSMENT_ID, { status: 'locked' });
+
+    expect(mockRlsTx.assessment.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'locked' } }),
+    );
+  });
+
+  it('should block draft -> locked transition', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({ id: ASSESSMENT_ID, status: 'draft' });
+
+    await expect(
+      service.transitionStatus(TENANT_ID, ASSESSMENT_ID, { status: 'locked' }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('should block open -> locked transition', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({ id: ASSESSMENT_ID, status: 'open' });
+
+    await expect(
+      service.transitionStatus(TENANT_ID, ASSESSMENT_ID, { status: 'locked' }),
+    ).rejects.toThrow(BadRequestException);
   });
 });

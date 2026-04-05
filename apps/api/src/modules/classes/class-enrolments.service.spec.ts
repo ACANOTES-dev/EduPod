@@ -420,6 +420,46 @@ describe('ClassEnrolmentsService — bulkEnrol', () => {
 
     await expect(service.bulkEnrol(TENANT_ID, CLASS_ID, dto)).rejects.toThrow(NotFoundException);
   });
+
+  it('should capture errors for individual students and continue processing', async () => {
+    mockPrisma.class.findFirst.mockResolvedValue({ id: CLASS_ID });
+    // First student: no existing enrolment, but RLS transaction throws
+    mockPrisma.classEnrolment.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+
+    mockRlsTx.classEnrolment.create
+      .mockReset()
+      .mockRejectedValueOnce(new Error('FK constraint violation'))
+      .mockResolvedValueOnce({ id: 'new-enrolment' });
+
+    const dto: BulkEnrolDto = {
+      student_ids: [STUDENT_ID, 'student-2'],
+      start_date: '2025-09-01',
+    };
+
+    const result = await service.bulkEnrol(TENANT_ID, CLASS_ID, dto);
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]?.student_id).toBe(STUDENT_ID);
+    expect(result.errors[0]?.reason).toMatch(/FK constraint violation/);
+    expect(result.enrolled).toBe(1);
+  });
+
+  it('edge: should handle non-Error thrown in catch block', async () => {
+    mockPrisma.class.findFirst.mockResolvedValue({ id: CLASS_ID });
+    mockPrisma.classEnrolment.findFirst.mockResolvedValue(null);
+
+    mockRlsTx.classEnrolment.create.mockReset().mockRejectedValue('string error');
+
+    const dto: BulkEnrolDto = {
+      student_ids: [STUDENT_ID],
+      start_date: '2025-09-01',
+    };
+
+    const result = await service.bulkEnrol(TENANT_ID, CLASS_ID, dto);
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]?.reason).toBe('Unknown error');
+  });
 });
 
 describe('ClassEnrolmentsService — dropAllActiveForStudent', () => {

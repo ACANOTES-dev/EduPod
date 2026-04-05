@@ -54,7 +54,9 @@ describe('HouseholdStatementsService', () => {
       }),
     };
     mockTenantReadFacade = {
-      findById: jest.fn().mockResolvedValue({ id: TENANT_ID, name: 'Test School', currency_code: 'EUR' }),
+      findById: jest
+        .fn()
+        .mockResolvedValue({ id: TENANT_ID, name: 'Test School', currency_code: 'EUR' }),
       findBranding: jest.fn().mockResolvedValue({
         school_name_display: 'Test School',
         school_name_ar: null,
@@ -114,9 +116,9 @@ describe('HouseholdStatementsService', () => {
     it('should throw NotFoundException when household not found', async () => {
       mockHouseholdReadFacade.findByIdWithBillingParent.mockResolvedValue(null);
 
-      await expect(
-        service.getStatement(TENANT_ID, 'bad-id', {}),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getStatement(TENANT_ID, 'bad-id', {})).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should handle refund entries correctly', async () => {
@@ -194,6 +196,115 @@ describe('HouseholdStatementsService', () => {
 
       expect(result.household.billing_parent_name).toBeNull();
       expect(result.closing_balance).toBe(0);
+    });
+  });
+
+  describe('getStatement — date filters', () => {
+    it('should apply date_from filter', async () => {
+      mockPrisma.invoice.findMany.mockResolvedValue([]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.refund.findMany.mockResolvedValue([]);
+
+      await service.getStatement(TENANT_ID, HOUSEHOLD_ID, { date_from: '2026-01-01' });
+
+      expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            issue_date: { gte: expect.any(Date) },
+          }),
+        }),
+      );
+      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            received_at: { gte: expect.any(Date) },
+          }),
+        }),
+      );
+    });
+
+    it('should apply date_to filter', async () => {
+      mockPrisma.invoice.findMany.mockResolvedValue([]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.refund.findMany.mockResolvedValue([]);
+
+      await service.getStatement(TENANT_ID, HOUSEHOLD_ID, { date_to: '2026-12-31' });
+
+      expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            issue_date: { lte: expect.any(Date) },
+          }),
+        }),
+      );
+    });
+
+    it('should apply both date_from and date_to', async () => {
+      mockPrisma.invoice.findMany.mockResolvedValue([]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.refund.findMany.mockResolvedValue([]);
+
+      await service.getStatement(TENANT_ID, HOUSEHOLD_ID, {
+        date_from: '2026-01-01',
+        date_to: '2026-12-31',
+      });
+
+      expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            issue_date: { gte: expect.any(Date), lte: expect.any(Date) },
+          }),
+        }),
+      );
+    });
+
+    it('should handle invoice without issue_date (skips entry)', async () => {
+      mockPrisma.invoice.findMany.mockResolvedValue([
+        {
+          id: 'inv-1',
+          invoice_number: 'INV-001',
+          status: 'draft',
+          issue_date: null, // Not yet issued
+          total_amount: '1000.00',
+          write_off_amount: null,
+          write_off_reason: null,
+        },
+      ]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.refund.findMany.mockResolvedValue([]);
+
+      const result = await service.getStatement(TENANT_ID, HOUSEHOLD_ID, {});
+
+      expect(result.entries).toHaveLength(0); // No entry because issue_date is null
+    });
+
+    it('should handle refund without executed_at (skips entry)', async () => {
+      mockPrisma.invoice.findMany.mockResolvedValue([]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.refund.findMany.mockResolvedValue([
+        {
+          id: 'ref-1',
+          refund_reference: 'REF-001',
+          amount: '100.00',
+          executed_at: null, // Not yet executed
+          payment: { payment_reference: 'PAY-001' },
+        },
+      ]);
+
+      const result = await service.getStatement(TENANT_ID, HOUSEHOLD_ID, {});
+
+      expect(result.entries).toHaveLength(0);
+    });
+
+    it('should use default currency when tenant is null', async () => {
+      mockTenantReadFacade.findById.mockResolvedValue(null);
+      mockPrisma.invoice.findMany.mockResolvedValue([]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.refund.findMany.mockResolvedValue([]);
+
+      const result = await service.getStatement(TENANT_ID, HOUSEHOLD_ID, {});
+
+      expect(result.currency_code).toBe('USD');
     });
   });
 

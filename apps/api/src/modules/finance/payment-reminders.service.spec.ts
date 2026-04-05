@@ -78,9 +78,7 @@ describe('PaymentRemindersService', () => {
     });
 
     it('should dispatch reminders for un-reminded invoices', async () => {
-      mockPrisma.invoice.findMany.mockResolvedValue([
-        { id: INVOICE_ID, reminders: [] },
-      ]);
+      mockPrisma.invoice.findMany.mockResolvedValue([{ id: INVOICE_ID, reminders: [] }]);
       mockPrisma.invoiceReminder.create.mockResolvedValue({ id: 'r1' });
 
       const count = await service.sendDueSoonReminders(TENANT_ID);
@@ -115,9 +113,7 @@ describe('PaymentRemindersService', () => {
     });
 
     it('should dispatch final notices for qualifying invoices', async () => {
-      mockPrisma.invoice.findMany.mockResolvedValue([
-        { id: INVOICE_ID, reminders: [] },
-      ]);
+      mockPrisma.invoice.findMany.mockResolvedValue([{ id: INVOICE_ID, reminders: [] }]);
       mockPrisma.invoiceReminder.create.mockResolvedValue({ id: 'r1' });
 
       const count = await service.sendFinalNotices(TENANT_ID);
@@ -133,6 +129,91 @@ describe('PaymentRemindersService', () => {
 
       const result = await service.getRemindersForInvoice(TENANT_ID, INVOICE_ID);
       expect(result).toHaveLength(1);
+    });
+  });
+
+  describe('sendOverdueReminders', () => {
+    it('should return 0 when reminders are disabled', async () => {
+      mockSettingsService.getSettings.mockResolvedValue({
+        finance: { ...defaultSettings.finance, paymentReminderEnabled: false },
+      });
+
+      const count = await service.sendOverdueReminders(TENANT_ID);
+      expect(count).toBe(0);
+    });
+
+    it('should dispatch reminders for un-reminded overdue invoices', async () => {
+      mockPrisma.invoice.findMany.mockResolvedValue([{ id: INVOICE_ID, reminders: [] }]);
+      mockPrisma.invoiceReminder.create.mockResolvedValue({ id: 'r1' });
+
+      const count = await service.sendOverdueReminders(TENANT_ID);
+      expect(count).toBe(1);
+      expect(mockPrisma.invoiceReminder.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ reminder_type: 'overdue' }),
+        }),
+      );
+    });
+  });
+
+  describe('sendFinalNotices — with invoices', () => {
+    it('should skip invoices already reminded', async () => {
+      mockPrisma.invoice.findMany.mockResolvedValue([
+        { id: INVOICE_ID, reminders: [{ reminder_type: 'final_notice' }] },
+      ]);
+
+      const count = await service.sendFinalNotices(TENANT_ID);
+      expect(count).toBe(0);
+    });
+  });
+
+  describe('dispatchReminder — channel branching', () => {
+    it('should create two reminder records when channel is "both"', async () => {
+      mockSettingsService.getSettings.mockResolvedValue({
+        finance: { ...defaultSettings.finance, reminderChannel: 'both' },
+      });
+      mockPrisma.invoice.findMany.mockResolvedValue([{ id: INVOICE_ID, reminders: [] }]);
+      mockPrisma.invoiceReminder.create.mockResolvedValue({ id: 'r1' });
+
+      const count = await service.sendDueSoonReminders(TENANT_ID);
+
+      expect(count).toBe(1);
+      // "both" should create 2 records: email + whatsapp
+      expect(mockPrisma.invoiceReminder.create).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.invoiceReminder.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ channel: 'email' }),
+        }),
+      );
+      expect(mockPrisma.invoiceReminder.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ channel: 'whatsapp' }),
+        }),
+      );
+    });
+
+    it('should handle error in dispatchReminder gracefully', async () => {
+      mockPrisma.invoice.findMany.mockResolvedValue([{ id: INVOICE_ID, reminders: [] }]);
+      mockPrisma.invoiceReminder.create.mockRejectedValue(new Error('DB error'));
+
+      // Should not throw — error is caught internally
+      const count = await service.sendDueSoonReminders(TENANT_ID);
+      // Count is still 1 because the function increments before dispatch
+      // Actually, dispatch is in-method so the counter is already incremented
+      expect(count).toBe(1);
+    });
+  });
+
+  describe('sendDueSoonReminders — custom settings', () => {
+    it('should use custom dueSoonReminderDays from settings', async () => {
+      mockSettingsService.getSettings.mockResolvedValue({
+        finance: { ...defaultSettings.finance, dueSoonReminderDays: 7 },
+      });
+      mockPrisma.invoice.findMany.mockResolvedValue([]);
+
+      await service.sendDueSoonReminders(TENANT_ID);
+
+      expect(mockPrisma.invoice.findMany).toHaveBeenCalled();
     });
   });
 });

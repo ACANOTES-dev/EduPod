@@ -946,6 +946,189 @@ describe('AnnouncementsService', () => {
     });
   });
 
+  // ─── update() — delivery_channels ──────────────────────────────────────────
+
+  describe('update() — delivery_channels', () => {
+    it('should prepend in_app when updating delivery_channels without it', async () => {
+      mockPrisma.announcement.findFirst.mockResolvedValue(buildMockAnnouncement());
+      mockPrisma.announcement.update.mockResolvedValue(
+        buildMockAnnouncement({ delivery_channels: ['in_app', 'email'] }),
+      );
+
+      await service.update(TENANT_ID, ANNOUNCEMENT_ID, {
+        delivery_channels: ['email'],
+      });
+
+      expect(mockPrisma.announcement.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            delivery_channels: ['in_app', 'email'],
+          }),
+        }),
+      );
+    });
+
+    it('should not duplicate in_app when updating delivery_channels that already include it', async () => {
+      mockPrisma.announcement.findFirst.mockResolvedValue(buildMockAnnouncement());
+      mockPrisma.announcement.update.mockResolvedValue(
+        buildMockAnnouncement({ delivery_channels: ['in_app', 'sms'] }),
+      );
+
+      await service.update(TENANT_ID, ANNOUNCEMENT_ID, {
+        delivery_channels: ['in_app', 'sms'],
+      });
+
+      expect(mockPrisma.announcement.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            delivery_channels: ['in_app', 'sms'],
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── update() — scheduled_publish_at ──────────────────────────────────────
+
+  describe('update() — scheduled_publish_at', () => {
+    it('should set scheduled_publish_at to a Date when a date string is provided', async () => {
+      mockPrisma.announcement.findFirst.mockResolvedValue(buildMockAnnouncement());
+      mockPrisma.announcement.update.mockResolvedValue(buildMockAnnouncement());
+
+      await service.update(TENANT_ID, ANNOUNCEMENT_ID, {
+        scheduled_publish_at: '2026-12-25T00:00:00Z',
+      });
+
+      expect(mockPrisma.announcement.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            scheduled_publish_at: expect.any(Date),
+          }),
+        }),
+      );
+    });
+
+    it('should clear scheduled_publish_at when null is explicitly passed', async () => {
+      mockPrisma.announcement.findFirst.mockResolvedValue(buildMockAnnouncement());
+      mockPrisma.announcement.update.mockResolvedValue(buildMockAnnouncement());
+
+      await service.update(TENANT_ID, ANNOUNCEMENT_ID, {
+        scheduled_publish_at: null,
+      });
+
+      expect(mockPrisma.announcement.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            scheduled_publish_at: null,
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── publish() — schedule from existing scheduled_publish_at ──────────────
+
+  describe('publish() — existing scheduled_publish_at', () => {
+    it('should use announcement existing scheduled_publish_at when dto has none', async () => {
+      const futureDate = new Date(Date.now() + 86_400_000);
+      mockPrisma.announcement.findFirst.mockResolvedValue(
+        buildMockAnnouncement({ scheduled_publish_at: futureDate }),
+      );
+      mockConfigFacade.findSettings.mockResolvedValue({
+        settings: { communications: { requireApprovalForAnnouncements: false } },
+      });
+      mockPrisma.announcement.update.mockResolvedValue(
+        buildMockAnnouncement({ status: 'scheduled' }),
+      );
+      mockQueue.add.mockResolvedValue(undefined);
+
+      const result = await service.publish(TENANT_ID, USER_ID, ANNOUNCEMENT_ID, {});
+
+      expect(result.data.status).toBe('scheduled');
+      expect(mockPrisma.announcement.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'scheduled',
+            scheduled_publish_at: futureDate,
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── getDeliveryStatus() — unknown status key ─────────────────────────────
+
+  describe('getDeliveryStatus() — unknown status key', () => {
+    it('should skip unknown status keys in the groupBy results', async () => {
+      mockPrisma.announcement.findFirst.mockResolvedValue(buildMockAnnouncement());
+      mockPrisma.notification.groupBy.mockResolvedValue([
+        { status: 'delivered', _count: 5 },
+        { status: 'unknown_status', _count: 3 },
+      ]);
+
+      const result = await service.getDeliveryStatus(TENANT_ID, ANNOUNCEMENT_ID);
+
+      expect(result.total).toBe(5);
+      expect(result.delivered).toBe(5);
+      // unknown_status should not be included
+    });
+  });
+
+  // ─── executePublish() — null delivery_channels defaults to in_app ─────────
+
+  describe('executePublish() — null delivery_channels', () => {
+    it('should default to in_app when delivery_channels is null', async () => {
+      mockPrisma.announcement.findFirst.mockResolvedValue(
+        buildMockAnnouncement({
+          scope: 'school',
+          target_payload: {},
+          delivery_channels: null,
+        }),
+      );
+      mockPrisma.announcement.update.mockResolvedValue(
+        buildMockAnnouncement({ status: 'published' }),
+      );
+
+      const targets = [{ user_id: 'user-1', locale: 'en', channels: ['in_app'] }];
+      mockAudienceService.resolve.mockResolvedValue(targets);
+      mockNotificationsService.createBatch.mockResolvedValue(undefined);
+
+      await service.executePublish(TENANT_ID, ANNOUNCEMENT_ID);
+
+      const batchArg = mockNotificationsService.createBatch.mock.calls[0][1];
+      expect(batchArg).toHaveLength(1);
+      expect(batchArg[0].channel).toBe('in_app');
+    });
+  });
+
+  // ─── listForParent() — null source_entity_id filtering ────────────────────
+
+  describe('listForParent() — null source_entity_id filtering', () => {
+    it('should filter out null source_entity_ids from notifications', async () => {
+      const parentUserId = 'parent-user-1';
+      mockPrisma.notification.findMany.mockResolvedValue([
+        { source_entity_id: 'ann-1' },
+        { source_entity_id: null },
+        { source_entity_id: 'ann-2' },
+      ]);
+      mockPrisma.announcement.findMany.mockResolvedValue([
+        { id: 'ann-1', title: 'Announcement 1' },
+        { id: 'ann-2', title: 'Announcement 2' },
+      ]);
+      mockPrisma.announcement.count.mockResolvedValue(2);
+
+      const result = await service.listForParent(TENANT_ID, parentUserId, {
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(result.data).toHaveLength(2);
+      // Verify the null was filtered out and only valid IDs passed to findMany
+      const findManyCall = mockPrisma.announcement.findMany.mock.calls[0][0];
+      expect(findManyCall.where.id.in).toEqual(['ann-1', 'ann-2']);
+    });
+  });
+
   // ─── getDeliveryStatus() ───────────────────────────────────────────────────
 
   describe('getDeliveryStatus()', () => {

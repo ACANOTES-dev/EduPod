@@ -109,6 +109,134 @@ describe('ApprovalRequestsService', () => {
   });
 
   // -------------------------------------------------------------------------
+  // listRequests
+  // -------------------------------------------------------------------------
+
+  describe('listRequests', () => {
+    it('should return paginated results without status filter', async () => {
+      const requests = [buildMockRequest()];
+      mockPrisma.approvalRequest.findMany.mockResolvedValue(requests);
+      mockPrisma.approvalRequest.count.mockResolvedValue(1);
+
+      const result = await service.listRequests(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(result.data).toEqual(requests);
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
+      expect(mockPrisma.approvalRequest.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenant_id: TENANT_ID },
+          skip: 0,
+          take: 20,
+        }),
+      );
+    });
+
+    it('should apply status filter when provided', async () => {
+      mockPrisma.approvalRequest.findMany.mockResolvedValue([]);
+      mockPrisma.approvalRequest.count.mockResolvedValue(0);
+
+      await service.listRequests(TENANT_ID, {
+        page: 2,
+        pageSize: 10,
+        status: 'pending_approval',
+      });
+
+      expect(mockPrisma.approvalRequest.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenant_id: TENANT_ID, status: 'pending_approval' },
+          skip: 10,
+          take: 10,
+        }),
+      );
+    });
+
+    it('should apply callback_status filter when provided', async () => {
+      mockPrisma.approvalRequest.findMany.mockResolvedValue([]);
+      mockPrisma.approvalRequest.count.mockResolvedValue(0);
+
+      await service.listRequests(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        callback_status: 'failed',
+      });
+
+      expect(mockPrisma.approvalRequest.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenant_id: TENANT_ID, callback_status: 'failed' },
+        }),
+      );
+    });
+
+    it('should apply both status and callback_status filters together', async () => {
+      mockPrisma.approvalRequest.findMany.mockResolvedValue([]);
+      mockPrisma.approvalRequest.count.mockResolvedValue(0);
+
+      await service.listRequests(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        status: 'approved',
+        callback_status: 'pending',
+      });
+
+      expect(mockPrisma.approvalRequest.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tenant_id: TENANT_ID,
+            status: 'approved',
+            callback_status: 'pending',
+          },
+        }),
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // getRequest
+  // -------------------------------------------------------------------------
+
+  describe('getRequest', () => {
+    it('should return a request with full details when found', async () => {
+      const fullRequest = {
+        ...buildMockRequest(),
+        requester: {
+          id: REQUESTER_USER_ID,
+          first_name: 'Alice',
+          last_name: 'Smith',
+          email: 'alice@school.test',
+        },
+        approver: null,
+        announcements: [],
+      };
+      mockPrisma.approvalRequest.findFirst.mockResolvedValue(fullRequest);
+
+      const result = await service.getRequest(TENANT_ID, REQUEST_ID);
+
+      expect(result).toEqual(fullRequest);
+      expect(mockPrisma.approvalRequest.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: REQUEST_ID, tenant_id: TENANT_ID },
+          include: expect.objectContaining({
+            requester: expect.any(Object),
+            approver: expect.any(Object),
+            announcements: expect.any(Object),
+          }),
+        }),
+      );
+    });
+
+    it('should throw NotFoundException when request not found', async () => {
+      mockPrisma.approvalRequest.findFirst.mockResolvedValue(null);
+
+      await expect(service.getRequest(TENANT_ID, 'non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // approve
   // -------------------------------------------------------------------------
 
@@ -342,6 +470,97 @@ describe('ApprovalRequestsService', () => {
       expect(mockFinanceQueue.add).not.toHaveBeenCalled();
       expect(mockNotificationsQueue.add).not.toHaveBeenCalled();
     });
+
+    it('edge: should throw NotFoundException when request vanishes during race (updateMany=0 + findFirst=null)', async () => {
+      mockPrisma.approvalRequest.findFirst
+        .mockResolvedValueOnce(buildMockRequest({ status: 'pending_approval' }))
+        // During transitionPendingRequest, findFirst returns null (request was deleted)
+        .mockResolvedValueOnce(null);
+      mockPrisma.approvalRequest.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('edge: should handle non-Error thrown during callback enqueue', async () => {
+      const pendingRequest = buildMockRequest({
+        status: 'pending_approval',
+        action_type: 'announcement_publish',
+      });
+      const approvedRequest = {
+        ...pendingRequest,
+        status: 'approved',
+        requester: {
+          id: REQUESTER_USER_ID,
+          first_name: 'Alice',
+          last_name: 'Smith',
+          email: 'alice@school.test',
+        },
+        approver: {
+          id: APPROVER_USER_ID,
+          first_name: 'Bob',
+          last_name: 'Jones',
+          email: 'bob@school.test',
+        },
+      };
+
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce(pendingRequest);
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce({
+        ...approvedRequest,
+        callback_status: 'failed',
+      });
+      mockPrisma.approvalRequest.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.approvalRequest.update.mockResolvedValue({});
+      mockNotificationsQueue.add.mockRejectedValue('non-error-string');
+
+      await service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID);
+
+      expect(mockPrisma.approvalRequest.update).toHaveBeenCalledWith({
+        where: { id: REQUEST_ID },
+        data: {
+          callback_status: 'failed',
+          callback_error: expect.stringContaining('non-error-string'),
+        },
+      });
+    });
+
+    it('should pass comment as null when no comment provided', async () => {
+      const pendingRequest = buildMockRequest({
+        status: 'pending_approval',
+        action_type: 'application_accept',
+      });
+      const approvedRequest = {
+        ...pendingRequest,
+        status: 'approved',
+        requester: {
+          id: REQUESTER_USER_ID,
+          first_name: 'Alice',
+          last_name: 'Smith',
+          email: 'alice@school.test',
+        },
+        approver: {
+          id: APPROVER_USER_ID,
+          first_name: 'Bob',
+          last_name: 'Jones',
+          email: 'bob@school.test',
+        },
+      };
+
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce(pendingRequest);
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce(approvedRequest);
+      mockPrisma.approvalRequest.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID);
+
+      expect(mockPrisma.approvalRequest.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            decision_comment: null,
+          }),
+        }),
+      );
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -445,6 +664,51 @@ describe('ApprovalRequestsService', () => {
 
       await expect(service.reject(TENANT_ID, REQUEST_ID, APPROVER_USER_ID)).rejects.toThrow(
         ConflictException,
+      );
+    });
+
+    it('edge: should throw NotFoundException when request vanishes during reject race', async () => {
+      mockPrisma.approvalRequest.findFirst
+        .mockResolvedValueOnce(buildMockRequest({ status: 'pending_approval' }))
+        .mockResolvedValueOnce(null);
+      mockPrisma.approvalRequest.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.reject(TENANT_ID, REQUEST_ID, APPROVER_USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should pass comment as null when no comment provided', async () => {
+      const pendingRequest = buildMockRequest({ status: 'pending_approval' });
+      const rejectedRequest = {
+        ...pendingRequest,
+        status: 'rejected',
+        requester: {
+          id: REQUESTER_USER_ID,
+          first_name: 'Alice',
+          last_name: 'Smith',
+          email: 'alice@school.test',
+        },
+        approver: {
+          id: APPROVER_USER_ID,
+          first_name: 'Bob',
+          last_name: 'Jones',
+          email: 'bob@school.test',
+        },
+      };
+
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce(pendingRequest);
+      mockPrisma.approvalRequest.findFirst.mockResolvedValueOnce(rejectedRequest);
+      mockPrisma.approvalRequest.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.reject(TENANT_ID, REQUEST_ID, APPROVER_USER_ID);
+
+      expect(mockPrisma.approvalRequest.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            decision_comment: null,
+          }),
+        }),
       );
     });
   });
@@ -655,6 +919,107 @@ describe('ApprovalRequestsService', () => {
 
       await expect(service.retryCallback(TENANT_ID, REQUEST_ID)).rejects.toThrow(NotFoundException);
     });
+
+    it('should throw CALLBACK_NOT_RETRYABLE when callback_status is null', async () => {
+      mockPrisma.approvalRequest.findFirst.mockResolvedValue(
+        buildMockRequest({ status: 'approved', callback_status: null }),
+      );
+
+      await expect(service.retryCallback(TENANT_ID, REQUEST_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw NO_CALLBACK_MAPPING for action types without callback mapping', async () => {
+      mockPrisma.approvalRequest.findFirst.mockResolvedValue(
+        buildMockRequest({
+          status: 'approved',
+          callback_status: 'failed',
+          action_type: 'application_accept', // No callback mapping
+        }),
+      );
+
+      await expect(service.retryCallback(TENANT_ID, REQUEST_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw CALLBACK_ENQUEUE_FAILED when re-enqueue fails on retry', async () => {
+      const failedRequest = buildMockRequest({
+        status: 'approved',
+        callback_status: 'failed',
+        action_type: 'invoice_issue',
+        target_entity_id: 'invoice-123',
+        approver_user_id: 'user-456',
+      });
+
+      mockPrisma.approvalRequest.findFirst.mockResolvedValue(failedRequest);
+      mockPrisma.approvalRequest.update.mockResolvedValue({});
+      mockFinanceQueue.add.mockRejectedValue(new Error('Queue full'));
+
+      await expect(service.retryCallback(TENANT_ID, REQUEST_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      // Should have marked callback as failed
+      expect(mockPrisma.approvalRequest.update).toHaveBeenCalledWith({
+        where: { id: REQUEST_ID },
+        data: {
+          callback_status: 'failed',
+          callback_error: expect.stringContaining('Queue full'),
+        },
+      });
+    });
+
+    it('edge: should handle non-Error thrown during re-enqueue', async () => {
+      const failedRequest = buildMockRequest({
+        status: 'approved',
+        callback_status: 'failed',
+        action_type: 'payroll_finalise',
+        target_entity_id: 'pr-1',
+        approver_user_id: 'user-456',
+      });
+
+      mockPrisma.approvalRequest.findFirst.mockResolvedValue(failedRequest);
+      mockPrisma.approvalRequest.update.mockResolvedValue({});
+      mockPayrollQueue.add.mockRejectedValue('string error');
+
+      await expect(service.retryCallback(TENANT_ID, REQUEST_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(mockPrisma.approvalRequest.update).toHaveBeenCalledWith({
+        where: { id: REQUEST_ID },
+        data: {
+          callback_status: 'failed',
+          callback_error: expect.stringContaining('string error'),
+        },
+      });
+    });
+
+    it('should allow retry for pending callback without decided_at', async () => {
+      // When decided_at is null, the stale check should not block
+      const pendingRequest = buildMockRequest({
+        status: 'approved',
+        callback_status: 'pending',
+        decided_at: null,
+        action_type: 'invoice_issue',
+        target_entity_id: 'invoice-123',
+        approver_user_id: 'user-456',
+      });
+
+      mockPrisma.approvalRequest.findFirst
+        .mockResolvedValueOnce(pendingRequest)
+        .mockResolvedValueOnce(pendingRequest);
+      mockPrisma.approvalRequest.update.mockResolvedValue({});
+
+      await service.retryCallback(TENANT_ID, REQUEST_ID);
+
+      expect(mockPrisma.approvalRequest.update).toHaveBeenCalledWith({
+        where: { id: REQUEST_ID },
+        data: { callback_status: 'pending', callback_attempts: 0, callback_error: null },
+      });
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -761,6 +1126,47 @@ describe('ApprovalRequestsService', () => {
       const result = await service.bulkRetryCallbacks(TENANT_ID);
 
       expect(result).toEqual({ retried: 0, skipped: 0 });
+    });
+
+    it('edge: should handle non-Error thrown during bulk enqueue', async () => {
+      const stuckRequests = [
+        {
+          id: 'req-1',
+          action_type: 'announcement_publish',
+          target_entity_id: 'ann-1',
+          approver_user_id: 'user-1',
+          callback_status: 'failed',
+        },
+      ];
+
+      mockPrisma.approvalRequest.findMany.mockResolvedValue(stuckRequests);
+      mockPrisma.approvalRequest.update.mockResolvedValue({});
+      mockNotificationsQueue.add.mockRejectedValue(42);
+
+      const result = await service.bulkRetryCallbacks(TENANT_ID);
+
+      expect(result).toEqual({ retried: 0, skipped: 1 });
+      expect(mockPrisma.approvalRequest.update).toHaveBeenLastCalledWith({
+        where: { id: 'req-1' },
+        data: {
+          callback_status: 'failed',
+          callback_error: expect.stringContaining('42'),
+        },
+      });
+    });
+
+    it('should use default callback_status filter when no statusFilter provided', async () => {
+      mockPrisma.approvalRequest.findMany.mockResolvedValue([]);
+
+      await service.bulkRetryCallbacks(TENANT_ID);
+
+      expect(mockPrisma.approvalRequest.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            callback_status: { in: ['failed', 'pending'] },
+          }),
+        }),
+      );
     });
   });
 
@@ -893,6 +1299,22 @@ describe('ApprovalRequestsService', () => {
       ).rejects.toThrow(ConflictException);
 
       expect(mockPrisma.approvalRequest.create).not.toHaveBeenCalled();
+    });
+
+    it('edge: should use the default prisma when no db is provided', async () => {
+      mockPrisma.approvalWorkflow.findFirst.mockResolvedValue(null);
+
+      const result = await service.checkAndCreateIfNeeded(
+        TENANT_ID,
+        'payroll.finalise_run',
+        'payroll_run',
+        'payroll-run-uuid-1',
+        REQUESTER_USER_ID,
+        false,
+      );
+
+      expect(result).toEqual({ approved: true });
+      expect(mockPrisma.approvalWorkflow.findFirst).toHaveBeenCalled();
     });
 
     it('should use the provided db client when passed (R-21 atomicity)', async () => {

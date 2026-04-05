@@ -319,5 +319,266 @@ describe('AttendanceSessionService', () => {
       expect(res.skipped).toBe(0);
       expect(mockTx.attendanceSession.create).toHaveBeenCalled();
     });
+
+    it('should skip sessions for closure dates', async () => {
+      mockSchedulesFacade.findByWeekdayWithClassYearGroup.mockResolvedValue([
+        { id: 'sched-1', class_id: 'class-1', class_entity: { year_group_id: 'yg-1' } },
+      ]);
+      mockClosures.isClosureDate.mockResolvedValue(true);
+
+      const res = await service.batchGenerateSessions(TENANT_ID, new Date('2025-05-14T10:00:00Z'));
+      expect(res.created).toBe(0);
+      expect(res.skipped).toBe(1);
+    });
+
+    it('should skip when session already exists', async () => {
+      mockSchedulesFacade.findByWeekdayWithClassYearGroup.mockResolvedValue([
+        { id: 'sched-1', class_id: 'class-1', class_entity: { year_group_id: 'yg-1' } },
+      ]);
+      mockClosures.isClosureDate.mockResolvedValue(false);
+      mockPrisma.attendanceSession.findFirst.mockResolvedValue({ id: 'existing-sess' });
+
+      const res = await service.batchGenerateSessions(TENANT_ID, new Date('2025-05-14T10:00:00Z'));
+      expect(res.created).toBe(0);
+      expect(res.skipped).toBe(1);
+    });
+
+    it('should handle P2002 duplicate error during batch generation', async () => {
+      mockSchedulesFacade.findByWeekdayWithClassYearGroup.mockResolvedValue([
+        { id: 'sched-1', class_id: 'class-1', class_entity: { year_group_id: 'yg-1' } },
+      ]);
+      mockClosures.isClosureDate.mockResolvedValue(false);
+      mockPrisma.attendanceSession.findFirst.mockResolvedValue(null);
+      mockTx.attendanceSession.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('dup', {
+          code: 'P2002',
+          clientVersion: '5',
+        }),
+      );
+
+      const res = await service.batchGenerateSessions(TENANT_ID, new Date('2025-05-14T10:00:00Z'));
+      expect(res.skipped).toBe(1);
+      expect(res.created).toBe(0);
+    });
+
+    it('should rethrow non-P2002 errors during batch generation', async () => {
+      mockSchedulesFacade.findByWeekdayWithClassYearGroup.mockResolvedValue([
+        { id: 'sched-1', class_id: 'class-1', class_entity: { year_group_id: 'yg-1' } },
+      ]);
+      mockClosures.isClosureDate.mockResolvedValue(false);
+      mockPrisma.attendanceSession.findFirst.mockResolvedValue(null);
+      mockTx.attendanceSession.create.mockRejectedValue(new Error('DB failure'));
+
+      await expect(
+        service.batchGenerateSessions(TENANT_ID, new Date('2025-05-14T10:00:00Z')),
+      ).rejects.toThrow('DB failure');
+    });
+
+    it('should convert Sunday (JS day 0) to weekday 6', async () => {
+      mockSchedulesFacade.findByWeekdayWithClassYearGroup.mockResolvedValue([]);
+
+      // 2025-05-18 is a Sunday (getDay() = 0)
+      await service.batchGenerateSessions(TENANT_ID, new Date('2025-05-18T10:00:00Z'));
+
+      expect(mockSchedulesFacade.findByWeekdayWithClassYearGroup).toHaveBeenCalledWith(
+        TENANT_ID,
+        6,
+        expect.any(Date),
+      );
+    });
+  });
+
+  describe('findAllSessions — filter branches', () => {
+    it('should filter by session_date when provided', async () => {
+      mockPrisma.attendanceSession.findMany.mockResolvedValue([]);
+      mockPrisma.attendanceSession.count.mockResolvedValue(0);
+
+      await service.findAllSessions(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        session_date: '2025-05-14',
+      });
+
+      expect(mockPrisma.attendanceSession.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            session_date: new Date('2025-05-14'),
+          }),
+        }),
+      );
+    });
+
+    it('should filter by date range when start_date and end_date provided', async () => {
+      mockPrisma.attendanceSession.findMany.mockResolvedValue([]);
+      mockPrisma.attendanceSession.count.mockResolvedValue(0);
+
+      await service.findAllSessions(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        start_date: '2025-05-01',
+        end_date: '2025-05-31',
+      });
+
+      expect(mockPrisma.attendanceSession.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            session_date: {
+              gte: new Date('2025-05-01'),
+              lte: new Date('2025-05-31'),
+            },
+          }),
+        }),
+      );
+    });
+
+    it('should filter by status when provided', async () => {
+      mockPrisma.attendanceSession.findMany.mockResolvedValue([]);
+      mockPrisma.attendanceSession.count.mockResolvedValue(0);
+
+      await service.findAllSessions(TENANT_ID, { page: 1, pageSize: 20, status: 'open' });
+
+      expect(mockPrisma.attendanceSession.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: 'open' }),
+        }),
+      );
+    });
+
+    it('should return empty when teacher is not assigned to requested class_id', async () => {
+      mockClassesFacade.findClassIdsByStaff.mockResolvedValue(['other-class']);
+
+      const result = await service.findAllSessions(
+        TENANT_ID,
+        { page: 1, pageSize: 20, class_id: 'class-1' },
+        STAFF_PROFILE_ID,
+      );
+
+      expect(result).toEqual({ data: [], meta: { page: 1, pageSize: 20, total: 0 } });
+    });
+
+    it('should filter by class_id when teacher has access', async () => {
+      mockClassesFacade.findClassIdsByStaff.mockResolvedValue(['class-1', 'class-2']);
+      mockPrisma.attendanceSession.findMany.mockResolvedValue([{ id: 'sess-1' }]);
+      mockPrisma.attendanceSession.count.mockResolvedValue(1);
+
+      const result = await service.findAllSessions(
+        TENANT_ID,
+        { page: 1, pageSize: 20, class_id: 'class-1' },
+        STAFF_PROFILE_ID,
+      );
+
+      expect(result.data).toHaveLength(1);
+    });
+
+    it('should apply only start_date when end_date is not provided', async () => {
+      mockPrisma.attendanceSession.findMany.mockResolvedValue([]);
+      mockPrisma.attendanceSession.count.mockResolvedValue(0);
+
+      await service.findAllSessions(TENANT_ID, { page: 1, pageSize: 20, start_date: '2025-05-01' });
+
+      expect(mockPrisma.attendanceSession.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            session_date: { gte: new Date('2025-05-01') },
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('findOneSession — schedule formatting', () => {
+    it('should format schedule times when schedule is present', async () => {
+      mockPrisma.attendanceSession.findFirst.mockResolvedValue({
+        id: 'sess-1',
+        class_id: 'class-1',
+        schedule: {
+          id: 'sched-1',
+          weekday: 2,
+          start_time: new Date('2025-05-14T08:00:00.000Z'),
+          end_time: new Date('2025-05-14T08:45:00.000Z'),
+        },
+        records: [],
+      });
+      mockClassesFacade.findEnrolledStudentsWithNumber.mockResolvedValue([]);
+
+      const result = await service.findOneSession(TENANT_ID, 'sess-1');
+
+      expect(result.schedule).toEqual({
+        id: 'sched-1',
+        weekday: 2,
+        start_time: '08:00',
+        end_time: '08:45',
+      });
+    });
+  });
+
+  describe('createSession — existing session path', () => {
+    const defaultDto = {
+      class_id: CLASS_ID,
+      session_date: '2025-05-14T00:00:00.000Z',
+    };
+
+    beforeEach(() => {
+      mockClassesFacade.findByIdWithAcademicYear.mockResolvedValue({
+        id: CLASS_ID,
+        academic_year: {
+          start_date: new Date('2024-09-01'),
+          end_date: new Date('2025-06-30'),
+        },
+      });
+    });
+
+    it('should return existing session when one already exists (not cancelled)', async () => {
+      const existingSession = { id: 'sess-existing', status: 'open' };
+      mockTx.attendanceSession.findFirst.mockResolvedValue(existingSession);
+
+      const result = await service.createSession(TENANT_ID, USER_ID, defaultDto, [
+        'attendance.manage',
+      ]);
+
+      expect(result.id).toBe('sess-existing');
+      expect(mockTx.attendanceSession.create).not.toHaveBeenCalled();
+    });
+
+    it('edge: should handle P2002 race when no existing session found after error', async () => {
+      mockTx.attendanceSession.findFirst.mockResolvedValue(null);
+      mockTx.attendanceSession.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Race', {
+          code: 'P2002',
+          clientVersion: '5',
+        }),
+      );
+      // After P2002, retry finds nothing
+      mockPrisma.attendanceSession.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createSession(TENANT_ID, USER_ID, defaultDto, ['attendance.manage']),
+      ).rejects.toThrow(Prisma.PrismaClientKnownRequestError);
+    });
+
+    it('should skip class assignment check when user has attendance.manage', async () => {
+      mockTx.attendanceSession.findFirst.mockResolvedValue(null);
+      mockTx.attendanceSession.create.mockResolvedValue({ id: 'sess-1' });
+
+      await service.createSession(TENANT_ID, USER_ID, defaultDto, ['attendance.manage']);
+
+      expect(mockClassesFacade.isStaffAssignedToClass).not.toHaveBeenCalled();
+    });
+
+    it('should use tenant defaultPresentEnabled=null when dto.default_present is undefined and setting is falsy', async () => {
+      mockSettings.getSettings.mockResolvedValue({
+        attendance: { workDays: [1, 2, 3, 4, 5], defaultPresentEnabled: false },
+      });
+      mockTx.attendanceSession.findFirst.mockResolvedValue(null);
+      mockTx.attendanceSession.create.mockResolvedValue({ id: 'sess-1' });
+
+      await service.createSession(TENANT_ID, USER_ID, defaultDto, ['attendance.manage']);
+
+      expect(mockTx.attendanceSession.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ default_present: null }),
+        }),
+      );
+    });
   });
 });

@@ -101,4 +101,212 @@ describe('renderPayslipAr', () => {
 
     expect(result).toContain('Noto Sans Arabic');
   });
+
+  // ─── Compensation type branches ────────────────────────────────────────────
+
+  it('should render per_class compensation details', () => {
+    const perClassData = {
+      ...PAYSLIP_DATA,
+      compensation: {
+        type: 'per_class' as const,
+        base_salary: null,
+        per_class_rate: 50.0,
+        assigned_class_count: 20,
+        bonus_class_rate: 60.0,
+        bonus_day_multiplier: null,
+      },
+      inputs: { days_worked: null, classes_taught: 25 },
+      calculations: { basic_pay: 1000, bonus_pay: 300, total_pay: 1300 },
+    };
+    const result = renderPayslipAr(perClassData, BRANDING);
+
+    expect(result).toContain('\u0628\u0627\u0644\u062D\u0635\u0629');
+    expect(result).toContain('LYD 60.00');
+  });
+
+  it('should show dash when per_class_rate is null', () => {
+    const data = {
+      ...PAYSLIP_DATA,
+      compensation: {
+        type: 'per_class' as const,
+        base_salary: null,
+        per_class_rate: null,
+        assigned_class_count: null,
+        bonus_class_rate: null,
+        bonus_day_multiplier: null,
+      },
+      inputs: { days_worked: null, classes_taught: null },
+      calculations: { basic_pay: 0, bonus_pay: 0, total_pay: 0 },
+    };
+    const result = renderPayslipAr(data, BRANDING);
+
+    expect(result).toContain('\u2014');
+  });
+
+  it('should omit bonus_class_rate row when null for per_class', () => {
+    const data = {
+      ...PAYSLIP_DATA,
+      compensation: {
+        type: 'per_class' as const,
+        base_salary: null,
+        per_class_rate: 50,
+        assigned_class_count: 20,
+        bonus_class_rate: null,
+        bonus_day_multiplier: null,
+      },
+      inputs: { days_worked: null, classes_taught: 20 },
+      calculations: { basic_pay: 1000, bonus_pay: 0, total_pay: 1000 },
+    };
+    const result = renderPayslipAr(data, BRANDING);
+
+    expect(result).not.toContain(
+      '\u0645\u0639\u062F\u0644 \u0645\u0643\u0627\u0641\u0623\u0629 \u0627\u0644\u062D\u0635\u0629',
+    );
+  });
+
+  it('should show bonus_day_multiplier when present for salaried', () => {
+    const data = {
+      ...PAYSLIP_DATA,
+      compensation: {
+        ...PAYSLIP_DATA.compensation,
+        bonus_day_multiplier: 2.0,
+      },
+    };
+    const result = renderPayslipAr(data, BRANDING);
+
+    expect(result).toContain('2x');
+    expect(result).toContain('\u0645\u0639\u0627\u0645\u0644 \u0645\u0643\u0627\u0641\u0623\u0629');
+  });
+
+  it('should show dash when base_salary is null for salaried', () => {
+    const data = {
+      ...PAYSLIP_DATA,
+      compensation: {
+        ...PAYSLIP_DATA.compensation,
+        base_salary: null,
+      },
+    };
+    const result = renderPayslipAr(data, BRANDING);
+
+    expect(result).toContain('\u2014');
+  });
+
+  it('should show dash when days_worked is null', () => {
+    const data = {
+      ...PAYSLIP_DATA,
+      inputs: { ...PAYSLIP_DATA.inputs, days_worked: null },
+    };
+    const result = renderPayslipAr(data, BRANDING);
+
+    expect(result).toContain('\u2014');
+  });
+
+  // ─── Bank details branches ─────────────────────────────────────────────────
+
+  it('should hide bank section when all bank fields are null', () => {
+    const data = {
+      ...PAYSLIP_DATA,
+      staff: {
+        ...PAYSLIP_DATA.staff,
+        bank_name: null,
+        bank_account_last4: null,
+        bank_iban_last4: null,
+      },
+    };
+    const result = renderPayslipAr(data, BRANDING);
+
+    expect(result).not.toContain(
+      '\u0627\u0644\u062A\u0641\u0627\u0635\u064A\u0644 \u0627\u0644\u0645\u0635\u0631\u0641\u064A\u0629',
+    );
+  });
+
+  it('should show bank section with only bank_name', () => {
+    const data = {
+      ...PAYSLIP_DATA,
+      staff: {
+        ...PAYSLIP_DATA.staff,
+        bank_account_last4: null,
+        bank_iban_last4: null,
+      },
+    };
+    const result = renderPayslipAr(data, BRANDING);
+
+    expect(result).toContain(
+      '\u0627\u0644\u062A\u0641\u0627\u0635\u064A\u0644 \u0627\u0644\u0645\u0635\u0631\u0641\u064A\u0629',
+    );
+    expect(result).toContain('مصرف الوحدة');
+  });
+
+  // ─── Logo and branding branches ────────────────────────────────────────────
+
+  it('should omit logo when logo_url is undefined', () => {
+    const brandingNoLogo: PdfBranding = { school_name: 'No Logo' };
+    const result = renderPayslipAr(PAYSLIP_DATA, brandingNoLogo);
+
+    expect(result).not.toContain('<img');
+  });
+
+  it('should fall back to school_name when school_name_ar is undefined', () => {
+    const brandingNoAr: PdfBranding = { school_name: 'English Only' };
+    const result = renderPayslipAr(PAYSLIP_DATA, brandingNoAr);
+
+    expect(result).toContain('English Only');
+  });
+
+  it('should use default primary color when none provided', () => {
+    const brandingNoColor: PdfBranding = { school_name: 'Minimal' };
+    const result = renderPayslipAr(PAYSLIP_DATA, brandingNoColor);
+
+    expect(result).toContain('#1e40af');
+  });
+
+  // ─── Employment type formatting branches ───────────────────────────────────
+
+  it('should format full_time employment type in Arabic', () => {
+    const result = renderPayslipAr(PAYSLIP_DATA, BRANDING);
+
+    expect(result).toContain('\u062F\u0648\u0627\u0645 \u0643\u0627\u0645\u0644');
+  });
+
+  it('should fall back to raw employment type for unknown types', () => {
+    const data = {
+      ...PAYSLIP_DATA,
+      staff: { ...PAYSLIP_DATA.staff, employment_type: 'freelance' },
+    };
+    const result = renderPayslipAr(data, BRANDING);
+
+    expect(result).toContain('freelance');
+  });
+
+  // ─── Null staff fields ─────────────────────────────────────────────────────
+
+  it('should show dash for null department', () => {
+    const data = {
+      ...PAYSLIP_DATA,
+      staff: { ...PAYSLIP_DATA.staff, department: null },
+    };
+    const result = renderPayslipAr(data, BRANDING);
+
+    expect(result).toContain('\u2014');
+  });
+
+  it('should show dash for null job_title', () => {
+    const data = {
+      ...PAYSLIP_DATA,
+      staff: { ...PAYSLIP_DATA.staff, job_title: null },
+    };
+    const result = renderPayslipAr(data, BRANDING);
+
+    expect(result).toContain('\u2014');
+  });
+
+  it('should show dash for null staff_number', () => {
+    const data = {
+      ...PAYSLIP_DATA,
+      staff: { ...PAYSLIP_DATA.staff, staff_number: null },
+    };
+    const result = renderPayslipAr(data, BRANDING);
+
+    expect(result).toContain('\u2014');
+  });
 });

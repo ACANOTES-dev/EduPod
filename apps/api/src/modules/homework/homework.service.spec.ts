@@ -41,7 +41,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -360,9 +362,7 @@ describe('HomeworkService — findOne', () => {
   it('should throw NotFoundException when assignment not found', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.findOne(TENANT_ID, HOMEWORK_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.findOne(TENANT_ID, HOMEWORK_ID)).rejects.toThrow(NotFoundException);
   });
 });
 
@@ -736,9 +736,7 @@ describe('HomeworkService — remove', () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue({
       ...baseAssignment,
       status: 'draft',
-      attachments: [
-        { id: ATTACHMENT_ID, file_key: 'uploads/file.pdf', attachment_type: 'file' },
-      ],
+      attachments: [{ id: ATTACHMENT_ID, file_key: 'uploads/file.pdf', attachment_type: 'file' }],
     });
 
     await service.remove(TENANT_ID, HOMEWORK_ID);
@@ -752,9 +750,7 @@ describe('HomeworkService — remove', () => {
   it('should throw NotFoundException when assignment not found', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.remove(TENANT_ID, HOMEWORK_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.remove(TENANT_ID, HOMEWORK_ID)).rejects.toThrow(NotFoundException);
   });
 
   it('should throw BadRequestException when assignment is not draft', async () => {
@@ -764,24 +760,18 @@ describe('HomeworkService — remove', () => {
       attachments: [],
     });
 
-    await expect(
-      service.remove(TENANT_ID, HOMEWORK_ID),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.remove(TENANT_ID, HOMEWORK_ID)).rejects.toThrow(BadRequestException);
   });
 
   it('should not fail when S3 delete throws (logs error instead)', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue({
       ...baseAssignment,
       status: 'draft',
-      attachments: [
-        { id: ATTACHMENT_ID, file_key: 'uploads/file.pdf', attachment_type: 'file' },
-      ],
+      attachments: [{ id: ATTACHMENT_ID, file_key: 'uploads/file.pdf', attachment_type: 'file' }],
     });
     mockS3.delete.mockRejectedValue(new Error('S3 network error'));
 
-    await expect(
-      service.remove(TENANT_ID, HOMEWORK_ID),
-    ).resolves.toBeUndefined();
+    await expect(service.remove(TENANT_ID, HOMEWORK_ID)).resolves.toBeUndefined();
 
     expect(mockRlsTx.homeworkAssignment.delete).toHaveBeenCalled();
   });
@@ -790,9 +780,7 @@ describe('HomeworkService — remove', () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue({
       ...baseAssignment,
       status: 'draft',
-      attachments: [
-        { id: ATTACHMENT_ID, file_key: null, attachment_type: 'file' },
-      ],
+      attachments: [{ id: ATTACHMENT_ID, file_key: null, attachment_type: 'file' }],
     });
 
     await service.remove(TENANT_ID, HOMEWORK_ID);
@@ -1006,9 +994,9 @@ describe('HomeworkService — removeAttachment', () => {
   it('should throw NotFoundException when attachment not found', async () => {
     mockPrisma.homeworkAttachment.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.removeAttachment(TENANT_ID, HOMEWORK_ID, ATTACHMENT_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.removeAttachment(TENANT_ID, HOMEWORK_ID, ATTACHMENT_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should not fail when S3 delete throws (logs error instead)', async () => {
@@ -1109,7 +1097,7 @@ describe('HomeworkService — findToday', () => {
     await module.close();
   });
 
-  it('should return today\'s assignments for the teacher', async () => {
+  it("should return today's assignments for the teacher", async () => {
     const result = await service.findToday(TENANT_ID, USER_ID);
 
     expect(result.data).toHaveLength(1);
@@ -1295,11 +1283,10 @@ describe('HomeworkService — updateRecurrenceRule', () => {
       interval: 2,
     });
 
-    const result = await service.updateRecurrenceRule(
-      TENANT_ID,
-      RECURRENCE_RULE_ID,
-      { frequency: 'daily', interval: 2 },
-    );
+    const result = await service.updateRecurrenceRule(TENANT_ID, RECURRENCE_RULE_ID, {
+      frequency: 'daily',
+      interval: 2,
+    });
 
     expect(mockRlsTx.homeworkRecurrenceRule.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1362,9 +1349,9 @@ describe('HomeworkService — deleteRecurrenceRule', () => {
   it('should throw NotFoundException when rule not found', async () => {
     mockPrisma.homeworkRecurrenceRule.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.deleteRecurrenceRule(TENANT_ID, RECURRENCE_RULE_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.deleteRecurrenceRule(TENANT_ID, RECURRENCE_RULE_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });
 
@@ -1611,5 +1598,691 @@ describe('HomeworkService — findByClassWeek', () => {
 
     expect(resultMonday.week_start).toBe(resultWednesday.week_start);
     expect(resultMonday.week_end).toBe(resultWednesday.week_end);
+  });
+
+  it('should use current date when weekStart is not provided', async () => {
+    const result = await service.findByClassWeek(TENANT_ID, CLASS_ID);
+
+    expect(result).toHaveProperty('week_start');
+    expect(result).toHaveProperty('week_end');
+    expect(mockPrisma.homeworkAssignment.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('should handle a non-Monday date (snaps to previous Monday)', async () => {
+    // 2026-04-08 is a Wednesday
+    const result = await service.findByClassWeek(TENANT_ID, CLASS_ID, '2026-04-08');
+
+    expect(result).toHaveProperty('week_start');
+    // week_start should be the Monday of that week
+    expect(result.week_start).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+// ─── Additional branch coverage tests ───────────────────────────────────────
+
+describe('HomeworkService — list — additional filter branches', () => {
+  let module: TestingModule;
+  let service: HomeworkService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockS3: ReturnType<typeof buildMockS3>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockS3 = buildMockS3();
+    resetRlsMocks();
+
+    mockPrisma.homeworkAssignment.findMany.mockResolvedValue([]);
+    mockPrisma.homeworkAssignment.count.mockResolvedValue(0);
+
+    module = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        HomeworkService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: S3Service, useValue: mockS3 },
+      ],
+    }).compile();
+
+    service = module.get<HomeworkService>(HomeworkService);
+  });
+
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
+
+  it('should filter by subject_id', async () => {
+    await service.list(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+      subject_id: SUBJECT_ID,
+      sort: 'due_date',
+      order: 'desc',
+    });
+
+    expect(mockPrisma.homeworkAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ subject_id: SUBJECT_ID }),
+      }),
+    );
+  });
+
+  it('should filter by academic_year_id', async () => {
+    await service.list(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+      academic_year_id: ACADEMIC_YEAR_ID,
+      sort: 'due_date',
+      order: 'desc',
+    });
+
+    expect(mockPrisma.homeworkAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ academic_year_id: ACADEMIC_YEAR_ID }),
+      }),
+    );
+  });
+
+  it('should filter by academic_period_id', async () => {
+    await service.list(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+      academic_period_id: 'ap-1',
+      sort: 'due_date',
+      order: 'desc',
+    });
+
+    expect(mockPrisma.homeworkAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ academic_period_id: 'ap-1' }),
+      }),
+    );
+  });
+
+  it('should filter by homework_type', async () => {
+    await service.list(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+      homework_type: 'reading',
+      sort: 'due_date',
+      order: 'desc',
+    });
+
+    expect(mockPrisma.homeworkAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ homework_type: 'reading' }),
+      }),
+    );
+  });
+
+  it('should filter by assigned_by_user_id', async () => {
+    await service.list(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+      assigned_by_user_id: USER_ID,
+      sort: 'due_date',
+      order: 'desc',
+    });
+
+    expect(mockPrisma.homeworkAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ assigned_by_user_id: USER_ID }),
+      }),
+    );
+  });
+
+  it('should filter by due_date_from only', async () => {
+    await service.list(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+      due_date_from: '2026-04-01',
+      sort: 'due_date',
+      order: 'desc',
+    });
+
+    expect(mockPrisma.homeworkAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          due_date: { gte: new Date('2026-04-01') },
+        }),
+      }),
+    );
+  });
+
+  it('should filter by due_date_to only', async () => {
+    await service.list(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+      due_date_to: '2026-04-30',
+      sort: 'due_date',
+      order: 'desc',
+    });
+
+    expect(mockPrisma.homeworkAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          due_date: { lte: new Date('2026-04-30') },
+        }),
+      }),
+    );
+  });
+});
+
+describe('HomeworkService — findByClass — filter branches', () => {
+  let module: TestingModule;
+  let service: HomeworkService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockS3: ReturnType<typeof buildMockS3>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockS3 = buildMockS3();
+    resetRlsMocks();
+
+    mockPrisma.homeworkAssignment.findMany.mockResolvedValue([]);
+    mockPrisma.homeworkAssignment.count.mockResolvedValue(0);
+
+    module = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        HomeworkService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: S3Service, useValue: mockS3 },
+      ],
+    }).compile();
+
+    service = module.get<HomeworkService>(HomeworkService);
+  });
+
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
+
+  it('should filter by status and homework_type', async () => {
+    await service.findByClass(TENANT_ID, CLASS_ID, {
+      page: 1,
+      pageSize: 20,
+      status: 'published',
+      homework_type: 'written',
+      sort: 'due_date',
+      order: 'desc',
+    });
+
+    expect(mockPrisma.homeworkAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          class_id: CLASS_ID,
+          status: 'published',
+          homework_type: 'written',
+        }),
+      }),
+    );
+  });
+
+  it('should filter by subject_id and assigned_by_user_id', async () => {
+    await service.findByClass(TENANT_ID, CLASS_ID, {
+      page: 1,
+      pageSize: 20,
+      subject_id: SUBJECT_ID,
+      assigned_by_user_id: USER_ID,
+      sort: 'due_date',
+      order: 'desc',
+    });
+
+    expect(mockPrisma.homeworkAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          subject_id: SUBJECT_ID,
+          assigned_by_user_id: USER_ID,
+        }),
+      }),
+    );
+  });
+
+  it('should apply due_date_from filter in findByClass', async () => {
+    await service.findByClass(TENANT_ID, CLASS_ID, {
+      page: 1,
+      pageSize: 20,
+      due_date_from: '2026-04-01',
+      sort: 'due_date',
+      order: 'desc',
+    });
+
+    expect(mockPrisma.homeworkAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          due_date: { gte: new Date('2026-04-01') },
+        }),
+      }),
+    );
+  });
+
+  it('should apply due_date_to filter in findByClass', async () => {
+    await service.findByClass(TENANT_ID, CLASS_ID, {
+      page: 1,
+      pageSize: 20,
+      due_date_to: '2026-04-30',
+      sort: 'due_date',
+      order: 'desc',
+    });
+
+    expect(mockPrisma.homeworkAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          due_date: { lte: new Date('2026-04-30') },
+        }),
+      }),
+    );
+  });
+});
+
+describe('HomeworkService — findTemplates — filter branches', () => {
+  let module: TestingModule;
+  let service: HomeworkService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockS3: ReturnType<typeof buildMockS3>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockS3 = buildMockS3();
+    resetRlsMocks();
+
+    mockPrisma.homeworkAssignment.findMany.mockResolvedValue([]);
+    mockPrisma.homeworkAssignment.count.mockResolvedValue(0);
+
+    module = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        HomeworkService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: S3Service, useValue: mockS3 },
+      ],
+    }).compile();
+
+    service = module.get<HomeworkService>(HomeworkService);
+  });
+
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
+
+  it('should filter by class_id', async () => {
+    await service.findTemplates(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+      class_id: CLASS_ID,
+    });
+
+    expect(mockPrisma.homeworkAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ class_id: CLASS_ID }),
+      }),
+    );
+  });
+
+  it('should filter by subject_id', async () => {
+    await service.findTemplates(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+      subject_id: SUBJECT_ID,
+    });
+
+    expect(mockPrisma.homeworkAssignment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ subject_id: SUBJECT_ID }),
+      }),
+    );
+  });
+});
+
+describe('HomeworkService — update — all dto field branches', () => {
+  let module: TestingModule;
+  let service: HomeworkService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockS3: ReturnType<typeof buildMockS3>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockS3 = buildMockS3();
+    resetRlsMocks();
+
+    mockPrisma.homeworkAssignment.findFirst.mockResolvedValue({
+      id: HOMEWORK_ID,
+      status: 'draft',
+    });
+    mockRlsTx.homeworkAssignment.update.mockResolvedValue(baseAssignment);
+
+    module = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        HomeworkService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: S3Service, useValue: mockS3 },
+      ],
+    }).compile();
+
+    service = module.get<HomeworkService>(HomeworkService);
+  });
+
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
+
+  it('should include all dto fields when all are provided', async () => {
+    await service.update(TENANT_ID, HOMEWORK_ID, USER_ID, {
+      title: 'New Title',
+      description: 'New desc',
+      class_id: 'new-class',
+      subject_id: SUBJECT_ID,
+      academic_year_id: 'new-ay',
+      academic_period_id: 'new-ap',
+      homework_type: 'reading',
+      due_date: '2026-05-01',
+      due_time: '15:00',
+      max_points: 50,
+      recurrence_rule_id: RECURRENCE_RULE_ID,
+    });
+
+    const callData = mockRlsTx.homeworkAssignment.update.mock.calls[0]?.[0]?.data;
+    expect(callData.title).toBe('New Title');
+    expect(callData.description).toBe('New desc');
+    expect(callData.class_id).toBe('new-class');
+    expect(callData.subject_id).toBe(SUBJECT_ID);
+    expect(callData.academic_year_id).toBe('new-ay');
+    expect(callData.academic_period_id).toBe('new-ap');
+    expect(callData.homework_type).toBe('reading');
+    expect(callData.due_date).toEqual(new Date('2026-05-01'));
+    expect(callData.due_time).toEqual(new Date('1970-01-01T15:00'));
+    expect(callData.max_points).toBe(50);
+    expect(callData.recurrence_rule_id).toBe(RECURRENCE_RULE_ID);
+  });
+
+  it('should set nullable fields to null when cleared', async () => {
+    await service.update(TENANT_ID, HOMEWORK_ID, USER_ID, {
+      subject_id: null,
+      academic_period_id: null,
+      due_time: null,
+      max_points: null,
+      recurrence_rule_id: null,
+    });
+
+    const callData = mockRlsTx.homeworkAssignment.update.mock.calls[0]?.[0]?.data;
+    expect(callData.subject_id).toBeNull();
+    expect(callData.academic_period_id).toBeNull();
+    expect(callData.due_time).toBeNull();
+    expect(callData.max_points).toBeNull();
+    expect(callData.recurrence_rule_id).toBeNull();
+  });
+});
+
+describe('HomeworkService — copy — due_time branch', () => {
+  let module: TestingModule;
+  let service: HomeworkService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockS3: ReturnType<typeof buildMockS3>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockS3 = buildMockS3();
+    resetRlsMocks();
+
+    module = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        HomeworkService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: S3Service, useValue: mockS3 },
+      ],
+    }).compile();
+
+    service = module.get<HomeworkService>(HomeworkService);
+  });
+
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
+
+  it('should use dto due_time when provided in copy', async () => {
+    mockPrisma.homeworkAssignment.findFirst.mockResolvedValue({
+      ...baseAssignment,
+      due_time: new Date('1970-01-01T09:00'),
+      attachments: [],
+    });
+    mockRlsTx.homeworkAssignment.create.mockResolvedValue(baseAssignment);
+
+    await service.copy(TENANT_ID, HOMEWORK_ID, USER_ID, {
+      due_date: '2026-05-01',
+      due_time: '14:30',
+    });
+
+    const callData = mockRlsTx.homeworkAssignment.create.mock.calls[0]?.[0]?.data;
+    expect(callData.due_time).toEqual(new Date('1970-01-01T14:30'));
+  });
+
+  it('should use source due_time when dto due_time is not provided', async () => {
+    const sourceDueTime = new Date('1970-01-01T09:00');
+    mockPrisma.homeworkAssignment.findFirst.mockResolvedValue({
+      ...baseAssignment,
+      due_time: sourceDueTime,
+      attachments: [],
+    });
+    mockRlsTx.homeworkAssignment.create.mockResolvedValue(baseAssignment);
+
+    await service.copy(TENANT_ID, HOMEWORK_ID, USER_ID, {
+      due_date: '2026-05-01',
+    });
+
+    const callData = mockRlsTx.homeworkAssignment.create.mock.calls[0]?.[0]?.data;
+    expect(callData.due_time).toEqual(sourceDueTime);
+  });
+});
+
+describe('HomeworkService — bulkCreate — custom frequency and template', () => {
+  let module: TestingModule;
+  let service: HomeworkService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockS3: ReturnType<typeof buildMockS3>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockS3 = buildMockS3();
+    resetRlsMocks();
+
+    module = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        HomeworkService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: S3Service, useValue: mockS3 },
+      ],
+    }).compile();
+
+    service = module.get<HomeworkService>(HomeworkService);
+  });
+
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
+
+  it('should generate dates from custom frequency rule', async () => {
+    const rule = {
+      id: RECURRENCE_RULE_ID,
+      tenant_id: TENANT_ID,
+      frequency: 'custom',
+      interval: 1,
+      days_of_week: [1, 5], // Monday and Friday
+      start_date: new Date('2026-04-06'),
+      end_date: null,
+    };
+    mockPrisma.homeworkRecurrenceRule.findFirst.mockResolvedValue(rule);
+    mockRlsTx.homeworkAssignment.create.mockResolvedValue(baseAssignment);
+
+    // 2026-04-06 = Monday, 2026-04-12 = Sunday
+    const result = await service.bulkCreate(TENANT_ID, USER_ID, {
+      recurrence_rule_id: RECURRENCE_RULE_ID,
+      class_id: CLASS_ID,
+      academic_year_id: ACADEMIC_YEAR_ID,
+      title: 'Custom Schedule',
+      homework_type: 'written',
+      start_date: '2026-04-06',
+      end_date: '2026-04-12',
+    });
+
+    // Monday Apr 6 (day 1) and Friday Apr 10 (day 5)
+    expect((result as { count: number }).count).toBe(2);
+  });
+
+  it('should use template fields when template_homework_id is provided', async () => {
+    const rule = {
+      id: RECURRENCE_RULE_ID,
+      tenant_id: TENANT_ID,
+      frequency: 'daily',
+      interval: 1,
+      days_of_week: [],
+      start_date: new Date('2026-04-01'),
+      end_date: null,
+    };
+    mockPrisma.homeworkRecurrenceRule.findFirst.mockResolvedValue(rule);
+
+    // Template homework
+    mockPrisma.homeworkAssignment.findFirst.mockResolvedValue({
+      title: 'Template Title',
+      description: 'Template Desc',
+      homework_type: 'project',
+      max_points: 100,
+      class_id: 'template-class',
+      subject_id: 'template-subject',
+      academic_year_id: 'template-ay',
+      academic_period_id: 'template-ap',
+    });
+
+    mockRlsTx.homeworkAssignment.create.mockResolvedValue(baseAssignment);
+
+    await service.bulkCreate(TENANT_ID, USER_ID, {
+      recurrence_rule_id: RECURRENCE_RULE_ID,
+      template_homework_id: HOMEWORK_ID,
+      class_id: CLASS_ID,
+      academic_year_id: ACADEMIC_YEAR_ID,
+      title: 'Override Title',
+      homework_type: 'written',
+      start_date: '2026-04-01',
+      end_date: '2026-04-01',
+    });
+
+    // Should use template values not dto values
+    const callData = mockRlsTx.homeworkAssignment.create.mock.calls[0]?.[0]?.data;
+    expect(callData.title).toBe('Template Title');
+    expect(callData.description).toBe('Template Desc');
+    expect(callData.homework_type).toBe('project');
+    expect(callData.max_points).toBe(100);
+    expect(callData.class_id).toBe('template-class');
+    expect(callData.subject_id).toBe('template-subject');
+  });
+});
+
+describe('HomeworkService — updateRecurrenceRule — all dto fields', () => {
+  let module: TestingModule;
+  let service: HomeworkService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockS3: ReturnType<typeof buildMockS3>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockS3 = buildMockS3();
+    resetRlsMocks();
+
+    mockPrisma.homeworkRecurrenceRule.findFirst.mockResolvedValue({
+      id: RECURRENCE_RULE_ID,
+    });
+    mockRlsTx.homeworkRecurrenceRule.update.mockResolvedValue({});
+
+    module = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        HomeworkService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: S3Service, useValue: mockS3 },
+      ],
+    }).compile();
+
+    service = module.get<HomeworkService>(HomeworkService);
+  });
+
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
+
+  it('should include all dto fields when all are provided', async () => {
+    await service.updateRecurrenceRule(TENANT_ID, RECURRENCE_RULE_ID, {
+      frequency: 'custom',
+      interval: 2,
+      days_of_week: [1, 3, 5],
+      start_date: '2026-05-01',
+      end_date: '2026-06-30',
+    });
+
+    const callData = mockRlsTx.homeworkRecurrenceRule.update.mock.calls[0]?.[0]?.data;
+    expect(callData.frequency).toBe('custom');
+    expect(callData.interval).toBe(2);
+    expect(callData.days_of_week).toEqual([1, 3, 5]);
+    expect(callData.start_date).toEqual(new Date('2026-05-01'));
+    expect(callData.end_date).toEqual(new Date('2026-06-30'));
+  });
+
+  it('should set end_date to null when cleared', async () => {
+    await service.updateRecurrenceRule(TENANT_ID, RECURRENCE_RULE_ID, {
+      end_date: null,
+    });
+
+    const callData = mockRlsTx.homeworkRecurrenceRule.update.mock.calls[0]?.[0]?.data;
+    expect(callData.end_date).toBeNull();
+  });
+});
+
+describe('HomeworkService — addAttachment — max attachments reached', () => {
+  let module: TestingModule;
+  let service: HomeworkService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockS3: ReturnType<typeof buildMockS3>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockS3 = buildMockS3();
+    resetRlsMocks();
+
+    mockPrisma.homeworkAssignment.findFirst.mockResolvedValue({ id: HOMEWORK_ID });
+    mockPrisma.homeworkAttachment.count.mockResolvedValue(5); // At limit
+
+    module = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        HomeworkService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: S3Service, useValue: mockS3 },
+      ],
+    }).compile();
+
+    service = module.get<HomeworkService>(HomeworkService);
+  });
+
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
+
+  it('should throw BadRequestException when max attachments reached', async () => {
+    await expect(
+      service.addAttachment(TENANT_ID, HOMEWORK_ID, {
+        attachment_type: 'link',
+        url: 'https://example.com',
+        display_order: 5,
+      }),
+    ).rejects.toThrow(BadRequestException);
   });
 });

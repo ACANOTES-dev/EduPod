@@ -1564,6 +1564,60 @@ describe('AuthService', () => {
       }
     });
 
+    it('should skip malformed session data in Redis during tenant switch', async () => {
+      const targetTenantId = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+
+      mockPrisma.tenantMembership.findUnique.mockResolvedValue({
+        id: 'new-mem',
+        tenant_id: targetTenantId,
+        user_id: USER_ID,
+        membership_status: 'active',
+        tenant: { id: targetTenantId, status: 'active' },
+      });
+
+      redisClient.smembers.mockResolvedValue(['sess-good', 'sess-bad']);
+      redisClient.get
+        .mockResolvedValueOnce(JSON.stringify({ user_id: USER_ID, tenant_id: TENANT_ID }))
+        .mockResolvedValueOnce('NOT_VALID_JSON{{{'); // malformed JSON
+
+      const warnSpy = jest.spyOn(service['logger'], 'warn');
+
+      const result = await service.switchTenant(USER_ID, MOCK_USER.email, targetTenantId);
+
+      // Should succeed despite the malformed session
+      expect(result).toHaveProperty('access_token');
+      // Good session updated
+      expect(redisClient.set).toHaveBeenCalledTimes(1);
+      // Warning logged for the bad session
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Skipping malformed session sess-bad'),
+        expect.any(String),
+      );
+    });
+
+    it('should skip sessions that no longer exist in Redis during tenant switch', async () => {
+      const targetTenantId = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+
+      mockPrisma.tenantMembership.findUnique.mockResolvedValue({
+        id: 'new-mem',
+        tenant_id: targetTenantId,
+        user_id: USER_ID,
+        membership_status: 'active',
+        tenant: { id: targetTenantId, status: 'active' },
+      });
+
+      redisClient.smembers.mockResolvedValue(['sess-1', 'sess-gone']);
+      redisClient.get
+        .mockResolvedValueOnce(JSON.stringify({ user_id: USER_ID, tenant_id: TENANT_ID }))
+        .mockResolvedValueOnce(null); // session expired from Redis
+
+      const result = await service.switchTenant(USER_ID, MOCK_USER.email, targetTenantId);
+
+      expect(result).toHaveProperty('access_token');
+      // Only the existing session should be updated
+      expect(redisClient.set).toHaveBeenCalledTimes(1);
+    });
+
     it('should throw ForbiddenException when membership not active', async () => {
       mockPrisma.tenantMembership.findUnique.mockResolvedValue({
         id: 'mem-inactive',

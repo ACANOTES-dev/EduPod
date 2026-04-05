@@ -20,7 +20,9 @@ const mockTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
@@ -65,30 +67,33 @@ describe('ScheduleSwapService', () => {
     module = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
-        { provide: SchedulesReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findCoreById: jest.fn().mockResolvedValue(null),
-      existsById: jest.fn().mockResolvedValue(null),
-      findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
-      countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
-      findTeacherTimetable: jest.fn().mockResolvedValue([]),
-      findClassTimetable: jest.fn().mockResolvedValue([]),
-      findPinnedEntries: jest.fn().mockResolvedValue([]),
-      countPinnedEntries: jest.fn().mockResolvedValue(0),
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findScheduledClassIds: jest.fn().mockResolvedValue([]),
-      countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
-      count: jest.fn().mockResolvedValue(0),
-      hasRotationEntries: jest.fn().mockResolvedValue(false),
-      countByRoom: jest.fn().mockResolvedValue(0),
-      findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
-      findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
-      countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
-      findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
-      hasConflict: jest.fn().mockResolvedValue(false),
-      findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
-      findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
-    } },
+        {
+          provide: SchedulesReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            findCoreById: jest.fn().mockResolvedValue(null),
+            existsById: jest.fn().mockResolvedValue(null),
+            findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
+            countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
+            findTeacherTimetable: jest.fn().mockResolvedValue([]),
+            findClassTimetable: jest.fn().mockResolvedValue([]),
+            findPinnedEntries: jest.fn().mockResolvedValue([]),
+            countPinnedEntries: jest.fn().mockResolvedValue(0),
+            findByAcademicYear: jest.fn().mockResolvedValue([]),
+            findScheduledClassIds: jest.fn().mockResolvedValue([]),
+            countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
+            count: jest.fn().mockResolvedValue(0),
+            hasRotationEntries: jest.fn().mockResolvedValue(false),
+            countByRoom: jest.fn().mockResolvedValue(0),
+            findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
+            findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
+            countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
+            findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
+            hasConflict: jest.fn().mockResolvedValue(false),
+            findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
+            findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
+          },
+        },
         ScheduleSwapService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -124,9 +129,7 @@ describe('ScheduleSwapService', () => {
         .mockResolvedValueOnce(makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1))
         .mockResolvedValueOnce(makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3));
       // teacher-1 has a conflict at schedule B's time slot
-      (schedFacade.hasConflict as jest.Mock)
-        .mockResolvedValueOnce(true)
-        .mockResolvedValue(false);
+      (schedFacade.hasConflict as jest.Mock).mockResolvedValueOnce(true).mockResolvedValue(false);
 
       const result = await service.validateSwap(TENANT_ID, {
         schedule_id_a: SCHEDULE_A_ID,
@@ -238,9 +241,7 @@ describe('ScheduleSwapService', () => {
         .mockResolvedValueOnce(schedA)
         .mockResolvedValueOnce(schedB);
       // Return a conflict for teacher-1 at schedule B's slot
-      (schedFacade.hasConflict as jest.Mock)
-        .mockResolvedValueOnce(true)
-        .mockResolvedValue(false);
+      (schedFacade.hasConflict as jest.Mock).mockResolvedValueOnce(true).mockResolvedValue(false);
 
       await expect(
         service.executeSwap(TENANT_ID, USER_ID, {
@@ -321,6 +322,212 @@ describe('ScheduleSwapService', () => {
           schedule_id: 'nonexistent',
           new_room_id: 'room-2',
           reason: 'Room change',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should update room when new_room_id is provided', async () => {
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findCoreById as jest.Mock).mockResolvedValue(
+        makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1),
+      );
+      mockTx.schedule.update.mockResolvedValue({
+        id: SCHEDULE_A_ID,
+        updated_at: new Date(),
+      });
+
+      const result = await service.emergencyChange(TENANT_ID, USER_ID, {
+        schedule_id: SCHEDULE_A_ID,
+        new_room_id: 'room-3',
+        reason: 'Room flooded',
+      });
+
+      expect(result.cancelled).toBe(false);
+      expect(mockTx.schedule.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ room_id: 'room-3' }),
+        }),
+      );
+    });
+  });
+
+  // ─── validateSwap — additional edge cases ────────────────────────────────
+
+  describe('validateSwap — edge cases', () => {
+    it('should detect room conflict for schedule A room at schedule B slot', async () => {
+      const schedA = makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1, 'room-1');
+      const schedB = makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3, 'room-2');
+
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSwapContext as jest.Mock)
+        .mockResolvedValueOnce(schedA)
+        .mockResolvedValueOnce(schedB);
+      // No teacher conflicts but room-1 has conflict at B's slot
+      (schedFacade.hasConflict as jest.Mock)
+        .mockResolvedValueOnce(false) // teacher A at B's slot
+        .mockResolvedValueOnce(false) // teacher B at A's slot
+        .mockResolvedValueOnce(true) // room A at B's slot
+        .mockResolvedValueOnce(false); // room B at A's slot
+
+      const result = await service.validateSwap(TENANT_ID, {
+        schedule_id_a: SCHEDULE_A_ID,
+        schedule_id_b: SCHEDULE_B_ID,
+      });
+
+      expect(result.valid).toBe(false);
+      expect(result.violations.some((v) => v.includes('Room'))).toBe(true);
+    });
+
+    it('should detect room conflict for schedule B room at schedule A slot', async () => {
+      const schedA = makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1, 'room-1');
+      const schedB = makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3, 'room-2');
+
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSwapContext as jest.Mock)
+        .mockResolvedValueOnce(schedA)
+        .mockResolvedValueOnce(schedB);
+      (schedFacade.hasConflict as jest.Mock)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true); // room B at A's slot
+
+      const result = await service.validateSwap(TENANT_ID, {
+        schedule_id_a: SCHEDULE_A_ID,
+        schedule_id_b: SCHEDULE_B_ID,
+      });
+
+      expect(result.valid).toBe(false);
+    });
+
+    it('should handle schedules with null teacher_staff_id (no teacher checks)', async () => {
+      const schedA = {
+        ...makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1),
+        teacher_staff_id: null,
+        teacher: null,
+      };
+      const schedB = {
+        ...makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3),
+        teacher_staff_id: null,
+        teacher: null,
+      };
+
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSwapContext as jest.Mock)
+        .mockResolvedValueOnce(schedA)
+        .mockResolvedValueOnce(schedB);
+      (schedFacade.hasConflict as jest.Mock).mockResolvedValue(false);
+
+      const result = await service.validateSwap(TENANT_ID, {
+        schedule_id_a: SCHEDULE_A_ID,
+        schedule_id_b: SCHEDULE_B_ID,
+      });
+
+      expect(result.valid).toBe(true);
+      expect(result.impact.teachers_affected).toHaveLength(0);
+    });
+
+    it('should handle schedules with null room_id (no room checks)', async () => {
+      const schedA = makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1, null);
+      const schedB = makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3, null);
+
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSwapContext as jest.Mock)
+        .mockResolvedValueOnce(schedA)
+        .mockResolvedValueOnce(schedB);
+      (schedFacade.hasConflict as jest.Mock).mockResolvedValue(false);
+
+      const result = await service.validateSwap(TENANT_ID, {
+        schedule_id_a: SCHEDULE_A_ID,
+        schedule_id_b: SCHEDULE_B_ID,
+      });
+
+      expect(result.valid).toBe(true);
+      expect(result.impact.rooms_changed).toBe(false); // null === null → rooms_changed is false
+    });
+
+    it('should detect schedule B teacher conflict at A slot', async () => {
+      const schedA = makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1);
+      const schedB = makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3);
+
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSwapContext as jest.Mock)
+        .mockResolvedValueOnce(schedA)
+        .mockResolvedValueOnce(schedB);
+      (schedFacade.hasConflict as jest.Mock)
+        .mockResolvedValueOnce(false) // teacher A at B's slot OK
+        .mockResolvedValueOnce(true) // teacher B at A's slot CONFLICT
+        .mockResolvedValue(false);
+
+      const result = await service.validateSwap(TENANT_ID, {
+        schedule_id_a: SCHEDULE_A_ID,
+        schedule_id_b: SCHEDULE_B_ID,
+      });
+
+      expect(result.valid).toBe(false);
+      expect(result.violations).toHaveLength(1);
+      expect(result.violations[0]).toContain('conflict');
+    });
+
+    it('should not duplicate teacher in impact when both schedules share same teacher', async () => {
+      const schedA = makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1);
+      const schedB = makeSchedule(SCHEDULE_B_ID, 'teacher-1', 3); // Same teacher
+
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSwapContext as jest.Mock)
+        .mockResolvedValueOnce(schedA)
+        .mockResolvedValueOnce(schedB);
+      (schedFacade.hasConflict as jest.Mock).mockResolvedValue(false);
+
+      const result = await service.validateSwap(TENANT_ID, {
+        schedule_id_a: SCHEDULE_A_ID,
+        schedule_id_b: SCHEDULE_B_ID,
+      });
+
+      expect(result.impact.teachers_affected).toHaveLength(1);
+    });
+
+    it('should handle null class_entity with fallback names', async () => {
+      const schedA = { ...makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1), class_entity: null };
+      const schedB = { ...makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3), class_entity: null };
+
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSwapContext as jest.Mock)
+        .mockResolvedValueOnce(schedA)
+        .mockResolvedValueOnce(schedB);
+      (schedFacade.hasConflict as jest.Mock).mockResolvedValue(false);
+
+      const result = await service.validateSwap(TENANT_ID, {
+        schedule_id_a: SCHEDULE_A_ID,
+        schedule_id_b: SCHEDULE_B_ID,
+      });
+
+      expect(result.impact.description).toContain('Class A');
+      expect(result.impact.description).toContain('Class B');
+    });
+  });
+
+  // ─── executeSwap — edge cases ────────────────────────────────────────────
+
+  describe('executeSwap — edge cases', () => {
+    it('should throw NotFoundException when one schedule not found during execution', async () => {
+      const schedA = makeSchedule(SCHEDULE_A_ID, 'teacher-1', 1);
+
+      const schedFacade = module.get(SchedulesReadFacade);
+      // validateSwap pass
+      (schedFacade.findByIdWithSwapContext as jest.Mock)
+        .mockResolvedValueOnce(schedA)
+        .mockResolvedValueOnce(makeSchedule(SCHEDULE_B_ID, 'teacher-2', 3));
+      (schedFacade.hasConflict as jest.Mock).mockResolvedValue(false);
+      // findCoreById: A found, B not found
+      (schedFacade.findCoreById as jest.Mock)
+        .mockResolvedValueOnce(schedA)
+        .mockResolvedValueOnce(null);
+
+      await expect(
+        service.executeSwap(TENANT_ID, USER_ID, {
+          schedule_id_a: SCHEDULE_A_ID,
+          schedule_id_b: SCHEDULE_B_ID,
         }),
       ).rejects.toThrow(NotFoundException);
     });

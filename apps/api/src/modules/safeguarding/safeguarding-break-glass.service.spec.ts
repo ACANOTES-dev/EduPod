@@ -336,10 +336,7 @@ describe('SafeguardingBreakGlassService', () => {
       });
 
       // Verify cp_access_grant was queried with correct filters
-      expect(mockPrisma.cpAccessGrant.findFirst).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-      );
+      expect(mockPrisma.cpAccessGrant.findFirst).toHaveBeenCalledWith(TENANT_ID, USER_ID);
     });
 
     it('should allow access via break-glass grant (backward compatibility)', async () => {
@@ -372,6 +369,141 @@ describe('SafeguardingBreakGlassService', () => {
       // RBAC and cp_access_grant should have been checked via facades
       expect(mockPrisma.tenantMembership.findFirst).toHaveBeenCalled();
       expect(mockPrisma.cpAccessGrant.findFirst).toHaveBeenCalled();
+    });
+
+    it('should allow access via RBAC safeguarding.view permission', async () => {
+      mockPrisma.tenantMembership.findFirst.mockResolvedValue({
+        id: MEMBERSHIP_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+        membership_roles: [
+          {
+            role: {
+              role_permissions: [{ permission: { permission_key: 'safeguarding.view' } }],
+            },
+          },
+        ],
+      });
+
+      const result = await service.checkEffectivePermission(USER_ID, TENANT_ID, MEMBERSHIP_ID);
+
+      expect(result).toEqual({ allowed: true, context: 'normal' });
+      // Should NOT check break-glass or cp_access_grant
+      expect(mockPrisma.safeguardingBreakGlassGrant.findFirst).not.toHaveBeenCalled();
+      expect(mockPrisma.cpAccessGrant.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('should pass concernId in break-glass OR clause when provided', async () => {
+      // No RBAC permission, so falls through to break-glass check
+      mockPrisma.tenantMembership.findFirst.mockResolvedValue({
+        id: MEMBERSHIP_ID,
+        membership_roles: [],
+      });
+
+      mockPrisma.safeguardingBreakGlassGrant.findFirst.mockResolvedValue(null);
+      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
+
+      await service.checkEffectivePermission(USER_ID, TENANT_ID, MEMBERSHIP_ID, CONCERN_ID);
+
+      // The break-glass query should include the OR clause with concernId
+      expect(mockPrisma.safeguardingBreakGlassGrant.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: expect.arrayContaining([
+              { scope: 'all_concerns' },
+              expect.objectContaining({
+                scope: 'specific_concerns',
+                scoped_concern_ids: { has: CONCERN_ID },
+              }),
+            ]),
+          }),
+        }),
+      );
+    });
+
+    it('should NOT include OR clause for break-glass when concernId is not provided', async () => {
+      mockPrisma.tenantMembership.findFirst.mockResolvedValue({
+        id: MEMBERSHIP_ID,
+        membership_roles: [],
+      });
+
+      mockPrisma.safeguardingBreakGlassGrant.findFirst.mockResolvedValue(null);
+      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
+
+      await service.checkEffectivePermission(USER_ID, TENANT_ID, MEMBERSHIP_ID);
+
+      // The break-glass query should NOT include the OR clause
+      const callArgs = mockPrisma.safeguardingBreakGlassGrant.findFirst.mock.calls[0][0] as {
+        where: { OR?: unknown };
+      };
+      expect(callArgs.where.OR).toBeUndefined();
+    });
+
+    it('edge: should handle null membership (user not found in tenant)', async () => {
+      mockPrisma.tenantMembership.findFirst.mockResolvedValue(null);
+      mockPrisma.safeguardingBreakGlassGrant.findFirst.mockResolvedValue(null);
+      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
+
+      const result = await service.checkEffectivePermission(USER_ID, TENANT_ID, MEMBERSHIP_ID);
+
+      expect(result).toEqual({ allowed: false, context: 'normal' });
+    });
+  });
+
+  // ─── grantAccess — all_concerns scope ─────────────────────────────────────
+
+  describe('grantAccess — all_concerns scope', () => {
+    const allConcernsDto = {
+      granted_to_id: '33333333-3333-3333-3333-333333333333',
+      reason: 'Global access for audit',
+      duration_hours: 48,
+      scope: 'all_concerns' as const,
+      scoped_concern_ids: [],
+    };
+
+    beforeEach(() => {
+      mockTx.safeguardingBreakGlassGrant.create.mockResolvedValue({
+        id: GRANT_ID,
+        expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000),
+      });
+      mockTx.safeguardingAction.create.mockResolvedValue({ id: 'action-1' });
+    });
+
+    it('should create action entries for each active concern in all_concerns scope', async () => {
+      mockTx.safeguardingConcern.findMany.mockResolvedValue([
+        { id: 'c-1' },
+        { id: 'c-2' },
+        { id: 'c-3' },
+      ]);
+
+      await service.grantAccess(TENANT_ID, USER_ID, allConcernsDto);
+
+      // Should create an action for each of the 3 active concerns
+      expect(mockTx.safeguardingAction.create).toHaveBeenCalledTimes(3);
+      expect(mockTx.safeguardingAction.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          concern_id: 'c-1',
+          description: expect.stringContaining('all concerns'),
+        }),
+      });
+    });
+
+    it('should not create action entries when no active concerns exist (all_concerns scope)', async () => {
+      mockTx.safeguardingConcern.findMany.mockResolvedValue([]);
+
+      await service.grantAccess(TENANT_ID, USER_ID, allConcernsDto);
+
+      // No action entries since there are no active concerns
+      expect(mockTx.safeguardingAction.create).not.toHaveBeenCalled();
+    });
+
+    it('edge: should allow exactly 72 hours duration', async () => {
+      const maxDto = { ...allConcernsDto, duration_hours: 72 };
+      mockTx.safeguardingConcern.findMany.mockResolvedValue([]);
+
+      // Should NOT throw
+      const result = await service.grantAccess(TENANT_ID, USER_ID, maxDto);
+      expect(result.data).toHaveProperty('id', GRANT_ID);
     });
   });
 });

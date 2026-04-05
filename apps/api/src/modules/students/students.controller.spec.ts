@@ -23,6 +23,7 @@ function buildMockStudentsService() {
     allergyReport: jest.fn(),
     preview: jest.fn(),
     exportPack: jest.fn(),
+    getExportData: jest.fn(),
   };
 }
 
@@ -155,12 +156,71 @@ describe('StudentsController', () => {
   });
 
   it('should call exportPack with tenant_id and id', async () => {
-    const expected = { profile: { id: STUDENT_ID }, attendance_summary: [], grades: [], report_cards: [] };
+    const expected = {
+      profile: { id: STUDENT_ID },
+      attendance_summary: [],
+      grades: [],
+      report_cards: [],
+    };
     service.exportPack.mockResolvedValue(expected);
 
     const result = await controller.exportPack(mockTenant, STUDENT_ID);
 
     expect(service.exportPack).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID);
+    expect(result).toBe(expected);
+  });
+
+  it('should call getExportData with tenant_id and filters', async () => {
+    const query = {
+      status: 'active' as const,
+      year_group_id: undefined,
+      has_allergy: undefined,
+      search: undefined,
+    };
+    const expected = { data: [{ id: STUDENT_ID }] };
+    service.getExportData.mockResolvedValue(expected);
+
+    const result = await controller.getExportData(mockTenant, query);
+
+    expect(service.getExportData).toHaveBeenCalledWith(
+      TENANT_ID,
+      expect.objectContaining({ status: 'active' }),
+    );
+    expect(result).toBe(expected);
+  });
+
+  it('should call getExportData with empty filters', async () => {
+    const query = {
+      status: undefined,
+      year_group_id: undefined,
+      has_allergy: undefined,
+      search: undefined,
+    };
+    const expected = { data: [] };
+    service.getExportData.mockResolvedValue(expected);
+
+    const result = await controller.getExportData(mockTenant, query);
+
+    expect(service.getExportData).toHaveBeenCalledWith(TENANT_ID, expect.objectContaining({}));
+    expect(result).toBe(expected);
+  });
+
+  it('should pass has_allergy boolean to getExportData', async () => {
+    const query = {
+      status: undefined,
+      year_group_id: undefined,
+      has_allergy: true as boolean | undefined,
+      search: undefined,
+    };
+    const expected = { data: [] };
+    service.getExportData.mockResolvedValue(expected);
+
+    const result = await controller.getExportData(mockTenant, query);
+
+    expect(service.getExportData).toHaveBeenCalledWith(
+      TENANT_ID,
+      expect.objectContaining({ has_allergy: true }),
+    );
     expect(result).toBe(expected);
   });
 });

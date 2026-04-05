@@ -31,11 +31,7 @@ function daysAgo(n: number): Date {
   return d;
 }
 
-function makeCheckin(overrides: {
-  mood_score: number;
-  daysAgo: number;
-  id?: string;
-}) {
+function makeCheckin(overrides: { mood_score: number; daysAgo: number; id?: string }) {
   return {
     id: overrides.id ?? `checkin-${overrides.daysAgo}`,
     tenant_id: TENANT_ID,
@@ -81,11 +77,7 @@ describe('WellbeingSignalCollector', () => {
   // ─── Test 1: Empty data ─────────────────────────────────────────────────
 
   it('should return score 0 and empty signals when no data exists', async () => {
-    const result = await collector.collectSignals(
-      TENANT_ID,
-      STUDENT_ID,
-      ACADEMIC_YEAR_ID,
-    );
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
     expect(result.domain).toBe('wellbeing');
     expect(result.rawScore).toBe(0);
@@ -110,15 +102,9 @@ describe('WellbeingSignalCollector', () => {
 
     mockPrisma.studentCheckin.findMany.mockResolvedValue(checkins);
 
-    const result = await collector.collectSignals(
-      TENANT_ID,
-      STUDENT_ID,
-      ACADEMIC_YEAR_ID,
-    );
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
-    const signal = result.signals.find(
-      (s) => s.signalType === 'declining_wellbeing_score',
-    );
+    const signal = result.signals.find((s) => s.signalType === 'declining_wellbeing_score');
     expect(signal).toBeDefined();
     expect(signal!.scoreContribution).toBe(25);
     expect(signal!.severity).toBe('high');
@@ -138,15 +124,9 @@ describe('WellbeingSignalCollector', () => {
 
     mockPrisma.studentCheckin.findMany.mockResolvedValue(checkins);
 
-    const result = await collector.collectSignals(
-      TENANT_ID,
-      STUDENT_ID,
-      ACADEMIC_YEAR_ID,
-    );
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
-    const signal = result.signals.find(
-      (s) => s.signalType === 'low_mood_pattern',
-    );
+    const signal = result.signals.find((s) => s.signalType === 'low_mood_pattern');
     expect(signal).toBeDefined();
     expect(signal!.scoreContribution).toBe(20);
     expect(signal!.severity).toBe('medium');
@@ -169,15 +149,9 @@ describe('WellbeingSignalCollector', () => {
       },
     ]);
 
-    const result = await collector.collectSignals(
-      TENANT_ID,
-      STUDENT_ID,
-      ACADEMIC_YEAR_ID,
-    );
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
-    const signal = result.signals.find(
-      (s) => s.signalType === 'active_pastoral_concern',
-    );
+    const signal = result.signals.find((s) => s.signalType === 'active_pastoral_concern');
     expect(signal).toBeDefined();
     expect(signal!.scoreContribution).toBe(20);
     expect(signal!.severity).toBe('medium');
@@ -198,15 +172,9 @@ describe('WellbeingSignalCollector', () => {
       },
     ]);
 
-    const result = await collector.collectSignals(
-      TENANT_ID,
-      STUDENT_ID,
-      ACADEMIC_YEAR_ID,
-    );
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
-    const signal = result.signals.find(
-      (s) => s.signalType === 'active_pastoral_case',
-    );
+    const signal = result.signals.find((s) => s.signalType === 'active_pastoral_case');
     expect(signal).toBeDefined();
     expect(signal!.scoreContribution).toBe(10);
     expect(signal!.severity).toBe('low');
@@ -227,22 +195,14 @@ describe('WellbeingSignalCollector', () => {
       },
     ]);
 
-    const result = await collector.collectSignals(
-      TENANT_ID,
-      STUDENT_ID,
-      ACADEMIC_YEAR_ID,
-    );
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
-    const signal = result.signals.find(
-      (s) => s.signalType === 'external_referral',
-    );
+    const signal = result.signals.find((s) => s.signalType === 'external_referral');
     expect(signal).toBeDefined();
     expect(signal!.scoreContribution).toBe(15);
     expect(signal!.severity).toBe('medium');
     expect(signal!.summaryFragment).toContain('NEPS');
-    expect(signal!.summaryFragment).toContain(
-      'National Educational Psychological Service',
-    );
+    expect(signal!.summaryFragment).toContain('National Educational Psychological Service');
   });
 
   // ─── Test 7: critical_incident_affected (direct) ────────────────────────
@@ -258,15 +218,9 @@ describe('WellbeingSignalCollector', () => {
       },
     ]);
 
-    const result = await collector.collectSignals(
-      TENANT_ID,
-      STUDENT_ID,
-      ACADEMIC_YEAR_ID,
-    );
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
-    const signal = result.signals.find(
-      (s) => s.signalType === 'critical_incident_affected',
-    );
+    const signal = result.signals.find((s) => s.signalType === 'critical_incident_affected');
     expect(signal).toBeDefined();
     expect(signal!.scoreContribution).toBe(35);
     expect(signal!.severity).toBe('critical');
@@ -288,9 +242,7 @@ describe('WellbeingSignalCollector', () => {
     expect(mockPrisma.pastoralConcern.findMany).toHaveBeenCalledTimes(1);
     expect(mockPrisma.pastoralCase.findMany).toHaveBeenCalledTimes(1);
     expect(mockPrisma.pastoralReferral.findMany).toHaveBeenCalledTimes(1);
-    expect(mockPrisma.criticalIncidentAffected.findMany).toHaveBeenCalledTimes(
-      1,
-    );
+    expect(mockPrisma.criticalIncidentAffected.findMany).toHaveBeenCalledTimes(1);
   });
 
   // ─── Test 9: Multiple signals cap at 100 ───────────────────────────────
@@ -363,20 +315,13 @@ describe('WellbeingSignalCollector', () => {
       },
     ]);
 
-    const result = await collector.collectSignals(
-      TENANT_ID,
-      STUDENT_ID,
-      ACADEMIC_YEAR_ID,
-    );
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
     expect(result.rawScore).toBe(100);
     expect(result.signals.length).toBeGreaterThanOrEqual(4);
 
     // Verify the sum of individual contributions exceeds 100
-    const totalContributions = result.signals.reduce(
-      (sum, s) => sum + s.scoreContribution,
-      0,
-    );
+    const totalContributions = result.signals.reduce((sum, s) => sum + s.scoreContribution, 0);
     expect(totalContributions).toBeGreaterThan(100);
   });
 
@@ -403,23 +348,243 @@ describe('WellbeingSignalCollector', () => {
       },
     ]);
 
-    const result = await collector.collectSignals(
-      TENANT_ID,
-      STUDENT_ID,
-      ACADEMIC_YEAR_ID,
-    );
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
     expect(result.signals.length).toBe(2);
     expect(result.summaryFragments.length).toBe(2);
-    expect(result.summaryFragments[0]).toBe(
-      result.signals[0]?.summaryFragment,
-    );
-    expect(result.summaryFragments[1]).toBe(
-      result.signals[1]?.summaryFragment,
-    );
+    expect(result.summaryFragments[0]).toBe(result.signals[0]?.summaryFragment);
+    expect(result.summaryFragments[1]).toBe(result.signals[1]?.summaryFragment);
     expect(result.summaryFragments).toContain('1 active pastoral case(s)');
-    expect(
-      result.summaryFragments.some((f) => f.includes('TUSLA')),
-    ).toBe(true);
+    expect(result.summaryFragments.some((f) => f.includes('TUSLA'))).toBe(true);
+  });
+
+  // ─── Test 11: declining_wellbeing_score — moderate decline (1.0 to 2.0) ─
+
+  it('should detect moderate declining_wellbeing_score with score 15', async () => {
+    // Ordered DESC: newest first
+    // Newer half (0-1): mood 2.5 avg → 2, 3
+    // Older half (2-4): mood 4, 4, 4 → avg 4.0
+    // Decline = 4.0 - 2.5 = 1.5 → scoreContribution = 15
+    const checkins = [
+      makeCheckin({ mood_score: 2, daysAgo: 1 }),
+      makeCheckin({ mood_score: 3, daysAgo: 3 }),
+      makeCheckin({ mood_score: 4, daysAgo: 7 }),
+      makeCheckin({ mood_score: 4, daysAgo: 10 }),
+      makeCheckin({ mood_score: 4, daysAgo: 14 }),
+    ];
+
+    mockPrisma.studentCheckin.findMany.mockResolvedValue(checkins);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'declining_wellbeing_score');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(15);
+  });
+
+  // ─── Test 12: declining_wellbeing_score ��� small decline (0.5 to 1.0) ──
+
+  it('should detect small declining_wellbeing_score with score 10', async () => {
+    // Newer half (0-1): mood 3.5 avg → 3, 4
+    // Older half (2-4): mood 4, 4, 5 → avg 4.33
+    // Decline = 4.33 - 3.5 = 0.83 → scoreContribution = 10
+    const checkins = [
+      makeCheckin({ mood_score: 3, daysAgo: 1 }),
+      makeCheckin({ mood_score: 4, daysAgo: 3 }),
+      makeCheckin({ mood_score: 4, daysAgo: 7 }),
+      makeCheckin({ mood_score: 4, daysAgo: 10 }),
+      makeCheckin({ mood_score: 5, daysAgo: 14 }),
+    ];
+
+    mockPrisma.studentCheckin.findMany.mockResolvedValue(checkins);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'declining_wellbeing_score');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(10);
+  });
+
+  // ─── Test 13: declining_wellbeing_score — no decline → no signal ──────
+
+  it('should not detect declining_wellbeing_score when newer scores are higher', async () => {
+    const checkins = [
+      makeCheckin({ mood_score: 5, daysAgo: 1 }),
+      makeCheckin({ mood_score: 5, daysAgo: 3 }),
+      makeCheckin({ mood_score: 3, daysAgo: 7 }),
+      makeCheckin({ mood_score: 2, daysAgo: 10 }),
+      makeCheckin({ mood_score: 1, daysAgo: 14 }),
+    ];
+
+    mockPrisma.studentCheckin.findMany.mockResolvedValue(checkins);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'declining_wellbeing_score');
+    expect(signal).toBeUndefined();
+  });
+
+  // ─── Test 14: low_mood_pattern — all 2s → score 10 ────────────────────
+
+  it('should detect low_mood_pattern with all 2s as score 10', async () => {
+    const checkins = [
+      makeCheckin({ mood_score: 2, daysAgo: 1 }),
+      makeCheckin({ mood_score: 2, daysAgo: 3 }),
+      makeCheckin({ mood_score: 2, daysAgo: 5 }),
+    ];
+
+    mockPrisma.studentCheckin.findMany.mockResolvedValue(checkins);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'low_mood_pattern');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(10);
+  });
+
+  // ─── Test 15: low_mood_pattern — mix of 1s and 2s → score 15 ─────────
+
+  it('should detect low_mood_pattern with mix of 1s and 2s as score 15', async () => {
+    const checkins = [
+      makeCheckin({ mood_score: 1, daysAgo: 1 }),
+      makeCheckin({ mood_score: 2, daysAgo: 3 }),
+      makeCheckin({ mood_score: 1, daysAgo: 5 }),
+    ];
+
+    mockPrisma.studentCheckin.findMany.mockResolvedValue(checkins);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'low_mood_pattern');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(15);
+  });
+
+  // ─── Test 16: low_mood_pattern — fewer than 3 checkins → no signal ────
+
+  it('should not detect low_mood_pattern with fewer than 3 checkins', async () => {
+    const checkins = [
+      makeCheckin({ mood_score: 1, daysAgo: 1 }),
+      makeCheckin({ mood_score: 1, daysAgo: 3 }),
+    ];
+
+    mockPrisma.studentCheckin.findMany.mockResolvedValue(checkins);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'low_mood_pattern');
+    expect(signal).toBeUndefined();
+  });
+
+  // ─── Test 17: pastoral concern — critical severity → score 30 ─────────
+
+  it('should detect active_pastoral_concern with critical severity and score 30', async () => {
+    mockPrisma.pastoralConcern.findMany.mockResolvedValue([
+      {
+        id: 'concern-1',
+        tenant_id: TENANT_ID,
+        student_id: STUDENT_ID,
+        category: 'safeguarding',
+        severity: 'critical',
+        follow_up_needed: true,
+        acknowledged_at: null,
+        created_at: daysAgo(2),
+      },
+    ]);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'active_pastoral_concern');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(30);
+    expect(signal!.severity).toBe('high');
+  });
+
+  // ─── Test 18: pastoral concern — non-urgent/non-critical → score 15 ───
+
+  it('should detect active_pastoral_concern with low severity and score 15', async () => {
+    mockPrisma.pastoralConcern.findMany.mockResolvedValue([
+      {
+        id: 'concern-1',
+        tenant_id: TENANT_ID,
+        student_id: STUDENT_ID,
+        category: 'behaviour',
+        severity: 'low',
+        follow_up_needed: false,
+        acknowledged_at: null,
+        created_at: daysAgo(5),
+      },
+    ]);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'active_pastoral_concern');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(15);
+  });
+
+  // ─── Test 19: active_pastoral_case 2+ → score 20 ─────────────────────
+
+  it('should detect 2+ active_pastoral_cases with score 20', async () => {
+    mockPrisma.pastoralCase.findMany.mockResolvedValue([
+      { id: 'case-1', tenant_id: TENANT_ID, student_id: STUDENT_ID, status: 'open' },
+      { id: 'case-2', tenant_id: TENANT_ID, student_id: STUDENT_ID, status: 'active' },
+    ]);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'active_pastoral_case');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(20);
+  });
+
+  // ─── Test 20: external_referral 2+ → score 25 ─────────────────────────
+
+  it('should detect 2+ external_referrals with score 25', async () => {
+    mockPrisma.pastoralReferral.findMany.mockResolvedValue([
+      {
+        id: 'ref-1',
+        tenant_id: TENANT_ID,
+        student_id: STUDENT_ID,
+        referral_type: 'NEPS',
+        referral_body_name: 'NEPS',
+        status: 'submitted',
+      },
+      {
+        id: 'ref-2',
+        tenant_id: TENANT_ID,
+        student_id: STUDENT_ID,
+        referral_type: 'CAMHS',
+        referral_body_name: null,
+        status: 'accepted',
+      },
+    ]);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'external_referral');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(25);
+  });
+
+  // ─── Test 21: critical_incident_affected — indirect impact ────────────
+
+  it('should detect critical_incident_affected with indirect impact at score 20', async () => {
+    mockPrisma.criticalIncidentAffected.findMany.mockResolvedValue([
+      {
+        id: 'incident-1',
+        tenant_id: TENANT_ID,
+        student_id: STUDENT_ID,
+        impact_level: 'indirect',
+        wellbeing_flag_active: true,
+      },
+    ]);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'critical_incident_affected');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(20);
+    expect(signal!.severity).toBe('medium');
   });
 });

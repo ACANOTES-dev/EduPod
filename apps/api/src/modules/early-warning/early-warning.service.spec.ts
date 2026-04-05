@@ -32,9 +32,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(
-      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx),
-    ),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -163,7 +163,12 @@ describe('EarlyWarningService', () => {
   // ─── listProfiles ─────────────────────────────────────────────────────
 
   describe('listProfiles', () => {
-    const query = { page: 1, pageSize: 20, sort: 'composite_score' as const, order: 'desc' as const };
+    const query = {
+      page: 1,
+      pageSize: 20,
+      sort: 'composite_score' as const,
+      order: 'desc' as const,
+    };
 
     it('should return paginated profiles for admin (unrestricted)', async () => {
       mockPrisma.tenantMembership.findFirst.mockResolvedValue(adminMembership);
@@ -214,9 +219,9 @@ describe('EarlyWarningService', () => {
       mockPrisma.tenantMembership.findFirst.mockResolvedValue(adminMembership);
       mockPrisma.academicYear.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.listProfiles(TENANT_ID, USER_ID, MEMBERSHIP_ID, query),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.listProfiles(TENANT_ID, USER_ID, MEMBERSHIP_ID, query)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should scope to teacher classes when user has no manage permission', async () => {
@@ -226,17 +231,13 @@ describe('EarlyWarningService', () => {
         membership_roles: [
           {
             role: {
-              role_permissions: [
-                { permission: { permission_key: 'early_warning.view' } },
-              ],
+              role_permissions: [{ permission: { permission_key: 'early_warning.view' } }],
             },
           },
         ],
       });
       mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: 'staff-profile-1' });
-      mockPrisma.classStaff.findMany.mockResolvedValue([
-        { class_id: 'class-1' },
-      ]);
+      mockPrisma.classStaff.findMany.mockResolvedValue([{ class_id: 'class-1' }]);
       mockPrisma.classEnrolment.findMany.mockResolvedValue([
         { student_id: 'student-a' },
         { student_id: 'student-b' },
@@ -358,17 +359,13 @@ describe('EarlyWarningService', () => {
         membership_roles: [
           {
             role: {
-              role_permissions: [
-                { permission: { permission_key: 'early_warning.view' } },
-              ],
+              role_permissions: [{ permission: { permission_key: 'early_warning.view' } }],
             },
           },
         ],
       });
       mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: 'staff-profile-1' });
-      mockPrisma.classStaff.findMany.mockResolvedValue([
-        { class_id: 'class-1' },
-      ]);
+      mockPrisma.classStaff.findMany.mockResolvedValue([{ class_id: 'class-1' }]);
       mockPrisma.classEnrolment.findMany.mockResolvedValue([
         { student_id: 'other-student' }, // Not STUDENT_ID
       ]);
@@ -406,9 +403,9 @@ describe('EarlyWarningService', () => {
       mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
       mockRlsTx.studentRiskProfile.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.acknowledgeProfile(TENANT_ID, USER_ID, STUDENT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.acknowledgeProfile(TENANT_ID, USER_ID, STUDENT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -446,9 +443,9 @@ describe('EarlyWarningService', () => {
       mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
       mockPrisma.tenantMembership.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.assignStaff(TENANT_ID, USER_ID, STUDENT_ID, dto),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.assignStaff(TENANT_ID, USER_ID, STUDENT_ID, dto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw NotFoundException when profile does not exist', async () => {
@@ -456,9 +453,432 @@ describe('EarlyWarningService', () => {
       mockPrisma.tenantMembership.findFirst.mockResolvedValue({ id: 'mem-staff' });
       mockRlsTx.studentRiskProfile.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.assignStaff(TENANT_ID, USER_ID, STUDENT_ID, dto),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.assignStaff(TENANT_ID, USER_ID, STUDENT_ID, dto)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw NotFoundException when target membership is not active', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
+      // findMembershipSummary returns inactive membership
+      mockPrisma.tenantMembership.findFirst.mockResolvedValue({
+        id: 'mem-staff',
+        membership_status: 'suspended',
+      });
+
+      await expect(service.assignStaff(TENANT_ID, USER_ID, STUDENT_ID, dto)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ─── listProfiles — query filter branches ─────────────────────────────
+
+  describe('listProfiles — filter branches', () => {
+    const baseQuery = {
+      page: 1,
+      pageSize: 20,
+      sort: 'composite_score' as const,
+      order: 'desc' as const,
+    };
+
+    beforeEach(() => {
+      mockPrisma.tenantMembership.findFirst.mockResolvedValue(adminMembership);
+      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
+      mockPrisma.studentRiskProfile.count.mockResolvedValue(0);
+      mockPrisma.studentRiskProfile.findMany.mockResolvedValue([]);
+    });
+
+    it('should apply tier filter', async () => {
+      await service.listProfiles(TENANT_ID, USER_ID, MEMBERSHIP_ID, {
+        ...baseQuery,
+        tier: 'red',
+      });
+
+      expect(mockPrisma.studentRiskProfile.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            risk_tier: 'red',
+          }),
+        }),
+      );
+    });
+
+    it('should apply year_group_id filter only', async () => {
+      await service.listProfiles(TENANT_ID, USER_ID, MEMBERSHIP_ID, {
+        ...baseQuery,
+        year_group_id: 'yg-1',
+      });
+
+      expect(mockPrisma.studentRiskProfile.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student: expect.objectContaining({
+              year_group_id: 'yg-1',
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should apply class_id filter only', async () => {
+      await service.listProfiles(TENANT_ID, USER_ID, MEMBERSHIP_ID, {
+        ...baseQuery,
+        class_id: 'cls-1',
+      });
+
+      expect(mockPrisma.studentRiskProfile.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student: expect.objectContaining({
+              class_enrolments: { some: { class_id: 'cls-1', status: 'active' } },
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should apply search filter on top of other student filters', async () => {
+      await service.listProfiles(TENANT_ID, USER_ID, MEMBERSHIP_ID, {
+        ...baseQuery,
+        year_group_id: 'yg-1',
+        search: 'john',
+      });
+
+      expect(mockPrisma.studentRiskProfile.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student: expect.objectContaining({
+              year_group_id: 'yg-1',
+              OR: [
+                { first_name: { contains: 'john', mode: 'insensitive' } },
+                { last_name: { contains: 'john', mode: 'insensitive' } },
+              ],
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should apply search filter alone without year_group_id or class_id', async () => {
+      await service.listProfiles(TENANT_ID, USER_ID, MEMBERSHIP_ID, {
+        ...baseQuery,
+        search: 'smith',
+      });
+
+      expect(mockPrisma.studentRiskProfile.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student: expect.objectContaining({
+              OR: expect.arrayContaining([
+                { first_name: { contains: 'smith', mode: 'insensitive' } },
+              ]),
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should sort by student_name', async () => {
+      await service.listProfiles(TENANT_ID, USER_ID, MEMBERSHIP_ID, {
+        ...baseQuery,
+        sort: 'student_name',
+        order: 'asc',
+      });
+
+      expect(mockPrisma.studentRiskProfile.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { student: { last_name: 'asc' } },
+        }),
+      );
+    });
+
+    it('should sort by tier_entered_at', async () => {
+      await service.listProfiles(TENANT_ID, USER_ID, MEMBERSHIP_ID, {
+        ...baseQuery,
+        sort: 'tier_entered_at',
+        order: 'desc',
+      });
+
+      expect(mockPrisma.studentRiskProfile.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { tier_entered_at: 'desc' },
+        }),
+      );
+    });
+  });
+
+  // ─── listProfiles — data mapping edge cases ───────────────────────────
+
+  describe('listProfiles — data mapping branches', () => {
+    const query = {
+      page: 1,
+      pageSize: 20,
+      sort: 'composite_score' as const,
+      order: 'desc' as const,
+    };
+
+    beforeEach(() => {
+      mockPrisma.tenantMembership.findFirst.mockResolvedValue(adminMembership);
+      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
+    });
+
+    it('should handle null signal_summary_json', async () => {
+      mockPrisma.studentRiskProfile.count.mockResolvedValue(1);
+      mockPrisma.studentRiskProfile.findMany.mockResolvedValue([
+        {
+          id: PROFILE_ID,
+          student_id: STUDENT_ID,
+          composite_score: 50,
+          risk_tier: 'yellow',
+          tier_entered_at: new Date(),
+          signal_summary_json: null,
+          trend_json: null,
+          last_computed_at: new Date(),
+          student: {
+            id: STUDENT_ID,
+            first_name: 'Jane',
+            last_name: 'Doe',
+            year_group: null,
+            class_enrolments: [],
+          },
+          assigned_to: null,
+        },
+      ]);
+
+      const result = await service.listProfiles(TENANT_ID, USER_ID, MEMBERSHIP_ID, query);
+
+      expect(result.data[0]!.top_signal).toBeNull();
+      expect(result.data[0]!.trend_data).toEqual([]);
+      expect(result.data[0]!.year_group_name).toBeNull();
+      expect(result.data[0]!.class_name).toBeNull();
+      expect(result.data[0]!.assigned_to_name).toBeNull();
+    });
+
+    it('should handle signal_summary_json with topSignals but no summaryFragment', async () => {
+      mockPrisma.studentRiskProfile.count.mockResolvedValue(1);
+      mockPrisma.studentRiskProfile.findMany.mockResolvedValue([
+        {
+          id: PROFILE_ID,
+          student_id: STUDENT_ID,
+          composite_score: 50,
+          risk_tier: 'yellow',
+          tier_entered_at: new Date(),
+          signal_summary_json: { topSignals: [{}] },
+          trend_json: { dailyScores: [10, 20] },
+          last_computed_at: new Date(),
+          student: null,
+          assigned_to: { id: 'user-1', first_name: 'Admin', last_name: 'User' },
+        },
+      ]);
+
+      const result = await service.listProfiles(TENANT_ID, USER_ID, MEMBERSHIP_ID, query);
+
+      // topSignals[0] exists but has no summaryFragment
+      expect(result.data[0]!.top_signal).toBeNull();
+      expect(result.data[0]!.student_name).toBe('Unknown');
+      expect(result.data[0]!.assigned_to_name).toBe('Admin User');
+    });
+
+    it('should handle empty topSignals array', async () => {
+      mockPrisma.studentRiskProfile.count.mockResolvedValue(1);
+      mockPrisma.studentRiskProfile.findMany.mockResolvedValue([
+        {
+          id: PROFILE_ID,
+          student_id: STUDENT_ID,
+          composite_score: 50,
+          risk_tier: 'yellow',
+          tier_entered_at: new Date(),
+          signal_summary_json: { topSignals: [] },
+          trend_json: {},
+          last_computed_at: new Date(),
+          student: {
+            id: STUDENT_ID,
+            first_name: 'John',
+            last_name: 'Doe',
+            year_group: { name: 'Year 3' },
+            class_enrolments: [{ class_entity: { name: '3B' } }],
+          },
+          assigned_to: null,
+        },
+      ]);
+
+      const result = await service.listProfiles(TENANT_ID, USER_ID, MEMBERSHIP_ID, query);
+
+      expect(result.data[0]!.top_signal).toBeNull();
+      expect(result.data[0]!.trend_data).toEqual([]);
+    });
+  });
+
+  // ─── listProfiles — null membershipId ──────────────────────────────────
+
+  describe('listProfiles — null membershipId', () => {
+    it('should scope to empty student ids when membershipId is null', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
+      mockPrisma.studentRiskProfile.count.mockResolvedValue(0);
+      mockPrisma.studentRiskProfile.findMany.mockResolvedValue([]);
+
+      const result = await service.listProfiles(TENANT_ID, USER_ID, null, {
+        page: 1,
+        pageSize: 20,
+        sort: 'composite_score',
+        order: 'desc',
+      });
+
+      expect(result.data).toEqual([]);
+      expect(mockPrisma.studentRiskProfile.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student_id: { in: [] },
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── getTierSummary — filter branches ──────────────────────────────────
+
+  describe('getTierSummary — filter branches', () => {
+    beforeEach(() => {
+      mockPrisma.tenantMembership.findFirst.mockResolvedValue(adminMembership);
+      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
+      mockPrisma.studentRiskProfile.groupBy.mockResolvedValue([]);
+    });
+
+    it('should apply year_group_id filter', async () => {
+      await service.getTierSummary(TENANT_ID, USER_ID, MEMBERSHIP_ID, {
+        year_group_id: 'yg-1',
+      });
+
+      expect(mockPrisma.studentRiskProfile.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student: expect.objectContaining({
+              year_group_id: 'yg-1',
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should apply class_id filter', async () => {
+      await service.getTierSummary(TENANT_ID, USER_ID, MEMBERSHIP_ID, {
+        class_id: 'cls-1',
+      });
+
+      expect(mockPrisma.studentRiskProfile.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student: expect.objectContaining({
+              class_enrolments: { some: { class_id: 'cls-1', status: 'active' } },
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should return zero summary when groupBy returns unrecognized tiers', async () => {
+      mockPrisma.studentRiskProfile.groupBy.mockResolvedValue([
+        { risk_tier: 'unknown_tier', _count: { id: 5 } },
+      ]);
+
+      const result = await service.getTierSummary(TENANT_ID, USER_ID, MEMBERSHIP_ID, {});
+
+      // unknown_tier is not in summary so it's skipped
+      expect(result.total).toBe(0);
+      expect(result.green).toBe(0);
+    });
+  });
+
+  // ─── getStudentDetail — data mapping branches ──────────────────────────
+
+  describe('getStudentDetail — data mapping branches', () => {
+    beforeEach(() => {
+      mockPrisma.tenantMembership.findFirst.mockResolvedValue(adminMembership);
+      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
+    });
+
+    it('should handle null signal details_json', async () => {
+      mockPrisma.studentRiskProfile.findFirst.mockResolvedValue({
+        id: PROFILE_ID,
+        student_id: STUDENT_ID,
+        composite_score: 50,
+        risk_tier: 'yellow',
+        tier_entered_at: null,
+        attendance_score: 50,
+        grades_score: 50,
+        behaviour_score: 50,
+        wellbeing_score: 50,
+        engagement_score: 50,
+        signal_summary_json: null,
+        trend_json: null,
+        assigned_to_user_id: null,
+        student: null,
+        assigned_to: { id: 'u1', first_name: 'Staff', last_name: 'Member' },
+      });
+      mockPrisma.studentRiskSignal.findMany.mockResolvedValue([
+        {
+          id: 'sig-1',
+          domain: 'attendance',
+          signal_type: 'consecutive_absences',
+          severity: 'high',
+          score_contribution: 25,
+          details_json: null,
+          detected_at: new Date(),
+        },
+      ]);
+      mockPrisma.earlyWarningTierTransition.findMany.mockResolvedValue([]);
+
+      const result = await service.getStudentDetail(TENANT_ID, USER_ID, MEMBERSHIP_ID, STUDENT_ID);
+
+      expect(result.student_name).toBe('Unknown');
+      expect(result.summary_text).toBe('');
+      expect(result.trend_data).toEqual([]);
+      // null tier_entered_at uses current date
+      expect(result.tier_entered_at).toBeDefined();
+      expect(result.assigned_to_name).toBe('Staff Member');
+      // Signal with null details_json should use signal_type as fallback for summaryFragment
+      expect(result.signals[0]!.summary_fragment).toBe('consecutive_absences');
+    });
+
+    it('should handle signal with details_json containing summaryFragment', async () => {
+      mockPrisma.studentRiskProfile.findFirst.mockResolvedValue({
+        id: PROFILE_ID,
+        student_id: STUDENT_ID,
+        composite_score: 50,
+        risk_tier: 'yellow',
+        tier_entered_at: new Date(),
+        attendance_score: 50,
+        grades_score: 50,
+        behaviour_score: 50,
+        wellbeing_score: 50,
+        engagement_score: 50,
+        signal_summary_json: { summaryText: 'Here is a summary' },
+        trend_json: { dailyScores: [10, 20, 30] },
+        assigned_to_user_id: null,
+        student: { id: STUDENT_ID, first_name: 'Ali', last_name: 'Khan' },
+        assigned_to: null,
+      });
+      mockPrisma.studentRiskSignal.findMany.mockResolvedValue([
+        {
+          id: 'sig-1',
+          domain: 'behaviour',
+          signal_type: 'incident_frequency',
+          severity: 'medium',
+          score_contribution: 15,
+          details_json: { summaryFragment: 'Custom fragment text' },
+          detected_at: new Date(),
+        },
+      ]);
+      mockPrisma.earlyWarningTierTransition.findMany.mockResolvedValue([]);
+
+      const result = await service.getStudentDetail(TENANT_ID, USER_ID, MEMBERSHIP_ID, STUDENT_ID);
+
+      expect(result.student_name).toBe('Ali Khan');
+      expect(result.summary_text).toBe('Here is a summary');
+      expect(result.trend_data).toEqual([10, 20, 30]);
+      expect(result.assigned_to_name).toBeNull();
+      expect(result.signals[0]!.summary_fragment).toBe('Custom fragment text');
     });
   });
 });

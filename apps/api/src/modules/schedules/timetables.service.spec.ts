@@ -90,6 +90,31 @@ describe('TimetablesService', () => {
 
       expect(result).toEqual([]);
     });
+
+    it('should use week_start as reference date when provided', async () => {
+      mockPrisma.schedule.findMany.mockResolvedValue([]);
+
+      await service.getTeacherTimetable(TENANT_ID, STAFF_ID, {
+        academic_year_id: AY_ID,
+        week_start: '2025-10-15',
+      });
+
+      const callArgs = mockPrisma.schedule.findMany.mock.calls[0][0];
+      const expectedDate = new Date('2025-10-15');
+      expect(callArgs.where.effective_start_date).toEqual({ lte: expectedDate });
+    });
+
+    it('should use current date as reference when no week_start provided', async () => {
+      mockPrisma.schedule.findMany.mockResolvedValue([]);
+
+      await service.getTeacherTimetable(TENANT_ID, STAFF_ID, {
+        academic_year_id: AY_ID,
+      });
+
+      const callArgs = mockPrisma.schedule.findMany.mock.calls[0][0];
+      // Reference date should be a Date (now)
+      expect(callArgs.where.effective_start_date.lte).toBeInstanceOf(Date);
+    });
   });
 
   describe('getRoomTimetable', () => {
@@ -103,6 +128,18 @@ describe('TimetablesService', () => {
       expect(result).toHaveLength(1);
       expect(result[0]?.room_id).toBe(ROOM_ID);
       expect(result[0]?.room_name).toBe('Room 101');
+    });
+
+    it('should use week_start as reference date when provided', async () => {
+      mockPrisma.schedule.findMany.mockResolvedValue([]);
+
+      await service.getRoomTimetable(TENANT_ID, ROOM_ID, {
+        academic_year_id: AY_ID,
+        week_start: '2025-11-01',
+      });
+
+      const callArgs = mockPrisma.schedule.findMany.mock.calls[0][0];
+      expect(callArgs.where.effective_start_date).toEqual({ lte: new Date('2025-11-01') });
     });
   });
 
@@ -128,6 +165,20 @@ describe('TimetablesService', () => {
 
       expect(result).toEqual([]);
       expect(mockPrisma.schedule.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should use week_start as reference date for student timetable', async () => {
+      mockClassesReadFacade.findClassIdsForStudent.mockResolvedValue([CLASS_ID]);
+      mockPrisma.schedule.findMany.mockResolvedValue([]);
+
+      await service.getStudentTimetable(TENANT_ID, STUDENT_ID, {
+        academic_year_id: AY_ID,
+        week_start: '2025-10-20',
+      });
+
+      const callArgs = mockPrisma.schedule.findMany.mock.calls[0][0];
+      expect(callArgs.where.effective_start_date).toEqual({ lte: new Date('2025-10-20') });
+      expect(callArgs.where.class_id).toEqual({ in: [CLASS_ID] });
     });
   });
 
@@ -190,6 +241,52 @@ describe('TimetablesService', () => {
         teacher: null,
       });
       mockPrisma.schedule.findMany.mockResolvedValue([row]);
+
+      const result = await service.getWorkloadReport(TENANT_ID, AY_ID);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should aggregate perDay counts correctly', async () => {
+      const rows = [
+        buildScheduleRow({
+          id: 'sched-1',
+          teacher_staff_id: 'teacher-a',
+          teacher: {
+            id: 'teacher-a',
+            user: { first_name: 'Jane', last_name: 'Smith' },
+          },
+          weekday: 1,
+        }),
+        buildScheduleRow({
+          id: 'sched-2',
+          teacher_staff_id: 'teacher-a',
+          teacher: {
+            id: 'teacher-a',
+            user: { first_name: 'Jane', last_name: 'Smith' },
+          },
+          weekday: 1,
+        }),
+        buildScheduleRow({
+          id: 'sched-3',
+          teacher_staff_id: 'teacher-a',
+          teacher: {
+            id: 'teacher-a',
+            user: { first_name: 'Jane', last_name: 'Smith' },
+          },
+          weekday: 3,
+        }),
+      ];
+      mockPrisma.schedule.findMany.mockResolvedValue(rows);
+
+      const result = await service.getWorkloadReport(TENANT_ID, AY_ID);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.per_day).toEqual({ 1: 2, 3: 1 });
+    });
+
+    it('should return empty array when no schedules exist', async () => {
+      mockPrisma.schedule.findMany.mockResolvedValue([]);
 
       const result = await service.getWorkloadReport(TENANT_ID, AY_ID);
 

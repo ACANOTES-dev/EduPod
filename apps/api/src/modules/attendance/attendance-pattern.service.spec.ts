@@ -111,9 +111,9 @@ describe('AttendancePatternService', () => {
   it('should throw NotFoundException when alert is not found', async () => {
     mockPrisma.attendancePatternAlert.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.acknowledgeAlert(TENANT_ID, ALERT_ID, USER_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.acknowledgeAlert(TENANT_ID, ALERT_ID, USER_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should set status to acknowledged with user and timestamp', async () => {
@@ -138,9 +138,7 @@ describe('AttendancePatternService', () => {
   it('should throw NotFoundException when resolving a non-existent alert', async () => {
     mockPrisma.attendancePatternAlert.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.resolveAlert(TENANT_ID, ALERT_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.resolveAlert(TENANT_ID, ALERT_ID)).rejects.toThrow(NotFoundException);
   });
 
   it('should set status to resolved', async () => {
@@ -161,9 +159,9 @@ describe('AttendancePatternService', () => {
   it('should throw NotFoundException when manually notifying for non-existent alert', async () => {
     mockPrisma.attendancePatternAlert.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.notifyParentManual(TENANT_ID, ALERT_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.notifyParentManual(TENANT_ID, ALERT_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should throw ConflictException when parent was already notified', async () => {
@@ -172,9 +170,9 @@ describe('AttendancePatternService', () => {
       parent_notified: true,
     });
 
-    await expect(
-      service.notifyParentManual(TENANT_ID, ALERT_ID),
-    ).rejects.toThrow(ConflictException);
+    await expect(service.notifyParentManual(TENANT_ID, ALERT_ID)).rejects.toThrow(
+      ConflictException,
+    );
   });
 
   it('should create in-app notifications for each parent user and mark alert as notified', async () => {
@@ -237,6 +235,111 @@ describe('AttendancePatternService', () => {
           }),
         }),
       ]),
+    );
+  });
+
+  // ─── buildParentMessage — recurring_day ────────────────────────────────
+
+  it('should build correct message for recurring_day alert type', async () => {
+    const recurringAlert = {
+      ...baseAlertOpen,
+      alert_type: 'recurring_day' as const,
+      details_json: { count: 5, window_days: 30, day_name: 'Monday' },
+    };
+    mockPrisma.attendancePatternAlert.findFirst.mockResolvedValue(recurringAlert);
+
+    await service.notifyParentManual(TENANT_ID, ALERT_ID);
+
+    expect(mockNotifications.createBatch).toHaveBeenCalledWith(
+      TENANT_ID,
+      expect.arrayContaining([
+        expect.objectContaining({
+          payload_json: expect.objectContaining({
+            message: expect.stringContaining('Mondays'),
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it('edge: should handle recurring_day with missing day_name (fallback to "unknown")', async () => {
+    const recurringAlertNoDayName = {
+      ...baseAlertOpen,
+      alert_type: 'recurring_day' as const,
+      details_json: { count: 3, window_days: 14 },
+    };
+    mockPrisma.attendancePatternAlert.findFirst.mockResolvedValue(recurringAlertNoDayName);
+
+    await service.notifyParentManual(TENANT_ID, ALERT_ID);
+
+    expect(mockNotifications.createBatch).toHaveBeenCalledWith(
+      TENANT_ID,
+      expect.arrayContaining([
+        expect.objectContaining({
+          payload_json: expect.objectContaining({
+            message: expect.stringContaining('unknowns'),
+          }),
+        }),
+      ]),
+    );
+  });
+
+  // ─── buildParentMessage — chronic_tardiness ────────────────────────────
+
+  it('should build correct message for chronic_tardiness alert type', async () => {
+    const tardinessAlert = {
+      ...baseAlertOpen,
+      alert_type: 'chronic_tardiness' as const,
+      details_json: { count: 10, window_days: 30 },
+    };
+    mockPrisma.attendancePatternAlert.findFirst.mockResolvedValue(tardinessAlert);
+
+    await service.notifyParentManual(TENANT_ID, ALERT_ID);
+
+    expect(mockNotifications.createBatch).toHaveBeenCalledWith(
+      TENANT_ID,
+      expect.arrayContaining([
+        expect.objectContaining({
+          payload_json: expect.objectContaining({
+            message: expect.stringContaining('late 10 times'),
+          }),
+        }),
+      ]),
+    );
+  });
+
+  // ─── listAlerts — pagination ───────────────────────────────────────────
+
+  it('should respect custom page and pageSize', async () => {
+    mockPrisma.attendancePatternAlert.findMany.mockResolvedValue([]);
+    mockPrisma.attendancePatternAlert.count.mockResolvedValue(0);
+
+    await service.listAlerts(TENANT_ID, { page: 3, pageSize: 5 });
+
+    expect(mockPrisma.attendancePatternAlert.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 10,
+        take: 5,
+      }),
+    );
+  });
+
+  it('should filter by both status and alert_type when provided', async () => {
+    mockPrisma.attendancePatternAlert.findMany.mockResolvedValue([]);
+    mockPrisma.attendancePatternAlert.count.mockResolvedValue(0);
+
+    await service.listAlerts(TENANT_ID, {
+      status: 'acknowledged',
+      alert_type: 'excessive_absences',
+    });
+
+    expect(mockPrisma.attendancePatternAlert.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: 'acknowledged',
+          alert_type: 'excessive_absences',
+        }),
+      }),
     );
   });
 });

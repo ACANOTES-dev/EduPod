@@ -7,7 +7,9 @@ import { RegulatoryReducedDaysService } from './regulatory-reduced-days.service'
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn({})),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn({})),
   }),
 }));
 
@@ -42,10 +44,7 @@ describe('RegulatoryReducedDaysService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        RegulatoryReducedDaysService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [RegulatoryReducedDaysService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<RegulatoryReducedDaysService>(RegulatoryReducedDaysService);
@@ -63,7 +62,9 @@ describe('RegulatoryReducedDaysService', () => {
       },
     };
     createRlsClient.mockReturnValue({
-      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
     });
 
     const result = await service.create(TENANT_ID, USER_ID, {
@@ -90,7 +91,12 @@ describe('RegulatoryReducedDaysService', () => {
     mockPrisma.reducedSchoolDay.findMany.mockResolvedValue([]);
     mockPrisma.reducedSchoolDay.count.mockResolvedValue(0);
 
-    await service.findAll(TENANT_ID, { page: 1, pageSize: 20, student_id: STUDENT_ID, is_active: true });
+    await service.findAll(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+      student_id: STUDENT_ID,
+      is_active: true,
+    });
 
     expect(mockPrisma.reducedSchoolDay.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -100,7 +106,10 @@ describe('RegulatoryReducedDaysService', () => {
   });
 
   it('should return a single reduced school day', async () => {
-    mockPrisma.reducedSchoolDay.findFirst.mockResolvedValue({ id: RECORD_ID, student_id: STUDENT_ID });
+    mockPrisma.reducedSchoolDay.findFirst.mockResolvedValue({
+      id: RECORD_ID,
+      student_id: STUDENT_ID,
+    });
 
     const result = await service.findOne(TENANT_ID, RECORD_ID);
 
@@ -124,7 +133,9 @@ describe('RegulatoryReducedDaysService', () => {
       },
     };
     createRlsClient.mockReturnValue({
-      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
     });
 
     const result = await service.update(TENANT_ID, RECORD_ID, { is_active: false });
@@ -135,7 +146,9 @@ describe('RegulatoryReducedDaysService', () => {
   it('should throw NotFoundException when updating non-existent record', async () => {
     mockPrisma.reducedSchoolDay.findFirst.mockResolvedValue(null);
 
-    await expect(service.update(TENANT_ID, RECORD_ID, { is_active: false })).rejects.toThrow(NotFoundException);
+    await expect(service.update(TENANT_ID, RECORD_ID, { is_active: false })).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should remove a reduced school day', async () => {
@@ -149,7 +162,9 @@ describe('RegulatoryReducedDaysService', () => {
       },
     };
     createRlsClient.mockReturnValue({
-      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
     });
 
     await service.remove(TENANT_ID, RECORD_ID);
@@ -161,5 +176,370 @@ describe('RegulatoryReducedDaysService', () => {
     mockPrisma.reducedSchoolDay.findFirst.mockResolvedValue(null);
 
     await expect(service.remove(TENANT_ID, RECORD_ID)).rejects.toThrow(NotFoundException);
+  });
+
+  // ─── update — field branches ───────────────────────────────────────────────
+
+  describe('RegulatoryReducedDaysService — update branches', () => {
+    it('should update end_date to a Date when provided', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.reducedSchoolDay.findFirst.mockResolvedValue({ id: RECORD_ID });
+      const mockTx = {
+        reducedSchoolDay: {
+          update: jest.fn().mockResolvedValue({ id: RECORD_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, RECORD_ID, { end_date: '2026-06-30' });
+
+      expect(mockTx.reducedSchoolDay.update).toHaveBeenCalledWith({
+        where: { id: RECORD_ID },
+        data: expect.objectContaining({
+          end_date: expect.any(Date),
+        }),
+      });
+    });
+
+    it('should set end_date to null when null provided', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.reducedSchoolDay.findFirst.mockResolvedValue({ id: RECORD_ID });
+      const mockTx = {
+        reducedSchoolDay: {
+          update: jest.fn().mockResolvedValue({ id: RECORD_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, RECORD_ID, { end_date: null as unknown as string });
+
+      expect(mockTx.reducedSchoolDay.update).toHaveBeenCalledWith({
+        where: { id: RECORD_ID },
+        data: expect.objectContaining({
+          end_date: null,
+        }),
+      });
+    });
+
+    it('should update hours_per_day', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.reducedSchoolDay.findFirst.mockResolvedValue({ id: RECORD_ID });
+      const mockTx = {
+        reducedSchoolDay: {
+          update: jest.fn().mockResolvedValue({ id: RECORD_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, RECORD_ID, { hours_per_day: 4 });
+
+      expect(mockTx.reducedSchoolDay.update).toHaveBeenCalledWith({
+        where: { id: RECORD_ID },
+        data: expect.objectContaining({
+          hours_per_day: 4,
+        }),
+      });
+    });
+
+    it('should update reason_detail', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.reducedSchoolDay.findFirst.mockResolvedValue({ id: RECORD_ID });
+      const mockTx = {
+        reducedSchoolDay: {
+          update: jest.fn().mockResolvedValue({ id: RECORD_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, RECORD_ID, { reason_detail: 'Medical reason' });
+
+      expect(mockTx.reducedSchoolDay.update).toHaveBeenCalledWith({
+        where: { id: RECORD_ID },
+        data: expect.objectContaining({
+          reason_detail: 'Medical reason',
+        }),
+      });
+    });
+
+    it('should set parent_consent_date to Date when provided', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.reducedSchoolDay.findFirst.mockResolvedValue({ id: RECORD_ID });
+      const mockTx = {
+        reducedSchoolDay: {
+          update: jest.fn().mockResolvedValue({ id: RECORD_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, RECORD_ID, { parent_consent_date: '2026-03-15' });
+
+      expect(mockTx.reducedSchoolDay.update).toHaveBeenCalledWith({
+        where: { id: RECORD_ID },
+        data: expect.objectContaining({
+          parent_consent_date: expect.any(Date),
+        }),
+      });
+    });
+
+    it('should set parent_consent_date to null when null provided', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.reducedSchoolDay.findFirst.mockResolvedValue({ id: RECORD_ID });
+      const mockTx = {
+        reducedSchoolDay: {
+          update: jest.fn().mockResolvedValue({ id: RECORD_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, RECORD_ID, {
+        parent_consent_date: null as unknown as string,
+      });
+
+      expect(mockTx.reducedSchoolDay.update).toHaveBeenCalledWith({
+        where: { id: RECORD_ID },
+        data: expect.objectContaining({
+          parent_consent_date: null,
+        }),
+      });
+    });
+
+    it('should set review_date to Date when provided', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.reducedSchoolDay.findFirst.mockResolvedValue({ id: RECORD_ID });
+      const mockTx = {
+        reducedSchoolDay: {
+          update: jest.fn().mockResolvedValue({ id: RECORD_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, RECORD_ID, { review_date: '2026-04-01' });
+
+      expect(mockTx.reducedSchoolDay.update).toHaveBeenCalledWith({
+        where: { id: RECORD_ID },
+        data: expect.objectContaining({
+          review_date: expect.any(Date),
+        }),
+      });
+    });
+
+    it('should set review_date to null when null provided', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.reducedSchoolDay.findFirst.mockResolvedValue({ id: RECORD_ID });
+      const mockTx = {
+        reducedSchoolDay: {
+          update: jest.fn().mockResolvedValue({ id: RECORD_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, RECORD_ID, { review_date: null as unknown as string });
+
+      expect(mockTx.reducedSchoolDay.update).toHaveBeenCalledWith({
+        where: { id: RECORD_ID },
+        data: expect.objectContaining({
+          review_date: null,
+        }),
+      });
+    });
+
+    it('should set tusla_notified and tusla_notified_at when tusla_notified is true', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.reducedSchoolDay.findFirst.mockResolvedValue({ id: RECORD_ID });
+      const mockTx = {
+        reducedSchoolDay: {
+          update: jest.fn().mockResolvedValue({ id: RECORD_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, RECORD_ID, { tusla_notified: true });
+
+      expect(mockTx.reducedSchoolDay.update).toHaveBeenCalledWith({
+        where: { id: RECORD_ID },
+        data: expect.objectContaining({
+          tusla_notified: true,
+          tusla_notified_at: expect.any(Date),
+        }),
+      });
+    });
+
+    it('should set tusla_notified false without tusla_notified_at', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.reducedSchoolDay.findFirst.mockResolvedValue({ id: RECORD_ID });
+      const mockTx = {
+        reducedSchoolDay: {
+          update: jest.fn().mockResolvedValue({ id: RECORD_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, RECORD_ID, { tusla_notified: false });
+
+      const updateCall = mockTx.reducedSchoolDay.update.mock.calls[0][0];
+      expect(updateCall.data.tusla_notified).toBe(false);
+      expect(updateCall.data.tusla_notified_at).toBeUndefined();
+    });
+
+    it('should update notes', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      mockPrisma.reducedSchoolDay.findFirst.mockResolvedValue({ id: RECORD_ID });
+      const mockTx = {
+        reducedSchoolDay: {
+          update: jest.fn().mockResolvedValue({ id: RECORD_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.update(TENANT_ID, RECORD_ID, { notes: 'Updated notes' });
+
+      expect(mockTx.reducedSchoolDay.update).toHaveBeenCalledWith({
+        where: { id: RECORD_ID },
+        data: expect.objectContaining({
+          notes: 'Updated notes',
+        }),
+      });
+    });
+  });
+
+  // ─── create — branch coverage ──────────────────────────────────────────────
+
+  describe('RegulatoryReducedDaysService — create branches', () => {
+    it('should create with optional fields as null when not provided', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      const mockTx = {
+        reducedSchoolDay: {
+          create: jest.fn().mockResolvedValue({ id: RECORD_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.create(TENANT_ID, USER_ID, {
+        student_id: STUDENT_ID,
+        start_date: '2026-01-15',
+        hours_per_day: 3.5,
+        reason: 'medical_needs',
+      });
+
+      expect(mockTx.reducedSchoolDay.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          reason_detail: null,
+          parent_consent_date: null,
+          review_date: null,
+          notes: null,
+          end_date: null,
+        }),
+      });
+    });
+
+    it('should create with all optional fields', async () => {
+      const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
+      const mockTx = {
+        reducedSchoolDay: {
+          create: jest.fn().mockResolvedValue({ id: RECORD_ID }),
+        },
+      };
+      createRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.create(TENANT_ID, USER_ID, {
+        student_id: STUDENT_ID,
+        start_date: '2026-01-15',
+        end_date: '2026-06-30',
+        hours_per_day: 3.5,
+        reason: 'phased_return',
+        reason_detail: 'Returning from illness',
+        parent_consent_date: '2026-01-14',
+        review_date: '2026-03-15',
+        notes: 'Review in March',
+      });
+
+      expect(mockTx.reducedSchoolDay.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          end_date: expect.any(Date),
+          reason_detail: 'Returning from illness',
+          parent_consent_date: expect.any(Date),
+          review_date: expect.any(Date),
+          notes: 'Review in March',
+        }),
+      });
+    });
   });
 });

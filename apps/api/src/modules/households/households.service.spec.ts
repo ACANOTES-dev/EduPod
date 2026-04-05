@@ -250,6 +250,30 @@ describe('HouseholdsService — create', () => {
     );
   });
 
+  it('should create household with no emergency contacts and needs_completion true', async () => {
+    mockRlsTx.household.update.mockReset().mockResolvedValue({
+      ...baseHousehold,
+      needs_completion: true,
+      emergency_contacts: [],
+      household_parents: [],
+      billing_parent: null,
+    });
+
+    await service.create(TENANT_ID, {
+      household_name: 'Empty Family',
+      emergency_contacts: [],
+    });
+
+    // needs_completion should be true (no contacts AND no billing parent)
+    expect(mockRlsTx.household.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ needs_completion: true }),
+      }),
+    );
+    // No emergency contacts should be created
+    expect(mockRlsTx.householdEmergencyContact.create).not.toHaveBeenCalled();
+  });
+
   it('should create multiple emergency contacts', async () => {
     const dtoMultiContacts = {
       household_name: 'Doe Family',
@@ -564,6 +588,52 @@ describe('HouseholdsService — update', () => {
     await expect(
       service.update(TENANT_ID, HOUSEHOLD_ID, { household_name: 'Updated Family' }),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should include all address fields in update data when all provided', async () => {
+    mockRlsTx.household.update.mockReset().mockResolvedValue({
+      ...baseHousehold,
+      household_name: 'Updated Family',
+      address_line_1: '10 Main St',
+      address_line_2: 'Suite B',
+      city: 'Cork',
+      country: 'IE',
+      postal_code: 'T12 AB34',
+    });
+
+    await service.update(TENANT_ID, HOUSEHOLD_ID, {
+      household_name: 'Updated Family',
+      address_line1: '10 Main St',
+      address_line2: 'Suite B',
+      city: 'Cork',
+      country: 'IE',
+      postal_code: 'T12 AB34',
+    });
+
+    expect(mockRlsTx.household.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          household_name: 'Updated Family',
+          address_line_1: '10 Main St',
+          address_line_2: 'Suite B',
+          city: 'Cork',
+          country: 'IE',
+          postal_code: 'T12 AB34',
+        },
+      }),
+    );
+  });
+
+  it('should handle update with empty dto (no fields changed)', async () => {
+    mockRlsTx.household.update.mockReset().mockResolvedValue(baseHousehold);
+
+    await service.update(TENANT_ID, HOUSEHOLD_ID, {});
+
+    expect(mockRlsTx.household.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {},
+      }),
+    );
   });
 
   it('should only include provided fields in update data', async () => {
@@ -972,6 +1042,18 @@ describe('HouseholdsService — linkParent', () => {
     const result = await service.linkParent(TENANT_ID, HOUSEHOLD_ID, PARENT_ID);
 
     expect(result).toEqual(existingLink);
+  });
+
+  it('should rethrow non-P2002 errors in linkParent', async () => {
+    mockRlsTx.household.findFirst.mockResolvedValue(baseHousehold);
+    mockRlsTx.parent.findFirst.mockResolvedValue({ id: PARENT_ID, tenant_id: TENANT_ID });
+
+    const genericError = new Error('Connection lost');
+    mockRlsTx.householdParent.create.mockRejectedValue(genericError);
+
+    await expect(service.linkParent(TENANT_ID, HOUSEHOLD_ID, PARENT_ID)).rejects.toThrow(
+      'Connection lost',
+    );
   });
 
   it('should set role_label to null when not provided', async () => {
@@ -1523,6 +1605,79 @@ describe('HouseholdsService — split', () => {
     expect(mockRedis._client.del).toHaveBeenCalledWith(`preview:household:${SOURCE_ID}`);
 
     expect(result).toBeDefined();
+  });
+
+  it('should silently skip P2002 duplicate when linking parent during split', async () => {
+    const sourceHH = { ...baseHousehold, id: SOURCE_ID, status: 'active' };
+    const newHH = {
+      ...baseHousehold,
+      id: NEW_HOUSEHOLD_ID,
+      household_name: 'New Family',
+      status: 'active',
+      needs_completion: true,
+    };
+
+    mockRlsTx.household.findFirst
+      .mockResolvedValueOnce(sourceHH)
+      .mockResolvedValueOnce({
+        ...newHH,
+        primary_billing_parent_id: null,
+        _count: { emergency_contacts: 1 },
+      })
+      .mockResolvedValueOnce({
+        ...newHH,
+        emergency_contacts: [],
+        household_parents: [],
+        students: [],
+      });
+    mockRlsTx.household.create.mockResolvedValue(newHH);
+    mockRlsTx.householdEmergencyContact.create.mockResolvedValue({});
+    mockRlsTx.household.update.mockResolvedValue({ ...newHH, needs_completion: true });
+
+    // Simulate P2002 unique constraint violation when linking parent
+    const p2002Error = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+      code: 'P2002',
+      clientVersion: '6.0.0',
+    });
+    mockRlsTx.householdParent.create.mockRejectedValue(p2002Error);
+
+    // Should not throw — P2002 is silently caught during split
+    const result = await service.split(TENANT_ID, {
+      source_household_id: SOURCE_ID,
+      new_household_name: 'New Family',
+      student_ids: [],
+      parent_ids: [PARENT_ID],
+      emergency_contacts: [{ contact_name: 'Jane', phone: '+1-555-0001', display_order: 1 }],
+    });
+
+    expect(result).toBeDefined();
+  });
+
+  it('should rethrow non-P2002 errors when linking parent during split', async () => {
+    const sourceHH = { ...baseHousehold, id: SOURCE_ID, status: 'active' };
+    const newHH = {
+      ...baseHousehold,
+      id: NEW_HOUSEHOLD_ID,
+      household_name: 'New Family',
+      status: 'active',
+    };
+
+    mockRlsTx.household.findFirst.mockResolvedValueOnce(sourceHH);
+    mockRlsTx.household.create.mockResolvedValue(newHH);
+    mockRlsTx.householdEmergencyContact.create.mockResolvedValue({});
+
+    const genericError = new Error('Some other database error');
+    mockRlsTx.householdParent.create.mockRejectedValue(genericError);
+
+    await expect(
+      service.split(TENANT_ID, {
+        source_household_id: SOURCE_ID,
+        new_household_name: 'New Family',
+        student_ids: [],
+        parent_ids: [PARENT_ID],
+        emergency_contacts: [{ contact_name: 'Jane', phone: '+1-555-0001', display_order: 1 }],
+      }),
+    ).rejects.toThrow('Some other database error');
   });
 
   it('should not move students when student_ids is empty', async () => {

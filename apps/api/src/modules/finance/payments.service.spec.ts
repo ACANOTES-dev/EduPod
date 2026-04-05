@@ -262,17 +262,24 @@ describe('PaymentsService', () => {
       // Pre-transaction: payment is posted
       mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted' }));
       // Inside transaction: SELECT FOR UPDATE on payment
-      mockPrisma.$queryRawUnsafe.mockImplementation(
-        async (sql: string, ..._args: unknown[]) => {
-          if (sql.includes('FROM public.payments')) {
-            return [{ id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID }];
-          }
-          if (sql.includes('FROM public.invoices')) {
-            return [{ id: INVOICE_ID, balance_amount: '300.00', household_id: HOUSEHOLD_ID, invoice_number: 'INV-001' }];
-          }
-          return [];
-        },
-      );
+      mockPrisma.$queryRawUnsafe.mockImplementation(async (sql: string, ..._args: unknown[]) => {
+        if (sql.includes('FROM public.payments')) {
+          return [
+            { id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID },
+          ];
+        }
+        if (sql.includes('FROM public.invoices')) {
+          return [
+            {
+              id: INVOICE_ID,
+              balance_amount: '300.00',
+              household_id: HOUSEHOLD_ID,
+              invoice_number: 'INV-001',
+            },
+          ];
+        }
+        return [];
+      });
       // No existing allocations
       mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
       mockPrisma.paymentAllocation.create.mockResolvedValue({});
@@ -283,7 +290,19 @@ describe('PaymentsService', () => {
       // findOne after commit — return full payment
       mockPrisma.payment.findFirst.mockResolvedValue(
         makePayment({
-          allocations: [{ id: 'alloc-1', allocated_amount: '300.00', invoice: { id: INVOICE_ID, invoice_number: 'INV-001', total_amount: '300.00', balance_amount: '0.00', status: 'paid' } }],
+          allocations: [
+            {
+              id: 'alloc-1',
+              allocated_amount: '300.00',
+              invoice: {
+                id: INVOICE_ID,
+                invoice_number: 'INV-001',
+                total_amount: '300.00',
+                balance_amount: '0.00',
+                status: 'paid',
+              },
+            },
+          ],
         }),
       );
 
@@ -311,17 +330,24 @@ describe('PaymentsService', () => {
     it('should throw when invoice belongs to a different household', async () => {
       const OTHER_HOUSEHOLD_ID = 'hh-uuid-9999';
       mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted' }));
-      mockPrisma.$queryRawUnsafe.mockImplementation(
-        async (sql: string, ..._args: unknown[]) => {
-          if (sql.includes('FROM public.payments')) {
-            return [{ id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID }];
-          }
-          if (sql.includes('FROM public.invoices')) {
-            return [{ id: INVOICE_ID, balance_amount: '300.00', household_id: OTHER_HOUSEHOLD_ID, invoice_number: 'INV-001' }];
-          }
-          return [];
-        },
-      );
+      mockPrisma.$queryRawUnsafe.mockImplementation(async (sql: string, ..._args: unknown[]) => {
+        if (sql.includes('FROM public.payments')) {
+          return [
+            { id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID },
+          ];
+        }
+        if (sql.includes('FROM public.invoices')) {
+          return [
+            {
+              id: INVOICE_ID,
+              balance_amount: '300.00',
+              household_id: OTHER_HOUSEHOLD_ID,
+              invoice_number: 'INV-001',
+            },
+          ];
+        }
+        return [];
+      });
       mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
 
       await expect(
@@ -332,18 +358,27 @@ describe('PaymentsService', () => {
     });
 
     it('should throw when allocation exceeds invoice balance', async () => {
-      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted', amount: '500.00' }));
-      mockPrisma.$queryRawUnsafe.mockImplementation(
-        async (sql: string, ..._args: unknown[]) => {
-          if (sql.includes('FROM public.payments')) {
-            return [{ id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID }];
-          }
-          if (sql.includes('FROM public.invoices')) {
-            return [{ id: INVOICE_ID, balance_amount: '100.00', household_id: HOUSEHOLD_ID, invoice_number: 'INV-001' }];
-          }
-          return [];
-        },
+      mockPrisma.payment.findFirst.mockResolvedValue(
+        makePayment({ status: 'posted', amount: '500.00' }),
       );
+      mockPrisma.$queryRawUnsafe.mockImplementation(async (sql: string, ..._args: unknown[]) => {
+        if (sql.includes('FROM public.payments')) {
+          return [
+            { id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID },
+          ];
+        }
+        if (sql.includes('FROM public.invoices')) {
+          return [
+            {
+              id: INVOICE_ID,
+              balance_amount: '100.00',
+              household_id: HOUSEHOLD_ID,
+              invoice_number: 'INV-001',
+            },
+          ];
+        }
+        return [];
+      });
       mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
 
       await expect(
@@ -354,18 +389,27 @@ describe('PaymentsService', () => {
     });
 
     it('should throw when total allocations exceed remaining payment amount', async () => {
-      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted', amount: '500.00' }));
-      mockPrisma.$queryRawUnsafe.mockImplementation(
-        async (sql: string, ..._args: unknown[]) => {
-          if (sql.includes('FROM public.payments')) {
-            return [{ id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID }];
-          }
-          if (sql.includes('FROM public.invoices')) {
-            return [{ id: INVOICE_ID, balance_amount: '1000.00', household_id: HOUSEHOLD_ID, invoice_number: 'INV-001' }];
-          }
-          return [];
-        },
+      mockPrisma.payment.findFirst.mockResolvedValue(
+        makePayment({ status: 'posted', amount: '500.00' }),
       );
+      mockPrisma.$queryRawUnsafe.mockImplementation(async (sql: string, ..._args: unknown[]) => {
+        if (sql.includes('FROM public.payments')) {
+          return [
+            { id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID },
+          ];
+        }
+        if (sql.includes('FROM public.invoices')) {
+          return [
+            {
+              id: INVOICE_ID,
+              balance_amount: '1000.00',
+              household_id: HOUSEHOLD_ID,
+              invoice_number: 'INV-001',
+            },
+          ];
+        }
+        return [];
+      });
       // Already allocated 400 of 500
       mockPrisma.paymentAllocation.findMany.mockResolvedValue([{ allocated_amount: '400.00' }]);
 
@@ -378,20 +422,38 @@ describe('PaymentsService', () => {
 
     it('should allocate payment across multiple invoices with partial amounts', async () => {
       const INVOICE_ID_2 = 'inv-uuid-2222';
-      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted', amount: '500.00' }));
+      mockPrisma.payment.findFirst.mockResolvedValue(
+        makePayment({ status: 'posted', amount: '500.00' }),
+      );
 
       let invoiceCallCount = 0;
       mockPrisma.$queryRawUnsafe.mockImplementation(
         async (sql: string, id: string, ..._args: unknown[]) => {
           if (sql.includes('FROM public.payments')) {
-            return [{ id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID }];
+            return [
+              { id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID },
+            ];
           }
           if (sql.includes('FROM public.invoices')) {
             invoiceCallCount++;
             if (id === INVOICE_ID || invoiceCallCount === 1) {
-              return [{ id: INVOICE_ID, balance_amount: '300.00', household_id: HOUSEHOLD_ID, invoice_number: 'INV-001' }];
+              return [
+                {
+                  id: INVOICE_ID,
+                  balance_amount: '300.00',
+                  household_id: HOUSEHOLD_ID,
+                  invoice_number: 'INV-001',
+                },
+              ];
             }
-            return [{ id: INVOICE_ID_2, balance_amount: '400.00', household_id: HOUSEHOLD_ID, invoice_number: 'INV-002' }];
+            return [
+              {
+                id: INVOICE_ID_2,
+                balance_amount: '400.00',
+                household_id: HOUSEHOLD_ID,
+                invoice_number: 'INV-002',
+              },
+            ];
           }
           return [];
         },
@@ -405,8 +467,28 @@ describe('PaymentsService', () => {
       mockPrisma.payment.findFirst.mockResolvedValue(
         makePayment({
           allocations: [
-            { id: 'alloc-1', allocated_amount: '300.00', invoice: { id: INVOICE_ID, invoice_number: 'INV-001', total_amount: '300.00', balance_amount: '0.00', status: 'paid' } },
-            { id: 'alloc-2', allocated_amount: '200.00', invoice: { id: INVOICE_ID_2, invoice_number: 'INV-002', total_amount: '400.00', balance_amount: '200.00', status: 'partially_paid' } },
+            {
+              id: 'alloc-1',
+              allocated_amount: '300.00',
+              invoice: {
+                id: INVOICE_ID,
+                invoice_number: 'INV-001',
+                total_amount: '300.00',
+                balance_amount: '0.00',
+                status: 'paid',
+              },
+            },
+            {
+              id: 'alloc-2',
+              allocated_amount: '200.00',
+              invoice: {
+                id: INVOICE_ID_2,
+                invoice_number: 'INV-002',
+                total_amount: '400.00',
+                balance_amount: '200.00',
+                status: 'partially_paid',
+              },
+            },
           ],
         }),
       );
@@ -425,24 +507,33 @@ describe('PaymentsService', () => {
 
     it('should skip receipt generation when a receipt already exists', async () => {
       mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted' }));
-      mockPrisma.$queryRawUnsafe.mockImplementation(
-        async (sql: string, ..._args: unknown[]) => {
-          if (sql.includes('FROM public.payments')) {
-            return [{ id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID }];
-          }
-          if (sql.includes('FROM public.invoices')) {
-            return [{ id: INVOICE_ID, balance_amount: '500.00', household_id: HOUSEHOLD_ID, invoice_number: 'INV-001' }];
-          }
-          return [];
-        },
-      );
+      mockPrisma.$queryRawUnsafe.mockImplementation(async (sql: string, ..._args: unknown[]) => {
+        if (sql.includes('FROM public.payments')) {
+          return [
+            { id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID },
+          ];
+        }
+        if (sql.includes('FROM public.invoices')) {
+          return [
+            {
+              id: INVOICE_ID,
+              balance_amount: '500.00',
+              household_id: HOUSEHOLD_ID,
+              invoice_number: 'INV-001',
+            },
+          ];
+        }
+        return [];
+      });
       mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
       mockPrisma.paymentAllocation.create.mockResolvedValue({});
       mockInvoicesService.recalculateBalance.mockResolvedValue(undefined);
       // Receipt already exists
       mockPrisma.receipt.findFirst.mockResolvedValue({ id: 'rec-1', receipt_number: 'REC-001' });
       // findOne re-read
-      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ receipt: { id: 'rec-1', receipt_number: 'REC-001' } }));
+      mockPrisma.payment.findFirst.mockResolvedValue(
+        makePayment({ receipt: { id: 'rec-1', receipt_number: 'REC-001' } }),
+      );
 
       await service.confirmAllocations(TENANT_ID, PAYMENT_ID, USER_ID, {
         allocations: [{ invoice_id: INVOICE_ID, amount: 100 }],
@@ -455,14 +546,19 @@ describe('PaymentsService', () => {
       // Pre-transaction: payment appears posted
       mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted' }));
       // Inside transaction: SELECT FOR UPDATE reveals status changed
-      mockPrisma.$queryRawUnsafe.mockImplementation(
-        async (sql: string, ..._args: unknown[]) => {
-          if (sql.includes('FROM public.payments')) {
-            return [{ id: PAYMENT_ID, amount: '500.00', status: 'refunded_full', household_id: HOUSEHOLD_ID }];
-          }
-          return [];
-        },
-      );
+      mockPrisma.$queryRawUnsafe.mockImplementation(async (sql: string, ..._args: unknown[]) => {
+        if (sql.includes('FROM public.payments')) {
+          return [
+            {
+              id: PAYMENT_ID,
+              amount: '500.00',
+              status: 'refunded_full',
+              household_id: HOUSEHOLD_ID,
+            },
+          ];
+        }
+        return [];
+      });
       mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
 
       await expect(
@@ -474,17 +570,17 @@ describe('PaymentsService', () => {
 
     it('should throw when allocating to a non-existent invoice', async () => {
       mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted' }));
-      mockPrisma.$queryRawUnsafe.mockImplementation(
-        async (sql: string, ..._args: unknown[]) => {
-          if (sql.includes('FROM public.payments')) {
-            return [{ id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID }];
-          }
-          if (sql.includes('FROM public.invoices')) {
-            return []; // invoice not found
-          }
-          return [];
-        },
-      );
+      mockPrisma.$queryRawUnsafe.mockImplementation(async (sql: string, ..._args: unknown[]) => {
+        if (sql.includes('FROM public.payments')) {
+          return [
+            { id: PAYMENT_ID, amount: '500.00', status: 'posted', household_id: HOUSEHOLD_ID },
+          ];
+        }
+        if (sql.includes('FROM public.invoices')) {
+          return []; // invoice not found
+        }
+        return [];
+      });
       mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
 
       await expect(
@@ -495,18 +591,27 @@ describe('PaymentsService', () => {
     });
 
     it('should handle exact boundary allocation where amount equals remaining balance', async () => {
-      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ status: 'posted', amount: '250.75' }));
-      mockPrisma.$queryRawUnsafe.mockImplementation(
-        async (sql: string, ..._args: unknown[]) => {
-          if (sql.includes('FROM public.payments')) {
-            return [{ id: PAYMENT_ID, amount: '250.75', status: 'posted', household_id: HOUSEHOLD_ID }];
-          }
-          if (sql.includes('FROM public.invoices')) {
-            return [{ id: INVOICE_ID, balance_amount: '250.75', household_id: HOUSEHOLD_ID, invoice_number: 'INV-001' }];
-          }
-          return [];
-        },
+      mockPrisma.payment.findFirst.mockResolvedValue(
+        makePayment({ status: 'posted', amount: '250.75' }),
       );
+      mockPrisma.$queryRawUnsafe.mockImplementation(async (sql: string, ..._args: unknown[]) => {
+        if (sql.includes('FROM public.payments')) {
+          return [
+            { id: PAYMENT_ID, amount: '250.75', status: 'posted', household_id: HOUSEHOLD_ID },
+          ];
+        }
+        if (sql.includes('FROM public.invoices')) {
+          return [
+            {
+              id: INVOICE_ID,
+              balance_amount: '250.75',
+              household_id: HOUSEHOLD_ID,
+              invoice_number: 'INV-001',
+            },
+          ];
+        }
+        return [];
+      });
       mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
       mockPrisma.paymentAllocation.create.mockResolvedValue({});
       mockInvoicesService.recalculateBalance.mockResolvedValue(undefined);
@@ -516,7 +621,19 @@ describe('PaymentsService', () => {
       mockPrisma.payment.findFirst.mockResolvedValue(
         makePayment({
           amount: '250.75',
-          allocations: [{ id: 'alloc-1', allocated_amount: '250.75', invoice: { id: INVOICE_ID, invoice_number: 'INV-001', total_amount: '250.75', balance_amount: '0.00', status: 'paid' } }],
+          allocations: [
+            {
+              id: 'alloc-1',
+              allocated_amount: '250.75',
+              invoice: {
+                id: INVOICE_ID,
+                invoice_number: 'INV-001',
+                total_amount: '250.75',
+                balance_amount: '0.00',
+                status: 'paid',
+              },
+            },
+          ],
         }),
       );
 
@@ -545,6 +662,196 @@ describe('PaymentsService', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0]?.name).toBe('John Doe');
+    });
+
+    it('should filter out null posted_by entries', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([
+        { posted_by: null },
+        { posted_by: { id: USER_ID, first_name: 'John', last_name: 'Doe' } },
+      ]);
+
+      const result = await service.getAcceptingStaff(TENANT_ID);
+
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  // ─── Additional branch coverage ─────────────────────────────────────────────
+
+  describe('findAll — filter branches', () => {
+    beforeEach(() => {
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.count.mockResolvedValue(0);
+    });
+
+    it('should filter by status', async () => {
+      await service.findAll(TENANT_ID, { page: 1, pageSize: 20, status: 'posted' });
+
+      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: 'posted' }),
+        }),
+      );
+    });
+
+    it('should filter by payment_method', async () => {
+      await service.findAll(TENANT_ID, { page: 1, pageSize: 20, payment_method: 'cash' });
+
+      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ payment_method: 'cash' }),
+        }),
+      );
+    });
+
+    it('should filter by search (payment_reference)', async () => {
+      await service.findAll(TENANT_ID, { page: 1, pageSize: 20, search: 'PAY-2026' });
+
+      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            payment_reference: { contains: 'PAY-2026', mode: 'insensitive' },
+          }),
+        }),
+      );
+    });
+
+    it('should filter by accepted_by_user_id', async () => {
+      await service.findAll(TENANT_ID, { page: 1, pageSize: 20, accepted_by_user_id: USER_ID });
+
+      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ posted_by_user_id: USER_ID }),
+        }),
+      );
+    });
+
+    it('should filter by date_from only', async () => {
+      await service.findAll(TENANT_ID, { page: 1, pageSize: 20, date_from: '2026-01-01' });
+
+      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            received_at: { gte: expect.any(Date) },
+          }),
+        }),
+      );
+    });
+
+    it('should filter by date_to only', async () => {
+      await service.findAll(TENANT_ID, { page: 1, pageSize: 20, date_to: '2026-12-31' });
+
+      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            received_at: { lte: expect.any(Date) },
+          }),
+        }),
+      );
+    });
+
+    it('should filter by date range', async () => {
+      await service.findAll(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        date_from: '2026-01-01',
+        date_to: '2026-12-31',
+      });
+
+      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            received_at: { gte: expect.any(Date), lte: expect.any(Date) },
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('createManual — tenant not found', () => {
+    it('should throw NotFoundException when tenant not found', async () => {
+      const mockTenantFacade = {
+        findById: jest.fn().mockResolvedValue(null),
+      };
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          ...MOCK_FACADE_PROVIDERS,
+          PaymentsService,
+          { provide: PrismaService, useValue: mockPrisma },
+          { provide: InvoicesService, useValue: mockInvoicesService },
+          { provide: ReceiptsService, useValue: mockReceiptsService },
+          { provide: SequenceService, useValue: mockSequenceService },
+          {
+            provide: HouseholdReadFacade,
+            useValue: { existsOrThrow: jest.fn().mockResolvedValue(undefined) },
+          },
+          { provide: TenantReadFacade, useValue: mockTenantFacade },
+        ],
+      }).compile();
+
+      const svc = module.get<PaymentsService>(PaymentsService);
+
+      await expect(
+        svc.createManual(TENANT_ID, USER_ID, {
+          household_id: HOUSEHOLD_ID,
+          payment_method: 'cash',
+          amount: 500,
+          received_at: '2026-03-24',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('suggestAllocations — edge cases', () => {
+    it('should handle when payment fully covers first invoice and partially covers second', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ amount: '1000.00' }));
+      mockPrisma.paymentAllocation.findMany.mockResolvedValue([]);
+      mockPrisma.invoice.findMany.mockResolvedValue([
+        {
+          id: 'inv-1',
+          invoice_number: 'INV-001',
+          balance_amount: '400.00',
+          due_date: new Date('2026-01-01'),
+        },
+        {
+          id: 'inv-2',
+          invoice_number: 'INV-002',
+          balance_amount: '400.00',
+          due_date: new Date('2026-02-01'),
+        },
+        {
+          id: 'inv-3',
+          invoice_number: 'INV-003',
+          balance_amount: '400.00',
+          due_date: new Date('2026-03-01'),
+        },
+      ]);
+
+      const result = await service.suggestAllocations(TENANT_ID, PAYMENT_ID);
+
+      expect(result).toHaveLength(3);
+      expect(result[0]?.suggested_amount).toBe(400);
+      expect(result[1]?.suggested_amount).toBe(400);
+      expect(result[2]?.suggested_amount).toBe(200);
+    });
+
+    it('should handle partial allocations already existing', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue(makePayment({ amount: '500.00' }));
+      mockPrisma.paymentAllocation.findMany.mockResolvedValue([{ allocated_amount: '200.00' }]);
+      mockPrisma.invoice.findMany.mockResolvedValue([
+        {
+          id: 'inv-1',
+          invoice_number: 'INV-001',
+          balance_amount: '500.00',
+          due_date: new Date('2026-01-01'),
+        },
+      ]);
+
+      const result = await service.suggestAllocations(TENANT_ID, PAYMENT_ID);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.suggested_amount).toBe(300); // 500 - 200
     });
   });
 });

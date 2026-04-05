@@ -242,4 +242,79 @@ describe('SchedulesController', () => {
 
     expect(mockPermissionCache.getPermissions).not.toHaveBeenCalled();
   });
+
+  describe('update', () => {
+    it('should return schedule directly when no conflicts on update', async () => {
+      mockService.update.mockResolvedValue({
+        schedule: { id: SCHEDULE_ID },
+        conflicts: [],
+      });
+
+      const result = await controller.update(mockTenant, mockUser, SCHEDULE_ID, {
+        weekday: 2,
+      });
+
+      expect(result).toEqual({ id: SCHEDULE_ID });
+      expect(mockPermissionCache.getPermissions).toHaveBeenCalledWith(MEMBERSHIP_ID);
+    });
+
+    it('should return schedule with conflict meta when conflicts exist on update', async () => {
+      const conflicts = [{ type: 'soft', message: 'Shared room' }];
+      mockService.update.mockResolvedValue({
+        schedule: { id: SCHEDULE_ID },
+        conflicts,
+      });
+
+      const result = await controller.update(mockTenant, mockUser, SCHEDULE_ID, {
+        weekday: 2,
+      });
+
+      expect(result).toEqual({
+        data: { id: SCHEDULE_ID },
+        meta: { conflicts },
+      });
+    });
+
+    it('should pass empty permissions when membership_id is missing on update', async () => {
+      const userNoMembership = { ...mockUser, membership_id: undefined } as unknown as JwtPayload;
+      mockService.update.mockResolvedValue({
+        schedule: { id: SCHEDULE_ID },
+        conflicts: [],
+      });
+
+      await controller.update(mockTenant, userNoMembership, SCHEDULE_ID, {
+        weekday: 2,
+      });
+
+      expect(mockPermissionCache.getPermissions).not.toHaveBeenCalled();
+      expect(mockService.update).toHaveBeenCalledWith(
+        TENANT_ID,
+        SCHEDULE_ID,
+        USER_ID,
+        { weekday: 2 },
+        [],
+      );
+    });
+  });
+
+  describe('bulkPin', () => {
+    it('should call service bulkPin and return result', async () => {
+      const expected = {
+        data: [{ id: SCHEDULE_ID }],
+        meta: { pinned: 1 },
+      };
+      mockService.bulkPin.mockResolvedValue(expected);
+
+      const result = await controller.bulkPin(mockTenant, {
+        schedule_ids: [SCHEDULE_ID],
+        pin_reason: 'Test',
+      });
+
+      expect(result).toEqual(expected);
+      expect(mockService.bulkPin).toHaveBeenCalledWith(TENANT_ID, {
+        schedule_ids: [SCHEDULE_ID],
+        pin_reason: 'Test',
+      });
+    });
+  });
 });

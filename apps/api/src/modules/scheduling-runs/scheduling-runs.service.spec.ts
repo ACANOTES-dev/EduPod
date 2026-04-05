@@ -1,9 +1,5 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 const mockTx = {
@@ -17,9 +13,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(
-        async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
@@ -165,9 +159,9 @@ describe('SchedulingRunsService', () => {
         status: 'running',
       });
 
-      await expect(
-        service.create(TENANT_ID, USER_ID, { academic_year_id: AY_ID }),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.create(TENANT_ID, USER_ID, { academic_year_id: AY_ID })).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw BadRequestException when prerequisites are not met', async () => {
@@ -178,9 +172,9 @@ describe('SchedulingRunsService', () => {
         checks: [{ key: 'period_grid_exists', passed: false, message: 'No grid' }],
       });
 
-      await expect(
-        service.create(TENANT_ID, USER_ID, { academic_year_id: AY_ID }),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.create(TENANT_ID, USER_ID, { academic_year_id: AY_ID })).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -210,9 +204,7 @@ describe('SchedulingRunsService', () => {
     it('should throw NotFoundException when run does not exist', async () => {
       mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.findById(TENANT_ID, 'nonexistent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findById(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -261,9 +253,9 @@ describe('SchedulingRunsService', () => {
     it('should throw NotFoundException when run does not exist', async () => {
       mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getProgress(TENANT_ID, 'nonexistent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getProgress(TENANT_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -299,17 +291,13 @@ describe('SchedulingRunsService', () => {
         status: 'completed',
       });
 
-      await expect(
-        service.cancel(TENANT_ID, RUN_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.cancel(TENANT_ID, RUN_ID)).rejects.toThrow(BadRequestException);
     });
 
     it('should throw NotFoundException when run does not exist', async () => {
       mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.cancel(TENANT_ID, 'nonexistent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.cancel(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -477,9 +465,354 @@ describe('SchedulingRunsService', () => {
     it('should throw NotFoundException when run does not exist', async () => {
       mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
 
+      await expect(service.assertExists(TENANT_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ─── create — solver_seed branch ────────────────────────────────────────────
+
+  describe('create — solver_seed', () => {
+    it('should pass solver_seed as BigInt when provided', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: AY_ID });
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
+      mockPrisma.schedule.count.mockResolvedValue(0);
+
+      const createdRun = {
+        id: RUN_ID,
+        mode: 'auto',
+        status: 'queued',
+        solver_seed: BigInt(12345),
+        soft_preference_score: null,
+        soft_preference_max: null,
+        created_at: NOW,
+        updated_at: NOW,
+        applied_at: null,
+      };
+      mockTx.schedulingRun.create.mockResolvedValue(createdRun);
+
+      const result = await service.create(TENANT_ID, USER_ID, {
+        academic_year_id: AY_ID,
+        solver_seed: 12345,
+      });
+
+      expect(result['solver_seed']).toBe(12345);
+      expect(mockTx.schedulingRun.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            solver_seed: BigInt(12345),
+          }),
+        }),
+      );
+    });
+
+    it('should pass null solver_seed when not provided', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: AY_ID });
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
+      mockPrisma.schedule.count.mockResolvedValue(0);
+
+      const createdRun = {
+        id: RUN_ID,
+        mode: 'auto',
+        status: 'queued',
+        solver_seed: null,
+        soft_preference_score: null,
+        soft_preference_max: null,
+        created_at: NOW,
+        updated_at: NOW,
+        applied_at: null,
+      };
+      mockTx.schedulingRun.create.mockResolvedValue(createdRun);
+
+      await service.create(TENANT_ID, USER_ID, {
+        academic_year_id: AY_ID,
+      });
+
+      expect(mockTx.schedulingRun.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ solver_seed: null }),
+        }),
+      );
+    });
+  });
+
+  // ─── getProgress — all phase branches ──────────────────────────────────────
+
+  describe('getProgress — phases', () => {
+    it('should return phase "preparing" for queued runs', async () => {
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+        id: RUN_ID,
+        status: 'queued',
+        entries_generated: null,
+        entries_pinned: null,
+        entries_unassigned: null,
+        solver_duration_ms: null,
+        failure_reason: null,
+        updated_at: NOW,
+      });
+
+      const result = await service.getProgress(TENANT_ID, RUN_ID);
+
+      expect(result.phase).toBe('preparing');
+      expect(result.entries_assigned).toBe(0);
+      expect(result.elapsed_ms).toBe(0);
+    });
+
+    it('should return phase "complete" for applied runs', async () => {
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+        id: RUN_ID,
+        status: 'applied',
+        entries_generated: 50,
+        entries_pinned: 5,
+        entries_unassigned: 0,
+        solver_duration_ms: 4000,
+        failure_reason: null,
+        updated_at: NOW,
+      });
+
+      const result = await service.getProgress(TENANT_ID, RUN_ID);
+
+      expect(result.phase).toBe('complete');
+      expect(result.entries_assigned).toBe(50);
+    });
+
+    it('should return phase "failed" for failed runs', async () => {
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+        id: RUN_ID,
+        status: 'failed',
+        entries_generated: 10,
+        entries_pinned: 0,
+        entries_unassigned: 5,
+        solver_duration_ms: 1000,
+        failure_reason: 'Solver timeout',
+        updated_at: NOW,
+      });
+
+      const result = await service.getProgress(TENANT_ID, RUN_ID);
+
+      expect(result.phase).toBe('failed');
+      expect(result.failure_reason).toBe('Solver timeout');
+    });
+
+    it('should return phase "failed" for discarded runs', async () => {
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+        id: RUN_ID,
+        status: 'discarded',
+        entries_generated: 50,
+        entries_pinned: 0,
+        entries_unassigned: 0,
+        solver_duration_ms: 3000,
+        failure_reason: null,
+        updated_at: NOW,
+      });
+
+      const result = await service.getProgress(TENANT_ID, RUN_ID);
+
+      expect(result.phase).toBe('failed');
+    });
+  });
+
+  // ─── cancel — running status ──────────────────────────────────────────────
+
+  describe('cancel — running status', () => {
+    it('should cancel a running run', async () => {
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+        id: RUN_ID,
+        status: 'running',
+      });
+      mockTx.schedulingRun.update.mockResolvedValue({
+        id: RUN_ID,
+        status: 'failed',
+        failure_reason: 'Cancelled by user',
+        solver_seed: null,
+        soft_preference_score: null,
+        soft_preference_max: null,
+        created_at: NOW,
+        updated_at: NOW,
+        applied_at: null,
+      });
+
+      const result = await service.cancel(TENANT_ID, RUN_ID);
+
+      expect(result['status']).toBe('failed');
+    });
+
+    it('should throw BadRequestException for a failed run', async () => {
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+        id: RUN_ID,
+        status: 'failed',
+      });
+
+      await expect(service.cancel(TENANT_ID, RUN_ID)).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ─── discard — NotFoundException ──────────────────────────────────────────
+
+  describe('discard — not found', () => {
+    it('should throw NotFoundException when run does not exist', async () => {
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
+
       await expect(
-        service.assertExists(TENANT_ID, 'nonexistent'),
+        service.discard(TENANT_ID, 'nonexistent', {
+          expected_updated_at: NOW.toISOString(),
+        }),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── addAdjustment — success path ──────────────────────────────────────────
+
+  describe('addAdjustment — success', () => {
+    it('should append adjustment to existing array and return updated run', async () => {
+      const existingAdj = [
+        { type: 'remove' as const, class_id: 'c0', weekday: 1, period_order: 1 },
+      ];
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        updated_at: NOW,
+        proposed_adjustments: existingAdj,
+      });
+      mockTx.schedulingRun.update.mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        solver_seed: null,
+        soft_preference_score: null,
+        soft_preference_max: null,
+        created_at: NOW,
+        updated_at: NOW,
+        applied_at: null,
+      });
+
+      const result = await service.addAdjustment(TENANT_ID, RUN_ID, {
+        expected_updated_at: NOW.toISOString(),
+        adjustment: { type: 'remove', class_id: 'c1', weekday: 2, period_order: 3 },
+      });
+
+      expect(result['id']).toBe(RUN_ID);
+      expect(mockTx.schedulingRun.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: RUN_ID },
+          data: expect.objectContaining({
+            proposed_adjustments: expect.arrayContaining([
+              expect.objectContaining({ class_id: 'c0' }),
+              expect.objectContaining({ class_id: 'c1' }),
+            ]),
+          }),
+        }),
+      );
+    });
+
+    it('edge: should handle null proposed_adjustments as empty array', async () => {
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        updated_at: NOW,
+        proposed_adjustments: null,
+      });
+      mockTx.schedulingRun.update.mockResolvedValue({
+        id: RUN_ID,
+        status: 'completed',
+        solver_seed: null,
+        soft_preference_score: null,
+        soft_preference_max: null,
+        created_at: NOW,
+        updated_at: NOW,
+        applied_at: null,
+      });
+
+      await service.addAdjustment(TENANT_ID, RUN_ID, {
+        expected_updated_at: NOW.toISOString(),
+        adjustment: { type: 'remove', class_id: 'c1', weekday: 1, period_order: 1 },
+      });
+
+      expect(mockTx.schedulingRun.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            proposed_adjustments: [expect.objectContaining({ class_id: 'c1' })],
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── findAll — pagination ─────────────────────────────────────────────────
+
+  describe('findAll — formatting', () => {
+    it('should format Decimal fields and date strings', async () => {
+      const run = {
+        id: RUN_ID,
+        status: 'completed',
+        solver_seed: BigInt(99),
+        soft_preference_score: 85.5,
+        soft_preference_max: 100.0,
+        created_at: 'already-a-string',
+        updated_at: NOW,
+        applied_at: NOW,
+      };
+      mockPrisma.schedulingRun.findMany.mockResolvedValue([run]);
+      mockPrisma.schedulingRun.count.mockResolvedValue(1);
+
+      const result = await service.findAll(TENANT_ID, AY_ID, { page: 1, pageSize: 20 });
+
+      expect(result.data[0]!['solver_seed']).toBe(99);
+      expect(result.data[0]!['soft_preference_score']).toBe(85.5);
+      expect(result.data[0]!['soft_preference_max']).toBe(100);
+      // String date should pass through
+      expect(result.data[0]!['created_at']).toBe('already-a-string');
+      // Date should be ISO stringified
+      expect(result.data[0]!['updated_at']).toBe(NOW.toISOString());
+      expect(result.data[0]!['applied_at']).toBe(NOW.toISOString());
+    });
+
+    it('should handle null applied_at', async () => {
+      const run = {
+        id: RUN_ID,
+        status: 'queued',
+        solver_seed: null,
+        soft_preference_score: null,
+        soft_preference_max: null,
+        created_at: NOW,
+        updated_at: NOW,
+        applied_at: null,
+      };
+      mockPrisma.schedulingRun.findMany.mockResolvedValue([run]);
+      mockPrisma.schedulingRun.count.mockResolvedValue(1);
+
+      const result = await service.findAll(TENANT_ID, AY_ID, { page: 1, pageSize: 10 });
+
+      expect(result.data[0]!['solver_seed']).toBeNull();
+      expect(result.data[0]!['soft_preference_score']).toBeNull();
+      expect(result.data[0]!['applied_at']).toBeNull();
+    });
+
+    it('should compute correct skip for page 2', async () => {
+      mockPrisma.schedulingRun.findMany.mockResolvedValue([]);
+      mockPrisma.schedulingRun.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, AY_ID, { page: 2, pageSize: 10 });
+
+      expect(mockPrisma.schedulingRun.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10, take: 10 }),
+      );
+    });
+  });
+
+  // ─── parseResultJson — edge cases ──────────────────────────────────────────
+
+  describe('parseResultJson — edge cases', () => {
+    it('should return null for undefined input', () => {
+      expect(service.parseResultJson(undefined)).toBeNull();
+    });
+
+    it('should return null for non-object input', () => {
+      expect(service.parseResultJson('string')).toBeNull();
+    });
+
+    it('should return null for numeric input', () => {
+      expect(service.parseResultJson(42)).toBeNull();
     });
   });
 });

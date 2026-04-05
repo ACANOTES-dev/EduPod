@@ -147,7 +147,9 @@ describe('BreakGroupsService', () => {
 
     it('should throw NotFoundException when academic year does not exist', async () => {
       const facade = module.get(AcademicReadFacade);
-      (facade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Year not found'));
+      (facade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(
+        new NotFoundException('Year not found'),
+      );
 
       await expect(service.create(TENANT_ID, dto)).rejects.toThrow(NotFoundException);
     });
@@ -231,6 +233,116 @@ describe('BreakGroupsService', () => {
       mockPrisma.breakGroup.findFirst.mockResolvedValue(null);
 
       await expect(service.delete(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── formatBreakGroup — edge cases ────────────────────────────────────────
+
+  describe('list — formatBreakGroup edge cases', () => {
+    it('should return empty object when break group data is null', async () => {
+      // Simulate a null return from the transaction
+      mockPrisma.breakGroup.findMany.mockResolvedValue([null]);
+
+      const result = await service.list(TENANT_ID, AY_ID);
+
+      expect(result.data[0]).toEqual({});
+    });
+
+    it('should handle break group without year_groups relation', async () => {
+      mockPrisma.breakGroup.findMany.mockResolvedValue([
+        {
+          id: BG_ID,
+          name: 'Break',
+        },
+      ]);
+
+      const result = await service.list(TENANT_ID, AY_ID);
+
+      expect(result.data[0]!['year_group_ids']).toEqual([]);
+      expect(result.data[0]!['year_groups_detail']).toEqual([]);
+    });
+
+    it('should extract year_group_id from year_group object when present', async () => {
+      mockPrisma.breakGroup.findMany.mockResolvedValue([
+        {
+          id: BG_ID,
+          name: 'Break',
+          year_groups: [{ year_group_id: YG_ID_1, year_group: { id: YG_ID_1, name: 'Y1' } }],
+        },
+      ]);
+
+      const result = await service.list(TENANT_ID, AY_ID);
+
+      expect(result.data[0]!['year_group_ids']).toEqual([YG_ID_1]);
+    });
+
+    it('should fall back to year_group_id when year_group object is undefined', async () => {
+      mockPrisma.breakGroup.findMany.mockResolvedValue([
+        {
+          id: BG_ID,
+          name: 'Break',
+          year_groups: [{ year_group_id: YG_ID_1 }],
+        },
+      ]);
+
+      const result = await service.list(TENANT_ID, AY_ID);
+
+      expect(result.data[0]!['year_group_ids']).toEqual([YG_ID_1]);
+    });
+  });
+
+  // ─── update — no-op when no fields changed ───────────────────────────────
+
+  describe('update — conditional updates', () => {
+    it('should skip DB update when no fields are provided', async () => {
+      mockPrisma.breakGroup.findFirst.mockResolvedValue({ id: BG_ID });
+      mockTx.breakGroup.findUnique.mockResolvedValue(breakGroupWithRelations);
+
+      await service.update(TENANT_ID, BG_ID, {});
+
+      expect(mockTx.breakGroup.update).not.toHaveBeenCalled();
+    });
+
+    it('should update name_ar when provided', async () => {
+      mockPrisma.breakGroup.findFirst.mockResolvedValue({ id: BG_ID });
+      mockTx.breakGroup.update.mockResolvedValue({});
+      mockTx.breakGroup.findUnique.mockResolvedValue(breakGroupWithRelations);
+
+      await service.update(TENANT_ID, BG_ID, { name_ar: 'استراحة' });
+
+      expect(mockTx.breakGroup.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ name_ar: 'استراحة' }),
+        }),
+      );
+    });
+
+    it('should update location when provided', async () => {
+      mockPrisma.breakGroup.findFirst.mockResolvedValue({ id: BG_ID });
+      mockTx.breakGroup.update.mockResolvedValue({});
+      mockTx.breakGroup.findUnique.mockResolvedValue(breakGroupWithRelations);
+
+      await service.update(TENANT_ID, BG_ID, { location: 'New Yard' });
+
+      expect(mockTx.breakGroup.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ location: 'New Yard' }),
+        }),
+      );
+    });
+
+    it('should update required_supervisor_count when provided', async () => {
+      mockPrisma.breakGroup.findFirst.mockResolvedValue({ id: BG_ID });
+      mockTx.breakGroup.update.mockResolvedValue({});
+      mockTx.breakGroup.findUnique.mockResolvedValue(breakGroupWithRelations);
+
+      await service.update(TENANT_ID, BG_ID, { required_supervisor_count: 5 });
+
+      expect(mockTx.breakGroup.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ required_supervisor_count: 5 }),
+        }),
+      );
     });
   });
 });

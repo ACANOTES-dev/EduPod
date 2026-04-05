@@ -62,6 +62,31 @@ describe('TokenService', () => {
       const payload = service.verifyAccessToken(token);
       expect(payload.type).toBe('access');
     });
+
+    it('should throw Error when JWT_SECRET is not configured', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          TokenService,
+          {
+            provide: ConfigService,
+            useValue: {
+              get: jest.fn().mockReturnValue(undefined),
+            },
+          },
+        ],
+      }).compile();
+
+      const svcNoSecret = module.get<TokenService>(TokenService);
+
+      expect(() =>
+        svcNoSecret.signAccessToken({
+          sub: USER_ID,
+          email: 'test@school.com',
+          tenant_id: null,
+          membership_id: null,
+        }),
+      ).toThrow('JWT_SECRET not configured');
+    });
   });
 
   // ─── verifyAccessToken ────────────────────────────────────────────────────
@@ -107,6 +132,24 @@ describe('TokenService', () => {
 
       expect(() => service.verifyAccessToken(badToken)).toThrow();
     });
+
+    it('should throw Error when JWT_SECRET is not configured for verification', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          TokenService,
+          {
+            provide: ConfigService,
+            useValue: {
+              get: jest.fn().mockReturnValue(undefined),
+            },
+          },
+        ],
+      }).compile();
+
+      const svcNoSecret = module.get<TokenService>(TokenService);
+
+      expect(() => svcNoSecret.verifyAccessToken('any-token')).toThrow('JWT_SECRET not configured');
+    });
   });
 
   // ─── signRefreshToken / verifyRefreshToken ────────────────────────────────
@@ -120,6 +163,29 @@ describe('TokenService', () => {
 
       expect(typeof token).toBe('string');
       expect(token.split('.')).toHaveLength(3);
+    });
+
+    it('should throw Error when JWT_REFRESH_SECRET is not configured', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          TokenService,
+          {
+            provide: ConfigService,
+            useValue: {
+              get: jest.fn().mockReturnValue(undefined),
+            },
+          },
+        ],
+      }).compile();
+
+      const svcNoSecret = module.get<TokenService>(TokenService);
+
+      expect(() =>
+        svcNoSecret.signRefreshToken({
+          sub: USER_ID,
+          session_id: SESSION_ID,
+        }),
+      ).toThrow('JWT_REFRESH_SECRET not configured');
     });
   });
 
@@ -145,6 +211,26 @@ describe('TokenService', () => {
       );
 
       expect(() => service.verifyRefreshToken(badToken)).toThrow();
+    });
+
+    it('should throw Error when JWT_REFRESH_SECRET is not configured for verification', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          TokenService,
+          {
+            provide: ConfigService,
+            useValue: {
+              get: jest.fn().mockReturnValue(undefined),
+            },
+          },
+        ],
+      }).compile();
+
+      const svcNoSecret = module.get<TokenService>(TokenService);
+
+      expect(() => svcNoSecret.verifyRefreshToken('any-token')).toThrow(
+        'JWT_REFRESH_SECRET not configured',
+      );
     });
   });
 });

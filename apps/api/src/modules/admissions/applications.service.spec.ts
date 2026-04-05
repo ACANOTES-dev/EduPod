@@ -273,6 +273,175 @@ describe('ApplicationsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('should skip validation for fields not visible to parent', async () => {
+      mockRateLimitService.checkAndIncrement.mockResolvedValue({ allowed: true, remaining: 2 });
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue({
+        id: 'form-1',
+        status: 'published',
+        fields: [
+          {
+            field_key: 'internal_field',
+            required: true,
+            field_type: 'short_text',
+            visible_to_parent: false, // not visible to parent
+          },
+        ],
+      });
+      mockSequenceService.nextNumber.mockResolvedValue('APP-202603-000002');
+      mockPrisma.application.create.mockResolvedValue({
+        id: 'app-2',
+        application_number: 'APP-202603-000002',
+        status: 'draft',
+      });
+
+      // Should NOT throw because the field is not visible_to_parent
+      const result = (await service.createPublic(
+        TENANT_ID,
+        {
+          form_definition_id: 'form-1',
+          student_first_name: 'Jane',
+          student_last_name: 'Smith',
+          payload_json: {}, // missing internal_field — but it's not visible
+          consents: DEFAULT_CONSENTS,
+        },
+        IP,
+      )) as Record<string, unknown>;
+
+      expect(result.status).toBe('draft');
+    });
+
+    it('should reject null value for required visible field', async () => {
+      mockRateLimitService.checkAndIncrement.mockResolvedValue({ allowed: true, remaining: 2 });
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue({
+        id: 'form-1',
+        status: 'published',
+        fields: [
+          {
+            field_key: 'name_field',
+            required: true,
+            field_type: 'short_text',
+            visible_to_parent: true,
+          },
+        ],
+      });
+
+      await expect(
+        service.createPublic(
+          TENANT_ID,
+          {
+            form_definition_id: 'form-1',
+            student_first_name: 'John',
+            student_last_name: 'Doe',
+            payload_json: { name_field: null }, // null value for required
+            consents: DEFAULT_CONSENTS,
+          },
+          IP,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject empty string for required visible field', async () => {
+      mockRateLimitService.checkAndIncrement.mockResolvedValue({ allowed: true, remaining: 2 });
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue({
+        id: 'form-1',
+        status: 'published',
+        fields: [
+          {
+            field_key: 'email_field',
+            required: true,
+            field_type: 'email',
+            visible_to_parent: true,
+          },
+        ],
+      });
+
+      await expect(
+        service.createPublic(
+          TENANT_ID,
+          {
+            form_definition_id: 'form-1',
+            student_first_name: 'John',
+            student_last_name: 'Doe',
+            payload_json: { email_field: '' }, // empty string for required
+            consents: DEFAULT_CONSENTS,
+          },
+          IP,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should accept when optional field is missing from payload', async () => {
+      mockRateLimitService.checkAndIncrement.mockResolvedValue({ allowed: true, remaining: 2 });
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue({
+        id: 'form-1',
+        status: 'published',
+        fields: [
+          {
+            field_key: 'optional_field',
+            required: false,
+            field_type: 'short_text',
+            visible_to_parent: true,
+          },
+        ],
+      });
+      mockSequenceService.nextNumber.mockResolvedValue('APP-202603-000003');
+      mockPrisma.application.create.mockResolvedValue({
+        id: 'app-3',
+        application_number: 'APP-202603-000003',
+        status: 'draft',
+      });
+
+      const result = (await service.createPublic(
+        TENANT_ID,
+        {
+          form_definition_id: 'form-1',
+          student_first_name: 'Jane',
+          student_last_name: 'Smith',
+          payload_json: {}, // missing optional field — should be OK
+          consents: DEFAULT_CONSENTS,
+        },
+        IP,
+      )) as Record<string, unknown>;
+
+      expect(result.status).toBe('draft');
+    });
+
+    it('should create application without date_of_birth when null', async () => {
+      mockRateLimitService.checkAndIncrement.mockResolvedValue({ allowed: true, remaining: 2 });
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue({
+        id: 'form-1',
+        status: 'published',
+        fields: [],
+      });
+      mockSequenceService.nextNumber.mockResolvedValue('APP-202603-000004');
+      mockPrisma.application.create.mockResolvedValue({
+        id: 'app-4',
+        application_number: 'APP-202603-000004',
+        status: 'draft',
+      });
+
+      await service.createPublic(
+        TENANT_ID,
+        {
+          form_definition_id: 'form-1',
+          student_first_name: 'No',
+          student_last_name: 'DOB',
+          payload_json: {},
+          consents: DEFAULT_CONSENTS,
+          // no date_of_birth
+        },
+        IP,
+      );
+
+      expect(mockPrisma.application.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            date_of_birth: null,
+          }),
+        }),
+      );
+    });
+
     it('should validate required fields in payload', async () => {
       mockRateLimitService.checkAndIncrement.mockResolvedValue({ allowed: true, remaining: 2 });
       mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue({
@@ -1560,6 +1729,26 @@ describe('ApplicationsService', () => {
       );
     });
 
+    it('should filter by form_definition_id when provided', async () => {
+      mockPrisma.application.findMany.mockResolvedValue([]);
+      mockPrisma.application.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        order: 'desc' as const,
+        form_definition_id: 'form-1',
+      });
+
+      expect(mockPrisma.application.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            form_definition_id: 'form-1',
+          }),
+        }),
+      );
+    });
+
     it('should filter by search term across name and application_number', async () => {
       mockPrisma.application.findMany.mockResolvedValue([]);
       mockPrisma.application.count.mockResolvedValue(0);
@@ -1626,6 +1815,73 @@ describe('ApplicationsService', () => {
       const result = (await service.getAnalytics(TENANT_ID, {})) as Record<string, unknown>;
 
       expect(result.conversion_rate).toBe(30);
+    });
+
+    it('should filter by form_definition_id when provided', async () => {
+      mockPrisma.application.count.mockResolvedValue(0);
+      mockPrisma.$queryRaw.mockResolvedValue([{ avg_days: null }]);
+
+      await service.getAnalytics(TENANT_ID, { form_definition_id: 'form-1' });
+
+      // Each count call should include form_definition_id
+      const firstCountCall = mockPrisma.application.count.mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(firstCountCall.where).toHaveProperty('form_definition_id', 'form-1');
+    });
+
+    it('should apply date_from filter with gte', async () => {
+      mockPrisma.application.count.mockResolvedValue(0);
+      mockPrisma.$queryRaw.mockResolvedValue([{ avg_days: null }]);
+
+      await service.getAnalytics(TENANT_ID, { date_from: '2026-01-01' });
+
+      const firstCountCall = mockPrisma.application.count.mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(firstCountCall.where).toHaveProperty('created_at');
+      const createdAt = firstCountCall.where.created_at as { gte?: Date };
+      expect(createdAt.gte).toEqual(new Date('2026-01-01'));
+    });
+
+    it('should apply date_to filter with lte', async () => {
+      mockPrisma.application.count.mockResolvedValue(0);
+      mockPrisma.$queryRaw.mockResolvedValue([{ avg_days: null }]);
+
+      await service.getAnalytics(TENANT_ID, { date_to: '2026-12-31' });
+
+      const firstCountCall = mockPrisma.application.count.mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(firstCountCall.where).toHaveProperty('created_at');
+      const createdAt = firstCountCall.where.created_at as { lte?: Date };
+      expect(createdAt.lte).toEqual(new Date('2026-12-31'));
+    });
+
+    it('should apply both date_from and date_to filters', async () => {
+      mockPrisma.application.count.mockResolvedValue(0);
+      mockPrisma.$queryRaw.mockResolvedValue([{ avg_days: null }]);
+
+      await service.getAnalytics(TENANT_ID, {
+        date_from: '2026-01-01',
+        date_to: '2026-12-31',
+      });
+
+      const firstCountCall = mockPrisma.application.count.mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      const createdAt = firstCountCall.where.created_at as { gte?: Date; lte?: Date };
+      expect(createdAt.gte).toEqual(new Date('2026-01-01'));
+      expect(createdAt.lte).toEqual(new Date('2026-12-31'));
+    });
+
+    it('should return 0 conversion rate when total is 0', async () => {
+      mockPrisma.application.count.mockResolvedValue(0);
+      mockPrisma.$queryRaw.mockResolvedValue([{ avg_days: null }]);
+
+      const result = (await service.getAnalytics(TENANT_ID, {})) as Record<string, unknown>;
+
+      expect(result.conversion_rate).toBe(0);
     });
 
     it('should return null avg_days when no decisions', async () => {

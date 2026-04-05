@@ -18,9 +18,7 @@ function makeSubRecord(staffId: string, subjectName: string | null = 'Maths') {
       user: { first_name: 'Teacher', last_name: staffId },
     },
     schedule: {
-      class_entity: subjectName
-        ? { subject: { name: subjectName } }
-        : null,
+      class_entity: subjectName ? { subject: { name: subjectName } } : null,
     },
   };
 }
@@ -39,10 +37,7 @@ describe('CoverTrackingService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        CoverTrackingService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [CoverTrackingService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<CoverTrackingService>(CoverTrackingService);
@@ -180,6 +175,56 @@ describe('CoverTrackingService', () => {
 
       expect(result.fairness_grade).toBe('good');
     });
+
+    it('should grade as fair when CV is between 0.4 and 0.6', async () => {
+      // staff-1: 8, staff-2: 2, mean=5, std=3, cv=0.6 (exactly at boundary)
+      // Let's do: staff-1: 7, staff-2: 2 => mean=4.5, var=6.25, std=2.5, cv=0.556
+      mockPrisma.substitutionRecord.findMany.mockResolvedValue([
+        ...Array(7).fill(makeSubRecord('staff-1')),
+        ...Array(2).fill(makeSubRecord('staff-2')),
+      ]);
+
+      const result = await service.getCoverFairness(TENANT_ID, DEFAULT_QUERY);
+
+      expect(result.fairness_grade).toBe('fair');
+    });
+
+    it('should grade as poor when CV is >= 0.6', async () => {
+      // staff-1: 10, staff-2: 1 => mean=5.5, std=4.5, cv=0.818
+      mockPrisma.substitutionRecord.findMany.mockResolvedValue([
+        ...Array(10).fill(makeSubRecord('staff-1')),
+        ...Array(1).fill(makeSubRecord('staff-2')),
+      ]);
+
+      const result = await service.getCoverFairness(TENANT_ID, DEFAULT_QUERY);
+
+      expect(result.fairness_grade).toBe('poor');
+    });
+
+    it('should round mean and std_dev to 2 decimal places', async () => {
+      // staff-1: 3, staff-2: 2 => mean=2.5, var=0.25, std=0.5
+      mockPrisma.substitutionRecord.findMany.mockResolvedValue([
+        ...Array(3).fill(makeSubRecord('staff-1')),
+        ...Array(2).fill(makeSubRecord('staff-2')),
+      ]);
+
+      const result = await service.getCoverFairness(TENANT_ID, DEFAULT_QUERY);
+
+      expect(result.mean).toBe(2.5);
+      expect(result.std_dev).toBe(0.5);
+    });
+
+    it('should round coefficient_of_variation to 3 decimal places', async () => {
+      mockPrisma.substitutionRecord.findMany.mockResolvedValue([
+        ...Array(5).fill(makeSubRecord('staff-1')),
+        ...Array(3).fill(makeSubRecord('staff-2')),
+      ]);
+
+      const result = await service.getCoverFairness(TENANT_ID, DEFAULT_QUERY);
+
+      // cv = 1/4 = 0.25
+      expect(result.coefficient_of_variation).toBe(0.25);
+    });
   });
 
   // ─── getCoverByDepartment ──────────────────────────────────────────────────
@@ -201,9 +246,7 @@ describe('CoverTrackingService', () => {
     });
 
     it('should label records with null class_entity as Unknown', async () => {
-      mockPrisma.substitutionRecord.findMany.mockResolvedValue([
-        makeSubRecord('staff-1', null),
-      ]);
+      mockPrisma.substitutionRecord.findMany.mockResolvedValue([makeSubRecord('staff-1', null)]);
 
       const result = await service.getCoverByDepartment(TENANT_ID, DEFAULT_QUERY);
 

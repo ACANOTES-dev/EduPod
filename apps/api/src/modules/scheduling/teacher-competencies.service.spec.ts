@@ -217,14 +217,18 @@ describe('TeacherCompetenciesService', () => {
 
     it('should throw NotFoundException when staff does not exist', async () => {
       const staffFacade = module.get(StaffProfileReadFacade);
-      (staffFacade.existsOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Staff not found'));
+      (staffFacade.existsOrThrow as jest.Mock).mockRejectedValue(
+        new NotFoundException('Staff not found'),
+      );
 
       await expect(service.create(TENANT_ID, dto)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw NotFoundException when subject does not exist', async () => {
       const acadFacade = module.get(AcademicReadFacade);
-      (acadFacade.findSubjectByIdOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Subject not found'));
+      (acadFacade.findSubjectByIdOrThrow as jest.Mock).mockRejectedValue(
+        new NotFoundException('Subject not found'),
+      );
 
       await expect(service.create(TENANT_ID, dto)).rejects.toThrow(NotFoundException);
     });
@@ -251,7 +255,9 @@ describe('TeacherCompetenciesService', () => {
 
     it('should throw NotFoundException when staff profile does not exist', async () => {
       const staffFacade = module.get(StaffProfileReadFacade);
-      (staffFacade.existsOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Staff not found'));
+      (staffFacade.existsOrThrow as jest.Mock).mockRejectedValue(
+        new NotFoundException('Staff not found'),
+      );
 
       await expect(service.bulkCreate(TENANT_ID, dto)).rejects.toThrow(NotFoundException);
     });
@@ -342,7 +348,9 @@ describe('TeacherCompetenciesService', () => {
 
     it('should throw NotFoundException when source year does not exist', async () => {
       const acadFacade = module.get(AcademicReadFacade);
-      (acadFacade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Year not found'));
+      (acadFacade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(
+        new NotFoundException('Year not found'),
+      );
 
       await expect(
         service.copyFromAcademicYear(TENANT_ID, 'nonexistent', AY_ID_TARGET),
@@ -367,6 +375,304 @@ describe('TeacherCompetenciesService', () => {
       await expect(service.copyFromAcademicYear(TENANT_ID, AY_ID, AY_ID_TARGET)).rejects.toThrow(
         BadRequestException,
       );
+    });
+  });
+
+  // ─── copyToYears ────────────────────────────────────────────────────────────
+
+  describe('copyToYears', () => {
+    const _mockTxWithFind = {
+      ...mockTx,
+      teacherCompetency: {
+        ...mockTx.teacherCompetency,
+        findFirst: jest.fn(),
+        create: mockTx.teacherCompetency.create,
+      },
+    };
+
+    it('should copy competencies to multiple target year groups', async () => {
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
+        {
+          staff_profile_id: STAFF_ID,
+          subject_id: SUBJECT_ID,
+          year_group_id: 'source-yg',
+          is_primary: true,
+        },
+      ]);
+      mockTx.teacherCompetency.create.mockResolvedValue({});
+
+      // Mock findFirst inside the transaction to return null (no existing competency)
+      const originalTxImpl = jest.requireMock('../../common/middleware/rls.middleware');
+      const mockTxProxy = new Proxy(mockTx, {
+        get(target, prop) {
+          if (prop === 'teacherCompetency') {
+            return {
+              ...target.teacherCompetency,
+              findFirst: jest.fn().mockResolvedValue(null),
+            };
+          }
+          return (target as Record<string, unknown>)[prop as string];
+        },
+      });
+      (originalTxImpl.createRlsClient as jest.Mock).mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTxProxy)),
+      });
+
+      const result = await service.copyToYears(TENANT_ID, {
+        academic_year_id: AY_ID,
+        source_year_group_id: 'source-yg',
+        targets: [{ year_group_id: 'target-yg-1', subject_ids: [SUBJECT_ID] }],
+      });
+
+      expect(result.data.copied).toBe(1);
+      expect(result.data.skipped).toBe(0);
+    });
+
+    it('should throw BadRequestException when source has no competencies', async () => {
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.copyToYears(TENANT_ID, {
+          academic_year_id: AY_ID,
+          source_year_group_id: 'source-yg',
+          targets: [{ year_group_id: 'target-yg-1', subject_ids: [SUBJECT_ID] }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should skip when competency already exists in target', async () => {
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
+        {
+          staff_profile_id: STAFF_ID,
+          subject_id: SUBJECT_ID,
+          year_group_id: 'source-yg',
+          is_primary: true,
+        },
+      ]);
+
+      const originalTxImpl = jest.requireMock('../../common/middleware/rls.middleware');
+      const mockTxWithExisting = new Proxy(mockTx, {
+        get(target, prop) {
+          if (prop === 'teacherCompetency') {
+            return {
+              ...target.teacherCompetency,
+              findFirst: jest.fn().mockResolvedValue({ id: 'existing-comp' }),
+            };
+          }
+          return (target as Record<string, unknown>)[prop as string];
+        },
+      });
+      (originalTxImpl.createRlsClient as jest.Mock).mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+            fn(mockTxWithExisting),
+          ),
+      });
+
+      const result = await service.copyToYears(TENANT_ID, {
+        academic_year_id: AY_ID,
+        source_year_group_id: 'source-yg',
+        targets: [{ year_group_id: 'target-yg-1', subject_ids: [SUBJECT_ID] }],
+      });
+
+      expect(result.data.copied).toBe(0);
+      expect(result.data.skipped).toBe(1);
+    });
+  });
+
+  // ─── getCoverage ───���────────────────────────────────────────────────────────
+
+  describe('getCoverage', () => {
+    it('should return coverage matrix with gaps, at_risk, and covered counts', async () => {
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findAllYearGroups as jest.Mock).mockResolvedValue([
+        { id: YG_ID, name: 'Year 1' },
+      ]);
+      (acadFacade.findSubjectsByIdsWithOrder as jest.Mock).mockResolvedValue([
+        { id: SUBJECT_ID, name: 'Maths' },
+      ]);
+
+      const classesFacade = module.get(ClassesReadFacade);
+      (classesFacade.findByAcademicYear as jest.Mock).mockResolvedValue([
+        { id: 'cls-1', year_group_id: YG_ID, academic_year_id: AY_ID, status: 'active' },
+      ]);
+
+      const gradebookFacade = module.get(GradebookReadFacade);
+      (gradebookFacade.findClassSubjectConfigs as jest.Mock).mockResolvedValue([
+        {
+          class_id: 'cls-1',
+          subject_id: SUBJECT_ID,
+          subject: { id: SUBJECT_ID, name: 'Maths' },
+          class_name: 'Class 1',
+        },
+      ]);
+
+      // 2 teachers assigned => "covered"
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
+        {
+          year_group_id: YG_ID,
+          subject_id: SUBJECT_ID,
+          staff_profile: { id: 'sp-1', user: { first_name: 'Alice', last_name: 'Brown' } },
+        },
+        {
+          year_group_id: YG_ID,
+          subject_id: SUBJECT_ID,
+          staff_profile: { id: 'sp-2', user: { first_name: 'Bob', last_name: 'Smith' } },
+        },
+      ]);
+
+      const result = await service.getCoverage(TENANT_ID, AY_ID);
+
+      expect(result.summary.covered).toBe(1);
+      expect(result.summary.gaps).toBe(0);
+      expect(result.summary.at_risk).toBe(0);
+      expect(result.summary.total).toBe(1);
+      expect(result.rows).toHaveLength(1);
+      expect(result.subjects).toHaveLength(1);
+    });
+
+    it('should report gaps when no teacher is assigned', async () => {
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findAllYearGroups as jest.Mock).mockResolvedValue([
+        { id: YG_ID, name: 'Year 1' },
+      ]);
+      (acadFacade.findSubjectsByIdsWithOrder as jest.Mock).mockResolvedValue([
+        { id: SUBJECT_ID, name: 'Maths' },
+      ]);
+
+      const classesFacade = module.get(ClassesReadFacade);
+      (classesFacade.findByAcademicYear as jest.Mock).mockResolvedValue([
+        { id: 'cls-1', year_group_id: YG_ID, academic_year_id: AY_ID, status: 'active' },
+      ]);
+
+      const gradebookFacade = module.get(GradebookReadFacade);
+      (gradebookFacade.findClassSubjectConfigs as jest.Mock).mockResolvedValue([
+        {
+          class_id: 'cls-1',
+          subject_id: SUBJECT_ID,
+          subject: { id: SUBJECT_ID, name: 'Maths' },
+          class_name: 'Class 1',
+        },
+      ]);
+
+      // No teachers assigned
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
+
+      const result = await service.getCoverage(TENANT_ID, AY_ID);
+
+      expect(result.summary.gaps).toBe(1);
+      expect(result.summary.covered).toBe(0);
+    });
+
+    it('should report at_risk when only one teacher is assigned', async () => {
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findAllYearGroups as jest.Mock).mockResolvedValue([
+        { id: YG_ID, name: 'Year 1' },
+      ]);
+      (acadFacade.findSubjectsByIdsWithOrder as jest.Mock).mockResolvedValue([
+        { id: SUBJECT_ID, name: 'Maths' },
+      ]);
+
+      const classesFacade = module.get(ClassesReadFacade);
+      (classesFacade.findByAcademicYear as jest.Mock).mockResolvedValue([
+        { id: 'cls-1', year_group_id: YG_ID, academic_year_id: AY_ID, status: 'active' },
+      ]);
+
+      const gradebookFacade = module.get(GradebookReadFacade);
+      (gradebookFacade.findClassSubjectConfigs as jest.Mock).mockResolvedValue([
+        {
+          class_id: 'cls-1',
+          subject_id: SUBJECT_ID,
+          subject: { id: SUBJECT_ID, name: 'Maths' },
+          class_name: 'Class 1',
+        },
+      ]);
+
+      // Only one teacher
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([
+        {
+          year_group_id: YG_ID,
+          subject_id: SUBJECT_ID,
+          staff_profile: { id: 'sp-1', user: { first_name: 'Alice', last_name: 'Brown' } },
+        },
+      ]);
+
+      const result = await service.getCoverage(TENANT_ID, AY_ID);
+
+      expect(result.summary.at_risk).toBe(1);
+      expect(result.summary.gaps).toBe(0);
+    });
+
+    it('should exclude inactive classes from coverage', async () => {
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findAllYearGroups as jest.Mock).mockResolvedValue([
+        { id: YG_ID, name: 'Year 1' },
+      ]);
+
+      const classesFacade = module.get(ClassesReadFacade);
+      (classesFacade.findByAcademicYear as jest.Mock).mockResolvedValue([
+        { id: 'cls-1', year_group_id: YG_ID, academic_year_id: AY_ID, status: 'archived' },
+      ]);
+
+      const result = await service.getCoverage(TENANT_ID, AY_ID);
+
+      // No active classes -> no subjects -> empty rows
+      expect(result.rows).toHaveLength(0);
+    });
+
+    it('should return empty when no classes at all', async () => {
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findAllYearGroups as jest.Mock).mockResolvedValue([]);
+
+      const classesFacade = module.get(ClassesReadFacade);
+      (classesFacade.findByAcademicYear as jest.Mock).mockResolvedValue([]);
+
+      const result = await service.getCoverage(TENANT_ID, AY_ID);
+
+      expect(result.rows).toHaveLength(0);
+      expect(result.subjects).toHaveLength(0);
+      expect(result.summary.total).toBe(0);
+    });
+
+    it('should mark cells as not in curriculum for subjects not assigned to year group', async () => {
+      const acadFacade = module.get(AcademicReadFacade);
+      (acadFacade.findAllYearGroups as jest.Mock).mockResolvedValue([
+        { id: YG_ID, name: 'Year 1' },
+      ]);
+      (acadFacade.findSubjectsByIdsWithOrder as jest.Mock).mockResolvedValue([
+        { id: SUBJECT_ID, name: 'Maths' },
+        { id: 'sub-2', name: 'Art' },
+      ]);
+
+      const classesFacade = module.get(ClassesReadFacade);
+      (classesFacade.findByAcademicYear as jest.Mock).mockResolvedValue([
+        { id: 'cls-1', year_group_id: YG_ID, academic_year_id: AY_ID, status: 'active' },
+      ]);
+
+      const gradebookFacade = module.get(GradebookReadFacade);
+      // Only Maths is configured, not Art
+      (gradebookFacade.findClassSubjectConfigs as jest.Mock).mockResolvedValue([
+        {
+          class_id: 'cls-1',
+          subject_id: SUBJECT_ID,
+          subject: { id: SUBJECT_ID, name: 'Maths' },
+          class_name: 'Class 1',
+        },
+      ]);
+
+      mockPrisma.teacherCompetency.findMany.mockResolvedValue([]);
+
+      const result = await service.getCoverage(TENANT_ID, AY_ID);
+
+      const row = result.rows[0]!;
+      const mathsCell = row.cells.find((c) => c.subject_id === SUBJECT_ID);
+      const artCell = row.cells.find((c) => c.subject_id === 'sub-2');
+
+      expect(mathsCell?.in_curriculum).toBe(true);
+      expect(artCell?.in_curriculum).toBe(false);
     });
   });
 });

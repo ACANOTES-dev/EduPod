@@ -1,3 +1,4 @@
+import { getQueueToken } from '@nestjs/bullmq';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -19,6 +20,7 @@ describe('AuditLogService', () => {
       count: jest.Mock;
     };
   };
+  let mockQueue: { add: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -28,9 +30,14 @@ describe('AuditLogService', () => {
         count: jest.fn().mockResolvedValue(0),
       },
     };
+    mockQueue = { add: jest.fn().mockResolvedValue({}) };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AuditLogService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        AuditLogService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: getQueueToken('audit-log'), useValue: mockQueue },
+      ],
     }).compile();
 
     service = module.get<AuditLogService>(AuditLogService);
@@ -120,6 +127,90 @@ describe('AuditLogService', () => {
 
       await expect(
         service.write(TENANT_ID, ACTOR_USER_ID, 'student', ENTITY_ID, 'update', {}, '1.2.3.4'),
+      ).resolves.toBeUndefined();
+    });
+
+    it('should truncate action when it exceeds MAX_AUDIT_ACTION_LENGTH', async () => {
+      const longAction = 'a'.repeat(150);
+
+      await service.write(TENANT_ID, ACTOR_USER_ID, 'student', ENTITY_ID, longAction, {}, null);
+
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'a'.repeat(100),
+        }),
+      });
+    });
+
+    it('should not truncate action when it is exactly MAX_AUDIT_ACTION_LENGTH', async () => {
+      const exactAction = 'b'.repeat(100);
+
+      await service.write(TENANT_ID, ACTOR_USER_ID, 'student', ENTITY_ID, exactAction, {}, null);
+
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: exactAction,
+        }),
+      });
+    });
+
+    it('edge: should stringify non-Error rejection in catch block', async () => {
+      const loggerSpy = jest.spyOn(service['logger'], 'error').mockImplementation();
+      mockPrisma.auditLog.create.mockRejectedValue('string error');
+
+      await service.write(TENANT_ID, ACTOR_USER_ID, 'student', ENTITY_ID, 'create', {}, null);
+
+      expect(loggerSpy).toHaveBeenCalledWith(
+        'Failed to write audit log: entity_type=student action=create',
+        'string error',
+      );
+    });
+
+    it('edge: should use error.stack when rejection is an Error instance', async () => {
+      const loggerSpy = jest.spyOn(service['logger'], 'error').mockImplementation();
+      const err = new Error('DB down');
+      mockPrisma.auditLog.create.mockRejectedValue(err);
+
+      await service.write(TENANT_ID, ACTOR_USER_ID, 'student', ENTITY_ID, 'create', {}, null);
+
+      expect(loggerSpy).toHaveBeenCalledWith(
+        'Failed to write audit log: entity_type=student action=create',
+        err.stack,
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // enqueue()
+  // ---------------------------------------------------------------------------
+  describe('enqueue()', () => {
+    it('should add a job to the audit-log queue', async () => {
+      await service.enqueue(
+        TENANT_ID,
+        ACTOR_USER_ID,
+        'student',
+        ENTITY_ID,
+        'create',
+        { foo: 'bar' },
+        '1.2.3.4',
+      );
+
+      expect(mockQueue.add).toHaveBeenCalledWith('audit-log:write', {
+        tenantId: TENANT_ID,
+        actorUserId: ACTOR_USER_ID,
+        entityType: 'student',
+        entityId: ENTITY_ID,
+        action: 'create',
+        metadata: { foo: 'bar' },
+        ipAddress: '1.2.3.4',
+      });
+    });
+
+    it('should not throw if queue add fails', async () => {
+      mockQueue.add.mockRejectedValue(new Error('Redis down'));
+
+      await expect(
+        service.enqueue(TENANT_ID, ACTOR_USER_ID, 'student', ENTITY_ID, 'create', {}, '1.2.3.4'),
       ).resolves.toBeUndefined();
     });
   });
@@ -356,6 +447,140 @@ describe('AuditLogService', () => {
         sensitivity: 'normal',
       });
     });
+
+    // ─── getMetadataString branch coverage ──────────────────────────────────────
+
+    it('edge: should return undefined for category/sensitivity when metadata_json is null', async () => {
+      const mockLog = makeMockLog({ metadata_json: null });
+      mockPrisma.auditLog.findMany.mockResolvedValue([mockLog]);
+      mockPrisma.auditLog.count.mockResolvedValue(1);
+
+      const result = await service.list(TENANT_ID, baseFilters);
+
+      expect(result.data[0]!.category).toBeUndefined();
+      expect(result.data[0]!.sensitivity).toBeUndefined();
+    });
+
+    it('edge: should return undefined for category/sensitivity when metadata_json is an array', async () => {
+      const mockLog = makeMockLog({ metadata_json: ['not', 'an', 'object'] });
+      mockPrisma.auditLog.findMany.mockResolvedValue([mockLog]);
+      mockPrisma.auditLog.count.mockResolvedValue(1);
+
+      const result = await service.list(TENANT_ID, baseFilters);
+
+      expect(result.data[0]!.category).toBeUndefined();
+      expect(result.data[0]!.sensitivity).toBeUndefined();
+    });
+
+    it('edge: should return undefined when metadata key value is not a string', async () => {
+      const mockLog = makeMockLog({
+        metadata_json: { category: 123, sensitivity: true },
+      });
+      mockPrisma.auditLog.findMany.mockResolvedValue([mockLog]);
+      mockPrisma.auditLog.count.mockResolvedValue(1);
+
+      const result = await service.list(TENANT_ID, baseFilters);
+
+      expect(result.data[0]!.category).toBeUndefined();
+      expect(result.data[0]!.sensitivity).toBeUndefined();
+    });
+
+    it('edge: should return undefined when metadata key does not exist', async () => {
+      const mockLog = makeMockLog({ metadata_json: { other_key: 'value' } });
+      mockPrisma.auditLog.findMany.mockResolvedValue([mockLog]);
+      mockPrisma.auditLog.count.mockResolvedValue(1);
+
+      const result = await service.list(TENANT_ID, baseFilters);
+
+      expect(result.data[0]!.category).toBeUndefined();
+      expect(result.data[0]!.sensitivity).toBeUndefined();
+    });
+
+    // ─── buildWhere branch coverage — partial metadata filters ──────────────────
+
+    it('should apply category-only metadata filter without sensitivity', async () => {
+      mockPrisma.auditLog.findMany.mockResolvedValue([]);
+      mockPrisma.auditLog.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, {
+        ...baseFilters,
+        category: 'security_event',
+      });
+
+      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: [
+              {
+                metadata_json: {
+                  path: ['category'],
+                  equals: 'security_event',
+                },
+              },
+            ],
+          }),
+        }),
+      );
+    });
+
+    it('should apply sensitivity-only metadata filter without category', async () => {
+      mockPrisma.auditLog.findMany.mockResolvedValue([]);
+      mockPrisma.auditLog.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, {
+        ...baseFilters,
+        sensitivity: 'elevated',
+      });
+
+      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: [
+              {
+                metadata_json: {
+                  path: ['sensitivity'],
+                  equals: 'elevated',
+                },
+              },
+            ],
+          }),
+        }),
+      );
+    });
+
+    it('should not include AND when neither category nor sensitivity provided', async () => {
+      mockPrisma.auditLog.findMany.mockResolvedValue([]);
+      mockPrisma.auditLog.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, baseFilters);
+
+      const calledWhere = mockPrisma.auditLog.findMany.mock.calls[0][0].where;
+      expect(calledWhere).not.toHaveProperty('AND');
+    });
+
+    it('should not include created_at when neither start_date nor end_date provided', async () => {
+      mockPrisma.auditLog.findMany.mockResolvedValue([]);
+      mockPrisma.auditLog.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, baseFilters);
+
+      const calledWhere = mockPrisma.auditLog.findMany.mock.calls[0][0].where;
+      expect(calledWhere).not.toHaveProperty('created_at');
+    });
+
+    it('should calculate correct skip offset for page 3', async () => {
+      mockPrisma.auditLog.findMany.mockResolvedValue([]);
+      mockPrisma.auditLog.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { page: 3, pageSize: 15 });
+
+      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 30,
+          take: 15,
+        }),
+      );
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -488,6 +713,77 @@ describe('AuditLogService', () => {
       });
       expect(calledArgs.skip).toBe(10); // (page 2 - 1) * pageSize 10
       expect(calledArgs.take).toBe(10);
+    });
+
+    it('should return actor_name as undefined when actor is null in platform log', async () => {
+      const mockLog = makeMockPlatformLog({ actor: null });
+      mockPrisma.auditLog.findMany.mockResolvedValue([mockLog]);
+      mockPrisma.auditLog.count.mockResolvedValue(1);
+
+      const result = await service.listPlatform(baseFilters);
+
+      expect(result.data[0]!.actor_name).toBeUndefined();
+    });
+
+    it('should include actor_name when actor exists in platform log', async () => {
+      const mockLog = makeMockPlatformLog({
+        actor: {
+          id: ACTOR_USER_ID,
+          first_name: 'Platform',
+          last_name: 'Admin',
+        },
+      });
+      mockPrisma.auditLog.findMany.mockResolvedValue([mockLog]);
+      mockPrisma.auditLog.count.mockResolvedValue(1);
+
+      const result = await service.listPlatform(baseFilters);
+
+      expect(result.data[0]!.actor_name).toBe('Platform Admin');
+    });
+
+    it('edge: should handle null metadata_json in platform log via getMetadataString', async () => {
+      const mockLog = makeMockPlatformLog({ metadata_json: null });
+      mockPrisma.auditLog.findMany.mockResolvedValue([mockLog]);
+      mockPrisma.auditLog.count.mockResolvedValue(1);
+
+      const result = await service.listPlatform(baseFilters);
+
+      expect(result.data[0]!.category).toBeUndefined();
+      expect(result.data[0]!.sensitivity).toBeUndefined();
+    });
+
+    it('edge: should handle array metadata_json in platform log via getMetadataString', async () => {
+      const mockLog = makeMockPlatformLog({ metadata_json: [1, 2, 3] });
+      mockPrisma.auditLog.findMany.mockResolvedValue([mockLog]);
+      mockPrisma.auditLog.count.mockResolvedValue(1);
+
+      const result = await service.listPlatform(baseFilters);
+
+      expect(result.data[0]!.category).toBeUndefined();
+      expect(result.data[0]!.sensitivity).toBeUndefined();
+    });
+
+    it('edge: should handle non-string metadata values in platform log', async () => {
+      const mockLog = makeMockPlatformLog({
+        metadata_json: { category: 42, sensitivity: false },
+      });
+      mockPrisma.auditLog.findMany.mockResolvedValue([mockLog]);
+      mockPrisma.auditLog.count.mockResolvedValue(1);
+
+      const result = await service.listPlatform(baseFilters);
+
+      expect(result.data[0]!.category).toBeUndefined();
+      expect(result.data[0]!.sensitivity).toBeUndefined();
+    });
+
+    it('should not include tenant_id in where when not provided', async () => {
+      mockPrisma.auditLog.findMany.mockResolvedValue([]);
+      mockPrisma.auditLog.count.mockResolvedValue(0);
+
+      await service.listPlatform(baseFilters);
+
+      const calledWhere = mockPrisma.auditLog.findMany.mock.calls[0][0].where;
+      expect(calledWhere).not.toHaveProperty('tenant_id');
     });
   });
 

@@ -158,4 +158,132 @@ describe('renderInvoiceEn', () => {
 
     expect(result).toContain('Test Family');
   });
+
+  // ─── Status color branches ─────────────────────────────────────────────────
+
+  it('should render green color for paid status', () => {
+    const data = { ...INVOICE_DATA, status: 'paid' };
+    const result = renderInvoiceEn(data, BRANDING);
+
+    expect(result).toContain('#16a34a');
+    expect(result).toContain('Paid');
+  });
+
+  it('should render red color for overdue status', () => {
+    const data = { ...INVOICE_DATA, status: 'overdue' };
+    const result = renderInvoiceEn(data, BRANDING);
+
+    expect(result).toContain('#dc2626');
+    expect(result).toContain('Overdue');
+  });
+
+  it('should render gray color for void status', () => {
+    const data = { ...INVOICE_DATA, status: 'void' };
+    const result = renderInvoiceEn(data, BRANDING);
+
+    expect(result).toContain('#6b7280');
+  });
+
+  it('should render gray color for cancelled status', () => {
+    const data = { ...INVOICE_DATA, status: 'cancelled' };
+    const result = renderInvoiceEn(data, BRANDING);
+
+    expect(result).toContain('#6b7280');
+  });
+
+  it('should render amber color for partially_paid status', () => {
+    const data = { ...INVOICE_DATA, status: 'partially_paid' };
+    const result = renderInvoiceEn(data, BRANDING);
+
+    expect(result).toContain('#d97706');
+    expect(result).toContain('Partially Paid');
+  });
+
+  it('should render blue color for default/unknown status', () => {
+    const data = { ...INVOICE_DATA, status: 'draft' };
+    const result = renderInvoiceEn(data, BRANDING);
+
+    expect(result).toContain('#2563eb');
+  });
+
+  // ─── Conditional amount rendering branches ─────────────────────────────────
+
+  it('should hide discount row when discount_amount is 0', () => {
+    const data = { ...INVOICE_DATA, discount_amount: 0 };
+    const result = renderInvoiceEn(data, BRANDING);
+
+    expect(result).not.toContain('Discount');
+  });
+
+  it('should hide amount_paid row when amount_paid is 0', () => {
+    const data = { ...INVOICE_DATA, amount_paid: 0 };
+    const result = renderInvoiceEn(data, BRANDING);
+
+    expect(result).not.toContain('Amount Paid');
+  });
+
+  it('should hide balance_amount row when balance_amount is 0', () => {
+    const data = { ...INVOICE_DATA, balance_amount: 0 };
+    const result = renderInvoiceEn(data, BRANDING);
+
+    expect(result).not.toContain('Balance Due');
+  });
+
+  // ─── Logo and branding branches ────────────────────────────────────────────
+
+  it('should omit logo when logo_url is undefined', () => {
+    const brandingNoLogo: PdfBranding = { school_name: 'No Logo School' };
+    const result = renderInvoiceEn(INVOICE_DATA, brandingNoLogo);
+
+    expect(result).not.toContain('<img');
+  });
+
+  it('should use default primary color when none provided', () => {
+    const brandingNoColor: PdfBranding = { school_name: 'Minimal' };
+    const result = renderInvoiceEn(INVOICE_DATA, brandingNoColor);
+
+    expect(result).toContain('#1e40af');
+  });
+
+  // ─── Payment section conditional rendering ─────────────────────────────────
+
+  it('should render payment history section when allocations exist', () => {
+    const result = renderInvoiceEn(INVOICE_DATA, BRANDING);
+
+    expect(result).toContain('Payment History');
+    expect(result).toContain('PAY-202601-0001');
+  });
+
+  it('should omit payment history section when no allocations', () => {
+    const data = { ...INVOICE_DATA, payment_allocations: [] };
+    const result = renderInvoiceEn(data, BRANDING);
+
+    expect(result).not.toContain('Payment History');
+  });
+
+  // ─── Address formatting branches ───────────────────────────────────────────
+
+  it('should omit address section when all address fields are null', () => {
+    const data = {
+      ...INVOICE_DATA,
+      household: {
+        ...INVOICE_DATA.household,
+        address_line_1: null,
+        address_line_2: null,
+        city: null,
+        country: null,
+        postal_code: null,
+      },
+    };
+    const result = renderInvoiceEn(data, BRANDING);
+
+    expect(typeof result).toBe('string');
+  });
+
+  it('should join city and postal_code when both present', () => {
+    const result = renderInvoiceEn(INVOICE_DATA, BRANDING);
+
+    expect(result).toContain('Dublin');
+    expect(result).toContain('D01 AB12');
+  });
 });

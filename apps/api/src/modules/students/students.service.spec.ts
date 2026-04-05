@@ -1042,3 +1042,572 @@ describe('StudentsService — updateStatus (re-enrolment transitions)', () => {
     ).rejects.toThrow(BadRequestException);
   });
 });
+
+// ─── create — class_homeroom_id validation (branch line 172) ────────────────
+
+describe('StudentsService — create (class_homeroom_id validation)', () => {
+  let service: StudentsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockSequence: { nextNumber: jest.Mock };
+  let mockClassesFacade: { existsOrThrow: jest.Mock };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRedis = buildMockRedis();
+    mockSequence = { nextNumber: jest.fn().mockResolvedValue('STU-202601-0001') };
+
+    mockRlsTx.student.create.mockReset().mockResolvedValue({
+      ...baseStudent,
+      student_number: 'STU-202601-0001',
+      household: { id: HOUSEHOLD_ID, household_name: 'Doe Family' },
+      year_group: null,
+      homeroom_class: { id: 'class-1', name: '5A' },
+    });
+    mockRlsTx.studentParent.create.mockReset().mockResolvedValue({});
+
+    mockClassesFacade = { existsOrThrow: jest.fn().mockResolvedValue(undefined) };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        StudentsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+        { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: HouseholdReadFacade,
+          useValue: { existsOrThrow: jest.fn().mockResolvedValue(undefined) },
+        },
+        {
+          provide: AcademicReadFacade,
+          useValue: { findYearGroupByIdOrThrow: jest.fn().mockResolvedValue(undefined) },
+        },
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        {
+          provide: ParentReadFacade,
+          useValue: { existsOrThrow: jest.fn().mockResolvedValue(undefined) },
+        },
+      ],
+    }).compile();
+
+    service = module.get<StudentsService>(StudentsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should validate class_homeroom_id when provided', async () => {
+    await service.create(TENANT_ID, {
+      ...baseCreateDto,
+      class_homeroom_id: 'class-1',
+    });
+
+    expect(mockClassesFacade.existsOrThrow).toHaveBeenCalledWith(TENANT_ID, 'class-1');
+  });
+
+  it('should throw NotFoundException when class_homeroom_id does not exist', async () => {
+    mockClassesFacade.existsOrThrow.mockRejectedValue(
+      new NotFoundException({ code: 'CLASS_NOT_FOUND', message: 'Class not found' }),
+    );
+
+    await expect(
+      service.create(TENANT_ID, { ...baseCreateDto, class_homeroom_id: 'bad-class' }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should skip class validation when class_homeroom_id is not provided', async () => {
+    await service.create(TENANT_ID, baseCreateDto);
+
+    expect(mockClassesFacade.existsOrThrow).not.toHaveBeenCalled();
+  });
+});
+
+// ─── findAll — household_id filter (branch line 271) ────────────────────────
+
+describe('StudentsService — findAll (household_id filter)', () => {
+  let service: StudentsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockSequence: { nextNumber: jest.Mock };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRedis = buildMockRedis();
+    mockSequence = { nextNumber: jest.fn() };
+
+    mockPrisma.student.findMany.mockResolvedValue([baseStudent]);
+    mockPrisma.student.count.mockResolvedValue(1);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        StudentsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+        { provide: SequenceService, useValue: mockSequence },
+      ],
+    }).compile();
+
+    service = module.get<StudentsService>(StudentsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should filter by household_id when provided', async () => {
+    await service.findAll(TENANT_ID, { page: 1, pageSize: 20, household_id: HOUSEHOLD_ID });
+
+    expect(mockPrisma.student.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ household_id: HOUSEHOLD_ID }),
+      }),
+    );
+  });
+
+  it('should apply custom sort and order', async () => {
+    await service.findAll(TENANT_ID, {
+      page: 1,
+      pageSize: 10,
+      sort: 'first_name',
+      order: 'desc',
+    });
+
+    expect(mockPrisma.student.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: { first_name: 'desc' },
+      }),
+    );
+  });
+
+  it('should default to last_name asc when sort and order are not provided', async () => {
+    await service.findAll(TENANT_ID, { page: 1, pageSize: 10 });
+
+    expect(mockPrisma.student.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: { last_name: 'asc' },
+      }),
+    );
+  });
+
+  it('edge: has_allergy=false should still be included in where clause', async () => {
+    await service.findAll(TENANT_ID, { page: 1, pageSize: 20, has_allergy: false });
+
+    expect(mockPrisma.student.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ has_allergy: false }),
+      }),
+    );
+  });
+});
+
+// ─── update — nullable field branches (line 416 area) ───────────────────────
+
+describe('StudentsService — update (nullable field branches)', () => {
+  let service: StudentsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockSequence: { nextNumber: jest.Mock };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRedis = buildMockRedis();
+    mockSequence = { nextNumber: jest.fn() };
+
+    mockRlsTx.student.update.mockReset().mockResolvedValue(baseStudent);
+    mockPrisma.student.findFirst.mockResolvedValue(baseStudent);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        StudentsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+        { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: HouseholdReadFacade,
+          useValue: { existsOrThrow: jest.fn().mockResolvedValue(undefined) },
+        },
+        {
+          provide: AcademicReadFacade,
+          useValue: { findYearGroupByIdOrThrow: jest.fn().mockResolvedValue(undefined) },
+        },
+        {
+          provide: ClassesReadFacade,
+          useValue: { existsOrThrow: jest.fn().mockResolvedValue(undefined) },
+        },
+      ],
+    }).compile();
+
+    service = module.get<StudentsService>(StudentsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should set entry_date to null when entry_date is explicitly null', async () => {
+    await service.update(TENANT_ID, STUDENT_ID, { entry_date: null });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ entry_date: null }),
+      }),
+    );
+  });
+
+  it('should convert entry_date string to Date object', async () => {
+    await service.update(TENANT_ID, STUDENT_ID, { entry_date: '2024-09-01' });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ entry_date: new Date('2024-09-01') }),
+      }),
+    );
+  });
+
+  it('should set middle_name to null via null coalescing', async () => {
+    await service.update(TENANT_ID, STUDENT_ID, { middle_name: null });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ middle_name: null }),
+      }),
+    );
+  });
+
+  it('should set first_name_ar to null when explicitly null', async () => {
+    await service.update(TENANT_ID, STUDENT_ID, { first_name_ar: null });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ first_name_ar: null }),
+      }),
+    );
+  });
+
+  it('should set last_name_ar to null when explicitly null', async () => {
+    await service.update(TENANT_ID, STUDENT_ID, { last_name_ar: null });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ last_name_ar: null }),
+      }),
+    );
+  });
+
+  it('should set gender to null when explicitly null', async () => {
+    await service.update(TENANT_ID, STUDENT_ID, { gender: null });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ gender: null }),
+      }),
+    );
+  });
+
+  it('should set year_group_id to null when explicitly null', async () => {
+    await service.update(TENANT_ID, STUDENT_ID, { year_group_id: null });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ year_group_id: null }),
+      }),
+    );
+  });
+
+  it('should set class_homeroom_id to null when explicitly null', async () => {
+    await service.update(TENANT_ID, STUDENT_ID, { class_homeroom_id: null });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ class_homeroom_id: null }),
+      }),
+    );
+  });
+
+  it('should set student_number to null when explicitly null', async () => {
+    await service.update(TENANT_ID, STUDENT_ID, { student_number: null });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ student_number: null }),
+      }),
+    );
+  });
+
+  it('should set nationality to null when explicitly null', async () => {
+    await service.update(TENANT_ID, STUDENT_ID, { nationality: null });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ nationality: null }),
+      }),
+    );
+  });
+
+  it('should set city_of_birth to null when explicitly null', async () => {
+    await service.update(TENANT_ID, STUDENT_ID, { city_of_birth: null });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ city_of_birth: null }),
+      }),
+    );
+  });
+
+  it('should set medical_notes to null when explicitly null', async () => {
+    await service.update(TENANT_ID, STUDENT_ID, { medical_notes: null });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ medical_notes: null }),
+      }),
+    );
+  });
+
+  it('should set allergy_details to null when explicitly null', async () => {
+    await service.update(TENANT_ID, STUDENT_ID, { allergy_details: null });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ allergy_details: null }),
+      }),
+    );
+  });
+
+  it('should update has_allergy boolean field', async () => {
+    await service.update(TENANT_ID, STUDENT_ID, {
+      has_allergy: true,
+      allergy_details: 'Peanuts',
+    });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          has_allergy: true,
+          allergy_details: 'Peanuts',
+        }),
+      }),
+    );
+  });
+
+  it('should update date_of_birth as Date object', async () => {
+    await service.update(TENANT_ID, STUDENT_ID, { date_of_birth: '2011-06-20' });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ date_of_birth: new Date('2011-06-20') }),
+      }),
+    );
+  });
+
+  it('should update household_id and validate it exists', async () => {
+    await service.update(TENANT_ID, STUDENT_ID, { household_id: 'new-household' });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ household_id: 'new-household' }),
+      }),
+    );
+  });
+});
+
+// ─── allergyReport — filter branches (lines 689, 693) ──────────────────────
+
+describe('StudentsService — allergyReport (filter branches)', () => {
+  let service: StudentsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockSequence: { nextNumber: jest.Mock };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRedis = buildMockRedis();
+    mockSequence = { nextNumber: jest.fn() };
+
+    mockPrisma.student.findMany.mockResolvedValue([
+      {
+        id: 'student-1',
+        student_number: 'STU-1',
+        first_name: 'John',
+        last_name: 'Doe',
+        allergy_details: 'Peanuts',
+        year_group: { name: 'Year 5' },
+        homeroom_class: { name: '5A' },
+      },
+    ]);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        StudentsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+        { provide: SequenceService, useValue: mockSequence },
+        {
+          provide: GdprReadFacade,
+          useValue: {
+            findConsentRecordsWhere: jest.fn().mockResolvedValue([{ subject_id: 'student-1' }]),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get<StudentsService>(StudentsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should filter by year_group_id when provided', async () => {
+    await service.allergyReport(TENANT_ID, { year_group_id: 'yg-1' });
+
+    expect(mockPrisma.student.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ year_group_id: 'yg-1' }),
+      }),
+    );
+  });
+
+  it('should filter by class_id using class_enrolments when provided', async () => {
+    await service.allergyReport(TENANT_ID, { class_id: 'class-1' });
+
+    expect(mockPrisma.student.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          class_enrolments: {
+            some: {
+              class_id: 'class-1',
+              tenant_id: TENANT_ID,
+              status: 'active',
+            },
+          },
+        }),
+      }),
+    );
+  });
+
+  it('should apply both year_group_id and class_id filters together', async () => {
+    await service.allergyReport(TENANT_ID, {
+      year_group_id: 'yg-1',
+      class_id: 'class-1',
+    });
+
+    const call = mockPrisma.student.findMany.mock.calls[0]?.[0];
+    expect(call?.where?.year_group_id).toBe('yg-1');
+    expect(call?.where?.class_enrolments).toBeDefined();
+  });
+
+  it('should return null allergy_details as empty string', async () => {
+    mockPrisma.student.findMany.mockResolvedValue([
+      {
+        id: 'student-1',
+        student_number: 'STU-1',
+        first_name: 'John',
+        last_name: 'Doe',
+        allergy_details: null,
+        year_group: null,
+        homeroom_class: null,
+      },
+    ]);
+
+    const result = await service.allergyReport(TENANT_ID, {});
+
+    expect(result.data[0]?.allergy_details).toBe('');
+  });
+
+  it('should return null year_group name when year_group is null', async () => {
+    mockPrisma.student.findMany.mockResolvedValue([
+      {
+        id: 'student-1',
+        student_number: 'STU-1',
+        first_name: 'John',
+        last_name: 'Doe',
+        allergy_details: 'Dust',
+        year_group: null,
+        homeroom_class: null,
+      },
+    ]);
+
+    const result = await service.allergyReport(TENANT_ID, {});
+
+    expect(result.data[0]?.year_group_name).toBeNull();
+    expect(result.data[0]?.class_homeroom_name).toBeNull();
+  });
+});
+
+// ─── preview — secondary_label with only one component ──────────────────────
+
+describe('StudentsService — preview (secondary label edge cases)', () => {
+  let service: StudentsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockSequence: { nextNumber: jest.Mock };
+
+  const studentPreviewBase = {
+    id: STUDENT_ID,
+    full_name: 'John Doe',
+    first_name: 'John',
+    last_name: 'Doe',
+    status: 'active',
+    date_of_birth: new Date('2010-05-15'),
+    has_allergy: true,
+    household: { household_name: 'Doe Family' },
+  };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRedis = buildMockRedis();
+    mockSequence = { nextNumber: jest.fn() };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        StudentsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+        { provide: SequenceService, useValue: mockSequence },
+      ],
+    }).compile();
+
+    service = module.get<StudentsService>(StudentsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should show only year_group in secondary_label when homeroom is null', async () => {
+    mockRedis._client.get.mockResolvedValue(null);
+    mockPrisma.student.findFirst.mockResolvedValue({
+      ...studentPreviewBase,
+      year_group: { name: 'Year 5' },
+      homeroom_class: null,
+    });
+
+    const result = await service.preview(TENANT_ID, STUDENT_ID);
+
+    expect(result.secondary_label).toBe('Year 5');
+  });
+
+  it('should show only homeroom in secondary_label when year_group is null', async () => {
+    mockRedis._client.get.mockResolvedValue(null);
+    mockPrisma.student.findFirst.mockResolvedValue({
+      ...studentPreviewBase,
+      year_group: null,
+      homeroom_class: { name: '5A' },
+    });
+
+    const result = await service.preview(TENANT_ID, STUDENT_ID);
+
+    expect(result.secondary_label).toBe('5A');
+  });
+
+  it('should show "Yes" for allergy fact when has_allergy is true', async () => {
+    mockRedis._client.get.mockResolvedValue(null);
+    mockPrisma.student.findFirst.mockResolvedValue({
+      ...studentPreviewBase,
+      year_group: null,
+      homeroom_class: null,
+    });
+
+    const result = await service.preview(TENANT_ID, STUDENT_ID);
+
+    const allergyFact = result.facts.find((f) => f.label === 'Allergy');
+    expect(allergyFact?.value).toBe('Yes');
+  });
+});

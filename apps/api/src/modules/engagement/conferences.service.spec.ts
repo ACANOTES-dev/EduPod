@@ -148,12 +148,14 @@ describe('ConferencesService', () => {
               const links = await mockPrisma.studentParent.findMany();
               return (links as Array<{ student_id: string }>).map((l) => l.student_id);
             }),
-            isLinkedToStudent: jest.fn().mockImplementation(
-              async (_tenantId: string, _parentId: string, studentId: string) => {
-                const link = await mockPrisma.studentParent.findUnique();
-                return link?.student_id === studentId;
-              },
-            ),
+            isLinkedToStudent: jest
+              .fn()
+              .mockImplementation(
+                async (_tenantId: string, _parentId: string, studentId: string) => {
+                  const link = await mockPrisma.studentParent.findUnique();
+                  return link?.student_id === studentId;
+                },
+              ),
           },
         },
         {
@@ -799,6 +801,297 @@ describe('ConferencesService', () => {
           }),
         }),
       );
+    });
+  });
+
+  // ─── updateOwnTimeSlot ─────────────────────────────────────────────────
+
+  describe('updateOwnTimeSlot', () => {
+    it('should update own slot from available to blocked', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockConferenceEvent);
+      mockPrisma.staffProfile.findFirst.mockResolvedValue({
+        id: STAFF_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.conferenceTimeSlot.findFirst.mockResolvedValue({
+        ...mockSlot,
+        teacher_id: STAFF_ID,
+      });
+      mockTx.conferenceTimeSlot.update.mockResolvedValue({
+        ...mockSlot,
+        status: 'blocked',
+      });
+
+      const result = await service.updateOwnTimeSlot(
+        TENANT_ID,
+        EVENT_ID,
+        SLOT_ID,
+        USER_ID,
+        'blocked',
+      );
+
+      expect((result as Record<string, unknown>).status).toBe('blocked');
+    });
+
+    it('should throw STAFF_NOT_FOUND when user has no staff profile', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockConferenceEvent);
+      mockPrisma.staffProfile.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateOwnTimeSlot(TENANT_ID, EVENT_ID, SLOT_ID, USER_ID, 'blocked'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw SLOT_NOT_FOUND when slot does not exist', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockConferenceEvent);
+      mockPrisma.staffProfile.findFirst.mockResolvedValue({
+        id: STAFF_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.conferenceTimeSlot.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateOwnTimeSlot(TENANT_ID, EVENT_ID, SLOT_ID, USER_ID, 'blocked'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw SLOT_NOT_OWNED when teacher_id does not match', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockConferenceEvent);
+      mockPrisma.staffProfile.findFirst.mockResolvedValue({
+        id: STAFF_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.conferenceTimeSlot.findFirst.mockResolvedValue({
+        ...mockSlot,
+        teacher_id: 'other-teacher-id',
+      });
+
+      await expect(
+        service.updateOwnTimeSlot(TENANT_ID, EVENT_ID, SLOT_ID, USER_ID, 'blocked'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw SLOT_NOT_MODIFIABLE when slot is booked', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockConferenceEvent);
+      mockPrisma.staffProfile.findFirst.mockResolvedValue({
+        id: STAFF_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.conferenceTimeSlot.findFirst.mockResolvedValue({
+        ...mockSlot,
+        teacher_id: STAFF_ID,
+        status: 'booked',
+      });
+
+      await expect(
+        service.updateOwnTimeSlot(TENANT_ID, EVENT_ID, SLOT_ID, USER_ID, 'available'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw SLOT_NOT_MODIFIABLE when slot is completed', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockConferenceEvent);
+      mockPrisma.staffProfile.findFirst.mockResolvedValue({
+        id: STAFF_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.conferenceTimeSlot.findFirst.mockResolvedValue({
+        ...mockSlot,
+        teacher_id: STAFF_ID,
+        status: 'completed',
+      });
+
+      await expect(
+        service.updateOwnTimeSlot(TENANT_ID, EVENT_ID, SLOT_ID, USER_ID, 'available'),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ─── parentCancelBooking — additional branches ────────────────────────────
+
+  describe('parentCancelBooking — additional branches', () => {
+    it('should throw INVALID_TRANSITION when booking is not confirmed', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockConferenceEvent);
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+        tenant_id: TENANT_ID,
+        settings: {},
+      });
+      mockPrisma.parent.findFirst.mockResolvedValue({
+        id: PARENT_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.studentParent.findMany.mockResolvedValue([{ student_id: STUDENT_ID }]);
+      mockPrisma.conferenceBooking.findFirst.mockResolvedValue({
+        ...mockBooking,
+        status: 'cancelled',
+      });
+
+      await expect(
+        service.parentCancelBooking(TENANT_ID, EVENT_ID, BOOKING_ID, USER_ID),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ─── cancelBooking — BOOKING_NOT_FOUND branch ─────────────────────────────
+
+  describe('cancelBooking — additional branches', () => {
+    it('should throw BOOKING_NOT_FOUND when booking does not exist', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockConferenceEvent);
+      mockPrisma.conferenceBooking.findFirst.mockResolvedValue(null);
+
+      await expect(service.cancelBooking(TENANT_ID, EVENT_ID, BOOKING_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ─── parentBook — SLOT_NOT_AVAILABLE branch ────────────────────────────────
+
+  describe('parentBook — additional branches', () => {
+    const dto = {
+      time_slot_id: SLOT_ID,
+      student_id: STUDENT_ID,
+      booking_type: 'parent_booked' as const,
+    };
+
+    it('should throw NOT_LINKED_TO_STUDENT when parent link verification fails', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockConferenceEvent);
+      mockPrisma.parent.findFirst.mockResolvedValue({
+        id: PARENT_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.studentParent.findUnique.mockResolvedValue({
+        student_id: 'other-student-id',
+        parent_id: PARENT_ID,
+      });
+
+      await expect(service.parentBook(TENANT_ID, EVENT_ID, USER_ID, dto)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should throw SLOT_NOT_FOUND when slot not found inside transaction', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockConferenceEvent);
+      mockPrisma.parent.findFirst.mockResolvedValue({
+        id: PARENT_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.studentParent.findUnique.mockResolvedValue({
+        student_id: STUDENT_ID,
+        parent_id: PARENT_ID,
+      });
+      mockTx.$queryRaw.mockResolvedValue([]);
+
+      await expect(service.parentBook(TENANT_ID, EVENT_ID, USER_ID, dto)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw SLOT_NOT_AVAILABLE when slot is blocked', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockConferenceEvent);
+      mockPrisma.parent.findFirst.mockResolvedValue({
+        id: PARENT_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.studentParent.findUnique.mockResolvedValue({
+        student_id: STUDENT_ID,
+        parent_id: PARENT_ID,
+      });
+      mockTx.$queryRaw.mockResolvedValue([
+        {
+          id: SLOT_ID,
+          status: 'blocked',
+          start_time: mockSlot.start_time,
+          end_time: mockSlot.end_time,
+          teacher_id: STAFF_ID,
+        },
+      ]);
+
+      await expect(service.parentBook(TENANT_ID, EVENT_ID, USER_ID, dto)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+  });
+
+  // ─── getAvailableSlots — PARENT_NOT_FOUND branch ──────────────────────────
+
+  describe('getAvailableSlots — additional branches', () => {
+    it('should throw PARENT_NOT_FOUND when parent does not exist', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockConferenceEvent);
+      mockPrisma.parent.findFirst.mockResolvedValue(null);
+
+      await expect(service.getAvailableSlots(TENANT_ID, EVENT_ID, USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ─── generateTimeSlots — NO_SLOTS_GENERATED branch ────────────────────────
+
+  describe('generateTimeSlots — additional branches', () => {
+    it('should throw NO_SLOTS_GENERATED when time range too short', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockConferenceEvent);
+
+      const dto = {
+        date: '2026-04-01',
+        start_time: '09:00',
+        end_time: '09:05',
+        slot_duration_minutes: 10,
+        buffer_minutes: 0,
+        teacher_ids: [TEACHER_A],
+      };
+
+      await expect(service.generateTimeSlots(TENANT_ID, EVENT_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  // ─── isParentCancellationAllowed — branch coverage ────────────────────────
+
+  describe('getParentBookings — cancellation flag branches', () => {
+    it('should return allow_parent_conference_cancellation true by default', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockConferenceEvent);
+      mockPrisma.parent.findFirst.mockResolvedValue({
+        id: PARENT_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.studentParent.findMany.mockResolvedValue([{ student_id: STUDENT_ID }]);
+      mockPrisma.conferenceBooking.findMany.mockResolvedValue([]);
+      // No settings at all (null)
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue(null);
+
+      const result = await service.getParentBookings(TENANT_ID, EVENT_ID, USER_ID);
+
+      expect(result.allow_parent_conference_cancellation).toBe(true);
+    });
+
+    it('should return allow_parent_conference_cancellation false when explicitly set', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockConferenceEvent);
+      mockPrisma.parent.findFirst.mockResolvedValue({
+        id: PARENT_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+      });
+      mockPrisma.studentParent.findMany.mockResolvedValue([{ student_id: STUDENT_ID }]);
+      mockPrisma.conferenceBooking.findMany.mockResolvedValue([]);
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+        tenant_id: TENANT_ID,
+        settings: { engagement: { allow_parent_conference_cancellation: false } },
+      });
+
+      const result = await service.getParentBookings(TENANT_ID, EVENT_ID, USER_ID);
+
+      expect(result.allow_parent_conference_cancellation).toBe(false);
     });
   });
 

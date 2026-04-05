@@ -71,13 +71,11 @@ describe('PolicyRulesService', () => {
         {
           provide: BehaviourReadFacade,
           useValue: {
-            findPolicyRulesPaginated: jest.fn().mockImplementation(
-              async () => {
-                const data = await mockPrisma.behaviourPolicyRule!.findMany!();
-                const total = await mockPrisma.behaviourPolicyRule!.count!();
-                return { data, total };
-              },
-            ),
+            findPolicyRulesPaginated: jest.fn().mockImplementation(async () => {
+              const data = await mockPrisma.behaviourPolicyRule!.findMany!();
+              const total = await mockPrisma.behaviourPolicyRule!.count!();
+              return { data, total };
+            }),
             findPolicyRuleById: jest.fn().mockImplementation((_t: string, _id: string) => {
               return mockPrisma.behaviourPolicyRule!.findFirst!();
             }),
@@ -575,6 +573,411 @@ describe('PolicyRulesService', () => {
         }),
       });
       expect(result).toEqual({ imported: 1, rule_ids: [RULE_ID] });
+    });
+  });
+
+  // ─── getRule ────────────────────────────────────────────────────────────────
+
+  describe('getRule', () => {
+    it('should return mapped rule when found', async () => {
+      const rule = {
+        id: RULE_ID,
+        tenant_id: TENANT_ID,
+        name: 'Test Rule',
+        stage: 'approval_stage',
+        priority: 10,
+        actions: [{ action_type: 'require_approval', action_config: {}, execution_order: 0 }],
+      };
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(rule);
+
+      const result = await service.getRule(TENANT_ID, RULE_ID);
+
+      expect(result.stage).toBe('approval');
+      expect(result.name).toBe('Test Rule');
+    });
+
+    it('should throw NotFoundException when rule is not found', async () => {
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(null);
+
+      await expect(service.getRule(TENANT_ID, 'non-existent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── getVersion ───────────────────────────────────────────────────────────
+
+  describe('getVersion', () => {
+    it('should return version with mapped stage', async () => {
+      mockPrisma.behaviourPolicyRuleVersion!.findFirst!.mockResolvedValue({
+        id: 'v-1',
+        version: 1,
+        stage: 'notification_stage',
+        name: 'Test',
+      });
+
+      const result = await service.getVersion(TENANT_ID, RULE_ID, 1);
+
+      expect(result.stage).toBe('notification');
+    });
+
+    it('should throw NotFoundException when version is not found', async () => {
+      mockPrisma.behaviourPolicyRuleVersion!.findFirst!.mockResolvedValue(null);
+
+      await expect(service.getVersion(TENANT_ID, RULE_ID, 99)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── updatePriority ───────────────────────────────────────────────────────
+
+  describe('updatePriority', () => {
+    it('should update rule priority and return mapped result', async () => {
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue({
+        id: RULE_ID,
+        tenant_id: TENANT_ID,
+      });
+      mockTx.behaviourPolicyRule.update.mockResolvedValue({
+        id: RULE_ID,
+        stage: 'support',
+        priority: 5,
+        actions: [],
+      });
+
+      const result = await service.updatePriority(TENANT_ID, RULE_ID, { priority: 5 });
+
+      expect(result.stage).toBe('support');
+    });
+
+    it('should throw NotFoundException for non-existent rule', async () => {
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(null);
+
+      await expect(
+        service.updatePriority(TENANT_ID, 'non-existent', { priority: 5 }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── updateRule — NotFoundException branch ────────────────────────────────
+
+  describe('updateRule — NotFoundException', () => {
+    it('should throw NotFoundException when rule does not exist', async () => {
+      mockTx.behaviourPolicyRule.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateRule(TENANT_ID, 'non-existent', USER_ID, { name: 'New' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── updateRule — partial update branches ─────────────────────────────────
+
+  describe('updateRule — partial fields', () => {
+    const existingRule = {
+      id: RULE_ID,
+      tenant_id: TENANT_ID,
+      name: 'Old Name',
+      description: null,
+      stage: 'consequence',
+      priority: 10,
+      match_strategy: 'first_match',
+      stop_processing_stage: false,
+      is_active: true,
+      conditions: { severity_min: 3 },
+      current_version: 1,
+      actions: [],
+    };
+
+    beforeEach(() => {
+      mockTx.behaviourPolicyRule.findFirst.mockResolvedValue(existingRule);
+      mockTx.behaviourPolicyRuleVersion.create.mockResolvedValue({ id: 'v-snap' });
+      mockTx.behaviourPolicyRule.update.mockResolvedValue({
+        ...existingRule,
+        current_version: 2,
+      });
+      mockTx.behaviourPolicyRule.findUniqueOrThrow.mockResolvedValue({
+        ...existingRule,
+        current_version: 2,
+        actions: [],
+      });
+    });
+
+    it('should only update provided fields — stage', async () => {
+      await service.updateRule(TENANT_ID, RULE_ID, USER_ID, { stage: 'approval' });
+
+      expect(mockTx.behaviourPolicyRule.update).toHaveBeenCalledWith({
+        where: { id: RULE_ID },
+        data: expect.objectContaining({
+          stage: 'approval_stage',
+          current_version: { increment: 1 },
+        }),
+      });
+    });
+
+    it('should only update provided fields — description', async () => {
+      await service.updateRule(TENANT_ID, RULE_ID, USER_ID, { description: 'New desc' });
+
+      expect(mockTx.behaviourPolicyRule.update).toHaveBeenCalledWith({
+        where: { id: RULE_ID },
+        data: expect.objectContaining({
+          description: 'New desc',
+          current_version: { increment: 1 },
+        }),
+      });
+    });
+
+    it('should only update provided fields — match_strategy', async () => {
+      await service.updateRule(TENANT_ID, RULE_ID, USER_ID, {
+        match_strategy: 'all_matching',
+      });
+
+      expect(mockTx.behaviourPolicyRule.update).toHaveBeenCalledWith({
+        where: { id: RULE_ID },
+        data: expect.objectContaining({
+          match_strategy: 'all_matching',
+        }),
+      });
+    });
+
+    it('should only update provided fields — stop_processing_stage', async () => {
+      await service.updateRule(TENANT_ID, RULE_ID, USER_ID, {
+        stop_processing_stage: true,
+      });
+
+      expect(mockTx.behaviourPolicyRule.update).toHaveBeenCalledWith({
+        where: { id: RULE_ID },
+        data: expect.objectContaining({
+          stop_processing_stage: true,
+        }),
+      });
+    });
+
+    it('should only update provided fields — is_active', async () => {
+      await service.updateRule(TENANT_ID, RULE_ID, USER_ID, { is_active: false });
+
+      expect(mockTx.behaviourPolicyRule.update).toHaveBeenCalledWith({
+        where: { id: RULE_ID },
+        data: expect.objectContaining({
+          is_active: false,
+        }),
+      });
+    });
+
+    it('should only update provided fields — conditions', async () => {
+      await service.updateRule(TENANT_ID, RULE_ID, USER_ID, {
+        conditions: { polarity: 'positive' },
+      });
+
+      expect(mockTx.behaviourPolicyRule.update).toHaveBeenCalledWith({
+        where: { id: RULE_ID },
+        data: expect.objectContaining({
+          conditions: { polarity: 'positive' },
+        }),
+      });
+    });
+
+    it('should not replace actions when actions field is not provided', async () => {
+      await service.updateRule(TENANT_ID, RULE_ID, USER_ID, { name: 'Just a name change' });
+
+      expect(mockTx.behaviourPolicyRuleAction.deleteMany).not.toHaveBeenCalled();
+      expect(mockTx.behaviourPolicyRuleAction.createMany).not.toHaveBeenCalled();
+    });
+
+    it('should store change_reason in version snapshot when provided', async () => {
+      await service.updateRule(TENANT_ID, RULE_ID, USER_ID, {
+        name: 'Updated',
+        change_reason: 'Policy review Q1',
+      });
+
+      expect(mockTx.behaviourPolicyRuleVersion.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          change_reason: 'Policy review Q1',
+        }),
+      });
+    });
+
+    it('should store null change_reason when not provided', async () => {
+      await service.updateRule(TENANT_ID, RULE_ID, USER_ID, { name: 'Updated' });
+
+      expect(mockTx.behaviourPolicyRuleVersion.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          change_reason: null,
+        }),
+      });
+    });
+  });
+
+  // ─── createRule — empty actions ───────────────────────────────────────────
+
+  describe('createRule — empty actions', () => {
+    it('should skip createMany when actions array is empty', async () => {
+      const dto = {
+        name: 'No actions rule',
+        stage: 'consequence' as const,
+        priority: 10,
+        match_strategy: 'first_match' as const,
+        stop_processing_stage: false,
+        is_active: true,
+        conditions: {},
+        actions: [],
+      };
+
+      const createdRule = { id: RULE_ID, ...dto, current_version: 1 };
+      mockTx.behaviourPolicyRule.create.mockResolvedValue(createdRule);
+      mockTx.behaviourPolicyRuleVersion.create.mockResolvedValue({ id: 'v-1' });
+      mockTx.behaviourPolicyRule.findUniqueOrThrow.mockResolvedValue({
+        ...createdRule,
+        stage: 'consequence',
+        actions: [],
+      });
+
+      await service.createRule(TENANT_ID, USER_ID, dto);
+
+      expect(mockTx.behaviourPolicyRuleAction.createMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── listRules — no filters ───────────────────────────────────────────────
+
+  describe('listRules — no filters', () => {
+    it('should list rules without stage or is_active filters', async () => {
+      mockPrisma.behaviourPolicyRule!.findMany!.mockResolvedValue([]);
+      mockPrisma.behaviourPolicyRule!.count!.mockResolvedValue(0);
+
+      const result = await service.listRules(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(result.data).toHaveLength(0);
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 0 });
+    });
+  });
+
+  // ─── listRules — stage mapping ────────────────────────────────────────────
+
+  describe('listRules — stage mapping', () => {
+    it('should map rule stages from Prisma to API format', async () => {
+      const rules = [
+        {
+          id: RULE_ID,
+          stage: 'notification_stage',
+          actions: [{ action_type: 'notify_roles' }],
+        },
+      ];
+      mockPrisma.behaviourPolicyRule!.findMany!.mockResolvedValue(rules);
+      mockPrisma.behaviourPolicyRule!.count!.mockResolvedValue(1);
+
+      const result = await service.listRules(TENANT_ID, { page: 1, pageSize: 20 });
+
+      expect(result.data[0]!.stage).toBe('notification');
+    });
+  });
+
+  // ─── importRules — empty actions array ────────────────────────────────────
+
+  describe('importRules — empty actions', () => {
+    it('should skip createMany when imported rule has no actions', async () => {
+      mockTx.behaviourCategory.findMany.mockResolvedValue([]);
+
+      const importDto = {
+        rules: [
+          {
+            name: 'No actions',
+            stage: 'consequence' as const,
+            priority: 1,
+            match_strategy: 'first_match' as const,
+            stop_processing_stage: false,
+            conditions: {},
+            actions: [],
+          },
+        ],
+      };
+
+      mockTx.behaviourPolicyRule.create.mockResolvedValue({ id: RULE_ID });
+      mockTx.behaviourPolicyRuleVersion.create.mockResolvedValue({ id: 'v-1' });
+
+      const result = await service.importRules(TENANT_ID, USER_ID, importDto);
+
+      expect(result.imported).toBe(1);
+      expect(mockTx.behaviourPolicyRuleAction.createMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── resolveCategoryTokens — non-token values ────────────────────────────
+
+  describe('importRules — non-token values', () => {
+    it('should leave non-token string values unchanged', async () => {
+      mockTx.behaviourCategory.findMany.mockResolvedValue([
+        { id: CATEGORY_ID, name: 'Verbal Warning' },
+      ]);
+
+      const importDto = {
+        rules: [
+          {
+            name: 'Keep plain values',
+            stage: 'consequence' as const,
+            priority: 1,
+            match_strategy: 'first_match' as const,
+            stop_processing_stage: false,
+            conditions: { polarity: 'negative' },
+            actions: [
+              {
+                action_type: 'flag_for_review' as const,
+                action_config: { reason: 'Just a plain string' },
+                execution_order: 0,
+              },
+            ],
+          },
+        ],
+      };
+
+      mockTx.behaviourPolicyRule.create.mockResolvedValue({ id: RULE_ID });
+      mockTx.behaviourPolicyRuleAction.createMany.mockResolvedValue({ count: 1 });
+      mockTx.behaviourPolicyRuleVersion.create.mockResolvedValue({ id: 'v-1' });
+
+      await service.importRules(TENANT_ID, USER_ID, importDto);
+
+      // Action config should remain unchanged
+      expect(mockTx.behaviourPolicyRuleAction.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            action_config: { reason: 'Just a plain string' },
+          }),
+        ],
+      });
+    });
+
+    it('should leave non-token array values unchanged during resolution', async () => {
+      mockTx.behaviourCategory.findMany.mockResolvedValue([
+        { id: CATEGORY_ID, name: 'Verbal Warning' },
+      ]);
+
+      // Mix of token and plain UUID in an array
+      const importDto = {
+        rules: [
+          {
+            name: 'Mixed array',
+            stage: 'consequence' as const,
+            priority: 1,
+            match_strategy: 'first_match' as const,
+            stop_processing_stage: false,
+            conditions: { category_ids: ['__VERBAL_WARNING__', CATEGORY_ID] },
+            actions: [],
+          },
+        ],
+      };
+
+      mockTx.behaviourPolicyRule.create.mockResolvedValue({ id: RULE_ID });
+      mockTx.behaviourPolicyRuleVersion.create.mockResolvedValue({ id: 'v-1' });
+
+      await service.importRules(TENANT_ID, USER_ID, importDto);
+
+      // Both should resolve to the same UUID (token resolved, plain UUID untouched)
+      expect(mockTx.behaviourPolicyRule.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          conditions: expect.objectContaining({
+            category_ids: [CATEGORY_ID, CATEGORY_ID],
+          }),
+        }),
+      });
     });
   });
 

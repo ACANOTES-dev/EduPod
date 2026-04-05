@@ -1,6 +1,12 @@
+/* eslint-disable import/order -- jest.mock must precede mocked imports */
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+jest.mock('../../common/middleware/rls.middleware', () => ({
+  createRlsClient: jest.fn(),
+}));
+
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -82,6 +88,8 @@ const mockPrisma = {
     findMany: jest.fn(),
   },
 };
+
+const mockCreateRlsClient = createRlsClient as jest.Mock;
 
 describe('MembershipsService', () => {
   let service: MembershipsService;
@@ -337,6 +345,322 @@ describe('MembershipsService', () => {
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'MEMBERSHIP_NOT_FOUND',
       });
+    });
+
+    it('should log security audit when actorUserId is provided', async () => {
+      const suspendedMembership = {
+        id: MEMBERSHIP_ID,
+        tenant_id: TENANT_ID,
+        user_id: USER_ID,
+        membership_status: 'suspended',
+      };
+
+      mockPrisma.tenantMembership.findFirst
+        .mockResolvedValueOnce(suspendedMembership)
+        .mockResolvedValueOnce(ownerMembershipFull);
+
+      mockPrisma.tenantMembership.update.mockResolvedValueOnce({
+        ...suspendedMembership,
+        membership_status: 'active',
+      });
+
+      await service.reactivateMembership(TENANT_ID, USER_ID, 'actor-123');
+
+      expect(mockSecurityAuditService.logUserStatusChange).toHaveBeenCalledWith(
+        TENANT_ID,
+        'actor-123',
+        USER_ID,
+        'active',
+      );
+    });
+  });
+
+  // ─── listUsers ─────────────────────────────────────────────────────────────
+
+  describe('listUsers', () => {
+    it('should list users with default parameters (no filters)', async () => {
+      const memberships = [
+        {
+          id: MEMBERSHIP_ID,
+          user: { id: USER_ID, email: 'a@b.com', first_name: 'A', last_name: 'B' },
+          membership_roles: [],
+        },
+      ];
+      mockPrisma.tenantMembership.findMany.mockResolvedValue(memberships);
+      mockPrisma.tenantMembership.count.mockResolvedValue(1);
+
+      const result = await service.listUsers(TENANT_ID, { page: 1, pageSize: 20 });
+
+      expect(result.data).toEqual(memberships);
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
+    });
+
+    it('should apply status filter when provided', async () => {
+      mockPrisma.tenantMembership.findMany.mockResolvedValue([]);
+      mockPrisma.tenantMembership.count.mockResolvedValue(0);
+
+      await service.listUsers(TENANT_ID, { page: 1, pageSize: 20, status: 'suspended' });
+
+      expect(mockPrisma.tenantMembership.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            membership_status: 'suspended',
+          }),
+        }),
+      );
+    });
+
+    it('should apply search filter when provided', async () => {
+      mockPrisma.tenantMembership.findMany.mockResolvedValue([]);
+      mockPrisma.tenantMembership.count.mockResolvedValue(0);
+
+      await service.listUsers(TENANT_ID, { page: 1, pageSize: 20, search: 'john' });
+
+      expect(mockPrisma.tenantMembership.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            user: {
+              OR: [
+                { first_name: { contains: 'john', mode: 'insensitive' } },
+                { last_name: { contains: 'john', mode: 'insensitive' } },
+                { email: { contains: 'john', mode: 'insensitive' } },
+              ],
+            },
+          }),
+        }),
+      );
+    });
+
+    it('should skip search filter when search is empty/whitespace', async () => {
+      mockPrisma.tenantMembership.findMany.mockResolvedValue([]);
+      mockPrisma.tenantMembership.count.mockResolvedValue(0);
+
+      await service.listUsers(TENANT_ID, { page: 1, pageSize: 20, search: '   ' });
+
+      const callArgs = mockPrisma.tenantMembership.findMany.mock.calls[0][0];
+      expect(callArgs.where.user).toBeUndefined();
+    });
+
+    it('should apply role_id filter when provided', async () => {
+      mockPrisma.tenantMembership.findMany.mockResolvedValue([]);
+      mockPrisma.tenantMembership.count.mockResolvedValue(0);
+
+      await service.listUsers(TENANT_ID, { page: 1, pageSize: 20, role_id: 'role-123' });
+
+      expect(mockPrisma.tenantMembership.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            membership_roles: {
+              some: { role_id: 'role-123' },
+            },
+          }),
+        }),
+      );
+    });
+
+    it('should calculate correct skip for pagination', async () => {
+      mockPrisma.tenantMembership.findMany.mockResolvedValue([]);
+      mockPrisma.tenantMembership.count.mockResolvedValue(0);
+
+      await service.listUsers(TENANT_ID, { page: 3, pageSize: 10 });
+
+      expect(mockPrisma.tenantMembership.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 20,
+          take: 10,
+        }),
+      );
+    });
+  });
+
+  // ─── getUser ───────────────────────────────────────────────────────────────
+
+  describe('getUser', () => {
+    it('should return membership with user details when found', async () => {
+      const membership = {
+        id: MEMBERSHIP_ID,
+        tenant_id: TENANT_ID,
+        user_id: USER_ID,
+        membership_status: 'active',
+        user: { id: USER_ID, email: 'a@b.com', first_name: 'A', last_name: 'B' },
+        membership_roles: [],
+      };
+      mockPrisma.tenantMembership.findFirst.mockResolvedValueOnce(membership);
+
+      const result = await service.getUser(TENANT_ID, USER_ID);
+
+      expect(result).toEqual(membership);
+    });
+
+    it('should throw NotFoundException when membership not found', async () => {
+      mockPrisma.tenantMembership.findFirst.mockResolvedValueOnce(null);
+
+      let caught: unknown;
+      try {
+        await service.getUser(TENANT_ID, USER_ID);
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(NotFoundException);
+      expect((caught as NotFoundException).getResponse()).toMatchObject({
+        code: 'MEMBERSHIP_NOT_FOUND',
+      });
+    });
+  });
+
+  // ─── updateMembershipRoles ─────────────────────────────────────────────────
+
+  describe('updateMembershipRoles', () => {
+    it('should throw NotFoundException when membership not found', async () => {
+      mockPrisma.tenantMembership.findFirst.mockResolvedValueOnce(null);
+
+      let caught: unknown;
+      try {
+        await service.updateMembershipRoles(TENANT_ID, USER_ID, ['role-1']);
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(NotFoundException);
+      expect((caught as NotFoundException).getResponse()).toMatchObject({
+        code: 'MEMBERSHIP_NOT_FOUND',
+      });
+    });
+
+    it('should throw BadRequestException when some role IDs are invalid', async () => {
+      mockPrisma.tenantMembership.findFirst.mockResolvedValueOnce({
+        id: MEMBERSHIP_ID,
+        tenant_id: TENANT_ID,
+        user_id: USER_ID,
+      });
+
+      // Only 1 of 2 roles found
+      mockPrisma.role.findMany.mockResolvedValueOnce([{ id: 'role-1', tenant_id: TENANT_ID }]);
+
+      let caught: unknown;
+      try {
+        await service.updateMembershipRoles(TENANT_ID, USER_ID, ['role-1', 'role-invalid']);
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(BadRequestException);
+      expect((caught as BadRequestException).getResponse()).toMatchObject({
+        code: 'ROLE_NOT_FOUND',
+      });
+    });
+
+    it('should replace membership roles successfully via RLS transaction', async () => {
+      mockPrisma.tenantMembership.findFirst
+        .mockResolvedValueOnce({
+          id: MEMBERSHIP_ID,
+          tenant_id: TENANT_ID,
+          user_id: USER_ID,
+        })
+        .mockResolvedValueOnce(ownerMembershipFull); // getUser at end
+
+      mockPrisma.role.findMany.mockResolvedValueOnce([
+        { id: 'role-1', tenant_id: TENANT_ID },
+        { id: 'role-2', tenant_id: null },
+      ]);
+
+      const mockTx = {
+        membershipRole: {
+          deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+          createMany: jest.fn().mockResolvedValue({ count: 2 }),
+        },
+      };
+      mockCreateRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      const result = await service.updateMembershipRoles(TENANT_ID, USER_ID, ['role-1', 'role-2']);
+
+      expect(mockTx.membershipRole.deleteMany).toHaveBeenCalledWith({
+        where: { membership_id: MEMBERSHIP_ID },
+      });
+      expect(mockTx.membershipRole.createMany).toHaveBeenCalledWith({
+        data: [
+          { membership_id: MEMBERSHIP_ID, role_id: 'role-1', tenant_id: TENANT_ID },
+          { membership_id: MEMBERSHIP_ID, role_id: 'role-2', tenant_id: TENANT_ID },
+        ],
+      });
+      expect(mockPermissionCacheService.invalidate).toHaveBeenCalledWith(MEMBERSHIP_ID);
+      expect(result).toEqual(ownerMembershipFull);
+    });
+
+    it('should log security audit when actorUserId is provided', async () => {
+      mockPrisma.tenantMembership.findFirst
+        .mockResolvedValueOnce({
+          id: MEMBERSHIP_ID,
+          tenant_id: TENANT_ID,
+          user_id: USER_ID,
+        })
+        .mockResolvedValueOnce(ownerMembershipFull);
+
+      mockPrisma.role.findMany.mockResolvedValueOnce([{ id: 'role-1', tenant_id: TENANT_ID }]);
+
+      const mockTx = {
+        membershipRole: {
+          deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+          createMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+      };
+      mockCreateRlsClient.mockReturnValue({
+        $transaction: jest
+          .fn()
+          .mockImplementation((fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)),
+      });
+
+      await service.updateMembershipRoles(TENANT_ID, USER_ID, ['role-1'], 'actor-id');
+
+      expect(mockSecurityAuditService.logMembershipRoleChange).toHaveBeenCalledWith(
+        TENANT_ID,
+        'actor-id',
+        USER_ID,
+        ['role-1'],
+      );
+    });
+  });
+
+  // ─── suspendMembership — additional branches ──────────────────────────────
+
+  describe('suspendMembership — audit logging', () => {
+    it('should log security audit when actorUserId is provided', async () => {
+      mockPrisma.tenantMembership.findFirst
+        .mockResolvedValueOnce({
+          id: MEMBERSHIP_ID,
+          tenant_id: TENANT_ID,
+          user_id: USER_ID,
+          membership_status: 'active',
+          membership_roles: [
+            {
+              role: {
+                id: 'role-staff',
+                role_key: 'custom_staff',
+                role_tier: 'staff',
+                is_system_role: false,
+              },
+            },
+          ],
+        })
+        .mockResolvedValueOnce(ownerMembershipFull);
+
+      mockPrisma.tenantMembership.update.mockResolvedValueOnce({});
+      mockRedisClient.smembers.mockResolvedValueOnce([]);
+
+      await service.suspendMembership(TENANT_ID, USER_ID, 'actor-id');
+
+      expect(mockSecurityAuditService.logUserStatusChange).toHaveBeenCalledWith(
+        TENANT_ID,
+        'actor-id',
+        USER_ID,
+        'suspended',
+      );
     });
   });
 });

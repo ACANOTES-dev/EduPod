@@ -865,4 +865,471 @@ describe('InterventionService', () => {
       });
     });
   });
+
+  // ─── listInterventions — additional branch coverage ────────────────────
+
+  describe('listInterventions — branch coverage', () => {
+    it('should apply case_id filter', async () => {
+      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralIntervention.count.mockResolvedValue(0);
+
+      await service.listInterventions(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        case_id: CASE_ID,
+      });
+
+      expect(mockRlsTx.pastoralIntervention.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            case_id: CASE_ID,
+          }),
+        }),
+      );
+    });
+
+    it('should apply student_id filter', async () => {
+      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralIntervention.count.mockResolvedValue(0);
+
+      await service.listInterventions(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        student_id: STUDENT_ID,
+      });
+
+      expect(mockRlsTx.pastoralIntervention.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student_id: STUDENT_ID,
+          }),
+        }),
+      );
+    });
+
+    it('should apply status filter', async () => {
+      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralIntervention.count.mockResolvedValue(0);
+
+      await service.listInterventions(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        status: 'pc_active',
+      });
+
+      expect(mockRlsTx.pastoralIntervention.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'pc_active',
+          }),
+        }),
+      );
+    });
+
+    it('should apply continuum_level filter', async () => {
+      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralIntervention.count.mockResolvedValue(0);
+
+      await service.listInterventions(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        continuum_level: 3,
+      });
+
+      expect(mockRlsTx.pastoralIntervention.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            continuum_level: 3,
+          }),
+        }),
+      );
+    });
+
+    it('should use default page and pageSize when not provided', async () => {
+      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralIntervention.count.mockResolvedValue(0);
+
+      const result = await service.listInterventions(TENANT_ID, {});
+
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 0 });
+    });
+
+    it('should handle null student and case in list results', async () => {
+      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([
+        {
+          ...makeIntervention(),
+          student: null,
+          case: null,
+        },
+      ]);
+      mockRlsTx.pastoralIntervention.count.mockResolvedValue(1);
+
+      const result = await service.listInterventions(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(result.data[0]!.student_name).toBeNull();
+      expect(result.data[0]!.case_number).toBeNull();
+    });
+  });
+
+  // ─── listInterventionsForStudent — branch coverage ─────────────────────
+
+  describe('listInterventionsForStudent — branch coverage', () => {
+    it('should list without filters', async () => {
+      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([makeIntervention()]);
+
+      const result = await service.listInterventionsForStudent(TENANT_ID, STUDENT_ID);
+
+      expect(result).toHaveLength(1);
+    });
+
+    it('should apply status filter', async () => {
+      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([]);
+
+      await service.listInterventionsForStudent(TENANT_ID, STUDENT_ID, {
+        status: 'pc_active',
+      });
+
+      expect(mockRlsTx.pastoralIntervention.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'pc_active',
+          }),
+        }),
+      );
+    });
+
+    it('should apply continuum_level filter', async () => {
+      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([]);
+
+      await service.listInterventionsForStudent(TENANT_ID, STUDENT_ID, {
+        continuum_level: 2,
+      });
+
+      expect(mockRlsTx.pastoralIntervention.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            continuum_level: 2,
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── listInterventionsForCase — branch coverage ────────────────────────
+
+  describe('listInterventionsForCase', () => {
+    it('should list interventions for a given case', async () => {
+      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([makeIntervention()]);
+
+      const result = await service.listInterventionsForCase(TENANT_ID, CASE_ID);
+
+      expect(result).toHaveLength(1);
+      expect(mockRlsTx.pastoralIntervention.findMany).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID, case_id: CASE_ID },
+        orderBy: { created_at: 'desc' },
+      });
+    });
+  });
+
+  // ─── getIntervention — branch coverage ─────────────────────────────────
+
+  describe('getIntervention — branch coverage', () => {
+    it('should throw NotFoundException when intervention does not exist', async () => {
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(null);
+
+      await expect(service.getIntervention(TENANT_ID, INTERVENTION_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should return intervention with mapped details', async () => {
+      const interventionWithDetails = {
+        ...makeIntervention(),
+        actions: [],
+        progress: [],
+        case: { id: CASE_ID, case_number: 'PC-001', status: 'open' },
+        student: { id: STUDENT_ID, first_name: 'Sam', last_name: 'Student' },
+      };
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(interventionWithDetails);
+
+      const result = await service.getIntervention(TENANT_ID, INTERVENTION_ID);
+
+      expect(result.id).toBe(INTERVENTION_ID);
+      expect(result.recent_progress).toEqual([]);
+      expect(result.actions).toEqual([]);
+      expect(result.case).toEqual({ id: CASE_ID, case_number: 'PC-001', status: 'open' });
+      expect(result.student).toEqual({ id: STUDENT_ID, first_name: 'Sam', last_name: 'Student' });
+    });
+  });
+
+  // ─── updateIntervention — additional branch coverage ───────────────────
+
+  describe('updateIntervention — branch coverage', () => {
+    it('should throw NotFoundException when intervention does not exist', async () => {
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateIntervention(
+          TENANT_ID,
+          INTERVENTION_ID,
+          { parent_informed: true },
+          ACTOR_USER_ID,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should update all individual fields', async () => {
+      const existing = makeIntervention();
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
+      const updated = makeIntervention({
+        intervention_type: 'behavioural_support',
+        continuum_level: 3,
+        target_outcomes: [{ description: 'New goal' }],
+        review_cycle_weeks: 4,
+        parent_informed: true,
+        parent_consented: true,
+        parent_input: 'Parent agrees',
+        student_voice: 'I understand',
+      });
+      mockRlsTx.pastoralIntervention.update.mockResolvedValue(updated);
+
+      await service.updateIntervention(
+        TENANT_ID,
+        INTERVENTION_ID,
+        {
+          intervention_type: 'behavioural_support',
+          continuum_level: 3,
+          target_outcomes: [{ description: 'New goal', measurable_target: 'Target' }],
+          review_cycle_weeks: 4,
+          parent_informed: true,
+          parent_consented: true,
+          parent_input: 'Parent agrees',
+          student_voice: 'I understand',
+        },
+        ACTOR_USER_ID,
+      );
+
+      expect(mockRlsTx.pastoralIntervention.update).toHaveBeenCalledWith({
+        where: { id: INTERVENTION_ID },
+        data: expect.objectContaining({
+          intervention_type: 'behavioural_support',
+          continuum_level: 3,
+          review_cycle_weeks: 4,
+          parent_informed: true,
+          parent_consented: true,
+          parent_input: 'Parent agrees',
+          student_voice: 'I understand',
+        }),
+      });
+    });
+  });
+
+  // ─── changeStatus — additional branch coverage ─────────────────────────
+
+  describe('changeStatus — branch coverage', () => {
+    it('should throw NotFoundException when intervention does not exist', async () => {
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.changeStatus(
+          TENANT_ID,
+          INTERVENTION_ID,
+          { status: 'achieved', outcome_notes: 'Done' },
+          ACTOR_USER_ID,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should reject invalid target status', async () => {
+      const existing = makeIntervention();
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
+
+      await expect(
+        service.changeStatus(
+          TENANT_ID,
+          INTERVENTION_ID,
+          { status: 'invalid_status' as 'achieved', outcome_notes: 'Testing' },
+          ACTOR_USER_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject whitespace-only outcome_notes', async () => {
+      const existing = makeIntervention();
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
+
+      await expect(
+        service.changeStatus(
+          TENANT_ID,
+          INTERVENTION_ID,
+          { status: 'achieved', outcome_notes: '   ' },
+          ACTOR_USER_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should not update case when status is not escalated', async () => {
+      const existing = makeIntervention();
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
+      const updated = makeIntervention({ status: 'achieved', outcome_notes: 'Done' });
+      mockRlsTx.pastoralIntervention.update.mockResolvedValue(updated);
+      mockPrisma.pastoralIntervention.findUnique.mockResolvedValue(updated);
+
+      await service.changeStatus(
+        TENANT_ID,
+        INTERVENTION_ID,
+        { status: 'achieved', outcome_notes: 'Done' },
+        ACTOR_USER_ID,
+      );
+
+      expect(mockRlsTx.pastoralCase.update).not.toHaveBeenCalled();
+    });
+
+    it('edge: should handle cancellation failure of reminder job gracefully', async () => {
+      const existing = makeIntervention();
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
+      const updated = makeIntervention({ status: 'achieved', outcome_notes: 'Done' });
+      mockRlsTx.pastoralIntervention.update.mockResolvedValue(updated);
+      mockPrisma.pastoralIntervention.findUnique.mockRejectedValue(new Error('DB error'));
+
+      // Should not throw — cancellation is best-effort
+      const result = await service.changeStatus(
+        TENANT_ID,
+        INTERVENTION_ID,
+        { status: 'achieved', outcome_notes: 'Done' },
+        ACTOR_USER_ID,
+      );
+
+      expect(result.status).toBe('achieved');
+    });
+  });
+
+  // ─── createIntervention — additional branch coverage ───────────────────
+
+  describe('createIntervention — branch coverage', () => {
+    it('should accept case with active status', async () => {
+      mockRlsTx.pastoralCase.findFirst.mockResolvedValue(makeCase({ status: 'active' }));
+      mockRlsTx.tenantSetting.findUnique.mockResolvedValue(makeTenantSettings());
+      mockRlsTx.pastoralIntervention.create.mockResolvedValue(makeIntervention());
+
+      const result = await service.createIntervention(TENANT_ID, baseCreateDto, ACTOR_USER_ID);
+
+      expect(result.id).toBe(INTERVENTION_ID);
+    });
+
+    it('should default review_cycle_weeks to 6 when not provided', async () => {
+      mockRlsTx.pastoralCase.findFirst.mockResolvedValue(makeCase());
+      mockRlsTx.tenantSetting.findUnique.mockResolvedValue(makeTenantSettings());
+      mockRlsTx.pastoralIntervention.create.mockResolvedValue(makeIntervention());
+
+      const dtoWithoutReviewCycle = {
+        ...baseCreateDto,
+        review_cycle_weeks: undefined,
+      };
+
+      await service.createIntervention(TENANT_ID, dtoWithoutReviewCycle, ACTOR_USER_ID);
+
+      expect(mockRlsTx.pastoralIntervention.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          review_cycle_weeks: 6,
+        }),
+      });
+    });
+
+    it('should pass optional fields when provided', async () => {
+      mockRlsTx.pastoralCase.findFirst.mockResolvedValue(makeCase());
+      mockRlsTx.tenantSetting.findUnique.mockResolvedValue(makeTenantSettings());
+      mockRlsTx.pastoralIntervention.create.mockResolvedValue(makeIntervention());
+
+      await service.createIntervention(
+        TENANT_ID,
+        {
+          ...baseCreateDto,
+          parent_informed: true,
+          parent_consented: true,
+          parent_input: 'Parent agrees',
+          student_voice: 'I understand',
+        },
+        ACTOR_USER_ID,
+      );
+
+      expect(mockRlsTx.pastoralIntervention.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          parent_informed: true,
+          parent_consented: true,
+          parent_input: 'Parent agrees',
+          student_voice: 'I understand',
+        }),
+      });
+    });
+
+    it('edge: should handle enqueue review reminder failure gracefully', async () => {
+      mockRlsTx.pastoralCase.findFirst.mockResolvedValue(makeCase());
+      mockRlsTx.tenantSetting.findUnique.mockResolvedValue(makeTenantSettings());
+      mockRlsTx.pastoralIntervention.create.mockResolvedValue(makeIntervention());
+      mockNotificationsQueue.add.mockRejectedValue(new Error('Queue down'));
+
+      // Should not throw — review reminder is best-effort
+      const result = await service.createIntervention(TENANT_ID, baseCreateDto, ACTOR_USER_ID);
+      expect(result.id).toBe(INTERVENTION_ID);
+    });
+
+    it('should reject monitoring case status', async () => {
+      mockRlsTx.pastoralCase.findFirst.mockResolvedValue(makeCase({ status: 'monitoring' }));
+      mockRlsTx.tenantSetting.findUnique.mockResolvedValue(makeTenantSettings());
+
+      await expect(
+        service.createIntervention(TENANT_ID, baseCreateDto, ACTOR_USER_ID),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject resolved case status', async () => {
+      mockRlsTx.pastoralCase.findFirst.mockResolvedValue(makeCase({ status: 'resolved' }));
+      mockRlsTx.tenantSetting.findUnique.mockResolvedValue(makeTenantSettings());
+
+      await expect(
+        service.createIntervention(TENANT_ID, baseCreateDto, ACTOR_USER_ID),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ─── recordReview — additional branch coverage ─────────────────────────
+
+  describe('recordReview — branch coverage', () => {
+    it('should not write progress note if review_notes is empty string', async () => {
+      const existing = makeIntervention();
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
+      mockRlsTx.pastoralIntervention.update.mockResolvedValue(existing);
+
+      await service.recordReview(TENANT_ID, INTERVENTION_ID, { review_notes: '' }, ACTOR_USER_ID);
+
+      expect(mockRlsTx.pastoralInterventionProgress.create).not.toHaveBeenCalled();
+    });
+
+    it('should not write progress note if review_notes is whitespace only', async () => {
+      const existing = makeIntervention();
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
+      mockRlsTx.pastoralIntervention.update.mockResolvedValue(existing);
+
+      await service.recordReview(
+        TENANT_ID,
+        INTERVENTION_ID,
+        { review_notes: '   ' },
+        ACTOR_USER_ID,
+      );
+
+      expect(mockRlsTx.pastoralInterventionProgress.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when intervention does not exist', async () => {
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.recordReview(TENANT_ID, INTERVENTION_ID, {}, ACTOR_USER_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
 });

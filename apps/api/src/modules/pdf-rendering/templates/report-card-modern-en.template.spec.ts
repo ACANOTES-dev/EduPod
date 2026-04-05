@@ -132,4 +132,163 @@ describe('renderReportCardModernEn', () => {
 
     expect(result).toContain('<html lang="en" dir="ltr">');
   });
+
+  // ─── Grade color threshold branches ────────────────────────────────────────
+
+  it('should use green (#059669) for scores >= 90', () => {
+    const data = {
+      ...REPORT_CARD_DATA,
+      subjects: [
+        {
+          subject_name: 'Math',
+          subject_code: null,
+          computed_value: 92.0,
+          display_value: 'A+',
+          overridden_value: null,
+        },
+      ],
+    };
+    const result = renderReportCardModernEn(data, BRANDING);
+
+    expect(result).toContain('#059669');
+  });
+
+  it('should use blue (#2563eb) for scores >= 75 and < 90', () => {
+    const data = {
+      ...REPORT_CARD_DATA,
+      subjects: [
+        {
+          subject_name: 'Math',
+          subject_code: null,
+          computed_value: 78.0,
+          display_value: 'B+',
+          overridden_value: null,
+        },
+      ],
+    };
+    const result = renderReportCardModernEn(data, BRANDING);
+
+    expect(result).toContain('#2563eb');
+  });
+
+  it('should use amber (#d97706) for scores >= 60 and < 75', () => {
+    const data = {
+      ...REPORT_CARD_DATA,
+      subjects: [
+        {
+          subject_name: 'Math',
+          subject_code: null,
+          computed_value: 65.0,
+          display_value: 'C',
+          overridden_value: null,
+        },
+      ],
+    };
+    const result = renderReportCardModernEn(data, BRANDING);
+
+    expect(result).toContain('#d97706');
+  });
+
+  it('should use red (#dc2626) for scores < 60', () => {
+    const data = {
+      ...REPORT_CARD_DATA,
+      subjects: [
+        {
+          subject_name: 'Math',
+          subject_code: null,
+          computed_value: 45.0,
+          display_value: 'F',
+          overridden_value: null,
+        },
+      ],
+    };
+    const result = renderReportCardModernEn(data, BRANDING);
+
+    expect(result).toContain('#dc2626');
+  });
+
+  // ─── Subject code branch ───────────────────────────────────────────────────
+
+  it('should render subject code when present', () => {
+    const result = renderReportCardModernEn(REPORT_CARD_DATA, BRANDING);
+
+    expect(result).toContain('SCI');
+  });
+
+  it('should omit subject code div when subject_code is null', () => {
+    const data = {
+      ...REPORT_CARD_DATA,
+      subjects: [
+        {
+          subject_name: 'Art',
+          subject_code: null,
+          computed_value: 80.0,
+          display_value: 'A-',
+          overridden_value: null,
+        },
+      ],
+    };
+    const result = renderReportCardModernEn(data, BRANDING);
+
+    expect(result).toContain('Art');
+  });
+
+  // ─── Overridden value branch ───────────────────────────────────────────────
+
+  it('should use overridden_value when provided', () => {
+    const data = {
+      ...REPORT_CARD_DATA,
+      subjects: [
+        {
+          subject_name: 'Math',
+          subject_code: null,
+          computed_value: 80.0,
+          display_value: 'A-',
+          overridden_value: 'A',
+        },
+      ],
+    };
+    const result = renderReportCardModernEn(data, BRANDING);
+
+    // The overridden value 'A' should appear (instead of display_value 'A-')
+    expect(result).toContain('A');
+    // A- should NOT be in the grade column (it was overridden)
+    expect(result).not.toContain('A-');
+  });
+
+  // ─── Default report card title ─────────────────────────────────────────────
+
+  it('should use default "Report Card" title when report_card_title is undefined', () => {
+    const brandingNoTitle: PdfBranding = { school_name: 'Test School' };
+    const result = renderReportCardModernEn(REPORT_CARD_DATA, brandingNoTitle);
+
+    expect(result).toContain('Report Card');
+  });
+
+  // ─── Logo branch ──────────────────────────────────────────────────────────
+
+  it('should omit logo when logo_url is undefined', () => {
+    const brandingNoLogo: PdfBranding = { school_name: 'No Logo' };
+    const result = renderReportCardModernEn(REPORT_CARD_DATA, brandingNoLogo);
+
+    expect(result).not.toContain('<img');
+  });
+
+  // ─── Only teacher comment ──────────────────────────────────────────────────
+
+  it('should render only teacher comment when principal is null', () => {
+    const data = { ...REPORT_CARD_DATA, principal_comment: null };
+    const result = renderReportCardModernEn(data, BRANDING);
+
+    expect(result).toContain('Teacher Comments');
+    expect(result).not.toContain('Principal Comments');
+  });
+
+  it('should render only principal comment when teacher is null', () => {
+    const data = { ...REPORT_CARD_DATA, teacher_comment: null };
+    const result = renderReportCardModernEn(data, BRANDING);
+
+    expect(result).not.toContain('Teacher Comments');
+    expect(result).toContain('Principal Comments');
+  });
 });

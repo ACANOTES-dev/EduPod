@@ -167,6 +167,32 @@ describe('TimetablesController', () => {
         }),
       ).rejects.toThrow(ForbiddenException);
     });
+
+    it('should pass week_start to service when provided', async () => {
+      mockService.getTeacherTimetable.mockResolvedValue([]);
+
+      await controller.getTeacherTimetable(mockTenant, mockUser, STAFF_PROFILE_ID, {
+        academic_year_id: AY_ID,
+        week_start: '2025-09-15',
+      });
+
+      expect(mockService.getTeacherTimetable).toHaveBeenCalledWith(TENANT_ID, STAFF_PROFILE_ID, {
+        academic_year_id: AY_ID,
+        week_start: '2025-09-15',
+      });
+    });
+
+    it('should use empty permissions when membership_id is missing', async () => {
+      const userNoMembership = { ...mockUser, membership_id: undefined } as unknown as JwtPayload;
+
+      await expect(
+        controller.getTeacherTimetable(mockTenant, userNoMembership, STAFF_PROFILE_ID, {
+          academic_year_id: AY_ID,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPermissionCache.getPermissions).not.toHaveBeenCalled();
+    });
   });
 
   describe('getRoomTimetable', () => {

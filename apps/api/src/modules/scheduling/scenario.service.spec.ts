@@ -160,7 +160,9 @@ describe('ScenarioService', () => {
 
     it('should throw NotFoundException when academic year does not exist', async () => {
       const acadFacade = module.get(AcademicReadFacade);
-      (acadFacade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(new NotFoundException('Year not found'));
+      (acadFacade.findYearByIdOrThrow as jest.Mock).mockRejectedValue(
+        new NotFoundException('Year not found'),
+      );
 
       await expect(
         service.createScenario(TENANT_ID, USER_ID, {
@@ -359,6 +361,142 @@ describe('ScenarioService', () => {
       await expect(service.runScenarioSolver(TENANT_ID, 'nonexistent')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  // ─── listScenarios ──────────────────────────────────────────��────────────
+
+  describe('listScenarios', () => {
+    it('should return paginated scenarios', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.listScenarios as jest.Mock).mockResolvedValue({
+        data: [
+          {
+            ...makeDraftScenario(),
+            created_at: new Date('2026-03-01'),
+            updated_at: new Date('2026-03-01'),
+          },
+        ],
+        total: 1,
+      });
+
+      const result = await service.listScenarios(TENANT_ID, { page: 1, pageSize: 20 });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
+      expect(result.data[0]!.id).toBe(SCENARIO_ID);
+    });
+
+    it('should filter by academic_year_id', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.listScenarios as jest.Mock).mockResolvedValue({ data: [], total: 0 });
+
+      await service.listScenarios(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        academic_year_id: ACADEMIC_YEAR_ID,
+      });
+
+      expect(runsFacade.listScenarios).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({ academicYearId: ACADEMIC_YEAR_ID }),
+      );
+    });
+
+    it('should filter by status', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.listScenarios as jest.Mock).mockResolvedValue({ data: [], total: 0 });
+
+      await service.listScenarios(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        status: 'draft',
+      });
+
+      expect(runsFacade.listScenarios).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({ status: 'draft' }),
+      );
+    });
+  });
+
+  // ─── extractScenarioMetrics edge cases ────────────────────────────────────
+
+  describe('compareScenarios — metrics edge cases', () => {
+    it('should return null metrics when solver_result_json is null', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findScenariosForComparison as jest.Mock).mockResolvedValue([makeDraftScenario()]);
+
+      const result = await service.compareScenarios(TENANT_ID, {
+        scenario_ids: [SCENARIO_ID],
+      });
+
+      expect(result.scenarios[0]!.metrics).toBeNull();
+    });
+
+    it('should return null metrics when solver_result_json is not an object', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findScenariosForComparison as jest.Mock).mockResolvedValue([
+        { ...makeDraftScenario(), solver_result_json: 'string-not-object' },
+      ]);
+
+      const result = await service.compareScenarios(TENANT_ID, {
+        scenario_ids: [SCENARIO_ID],
+      });
+
+      expect(result.scenarios[0]!.metrics).toBeNull();
+    });
+
+    it('should handle partial metrics in solver_result_json', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findScenariosForComparison as jest.Mock).mockResolvedValue([
+        {
+          ...makeDraftScenario('solved'),
+          solver_result_json: { entries_generated: 100 },
+        },
+      ]);
+
+      const result = await service.compareScenarios(TENANT_ID, {
+        scenario_ids: [SCENARIO_ID],
+      });
+
+      expect(result.scenarios[0]!.metrics).not.toBeNull();
+      expect(result.scenarios[0]!.metrics?.entries_generated).toBe(100);
+      expect(result.scenarios[0]!.metrics?.entries_unassigned).toBeNull();
+    });
+  });
+
+  // ─���─ deleteScenario — additional cases ────────────────────────────────────
+
+  describe('deleteScenario — edge cases', () => {
+    it('should throw NotFoundException when scenario does not exist', async () => {
+      // findScenarioStatusById returns null by default
+
+      await expect(service.deleteScenario(TENANT_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ─── createScenario — with base_run_id that exists ──────���─────────────────
+
+  describe('createScenario — with valid base_run_id', () => {
+    it('should create scenario when base_run_id exists', async () => {
+      const runsFacade = module.get(SchedulingRunsReadFacade);
+      (runsFacade.findStatusById as jest.Mock).mockResolvedValue({
+        id: 'run-1',
+        status: 'completed',
+      });
+
+      const result = await service.createScenario(TENANT_ID, USER_ID, {
+        academic_year_id: ACADEMIC_YEAR_ID,
+        name: 'Based on run',
+        base_run_id: 'run-1',
+        adjustments: {},
+      });
+
+      expect(result.id).toBe(SCENARIO_ID);
+      expect(result.status).toBe('draft');
     });
   });
 });

@@ -159,10 +159,7 @@ describe('ConflictDetectionService', () => {
     // No teacher conflicts
     mockPrisma.schedule.findMany.mockResolvedValueOnce([]);
     // Student enrolments for the proposed class (via facade)
-    mockClassesReadFacade.findEnrolledStudentIds.mockResolvedValue([
-      'student-1',
-      'student-2',
-    ]);
+    mockClassesReadFacade.findEnrolledStudentIds.mockResolvedValue(['student-1', 'student-2']);
     // Other enrolments for those students (via facade)
     mockClassesReadFacade.findOtherClassEnrolmentsForStudents.mockResolvedValue([
       { class_id: 'class-other', student_id: 'student-1' },
@@ -243,7 +240,66 @@ describe('ConflictDetectionService', () => {
     expect(firstCall.where.AND).toEqual([]);
   });
 
-  // ─── 8. No conflict when time ranges don't overlap ─────────────────────
+  // ─── 8. Skip room check when no room_id ────────────────────────────────
+  it('should skip room conflict check when room_id is null', async () => {
+    const entry = makeEntry({ room_id: null });
+    mockPrisma.schedule.findMany.mockResolvedValue([]);
+    mockClassesReadFacade.findEnrolledStudentIds.mockResolvedValue([]);
+
+    const result = await service.detectConflicts(TENANT_ID, entry);
+
+    // Room findById should NOT have been called
+    expect(mockRoomsReadFacade.findById).not.toHaveBeenCalled();
+    expect(result.hard.filter((c) => c.category === 'room_double_booking')).toHaveLength(0);
+    expect(result.soft.filter((c) => c.category === 'room_over_capacity')).toHaveLength(0);
+  });
+
+  // ─── 9. Skip teacher check when no teacher_staff_id ────────────────────
+  it('should skip teacher conflict check when teacher_staff_id is null', async () => {
+    const entry = makeEntry({ teacher_staff_id: null, room_id: null });
+    mockPrisma.schedule.findMany.mockResolvedValue([]);
+    mockClassesReadFacade.findEnrolledStudentIds.mockResolvedValue([]);
+
+    const result = await service.detectConflicts(TENANT_ID, entry);
+
+    expect(result.hard.filter((c) => c.category === 'teacher_double_booking')).toHaveLength(0);
+  });
+
+  // ─── 10. No student conflict when other enrolments have no schedule overlap ──
+  it('should not flag student conflicts when other classes have no overlapping schedules', async () => {
+    mockPrisma.schedule.findMany
+      .mockResolvedValueOnce([]) // no room conflicts
+      .mockResolvedValueOnce([]) // no teacher conflicts
+      .mockResolvedValueOnce([]); // no student schedule overlaps
+
+    mockClassesReadFacade.findEnrolledStudentIds.mockResolvedValue(['student-1']);
+    mockClassesReadFacade.findOtherClassEnrolmentsForStudents.mockResolvedValue([
+      { class_id: 'class-other', student_id: 'student-1' },
+    ]);
+    mockRoomsReadFacade.findById.mockResolvedValue({ capacity: 30, name: 'Room' });
+    mockClassesReadFacade.countEnrolledStudents.mockResolvedValue(10);
+
+    const result = await service.detectConflicts(TENANT_ID, makeEntry());
+
+    expect(result.hard.filter((c) => c.category === 'student_double_booking')).toHaveLength(0);
+  });
+
+  // ─── 10b. Skip room capacity check when room has no capacity ─────────
+  it('should skip room over-capacity check when room has no capacity value', async () => {
+    mockPrisma.schedule.findMany.mockResolvedValueOnce([]); // no room conflicts
+    mockPrisma.schedule.findMany.mockResolvedValueOnce([]); // no teacher conflicts
+    mockClassesReadFacade.findEnrolledStudentIds.mockResolvedValue([]);
+    mockRoomsReadFacade.findById.mockResolvedValue({
+      capacity: null,
+      name: 'Open Area',
+    });
+
+    const result = await service.detectConflicts(TENANT_ID, makeEntry());
+
+    expect(result.soft.filter((c) => c.category === 'room_over_capacity')).toHaveLength(0);
+  });
+
+  // ─── 11. No conflict when time ranges don't overlap ────────────────────
   it('should NOT detect conflict when time ranges do not overlap', async () => {
     // Return empty for all schedule queries — no overlapping times found
     mockPrisma.schedule.findMany.mockResolvedValue([]);
@@ -259,7 +315,7 @@ describe('ConflictDetectionService', () => {
     expect(result.soft).toHaveLength(0);
   });
 
-  // ─── 9. No conflict on different weekdays ──────────────────────────────
+  // ─── 12. No conflict on different weekdays ─────────────────────────────
   it('should NOT detect conflict on different weekdays', async () => {
     mockPrisma.schedule.findMany.mockResolvedValue([]);
     mockClassesReadFacade.findEnrolledStudentIds.mockResolvedValue([]);
@@ -277,7 +333,7 @@ describe('ConflictDetectionService', () => {
     expect(result.soft).toHaveLength(0);
   });
 
-  // ─── 10. No conflict when date ranges don't overlap ────────────────────
+  // ─── 13. No conflict when date ranges don't overlap ────────────────────
   it('should NOT detect conflict when date ranges do not overlap', async () => {
     mockPrisma.schedule.findMany.mockResolvedValue([]);
     mockClassesReadFacade.findEnrolledStudentIds.mockResolvedValue([]);

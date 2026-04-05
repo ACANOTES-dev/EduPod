@@ -94,7 +94,9 @@ describe('InvitationsService', () => {
       }
     });
     // Re-establish the $transaction implementation after reset
-    mockPrisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockPrisma));
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn(mockPrisma),
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -610,6 +612,386 @@ describe('InvitationsService', () => {
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'INVITATION_NOT_FOUND',
       });
+    });
+  });
+
+  // ─── listInvitations ──────────────────────────────────────────────────────
+
+  describe('listInvitations', () => {
+    it('should return paginated invitations', async () => {
+      const invitations = [
+        {
+          id: INVITATION_ID,
+          email: 'a@b.com',
+          status: 'pending',
+          invited_by: { id: INVITED_BY_USER_ID },
+        },
+      ];
+      mockPrisma.invitation.findMany.mockResolvedValue(invitations);
+      mockPrisma.invitation.count.mockResolvedValue(1);
+
+      const result = await service.listInvitations(TENANT_ID, 1, 20);
+
+      expect(result.data).toEqual(invitations);
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
+    });
+
+    it('should calculate correct skip for page > 1', async () => {
+      mockPrisma.invitation.findMany.mockResolvedValue([]);
+      mockPrisma.invitation.count.mockResolvedValue(0);
+
+      await service.listInvitations(TENANT_ID, 3, 10);
+
+      expect(mockPrisma.invitation.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 20,
+          take: 10,
+        }),
+      );
+    });
+  });
+
+  // ─── createInvitation — additional branches ───────────────────────────────
+
+  describe('createInvitation — additional branches', () => {
+    it('should throw ROLE_NOT_FOUND when some role IDs are invalid', async () => {
+      mockPrisma.invitation.findFirst.mockResolvedValueOnce(null);
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null);
+      // Only 0 of 1 roles found
+      mockPrisma.role.findMany.mockResolvedValueOnce([]);
+
+      let caught: unknown;
+      try {
+        await service.createInvitation(TENANT_ID, INVITED_BY_USER_ID, BASE_CREATE_DTO);
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(BadRequestException);
+      expect((caught as BadRequestException).getResponse()).toMatchObject({
+        code: 'ROLE_NOT_FOUND',
+      });
+    });
+
+    it('should succeed even when notification queue fails (non-blocking)', async () => {
+      mockPrisma.invitation.findFirst.mockResolvedValueOnce(null);
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null);
+      mockPrisma.role.findMany.mockResolvedValueOnce([{ id: ROLE_ID_1 }]);
+
+      const invitationResult = {
+        id: INVITATION_ID,
+        tenant_id: TENANT_ID,
+        email: BASE_CREATE_DTO.email,
+        invited_role_payload: { role_ids: [ROLE_ID_1] },
+        status: 'pending',
+        invited_by: { id: INVITED_BY_USER_ID },
+      };
+      mockPrisma.invitation.create.mockResolvedValueOnce(invitationResult);
+
+      // Override the module to have a failing queue
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          ...MOCK_FACADE_PROVIDERS,
+          InvitationsService,
+          { provide: PrismaService, useValue: mockPrisma },
+          {
+            provide: getQueueToken('notifications'),
+            useValue: { add: jest.fn().mockRejectedValue(new Error('Queue connection failed')) },
+          },
+          {
+            provide: AuthReadFacade,
+            useValue: {
+              findUserByEmail: jest.fn().mockResolvedValue(null),
+            },
+          },
+        ],
+      }).compile();
+
+      const failQueueService = module.get<InvitationsService>(InvitationsService);
+      const result = await failQueueService.createInvitation(
+        TENANT_ID,
+        INVITED_BY_USER_ID,
+        BASE_CREATE_DTO,
+      );
+
+      // Should succeed despite queue failure
+      expect(result.id).toBe(INVITATION_ID);
+      expect(result.status).toBe('pending');
+    });
+
+    it('should allow creating invitation when existing user has no membership', async () => {
+      mockPrisma.invitation.findFirst.mockResolvedValueOnce(null);
+      const existingUser = { id: 'user-existing', email: BASE_CREATE_DTO.email };
+      mockPrisma.user.findUnique.mockResolvedValueOnce(existingUser);
+      // User exists but has NO membership at this tenant
+      mockPrisma.tenantMembership.findFirst.mockResolvedValueOnce(null);
+      mockPrisma.role.findMany.mockResolvedValueOnce([{ id: ROLE_ID_1 }]);
+
+      mockPrisma.invitation.create.mockResolvedValueOnce({
+        id: INVITATION_ID,
+        tenant_id: TENANT_ID,
+        email: BASE_CREATE_DTO.email,
+        status: 'pending',
+        invited_by: { id: INVITED_BY_USER_ID },
+      });
+
+      const result = await service.createInvitation(TENANT_ID, INVITED_BY_USER_ID, BASE_CREATE_DTO);
+
+      expect(result.status).toBe('pending');
+    });
+  });
+
+  // ─── acceptInvitation — additional branches ───────────────────────────────
+
+  describe('acceptInvitation — additional branches', () => {
+    it('should reactivate archived membership for existing user', async () => {
+      const plainToken = 'reactivate-token';
+      const tokenHash = sha256(plainToken);
+
+      const validInvitation = {
+        id: INVITATION_ID,
+        tenant_id: TENANT_ID,
+        email: 'archived@school.com',
+        invited_role_payload: { role_ids: [ROLE_ID_1] },
+        token_hash: tokenHash,
+        status: 'pending',
+        expires_at: new Date(Date.now() + 60 * 60 * 1000),
+      };
+
+      mockPrisma.invitation.findFirst.mockResolvedValueOnce(validInvitation);
+
+      const existingUser = {
+        id: 'user-archived',
+        email: 'archived@school.com',
+        first_name: 'Archived',
+        last_name: 'User',
+      };
+      mockPrisma.user.findUnique.mockResolvedValueOnce(existingUser);
+
+      // User has an archived membership
+      const archivedMembership = {
+        id: MEMBERSHIP_ID,
+        tenant_id: TENANT_ID,
+        user_id: existingUser.id,
+        membership_status: 'archived',
+      };
+      mockPrisma.tenantMembership.findFirst.mockResolvedValueOnce(archivedMembership);
+      mockPrisma.tenantMembership.update.mockResolvedValueOnce({
+        ...archivedMembership,
+        membership_status: 'active',
+      });
+      mockPrisma.membershipRole.deleteMany.mockResolvedValueOnce({ count: 0 });
+      mockPrisma.membershipRole.createMany.mockResolvedValueOnce({ count: 1 });
+      mockPrisma.invitation.update.mockResolvedValueOnce({});
+
+      const result = await service.acceptInvitation(plainToken);
+
+      expect(mockPrisma.tenantMembership.update).toHaveBeenCalledWith({
+        where: { id: MEMBERSHIP_ID },
+        data: {
+          membership_status: 'active',
+          joined_at: expect.any(Date),
+        },
+      });
+      expect(result.accepted).toBe(true);
+    });
+
+    it('should reactivate disabled membership for existing user', async () => {
+      const plainToken = 'disabled-token';
+      const tokenHash = sha256(plainToken);
+
+      const validInvitation = {
+        id: INVITATION_ID,
+        tenant_id: TENANT_ID,
+        email: 'disabled@school.com',
+        invited_role_payload: { role_ids: [ROLE_ID_1] },
+        token_hash: tokenHash,
+        status: 'pending',
+        expires_at: new Date(Date.now() + 60 * 60 * 1000),
+      };
+
+      mockPrisma.invitation.findFirst.mockResolvedValueOnce(validInvitation);
+
+      const existingUser = {
+        id: 'user-disabled',
+        email: 'disabled@school.com',
+        first_name: 'Disabled',
+        last_name: 'User',
+      };
+      mockPrisma.user.findUnique.mockResolvedValueOnce(existingUser);
+
+      const disabledMembership = {
+        id: MEMBERSHIP_ID,
+        tenant_id: TENANT_ID,
+        user_id: existingUser.id,
+        membership_status: 'disabled',
+      };
+      mockPrisma.tenantMembership.findFirst.mockResolvedValueOnce(disabledMembership);
+      mockPrisma.tenantMembership.update.mockResolvedValueOnce({
+        ...disabledMembership,
+        membership_status: 'active',
+      });
+      mockPrisma.membershipRole.deleteMany.mockResolvedValueOnce({ count: 0 });
+      mockPrisma.membershipRole.createMany.mockResolvedValueOnce({ count: 1 });
+      mockPrisma.invitation.update.mockResolvedValueOnce({});
+
+      const result = await service.acceptInvitation(plainToken);
+
+      expect(result.accepted).toBe(true);
+    });
+
+    it('should throw USER_ALREADY_MEMBER when existing user has active membership', async () => {
+      const plainToken = 'active-member-token';
+      const tokenHash = sha256(plainToken);
+
+      mockPrisma.invitation.findFirst.mockResolvedValueOnce({
+        id: INVITATION_ID,
+        tenant_id: TENANT_ID,
+        email: 'active@school.com',
+        invited_role_payload: { role_ids: [ROLE_ID_1] },
+        token_hash: tokenHash,
+        status: 'pending',
+        expires_at: new Date(Date.now() + 60 * 60 * 1000),
+      });
+
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        id: 'user-active',
+        email: 'active@school.com',
+        first_name: 'Active',
+        last_name: 'User',
+      });
+
+      // User has an active membership
+      mockPrisma.tenantMembership.findFirst.mockResolvedValueOnce({
+        id: MEMBERSHIP_ID,
+        membership_status: 'active',
+      });
+
+      let caught: unknown;
+      try {
+        await service.acceptInvitation(plainToken);
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(BadRequestException);
+      expect((caught as BadRequestException).getResponse()).toMatchObject({
+        code: 'USER_ALREADY_MEMBER',
+      });
+    });
+
+    it('should throw REGISTRATION_DATA_REQUIRED when new user omits password', async () => {
+      const plainToken = 'missing-password-token';
+      const tokenHash = sha256(plainToken);
+
+      mockPrisma.invitation.findFirst.mockResolvedValueOnce({
+        id: INVITATION_ID,
+        tenant_id: TENANT_ID,
+        email: 'new@school.com',
+        invited_role_payload: { role_ids: [ROLE_ID_1] },
+        token_hash: tokenHash,
+        status: 'pending',
+        expires_at: new Date(Date.now() + 60 * 60 * 1000),
+      });
+
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null);
+
+      let caught: unknown;
+      try {
+        await service.acceptInvitation(plainToken, {
+          first_name: 'New',
+          last_name: 'User',
+          // password missing
+        });
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(BadRequestException);
+      expect((caught as BadRequestException).getResponse()).toMatchObject({
+        code: 'REGISTRATION_DATA_REQUIRED',
+      });
+    });
+
+    it('should create new user with phone=null when phone is not provided in registration data', async () => {
+      const plainToken = 'no-phone-token';
+      const tokenHash = sha256(plainToken);
+
+      mockPrisma.invitation.findFirst.mockResolvedValueOnce({
+        id: INVITATION_ID,
+        tenant_id: TENANT_ID,
+        email: 'nophone@school.com',
+        invited_role_payload: { role_ids: [ROLE_ID_1] },
+        token_hash: tokenHash,
+        status: 'pending',
+        expires_at: new Date(Date.now() + 60 * 60 * 1000),
+      });
+
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null);
+
+      const createdUser = {
+        id: 'user-nophone',
+        email: 'nophone@school.com',
+        first_name: 'No',
+        last_name: 'Phone',
+      };
+      mockPrisma.user.create.mockResolvedValueOnce(createdUser);
+      mockPrisma.tenantMembership.create.mockResolvedValueOnce({ id: MEMBERSHIP_ID });
+      mockPrisma.membershipRole.deleteMany.mockResolvedValueOnce({ count: 0 });
+      mockPrisma.membershipRole.createMany.mockResolvedValueOnce({ count: 1 });
+      mockPrisma.invitation.update.mockResolvedValueOnce({});
+
+      const result = await service.acceptInvitation(plainToken, {
+        first_name: 'No',
+        last_name: 'Phone',
+        password: 'Str0ng!Password',
+        // phone not provided
+      });
+
+      expect(mockPrisma.user.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          phone: null,
+        }),
+      });
+      expect(result.accepted).toBe(true);
+    });
+
+    it('should handle assignRolesToMembershipTx with empty roleIds', async () => {
+      const plainToken = 'empty-roles-token';
+      const tokenHash = sha256(plainToken);
+
+      mockPrisma.invitation.findFirst.mockResolvedValueOnce({
+        id: INVITATION_ID,
+        tenant_id: TENANT_ID,
+        email: 'noroles@school.com',
+        invited_role_payload: { role_ids: [] }, // empty roles
+        token_hash: tokenHash,
+        status: 'pending',
+        expires_at: new Date(Date.now() + 60 * 60 * 1000),
+      });
+
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null);
+
+      const createdUser = {
+        id: 'user-noroles',
+        email: 'noroles@school.com',
+        first_name: 'No',
+        last_name: 'Roles',
+      };
+      mockPrisma.user.create.mockResolvedValueOnce(createdUser);
+      mockPrisma.tenantMembership.create.mockResolvedValueOnce({ id: MEMBERSHIP_ID });
+      mockPrisma.membershipRole.deleteMany.mockResolvedValueOnce({ count: 0 });
+      mockPrisma.invitation.update.mockResolvedValueOnce({});
+
+      const result = await service.acceptInvitation(plainToken, {
+        first_name: 'No',
+        last_name: 'Roles',
+        password: 'Str0ng!Password',
+      });
+
+      // createMany should NOT be called when roleIds is empty
+      expect(mockPrisma.membershipRole.createMany).not.toHaveBeenCalled();
+      expect(result.accepted).toBe(true);
     });
   });
 });

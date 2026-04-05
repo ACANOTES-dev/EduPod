@@ -240,6 +240,16 @@ describe('ClassesService — findAll', () => {
 
     expect(mockPrisma.class.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 20 }));
   });
+
+  it('should filter by year_group_id when provided', async () => {
+    await service.findAll(TENANT_ID, { page: 1, pageSize: 20, year_group_id: 'yg-1' });
+
+    expect(mockPrisma.class.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ year_group_id: 'yg-1' }),
+      }),
+    );
+  });
 });
 
 describe('ClassesService — findOne', () => {
@@ -441,6 +451,29 @@ describe('ClassesService — assignStaff', () => {
       }),
     ).rejects.toThrow(ConflictException);
   });
+
+  it('edge: should rethrow non-P2002 errors from classStaff.create', async () => {
+    const genericError = new Error('FK violation');
+    mockRlsTx.classStaff.create.mockRejectedValue(genericError);
+
+    await expect(
+      service.assignStaff(TENANT_ID, CLASS_ID, {
+        staff_profile_id: 'staff-1',
+        assignment_role: 'teacher',
+      }),
+    ).rejects.toThrow('FK violation');
+  });
+
+  it('should throw NotFoundException when class not found (assertExists)', async () => {
+    mockPrisma.class.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.assignStaff(TENANT_ID, CLASS_ID, {
+        staff_profile_id: 'staff-1',
+        assignment_role: 'teacher',
+      }),
+    ).rejects.toThrow(NotFoundException);
+  });
 });
 
 describe('ClassesService — removeStaff', () => {
@@ -570,6 +603,46 @@ describe('ClassesService — updateStatus', () => {
     await expect(service.updateStatus(TENANT_ID, CLASS_ID, { status: 'inactive' })).rejects.toThrow(
       NotFoundException,
     );
+  });
+});
+
+describe('ClassesService — updateStatus (no schedulesService)', () => {
+  let service: ClassesService;
+  let mockPrisma: ReturnType<typeof createMockPrisma>;
+  let mockRedis: ReturnType<typeof createMockRedis>;
+
+  beforeEach(async () => {
+    mockPrisma = createMockPrisma();
+    mockRedis = createMockRedis();
+
+    mockRlsTx.class.update.mockReset().mockResolvedValue({ ...baseClass, status: 'inactive' });
+    mockPrisma.class.findFirst.mockResolvedValue(baseClass);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ClassesService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+      ],
+    }).compile();
+
+    service = module.get<ClassesService>(ClassesService);
+    // NOTE: NOT calling setSchedulesService — schedulesService remains undefined
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should NOT call endDateForClass when schedulesService is not set', async () => {
+    await service.updateStatus(TENANT_ID, CLASS_ID, { status: 'inactive' });
+
+    // Verify it completed without error despite no schedulesService
+    expect(mockRlsTx.class.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { status: 'inactive' },
+      }),
+    );
+    expect(mockRedis._client.del).toHaveBeenCalledWith(`preview:class:${CLASS_ID}`);
   });
 });
 
@@ -759,6 +832,21 @@ describe('ClassesService — preview', () => {
 
     await expect(service.preview(TENANT_ID, CLASS_ID)).rejects.toThrow(NotFoundException);
   });
+
+  it('should omit teacher fact when homeroom_teacher is null', async () => {
+    mockRedis._client.get.mockResolvedValue(null);
+    mockPrisma.class.findFirst.mockResolvedValue({
+      ...classPreviewEntity,
+      homeroom_teacher: null,
+    });
+
+    const result = await service.preview(TENANT_ID, CLASS_ID);
+
+    const teacherFact = result.facts.find(
+      (f: { label: string; value: string }) => f.label === 'Teacher',
+    );
+    expect(teacherFact).toBeUndefined();
+  });
 });
 
 // ─── create room validation ──────────────────────────────────────────────────
@@ -822,6 +910,73 @@ describe('ClassesService — create (room validation)', () => {
     await expect(service.create(TENANT_ID, dtoWithRoom as typeof baseCreateDto)).rejects.toThrow(
       BadRequestException,
     );
+  });
+
+  it('should throw BadRequestException when room is already assigned to another class', async () => {
+    mockRlsTx.room.findFirst.mockResolvedValue({ id: 'room-1', name: 'Room A', capacity: 40 });
+    mockRlsTx.class.findFirst.mockResolvedValue({ id: 'existing-class', name: '9B' });
+
+    const dtoWithRoom = {
+      ...baseCreateDto,
+      homeroom_id: 'room-1',
+      max_capacity: 25,
+    } as Record<string, unknown>;
+
+    await expect(service.create(TENANT_ID, dtoWithRoom as typeof baseCreateDto)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('edge: should allow room when class size is within room capacity', async () => {
+    mockRlsTx.room.findFirst.mockResolvedValue({ id: 'room-1', name: 'Room A', capacity: 40 });
+    mockRlsTx.class.findFirst.mockResolvedValue(null);
+
+    const dtoWithRoom = {
+      ...baseCreateDto,
+      homeroom_id: 'room-1',
+      max_capacity: 30,
+    } as Record<string, unknown>;
+
+    await service.create(TENANT_ID, dtoWithRoom as typeof baseCreateDto);
+
+    expect(mockRlsTx.class.create).toHaveBeenCalled();
+  });
+
+  it('edge: should allow room when room has no capacity set', async () => {
+    mockRlsTx.room.findFirst.mockResolvedValue({ id: 'room-1', name: 'Room A', capacity: null });
+    mockRlsTx.class.findFirst.mockResolvedValue(null);
+
+    const dtoWithRoom = {
+      ...baseCreateDto,
+      homeroom_id: 'room-1',
+      max_capacity: 30,
+    } as Record<string, unknown>;
+
+    await service.create(TENANT_ID, dtoWithRoom as typeof baseCreateDto);
+
+    expect(mockRlsTx.class.create).toHaveBeenCalled();
+  });
+
+  it('edge: should allow room when class has no max_capacity set', async () => {
+    mockRlsTx.room.findFirst.mockResolvedValue({ id: 'room-1', name: 'Room A', capacity: 20 });
+    mockRlsTx.class.findFirst.mockResolvedValue(null);
+
+    const dtoWithRoom = {
+      ...baseCreateDto,
+      homeroom_id: 'room-1',
+    } as Record<string, unknown>;
+    delete dtoWithRoom['max_capacity'];
+
+    await service.create(TENANT_ID, dtoWithRoom as typeof baseCreateDto);
+
+    expect(mockRlsTx.class.create).toHaveBeenCalled();
+  });
+
+  it('edge: should rethrow non-P2002 errors from class.create', async () => {
+    const genericError = new Error('Connection timeout');
+    mockRlsTx.class.create.mockReset().mockRejectedValue(genericError);
+
+    await expect(service.create(TENANT_ID, baseCreateDto)).rejects.toThrow('Connection timeout');
   });
 });
 
@@ -926,5 +1081,66 @@ describe('ClassesService — update (FK validation)', () => {
         }),
       }),
     );
+  });
+
+  it('should disconnect year_group when year_group_id is explicitly null', async () => {
+    await service.update(TENANT_ID, CLASS_ID, { year_group_id: null } as never);
+
+    expect(mockRlsTx.class.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          year_group: { disconnect: true },
+        }),
+      }),
+    );
+  });
+
+  it('should disconnect homeroom_teacher when homeroom_teacher_staff_id is explicitly null', async () => {
+    await service.update(TENANT_ID, CLASS_ID, { homeroom_teacher_staff_id: null } as never);
+
+    expect(mockRlsTx.class.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          homeroom_teacher: { disconnect: true },
+        }),
+      }),
+    );
+  });
+
+  it('should set max_capacity to null when explicitly set to null', async () => {
+    await service.update(TENANT_ID, CLASS_ID, { max_capacity: null } as never);
+
+    expect(mockRlsTx.class.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ max_capacity: null }),
+      }),
+    );
+  });
+
+  it('should set max_capacity to provided value', async () => {
+    await service.update(TENANT_ID, CLASS_ID, { max_capacity: 35 } as never);
+
+    expect(mockRlsTx.class.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ max_capacity: 35 }),
+      }),
+    );
+  });
+
+  it('should update status field when provided', async () => {
+    await service.update(TENANT_ID, CLASS_ID, { status: 'inactive' });
+
+    expect(mockRlsTx.class.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'inactive' }),
+      }),
+    );
+  });
+
+  it('edge: should rethrow non-P2002 errors from class.update', async () => {
+    const genericError = new Error('DB failure');
+    mockRlsTx.class.update.mockReset().mockRejectedValue(genericError);
+
+    await expect(service.update(TENANT_ID, CLASS_ID, { name: 'X' })).rejects.toThrow('DB failure');
   });
 });

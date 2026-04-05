@@ -186,6 +186,7 @@ const mockPastoralEventService = {
 
 const mockPdfRenderingService = {
   renderPdf: jest.fn().mockResolvedValue(Buffer.from('pdf-content')),
+  renderFromHtml: jest.fn().mockResolvedValue(Buffer.from('pdf-content')),
 };
 
 // ─── Helper: build a base concern record ────────────────────────────────────
@@ -1258,6 +1259,264 @@ describe('SafeguardingService', () => {
       });
 
       expect(mockPastoralEventService.write).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── listConcerns (facade delegation) ─────────────────────────────────
+
+  describe('listConcerns', () => {
+    beforeEach(() => {
+      // Set up RBAC to allow access
+      mockPrisma.tenantMembership!.findFirst!.mockResolvedValue({
+        id: MEMBERSHIP_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+        membership_roles: [
+          {
+            role: {
+              role_permissions: [{ permission: { permission_key: 'safeguarding.view' } }],
+            },
+          },
+        ],
+      });
+      mockPrisma.safeguardingConcern!.findMany!.mockResolvedValue([]);
+      mockPrisma.safeguardingConcern!.count!.mockResolvedValue(0);
+    });
+
+    it('should delegate to concernsService.listConcerns with permission checker', async () => {
+      const result = await service.listConcerns(TENANT_ID, USER_ID, MEMBERSHIP_ID, {
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(result).toHaveProperty('data');
+      expect(result).toHaveProperty('meta');
+      expect(result).toHaveProperty('sla_summary');
+    });
+  });
+
+  // ─── getConcernDetail (facade delegation) ──────────────────────────────
+
+  describe('getConcernDetail', () => {
+    beforeEach(() => {
+      mockPrisma.tenantMembership!.findFirst!.mockResolvedValue({
+        id: MEMBERSHIP_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+        membership_roles: [
+          {
+            role: {
+              role_permissions: [{ permission: { permission_key: 'safeguarding.view' } }],
+            },
+          },
+        ],
+      });
+    });
+
+    it('should delegate to concernsService.getConcernDetail with permission checker', async () => {
+      mockPrisma.safeguardingConcern!.findFirst!.mockResolvedValue(
+        makeConcern({
+          student: { id: STUDENT_ID, first_name: 'A', last_name: 'B', date_of_birth: null },
+          reported_by: { id: USER_ID, first_name: 'S', last_name: 'R' },
+          designated_liaison: null,
+          assigned_to: null,
+          sealed_by: null,
+          seal_approved_by: null,
+          _count: { actions: 0, concern_incidents: 0 },
+        }),
+      );
+
+      const result = await service.getConcernDetail(TENANT_ID, USER_ID, MEMBERSHIP_ID, CONCERN_ID);
+
+      expect(result).toHaveProperty('data');
+      expect(result.data).toHaveProperty('id', CONCERN_ID);
+    });
+  });
+
+  // ─── getActions (facade delegation) ────────────────────────────────────
+
+  describe('getActions', () => {
+    beforeEach(() => {
+      mockPrisma.tenantMembership!.findFirst!.mockResolvedValue({
+        id: MEMBERSHIP_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+        membership_roles: [
+          {
+            role: {
+              role_permissions: [{ permission: { permission_key: 'safeguarding.view' } }],
+            },
+          },
+        ],
+      });
+      mockPrisma.safeguardingAction!.findMany!.mockResolvedValue([]);
+      mockPrisma.safeguardingAction!.count!.mockResolvedValue(0);
+    });
+
+    it('should delegate to concernsService.getActions with permission checker', async () => {
+      const result = await service.getActions(TENANT_ID, USER_ID, MEMBERSHIP_ID, CONCERN_ID, {
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(result).toHaveProperty('data');
+      expect(result).toHaveProperty('meta');
+    });
+  });
+
+  // ─── recordTuslaReferral (facade delegation) ──────────────────────────
+
+  describe('recordTuslaReferral', () => {
+    it('should delegate to referralsService.recordTuslaReferral', async () => {
+      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(
+        makeConcern({ status: 'under_investigation' }),
+      );
+      mockTx.safeguardingConcern!.update!.mockResolvedValue({});
+      mockTx.safeguardingAction!.create!.mockResolvedValue({ id: 'action-1' });
+
+      const result = await service.recordTuslaReferral(TENANT_ID, USER_ID, CONCERN_ID, {
+        reference_number: 'TUSLA-001',
+        referred_at: '2026-04-01T00:00:00Z',
+      });
+
+      expect(result).toEqual({ data: { success: true } });
+    });
+  });
+
+  // ─── recordGardaReferral (facade delegation) ──────────────────────────
+
+  describe('recordGardaReferral', () => {
+    it('should delegate to referralsService.recordGardaReferral', async () => {
+      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(
+        makeConcern({ status: 'under_investigation' }),
+      );
+      mockTx.safeguardingConcern!.update!.mockResolvedValue({});
+      mockTx.safeguardingAction!.create!.mockResolvedValue({ id: 'action-1' });
+
+      const result = await service.recordGardaReferral(TENANT_ID, USER_ID, CONCERN_ID, {
+        reference_number: 'GARDA-001',
+        referred_at: '2026-04-01T00:00:00Z',
+      });
+
+      expect(result).toEqual({ data: { success: true } });
+    });
+  });
+
+  // ─── generateCaseFile (facade delegation) ──────────────────────────────
+
+  describe('generateCaseFile', () => {
+    it('should delegate to reportingService.generateCaseFile', async () => {
+      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue({
+        ...makeConcern(),
+        concern_type: 'physical_abuse',
+        severity: 'high_sev',
+        status: 'reported',
+        student: { id: STUDENT_ID, first_name: 'A', last_name: 'B', date_of_birth: null },
+        reported_by: { id: USER_ID, first_name: 'S', last_name: 'R' },
+        designated_liaison: null,
+        assigned_to: null,
+        sealed_by: null,
+        seal_approved_by: null,
+        actions: [],
+        concern_incidents: [],
+        is_tusla_referral: false,
+        is_garda_referral: false,
+        immediate_actions_taken: null,
+        resolution_notes: null,
+        resolved_at: null,
+        sealed_at: null,
+        sealed_reason: null,
+        retention_until: null,
+      });
+      mockPrisma.tenantSetting!.findFirst!.mockResolvedValue(null);
+      mockPdfRenderingService.renderFromHtml.mockResolvedValue(Buffer.from('pdf'));
+
+      const result = await service.generateCaseFile(TENANT_ID, CONCERN_ID, false);
+
+      expect(result).toBeInstanceOf(Buffer);
+      expect(mockPdfRenderingService.renderFromHtml).toHaveBeenCalled();
+    });
+  });
+
+  // ─── checkEffectivePermission — concernId branch ──────────────────────
+
+  describe('checkEffectivePermission — with concernId', () => {
+    it('should pass concernId to break-glass grant check', async () => {
+      mockPrisma.tenantMembership!.findFirst!.mockResolvedValue({
+        id: MEMBERSHIP_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+        membership_roles: [],
+      });
+      mockPrisma.safeguardingBreakGlassGrant!.findFirst!.mockResolvedValue(null);
+
+      const result = await service.checkEffectivePermission(
+        USER_ID,
+        TENANT_ID,
+        MEMBERSHIP_ID,
+        CONCERN_ID,
+      );
+
+      expect(result).toEqual({ allowed: false, context: 'normal' });
+
+      // Verify the grant query included the OR clause with concernId
+      expect(mockPrisma.safeguardingBreakGlassGrant!.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: expect.arrayContaining([
+              { scope: 'all_concerns' },
+              expect.objectContaining({
+                scope: 'specific_concerns',
+                scoped_concern_ids: { has: CONCERN_ID },
+              }),
+            ]),
+          }),
+        }),
+      );
+    });
+
+    it('edge: should not set OR clause when concernId is not provided', async () => {
+      mockPrisma.tenantMembership!.findFirst!.mockResolvedValue({
+        id: MEMBERSHIP_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+        membership_roles: [],
+      });
+      mockPrisma.safeguardingBreakGlassGrant!.findFirst!.mockResolvedValue(null);
+
+      await service.checkEffectivePermission(USER_ID, TENANT_ID, MEMBERSHIP_ID);
+
+      const callArgs = mockPrisma.safeguardingBreakGlassGrant!.findFirst!.mock.calls[0][0] as {
+        where: { OR?: unknown };
+      };
+      expect(callArgs.where.OR).toBeUndefined();
+    });
+
+    it('should return break_glass context when grant matches specific concern', async () => {
+      mockPrisma.tenantMembership!.findFirst!.mockResolvedValue({
+        id: MEMBERSHIP_ID,
+        user_id: USER_ID,
+        tenant_id: TENANT_ID,
+        membership_roles: [],
+      });
+      mockPrisma.safeguardingBreakGlassGrant!.findFirst!.mockResolvedValue({
+        id: 'grant-specific',
+        scope: 'specific_concerns',
+        scoped_concern_ids: [CONCERN_ID],
+      });
+
+      const result = await service.checkEffectivePermission(
+        USER_ID,
+        TENANT_ID,
+        MEMBERSHIP_ID,
+        CONCERN_ID,
+      );
+
+      expect(result).toEqual({
+        allowed: true,
+        context: 'break_glass',
+        grantId: 'grant-specific',
+      });
     });
   });
 });

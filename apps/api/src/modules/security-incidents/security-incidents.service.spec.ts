@@ -150,6 +150,59 @@ describe('SecurityIncidentsService', () => {
       expect(callArgs.where.detected_at).toBeDefined();
       expect(callArgs.skip).toBe(10);
     });
+
+    it('should apply only start_date filter when end_date is not provided', async () => {
+      mockPrisma.securityIncident.findMany.mockResolvedValue([]);
+      mockPrisma.securityIncident.count.mockResolvedValue(0);
+
+      await service.list({ page: 1, pageSize: 20, start_date: '2026-03-01' });
+
+      const callArgs = mockPrisma.securityIncident.findMany.mock.calls[0][0] as {
+        where: { detected_at?: { gte?: Date; lte?: Date } };
+      };
+      expect(callArgs.where.detected_at?.gte).toBeDefined();
+      expect(callArgs.where.detected_at?.lte).toBeUndefined();
+    });
+
+    it('should apply only end_date filter when start_date is not provided', async () => {
+      mockPrisma.securityIncident.findMany.mockResolvedValue([]);
+      mockPrisma.securityIncident.count.mockResolvedValue(0);
+
+      await service.list({ page: 1, pageSize: 20, end_date: '2026-03-31' });
+
+      const callArgs = mockPrisma.securityIncident.findMany.mock.calls[0][0] as {
+        where: { detected_at?: { gte?: Date; lte?: Date } };
+      };
+      expect(callArgs.where.detected_at?.lte).toBeDefined();
+      expect(callArgs.where.detected_at?.gte).toBeUndefined();
+    });
+
+    it('should not include date filter when neither start_date nor end_date provided', async () => {
+      mockPrisma.securityIncident.findMany.mockResolvedValue([]);
+      mockPrisma.securityIncident.count.mockResolvedValue(0);
+
+      await service.list({ page: 1, pageSize: 20 });
+
+      const callArgs = mockPrisma.securityIncident.findMany.mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(callArgs.where.detected_at).toBeUndefined();
+    });
+
+    it('should format assigned_to_name when assigned_to is present', async () => {
+      const incidentRow = {
+        ...buildBaseIncident(),
+        created_by: MOCK_USER,
+        assigned_to: MOCK_ASSIGNED_USER,
+        _count: { events: 1 },
+      };
+      mockPrisma.securityIncident.findMany.mockResolvedValue([incidentRow]);
+      mockPrisma.securityIncident.count.mockResolvedValue(1);
+
+      const result = await service.list({ page: 1, pageSize: 20 });
+
+      expect(result.data[0]!.assigned_to_name).toBe('Jane Smith');
+    });
   });
 
   // ─── findOne ────────────────────────────────────────────────────────────────
@@ -280,6 +333,41 @@ describe('SecurityIncidentsService', () => {
         null,
       );
     });
+
+    it('should default optional fields when not provided', async () => {
+      const createdIncident = {
+        ...buildBaseIncident(),
+        events: [
+          {
+            id: EVENT_ID,
+            incident_id: INCIDENT_ID,
+            event_type: 'status_change',
+            description: 'Incident created manually',
+            created_by_user_id: USER_ID,
+            created_at: NOW,
+          },
+        ],
+      };
+      mockPrisma.securityIncident.create.mockResolvedValue(createdIncident);
+
+      await service.create(
+        {
+          severity: 'low',
+          incident_type: 'auth_spike',
+          description: 'Minor auth spike',
+        },
+        USER_ID,
+      );
+
+      const createCall = mockPrisma.securityIncident.create.mock.calls[0][0] as {
+        data: Record<string, unknown>;
+      };
+      expect(createCall.data.affected_tenants).toEqual([]);
+      expect(createCall.data.affected_data_subjects_count).toBeNull();
+      expect(createCall.data.data_categories_affected).toEqual([]);
+      expect(createCall.data.containment_actions).toBeNull();
+      expect(createCall.data.assigned_to_user_id).toBeNull();
+    });
   });
 
   // ─── update ─────────────────────────────────────────────────────────────────
@@ -367,6 +455,86 @@ describe('SecurityIncidentsService', () => {
       };
       expect(updateCall.data.severity).toBe('critical');
       expect(updateCall.data.root_cause).toBe('Misconfigured RLS policy');
+      expect(updateCall.data.events).toBeUndefined();
+    });
+
+    it('should connect assigned_to when assigned_to_user_id is provided', async () => {
+      const existing = buildBaseIncident({ status: 'investigating' });
+      mockPrisma.securityIncident.findUnique.mockResolvedValue(existing);
+      mockPrisma.securityIncident.update.mockResolvedValue({
+        ...existing,
+        assigned_to_user_id: ASSIGNED_USER_ID,
+      });
+
+      await service.update(INCIDENT_ID, { assigned_to_user_id: ASSIGNED_USER_ID }, USER_ID);
+
+      const updateCall = mockPrisma.securityIncident.update.mock.calls[0][0] as {
+        data: { assigned_to?: { connect?: { id: string }; disconnect?: boolean } };
+      };
+      expect(updateCall.data.assigned_to).toEqual({ connect: { id: ASSIGNED_USER_ID } });
+    });
+
+    it('should disconnect assigned_to when assigned_to_user_id is null', async () => {
+      const existing = buildBaseIncident({
+        status: 'investigating',
+        assigned_to_user_id: ASSIGNED_USER_ID,
+      });
+      mockPrisma.securityIncident.findUnique.mockResolvedValue(existing);
+      mockPrisma.securityIncident.update.mockResolvedValue({
+        ...existing,
+        assigned_to_user_id: null,
+      });
+
+      await service.update(INCIDENT_ID, { assigned_to_user_id: null }, USER_ID);
+
+      const updateCall = mockPrisma.securityIncident.update.mock.calls[0][0] as {
+        data: { assigned_to?: { connect?: { id: string }; disconnect?: boolean } };
+      };
+      expect(updateCall.data.assigned_to).toEqual({ disconnect: true });
+    });
+
+    it('should update all optional fields', async () => {
+      const existing = buildBaseIncident({ status: 'investigating' });
+      mockPrisma.securityIncident.findUnique.mockResolvedValue(existing);
+      mockPrisma.securityIncident.update.mockResolvedValue(existing);
+
+      await service.update(
+        INCIDENT_ID,
+        {
+          description: 'Updated description',
+          affected_tenants: [TENANT_ID_A, TENANT_ID_B],
+          affected_data_subjects_count: 10,
+          data_categories_affected: ['personal_data', 'health_data'],
+          containment_actions: 'Blocked IP range',
+          remediation: 'Patched vulnerability',
+          dpc_reference_number: 'DPC-2026-003',
+        },
+        USER_ID,
+      );
+
+      const updateCall = mockPrisma.securityIncident.update.mock.calls[0][0] as {
+        data: Record<string, unknown>;
+      };
+      expect(updateCall.data.description).toBe('Updated description');
+      expect(updateCall.data.affected_tenants).toEqual([TENANT_ID_A, TENANT_ID_B]);
+      expect(updateCall.data.affected_data_subjects_count).toBe(10);
+      expect(updateCall.data.data_categories_affected).toEqual(['personal_data', 'health_data']);
+      expect(updateCall.data.containment_actions).toBe('Blocked IP range');
+      expect(updateCall.data.remediation).toBe('Patched vulnerability');
+      expect(updateCall.data.dpc_reference_number).toBe('DPC-2026-003');
+    });
+
+    it('should not add status_change event when status is unchanged', async () => {
+      const existing = buildBaseIncident({ status: 'investigating' });
+      mockPrisma.securityIncident.findUnique.mockResolvedValue(existing);
+      mockPrisma.securityIncident.update.mockResolvedValue(existing);
+
+      await service.update(INCIDENT_ID, { status: 'investigating' }, USER_ID);
+
+      const updateCall = mockPrisma.securityIncident.update.mock.calls[0][0] as {
+        data: { status?: string; events?: unknown };
+      };
+      expect(updateCall.data.status).toBe('investigating');
       expect(updateCall.data.events).toBeUndefined();
     });
   });
@@ -549,6 +717,21 @@ describe('SecurityIncidentsService', () => {
       ).rejects.toThrow(NotFoundException);
 
       expect(mockPrisma.securityIncident.update).not.toHaveBeenCalled();
+    });
+
+    it('should format description without notes when notes are omitted', async () => {
+      mockPrisma.securityIncident.findUnique.mockResolvedValue({ id: INCIDENT_ID });
+      mockPrisma.securityIncident.update.mockResolvedValue(buildBaseIncident());
+
+      await service.notifyDpc(INCIDENT_ID, { dpc_reference_number: 'DPC-2026-003' }, USER_ID);
+
+      const updateCall = mockPrisma.securityIncident.update.mock.calls[0][0] as {
+        data: { events: { create: { description: string } } };
+      };
+      expect(updateCall.data.events.create.description).toBe(
+        'DPC notified. Reference: DPC-2026-003',
+      );
+      expect(updateCall.data.events.create.description).not.toContain('Notes:');
     });
   });
 

@@ -419,5 +419,322 @@ describe('SenSupportPlanService', () => {
         service.clone(TENANT_ID, PLAN_ID, { academic_year_id: 'next-year-id' }, USER_ID),
       ).rejects.toThrow(NotFoundException);
     });
+
+    it('throws when the cloned plan detail is not found after creation', async () => {
+      mockSequenceService.nextNumber.mockResolvedValue('SSP-202603-000003');
+      senSupportPlanMock.findFirst
+        .mockResolvedValueOnce({
+          id: PLAN_ID,
+          sen_profile_id: PROFILE_ID,
+          version: 1,
+          parent_input: null,
+          student_voice: null,
+          staff_notes: null,
+          goals: [],
+        })
+        .mockResolvedValueOnce(null); // detail not found after creation
+      senSupportPlanMock.create.mockResolvedValue({ id: 'new-plan' });
+
+      await expect(
+        service.clone(TENANT_ID, PLAN_ID, { academic_year_id: 'next-year-id' }, USER_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should use default prefix "SSP" when plan_number_prefix is null', async () => {
+      mockSettingsService.getModuleSettings.mockResolvedValue({
+        plan_number_prefix: null,
+        default_review_cycle_weeks: 12,
+      });
+      mockSequenceService.nextNumber.mockResolvedValue('SSP-202603-000004');
+      senSupportPlanMock.findFirst
+        .mockResolvedValueOnce({
+          id: PLAN_ID,
+          sen_profile_id: PROFILE_ID,
+          version: 1,
+          parent_input: null,
+          student_voice: null,
+          staff_notes: null,
+          goals: [],
+        })
+        .mockResolvedValueOnce({ id: 'new-plan', goals: [] });
+      senSupportPlanMock.create.mockResolvedValue({ id: 'new-plan' });
+
+      await service.clone(TENANT_ID, PLAN_ID, { academic_year_id: 'year-id' }, USER_ID);
+
+      expect(mockSequenceService.nextNumber).toHaveBeenCalledWith(
+        TENANT_ID,
+        'sen_support_plan',
+        mockPrisma,
+        'SSP',
+      );
+    });
+  });
+
+  describe('findAllByProfile — filters', () => {
+    it('applies class scope filter with student IDs', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: ['student-1', 'student-2'],
+      });
+      senSupportPlanMock.findMany.mockResolvedValue([]);
+      senSupportPlanMock.count.mockResolvedValue(0);
+
+      await service.findAllByProfile(TENANT_ID, USER_ID, ['sen.view'], PROFILE_ID, {
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(senSupportPlanMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            sen_profile: {
+              student_id: { in: ['student-1', 'student-2'] },
+            },
+          }),
+        }),
+      );
+    });
+
+    it('applies academic_year_id filter when provided', async () => {
+      senSupportPlanMock.findMany.mockResolvedValue([]);
+      senSupportPlanMock.count.mockResolvedValue(0);
+
+      await service.findAllByProfile(TENANT_ID, USER_ID, ['sen.admin'], PROFILE_ID, {
+        page: 1,
+        pageSize: 20,
+        academic_year_id: 'ay-1',
+      });
+
+      expect(senSupportPlanMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            academic_year_id: 'ay-1',
+          }),
+        }),
+      );
+    });
+
+    it('applies academic_period_id filter when provided', async () => {
+      senSupportPlanMock.findMany.mockResolvedValue([]);
+      senSupportPlanMock.count.mockResolvedValue(0);
+
+      await service.findAllByProfile(TENANT_ID, USER_ID, ['sen.admin'], PROFILE_ID, {
+        page: 1,
+        pageSize: 20,
+        academic_period_id: 'ap-1',
+      });
+
+      expect(senSupportPlanMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            academic_period_id: 'ap-1',
+          }),
+        }),
+      );
+    });
+
+    it('applies next_review_before filter when provided', async () => {
+      senSupportPlanMock.findMany.mockResolvedValue([]);
+      senSupportPlanMock.count.mockResolvedValue(0);
+
+      await service.findAllByProfile(TENANT_ID, USER_ID, ['sen.admin'], PROFILE_ID, {
+        page: 1,
+        pageSize: 20,
+        next_review_before: '2026-06-30',
+      });
+
+      expect(senSupportPlanMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            next_review_date: {
+              lte: new Date('2026-06-30'),
+            },
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('findOne — scope filtering', () => {
+    it('throws when scope is none', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'none' });
+
+      await expect(service.findOne(TENANT_ID, USER_ID, ['sen.view'], PLAN_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('applies class scope filter for findOne', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: ['student-1'],
+      });
+      senSupportPlanMock.findFirst.mockResolvedValue(null);
+
+      await expect(service.findOne(TENANT_ID, USER_ID, ['sen.view'], PLAN_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+
+      expect(senSupportPlanMock.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            sen_profile: {
+              student_id: { in: ['student-1'] },
+            },
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('update', () => {
+    it('updates support plan fields', async () => {
+      senSupportPlanMock.findFirst.mockResolvedValue({ id: PLAN_ID });
+      senSupportPlanMock.update.mockResolvedValue({ id: PLAN_ID, review_notes: 'Updated' });
+
+      const result = await service.update(TENANT_ID, PLAN_ID, {
+        review_notes: 'Updated',
+        parent_input: 'New parent input',
+        student_voice: 'Student says...',
+        staff_notes: 'Staff notes',
+      });
+
+      expect(result).toEqual({ id: PLAN_ID, review_notes: 'Updated' });
+      expect(senSupportPlanMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: PLAN_ID },
+          data: expect.objectContaining({
+            review_notes: 'Updated',
+            parent_input: 'New parent input',
+            student_voice: 'Student says...',
+            staff_notes: 'Staff notes',
+          }),
+        }),
+      );
+    });
+
+    it('throws when the plan does not exist', async () => {
+      senSupportPlanMock.findFirst.mockResolvedValue(null);
+
+      await expect(service.update(TENANT_ID, PLAN_ID, { review_notes: 'Test' })).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('handles nullable date fields: sets to null when empty string', async () => {
+      senSupportPlanMock.findFirst.mockResolvedValue({ id: PLAN_ID });
+      senSupportPlanMock.update.mockResolvedValue({ id: PLAN_ID });
+
+      await service.update(TENANT_ID, PLAN_ID, {
+        review_date: null,
+        next_review_date: null,
+      });
+
+      expect(senSupportPlanMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            review_date: null,
+            next_review_date: null,
+          }),
+        }),
+      );
+    });
+
+    it('converts date strings to Date objects when provided', async () => {
+      senSupportPlanMock.findFirst.mockResolvedValue({ id: PLAN_ID });
+      senSupportPlanMock.update.mockResolvedValue({ id: PLAN_ID });
+
+      await service.update(TENANT_ID, PLAN_ID, {
+        review_date: '2026-06-01',
+        next_review_date: '2026-09-01',
+      });
+
+      expect(senSupportPlanMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            review_date: new Date('2026-06-01'),
+            next_review_date: new Date('2026-09-01'),
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('transitionStatus — additional', () => {
+    it('throws when plan not found', async () => {
+      senSupportPlanMock.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.transitionStatus(TENANT_ID, PLAN_ID, { status: 'active' }, USER_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('applies closed side effects with review_notes', async () => {
+      senSupportPlanMock.findFirst.mockResolvedValue({
+        id: PLAN_ID,
+        status: 'active',
+      });
+      senSupportPlanMock.update.mockResolvedValue({
+        id: PLAN_ID,
+        status: 'closed',
+      });
+
+      await service.transitionStatus(
+        TENANT_ID,
+        PLAN_ID,
+        { status: 'closed', review_notes: 'Closing notes' },
+        USER_ID,
+      );
+
+      expect(senSupportPlanMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'closed',
+            reviewed_by: { connect: { id: USER_ID } },
+            review_notes: 'Closing notes',
+          }),
+        }),
+      );
+    });
+
+    it('applies closed side effects without review_notes', async () => {
+      senSupportPlanMock.findFirst.mockResolvedValue({
+        id: PLAN_ID,
+        status: 'active',
+      });
+      senSupportPlanMock.update.mockResolvedValue({
+        id: PLAN_ID,
+        status: 'closed',
+      });
+
+      await service.transitionStatus(TENANT_ID, PLAN_ID, { status: 'closed' }, USER_ID);
+
+      expect(senSupportPlanMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'closed',
+            reviewed_by: { connect: { id: USER_ID } },
+          }),
+        }),
+      );
+    });
+
+    it('applies under_review side effects without review_notes', async () => {
+      senSupportPlanMock.findFirst.mockResolvedValue({
+        id: PLAN_ID,
+        status: 'active',
+      });
+      senSupportPlanMock.update.mockResolvedValue({
+        id: PLAN_ID,
+        status: 'under_review',
+      });
+
+      await service.transitionStatus(TENANT_ID, PLAN_ID, { status: 'under_review' }, USER_ID);
+
+      const updateCall = senSupportPlanMock.update.mock.calls[0]?.[0];
+      expect(updateCall?.data?.status).toBe('under_review');
+      expect(updateCall?.data?.reviewed_by).toEqual({ connect: { id: USER_ID } });
+      expect(updateCall?.data?.review_date).toBeInstanceOf(Date);
+    });
   });
 });

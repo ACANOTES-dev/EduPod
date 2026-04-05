@@ -1,7 +1,12 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, AcademicReadFacade, StudentReadFacade, TenantReadFacade } from '../../common/tests/mock-facades';
+import {
+  MOCK_FACADE_PROVIDERS,
+  AcademicReadFacade,
+  StudentReadFacade,
+  TenantReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { ClassAssignmentService } from './class-assignments.service';
@@ -190,6 +195,19 @@ describe('ClassAssignmentService — getAssignments', () => {
     const result = await service.getAssignments(TENANT_ID);
 
     expect(result.year_groups[0]?.homeroom_classes[0]?.enrolled_count).toBe(12);
+  });
+
+  it('should exclude homeroom classes that have no year_group_id from year group mapping', async () => {
+    mockAcademicReadFacade.findCurrentYear.mockResolvedValue(activeAcademicYear);
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([baseStudent]);
+    // Class has no year_group_id
+    mockPrisma.class.findMany.mockResolvedValue([{ ...baseClass, year_group_id: null }]);
+    mockAcademicReadFacade.findAllYearGroupsWithOrder.mockResolvedValue([baseYearGroup]);
+
+    const result = await service.getAssignments(TENANT_ID);
+
+    // The year group should have students but no homeroom classes
+    expect(result.year_groups[0]?.homeroom_classes).toHaveLength(0);
   });
 });
 
@@ -520,5 +538,87 @@ describe('ClassAssignmentService — getExportData', () => {
     expect(result.class_lists).toHaveLength(1);
     expect(result.class_lists[0]?.students).toHaveLength(1);
     expect(result.class_lists[0]?.students[0]?.first_name).toBe('Alice');
+  });
+
+  it('should use tenant name when branding school_name_display is null', async () => {
+    mockAcademicReadFacade.findCurrentYear.mockResolvedValue({ id: YEAR_ID, name: '2025/2026' });
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([]);
+    mockPrisma.class.findMany.mockResolvedValue([]);
+    mockTenantReadFacade.findBranding.mockResolvedValue(null);
+    mockTenantReadFacade.findNameById.mockResolvedValue('Fallback School');
+
+    const result = await service.getExportData(TENANT_ID);
+
+    expect(result.school_name).toBe('Fallback School');
+    expect(result.logo_url).toBeNull();
+  });
+
+  it('should handle class with no year_group in export data', async () => {
+    mockAcademicReadFacade.findCurrentYear.mockResolvedValue({ id: YEAR_ID, name: '2025/2026' });
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([]);
+    mockPrisma.class.findMany.mockResolvedValue([
+      {
+        id: CLASS_ID,
+        name: '10A',
+        year_group_id: null,
+        year_group: null,
+      },
+    ]);
+    mockTenantReadFacade.findBranding.mockResolvedValue(null);
+    mockTenantReadFacade.findNameById.mockResolvedValue(null);
+
+    const result = await service.getExportData(TENANT_ID);
+
+    expect(result.class_lists[0]?.year_group_name).toBe('');
+    expect(result.school_name).toBe('');
+  });
+
+  it('should map student_parents to parents array in export data', async () => {
+    mockAcademicReadFacade.findCurrentYear.mockResolvedValue({ id: YEAR_ID, name: '2025/2026' });
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([
+      {
+        id: STUDENT_ID,
+        first_name: 'Alice',
+        last_name: 'Smith',
+        middle_name: 'M.',
+        student_number: 'STU-001',
+        national_id: null,
+        nationality: null,
+        city_of_birth: null,
+        gender: 'female',
+        date_of_birth: new Date('2010-01-01'),
+        medical_notes: null,
+        has_allergy: false,
+        allergy_details: null,
+        class_homeroom_id: CLASS_ID,
+        year_group_id: YEAR_ID,
+        student_parents: [
+          {
+            parent: {
+              first_name: 'John',
+              last_name: 'Smith',
+              email: 'john@example.com',
+              phone: '+1-555-0001',
+            },
+          },
+        ],
+      },
+    ]);
+    mockPrisma.class.findMany.mockResolvedValue([
+      {
+        id: CLASS_ID,
+        name: '10A',
+        year_group_id: YEAR_ID,
+        year_group: { name: 'Year 10', display_order: 1 },
+      },
+    ]);
+    mockTenantReadFacade.findBranding.mockResolvedValue(null);
+    mockTenantReadFacade.findNameById.mockResolvedValue('Test School');
+
+    const result = await service.getExportData(TENANT_ID);
+
+    expect(result.class_lists[0]?.students[0]?.parents).toEqual([
+      { first_name: 'John', last_name: 'Smith', email: 'john@example.com', phone: '+1-555-0001' },
+    ]);
   });
 });

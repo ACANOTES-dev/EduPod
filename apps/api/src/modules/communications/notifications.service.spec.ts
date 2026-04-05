@@ -241,9 +241,9 @@ describe('NotificationsService', () => {
     it('should throw when notification belongs to different user', async () => {
       mockPrisma.notification.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.markAsRead(TENANT_ID, USER_ID, 'other-notification-id'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.markAsRead(TENANT_ID, USER_ID, 'other-notification-id')).rejects.toThrow(
+        NotFoundException,
+      );
 
       await expect(
         service.markAsRead(TENANT_ID, USER_ID, 'other-notification-id'),
@@ -301,6 +301,162 @@ describe('NotificationsService', () => {
       const callArgs = mockPrisma.notification.updateMany.mock.calls[0][0];
       expect(callArgs.where.recipient_user_id).toBe(USER_ID);
       expect(callArgs.where.tenant_id).toBe(TENANT_ID);
+    });
+  });
+
+  // ─── listForUser() — status filter ──────────────────────────────────────
+
+  describe('listForUser() — status filter', () => {
+    it('should filter by status when provided', async () => {
+      mockPrisma.notification.findMany.mockResolvedValue([]);
+      mockPrisma.notification.count.mockResolvedValue(0);
+
+      await service.listForUser(TENANT_ID, USER_ID, {
+        page: 1,
+        pageSize: 20,
+        status: 'failed',
+      });
+
+      expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'failed',
+          }),
+        }),
+      );
+    });
+
+    it('edge: unread_only should override status filter', async () => {
+      mockPrisma.notification.findMany.mockResolvedValue([]);
+      mockPrisma.notification.count.mockResolvedValue(0);
+
+      await service.listForUser(TENANT_ID, USER_ID, {
+        page: 1,
+        pageSize: 20,
+        status: 'failed',
+        unread_only: true,
+      });
+
+      // unread_only sets status to { in: [...] }, overriding the explicit status
+      expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { in: ['queued', 'sent', 'delivered'] },
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── listFailed() ────────────────────────────────────────────────────────
+
+  describe('listFailed()', () => {
+    it('should return paginated failed notifications with recipient info', async () => {
+      const failedNotifications = [
+        {
+          ...buildMockNotification({ id: 'n-1', status: 'failed' }),
+          recipient: { id: USER_ID, first_name: 'Test', last_name: 'User', email: 'test@test.com' },
+        },
+      ];
+      mockPrisma.notification.findMany.mockResolvedValue(failedNotifications);
+      mockPrisma.notification.count.mockResolvedValue(1);
+
+      const result = await service.listFailed(TENANT_ID, { page: 1, pageSize: 100 });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.meta).toEqual({ page: 1, pageSize: 100, total: 1 });
+      expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenant_id: TENANT_ID, status: 'failed' },
+          skip: 0,
+          take: 100,
+          orderBy: { created_at: 'desc' },
+          include: {
+            recipient: {
+              select: { id: true, first_name: true, last_name: true, email: true },
+            },
+          },
+        }),
+      );
+    });
+
+    it('should return empty list when no failed notifications', async () => {
+      mockPrisma.notification.findMany.mockResolvedValue([]);
+      mockPrisma.notification.count.mockResolvedValue(0);
+
+      const result = await service.listFailed(TENANT_ID, { page: 1, pageSize: 100 });
+
+      expect(result.data).toEqual([]);
+      expect(result.meta.total).toBe(0);
+    });
+
+    it('should paginate correctly on page 2', async () => {
+      mockPrisma.notification.findMany.mockResolvedValue([]);
+      mockPrisma.notification.count.mockResolvedValue(0);
+
+      await service.listFailed(TENANT_ID, { page: 2, pageSize: 50 });
+
+      expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 50,
+          take: 50,
+        }),
+      );
+    });
+  });
+
+  // ─── getUnreadCount() — cached undefined ──────────────────────────────────
+
+  describe('getUnreadCount() — cached undefined', () => {
+    it('should query DB when Redis returns undefined (not null)', async () => {
+      mockRedisClient.get.mockResolvedValue(undefined);
+      mockPrisma.notification.count.mockResolvedValue(7);
+
+      const result = await service.getUnreadCount(TENANT_ID, USER_ID);
+
+      // undefined fails the `!== null && !== undefined` check, so falls through to DB
+      expect(result).toBe(7);
+      expect(mockPrisma.notification.count).toHaveBeenCalled();
+    });
+
+    it('should return cached value 0 as number', async () => {
+      mockRedisClient.get.mockResolvedValue('0');
+
+      const result = await service.getUnreadCount(TENANT_ID, USER_ID);
+
+      // '0' is not null/undefined so it should be parsed
+      expect(result).toBe(0);
+      expect(mockPrisma.notification.count).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── createBatch() — source entity defaults ──────────────────────────────
+
+  describe('createBatch() — source entity defaults', () => {
+    it('should default source_entity_type and source_entity_id to null when not provided', async () => {
+      const notifications = [
+        {
+          tenant_id: TENANT_ID,
+          recipient_user_id: 'user-1',
+          channel: 'in_app',
+          template_key: null,
+          locale: 'en',
+          payload_json: {},
+        },
+      ];
+      mockPrisma.notification.createMany.mockResolvedValue({ count: 1 });
+      mockRedisClient.del.mockResolvedValue(1);
+
+      await service.createBatch(TENANT_ID, notifications);
+
+      expect(mockPrisma.notification.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            source_entity_type: null,
+            source_entity_id: null,
+          }),
+        ],
+      });
     });
   });
 

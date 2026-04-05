@@ -2,7 +2,7 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-04-02
+> **Last verified**: 2026-04-05
 
 ---
 
@@ -23,32 +23,17 @@ The invoice state machine now has a single `VALID_INVOICE_TRANSITIONS` map in `p
 
 ---
 
-## DZ-02: Prisma-Direct Cross-Module Queries — PARTIALLY MITIGATED
+## DZ-02: Prisma-Direct Cross-Module Queries — MITIGATED
 
 **Risk**: Schema changes breaking modules that aren't visible in the NestJS dependency graph
 **Location**: Throughout `apps/api/src/modules/`
-**Status**: PARTIALLY MITIGATED (2026-03-30)
+**Status**: MITIGATED (2026-04-05)
 
-**Mitigation applied**: ReportsModule and its 10 analytics services now route ALL cross-module reads through `ReportsDataAccessService` (`reports-data-access.service.ts`). This service centralises reads to 25+ foreign tables in one file with explicit documentation of which tables it touches. DashboardModule imports ReportsModule for this service.
+**Mitigation applied**: All cross-module Prisma reads are now routed through read facades. 31+ `*-read.facade.ts` files centralise every cross-module table access with explicit typed methods. The `ReadFacadesModule` (`apps/api/src/common/read-facades.module.ts`) registers all facades globally.
 
-**What remains direct Prisma**: DashboardService (uses RLS transactions for security — intentionally kept), other modules outside reports/dashboard (behaviour, regulatory, etc.) still have direct Prisma reads to foreign tables.
+**Enforcement**: The custom ESLint rule `no-cross-module-prisma-access` is set to `error` severity in `packages/eslint-config/nest.js`. CI blocks any new direct cross-module Prisma access. Zero violations remain.
 
-**Rule**: When changing schema for any table listed in `ReportsDataAccessService`, update THAT file. For other modules, still run:
-
-```bash
-grep -r "tableName" apps/api/src/ --include="*.ts" -l
-```
-
-Do NOT rely solely on the module import graph.
-
-**Tables with highest cross-module read exposure**:
-
-1. `staff_profiles` — 6+ modules read directly (reports module now via data access facade)
-2. `students` — 6+ modules read directly (reports module now via data access facade)
-3. `classes` / `class_enrolments` — 5+ modules
-4. `academic_periods` / `academic_years` — 5+ modules
-5. `invoices` / `payments` — 3+ modules
-6. `attendance_records` / `attendance_sessions` — 3+ modules
+**Rule**: When changing schema for any table read cross-module, update the corresponding `*-read.facade.ts` file. The lint rule will catch any attempt to bypass the facade layer.
 
 ---
 
@@ -72,14 +57,13 @@ When a user approves a request, the approval is marked `approved` and a BullMQ j
 
 ---
 
-## DZ-04: Sequence Type Mismatch
+## DZ-04: Sequence Type Mismatch — RESOLVED
 
-**Risk**: Refund sequence generation fails silently
+**Risk**: ~~Refund sequence generation fails silently~~
 **Location**: `packages/shared/src/constants/sequence-types.ts` vs `apps/api/src/modules/finance/refunds.service.ts`
+**Status**: RESOLVED (2026-04-05)
 
-The canonical `SEQUENCE_TYPES` constant defines 8 types: receipt, invoice, application, payslip, student, staff, household, payment. But the refunds service calls `SequenceService.nextNumber()` with `'refund'` — a type NOT in the canonical list.
-
-This works because the sequence service doesn't validate against the constant — it just does a `SELECT ... FOR UPDATE` on whatever type string is passed. But if anyone adds validation against `SEQUENCE_TYPES`, refund number generation breaks.
+The `'refund'` type is now included in the canonical `SEQUENCE_TYPES` array in `packages/shared/src/constants/sequence-types.ts`. No mismatch remains.
 
 ---
 
@@ -102,19 +86,15 @@ The monolithic `tenant_settings.settings` JSONB blob has been decomposed into a 
 
 ---
 
-## DZ-06: Academic Period Closure Triggers Cron Side Effects
+## DZ-06: Academic Period Closure Triggers Cron Side Effects — MITIGATED
 
 **Risk**: Closing a period causes unexpected automated actions
-**Location**: `apps/worker/src/cron/cron-scheduler.service.ts` + gradebook processors
+**Location**: `apps/worker/src/cron/cron-scheduler.service.ts` + gradebook processors, `apps/api/src/modules/academics/academic-periods.service.ts`
+**Status**: MITIGATED (2026-04-05)
 
-The `report-cards:auto-generate` cron job (daily 03:00 UTC) checks for recently closed academic periods and auto-generates draft report cards. This means:
+The `gatherClosureWarnings()` method in `academic-periods.service.ts` now checks for pending attendance and open assessments before closing a period. Warnings are returned to the caller (and surfaced in the UI) so admins can make an informed decision. The cron side effects (report-cards:auto-generate, gradebook:detect-risks) still run, but accidental closures are prevented by the warning mechanism.
 
-1. Admin closes an academic period at 14:00
-2. Nothing visible happens immediately
-3. At 03:00 next day, draft report cards appear for all students in classes within that period
-4. If the period was closed accidentally, you now have hundreds of draft report cards to clean up
-
-Similarly, `gradebook:detect-risks` (daily 02:00 UTC) iterates ALL active tenants and creates academic alerts based on grade thresholds.
+**Remaining note**: The cron side effects are still fire-and-forget after closure. If an admin closes a period despite warnings, the cron will generate draft report cards the next morning. This is by design — the warning is the mitigation, not a hard block.
 
 ---
 
@@ -209,33 +189,29 @@ At high tenant scale with many concurrent registrations, the collision probabili
 
 ---
 
-## DZ-13: Behaviour Status Projection Leaks Safeguarding Info If Missed
+## DZ-13: Behaviour Status Projection Leaks Safeguarding Info If Missed — MITIGATED
 
 **Risk**: Non-safeguarding users discovering that a student has a safeguarding concern
 **Location**: `apps/api/src/modules/behaviour/behaviour.service.ts`, search indexing, exports, parent portal
+**Status**: MITIGATED (2026-04-05)
 
-When an incident is `converted_to_safeguarding`, it must appear as `closed` to ALL users without `safeguarding.view` permission. This projection must be applied at EVERY surface:
+When an incident is `converted_to_safeguarding`, it must appear as `closed` to ALL users without `safeguarding.view` permission. `projectIncidentStatus()` from `packages/shared/src/behaviour/state-machine.ts` handles this projection.
 
-1. API list responses (`listIncidents`) — ✅ implemented
-2. API detail responses (`getIncident`) — ✅ implemented
-3. Search indexing — must index as `closed`, not `converted_to_safeguarding`
-4. PDF exports / reports — must show `closed`
-5. Parent portal / parent notifications — must show `closed`
-6. Entity history rendering — must not reveal the safeguarding status
-7. Hover cards / previews — must show `closed`
+**Evidence**: `apps/api/src/modules/behaviour/tests/safeguarding-projection.spec.ts` validates that the projection is applied correctly across all surfaces.
 
-**Mitigation**: Every new surface that renders incident status MUST call `projectIncidentStatus()` from `packages/shared/src/behaviour/state-machine.ts`. Add a code review checklist item for this.
+**Remaining rule**: Every new surface that renders incident status MUST call `projectIncidentStatus()`. This is a permanent constraint, not something that can be removed.
 
 ---
 
-## DZ-14: Behaviour Parent Description Send-Gate Silently Blocks Notifications
+## DZ-14: Behaviour Parent Description Send-Gate Silently Blocks Notifications — MITIGATED
 
 **Risk**: Parents never notified about a negative incident because staff didn't add a parent-safe description
-**Location**: `apps/worker/src/processors/behaviour/parent-notification.processor.ts`
+**Location**: `apps/worker/src/processors/behaviour/parent-notification.processor.ts`, `apps/worker/src/processors/behaviour/stuck-notification-alert.processor.ts`
+**Status**: MITIGATED (2026-04-05)
 
-For negative incidents with `severity >= parent_notification_send_gate_severity` (default 3), the parent notification is BLOCKED unless `parent_description` is set, a template was used, or `parent_description` is explicitly empty string. If blocked, the incident stays at `parent_notification_status = 'pending'` indefinitely with no UI alert to staff.
+For negative incidents with `severity >= parent_notification_send_gate_severity` (default 3), the parent notification is BLOCKED unless `parent_description` is set, a template was used, or `parent_description` is explicitly empty string.
 
-**Mitigation**: Phase F should add an alert rule that detects incidents stuck in `pending` notification status for >24 hours. Until then, this is a silent failure mode.
+**Mitigation applied**: `stuck-notification-alert.processor.ts` detects incidents stuck in `pending` notification status for >24 hours and alerts staff. Test coverage in `stuck-notification-alert.processor.spec.ts`.
 
 ---
 
@@ -266,34 +242,32 @@ For users with `class` scope, the service resolves visible students by querying 
 
 ---
 
-## DZ-17: Appeal Decision Cascades Across 6 Tables in One Transaction
+## DZ-17: Appeal Decision Cascades Across 6 Tables in One Transaction — MITIGATED
 
 **Risk**: Transaction timeout or partial failure corrupting cross-entity state
 **Location**: `apps/api/src/modules/behaviour/behaviour-appeals.service.ts` → `decide()`
+**Status**: MITIGATED (2026-04-05)
 
-When an appeal decision is recorded, the `decide()` method operates on up to 6 tables in a single interactive Prisma transaction:
+When an appeal decision is recorded, the `decide()` method operates on up to 6 tables in a single interactive Prisma transaction. Explicit transaction timeouts are now in place:
 
-1. `behaviour_appeals` — update decision fields
-2. `behaviour_sanctions` — transition status (appealed → scheduled/cancelled/replaced)
-3. `behaviour_incidents` — transition status (→ closed_after_appeal for overturned)
-4. `behaviour_exclusion_cases` — transition status (→ overturned) if linked
-5. `behaviour_amendment_notices` — create correction records if parent-visible fields changed
-6. `behaviour_entity_history` — create audit entries for every changed entity
+- `decide()` uses `{ timeout: 15000 }` (15s guard)
+- Other multi-table operations use `{ timeout: 30000 }` (30s guard)
 
-A `modified` decision is the worst case: it applies field-level amendments to both incident and sanction, creates a replacement sanction, creates amendment notices, and enqueues notifications — all atomically.
+**Evidence**: `behaviour-appeals.service.spec.ts` includes test `'should use 15s transaction timeout guard (DZ-17)'` verifying the timeout is passed.
 
-**Mitigation**: If this transaction starts timing out, the first lever is to move notification enqueuing outside the transaction (currently inside with try/catch). The second lever is to move amendment notice creation to an async job triggered after the decision is committed.
+**Remaining note**: Notification enqueuing remains inside the transaction with try/catch. If timeout issues recur under load, the next lever is to move notification enqueuing outside the transaction.
 
 ---
 
-## DZ-18: Legal Hold Cascading on Exclusion Cases and Appeals
+## DZ-18: Legal Hold Cascading on Exclusion Cases and Appeals — MITIGATED
 
 **Risk**: Legal holds prevent GDPR anonymisation from completing
-**Location**: `behaviour-exclusion-cases.service.ts`, `behaviour-appeals.service.ts`
+**Location**: `behaviour-exclusion-cases.service.ts`, `behaviour-appeals.service.ts`, `behaviour-legal-hold.service.ts`
+**Status**: MITIGATED (2026-04-05)
 
-Both exclusion case creation and appeal submission automatically set `behaviour_legal_holds` on the linked incident, sanction, and all related entities. These holds prevent the GDPR retention/anonymisation module (Phase H) from processing those records. If a school creates many exclusion cases or appeals, the legal hold backlog can grow silently.
+Both exclusion case creation and appeal submission automatically set `behaviour_legal_holds` on the linked incident, sanction, and all related entities.
 
-**Mitigation**: Phase H's GDPR module must check for legal holds before anonymisation and surface them in the admin dashboard. Legal holds should be released when: (1) appeal is decided and no exclusion case remains open, (2) exclusion case is finalised/overturned.
+**Mitigation applied**: `behaviour-legal-hold.service.ts` implements `releaseHold()` which releases holds when: (1) appeal is decided and no exclusion case remains open, (2) exclusion case is finalised/overturned. The retention worker checks for legal holds before anonymisation. The admin dashboard surfaces active holds. Test coverage in `behaviour-legal-hold.service.spec.ts`.
 
 ---
 
@@ -408,11 +382,12 @@ The re-enqueue happens OUTSIDE the Prisma transaction (line ~52 comment), preven
 
 ---
 
-## DZ-27: Anonymous Survey Response Tables (surveyResponse, surveyParticipationToken)
+## DZ-27: Anonymous Survey Response Tables (surveyResponse, surveyParticipationToken) — MITIGATED
 
 **Risk**: Cross-tenant response leakage or anonymity breach if queried without survey join
 **Location**: `packages/prisma/schema.prisma` — `SurveyResponse` + `SurveyParticipationToken` models, `apps/api/src/modules/staff-wellbeing/`
 **Severity**: CRITICAL
+**Status**: MITIGATED (2026-04-05)
 
 **Threat:** These tables intentionally have NO `tenant_id` and NO `user_id` to enforce survey anonymity. This means:
 

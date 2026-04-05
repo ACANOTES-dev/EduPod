@@ -39,7 +39,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -154,7 +156,11 @@ describe('ParentsService — create', () => {
   it('should link parent to household when household_id provided', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
 
-    await service.create(TENANT_ID, { ...baseCreateDto, household_id: HOUSEHOLD_ID, role_label: 'Guardian' });
+    await service.create(TENANT_ID, {
+      ...baseCreateDto,
+      household_id: HOUSEHOLD_ID,
+      role_label: 'Guardian',
+    });
 
     expect(mockRlsTx.householdParent.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -178,6 +184,72 @@ describe('ParentsService — create', () => {
     mockRlsTx.parent.create.mockReset().mockRejectedValue(p2002);
 
     await expect(service.create(TENANT_ID, baseCreateDto)).rejects.toThrow(ConflictException);
+  });
+
+  it('edge: should rethrow non-P2002 errors from parent.create', async () => {
+    const genericError = new Error('Connection failed');
+    mockRlsTx.parent.create.mockReset().mockRejectedValue(genericError);
+
+    await expect(service.create(TENANT_ID, baseCreateDto)).rejects.toThrow('Connection failed');
+  });
+
+  it('edge: should rethrow non-P2002 PrismaClientKnownRequestError from parent.create', async () => {
+    const p2003 = new Prisma.PrismaClientKnownRequestError('FK violation', {
+      code: 'P2003',
+      clientVersion: '5.0.0',
+    });
+    mockRlsTx.parent.create.mockReset().mockRejectedValue(p2003);
+
+    await expect(service.create(TENANT_ID, baseCreateDto)).rejects.toThrow(
+      Prisma.PrismaClientKnownRequestError,
+    );
+  });
+
+  it('should skip silently when household link has P2002 (already linked)', async () => {
+    const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', {
+      code: 'P2002',
+      clientVersion: '5.0.0',
+    });
+    mockRlsTx.householdParent.create.mockReset().mockRejectedValue(p2002);
+
+    const result = await service.create(TENANT_ID, {
+      ...baseCreateDto,
+      household_id: HOUSEHOLD_ID,
+    });
+
+    expect(result).toHaveProperty('id', PARENT_ID);
+  });
+
+  it('edge: should rethrow non-P2002 errors from householdParent.create', async () => {
+    const genericError = new Error('Constraint error');
+    mockRlsTx.householdParent.create.mockReset().mockRejectedValue(genericError);
+
+    await expect(
+      service.create(TENANT_ID, { ...baseCreateDto, household_id: HOUSEHOLD_ID }),
+    ).rejects.toThrow('Constraint error');
+  });
+
+  it('should set defaults for optional fields when not provided', async () => {
+    const minimalDto = {
+      first_name: 'Bob',
+      last_name: 'Jones',
+      preferred_contact_channels: ['sms' as const],
+    };
+
+    await service.create(TENANT_ID, minimalDto);
+
+    expect(mockRlsTx.parent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          email: null,
+          phone: null,
+          whatsapp_phone: null,
+          relationship_label: null,
+          is_primary_contact: false,
+          is_billing_contact: false,
+        }),
+      }),
+    );
   });
 });
 
@@ -242,9 +314,7 @@ describe('ParentsService — findAll', () => {
   it('should apply correct skip for page 2', async () => {
     await service.findAll(TENANT_ID, { page: 2, pageSize: 20 });
 
-    expect(mockRlsTx.parent.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 20 }),
-    );
+    expect(mockRlsTx.parent.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 20 }));
   });
 });
 
@@ -274,7 +344,11 @@ describe('ParentsService — findOne', () => {
     mockRlsTx.parent.findFirst.mockReset().mockResolvedValue({
       ...baseParent,
       household_parents: [
-        { household_id: HOUSEHOLD_ID, parent_id: PARENT_ID, household: { id: HOUSEHOLD_ID, household_name: 'Smith Family' } },
+        {
+          household_id: HOUSEHOLD_ID,
+          parent_id: PARENT_ID,
+          household: { id: HOUSEHOLD_ID, household_name: 'Smith Family' },
+        },
       ],
       student_parents: [],
     });
@@ -336,9 +410,9 @@ describe('ParentsService — update', () => {
   it('should throw NotFoundException when parent does not exist', async () => {
     mockRlsTx.parent.findFirst.mockReset().mockResolvedValue(null);
 
-    await expect(
-      service.update(TENANT_ID, PARENT_ID, { first_name: 'Alicia' }),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.update(TENANT_ID, PARENT_ID, { first_name: 'Alicia' })).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should throw ConflictException on duplicate email during update (P2002)', async () => {
@@ -351,6 +425,97 @@ describe('ParentsService — update', () => {
     await expect(
       service.update(TENANT_ID, PARENT_ID, { email: 'duplicate@example.com' }),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('edge: should rethrow non-P2002 errors from parent.update', async () => {
+    const genericError = new Error('DB connection lost');
+    mockRlsTx.parent.update.mockReset().mockRejectedValue(genericError);
+
+    await expect(service.update(TENANT_ID, PARENT_ID, { first_name: 'Test' })).rejects.toThrow(
+      'DB connection lost',
+    );
+  });
+
+  it('should only include provided fields in update data (last_name)', async () => {
+    await service.update(TENANT_ID, PARENT_ID, { last_name: 'Jones' });
+
+    const callData = (
+      mockRlsTx.parent.update.mock.calls[0]?.[0] as { data: Record<string, unknown> } | undefined
+    )?.data;
+    expect(callData).toHaveProperty('last_name', 'Jones');
+    expect(callData).not.toHaveProperty('first_name');
+  });
+
+  it('should include phone in update data when provided', async () => {
+    await service.update(TENANT_ID, PARENT_ID, { phone: '+1-555-1234' });
+
+    expect(mockRlsTx.parent.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ phone: '+1-555-1234' }),
+      }),
+    );
+  });
+
+  it('should include whatsapp_phone in update data when provided', async () => {
+    await service.update(TENANT_ID, PARENT_ID, { whatsapp_phone: '+1-555-9876' });
+
+    expect(mockRlsTx.parent.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ whatsapp_phone: '+1-555-9876' }),
+      }),
+    );
+  });
+
+  it('should include preferred_contact_channels in update data when provided', async () => {
+    await service.update(TENANT_ID, PARENT_ID, {
+      preferred_contact_channels: ['sms', 'email'],
+    });
+
+    expect(mockRlsTx.parent.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ preferred_contact_channels: ['sms', 'email'] }),
+      }),
+    );
+  });
+
+  it('should include relationship_label in update data when provided', async () => {
+    await service.update(TENANT_ID, PARENT_ID, { relationship_label: 'Father' });
+
+    expect(mockRlsTx.parent.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ relationship_label: 'Father' }),
+      }),
+    );
+  });
+
+  it('should include is_primary_contact in update data when provided', async () => {
+    await service.update(TENANT_ID, PARENT_ID, { is_primary_contact: false });
+
+    expect(mockRlsTx.parent.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ is_primary_contact: false }),
+      }),
+    );
+  });
+
+  it('should include is_billing_contact in update data when provided', async () => {
+    await service.update(TENANT_ID, PARENT_ID, { is_billing_contact: true });
+
+    expect(mockRlsTx.parent.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ is_billing_contact: true }),
+      }),
+    );
+  });
+
+  it('should include email in update data when provided', async () => {
+    await service.update(TENANT_ID, PARENT_ID, { email: 'newemail@example.com' });
+
+    expect(mockRlsTx.parent.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ email: 'newemail@example.com' }),
+      }),
+    );
   });
 });
 
@@ -409,17 +574,17 @@ describe('ParentsService — linkStudent', () => {
   it('should throw NotFoundException when parent not found', async () => {
     mockRlsTx.parent.findFirst.mockReset().mockResolvedValue(null);
 
-    await expect(
-      service.linkStudent(TENANT_ID, PARENT_ID, STUDENT_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.linkStudent(TENANT_ID, PARENT_ID, STUDENT_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should throw NotFoundException when student not found', async () => {
     mockRlsTx.student.findFirst.mockReset().mockResolvedValue(null);
 
-    await expect(
-      service.linkStudent(TENANT_ID, PARENT_ID, STUDENT_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.linkStudent(TENANT_ID, PARENT_ID, STUDENT_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should throw ConflictException when student already linked (P2002)', async () => {
@@ -429,9 +594,30 @@ describe('ParentsService — linkStudent', () => {
     });
     mockRlsTx.studentParent.create.mockReset().mockRejectedValue(p2002);
 
-    await expect(
-      service.linkStudent(TENANT_ID, PARENT_ID, STUDENT_ID),
-    ).rejects.toThrow(ConflictException);
+    await expect(service.linkStudent(TENANT_ID, PARENT_ID, STUDENT_ID)).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
+  it('should set relationship_label to null when not provided', async () => {
+    await service.linkStudent(TENANT_ID, PARENT_ID, STUDENT_ID);
+
+    expect(mockRlsTx.studentParent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          relationship_label: null,
+        }),
+      }),
+    );
+  });
+
+  it('edge: should rethrow non-P2002 errors from studentParent.create', async () => {
+    const genericError = new Error('Unknown DB error');
+    mockRlsTx.studentParent.create.mockReset().mockRejectedValue(genericError);
+
+    await expect(service.linkStudent(TENANT_ID, PARENT_ID, STUDENT_ID)).rejects.toThrow(
+      'Unknown DB error',
+    );
   });
 });
 
@@ -479,8 +665,8 @@ describe('ParentsService — unlinkStudent', () => {
   it('should throw NotFoundException when unlinking nonexistent link', async () => {
     mockRlsTx.studentParent.findUnique.mockReset().mockResolvedValue(null);
 
-    await expect(
-      service.unlinkStudent(TENANT_ID, PARENT_ID, STUDENT_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.unlinkStudent(TENANT_ID, PARENT_ID, STUDENT_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });

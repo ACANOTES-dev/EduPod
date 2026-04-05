@@ -358,5 +358,249 @@ describe('EventParticipantsService', () => {
       expect(result.reminded).toBe(0);
       expect(mockNotificationsQueue.add).not.toHaveBeenCalled();
     });
+
+    it('should throw NotFoundException when event not found', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(null);
+
+      await expect(service.remindOutstanding(TENANT_ID, EVENT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('edge: skips parents with null user_id', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockEvent);
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([
+        {
+          student_id: STUDENT_ID,
+          student: {
+            student_parents: [
+              { parent: { user_id: null } },
+              { parent: { user_id: PARENT_USER_ID } },
+            ],
+          },
+        },
+      ]);
+
+      const result = await service.remindOutstanding(TENANT_ID, EVENT_ID);
+
+      expect(result.reminded).toBe(1);
+      expect(mockNotificationsQueue.add).toHaveBeenCalledWith(
+        'notifications:dispatch',
+        expect.objectContaining({
+          recipient_ids: [PARENT_USER_ID],
+        }),
+      );
+    });
+  });
+
+  // ─── resolveTargetStudents — additional branch coverage ─────────────────────
+
+  describe('resolveTargetStudents — additional branches', () => {
+    it('should throw when class_ids is missing for class_group', async () => {
+      await expect(service.resolveTargetStudents(TENANT_ID, 'class_group', null)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw when class_ids is empty array for class_group', async () => {
+      await expect(
+        service.resolveTargetStudents(TENANT_ID, 'class_group', { class_ids: [] }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw when student_ids is missing for custom', async () => {
+      await expect(service.resolveTargetStudents(TENANT_ID, 'custom', null)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw when student_ids is empty for custom', async () => {
+      await expect(
+        service.resolveTargetStudents(TENANT_ID, 'custom', { student_ids: [] }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw when year_group_ids is empty array', async () => {
+      await expect(
+        service.resolveTargetStudents(TENANT_ID, 'year_group', { year_group_ids: [] }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('edge: throws for unknown target type', async () => {
+      await expect(
+        service.resolveTargetStudents(TENANT_ID, 'unknown_type' as 'whole_school', null),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ─── createParticipantsForEvent — additional branches ───────────────────────
+
+  describe('createParticipantsForEvent — additional branches', () => {
+    it('edge: returns { created: 0 } when no students resolved', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockEvent);
+      mockPrisma.student.findMany.mockResolvedValue([]);
+
+      const result = await service.createParticipantsForEvent(TENANT_ID, EVENT_ID);
+
+      expect((result as Record<string, unknown>).created).toBe(0);
+    });
+
+    it('edge: fee_amount of 0 results in not_required payment', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue({
+        ...mockEvent,
+        fee_amount: 0,
+      });
+      mockPrisma.student.findMany.mockResolvedValue([{ id: STUDENT_ID }]);
+      mockTx.engagementEventParticipant.createMany.mockResolvedValue({ count: 1 });
+
+      await service.createParticipantsForEvent(TENANT_ID, EVENT_ID);
+
+      expect(mockTx.engagementEventParticipant.createMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.arrayContaining([
+            expect.objectContaining({ payment_status: 'not_required' }),
+          ]),
+        }),
+      );
+    });
+  });
+
+  // ─── register — additional branches ─────────────────────────────────────────
+
+  describe('register — additional branches', () => {
+    it('should throw when event not found', async () => {
+      mockTx.$queryRaw.mockResolvedValue([]);
+
+      await expect(service.register(TENANT_ID, EVENT_ID, STUDENT_ID, 'user-id')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('edge: re-registers a withdrawn participant', async () => {
+      mockTx.$queryRaw.mockResolvedValue([{ id: EVENT_ID, capacity: null, status: 'open' }]);
+      (mockTx as Record<string, unknown>).engagementEventParticipant = {
+        ...mockTx.engagementEventParticipant,
+        findFirst: jest.fn().mockResolvedValue({
+          id: PARTICIPANT_ID,
+          status: 'withdrawn',
+        }),
+        update: jest.fn().mockResolvedValue({
+          id: PARTICIPANT_ID,
+          status: 'registered',
+        }),
+      };
+
+      const result = await service.register(TENANT_ID, EVENT_ID, STUDENT_ID, 'user-id');
+
+      expect((result as Record<string, unknown>).status).toBe('registered');
+    });
+
+    it('edge: updates existing invited participant to registered', async () => {
+      mockTx.$queryRaw.mockResolvedValue([{ id: EVENT_ID, capacity: null, status: 'open' }]);
+      (mockTx as Record<string, unknown>).engagementEventParticipant = {
+        ...mockTx.engagementEventParticipant,
+        findFirst: jest.fn().mockResolvedValue({
+          id: PARTICIPANT_ID,
+          status: 'invited',
+        }),
+        update: jest.fn().mockResolvedValue({
+          id: PARTICIPANT_ID,
+          status: 'registered',
+        }),
+      };
+
+      const result = await service.register(TENANT_ID, EVENT_ID, STUDENT_ID, 'user-id');
+
+      expect((result as Record<string, unknown>).status).toBe('registered');
+    });
+
+    it('edge: null capacity allows unlimited registration', async () => {
+      mockTx.$queryRaw.mockResolvedValue([{ id: EVENT_ID, capacity: null, status: 'open' }]);
+      (mockTx as Record<string, unknown>).engagementEventParticipant = {
+        ...mockTx.engagementEventParticipant,
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'new-part', status: 'registered' }),
+      };
+
+      const result = await service.register(TENANT_ID, EVENT_ID, STUDENT_ID, 'user-id');
+
+      expect((result as Record<string, unknown>).status).toBe('registered');
+    });
+  });
+
+  // ─── findAllForEvent — additional filter branches ───────────────────────────
+
+  describe('findAllForEvent — filter branches', () => {
+    it('should apply consent_status filter', async () => {
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([]);
+      mockPrisma.engagementEventParticipant.count.mockResolvedValue(0);
+
+      await service.findAllForEvent(TENANT_ID, EVENT_ID, {
+        page: 1,
+        pageSize: 20,
+        consent_status: 'granted',
+      });
+
+      expect(mockPrisma.engagementEventParticipant.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ consent_status: 'granted' }),
+        }),
+      );
+    });
+
+    it('should apply payment_status filter', async () => {
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([]);
+      mockPrisma.engagementEventParticipant.count.mockResolvedValue(0);
+
+      await service.findAllForEvent(TENANT_ID, EVENT_ID, {
+        page: 1,
+        pageSize: 20,
+        payment_status: 'pending',
+      });
+
+      expect(mockPrisma.engagementEventParticipant.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ payment_status: 'pending' }),
+        }),
+      );
+    });
+  });
+
+  // ─── updateParticipant — partial update branches ────────────────────────────
+
+  describe('updateParticipant — partial update branches', () => {
+    it('should update only status when only status provided', async () => {
+      mockPrisma.engagementEventParticipant.findFirst.mockResolvedValue(mockParticipant);
+      mockTx.engagementEventParticipant.update.mockResolvedValue({
+        ...mockParticipant,
+        status: 'registered',
+      });
+
+      await service.updateParticipant(TENANT_ID, EVENT_ID, PARTICIPANT_ID, {
+        status: 'registered',
+      });
+
+      expect(mockTx.engagementEventParticipant.update).toHaveBeenCalledWith({
+        where: { id: PARTICIPANT_ID },
+        data: { status: 'registered' },
+      });
+    });
+
+    it('should update payment_status when provided', async () => {
+      mockPrisma.engagementEventParticipant.findFirst.mockResolvedValue(mockParticipant);
+      mockTx.engagementEventParticipant.update.mockResolvedValue({
+        ...mockParticipant,
+        payment_status: 'paid',
+      });
+
+      await service.updateParticipant(TENANT_ID, EVENT_ID, PARTICIPANT_ID, {
+        payment_status: 'paid',
+      });
+
+      expect(mockTx.engagementEventParticipant.update).toHaveBeenCalledWith({
+        where: { id: PARTICIPANT_ID },
+        data: { payment_status: 'paid' },
+      });
+    });
   });
 });

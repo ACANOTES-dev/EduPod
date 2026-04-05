@@ -39,7 +39,9 @@ const mockTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
@@ -152,9 +154,9 @@ describe('ReportAlertsService', () => {
   it('should throw NotFoundException when updating a non-existent alert', async () => {
     mockTx.reportAlert.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.update(TENANT_ID, ALERT_ID, { name: 'New Name' }),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.update(TENANT_ID, ALERT_ID, { name: 'New Name' })).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should throw NotFoundException when deleting a non-existent alert', async () => {
@@ -194,5 +196,140 @@ describe('ReportAlertsService', () => {
     const results = await service.checkThresholds();
 
     expect(results[0]!.triggered).toBe(true);
+  });
+
+  it('should evaluate eq operator correctly when values match', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, metric: 'at_risk_student_count', threshold: 3, operator: 'eq' },
+    ]);
+
+    const results = await service.checkThresholds();
+
+    expect(results[0]!.triggered).toBe(true);
+  });
+
+  it('should not trigger eq operator when values differ', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, metric: 'at_risk_student_count', threshold: 10, operator: 'eq' },
+    ]);
+
+    const results = await service.checkThresholds();
+
+    expect(results[0]!.triggered).toBe(false);
+  });
+
+  it('should return false for unknown operator', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, metric: 'attendance_rate', threshold: 80, operator: 'unknown_op' },
+    ]);
+
+    const results = await service.checkThresholds();
+
+    expect(results[0]!.triggered).toBe(false);
+  });
+
+  it('should handle collection_rate metric', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, metric: 'collection_rate', threshold: 80, operator: 'gt' },
+    ]);
+
+    const results = await service.checkThresholds();
+
+    // collection_rate = 90, threshold = 80, operator gt → triggered
+    expect(results[0]!.triggered).toBe(true);
+  });
+
+  it('should handle average_grade metric', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, metric: 'average_grade', threshold: 80, operator: 'lt' },
+    ]);
+
+    const results = await service.checkThresholds();
+
+    // average_grade = 70, threshold = 80, operator lt → triggered
+    expect(results[0]!.triggered).toBe(true);
+  });
+
+  it('should handle staff_absence_rate metric', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, metric: 'staff_absence_rate', threshold: 50, operator: 'lt' },
+    ]);
+
+    const results = await service.checkThresholds();
+
+    // staff_absence_rate = 0 (all active), threshold 50, lt → triggered
+    expect(results[0]!.triggered).toBe(true);
+  });
+
+  it('should return 0 for unknown metric', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, metric: 'nonexistent_metric', threshold: 0, operator: 'gt' },
+    ]);
+
+    const results = await service.checkThresholds();
+
+    expect(results[0]!.current_value).toBe(0);
+    expect(results[0]!.triggered).toBe(false);
+  });
+
+  it('should continue checking other alerts when one fails', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([
+      { ...MOCK_ALERT_DB, id: 'alert-1', metric: 'attendance_rate' },
+      { ...MOCK_ALERT_DB, id: 'alert-2', metric: 'attendance_rate' },
+    ]);
+    mockUnifiedDashboard.getKpiDashboard
+      .mockRejectedValueOnce(new Error('KPI service down'))
+      .mockResolvedValueOnce({
+        total_students: 100,
+        active_staff_count: 20,
+        attendance_rate: 75,
+        fee_collection_rate: 90,
+        overdue_invoices_count: 5,
+        at_risk_students_count: 3,
+        average_grade: 70,
+        pending_applications: 12,
+        scheduled_classes_today: 10,
+        generated_at: new Date().toISOString(),
+      });
+
+    const results = await service.checkThresholds();
+
+    // First alert failed, second should still be processed
+    expect(results).toHaveLength(1);
+    expect(results[0]!.alert_id).toBe('alert-2');
+  });
+
+  it('should return empty results when no active alerts', async () => {
+    mockPrisma.reportAlert.findMany.mockResolvedValue([]);
+
+    const results = await service.checkThresholds();
+
+    expect(results).toEqual([]);
+  });
+
+  it('should update the existing alert successfully', async () => {
+    const result = await service.update(TENANT_ID, ALERT_ID, { name: 'New Name' });
+
+    expect(result.name).toBe('Updated Alert');
+    expect(mockTx.reportAlert.update).toHaveBeenCalled();
+  });
+
+  it('should delete an alert and return void', async () => {
+    await service.delete(TENANT_ID, ALERT_ID);
+
+    expect(mockTx.reportAlert.delete).toHaveBeenCalledWith({ where: { id: ALERT_ID } });
+  });
+
+  it('should handle alert with last_triggered_at set', async () => {
+    const alertWithTriggered = {
+      ...MOCK_ALERT_DB,
+      last_triggered_at: new Date('2026-03-15'),
+    };
+    mockTx.reportAlert.findMany.mockResolvedValue([alertWithTriggered]);
+    mockTx.reportAlert.count.mockResolvedValue(1);
+
+    const result = await service.list(TENANT_ID, 1, 20);
+
+    expect(result.data[0]!.last_triggered_at).toBe('2026-03-15T00:00:00.000Z');
   });
 });

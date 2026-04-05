@@ -82,38 +82,44 @@ describe('AiSubstitutionService', () => {
     module = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
-        { provide: SchedulesReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findCoreById: jest.fn().mockResolvedValue(null),
-      existsById: jest.fn().mockResolvedValue(null),
-      findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
-      countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
-      findTeacherTimetable: jest.fn().mockResolvedValue([]),
-      findClassTimetable: jest.fn().mockResolvedValue([]),
-      findPinnedEntries: jest.fn().mockResolvedValue([]),
-      countPinnedEntries: jest.fn().mockResolvedValue(0),
-      findByAcademicYear: jest.fn().mockResolvedValue([]),
-      findScheduledClassIds: jest.fn().mockResolvedValue([]),
-      countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
-      count: jest.fn().mockResolvedValue(0),
-      hasRotationEntries: jest.fn().mockResolvedValue(false),
-      countByRoom: jest.fn().mockResolvedValue(0),
-      findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
-      findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
-      countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
-      findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
-      hasConflict: jest.fn().mockResolvedValue(false),
-      findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
-      findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
-    } },
-        { provide: StaffProfileReadFacade, useValue: {
-      findById: jest.fn().mockResolvedValue(null),
-      findByIds: jest.fn().mockResolvedValue([]),
-      findByUserId: jest.fn().mockResolvedValue(null),
-      findActiveStaff: jest.fn().mockResolvedValue([]),
-      existsOrThrow: jest.fn().mockResolvedValue(undefined),
-      resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
-    } },
+        {
+          provide: SchedulesReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            findCoreById: jest.fn().mockResolvedValue(null),
+            existsById: jest.fn().mockResolvedValue(null),
+            findBusyTeacherIds: jest.fn().mockResolvedValue(new Set()),
+            countWeeklyPeriodsPerTeacher: jest.fn().mockResolvedValue(new Map()),
+            findTeacherTimetable: jest.fn().mockResolvedValue([]),
+            findClassTimetable: jest.fn().mockResolvedValue([]),
+            findPinnedEntries: jest.fn().mockResolvedValue([]),
+            countPinnedEntries: jest.fn().mockResolvedValue(0),
+            findByAcademicYear: jest.fn().mockResolvedValue([]),
+            findScheduledClassIds: jest.fn().mockResolvedValue([]),
+            countEntriesPerClass: jest.fn().mockResolvedValue(new Map()),
+            count: jest.fn().mockResolvedValue(0),
+            hasRotationEntries: jest.fn().mockResolvedValue(false),
+            countByRoom: jest.fn().mockResolvedValue(0),
+            findTeacherScheduleEntries: jest.fn().mockResolvedValue([]),
+            findTeacherWorkloadEntries: jest.fn().mockResolvedValue([]),
+            countRoomAssignedEntries: jest.fn().mockResolvedValue(0),
+            findByIdWithSwapContext: jest.fn().mockResolvedValue(null),
+            hasConflict: jest.fn().mockResolvedValue(false),
+            findByIdWithSubstitutionContext: jest.fn().mockResolvedValue(null),
+            findRoomScheduleEntries: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: StaffProfileReadFacade,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(null),
+            findByIds: jest.fn().mockResolvedValue([]),
+            findByUserId: jest.fn().mockResolvedValue(null),
+            findActiveStaff: jest.fn().mockResolvedValue([]),
+            existsOrThrow: jest.fn().mockResolvedValue(undefined),
+            resolveProfileId: jest.fn().mockResolvedValue('staff-1'),
+          },
+        },
         AiSubstitutionService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettingsService },
@@ -364,6 +370,134 @@ describe('AiSubstitutionService', () => {
       await expect(service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE)).rejects.toThrow(
         ServiceUnavailableException,
       );
+    });
+
+    it('should throw ServiceUnavailableException when AI feature is disabled in settings', async () => {
+      mockSettingsService.getSettings.mockResolvedValue({
+        ai: { substitutionRankingEnabled: false },
+      });
+
+      await expect(service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE)).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+    });
+  });
+
+  // ─── competency map merging ──────────────────────────────────────────────
+
+  describe('rankSubstitutes — competency map', () => {
+    beforeEach(() => {
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(mockSchedule);
+      (schedFacade.findBusyTeacherIds as jest.Mock).mockResolvedValue(new Set());
+
+      const staffFacade = module.get(StaffProfileReadFacade);
+      (staffFacade.findActiveStaff as jest.Mock).mockResolvedValue([
+        { id: 'staff-2', user: { first_name: 'Jane', last_name: 'Smith' } },
+      ]);
+    });
+
+    it('should clamp negative score to 0', async () => {
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              { staff_profile_id: 'staff-2', confidence: 'low', score: -10, reasoning: 'Negative' },
+            ]),
+          },
+        ],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      expect(result.data[0]!.score).toBe(0);
+    });
+
+    it('should use staff_profile_id as name when staff member not found in available list', async () => {
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              {
+                staff_profile_id: 'unknown-staff',
+                confidence: 'medium',
+                score: 50,
+                reasoning: 'Unknown',
+              },
+            ]),
+          },
+        ],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      expect(result.data[0]!.name).toBe('unknown-staff');
+    });
+
+    it('should filter out invalid items from AI response', async () => {
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              { staff_profile_id: 'staff-2', confidence: 'high', score: 80, reasoning: 'Valid' },
+              { confidence: 'high', score: 80, reasoning: 'Missing staff_profile_id' },
+              {
+                staff_profile_id: 'staff-3',
+                confidence: 'high',
+                score: 'not-a-number',
+                reasoning: 'Invalid score',
+              },
+            ]),
+          },
+        ],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]!.staff_profile_id).toBe('staff-2');
+    });
+
+    it('should handle AI response with non-text content type', async () => {
+      mockMessagesCreate.mockResolvedValue({
+        content: [{ type: 'image' }],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      expect(result.data).toHaveLength(0);
+    });
+
+    it('edge: should skip competency query when no subject_id and no year_group_id', async () => {
+      const schedNoSubject = {
+        ...mockSchedule,
+        class_entity: {
+          ...mockSchedule.class_entity,
+          subject_id: null,
+          year_group_id: null,
+        },
+      };
+      const schedFacade = module.get(SchedulesReadFacade);
+      (schedFacade.findByIdWithSubstitutionContext as jest.Mock).mockResolvedValue(schedNoSubject);
+
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              { staff_profile_id: 'staff-2', confidence: 'medium', score: 60, reasoning: 'OK' },
+            ]),
+          },
+        ],
+      });
+
+      const result = await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      expect(result.data).toHaveLength(1);
+      expect(mockPrisma.teacherCompetency.findMany).not.toHaveBeenCalled();
     });
   });
 });

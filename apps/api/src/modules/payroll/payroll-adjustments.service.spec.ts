@@ -41,7 +41,9 @@ function buildPrisma() {
     payrollAdjustment: {
       create: jest.fn().mockResolvedValue(mockAdjustment),
       findMany: jest.fn().mockResolvedValue([mockAdjustment]),
-      findFirst: jest.fn().mockResolvedValue({ ...mockAdjustment, payroll_run: { status: 'draft' } }),
+      findFirst: jest
+        .fn()
+        .mockResolvedValue({ ...mockAdjustment, payroll_run: { status: 'draft' } }),
       update: jest.fn().mockResolvedValue(mockAdjustment),
       delete: jest.fn().mockResolvedValue(mockAdjustment),
     },
@@ -64,26 +66,25 @@ describe('PayrollAdjustmentsService', () => {
     prisma = buildPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        PayrollAdjustmentsService,
-        { provide: PrismaService, useValue: prisma },
-      ],
+      providers: [PayrollAdjustmentsService, { provide: PrismaService, useValue: prisma }],
     }).compile();
 
     service = module.get<PayrollAdjustmentsService>(PayrollAdjustmentsService);
   });
+
+  afterEach(() => jest.clearAllMocks());
 
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
 
   it('should create adjustment and return serialized amount', async () => {
-    const result = await service.createAdjustment(TENANT_ID, RUN_ID, USER_ID, {
+    const result = (await service.createAdjustment(TENANT_ID, RUN_ID, USER_ID, {
       payroll_entry_id: ENTRY_ID,
       adjustment_type: 'bonus',
       amount: 500,
       description: 'Performance bonus',
-    }) as Record<string, unknown>;
+    })) as Record<string, unknown>;
 
     expect(result).toMatchObject({ adjustment_type: 'bonus' });
     expect(typeof result['amount']).toBe('number');
@@ -102,7 +103,7 @@ describe('PayrollAdjustmentsService', () => {
     ).rejects.toThrow(NotFoundException);
   });
 
-  it('should throw BadRequestException when run is not draft', async () => {
+  it('should throw BadRequestException when run is not draft for create', async () => {
     prisma.payrollEntry.findFirst = jest.fn().mockResolvedValue({
       ...mockEntry,
       payroll_run: { status: 'finalised' },
@@ -124,16 +125,154 @@ describe('PayrollAdjustmentsService', () => {
     expect(result.data).toHaveLength(1);
   });
 
+  it('should throw NotFoundException when listing adjustments for non-existent entry', async () => {
+    prisma.payrollEntry.findFirst = jest.fn().mockResolvedValue(null);
+
+    await expect(service.listAdjustments(TENANT_ID, ENTRY_ID)).rejects.toThrow(NotFoundException);
+  });
+
   it('should delete adjustment when run is draft', async () => {
     const result = await service.deleteAdjustment(TENANT_ID, ADJ_ID);
     expect(result).toMatchObject({ id: ADJ_ID, deleted: true });
   });
 
-  it('should throw NotFoundException for non-existent adjustment', async () => {
+  it('should throw NotFoundException for non-existent adjustment on get', async () => {
     prisma.payrollAdjustment.findFirst = jest.fn().mockResolvedValue(null);
 
-    await expect(
-      service.getAdjustment(TENANT_ID, ADJ_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.getAdjustment(TENANT_ID, ADJ_ID)).rejects.toThrow(NotFoundException);
+  });
+
+  // ─── Additional branch coverage ──────────────────────────────────────────
+
+  describe('updateAdjustment', () => {
+    it('should update when run is draft', async () => {
+      prisma.payrollAdjustment.update = jest.fn().mockResolvedValue({
+        ...mockAdjustment,
+        amount: '750.00',
+      });
+
+      const result = (await service.updateAdjustment(TENANT_ID, ADJ_ID, {
+        amount: 750,
+      })) as Record<string, unknown>;
+
+      expect(typeof result['amount']).toBe('number');
+    });
+
+    it('should throw NotFoundException when adjustment not found for update', async () => {
+      prisma.payrollAdjustment.findFirst = jest.fn().mockResolvedValue(null);
+
+      await expect(service.updateAdjustment(TENANT_ID, ADJ_ID, { amount: 750 })).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw BadRequestException when run is not draft for update', async () => {
+      prisma.payrollAdjustment.findFirst = jest.fn().mockResolvedValue({
+        ...mockAdjustment,
+        payroll_run: { status: 'finalised' },
+      });
+
+      await expect(service.updateAdjustment(TENANT_ID, ADJ_ID, { amount: 750 })).rejects.toThrow(
+        BadRequestException,
+      );
+
+      await expect(
+        service.updateAdjustment(TENANT_ID, ADJ_ID, { amount: 750 }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'RUN_NOT_DRAFT' }),
+      });
+    });
+
+    it('should only update defined fields', async () => {
+      prisma.payrollAdjustment.update = jest.fn().mockResolvedValue(mockAdjustment);
+
+      await service.updateAdjustment(TENANT_ID, ADJ_ID, {
+        description: 'Updated desc',
+      });
+
+      expect(prisma.payrollAdjustment.update).toHaveBeenCalledWith({
+        where: { id: ADJ_ID },
+        data: { description: 'Updated desc' },
+      });
+    });
+
+    it('should update adjustment_type when provided', async () => {
+      prisma.payrollAdjustment.update = jest.fn().mockResolvedValue(mockAdjustment);
+
+      await service.updateAdjustment(TENANT_ID, ADJ_ID, {
+        adjustment_type: 'deduction',
+      });
+
+      expect(prisma.payrollAdjustment.update).toHaveBeenCalledWith({
+        where: { id: ADJ_ID },
+        data: { adjustment_type: 'deduction' },
+      });
+    });
+
+    it('should update reference_period when provided', async () => {
+      prisma.payrollAdjustment.update = jest.fn().mockResolvedValue(mockAdjustment);
+
+      await service.updateAdjustment(TENANT_ID, ADJ_ID, {
+        reference_period: '2026-02',
+      });
+
+      expect(prisma.payrollAdjustment.update).toHaveBeenCalledWith({
+        where: { id: ADJ_ID },
+        data: { reference_period: '2026-02' },
+      });
+    });
+
+    it('should update multiple fields at once', async () => {
+      prisma.payrollAdjustment.update = jest.fn().mockResolvedValue(mockAdjustment);
+
+      await service.updateAdjustment(TENANT_ID, ADJ_ID, {
+        adjustment_type: 'deduction',
+        amount: 300,
+        description: 'Updated',
+        reference_period: '2026-01',
+      });
+
+      expect(prisma.payrollAdjustment.update).toHaveBeenCalledWith({
+        where: { id: ADJ_ID },
+        data: {
+          adjustment_type: 'deduction',
+          amount: 300,
+          description: 'Updated',
+          reference_period: '2026-01',
+        },
+      });
+    });
+  });
+
+  describe('deleteAdjustment', () => {
+    it('should throw NotFoundException when adjustment not found for delete', async () => {
+      prisma.payrollAdjustment.findFirst = jest.fn().mockResolvedValue(null);
+
+      await expect(service.deleteAdjustment(TENANT_ID, ADJ_ID)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException when run is not draft for delete', async () => {
+      prisma.payrollAdjustment.findFirst = jest.fn().mockResolvedValue({
+        ...mockAdjustment,
+        payroll_run: { status: 'finalised' },
+      });
+
+      await expect(service.deleteAdjustment(TENANT_ID, ADJ_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('createAdjustment — reference_period', () => {
+    it('should accept reference_period as null', async () => {
+      const result = (await service.createAdjustment(TENANT_ID, RUN_ID, USER_ID, {
+        payroll_entry_id: ENTRY_ID,
+        adjustment_type: 'bonus',
+        amount: 500,
+        description: 'No ref period',
+      })) as Record<string, unknown>;
+
+      expect(result['reference_period']).toBeNull();
+    });
   });
 });

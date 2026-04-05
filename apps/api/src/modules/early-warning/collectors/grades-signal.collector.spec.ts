@@ -135,11 +135,15 @@ describe('GradesSignalCollector', () => {
 
     const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
-    const trajectorySignal = result.signals.find((s) => s.signalType === 'grade_trajectory_decline');
+    const trajectorySignal = result.signals.find(
+      (s) => s.signalType === 'grade_trajectory_decline',
+    );
     expect(trajectorySignal).toBeDefined();
     expect(trajectorySignal!.scoreContribution).toBe(15);
     expect(trajectorySignal!.severity).toBe('medium');
-    expect(trajectorySignal!.summaryFragment).toBe('Grade declined in 2 subject(s) between periods');
+    expect(trajectorySignal!.summaryFragment).toBe(
+      'Grade declined in 2 subject(s) between periods',
+    );
     expect(trajectorySignal!.sourceEntityType).toBe('PeriodGradeSnapshot');
   });
 
@@ -181,7 +185,9 @@ describe('GradesSignalCollector', () => {
     expect(anomalySignal).toBeDefined();
     expect(anomalySignal!.scoreContribution).toBe(15);
     expect(anomalySignal!.severity).toBe('medium');
-    expect(anomalySignal!.summaryFragment).toBe('Score anomaly detected: Sudden score drop in English');
+    expect(anomalySignal!.summaryFragment).toBe(
+      'Score anomaly detected: Sudden score drop in English',
+    );
     expect(anomalySignal!.sourceEntityType).toBe('StudentAcademicRiskAlert');
   });
 
@@ -203,7 +209,9 @@ describe('GradesSignalCollector', () => {
     const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
 
     // grade_trajectory_decline: 4 subjects => 3+ => score 25
-    const trajectorySignal = result.signals.find((s) => s.signalType === 'grade_trajectory_decline');
+    const trajectorySignal = result.signals.find(
+      (s) => s.signalType === 'grade_trajectory_decline',
+    );
     expect(trajectorySignal).toBeDefined();
     expect(trajectorySignal!.scoreContribution).toBe(25);
 
@@ -249,7 +257,13 @@ describe('GradesSignalCollector', () => {
     );
 
     // 5 subjects declining => grade_trajectory +25, multi_subject +30
-    const subjects = [SUBJECT_A, SUBJECT_B, SUBJECT_C, SUBJECT_D, '00000000-0000-0000-0000-0000000000a5'];
+    const subjects = [
+      SUBJECT_A,
+      SUBJECT_B,
+      SUBJECT_C,
+      SUBJECT_D,
+      '00000000-0000-0000-0000-0000000000a5',
+    ];
     const snapshotData = subjects.flatMap((subjectId, i) => [
       makeSnapshot(`snap-${i}-1`, subjectId, PERIOD_1_ID, 80, new Date('2025-09-01')),
       makeSnapshot(`snap-${i}-2`, subjectId, PERIOD_2_ID, 50, new Date('2026-01-01')),
@@ -300,5 +314,285 @@ describe('GradesSignalCollector', () => {
     // Verify specific fragments are present
     expect(result.summaryFragments).toContain('Academic risk alert: Slightly below class mean');
     expect(result.summaryFragments).toContain('4 missing assessment(s) in current period');
+  });
+
+  // ─── Test 9: below_class_mean — at_risk_high → score 30 ────────────────────
+
+  it('should detect below_class_mean from at_risk_high alert with score 30', async () => {
+    mockPrisma.studentAcademicRiskAlert.findMany.mockResolvedValue([
+      {
+        id: ALERT_ID_1,
+        alert_type: 'at_risk_high',
+        trigger_reason: 'Far below class mean in Science',
+        subject_id: SUBJECT_A,
+      },
+    ]);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'below_class_mean');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(30);
+    expect(signal!.severity).toBe('high');
+  });
+
+  // ─── Test 10: below_class_mean — at_risk_low → score 10 ────────────────────
+
+  it('should detect below_class_mean from at_risk_low alert with score 10', async () => {
+    mockPrisma.studentAcademicRiskAlert.findMany.mockResolvedValue([
+      {
+        id: ALERT_ID_1,
+        alert_type: 'at_risk_low',
+        trigger_reason: 'Slightly below mean',
+        subject_id: SUBJECT_A,
+      },
+    ]);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'below_class_mean');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(10);
+    expect(signal!.severity).toBe('low');
+  });
+
+  // ─── Test 11: multiple at_risk alerts — picks highest score ────────────────
+
+  it('should pick the highest-scoring at_risk alert for below_class_mean', async () => {
+    mockPrisma.studentAcademicRiskAlert.findMany.mockResolvedValue([
+      {
+        id: `${ALERT_ID_1}-1`,
+        alert_type: 'at_risk_low',
+        trigger_reason: 'Slightly below in Maths',
+        subject_id: SUBJECT_A,
+      },
+      {
+        id: `${ALERT_ID_1}-2`,
+        alert_type: 'at_risk_high',
+        trigger_reason: 'Far below in Science',
+        subject_id: SUBJECT_B,
+      },
+      {
+        id: `${ALERT_ID_1}-3`,
+        alert_type: 'at_risk_medium',
+        trigger_reason: 'Below in English',
+        subject_id: SUBJECT_C,
+      },
+    ]);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'below_class_mean');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(30);
+    expect(signal!.sourceEntityId).toBe(`${ALERT_ID_1}-2`);
+  });
+
+  // ─── Test 12: grade_trajectory_decline — 1 subject → score 10 ─────────────
+
+  it('should detect grade_trajectory_decline with 1 subject as low severity', async () => {
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      makeSnapshot('snap-a1', SUBJECT_A, PERIOD_1_ID, 80, new Date('2025-09-01')),
+      makeSnapshot('snap-a2', SUBJECT_A, PERIOD_2_ID, 65, new Date('2026-01-01')),
+    ]);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'grade_trajectory_decline');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(10);
+    expect(signal!.severity).toBe('low');
+  });
+
+  // ─── Test 13: grade_trajectory_decline — 3+ subjects → score 25 ───────────
+
+  it('should detect grade_trajectory_decline with 3+ subjects as high severity', async () => {
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      makeSnapshot('snap-a1', SUBJECT_A, PERIOD_1_ID, 80, new Date('2025-09-01')),
+      makeSnapshot('snap-a2', SUBJECT_A, PERIOD_2_ID, 65, new Date('2026-01-01')),
+      makeSnapshot('snap-b1', SUBJECT_B, PERIOD_1_ID, 75, new Date('2025-09-01')),
+      makeSnapshot('snap-b2', SUBJECT_B, PERIOD_2_ID, 60, new Date('2026-01-01')),
+      makeSnapshot('snap-c1', SUBJECT_C, PERIOD_1_ID, 90, new Date('2025-09-01')),
+      makeSnapshot('snap-c2', SUBJECT_C, PERIOD_2_ID, 70, new Date('2026-01-01')),
+    ]);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'grade_trajectory_decline');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(25);
+  });
+
+  // ─── Test 14: missing_assessments — 4-5 grades → score 15 ─────────────────
+
+  it('should detect missing_assessments with 5 grades as medium severity', async () => {
+    mockPrisma.grade.findMany.mockResolvedValue(
+      Array.from({ length: 5 }, (_, i) => ({ id: `grade-${i}`, is_missing: true })),
+    );
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'missing_assessments');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(15);
+    expect(signal!.severity).toBe('medium');
+  });
+
+  // ─── Test 15: missing_assessments — 6+ grades → score 20 ──────────────────
+
+  it('should detect missing_assessments with 6+ grades as high severity', async () => {
+    mockPrisma.grade.findMany.mockResolvedValue(
+      Array.from({ length: 7 }, (_, i) => ({ id: `grade-${i}`, is_missing: true })),
+    );
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'missing_assessments');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(20);
+    expect(signal!.severity).toBe('medium');
+  });
+
+  // ─── Test 16: missing_assessments — 1 grade → no signal ───────────────────
+
+  it('should not detect missing_assessments with only 1 missing grade', async () => {
+    mockPrisma.grade.findMany.mockResolvedValue([{ id: 'grade-1', is_missing: true }]);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'missing_assessments');
+    expect(signal).toBeUndefined();
+  });
+
+  // ─── Test 17: score_anomaly — 2+ alerts → score 25 ────────────────────────
+
+  it('should detect score_anomaly with 2+ alerts as high severity', async () => {
+    mockPrisma.studentAcademicRiskAlert.findMany.mockResolvedValue([
+      {
+        id: `${ALERT_ID_1}-anom-1`,
+        alert_type: 'score_anomaly',
+        trigger_reason: 'Anomaly 1',
+        subject_id: SUBJECT_A,
+      },
+      {
+        id: `${ALERT_ID_1}-anom-2`,
+        alert_type: 'score_anomaly',
+        trigger_reason: 'Anomaly 2',
+        subject_id: SUBJECT_B,
+      },
+    ]);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'score_anomaly');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(25);
+    expect(signal!.severity).toBe('high');
+  });
+
+  // ─── Test 18: multi_subject_decline — 5+ subjects → score 30, critical ────
+
+  it('should detect multi_subject_decline with 5+ subjects as critical severity', async () => {
+    const SUBJECT_E = '00000000-0000-0000-0000-0000000000a5';
+    const subjects = [SUBJECT_A, SUBJECT_B, SUBJECT_C, SUBJECT_D, SUBJECT_E];
+
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue(
+      subjects.flatMap((subjectId, i) => [
+        makeSnapshot(`snap-${i}-1`, subjectId, PERIOD_1_ID, 80, new Date('2025-09-01')),
+        makeSnapshot(`snap-${i}-2`, subjectId, PERIOD_2_ID, 50, new Date('2026-01-01')),
+      ]),
+    );
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'multi_subject_decline');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(30);
+  });
+
+  // ─── Test 19: multi_subject_decline — 3 subjects → score 15 ───────────────
+
+  it('should detect multi_subject_decline with 3 subjects as medium severity', async () => {
+    const subjects = [SUBJECT_A, SUBJECT_B, SUBJECT_C];
+
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue(
+      subjects.flatMap((subjectId, i) => [
+        makeSnapshot(`snap-${i}-1`, subjectId, PERIOD_1_ID, 80, new Date('2025-09-01')),
+        makeSnapshot(`snap-${i}-2`, subjectId, PERIOD_2_ID, 50, new Date('2026-01-01')),
+      ]),
+    );
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'multi_subject_decline');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(15);
+    expect(signal!.severity).toBe('medium');
+  });
+
+  // ─── Test 20: declining subjects from progress reports ─────────────────────
+
+  it('should detect declining subjects from progress reports when larger than snapshots', async () => {
+    // No snapshots declining, but progress reports have 2 declining entries
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
+    mockPrisma.progressReportEntry.findMany.mockResolvedValue([
+      {
+        id: 'report-1',
+        entries: [
+          { subject_id: SUBJECT_A, trend: 'declining' },
+          { subject_id: SUBJECT_B, trend: 'declining' },
+        ],
+      },
+    ]);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'grade_trajectory_decline');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(15);
+  });
+
+  // ─── Test 21: toNumber Decimal/BigNumber support ───────────────────────────
+
+  it('should handle computed_value as object with toNumber method (Prisma Decimal)', async () => {
+    const decimalLike = { toNumber: () => 80 };
+    const decimalLike2 = { toNumber: () => 65 };
+
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      {
+        id: 'snap-1',
+        subject_id: SUBJECT_A,
+        academic_period_id: PERIOD_1_ID,
+        computed_value: decimalLike,
+        academic_period: { start_date: new Date('2025-09-01') },
+      },
+      {
+        id: 'snap-2',
+        subject_id: SUBJECT_A,
+        academic_period_id: PERIOD_2_ID,
+        computed_value: decimalLike2,
+        academic_period: { start_date: new Date('2026-01-01') },
+      },
+    ]);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'grade_trajectory_decline');
+    expect(signal).toBeDefined();
+    expect(signal!.scoreContribution).toBe(10);
+  });
+
+  // ─── Test 22: non-declining grades produce no trajectory signal ────────────
+
+  it('should not detect grade_trajectory_decline when grades are improving', async () => {
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      makeSnapshot('snap-a1', SUBJECT_A, PERIOD_1_ID, 60, new Date('2025-09-01')),
+      makeSnapshot('snap-a2', SUBJECT_A, PERIOD_2_ID, 80, new Date('2026-01-01')),
+    ]);
+
+    const result = await collector.collectSignals(TENANT_ID, STUDENT_ID, ACADEMIC_YEAR_ID);
+
+    const signal = result.signals.find((s) => s.signalType === 'grade_trajectory_decline');
+    expect(signal).toBeUndefined();
   });
 });

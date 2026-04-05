@@ -17,15 +17,13 @@ const mockTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
-function makeRecord(
-  status: string,
-  sessionId = 'session-1',
-  classId = 'class-1',
-) {
+function makeRecord(status: string, sessionId = 'session-1', classId = 'class-1') {
   return {
     id: `record-${Math.random().toString(36).slice(2, 8)}`,
     tenant_id: TENANT_ID,
@@ -59,10 +57,7 @@ describe('DailySummaryService', () => {
     mockTx.dailyAttendanceSummary.upsert.mockResolvedValue({ id: 'summary-1' });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        DailySummaryService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [DailySummaryService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<DailySummaryService>(DailySummaryService);
@@ -261,5 +256,254 @@ describe('DailySummaryService', () => {
         }),
       }),
     );
+  });
+
+  // ─── edge: mixed late + absent -> partially_absent ─────────────────────
+  it('edge: should derive partially_absent when both late and absent', async () => {
+    mockPrisma.attendanceRecord.findMany.mockResolvedValue([
+      makeRecord('late', 'session-1'),
+      makeRecord('absent_unexcused', 'session-2'),
+    ]);
+
+    await service.recalculate(TENANT_ID, STUDENT_ID, DATE);
+
+    expect(mockTx.dailyAttendanceSummary.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          derived_status: 'partially_absent',
+        }),
+      }),
+    );
+  });
+
+  // ─── edge: only late (no present, no absent) -> late ───────────────────
+  it('edge: should derive late when only late records exist', async () => {
+    mockPrisma.attendanceRecord.findMany.mockResolvedValue([
+      makeRecord('late', 'session-1'),
+      makeRecord('late', 'session-2'),
+    ]);
+
+    await service.recalculate(TENANT_ID, STUDENT_ID, DATE);
+
+    expect(mockTx.dailyAttendanceSummary.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          derived_status: 'late',
+        }),
+      }),
+    );
+  });
+
+  // ─── edge: mixed excused + unexcused -> absent ─────────────────────────
+  it('edge: should derive absent when mix of excused and unexcused', async () => {
+    mockPrisma.attendanceRecord.findMany.mockResolvedValue([
+      makeRecord('absent_excused', 'session-1'),
+      makeRecord('absent_unexcused', 'session-2'),
+    ]);
+
+    await service.recalculate(TENANT_ID, STUDENT_ID, DATE);
+
+    expect(mockTx.dailyAttendanceSummary.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          derived_status: 'absent',
+        }),
+      }),
+    );
+  });
+});
+
+// ─── findAll tests ──────────────────────────────────────────────────────────
+
+describe('DailySummaryService — findAll', () => {
+  let service: DailySummaryService;
+  let mockPrisma: {
+    attendanceRecord: { findMany: jest.Mock };
+    dailyAttendanceSummary: {
+      findMany: jest.Mock;
+      count: jest.Mock;
+      deleteMany: jest.Mock;
+    };
+  };
+
+  beforeEach(async () => {
+    mockPrisma = {
+      attendanceRecord: { findMany: jest.fn().mockResolvedValue([]) },
+      dailyAttendanceSummary: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [DailySummaryService, { provide: PrismaService, useValue: mockPrisma }],
+    }).compile();
+
+    service = module.get<DailySummaryService>(DailySummaryService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should return paginated results with default parameters', async () => {
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue([{ id: 'sum-1' }]);
+    mockPrisma.dailyAttendanceSummary.count.mockResolvedValue(1);
+
+    const result = await service.findAll(TENANT_ID, { page: 1, pageSize: 20 });
+
+    expect(result).toEqual({
+      data: [{ id: 'sum-1' }],
+      meta: { page: 1, pageSize: 20, total: 1 },
+    });
+  });
+
+  it('should filter by student_id when provided', async () => {
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue([]);
+    mockPrisma.dailyAttendanceSummary.count.mockResolvedValue(0);
+
+    await service.findAll(TENANT_ID, { page: 1, pageSize: 20, student_id: STUDENT_ID });
+
+    expect(mockPrisma.dailyAttendanceSummary.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ student_id: STUDENT_ID }),
+      }),
+    );
+  });
+
+  it('should filter by start_date and end_date when provided', async () => {
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue([]);
+    mockPrisma.dailyAttendanceSummary.count.mockResolvedValue(0);
+
+    await service.findAll(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+      start_date: '2026-01-01',
+      end_date: '2026-03-31',
+    });
+
+    expect(mockPrisma.dailyAttendanceSummary.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          summary_date: {
+            gte: new Date('2026-01-01'),
+            lte: new Date('2026-03-31'),
+          },
+        }),
+      }),
+    );
+  });
+
+  it('should filter by derived_status when provided', async () => {
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue([]);
+    mockPrisma.dailyAttendanceSummary.count.mockResolvedValue(0);
+
+    await service.findAll(TENANT_ID, { page: 1, pageSize: 20, derived_status: 'absent' });
+
+    expect(mockPrisma.dailyAttendanceSummary.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ derived_status: 'absent' }),
+      }),
+    );
+  });
+
+  it('should apply correct skip for page 2', async () => {
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue([]);
+    mockPrisma.dailyAttendanceSummary.count.mockResolvedValue(25);
+
+    await service.findAll(TENANT_ID, { page: 2, pageSize: 10 });
+
+    expect(mockPrisma.dailyAttendanceSummary.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 10, take: 10 }),
+    );
+  });
+
+  it('should filter by start_date only when end_date is not provided', async () => {
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue([]);
+    mockPrisma.dailyAttendanceSummary.count.mockResolvedValue(0);
+
+    await service.findAll(TENANT_ID, { page: 1, pageSize: 20, start_date: '2026-01-01' });
+
+    expect(mockPrisma.dailyAttendanceSummary.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          summary_date: { gte: new Date('2026-01-01') },
+        }),
+      }),
+    );
+  });
+});
+
+// ─── findForStudent tests ────────────────────────────────────────────────────
+
+describe('DailySummaryService — findForStudent', () => {
+  let service: DailySummaryService;
+  let mockPrisma: {
+    attendanceRecord: { findMany: jest.Mock };
+    dailyAttendanceSummary: {
+      findMany: jest.Mock;
+      deleteMany: jest.Mock;
+    };
+  };
+
+  beforeEach(async () => {
+    mockPrisma = {
+      attendanceRecord: { findMany: jest.fn().mockResolvedValue([]) },
+      dailyAttendanceSummary: {
+        findMany: jest.fn().mockResolvedValue([]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [DailySummaryService, { provide: PrismaService, useValue: mockPrisma }],
+    }).compile();
+
+    service = module.get<DailySummaryService>(DailySummaryService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should return data for a specific student', async () => {
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue([
+      { summary_date: new Date('2026-03-10'), derived_status: 'present' },
+    ]);
+
+    const result = await service.findForStudent(TENANT_ID, STUDENT_ID, {});
+
+    expect(result.data).toHaveLength(1);
+  });
+
+  it('should filter by date range when provided', async () => {
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue([]);
+
+    await service.findForStudent(TENANT_ID, STUDENT_ID, {
+      start_date: '2026-01-01',
+      end_date: '2026-03-31',
+    });
+
+    expect(mockPrisma.dailyAttendanceSummary.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          student_id: STUDENT_ID,
+          summary_date: {
+            gte: new Date('2026-01-01'),
+            lte: new Date('2026-03-31'),
+          },
+        }),
+      }),
+    );
+  });
+
+  it('should not add summary_date filter when no dates provided', async () => {
+    mockPrisma.dailyAttendanceSummary.findMany.mockResolvedValue([]);
+
+    await service.findForStudent(TENANT_ID, STUDENT_ID, {});
+
+    const callArgs = mockPrisma.dailyAttendanceSummary.findMany.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    const where = callArgs.where as Record<string, unknown>;
+    expect(where['summary_date']).toBeUndefined();
   });
 });

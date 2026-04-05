@@ -303,6 +303,40 @@ describe('AttendanceScanService — scanImage guards', () => {
     ).rejects.toThrow(ServiceUnavailableException);
   });
 
+  it('should throw ServiceUnavailableException when AI feature is disabled in settings', async () => {
+    const disabledSettings = {
+      getSettings: jest.fn().mockResolvedValue({ ai: { attendanceScanEnabled: false } }),
+    };
+
+    const module2: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        AttendanceScanService,
+        { provide: PrismaService, useValue: { student: { findMany: jest.fn() } } },
+        { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
+        { provide: SettingsService, useValue: disabledSettings },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest.fn(),
+            processInbound: jest.fn(),
+          },
+        },
+        { provide: AiAuditService, useValue: { log: jest.fn() } },
+        {
+          provide: AnthropicClientService,
+          useValue: { isConfigured: true, createMessage: jest.fn() },
+        },
+      ],
+    }).compile();
+
+    const svc2 = module2.get<AttendanceScanService>(AttendanceScanService);
+
+    await expect(
+      svc2.scanImage(TENANT_ID, USER_ID, Buffer.from('img'), 'image/jpeg', '2026-03-10'),
+    ).rejects.toThrow(ServiceUnavailableException);
+  });
+
   it('should throw BadRequestException when daily scan limit is exceeded', async () => {
     delete process.env.ANTHROPIC_API_KEY;
 
@@ -375,18 +409,19 @@ describe('AttendanceScanService — AI audit trail', () => {
         ...MOCK_FACADE_PROVIDERS,
         AttendanceScanService,
         { provide: PrismaService, useValue: mockStudentPrisma },
-        { provide: StudentReadFacade, useValue: { findByStudentNumbers: jest.fn().mockResolvedValue([]) } },
+        {
+          provide: StudentReadFacade,
+          useValue: { findByStudentNumbers: jest.fn().mockResolvedValue([]) },
+        },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
         { provide: SettingsService, useValue: mockSettingsService },
         {
           provide: GdprTokenService,
           useValue: {
-            processOutbound: jest
-              .fn()
-              .mockResolvedValue({
-                processedData: { entities: [], entityCount: 0 },
-                tokenMap: null,
-              }),
+            processOutbound: jest.fn().mockResolvedValue({
+              processedData: { entities: [], entityCount: 0 },
+              tokenMap: null,
+            }),
             processInbound: jest.fn().mockImplementation(async (_t: string, r: string) => r),
           },
         },

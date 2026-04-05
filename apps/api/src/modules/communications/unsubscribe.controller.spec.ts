@@ -105,5 +105,15 @@ describe('UnsubscribeController', () => {
 
       expect(mockService.processUnsubscribe).toHaveBeenCalledWith('any-token-value');
     });
+
+    it('should handle non-Error thrown by service (unknown error branch)', async () => {
+      // Service rejects with a non-Error value
+      mockService.processUnsubscribe.mockRejectedValue('string error value');
+
+      await controller.unsubscribe('some-token', mockResponse as unknown as Response);
+
+      // Should still redirect to error page
+      expect(mockResponse.redirect).toHaveBeenCalledWith(`${APP_URL}/unsubscribed?error=invalid`);
+    });
   });
 });

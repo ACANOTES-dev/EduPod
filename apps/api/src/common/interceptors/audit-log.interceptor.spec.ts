@@ -65,12 +65,12 @@ function createErrorHandler(error: Error): CallHandler {
 
 describe('AuditLogInterceptor', () => {
   let interceptor: AuditLogInterceptor;
-  let mockAuditLogService: { write: jest.Mock };
+  let mockAuditLogService: { enqueue: jest.Mock };
   let mockReflector: { getAllAndOverride: jest.Mock };
 
   beforeEach(() => {
     mockAuditLogService = {
-      write: jest.fn().mockResolvedValue(undefined),
+      enqueue: jest.fn().mockResolvedValue(undefined),
     };
     mockReflector = {
       getAllAndOverride: jest.fn().mockReturnValue(undefined),
@@ -91,7 +91,7 @@ describe('AuditLogInterceptor', () => {
 
       interceptor.intercept(context, handler).subscribe({
         next: () => {
-          expect(mockAuditLogService.write).not.toHaveBeenCalled();
+          expect(mockAuditLogService.enqueue).not.toHaveBeenCalled();
           done();
         },
       });
@@ -106,7 +106,7 @@ describe('AuditLogInterceptor', () => {
 
       interceptor.intercept(context, handler).subscribe({
         next: () => {
-          expect(mockAuditLogService.write).toHaveBeenCalledWith(
+          expect(mockAuditLogService.enqueue).toHaveBeenCalledWith(
             TENANT_ID,
             USER_ID,
             'students',
@@ -143,7 +143,7 @@ describe('AuditLogInterceptor', () => {
 
       interceptor.intercept(context, handler).subscribe({
         next: () => {
-          expect(mockAuditLogService.write).toHaveBeenCalledWith(
+          expect(mockAuditLogService.enqueue).toHaveBeenCalledWith(
             TENANT_ID,
             USER_ID,
             'staff-profiles',
@@ -159,7 +159,10 @@ describe('AuditLogInterceptor', () => {
             '127.0.0.1',
           );
 
-          const metadata = mockAuditLogService.write.mock.calls[0]?.[5] as Record<string, unknown>;
+          const metadata = mockAuditLogService.enqueue.mock.calls[0]?.[5] as Record<
+            string,
+            unknown
+          >;
           expect(metadata).not.toHaveProperty('body');
           expect(metadata).not.toHaveProperty('response');
           done();
@@ -181,7 +184,7 @@ describe('AuditLogInterceptor', () => {
 
       interceptor.intercept(context, handler).subscribe({
         next: () => {
-          expect(mockAuditLogService.write).toHaveBeenCalledWith(
+          expect(mockAuditLogService.enqueue).toHaveBeenCalledWith(
             TENANT_ID,
             USER_ID,
             'impersonation',
@@ -210,7 +213,10 @@ describe('AuditLogInterceptor', () => {
 
       interceptor.intercept(context, handler).subscribe({
         next: () => {
-          const metadata = mockAuditLogService.write.mock.calls[0]?.[5] as Record<string, unknown>;
+          const metadata = mockAuditLogService.enqueue.mock.calls[0]?.[5] as Record<
+            string,
+            unknown
+          >;
           expect(metadata).toEqual(
             expect.objectContaining({
               accessed_entity_ids: [UUID_EXAMPLE, UUID_EXAMPLE_2],
@@ -230,7 +236,7 @@ describe('AuditLogInterceptor', () => {
 
       interceptor.intercept(context, handler).subscribe({
         error: () => {
-          expect(mockAuditLogService.write).not.toHaveBeenCalled();
+          expect(mockAuditLogService.enqueue).not.toHaveBeenCalled();
           done();
         },
         next: () => {
@@ -240,7 +246,7 @@ describe('AuditLogInterceptor', () => {
     });
 
     it('does not fail the request if audit preparation throws', (done) => {
-      mockAuditLogService.write.mockImplementation(() => {
+      mockAuditLogService.enqueue.mockImplementation(() => {
         throw new Error('audit failure');
       });
       const context = createMockContext('POST', '/api/v1/students');

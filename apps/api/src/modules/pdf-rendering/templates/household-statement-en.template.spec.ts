@@ -134,4 +134,129 @@ describe('renderHouseholdStatementEn', () => {
 
     expect(result).toContain('Orphan Account');
   });
+
+  // ─── Closing balance color branches ────────────────────────────────────────
+
+  it('should use red for positive closing balance (amount owed)', () => {
+    const result = renderHouseholdStatementEn(STATEMENT_DATA, BRANDING);
+
+    // STATEMENT_DATA has closing_balance: 1550.0 > 0 -> red
+    expect(result).toContain('#dc2626');
+  });
+
+  it('should use green for zero or negative closing balance', () => {
+    const data = { ...STATEMENT_DATA, closing_balance: 0 };
+    const result = renderHouseholdStatementEn(data, BRANDING);
+
+    expect(result).toContain('#16a34a');
+  });
+
+  it('should use green for negative closing balance (credit)', () => {
+    const data = { ...STATEMENT_DATA, closing_balance: -100 };
+    const result = renderHouseholdStatementEn(data, BRANDING);
+
+    expect(result).toContain('#16a34a');
+  });
+
+  // ─── Entry type formatting branches ────────────────────────────────────────
+
+  it('should format refund type', () => {
+    const data = {
+      ...STATEMENT_DATA,
+      entries: [
+        {
+          date: '2025-12-01',
+          type: 'refund',
+          reference: 'REF-001',
+          description: 'Fee refund',
+          debit: null,
+          credit: 100,
+          running_balance: 0,
+        },
+      ],
+    };
+    const result = renderHouseholdStatementEn(data, BRANDING);
+
+    expect(result).toContain('Refund');
+  });
+
+  it('should format write_off type', () => {
+    const data = {
+      ...STATEMENT_DATA,
+      entries: [
+        {
+          date: '2025-12-01',
+          type: 'write_off',
+          reference: 'WO-001',
+          description: 'Written off',
+          debit: null,
+          credit: 50,
+          running_balance: 0,
+        },
+      ],
+    };
+    const result = renderHouseholdStatementEn(data, BRANDING);
+
+    expect(result).toContain('Write-off');
+  });
+
+  it('should pass through unknown type as-is', () => {
+    const data = {
+      ...STATEMENT_DATA,
+      entries: [
+        {
+          date: '2025-12-01',
+          type: 'adjustment',
+          reference: 'ADJ-001',
+          description: 'Manual adjustment',
+          debit: 25,
+          credit: null,
+          running_balance: 525,
+        },
+      ],
+    };
+    const result = renderHouseholdStatementEn(data, BRANDING);
+
+    expect(result).toContain('adjustment');
+  });
+
+  // ─── Debit/credit null branches ────────────────────────────────────────────
+
+  it('should render debit amount when not null', () => {
+    const result = renderHouseholdStatementEn(STATEMENT_DATA, BRANDING);
+
+    // First entry has debit: 2500.0
+    expect(result).toContain('EUR 2500.00');
+  });
+
+  it('should render empty cell when debit is null', () => {
+    const result = renderHouseholdStatementEn(STATEMENT_DATA, BRANDING);
+
+    // Second entry has debit: null, should just be empty
+    expect(typeof result).toBe('string');
+  });
+
+  it('should render credit amount with green color when not null', () => {
+    const result = renderHouseholdStatementEn(STATEMENT_DATA, BRANDING);
+
+    // Second entry has credit: 1000.0
+    expect(result).toContain('EUR 1000.00');
+    expect(result).toContain('#16a34a');
+  });
+
+  // ─── Logo and branding branches ────────────────────────────────────────────
+
+  it('should omit logo when logo_url is undefined', () => {
+    const brandingNoLogo: PdfBranding = { school_name: 'No Logo' };
+    const result = renderHouseholdStatementEn(STATEMENT_DATA, brandingNoLogo);
+
+    expect(result).not.toContain('<img');
+  });
+
+  it('should use default primary color', () => {
+    const brandingNoColor: PdfBranding = { school_name: 'Minimal' };
+    const result = renderHouseholdStatementEn(STATEMENT_DATA, brandingNoColor);
+
+    expect(result).toContain('#1e40af');
+  });
 });

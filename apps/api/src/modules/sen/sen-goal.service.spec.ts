@@ -308,5 +308,227 @@ describe('SenGoalService', () => {
         data: { is_active: false },
       });
     });
+
+    it('throws when creating strategy for non-existent goal', async () => {
+      senGoalMock.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createStrategy(TENANT_ID, GOAL_ID, { description: 'Test' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws when updating non-existent strategy', async () => {
+      senGoalStrategyMock.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateStrategy(TENANT_ID, STRATEGY_ID, { description: 'Test' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws when deleting non-existent strategy', async () => {
+      senGoalStrategyMock.findFirst.mockResolvedValue(null);
+
+      await expect(service.deleteStrategy(TENANT_ID, STRATEGY_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('create — additional', () => {
+    it('throws when plan does not exist', async () => {
+      senSupportPlanMock.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(TENANT_ID, PLAN_ID, {
+          title: 'Goal',
+          target: 'Target',
+          baseline: 'Baseline',
+          target_date: '2026-06-30',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('allows goal creation when plan status is active', async () => {
+      senSupportPlanMock.findFirst.mockResolvedValue({ id: PLAN_ID, status: 'active' });
+      senGoalMock.aggregate.mockResolvedValue({ _max: { display_order: null } });
+      senGoalMock.create.mockResolvedValue({ id: GOAL_ID, display_order: 0 });
+
+      const result = await service.create(TENANT_ID, PLAN_ID, {
+        title: 'Goal',
+        target: 'Target',
+        baseline: 'Baseline',
+        target_date: '2026-06-30',
+      });
+
+      expect(result).toEqual({ id: GOAL_ID, display_order: 0 });
+      expect(senGoalMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ display_order: 0 }),
+        }),
+      );
+    });
+  });
+
+  describe('findAllByPlan — scope and filters', () => {
+    it('applies class scope filter when fetching plan', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: ['student-1'],
+      });
+      senSupportPlanMock.findFirst.mockResolvedValue({ id: PLAN_ID });
+      senGoalMock.findMany.mockResolvedValue([]);
+
+      await service.findAllByPlan(TENANT_ID, USER_ID, ['sen.view'], PLAN_ID, {});
+
+      expect(senSupportPlanMock.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            sen_profile: {
+              student_id: { in: ['student-1'] },
+            },
+          }),
+        }),
+      );
+    });
+
+    it('returns empty array when plan is not accessible in class scope', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: ['student-1'],
+      });
+      senSupportPlanMock.findFirst.mockResolvedValue(null);
+
+      const result = await service.findAllByPlan(TENANT_ID, USER_ID, ['sen.view'], PLAN_ID, {});
+
+      expect(result).toEqual([]);
+    });
+
+    it('applies status filter when querying goals', async () => {
+      senSupportPlanMock.findFirst.mockResolvedValue({ id: PLAN_ID });
+      senGoalMock.findMany.mockResolvedValue([]);
+
+      await service.findAllByPlan(TENANT_ID, USER_ID, ['sen.admin'], PLAN_ID, {
+        status: 'in_progress',
+      });
+
+      expect(senGoalMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: 'in_progress' }),
+        }),
+      );
+    });
+  });
+
+  describe('transitionStatus — additional', () => {
+    it('throws when goal does not exist', async () => {
+      senGoalMock.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.transitionStatus(TENANT_ID, GOAL_ID, { status: 'in_progress' }, USER_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('does not create progress for in_progress transition without note', async () => {
+      senGoalMock.findFirst.mockResolvedValue({ id: GOAL_ID, status: 'not_started' });
+      senGoalMock.update.mockResolvedValue({ id: GOAL_ID, status: 'in_progress' });
+
+      await service.transitionStatus(TENANT_ID, GOAL_ID, { status: 'in_progress' }, USER_ID);
+
+      expect(senGoalProgressMock.create).not.toHaveBeenCalled();
+    });
+
+    it('creates progress for partially_achieved with note', async () => {
+      senGoalMock.findFirst.mockResolvedValue({ id: GOAL_ID, status: 'in_progress' });
+      senGoalMock.update.mockResolvedValue({ id: GOAL_ID, status: 'partially_achieved' });
+      senGoalProgressMock.create.mockResolvedValue({ id: 'progress-1' });
+
+      await service.transitionStatus(
+        TENANT_ID,
+        GOAL_ID,
+        { status: 'partially_achieved', note: 'Good progress' },
+        USER_ID,
+      );
+
+      expect(senGoalProgressMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            note: 'Good progress',
+            goal_id: GOAL_ID,
+          }),
+        }),
+      );
+    });
+
+    it('creates progress for discontinued with note', async () => {
+      senGoalMock.findFirst.mockResolvedValue({ id: GOAL_ID, status: 'in_progress' });
+      senGoalMock.update.mockResolvedValue({ id: GOAL_ID, status: 'discontinued' });
+      senGoalProgressMock.create.mockResolvedValue({ id: 'progress-2' });
+
+      await service.transitionStatus(
+        TENANT_ID,
+        GOAL_ID,
+        { status: 'discontinued', note: 'No longer relevant' },
+        USER_ID,
+      );
+
+      expect(senGoalProgressMock.create).toHaveBeenCalled();
+    });
+  });
+
+  describe('recordProgress — additional', () => {
+    it('throws when goal does not exist', async () => {
+      senGoalMock.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.recordProgress(TENANT_ID, GOAL_ID, { note: 'Test' }, USER_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('does not update current_level when not provided in dto', async () => {
+      senGoalMock.findFirst.mockResolvedValue({ id: GOAL_ID });
+      senGoalProgressMock.create.mockResolvedValue({ id: 'progress-1' });
+
+      await service.recordProgress(TENANT_ID, GOAL_ID, { note: 'Just a note' }, USER_ID);
+
+      expect(senGoalMock.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findProgress — scope', () => {
+    it('throws when scope is none', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'none' });
+
+      await expect(
+        service.findProgress(TENANT_ID, USER_ID, ['sen.view'], GOAL_ID, {
+          page: 1,
+          pageSize: 20,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws when goal not accessible in class scope', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({
+        scope: 'class',
+        studentIds: ['student-1'],
+      });
+      senGoalMock.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.findProgress(TENANT_ID, USER_ID, ['sen.view'], GOAL_ID, {
+          page: 1,
+          pageSize: 20,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findStrategies — scope', () => {
+    it('throws when scope is none', async () => {
+      mockScopeService.getUserScope.mockResolvedValue({ scope: 'none' });
+
+      await expect(
+        service.findStrategies(TENANT_ID, USER_ID, ['sen.view'], GOAL_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
   });
 });

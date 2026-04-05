@@ -108,4 +108,78 @@ describe('renderReceiptEn', () => {
     expect(typeof result).toBe('string');
     expect(result.length).toBeGreaterThan(0);
   });
+
+  // ─── Payment method formatting branches ────────────────────────────────────
+
+  it('should format stripe payment method', () => {
+    const data = {
+      ...RECEIPT_DATA,
+      payment: { ...RECEIPT_DATA.payment, payment_method: 'stripe' },
+    };
+    const result = renderReceiptEn(data, BRANDING);
+
+    expect(result).toContain('Online (Stripe)');
+  });
+
+  it('should format cash payment method', () => {
+    const data = {
+      ...RECEIPT_DATA,
+      payment: { ...RECEIPT_DATA.payment, payment_method: 'cash' },
+    };
+    const result = renderReceiptEn(data, BRANDING);
+
+    expect(result).toContain('Cash');
+  });
+
+  it('should format card_manual payment method', () => {
+    const data = {
+      ...RECEIPT_DATA,
+      payment: { ...RECEIPT_DATA.payment, payment_method: 'card_manual' },
+    };
+    const result = renderReceiptEn(data, BRANDING);
+
+    expect(result).toContain('Card (Manual)');
+  });
+
+  it('should pass through unknown payment method as-is', () => {
+    const data = {
+      ...RECEIPT_DATA,
+      payment: { ...RECEIPT_DATA.payment, payment_method: 'cheque' },
+    };
+    const result = renderReceiptEn(data, BRANDING);
+
+    expect(result).toContain('cheque');
+  });
+
+  // ─── Logo and branding branches ────────────────────────────────────────────
+
+  it('should omit logo when logo_url is undefined', () => {
+    const brandingNoLogo: PdfBranding = { school_name: 'No Logo School' };
+    const result = renderReceiptEn(RECEIPT_DATA, brandingNoLogo);
+
+    expect(result).not.toContain('<img');
+  });
+
+  it('should use default primary color when none provided', () => {
+    const brandingNoColor: PdfBranding = { school_name: 'Minimal' };
+    const result = renderReceiptEn(RECEIPT_DATA, brandingNoColor);
+
+    expect(result).toContain('#1e40af');
+  });
+
+  // ─── Allocation section conditional rendering ──────────────────────────────
+
+  it('should render allocation details heading and table when allocations exist', () => {
+    const result = renderReceiptEn(RECEIPT_DATA, BRANDING);
+
+    expect(result).toContain('<h3');
+    expect(result).toContain('Amount Applied');
+  });
+
+  it('should omit allocation table when no allocations', () => {
+    const data = { ...RECEIPT_DATA, allocations: [] };
+    const result = renderReceiptEn(data, BRANDING);
+
+    expect(result).not.toContain('Amount Applied');
+  });
 });

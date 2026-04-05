@@ -37,9 +37,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -157,7 +155,10 @@ describe('ReferralService', () => {
 
   describe('list', () => {
     it('should return paginated referrals with filters', async () => {
-      const referrals = [makeReferral(), makeReferral({ id: 'ff000000-0000-0000-0000-000000000001' })];
+      const referrals = [
+        makeReferral(),
+        makeReferral({ id: 'ff000000-0000-0000-0000-000000000001' }),
+      ];
       mockRlsTx.pastoralReferral.findMany.mockResolvedValue(referrals);
       mockRlsTx.pastoralReferral.count.mockResolvedValue(2);
 
@@ -310,12 +311,9 @@ describe('ReferralService', () => {
       });
       mockRlsTx.pastoralReferral.update.mockResolvedValue(updated);
 
-      const result = await service.scheduleAssessment(
-        TENANT_ID,
-        ACTOR_USER_ID,
-        REFERRAL_ID,
-        { assessment_scheduled_date: '2026-04-15' },
-      );
+      const result = await service.scheduleAssessment(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID, {
+        assessment_scheduled_date: '2026-04-15',
+      });
 
       expect(result.status).toBe('assessment_scheduled');
       expect(mockRlsTx.pastoralReferral.update).toHaveBeenCalledWith({
@@ -376,12 +374,9 @@ describe('ReferralService', () => {
       });
       mockRlsTx.pastoralReferral.update.mockResolvedValue(updated);
 
-      const result = await service.receiveReport(
-        TENANT_ID,
-        ACTOR_USER_ID,
-        REFERRAL_ID,
-        { report_summary: 'Assessment complete. Student needs support.' },
-      );
+      const result = await service.receiveReport(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID, {
+        report_summary: 'Assessment complete. Student needs support.',
+      });
 
       expect(result.status).toBe('report_received');
       expect(mockRlsTx.pastoralReferral.update).toHaveBeenCalledWith({
@@ -447,44 +442,38 @@ describe('ReferralService', () => {
       'report_received',
     ];
 
-    it.each(withdrawableStatuses)(
-      'should work from %s status',
-      async (status) => {
-        const existing = makeReferral({ status });
-        mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(existing);
-        const updated = makeReferral({ status: 'withdrawn', reason: 'No longer needed' });
-        mockRlsTx.pastoralReferral.update.mockResolvedValue(updated);
+    it.each(withdrawableStatuses)('should work from %s status', async (status) => {
+      const existing = makeReferral({ status });
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(existing);
+      const updated = makeReferral({ status: 'withdrawn', reason: 'No longer needed' });
+      mockRlsTx.pastoralReferral.update.mockResolvedValue(updated);
 
-        const result = await service.withdraw(
-          TENANT_ID,
-          ACTOR_USER_ID,
-          REFERRAL_ID,
-          { reason: 'No longer needed' },
-        );
+      const result = await service.withdraw(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID, {
+        reason: 'No longer needed',
+      });
 
-        expect(result.status).toBe('withdrawn');
-        expect(mockRlsTx.pastoralReferral.update).toHaveBeenCalledWith({
-          where: { id: REFERRAL_ID },
-          data: {
-            status: 'withdrawn',
+      expect(result.status).toBe('withdrawn');
+      expect(mockRlsTx.pastoralReferral.update).toHaveBeenCalledWith({
+        where: { id: REFERRAL_ID },
+        data: {
+          status: 'withdrawn',
+          reason: 'No longer needed',
+        },
+      });
+      expect(mockEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'referral_withdrawn',
+          payload: expect.objectContaining({
             reason: 'No longer needed',
-          },
-        });
-        expect(mockEventService.write).toHaveBeenCalledWith(
-          expect.objectContaining({
-            event_type: 'referral_withdrawn',
-            payload: expect.objectContaining({
-              reason: 'No longer needed',
-            }),
           }),
-        );
+        }),
+      );
 
-        // Reset for next iteration
-        mockRlsTx.pastoralReferral.findFirst.mockReset();
-        mockRlsTx.pastoralReferral.update.mockReset();
-        mockEventService.write.mockReset();
-      },
-    );
+      // Reset for next iteration
+      mockRlsTx.pastoralReferral.findFirst.mockReset();
+      mockRlsTx.pastoralReferral.update.mockReset();
+      mockEventService.write.mockReset();
+    });
 
     it('should throw from recommendations_implemented (terminal)', async () => {
       const existing = makeReferral({ status: 'recommendations_implemented' });
@@ -512,9 +501,9 @@ describe('ReferralService', () => {
       const existing = makeReferral({ status: 'draft' });
       mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(existing);
 
-      await expect(
-        service.acknowledge(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.acknowledge(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException for draft to assessment_scheduled', async () => {
@@ -620,6 +609,323 @@ describe('ReferralService', () => {
           where: expect.objectContaining({
             referral_type: 'neps',
           }),
+        }),
+      );
+    });
+
+    it('should handle null submitted_at by using current date for wait_days', async () => {
+      const waitlistReferral = {
+        ...makeReferral({
+          status: 'submitted',
+          submitted_at: null,
+        }),
+        student: { id: STUDENT_ID, first_name: 'John', last_name: 'Doe' },
+      };
+
+      mockRlsTx.pastoralReferral.findMany.mockResolvedValue([waitlistReferral]);
+      mockRlsTx.pastoralReferral.count.mockResolvedValue(1);
+
+      const result = await service.getWaitlist(TENANT_ID, { page: 1, pageSize: 20 });
+
+      expect(result.data).toHaveLength(1);
+      const firstItem = result.data[0] as WaitlistItem;
+      expect(firstItem.wait_days).toBe(0);
+    });
+
+    it('should use default page and pageSize when not provided', async () => {
+      mockRlsTx.pastoralReferral.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralReferral.count.mockResolvedValue(0);
+
+      const result = await service.getWaitlist(TENANT_ID, {});
+
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 0 });
+    });
+  });
+
+  // ─── list — additional branch coverage ──────────────────────────────────
+
+  describe('list — branch coverage', () => {
+    it('should apply date_from filter only', async () => {
+      mockRlsTx.pastoralReferral.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralReferral.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        date_from: '2026-01-01',
+      });
+
+      expect(mockRlsTx.pastoralReferral.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            created_at: expect.objectContaining({
+              gte: expect.any(Date),
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should apply date_to filter only', async () => {
+      mockRlsTx.pastoralReferral.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralReferral.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        date_to: '2026-12-31',
+      });
+
+      expect(mockRlsTx.pastoralReferral.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            created_at: expect.objectContaining({
+              lte: expect.any(Date),
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should apply referral_type filter', async () => {
+      mockRlsTx.pastoralReferral.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralReferral.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        referral_type: 'neps',
+      });
+
+      expect(mockRlsTx.pastoralReferral.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            referral_type: 'neps',
+          }),
+        }),
+      );
+    });
+
+    it('should use default page and pageSize when not provided', async () => {
+      mockRlsTx.pastoralReferral.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralReferral.count.mockResolvedValue(0);
+
+      const result = await service.list(TENANT_ID, {});
+
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 0 });
+    });
+
+    it('should use default sort and order when not provided', async () => {
+      mockRlsTx.pastoralReferral.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralReferral.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { page: 1, pageSize: 10 });
+
+      expect(mockRlsTx.pastoralReferral.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { created_at: 'desc' },
+        }),
+      );
+    });
+  });
+
+  // ─── create — additional branch coverage ────────────────────────────────
+
+  describe('create — branch coverage', () => {
+    it('should include pre_populated_data when provided', async () => {
+      const referral = makeReferral();
+      mockRlsTx.pastoralReferral.create.mockResolvedValue(referral);
+
+      await service.create(TENANT_ID, ACTOR_USER_ID, {
+        student_id: STUDENT_ID,
+        referral_type: 'neps',
+        pre_populated_data: { attendance: '85%' },
+      });
+
+      expect(mockRlsTx.pastoralReferral.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          pre_populated_data: { attendance: '85%' },
+        }),
+      });
+    });
+
+    it('should include manual_additions when provided', async () => {
+      const referral = makeReferral();
+      mockRlsTx.pastoralReferral.create.mockResolvedValue(referral);
+
+      await service.create(TENANT_ID, ACTOR_USER_ID, {
+        student_id: STUDENT_ID,
+        referral_type: 'neps',
+        manual_additions: { notes: 'Additional observations' },
+      });
+
+      expect(mockRlsTx.pastoralReferral.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          manual_additions: { notes: 'Additional observations' },
+        }),
+      });
+    });
+
+    it('should create without optional case_id', async () => {
+      const referral = makeReferral({ case_id: null });
+      mockRlsTx.pastoralReferral.create.mockResolvedValue(referral);
+
+      const result = await service.create(TENANT_ID, ACTOR_USER_ID, {
+        student_id: STUDENT_ID,
+        referral_type: 'neps',
+      });
+
+      expect(result.case_id).toBeNull();
+    });
+  });
+
+  // ─── update — additional branch coverage ────────────────────────────────
+
+  describe('update — branch coverage', () => {
+    it('should throw NotFoundException when referral does not exist', async () => {
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(TENANT_ID, REFERRAL_ID, { referral_body_name: 'test' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should update external_reference when provided', async () => {
+      const existing = makeReferral({ status: 'draft' });
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(existing);
+      const updated = makeReferral({ external_reference: 'REF-123' });
+      mockRlsTx.pastoralReferral.update.mockResolvedValue(updated);
+
+      const result = await service.update(TENANT_ID, REFERRAL_ID, {
+        external_reference: 'REF-123',
+      });
+
+      expect(result.external_reference).toBe('REF-123');
+      expect(mockRlsTx.pastoralReferral.update).toHaveBeenCalledWith({
+        where: { id: REFERRAL_ID },
+        data: { external_reference: 'REF-123' },
+      });
+    });
+
+    it('should update report_summary when provided', async () => {
+      const existing = makeReferral({ status: 'draft' });
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(existing);
+      const updated = makeReferral({ report_summary: 'Summary text' });
+      mockRlsTx.pastoralReferral.update.mockResolvedValue(updated);
+
+      await service.update(TENANT_ID, REFERRAL_ID, {
+        report_summary: 'Summary text',
+      });
+
+      expect(mockRlsTx.pastoralReferral.update).toHaveBeenCalledWith({
+        where: { id: REFERRAL_ID },
+        data: { report_summary: 'Summary text' },
+      });
+    });
+
+    it('should update pre_populated_data when provided', async () => {
+      const existing = makeReferral({ status: 'draft' });
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(existing);
+      const updated = makeReferral({ pre_populated_data: { key: 'value' } });
+      mockRlsTx.pastoralReferral.update.mockResolvedValue(updated);
+
+      await service.update(TENANT_ID, REFERRAL_ID, {
+        pre_populated_data: { key: 'value' },
+      });
+
+      expect(mockRlsTx.pastoralReferral.update).toHaveBeenCalledWith({
+        where: { id: REFERRAL_ID },
+        data: { pre_populated_data: { key: 'value' } },
+      });
+    });
+
+    it('should update manual_additions when provided', async () => {
+      const existing = makeReferral({ status: 'draft' });
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(existing);
+      const updated = makeReferral({ manual_additions: { notes: 'Added' } });
+      mockRlsTx.pastoralReferral.update.mockResolvedValue(updated);
+
+      await service.update(TENANT_ID, REFERRAL_ID, {
+        manual_additions: { notes: 'Added' },
+      });
+
+      expect(mockRlsTx.pastoralReferral.update).toHaveBeenCalledWith({
+        where: { id: REFERRAL_ID },
+        data: { manual_additions: { notes: 'Added' } },
+      });
+    });
+  });
+
+  // ─── withdraw — additional branch coverage ──────────────────────────────
+
+  describe('withdraw — branch coverage', () => {
+    it('should throw NotFoundException when referral does not exist', async () => {
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.withdraw(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID, { reason: 'Test' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should allow withdrawal from draft status', async () => {
+      const existing = makeReferral({ status: 'draft' });
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(existing);
+      const updated = makeReferral({ status: 'withdrawn' });
+      mockRlsTx.pastoralReferral.update.mockResolvedValue(updated);
+
+      const result = await service.withdraw(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID, {
+        reason: 'No longer needed',
+      });
+
+      expect(result.status).toBe('withdrawn');
+    });
+
+    it('should allow withdrawal from assessment_complete status', async () => {
+      const existing = makeReferral({ status: 'assessment_complete' });
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(existing);
+      const updated = makeReferral({ status: 'withdrawn' });
+      mockRlsTx.pastoralReferral.update.mockResolvedValue(updated);
+
+      const result = await service.withdraw(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID, {
+        reason: 'Changed direction',
+      });
+
+      expect(result.status).toBe('withdrawn');
+    });
+  });
+
+  // ─── transition — not-found branch ──────────────────────────────────────
+
+  describe('transition — branch coverage', () => {
+    it('should throw NotFoundException when referral does not exist for submit', async () => {
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(null);
+
+      await expect(service.submit(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw NotFoundException when referral does not exist for acknowledge', async () => {
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(null);
+
+      await expect(service.acknowledge(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should use fallback event type for unknown status', async () => {
+      // Access the private statusToEventType via transition flow
+      // If the status doesn't match the map, it falls back to `referral_${status}`
+      const existing = makeReferral({ status: 'draft' });
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue(existing);
+      const updated = makeReferral({ status: 'submitted' });
+      mockRlsTx.pastoralReferral.update.mockResolvedValue(updated);
+
+      await service.submit(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID);
+
+      expect(mockEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'referral_submitted',
         }),
       );
     });

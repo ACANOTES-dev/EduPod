@@ -237,9 +237,7 @@ describe('ImportValidationService', () => {
         'first_name,last_name,email,phone,household_name',
         'Alice,Johnson,alice@example.com,+1234567890,Johnson Family',
       ].join('\n');
-      mockPrisma.importJob.findFirst.mockResolvedValue(
-        buildMockJob({ import_type: 'parents' }),
-      );
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob({ import_type: 'parents' }));
       mockS3.download.mockResolvedValue(csvBuffer(csv));
       mockPrisma.importJob.update.mockResolvedValue(undefined);
 
@@ -255,9 +253,7 @@ describe('ImportValidationService', () => {
         'first_name,last_name,email,phone,household_name',
         'Alice,Johnson,not-an-email,+1234567890,Johnson Family',
       ].join('\n');
-      mockPrisma.importJob.findFirst.mockResolvedValue(
-        buildMockJob({ import_type: 'parents' }),
-      );
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob({ import_type: 'parents' }));
       mockS3.download.mockResolvedValue(csvBuffer(csv));
       mockPrisma.importJob.update.mockResolvedValue(undefined);
 
@@ -281,9 +277,7 @@ describe('ImportValidationService', () => {
         'Alice,Johnson,alice@example.com,+1234567890,Johnson Family',
         'Bob,Johnson,alice@example.com,+0987654321,Johnson Family',
       ].join('\n');
-      mockPrisma.importJob.findFirst.mockResolvedValue(
-        buildMockJob({ import_type: 'parents' }),
-      );
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob({ import_type: 'parents' }));
       mockS3.download.mockResolvedValue(csvBuffer(csv));
       mockPrisma.importJob.update.mockResolvedValue(undefined);
 
@@ -306,9 +300,7 @@ describe('ImportValidationService', () => {
         'first_name,last_name,email,phone,household_name',
         'Alice,Johnson,,+1234567890,Johnson Family',
       ].join('\n');
-      mockPrisma.importJob.findFirst.mockResolvedValue(
-        buildMockJob({ import_type: 'parents' }),
-      );
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob({ import_type: 'parents' }));
       mockS3.download.mockResolvedValue(csvBuffer(csv));
       mockPrisma.importJob.update.mockResolvedValue(undefined);
 
@@ -336,9 +328,7 @@ describe('ImportValidationService', () => {
         'first_name,last_name,email,job_title,department,employment_type',
         'Jane,Smith,jane@school.com,Teacher,Math,full_time',
       ].join('\n');
-      mockPrisma.importJob.findFirst.mockResolvedValue(
-        buildMockJob({ import_type: 'staff' }),
-      );
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob({ import_type: 'staff' }));
       mockS3.download.mockResolvedValue(csvBuffer(csv));
       mockPrisma.importJob.update.mockResolvedValue(undefined);
 
@@ -354,9 +344,7 @@ describe('ImportValidationService', () => {
         'first_name,last_name,email,job_title,department,employment_type',
         'Jane,Smith,bad-email,Teacher,Math,full_time',
       ].join('\n');
-      mockPrisma.importJob.findFirst.mockResolvedValue(
-        buildMockJob({ import_type: 'staff' }),
-      );
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob({ import_type: 'staff' }));
       mockS3.download.mockResolvedValue(csvBuffer(csv));
       mockPrisma.importJob.update.mockResolvedValue(undefined);
 
@@ -379,13 +367,10 @@ describe('ImportValidationService', () => {
 
   describe('validate() — fees', () => {
     it('should validate correct fees CSV', async () => {
-      const csv = [
-        'fee_structure_name,household_name,amount',
-        'Tuition,Johnson Family,5000',
-      ].join('\n');
-      mockPrisma.importJob.findFirst.mockResolvedValue(
-        buildMockJob({ import_type: 'fees' }),
+      const csv = ['fee_structure_name,household_name,amount', 'Tuition,Johnson Family,5000'].join(
+        '\n',
       );
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob({ import_type: 'fees' }));
       mockS3.download.mockResolvedValue(csvBuffer(csv));
       mockPrisma.importJob.update.mockResolvedValue(undefined);
 
@@ -401,9 +386,7 @@ describe('ImportValidationService', () => {
         'fee_structure_name,household_name,amount',
         'Tuition,Johnson Family,not_a_number',
       ].join('\n');
-      mockPrisma.importJob.findFirst.mockResolvedValue(
-        buildMockJob({ import_type: 'fees' }),
-      );
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob({ import_type: 'fees' }));
       mockS3.download.mockResolvedValue(csvBuffer(csv));
       mockPrisma.importJob.update.mockResolvedValue(undefined);
 
@@ -426,10 +409,7 @@ describe('ImportValidationService', () => {
 
   describe('validate() — exam_results', () => {
     it('should validate correct exam_results CSV', async () => {
-      const csv = [
-        'student_number,subject,score,grade',
-        'STU001,Math,95,A',
-      ].join('\n');
+      const csv = ['student_number,subject,score,grade', 'STU001,Math,95,A'].join('\n');
       mockPrisma.importJob.findFirst.mockResolvedValue(
         buildMockJob({ import_type: 'exam_results' }),
       );
@@ -444,10 +424,7 @@ describe('ImportValidationService', () => {
     });
 
     it('should fail row when score is not a number', async () => {
-      const csv = [
-        'student_number,subject,score,grade',
-        'STU001,Math,excellent,A',
-      ].join('\n');
+      const csv = ['student_number,subject,score,grade', 'STU001,Math,excellent,A'].join('\n');
       mockPrisma.importJob.findFirst.mockResolvedValue(
         buildMockJob({ import_type: 'exam_results' }),
       );
@@ -473,10 +450,7 @@ describe('ImportValidationService', () => {
 
   describe('validate() — staff_compensation', () => {
     it('should validate correct staff_compensation CSV', async () => {
-      const csv = [
-        'staff_number,compensation_type,amount',
-        'STF001,salaried,50000',
-      ].join('\n');
+      const csv = ['staff_number,compensation_type,amount', 'STF001,salaried,50000'].join('\n');
       mockPrisma.importJob.findFirst.mockResolvedValue(
         buildMockJob({ import_type: 'staff_compensation' }),
       );
@@ -491,10 +465,7 @@ describe('ImportValidationService', () => {
     });
 
     it('should fail row with invalid compensation_type -> "compensation_type must be one of: salaried, per_class, hourly"', async () => {
-      const csv = [
-        'staff_number,compensation_type,amount',
-        'STF001,monthly,50000',
-      ].join('\n');
+      const csv = ['staff_number,compensation_type,amount', 'STF001,monthly,50000'].join('\n');
       mockPrisma.importJob.findFirst.mockResolvedValue(
         buildMockJob({ import_type: 'staff_compensation' }),
       );
@@ -516,10 +487,7 @@ describe('ImportValidationService', () => {
     });
 
     it('should fail row when amount is not a number', async () => {
-      const csv = [
-        'staff_number,compensation_type,amount',
-        'STF001,salaried,not_num',
-      ].join('\n');
+      const csv = ['staff_number,compensation_type,amount', 'STF001,salaried,not_num'].join('\n');
       mockPrisma.importJob.findFirst.mockResolvedValue(
         buildMockJob({ import_type: 'staff_compensation' }),
       );
@@ -541,10 +509,7 @@ describe('ImportValidationService', () => {
     });
 
     it('should validate per_class compensation type', async () => {
-      const csv = [
-        'staff_number,compensation_type,amount',
-        'STF001,per_class,100',
-      ].join('\n');
+      const csv = ['staff_number,compensation_type,amount', 'STF001,per_class,100'].join('\n');
       mockPrisma.importJob.findFirst.mockResolvedValue(
         buildMockJob({ import_type: 'staff_compensation' }),
       );
@@ -595,7 +560,8 @@ describe('ImportValidationService', () => {
     });
 
     it('edge: should handle CSV with only headers -> status=failed, error about no data rows', async () => {
-      const csv = 'first_name,last_name,student_number,date_of_birth,year_group_name,gender,nationality';
+      const csv =
+        'first_name,last_name,student_number,date_of_birth,year_group_name,gender,nationality';
       mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob());
       mockS3.download.mockResolvedValue(csvBuffer(csv));
       mockPrisma.importJob.update.mockResolvedValue(undefined);
@@ -658,15 +624,374 @@ describe('ImportValidationService', () => {
     });
 
     it('edge: should handle job with missing file_key -> returns early', async () => {
-      mockPrisma.importJob.findFirst.mockResolvedValue(
-        buildMockJob({ file_key: null }),
-      );
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob({ file_key: null }));
 
       await service.validate(TENANT_ID, JOB_ID);
 
       // Should not attempt S3 download or update the job
       expect(mockS3.download).not.toHaveBeenCalled();
       expect(mockPrisma.importJob.update).not.toHaveBeenCalled();
+    });
+
+    it('edge: should handle job not found -> returns early', async () => {
+      mockPrisma.importJob.findFirst.mockResolvedValue(null);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      expect(mockS3.download).not.toHaveBeenCalled();
+      expect(mockPrisma.importJob.update).not.toHaveBeenCalled();
+    });
+
+    it('edge: should filter out example rows and fail when only examples remain', async () => {
+      const csv = [
+        'first_name,last_name,date_of_birth,gender',
+        'Aisha,Al-Mansour,2015-01-01,female',
+      ].join('\n');
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob());
+      mockS3.download.mockResolvedValue(csvBuffer(csv));
+      mockPrisma.importJob.update.mockResolvedValue(undefined);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      expect(getUpdateStatus()).toBe('failed');
+      const summary = getUpdateSummary();
+      const errors = summary['errors'] as Array<Record<string, unknown>>;
+      expect(errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ error: expect.stringContaining('example rows') }),
+        ]),
+      );
+    });
+
+    it('edge: should handle CSV with Windows-style CRLF line endings', async () => {
+      const csv = ['first_name,last_name,date_of_birth,gender', 'John,Doe,2010-05-15,male'].join(
+        '\r\n',
+      );
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob());
+      mockS3.download.mockResolvedValue(csvBuffer(csv));
+      mockPrisma.importJob.update.mockResolvedValue(undefined);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      expect(getUpdateStatus()).toBe('validated');
+    });
+  });
+
+  // ─── validate() — XLSX file handling ────────────────────────────────────
+
+  describe('validate() — XLSX file detection', () => {
+    it('should detect xlsx file from file_key extension', async () => {
+      mockPrisma.importJob.findFirst.mockResolvedValue(
+        buildMockJob({ file_key: `${TENANT_ID}/imports/${JOB_ID}.xlsx` }),
+      );
+      // Empty buffer will cause xlsx parse to produce empty headers
+      mockS3.download.mockResolvedValue(Buffer.alloc(0));
+      mockPrisma.importJob.update.mockResolvedValue(undefined);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      // Should have been called with failed and no header row error
+      expect(getUpdateStatus()).toBe('failed');
+    });
+  });
+
+  // ─── validate() — student-specific validators ──────────────────────────
+
+  describe('validate() — student row validators', () => {
+    it('should fail row with invalid date format (not YYYY-MM-DD, DD/MM/YYYY, or DD-MM-YYYY)', async () => {
+      const csv = [
+        'first_name,last_name,date_of_birth,gender',
+        'John,Doe,March 15th 2010,male',
+      ].join('\n');
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob());
+      mockS3.download.mockResolvedValue(csvBuffer(csv));
+      mockPrisma.importJob.update.mockResolvedValue(undefined);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      const summary = getUpdateSummary();
+      const errors = summary['errors'] as Array<Record<string, unknown>>;
+      expect(errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'date_of_birth',
+            error: expect.stringContaining('Invalid date format'),
+          }),
+        ]),
+      );
+    });
+
+    it('should fail row with age out of range (too old, >25)', async () => {
+      const csv = ['first_name,last_name,date_of_birth,gender', 'John,Doe,1990-01-01,male'].join(
+        '\n',
+      );
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob());
+      mockS3.download.mockResolvedValue(csvBuffer(csv));
+      mockPrisma.importJob.update.mockResolvedValue(undefined);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      const summary = getUpdateSummary();
+      const errors = summary['errors'] as Array<Record<string, unknown>>;
+      expect(errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'date_of_birth',
+            error: expect.stringContaining('between 3 and 25'),
+          }),
+        ]),
+      );
+    });
+
+    it('should fail row with too young student (< 3 years)', async () => {
+      const csv = ['first_name,last_name,date_of_birth,gender', 'John,Doe,2025-01-01,male'].join(
+        '\n',
+      );
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob());
+      mockS3.download.mockResolvedValue(csvBuffer(csv));
+      mockPrisma.importJob.update.mockResolvedValue(undefined);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      const summary = getUpdateSummary();
+      const errors = summary['errors'] as Array<Record<string, unknown>>;
+      expect(errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'date_of_birth',
+            error: expect.stringContaining('between 3 and 25'),
+          }),
+        ]),
+      );
+    });
+
+    it('should fail row with first_name exceeding 100 characters', async () => {
+      const longName = 'A'.repeat(101);
+      const csv = [
+        'first_name,last_name,date_of_birth,gender',
+        `${longName},Doe,2010-05-15,male`,
+      ].join('\n');
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob());
+      mockS3.download.mockResolvedValue(csvBuffer(csv));
+      mockPrisma.importJob.update.mockResolvedValue(undefined);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      const summary = getUpdateSummary();
+      const errors = summary['errors'] as Array<Record<string, unknown>>;
+      expect(errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'first_name',
+            error: expect.stringContaining('100 characters'),
+          }),
+        ]),
+      );
+    });
+
+    it('should fail row with last_name exceeding 100 characters', async () => {
+      const longName = 'B'.repeat(101);
+      const csv = [
+        'first_name,last_name,date_of_birth,gender',
+        `John,${longName},2010-05-15,male`,
+      ].join('\n');
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob());
+      mockS3.download.mockResolvedValue(csvBuffer(csv));
+      mockPrisma.importJob.update.mockResolvedValue(undefined);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      const summary = getUpdateSummary();
+      const errors = summary['errors'] as Array<Record<string, unknown>>;
+      expect(errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'last_name',
+            error: expect.stringContaining('100 characters'),
+          }),
+        ]),
+      );
+    });
+
+    it('should fail row with invalid parent1_email format', async () => {
+      const csv = [
+        'first_name,last_name,date_of_birth,gender,parent1_email',
+        'John,Doe,2010-05-15,male,not-valid-email',
+      ].join('\n');
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob());
+      mockS3.download.mockResolvedValue(csvBuffer(csv));
+      mockPrisma.importJob.update.mockResolvedValue(undefined);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      const summary = getUpdateSummary();
+      const errors = summary['errors'] as Array<Record<string, unknown>>;
+      expect(errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'parent1_email',
+            error: expect.stringContaining('email'),
+          }),
+        ]),
+      );
+    });
+
+    it('should fail row with invalid parent1_phone format', async () => {
+      const csv = [
+        'first_name,last_name,date_of_birth,gender,parent1_phone',
+        'John,Doe,2010-05-15,male,abc-invalid',
+      ].join('\n');
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob());
+      mockS3.download.mockResolvedValue(csvBuffer(csv));
+      mockPrisma.importJob.update.mockResolvedValue(undefined);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      const summary = getUpdateSummary();
+      const errors = summary['errors'] as Array<Record<string, unknown>>;
+      expect(errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'parent1_phone',
+            error: expect.stringContaining('Phone'),
+          }),
+        ]),
+      );
+    });
+
+    it('should fail row with invalid parent1_relationship', async () => {
+      const csv = [
+        'first_name,last_name,date_of_birth,gender,parent1_relationship',
+        'John,Doe,2010-05-15,male,uncle',
+      ].join('\n');
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob());
+      mockS3.download.mockResolvedValue(csvBuffer(csv));
+      mockPrisma.importJob.update.mockResolvedValue(undefined);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      const summary = getUpdateSummary();
+      const errors = summary['errors'] as Array<Record<string, unknown>>;
+      expect(errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'parent1_relationship',
+            error: expect.stringContaining('father, mother, guardian, other'),
+          }),
+        ]),
+      );
+    });
+
+    it('should accept valid DD-MM-YYYY date format', async () => {
+      const csv = ['first_name,last_name,date_of_birth,gender', 'John,Doe,15-05-2010,male'].join(
+        '\n',
+      );
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob());
+      mockS3.download.mockResolvedValue(csvBuffer(csv));
+      mockPrisma.importJob.update.mockResolvedValue(undefined);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      expect(getUpdateStatus()).toBe('validated');
+    });
+
+    it('should accept m/f as valid gender abbreviations', async () => {
+      const csv = [
+        'first_name,last_name,date_of_birth,gender',
+        'John,Doe,2010-05-15,m',
+        'Jane,Doe,2011-03-20,f',
+      ].join('\n');
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob());
+      mockS3.download.mockResolvedValue(csvBuffer(csv));
+      mockPrisma.importJob.update.mockResolvedValue(undefined);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      expect(getUpdateStatus()).toBe('validated');
+      const summary = getUpdateSummary();
+      expect(summary['successful']).toBe(2);
+    });
+  });
+
+  // ─── validate() — staff_compensation additional branches ────────────────
+
+  describe('validate() — staff_compensation additional', () => {
+    it('should fail row when base_salary is not a number', async () => {
+      const csv = [
+        'staff_number,compensation_type,amount,base_salary,per_class_rate',
+        'STF001,salaried,50000,abc,',
+      ].join('\n');
+      mockPrisma.importJob.findFirst.mockResolvedValue(
+        buildMockJob({ import_type: 'staff_compensation' }),
+      );
+      mockS3.download.mockResolvedValue(csvBuffer(csv));
+      mockPrisma.importJob.update.mockResolvedValue(undefined);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      const summary = getUpdateSummary();
+      const errors = summary['errors'] as Array<Record<string, unknown>>;
+      expect(errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'base_salary',
+            error: expect.stringContaining('number'),
+          }),
+        ]),
+      );
+    });
+
+    it('should fail row when per_class_rate is not a number', async () => {
+      const csv = [
+        'staff_number,compensation_type,amount,base_salary,per_class_rate',
+        'STF001,per_class,100,,xyz',
+      ].join('\n');
+      mockPrisma.importJob.findFirst.mockResolvedValue(
+        buildMockJob({ import_type: 'staff_compensation' }),
+      );
+      mockS3.download.mockResolvedValue(csvBuffer(csv));
+      mockPrisma.importJob.update.mockResolvedValue(undefined);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      const summary = getUpdateSummary();
+      const errors = summary['errors'] as Array<Record<string, unknown>>;
+      expect(errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'per_class_rate',
+            error: expect.stringContaining('number'),
+          }),
+        ]),
+      );
+    });
+  });
+
+  // ─── validate() — staff duplicate email ──────────────────────────────────
+
+  describe('validate() — staff duplicate email', () => {
+    it('should warn on duplicate email in staff import', async () => {
+      const csv = [
+        'first_name,last_name,email',
+        'John,Doe,john@school.com',
+        'Jane,Doe,john@school.com',
+      ].join('\n');
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob({ import_type: 'staff' }));
+      mockS3.download.mockResolvedValue(csvBuffer(csv));
+      mockPrisma.importJob.update.mockResolvedValue(undefined);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      const summary = getUpdateSummary();
+      const warnings = summary['warnings_list'] as Array<Record<string, unknown>>;
+      expect(warnings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'email',
+            warning: expect.stringContaining('Duplicate email'),
+          }),
+        ]),
+      );
     });
   });
 });

@@ -1,6 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, ParentReadFacade, StudentReadFacade } from '../../common/tests/mock-facades';
+import {
+  AdmissionsReadFacade,
+  HouseholdReadFacade,
+  MOCK_FACADE_PROVIDERS,
+  ParentReadFacade,
+  StaffProfileReadFacade,
+  StudentReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { MeilisearchClient } from './meilisearch.client';
@@ -19,6 +26,15 @@ describe('SearchIndexService', () => {
     findById: jest.fn().mockResolvedValue(null),
   };
   const mockParentReadFacade = {
+    findById: jest.fn().mockResolvedValue(null),
+  };
+  const mockStaffProfileReadFacade = {
+    findById: jest.fn().mockResolvedValue(null),
+  };
+  const mockHouseholdReadFacade = {
+    findById: jest.fn().mockResolvedValue(null),
+  };
+  const mockAdmissionsReadFacade = {
     findById: jest.fn().mockResolvedValue(null),
   };
   let mockPrisma: {
@@ -47,6 +63,9 @@ describe('SearchIndexService', () => {
         ...MOCK_FACADE_PROVIDERS,
         { provide: StudentReadFacade, useValue: mockStudentReadFacade },
         { provide: ParentReadFacade, useValue: mockParentReadFacade },
+        { provide: StaffProfileReadFacade, useValue: mockStaffProfileReadFacade },
+        { provide: HouseholdReadFacade, useValue: mockHouseholdReadFacade },
+        { provide: AdmissionsReadFacade, useValue: mockAdmissionsReadFacade },
         SearchIndexService,
         { provide: MeilisearchClient, useValue: mockMeilisearch },
         { provide: PrismaService, useValue: mockPrisma },
@@ -60,7 +79,15 @@ describe('SearchIndexService', () => {
 
   describe('indexEntity()', () => {
     it('should add document to Meilisearch and update status to indexed', async () => {
-      const entity = { id: ENTITY_ID, tenant_id: TENANT_ID, first_name: 'John', last_name: 'Doe', full_name: 'John Doe', student_number: 'STU-001', status: 'active' };
+      const entity = {
+        id: ENTITY_ID,
+        tenant_id: TENANT_ID,
+        first_name: 'John',
+        last_name: 'Doe',
+        full_name: 'John Doe',
+        student_number: 'STU-001',
+        status: 'active',
+      };
 
       await service.indexEntity('students', entity);
 
@@ -147,7 +174,12 @@ describe('SearchIndexService', () => {
     });
 
     it('should format household documents correctly', async () => {
-      const entity = { id: ENTITY_ID, tenant_id: TENANT_ID, household_name: 'Smith Family', status: 'active' };
+      const entity = {
+        id: ENTITY_ID,
+        tenant_id: TENANT_ID,
+        household_name: 'Smith Family',
+        status: 'active',
+      };
 
       await service.indexEntity('households', entity);
 
@@ -167,6 +199,80 @@ describe('SearchIndexService', () => {
 
       // Should not throw — upsert failure after successful indexing is non-blocking
       await expect(service.indexEntity('students', entity)).resolves.toBeUndefined();
+    });
+
+    it('should not throw when upsert in the failure path also fails', async () => {
+      // First call (addDocuments) rejects
+      mockMeilisearch.addDocuments.mockRejectedValue(new Error('Meili down'));
+      // Second call (upsert for search_failed status) also rejects
+      mockPrisma.searchIndexStatus.upsert.mockRejectedValue(new Error('DB also down'));
+
+      const entity = { id: ENTITY_ID, tenant_id: TENANT_ID };
+
+      // Should still throw the original Meilisearch error
+      await expect(service.indexEntity('students', entity)).rejects.toThrow('Meili down');
+    });
+
+    it('should format application documents correctly', async () => {
+      const entity = {
+        id: ENTITY_ID,
+        tenant_id: TENANT_ID,
+        student_first_name: 'Ali',
+        student_last_name: 'Hassan',
+        application_number: 'APP-001',
+        status: 'submitted',
+      };
+
+      await service.indexEntity('applications', entity);
+
+      expect(mockMeilisearch.addDocuments).toHaveBeenCalledWith('applications', [
+        {
+          id: ENTITY_ID,
+          tenant_id: TENANT_ID,
+          student_first_name: 'Ali',
+          student_last_name: 'Hassan',
+          application_number: 'APP-001',
+          status: 'submitted',
+        },
+      ]);
+    });
+
+    it('should format unknown entity type with only base fields', async () => {
+      const entity = {
+        id: ENTITY_ID,
+        tenant_id: TENANT_ID,
+        custom_field: 'value',
+      };
+
+      await service.indexEntity('unknown_type', entity);
+
+      expect(mockMeilisearch.addDocuments).toHaveBeenCalledWith('unknown_type', [
+        { id: ENTITY_ID, tenant_id: TENANT_ID },
+      ]);
+    });
+
+    it('should format staff documents with undefined user', async () => {
+      const entity = {
+        id: ENTITY_ID,
+        tenant_id: TENANT_ID,
+        job_title: 'Janitor',
+        department: 'Facilities',
+        employment_status: 'active',
+      };
+
+      await service.indexEntity('staff', entity);
+
+      expect(mockMeilisearch.addDocuments).toHaveBeenCalledWith('staff', [
+        {
+          id: ENTITY_ID,
+          tenant_id: TENANT_ID,
+          first_name: undefined,
+          last_name: undefined,
+          job_title: 'Janitor',
+          department: 'Facilities',
+          employment_status: 'active',
+        },
+      ]);
     });
   });
 
@@ -270,6 +376,113 @@ describe('SearchIndexService', () => {
       // fetchEntity returns null for unknown type, so it counts as failed
       expect(result.reindexed).toBe(0);
       expect(result.failed).toBe(1);
+    });
+
+    it('should reindex staff entities via staffProfileReadFacade', async () => {
+      const pendingRecord = {
+        id: 'status-staff',
+        tenant_id: TENANT_ID,
+        entity_type: 'staff',
+        entity_id: 'staff-1',
+        index_status: 'pending',
+      };
+      mockPrisma.searchIndexStatus.findMany.mockResolvedValue([pendingRecord]);
+      mockStaffProfileReadFacade.findById.mockResolvedValue({
+        id: 'staff-1',
+        tenant_id: TENANT_ID,
+        user: { first_name: 'A', last_name: 'B' },
+        job_title: 'T',
+        department: 'D',
+        employment_status: 'active',
+      });
+
+      const result = await service.reconcile(TENANT_ID);
+
+      expect(mockStaffProfileReadFacade.findById).toHaveBeenCalledWith(TENANT_ID, 'staff-1');
+      expect(result.reindexed).toBe(1);
+      expect(result.failed).toBe(0);
+    });
+
+    it('should reindex household entities via householdReadFacade', async () => {
+      const pendingRecord = {
+        id: 'status-hh',
+        tenant_id: TENANT_ID,
+        entity_type: 'households',
+        entity_id: 'hh-1',
+        index_status: 'pending',
+      };
+      mockPrisma.searchIndexStatus.findMany.mockResolvedValue([pendingRecord]);
+      mockHouseholdReadFacade.findById.mockResolvedValue({
+        id: 'hh-1',
+        tenant_id: TENANT_ID,
+        household_name: 'Test Family',
+        status: 'active',
+      });
+
+      const result = await service.reconcile(TENANT_ID);
+
+      expect(mockHouseholdReadFacade.findById).toHaveBeenCalledWith(TENANT_ID, 'hh-1');
+      expect(result.reindexed).toBe(1);
+      expect(result.failed).toBe(0);
+    });
+
+    it('should reindex application entities via admissionsReadFacade', async () => {
+      const pendingRecord = {
+        id: 'status-app',
+        tenant_id: TENANT_ID,
+        entity_type: 'applications',
+        entity_id: 'app-1',
+        index_status: 'pending',
+      };
+      mockPrisma.searchIndexStatus.findMany.mockResolvedValue([pendingRecord]);
+      mockAdmissionsReadFacade.findById.mockResolvedValue({
+        id: 'app-1',
+        tenant_id: TENANT_ID,
+        student_first_name: 'Ali',
+        student_last_name: 'Hassan',
+        application_number: 'APP-001',
+        status: 'submitted',
+      });
+
+      const result = await service.reconcile(TENANT_ID);
+
+      expect(mockAdmissionsReadFacade.findById).toHaveBeenCalledWith(TENANT_ID, 'app-1');
+      expect(result.reindexed).toBe(1);
+      expect(result.failed).toBe(0);
+    });
+
+    it('should handle multiple pending records with mixed outcomes', async () => {
+      const records = [
+        {
+          id: 's1',
+          tenant_id: TENANT_ID,
+          entity_type: 'students',
+          entity_id: 'stu-1',
+          index_status: 'pending',
+        },
+        {
+          id: 's2',
+          tenant_id: TENANT_ID,
+          entity_type: 'parents',
+          entity_id: 'p-1',
+          index_status: 'search_failed',
+        },
+        {
+          id: 's3',
+          tenant_id: TENANT_ID,
+          entity_type: 'unknown_type',
+          entity_id: 'x-1',
+          index_status: 'pending',
+        },
+      ];
+      mockPrisma.searchIndexStatus.findMany.mockResolvedValue(records);
+      mockStudentReadFacade.findById.mockResolvedValue({ id: 'stu-1', tenant_id: TENANT_ID });
+      mockParentReadFacade.findById.mockResolvedValue(null); // entity no longer exists
+
+      const result = await service.reconcile(TENANT_ID);
+
+      expect(result.reindexed).toBe(1); // students reindexed
+      expect(result.failed).toBe(2); // parents (entity gone) + unknown (null from fetchEntity)
     });
   });
 });

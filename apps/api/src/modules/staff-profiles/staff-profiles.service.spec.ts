@@ -221,6 +221,109 @@ describe('StaffProfilesService — create', () => {
       }),
     );
   });
+
+  it('should create membership for existing user without one', async () => {
+    mockRlsTx.user.findUnique.mockResolvedValue({ id: USER_ID });
+    mockRlsTx.staffProfile.findFirst.mockResolvedValue(null); // no existing profile
+    mockRlsTx.tenantMembership.findUnique.mockReset().mockResolvedValue(null); // no membership
+
+    await service.create(TENANT_ID, baseCreateDto);
+
+    expect(mockRlsTx.tenantMembership.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          user_id: USER_ID,
+        }),
+      }),
+    );
+    expect(mockRlsTx.membershipRole.create).toHaveBeenCalled();
+  });
+
+  it('should skip membership creation for existing user who already has one', async () => {
+    mockRlsTx.user.findUnique.mockResolvedValue({ id: USER_ID });
+    mockRlsTx.staffProfile.findFirst.mockResolvedValue(null); // no existing profile
+    mockRlsTx.tenantMembership.findUnique.mockReset().mockResolvedValue({ id: 'mem-existing' });
+
+    await service.create(TENANT_ID, baseCreateDto);
+
+    // Membership create should NOT be called since one already exists
+    expect(mockRlsTx.tenantMembership.create).not.toHaveBeenCalled();
+  });
+
+  it('should retry staff number generation on collision', async () => {
+    // First findFirst call returns existing (collision), second returns null
+    mockRlsTx.staffProfile.findFirst
+      .mockResolvedValueOnce({ id: 'existing' }) // collision on staff number
+      .mockResolvedValueOnce(null); // unique
+    mockRlsTx.user.findUnique.mockResolvedValue(null);
+
+    await service.create(TENANT_ID, baseCreateDto);
+
+    expect(mockRlsTx.staffProfile.create).toHaveBeenCalled();
+  });
+
+  it('should throw ConflictException on P2002 Prisma error during create', async () => {
+    const rlsMod = jest.requireMock('../../common/middleware/rls.middleware') as {
+      createRlsClient: jest.Mock;
+    };
+
+    const prismaError = new (
+      jest.requireActual('@prisma/client') as {
+        Prisma: {
+          PrismaClientKnownRequestError: new (
+            msg: string,
+            opts: { code: string; clientVersion: string },
+          ) => Error;
+        };
+      }
+    ).Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+      code: 'P2002',
+      clientVersion: '5.0.0',
+    });
+
+    rlsMod.createRlsClient.mockReturnValue({
+      $transaction: jest.fn().mockRejectedValue(prismaError),
+    });
+
+    await expect(service.create(TENANT_ID, baseCreateDto)).rejects.toThrow(ConflictException);
+
+    // Restore original mock
+    rlsMod.createRlsClient.mockReturnValue({
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    });
+  });
+
+  it('should re-throw non-P2002 errors during create', async () => {
+    const rlsMod = jest.requireMock('../../common/middleware/rls.middleware') as {
+      createRlsClient: jest.Mock;
+    };
+
+    rlsMod.createRlsClient.mockReturnValue({
+      $transaction: jest.fn().mockRejectedValue(new Error('DB down')),
+    });
+
+    await expect(service.create(TENANT_ID, baseCreateDto)).rejects.toThrow('DB down');
+
+    // Restore original mock
+    rlsMod.createRlsClient.mockReturnValue({
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    });
+  });
+
+  it('should encrypt only bank_iban when no bank_account_number', async () => {
+    await service.create(TENANT_ID, {
+      ...baseCreateDto,
+      bank_iban: 'IE29AIBK93115212345678',
+    });
+
+    expect(mockEncryption.encrypt).toHaveBeenCalledTimes(1);
+    expect(mockEncryption.encrypt).toHaveBeenCalledWith('IE29AIBK93115212345678');
+  });
 });
 
 describe('StaffProfilesService — findAll', () => {
@@ -294,6 +397,29 @@ describe('StaffProfilesService — findAll', () => {
       .mock.results[0]?.value;
     expect(txFn).toBeDefined();
   });
+
+  it('should filter by department when provided', async () => {
+    mockRlsTx.staffProfile.findMany.mockResolvedValue([]);
+    mockRlsTx.staffProfile.count.mockResolvedValue(0);
+
+    const result = await service.findAll(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+      department: 'Science',
+    });
+
+    expect(result.data).toHaveLength(0);
+    expect(result.meta.total).toBe(0);
+  });
+
+  it('should filter by search term across user first/last name', async () => {
+    mockRlsTx.staffProfile.findMany.mockResolvedValue([]);
+    mockRlsTx.staffProfile.count.mockResolvedValue(0);
+
+    const result = await service.findAll(TENANT_ID, { page: 1, pageSize: 20, search: 'Alice' });
+
+    expect(result.data).toHaveLength(0);
+  });
 });
 
 describe('StaffProfilesService — findOne', () => {
@@ -358,6 +484,30 @@ describe('StaffProfilesService — findOne', () => {
     mockRlsTx.staffProfile.findFirst.mockReset().mockResolvedValue(null);
 
     await expect(service.findOne(TENANT_ID, STAFF_ID)).rejects.toThrow(NotFoundException);
+  });
+
+  it('should return null subject_name when class has no subject', async () => {
+    const profileNoSubject = {
+      ...baseStaffProfile,
+      class_staff: [
+        {
+          class_id: 'class-2',
+          staff_profile_id: STAFF_ID,
+          assignment_role: 'homeroom',
+          class_entity: {
+            id: 'class-2',
+            name: '10B',
+            academic_year: { name: '2025/2026' },
+            subject: null,
+          },
+        },
+      ],
+    };
+    mockRlsTx.staffProfile.findFirst.mockReset().mockResolvedValue(profileNoSubject);
+
+    const result = await service.findOne(TENANT_ID, STAFF_ID);
+
+    expect(result.class_assignments[0]!.subject_name).toBeNull();
   });
 });
 
@@ -426,6 +576,50 @@ describe('StaffProfilesService — update', () => {
 
     expect(mockRedis._client.del).toHaveBeenCalledWith(`preview:staff:${STAFF_ID}`);
   });
+
+  it('should clear bank_account_number when set to empty', async () => {
+    mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_ID });
+
+    await service.update(TENANT_ID, STAFF_ID, { bank_account_number: '' } as never);
+
+    expect(mockRlsTx.staffProfile.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          bank_account_number_encrypted: null,
+        }),
+      }),
+    );
+  });
+
+  it('should encrypt bank_iban when updated', async () => {
+    mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_ID });
+
+    await service.update(TENANT_ID, STAFF_ID, { bank_iban: 'IE29AIBK12345678' } as never);
+
+    expect(mockEncryption.encrypt).toHaveBeenCalledWith('IE29AIBK12345678');
+    expect(mockRlsTx.staffProfile.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          bank_iban_encrypted: 'enc-data',
+          bank_encryption_key_ref: 'key-1',
+        }),
+      }),
+    );
+  });
+
+  it('should clear bank_iban when set to empty', async () => {
+    mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_ID });
+
+    await service.update(TENANT_ID, STAFF_ID, { bank_iban: '' } as never);
+
+    expect(mockRlsTx.staffProfile.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          bank_iban_encrypted: null,
+        }),
+      }),
+    );
+  });
 });
 
 describe('StaffProfilesService — getBankDetails', () => {
@@ -482,6 +676,22 @@ describe('StaffProfilesService — getBankDetails', () => {
     mockRlsTx.staffProfile.findFirst.mockReset().mockResolvedValue(null);
 
     await expect(service.getBankDetails(TENANT_ID, STAFF_ID)).rejects.toThrow(NotFoundException);
+  });
+
+  it('should return null masked fields when no encrypted bank data stored', async () => {
+    mockRlsTx.staffProfile.findFirst.mockReset().mockResolvedValue({
+      id: STAFF_ID,
+      bank_name: null,
+      bank_account_number_encrypted: null,
+      bank_iban_encrypted: null,
+      bank_encryption_key_ref: null,
+    });
+
+    const result = await service.getBankDetails(TENANT_ID, STAFF_ID);
+
+    expect(result.bank_account_number_masked).toBeNull();
+    expect(result.bank_iban_masked).toBeNull();
+    expect(mockEncryption.decrypt).not.toHaveBeenCalled();
   });
 });
 
@@ -569,5 +779,42 @@ describe('StaffProfilesService — preview', () => {
     mockRlsTx.staffProfile.findFirst.mockReset().mockResolvedValue(null);
 
     await expect(service.preview(TENANT_ID, STAFF_ID)).rejects.toThrow(NotFoundException);
+  });
+
+  it('should use department as secondary_label when job_title is null', async () => {
+    mockRedis._client.get.mockResolvedValue(null);
+    mockRlsTx.staffProfile.findFirst.mockReset().mockResolvedValue({
+      ...profileForPreview,
+      job_title: null,
+    });
+
+    const result = await service.preview(TENANT_ID, STAFF_ID);
+
+    expect(result.secondary_label).toBe('Science');
+  });
+
+  it('should omit staff number fact when staff_number is null', async () => {
+    mockRedis._client.get.mockResolvedValue(null);
+    mockRlsTx.staffProfile.findFirst.mockReset().mockResolvedValue({
+      ...profileForPreview,
+      staff_number: null,
+    });
+
+    const result = await service.preview(TENANT_ID, STAFF_ID);
+
+    expect(result.facts.find((f: { label: string }) => f.label === 'Staff Number')).toBeUndefined();
+  });
+
+  it('should return empty secondary_label when both job_title and department are null', async () => {
+    mockRedis._client.get.mockResolvedValue(null);
+    mockRlsTx.staffProfile.findFirst.mockReset().mockResolvedValue({
+      ...profileForPreview,
+      job_title: null,
+      department: null,
+    });
+
+    const result = await service.preview(TENANT_ID, STAFF_ID);
+
+    expect(result.secondary_label).toBe('');
   });
 });
