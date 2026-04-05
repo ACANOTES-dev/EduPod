@@ -602,9 +602,9 @@ describe('PeriodGridService', () => {
       period_order: 1,
       start_time: '08:00',
       end_time: '08:45',
-      schedule_period_type: 'break' as const,
+      schedule_period_type: 'break_supervision' as const,
       period_name_ar: 'استراحة',
-      supervision_mode: 'supervised' as const,
+      supervision_mode: 'yard' as const,
       break_group_id: 'bg-1',
     };
 
@@ -614,7 +614,7 @@ describe('PeriodGridService', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           period_name_ar: 'استراحة',
-          supervision_mode: 'supervised',
+          supervision_mode: 'yard',
           break_group_id: 'bg-1',
         }),
       }),
@@ -723,8 +723,8 @@ describe('PeriodGridService', () => {
       period_order: 2,
       start_time: '07:30',
       end_time: '08:15',
-      schedule_period_type: 'break',
-      supervision_mode: 'supervised',
+      schedule_period_type: 'break_supervision',
+      supervision_mode: 'yard',
       break_group_id: 'bg-update',
     });
 
@@ -735,8 +735,8 @@ describe('PeriodGridService', () => {
           period_name: 'Updated',
           period_name_ar: 'محدث',
           period_order: 2,
-          schedule_period_type: 'break',
-          supervision_mode: 'supervised',
+          schedule_period_type: 'break_supervision',
+          supervision_mode: 'yard',
           break_group_id: 'bg-update',
         }),
       }),

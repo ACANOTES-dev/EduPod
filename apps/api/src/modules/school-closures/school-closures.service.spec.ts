@@ -63,9 +63,22 @@ describe('SchoolClosuresService', () => {
   let service: SchoolClosuresService;
   let mockDb: ReturnType<typeof makeMockDb>;
   let mockPrisma: ReturnType<typeof makeMockPrisma>;
-  let mockAcademicFacade: Record<string, jest.Mock>;
-  let mockClassesFacade: Record<string, jest.Mock>;
-  let mockAttendanceFacade: Record<string, jest.Mock>;
+  let mockAcademicFacade: {
+    findYearGroupById: jest.Mock;
+    findAllYearGroups: jest.Mock;
+    [key: string]: jest.Mock;
+  };
+  let mockClassesFacade: {
+    findById: jest.Mock;
+    findNamesByIds: jest.Mock;
+    findIdsByYearGroup: jest.Mock;
+    findYearGroupId: jest.Mock;
+    [key: string]: jest.Mock;
+  };
+  let mockAttendanceFacade: {
+    findSessionsGeneric: jest.Mock;
+    [key: string]: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockDb = makeMockDb();

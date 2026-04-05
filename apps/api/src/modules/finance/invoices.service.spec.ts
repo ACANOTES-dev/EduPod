@@ -681,10 +681,11 @@ describe('InvoicesService', () => {
       // findOne
       mockPrisma.invoice.findFirst.mockResolvedValue(makeInvoice());
 
+      // Runtime: service checks `if (dto.expected_updated_at)` — omitting it skips the check
+      const dto = { due_date: '2026-05-01' } as unknown as Parameters<typeof service.update>[2];
+
       // Should not throw ConflictException
-      await expect(
-        service.update(TENANT_ID, INVOICE_ID, { due_date: '2026-05-01' }),
-      ).resolves.toBeDefined();
+      await expect(service.update(TENANT_ID, INVOICE_ID, dto)).resolves.toBeDefined();
     });
   });
 

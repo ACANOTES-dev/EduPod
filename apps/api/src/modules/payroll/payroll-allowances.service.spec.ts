@@ -163,12 +163,14 @@ describe('PayrollAllowancesService', () => {
       await expect(
         service.createAllowanceType(TENANT_ID, {
           name: 'Housing',
+          is_recurring: true,
         }),
       ).rejects.toThrow(ConflictException);
 
       await expect(
         service.createAllowanceType(TENANT_ID, {
           name: 'Housing',
+          is_recurring: true,
         }),
       ).rejects.toMatchObject({
         response: expect.objectContaining({ code: 'ALLOWANCE_TYPE_NAME_CONFLICT' }),
@@ -224,6 +226,7 @@ describe('PayrollAllowancesService', () => {
 
       await service.createAllowanceType(TENANT_ID, {
         name: 'Transport',
+        is_recurring: true,
       });
 
       expect(mockCreate).toHaveBeenCalledWith(

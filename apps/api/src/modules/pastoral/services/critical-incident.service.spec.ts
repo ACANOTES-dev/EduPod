@@ -1040,8 +1040,8 @@ describe('CriticalIncidentService', () => {
       await service.list(TENANT_ID, { status: 'nonexistent_status' }, 1, 20);
 
       // STATUS_TO_PRISMA has no mapping for nonexistent, so no status filter applied
-      const calledWith = mockRlsTx.criticalIncident.findMany.mock.calls[0]![0];
-      expect((calledWith as Record<string, Record<string, unknown>>).where.status).toBeUndefined();
+      const calledWith = mockRlsTx.criticalIncident.findMany.mock.calls[0]![0]!;
+      expect((calledWith as Record<string, Record<string, unknown>>).where!.status).toBeUndefined();
     });
   });
 

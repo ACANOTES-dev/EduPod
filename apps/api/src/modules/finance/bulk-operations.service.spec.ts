@@ -149,6 +149,7 @@ describe('BulkOperationsService', () => {
 
       const result = await service.bulkExport(TENANT_ID, {
         invoice_ids: [INVOICE_1],
+        format: 'csv',
       });
 
       expect(result.format).toBe('csv');

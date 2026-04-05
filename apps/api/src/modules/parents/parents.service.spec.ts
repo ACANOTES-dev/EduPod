@@ -233,7 +233,7 @@ describe('ParentsService — create', () => {
     const minimalDto = {
       first_name: 'Bob',
       last_name: 'Jones',
-      preferred_contact_channels: ['sms' as const],
+      preferred_contact_channels: ['email' as const],
     };
 
     await service.create(TENANT_ID, minimalDto);
@@ -468,12 +468,12 @@ describe('ParentsService — update', () => {
 
   it('should include preferred_contact_channels in update data when provided', async () => {
     await service.update(TENANT_ID, PARENT_ID, {
-      preferred_contact_channels: ['sms', 'email'],
+      preferred_contact_channels: ['whatsapp', 'email'],
     });
 
     expect(mockRlsTx.parent.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ preferred_contact_channels: ['sms', 'email'] }),
+        data: expect.objectContaining({ preferred_contact_channels: ['whatsapp', 'email'] }),
       }),
     );
   });

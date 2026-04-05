@@ -544,6 +544,8 @@ describe('InterventionActionService', () => {
       mockRlsTx.pastoralInterventionAction.count.mockResolvedValue(0);
 
       const result = await service.listAllActions(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
         sort: 'due_date',
         order: 'asc',
       });

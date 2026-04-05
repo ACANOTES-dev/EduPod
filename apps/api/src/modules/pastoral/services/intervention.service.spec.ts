@@ -876,6 +876,8 @@ describe('InterventionService', () => {
       await service.listInterventions(TENANT_ID, {
         page: 1,
         pageSize: 20,
+        sort: 'created_at',
+        order: 'desc',
         case_id: CASE_ID,
       });
 
@@ -895,6 +897,8 @@ describe('InterventionService', () => {
       await service.listInterventions(TENANT_ID, {
         page: 1,
         pageSize: 20,
+        sort: 'created_at',
+        order: 'desc',
         student_id: STUDENT_ID,
       });
 
@@ -914,13 +918,15 @@ describe('InterventionService', () => {
       await service.listInterventions(TENANT_ID, {
         page: 1,
         pageSize: 20,
-        status: 'pc_active',
+        sort: 'created_at',
+        order: 'desc',
+        status: 'active',
       });
 
       expect(mockRlsTx.pastoralIntervention.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            status: 'pc_active',
+            status: 'active',
           }),
         }),
       );
@@ -933,6 +939,8 @@ describe('InterventionService', () => {
       await service.listInterventions(TENANT_ID, {
         page: 1,
         pageSize: 20,
+        sort: 'created_at',
+        order: 'desc',
         continuum_level: 3,
       });
 
@@ -949,7 +957,12 @@ describe('InterventionService', () => {
       mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([]);
       mockRlsTx.pastoralIntervention.count.mockResolvedValue(0);
 
-      const result = await service.listInterventions(TENANT_ID, {});
+      const result = await service.listInterventions(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        sort: 'created_at',
+        order: 'desc',
+      });
 
       expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 0 });
     });
@@ -967,6 +980,8 @@ describe('InterventionService', () => {
       const result = await service.listInterventions(TENANT_ID, {
         page: 1,
         pageSize: 20,
+        sort: 'created_at',
+        order: 'desc',
       });
 
       expect(result.data[0]!.student_name).toBeNull();
@@ -1225,12 +1240,7 @@ describe('InterventionService', () => {
       mockRlsTx.tenantSetting.findUnique.mockResolvedValue(makeTenantSettings());
       mockRlsTx.pastoralIntervention.create.mockResolvedValue(makeIntervention());
 
-      const dtoWithoutReviewCycle = {
-        ...baseCreateDto,
-        review_cycle_weeks: undefined,
-      };
-
-      await service.createIntervention(TENANT_ID, dtoWithoutReviewCycle, ACTOR_USER_ID);
+      await service.createIntervention(TENANT_ID, baseCreateDto, ACTOR_USER_ID);
 
       expect(mockRlsTx.pastoralIntervention.create).toHaveBeenCalledWith({
         data: expect.objectContaining({

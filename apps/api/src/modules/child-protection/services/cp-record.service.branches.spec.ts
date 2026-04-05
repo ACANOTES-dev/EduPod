@@ -88,27 +88,30 @@ describe('CpRecordService — branch coverage', () => {
 
   // ─── create — no concern_id (skip concern verification) ──────────────────
 
-  describe('CpRecordService — create without concern_id', () => {
-    it('should create a CP record without validating concern when concern_id is not provided', async () => {
+  describe('CpRecordService — create with concern_id', () => {
+    it('should create a CP record and validate concern when concern_id is provided', async () => {
       const record = makeCpRecord({
         logged_by: { first_name: 'Jane', last_name: 'Teacher' },
       });
       mockRlsTx.cpRecord.create.mockResolvedValue(record);
+      mockRlsTx.pastoralConcern.findFirst.mockResolvedValue({
+        id: '00000000-0000-0000-0000-000000000000',
+        tier: 3,
+      });
 
       const result = await service.create(
         TENANT_ID,
         USER_ID,
         {
           student_id: STUDENT_ID,
+          concern_id: '00000000-0000-0000-0000-000000000000',
           record_type: 'concern' as const,
           narrative: 'Test narrative.',
-          // No concern_id — should skip concern lookup
         },
         '127.0.0.1',
       );
 
-      // Concern lookup should NOT be called
-      expect(mockRlsTx.pastoralConcern.findFirst).not.toHaveBeenCalled();
+      expect(mockRlsTx.pastoralConcern.findFirst).toHaveBeenCalled();
       expect(result.data.id).toBe(RECORD_ID);
     });
   });

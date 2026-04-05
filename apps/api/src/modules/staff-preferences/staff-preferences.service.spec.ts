@@ -304,6 +304,7 @@ describe('StaffPreferencesService', () => {
     const dto = {
       staff_profile_id: STAFF_ID,
       academic_year_id: ACADEMIC_YEAR_ID,
+      priority: 'medium' as const,
       preference_payload: {
         type: 'subject' as const,
         subject_ids: ['sub-1'],
@@ -324,6 +325,7 @@ describe('StaffPreferencesService', () => {
     const dto = {
       staff_profile_id: 'other-staff-id',
       academic_year_id: ACADEMIC_YEAR_ID,
+      priority: 'medium' as const,
       preference_payload: {
         type: 'subject' as const,
         subject_ids: ['sub-1'],
@@ -342,6 +344,7 @@ describe('StaffPreferencesService', () => {
     const dto = {
       staff_profile_id: STAFF_ID,
       academic_year_id: ACADEMIC_YEAR_ID,
+      priority: 'medium' as const,
       preference_payload: {
         type: 'subject' as const,
         subject_ids: ['sub-1'],
@@ -372,12 +375,12 @@ describe('StaffPreferencesService', () => {
     const dto = {
       staff_profile_id: STAFF_ID,
       academic_year_id: ACADEMIC_YEAR_ID,
+      priority: 'medium' as const,
       preference_payload: {
         type: 'subject' as const,
         subject_ids: ['sub-1'],
         mode: 'prefer' as const,
       },
-      // no priority — should default to 'medium'
     };
 
     await service.create(TENANT_ID, USER_ID, dto, ['schedule.manage_preferences']);
@@ -457,7 +460,12 @@ describe('StaffPreferencesService', () => {
       USER_ID,
       PREF_ID,
       {
-        preference_payload: { type: 'day_off' as const, weekday: 5, mode: 'avoid' as const },
+        preference_payload: {
+          type: 'time_slot' as const,
+          weekday: 5,
+          preferred_period_orders: [1],
+          mode: 'avoid' as const,
+        },
       },
       ['schedule.manage_preferences'],
     );
@@ -465,8 +473,8 @@ describe('StaffPreferencesService', () => {
     expect(mockTx.staffSchedulingPreference.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          preference_type: 'day_off',
-          preference_payload: expect.objectContaining({ type: 'day_off' }),
+          preference_type: 'time_slot',
+          preference_payload: expect.objectContaining({ type: 'time_slot' }),
         }),
       }),
     );

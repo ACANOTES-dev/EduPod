@@ -8,6 +8,7 @@ import {
   mapConcernRowToDetail,
   mapConcernRowToListItem,
 } from './concern.helpers';
+import type { ConcernRow } from './concern.types';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 

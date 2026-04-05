@@ -67,11 +67,11 @@ describe('MeilisearchClient', () => {
       const timer = setInterval(() => {
         /* noop */
       }, 100_000);
-      (client as Record<string, unknown>)['recheckTimer'] = timer;
+      (client as unknown as Record<string, unknown>)['recheckTimer'] = timer;
 
       client.onModuleDestroy();
 
-      expect((client as Record<string, unknown>)['recheckTimer']).toBeNull();
+      expect((client as unknown as Record<string, unknown>)['recheckTimer']).toBeNull();
     });
   });
 
@@ -120,18 +120,18 @@ describe('MeilisearchClient', () => {
     it('should start recheck timer when client exists but is not available (line 47-48)', () => {
       // Simulate: client is set (not null) but _available is false
       // This triggers startRecheckTimer
-      (client as Record<string, unknown>)['_available'] = false;
-      (client as Record<string, unknown>)['client'] = { health: jest.fn() };
+      (client as unknown as Record<string, unknown>)['_available'] = false;
+      (client as unknown as Record<string, unknown>)['client'] = { health: jest.fn() };
 
       // Access the private method indirectly by calling onModuleInit-like scenario
       // Actually, let's call startRecheckTimer directly via bracket access
       const startRecheckTimer = (client as unknown as Record<string, () => void>)[
         'startRecheckTimer'
-      ].bind(client);
+      ]!.bind(client);
       startRecheckTimer();
 
       // Timer should have been set
-      expect((client as Record<string, unknown>)['recheckTimer']).not.toBeNull();
+      expect((client as unknown as Record<string, unknown>)['recheckTimer']).not.toBeNull();
 
       // Cleanup
       client.onModuleDestroy();
@@ -141,33 +141,33 @@ describe('MeilisearchClient', () => {
       const existingTimer = setInterval(() => {
         /* noop */
       }, 100_000);
-      (client as Record<string, unknown>)['recheckTimer'] = existingTimer;
-      (client as Record<string, unknown>)['_available'] = false;
-      (client as Record<string, unknown>)['client'] = { health: jest.fn() };
+      (client as unknown as Record<string, unknown>)['recheckTimer'] = existingTimer;
+      (client as unknown as Record<string, unknown>)['_available'] = false;
+      (client as unknown as Record<string, unknown>)['client'] = { health: jest.fn() };
 
       const startRecheckTimer = (client as unknown as Record<string, () => void>)[
         'startRecheckTimer'
-      ].bind(client);
+      ]!.bind(client);
       startRecheckTimer();
 
       // Timer should still be the same one (not replaced)
-      expect((client as Record<string, unknown>)['recheckTimer']).toBe(existingTimer);
+      expect((client as unknown as Record<string, unknown>)['recheckTimer']).toBe(existingTimer);
 
       // Cleanup
       clearInterval(existingTimer);
-      (client as Record<string, unknown>)['recheckTimer'] = null;
+      (client as unknown as Record<string, unknown>)['recheckTimer'] = null;
     });
 
     it('should recover and clear timer when health check succeeds in recheck', async () => {
       jest.useFakeTimers();
 
       const mockHealth = jest.fn().mockResolvedValue({});
-      (client as Record<string, unknown>)['_available'] = false;
-      (client as Record<string, unknown>)['client'] = { health: mockHealth };
+      (client as unknown as Record<string, unknown>)['_available'] = false;
+      (client as unknown as Record<string, unknown>)['client'] = { health: mockHealth };
 
       const startRecheckTimer = (client as unknown as Record<string, () => void>)[
         'startRecheckTimer'
-      ].bind(client);
+      ]!.bind(client);
       startRecheckTimer();
 
       expect(client.available).toBe(false);
@@ -181,7 +181,7 @@ describe('MeilisearchClient', () => {
 
       expect(mockHealth).toHaveBeenCalled();
       expect(client.available).toBe(true);
-      expect((client as Record<string, unknown>)['recheckTimer']).toBeNull();
+      expect((client as unknown as Record<string, unknown>)['recheckTimer']).toBeNull();
 
       jest.useRealTimers();
     });
@@ -190,12 +190,12 @@ describe('MeilisearchClient', () => {
       jest.useFakeTimers();
 
       const mockHealth = jest.fn().mockRejectedValue(new Error('still down'));
-      (client as Record<string, unknown>)['_available'] = false;
-      (client as Record<string, unknown>)['client'] = { health: mockHealth };
+      (client as unknown as Record<string, unknown>)['_available'] = false;
+      (client as unknown as Record<string, unknown>)['client'] = { health: mockHealth };
 
       const startRecheckTimer = (client as unknown as Record<string, () => void>)[
         'startRecheckTimer'
-      ].bind(client);
+      ]!.bind(client);
       startRecheckTimer();
 
       // Advance timer by 60 seconds
@@ -208,7 +208,7 @@ describe('MeilisearchClient', () => {
       expect(mockHealth).toHaveBeenCalled();
       expect(client.available).toBe(false);
       // Timer should still be running
-      expect((client as Record<string, unknown>)['recheckTimer']).not.toBeNull();
+      expect((client as unknown as Record<string, unknown>)['recheckTimer']).not.toBeNull();
 
       // Cleanup
       client.onModuleDestroy();
@@ -229,9 +229,9 @@ describe('MeilisearchClient', () => {
       };
       // Force internal state to simulate connected Meilisearch
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (client as Record<string, unknown>)['_available'] = true;
+      (client as unknown as Record<string, unknown>)['_available'] = true;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (client as Record<string, unknown>)['client'] = mockMeiliClient;
+      (client as unknown as Record<string, unknown>)['client'] = mockMeiliClient;
     });
 
     it('should delegate search to the internal meili client', async () => {
@@ -276,8 +276,8 @@ describe('MeilisearchClient', () => {
       mockMeiliClient = {
         index: jest.fn(),
       };
-      (client as Record<string, unknown>)['_available'] = true;
-      (client as Record<string, unknown>)['client'] = mockMeiliClient;
+      (client as unknown as Record<string, unknown>)['_available'] = true;
+      (client as unknown as Record<string, unknown>)['client'] = mockMeiliClient;
     });
 
     it('should add documents via the internal client', async () => {
@@ -309,8 +309,8 @@ describe('MeilisearchClient', () => {
       mockMeiliClient = {
         index: jest.fn(),
       };
-      (client as Record<string, unknown>)['_available'] = true;
-      (client as Record<string, unknown>)['client'] = mockMeiliClient;
+      (client as unknown as Record<string, unknown>)['_available'] = true;
+      (client as unknown as Record<string, unknown>)['client'] = mockMeiliClient;
     });
 
     it('should delete a document via the internal client', async () => {

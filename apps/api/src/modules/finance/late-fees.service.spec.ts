@@ -159,6 +159,8 @@ describe('LateFeesService', () => {
         name: 'Minimal',
         fee_type: 'fixed',
         value: 25,
+        grace_period_days: 0,
+        max_applications: 1,
       });
 
       expect(mockPrisma.lateFeeConfig.create).toHaveBeenCalledWith(

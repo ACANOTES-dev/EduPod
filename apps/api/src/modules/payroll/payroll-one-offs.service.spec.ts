@@ -204,16 +204,16 @@ describe('PayrollOneOffsService', () => {
     it('should update item_type when provided', async () => {
       prisma.payrollOneOffItem.update = jest.fn().mockResolvedValue({
         ...mockItem,
-        item_type: 'deduction',
+        item_type: 'other',
       });
 
       await service.updateOneOffItem(TENANT_ID, ITEM_ID, {
-        item_type: 'deduction',
+        item_type: 'other',
       });
 
       expect(prisma.payrollOneOffItem.update).toHaveBeenCalledWith({
         where: { id: ITEM_ID },
-        data: { item_type: 'deduction' },
+        data: { item_type: 'other' },
       });
     });
   });

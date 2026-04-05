@@ -319,6 +319,8 @@ describe('CustomReportBuilderService', () => {
       data_source: 'students' as const,
       dimensions_json: ['first_name'],
       measures_json: [{ field: 'id', aggregation: 'count' as const }],
+      filters_json: {},
+      is_shared: false,
     };
 
     const result = await service.createSavedReport(TENANT_ID, USER_ID, dto);

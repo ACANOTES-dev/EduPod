@@ -504,7 +504,7 @@ describe('SecurityIncidentsService', () => {
           description: 'Updated description',
           affected_tenants: [TENANT_ID_A, TENANT_ID_B],
           affected_data_subjects_count: 10,
-          data_categories_affected: ['personal_data', 'health_data'],
+          data_categories_affected: ['personal_data', 'health'],
           containment_actions: 'Blocked IP range',
           remediation: 'Patched vulnerability',
           dpc_reference_number: 'DPC-2026-003',
@@ -518,7 +518,7 @@ describe('SecurityIncidentsService', () => {
       expect(updateCall.data.description).toBe('Updated description');
       expect(updateCall.data.affected_tenants).toEqual([TENANT_ID_A, TENANT_ID_B]);
       expect(updateCall.data.affected_data_subjects_count).toBe(10);
-      expect(updateCall.data.data_categories_affected).toEqual(['personal_data', 'health_data']);
+      expect(updateCall.data.data_categories_affected).toEqual(['personal_data', 'health']);
       expect(updateCall.data.containment_actions).toBe('Blocked IP range');
       expect(updateCall.data.remediation).toBe('Patched vulnerability');
       expect(updateCall.data.dpc_reference_number).toBe('DPC-2026-003');

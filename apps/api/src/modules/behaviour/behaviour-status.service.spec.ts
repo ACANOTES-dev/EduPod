@@ -87,7 +87,7 @@ describe('BehaviourStatusService', () => {
 
       await expect(
         service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, {
-          status: 'confirmed',
+          status: 'active',
         }),
       ).rejects.toThrow(NotFoundException);
     });

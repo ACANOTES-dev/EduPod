@@ -652,6 +652,8 @@ describe('ReferralService', () => {
       await service.list(TENANT_ID, {
         page: 1,
         pageSize: 20,
+        sort: 'created_at',
+        order: 'desc',
         date_from: '2026-01-01',
       });
 
@@ -673,6 +675,8 @@ describe('ReferralService', () => {
       await service.list(TENANT_ID, {
         page: 1,
         pageSize: 20,
+        sort: 'created_at',
+        order: 'desc',
         date_to: '2026-12-31',
       });
 
@@ -694,6 +698,8 @@ describe('ReferralService', () => {
       await service.list(TENANT_ID, {
         page: 1,
         pageSize: 20,
+        sort: 'created_at',
+        order: 'desc',
         referral_type: 'neps',
       });
 
@@ -710,7 +716,12 @@ describe('ReferralService', () => {
       mockRlsTx.pastoralReferral.findMany.mockResolvedValue([]);
       mockRlsTx.pastoralReferral.count.mockResolvedValue(0);
 
-      const result = await service.list(TENANT_ID, {});
+      const result = await service.list(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        sort: 'created_at',
+        order: 'desc',
+      });
 
       expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 0 });
     });
@@ -719,7 +730,7 @@ describe('ReferralService', () => {
       mockRlsTx.pastoralReferral.findMany.mockResolvedValue([]);
       mockRlsTx.pastoralReferral.count.mockResolvedValue(0);
 
-      await service.list(TENANT_ID, { page: 1, pageSize: 10 });
+      await service.list(TENANT_ID, { page: 1, pageSize: 10, sort: 'created_at', order: 'desc' });
 
       expect(mockRlsTx.pastoralReferral.findMany).toHaveBeenCalledWith(
         expect.objectContaining({

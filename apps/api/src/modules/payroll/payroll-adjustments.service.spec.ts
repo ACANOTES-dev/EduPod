@@ -200,12 +200,12 @@ describe('PayrollAdjustmentsService', () => {
       prisma.payrollAdjustment.update = jest.fn().mockResolvedValue(mockAdjustment);
 
       await service.updateAdjustment(TENANT_ID, ADJ_ID, {
-        adjustment_type: 'deduction',
+        adjustment_type: 'other',
       });
 
       expect(prisma.payrollAdjustment.update).toHaveBeenCalledWith({
         where: { id: ADJ_ID },
-        data: { adjustment_type: 'deduction' },
+        data: { adjustment_type: 'other' },
       });
     });
 
@@ -226,7 +226,7 @@ describe('PayrollAdjustmentsService', () => {
       prisma.payrollAdjustment.update = jest.fn().mockResolvedValue(mockAdjustment);
 
       await service.updateAdjustment(TENANT_ID, ADJ_ID, {
-        adjustment_type: 'deduction',
+        adjustment_type: 'other',
         amount: 300,
         description: 'Updated',
         reference_period: '2026-01',
@@ -235,7 +235,7 @@ describe('PayrollAdjustmentsService', () => {
       expect(prisma.payrollAdjustment.update).toHaveBeenCalledWith({
         where: { id: ADJ_ID },
         data: {
-          adjustment_type: 'deduction',
+          adjustment_type: 'other',
           amount: 300,
           description: 'Updated',
           reference_period: '2026-01',

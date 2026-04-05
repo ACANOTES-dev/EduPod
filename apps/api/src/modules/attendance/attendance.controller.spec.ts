@@ -201,7 +201,7 @@ describe('AttendanceController', () => {
 
   it('delegates saveRecords', async () => {
     mockAttendanceService.saveRecords.mockResolvedValue({ data: [] });
-    const dto = { records: [{ student_id: 'stu-1', status: 'present' }] };
+    const dto = { records: [{ student_id: 'stu-1', status: 'present' as const }] };
 
     await controller.saveRecords(TENANT, user, SESSION_ID, dto);
 
@@ -227,7 +227,7 @@ describe('AttendanceController', () => {
 
   it('delegates amendRecord', async () => {
     mockAttendanceService.amendRecord.mockResolvedValue({ id: 'rec-1' });
-    const dto = { status: 'absent_excused', amendment_reason: 'test' };
+    const dto = { status: 'absent_excused' as const, amendment_reason: 'test' };
 
     await controller.amendRecord(TENANT, user, 'rec-1', dto);
 
@@ -300,7 +300,7 @@ describe('AttendanceController', () => {
 
     const body = {
       session_date: '2026-03-10',
-      records: [{ student_number: 'STU001', status: 'absent_unexcused' }],
+      records: [{ student_number: 'STU001', status: 'absent_unexcused' as const }],
     };
 
     await controller.exceptionsUpload(TENANT, user, body);
@@ -355,7 +355,7 @@ describe('AttendanceController', () => {
 
     const body = {
       session_date: '2026-03-10',
-      entries: [{ student_number: 'STU001', status: 'absent_unexcused' }],
+      entries: [{ student_number: 'STU001', status: 'absent_unexcused' as const }],
     };
 
     await controller.confirmScan(TENANT, user, body);
@@ -417,7 +417,7 @@ describe('AttendanceController', () => {
   });
 
   it('delegates getUserContext with null membership_id', async () => {
-    const noMembershipUser: JwtPayload = { ...user, membership_id: undefined };
+    const noMembershipUser: JwtPayload = { ...user, membership_id: null };
     mockAttendanceService.findAllSessions.mockResolvedValue({
       data: [],
       meta: { page: 1, pageSize: 20, total: 0 },

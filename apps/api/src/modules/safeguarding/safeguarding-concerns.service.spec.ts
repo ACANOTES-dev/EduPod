@@ -112,9 +112,22 @@ const makeConcern = (overrides: Record<string, unknown> = {}) => ({
 describe('SafeguardingConcernsService', () => {
   let service: SafeguardingConcernsService;
   let mockPrisma: {
-    safeguardingConcern: Record<string, jest.Mock>;
-    safeguardingAction: Record<string, jest.Mock>;
-    tenantSetting: Record<string, jest.Mock>;
+    safeguardingConcern: {
+      findMany: jest.Mock;
+      findFirst: jest.Mock;
+      count: jest.Mock;
+      [key: string]: jest.Mock;
+    };
+    safeguardingAction: {
+      findMany: jest.Mock;
+      count: jest.Mock;
+      create: jest.Mock;
+      [key: string]: jest.Mock;
+    };
+    tenantSetting: {
+      findFirst: jest.Mock;
+      [key: string]: jest.Mock;
+    };
   };
   let mockSequence: { nextNumber: jest.Mock };
   let mockAuditLog: { write: jest.Mock };
@@ -135,6 +148,7 @@ describe('SafeguardingConcernsService', () => {
       safeguardingAction: {
         findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn().mockResolvedValue(0),
+        create: jest.fn().mockResolvedValue({}),
       },
       tenantSetting: {
         findFirst: jest.fn(),
@@ -381,7 +395,7 @@ describe('SafeguardingConcernsService', () => {
 
   describe('getMyReports', () => {
     it('should return mapped reports with pagination', async () => {
-      mockPrisma.safeguardingConcern!.findMany.mockResolvedValue([
+      mockPrisma.safeguardingConcern.findMany.mockResolvedValue([
         {
           concern_number: 'CP-202603-000001',
           concern_type: 'physical_abuse',
@@ -389,7 +403,7 @@ describe('SafeguardingConcernsService', () => {
           reporter_acknowledgement_status: 'assigned_ack',
         },
       ]);
-      mockPrisma.safeguardingConcern!.count.mockResolvedValue(1);
+      mockPrisma.safeguardingConcern.count.mockResolvedValue(1);
 
       const result = await service.getMyReports(TENANT_ID, USER_ID, {
         page: 1,
@@ -406,7 +420,7 @@ describe('SafeguardingConcernsService', () => {
     });
 
     it('edge: should return null reporter_acknowledgement_status when status is null', async () => {
-      mockPrisma.safeguardingConcern!.findMany.mockResolvedValue([
+      mockPrisma.safeguardingConcern.findMany.mockResolvedValue([
         {
           concern_number: 'CP-1',
           concern_type: 'neglect',
@@ -414,7 +428,7 @@ describe('SafeguardingConcernsService', () => {
           reporter_acknowledgement_status: null,
         },
       ]);
-      mockPrisma.safeguardingConcern!.count.mockResolvedValue(1);
+      mockPrisma.safeguardingConcern.count.mockResolvedValue(1);
 
       const result = await service.getMyReports(TENANT_ID, USER_ID, {
         page: 1,
@@ -425,7 +439,7 @@ describe('SafeguardingConcernsService', () => {
     });
 
     it('edge: should use unknown concern_type fallback when Prisma type not in map', async () => {
-      mockPrisma.safeguardingConcern!.findMany.mockResolvedValue([
+      mockPrisma.safeguardingConcern.findMany.mockResolvedValue([
         {
           concern_number: 'CP-1',
           concern_type: 'unknown_type',
@@ -433,7 +447,7 @@ describe('SafeguardingConcernsService', () => {
           reporter_acknowledgement_status: null,
         },
       ]);
-      mockPrisma.safeguardingConcern!.count.mockResolvedValue(1);
+      mockPrisma.safeguardingConcern.count.mockResolvedValue(1);
 
       const result = await service.getMyReports(TENANT_ID, USER_ID, {
         page: 1,
@@ -444,8 +458,8 @@ describe('SafeguardingConcernsService', () => {
     });
 
     it('should handle page 2 with correct offset', async () => {
-      mockPrisma.safeguardingConcern!.findMany.mockResolvedValue([]);
-      mockPrisma.safeguardingConcern!.count.mockResolvedValue(25);
+      mockPrisma.safeguardingConcern.findMany.mockResolvedValue([]);
+      mockPrisma.safeguardingConcern.count.mockResolvedValue(25);
 
       const result = await service.getMyReports(TENANT_ID, USER_ID, {
         page: 2,
@@ -473,8 +487,8 @@ describe('SafeguardingConcernsService', () => {
     const baseQuery = { page: 1, pageSize: 20 };
 
     beforeEach(() => {
-      mockPrisma.safeguardingConcern!.findMany.mockResolvedValue([]);
-      mockPrisma.safeguardingConcern!.count.mockResolvedValue(0);
+      mockPrisma.safeguardingConcern.findMany.mockResolvedValue([]);
+      mockPrisma.safeguardingConcern.count.mockResolvedValue(0);
     });
 
     it('should throw ForbiddenException when access is denied', async () => {
@@ -657,7 +671,7 @@ describe('SafeguardingConcernsService', () => {
 
     it('should map concern summaries with correct fields', async () => {
       const now = new Date();
-      mockPrisma.safeguardingConcern!.findMany.mockResolvedValue([
+      mockPrisma.safeguardingConcern.findMany.mockResolvedValue([
         {
           id: CONCERN_ID,
           concern_number: 'CP-202603-000001',
@@ -672,7 +686,7 @@ describe('SafeguardingConcernsService', () => {
           assigned_to: { id: 'staff-1', first_name: 'Lead', last_name: 'Person' },
         },
       ]);
-      mockPrisma.safeguardingConcern!.count.mockResolvedValue(1);
+      mockPrisma.safeguardingConcern.count.mockResolvedValue(1);
 
       const result = await service.listConcerns(
         TENANT_ID,
@@ -707,8 +721,11 @@ describe('SafeguardingConcernsService', () => {
       );
 
       // Should not have status in where because all values were filtered out
-      const callArgs = mockPrisma.safeguardingConcern!.findMany.mock.calls[0][0];
-      expect(callArgs.where.status).toBeUndefined();
+      const callArgs = mockPrisma.safeguardingConcern.findMany.mock.calls[0]![0]! as Record<
+        string,
+        Record<string, unknown>
+      >;
+      expect(callArgs.where!.status).toBeUndefined();
     });
 
     it('should write audit log for every list access', async () => {
@@ -755,7 +772,7 @@ describe('SafeguardingConcernsService', () => {
     });
 
     it('should throw NotFoundException when concern not found', async () => {
-      mockPrisma.safeguardingConcern!.findFirst.mockResolvedValue(null);
+      mockPrisma.safeguardingConcern.findFirst.mockResolvedValue(null);
 
       await expect(
         service.getConcernDetail(
@@ -769,7 +786,7 @@ describe('SafeguardingConcernsService', () => {
     });
 
     it('should return mapped concern detail', async () => {
-      mockPrisma.safeguardingConcern!.findFirst.mockResolvedValue(
+      mockPrisma.safeguardingConcern.findFirst.mockResolvedValue(
         makeConcern({
           student: {
             id: STUDENT_ID,
@@ -813,7 +830,7 @@ describe('SafeguardingConcernsService', () => {
     });
 
     it('should write audit log for every view', async () => {
-      mockPrisma.safeguardingConcern!.findFirst.mockResolvedValue(
+      mockPrisma.safeguardingConcern.findFirst.mockResolvedValue(
         makeConcern({
           student: null,
           reported_by: null,
@@ -1250,7 +1267,7 @@ describe('SafeguardingConcernsService', () => {
 
   describe('recordAction', () => {
     it('should create action entry on active concern', async () => {
-      mockPrisma.safeguardingConcern!.findFirst.mockResolvedValue(makeConcern());
+      mockPrisma.safeguardingConcern.findFirst.mockResolvedValue(makeConcern());
       mockPrisma.safeguardingAction.create = jest.fn().mockResolvedValue({ id: 'action-1' });
 
       const result = await service.recordAction(TENANT_ID, USER_ID, CONCERN_ID, {
@@ -1262,7 +1279,7 @@ describe('SafeguardingConcernsService', () => {
     });
 
     it('should throw NotFoundException when concern not found', async () => {
-      mockPrisma.safeguardingConcern!.findFirst.mockResolvedValue(null);
+      mockPrisma.safeguardingConcern.findFirst.mockResolvedValue(null);
 
       await expect(
         service.recordAction(TENANT_ID, USER_ID, CONCERN_ID, {
@@ -1273,9 +1290,7 @@ describe('SafeguardingConcernsService', () => {
     });
 
     it('should throw ForbiddenException when concern is sealed', async () => {
-      mockPrisma.safeguardingConcern!.findFirst.mockResolvedValue(
-        makeConcern({ status: 'sealed' }),
-      );
+      mockPrisma.safeguardingConcern.findFirst.mockResolvedValue(makeConcern({ status: 'sealed' }));
 
       await expect(
         service.recordAction(TENANT_ID, USER_ID, CONCERN_ID, {
@@ -1286,7 +1301,7 @@ describe('SafeguardingConcernsService', () => {
     });
 
     it('should use fallback action_type when dto.action_type is unknown', async () => {
-      mockPrisma.safeguardingConcern!.findFirst.mockResolvedValue(makeConcern());
+      mockPrisma.safeguardingConcern.findFirst.mockResolvedValue(makeConcern());
       mockPrisma.safeguardingAction.create = jest.fn().mockResolvedValue({ id: 'action-1' });
 
       await service.recordAction(TENANT_ID, USER_ID, CONCERN_ID, {
@@ -1304,7 +1319,7 @@ describe('SafeguardingConcernsService', () => {
     });
 
     it('should set due_date when provided', async () => {
-      mockPrisma.safeguardingConcern!.findFirst.mockResolvedValue(makeConcern());
+      mockPrisma.safeguardingConcern.findFirst.mockResolvedValue(makeConcern());
       mockPrisma.safeguardingAction.create = jest.fn().mockResolvedValue({ id: 'action-1' });
 
       await service.recordAction(TENANT_ID, USER_ID, CONCERN_ID, {
@@ -1323,7 +1338,7 @@ describe('SafeguardingConcernsService', () => {
     });
 
     it('should set due_date to null when not provided', async () => {
-      mockPrisma.safeguardingConcern!.findFirst.mockResolvedValue(makeConcern());
+      mockPrisma.safeguardingConcern.findFirst.mockResolvedValue(makeConcern());
       mockPrisma.safeguardingAction.create = jest.fn().mockResolvedValue({ id: 'action-1' });
 
       await service.recordAction(TENANT_ID, USER_ID, CONCERN_ID, {
@@ -1341,7 +1356,7 @@ describe('SafeguardingConcernsService', () => {
     });
 
     it('should pass metadata through when provided', async () => {
-      mockPrisma.safeguardingConcern!.findFirst.mockResolvedValue(makeConcern());
+      mockPrisma.safeguardingConcern.findFirst.mockResolvedValue(makeConcern());
       mockPrisma.safeguardingAction.create = jest.fn().mockResolvedValue({ id: 'action-1' });
 
       await service.recordAction(TENANT_ID, USER_ID, CONCERN_ID, {
@@ -1386,7 +1401,7 @@ describe('SafeguardingConcernsService', () => {
 
     it('should return mapped actions with pagination', async () => {
       const now = new Date();
-      mockPrisma.safeguardingAction!.findMany.mockResolvedValue([
+      mockPrisma.safeguardingAction.findMany.mockResolvedValue([
         {
           id: 'action-1',
           action_type: 'note_added',
@@ -1398,7 +1413,7 @@ describe('SafeguardingConcernsService', () => {
           action_by: { id: USER_ID, first_name: 'Staff', last_name: 'Member' },
         },
       ]);
-      mockPrisma.safeguardingAction!.count.mockResolvedValue(1);
+      mockPrisma.safeguardingAction.count.mockResolvedValue(1);
 
       const result = await service.getActions(
         TENANT_ID,
@@ -1424,7 +1439,7 @@ describe('SafeguardingConcernsService', () => {
     });
 
     it('edge: should handle null due_date and null action_by', async () => {
-      mockPrisma.safeguardingAction!.findMany.mockResolvedValue([
+      mockPrisma.safeguardingAction.findMany.mockResolvedValue([
         {
           id: 'action-2',
           action_type: 'status_changed',
@@ -1436,7 +1451,7 @@ describe('SafeguardingConcernsService', () => {
           action_by: null,
         },
       ]);
-      mockPrisma.safeguardingAction!.count.mockResolvedValue(1);
+      mockPrisma.safeguardingAction.count.mockResolvedValue(1);
 
       const result = await service.getActions(
         TENANT_ID,
@@ -1458,8 +1473,8 @@ describe('SafeguardingConcernsService', () => {
         grantId: 'grant-1',
       });
 
-      mockPrisma.safeguardingAction!.findMany.mockResolvedValue([]);
-      mockPrisma.safeguardingAction!.count.mockResolvedValue(0);
+      mockPrisma.safeguardingAction.findMany.mockResolvedValue([]);
+      mockPrisma.safeguardingAction.count.mockResolvedValue(0);
 
       await service.getActions(
         TENANT_ID,
@@ -1482,7 +1497,7 @@ describe('SafeguardingConcernsService', () => {
     });
 
     it('edge: should handle unknown action_type via fallback', async () => {
-      mockPrisma.safeguardingAction!.findMany.mockResolvedValue([
+      mockPrisma.safeguardingAction.findMany.mockResolvedValue([
         {
           id: 'action-3',
           action_type: 'custom_unknown_type',
@@ -1494,7 +1509,7 @@ describe('SafeguardingConcernsService', () => {
           action_by: null,
         },
       ]);
-      mockPrisma.safeguardingAction!.count.mockResolvedValue(1);
+      mockPrisma.safeguardingAction.count.mockResolvedValue(1);
 
       const result = await service.getActions(
         TENANT_ID,

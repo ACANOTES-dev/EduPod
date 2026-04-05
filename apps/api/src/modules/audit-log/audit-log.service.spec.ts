@@ -529,7 +529,7 @@ describe('AuditLogService', () => {
 
       await service.list(TENANT_ID, {
         ...baseFilters,
-        sensitivity: 'elevated',
+        sensitivity: 'special_category',
       });
 
       expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
@@ -539,7 +539,7 @@ describe('AuditLogService', () => {
               {
                 metadata_json: {
                   path: ['sensitivity'],
-                  equals: 'elevated',
+                  equals: 'special_category',
                 },
               },
             ],

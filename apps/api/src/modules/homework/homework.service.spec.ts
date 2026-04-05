@@ -1,6 +1,8 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import type { UpdateHomeworkDto } from '@school/shared';
+
 import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
@@ -2001,13 +2003,16 @@ describe('HomeworkService — update — all dto field branches', () => {
   });
 
   it('should set nullable fields to null when cleared', async () => {
-    await service.update(TENANT_ID, HOMEWORK_ID, USER_ID, {
+    // Runtime: service handles null via `?? null` even though DTO type uses optional (undefined)
+    const nullClearDto = {
       subject_id: null,
       academic_period_id: null,
       due_time: null,
       max_points: null,
       recurrence_rule_id: null,
-    });
+    } as unknown as UpdateHomeworkDto;
+
+    await service.update(TENANT_ID, HOMEWORK_ID, USER_ID, nullClearDto);
 
     const callData = mockRlsTx.homeworkAssignment.update.mock.calls[0]?.[0]?.data;
     expect(callData.subject_id).toBeNull();
@@ -2236,9 +2241,9 @@ describe('HomeworkService — updateRecurrenceRule — all dto fields', () => {
   });
 
   it('should set end_date to null when cleared', async () => {
-    await service.updateRecurrenceRule(TENANT_ID, RECURRENCE_RULE_ID, {
-      end_date: null,
-    });
+    // Runtime: service handles null via `dto.end_date ? ... : null` check
+    const dto = { end_date: null } as unknown as Parameters<typeof service.updateRecurrenceRule>[2];
+    await service.updateRecurrenceRule(TENANT_ID, RECURRENCE_RULE_ID, dto);
 
     const callData = mockRlsTx.homeworkRecurrenceRule.update.mock.calls[0]?.[0]?.data;
     expect(callData.end_date).toBeNull();
