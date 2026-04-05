@@ -322,7 +322,7 @@ describe('TenantsService', () => {
       mockPrisma.rolePermission.create.mockResolvedValue({});
 
       // Return real permissions so the mapping branch is hit
-      rbacReadFacade.findAllPermissions.mockResolvedValue([
+      rbacReadFacade!.findAllPermissions.mockResolvedValue([
         { id: 'perm-1', permission_key: 'students.view' },
         { id: 'perm-2', permission_key: 'students.create' },
       ]);
@@ -349,7 +349,7 @@ describe('TenantsService', () => {
       mockPrisma.rolePermission.create.mockResolvedValue({});
 
       // Return empty permissions so no permId is found
-      rbacReadFacade.findAllPermissions.mockResolvedValue([]);
+      rbacReadFacade!.findAllPermissions.mockResolvedValue([]);
 
       await service.createTenant(createDto);
 
@@ -569,7 +569,7 @@ describe('TenantsService', () => {
       mockPrisma.tenant.findUnique.mockResolvedValueOnce(tenant);
       mockPrisma.tenant.update.mockResolvedValueOnce(updated);
       mockPrisma.tenantDomain.findMany.mockResolvedValueOnce([]);
-      rbacReadFacade.findMembershipUserIds.mockResolvedValueOnce([]);
+      rbacReadFacade!.findMembershipUserIds.mockResolvedValueOnce([]);
 
       const result = await service.suspendTenant(TENANT_ID, USER_ID);
 
@@ -626,7 +626,7 @@ describe('TenantsService', () => {
       mockPrisma.tenant.findUnique.mockResolvedValueOnce(tenant);
       mockPrisma.tenant.update.mockResolvedValueOnce({ ...tenant, status: 'suspended' });
       mockPrisma.tenantDomain.findMany.mockResolvedValueOnce([]);
-      rbacReadFacade.findMembershipUserIds.mockResolvedValueOnce([]);
+      rbacReadFacade!.findMembershipUserIds.mockResolvedValueOnce([]);
 
       await service.suspendTenant(TENANT_ID, USER_ID);
 
@@ -643,7 +643,7 @@ describe('TenantsService', () => {
       mockPrisma.tenant.findUnique.mockResolvedValueOnce(tenant);
       mockPrisma.tenant.update.mockResolvedValueOnce({ ...tenant, status: 'suspended' });
       mockPrisma.tenantDomain.findMany.mockResolvedValueOnce([]);
-      rbacReadFacade.findMembershipUserIds.mockResolvedValueOnce([]);
+      rbacReadFacade!.findMembershipUserIds.mockResolvedValueOnce([]);
 
       await service.suspendTenant(TENANT_ID);
 
@@ -658,7 +658,7 @@ describe('TenantsService', () => {
         { domain: 'school.edupod.app' },
         { domain: 'custom.school.com' },
       ]);
-      rbacReadFacade.findMembershipUserIds.mockResolvedValueOnce([
+      rbacReadFacade!.findMembershipUserIds.mockResolvedValueOnce([
         { id: MEMBERSHIP_ID, user_id: USER_ID },
       ]);
       mockRedisClient.smembers.mockResolvedValueOnce(['session-1', 'session-2']);
@@ -682,7 +682,7 @@ describe('TenantsService', () => {
       mockPrisma.tenant.findUnique.mockResolvedValueOnce(tenant);
       mockPrisma.tenant.update.mockResolvedValueOnce({ ...tenant, status: 'suspended' });
       mockPrisma.tenantDomain.findMany.mockResolvedValueOnce([]);
-      rbacReadFacade.findMembershipUserIds.mockResolvedValueOnce([
+      rbacReadFacade!.findMembershipUserIds.mockResolvedValueOnce([
         { id: MEMBERSHIP_ID, user_id: USER_ID },
       ]);
       mockRedisClient.smembers.mockResolvedValueOnce([]); // no sessions
@@ -795,7 +795,7 @@ describe('TenantsService', () => {
       mockPrisma.tenant.findUnique.mockResolvedValueOnce(tenant);
       mockPrisma.tenant.update.mockResolvedValueOnce(updated);
       mockPrisma.tenantDomain.findMany.mockResolvedValueOnce([]);
-      rbacReadFacade.findMembershipUserIds.mockResolvedValueOnce([]);
+      rbacReadFacade!.findMembershipUserIds.mockResolvedValueOnce([]);
 
       const result = await service.archiveTenant(TENANT_ID, USER_ID);
 
@@ -813,7 +813,7 @@ describe('TenantsService', () => {
       mockPrisma.tenant.findUnique.mockResolvedValueOnce(tenant);
       mockPrisma.tenant.update.mockResolvedValueOnce(updated);
       mockPrisma.tenantDomain.findMany.mockResolvedValueOnce([]);
-      rbacReadFacade.findMembershipUserIds.mockResolvedValueOnce([]);
+      rbacReadFacade!.findMembershipUserIds.mockResolvedValueOnce([]);
 
       const result = await service.archiveTenant(TENANT_ID, USER_ID);
 
@@ -847,7 +847,7 @@ describe('TenantsService', () => {
       mockPrisma.tenant.findUnique.mockResolvedValueOnce({ id: TENANT_ID, status: 'suspended' });
       mockPrisma.tenant.update.mockResolvedValueOnce({ id: TENANT_ID, status: 'archived' });
       mockPrisma.tenantDomain.findMany.mockResolvedValueOnce([]);
-      rbacReadFacade.findMembershipUserIds.mockResolvedValueOnce([]);
+      rbacReadFacade!.findMembershipUserIds.mockResolvedValueOnce([]);
 
       await service.archiveTenant(TENANT_ID);
 
@@ -858,7 +858,7 @@ describe('TenantsService', () => {
       mockPrisma.tenant.findUnique.mockResolvedValueOnce({ id: TENANT_ID, status: 'active' });
       mockPrisma.tenant.update.mockResolvedValueOnce({ id: TENANT_ID, status: 'archived' });
       mockPrisma.tenantDomain.findMany.mockResolvedValueOnce([]);
-      rbacReadFacade.findMembershipUserIds.mockResolvedValueOnce([]);
+      rbacReadFacade!.findMembershipUserIds.mockResolvedValueOnce([]);
 
       await service.archiveTenant(TENANT_ID, USER_ID);
 
@@ -874,7 +874,7 @@ describe('TenantsService', () => {
       mockPrisma.tenant.findUnique.mockResolvedValueOnce({ id: TENANT_ID, status: 'active' });
       mockPrisma.tenant.update.mockResolvedValueOnce({ id: TENANT_ID, status: 'archived' });
       mockPrisma.tenantDomain.findMany.mockResolvedValueOnce([]);
-      rbacReadFacade.findMembershipUserIds.mockResolvedValueOnce([]);
+      rbacReadFacade!.findMembershipUserIds.mockResolvedValueOnce([]);
 
       await service.archiveTenant(TENANT_ID);
 
@@ -885,7 +885,7 @@ describe('TenantsService', () => {
       mockPrisma.tenant.findUnique.mockResolvedValueOnce({ id: TENANT_ID, status: 'active' });
       mockPrisma.tenant.update.mockResolvedValueOnce({ id: TENANT_ID, status: 'archived' });
       mockPrisma.tenantDomain.findMany.mockResolvedValueOnce([{ domain: 'school.edupod.app' }]);
-      rbacReadFacade.findMembershipUserIds.mockResolvedValueOnce([
+      rbacReadFacade!.findMembershipUserIds.mockResolvedValueOnce([
         { id: MEMBERSHIP_ID, user_id: USER_ID },
       ]);
       mockRedisClient.smembers.mockResolvedValueOnce(['session-abc']);
@@ -906,8 +906,8 @@ describe('TenantsService', () => {
         .mockResolvedValueOnce(10) // active
         .mockResolvedValueOnce(2) // suspended
         .mockResolvedValueOnce(1); // archived
-      authReadFacade.countAllUsers.mockResolvedValueOnce(50);
-      rbacReadFacade.countAllActiveMemberships.mockResolvedValueOnce(45);
+      authReadFacade!.countAllUsers.mockResolvedValueOnce(50);
+      rbacReadFacade!.countAllActiveMemberships.mockResolvedValueOnce(45);
 
       const result = await service.getDashboard();
 
@@ -930,8 +930,8 @@ describe('TenantsService', () => {
         .mockResolvedValueOnce(0)
         .mockResolvedValueOnce(0)
         .mockResolvedValueOnce(0);
-      authReadFacade.countAllUsers.mockResolvedValueOnce(0);
-      rbacReadFacade.countAllActiveMemberships.mockResolvedValueOnce(0);
+      authReadFacade!.countAllUsers.mockResolvedValueOnce(0);
+      rbacReadFacade!.countAllActiveMemberships.mockResolvedValueOnce(0);
 
       const result = await service.getDashboard();
 
@@ -961,7 +961,7 @@ describe('TenantsService', () => {
         slug: 'school',
         status: 'active',
       });
-      rbacReadFacade.findMembershipWithUser.mockResolvedValueOnce(mockMembership);
+      rbacReadFacade!.findMembershipWithUser.mockResolvedValueOnce(mockMembership);
       mockTokenService.signAccessToken.mockReturnValueOnce('impersonation-jwt');
 
       const result = await service.impersonate(TENANT_ID, TARGET_USER_ID, USER_ID);
@@ -1005,7 +1005,7 @@ describe('TenantsService', () => {
         name: 'School',
         slug: 'school',
       });
-      rbacReadFacade.findMembershipWithUser.mockResolvedValueOnce(null);
+      rbacReadFacade!.findMembershipWithUser.mockResolvedValueOnce(null);
 
       try {
         await service.impersonate(TENANT_ID, TARGET_USER_ID, USER_ID);
@@ -1023,7 +1023,7 @@ describe('TenantsService', () => {
 
   describe('TenantsService — resetUserMfa', () => {
     it('should reset MFA for an existing user', async () => {
-      authReadFacade.findUserById.mockResolvedValueOnce({
+      authReadFacade!.findUserById.mockResolvedValueOnce({
         id: TARGET_USER_ID,
         email: 'user@school.com',
         mfa_enabled: true,
@@ -1057,7 +1057,7 @@ describe('TenantsService', () => {
     });
 
     it('should throw NotFoundException when user does not exist', async () => {
-      authReadFacade.findUserById.mockResolvedValueOnce(null);
+      authReadFacade!.findUserById.mockResolvedValueOnce(null);
 
       try {
         await service.resetUserMfa(TARGET_USER_ID);
@@ -1071,7 +1071,7 @@ describe('TenantsService', () => {
     });
 
     it('should reset MFA without actorUserId', async () => {
-      authReadFacade.findUserById.mockResolvedValueOnce({
+      authReadFacade!.findUserById.mockResolvedValueOnce({
         id: TARGET_USER_ID,
         email: 'user@school.com',
       });

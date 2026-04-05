@@ -140,7 +140,10 @@ describe('SchoolClosuresService', () => {
     });
 
     it('should create a closure with scope "year_group" and set scope_entity_id', async () => {
-      mockAcademicFacade.findYearGroupById.mockResolvedValue({ id: YEAR_GROUP_ID, name: 'Year 1' });
+      mockAcademicFacade!.findYearGroupById.mockResolvedValue({
+        id: YEAR_GROUP_ID,
+        name: 'Year 1',
+      });
       const dto = {
         closure_date: '2026-06-15',
         reason: 'Year group closure',
@@ -164,7 +167,7 @@ describe('SchoolClosuresService', () => {
     });
 
     it('should create a closure with scope "class" and set scope_entity_id', async () => {
-      mockClassesFacade.findById.mockResolvedValue({ id: CLASS_ID, name: 'Class A' });
+      mockClassesFacade!.findById.mockResolvedValue({ id: CLASS_ID, name: 'Class A' });
       const dto = {
         closure_date: '2026-06-15',
         reason: 'Class closure',
@@ -235,7 +238,7 @@ describe('SchoolClosuresService', () => {
       mockDb.schoolClosure.create.mockResolvedValue(makeClosure());
 
       // First call: open sessions; second call: flagged sessions
-      mockAttendanceFacade.findSessionsGeneric
+      mockAttendanceFacade!.findSessionsGeneric
         .mockResolvedValueOnce([{ id: 'session-1' }, { id: 'session-2' }])
         .mockResolvedValueOnce([
           {
@@ -365,7 +368,7 @@ describe('SchoolClosuresService', () => {
       mockDb.schoolClosure.create.mockResolvedValue(makeClosure());
 
       // Side effects for first date
-      mockAttendanceFacade.findSessionsGeneric
+      mockAttendanceFacade!.findSessionsGeneric
         .mockResolvedValueOnce([{ id: 'session-open-1' }]) // open sessions day 1
         .mockResolvedValueOnce([
           {
@@ -398,7 +401,7 @@ describe('SchoolClosuresService', () => {
         skip_weekends: false,
       };
       // Year group not found
-      mockAcademicFacade.findYearGroupById.mockResolvedValue(null);
+      mockAcademicFacade!.findYearGroupById.mockResolvedValue(null);
 
       await expect(service.bulkCreate(TENANT_ID, USER_ID, dto)).rejects.toThrow(NotFoundException);
     });
@@ -502,7 +505,7 @@ describe('SchoolClosuresService', () => {
       });
       mockPrisma.schoolClosure.findMany.mockResolvedValue([closureWithYg]);
       mockPrisma.schoolClosure.count.mockResolvedValue(1);
-      mockAcademicFacade.findAllYearGroups.mockResolvedValue([
+      mockAcademicFacade!.findAllYearGroups.mockResolvedValue([
         { id: YEAR_GROUP_ID, name: 'Year 1' },
       ]);
 
@@ -518,7 +521,7 @@ describe('SchoolClosuresService', () => {
       });
       mockPrisma.schoolClosure.findMany.mockResolvedValue([closureWithClass]);
       mockPrisma.schoolClosure.count.mockResolvedValue(1);
-      mockClassesFacade.findNamesByIds.mockResolvedValue([{ id: CLASS_ID, name: 'Class A' }]);
+      mockClassesFacade!.findNamesByIds.mockResolvedValue([{ id: CLASS_ID, name: 'Class A' }]);
 
       const result = await service.findAll(TENANT_ID, { page: 1, pageSize: 20 });
 
@@ -542,7 +545,7 @@ describe('SchoolClosuresService', () => {
       });
       mockPrisma.schoolClosure.findMany.mockResolvedValue([closureWithYg]);
       mockPrisma.schoolClosure.count.mockResolvedValue(1);
-      mockAcademicFacade.findAllYearGroups.mockResolvedValue([
+      mockAcademicFacade!.findAllYearGroups.mockResolvedValue([
         { id: YEAR_GROUP_ID, name: 'Year 1' },
       ]);
 
@@ -558,7 +561,7 @@ describe('SchoolClosuresService', () => {
       });
       mockPrisma.schoolClosure.findMany.mockResolvedValue([closureWithClass]);
       mockPrisma.schoolClosure.count.mockResolvedValue(1);
-      mockClassesFacade.findNamesByIds.mockResolvedValue([{ id: CLASS_ID, name: 'Class A' }]);
+      mockClassesFacade!.findNamesByIds.mockResolvedValue([{ id: CLASS_ID, name: 'Class A' }]);
 
       const result = await service.findAll(TENANT_ID, { page: 1, pageSize: 20 });
 
@@ -676,7 +679,7 @@ describe('SchoolClosuresService', () => {
     });
 
     it('should look up year group from facade when yearGroupId is not provided', async () => {
-      mockClassesFacade.findYearGroupId.mockResolvedValue('resolved-yg-id');
+      mockClassesFacade!.findYearGroupId.mockResolvedValue('resolved-yg-id');
       mockPrisma.schoolClosure.findFirst.mockResolvedValue(null);
 
       await service.isClosureDate(TENANT_ID, DATE, CLASS_ID);
@@ -694,7 +697,7 @@ describe('SchoolClosuresService', () => {
     });
 
     it('should not include year_group condition when yearGroupId is not provided and facade returns null', async () => {
-      mockClassesFacade.findYearGroupId.mockResolvedValue(null);
+      mockClassesFacade!.findYearGroupId.mockResolvedValue(null);
       mockPrisma.schoolClosure.findFirst.mockResolvedValue(null);
 
       await service.isClosureDate(TENANT_ID, DATE, CLASS_ID);
@@ -783,7 +786,7 @@ describe('SchoolClosuresService', () => {
     });
 
     it('should throw NotFoundException when year_group entity does not exist', async () => {
-      mockAcademicFacade.findYearGroupById.mockResolvedValue(null);
+      mockAcademicFacade!.findYearGroupById.mockResolvedValue(null);
 
       const dto = {
         closure_date: '2026-06-15',
@@ -796,7 +799,7 @@ describe('SchoolClosuresService', () => {
     });
 
     it('should throw NotFoundException with YEAR_GROUP_NOT_FOUND code', async () => {
-      mockAcademicFacade.findYearGroupById.mockResolvedValue(null);
+      mockAcademicFacade!.findYearGroupById.mockResolvedValue(null);
 
       const dto = {
         closure_date: '2026-06-15',
@@ -818,7 +821,7 @@ describe('SchoolClosuresService', () => {
     });
 
     it('should throw NotFoundException when class entity does not exist', async () => {
-      mockClassesFacade.findById.mockResolvedValue(null);
+      mockClassesFacade!.findById.mockResolvedValue(null);
 
       const dto = {
         closure_date: '2026-06-15',
@@ -831,7 +834,7 @@ describe('SchoolClosuresService', () => {
     });
 
     it('should throw NotFoundException with CLASS_NOT_FOUND code', async () => {
-      mockClassesFacade.findById.mockResolvedValue(null);
+      mockClassesFacade!.findById.mockResolvedValue(null);
 
       const dto = {
         closure_date: '2026-06-15',
@@ -859,8 +862,11 @@ describe('SchoolClosuresService', () => {
 
   describe('SchoolClosuresService — applyClosureSideEffects', () => {
     it('should filter sessions by year_group class IDs when scope is year_group', async () => {
-      mockAcademicFacade.findYearGroupById.mockResolvedValue({ id: YEAR_GROUP_ID, name: 'Year 1' });
-      mockClassesFacade.findIdsByYearGroup.mockResolvedValue(['class-a', 'class-b']);
+      mockAcademicFacade!.findYearGroupById.mockResolvedValue({
+        id: YEAR_GROUP_ID,
+        name: 'Year 1',
+      });
+      mockClassesFacade!.findIdsByYearGroup.mockResolvedValue(['class-a', 'class-b']);
 
       const dto = {
         closure_date: '2026-06-15',
@@ -869,7 +875,7 @@ describe('SchoolClosuresService', () => {
         scope_entity_id: YEAR_GROUP_ID,
       };
       mockDb.schoolClosure.create.mockResolvedValue(makeClosure());
-      mockAttendanceFacade.findSessionsGeneric.mockResolvedValue([]);
+      mockAttendanceFacade!.findSessionsGeneric.mockResolvedValue([]);
 
       await service.create(TENANT_ID, USER_ID, dto);
 
@@ -885,7 +891,7 @@ describe('SchoolClosuresService', () => {
     });
 
     it('should filter sessions by class_id when scope is class', async () => {
-      mockClassesFacade.findById.mockResolvedValue({ id: CLASS_ID, name: 'Class A' });
+      mockClassesFacade!.findById.mockResolvedValue({ id: CLASS_ID, name: 'Class A' });
 
       const dto = {
         closure_date: '2026-06-15',
@@ -894,7 +900,7 @@ describe('SchoolClosuresService', () => {
         scope_entity_id: CLASS_ID,
       };
       mockDb.schoolClosure.create.mockResolvedValue(makeClosure());
-      mockAttendanceFacade.findSessionsGeneric.mockResolvedValue([]);
+      mockAttendanceFacade!.findSessionsGeneric.mockResolvedValue([]);
 
       await service.create(TENANT_ID, USER_ID, dto);
 
@@ -915,12 +921,12 @@ describe('SchoolClosuresService', () => {
         affects_scope: 'all' as const,
       };
       mockDb.schoolClosure.create.mockResolvedValue(makeClosure());
-      mockAttendanceFacade.findSessionsGeneric.mockResolvedValue([]);
+      mockAttendanceFacade!.findSessionsGeneric.mockResolvedValue([]);
 
       await service.create(TENANT_ID, USER_ID, dto);
 
       // The first call to findSessionsGeneric (open sessions) should not have class_id
-      const firstCallArgs = mockAttendanceFacade.findSessionsGeneric.mock.calls[0];
+      const firstCallArgs = mockAttendanceFacade!.findSessionsGeneric.mock.calls[0];
       expect(firstCallArgs[1].where).not.toHaveProperty('class_id');
     });
 
@@ -931,7 +937,7 @@ describe('SchoolClosuresService', () => {
         affects_scope: 'all' as const,
       };
       mockDb.schoolClosure.create.mockResolvedValue(makeClosure());
-      mockAttendanceFacade.findSessionsGeneric
+      mockAttendanceFacade!.findSessionsGeneric
         .mockResolvedValueOnce([]) // no open sessions
         .mockResolvedValueOnce([]); // no flagged sessions
 
@@ -948,7 +954,7 @@ describe('SchoolClosuresService', () => {
         affects_scope: 'all' as const,
       };
       mockDb.schoolClosure.create.mockResolvedValue(makeClosure());
-      mockAttendanceFacade.findSessionsGeneric
+      mockAttendanceFacade!.findSessionsGeneric
         .mockResolvedValueOnce([]) // open sessions
         .mockResolvedValueOnce([]); // flagged sessions
 
