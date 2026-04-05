@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
-import { $Enums, PrismaClient } from '@prisma/client';
+import { $Enums, Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
@@ -145,6 +145,12 @@ class BehaviourCheckAwardsJob extends TenantAwareJob<BehaviourCheckAwardsPayload
       for (const awardType of awardTypes) {
         if (awardType.points_threshold === null) continue;
         if (totalPoints < awardType.points_threshold) continue;
+
+        // Lock the award type row to serialize concurrent dedup checks (DZ-24)
+        // eslint-disable-next-line school/no-raw-sql-outside-rls -- FOR UPDATE lock within TenantAwareJob transaction
+        await tx.$queryRaw(
+          Prisma.sql`SELECT id FROM behaviour_award_types WHERE id = ${awardType.id}::uuid FOR UPDATE`,
+        );
 
         // Dedup guard: same incident + award type
         const existingForIncident = await tx.behaviourRecognitionAward.findFirst({

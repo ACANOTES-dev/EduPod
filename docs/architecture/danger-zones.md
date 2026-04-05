@@ -163,29 +163,32 @@ If you rename or remove a section type, existing templates become invalid and re
 
 ---
 
-## DZ-11: Audit Log Interceptor Is Global and Synchronous
+## DZ-11: Audit Log Interceptor Is Global and Synchronous — MITIGATED
 
 **Risk**: Performance degradation on high-frequency mutation endpoints
-**Location**: `apps/api/src/common/interceptors/audit-log.interceptor.ts`
+**Location**: `apps/api/src/common/interceptors/audit-log.interceptor.ts`, `apps/worker/src/processors/audit-log/audit-log-write.processor.ts`
+**Status**: MITIGATED (2026-04-05)
 
-The AuditLogInterceptor is registered as `APP_INTERCEPTOR` on every POST/PUT/PATCH/DELETE. It logs the request body, response, and user context to the database synchronously (within the request lifecycle).
+The `AuditLogInterceptor` now enqueues audit log writes via BullMQ (`audit-log` queue) instead of writing to the database inline. The `AuditLogWriteProcessor` in the worker handles the actual DB write. Mutation response latency is no longer affected by audit log write time.
 
-For bulk operations (mass grade entry, batch invoice generation, import processing), this creates one audit log row per mutation request. A batch of 500 grade entries = 500 audit log rows, each requiring a database write within the request.
+**What changed**:
 
-**Consideration**: For future high-volume endpoints, consider async audit logging via BullMQ.
+- `AuditLogService.enqueue()` puts the write payload on the `audit-log` queue
+- Interceptor calls `enqueue()` instead of `write()`
+- `AuditLogService.write()` still exists for direct callers (SecurityAuditService, track())
+- `AuditLogWriteProcessor` in the worker writes the log entry
+
+**Remaining note**: `AuditLogService.write()` is still synchronous for callers that need immediate audit persistence (security audit events). Only the interceptor path is async.
 
 ---
 
-## DZ-12: Household Reference Generation Uses Random Collision Checking
+## DZ-12: Household Reference Generation Uses Random Collision Checking — MITIGATED
 
-**Risk**: Under very high concurrent registration, reference collisions could exhaust retries
-**Location**: `apps/api/src/modules/tenants/sequence.service.ts` -> `generateHouseholdReference()`
+**Risk**: ~~Under very high concurrent registration, reference collisions could exhaust retries~~
+**Location**: `apps/api/src/modules/sequence/sequence.service.ts` -> `generateHouseholdReference()`
+**Status**: MITIGATED (2026-04-05)
 
-Unlike other sequences (receipt, invoice, etc.) which use `SELECT ... FOR UPDATE` row-level locking, household references are generated as random `XXX999-9` format with collision checking (max 10 attempts).
-
-At high tenant scale with many concurrent registrations, the collision probability increases. The 10-retry limit could be exhausted.
-
-**Probability**: Very low for current scale. Monitor if a tenant exceeds ~10,000 households.
+Household references now use the same `SELECT ... FOR UPDATE` sequence-based approach as other sequence types (invoices, receipts, etc.). Format changed from random `XXX999-9` to sequential `HH-YYYYMM-000001`. Collision-free by design — no retry loop needed.
 
 ---
 
@@ -283,14 +286,19 @@ Resolved in reliability hardening. PDF rendering now enqueued via BullMQ with `g
 
 ---
 
-## DZ-20: Amendment Correction Chain Touches 5 Tables in sendCorrection
+## DZ-20: Amendment Correction Chain Touches 5 Tables in sendCorrection — MITIGATED
 
 **Risk**: The amendment correction dispatch creates ack rows, notifications, updates amendment notice flags, and supersedes documents — all within one transaction.
 **Location**: `behaviour-amendments.service.ts` -> `sendCorrection()`
+**Status**: MITIGATED (2026-04-05)
 
-When a correction is sent, the method: (1) resolves student/incident/sanction IDs, (2) creates `behaviour_parent_acknowledgements` rows per parent, (3) creates `notification` rows per parent, (4) updates `behaviour_amendment_notices.correction_notification_sent`, (5) supersedes any sent `behaviour_documents`. If many parents are linked (e.g., divorced/remarried households with 4+ guardians), the transaction can be slow.
+**What changed**:
 
-**Mitigation**: Monitor transaction durations. If timeouts occur, split into: (a) flag update + document supersession in transaction, (b) parent notifications enqueued to worker.
+- Transaction now has explicit `{ timeout: 15000 }` (15s guard, matching DZ-17 pattern)
+- BullMQ notification enqueuing (`behaviour:correction-parent`, `behaviour:parent-reacknowledgement`) moved outside the transaction as post-commit side effects
+- DB mutations (acknowledgement rows, notification rows, flag update, document supersession, history) remain in the transaction for atomicity
+
+**Remaining note**: For tenants with large multi-guardian households, the transaction may still be slower than average. The timeout guard prevents indefinite blocking.
 
 ---
 
@@ -325,18 +333,15 @@ Table and partition names are derived from constants (not user input), so SQL in
 
 ---
 
-## DZ-24: Check-Awards Concurrent Duplicate
+## DZ-24: Check-Awards Concurrent Duplicate — MITIGATED
 
 **Risk**: Duplicate awards when multiple positive incidents for the same student are processed concurrently
 **Location**: `apps/worker/src/processors/behaviour/check-awards.processor.ts`
+**Status**: MITIGATED (2026-04-05)
 
-The `BehaviourCheckAwardsJob` dedup guard (line ~166) only checks for an existing award with the same `triggered_by_incident_id` + `award_type_id` + `student_id` combination. It does NOT check for a global "award already exists for this student + award type in this period" before creating.
+**Mitigation applied**: The processor now acquires a `SELECT ... FOR UPDATE` lock on the `behaviour_award_types` row before the dedup check. This serializes concurrent jobs checking the same award type, ensuring the second job's `checkRepeatEligibility()` sees the first job's award before it commits. Test coverage in `check-awards.processor.spec.ts`.
 
-Race scenario: two incidents for the same student are logged seconds apart. Both are enqueued as `behaviour:check-awards` jobs. Both jobs compute `totalPoints >= threshold` and both pass the dedup guard (different `incident_id`). Both create the same award type for the same student.
-
-The `checkRepeatEligibility()` method (line ~339) mitigates this for `once_ever` and `once_per_year` repeat modes — but only if the first job's transaction commits before the second job reads. Under true concurrency with `unlimited` repeat mode, duplicates are possible.
-
-**Mitigation**: Use `once_per_year` or `once_ever` repeat modes for high-value awards (gold stars, certificates). The `unlimited` repeat mode should only be used for low-stakes awards where duplicates are acceptable. For strict dedup, add a unique partial index on `(tenant_id, student_id, award_type_id, academic_year_id)` for `once_per_year` types.
+**Remaining note**: `unlimited` repeat mode still allows multiple awards from different incidents by design — the lock ensures they are created sequentially, not that they are prevented.
 
 ---
 

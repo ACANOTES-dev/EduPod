@@ -37,6 +37,7 @@ function buildJob(
 function buildMockTx() {
   return {
     $executeRaw: jest.fn().mockResolvedValue(undefined),
+    $queryRaw: jest.fn().mockResolvedValue([]),
     behaviourAwardType: {
       findMany: jest.fn().mockResolvedValue([
         {
@@ -166,5 +167,18 @@ describe('BehaviourCheckAwardsProcessor', () => {
     expect(tx.behaviourRecognitionAward.create).not.toHaveBeenCalled();
     expect(tx.notification.create).not.toHaveBeenCalled();
     expect(tx.behaviourPublicationApproval.create).not.toHaveBeenCalled();
+  });
+
+  it('should acquire FOR UPDATE lock on award type before dedup check (DZ-24)', async () => {
+    const tx = buildMockTx();
+    const processor = new BehaviourCheckAwardsProcessor(buildMockPrisma(tx));
+
+    await processor.process(buildJob(BEHAVIOUR_CHECK_AWARDS_JOB));
+
+    // Verify $queryRaw was called (FOR UPDATE lock on award type)
+    expect(tx.$queryRaw).toHaveBeenCalled();
+    // And dedup check + create still happen
+    expect(tx.behaviourRecognitionAward.findFirst).toHaveBeenCalled();
+    expect(tx.behaviourRecognitionAward.create).toHaveBeenCalled();
   });
 });

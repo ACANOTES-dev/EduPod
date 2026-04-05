@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **19 queues**, **~60 documented job types**, **34 cron registrations** (31 by pattern + 2 by interval + 1 canary delayed)
+- **22 queues**, **~61 documented job types**, **34 cron registrations** (31 by pattern + 2 by interval + 1 canary delayed)
 
 ---
 
