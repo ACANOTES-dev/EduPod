@@ -7,12 +7,26 @@ import { QuickActions } from './quick-actions';
 import { SchoolSnapshot } from './school-snapshot';
 import { ThisWeekCard } from './this-week-card';
 
-export function AdminHome({ schoolName, data }: { schoolName: string, data: Record<string, unknown> }) {
+type DashboardData = {
+  stats?: {
+    total_students?: number | string;
+    active_staff?: number | string;
+    total_classes?: number | string;
+  };
+};
+
+export function AdminHome({
+  schoolName,
+  data,
+}: {
+  schoolName: string;
+  data: DashboardData | null;
+}) {
   return (
     <div className="flex flex-col lg:flex-row gap-6">
       <div className="flex-1 min-w-0 space-y-6">
         <GreetingRow schoolName={schoolName} />
-        
+
         <div className="lg:hidden space-y-6">
           <QuickActions variant="horizontal" />
           <SchoolSnapshot variant="compact" data={data} />

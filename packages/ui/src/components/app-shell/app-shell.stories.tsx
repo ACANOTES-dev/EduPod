@@ -1,12 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { BookOpen, GraduationCap, Home, Settings, Users } from 'lucide-react';
 import * as React from 'react';
 
 import { AppShell } from './app-shell';
-import { Sidebar } from './sidebar';
-import { SidebarItem } from './sidebar-item';
-import { SidebarSection } from './sidebar-section';
-import { TopBar } from './top-bar';
 
 const meta: Meta<typeof AppShell> = {
   title: 'Components/AppShell',
@@ -20,77 +15,59 @@ const meta: Meta<typeof AppShell> = {
 export default meta;
 type Story = StoryObj<typeof AppShell>;
 
-function SampleSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+function SampleMorphBar() {
   return (
-    <Sidebar
-      collapsed={collapsed}
-      onToggle={onToggle}
-      header={
-        !collapsed ? (
-          <span style={{ fontWeight: 700, fontSize: '16px', color: '#059669' }}>EduPod</span>
-        ) : (
-          <span style={{ fontWeight: 700, fontSize: '16px', color: '#059669' }}>E</span>
-        )
-      }
+    <div
+      style={{
+        height: '56px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 24px',
+        background: '#1C1917',
+        color: '#FAFAF9',
+      }}
     >
-      <SidebarSection label="Main" collapsed={collapsed}>
-        <SidebarItem icon={Home} label="Dashboard" active collapsed={collapsed} />
-        <SidebarItem icon={Users} label="Students" collapsed={collapsed} />
-        <SidebarItem icon={GraduationCap} label="Classes" collapsed={collapsed} />
-        <SidebarItem icon={BookOpen} label="Subjects" collapsed={collapsed} />
-      </SidebarSection>
-      <SidebarSection label="Admin" collapsed={collapsed}>
-        <SidebarItem icon={Settings} label="Settings" collapsed={collapsed} />
-      </SidebarSection>
-    </Sidebar>
+      <strong style={{ fontSize: '16px' }}>EduPod</strong>
+      <div style={{ display: 'flex', gap: '12px', fontSize: '13px' }}>
+        <span>Home</span>
+        <span>People</span>
+        <span>Learning</span>
+        <span>Operations</span>
+      </div>
+      <span style={{ fontSize: '13px', opacity: 0.8 }}>RA</span>
+    </div>
   );
 }
 
-function SampleTopBar({ onMenuClick }: { onMenuClick?: () => void }) {
+function SampleSubStrip() {
   return (
-    <TopBar
-      leading={
-        onMenuClick ? (
-          <button onClick={onMenuClick} style={{ padding: '4px', cursor: 'pointer' }}>
-            ☰
-          </button>
-        ) : undefined
-      }
-      title="Dashboard"
-      actions={
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '14px', color: '#78716C' }}>Academic Year 2025–26</span>
-          <div
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              background: '#D1FAE5',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 600,
-              color: '#065F46',
-              fontSize: '13px',
-            }}
-          >
-            RA
-          </div>
-        </div>
-      }
-    />
+    <div
+      style={{
+        height: '44px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '0 24px',
+        background: '#292524',
+        color: '#D6D3D1',
+        fontSize: '12px',
+        fontWeight: 600,
+      }}
+    >
+      <span style={{ color: '#F5F5F4' }}>Dashboard</span>
+      <span>Attendance</span>
+      <span>Reports</span>
+      <span>Analytics</span>
+    </div>
   );
 }
 
 export const Default: Story = {
   render: () => {
-    const [collapsed, setCollapsed] = React.useState(false);
     return (
       <div style={{ height: '100vh' }}>
-        <AppShell
-          sidebar={<SampleSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />}
-          topBar={<SampleTopBar />}
-        >
+        <AppShell morphBar={<SampleMorphBar />} subStrip={<SampleSubStrip />}>
           <div style={{ padding: '8px' }}>
             <h2
               style={{ fontSize: '20px', fontWeight: 600, marginBottom: '16px', color: '#1C1917' }}
@@ -132,16 +109,12 @@ export const Default: Story = {
 
 export const CollapsedSidebar: Story = {
   render: () => {
-    const [collapsed, setCollapsed] = React.useState(true);
     return (
       <div style={{ height: '100vh' }}>
-        <AppShell
-          sidebar={<SampleSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />}
-          topBar={<SampleTopBar />}
-        >
+        <AppShell morphBar={<SampleMorphBar />}>
           <p style={{ color: '#78716C', fontSize: '14px' }}>
-            The sidebar is collapsed. Click the toggle button at the bottom of the sidebar to expand
-            it.
+            The shell can also render without a sub-strip when the current hub has no secondary
+            tabs.
           </p>
         </AppShell>
       </div>

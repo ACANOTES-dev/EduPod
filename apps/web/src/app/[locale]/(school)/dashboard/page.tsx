@@ -1,6 +1,5 @@
 'use client';
 
-
 import { useCallback, useEffect, useState } from 'react';
 
 import { apiClient } from '@/lib/api-client';
@@ -12,13 +11,21 @@ import { FrontOfficeHome } from './_components/front-office-home';
 import { ParentHome } from './_components/parent-home';
 import { TeacherHome } from './_components/teacher-home';
 
+type DashboardData = {
+  stats?: {
+    total_students?: number | string;
+    active_staff?: number | string;
+    total_classes?: number | string;
+  };
+};
+
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
 
   const fetchDashboard = useCallback(async () => {
     try {
-      const result = await apiClient<{ data: Record<string, unknown> }>('/api/v1/dashboard/school-admin');
+      const result = await apiClient<{ data: DashboardData }>('/api/v1/dashboard/school-admin');
       setData(result.data);
     } catch (err) {
       console.error('[setData]', err);
@@ -30,7 +37,7 @@ export default function DashboardPage() {
   }, [fetchDashboard]);
 
   const schoolName = user?.memberships?.[0]?.tenant?.name || 'EduPod School';
-  
+
   if (!user?.memberships) return null;
   const roleKeys = user.memberships.flatMap((m) => m.roles?.map((r) => r.role_key) ?? []);
 

@@ -1,7 +1,5 @@
 import { ChevronDown } from 'lucide-react';
-import Link from 'next/link';
 import * as React from 'react';
-
 
 import { cn } from '../../lib/utils';
 import {
@@ -16,13 +14,36 @@ import type { SubStripTab } from './sub-strip';
 interface MoreDropdownProps {
   tabs: SubStripTab[];
   activeTabHref: string;
+  LinkComponent?: React.ComponentType<{
+    href: string;
+    className?: string;
+    children: React.ReactNode;
+  }>;
 }
 
-export function MoreDropdown({ tabs, activeTabHref }: MoreDropdownProps) {
+function DefaultLink({
+  href,
+  className,
+  children,
+}: {
+  href: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <a href={href} className={className}>
+      {children}
+    </a>
+  );
+}
+
+export function MoreDropdown({
+  tabs,
+  activeTabHref,
+  LinkComponent = DefaultLink,
+}: MoreDropdownProps) {
   const isAnyActive = tabs.some(
-    (t) =>
-      activeTabHref === t.href ||
-      (activeTabHref.startsWith(t.href + '/') && t.href !== '/')
+    (t) => activeTabHref === t.href || (activeTabHref.startsWith(t.href + '/') && t.href !== '/'),
   );
 
   return (
@@ -33,7 +54,7 @@ export function MoreDropdown({ tabs, activeTabHref }: MoreDropdownProps) {
             'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors focus:outline-none',
             isAnyActive
               ? 'bg-[var(--color-strip-active-bg)] text-[var(--color-strip-text-active)] font-semibold'
-              : 'text-[var(--color-strip-text)] hover:bg-[var(--color-strip-active-bg)] hover:text-[var(--color-strip-text-active)]'
+              : 'text-[var(--color-strip-text)] hover:bg-[var(--color-strip-active-bg)] hover:text-[var(--color-strip-text-active)]',
           )}
         >
           More
@@ -50,13 +71,13 @@ export function MoreDropdown({ tabs, activeTabHref }: MoreDropdownProps) {
             (activeTabHref.startsWith(tab.href + '/') && tab.href !== '/');
           return (
             <DropdownMenuItem key={tab.href} asChild>
-              <Link
+              <LinkComponent
                 href={tab.href}
                 className={cn(
                   'flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-[12px] font-medium transition-colors cursor-pointer',
                   isActive
                     ? 'bg-[var(--color-strip-active-bg)] text-[var(--color-strip-text-active)]'
-                    : 'hover:bg-[var(--color-strip-active-bg)] hover:text-[var(--color-strip-text-active)] focus:bg-[var(--color-strip-active-bg)] focus:text-[var(--color-strip-text-active)]'
+                    : 'hover:bg-[var(--color-strip-active-bg)] hover:text-[var(--color-strip-text-active)] focus:bg-[var(--color-strip-active-bg)] focus:text-[var(--color-strip-text-active)]',
                 )}
               >
                 {tab.label}
@@ -65,7 +86,7 @@ export function MoreDropdown({ tabs, activeTabHref }: MoreDropdownProps) {
                     {tab.count}
                   </span>
                 )}
-              </Link>
+              </LinkComponent>
             </DropdownMenuItem>
           );
         })}
