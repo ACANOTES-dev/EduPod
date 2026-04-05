@@ -16,6 +16,10 @@ module.exports = {
   testEnvironment: 'node',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^@school/prisma$': '<rootDir>/../../packages/prisma/src',
+    '^@school/prisma/(.*)$': '<rootDir>/../../packages/prisma/src/$1',
+    '^@school/shared$': '<rootDir>/../../packages/shared/src',
+    '^@school/shared/(.*)$': '<rootDir>/../../packages/shared/src/$1',
   },
   setupFiles: ['<rootDir>/test/setup-env.ts'],
   collectCoverage: false,

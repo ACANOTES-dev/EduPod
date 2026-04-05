@@ -19,6 +19,13 @@ module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: '.',
   testRegex: '.*\\.spec\\.ts$',
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '^@school/prisma$': '<rootDir>/../../packages/prisma/src',
+    '^@school/prisma/(.*)$': '<rootDir>/../../packages/prisma/src/$1',
+    '^@school/shared$': '<rootDir>/../../packages/shared/src',
+    '^@school/shared/(.*)$': '<rootDir>/../../packages/shared/src/$1',
+  },
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
