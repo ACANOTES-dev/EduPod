@@ -294,7 +294,10 @@ export class AuthService {
     };
   }
 
-  async refresh(refreshToken: string): Promise<{ access_token: string }> {
+  async refresh(
+    refreshToken: string,
+    requestedTenantId?: string | null,
+  ): Promise<{ access_token: string }> {
     // 1. Verify refresh token
     let payload: RefreshTokenPayload;
     try {
@@ -337,6 +340,40 @@ export class AuthService {
         code: 'USER_NOT_ACTIVE',
         message: 'Your account is no longer active',
       });
+    }
+
+    if (!session.tenant_id && requestedTenantId) {
+      const membership = await runWithRlsContext(
+        this.prisma,
+        { tenant_id: requestedTenantId, user_id: user.id },
+        async (tx) =>
+          tx.tenantMembership.findUnique({
+            where: {
+              idx_tenant_memberships_tenant_user: {
+                tenant_id: requestedTenantId,
+                user_id: user.id,
+              },
+            },
+            include: { tenant: true },
+          }),
+      );
+
+      if (!membership || membership.membership_status !== 'active') {
+        throw new ForbiddenException({
+          code: 'MEMBERSHIP_NOT_ACTIVE',
+          message: 'You do not have an active membership at this school',
+        });
+      }
+
+      if (membership.tenant.status !== 'active') {
+        throw new ForbiddenException({
+          code: 'TENANT_NOT_ACTIVE',
+          message: 'This school account is not active',
+        });
+      }
+
+      session.tenant_id = requestedTenantId;
+      session.membership_id = membership.id;
     }
 
     // 4. If tenant_id in session, check tenant suspension

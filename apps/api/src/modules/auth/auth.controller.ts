@@ -102,7 +102,7 @@ export class AuthController {
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Req() req: Request) {
+  async refresh(@Req() req: Request, @CurrentTenant() tenantContext: TenantContext | null) {
     const refreshToken = req.cookies?.refresh_token as string | undefined;
 
     if (!refreshToken) {
@@ -111,7 +111,7 @@ export class AuthController {
       );
     }
 
-    const result = await this.authService.refresh(refreshToken);
+    const result = await this.authService.refresh(refreshToken, tenantContext?.tenant_id);
     return result;
   }
 

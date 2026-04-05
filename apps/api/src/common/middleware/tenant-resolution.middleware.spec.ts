@@ -190,6 +190,32 @@ describe('TenantResolutionMiddleware', () => {
       expect(next).toHaveBeenCalledTimes(1);
     });
 
+    it('uses x-forwarded-host for auth route tenant resolution', async () => {
+      const req = buildRequest({
+        originalUrl: '/api/v1/auth/login',
+        hostname: 'localhost',
+        headers: { 'x-forwarded-host': 'school.example.com' },
+      });
+      const res = buildResponse();
+
+      mockRedisClient.get.mockResolvedValueOnce(null);
+      (runWithRlsContext as jest.Mock).mockImplementation(async (_prisma, _ctx, cb) =>
+        cb({
+          tenantDomain: { findFirst: jest.fn().mockResolvedValue(ACTIVE_DOMAIN_RECORD) },
+        }),
+      );
+
+      await middleware.use(req, res, next);
+
+      expect(mockRedisClient.setex).toHaveBeenCalledWith(
+        'tenant_domain:school.example.com',
+        60,
+        JSON.stringify(TENANT_CONTEXT),
+      );
+      expect(req.tenantContext).toEqual(TENANT_CONTEXT);
+      expect(next).toHaveBeenCalledTimes(1);
+    });
+
     it('sets null tenant context when auth domain lookup misses', async () => {
       const req = buildRequest({ originalUrl: '/api/v1/auth/login' });
       const res = buildResponse();
@@ -392,6 +418,26 @@ describe('TenantResolutionMiddleware', () => {
         60,
         JSON.stringify(TENANT_CONTEXT),
       );
+      expect(req.tenantContext).toEqual(TENANT_CONTEXT);
+      expect(next).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses x-forwarded-host for tenant route resolution before proxy fallback', async () => {
+      const req = buildRequest({
+        hostname: 'localhost',
+        headers: { 'x-forwarded-host': 'school.example.com' },
+      });
+      const res = buildResponse();
+
+      mockRedisClient.get.mockResolvedValueOnce(null);
+      (runWithRlsContext as jest.Mock).mockImplementation(async (_prisma, _ctx, cb) =>
+        cb({
+          tenantDomain: { findFirst: jest.fn().mockResolvedValue(ACTIVE_DOMAIN_RECORD) },
+        }),
+      );
+
+      await middleware.use(req, res, next);
+
       expect(req.tenantContext).toEqual(TENANT_CONTEXT);
       expect(next).toHaveBeenCalledTimes(1);
     });

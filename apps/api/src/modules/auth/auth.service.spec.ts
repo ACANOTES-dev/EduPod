@@ -1025,6 +1025,45 @@ describe('AuthService', () => {
       );
     });
 
+    it('should heal a tenant-less session when refresh is requested from a valid tenant host', async () => {
+      const refreshToken = service.signRefreshToken({
+        sub: USER_ID,
+        session_id: SESSION_ID,
+      });
+
+      const sessionData = {
+        user_id: USER_ID,
+        session_id: SESSION_ID,
+        tenant_id: null,
+        membership_id: null,
+        ip_address: '127.0.0.1',
+        user_agent: 'jest-agent',
+        created_at: '2026-01-01T00:00:00.000Z',
+        last_active_at: '2026-01-01T00:00:00.000Z',
+      };
+      mockSessionService.getSession.mockResolvedValue(sessionData);
+      mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_USER });
+      mockPrisma.tenantMembership.findUnique.mockResolvedValue({
+        id: MEMBERSHIP_ID,
+        membership_status: 'active',
+        tenant: { id: TENANT_ID, status: 'active' },
+      });
+      redisClient.get.mockResolvedValueOnce(null);
+      mockTenantReadFacade.findById.mockResolvedValue({ id: TENANT_ID, status: 'active' });
+
+      const result = await service.refresh(refreshToken, TENANT_ID);
+
+      const payload = service.verifyAccessToken(result.access_token);
+      expect(payload.tenant_id).toBe(TENANT_ID);
+      expect(payload.membership_id).toBe(MEMBERSHIP_ID);
+      expect(redisClient.set).toHaveBeenCalledWith(
+        `session:${SESSION_ID}`,
+        expect.stringContaining(`"tenant_id":"${TENANT_ID}"`),
+        'EX',
+        604800,
+      );
+    });
+
     it('should throw UnauthorizedException when refresh token is invalid', async () => {
       await expect(service.refresh('invalid-token')).rejects.toThrow(UnauthorizedException);
     });

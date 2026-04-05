@@ -51,7 +51,7 @@ export class TenantResolutionMiddleware implements NestMiddleware {
     if (req.originalUrl.startsWith('/api/v1/auth')) {
       // Attempt tenant resolution but don't block if no domain found
       try {
-        const hostname = req.hostname;
+        const hostname = this.getRequestHostname(req);
         const isProxyHostname = this.isProxyHostname(hostname);
         const client = this.redis.getClient();
         const cacheKey = `tenant_domain:${hostname}`;
@@ -117,7 +117,7 @@ export class TenantResolutionMiddleware implements NestMiddleware {
     }
 
     try {
-      const hostname = req.hostname;
+      const hostname = this.getRequestHostname(req);
       const isProxyHostname = this.isProxyHostname(hostname);
 
       // Check Redis cache first
@@ -219,6 +219,16 @@ export class TenantResolutionMiddleware implements NestMiddleware {
 
   private isProxyHostname(hostname: string): boolean {
     return hostname === this.platformDomain || hostname === 'localhost' || hostname === '127.0.0.1';
+  }
+
+  private getRequestHostname(req: Request): string {
+    const forwardedHostHeader = req.headers['x-forwarded-host'];
+    const forwardedHost = Array.isArray(forwardedHostHeader)
+      ? forwardedHostHeader[0]
+      : forwardedHostHeader?.split(',')[0]?.trim();
+
+    const rawHost = forwardedHost || req.hostname;
+    return rawHost.replace(/:\d+$/, '').toLowerCase();
   }
 
   /**
