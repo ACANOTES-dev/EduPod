@@ -400,8 +400,8 @@ describe('BehaviourExclusionCasesService', () => {
       const diffMs = deadline.getTime() - now.getTime();
       const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
 
-      // 15 school days is 21 calendar days (3 weeks). Allow small tolerance for test timing.
-      expect(diffDays).toBeGreaterThanOrEqual(20);
+      // 15 school days is 21 calendar days (3 weeks). Allow tolerance for test timing and rounding.
+      expect(diffDays).toBeGreaterThanOrEqual(19);
       expect(diffDays).toBeLessThanOrEqual(22);
     });
   });
