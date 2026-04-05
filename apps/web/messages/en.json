@@ -47,6 +47,8 @@
     "previousPage": "Previous page"
   },
   "nav": {
+    "home": "Home",
+    "learning": "Learning",
     "dashboard": "Dashboard",
     "students": "Students",
     "staff": "Staff",

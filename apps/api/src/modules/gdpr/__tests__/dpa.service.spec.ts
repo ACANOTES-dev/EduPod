@@ -3,9 +3,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn(),
+  runWithRlsContext: jest.fn(),
 }));
 
-import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { createRlsClient, runWithRlsContext } from '../../../common/middleware/rls.middleware';
 import { SecurityAuditService } from '../../audit-log/security-audit.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -32,6 +33,7 @@ describe('DpaService', () => {
   let service: DpaService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   const mockCreateRlsClient = createRlsClient as jest.Mock;
+  const mockRunWithRlsContext = runWithRlsContext as jest.Mock;
   const mockPlatformLegalService = {
     ensureSeeded: jest.fn(),
   };
@@ -50,6 +52,13 @@ describe('DpaService', () => {
             fn(mockPrisma),
         ),
     });
+    mockRunWithRlsContext.mockImplementation(
+      async (
+        _prisma: ReturnType<typeof buildMockPrisma>,
+        _context: { tenant_id: string },
+        fn: (tx: ReturnType<typeof buildMockPrisma>) => Promise<unknown>,
+      ) => fn(mockPrisma),
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -94,6 +103,11 @@ describe('DpaService', () => {
     expect(result.accepted).toBe(false);
     expect(result.accepted_version).toBeNull();
     expect(result.history).toHaveLength(1);
+    expect(mockRunWithRlsContext).toHaveBeenCalledWith(
+      mockPrisma,
+      { tenant_id: TENANT_ID },
+      expect.any(Function),
+    );
     expect(mockPrisma.dataProcessingAgreement.findFirst).toHaveBeenCalledWith({
       where: {
         tenant_id: TENANT_ID,
@@ -109,6 +123,11 @@ describe('DpaService', () => {
     const accepted = await service.hasAccepted(TENANT_ID, '2026.03');
 
     expect(accepted).toBe(true);
+    expect(mockRunWithRlsContext).toHaveBeenCalledWith(
+      mockPrisma,
+      { tenant_id: TENANT_ID },
+      expect.any(Function),
+    );
     expect(mockPrisma.dataProcessingAgreement.findFirst).toHaveBeenCalledWith({
       where: {
         tenant_id: TENANT_ID,
@@ -209,6 +228,11 @@ describe('DpaService', () => {
       const accepted = await service.hasAccepted(TENANT_ID, '2026.03');
 
       expect(accepted).toBe(false);
+      expect(mockRunWithRlsContext).toHaveBeenCalledWith(
+        mockPrisma,
+        { tenant_id: TENANT_ID },
+        expect.any(Function),
+      );
     });
   });
 

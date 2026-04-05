@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
-import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { createRlsClient, runWithRlsContext } from '../../common/middleware/rls.middleware';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -35,13 +35,15 @@ export class DpaService {
   }
 
   async hasAccepted(tenantId: string, version: string) {
-    const acceptance = await this.prisma.dataProcessingAgreement.findFirst({
-      where: {
-        tenant_id: tenantId,
-        dpa_version: version,
-      },
-      select: { id: true },
-    });
+    const acceptance = await runWithRlsContext(this.prisma, { tenant_id: tenantId }, async (tx) =>
+      tx.dataProcessingAgreement.findFirst({
+        where: {
+          tenant_id: tenantId,
+          dpa_version: version,
+        },
+        select: { id: true },
+      }),
+    );
 
     return Boolean(acceptance);
   }
@@ -49,19 +51,30 @@ export class DpaService {
   async getStatus(tenantId: string) {
     const currentVersion = await this.getCurrentVersion();
 
-    const [currentAcceptance, history] = await Promise.all([
-      this.prisma.dataProcessingAgreement.findFirst({
-        where: {
-          tenant_id: tenantId,
-          dpa_version: currentVersion.version,
-        },
-        orderBy: { accepted_at: 'desc' },
-      }),
-      this.prisma.dataProcessingAgreement.findMany({
-        where: { tenant_id: tenantId },
-        orderBy: { accepted_at: 'desc' },
-      }),
-    ]);
+    const { currentAcceptance, history } = await runWithRlsContext(
+      this.prisma,
+      { tenant_id: tenantId },
+      async (tx) => {
+        const [acceptedRecord, historyRecords] = await Promise.all([
+          tx.dataProcessingAgreement.findFirst({
+            where: {
+              tenant_id: tenantId,
+              dpa_version: currentVersion.version,
+            },
+            orderBy: { accepted_at: 'desc' },
+          }),
+          tx.dataProcessingAgreement.findMany({
+            where: { tenant_id: tenantId },
+            orderBy: { accepted_at: 'desc' },
+          }),
+        ]);
+
+        return {
+          currentAcceptance: acceptedRecord,
+          history: historyRecords,
+        };
+      },
+    );
 
     return {
       current_version: currentVersion,
@@ -75,24 +88,25 @@ export class DpaService {
 
   async acceptCurrentVersion(tenantId: string, userId: string, ipAddress?: string) {
     const currentVersion = await this.getCurrentVersion();
-
-    // Check if already accepted — idempotent
-    const existing = await this.prisma.dataProcessingAgreement.findFirst({
-      where: {
-        tenant_id: tenantId,
-        dpa_version: currentVersion.version,
-      },
-      orderBy: { accepted_at: 'desc' },
-    });
-
-    if (existing) {
-      return existing;
-    }
-
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId, user_id: userId });
+    let created = false;
 
-    await rlsClient.$transaction(async (tx) => {
-      await tx.dataProcessingAgreement.create({
+    const acceptance = await rlsClient.$transaction(async (tx) => {
+      const existing = await tx.dataProcessingAgreement.findFirst({
+        where: {
+          tenant_id: tenantId,
+          dpa_version: currentVersion.version,
+        },
+        orderBy: { accepted_at: 'desc' },
+      });
+
+      if (existing) {
+        return existing;
+      }
+
+      created = true;
+
+      return tx.dataProcessingAgreement.create({
         data: {
           tenant_id: tenantId,
           dpa_version: currentVersion.version,
@@ -103,22 +117,15 @@ export class DpaService {
       });
     });
 
-    await this.securityAuditService.logDpaAcceptance(
-      tenantId,
-      userId,
-      currentVersion.version,
-      ipAddress ?? null,
-    );
+    if (created) {
+      await this.securityAuditService.logDpaAcceptance(
+        tenantId,
+        userId,
+        currentVersion.version,
+        ipAddress ?? null,
+      );
+    }
 
-    // Re-fetch the created record to return
-    const created = await this.prisma.dataProcessingAgreement.findFirst({
-      where: {
-        tenant_id: tenantId,
-        dpa_version: currentVersion.version,
-      },
-      orderBy: { accepted_at: 'desc' },
-    });
-
-    return created;
+    return acceptance;
   }
 }

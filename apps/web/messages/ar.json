@@ -47,6 +47,8 @@
     "previousPage": "[AR] Previous page"
   },
   "nav": {
+    "home": "الرئيسية",
+    "learning": "التعلّم",
     "dashboard": "لوحة التحكم",
     "students": "الطلاب",
     "staff": "الموظفون",
