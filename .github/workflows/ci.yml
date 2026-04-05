@@ -253,7 +253,7 @@ jobs:
         run: pnpm db:seed
 
       - name: Run integration tests
-        run: pnpm test:integration
+        run: NODE_OPTIONS="--max-old-space-size=6144" pnpm test:integration
 
       - name: Restore drill verification
         run: bash scripts/ci-restore-drill.sh
