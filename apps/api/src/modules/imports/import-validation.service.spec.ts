@@ -1217,6 +1217,99 @@ describe('ImportValidationService', () => {
     });
   });
 
+  // ─── defensive parser branches ───────────────────────────────────────────
+
+  describe('defensive parser branches', () => {
+    it('should count undefined rows returned by the parser as failures', async () => {
+      mockPrisma.importJob.findFirst.mockResolvedValue(buildMockJob());
+      mockS3.download.mockResolvedValue(csvBuffer('ignored'));
+      mockPrisma.importJob.update.mockResolvedValue(undefined);
+
+      jest
+        .spyOn(service as unknown as { parseCsv: (buffer: Buffer) => unknown }, 'parseCsv')
+        .mockReturnValue({
+          headers: ['first_name', 'last_name', 'date_of_birth', 'gender'],
+          rows: [undefined],
+        });
+      jest
+        .spyOn(
+          service as unknown as { isExampleRow: (row: unknown, type: unknown) => boolean },
+          'isExampleRow',
+        )
+        .mockReturnValue(false);
+
+      await service.validate(TENANT_ID, JOB_ID);
+
+      const summary = getUpdateSummary();
+      expect(summary['failed']).toBe(1);
+      expect(summary['successful']).toBe(0);
+    });
+
+    it('should return empty headers when xlsx workbook has no sheets', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const XLSX = require('xlsx');
+      jest.spyOn(XLSX, 'read').mockReturnValue({ SheetNames: [], Sheets: {} });
+
+      const result = (
+        service as unknown as {
+          parseXlsx: (buffer: Buffer) => { headers: string[]; rows: unknown[] };
+        }
+      ).parseXlsx(Buffer.from('xlsx'));
+
+      expect(result).toEqual({ headers: [], rows: [] });
+    });
+
+    it('should return empty headers when the first xlsx sheet is missing', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const XLSX = require('xlsx');
+      jest.spyOn(XLSX, 'read').mockReturnValue({ SheetNames: ['Sheet1'], Sheets: {} });
+
+      const result = (
+        service as unknown as {
+          parseXlsx: (buffer: Buffer) => { headers: string[]; rows: unknown[] };
+        }
+      ).parseXlsx(Buffer.from('xlsx'));
+
+      expect(result).toEqual({ headers: [], rows: [] });
+    });
+
+    it('should return empty headers when xlsx raw rows are empty', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const XLSX = require('xlsx');
+      jest.spyOn(XLSX, 'read').mockReturnValue({
+        SheetNames: ['Sheet1'],
+        Sheets: { Sheet1: {} },
+      });
+      jest.spyOn(XLSX.utils, 'sheet_to_json').mockReturnValue([]);
+
+      const result = (
+        service as unknown as {
+          parseXlsx: (buffer: Buffer) => { headers: string[]; rows: unknown[] };
+        }
+      ).parseXlsx(Buffer.from('xlsx'));
+
+      expect(result).toEqual({ headers: [], rows: [] });
+    });
+
+    it('should return empty headers when xlsx header row is missing', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const XLSX = require('xlsx');
+      jest.spyOn(XLSX, 'read').mockReturnValue({
+        SheetNames: ['Sheet1'],
+        Sheets: { Sheet1: {} },
+      });
+      jest.spyOn(XLSX.utils, 'sheet_to_json').mockReturnValue([undefined]);
+
+      const result = (
+        service as unknown as {
+          parseXlsx: (buffer: Buffer) => { headers: string[]; rows: unknown[] };
+        }
+      ).parseXlsx(Buffer.from('xlsx'));
+
+      expect(result).toEqual({ headers: [], rows: [] });
+    });
+  });
+
   // ─── validate() — staff_compensation hourly type ────────────────────────
 
   describe('validate() — staff_compensation hourly type', () => {

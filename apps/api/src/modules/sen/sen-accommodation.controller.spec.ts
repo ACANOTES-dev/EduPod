@@ -9,6 +9,7 @@ import { REQUIRES_PERMISSION_KEY } from '../../common/decorators/requires-permis
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import { PermissionCacheService } from '../../common/services/permission-cache.service';
 
 import { SenAccommodationController } from './sen-accommodation.controller';
 import { SenAccommodationService } from './sen-accommodation.service';
@@ -209,7 +210,10 @@ describe('SenAccommodationController — permission denied', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SenAccommodationController],
-      providers: [{ provide: SenAccommodationService, useValue: {} }],
+      providers: [
+        { provide: SenAccommodationService, useValue: {} },
+        { provide: PermissionCacheService, useValue: { getPermissions: jest.fn() } },
+      ],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })

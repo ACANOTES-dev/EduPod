@@ -619,12 +619,7 @@ describe('BehaviourExclusionCasesService', () => {
         conditions_for_return: null,
       });
 
-      await service.update(
-        TENANT_ID,
-        CASE_ID,
-        { conditions_for_return: undefined } as never,
-        USER_ID,
-      );
+      await service.update(TENANT_ID, CASE_ID, { conditions_for_return: null } as never, USER_ID);
 
       expect(mockRlsTx.behaviourExclusionCase!.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1006,7 +1001,7 @@ describe('BehaviourExclusionCasesService', () => {
         hearing_date: null,
       });
 
-      await service.update(TENANT_ID, CASE_ID, { hearing_date: undefined } as never, USER_ID);
+      await service.update(TENANT_ID, CASE_ID, { hearing_date: null } as never, USER_ID);
 
       expect(mockRlsTx.behaviourExclusionCase!.update).toHaveBeenCalledWith(
         expect.objectContaining({

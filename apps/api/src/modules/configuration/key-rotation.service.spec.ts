@@ -1,3 +1,4 @@
+import { ModuleRef } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
@@ -48,9 +49,7 @@ const mockMfaUser = (id: string, keyRef: string | null) => ({
 // ─── Test suite ─────────────────────────────────────────────────────────────
 
 describe('KeyRotationService', () => {
-  let service: KeyRotationService;
-  let staffProfileReadFacade: Record<string, jest.Mock>;
-  let mockPrisma: {
+  type MockPrismaTransactionClient = {
     tenantStripeConfig: {
       findMany: jest.Mock;
       update: jest.Mock;
@@ -64,6 +63,15 @@ describe('KeyRotationService', () => {
       update: jest.Mock;
     };
   };
+  type TransactionCallback<T> = (tx: MockPrismaTransactionClient) => Promise<T>;
+  type MockPrisma = MockPrismaTransactionClient & {
+    $transaction: jest.Mock<Promise<unknown>, [TransactionCallback<unknown>]>;
+  };
+
+  let service: KeyRotationService;
+  let staffProfileReadFacade: Record<string, jest.Mock>;
+  let moduleRef: ModuleRef;
+  let mockPrisma: MockPrisma;
   let mockEncryption: {
     getCurrentVersion: jest.Mock;
     getKeyRef: jest.Mock;
@@ -85,9 +93,11 @@ describe('KeyRotationService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn().mockResolvedValue({}),
       },
-    } as unknown as typeof mockPrisma;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (mockPrisma as any).$transaction = jest.fn().mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(mockPrisma));
+      $transaction: jest.fn(),
+    };
+    mockPrisma.$transaction.mockImplementation(async (fn: TransactionCallback<unknown>) =>
+      fn(mockPrisma),
+    );
 
     mockEncryption = {
       getCurrentVersion: jest.fn().mockReturnValue(CURRENT_VERSION),
@@ -112,7 +122,11 @@ describe('KeyRotationService', () => {
     }).compile();
 
     service = module.get<KeyRotationService>(KeyRotationService);
-    staffProfileReadFacade = module.get(StaffProfileReadFacade) as unknown as Record<string, jest.Mock>;
+    moduleRef = module.get(ModuleRef);
+    staffProfileReadFacade = module.get(StaffProfileReadFacade) as unknown as Record<
+      string,
+      jest.Mock
+    >;
     staffProfileReadFacade['findWithStaleBankEncryptionKey']!.mockReset().mockResolvedValue([]);
   });
 
@@ -121,6 +135,14 @@ describe('KeyRotationService', () => {
   // ─── Stripe Configs ───────────────────────────────────────────────────────
 
   describe('rotateAll — stripe configs', () => {
+    it('defaults dryRun to false when omitted', async () => {
+      mockPrisma.tenantStripeConfig.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.rotateAll();
+
+      expect(result.dryRun).toBe(false);
+    });
+
     it('should re-encrypt records with old keyRef', async () => {
       const oldRecord = mockStripeConfig('sc-1', 'local');
       mockPrisma.tenantStripeConfig.findMany
@@ -173,9 +195,9 @@ describe('KeyRotationService', () => {
   describe('rotateAll — staff bank details', () => {
     it('should re-encrypt records with old keyRef', async () => {
       const oldRecord = mockStaffProfile('sp-1', 'aws', 'iv:tag:cipher_acct', 'iv:tag:cipher_iban');
-      staffProfileReadFacade['findWithStaleBankEncryptionKey']!
-        .mockResolvedValueOnce([oldRecord])
-        .mockResolvedValueOnce([]);
+      staffProfileReadFacade['findWithStaleBankEncryptionKey']!.mockResolvedValueOnce([
+        oldRecord,
+      ]).mockResolvedValueOnce([]);
 
       const result = await service.rotateAll(false);
 
@@ -199,9 +221,9 @@ describe('KeyRotationService', () => {
     it('should handle null encrypted fields gracefully', async () => {
       // Has keyRef but no encrypted fields — should be skipped
       const nullFieldsRecord = mockStaffProfile('sp-2', 'local', null, null);
-      staffProfileReadFacade['findWithStaleBankEncryptionKey']!
-        .mockResolvedValueOnce([nullFieldsRecord])
-        .mockResolvedValueOnce([]);
+      staffProfileReadFacade['findWithStaleBankEncryptionKey']!.mockResolvedValueOnce([
+        nullFieldsRecord,
+      ]).mockResolvedValueOnce([]);
 
       const result = await service.rotateAll(false);
 
@@ -213,15 +235,34 @@ describe('KeyRotationService', () => {
 
     it('should handle record with only account number encrypted', async () => {
       const partialRecord = mockStaffProfile('sp-3', 'local', 'iv:tag:cipher_acct', null);
-      staffProfileReadFacade['findWithStaleBankEncryptionKey']!
-        .mockResolvedValueOnce([partialRecord])
-        .mockResolvedValueOnce([]);
+      staffProfileReadFacade['findWithStaleBankEncryptionKey']!.mockResolvedValueOnce([
+        partialRecord,
+      ]).mockResolvedValueOnce([]);
 
       const result = await service.rotateAll(false);
 
       expect(result.staffProfiles.rotated).toBe(1);
       // Only one decrypt call for this record (account only, no IBAN)
       expect(mockEncryption.decrypt).toHaveBeenCalledWith('iv:tag:cipher_acct', 'local');
+    });
+
+    it('should handle record with only IBAN encrypted', async () => {
+      const partialRecord = mockStaffProfile('sp-4', 'local', null, 'iv:tag:cipher_iban');
+      staffProfileReadFacade['findWithStaleBankEncryptionKey']!.mockResolvedValueOnce([
+        partialRecord,
+      ]).mockResolvedValueOnce([]);
+
+      const result = await service.rotateAll(false);
+
+      expect(result.staffProfiles.rotated).toBe(1);
+      expect(mockEncryption.decrypt).toHaveBeenCalledWith('iv:tag:cipher_iban', 'local');
+      expect(mockPrisma.staffProfile.update).toHaveBeenCalledWith({
+        where: { id: 'sp-4' },
+        data: expect.objectContaining({
+          bank_encryption_key_ref: CURRENT_KEY_REF,
+          bank_iban_encrypted: expect.stringContaining('new_cipher_'),
+        }),
+      });
     });
   });
 
@@ -308,9 +349,9 @@ describe('KeyRotationService', () => {
       mockPrisma.tenantStripeConfig.findMany
         .mockResolvedValueOnce([stripeRecord])
         .mockResolvedValueOnce([]);
-      staffProfileReadFacade['findWithStaleBankEncryptionKey']!
-        .mockResolvedValueOnce([staffRecord])
-        .mockResolvedValueOnce([]);
+      staffProfileReadFacade['findWithStaleBankEncryptionKey']!.mockResolvedValueOnce([
+        staffRecord,
+      ]).mockResolvedValueOnce([]);
       mockPrisma.user.findMany.mockResolvedValueOnce([mfaUser]).mockResolvedValueOnce([]);
 
       const result = await service.rotateAll(true);
@@ -359,6 +400,20 @@ describe('KeyRotationService', () => {
       );
     });
 
+    it('should normalise non-Error stripe failures', async () => {
+      const bad = mockStripeConfig('sc-bad', 'local');
+
+      mockEncryption.decrypt.mockImplementation(() => {
+        throw 'broken stripe payload';
+      });
+      mockPrisma.tenantStripeConfig.findMany.mockResolvedValueOnce([bad]).mockResolvedValueOnce([]);
+
+      const result = await service.rotateAll(false);
+
+      expect(result.stripeConfigs.failed).toBe(1);
+      expect(result.stripeConfigs.rotated).toBe(0);
+    });
+
     it('should log and count staff profile failures without stopping', async () => {
       const bad = mockStaffProfile('sp-bad', 'local', 'iv:tag:acct', null);
 
@@ -366,9 +421,9 @@ describe('KeyRotationService', () => {
         throw new Error('Key mismatch');
       });
 
-      staffProfileReadFacade['findWithStaleBankEncryptionKey']!
-        .mockResolvedValueOnce([bad])
-        .mockResolvedValueOnce([]);
+      staffProfileReadFacade['findWithStaleBankEncryptionKey']!.mockResolvedValueOnce([
+        bad,
+      ]).mockResolvedValueOnce([]);
 
       const result = await service.rotateAll(false);
 
@@ -376,6 +431,58 @@ describe('KeyRotationService', () => {
       expect(result.staffProfiles.failed).toBe(1);
       expect(result.staffProfiles.rotated).toBe(0);
       expect(mockPrisma.staffProfile.update).not.toHaveBeenCalled();
+    });
+
+    it('should normalise non-Error staff profile failures', async () => {
+      const bad = mockStaffProfile('sp-bad', 'local', 'iv:tag:acct', null);
+
+      mockEncryption.decrypt.mockImplementation(() => {
+        throw 'broken staff payload';
+      });
+      staffProfileReadFacade['findWithStaleBankEncryptionKey']!.mockResolvedValueOnce([
+        bad,
+      ]).mockResolvedValueOnce([]);
+
+      const result = await service.rotateAll(false);
+
+      expect(result.staffProfiles.failed).toBe(1);
+      expect(result.staffProfiles.rotated).toBe(0);
+    });
+
+    it('should normalise non-Error MFA failures', async () => {
+      const user = mockMfaUser('user-bad', 'v1');
+
+      mockEncryption.decrypt.mockImplementation(() => {
+        throw 'broken mfa payload';
+      });
+      mockPrisma.user.findMany.mockResolvedValueOnce([user]).mockResolvedValueOnce([]);
+
+      const result = await service.rotateAll(false);
+
+      expect(result.mfaSecrets.failed).toBe(1);
+      expect(result.mfaSecrets.rotated).toBe(0);
+    });
+  });
+
+  describe('facade resolution', () => {
+    it('should attempt to resolve the staff profile facade during module init', () => {
+      const getSpy = jest.spyOn(moduleRef, 'get');
+
+      service.onModuleInit();
+
+      expect(getSpy).toHaveBeenCalledWith(
+        StaffProfileReadFacade,
+        expect.objectContaining({ strict: false }),
+      );
+    });
+
+    it('should throw when the staff profile facade cannot be resolved', async () => {
+      jest.spyOn(moduleRef, 'get').mockReturnValueOnce(null);
+      service['staffProfileReadFacade'] = null;
+
+      await expect(service.rotateAll(false)).rejects.toThrow(
+        'StaffProfileReadFacade is not available',
+      );
     });
   });
 });

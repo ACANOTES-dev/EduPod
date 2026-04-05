@@ -1071,12 +1071,12 @@ describe('SurveyService', () => {
       expect(mockRlsTx.surveyQuestion.createMany).not.toHaveBeenCalled();
     });
 
-    it('should use default values for optional DTO fields', async () => {
+    it('should persist provided values for optional DTO fields', async () => {
       const dto = {
         title: 'Minimal',
         frequency: 'fortnightly' as const,
         min_response_threshold: 5,
-        dept_drill_down_threshold: 3,
+        dept_drill_down_threshold: 8,
         moderation_enabled: false,
         window_opens_at: futureDate(1).toISOString(),
         window_closes_at: futureDate(8).toISOString(),
@@ -1101,8 +1101,8 @@ describe('SurveyService', () => {
           description: null,
           frequency: 'fortnightly',
           min_response_threshold: 5,
-          dept_drill_down_threshold: 10,
-          moderation_enabled: true,
+          dept_drill_down_threshold: 8,
+          moderation_enabled: false,
         }),
       });
     });

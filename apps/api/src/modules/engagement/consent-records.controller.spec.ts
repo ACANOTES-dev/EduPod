@@ -6,6 +6,7 @@ import request from 'supertest';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import { PermissionCacheService } from '../../common/services/permission-cache.service';
 
 import { ConsentRecordsController } from './consent-records.controller';
 import { ConsentRecordsService } from './consent-records.service';
@@ -75,7 +76,10 @@ describe('ConsentRecordsController — permission denied', () => {
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       controllers: [ConsentRecordsController],
-      providers: [{ provide: ConsentRecordsService, useValue: {} }],
+      providers: [
+        { provide: ConsentRecordsService, useValue: {} },
+        { provide: PermissionCacheService, useValue: { getPermissions: jest.fn() } },
+      ],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })

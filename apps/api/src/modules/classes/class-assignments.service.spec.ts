@@ -209,6 +209,19 @@ describe('ClassAssignmentService — getAssignments', () => {
     // The year group should have students but no homeroom classes
     expect(result.year_groups[0]?.homeroom_classes).toHaveLength(0);
   });
+
+  it('should include year groups that have classes even when they have no students', async () => {
+    mockAcademicReadFacade.findCurrentYear.mockResolvedValue(activeAcademicYear);
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([]);
+    mockPrisma.class.findMany.mockResolvedValue([baseClass]);
+    mockAcademicReadFacade.findAllYearGroupsWithOrder.mockResolvedValue([baseYearGroup]);
+
+    const result = await service.getAssignments(TENANT_ID);
+
+    expect(result.year_groups).toHaveLength(1);
+    expect(result.year_groups[0]?.students).toHaveLength(0);
+    expect(result.year_groups[0]?.homeroom_classes).toHaveLength(1);
+  });
 });
 
 describe('ClassAssignmentService — bulkAssign', () => {
@@ -467,6 +480,35 @@ describe('ClassAssignmentService — bulkAssign', () => {
       }),
     );
   });
+
+  it('should process mixed assignment outcomes in a single batch', async () => {
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([
+      { id: 'student-success', status: 'active', year_group_id: YEAR_ID, class_homeroom_id: null },
+      { id: 'student-skip', status: 'active', year_group_id: YEAR_ID, class_homeroom_id: CLASS_ID },
+      { id: 'student-error', status: 'withdrawn', year_group_id: YEAR_ID, class_homeroom_id: null },
+    ]);
+    mockRlsTx.class.findMany.mockResolvedValue([
+      { id: CLASS_ID, status: 'active', subject_id: null, year_group_id: YEAR_ID },
+    ]);
+    mockRlsTx.classEnrolment.create.mockResolvedValue({ id: ENROLMENT_ID });
+
+    const dto: BulkClassAssignmentDto = {
+      start_date: '2025-09-01',
+      assignments: [
+        { student_id: 'student-success', class_id: CLASS_ID },
+        { student_id: 'student-skip', class_id: CLASS_ID },
+        { student_id: 'student-error', class_id: CLASS_ID },
+      ],
+    };
+
+    const result = await service.bulkAssign(TENANT_ID, dto);
+
+    expect(result.assigned).toBe(1);
+    expect(result.skipped).toBe(1);
+    expect(result.errors).toEqual([
+      { student_id: 'student-error', reason: 'Student is not active' },
+    ]);
+  });
 });
 
 describe('ClassAssignmentService — getExportData', () => {
@@ -623,5 +665,21 @@ describe('ClassAssignmentService — getExportData', () => {
     expect(result.class_lists[0]?.students[0]?.parents).toEqual([
       { first_name: 'John', last_name: 'Smith', email: 'john@example.com', phone: '+1-555-0001' },
     ]);
+  });
+
+  it('should prefer branding display name over tenant name in export data', async () => {
+    mockAcademicReadFacade.findCurrentYear.mockResolvedValue({ id: YEAR_ID, name: '2025/2026' });
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([]);
+    mockPrisma.class.findMany.mockResolvedValue([]);
+    mockTenantReadFacade.findBranding.mockResolvedValue({
+      school_name_display: 'Branded School',
+      school_name_ar: null,
+      logo_url: null,
+    });
+    mockTenantReadFacade.findNameById.mockResolvedValue('Fallback School');
+
+    const result = await service.getExportData(TENANT_ID);
+
+    expect(result.school_name).toBe('Branded School');
   });
 });

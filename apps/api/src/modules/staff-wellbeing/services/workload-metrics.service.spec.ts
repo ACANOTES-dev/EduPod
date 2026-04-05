@@ -115,6 +115,48 @@ describe('WorkloadMetricsService', () => {
       expect(score).toBeGreaterThanOrEqual(0);
       expect(score).toBeLessThanOrEqual(100);
     });
+
+    it('should penalise split days inside the composite score', () => {
+      const splitSchedules = [
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P4',
+            period_order: 4,
+          },
+        }),
+        makeSchedule({
+          weekday: 2,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          weekday: 2,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P2',
+            period_order: 2,
+          },
+        }),
+      ];
+
+      const score = WorkloadMetricsService.computeTimetableCompositeScore(splitSchedules);
+
+      expect(score).toBeLessThan(100);
+      expect(score).toBeGreaterThanOrEqual(0);
+    });
   });
 
   describe('WorkloadMetricsService — qualityLabel', () => {

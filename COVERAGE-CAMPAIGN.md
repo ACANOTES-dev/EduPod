@@ -1,7 +1,7 @@
 # Coverage Campaign: Branch Coverage 77% to 90%
 
 **Date**: 2026-04-05
-**Status**: In progress — paused after Round 3
+**Status**: In progress — resumed locally after Round 3
 
 ---
 
@@ -21,6 +21,42 @@
 ---
 
 ## What Was Done
+
+### Round 4 — targeted manual follow-up (local, 2026-04-05)
+
+Focused on fast branch wins outside the original multi-agent waves:
+
+- Added a brand-new spec for `apps/api/src/common/middleware/tenant-resolution.middleware.spec.ts`
+- Added new coverage cases in:
+  - `apps/api/src/modules/configuration/key-rotation.service.spec.ts`
+  - `apps/api/src/modules/classes/class-assignments.service.spec.ts`
+  - `apps/api/src/modules/behaviour/behaviour-admin.service.spec.ts`
+  - `apps/api/src/modules/imports/import-validation.service.spec.ts`
+  - `apps/api/src/modules/staff-wellbeing/services/workload-metrics.service.spec.ts`
+- Added brand-new read-facade specs for:
+  - `apps/api/src/modules/staff-profiles/staff-profile-read.facade.spec.ts`
+  - `apps/api/src/modules/staff-availability/staff-availability-read.facade.spec.ts`
+  - `apps/api/src/modules/staff-preferences/staff-preferences-read.facade.spec.ts`
+
+**Verified targeted branch results from focused coverage runs:**
+
+| File                              | Before snapshot | Targeted run after Round 4 |
+| --------------------------------- | --------------- | -------------------------- |
+| `tenant-resolution.middleware.ts` | 0.0%            | 93.47%                     |
+| `key-rotation.service.ts`         | 39.39%          | 91.17%                     |
+| `class-assignments.service.ts`    | 68.62%          | 92.15%                     |
+| `behaviour-admin.service.ts`      | 80.81%\*        | 88.96%                     |
+| `import-validation.service.ts`    | 83.33%          | 85.55%                     |
+| `workload-metrics.service.ts`     | 77.77%          | 78.78%                     |
+| `staff-profile-read.facade.ts`    | 18.75%          | 93.75%                     |
+
+\*The campaign summary referenced module-level behaviour coverage; the file-level baseline came from the API coverage snapshot.
+
+**What this changed strategically:**
+
+- Confirmed that some of the easiest remaining wins are outside the original top-15 module table
+- Proved that low-setup read facades and middleware can still contribute meaningful branch gains
+- Reduced the number of totally or near-totally uncovered “infrastructure” files that drag the global branch metric down disproportionately
 
 ### Round 1 — 15 parallel agents (all completed)
 
@@ -124,6 +160,26 @@ Many controllers are at ~75% branch coverage. The remaining ~25% is NestJS decor
 6. Ratchet `jest.config.js` thresholds to (measured - 2%)
 7. Run `turbo test` and `pnpm lint` to verify
 
+### 4a. Best next manual targets after Round 4
+
+These came from focused local coverage runs or the snapshot and still look like strong manual-follow-up candidates:
+
+- `apps/api/src/modules/imports/import-executor.service.ts`
+- `apps/api/src/modules/imports/import.service.ts`
+- `apps/api/src/modules/staff-wellbeing/services/workload-metrics.service.ts`
+- `apps/api/src/modules/attendance/attendance-file-parser.service.ts`
+- `apps/api/src/modules/class-requirements/class-requirements.service.ts`
+- `apps/api/src/modules/safeguarding/safeguarding-concerns.service.ts`
+- `apps/api/src/modules/pastoral/services/pastoral-import.service.ts`
+
+### 4b. Additional read-facade sweep candidates
+
+The `staff-profile-read.facade.ts` win suggests there may still be cheap coverage available in small cross-module read facades. Check these before diving into heavier domain services:
+
+- `apps/api/src/modules/staff-availability/staff-availability-read.facade.ts`
+- `apps/api/src/modules/staff-preferences/staff-preferences-read.facade.ts`
+- Other `*-read.facade.ts` files that show low coverage but no dedicated spec
+
 ### 5. Ratchet thresholds
 
 Once branches hit 90%, update `apps/api/jest.config.js`:
@@ -149,3 +205,4 @@ coverageThreshold: {
 4. **Common agent mistakes**: timezone-dependent date assertions, incorrect `expect.objectContaining` nesting, trying to create empty XLSX workbooks (library throws), using Zod-invalid values to test service-level guards
 5. **5-10% of agent-written tests need manual fixes** — incorrect mock shapes, unused variables, missing non-null assertions
 6. **Facade files** (read facades) have low coverage because of optional parameter spread branches — each `if (options.select)` etc. is a branch. These are easy wins.
+7. **Infrastructure files were under-targeted** — `tenant-resolution.middleware.ts` and `key-rotation.service.ts` turned out to be better branch wins than some mid-complexity domain services.

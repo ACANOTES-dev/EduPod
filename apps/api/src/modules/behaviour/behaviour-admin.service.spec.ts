@@ -694,6 +694,34 @@ describe('BehaviourAdminService', () => {
 
       expect(result.enqueued).toBe(0);
     });
+
+    it('should filter rebuildAwards by year group when year_group scope is requested', async () => {
+      studentFacade['findManyGeneric']!.mockResolvedValue([{ id: 's1' }]);
+      academicFacade['findCurrentYear']!.mockResolvedValue({ id: 'year-1' });
+      academicFacade['findPeriodCoveringDate']!.mockResolvedValue(null);
+
+      (mockRlsTx as Record<string, unknown>).behaviourIncidentParticipant = {
+        findFirst: jest.fn().mockResolvedValue(null),
+      };
+
+      const result = await service.rebuildAwards(TENANT_ID, {
+        scope: 'year_group',
+        year_group_id: 'yg-1',
+      });
+
+      expect(result.enqueued).toBe(0);
+      expect(studentFacade['findManyGeneric']).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            status: 'active',
+            year_group_id: 'yg-1',
+          }),
+        }),
+        expect.anything(),
+      );
+    });
   });
 
   // ─── backfillTasks — branch coverage ─────────────────────────────────────
