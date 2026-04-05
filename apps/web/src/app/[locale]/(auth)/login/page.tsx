@@ -89,9 +89,14 @@ export default function LoginPage() {
     // Pick the first tenant, switch to it, then route to the right dashboard
     const tenantId = activeMemberships[0]?.tenant_id;
     if (tenantId) {
-      switchTenant(tenantId).then(() => {
-        router.replace(getDashboardPath(user));
-      });
+      void switchTenant(tenantId)
+        .then(() => {
+          router.replace(getDashboardPath(user));
+        })
+        .catch((err) => {
+          console.error('[LoginPage]', err);
+          isRedirecting.current = false;
+        });
     }
   }, [user, router, redirectTo, locale, switchTenant, getDashboardPath]);
 

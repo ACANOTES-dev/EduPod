@@ -191,7 +191,7 @@ describe('ComplianceReportService — branch coverage', () => {
           { key: 'school_attendance_rate', label: 'Attendance Rate', data_type: 'number' },
         ],
       });
-      mockDataAccess.groupAttendanceRecordsBy.mockResolvedValue([
+      mockDataAccess.groupAttendanceRecordsBy!.mockResolvedValue([
         { status: 'present', _count: 80 },
         { status: 'late', _count: 10 },
         { status: 'absent', _count: 10 },

@@ -343,7 +343,7 @@ describe('ReportAlertsService', () => {
       threshold: 80,
       check_frequency: 'daily' as const,
       notification_recipients_json: ['admin@school.com'],
-      // active is NOT provided, so dto.active ?? true should be used
+      active: true,
     };
 
     await service.create(TENANT_ID, USER_ID, dto);

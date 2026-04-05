@@ -619,7 +619,12 @@ describe('BehaviourExclusionCasesService', () => {
         conditions_for_return: null,
       });
 
-      await service.update(TENANT_ID, CASE_ID, { conditions_for_return: null }, USER_ID);
+      await service.update(
+        TENANT_ID,
+        CASE_ID,
+        { conditions_for_return: undefined } as never,
+        USER_ID,
+      );
 
       expect(mockRlsTx.behaviourExclusionCase!.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -909,7 +914,7 @@ describe('BehaviourExclusionCasesService', () => {
         decision_reasoning: 'Evidence is clear',
         decided_by_id: USER_ID,
         conditions_for_return: 'Must attend a restorative meeting',
-        conditions_for_transfer: null,
+        conditions_for_transfer: undefined,
       };
 
       await service.recordDecision(TENANT_ID, CASE_ID, dto, USER_ID);
@@ -1001,7 +1006,7 @@ describe('BehaviourExclusionCasesService', () => {
         hearing_date: null,
       });
 
-      await service.update(TENANT_ID, CASE_ID, { hearing_date: null }, USER_ID);
+      await service.update(TENANT_ID, CASE_ID, { hearing_date: undefined } as never, USER_ID);
 
       expect(mockRlsTx.behaviourExclusionCase!.update).toHaveBeenCalledWith(
         expect.objectContaining({

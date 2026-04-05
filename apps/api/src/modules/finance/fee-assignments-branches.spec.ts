@@ -48,7 +48,21 @@ const makeAssignment = (overrides: Record<string, unknown> = {}) => ({
 
 describe('FeeAssignmentsService — branch coverage', () => {
   let service: FeeAssignmentsService;
-  let mockPrisma: Record<string, Record<string, jest.Mock>>;
+  let mockPrisma: {
+    householdFeeAssignment: {
+      findMany: jest.Mock;
+      count: jest.Mock;
+      findFirst: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+    };
+    feeStructure: {
+      findFirst: jest.Mock;
+    };
+    discount: {
+      findFirst: jest.Mock;
+    };
+  };
   let mockHouseholdFacade: { findById: jest.Mock };
   let mockStudentFacade: { findById: jest.Mock };
 

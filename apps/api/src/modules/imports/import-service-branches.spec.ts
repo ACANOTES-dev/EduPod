@@ -47,13 +47,25 @@ function buildJob(overrides: Partial<Record<string, unknown>> = {}) {
 
 describe('ImportService — branches', () => {
   let service: ImportService;
-  let mockPrisma: Record<string, Record<string, jest.Mock>>;
-  let mockS3: Record<string, jest.Mock>;
-  let mockQueue: Record<string, jest.Mock>;
-  let mockProcessing: Record<string, jest.Mock>;
-  let mockStudentFacade: Record<string, jest.Mock>;
-  let mockParentFacade: Record<string, jest.Mock>;
-  let mockHouseholdFacade: Record<string, jest.Mock>;
+  let mockPrisma: {
+    importJob: {
+      create: jest.Mock;
+      update: jest.Mock;
+      findFirst: jest.Mock;
+      findUnique: jest.Mock;
+      findMany: jest.Mock;
+      count: jest.Mock;
+    };
+    importJobRecord: {
+      findMany: jest.Mock;
+    };
+  };
+  let mockS3: { upload: jest.Mock; download: jest.Mock; delete: jest.Mock };
+  let mockQueue: { add: jest.Mock };
+  let mockProcessing: { process: jest.Mock };
+  let mockStudentFacade: { findWithDependencyCounts: jest.Mock; findByHousehold: jest.Mock };
+  let mockParentFacade: { findById: jest.Mock };
+  let mockHouseholdFacade: { exists: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {

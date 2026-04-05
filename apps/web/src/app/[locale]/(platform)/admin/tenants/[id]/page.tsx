@@ -99,7 +99,7 @@ export default function TenantDetailPage() {
   }, [tenantId]);
 
   React.useEffect(() => {
-    fetchTenant();
+    void fetchTenant();
   }, [fetchTenant]);
 
   if (loading) {

@@ -50,7 +50,15 @@ const mockRun = {
 
 describe('PayrollReportsService — branch coverage', () => {
   let service: PayrollReportsService;
-  let mockPrisma: Record<string, Record<string, jest.Mock>>;
+  let mockPrisma: {
+    payrollRun: {
+      findMany: jest.Mock;
+      findFirst: jest.Mock;
+    };
+    payrollEntry: {
+      findMany: jest.Mock;
+    };
+  };
   let mockTenantFacade: { findById: jest.Mock; findBranding: jest.Mock };
 
   beforeEach(async () => {
@@ -236,7 +244,7 @@ describe('PayrollReportsService — branch coverage', () => {
       const result = await service.exportMonthlySummary(TENANT_ID, RUN_ID, 'csv');
 
       expect(result.format).toBe('csv');
-      expect(result.content).toBeDefined();
+      expect('content' in result ? result.content : undefined).toBeDefined();
     });
 
     it('should return PDF structure for pdf format', async () => {
@@ -245,7 +253,7 @@ describe('PayrollReportsService — branch coverage', () => {
       const result = await service.exportMonthlySummary(TENANT_ID, RUN_ID, 'pdf');
 
       expect(result.format).toBe('pdf');
-      expect(result.html).toBeDefined();
+      expect('html' in result ? result.html : undefined).toBeDefined();
     });
 
     it('should use fallback school name when branding is null', async () => {

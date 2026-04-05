@@ -5,6 +5,7 @@ module.exports = {
   extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended', 'prettier'],
   rules: {
     '@typescript-eslint/no-explicit-any': 'error',
+    '@typescript-eslint/no-floating-promises': 'error',
     '@typescript-eslint/no-unused-vars': [
       'error',
       { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
@@ -25,5 +26,13 @@ module.exports = {
     'no-console': ['error', { allow: ['warn', 'error'] }],
     'school/no-empty-catch': 'error',
   },
+  overrides: [
+    {
+      files: ['**/*.spec.ts', '**/*.spec.tsx', '**/*.test.ts', '**/*.test.tsx', '**/*.e2e-spec.ts'],
+      rules: {
+        '@typescript-eslint/no-floating-promises': 'warn',
+      },
+    },
+  ],
   ignorePatterns: ['node_modules/', 'dist/', '.next/', 'coverage/'],
 };

@@ -1,11 +1,11 @@
-# UI Design Brief — School Operating System (Merged Frontend Source of Truth)
+# Archived Frontend Brief — Pre-Redesign
 
 **Version**: 2.0  
 **Date**: 16 March 2026  
-**Status**: Replacement frontend brief  
-**Consumer**: Design agent / frontend developers / coding agent
+**Status**: Archived, superseded by `docs/plans/ux-redesign-final-spec.md`  
+**Consumer**: Historical reference only
 
-**Purpose**: This file is the single frontend source of truth for the school operating system. It replaces the earlier standalone UI brief and folds in the later UI/UX uplift decisions. The frontend team should use this alongside the master plan when building pages, flows, components, dashboards, and cross-module navigation.
+**Purpose**: Historical snapshot of the pre-redesign frontend brief. It is retained for archive purposes only and is no longer part of the active frontend workflow.
 
 ---
 

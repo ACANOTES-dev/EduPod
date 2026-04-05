@@ -1023,7 +1023,7 @@ describe('RegulatoryPpodService', () => {
 
       expect(result.records_updated).toBe(1);
       // Verify all optional fields were mapped (Prisma calls update with a single { where, data } arg)
-      const updateArg = mockTxFull.student.update.mock.calls[0]![0] as {
+      const updateArg = mockTxFull.student!.update!.mock.calls[0]![0] as {
         data: Record<string, unknown>;
       };
       expect(updateArg.data.date_of_birth).toEqual(new Date('2010-06-15'));
@@ -1040,7 +1040,11 @@ describe('RegulatoryPpodService', () => {
       };
 
       const updateCalls: Array<{ data: Record<string, unknown> }> = [];
-      const mockTxGender: Record<string, Record<string, jest.Mock>> = {
+      const mockTxGender: {
+        ppodSyncLog: { create: jest.Mock; update: jest.Mock };
+        ppodStudentMapping: { findFirst: jest.Mock; update: jest.Mock };
+        student: { update: jest.Mock };
+      } = {
         ppodSyncLog: {
           create: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
           update: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
@@ -1110,7 +1114,11 @@ describe('RegulatoryPpodService', () => {
         createRlsClient: jest.Mock;
       };
 
-      const mockTxMinimal: Record<string, Record<string, jest.Mock>> = {
+      const mockTxMinimal: {
+        ppodSyncLog: { create: jest.Mock; update: jest.Mock };
+        ppodStudentMapping: { findFirst: jest.Mock; update: jest.Mock };
+        student: { update: jest.Mock };
+      } = {
         ppodSyncLog: {
           create: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
           update: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
@@ -1315,7 +1323,11 @@ describe('RegulatoryPpodService', () => {
       };
 
       let _studentFindCallCount = 0;
-      const mockTxMixed: Record<string, Record<string, jest.Mock>> = {
+      const mockTxMixed: {
+        ppodSyncLog: { create: jest.Mock; update: jest.Mock };
+        ppodStudentMapping: { findFirst: jest.Mock; update: jest.Mock; create: jest.Mock };
+        student: { findFirst: jest.Mock; update: jest.Mock };
+      } = {
         ppodSyncLog: {
           create: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),
           update: jest.fn().mockResolvedValue({ id: SYNC_LOG_ID }),

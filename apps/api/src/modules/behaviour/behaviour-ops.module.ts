@@ -5,6 +5,7 @@ import { AcademicsModule } from '../academics/academics.module';
 import { AuthModule } from '../auth/auth.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
 import { PolicyEngineModule } from '../policy-engine/policy-engine.module';
+import { StudentsModule } from '../students/students.module';
 
 import { BehaviourAdminController } from './behaviour-admin.controller';
 import { BehaviourAdminService } from './behaviour-admin.service';
@@ -20,6 +21,7 @@ import { BehaviourExportService } from './behaviour-export.service';
     BehaviourCoreModule,
     BehaviourDisciplineModule,
     PolicyEngineModule,
+    StudentsModule,
     BullModule.registerQueue({ name: 'behaviour' }),
     BullModule.registerQueue({ name: 'notifications' }),
     BullModule.registerQueue({ name: 'search-sync' }),

@@ -405,6 +405,7 @@ describe('ReportsEnhancedController', () => {
     const result = await controller.dayOfWeekHeatmap(tenantContext, {
       start_date: '2025-01-01',
       end_date: '2025-12-31',
+      threshold: 85,
     });
 
     expect(mockAttendanceAnalytics.dayOfWeekHeatmap).toHaveBeenCalledWith(
@@ -430,6 +431,7 @@ describe('ReportsEnhancedController', () => {
     const result = await controller.attendanceTrends(tenantContext, {
       start_date: '2025-01-01',
       end_date: '2025-12-31',
+      threshold: 85,
     });
 
     expect(mockAttendanceAnalytics.attendanceTrends).toHaveBeenCalledWith(
@@ -447,6 +449,7 @@ describe('ReportsEnhancedController', () => {
       start_date: '2025-01-01',
       end_date: '2025-12-31',
       year_group_id: 'yg-1',
+      threshold: 85,
     });
 
     expect(mockAttendanceAnalytics.excusedVsUnexcused).toHaveBeenCalledWith(
@@ -464,6 +467,7 @@ describe('ReportsEnhancedController', () => {
     const result = await controller.classComparison(tenantContext, 'yg-uuid', {
       start_date: '2025-01-01',
       end_date: '2025-12-31',
+      threshold: 85,
     });
 
     expect(mockAttendanceAnalytics.classComparison).toHaveBeenCalledWith(
@@ -737,7 +741,14 @@ describe('ReportsEnhancedController', () => {
   it('should call customReportBuilder.createSavedReport', async () => {
     mockCustomReportBuilder.createSavedReport.mockResolvedValue({ id: 'r-1' });
 
-    const body = { name: 'My Report', config_json: {} as Record<string, unknown> };
+    const body = {
+      name: 'My Report',
+      data_source: 'students' as const,
+      dimensions_json: ['year_group_id'],
+      measures_json: [{ field: 'id', aggregation: 'count' as const }],
+      filters_json: {} as Record<string, unknown>,
+      is_shared: false,
+    };
     const result = await controller.createSavedReport(tenantContext, userPayload, body);
 
     expect(mockCustomReportBuilder.createSavedReport).toHaveBeenCalledWith(
@@ -792,7 +803,11 @@ describe('ReportsEnhancedController', () => {
   it('should call boardReport.generateBoardReport', async () => {
     mockBoardReport.generateBoardReport.mockResolvedValue({ id: 'br-1' });
 
-    const body = { title: 'Q1 Board Report', sections_json: [] as unknown[] };
+    const body = {
+      title: 'Q1 Board Report',
+      report_type: 'termly' as const,
+      sections_json: [],
+    };
     const result = await controller.generateBoardReport(tenantContext, userPayload, body);
 
     expect(mockBoardReport.generateBoardReport).toHaveBeenCalledWith(TENANT_ID, USER_ID, body);
@@ -821,7 +836,11 @@ describe('ReportsEnhancedController', () => {
   it('should call complianceReport.createTemplate', async () => {
     mockComplianceReport.createTemplate.mockResolvedValue({ id: 'tmpl-1' });
 
-    const body = { name: 'DES Ireland', sections_json: [] as unknown[] };
+    const body = {
+      name: 'DES Ireland',
+      country_code: 'IE',
+      fields_json: [{ key: 'student_name', label: 'Student Name', data_type: 'string' }],
+    };
     const result = await controller.createComplianceTemplate(tenantContext, body);
 
     expect(mockComplianceReport.createTemplate).toHaveBeenCalledWith(TENANT_ID, body);
@@ -871,8 +890,12 @@ describe('ReportsEnhancedController', () => {
 
     const body = {
       name: 'Weekly Report',
+      report_type: 'attendance_summary',
+      parameters_json: {} as Record<string, unknown>,
       schedule_cron: '0 9 * * 1',
-      report_config_json: {} as Record<string, unknown>,
+      recipient_emails: ['admin@school.com'],
+      format: 'pdf' as const,
+      active: true,
     };
     const result = await controller.createScheduledReport(tenantContext, userPayload, body);
 
@@ -949,7 +972,7 @@ describe('ReportsEnhancedController', () => {
       data: [{ name: 'Alice', score: 90 }],
       config: { title: 'Student Report', school_name: 'Test School', date_range: '2025 Q1' },
     };
-    const result = await controller.exportExcel({}, body);
+    const result = await controller.exportExcel({ format: 'xlsx' }, body);
 
     expect(mockReportExport.generateFormattedExcel).toHaveBeenCalledWith(body.data, body.config);
     expect(result).toEqual(buffer);

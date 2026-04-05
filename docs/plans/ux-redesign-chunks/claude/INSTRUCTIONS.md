@@ -133,7 +133,6 @@ Each log MUST contain:
 | -------------------- | ----------------------------------------------------------- |
 | Design spec          | `docs/plans/ux-redesign-final-spec.md`                      |
 | Vision doc           | `docs/roadmap/Phase-2/ux-redesign-vision.md`                |
-| Current design brief | `docs/plans/ui-design-brief.md`                             |
 | Chunk files          | `docs/plans/ux-redesign-chunks/01-*.md` through `10-*.md`   |
 | Your logs            | `docs/plans/ux-redesign-chunks/claude/implementation-logs/` |
 | CSS variables        | `packages/ui/src/globals.css`                               |

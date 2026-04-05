@@ -176,10 +176,21 @@ export class ClassAssignmentService {
     await prismaWithRls.$transaction(async (tx: Prisma.TransactionClient) => {
       // Fetch all referenced students and classes inside the transaction for RLS + consistency
       const [studentRows, classRows] = await Promise.all([
-        tx.student.findMany({
-          where: { id: { in: studentIds }, tenant_id: tenantId },
-          select: { id: true, status: true, year_group_id: true, class_homeroom_id: true },
-        }),
+        this.studentReadFacade.findManyGeneric(
+          tenantId,
+          {
+            where: { id: { in: studentIds } },
+            select: { id: true, status: true, year_group_id: true, class_homeroom_id: true },
+          },
+          tx,
+        ) as Promise<
+          Array<{
+            id: string;
+            status: string;
+            year_group_id: string | null;
+            class_homeroom_id: string | null;
+          }>
+        >,
         tx.class.findMany({
           where: { id: { in: classIds }, tenant_id: tenantId },
           select: { id: true, status: true, subject_id: true, year_group_id: true },

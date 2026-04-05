@@ -33,6 +33,7 @@ const mockRlsTx = {
   },
   pastoralCaseStudent: {
     create: jest.fn(),
+    createMany: jest.fn(),
     findMany: jest.fn(),
     findFirst: jest.fn(),
     findUnique: jest.fn(),
@@ -137,7 +138,7 @@ describe('CaseService', () => {
 
     // Reset all RLS tx mocks
     for (const model of Object.values(mockRlsTx)) {
-      for (const fn of Object.values(model)) {
+      for (const fn of Object.values(model) as jest.Mock[]) {
         fn.mockReset();
       }
     }
@@ -936,6 +937,7 @@ describe('CaseService', () => {
           concern_ids: [CONCERN_ID_A],
           owner_user_id: USER_ID_A,
           opened_reason: 'Test reason.',
+          tier: 1,
         }),
       ).rejects.toThrow(BadRequestException);
     });
@@ -961,6 +963,7 @@ describe('CaseService', () => {
         concern_ids: [CONCERN_ID_A],
         owner_user_id: USER_ID_A,
         opened_reason: 'Test reason.',
+        tier: 1,
         additional_student_ids: [STUDENT_ID_B],
       });
 
@@ -997,6 +1000,7 @@ describe('CaseService', () => {
         concern_ids: [CONCERN_ID_A],
         owner_user_id: USER_ID_A,
         opened_reason: 'Test reason.',
+        tier: 1,
         additional_student_ids: [STUDENT_ID, STUDENT_ID_B], // includes primary
       });
 
@@ -1030,6 +1034,7 @@ describe('CaseService', () => {
         concern_ids: [CONCERN_ID_A],
         owner_user_id: USER_ID_A,
         opened_reason: 'Test reason.',
+        tier: 1,
         additional_student_ids: [STUDENT_ID], // only primary, will be filtered out
       });
 
@@ -1058,6 +1063,7 @@ describe('CaseService', () => {
         concern_ids: [CONCERN_ID_A],
         owner_user_id: USER_ID_A,
         opened_reason: 'Test reason.',
+        tier: 1,
         next_review_date: '2026-04-15',
       });
 
@@ -1428,6 +1434,7 @@ describe('CaseService', () => {
         concern_ids: [CONCERN_ID_A],
         owner_user_id: USER_ID_A,
         opened_reason: 'Test case',
+        tier: 1,
       });
 
       expect(mockRlsTx.pastoralCaseStudent.createMany).not.toHaveBeenCalled();

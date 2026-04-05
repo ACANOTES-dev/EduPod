@@ -46,7 +46,21 @@ const defaultSettings = {
 
 describe('RecurringInvoicesService — branch coverage', () => {
   let service: RecurringInvoicesService;
-  let mockPrisma: Record<string, Record<string, jest.Mock>>;
+  let mockPrisma: {
+    recurringInvoiceConfig: {
+      findMany: jest.Mock;
+      count: jest.Mock;
+      findFirst: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+    };
+    feeStructure: {
+      findFirst: jest.Mock;
+    };
+    invoice: {
+      create: jest.Mock;
+    };
+  };
   let mockSettingsService: { getSettings: jest.Mock };
   let mockSequenceService: { nextNumber: jest.Mock };
   let mockTenantReadFacade: { findById: jest.Mock; findBranding: jest.Mock };

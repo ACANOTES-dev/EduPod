@@ -699,7 +699,7 @@ describe('AiGradingService — buildGradingPrompt with context', () => {
       messages: Array<{ content: Array<{ text?: string }> }>;
     };
     const textContent = callArgs.messages[0]!.content.find(
-      (c: { type: string }) => c.type === 'text',
+      (c) => c.text !== undefined,
     ) as { text: string };
     expect(textContent.text).toContain('Grade on structure and clarity');
   });
@@ -726,7 +726,7 @@ describe('AiGradingService — buildGradingPrompt with context', () => {
       messages: Array<{ content: Array<{ text?: string }> }>;
     };
     const textContent = callArgs.messages[0]!.content.find(
-      (c: { type: string }) => c.type === 'text',
+      (c) => c.text !== undefined,
     ) as { text: string };
     expect(textContent.text).toContain('Rubric Criteria');
     expect(textContent.text).toContain('Content');

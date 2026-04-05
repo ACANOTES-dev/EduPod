@@ -51,14 +51,23 @@ function buildRequest(overrides: Partial<Record<string, unknown>> = {}) {
 
 describe('ComplianceService — branches', () => {
   let service: ComplianceService;
-  let mockPrisma: Record<string, Record<string, jest.Mock> | jest.Mock>;
-  let mockAgeGate: Record<string, jest.Mock>;
-  let mockParentFacade: Record<string, jest.Mock>;
-  let mockStudentFacade: Record<string, jest.Mock>;
-  let mockHouseholdFacade: Record<string, jest.Mock>;
-  let mockStaffFacade: Record<string, jest.Mock>;
-  let mockAdmissionsFacade: Record<string, jest.Mock>;
-  let mockAuthFacade: Record<string, jest.Mock>;
+  let mockPrisma: {
+    complianceRequest: {
+      findFirst: jest.Mock;
+      findMany: jest.Mock;
+      count: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+    };
+    $transaction: jest.Mock;
+  };
+  let mockAgeGate: { checkStudentAgeGated: jest.Mock };
+  let mockParentFacade: { findById: jest.Mock };
+  let mockStudentFacade: { exists: jest.Mock };
+  let mockHouseholdFacade: { findById: jest.Mock };
+  let mockStaffFacade: { findById: jest.Mock };
+  let mockAdmissionsFacade: { findById: jest.Mock };
+  let mockAuthFacade: { findUserById: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -123,7 +132,7 @@ describe('ComplianceService — branches', () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  const complianceReq = () => mockPrisma.complianceRequest as Record<string, jest.Mock>;
+  const complianceReq = () => mockPrisma.complianceRequest;
 
   // ─── create — subject validation switch branches ────────────────────────
   describe('ComplianceService — create — validate subject types', () => {
@@ -203,7 +212,7 @@ describe('ComplianceService — branches', () => {
       await expect(
         service.create(TENANT_ID, USER_ID, {
           request_type: 'access_export',
-          subject_type: 'alien',
+          subject_type: 'alien' as never,
           subject_id: SUBJECT_ID,
         }),
       ).rejects.toThrow(NotFoundException);

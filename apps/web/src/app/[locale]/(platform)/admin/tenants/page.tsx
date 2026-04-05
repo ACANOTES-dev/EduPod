@@ -102,7 +102,7 @@ export default function TenantListPage() {
       }
     }
 
-    fetchTenants();
+    void fetchTenants();
     return () => {
       cancelled = true;
     };

@@ -540,6 +540,17 @@ export class AcademicReadFacade {
     });
   }
 
+  /**
+   * Find an academic period's date range by ID.
+   * Used by behaviour awards for once_per_period eligibility checks.
+   */
+  async findPeriodDateRange(
+    tenantId: string,
+    periodId: string,
+  ): Promise<{ start_date: Date; end_date: Date } | null> {
+    return this.buildPeriodDateFilter(tenantId, periodId);
+  }
+
   // ─── Private helpers ────────────────────────────────────────────────────────
 
   /** Resolve a period's date range for overlap filtering. Returns null if not found. */

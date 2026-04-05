@@ -34,6 +34,20 @@
 
 ## Evidence Log
 
+### Developer Experience / Refactor Safety (2026-04-05)
+
+**Signal quality and fast feedback**
+
+- CI cross-module dependency threshold ratcheted from `8` to `0`; the repo currently passes with zero undocumented dependencies
+- Added a dedicated fast-feedback `ci` lane for install, audit, lint errors, type-check, and architecture governance before heavier verification jobs
+- Added `lint:ci` scripts so CI surfaces errors without flooding logs with non-blocking warnings
+- Added `pnpm validate:fast` as the local equivalent of the fast CI gate
+
+**Result**
+
+- Faster first-failure feedback on PRs without weakening required unit, integration, RLS, coverage, or build gates
+- Lower warning noise in CI so blocking signals are easier to spot
+
 ### Refactor Safety (2026-04-01)
 
 **Phase C: Coverage thresholds, state machine specs, CI enforcement**

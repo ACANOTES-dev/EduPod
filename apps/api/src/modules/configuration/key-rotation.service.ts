@@ -1,6 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { EncryptionService } from './encryption.service';
 
@@ -25,13 +27,27 @@ interface KeyRotationResult {
 const BATCH_SIZE = 50;
 
 @Injectable()
-export class KeyRotationService {
+export class KeyRotationService implements OnModuleInit {
   private readonly logger = new Logger(KeyRotationService.name);
+  private staffProfileReadFacade: StaffProfileReadFacade | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly encryption: EncryptionService,
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  onModuleInit(): void {
+    this.staffProfileReadFacade = this.moduleRef.get(StaffProfileReadFacade, { strict: false });
+  }
+
+  private getStaffProfileReadFacade(): StaffProfileReadFacade {
+    this.staffProfileReadFacade ??= this.moduleRef.get(StaffProfileReadFacade, { strict: false });
+    if (!this.staffProfileReadFacade) {
+      throw new Error('StaffProfileReadFacade is not available');
+    }
+    return this.staffProfileReadFacade;
+  }
 
   /**
    * Re-encrypt all records from old key versions to the current version.
@@ -153,23 +169,14 @@ export class KeyRotationService {
     // loop infinitely at offset 0, so we increment skip only for dry runs.
     let skip = 0;
     let hasMore = true;
+    const staffProfileReadFacade = this.getStaffProfileReadFacade();
 
     while (hasMore) {
-      // Cross-module read + write inside $transaction to satisfy lint rule
-      const batch = await this.prisma.$transaction(async (tx) => {
-        return tx.staffProfile.findMany({
-          where: {
-            bank_encryption_key_ref: {
-              not: currentKeyRef,
-            },
-            NOT: {
-              bank_encryption_key_ref: null,
-            },
-          },
-          take: BATCH_SIZE,
-          skip,
-        });
-      });
+      const batch = await staffProfileReadFacade.findWithStaleBankEncryptionKey(
+        currentKeyRef,
+        BATCH_SIZE,
+        skip,
+      );
 
       if (batch.length === 0) {
         hasMore = false;

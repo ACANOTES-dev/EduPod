@@ -159,7 +159,7 @@ describe('PayrollReadFacade', () => {
 
   describe('findPayrollRunsGeneric', () => {
     it('should pass optional where, select, and orderBy', async () => {
-      const where = { status: 'finalised' };
+      const where = { status: 'finalised' as const };
       const select = { id: true, status: true };
       const orderBy = { created_at: 'desc' as const };
 
@@ -217,7 +217,7 @@ describe('PayrollReadFacade', () => {
 
   describe('findCompensationsGeneric', () => {
     it('should pass optional where and select', async () => {
-      const where = { compensation_type: 'salaried' };
+      const where = { compensation_type: 'salaried' as const };
       const select = { id: true, base_salary: true };
 
       await facade.findCompensationsGeneric(TENANT_ID, where, select);

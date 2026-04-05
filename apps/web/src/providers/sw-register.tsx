@@ -12,21 +12,26 @@ export function SwRegister() {
       return;
     }
 
-    navigator.serviceWorker.register('/sw.js').then((registration) => {
-      registration.addEventListener('updatefound', () => {
-        const newWorker = registration.installing;
-        if (!newWorker) return;
+    void navigator.serviceWorker
+      .register('/sw.js')
+      .then((registration) => {
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (!newWorker) return;
 
-        newWorker.addEventListener('statechange', () => {
-          if (
-            newWorker.state === 'activated' &&
-            navigator.serviceWorker.controller
-          ) {
-            // New version available — the user will see updated content on next navigation
-          }
+          newWorker.addEventListener('statechange', () => {
+            if (
+              newWorker.state === 'activated' &&
+              navigator.serviceWorker.controller
+            ) {
+              // New version available — the user will see updated content on next navigation
+            }
+          });
         });
+      })
+      .catch((err: unknown) => {
+        console.error('[SwRegister]', err);
       });
-    });
   }, []);
 
   return null;

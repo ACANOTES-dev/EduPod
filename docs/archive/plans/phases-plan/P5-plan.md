@@ -1054,7 +1054,7 @@ const TEMPLATES: Record<string, Record<string, TemplateFn>> = {
 
 ## Section 5 — Frontend Pages and Components
 
-**Reference**: `plans/ui-design-brief.md` for all visual styling. Executor should consult it for colours, spacing, table patterns, form patterns, empty states, and PDF preview patterns.
+**Reference**: the frontend styling guidance that existed when this plan was written. Executor should consult the current active frontend spec for colours, spacing, table patterns, form patterns, empty states, and PDF preview patterns.
 
 ### 5.1 Gradebook Main Page
 

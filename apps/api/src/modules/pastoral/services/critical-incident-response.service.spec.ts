@@ -796,7 +796,7 @@ describe('CriticalIncidentResponseService', () => {
       const dto: UpdateResponsePlanItemDto = {
         phase: 'immediate',
         item_id: ITEM_ID_1,
-        assigned_to_id: null,
+        assigned_to_id: undefined,
       };
 
       await service.updateResponsePlanItem(

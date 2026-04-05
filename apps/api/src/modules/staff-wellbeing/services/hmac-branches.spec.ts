@@ -16,9 +16,9 @@ const USER_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 
 describe('HmacService — branches', () => {
   let service: HmacService;
-  let mockConfigFacade: Record<string, jest.Mock>;
-  let mockEncryption: Record<string, jest.Mock>;
-  let mockPrisma: Record<string, jest.Mock | Record<string, jest.Mock>>;
+  let mockConfigFacade: { findSettings: jest.Mock };
+  let mockEncryption: { encrypt: jest.Mock; decrypt: jest.Mock };
+  let mockPrisma: { $transaction: jest.Mock };
 
   beforeEach(async () => {
     mockConfigFacade = {

@@ -935,7 +935,7 @@ describe('RegulatoryController', () => {
       page: 1,
       pageSize: 10,
       domain: 'tusla_attendance',
-      status: 'upcoming',
+      status: 'not_started',
       academic_year: '2025-2026',
       from_date: '2025-09-01',
       to_date: '2026-06-30',

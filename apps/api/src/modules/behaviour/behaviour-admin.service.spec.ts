@@ -6,6 +6,7 @@ import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PolicyReplayService } from '../policy-engine/policy-replay.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import { BehaviourAdminService } from './behaviour-admin.service';
 import { BehaviourScopeService } from './behaviour-scope.service';
@@ -88,6 +89,7 @@ const mockRedisClient = {
 describe('BehaviourAdminService', () => {
   let service: BehaviourAdminService;
   let academicFacade: Record<string, jest.Mock>;
+  let studentFacade: Record<string, jest.Mock>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -109,6 +111,13 @@ describe('BehaviourAdminService', () => {
 
     service = module.get<BehaviourAdminService>(BehaviourAdminService);
     academicFacade = module.get(AcademicReadFacade) as unknown as Record<string, jest.Mock>;
+    studentFacade = module.get(StudentReadFacade) as unknown as Record<string, jest.Mock>;
+
+    academicFacade['findCurrentYear']!.mockResolvedValue(null);
+    academicFacade['findPeriodCoveringDate']!.mockResolvedValue(null);
+    studentFacade['count']!.mockResolvedValue(0);
+    studentFacade['findManyGeneric']!.mockResolvedValue([]);
+    studentFacade['findOneGeneric']!.mockResolvedValue(null);
 
     // Reset mocks
     Object.values(mockRlsTx).forEach((model) =>
@@ -186,8 +195,8 @@ describe('BehaviourAdminService', () => {
     });
 
     it('should return preview for tenant scope with warning', async () => {
-      mockRlsTx.student.count.mockResolvedValue(500);
-      mockRlsTx.student.findMany.mockResolvedValue([]);
+      studentFacade['count']!.mockResolvedValue(500);
+      studentFacade['findManyGeneric']!.mockResolvedValue([]);
 
       const result = await service.recomputePointsPreview(TENANT_ID, {
         scope: 'tenant',
@@ -225,7 +234,7 @@ describe('BehaviourAdminService', () => {
 
   describe('retentionPreview', () => {
     it('should return retention counts', async () => {
-      mockRlsTx.student.findMany.mockResolvedValue([{ id: 's1' }]);
+      studentFacade['findManyGeneric']!.mockResolvedValue([{ id: 's1' }]);
       mockRlsTx.behaviourIncident.count.mockResolvedValue(10);
       mockRlsTx.behaviourLegalHold.count.mockResolvedValue(2);
 
@@ -456,8 +465,8 @@ describe('BehaviourAdminService', () => {
 
   describe('recomputePointsPreview — year_group scope', () => {
     it('should return preview for year_group scope', async () => {
-      mockRlsTx.student.findMany.mockResolvedValue([{ id: 's1' }, { id: 's2' }]);
-      mockRlsTx.student.count.mockResolvedValue(50);
+      studentFacade['findManyGeneric']!.mockResolvedValue([{ id: 's1' }, { id: 's2' }]);
+      studentFacade['count']!.mockResolvedValue(50);
 
       const result = await service.recomputePointsPreview(TENANT_ID, {
         scope: 'year_group',
@@ -469,8 +478,8 @@ describe('BehaviourAdminService', () => {
     });
 
     it('should return ~30s for small student count', async () => {
-      mockRlsTx.student.count.mockResolvedValue(10);
-      mockRlsTx.student.findMany.mockResolvedValue([]);
+      studentFacade['count']!.mockResolvedValue(10);
+      studentFacade['findManyGeneric']!.mockResolvedValue([]);
 
       const result = await service.recomputePointsPreview(TENANT_ID, {
         scope: 'tenant',
@@ -480,8 +489,8 @@ describe('BehaviourAdminService', () => {
     });
 
     it('should return ~2min for large student count', async () => {
-      mockRlsTx.student.count.mockResolvedValue(200);
-      mockRlsTx.student.findMany.mockResolvedValue([]);
+      studentFacade['count']!.mockResolvedValue(200);
+      studentFacade['findManyGeneric']!.mockResolvedValue([]);
 
       const result = await service.recomputePointsPreview(TENANT_ID, {
         scope: 'tenant',
@@ -495,7 +504,7 @@ describe('BehaviourAdminService', () => {
 
   describe('recomputePoints — all scopes', () => {
     it('should invalidate year_group students cache', async () => {
-      mockRlsTx.student.findMany.mockResolvedValue([{ id: 's1' }, { id: 's2' }]);
+      studentFacade['findManyGeneric']!.mockResolvedValue([{ id: 's1' }, { id: 's2' }]);
 
       await service.recomputePoints(TENANT_ID, {
         scope: 'year_group',
@@ -535,8 +544,8 @@ describe('BehaviourAdminService', () => {
 
   describe('scopeAudit', () => {
     it('should return scope audit with all scope', async () => {
-      mockRlsTx.student.findMany.mockResolvedValue([{ id: 's1' }]);
-      mockRlsTx.student.count.mockResolvedValue(1);
+      studentFacade['findManyGeneric']!.mockResolvedValue([{ id: 's1' }]);
+      studentFacade['count']!.mockResolvedValue(1);
 
       const result = await service.scopeAudit(TENANT_ID, 'user-1');
 
@@ -552,8 +561,8 @@ describe('BehaviourAdminService', () => {
         scope: 'class',
         classStudentIds: ['s1', 's2'],
       });
-      mockRlsTx.student.findMany.mockResolvedValue([{ id: 's1' }, { id: 's2' }]);
-      mockRlsTx.student.count.mockResolvedValue(2);
+      studentFacade['findManyGeneric']!.mockResolvedValue([{ id: 's1' }, { id: 's2' }]);
+      studentFacade['count']!.mockResolvedValue(2);
 
       const result = await service.scopeAudit(TENANT_ID, 'teacher-1');
 
@@ -576,7 +585,7 @@ describe('BehaviourAdminService', () => {
     });
 
     it('should return preview for year_group scope', async () => {
-      mockRlsTx.student.count.mockResolvedValue(30);
+      studentFacade['count']!.mockResolvedValue(30);
 
       const result = await service.rebuildAwardsPreview(TENANT_ID, {
         scope: 'year_group',
@@ -588,7 +597,7 @@ describe('BehaviourAdminService', () => {
     });
 
     it('should return preview for tenant scope', async () => {
-      mockRlsTx.student.count.mockResolvedValue(200);
+      studentFacade['count']!.mockResolvedValue(200);
 
       const result = await service.rebuildAwardsPreview(TENANT_ID, {
         scope: 'tenant',
@@ -603,9 +612,7 @@ describe('BehaviourAdminService', () => {
 
   describe('rebuildAwards', () => {
     it('should return enqueued=0 when no students found', async () => {
-      (mockRlsTx.student as Record<string, jest.Mock>).findFirst = jest
-        .fn()
-        .mockResolvedValue(null);
+      studentFacade['findOneGeneric']!.mockResolvedValue(null);
 
       const result = await service.rebuildAwards(TENANT_ID, {
         scope: 'student',
@@ -616,9 +623,7 @@ describe('BehaviourAdminService', () => {
     });
 
     it('should return enqueued=0 when no active academic year', async () => {
-      (mockRlsTx.student as Record<string, jest.Mock>).findFirst = jest
-        .fn()
-        .mockResolvedValue({ id: 'student-1' });
+      studentFacade['findOneGeneric']!.mockResolvedValue({ id: 'student-1' });
       academicFacade['findCurrentYear']!.mockResolvedValue(null);
 
       const result = await service.rebuildAwards(TENANT_ID, {
@@ -630,9 +635,7 @@ describe('BehaviourAdminService', () => {
     });
 
     it('should enqueue check-awards job for students with incidents', async () => {
-      (mockRlsTx.student as Record<string, jest.Mock>).findFirst = jest
-        .fn()
-        .mockResolvedValue({ id: 'student-1' });
+      studentFacade['findOneGeneric']!.mockResolvedValue({ id: 'student-1' });
       academicFacade['findCurrentYear']!.mockResolvedValue({ id: 'year-1' });
       academicFacade['findPeriodCoveringDate']!.mockResolvedValue({ id: 'period-1' });
 
@@ -660,9 +663,7 @@ describe('BehaviourAdminService', () => {
     });
 
     it('should skip students with no incidents', async () => {
-      (mockRlsTx.student as Record<string, jest.Mock>).findFirst = jest
-        .fn()
-        .mockResolvedValue({ id: 'student-1' });
+      studentFacade['findOneGeneric']!.mockResolvedValue({ id: 'student-1' });
       academicFacade['findCurrentYear']!.mockResolvedValue({ id: 'year-1' });
       academicFacade['findPeriodCoveringDate']!.mockResolvedValue(null);
 
@@ -679,7 +680,7 @@ describe('BehaviourAdminService', () => {
     });
 
     it('should resolve tenant scope students', async () => {
-      mockRlsTx.student.findMany.mockResolvedValue([{ id: 's1' }, { id: 's2' }]);
+      studentFacade['findManyGeneric']!.mockResolvedValue([{ id: 's1' }, { id: 's2' }]);
       academicFacade['findCurrentYear']!.mockResolvedValue({ id: 'year-1' });
       academicFacade['findPeriodCoveringDate']!.mockResolvedValue(null);
 
@@ -874,7 +875,7 @@ describe('BehaviourAdminService', () => {
 
   describe('retentionPreview — branch coverage', () => {
     it('should return 0 for to_archive when no left students', async () => {
-      mockRlsTx.student.findMany.mockResolvedValue([]);
+      studentFacade['findManyGeneric']!.mockResolvedValue([]);
       mockRlsTx.behaviourIncident.count.mockResolvedValue(5);
       mockRlsTx.behaviourLegalHold.count.mockResolvedValue(0);
 

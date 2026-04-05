@@ -381,7 +381,7 @@ describe('SchedulingEnhancedController', () => {
   // ─── Absences — remaining delegation ────────────────────────────────
 
   it('should call substitutionService.getAbsences with correct params', async () => {
-    const query = { academic_year_id: AY_ID, page: 1, page_size: 20 };
+    const query = { page: 1, pageSize: 20 };
     const absences = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
     mockSubstitutionService.getAbsences.mockResolvedValue(absences);
 
@@ -451,7 +451,7 @@ describe('SchedulingEnhancedController', () => {
   });
 
   it('should call substitutionService.getSubstitutionRecords with correct params', async () => {
-    const query = { academic_year_id: AY_ID, page: 1, page_size: 20 };
+    const query = { page: 1, pageSize: 20 };
     const records = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
     mockSubstitutionService.getSubstitutionRecords.mockResolvedValue(records);
 
@@ -600,7 +600,12 @@ describe('SchedulingEnhancedController', () => {
   // ─── Rotation — remaining delegation ───────────────────────────────
 
   it('should call rotationService.upsertRotationConfig with correct params', async () => {
-    const dto = { academic_year_id: AY_ID, total_weeks: 2 };
+    const dto = {
+      academic_year_id: AY_ID,
+      cycle_length: 2,
+      week_labels: ['Week 1', 'Week 2'],
+      effective_start_date: '2025-09-01',
+    };
     const config = { id: 'rot-1', ...dto };
     mockRotationService.upsertRotationConfig.mockResolvedValue(config);
 
@@ -664,7 +669,7 @@ describe('SchedulingEnhancedController', () => {
   // ─── Exam Sessions — remaining delegation ──────────────────────────
 
   it('should call examSchedulingService.listExamSessions with correct params', async () => {
-    const query = { academic_period_id: AY_ID, page: 1, page_size: 20 };
+    const query = { academic_period_id: AY_ID, page: 1, pageSize: 20 };
     const sessions = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
     mockExamSchedulingService.listExamSessions.mockResolvedValue(sessions);
 
@@ -712,7 +717,15 @@ describe('SchedulingEnhancedController', () => {
   });
 
   it('should call examSchedulingService.addExamSlot with correct params', async () => {
-    const dto = { date: '2025-06-05', start_time: '09:00', end_time: '11:00', subject_id: 's1' };
+    const dto = {
+      date: '2025-06-05',
+      start_time: '09:00',
+      end_time: '11:00',
+      subject_id: 's1',
+      year_group_id: 'yg-1',
+      student_count: 30,
+      duration_minutes: 120,
+    };
     const slot = { id: 'slot-1', ...dto };
     mockExamSchedulingService.addExamSlot.mockResolvedValue(slot);
 
@@ -768,7 +781,7 @@ describe('SchedulingEnhancedController', () => {
   // ─── Scenarios — remaining delegation ──────────────────────────────
 
   it('should call scenarioService.listScenarios with correct params', async () => {
-    const query = { academic_year_id: AY_ID, page: 1, page_size: 20 };
+    const query = { academic_year_id: AY_ID, page: 1, pageSize: 20 };
     const scenarios = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
     mockScenarioService.listScenarios.mockResolvedValue(scenarios);
 
@@ -843,7 +856,7 @@ describe('SchedulingEnhancedController', () => {
   });
 
   it('should call analyticsService.getHistoricalComparison with correct params', async () => {
-    const query = { academic_year_ids: [AY_ID] };
+    const query = { year_id_a: AY_ID, year_id_b: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' };
     const comparison = { periods: [] };
     mockAnalyticsService.getHistoricalComparison.mockResolvedValue(comparison);
 

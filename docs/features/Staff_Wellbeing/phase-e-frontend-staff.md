@@ -5,7 +5,7 @@
 **Identity:** The pages staff interact with daily. Trust is built here.
 **Dependencies:** Phase B (survey submission endpoints), Phase D (workload data endpoints)
 **Blocks:** Phase F (shared layout, components)
-**Design reference:** `Plans/ui-design-brief.md`
+**Design reference:** `docs/plans/ux-redesign-final-spec.md`
 
 ---
 
@@ -14,7 +14,7 @@
 - Phase B complete (survey CRUD, anonymous submission, active survey endpoint)
 - Phase D complete (personal workload endpoints, EAP resource endpoint)
 - Read master spec Sections 8 (Frontend Pages — V1 staff pages), 8.1 (UI Requirements — anonymity panels, active survey indicator, small school guidance, framing language)
-- Read `Plans/ui-design-brief.md` for visual language
+- Read `docs/plans/ux-redesign-final-spec.md` for visual language
 - All endpoints from B and D are functional and tested
 
 ---

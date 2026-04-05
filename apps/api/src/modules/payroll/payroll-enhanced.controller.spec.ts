@@ -681,7 +681,12 @@ describe('PayrollEnhancedController', () => {
       const created = { id: 'sa-1' };
       mockAllowancesService.createStaffAllowance.mockResolvedValue(created);
 
-      const dto = { staff_profile_id: STAFF_ID, allowance_type_id: 'at-1', amount: 100 };
+      const dto = {
+        staff_profile_id: STAFF_ID,
+        allowance_type_id: 'at-1',
+        amount: 100,
+        effective_from: '2026-01-01',
+      };
       const result = await controller.createStaffAllowance(tenantContext, dto);
 
       expect(mockAllowancesService.createStaffAllowance).toHaveBeenCalledWith(TENANT_ID, dto);

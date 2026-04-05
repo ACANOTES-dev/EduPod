@@ -31,9 +31,18 @@ const SCHEDULE_ID = 'sched-1';
 
 describe('ClassDeliveryService — branch coverage', () => {
   let service: ClassDeliveryService;
-  let mockPrisma: Record<string, Record<string, jest.Mock>>;
-  let mockSchedulesFacade: Record<string, jest.Mock>;
-  let mockClosuresFacade: Record<string, jest.Mock>;
+  let mockPrisma: {
+    classDeliveryRecord: {
+      findUnique: jest.Mock;
+      findFirst: jest.Mock;
+      findMany: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+      count: jest.Mock;
+    };
+  };
+  let mockSchedulesFacade: { findEffectiveInRange: jest.Mock };
+  let mockClosuresFacade: { getClosureDateSet: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {

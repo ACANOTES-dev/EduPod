@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../staff-profiles/staff-profile-read.facade';
 
 import { EncryptionService } from './encryption.service';
 import { KeyRotationService } from './key-rotation.service';
@@ -48,6 +49,7 @@ const mockMfaUser = (id: string, keyRef: string | null) => ({
 
 describe('KeyRotationService', () => {
   let service: KeyRotationService;
+  let staffProfileReadFacade: Record<string, jest.Mock>;
   let mockPrisma: {
     tenantStripeConfig: {
       findMany: jest.Mock;
@@ -110,6 +112,8 @@ describe('KeyRotationService', () => {
     }).compile();
 
     service = module.get<KeyRotationService>(KeyRotationService);
+    staffProfileReadFacade = module.get(StaffProfileReadFacade) as unknown as Record<string, jest.Mock>;
+    staffProfileReadFacade['findWithStaleBankEncryptionKey']!.mockReset().mockResolvedValue([]);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -169,7 +173,9 @@ describe('KeyRotationService', () => {
   describe('rotateAll — staff bank details', () => {
     it('should re-encrypt records with old keyRef', async () => {
       const oldRecord = mockStaffProfile('sp-1', 'aws', 'iv:tag:cipher_acct', 'iv:tag:cipher_iban');
-      mockPrisma.staffProfile.findMany.mockResolvedValueOnce([oldRecord]).mockResolvedValueOnce([]);
+      staffProfileReadFacade['findWithStaleBankEncryptionKey']!
+        .mockResolvedValueOnce([oldRecord])
+        .mockResolvedValueOnce([]);
 
       const result = await service.rotateAll(false);
 
@@ -193,7 +199,7 @@ describe('KeyRotationService', () => {
     it('should handle null encrypted fields gracefully', async () => {
       // Has keyRef but no encrypted fields — should be skipped
       const nullFieldsRecord = mockStaffProfile('sp-2', 'local', null, null);
-      mockPrisma.staffProfile.findMany
+      staffProfileReadFacade['findWithStaleBankEncryptionKey']!
         .mockResolvedValueOnce([nullFieldsRecord])
         .mockResolvedValueOnce([]);
 
@@ -207,7 +213,7 @@ describe('KeyRotationService', () => {
 
     it('should handle record with only account number encrypted', async () => {
       const partialRecord = mockStaffProfile('sp-3', 'local', 'iv:tag:cipher_acct', null);
-      mockPrisma.staffProfile.findMany
+      staffProfileReadFacade['findWithStaleBankEncryptionKey']!
         .mockResolvedValueOnce([partialRecord])
         .mockResolvedValueOnce([]);
 
@@ -302,7 +308,7 @@ describe('KeyRotationService', () => {
       mockPrisma.tenantStripeConfig.findMany
         .mockResolvedValueOnce([stripeRecord])
         .mockResolvedValueOnce([]);
-      mockPrisma.staffProfile.findMany
+      staffProfileReadFacade['findWithStaleBankEncryptionKey']!
         .mockResolvedValueOnce([staffRecord])
         .mockResolvedValueOnce([]);
       mockPrisma.user.findMany.mockResolvedValueOnce([mfaUser]).mockResolvedValueOnce([]);
@@ -360,7 +366,9 @@ describe('KeyRotationService', () => {
         throw new Error('Key mismatch');
       });
 
-      mockPrisma.staffProfile.findMany.mockResolvedValueOnce([bad]).mockResolvedValueOnce([]);
+      staffProfileReadFacade['findWithStaleBankEncryptionKey']!
+        .mockResolvedValueOnce([bad])
+        .mockResolvedValueOnce([]);
 
       const result = await service.rotateAll(false);
 

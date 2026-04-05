@@ -693,7 +693,7 @@ describe('FormTemplatesService — update — multiple field conditionals', () =
           id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
           field_key: 'q1',
           label: { en: 'Question 1' },
-          field_type: 'text' as const,
+          field_type: 'short_text' as const,
           required: false,
           display_order: 1,
         },

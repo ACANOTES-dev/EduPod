@@ -275,7 +275,7 @@ ComplianceModule note: anonymisation/export flows now import `SearchModule` and 
 ### BehaviourModule
 
 - **Change cost**: VERY HIGH -- 6 sub-modules, 40+ services, 193 endpoints, 12 worker processors; changes cascade through appeal/sanction/exclusion chains (DZ-13/17/18). Verify sub-module placement for every change.
-- **Last verified**: 2026-04-04
+- **Last verified**: 2026-04-05
 - **Exports** (25 services): `BehaviourService`, `BehaviourConfigService`, `BehaviourStudentsService`, `BehaviourTasksService`, `BehaviourHistoryService`, `BehaviourScopeService`, `BehaviourQuickLogService`, `BehaviourPointsService`, `BehaviourAwardService`, `BehaviourRecognitionService`, `BehaviourHouseService`, `BehaviourInterventionsService`, `BehaviourGuardianRestrictionsService`, `PolicyRulesService`, `PolicyEvaluationEngine`, `PolicyReplayService`, `BehaviourSanctionsService`, `BehaviourAppealsService`, `BehaviourExclusionCasesService`, `BehaviourExportService`, `BehaviourAmendmentsService`, `BehaviourPulseService`, `BehaviourAnalyticsService`, `BehaviourAlertsService`, `BehaviourAIService`, `BehaviourDocumentService`, `BehaviourDocumentTemplateService`, `BehaviourParentService`, `BehaviourLegalHoldService`, `BehaviourAdminService`
 - **Controllers**: 16 controllers, 193 endpoints total:
   - `BehaviourController` (21) — core incident CRUD, quick-log
@@ -306,8 +306,8 @@ ComplianceModule note: anonymisation/export flows now import `SearchModule` and 
   - `BehaviourExclusionCasesService` -> `@Optional() BehaviourDocumentService` (auto-generate exclusion_notice), reads `tenant_settings`
   - `BehaviourAppealsService` -> `@Optional() BehaviourDocumentService` (auto-generate appeal_hearing_invite/appeal_decision_letter)
   - `BehaviourAmendmentsService` -> creates correction ack rows, notifications, supersedes documents on sendCorrection()
-  - `BehaviourAdminService` -> PrismaService (reads `students` for data export, cohort analysis)
-  - `BehaviourAwardService` -> PrismaService (reads `academic_periods` for period date ranges)
+  - `BehaviourAdminService` -> PrismaService, `StudentReadFacade` (student cohort/export reads are facade-routed)
+  - `BehaviourAwardService` -> PrismaService, `AcademicReadFacade` (period date-range reads are facade-routed)
 - **External dependencies**: `@anthropic-ai/sdk` (Anthropic Claude API), `handlebars` (template compilation for document generation), `puppeteer` (PDF rendering via PdfRenderingModule)
 - **Queues** — 12 processors on the `behaviour` queue, plus enqueues to `notifications`:
   - _Enqueues to `behaviour` queue_: `behaviour:evaluate-policy`, `behaviour:check-awards`, `behaviour:suspension-return`, `behaviour:detect-patterns`, `behaviour:task-reminders`, `behaviour:refresh-mv-student-summary`, `behaviour:refresh-mv-benchmarks`, `behaviour:refresh-mv-exposure-rates`, `behaviour:partition-maintenance`, `behaviour:cron-dispatch-daily`, `behaviour:cron-dispatch-sla`, `behaviour:cron-dispatch-monthly`, `behaviour:guardian-restriction-check`, `behaviour:retention-check`

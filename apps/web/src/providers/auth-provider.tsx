@@ -121,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!cancelled) setIsLoading(false);
       }
     }
-    bootstrap();
+    void bootstrap();
     return () => {
       cancelled = true;
     };

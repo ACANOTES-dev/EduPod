@@ -2,7 +2,6 @@
 
 **Source spec:** `docs/plans/ux-redesign-final-spec.md`
 **Vision doc:** `docs/roadmap/Phase-2/ux-redesign-vision.md`
-**Current design system:** `docs/plans/ui-design-brief.md`
 
 ## Chunk Sequence
 

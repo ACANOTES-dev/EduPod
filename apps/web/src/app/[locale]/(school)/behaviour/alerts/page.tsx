@@ -64,7 +64,7 @@ export default function BehaviourAlertsPage() {
   }, [activeTab, page]);
 
   React.useEffect(() => {
-    loadAlerts();
+    void loadAlerts();
   }, [loadAlerts]);
 
   async function handleAction(alertId: string, action: string, body?: Record<string, unknown>) {
@@ -74,7 +74,7 @@ export default function BehaviourAlertsPage() {
         method: 'PATCH',
         body: JSON.stringify(body ?? {}),
       });
-      loadAlerts();
+      await loadAlerts();
     } catch (err) {
       // Error handling
       console.error('[loadAlerts]', err);
@@ -86,7 +86,7 @@ export default function BehaviourAlertsPage() {
   function handleSnooze(alertId: string, days: number) {
     const until = new Date();
     until.setDate(until.getDate() + days);
-    handleAction(alertId, 'snooze', { snoozed_until: until.toISOString() });
+    void handleAction(alertId, 'snooze', { snoozed_until: until.toISOString() });
     setSnoozeAlertId(null);
   }
 

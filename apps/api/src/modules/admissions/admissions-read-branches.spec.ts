@@ -127,9 +127,9 @@ describe('AdmissionsReadFacade — branches', () => {
   describe('AdmissionsReadFacade — countApplicationsGeneric', () => {
     it('should merge where with tenant_id', async () => {
       mockPrisma.application.count.mockResolvedValue(7);
-      await facade.countApplicationsGeneric(TENANT_ID, { status: 'approved' });
+      await facade.countApplicationsGeneric(TENANT_ID, { status: 'submitted' });
       expect(mockPrisma.application.count).toHaveBeenCalledWith({
-        where: { tenant_id: TENANT_ID, status: 'approved' },
+        where: { tenant_id: TENANT_ID, status: 'submitted' },
       });
     });
   });

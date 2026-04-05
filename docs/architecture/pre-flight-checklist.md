@@ -76,6 +76,7 @@ If YES to any of the above: **write an ADR in `architecture/adrs/` and add it to
 
 ### 7. Regression Test
 
+- [ ] Run `pnpm validate:fast` for the repo-wide fast gate before pushing
 - [ ] Run `turbo test` for affected packages
 - [ ] All pre-existing tests pass
 - [ ] If I changed a state machine: transitions and blocked transitions are tested

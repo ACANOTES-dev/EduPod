@@ -140,7 +140,7 @@ export default function StudentBehaviourProfilePage() {
   React.useEffect(() => {
     if (!studentId) return;
     setLoading(true);
-    Promise.all([
+    void Promise.all([
       apiClient<{ data: StudentProfile }>(`/api/v1/behaviour/students/${studentId}`)
         .then((res) => setProfile(res.data))
         .catch((err) => { console.error('[BehaviourStudentsPage]', err); return setProfile(null); }),

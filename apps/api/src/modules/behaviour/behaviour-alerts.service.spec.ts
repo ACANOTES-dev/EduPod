@@ -209,7 +209,11 @@ describe('BehaviourAlertsService', () => {
   // ─── listAlerts — branch coverage ─────────────────────────────────────────
 
   describe('listAlerts — branch coverage', () => {
-    const baseQuery = { page: 1, pageSize: 20 };
+    const baseQuery: Parameters<typeof service.listAlerts>[2] = {
+      page: 1,
+      pageSize: 20,
+      status: 'all',
+    };
 
     const makeRecipient = (overrides: Record<string, unknown> = {}) => ({
       alert_id: ALERT_ID,
@@ -307,14 +311,14 @@ describe('BehaviourAlertsService', () => {
 
       await service.listAlerts(TENANT_ID, USER_ID, {
         ...baseQuery,
-        alertType: 'pattern_detected',
-      } as Parameters<typeof service.listAlerts>[2]);
+        alertType: 'hotspot',
+      });
 
       expect(mockRlsTx.behaviourAlertRecipient.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             alert: expect.objectContaining({
-              alert_type: 'pattern_detected',
+              alert_type: 'hotspot',
             }),
           }),
         }),
@@ -328,7 +332,7 @@ describe('BehaviourAlertsService', () => {
       await service.listAlerts(TENANT_ID, USER_ID, {
         ...baseQuery,
         severity: 'critical',
-      } as Parameters<typeof service.listAlerts>[2]);
+      });
 
       expect(mockRlsTx.behaviourAlertRecipient.findMany).toHaveBeenCalledWith(
         expect.objectContaining({

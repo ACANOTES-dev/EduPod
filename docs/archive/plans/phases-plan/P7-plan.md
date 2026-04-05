@@ -1218,7 +1218,7 @@ This service contains the dispatch logic called by the worker. It is NOT a contr
 - Grouped by: Today / Yesterday / Earlier
 - Each notification: icon (type-specific), action line (bold), context line (tertiary), relative timestamp, unread dot
 - Click → navigate to source entity and mark as read
-- Follows the exact pattern described in `ui-design-brief.md` Section 3.2b
+- Follows the exact notification panel pattern used by the frontend guidance that existed when this plan was written
 
 ### 5.14 TipTap Rich Text Editor Component
 

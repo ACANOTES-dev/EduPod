@@ -60,7 +60,7 @@ export default function PlatformDashboardPage() {
       }
     }
 
-    fetchDashboard();
+    void fetchDashboard();
     return () => {
       cancelled = true;
     };

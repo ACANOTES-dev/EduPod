@@ -660,6 +660,7 @@ describe('SenProfileService', () => {
         sen_categories: ['learning'],
         primary_category: 'learning',
         support_level: 'school_support',
+        is_active: true,
       };
 
       const mockProfile = createMockProfile({
@@ -791,7 +792,7 @@ describe('SenProfileService', () => {
 
     it('should handle setting sen_categories', async () => {
       const dto = {
-        sen_categories: ['sensory', 'physical'],
+        sen_categories: ['sensory' as const, 'physical' as const],
       };
 
       mockPrisma.senProfile.findFirst.mockResolvedValue({ id: PROFILE_ID });

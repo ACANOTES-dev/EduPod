@@ -18,7 +18,7 @@ Use this note to start a fresh Codex session for Phase G without re-reading the 
 1. `Roadmap/Phase-1/Expansion-C/Engagement/Phase-G-Frontend-Trips-Conferences.md`
 2. `Roadmap/Phase-1/Expansion-C/Engagement/IMPLEMENTATION-LOG.md`
 3. `Plans/context.md`
-4. `Plans/ui-design-brief.md`
+4. `docs/plans/ux-redesign-final-spec.md`
 5. `architecture/pre-flight-checklist.md`
 
 Read additional architecture files only if a concrete implementation question requires them.

@@ -59,6 +59,9 @@ describe('ImportService', () => {
       count: jest.Mock;
       update: jest.Mock;
     };
+    importJobRecord: {
+      findMany: jest.Mock;
+    };
   };
   let mockS3: {
     upload: jest.Mock;
@@ -84,7 +87,15 @@ describe('ImportService', () => {
   let mockImportJobRecord: {
     findMany: jest.Mock;
   };
-  let mockTx: Record<string, { deleteMany?: jest.Mock; delete?: jest.Mock }>;
+  let mockTx: {
+    studentParent: { deleteMany: jest.Mock };
+    householdFeeAssignment: { deleteMany: jest.Mock };
+    student: { delete: jest.Mock };
+    householdParent: { deleteMany: jest.Mock };
+    parent: { delete: jest.Mock };
+    householdEmergencyContact: { deleteMany: jest.Mock };
+    household: { delete: jest.Mock };
+  };
 
   beforeEach(async () => {
     mockTx = {
@@ -110,12 +121,11 @@ describe('ImportService', () => {
         count: jest.fn(),
         update: jest.fn(),
       },
+      importJobRecord: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     };
-
-    mockImportJobRecord = {
-      findMany: jest.fn().mockResolvedValue([]),
-    };
-    (mockPrisma as Record<string, unknown>).importJobRecord = mockImportJobRecord;
+    mockImportJobRecord = mockPrisma.importJobRecord;
 
     mockS3 = {
       upload: jest.fn(),
@@ -1291,7 +1301,7 @@ describe('ImportService', () => {
 
       expect(mockTx.student.delete).not.toHaveBeenCalled();
       expect(result.rollback_summary.skipped_count).toBe(1);
-      expect(result.rollback_summary.skipped_details[0].reason).toContain('attendance');
+      expect(result.rollback_summary.skipped_details[0]!.reason).toContain('attendance');
     });
 
     it('should skip student with grades dependencies', async () => {
@@ -1311,7 +1321,7 @@ describe('ImportService', () => {
 
       const result = await service.rollback(TENANT_ID, JOB_ID);
 
-      expect(result.rollback_summary.skipped_details[0].reason).toContain('grades');
+      expect(result.rollback_summary.skipped_details[0]!.reason).toContain('grades');
     });
 
     it('should skip student with class enrolments', async () => {
@@ -1331,7 +1341,7 @@ describe('ImportService', () => {
 
       const result = await service.rollback(TENANT_ID, JOB_ID);
 
-      expect(result.rollback_summary.skipped_details[0].reason).toContain('class enrolments');
+      expect(result.rollback_summary.skipped_details[0]!.reason).toContain('class enrolments');
     });
 
     it('should skip student with invoice lines', async () => {
@@ -1351,7 +1361,7 @@ describe('ImportService', () => {
 
       const result = await service.rollback(TENANT_ID, JOB_ID);
 
-      expect(result.rollback_summary.skipped_details[0].reason).toContain('invoice');
+      expect(result.rollback_summary.skipped_details[0]!.reason).toContain('invoice');
     });
 
     it('should skip student with report cards', async () => {
@@ -1371,7 +1381,7 @@ describe('ImportService', () => {
 
       const result = await service.rollback(TENANT_ID, JOB_ID);
 
-      expect(result.rollback_summary.skipped_details[0].reason).toContain('report cards');
+      expect(result.rollback_summary.skipped_details[0]!.reason).toContain('report cards');
     });
 
     it('should count already-deleted student as success', async () => {
@@ -1421,7 +1431,7 @@ describe('ImportService', () => {
 
       expect(mockTx.parent.delete).not.toHaveBeenCalled();
       expect(result.rollback_summary.skipped_count).toBe(1);
-      expect(result.rollback_summary.skipped_details[0].reason).toContain('platform user');
+      expect(result.rollback_summary.skipped_details[0]!.reason).toContain('platform user');
     });
 
     it('should count already-deleted parent as success', async () => {
@@ -1469,7 +1479,7 @@ describe('ImportService', () => {
 
       expect(mockTx.household.delete).not.toHaveBeenCalled();
       expect(result.rollback_summary.skipped_count).toBe(1);
-      expect(result.rollback_summary.skipped_details[0].reason).toContain('not from this import');
+      expect(result.rollback_summary.skipped_details[0]!.reason).toContain('not from this import');
     });
 
     it('should count already-deleted household as success', async () => {
@@ -1587,7 +1597,7 @@ describe('ImportService', () => {
 
       const result = await service.rollback(TENANT_ID, JOB_ID);
 
-      const reason = result.rollback_summary.skipped_details[0].reason;
+      const reason = result.rollback_summary.skipped_details[0]!.reason;
       expect(reason).toContain('attendance');
       expect(reason).toContain('grades');
       expect(reason).toContain('class enrolments');

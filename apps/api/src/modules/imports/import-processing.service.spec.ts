@@ -37,7 +37,7 @@ const mockS3 = {
 
 // ── Mock transactional delegates (passed to the RLS $transaction callback) ──
 const mockTx = {
-  student: { create: jest.fn() },
+  student: { create: jest.fn(), findFirst: jest.fn() },
   parent: { create: jest.fn(), findFirst: jest.fn() },
   household: { findFirst: jest.fn(), create: jest.fn() },
   householdParent: { create: jest.fn() },
@@ -48,6 +48,8 @@ const mockTx = {
   membershipRole: { findFirst: jest.fn(), create: jest.fn() },
   role: { findFirst: jest.fn() },
   importJobRecord: { create: jest.fn() },
+  feeStructure: { findFirst: jest.fn() },
+  householdFeeAssignment: { create: jest.fn(), findFirst: jest.fn() },
 };
 
 // Utility: build a mock import job record
@@ -621,14 +623,8 @@ describe('ImportProcessingService', () => {
     });
 
     // Only the second row processes
-    mockTx.feeStructure = {
-      ...mockTx.feeStructure,
-      findFirst: jest.fn().mockResolvedValue({ id: 'fee-1' }),
-    } as typeof mockTx.feeStructure;
-    (mockTx as Record<string, unknown>).feeStructure = {
-      findFirst: jest.fn().mockResolvedValue({ id: 'fee-1' }),
-    };
-    (mockTx as Record<string, unknown>).householdFeeAssignment = { create: jest.fn() };
+    mockTx.feeStructure.findFirst.mockResolvedValue({ id: 'fee-1' });
+    mockTx.householdFeeAssignment.create.mockResolvedValue({ id: 'assign-1' });
     mockTx.household.findFirst.mockResolvedValue({ id: HOUSEHOLD_ID });
     mockTx.student.findFirst = jest.fn().mockResolvedValue({ id: 'stu-1' });
 

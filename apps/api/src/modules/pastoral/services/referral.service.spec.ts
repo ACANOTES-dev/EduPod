@@ -971,6 +971,8 @@ describe('ReferralService', () => {
         date_to: '2026-06-30',
         page: 1,
         pageSize: 20,
+        sort: 'created_at',
+        order: 'desc',
       });
 
       expect(mockRlsTx.pastoralReferral.findMany).toHaveBeenCalledWith(

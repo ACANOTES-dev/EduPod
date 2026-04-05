@@ -225,6 +225,9 @@ describe('ClassAssignmentService — bulkAssign', () => {
     mockRlsTx.classEnrolment.findFirst.mockReset().mockResolvedValue(null);
     mockRlsTx.classEnrolment.updateMany.mockReset().mockResolvedValue({ count: 0 });
     mockRlsTx.student.update.mockReset().mockResolvedValue({});
+    mockStudentReadFacade.findManyGeneric.mockReset().mockResolvedValue([]);
+    mockAcademicReadFacade.findCurrentYear.mockReset();
+    mockAcademicReadFacade.findAllYearGroupsWithOrder.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -243,7 +246,7 @@ describe('ClassAssignmentService — bulkAssign', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should assign student to a class successfully', async () => {
-    mockRlsTx.student.findMany.mockResolvedValue([
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([
       { id: STUDENT_ID, status: 'active', year_group_id: YEAR_ID, class_homeroom_id: null },
     ]);
     mockRlsTx.class.findMany.mockResolvedValue([
@@ -274,7 +277,7 @@ describe('ClassAssignmentService — bulkAssign', () => {
   });
 
   it('should skip already-enrolled students', async () => {
-    mockRlsTx.student.findMany.mockResolvedValue([
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([
       { id: STUDENT_ID, status: 'active', year_group_id: YEAR_ID, class_homeroom_id: CLASS_ID },
     ]);
     mockRlsTx.class.findMany.mockResolvedValue([
@@ -294,7 +297,7 @@ describe('ClassAssignmentService — bulkAssign', () => {
   });
 
   it('should report error for inactive student', async () => {
-    mockRlsTx.student.findMany.mockResolvedValue([
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([
       { id: STUDENT_ID, status: 'withdrawn', year_group_id: YEAR_ID, class_homeroom_id: null },
     ]);
     mockRlsTx.class.findMany.mockResolvedValue([
@@ -314,7 +317,7 @@ describe('ClassAssignmentService — bulkAssign', () => {
   });
 
   it('should report error for year group mismatch', async () => {
-    mockRlsTx.student.findMany.mockResolvedValue([
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([
       { id: STUDENT_ID, status: 'active', year_group_id: YEAR_ID, class_homeroom_id: null },
     ]);
     mockRlsTx.class.findMany.mockResolvedValue([
@@ -333,7 +336,7 @@ describe('ClassAssignmentService — bulkAssign', () => {
   });
 
   it('should report error when student not found', async () => {
-    mockRlsTx.student.findMany.mockResolvedValue([]);
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([]);
     mockRlsTx.class.findMany.mockResolvedValue([
       { id: CLASS_ID, status: 'active', subject_id: null, year_group_id: YEAR_ID },
     ]);
@@ -350,7 +353,7 @@ describe('ClassAssignmentService — bulkAssign', () => {
   });
 
   it('should report error when class not found', async () => {
-    mockRlsTx.student.findMany.mockResolvedValue([
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([
       { id: STUDENT_ID, status: 'active', year_group_id: YEAR_ID, class_homeroom_id: null },
     ]);
     mockRlsTx.class.findMany.mockResolvedValue([]);
@@ -367,7 +370,7 @@ describe('ClassAssignmentService — bulkAssign', () => {
   });
 
   it('should report error when class is not active', async () => {
-    mockRlsTx.student.findMany.mockResolvedValue([
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([
       { id: STUDENT_ID, status: 'active', year_group_id: YEAR_ID, class_homeroom_id: null },
     ]);
     mockRlsTx.class.findMany.mockResolvedValue([
@@ -386,7 +389,7 @@ describe('ClassAssignmentService — bulkAssign', () => {
   });
 
   it('should report error when class is a subject class (not homeroom)', async () => {
-    mockRlsTx.student.findMany.mockResolvedValue([
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([
       { id: STUDENT_ID, status: 'active', year_group_id: YEAR_ID, class_homeroom_id: null },
     ]);
     mockRlsTx.class.findMany.mockResolvedValue([
@@ -406,7 +409,7 @@ describe('ClassAssignmentService — bulkAssign', () => {
 
   it('should drop existing homeroom enrolment when reassigning to a different class', async () => {
     const oldClassId = 'old-class-id';
-    mockRlsTx.student.findMany.mockResolvedValue([
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([
       { id: STUDENT_ID, status: 'active', year_group_id: YEAR_ID, class_homeroom_id: oldClassId },
     ]);
     mockRlsTx.class.findMany.mockResolvedValue([
@@ -437,7 +440,7 @@ describe('ClassAssignmentService — bulkAssign', () => {
 
   it('should use existing enrolment when one already exists in target class', async () => {
     const oldClassId = 'old-class-id';
-    mockRlsTx.student.findMany.mockResolvedValue([
+    mockStudentReadFacade.findManyGeneric.mockResolvedValue([
       { id: STUDENT_ID, status: 'active', year_group_id: YEAR_ID, class_homeroom_id: oldClassId },
     ]);
     mockRlsTx.class.findMany.mockResolvedValue([

@@ -12,24 +12,6 @@ jobs:
     env:
       SENTRY_ENVIRONMENT: ci
       SENTRY_RELEASE: ${{ github.sha }}
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: prisma
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: edupod_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
     steps:
       - uses: actions/checkout@v5
         with:
@@ -91,8 +73,8 @@ jobs:
       - name: Raw SQL governance check
         run: node scripts/check-raw-sql-governance.js
 
-      - name: Lint
-        run: pnpm turbo run lint
+      - name: Lint (errors only)
+        run: pnpm lint:ci
 
       - name: Type check
         run: pnpm turbo run type-check
@@ -100,7 +82,7 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=8192'
 
       - name: Module cohesion check
-        run: node scripts/check-module-cohesion.js --max-errors 3
+        run: node scripts/check-module-cohesion.js --max-errors 0
 
       - name: Module tier dependency check
         run: node scripts/check-module-tiers.js
@@ -109,10 +91,53 @@ jobs:
         run: node scripts/check-global-providers.js
 
       - name: Module boundary check
-        run: pnpm check:boundaries -- --max-violations 17
+        run: pnpm check:boundaries -- --max-violations 0
 
       - name: Cross-module dependency check
-        run: node scripts/check-cross-module-deps.js --max-violations 8
+        run: node scripts/check-cross-module-deps.js --max-violations 0
+
+  verification:
+    needs: [ci]
+    runs-on: ubuntu-latest
+    env:
+      SENTRY_ENVIRONMENT: ci
+      SENTRY_RELEASE: ${{ github.sha }}
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: prisma
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: edupod_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @school/prisma exec prisma generate
 
       - name: Run unit tests with coverage enforcement
         run: pnpm --filter @school/api --filter @school/worker run test:coverage && pnpm --filter @school/shared --filter @school/web --filter @school/prisma run test
@@ -163,7 +188,7 @@ jobs:
 
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [ci]
+    needs: [ci, verification, integration]
     runs-on: ubuntu-latest
     env:
       SENTRY_ENVIRONMENT: production

@@ -28,6 +28,137 @@ const ERROR_FILES = 75;
 const WARN_LOC = 10_000;
 const ERROR_LOC = 15_000;
 
+/**
+ * Some large domains are already decomposed into explicit sub-modules, but they
+ * still live under one top-level folder. Treat those slices as separate cohesion
+ * units so the report reflects the actual architecture rather than raw folder size.
+ */
+const SPLIT_MODULES = {
+  behaviour: [
+    {
+      name: 'ops',
+      moduleFile: 'behaviour-ops.module.ts',
+      patterns: [/^behaviour-admin\./, /^behaviour-export\./, /^behaviour-ops\.module\.ts$/],
+    },
+    {
+      name: 'analytics',
+      moduleFile: 'behaviour-analytics.module.ts',
+      patterns: [
+        /^behaviour-analytics\./,
+        /^behaviour-comparison-analytics\./,
+        /^behaviour-incident-analytics\./,
+        /^behaviour-sanction-analytics\./,
+        /^behaviour-export-analytics\./,
+        /^behaviour-staff-analytics\./,
+        /^behaviour-student-analytics\./,
+        /^behaviour-pulse\./,
+        /^behaviour-ai\./,
+        /^behaviour-alerts\./,
+      ],
+    },
+    {
+      name: 'recognition',
+      moduleFile: 'behaviour-recognition.module.ts',
+      patterns: [
+        /^behaviour-award\./,
+        /^behaviour-house\./,
+        /^behaviour-recognition\./,
+        /^behaviour-recognition\.module\.ts$/,
+      ],
+    },
+    {
+      name: 'portal',
+      moduleFile: 'behaviour-portal.module.ts',
+      patterns: [/^behaviour-parent\./, /^behaviour-students\./, /^behaviour-portal\.module\.ts$/],
+    },
+    {
+      name: 'discipline',
+      moduleFile: 'behaviour-discipline.module.ts',
+      patterns: [
+        /^behaviour-amendments\./,
+        /^behaviour-appeals\./,
+        /^behaviour-guardian-restrictions\./,
+        /^behaviour-interventions\./,
+        /^behaviour-legal-hold\./,
+        /^behaviour-sanctions/,
+        /^behaviour-exclusion/,
+        /^behaviour-document\./,
+        /^behaviour-documents\./,
+        /^behaviour-discipline\.module\.ts$/,
+      ],
+    },
+  ],
+  pastoral: [
+    {
+      name: 'dsar',
+      moduleFile: 'pastoral-dsar.module.ts',
+      patterns: [/^controllers\/pastoral-dsar\./, /^services\/pastoral-dsar\./, /^pastoral-dsar\.module\.ts$/],
+    },
+    {
+      name: 'critical-incidents',
+      moduleFile: 'pastoral-critical-incidents.module.ts',
+      patterns: [
+        /^controllers\/critical-incidents\./,
+        /^services\/critical-incident/,
+        /^services\/affected-tracking\./,
+        /^pastoral-critical-incidents\.module\.ts$/,
+      ],
+    },
+    {
+      name: 'checkins',
+      moduleFile: 'pastoral-checkins.module.ts',
+      patterns: [
+        /^controllers\/checkins\./,
+        /^controllers\/checkin-admin\./,
+        /^controllers\/checkin-config\./,
+        /^services\/checkin/,
+        /^pastoral-checkins\.module\.ts$/,
+      ],
+    },
+    {
+      name: 'sst',
+      moduleFile: 'pastoral-sst.module.ts',
+      patterns: [/^controllers\/sst\./, /^services\/sst/, /^pastoral-sst\.module\.ts$/],
+    },
+    {
+      name: 'reports',
+      moduleFile: null,
+      patterns: [
+        /^controllers\/pastoral-reports\./,
+        /^services\/pastoral-report/,
+        /^services\/student-chronology\./,
+      ],
+    },
+    {
+      name: 'admin',
+      moduleFile: 'pastoral-admin.module.ts',
+      patterns: [
+        /^controllers\/pastoral-admin\./,
+        /^controllers\/pastoral-import\./,
+        /^services\/pastoral-import\./,
+        /^services\/pastoral-export\./,
+        /^pastoral-admin\.module\.ts$/,
+      ],
+    },
+    {
+      name: 'portal',
+      moduleFile: 'pastoral-parent-portal.module.ts',
+      patterns: [
+        /^controllers\/parent-pastoral\./,
+        /^services\/parent-pastoral\./,
+        /^pastoral-parent-portal\.module\.ts$/,
+      ],
+    },
+  ],
+  gradebook: [
+    {
+      name: 'report-cards',
+      moduleFile: 'report-cards/report-card.module.ts',
+      patterns: [/^report-cards\//],
+    },
+  ],
+};
+
 const STRICT = process.argv.includes('--strict');
 
 // --max-errors N : allow up to N known errors (for tracked hotspots being decomposed)
@@ -70,6 +201,16 @@ function countLines(filePath) {
     if (content[i] === '\n') count++;
   }
   return count;
+}
+
+/**
+ * Return a repo-relative path using forward slashes.
+ * @param {string} filePath
+ * @param {string} baseDir
+ * @returns {string}
+ */
+function toRelativePath(filePath, baseDir) {
+  return path.relative(baseDir, filePath).split(path.sep).join('/');
 }
 
 /**
@@ -154,6 +295,28 @@ const moduleDirs = fs
 /** @type {ModuleMetric[]} */
 const metrics = [];
 
+/**
+ * Add one cohesion metric entry.
+ * @param {string} name
+ * @param {string[]} files
+ * @param {string | null} moduleFile
+ */
+function addMetric(name, files, moduleFile) {
+  const loc = files.reduce((sum, f) => sum + countLines(f), 0);
+  const exportCount = moduleFile ? parseModuleExports(moduleFile) : 0;
+  const { label, isWarning, isError } = classify(files.length, loc);
+
+  metrics.push({
+    name,
+    files: files.length,
+    loc,
+    exports: exportCount,
+    label,
+    isWarning,
+    isError,
+  });
+}
+
 for (const moduleName of moduleDirs) {
   const moduleDir = path.join(modulesDir, moduleName);
   const allFiles = walkDir(moduleDir);
@@ -163,23 +326,53 @@ for (const moduleName of moduleDirs) {
     (f) => f.endsWith('.ts') && !f.endsWith('.spec.ts') && !f.endsWith('.test.ts'),
   );
 
-  const loc = sourceFiles.reduce((sum, f) => sum + countLines(f), 0);
+  const splitConfig = SPLIT_MODULES[moduleName];
+  if (!splitConfig) {
+    const moduleFile = sourceFiles.find((f) => f.endsWith('.module.ts')) ?? null;
+    addMetric(moduleName, sourceFiles, moduleFile);
+    continue;
+  }
 
-  // Find *.module.ts to parse exports
-  const moduleFile = sourceFiles.find((f) => f.endsWith('.module.ts'));
-  const exportCount = moduleFile ? parseModuleExports(moduleFile) : 0;
+  /** @type {Map<string, string[]>} */
+  const groupedFiles = new Map();
+  for (const slice of splitConfig) {
+    groupedFiles.set(slice.name, []);
+  }
+  groupedFiles.set('core', []);
 
-  const { label, isWarning, isError } = classify(sourceFiles.length, loc);
+  for (const filePath of sourceFiles) {
+    const relativePath = toRelativePath(filePath, moduleDir);
+    let matched = false;
+    for (const slice of splitConfig) {
+      if (slice.patterns.some((pattern) => pattern.test(relativePath))) {
+        groupedFiles.get(slice.name)?.push(filePath);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      groupedFiles.get('core')?.push(filePath);
+    }
+  }
 
-  metrics.push({
-    name: moduleName,
-    files: sourceFiles.length,
-    loc,
-    exports: exportCount,
-    label,
-    isWarning,
-    isError,
-  });
+  for (const slice of splitConfig) {
+    const files = groupedFiles.get(slice.name) ?? [];
+    if (files.length === 0) continue;
+    const moduleFile = slice.moduleFile ? path.join(moduleDir, slice.moduleFile) : null;
+    addMetric(`${moduleName}:${slice.name}`, files, moduleFile);
+  }
+
+  const coreFiles = groupedFiles.get('core') ?? [];
+  if (coreFiles.length > 0) {
+    const coreModuleFileCandidates = [`${moduleName}-core.module.ts`, `${moduleName}.module.ts`]
+      .map((candidate) => path.join(moduleDir, candidate))
+      .filter((candidate) => fs.existsSync(candidate));
+    addMetric(
+      `${moduleName}:core`,
+      coreFiles,
+      coreModuleFileCandidates.length > 0 ? coreModuleFileCandidates[0] : null,
+    );
+  }
 }
 
 // Sort by LOC descending

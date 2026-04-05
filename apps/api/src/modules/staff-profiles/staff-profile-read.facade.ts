@@ -304,7 +304,14 @@ export class StaffProfileReadFacade {
     currentKeyRef: string,
     take: number,
     skip: number,
-  ): Promise<unknown[]> {
+  ): Promise<
+    Array<{
+      id: string;
+      bank_account_number_encrypted: string | null;
+      bank_iban_encrypted: string | null;
+      bank_encryption_key_ref: string | null;
+    }>
+  > {
     return this.prisma.staffProfile.findMany({
       where: {
         bank_encryption_key_ref: {

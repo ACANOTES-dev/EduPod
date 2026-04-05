@@ -19,6 +19,7 @@ import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PolicyReplayService } from '../policy-engine/policy-replay.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import { BehaviourScopeService } from './behaviour-scope.service';
 
@@ -32,6 +33,7 @@ export class BehaviourAdminService {
     private readonly scopeService: BehaviourScopeService,
     private readonly policyReplayService: PolicyReplayService,
     private readonly academicReadFacade: AcademicReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
     // TODO(M-17): Migrate to BehaviourSideEffectsService
     @InjectQueue('behaviour') private readonly behaviourQueue: Queue,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
@@ -190,32 +192,42 @@ export class BehaviourAdminService {
         studentCount = 1;
         sampleIds.push(dto.student_id);
       } else if (dto.scope === 'year_group' && dto.year_group_id) {
-        const students = await tx.student.findMany({
-          where: {
-            tenant_id: tenantId,
+        const students = (await this.studentReadFacade.findManyGeneric(
+          tenantId,
+          {
+            where: {
+              year_group_id: dto.year_group_id,
+              status: 'active' as $Enums.StudentStatus,
+            },
+            select: { id: true },
+            take: 10,
+          },
+          tx,
+        )) as Array<{ id: string }>;
+        studentCount = await this.studentReadFacade.count(
+          tenantId,
+          {
             year_group_id: dto.year_group_id,
             status: 'active' as $Enums.StudentStatus,
           },
-          select: { id: true },
-          take: 10,
-        });
-        studentCount = await tx.student.count({
-          where: {
-            tenant_id: tenantId,
-            year_group_id: dto.year_group_id,
-            status: 'active' as $Enums.StudentStatus,
-          },
-        });
+          tx,
+        );
         sampleIds.push(...students.map((s) => s.id));
       } else {
-        studentCount = await tx.student.count({
-          where: { tenant_id: tenantId, status: 'active' as $Enums.StudentStatus },
-        });
-        const students = await tx.student.findMany({
-          where: { tenant_id: tenantId, status: 'active' as $Enums.StudentStatus },
-          select: { id: true },
-          take: 10,
-        });
+        studentCount = await this.studentReadFacade.count(
+          tenantId,
+          { status: 'active' as $Enums.StudentStatus },
+          tx,
+        );
+        const students = (await this.studentReadFacade.findManyGeneric(
+          tenantId,
+          {
+            where: { status: 'active' as $Enums.StudentStatus },
+            select: { id: true },
+            take: 10,
+          },
+          tx,
+        )) as Array<{ id: string }>;
         sampleIds.push(...students.map((s) => s.id));
       }
 
@@ -244,14 +256,17 @@ export class BehaviourAdminService {
       const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
       await rlsClient.$transaction(async (txRaw) => {
         const tx = txRaw as unknown as PrismaService;
-        const students = await tx.student.findMany({
-          where: {
-            tenant_id: tenantId,
-            year_group_id: dto.year_group_id,
-            status: 'active' as $Enums.StudentStatus,
+        const students = (await this.studentReadFacade.findManyGeneric(
+          tenantId,
+          {
+            where: {
+              year_group_id: dto.year_group_id,
+              status: 'active' as $Enums.StudentStatus,
+            },
+            select: { id: true },
           },
-          select: { id: true },
-        });
+          tx,
+        )) as Array<{ id: string }>;
         const pipeline = client.pipeline();
         for (const s of students) {
           pipeline.del(`behaviour:points:${tenantId}:${s.id}`);
@@ -328,12 +343,16 @@ export class BehaviourAdminService {
       // 'all' scope = no extra filter; 'own' scope = only their logged incidents (not applicable to student list)
 
       const [students, totalCount] = await Promise.all([
-        tx.student.findMany({
-          where: studentFilter,
-          select: { id: true },
-          take: 1000,
-        }),
-        tx.student.count({ where: studentFilter }),
+        this.studentReadFacade.findManyGeneric(
+          tenantId,
+          {
+            where: studentFilter,
+            select: { id: true },
+            take: 1000,
+          },
+          tx,
+        ) as Promise<Array<{ id: string }>>,
+        this.studentReadFacade.count(tenantId, studentFilter, tx),
       ]);
 
       return {
@@ -359,17 +378,20 @@ export class BehaviourAdminService {
       if (dto.scope === 'student' && dto.student_id) {
         studentCount = 1;
       } else if (dto.scope === 'year_group' && dto.year_group_id) {
-        studentCount = await tx.student.count({
-          where: {
-            tenant_id: tenantId,
+        studentCount = await this.studentReadFacade.count(
+          tenantId,
+          {
             year_group_id: dto.year_group_id,
             status: 'active' as $Enums.StudentStatus,
           },
-        });
+          tx,
+        );
       } else {
-        studentCount = await tx.student.count({
-          where: { tenant_id: tenantId, status: 'active' as $Enums.StudentStatus },
-        });
+        studentCount = await this.studentReadFacade.count(
+          tenantId,
+          { status: 'active' as $Enums.StudentStatus },
+          tx,
+        );
       }
 
       return {
@@ -397,10 +419,12 @@ export class BehaviourAdminService {
 
       if (dto.scope === 'student' && dto.student_id) {
         // Verify the student exists
-        const student = await tx.student.findFirst({
-          where: { id: dto.student_id, tenant_id: tenantId },
-          select: { id: true },
-        });
+        const student = (await this.studentReadFacade.findOneGeneric(
+          tenantId,
+          dto.student_id,
+          { select: { id: true } },
+          tx,
+        )) as { id: string } | null;
         return student ? [student.id] : [];
       }
 
@@ -417,10 +441,14 @@ export class BehaviourAdminService {
         baseFilter.year_group_id = dto.year_group_id;
       }
 
-      const students = await tx.student.findMany({
-        where: baseFilter,
-        select: { id: true },
-      });
+      const students = (await this.studentReadFacade.findManyGeneric(
+        tenantId,
+        {
+          where: baseFilter,
+          select: { id: true },
+        },
+        tx,
+      )) as Array<{ id: string }>;
 
       return students.map((s) => s.id);
     })) as string[];
@@ -729,13 +757,16 @@ export class BehaviourAdminService {
       const tx = txRaw as unknown as PrismaService;
 
       // Count active records for left students
-      const leftStudentIds = await tx.student.findMany({
-        where: {
-          tenant_id: tenantId,
-          status: { in: ['withdrawn', 'graduated'] as $Enums.StudentStatus[] },
+      const leftStudentIds = (await this.studentReadFacade.findManyGeneric(
+        tenantId,
+        {
+          where: {
+            status: { in: ['withdrawn', 'graduated'] as $Enums.StudentStatus[] },
+          },
+          select: { id: true },
         },
-        select: { id: true },
-      });
+        tx,
+      )) as Array<{ id: string }>;
 
       const studentIds = leftStudentIds.map((s) => s.id);
 

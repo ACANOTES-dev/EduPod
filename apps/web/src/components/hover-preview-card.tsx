@@ -69,7 +69,7 @@ export function HoverPreviewCard({ entityType, entityId, children }: HoverPrevie
 
       showTimerRef.current = setTimeout(() => {
         setVisible(true);
-        fetchPreview();
+        void fetchPreview();
       }, 300);
     },
     [fetchPreview],

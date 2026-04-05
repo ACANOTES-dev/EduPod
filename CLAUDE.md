@@ -9,7 +9,7 @@ Multi-tenant school management SaaS. Single PostgreSQL database, shared schema, 
 ```
 docs/plans/
 ├── context.md                    # Architecture, RLS, auth, RBAC — ALWAYS LOAD
-├── ui-design-brief.md            # Visual language, components — LOAD FOR ANY FRONTEND WORK
+├── ux-redesign-final-spec.md     # ACTIVE frontend source of truth — LOAD FOR ANY FRONTEND WORK
 ├── deployment-architecture.md    # Deployment setup and environment plan
 └── phases-plan/                  # Active phase implementation plans
 
@@ -29,7 +29,7 @@ All non-code documentation lives under `docs/`. Use this index to find what you 
 | I need...                          | Look in                         |
 | ---------------------------------- | ------------------------------- |
 | Architecture, RLS, auth context    | `docs/plans/context.md`         |
-| UI/component design language       | `docs/plans/ui-design-brief.md` |
+| Active UI/component design language| `docs/plans/ux-redesign-final-spec.md` |
 | Blast radius, danger zones         | `docs/architecture/`            |
 | Feature specs (behaviour, GDPR...) | `docs/features/`                |
 | Health governance, backlog, KPIs   | `docs/governance/`              |
@@ -230,6 +230,20 @@ Reserve for non-obvious behavior — describe what the method does and key side-
 - Locale from `[locale]` param. Direction: `locale === 'ar' ? 'rtl' : 'ltr'`
 - **Use logical CSS properties**: `start`/`end`, `ps-`/`pe-`/`ms-`/`me-` — never `left`/`right`
 
+### Frontend Source Of Truth
+
+- `docs/plans/ux-redesign-final-spec.md` is the active frontend source of truth for navigation, shell behaviour, typography, theming, spacing, and major interaction patterns
+- Do not consult or reference the pre-redesign frontend brief for current frontend work
+
+### App Shell & Navigation
+
+- The school-facing shell uses the redesign's **Morphing Shell**: a persistent top morph bar with contextual module sub-strip navigation
+- Do **not** build or reintroduce the old desktop sidebar pattern for school-facing routes
+- Home uses the collapsed morph bar; module pages add the sub-strip beneath it
+- Navigation visibility remains permission-aware and tenant-aware
+- The shell must stay visually stable during navigation — no flashing, remounting, or layout jump in the morph bar or sub-strip
+- Mobile navigation follows the redesign pattern: hamburger-triggered overlay for hub navigation plus a horizontally scrollable sub-strip where applicable
+
 ### Component Patterns
 
 - Client components: `'use client'` directive at top
@@ -254,7 +268,10 @@ Individual `useState` per form field is not acceptable for new forms. Existing h
 ### Styling
 
 - Tailwind CSS with semantic design tokens: `bg-background`, `text-text-primary`, `text-text-secondary`
-- Google Fonts via `@/lib/fonts`
+- Frontend themes are token-driven: colours live in centralized CSS custom properties on `<html>` and components consume tokens rather than hardcoded values
+- Do not hardcode colour hex values inside component files
+- Google Fonts via `@/lib/fonts` — do not use CSS `@import` for app fonts inside components or page styles
+- Latin UI typography follows the redesign spec: `Figtree` for primary UI text and `JetBrains Mono` for codes/reference values
 
 ---
 

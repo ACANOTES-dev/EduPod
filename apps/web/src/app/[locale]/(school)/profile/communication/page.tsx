@@ -78,7 +78,7 @@ export default function CommunicationPreferencesPage() {
         if (!cancelled) setLoading(false);
       }
     }
-    loadPrefs();
+    void loadPrefs();
     return () => {
       cancelled = true;
     };

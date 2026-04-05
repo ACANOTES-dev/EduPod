@@ -31,6 +31,8 @@ import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
+type StudentReader = Pick<PrismaService, 'student'>;
+
 // ─── Common select shapes ─────────────────────────────────────────────────────
 
 /** Minimal student fields needed for display in lists, cards, and cross-module references. */
@@ -258,8 +260,13 @@ export class StudentReadFacade {
    * Count students matching a filter.
    * Used by behaviour-pulse and behaviour-incident-analytics for rate calculations.
    */
-  async count(tenantId: string, where?: Prisma.StudentWhereInput): Promise<number> {
-    return this.prisma.student.count({
+  async count(
+    tenantId: string,
+    where?: Prisma.StudentWhereInput,
+    reader?: StudentReader,
+  ): Promise<number> {
+    const studentReader = reader ?? this.prisma;
+    return studentReader.student.count({
       where: {
         tenant_id: tenantId,
         ...where,
@@ -520,8 +527,10 @@ export class StudentReadFacade {
       skip?: number;
       take?: number;
     },
+    reader?: StudentReader,
   ): Promise<unknown[]> {
-    return this.prisma.student.findMany({
+    const studentReader = reader ?? this.prisma;
+    return studentReader.student.findMany({
       where: { tenant_id: tenantId, ...options.where },
       ...(options.select && { select: options.select }),
       ...(options.include && { include: options.include }),
@@ -542,8 +551,10 @@ export class StudentReadFacade {
       select?: Prisma.StudentSelect;
       include?: Prisma.StudentInclude;
     },
+    reader?: StudentReader,
   ): Promise<unknown | null> {
-    return this.prisma.student.findFirst({
+    const studentReader = reader ?? this.prisma;
+    return studentReader.student.findFirst({
       where: { id: studentId, tenant_id: tenantId },
       ...(options?.select && { select: options.select }),
       ...(options?.include && { include: options.include }),

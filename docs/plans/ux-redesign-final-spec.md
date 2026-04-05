@@ -555,7 +555,6 @@ User logs in → Home (feed + context panel, morph bar collapsed)
 | `Plans/ux-redesign-option-a.md` | Option A spec (rejected — kept for reference)             |
 | `Plans/ux-redesign-option-b.md` | Option B spec (rejected — kept for reference)             |
 | `Plans/ux-redesign-option-c.md` | Option C spec (approved — base for this document)         |
-| `Plans/ui-design-brief.md`      | Existing design system (to be updated to match this spec) |
 | `.superpowers/brainstorm/`      | All visual mockups from the brainstorming session         |
 
 ---

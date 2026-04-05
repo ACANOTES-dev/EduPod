@@ -121,7 +121,7 @@ export default function ProfilePage() {
         if (!cancelled) setSessionsLoading(false);
       }
     }
-    loadSessions();
+    void loadSessions();
     return () => {
       cancelled = true;
     };

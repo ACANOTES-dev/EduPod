@@ -1074,9 +1074,20 @@ describe('SurveyService', () => {
     it('should use default values for optional DTO fields', async () => {
       const dto = {
         title: 'Minimal',
+        frequency: 'fortnightly' as const,
+        min_response_threshold: 5,
+        dept_drill_down_threshold: 3,
+        moderation_enabled: false,
         window_opens_at: futureDate(1).toISOString(),
         window_closes_at: futureDate(8).toISOString(),
-        questions: [{ question_text: 'Q1', question_type: 'likert_5' as const, display_order: 0 }],
+        questions: [
+          {
+            question_text: 'Q1',
+            question_type: 'likert_5' as const,
+            display_order: 0,
+            is_required: true,
+          },
+        ],
       };
       const createdSurvey = makeSurvey();
       mockRlsTx.staffSurvey.create.mockResolvedValue(createdSurvey);

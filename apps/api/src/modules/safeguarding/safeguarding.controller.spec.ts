@@ -418,7 +418,7 @@ describe('SafeguardingController', () => {
   // ─── Null membership_id fallback ──────────────────────────────────────
 
   it('should pass empty string for membership_id when null in listConcerns', async () => {
-    const userWithoutMembership: JwtPayload = { ...USER, membership_id: undefined };
+    const userWithoutMembership: JwtPayload = { ...USER, membership_id: null };
     const query = { page: 1, pageSize: 20 };
     mockSafeguardingService.listConcerns.mockResolvedValue({ data: [] });
 
@@ -433,7 +433,7 @@ describe('SafeguardingController', () => {
   });
 
   it('should pass empty string for membership_id when null in getConcernDetail', async () => {
-    const userWithoutMembership: JwtPayload = { ...USER, membership_id: undefined };
+    const userWithoutMembership: JwtPayload = { ...USER, membership_id: null };
     mockSafeguardingService.getConcernDetail.mockResolvedValue({ id: 'c-1' });
 
     await controller.getConcernDetail(TENANT, userWithoutMembership, 'concern-1');
@@ -447,7 +447,7 @@ describe('SafeguardingController', () => {
   });
 
   it('should pass empty string for membership_id when null in getActions', async () => {
-    const userWithoutMembership: JwtPayload = { ...USER, membership_id: undefined };
+    const userWithoutMembership: JwtPayload = { ...USER, membership_id: null };
     const query = { page: 1, pageSize: 20 };
     mockSafeguardingService.getActions.mockResolvedValue({ data: [] });
 
@@ -463,7 +463,7 @@ describe('SafeguardingController', () => {
   });
 
   it('should pass empty string for membership_id when null in downloadAttachment', async () => {
-    const userWithoutMembership: JwtPayload = { ...USER, membership_id: undefined };
+    const userWithoutMembership: JwtPayload = { ...USER, membership_id: null };
     mockAttachmentService.generateDownloadUrl.mockResolvedValue({ url: 'https://s3/dl' });
 
     await controller.downloadAttachment(TENANT, userWithoutMembership, 'concern-1', 'att-1');

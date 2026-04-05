@@ -83,7 +83,7 @@ describe('BehaviourAwardService', () => {
   let mockAcademicFacade: {
     findCurrentYear: jest.Mock;
     findCurrentPeriod: jest.Mock;
-    findPeriodById: jest.Mock;
+    findPeriodDateRange: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -131,7 +131,7 @@ describe('BehaviourAwardService', () => {
     mockAcademicFacade = {
       findCurrentYear: jest.fn(),
       findCurrentPeriod: jest.fn(),
-      findPeriodById: jest.fn(),
+      findPeriodDateRange: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -334,7 +334,7 @@ describe('BehaviourAwardService', () => {
 
     const periodStart = new Date('2026-01-01');
     const periodEnd = new Date('2026-06-30');
-    mockAcademicFacade.findPeriodById.mockResolvedValue({
+    mockAcademicFacade.findPeriodDateRange.mockResolvedValue({
       start_date: periodStart,
       end_date: periodEnd,
     });
@@ -358,7 +358,7 @@ describe('BehaviourAwardService', () => {
   it('should allow once_per_period award when no existing award in period', async () => {
     setupDefaults({ repeat_mode: 'once_per_period' });
 
-    mockAcademicFacade.findPeriodById.mockResolvedValue({
+    mockAcademicFacade.findPeriodDateRange.mockResolvedValue({
       start_date: new Date('2026-01-01'),
       end_date: new Date('2026-06-30'),
     });
@@ -511,7 +511,6 @@ describe('BehaviourAwardService', () => {
     const _USER_ID = '77777777-7777-7777-7777-777777777777';
 
     // We need a fresh prisma mock and RLS mock for createManualAward
-    let __mockCreatePrisma: Record<string, unknown>;
     let _mockCreateRlsTx: Record<string, Record<string, jest.Mock>>;
 
     beforeEach(() => {
@@ -539,9 +538,6 @@ describe('BehaviourAwardService', () => {
           aggregate: jest.fn(),
         },
       };
-
-      // Replace the prisma value and rewire createRlsClient for this describe block
-      _mockCreatePrisma = {};
 
       // Since we can't easily re-mock the RLS middleware per describe,
       // we'll inject the mockCreateRlsTx into the service's prisma field
@@ -576,7 +572,7 @@ describe('BehaviourAwardService', () => {
       });
       mockTx.behaviourAwardType.findMany.mockResolvedValue([awardType]);
       mockTx.behaviourRecognitionAward.findFirst.mockResolvedValue(null); // dedup
-      mockAcademicFacade.findPeriodById.mockResolvedValue(null); // period not found
+      mockAcademicFacade.findPeriodDateRange.mockResolvedValue(null); // period not found
       mockTx.behaviourRecognitionAward.create.mockResolvedValue({
         id: AWARD_ID,
         tenant_id: TENANT_ID,

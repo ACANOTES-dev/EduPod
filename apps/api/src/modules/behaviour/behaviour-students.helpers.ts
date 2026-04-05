@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 
+import { AttendanceReadFacade } from '../attendance/attendance-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import type {
@@ -442,30 +443,23 @@ export async function computeAttendanceCorrelation(
   prisma: PrismaService,
   tenantId: string,
   studentId: string,
+  attendanceReadFacade: AttendanceReadFacade,
 ): Promise<AttendanceCorrelation | null> {
   // Check if any attendance data exists
-  const attendanceCount = await prisma.dailyAttendanceSummary.count({
-    where: {
-      tenant_id: tenantId,
-      student_id: studentId,
-    },
-  });
+  const attendanceCount = await attendanceReadFacade.countAllDailySummariesForStudent(
+    tenantId,
+    studentId,
+  );
 
   if (attendanceCount === 0) {
     return null;
   }
 
   // Get all attendance summaries
-  const attendanceDays = await prisma.dailyAttendanceSummary.findMany({
-    where: {
-      tenant_id: tenantId,
-      student_id: studentId,
-    },
-    select: {
-      summary_date: true,
-      derived_status: true,
-    },
-  });
+  const attendanceDays = await attendanceReadFacade.findAllDailySummariesForStudent(
+    tenantId,
+    studentId,
+  );
 
   // Build sets of absent and present dates
   const absentDates = new Set<string>();

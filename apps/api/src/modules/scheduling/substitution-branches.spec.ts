@@ -36,7 +36,23 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 describe('SubstitutionService — branch coverage', () => {
   let service: SubstitutionService;
   let module: TestingModule;
-  let mockPrisma: Record<string, Record<string, jest.Mock>>;
+  let mockPrisma: {
+    staffProfile: { findFirst: jest.Mock; findMany: jest.Mock };
+    teacherAbsence: {
+      findFirst: jest.Mock;
+      findMany: jest.Mock;
+      count: jest.Mock;
+      delete: jest.Mock;
+    };
+    schedule: { findFirst: jest.Mock; findMany: jest.Mock };
+    teacherCompetency: { findMany: jest.Mock };
+    substitutionRecord: {
+      findFirst: jest.Mock;
+      findMany: jest.Mock;
+      count: jest.Mock;
+      create: jest.Mock;
+    };
+  };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -152,7 +168,7 @@ describe('SubstitutionService — branch coverage', () => {
       await service.reportAbsence(TENANT_ID, USER_ID, {
         staff_id: STAFF_ID,
         date: '2026-03-20',
-      } as { staff_id: string; date: string; full_day?: boolean });
+      } as { staff_id: string; date: string; full_day: boolean });
 
       expect(mockTx.teacherAbsence.create).toHaveBeenCalledWith(
         expect.objectContaining({

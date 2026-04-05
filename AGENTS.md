@@ -89,7 +89,7 @@ Expansions within Phase-1 are executed in order (A, B, C, D, E). Phases are sequ
 ```
 Plans/
 ├── context.md                    # Architecture, RLS, auth, RBAC — ALWAYS LOAD
-├── ui-design-brief.md            # Visual language, components — LOAD FOR ANY FRONTEND WORK
+├── ux-redesign-final-spec.md     # ACTIVE frontend source of truth — LOAD FOR ANY FRONTEND WORK
 ├── deployment-architecture.md    # Deployment setup and environment plan
 └── archive/                      # Historical phase plans, results, testing (P0–P9)
 

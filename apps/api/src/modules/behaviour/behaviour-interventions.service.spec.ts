@@ -1,6 +1,8 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import type { CreateInterventionDto } from '@school/shared/behaviour';
+
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../sequence/sequence.service';
 
@@ -1104,10 +1106,7 @@ describe('BehaviourInterventionsService', () => {
         { type: 'mentoring', outcome: null, send_aware: false },
       ]);
 
-      const result = await service.getOutcomeAnalytics(TENANT_ID, {
-        page: 1,
-        pageSize: 20,
-      });
+      const result = await service.getOutcomeAnalytics(TENANT_ID, {});
 
       expect(result).toHaveLength(3);
       const bpImproved = result.find(
@@ -1123,8 +1122,6 @@ describe('BehaviourInterventionsService', () => {
       mockPrisma.behaviourIntervention.findMany.mockResolvedValue([]);
 
       await service.getOutcomeAnalytics(TENANT_ID, {
-        page: 1,
-        pageSize: 20,
         year_group_id: 'yg-1',
       });
 
@@ -1141,7 +1138,7 @@ describe('BehaviourInterventionsService', () => {
   // ─── create — optional fields ──────────────────────────────────────────
 
   describe('create — optional fields', () => {
-    const baseDto = {
+    const baseDto: CreateInterventionDto = {
       student_id: STUDENT_ID,
       title: 'Support Plan',
       type: 'behaviour_plan' as const,
@@ -1152,6 +1149,8 @@ describe('BehaviourInterventionsService', () => {
       ],
       assigned_to_id: ASSIGNED_TO_ID,
       start_date: '2026-03-01',
+      review_frequency_days: 14,
+      send_aware: false,
     };
 
     it('should use default review_frequency_days of 14 when not provided', async () => {

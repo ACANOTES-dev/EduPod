@@ -65,7 +65,23 @@ const mockRun = {
 
 describe('PayrollExportsService — branch coverage', () => {
   let service: PayrollExportsService;
-  let mockPrisma: Record<string, Record<string, jest.Mock>>;
+  let mockPrisma: {
+    payrollExportTemplate: {
+      findMany: jest.Mock;
+      findFirst: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+      delete: jest.Mock;
+    };
+    payrollRun: {
+      findFirst: jest.Mock;
+    };
+    payrollExportLog: {
+      findMany: jest.Mock;
+      count: jest.Mock;
+      create: jest.Mock;
+    };
+  };
   let mockSettingsService: { getSettings: jest.Mock };
 
   beforeEach(async () => {

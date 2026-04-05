@@ -9,7 +9,34 @@ const AY_ID = 'ay-1';
 
 describe('SchedulingReadFacade', () => {
   let facade: SchedulingReadFacade;
-  let mockPrisma: Record<string, Record<string, jest.Mock>>;
+  let mockPrisma: {
+    schedulePeriodTemplate: {
+      findFirst: jest.Mock;
+      count: jest.Mock;
+      findMany: jest.Mock;
+    };
+    classSchedulingRequirement: {
+      count: jest.Mock;
+      findMany: jest.Mock;
+      findFirst: jest.Mock;
+    };
+    curriculumRequirement: {
+      findMany: jest.Mock;
+    };
+    teacherCompetency: {
+      findMany: jest.Mock;
+    };
+    teacherSchedulingConfig: {
+      findMany: jest.Mock;
+    };
+    substitutionRecord: {
+      count: jest.Mock;
+      findMany: jest.Mock;
+    };
+    breakGroup: {
+      findMany: jest.Mock;
+    };
+  };
 
   beforeEach(async () => {
     mockPrisma = {

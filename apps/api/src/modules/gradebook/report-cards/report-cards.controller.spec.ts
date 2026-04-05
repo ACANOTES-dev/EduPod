@@ -221,7 +221,7 @@ describe('ReportCardsController', () => {
       mockReportCardsQueriesService.findOne.mockResolvedValue(reportCard);
 
       // Mock tenant read facade methods accessed via MOCK_FACADE_PROVIDERS
-      const tenantFacade = controller['tenantReadFacade'] as {
+      const tenantFacade = controller['tenantReadFacade'] as unknown as {
         findNameById: jest.Mock;
         findBranding: jest.Mock;
       };
@@ -262,7 +262,7 @@ describe('ReportCardsController', () => {
         snapshot_payload_json: {},
       });
 
-      const tenantFacade = controller['tenantReadFacade'] as {
+      const tenantFacade = controller['tenantReadFacade'] as unknown as {
         findNameById: jest.Mock;
         findBranding: jest.Mock;
       };
@@ -307,6 +307,7 @@ describe('ReportCardsController', () => {
         {
           class_id: 'class-1',
           academic_period_id: 'period-1',
+          template_id: 'classic',
         },
         mockRes as never,
       );
@@ -319,7 +320,7 @@ describe('ReportCardsController', () => {
       const snapshots = [{ payload: { student: 'Alice' } }, { payload: { student: 'Bob' } }];
       mockReportCardsQueriesService.buildBatchSnapshots.mockResolvedValue(snapshots);
 
-      const tenantFacade = controller['tenantReadFacade'] as {
+      const tenantFacade = controller['tenantReadFacade'] as unknown as {
         findNameById: jest.Mock;
         findBranding: jest.Mock;
       };
@@ -339,7 +340,7 @@ describe('ReportCardsController', () => {
 
       await controller.generateBatchPdf(
         tenantContext,
-        { class_id: 'class-1', academic_period_id: 'period-1' },
+        { class_id: 'class-1', academic_period_id: 'period-1', template_id: 'classic' },
         mockRes as never,
       );
 
@@ -357,7 +358,7 @@ describe('ReportCardsController', () => {
       const snapshots = [{ payload: { student: 'Alice' } }];
       mockReportCardsQueriesService.buildBatchSnapshots.mockResolvedValue(snapshots);
 
-      const tenantFacade = controller['tenantReadFacade'] as {
+      const tenantFacade = controller['tenantReadFacade'] as unknown as {
         findNameById: jest.Mock;
         findBranding: jest.Mock;
       };
@@ -389,7 +390,7 @@ describe('ReportCardsController', () => {
       const snapshots = [{ payload: { student: 'Alice' } }];
       mockReportCardsQueriesService.buildBatchSnapshots.mockResolvedValue(snapshots);
 
-      const tenantFacade = controller['tenantReadFacade'] as {
+      const tenantFacade = controller['tenantReadFacade'] as unknown as {
         findNameById: jest.Mock;
         findBranding: jest.Mock;
       };
@@ -421,7 +422,7 @@ describe('ReportCardsController', () => {
       const snapshots = [{ payload: { student: 'Alice' } }];
       mockReportCardsQueriesService.buildBatchSnapshots.mockResolvedValue(snapshots);
 
-      const tenantFacade = controller['tenantReadFacade'] as {
+      const tenantFacade = controller['tenantReadFacade'] as unknown as {
         findNameById: jest.Mock;
         findBranding: jest.Mock;
       };
@@ -436,7 +437,7 @@ describe('ReportCardsController', () => {
 
       await controller.generateBatchPdf(
         tenantContext,
-        { class_id: 'class-1', academic_period_id: 'period-1' },
+        { class_id: 'class-1', academic_period_id: 'period-1', template_id: 'classic' },
         mockRes as never,
       );
 
@@ -450,7 +451,7 @@ describe('ReportCardsController', () => {
       const snapshots = [{ payload: { student: 'Alice' } }];
       mockReportCardsQueriesService.buildBatchSnapshots.mockResolvedValue(snapshots);
 
-      const tenantFacade = controller['tenantReadFacade'] as {
+      const tenantFacade = controller['tenantReadFacade'] as unknown as {
         findNameById: jest.Mock;
         findBranding: jest.Mock;
       };
@@ -467,7 +468,7 @@ describe('ReportCardsController', () => {
 
       await controller.generateBatchPdf(
         tenantContext,
-        { class_id: 'class-1', academic_period_id: 'period-1' },
+        { class_id: 'class-1', academic_period_id: 'period-1', template_id: 'classic' },
         mockRes as never,
       );
 

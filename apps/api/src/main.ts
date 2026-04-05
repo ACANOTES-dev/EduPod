@@ -97,4 +97,4 @@ async function bootstrap() {
   console.warn(`API running on http://localhost:${port}`);
 }
 
-bootstrap();
+void bootstrap();

@@ -164,7 +164,7 @@ export default function BehaviourAnalyticsPage() {
   }, [dateRange, exposureNormalised]);
 
   React.useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
 
   if (loading) {

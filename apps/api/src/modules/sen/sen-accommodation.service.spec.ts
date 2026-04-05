@@ -567,6 +567,7 @@ describe('SenAccommodationService', () => {
       await service.create(TENANT_ID, PROFILE_ID, {
         accommodation_type: 'exam',
         description: 'Extra time',
+        details: {},
         is_active: true,
       });
 
@@ -586,6 +587,8 @@ describe('SenAccommodationService', () => {
       await service.create(TENANT_ID, PROFILE_ID, {
         accommodation_type: 'exam',
         description: 'Extra time',
+        details: {},
+        is_active: true,
       });
 
       expect(senAccommodationMock.create).toHaveBeenCalledWith(
@@ -606,6 +609,7 @@ describe('SenAccommodationService', () => {
       await service.create(TENANT_ID, PROFILE_ID, {
         accommodation_type: 'exam',
         description: 'Extra time',
+        details: {},
         is_active: true,
       });
 
@@ -626,6 +630,7 @@ describe('SenAccommodationService', () => {
       await service.create(TENANT_ID, PROFILE_ID, {
         accommodation_type: 'exam',
         description: 'Extra time',
+        details: {},
         start_date: '2026-09-01',
         end_date: '2027-06-30',
         is_active: true,
@@ -650,6 +655,7 @@ describe('SenAccommodationService', () => {
       await service.create(TENANT_ID, PROFILE_ID, {
         accommodation_type: 'classroom',
         description: 'Seating',
+        details: {},
         is_active: false,
       });
 

@@ -4,6 +4,7 @@
  * assembleSolverInput data transformations, formatRunPartial edge cases.
  */
 import { getQueueToken } from '@nestjs/bullmq';
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { MOCK_FACADE_PROVIDERS } from '../../common/tests/mock-facades';
@@ -119,7 +120,13 @@ describe('SchedulerOrchestrationService — branch coverage', () => {
   let module: TestingModule;
   let facades: ReturnType<typeof buildFacadeMocks>;
   let mockQueue: { add: jest.Mock };
-  let mockPrisma: Record<string, Record<string, jest.Mock>>;
+  let mockPrisma: {
+    schedulePeriodTemplate: { findMany: jest.Mock };
+    curriculumRequirement: { findMany: jest.Mock };
+    teacherCompetency: { findMany: jest.Mock };
+    teacherSchedulingConfig: { findMany: jest.Mock };
+    breakGroup: { findMany: jest.Mock };
+  };
 
   beforeEach(async () => {
     mockQueue = { add: jest.fn().mockResolvedValue({ id: 'job-1' }) };
@@ -516,6 +523,8 @@ describe('SchedulerOrchestrationService — branch coverage', () => {
       setupPrerequisites();
 
       await service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID, {
+        academic_year_id: AY_ID,
+        max_solver_duration_seconds: 120,
         solver_seed: 42,
       });
 
@@ -532,6 +541,7 @@ describe('SchedulerOrchestrationService — branch coverage', () => {
       setupPrerequisites();
 
       const result = await service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID, {
+        academic_year_id: AY_ID,
         max_solver_duration_seconds: 300,
       });
 

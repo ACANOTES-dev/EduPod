@@ -99,6 +99,8 @@ describe('LateFeesService — branch coverage', () => {
         name: 'Late Fee',
         fee_type: 'fixed',
         value: 50,
+        grace_period_days: 0,
+        max_applications: 1,
       });
 
       expect(mockPrisma.lateFeeConfig.create).toHaveBeenCalledWith(

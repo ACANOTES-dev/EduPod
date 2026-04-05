@@ -191,8 +191,8 @@ export default function DataRetentionSettingsPage() {
   }, [t]);
 
   React.useEffect(() => {
-    fetchPolicies();
-    fetchHolds();
+    void fetchPolicies();
+    void fetchHolds();
   }, [fetchPolicies, fetchHolds]);
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
@@ -265,7 +265,7 @@ export default function DataRetentionSettingsPage() {
       setHoldSubjectType('');
       setHoldSubjectId('');
       setHoldReason('');
-      fetchHolds();
+      await fetchHolds();
     } catch (err) {
       console.error('[DataRetentionSettingsPage.handlePlaceHold]', err);
       toast.error(t('holdError'));
@@ -281,7 +281,7 @@ export default function DataRetentionSettingsPage() {
       await apiClient(`/v1/retention-holds/${releaseHoldId}`, { method: 'DELETE' });
       toast.success(t('holdReleased'));
       setReleaseHoldId(null);
-      fetchHolds();
+      await fetchHolds();
     } catch (err) {
       console.error('[DataRetentionSettingsPage.handleReleaseHold]', err);
       toast.error(t('holdError'));

@@ -69,6 +69,7 @@ const mockEventParticipantsService = {
 
 const mockTripPackService = {
   generateTripPack: jest.fn(),
+  getTripPackData: jest.fn(),
 };
 
 describe('EventsController', () => {
@@ -428,7 +429,7 @@ describe('EventsController', () => {
   it('generateTripPack — falls back to "en" when both locale and default_locale are null', async () => {
     mockTripPackService.generateTripPack.mockResolvedValue(Buffer.from('pdf'));
 
-    const noLocaleTenant = { ...tenantCtx, default_locale: undefined };
+    const noLocaleTenant = { ...tenantCtx, default_locale: undefined as unknown as string };
     await controller.generateTripPack(noLocaleTenant, EVENT_ID);
 
     expect(mockTripPackService.generateTripPack).toHaveBeenCalledWith(TENANT_ID, EVENT_ID, 'en');
@@ -448,7 +449,7 @@ describe('EventsController', () => {
     const pdfBuffer = Buffer.from('en-pdf');
     mockTripPackService.generateTripPack.mockResolvedValue(pdfBuffer);
 
-    const noLocaleTenant = { ...tenantCtx, default_locale: undefined };
+    const noLocaleTenant = { ...tenantCtx, default_locale: undefined as unknown as string };
     await controller.downloadTripPack(noLocaleTenant, EVENT_ID);
 
     expect(mockTripPackService.generateTripPack).toHaveBeenCalledWith(TENANT_ID, EVENT_ID, 'en');
@@ -497,7 +498,7 @@ describe('EventsController', () => {
   });
 
   it('getTripPackPreview — delegates to tripPackService.getTripPackData', async () => {
-    mockTripPackService.getTripPackData = jest.fn().mockResolvedValue({ event: {}, students: [] });
+    mockTripPackService.getTripPackData.mockResolvedValue({ event: {}, students: [] });
 
     await controller.getTripPackPreview(tenantCtx, EVENT_ID);
 

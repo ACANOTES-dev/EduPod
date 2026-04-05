@@ -8,6 +8,7 @@
     "start": "node dist/api/src/main",
     "start:prod": "node dist/api/src/main",
     "lint": "eslint src/",
+    "lint:ci": "eslint src/ --quiet",
     "type-check": "tsc --noEmit",
     "test": "jest --runInBand",
     "test:changed": "jest --changedSince=main --passWithNoTests",

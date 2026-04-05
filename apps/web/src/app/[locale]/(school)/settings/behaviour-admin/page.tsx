@@ -161,7 +161,7 @@ function SystemHealthTab() {
   }, []);
 
   React.useEffect(() => {
-    loadHealth();
+    void loadHealth();
   }, [loadHealth]);
 
   if (loading || !health) {
@@ -290,7 +290,7 @@ function DeadLetterTab() {
   }, []);
 
   React.useEffect(() => {
-    loadJobs();
+    void loadJobs();
   }, [loadJobs]);
 
   const retryJob = async (jobId: string) => {
@@ -648,7 +648,7 @@ function RetentionTab() {
   }, []);
 
   React.useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
 
   const previewRetention = async () => {

@@ -102,7 +102,7 @@ describe('BehaviourGuardianRestrictionsService', () => {
 
     // Reset RLS tx mocks
     for (const model of Object.values(mockRlsTx)) {
-      for (const fn of Object.values(model)) {
+      for (const fn of Object.values(model) as jest.Mock[]) {
         fn.mockReset();
       }
     }

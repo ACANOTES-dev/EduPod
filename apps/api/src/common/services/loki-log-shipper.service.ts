@@ -67,7 +67,7 @@ export class LokiLogShipper implements OnModuleInit, OnModuleDestroy {
     );
 
     this.flushTimer = setInterval(() => {
-      this.flush();
+      void this.flush();
     }, FLUSH_INTERVAL_MS);
   }
 
@@ -94,7 +94,7 @@ export class LokiLogShipper implements OnModuleInit, OnModuleDestroy {
     this.buffer.push(entry);
 
     if (this.buffer.length >= BATCH_SIZE_THRESHOLD) {
-      this.flush();
+      void this.flush();
     }
   }
 

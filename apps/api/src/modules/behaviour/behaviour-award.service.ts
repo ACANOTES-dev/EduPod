@@ -12,6 +12,7 @@ import { Queue } from 'bullmq';
 import type { CreateManualAwardDto, ListAwardsQuery } from '@school/shared/behaviour';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourHistoryService } from './behaviour-history.service';
@@ -37,6 +38,7 @@ export class BehaviourAwardService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly academicReadFacade: AcademicReadFacade,
     private readonly historyService: BehaviourHistoryService,
     // TODO(M-17): Migrate to BehaviourSideEffectsService
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
@@ -367,10 +369,7 @@ export class BehaviourAwardService {
       case 'once_per_period': {
         if (academicPeriodId) {
           // Look up the period date range and check awards within it
-          const period = await tx.academicPeriod.findUnique({
-            where: { id: academicPeriodId },
-            select: { start_date: true, end_date: true },
-          });
+          const period = await this.academicReadFacade.findPeriodDateRange(tenantId, academicPeriodId);
           if (period) {
             const existingThisPeriod = await tx.behaviourRecognitionAward.findFirst({
               where: {

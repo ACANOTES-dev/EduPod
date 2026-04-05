@@ -19,12 +19,12 @@ const MS_PER_DAY = 86_400_000;
 
 describe('EngagementSignalCollector — branches', () => {
   let collector: EngagementSignalCollector;
-  let mockParentFacade: Record<string, jest.Mock>;
-  let mockCommsFacade: Record<string, jest.Mock>;
-  let mockAuthFacade: Record<string, jest.Mock>;
-  let mockAcademicFacade: Record<string, jest.Mock>;
-  let mockInquiriesFacade: Record<string, jest.Mock>;
-  let mockBehaviourFacade: Record<string, jest.Mock>;
+  let mockParentFacade: { findParentUserIdsForStudent: jest.Mock };
+  let mockCommsFacade: { findInAppNotificationsForUsers: jest.Mock };
+  let mockAuthFacade: { findUsersWithLoginInfo: jest.Mock };
+  let mockAcademicFacade: { findYearById: jest.Mock };
+  let mockInquiriesFacade: { findByParentIds: jest.Mock };
+  let mockBehaviourFacade: { findParentAcknowledgements: jest.Mock };
 
   beforeEach(async () => {
     mockParentFacade = {

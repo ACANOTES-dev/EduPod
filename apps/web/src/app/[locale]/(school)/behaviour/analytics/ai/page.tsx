@@ -46,7 +46,7 @@ export default function BehaviourAIQueryPage() {
   const [showHistory, setShowHistory] = React.useState(false);
 
   React.useEffect(() => {
-    loadHistory();
+    void loadHistory();
   }, []);
 
   async function loadHistory() {
@@ -74,7 +74,7 @@ export default function BehaviourAIQueryPage() {
       });
       if (res) {
         setResult(res);
-        loadHistory();
+        void loadHistory();
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'AI is temporarily unavailable.';
@@ -101,7 +101,7 @@ export default function BehaviourAIQueryPage() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  submitQuery();
+                  void submitQuery();
                 }
               }}
               dir="auto"

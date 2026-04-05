@@ -22,7 +22,11 @@ const HOUSEHOLD_ID = 'hh-1';
 
 describe('HouseholdStatementsService — branch coverage', () => {
   let service: HouseholdStatementsService;
-  let mockPrisma: Record<string, Record<string, jest.Mock>>;
+  let mockPrisma: {
+    invoice: { findMany: jest.Mock };
+    payment: { findMany: jest.Mock };
+    refund: { findMany: jest.Mock };
+  };
   let mockHouseholdFacade: { findByIdWithBillingParent: jest.Mock };
   let mockTenantFacade: { findById: jest.Mock; findBranding: jest.Mock };
   let mockPdfService: { renderPdf: jest.Mock };

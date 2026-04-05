@@ -225,11 +225,11 @@ export default function RunDetailPage() {
   }
 
   function handleSave() {
-    handleApply();
+    void handleApply();
   }
 
   function handleAcknowledgeAndSave() {
-    handleApply();
+    void handleApply();
   }
 
   function handleCoverAssigned() {

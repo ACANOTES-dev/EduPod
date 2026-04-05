@@ -1150,6 +1150,8 @@ describe('SchedulerOrchestrationService', () => {
       setupPassingPrerequisites();
 
       await service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID, {
+        academic_year_id: AY_ID,
+        max_solver_duration_seconds: 120,
         solver_seed: 42,
       });
 
@@ -1166,6 +1168,7 @@ describe('SchedulerOrchestrationService', () => {
       setupPassingPrerequisites();
 
       await service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID, {
+        academic_year_id: AY_ID,
         max_solver_duration_seconds: 300,
       });
 
@@ -1179,6 +1182,8 @@ describe('SchedulerOrchestrationService', () => {
       setupPassingPrerequisites();
 
       await service.triggerSolverRun(TENANT_ID, AY_ID, USER_ID, {
+        academic_year_id: AY_ID,
+        max_solver_duration_seconds: 120,
         solver_seed: null,
       });
 

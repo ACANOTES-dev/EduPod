@@ -521,7 +521,7 @@ describe('GradeCurveService — applyCurve additional branches', () => {
     mockPrisma.grade.findMany.mockResolvedValue([{ id: 'g1', student_id: 's1', raw_score: 50 }]);
 
     const result = await service.applyCurve(TENANT_ID, ASSESSMENT_ID, USER_ID, {
-      method: 'unknown_method',
+      method: 'unknown_method' as never,
     });
 
     expect(result.grades_updated).toBe(1);

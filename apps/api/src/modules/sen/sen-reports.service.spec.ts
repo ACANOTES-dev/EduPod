@@ -495,6 +495,7 @@ describe('SenReportsService', () => {
       mockScopeService.getUserScope.mockResolvedValue({ scope: 'none' });
 
       const result = await service.getPlanCompliance(TENANT_ID, USER_ID, [], {
+        overdue: false,
         due_within_days: 14,
         stale_goal_weeks: 4,
       });
@@ -510,6 +511,7 @@ describe('SenReportsService', () => {
       await expect(
         service.getPlanCompliance(TENANT_ID, USER_ID, ['sen.view'], {
           academic_year_id: 'non-existent',
+          overdue: false,
           due_within_days: 14,
           stale_goal_weeks: 4,
         }),
@@ -525,6 +527,7 @@ describe('SenReportsService', () => {
       senGoalMock.findMany.mockResolvedValue([]);
 
       const result = await service.getPlanCompliance(TENANT_ID, USER_ID, ['sen.view'], {
+        overdue: false,
         due_within_days: 14,
         stale_goal_weeks: 4,
       });

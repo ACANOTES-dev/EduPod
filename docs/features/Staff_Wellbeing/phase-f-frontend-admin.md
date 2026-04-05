@@ -5,7 +5,7 @@
 **Identity:** The admin-facing pages where operational intelligence becomes actionable.
 **Dependencies:** Phase C (survey results + threshold endpoints), Phase D (workload data endpoints), Phase E (shared layout, components, i18n keys)
 **Blocks:** Phase G (full module must be assembled for cross-cutting tests)
-**Design reference:** `Plans/ui-design-brief.md`
+**Design reference:** `docs/plans/ux-redesign-final-spec.md`
 
 ---
 
