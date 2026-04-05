@@ -653,8 +653,9 @@ If a migration removes or narrows these bootstrap policies, or if middleware/ser
 - valid hostnames return tenant-resolution failures or 404s
 - valid users get `INVALID_CREDENTIALS` or empty membership lists
 - authenticated users lose permissions because the cache refresh path cannot read role grants
+- proxied `/api/*` requests from the Next.js web server can blank whole school pages if middleware tries `tenant_domains` lookup on `localhost` or the platform domain before falling back to JWT tenant resolution
 
-**Mitigation**: Treat bootstrap-readable RLS policies as an auth contract, not just schema boilerplate. Any change to `tenant_domains`, `tenant_memberships`, `membership_roles`, `roles`, or `role_permissions` policies must be regression-tested with real login, `/auth/me`, permission-cache refresh, and hostname-based tenant resolution.
+**Mitigation**: Treat bootstrap-readable RLS policies as an auth contract, not just schema boilerplate. Any change to `tenant_domains`, `tenant_memberships`, `membership_roles`, `roles`, or `role_permissions` policies must be regression-tested with real login, `/auth/me`, permission-cache refresh, hostname-based tenant resolution, and the proxied `localhost`/platform-domain API path used by Next.js rewrites.
 
 ## DZ-39: Cross-Tenant Cron Jobs Must Not Use Prisma Relation Filters on RLS Tables
 

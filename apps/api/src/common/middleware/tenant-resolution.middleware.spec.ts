@@ -219,6 +219,29 @@ describe('TenantResolutionMiddleware', () => {
       expect(next).toHaveBeenCalledTimes(1);
     });
 
+    it('resolves proxy-host auth routes from the access token without domain lookup', async () => {
+      const req = buildRequest({
+        originalUrl: '/api/v1/auth/me',
+        hostname: 'localhost',
+        headers: { authorization: 'Bearer token-123' },
+      });
+      const res = buildResponse();
+
+      mockRedisClient.get
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(JSON.stringify(TENANT_CONTEXT));
+      (jwt.verify as jest.Mock).mockReturnValue({
+        tenant_id: TENANT_CONTEXT.tenant_id,
+        type: 'access',
+      });
+
+      await middleware.use(req, res, next);
+
+      expect(runWithRlsContext).not.toHaveBeenCalled();
+      expect(req.tenantContext).toEqual(TENANT_CONTEXT);
+      expect(next).toHaveBeenCalledTimes(1);
+    });
+
     it('normalises non-Error auth route failures', async () => {
       const req = buildRequest({ originalUrl: '/api/v1/auth/login' });
       const res = buildResponse();
@@ -303,6 +326,7 @@ describe('TenantResolutionMiddleware', () => {
 
       await middleware.use(req, res, next);
 
+      expect(runWithRlsContext).not.toHaveBeenCalled();
       expect(req.tenantContext).toEqual(TENANT_CONTEXT);
       expect(next).toHaveBeenCalledTimes(1);
     });

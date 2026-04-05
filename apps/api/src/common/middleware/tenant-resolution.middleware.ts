@@ -52,6 +52,7 @@ export class TenantResolutionMiddleware implements NestMiddleware {
       // Attempt tenant resolution but don't block if no domain found
       try {
         const hostname = req.hostname;
+        const isProxyHostname = this.isProxyHostname(hostname);
         const client = this.redis.getClient();
         const cacheKey = `tenant_domain:${hostname}`;
         const cached = await client.get(cacheKey);
@@ -73,6 +74,12 @@ export class TenantResolutionMiddleware implements NestMiddleware {
           const mutableReq = req as unknown as { tenantContext: TenantContext };
           mutableReq.tenantContext = tenantContext;
         } else {
+          if (isProxyHostname) {
+            const mutableReq = req as unknown as { tenantContext: TenantContext | null };
+            mutableReq.tenantContext = await this.resolveTenantFromToken(req);
+            return next();
+          }
+
           const domainRecord = await this.findDomainRecord(hostname);
 
           if (domainRecord && domainRecord.tenant.status === 'active') {
@@ -111,6 +118,7 @@ export class TenantResolutionMiddleware implements NestMiddleware {
 
     try {
       const hostname = req.hostname;
+      const isProxyHostname = this.isProxyHostname(hostname);
 
       // Check Redis cache first
       const client = this.redis.getClient();
@@ -136,25 +144,22 @@ export class TenantResolutionMiddleware implements NestMiddleware {
         return next();
       }
 
+      if (isProxyHostname) {
+        const tenantFromToken = await this.resolveTenantFromToken(req);
+        if (tenantFromToken) {
+          const mutableReq = req as unknown as { tenantContext: TenantContext };
+          mutableReq.tenantContext = tenantFromToken;
+          return next();
+        }
+
+        return res.status(404).json({
+          error: { code: 'NOT_FOUND', message: 'Not found' },
+        });
+      }
+
       const domainRecord = await this.findDomainRecord(hostname);
 
       if (!domainRecord) {
-        // When accessed via the platform domain or localhost, resolve tenant
-        // from the JWT token instead of from the hostname. This supports the
-        // Next.js rewrite proxy pattern where all /api/* requests are forwarded
-        // from the frontend server, losing the original tenant subdomain.
-        const isPlatformDomain =
-          hostname === this.platformDomain || hostname === 'localhost' || hostname === '127.0.0.1';
-
-        if (isPlatformDomain) {
-          const tenantFromToken = await this.resolveTenantFromToken(req);
-          if (tenantFromToken) {
-            const mutableReq = req as unknown as { tenantContext: TenantContext };
-            mutableReq.tenantContext = tenantFromToken;
-            return next();
-          }
-        }
-
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: 'Not found' },
         });
@@ -210,6 +215,10 @@ export class TenantResolutionMiddleware implements NestMiddleware {
         include: { tenant: true },
       }),
     );
+  }
+
+  private isProxyHostname(hostname: string): boolean {
+    return hostname === this.platformDomain || hostname === 'localhost' || hostname === '127.0.0.1';
   }
 
   /**
