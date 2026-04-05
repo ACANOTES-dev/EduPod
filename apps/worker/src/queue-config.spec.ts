@@ -109,13 +109,6 @@ const EXPECTED_QUEUE_CONFIGS: Record<QueueKey, ExpectedQueueConfig> = {
     removeOnComplete: 50,
     removeOnFail: 200,
   },
-  AUDIT_LOG: {
-    attempts: 3,
-    backoffType: 'exponential',
-    backoffDelay: 2000,
-    removeOnComplete: 10,
-    removeOnFail: 50,
-  },
   BEHAVIOUR: {
     attempts: 3,
     backoffType: 'exponential',
