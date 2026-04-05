@@ -7,6 +7,7 @@ import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 
 import { CommonModule } from './common/common.module';
 import { CorrelationMiddleware } from './common/middleware/correlation.middleware';
+import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 import { TenantResolutionMiddleware } from './common/middleware/tenant-resolution.middleware';
 import { ReadFacadesModule } from './common/read-facades.module';
@@ -168,7 +169,7 @@ export class AppModule implements NestModule {
       .forRoutes('*');
 
     consumer
-      .apply(TenantResolutionMiddleware)
+      .apply(TenantResolutionMiddleware, RequestContextMiddleware)
       .exclude(
         { path: 'health', method: RequestMethod.ALL },
         { path: 'health/(.*)', method: RequestMethod.ALL },

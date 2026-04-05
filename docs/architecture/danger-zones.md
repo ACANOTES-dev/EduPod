@@ -674,7 +674,26 @@ If a migration removes or narrows these bootstrap policies, or if middleware/ser
 
 ---
 
-## DZ-40: Import Processor S3 I/O Was Inside Transaction — RESOLVED
+## DZ-40: Plain Prisma Reads Need Request-Scoped RLS Context
+
+**Risk**: Any authenticated school request that hits plain `this.prisma.*` reads can fail with `22P02 invalid input syntax for type uuid: ""` or silently return empty datasets if the database session does not already have the active tenant/user context. In production this can blank whole sections like People, Dashboard, Finance, and Reports even when login succeeds and DPA gates are cleared.
+
+**Location**: `apps/api/src/modules/prisma/prisma.service.ts`, `apps/api/src/common/services/request-context.service.ts`, `apps/api/src/common/middleware/request-context.middleware.ts`, `apps/api/src/common/guards/auth.guard.ts`
+
+This repo has many tenant-scoped read paths that intentionally use plain Prisma delegates with `where: { tenant_id }` filters instead of manually wrapping every read in `createRlsClient(...).$transaction(...)`. That only remains safe if the Prisma layer itself injects the request's RLS context before the query executes.
+
+The production failure mode is nasty because PgBouncer can hand the app pooled sessions where `app.current_tenant_id`, `app.current_user_id`, and `app.current_membership_id` exist but are empty strings. Once a policy casts those values to UUID, even a simple `findMany()` or `count()` explodes before the explicit `tenant_id` filter can help.
+
+**Mitigation**:
+
+- Keep request-scoped tenant/user/membership context in AsyncLocalStorage for the lifetime of each HTTP request.
+- Update that context again in `AuthGuard` after decoding the JWT so authenticated reads carry `tenant_id`, `user_id`, and `membership_id`.
+- Route plain Prisma model operations through `runWithRlsContext(...)` inside `PrismaService` whenever request context contains a tenant.
+- Regression-test login, `/auth/me`, DPA acceptance, and at least one plain Prisma read endpoint (for example `/students` or `/year-groups`) whenever Prisma session handling or middleware order changes.
+
+---
+
+## DZ-41: Import Processor S3 I/O Was Inside Transaction — RESOLVED
 
 **Risk**: `ImportProcessingProcessor` and `ImportValidationProcessor` performed S3 downloads and deletes inside the `TenantAwareJob` Prisma transaction. S3 network failures could deadlock the transaction, and inconsistent rollback could leave orphan S3 files or missing data.
 

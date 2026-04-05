@@ -6,6 +6,7 @@ import { CircuitBreakerRegistry } from './services/circuit-breaker-registry';
 import { StructuredLoggerService } from './services/logger.service';
 import { LokiLogShipper } from './services/loki-log-shipper.service';
 import { PermissionCacheService } from './services/permission-cache.service';
+import { RequestContextService } from './services/request-context.service';
 
 /**
  * Global common module.
@@ -15,8 +16,14 @@ import { PermissionCacheService } from './services/permission-cache.service';
  */
 @Global()
 @Module({
-  providers: [CircuitBreakerRegistry, LokiLogShipper, PermissionCacheService, RlsRoleCheckService],
-  exports: [CircuitBreakerRegistry, LokiLogShipper, PermissionCacheService],
+  providers: [
+    CircuitBreakerRegistry,
+    LokiLogShipper,
+    PermissionCacheService,
+    RequestContextService,
+    RlsRoleCheckService,
+  ],
+  exports: [CircuitBreakerRegistry, LokiLogShipper, PermissionCacheService, RequestContextService],
 })
 export class CommonModule implements OnModuleInit {
   constructor(private readonly lokiShipper: LokiLogShipper) {}

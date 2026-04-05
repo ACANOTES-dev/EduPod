@@ -11,9 +11,14 @@ import * as jwt from 'jsonwebtoken';
 
 import type { JwtPayload } from '@school/shared';
 
+import { RequestContextService } from '../services/request-context.service';
+
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly requestContext: RequestContextService,
+  ) {}
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>();
@@ -48,6 +53,11 @@ export class AuthGuard implements CanActivate {
 
       const req = request as unknown as { currentUser?: JwtPayload };
       req.currentUser = payload;
+      this.requestContext.set({
+        tenant_id: payload.tenant_id ?? undefined,
+        user_id: payload.sub,
+        membership_id: payload.membership_id ?? undefined,
+      });
       return true;
     } catch (error: unknown) {
       if (error instanceof HttpException) {
