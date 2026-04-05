@@ -218,6 +218,20 @@ For negative incidents with `severity >= parent_notification_send_gate_severity`
 
 ---
 
+## DZ-19: useApiQuery Option Identity Caused Global Request Storm — RESOLVED
+
+**Risk**: Re-render loops can spam a shared API endpoint until the global throttler locks out the whole UI
+**Location**: `apps/web/src/hooks/use-api-query.ts`, `apps/web/src/components/legal/privacy-notice-banner.tsx`
+**Status**: RESOLVED (2026-04-05)
+
+`useApiQuery()` originally rebuilt its `refetch()` callback whenever inline `onError`, `onSuccess`, `select`, or `requestInit` options changed identity. Because the hook's auto-fetch effect depended on that callback, any component that passed inline options could re-request on every render.
+
+The production incident on 2026-04-05 came from `PrivacyNoticeBanner`, which is mounted in the school layout on every authenticated page and passed an inline `onError` callback. That created a tight loop on `GET /api/v1/privacy-notices/current`, which quickly exceeded the global `ThrottlerGuard` limit and surfaced as generic "unexpected error" toasts across the app.
+
+**Mitigation applied**: `useApiQuery()` now reads the latest option values from a ref while keeping its auto-fetch effect keyed to `path` and `enabled`. Inline callbacks/options no longer trigger automatic refetches on every render.
+
+---
+
 ## DZ-15: Behaviour Domain Constraint — Last Student Participant
 
 **Risk**: Application-level constraint can be bypassed if someone uses raw SQL or a different service

@@ -46,6 +46,23 @@ export function useApiQuery<TResponse, TData = TResponse>(
   const [data, setData] = React.useState<TData | null>(initialData);
   const [error, setError] = React.useState<ApiErrorPayload | null>(null);
   const [isLoading, setIsLoading] = React.useState(enabled && !!path && initialData === null);
+  const latestOptionsRef = React.useRef({
+    fallbackMessage,
+    onError,
+    onSuccess,
+    requestInit,
+    select,
+  });
+
+  // Keep the latest options available to refetch() without letting inline
+  // callbacks or request objects retrigger the auto-fetch effect on every render.
+  latestOptionsRef.current = {
+    fallbackMessage,
+    onError,
+    onSuccess,
+    requestInit,
+    select,
+  };
 
   const refetch = React.useCallback(async () => {
     if (!path || !enabled) {
@@ -53,25 +70,33 @@ export function useApiQuery<TResponse, TData = TResponse>(
       return null;
     }
 
+    const {
+      fallbackMessage: latestFallbackMessage,
+      onError: latestOnError,
+      onSuccess: latestOnSuccess,
+      requestInit: latestRequestInit,
+      select: latestSelect,
+    } = latestOptionsRef.current;
+
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await apiClient<TResponse>(path, requestInit);
-      const nextData = select ? select(response) : (response as unknown as TData);
+      const response = await apiClient<TResponse>(path, latestRequestInit);
+      const nextData = latestSelect ? latestSelect(response) : (response as unknown as TData);
 
       setData(nextData);
-      onSuccess?.(nextData);
+      latestOnSuccess?.(nextData);
       return nextData;
     } catch (err) {
-      const normalizedError = handleApiError(err, { fallbackMessage });
+      const normalizedError = handleApiError(err, { fallbackMessage: latestFallbackMessage });
       setError(normalizedError);
-      onError?.(normalizedError);
+      latestOnError?.(normalizedError);
       return null;
     } finally {
       setIsLoading(false);
     }
-  }, [enabled, fallbackMessage, onError, onSuccess, path, requestInit, select]);
+  }, [enabled, path]);
 
   React.useEffect(() => {
     if (!enabled || !path) {
