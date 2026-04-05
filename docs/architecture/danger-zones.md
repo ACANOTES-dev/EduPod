@@ -505,9 +505,11 @@ Consent changes are user-facing and must take effect immediately. This means con
 2. The frontend global API error handler still redirects `DPA_NOT_ACCEPTED` users to `/settings/legal/dpa`
 3. Any new onboarding/legal remediation endpoints that must remain reachable pre-acceptance are explicitly added to the allowlist
 
+There is a second coupling inside the remediation path itself: `DpaService.getCurrentVersion()` calls `PlatformLegalService.ensureSeeded()`, and that seed path also writes sub-processor update notifications. The notification row's `source_entity_id` column is UUID-typed, so those writes must store the register version record UUID, not the human-readable version string. If legal seeding crashes here, `/api/v1/legal/dpa/*` fails and every DPA-gated page stays locked out.
+
 There is also a Jest-only bypass (`NODE_ENV === 'test' || JEST_WORKER_ID`) so legacy suites are not globally bricked by the new guard. Tests that need real guard behaviour must explicitly unset those env vars inside the spec.
 
-**Mitigation**: Treat guard allowlist edits as cross-cutting changes. When adding tenant-scoped endpoints used during onboarding or legal recovery, verify they remain reachable before DPA acceptance. When writing guard-specific tests, temporarily disable the test env bypass inside the test process.
+**Mitigation**: Treat guard allowlist edits as cross-cutting changes. When adding tenant-scoped endpoints used during onboarding or legal recovery, verify they remain reachable before DPA acceptance. Keep legal seed side effects schema-safe, and regression-test the notification write path whenever `PlatformLegalService` changes. When writing guard-specific tests, temporarily disable the test env bypass inside the test process.
 
 ---
 

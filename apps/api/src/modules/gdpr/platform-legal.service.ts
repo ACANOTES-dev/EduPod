@@ -83,7 +83,7 @@ export class PlatformLegalService {
       });
 
       if (hadPreviousVersions) {
-        await this.notifyTenantAdmins(created.version, created.change_summary);
+        await this.notifyTenantAdmins(created.id, created.version, created.change_summary);
       }
     }
   }
@@ -93,7 +93,7 @@ export class PlatformLegalService {
    * sub-processor register is updated. Writes directly to the
    * notification table to avoid coupling GDPR to CommunicationsModule.
    */
-  private async notifyTenantAdmins(version: string, summary: string) {
+  private async notifyTenantAdmins(registerVersionId: string, version: string, summary: string) {
     const memberships = await this.rbacReadFacade.findActiveMembershipsByRoleKeys([
       'school_owner',
       'school_principal',
@@ -130,7 +130,7 @@ export class PlatformLegalService {
             version,
           } as Prisma.InputJsonValue,
           source_entity_type: 'sub_processor_register_version',
-          source_entity_id: version,
+          source_entity_id: registerVersionId,
           delivered_at: new Date(),
         }));
 

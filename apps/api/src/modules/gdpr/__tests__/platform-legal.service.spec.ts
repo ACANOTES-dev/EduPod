@@ -14,6 +14,7 @@ const TENANT_ID_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const USER_ID_1 = '11111111-1111-1111-1111-111111111111';
 const USER_ID_2 = '22222222-2222-2222-2222-222222222222';
 const USER_ID_3 = '33333333-3333-3333-3333-333333333333';
+const REGISTER_VERSION_ID = '44444444-4444-4444-4444-444444444444';
 
 // ─── Mock Factory ───────────────────────────────────────────────────────────
 
@@ -266,7 +267,7 @@ describe('PlatformLegalService', () => {
 
       const seedVersion = PLATFORM_SUB_PROCESSOR_REGISTER_VERSIONS[0]!;
       mockPrisma.subProcessorRegisterVersion.create.mockResolvedValue({
-        id: 'new-version-id',
+        id: REGISTER_VERSION_ID,
         version: seedVersion.version,
         change_summary: seedVersion.change_summary,
       });
@@ -297,7 +298,7 @@ describe('PlatformLegalService', () => {
 
       const seedVersion = PLATFORM_SUB_PROCESSOR_REGISTER_VERSIONS[0]!;
       mockPrisma.subProcessorRegisterVersion.create.mockResolvedValue({
-        id: 'new-version-id',
+        id: REGISTER_VERSION_ID,
         version: seedVersion.version,
         change_summary: seedVersion.change_summary,
       });
@@ -350,7 +351,7 @@ describe('PlatformLegalService', () => {
       expect(tenantACall.data[0]!.locale).toBe('en');
       expect(tenantACall.data[0]!.status).toBe('delivered');
       expect(tenantACall.data[0]!.source_entity_type).toBe('sub_processor_register_version');
-      expect(tenantACall.data[0]!.source_entity_id).toBe('2026.03');
+      expect(tenantACall.data[0]!.source_entity_id).toBe(REGISTER_VERSION_ID);
       expect(tenantACall.data[0]!.payload_json).toEqual(
         expect.objectContaining({
           title: 'Sub-processor register updated',
@@ -371,14 +372,38 @@ describe('PlatformLegalService', () => {
       expect(tenantBCall.data[0]!.locale).toBe('en');
     });
 
+    it('should persist the register version UUID in notifications', async () => {
+      mockPrisma.tenantMembership.findMany.mockResolvedValue([
+        {
+          tenant_id: TENANT_ID_A,
+          user_id: USER_ID_1,
+          user: { preferred_locale: 'en' },
+        },
+      ]);
+
+      await service.ensureSeeded();
+
+      expect(mockPrisma.notification.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            source_entity_type: 'sub_processor_register_version',
+            source_entity_id: REGISTER_VERSION_ID,
+          }),
+        ],
+      });
+    });
+
     it('should query admin memberships with correct role filter', async () => {
       mockPrisma.tenantMembership.findMany.mockResolvedValue([]);
 
       await service.ensureSeeded();
 
-      expect(mockPrisma.tenantMembership.findMany).toHaveBeenCalledWith(
-        ['school_owner', 'school_principal', 'school_vice_principal', 'admin'],
-      );
+      expect(mockPrisma.tenantMembership.findMany).toHaveBeenCalledWith([
+        'school_owner',
+        'school_principal',
+        'school_vice_principal',
+        'admin',
+      ]);
     });
 
     it('should invalidate Redis unread_notifications cache for each recipient', async () => {
