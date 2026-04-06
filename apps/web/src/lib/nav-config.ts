@@ -287,9 +287,22 @@ export const hubConfigs: HubConfig[] = [
     roles: [...STAFF_ROLES, 'parent'],
   },
   {
+    key: 'wellbeing',
+    labelKey: 'nav.wellbeing',
+    basePaths: ['/behaviour', '/pastoral', '/wellbeing', '/sen', '/early-warnings'],
+    roles: STAFF_ROLES,
+  },
+  {
     key: 'operations',
     labelKey: 'nav.operations',
-    basePaths: ['/admissions', '/communications', '/approvals', '/scheduling', '/rooms'],
+    basePaths: [
+      '/admissions',
+      '/communications',
+      '/approvals',
+      '/scheduling',
+      '/rooms',
+      '/engagement',
+    ],
     roles: STAFF_ROLES,
   },
   {
@@ -304,9 +317,15 @@ export const hubConfigs: HubConfig[] = [
     basePaths: ['/reports'],
   },
   {
+    key: 'regulatory',
+    labelKey: 'nav.regulatory',
+    basePaths: ['/regulatory', '/safeguarding'],
+    roles: ADMIN_ROLES,
+  },
+  {
     key: 'settings',
     labelKey: 'nav.settings',
-    basePaths: ['/settings', '/closures', '/behaviour/settings', '/website'],
+    basePaths: ['/settings', '/closures', '/website'],
     roles: ADMIN_ROLES,
   },
 ];
@@ -336,8 +355,17 @@ export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
     { labelKey: 'nav.classAssignments', href: '/class-assignments', overflow: true },
     { labelKey: 'nav.promotion', href: '/promotion', overflow: true, roles: ADMIN_ROLES },
   ],
+  wellbeing: [
+    { labelKey: 'nav.behaviour', href: '/behaviour' },
+    { labelKey: 'nav.behaviourIncidents', href: '/behaviour/incidents' },
+    { labelKey: 'nav.pastoral', href: '/pastoral' },
+    { labelKey: 'nav.sen', href: '/sen' },
+    { labelKey: 'nav.wellbeing', href: '/wellbeing', overflow: true },
+    { labelKey: 'nav.earlyWarnings', href: '/early-warnings', overflow: true },
+  ],
   operations: [
     { labelKey: 'nav.admissions', href: '/admissions' },
+    { labelKey: 'nav.engagement', href: '/engagement' },
     { labelKey: 'nav.communications', href: '/communications' },
     { labelKey: 'nav.approvals', href: '/approvals' },
     { labelKey: 'nav.scheduling', href: '/scheduling', overflow: true },
@@ -359,6 +387,17 @@ export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
     { labelKey: 'nav.feeAssignments', href: '/finance/fee-assignments', overflow: true },
   ],
   reports: [],
+  regulatory: [
+    { labelKey: 'nav.regulatoryDashboard', href: '/regulatory' },
+    { labelKey: 'nav.regulatoryTusla', href: '/regulatory/tusla' },
+    { labelKey: 'nav.regulatoryPpod', href: '/regulatory/ppod' },
+    { labelKey: 'nav.regulatoryDesReturns', href: '/regulatory/des-returns' },
+    { labelKey: 'nav.regulatorySafeguarding', href: '/regulatory/safeguarding' },
+    { labelKey: 'nav.dpa', href: '/regulatory/dpa', overflow: true },
+    { labelKey: 'nav.privacyNotices', href: '/regulatory/privacy-notices', overflow: true },
+    { labelKey: 'nav.compliance', href: '/regulatory/compliance', overflow: true },
+    { labelKey: 'nav.dataRetention', href: '/regulatory/data-retention', overflow: true },
+  ],
   settings: [
     { labelKey: 'nav.generalSettings', href: '/settings' },
     { labelKey: 'nav.behaviourSettings', href: '/behaviour/settings', overflow: true },

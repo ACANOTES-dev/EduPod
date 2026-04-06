@@ -1,6 +1,9 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+jest.mock('../../common/middleware/rls.middleware');
+
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { MOCK_FACADE_PROVIDERS, TenantReadFacade } from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
@@ -37,12 +40,15 @@ describe('BrandingService', () => {
         findUnique: jest.fn(),
         upsert: jest.fn(),
       },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      $transaction: jest.fn().mockImplementation(async (fn: (tx: any) => Promise<any>) => fn(mockPrisma)),
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockPrisma)),
     } as unknown as typeof mockPrisma;
     mockS3 = {
       upload: jest.fn(),
     };
+
+    (createRlsClient as jest.Mock).mockReturnValue(mockPrisma);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -102,7 +108,10 @@ describe('BrandingService', () => {
 
     it('should upsert branding with logo_url', async () => {
       const dto = { logo_url: 'new-logo.png' };
-      mockPrisma.tenantBranding.upsert.mockResolvedValue({ ...mockBranding, logo_url: 'new-logo.png' });
+      mockPrisma.tenantBranding.upsert.mockResolvedValue({
+        ...mockBranding,
+        logo_url: 'new-logo.png',
+      });
 
       await service.updateBranding(TENANT_ID, dto);
 
@@ -131,7 +140,12 @@ describe('BrandingService', () => {
 
       const result = await service.uploadLogo(TENANT_ID, validFile);
 
-      expect(mockS3.upload).toHaveBeenCalledWith(TENANT_ID, 'logos/logo.png', validFile.buffer, 'image/png');
+      expect(mockS3.upload).toHaveBeenCalledWith(
+        TENANT_ID,
+        'logos/logo.png',
+        validFile.buffer,
+        'image/png',
+      );
       expect(mockPrisma.tenantBranding.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           update: { logo_url: `${TENANT_ID}/logos/logo.png` },

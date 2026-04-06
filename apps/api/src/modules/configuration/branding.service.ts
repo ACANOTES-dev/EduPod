@@ -4,6 +4,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 
 import type { UpdateBrandingDto } from '@school/shared';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
@@ -51,7 +52,9 @@ export class BrandingService {
     if (data.primary_colour !== undefined) dbData.primary_color = data.primary_colour;
     if (data.secondary_colour !== undefined) dbData.secondary_color = data.secondary_colour;
 
-    return this.prisma.$transaction(async (tx) => {
+    return (
+      createRlsClient(this.prisma, { tenant_id: tenantId }) as unknown as PrismaService
+    ).$transaction(async (tx) => {
       return tx.tenantBranding.upsert({
         where: { tenant_id: tenantId },
         update: dbData,
@@ -81,7 +84,8 @@ export class BrandingService {
 
     if (!ALLOWED_MIMETYPES.includes(file.mimetype)) {
       throw new BadRequestException({
-        error: { code: 'INVALID_FILE_TYPE', message: 'File type not allowed' },
+        code: 'INVALID_FILE_TYPE',
+        message: 'File type not allowed',
       });
     }
 
@@ -95,7 +99,9 @@ export class BrandingService {
     const s3Key = `logos/logo${ext}`;
     const fullKey = await this.s3.upload(tenantId, s3Key, file.buffer, file.mimetype);
 
-    const branding = await this.prisma.$transaction(async (tx) => {
+    const branding = await (
+      createRlsClient(this.prisma, { tenant_id: tenantId }) as unknown as PrismaService
+    ).$transaction(async (tx) => {
       return tx.tenantBranding.upsert({
         where: { tenant_id: tenantId },
         update: { logo_url: fullKey },
