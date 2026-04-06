@@ -83,8 +83,8 @@ export function SubStrip({
                   className={cn(
                     'flex h-4 items-center justify-center rounded-pill px-1.5 text-[10px] font-bold',
                     isActive
-                      ? 'bg-emerald-500/25 text-emerald-400'
-                      : 'bg-[rgba(255,255,255,0.1)] text-[var(--color-strip-text)]',
+                      ? 'bg-emerald-500/25 text-emerald-700'
+                      : 'bg-black/[0.08] text-[var(--color-strip-text)]',
                   )}
                 >
                   {tab.count}

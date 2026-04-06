@@ -1,11 +1,5 @@
 'use client';
-import { Users, GraduationCap, Grid3X3 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import Link from 'next/link';
-
-function cn(...classes: (string | undefined | null | false)[]) {
-  return classes.filter(Boolean).join(' ');
-}
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 type DashboardSnapshotData = {
   stats?: {
@@ -18,23 +12,59 @@ type DashboardSnapshotData = {
 type SnapshotStat = {
   label: string;
   value: number | string;
-  icon: LucideIcon | string;
-  color: 'amber' | 'blue' | 'emerald' | 'purple' | (string & {});
-  href: string;
+  trend?: {
+    direction: 'up' | 'down' | 'flat';
+    text: string;
+  };
 };
 
-const DEFAULT_STATS = [
+const DEFAULT_STATS: [SnapshotStat, SnapshotStat, SnapshotStat, SnapshotStat] = [
   {
     label: 'Total Students',
-    value: '584',
-    icon: GraduationCap,
-    color: 'emerald',
-    href: '/students',
+    value: 209,
+    trend: { direction: 'up', text: '+2% from last week' },
   },
-  { label: 'Teaching Staff', value: '42', icon: Users, color: 'blue', href: '/staff' },
-  { label: 'Active Classes', value: '24', icon: Grid3X3, color: 'purple', href: '/classes' },
-  { label: 'Attendance', value: '96.4%', icon: GraduationCap, color: 'amber', href: '/attendance' },
-] satisfies [SnapshotStat, SnapshotStat, SnapshotStat, SnapshotStat];
+  {
+    label: 'Teaching Staff',
+    value: 32,
+    trend: { direction: 'flat', text: 'No change' },
+  },
+  {
+    label: 'Active Classes',
+    value: 15,
+    trend: { direction: 'up', text: '+1%' },
+  },
+  {
+    label: 'Attendance',
+    value: '96.4%',
+    trend: { direction: 'down', text: '-0.5% from last week' },
+  },
+];
+
+function TrendBadge({ trend }: { trend?: SnapshotStat['trend'] }) {
+  if (!trend) return null;
+
+  const colorMap = {
+    up: 'text-emerald-600 dark:text-emerald-400',
+    down: 'text-red-500 dark:text-red-400',
+    flat: 'text-text-tertiary',
+  };
+
+  const IconMap = {
+    up: TrendingUp,
+    down: TrendingDown,
+    flat: Minus,
+  };
+
+  const Icon = IconMap[trend.direction];
+
+  return (
+    <div className={`flex items-center gap-1 mt-1 ${colorMap[trend.direction]}`}>
+      <Icon className="h-3 w-3" />
+      <span className="text-[11px] font-medium">{trend.text}</span>
+    </div>
+  );
+}
 
 export function SchoolSnapshot({
   variant = 'default',
@@ -54,53 +84,60 @@ export function SchoolSnapshot({
     DEFAULT_STATS[3],
   ];
 
-  const colorStyles: Record<string, string> = {
-    emerald: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400',
-    blue: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
-    purple: 'bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400',
-    amber: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400',
-  };
+  if (variant === 'compact') {
+    return (
+      <div className="grid grid-cols-2 gap-4 rounded-[16px] border border-border bg-surface p-4 shadow-sm">
+        {stats.map((stat) => (
+          <div key={stat.label} className="flex flex-col rounded-xl bg-surface-secondary p-3">
+            <p className="text-[12px] font-medium text-text-tertiary truncate">{stat.label}</p>
+            <p className="text-[20px] font-bold text-text-primary leading-tight truncate">
+              {stat.value}
+            </p>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Default variant — 2×2 grid with trends
+  const s0 = stats[0];
+  const s1 = stats[1];
+  const s2 = stats[2];
+  const s3 = stats[3];
+
+  if (!s0 || !s1 || !s2 || !s3) return null;
 
   return (
-    <div
-      className={cn(
-        'rounded-[16px] border border-border bg-surface p-5 shadow-sm space-y-4',
-        variant === 'compact' ? 'grid grid-cols-2 gap-4 space-y-0 p-4' : 'flex flex-col',
-      )}
-    >
-      {variant === 'default' && (
-        <h3 className="text-[16px] font-semibold text-text-primary">{title}</h3>
-      )}
-      <div className={cn('flex flex-col gap-3', variant === 'compact' && 'contents')}>
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Link
-              key={stat.label}
-              href={stat.href}
-              className={cn(
-                'flex items-center gap-3 rounded-xl hover:bg-surface-secondary transition-colors p-2 -mx-2',
-                variant === 'compact' && 'mx-0 p-3 bg-surface-secondary flex-1',
-              )}
-            >
-              <div
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] ${colorStyles[stat.color] || ''} overflow-hidden`}
-              >
-                {typeof Icon === 'string' ? (
-                  <img src={Icon} alt={stat.label} className="h-full w-full object-cover" />
-                ) : (
-                  <Icon className="h-4 w-4" />
-                )}
-              </div>
-              <div className={cn('min-w-0 flex-1', variant === 'compact' && 'flex flex-col')}>
-                <p className="text-[12px] font-medium text-text-tertiary truncate">{stat.label}</p>
-                <p className="text-[20px] font-bold text-text-primary leading-tight truncate">
-                  {stat.value}
-                </p>
-              </div>
-            </Link>
-          );
-        })}
+    <div className="rounded-[16px] border border-border bg-surface p-5 shadow-sm">
+      <h3 className="text-[16px] font-semibold text-text-primary mb-4">{title}</h3>
+
+      <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+        {/* Row 1 */}
+        <div className="flex flex-col py-3">
+          <p className="text-[12px] font-medium text-text-tertiary">{s0.label}</p>
+          <p className="text-[32px] font-bold text-text-primary leading-tight">{s0.value}</p>
+          <TrendBadge trend={s0.trend} />
+        </div>
+        <div className="flex flex-col py-3">
+          <p className="text-[12px] font-medium text-text-tertiary">{s1.label}</p>
+          <p className="text-[32px] font-bold text-text-primary leading-tight">{s1.value}</p>
+          <TrendBadge trend={s1.trend} />
+        </div>
+
+        {/* Divider */}
+        <div className="col-span-2 border-t border-border" />
+
+        {/* Row 2 */}
+        <div className="flex flex-col py-3">
+          <p className="text-[12px] font-medium text-text-tertiary">{s2.label}</p>
+          <p className="text-[32px] font-bold text-text-primary leading-tight">{s2.value}</p>
+          <TrendBadge trend={s2.trend} />
+        </div>
+        <div className="flex flex-col py-3">
+          <p className="text-[12px] font-medium text-text-tertiary">{s3.label}</p>
+          <p className="text-[32px] font-bold text-text-primary leading-tight">{s3.value}</p>
+          <TrendBadge trend={s3.trend} />
+        </div>
       </div>
     </div>
   );

@@ -52,37 +52,28 @@ export function PriorityFeed({ customItems }: { customItems?: PriorityItem[] }) 
 
   return (
     <div className="rounded-[16px] border border-border bg-surface p-5 shadow-sm flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h3 className="text-[16px] font-semibold text-text-primary">Needs Your Attention</h3>
-          <span className="flex h-5 w-5 items-center justify-center rounded-pill bg-danger-fill text-[10px] font-bold text-danger-text">
-            {items.length}
-          </span>
-        </div>
-      </div>
+      <h3 className="text-[16px] font-semibold text-text-primary">Needs Your Attention</h3>
 
-      <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {items.map((item) => {
           const Icon = item.icon;
           return (
             <div
               key={item.id}
-              className="flex items-center justify-between rounded-xl p-2 hover:bg-surface-secondary transition-colors"
+              className="flex flex-col rounded-xl border border-border bg-surface p-4 gap-3"
             >
-              <div className="flex items-center gap-3">
-                <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-[10px] ${item.iconBg}`}
-                >
-                  <Icon className={`h-4 w-4 ${item.iconColor}`} />
-                </div>
-                <div>
-                  <p className="text-[14px] font-medium text-text-primary">{item.title}</p>
-                  <p className="text-[12px] text-text-tertiary">{item.description}</p>
-                </div>
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-[12px] ${item.iconBg}`}
+              >
+                <Icon className={`h-5 w-5 ${item.iconColor}`} />
+              </div>
+              <div className="flex-1">
+                <p className="text-[14px] font-semibold text-text-primary">{item.title}</p>
+                <p className="text-[12px] text-text-tertiary mt-0.5">{item.description}</p>
               </div>
               <Link
                 href={item.href}
-                className="rounded-pill bg-primary-50 px-3 py-1.5 text-[12px] font-semibold text-primary-600 hover:bg-primary-100 transition-colors"
+                className="block w-full rounded-lg bg-primary-700 px-4 py-2.5 text-center text-[13px] font-semibold text-btn-primary-text hover:bg-primary-800 transition-colors"
               >
                 {item.actionLabel}
               </Link>
@@ -92,7 +83,7 @@ export function PriorityFeed({ customItems }: { customItems?: PriorityItem[] }) 
       </div>
       <Link
         href="/approvals"
-        className="mt-2 text-center text-[12px] font-medium text-primary-600 hover:text-primary-700 transition-colors"
+        className="text-center text-[12px] font-medium text-primary-600 hover:text-primary-700 transition-colors"
       >
         View all pending items &rarr;
       </Link>

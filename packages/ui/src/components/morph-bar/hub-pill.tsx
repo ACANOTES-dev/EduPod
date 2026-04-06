@@ -15,12 +15,12 @@ export const HubPill = React.forwardRef<HTMLButtonElement, HubPillProps>(
           'rounded-pill px-3.5 py-2 text-[13px] font-medium transition-colors',
           active
             ? 'bg-[var(--color-bar-active-bg)] text-[var(--color-bar-text-active)] font-semibold'
-            : 'text-[var(--color-bar-text)] bg-transparent hover:bg-white/5',
-          className
+            : 'text-[var(--color-bar-text)] bg-transparent hover:bg-black/5',
+          className,
         )}
         {...props}
       />
     );
-  }
+  },
 );
 HubPill.displayName = 'HubPill';

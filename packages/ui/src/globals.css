@@ -26,18 +26,19 @@
     --color-primary-800: #065f46;
     --color-primary-900: #064e3b;
 
-    /* Morph Bar */
-    --color-bar-bg: #1c1917;
-    --color-bar-text: rgba(250, 250, 249, 0.5);
-    --color-bar-text-active: #6ee7b7;
-    --color-bar-active-bg: rgba(16, 185, 129, 0.2);
+    /* Morph Bar — White theme */
+    --color-bar-bg: #ffffff;
+    --color-bar-text: #6b6560;
+    --color-bar-text-active: #ffffff;
+    --color-bar-active-bg: #059669;
+    --color-bar-border: #e7e5e1;
 
-    /* Sub-Strip */
-    --color-strip-bg: #292524;
-    --color-strip-text: rgba(250, 250, 249, 0.4);
-    --color-strip-text-active: #fafaf9;
-    --color-strip-active-bg: rgba(255, 255, 255, 0.1);
-    --color-strip-border: #3f3b39;
+    /* Sub-Strip — Light grey theme */
+    --color-strip-bg: #e8e6e3;
+    --color-strip-text: #6b6560;
+    --color-strip-text-active: #1c1917;
+    --color-strip-active-bg: rgba(0, 0, 0, 0.08);
+    --color-strip-border: #dddbd8;
 
     /* Semantic */
     --color-success-fill: #ecfdf5;
@@ -93,13 +94,14 @@
     --color-primary-800: #047857;
     --color-primary-900: #064e3b;
 
-    /* Morph Bar */
-    --color-bar-bg: #12100e;
-    --color-bar-text: rgba(245, 240, 235, 0.4);
-    --color-bar-text-active: #6ee7b7;
-    --color-bar-active-bg: rgba(16, 185, 129, 0.2);
+    /* Morph Bar — Dark */
+    --color-bar-bg: #242120;
+    --color-bar-text: #9c9590;
+    --color-bar-text-active: #ffffff;
+    --color-bar-active-bg: #059669;
+    --color-bar-border: #3a3532;
 
-    /* Sub-Strip */
+    /* Sub-Strip — Dark */
     --color-strip-bg: #1e1b19;
     --color-strip-text: rgba(245, 240, 235, 0.35);
     --color-strip-text-active: #f5f0eb;
@@ -128,7 +130,8 @@
 
 /* Live Pulse Dot for Greeting Row */
 @keyframes pulse-dot {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
@@ -196,7 +199,9 @@ header *:focus-visible,
 
 /* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
