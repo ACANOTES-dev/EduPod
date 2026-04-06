@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import {
@@ -54,9 +50,9 @@ const mockRlsTx = {
 
 jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(
-      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx),
-    ),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -116,9 +112,7 @@ const makeIntervention = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const makeTenantSettingsRecord = (
-  pastoralOverrides: Record<string, unknown> = {},
-) => ({
+const makeTenantSettingsRecord = (pastoralOverrides: Record<string, unknown> = {}) => ({
   id: 'settings-1',
   tenant_id: TENANT_ID,
   settings: {
@@ -317,12 +311,28 @@ describe('ParentPastoralService', () => {
       expect(mockRlsTx.pastoralConcern.findMany).not.toHaveBeenCalled();
     });
 
+    it('should return empty results when a requested student is not in the allowed set', async () => {
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
+      mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink(STUDENT_ID)]);
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
+
+      const result = await service.getSharedConcerns(TENANT_ID, USER_ID, {
+        page: 1,
+        pageSize: 20,
+        student_id: STUDENT_ID_B,
+      });
+
+      expect(result.data).toEqual([]);
+      expect(result.meta.total).toBe(0);
+      expect(mockRlsTx.pastoralConcern.findMany).not.toHaveBeenCalled();
+    });
+
     it('should return 404 if parent record not found', async () => {
       mockParentReadFacade.findActiveByUserId.mockResolvedValue(null);
 
-      await expect(
-        service.getSharedConcerns(TENANT_ID, USER_ID, query),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getSharedConcerns(TENANT_ID, USER_ID, query)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -432,9 +442,9 @@ describe('ParentPastoralService', () => {
         makeTenantSettingsRecord({ parent_self_referral_enabled: false }),
       );
 
-      await expect(
-        service.submitSelfReferral(TENANT_ID, USER_ID, dto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.submitSelfReferral(TENANT_ID, USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
 
       // Concern should NOT have been created
       expect(mockRlsTx.pastoralConcern.create).not.toHaveBeenCalled();
@@ -447,9 +457,9 @@ describe('ParentPastoralService', () => {
       // No parent-student link
       mockRlsTx.studentParent.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.submitSelfReferral(TENANT_ID, USER_ID, dto),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.submitSelfReferral(TENANT_ID, USER_ID, dto)).rejects.toThrow(
+        ForbiddenException,
+      );
 
       // Concern should NOT have been created
       expect(mockRlsTx.pastoralConcern.create).not.toHaveBeenCalled();
@@ -479,6 +489,31 @@ describe('ParentPastoralService', () => {
 
       const createArgs = mockRlsTx.pastoralConcern.create.mock.calls[0]![0].data;
       expect(createArgs.category).toBe('academic');
+    });
+
+    it('should default self-referral to enabled when no settings record exists', async () => {
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
+      mockConfigFacade.findSettings.mockResolvedValue(null);
+      mockRlsTx.studentParent.findFirst.mockResolvedValue({
+        parent_id: PARENT_ID,
+        student_id: STUDENT_ID,
+        tenant_id: TENANT_ID,
+      });
+      mockRlsTx.pastoralConcern.create.mockResolvedValue({
+        id: CONCERN_ID,
+        created_at: new Date('2026-03-15T10:00:00Z'),
+      });
+      mockRlsTx.pastoralConcernVersion.create.mockResolvedValue({ id: 'version-1' });
+      mockRlsTx.classEnrolment.findFirst.mockResolvedValue(null);
+
+      const result = await service.submitSelfReferral(TENANT_ID, USER_ID, dto);
+
+      expect(result.data.id).toBe(CONCERN_ID);
+      expect(mockRlsTx.pastoralConcern.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ category: 'other' }),
+        }),
+      );
     });
   });
 
@@ -604,6 +639,38 @@ describe('ParentPastoralService', () => {
 
       expect(result.data[0]!.student_name).toBe('Alice Student');
     });
+
+    it('should return empty when the requested intervention student is not allowed', async () => {
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
+      mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink(STUDENT_ID)]);
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
+
+      const result = await service.getInterventionSummaries(TENANT_ID, USER_ID, STUDENT_ID_B);
+
+      expect(result.data).toEqual([]);
+      expect(mockRlsTx.pastoralIntervention.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should fall back to blank student names and null review dates', async () => {
+      mockParentReadFacade.findActiveByUserId.mockResolvedValue(makeParent());
+      mockRlsTx.studentParent.findMany.mockResolvedValue([makeStudentLink(STUDENT_ID)]);
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
+      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([
+        makeIntervention({
+          student_id: 'unknown-student',
+          next_review_date: null,
+          target_outcomes: [{ description: 'Valid', measurable_target: 'Metric' }, { bad: true }],
+        }),
+      ]);
+
+      const result = await service.getInterventionSummaries(TENANT_ID, USER_ID);
+
+      expect(result.data[0]!.student_name).toBe('');
+      expect(result.data[0]!.next_review_date).toBeNull();
+      expect(result.data[0]!.target_outcomes).toEqual([
+        { description: 'Valid', measurable_target: 'Metric' },
+      ]);
+    });
   });
 
   // ─── resolveParent ────────────────────────────────────────────────────
@@ -612,9 +679,7 @@ describe('ParentPastoralService', () => {
     it('should throw NotFoundException when parent record not found', async () => {
       mockParentReadFacade.findActiveByUserId.mockResolvedValue(null);
 
-      await expect(
-        service.resolveParent(TENANT_ID, USER_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.resolveParent(TENANT_ID, USER_ID)).rejects.toThrow(NotFoundException);
     });
 
     it('should return parent record when found', async () => {
@@ -651,7 +716,7 @@ describe('ParentPastoralService', () => {
       // First student restricted, second allowed
       mockRlsTx.behaviourGuardianRestriction.findFirst
         .mockResolvedValueOnce({ id: 'restriction-1' }) // STUDENT_ID restricted
-        .mockResolvedValueOnce(null);                     // STUDENT_ID_B allowed
+        .mockResolvedValueOnce(null); // STUDENT_ID_B allowed
 
       const concern = makeConcern({ student_id: STUDENT_ID_B });
       mockRlsTx.pastoralConcern.findMany.mockResolvedValue([concern]);

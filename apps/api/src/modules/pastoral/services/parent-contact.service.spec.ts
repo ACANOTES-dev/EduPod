@@ -31,9 +31,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -217,9 +215,7 @@ describe('ParentContactService', () => {
     });
 
     it('returns paginated results with correct meta', async () => {
-      const contacts = Array.from({ length: 5 }, (_, i) =>
-        makeContact({ id: `contact-${i}` }),
-      );
+      const contacts = Array.from({ length: 5 }, (_, i) => makeContact({ id: `contact-${i}` }));
       mockRlsTx.pastoralParentContact.findMany.mockResolvedValue(contacts);
       mockRlsTx.pastoralParentContact.count.mockResolvedValue(25);
 
@@ -243,6 +239,107 @@ describe('ParentContactService', () => {
           take: 5,
         }),
       );
+    });
+
+    it('applies date_from and date_to filters', async () => {
+      mockRlsTx.pastoralParentContact.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralParentContact.count.mockResolvedValue(0);
+
+      await service.listContacts(TENANT_ID, {
+        ...defaultQuery,
+        date_from: '2026-01-01',
+        date_to: '2026-03-31',
+      });
+
+      const call = mockRlsTx.pastoralParentContact.findMany.mock.calls[0][0];
+      expect(call.where.contact_date).toEqual({
+        gte: new Date('2026-01-01'),
+        lte: new Date('2026-03-31'),
+      });
+    });
+
+    it('applies date_from only without date_to', async () => {
+      mockRlsTx.pastoralParentContact.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralParentContact.count.mockResolvedValue(0);
+
+      await service.listContacts(TENANT_ID, {
+        ...defaultQuery,
+        date_from: '2026-01-01',
+      });
+
+      const call = mockRlsTx.pastoralParentContact.findMany.mock.calls[0][0];
+      expect(call.where.contact_date).toEqual({ gte: new Date('2026-01-01') });
+    });
+
+    it('applies date_to only without date_from', async () => {
+      mockRlsTx.pastoralParentContact.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralParentContact.count.mockResolvedValue(0);
+
+      await service.listContacts(TENANT_ID, {
+        ...defaultQuery,
+        date_to: '2026-03-31',
+      });
+
+      const call = mockRlsTx.pastoralParentContact.findMany.mock.calls[0][0];
+      expect(call.where.contact_date).toEqual({ lte: new Date('2026-03-31') });
+    });
+
+    it('defaults to created_at ordering when sort is not contact_date', async () => {
+      mockRlsTx.pastoralParentContact.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralParentContact.count.mockResolvedValue(0);
+
+      await service.listContacts(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        sort: 'created_at' as 'contact_date',
+        order: 'desc' as const,
+      });
+
+      const call = mockRlsTx.pastoralParentContact.findMany.mock.calls[0][0];
+      expect(call.orderBy).toEqual({ created_at: 'desc' });
+    });
+
+    it('filters by student_id', async () => {
+      mockRlsTx.pastoralParentContact.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralParentContact.count.mockResolvedValue(0);
+
+      await service.listContacts(TENANT_ID, {
+        ...defaultQuery,
+        student_id: STUDENT_ID,
+      });
+
+      const call = mockRlsTx.pastoralParentContact.findMany.mock.calls[0][0];
+      expect(call.where.student_id).toBe(STUDENT_ID);
+    });
+
+    it('filters by contact_method', async () => {
+      mockRlsTx.pastoralParentContact.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralParentContact.count.mockResolvedValue(0);
+
+      await service.listContacts(TENANT_ID, {
+        ...defaultQuery,
+        contact_method: 'email',
+      });
+
+      const call = mockRlsTx.pastoralParentContact.findMany.mock.calls[0][0];
+      expect(call.where.contact_method).toBe('email');
+    });
+
+    it('falls back to Unknown names when relations are null', async () => {
+      const contact = makeContact({
+        student: null,
+        parent: null,
+        contacted_by: null,
+      });
+      mockRlsTx.pastoralParentContact.findMany.mockResolvedValue([contact]);
+      mockRlsTx.pastoralParentContact.count.mockResolvedValue(1);
+
+      const result = await service.listContacts(TENANT_ID, defaultQuery);
+
+      const dto = result.data[0]!;
+      expect(dto.student_name).toBe('Unknown Student');
+      expect(dto.parent_name).toBe('Unknown Parent');
+      expect(dto.contacted_by_name).toBe('Unknown User');
     });
 
     it('resolves student, parent, and contacted_by names', async () => {
@@ -281,9 +378,9 @@ describe('ParentContactService', () => {
     it('throws NotFoundException when contact does not exist', async () => {
       mockRlsTx.pastoralParentContact.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.getContact(TENANT_ID, 'nonexistent-id'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getContact(TENANT_ID, 'nonexistent-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

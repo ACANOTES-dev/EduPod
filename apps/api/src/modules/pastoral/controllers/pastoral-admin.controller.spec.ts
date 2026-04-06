@@ -204,6 +204,37 @@ describe('PastoralAdminController', () => {
       expect(result.data.escalation_enabled).toBe(true);
       expect(result.data.escalation_critical_timeout_minutes).toBe(30);
     });
+
+    it('should merge critical timeout and urgent recipients when provided', async () => {
+      mockConfigurationReadFacade.findSettings.mockResolvedValue({
+        id: 'settings-1',
+        tenant_id: TENANT_ID,
+        settings: { pastoral: { escalation: { urgent_timeout_minutes: 120 } } },
+      });
+      mockPrisma.tenantSetting.upsert.mockResolvedValue({});
+
+      const result = await controller.updateEscalationSettings(TENANT, {
+        escalation_critical_timeout_minutes: 20,
+        escalation_urgent_recipients: [USER_ID_A],
+      });
+
+      expect(mockPrisma.tenantSetting.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({
+            settings: expect.objectContaining({
+              pastoral: expect.objectContaining({
+                escalation: expect.objectContaining({
+                  critical_timeout_minutes: 20,
+                }),
+                escalation_urgent_recipients: [USER_ID_A],
+              }),
+            }),
+          }),
+        }),
+      );
+      expect(result.data.escalation_critical_timeout_minutes).toBe(20);
+      expect(result.data.escalation_urgent_recipients).toEqual([USER_ID_A]);
+    });
   });
 
   // ─── GET /pastoral/admin/escalation-dashboard ─────────────────────────────

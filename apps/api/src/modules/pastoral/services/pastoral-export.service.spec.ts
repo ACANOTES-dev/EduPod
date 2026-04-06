@@ -31,9 +31,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -106,12 +104,7 @@ describe('PastoralExportService', () => {
       });
       mockRlsTx.tenantBranding.findUnique.mockResolvedValue(null);
 
-      const result = await service.exportStudentSummary(
-        TENANT_ID,
-        ACTOR_USER_ID,
-        STUDENT_ID,
-        'en',
-      );
+      const result = await service.exportStudentSummary(TENANT_ID, ACTOR_USER_ID, STUDENT_ID, 'en');
 
       expect(mockReportService.getStudentSummary).toHaveBeenCalledWith(
         TENANT_ID,
@@ -133,12 +126,7 @@ describe('PastoralExportService', () => {
       mockRlsTx.tenant.findUnique.mockResolvedValue({ name: 'School' });
       mockRlsTx.tenantBranding.findUnique.mockResolvedValue(null);
 
-      await service.exportStudentSummary(
-        TENANT_ID,
-        ACTOR_USER_ID,
-        STUDENT_ID,
-        'en',
-      );
+      await service.exportStudentSummary(TENANT_ID, ACTOR_USER_ID, STUDENT_ID, 'en');
 
       expect(mockEventService.write).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -164,12 +152,7 @@ describe('PastoralExportService', () => {
       mockRlsTx.tenantBranding.findUnique.mockResolvedValue(null);
 
       const filters = { from_date: '2026-01-01', to_date: '2026-03-01' };
-      const result = await service.exportSstActivity(
-        TENANT_ID,
-        ACTOR_USER_ID,
-        filters,
-        'en',
-      );
+      const result = await service.exportSstActivity(TENANT_ID, ACTOR_USER_ID, filters, 'en');
 
       expect(mockReportService.getSstActivity).toHaveBeenCalledWith(
         TENANT_ID,
@@ -275,11 +258,7 @@ describe('PastoralExportService', () => {
       };
       mockCpExportService.generate.mockResolvedValue(generateResult);
 
-      const result = await service.confirmTier3Export(
-        TENANT_ID,
-        ACTOR_USER_ID,
-        'some-export-id',
-      );
+      const result = await service.confirmTier3Export(TENANT_ID, ACTOR_USER_ID, 'some-export-id');
 
       expect(result).toEqual(generateResult.data);
       expect(mockCpExportService.generate).toHaveBeenCalledWith(
@@ -311,17 +290,10 @@ describe('PastoralExportService', () => {
       };
       mockCpExportService.download.mockResolvedValue(downloadResult);
 
-      const result = await service.downloadTier3Export(
-        TENANT_ID,
-        ACTOR_USER_ID,
-        'dl-token-1',
-      );
+      const result = await service.downloadTier3Export(TENANT_ID, ACTOR_USER_ID, 'dl-token-1');
 
       expect(result).toEqual(downloadResult);
-      expect(mockCpExportService.download).toHaveBeenCalledWith(
-        'dl-token-1',
-        null,
-      );
+      expect(mockCpExportService.download).toHaveBeenCalledWith('dl-token-1', null);
     });
   });
 
@@ -363,6 +335,71 @@ describe('PastoralExportService', () => {
         logo_url: undefined,
         primary_color: undefined,
       });
+    });
+
+    it('should fall back to "School" when both branding and tenant name are null', async () => {
+      mockRlsTx.tenant.findUnique.mockResolvedValue(null);
+      mockRlsTx.tenantBranding.findUnique.mockResolvedValue(null);
+
+      const result = await service.getTenantBranding(TENANT_ID);
+
+      expect(result.school_name).toBe('School');
+    });
+
+    it('should prefer school_name_display over tenant name', async () => {
+      mockRlsTx.tenant.findUnique.mockResolvedValue({ name: 'Tenant Name' });
+      mockRlsTx.tenantBranding.findUnique.mockResolvedValue({
+        school_name_display: 'Display Name',
+        school_name_ar: null,
+        logo_url: null,
+        primary_color: null,
+      });
+
+      const result = await service.getTenantBranding(TENANT_ID);
+
+      expect(result.school_name).toBe('Display Name');
+    });
+
+    it('should fall back to tenant name when school_name_display is null', async () => {
+      mockRlsTx.tenant.findUnique.mockResolvedValue({ name: 'Fallback Tenant' });
+      mockRlsTx.tenantBranding.findUnique.mockResolvedValue({
+        school_name_display: null,
+        school_name_ar: null,
+        logo_url: null,
+        primary_color: null,
+      });
+
+      const result = await service.getTenantBranding(TENANT_ID);
+
+      expect(result.school_name).toBe('Fallback Tenant');
+    });
+  });
+
+  // ─── renderPdf ───────────────────────────────────────────────────
+
+  describe('renderPdf', () => {
+    it('should render PDF with tenant branding', async () => {
+      mockRlsTx.tenant.findUnique.mockResolvedValue({ name: 'My School' });
+      mockRlsTx.tenantBranding.findUnique.mockResolvedValue(null);
+
+      const result = await service.renderPdf('template-key', { some: 'data' }, 'en', TENANT_ID);
+
+      expect(result).toBeInstanceOf(Buffer);
+      expect(mockPdfService.renderPdf).toHaveBeenCalledWith(
+        'template-key',
+        'en',
+        { some: 'data' },
+        expect.objectContaining({ school_name: 'My School' }),
+      );
+    });
+
+    it('should use empty string for tenant_id when not provided', async () => {
+      mockRlsTx.tenant.findUnique.mockResolvedValue(null);
+      mockRlsTx.tenantBranding.findUnique.mockResolvedValue(null);
+
+      const result = await service.renderPdf('template-key', { some: 'data' }, 'en');
+
+      expect(result).toBeInstanceOf(Buffer);
     });
   });
 });

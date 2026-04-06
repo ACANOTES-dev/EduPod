@@ -1,7 +1,11 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, ClassesReadFacade, AcademicReadFacade } from '../../../common/tests/mock-facades';
+import {
+  MOCK_FACADE_PROVIDERS,
+  ClassesReadFacade,
+  AcademicReadFacade,
+} from '../../../common/tests/mock-facades';
 import { NotificationsService } from '../../communications/notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AiProgressSummaryService } from '../ai/ai-progress-summary.service';
@@ -21,7 +25,9 @@ const mockRlsTx = {
 
 jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -236,9 +242,7 @@ describe('GradePublishingService — publishGrades', () => {
 
     expect(mockNotifications.createBatch).toHaveBeenCalledWith(
       TENANT_ID,
-      expect.arrayContaining([
-        expect.objectContaining({ recipient_user_id: 'parent-user-1' }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ recipient_user_id: 'parent-user-1' })]),
     );
   });
 
@@ -318,5 +322,52 @@ describe('GradePublishingService — publishPeriodGrades', () => {
     const result = await service.publishPeriodGrades(TENANT_ID, USER_ID, CLASS_ID, PERIOD_ID);
 
     expect(result.published).toBe(0);
+  });
+
+  it('should publish unpublished assessments and return their IDs', async () => {
+    // First call: findMany for unpublished assessments (in publishPeriodGrades)
+    // Second call: findMany for assessment details (in publishGrades)
+    mockPrisma.assessment.findMany
+      .mockResolvedValueOnce([{ id: 'assessment-1' }, { id: 'assessment-2' }])
+      .mockResolvedValueOnce([
+        {
+          id: 'assessment-1',
+          title: 'Quiz 1',
+          subject: { name: 'Math' },
+          grades: [
+            {
+              student_id: 'student-1',
+              student: {
+                id: 'student-1',
+                first_name: 'Ali',
+                last_name: 'Hassan',
+                student_parents: [],
+              },
+            },
+          ],
+        },
+        {
+          id: 'assessment-2',
+          title: 'Quiz 2',
+          subject: { name: 'Math' },
+          grades: [
+            {
+              student_id: 'student-1',
+              student: {
+                id: 'student-1',
+                first_name: 'Ali',
+                last_name: 'Hassan',
+                student_parents: [],
+              },
+            },
+          ],
+        },
+      ]);
+    mockRlsTx.assessment.update.mockResolvedValue({});
+
+    const result = await service.publishPeriodGrades(TENANT_ID, USER_ID, CLASS_ID, PERIOD_ID);
+
+    expect(result.published).toBe(2);
+    expect(result.assessment_ids).toEqual(['assessment-1', 'assessment-2']);
   });
 });

@@ -238,5 +238,40 @@ describe('CheckinConfigController', () => {
         }),
       );
     });
+
+    it('should merge every provided optional checkin field', async () => {
+      mockConfigurationReadFacade.findSettings.mockResolvedValue({
+        id: 'settings-1',
+        tenant_id: TENANT_ID,
+        settings: { pastoral: { checkins: { enabled: false } } },
+      });
+      mockPrisma.tenantSetting.upsert.mockResolvedValue({});
+
+      const dto = {
+        frequency: 'weekly' as const,
+        monitoring_owner_user_ids: ['11111111-1111-1111-1111-111111111111'],
+        monitoring_hours_start: '08:30',
+        monitoring_hours_end: '15:30',
+        monitoring_days: [1, 2, 3],
+        flagged_keywords: ['anxious', 'isolated'],
+        consecutive_low_threshold: 4,
+        min_cohort_for_aggregate: 6,
+        prerequisites_acknowledged: true,
+      };
+
+      await controller.updateConfig(TENANT, dto);
+
+      expect(mockPrisma.tenantSetting.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({
+            settings: expect.objectContaining({
+              pastoral: expect.objectContaining({
+                checkins: expect.objectContaining(dto),
+              }),
+            }),
+          }),
+        }),
+      );
+    });
   });
 });

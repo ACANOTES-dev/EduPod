@@ -184,6 +184,26 @@ describe('ConcernsController', () => {
       expect(mockConcernService.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto, '127.0.0.1');
       expect(result).toBe(expected);
     });
+
+    it('should pass null when req.ip is undefined', async () => {
+      const dto = {
+        category: 'academic',
+        student_id: STUDENT_ID,
+        severity: 'routine' as const,
+        narrative: 'Test narrative',
+        occurred_at: '2026-01-15T10:00:00Z',
+        follow_up_needed: false,
+        author_masked: false,
+        tier: 1 as const,
+        location: 'Classroom A',
+        witnesses: [],
+        actions_taken: 'None',
+      };
+
+      await controller.create(TENANT, USER, dto, {} as never);
+
+      expect(mockConcernService.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto, null);
+    });
   });
 
   describe('list', () => {
@@ -223,6 +243,21 @@ describe('ConcernsController', () => {
         '127.0.0.1',
       );
       expect(result).toBe(expected);
+    });
+
+    it('should pass null ip when the request has no ip', async () => {
+      mockPermissionCacheService.getPermissions.mockResolvedValue(MOCK_PERMISSIONS);
+      mockConcernService.getById.mockResolvedValue({ id: CONCERN_ID });
+
+      await controller.getById(TENANT, USER, CONCERN_ID, {} as never);
+
+      expect(mockConcernService.getById).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        MOCK_PERMISSIONS,
+        CONCERN_ID,
+        null,
+      );
     });
   });
 
@@ -266,6 +301,21 @@ describe('ConcernsController', () => {
         '127.0.0.1',
       );
       expect(result).toBe(expected);
+    });
+
+    it('should pass null when escalation request ip is unavailable', async () => {
+      const dto = { new_tier: 2, reason: 'Escalation reason' };
+      mockConcernService.escalateTier.mockResolvedValue({ id: CONCERN_ID, tier: 2 });
+
+      await controller.escalateTier(TENANT, USER, CONCERN_ID, dto, {} as never);
+
+      expect(mockConcernService.escalateTier).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        CONCERN_ID,
+        dto,
+        null,
+      );
     });
   });
 
@@ -333,6 +383,24 @@ describe('ConcernsController', () => {
         '127.0.0.1',
       );
       expect(result).toBe(expected);
+    });
+
+    it('should pass null when amendment request ip is unavailable', async () => {
+      const dto = {
+        new_narrative: 'Updated narrative text',
+        amendment_reason: 'Correction needed',
+      };
+      mockVersionService.amendNarrative.mockResolvedValue({ id: CONCERN_ID, version: 2 });
+
+      await controller.amendNarrative(TENANT, USER, CONCERN_ID, dto, {} as never);
+
+      expect(mockVersionService.amendNarrative).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        CONCERN_ID,
+        dto,
+        null,
+      );
     });
   });
 

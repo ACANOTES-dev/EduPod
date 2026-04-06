@@ -33,9 +33,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -81,9 +79,7 @@ describe('ReferralRecommendationService', () => {
       ],
     }).compile();
 
-    service = module.get<ReferralRecommendationService>(
-      ReferralRecommendationService,
-    );
+    service = module.get<ReferralRecommendationService>(ReferralRecommendationService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -96,9 +92,7 @@ describe('ReferralRecommendationService', () => {
         id: REFERRAL_ID,
       });
       const created = makeRecommendation();
-      mockRlsTx.pastoralReferralRecommendation.create.mockResolvedValue(
-        created,
-      );
+      mockRlsTx.pastoralReferralRecommendation.create.mockResolvedValue(created);
 
       const result = await service.create(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID, {
         referral_id: REFERRAL_ID,
@@ -109,9 +103,7 @@ describe('ReferralRecommendationService', () => {
 
       expect(result.id).toBe(RECOMMENDATION_ID);
       expect(result.status).toBe('rec_pending');
-      expect(
-        mockRlsTx.pastoralReferralRecommendation.create,
-      ).toHaveBeenCalledWith({
+      expect(mockRlsTx.pastoralReferralRecommendation.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           tenant_id: TENANT_ID,
           referral_id: REFERRAL_ID,
@@ -137,9 +129,7 @@ describe('ReferralRecommendationService', () => {
       mockRlsTx.pastoralReferral.findFirst.mockResolvedValue({
         id: REFERRAL_ID,
       });
-      mockRlsTx.pastoralReferralRecommendation.create.mockResolvedValue(
-        makeRecommendation(),
-      );
+      mockRlsTx.pastoralReferralRecommendation.create.mockResolvedValue(makeRecommendation());
 
       await service.create(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID, {
         referral_id: REFERRAL_ID,
@@ -182,9 +172,7 @@ describe('ReferralRecommendationService', () => {
       const result = await service.list(TENANT_ID, REFERRAL_ID);
 
       expect(result).toHaveLength(2);
-      expect(
-        mockRlsTx.pastoralReferralRecommendation.findMany,
-      ).toHaveBeenCalledWith({
+      expect(mockRlsTx.pastoralReferralRecommendation.findMany).toHaveBeenCalledWith({
         where: { tenant_id: TENANT_ID, referral_id: REFERRAL_ID },
         orderBy: { created_at: 'asc' },
         include: {
@@ -204,21 +192,14 @@ describe('ReferralRecommendationService', () => {
         makeRecommendation({ status: 'rec_pending' }),
       );
       const updated = makeRecommendation({ status: 'rec_in_progress' });
-      mockRlsTx.pastoralReferralRecommendation.update.mockResolvedValue(
-        updated,
-      );
+      mockRlsTx.pastoralReferralRecommendation.update.mockResolvedValue(updated);
 
-      const result = await service.update(
-        TENANT_ID,
-        ACTOR_USER_ID,
-        RECOMMENDATION_ID,
-        { status: 'in_progress' },
-      );
+      const result = await service.update(TENANT_ID, ACTOR_USER_ID, RECOMMENDATION_ID, {
+        status: 'in_progress',
+      });
 
       expect(result.status).toBe('rec_in_progress');
-      expect(
-        mockRlsTx.pastoralReferralRecommendation.update,
-      ).toHaveBeenCalledWith({
+      expect(mockRlsTx.pastoralReferralRecommendation.update).toHaveBeenCalledWith({
         where: { id: RECOMMENDATION_ID },
         data: expect.objectContaining({ status: 'rec_in_progress' }),
       });
@@ -229,16 +210,11 @@ describe('ReferralRecommendationService', () => {
         makeRecommendation({ status: 'rec_in_progress' }),
       );
       const updated = makeRecommendation({ status: 'implemented' });
-      mockRlsTx.pastoralReferralRecommendation.update.mockResolvedValue(
-        updated,
-      );
+      mockRlsTx.pastoralReferralRecommendation.update.mockResolvedValue(updated);
 
-      const result = await service.update(
-        TENANT_ID,
-        ACTOR_USER_ID,
-        RECOMMENDATION_ID,
-        { status: 'implemented' },
-      );
+      const result = await service.update(TENANT_ID, ACTOR_USER_ID, RECOMMENDATION_ID, {
+        status: 'implemented',
+      });
 
       expect(result.status).toBe('implemented');
     });
@@ -251,21 +227,15 @@ describe('ReferralRecommendationService', () => {
         status: 'not_applicable',
         status_note: 'Student transferred',
       });
-      mockRlsTx.pastoralReferralRecommendation.update.mockResolvedValue(
-        updated,
-      );
+      mockRlsTx.pastoralReferralRecommendation.update.mockResolvedValue(updated);
 
-      const result = await service.update(
-        TENANT_ID,
-        ACTOR_USER_ID,
-        RECOMMENDATION_ID,
-        { status: 'not_applicable', status_note: 'Student transferred' },
-      );
+      const result = await service.update(TENANT_ID, ACTOR_USER_ID, RECOMMENDATION_ID, {
+        status: 'not_applicable',
+        status_note: 'Student transferred',
+      });
 
       expect(result.status).toBe('not_applicable');
-      expect(
-        mockRlsTx.pastoralReferralRecommendation.update,
-      ).toHaveBeenCalledWith({
+      expect(mockRlsTx.pastoralReferralRecommendation.update).toHaveBeenCalledWith({
         where: { id: RECOMMENDATION_ID },
         data: expect.objectContaining({
           status: 'not_applicable',
@@ -339,10 +309,99 @@ describe('ReferralRecommendationService', () => {
       expect(mockEventService.write).not.toHaveBeenCalled();
     });
 
-    it('should throw NotFoundException when recommendation not found', async () => {
+    it('should throw BadRequestException for unknown status string', async () => {
       mockRlsTx.pastoralReferralRecommendation.findFirst.mockResolvedValue(
-        null,
+        makeRecommendation({ status: 'rec_pending' }),
       );
+
+      await expect(
+        service.update(TENANT_ID, ACTOR_USER_ID, RECOMMENDATION_ID, {
+          status: 'totally_invalid' as 'in_progress',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should update review_date when provided', async () => {
+      mockRlsTx.pastoralReferralRecommendation.findFirst.mockResolvedValue(
+        makeRecommendation({ status: 'rec_pending' }),
+      );
+      mockRlsTx.pastoralReferralRecommendation.update.mockResolvedValue(
+        makeRecommendation({ review_date: new Date('2026-06-01') }),
+      );
+
+      await service.update(TENANT_ID, ACTOR_USER_ID, RECOMMENDATION_ID, {
+        review_date: '2026-06-01',
+      });
+
+      expect(mockRlsTx.pastoralReferralRecommendation.update).toHaveBeenCalledWith({
+        where: { id: RECOMMENDATION_ID },
+        data: expect.objectContaining({
+          review_date: new Date('2026-06-01'),
+        }),
+      });
+    });
+
+    it('should clear review_date when set to null', async () => {
+      mockRlsTx.pastoralReferralRecommendation.findFirst.mockResolvedValue(
+        makeRecommendation({ status: 'rec_pending', review_date: new Date('2026-05-01') }),
+      );
+      mockRlsTx.pastoralReferralRecommendation.update.mockResolvedValue(
+        makeRecommendation({ review_date: null }),
+      );
+
+      await service.update(TENANT_ID, ACTOR_USER_ID, RECOMMENDATION_ID, {
+        review_date: null,
+      });
+
+      expect(mockRlsTx.pastoralReferralRecommendation.update).toHaveBeenCalledWith({
+        where: { id: RECOMMENDATION_ID },
+        data: expect.objectContaining({
+          review_date: null,
+        }),
+      });
+    });
+
+    it('should update status_note without changing status', async () => {
+      mockRlsTx.pastoralReferralRecommendation.findFirst.mockResolvedValue(
+        makeRecommendation({ status: 'rec_pending' }),
+      );
+      mockRlsTx.pastoralReferralRecommendation.update.mockResolvedValue(
+        makeRecommendation({ status_note: 'New note' }),
+      );
+
+      await service.update(TENANT_ID, ACTOR_USER_ID, RECOMMENDATION_ID, {
+        status_note: 'New note',
+      });
+
+      expect(mockRlsTx.pastoralReferralRecommendation.update).toHaveBeenCalledWith({
+        where: { id: RECOMMENDATION_ID },
+        data: { status_note: 'New note' },
+      });
+      expect(mockEventService.write).not.toHaveBeenCalled();
+    });
+
+    it('should create recommendation without optional fields', async () => {
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue({ id: REFERRAL_ID });
+      mockRlsTx.pastoralReferralRecommendation.create.mockResolvedValue(
+        makeRecommendation({ assigned_to_user_id: null, review_date: null }),
+      );
+
+      const result = await service.create(TENANT_ID, ACTOR_USER_ID, REFERRAL_ID, {
+        referral_id: REFERRAL_ID,
+        recommendation: 'Simple recommendation',
+      });
+
+      expect(result.assigned_to_user_id).toBeNull();
+      expect(mockRlsTx.pastoralReferralRecommendation.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          assigned_to_user_id: null,
+          review_date: null,
+        }),
+      });
+    });
+
+    it('should throw NotFoundException when recommendation not found', async () => {
+      mockRlsTx.pastoralReferralRecommendation.findFirst.mockResolvedValue(null);
 
       await expect(
         service.update(TENANT_ID, ACTOR_USER_ID, RECOMMENDATION_ID, {
@@ -361,9 +420,7 @@ describe('ReferralRecommendationService', () => {
       const result = await service.allComplete(TENANT_ID, REFERRAL_ID);
 
       expect(result).toBe(true);
-      expect(
-        mockRlsTx.pastoralReferralRecommendation.count,
-      ).toHaveBeenCalledWith({
+      expect(mockRlsTx.pastoralReferralRecommendation.count).toHaveBeenCalledWith({
         where: {
           tenant_id: TENANT_ID,
           referral_id: REFERRAL_ID,

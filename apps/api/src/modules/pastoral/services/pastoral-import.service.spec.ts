@@ -746,4 +746,48 @@ describe('PastoralImportService', () => {
       }),
     );
   });
+
+  it('should validate rows when optional import columns are omitted from the CSV header', async () => {
+    const csv = Buffer.from(
+      [
+        'date,student_identifier,category,severity,narrative',
+        '2025-09-15,ENR-001,academic,routine,"Narrative long enough for import"',
+      ].join('\n'),
+      'utf-8',
+    );
+
+    const result = await service.validate(TENANT_ID, ACTOR_USER_ID, csv);
+    const validation = await service.confirm(TENANT_ID, ACTOR_USER_ID, result.validation_token);
+
+    expect(result.valid_rows).toBe(1);
+    expect(validation.total_imported).toBe(1);
+    expect(mockRlsTx.pastoralConcern.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          actions_taken: null,
+          follow_up_suggestion: null,
+        }),
+      }),
+    );
+  });
+
+  it('should treat missing trailing required values as empty strings during validation', async () => {
+    const csv = Buffer.from(
+      [
+        'date,student_identifier,category,severity,narrative,actions_taken,follow_up_notes',
+        '2025-09-15,ENR-001,academic',
+      ].join('\n'),
+      'utf-8',
+    );
+
+    const result = await service.validate(TENANT_ID, ACTOR_USER_ID, csv);
+
+    expect(result.error_rows).toBe(1);
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: 'severity', message: 'Severity is required' }),
+        expect.objectContaining({ field: 'narrative', message: 'Narrative is required' }),
+      ]),
+    );
+  });
 });

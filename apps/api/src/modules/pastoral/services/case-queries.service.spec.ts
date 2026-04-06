@@ -165,6 +165,54 @@ describe('CaseQueriesService', () => {
       expect(findManyCall.orderBy).toEqual({ next_review_date: 'asc' });
     });
 
+    it('should apply owner_user_id filter', async () => {
+      mockRlsTx.pastoralCase.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralCase.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, USER_ID, makeDefaultFilters({ owner_user_id: USER_ID }));
+
+      const findManyCall = mockRlsTx.pastoralCase.findMany.mock.calls[0][0];
+      expect(findManyCall.where.owner_user_id).toBe(USER_ID);
+    });
+
+    it('should apply tier filter', async () => {
+      mockRlsTx.pastoralCase.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralCase.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, USER_ID, makeDefaultFilters({ tier: 2 }));
+
+      const findManyCall = mockRlsTx.pastoralCase.findMany.mock.calls[0][0];
+      expect(findManyCall.where.tier).toBe(2);
+    });
+
+    it('should handle null owner and missing student in DTO mapping', async () => {
+      const row = makeCaseRow({
+        owner: null,
+        student: null,
+        concerns: [],
+        case_students: [],
+      });
+      mockRlsTx.pastoralCase.findMany.mockResolvedValue([row]);
+      mockRlsTx.pastoralCase.count.mockResolvedValue(1);
+
+      const result = await service.findAll(TENANT_ID, USER_ID, makeDefaultFilters());
+
+      expect(result.data[0]!.owner_name).toBeNull();
+      expect(result.data[0]!.student_name).toBe('Unknown');
+      expect(result.data[0]!.concern_count).toBe(0);
+      expect(result.data[0]!.student_count).toBe(0);
+    });
+
+    it('should apply date_from only without date_to', async () => {
+      mockRlsTx.pastoralCase.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralCase.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, USER_ID, makeDefaultFilters({ date_from: '2026-01-01' }));
+
+      const findManyCall = mockRlsTx.pastoralCase.findMany.mock.calls[0][0];
+      expect(findManyCall.where.created_at).toEqual({ gte: new Date('2026-01-01') });
+    });
+
     it('should sort by status', async () => {
       mockRlsTx.pastoralCase.findMany.mockResolvedValue([]);
       mockRlsTx.pastoralCase.count.mockResolvedValue(0);
@@ -232,6 +280,63 @@ describe('CaseQueriesService', () => {
         }),
       );
       expect(typeof result.data.days_open).toBe('number');
+    });
+
+    it('should map detail DTO with null relations and empty arrays', async () => {
+      const row = makeCaseRow({
+        owner: null,
+        opened_by: null,
+        student: null,
+        concerns: [],
+        case_students: [],
+      });
+      mockRlsTx.pastoralCase.findUnique.mockResolvedValue(row);
+
+      const result = await service.findById(TENANT_ID, USER_ID, CASE_ID);
+
+      expect(result.data.owner_name).toBeNull();
+      expect(result.data.opened_by_name).toBeNull();
+      expect(result.data.student_name).toBe('Unknown');
+      expect(result.data.concerns).toEqual([]);
+      expect(result.data.students).toEqual([]);
+    });
+
+    it('should map concern with no versions to null latest_narrative', async () => {
+      const row = makeCaseRow({
+        concerns: [
+          {
+            id: 'concern-no-ver',
+            category: 'emotional',
+            severity: 'elevated',
+            tier: 2,
+            created_at: new Date('2026-03-10T08:00:00Z'),
+            versions: [],
+          },
+        ],
+      });
+      mockRlsTx.pastoralCase.findUnique.mockResolvedValue(row);
+
+      const result = await service.findById(TENANT_ID, USER_ID, CASE_ID);
+
+      expect(result.data.concerns[0]!.latest_narrative).toBeNull();
+    });
+
+    it('should map case_student with null student to Unknown name', async () => {
+      const row = makeCaseRow({
+        case_students: [
+          {
+            student_id: 'other-student',
+            added_at: new Date(),
+            student: null,
+          },
+        ],
+      });
+      mockRlsTx.pastoralCase.findUnique.mockResolvedValue(row);
+
+      const result = await service.findById(TENANT_ID, USER_ID, CASE_ID);
+
+      expect(result.data.students[0]!.name).toBe('Unknown');
+      expect(result.data.students[0]!.is_primary).toBe(false);
     });
 
     it('should throw NotFoundException when case is not found', async () => {

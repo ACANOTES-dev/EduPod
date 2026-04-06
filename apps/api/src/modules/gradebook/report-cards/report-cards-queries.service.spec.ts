@@ -1,7 +1,13 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { AcademicReadFacade, AttendanceReadFacade, ClassesReadFacade, MOCK_FACADE_PROVIDERS, StudentReadFacade } from '../../../common/tests/mock-facades';
+import {
+  AcademicReadFacade,
+  AttendanceReadFacade,
+  ClassesReadFacade,
+  MOCK_FACADE_PROVIDERS,
+  StudentReadFacade,
+} from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { ReportCardsQueriesService } from './report-cards-queries.service';
@@ -61,7 +67,11 @@ describe('ReportCardsQueriesService — findAll', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [...MOCK_FACADE_PROVIDERS, ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ReportCardsQueriesService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
     }).compile();
 
     service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
@@ -138,6 +148,25 @@ describe('ReportCardsQueriesService — findAll', () => {
     );
   });
 
+  it('should filter by academic_period_id', async () => {
+    mockPrisma.reportCard.findMany.mockResolvedValue([]);
+    mockPrisma.reportCard.count.mockResolvedValue(0);
+
+    await service.findAll(TENANT_ID, {
+      page: 1,
+      pageSize: 20,
+      academic_period_id: PERIOD_ID,
+    });
+
+    expect(mockPrisma.reportCard.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          academic_period_id: PERIOD_ID,
+        }),
+      }),
+    );
+  });
+
   it('should filter by status', async () => {
     mockPrisma.reportCard.findMany.mockResolvedValue([]);
     mockPrisma.reportCard.count.mockResolvedValue(0);
@@ -182,7 +211,11 @@ describe('ReportCardsQueriesService — findOne', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [...MOCK_FACADE_PROVIDERS, ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ReportCardsQueriesService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
     }).compile();
 
     service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
@@ -226,7 +259,11 @@ describe('ReportCardsQueriesService — gradeOverview', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [...MOCK_FACADE_PROVIDERS, ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ReportCardsQueriesService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
     }).compile();
 
     service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);

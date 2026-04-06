@@ -10,7 +10,12 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   }),
 }));
 
-import { MOCK_FACADE_PROVIDERS, StudentReadFacade, AcademicReadFacade, ConfigurationReadFacade } from '../../../common/tests/mock-facades';
+import {
+  MOCK_FACADE_PROVIDERS,
+  StudentReadFacade,
+  AcademicReadFacade,
+  ConfigurationReadFacade,
+} from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { GpaService } from './gpa.service';
@@ -232,6 +237,116 @@ describe('GpaService — computeGpa', () => {
     expect(result.gpa_value).toBe(4);
   });
 
+  it('should return null GPA when all credit_hours are 0', async () => {
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      {
+        class_id: 'c1',
+        subject_id: 's1',
+        computed_value: decimal(80),
+        class_entity: { id: 'c1' },
+        subject: { id: 's1' },
+      },
+    ]);
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue({
+      credit_hours: 0,
+      grading_scale: null,
+    });
+    mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
+
+    const result = await service.computeGpa(TENANT_ID, STUDENT_ID, PERIOD_ID);
+
+    expect(result.gpa_value).toBeNull();
+    expect(result.message).toBe('No credit hours configured');
+  });
+
+  it('should use letter grade gpa_value from grading scale', async () => {
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      {
+        class_id: 'c1',
+        subject_id: 's1',
+        computed_value: decimal(85),
+        class_entity: { id: 'c1' },
+        subject: { id: 's1' },
+      },
+    ]);
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue({
+      credit_hours: null,
+      grading_scale: {
+        config_json: {
+          type: 'letter',
+          grades: [
+            { label: 'A', numeric_value: 90, gpa_value: 4.0 },
+            { label: 'B', numeric_value: 80, gpa_value: 3.0 },
+            { label: 'C', numeric_value: 70, gpa_value: 2.0 },
+          ],
+        },
+      },
+    });
+    mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
+
+    const result = await service.computeGpa(TENANT_ID, STUDENT_ID, PERIOD_ID);
+
+    // 85% >= 80 (B) → gpa_value = 3.0
+    expect(result.gpa_value).toBe(3);
+  });
+
+  it('should use custom grade type and fall back to proportional when no gpa_value', async () => {
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      {
+        class_id: 'c1',
+        subject_id: 's1',
+        computed_value: decimal(50),
+        class_entity: { id: 'c1' },
+        subject: { id: 's1' },
+      },
+    ]);
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue({
+      credit_hours: null,
+      grading_scale: {
+        config_json: {
+          type: 'custom',
+          grades: [
+            { label: 'Pass', numeric_value: 40 },
+            { label: 'Fail', numeric_value: 0 },
+          ],
+        },
+      },
+    });
+    mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
+
+    const result = await service.computeGpa(TENANT_ID, STUDENT_ID, PERIOD_ID);
+
+    // 50% >= 40 (Pass) → no gpa_value → fallback (50/100)*4.0 = 2.0
+    expect(result.gpa_value).toBe(2);
+  });
+
+  it('should fall back to proportional 4.0 scale when no range or grade matches', async () => {
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      {
+        class_id: 'c1',
+        subject_id: 's1',
+        computed_value: decimal(30),
+        class_entity: { id: 'c1' },
+        subject: { id: 's1' },
+      },
+    ]);
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue({
+      credit_hours: null,
+      grading_scale: {
+        config_json: {
+          type: 'numeric',
+          ranges: [{ min: 60, max: 100, label: 'Pass', gpa_value: 3.0 }],
+        },
+      },
+    });
+    mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
+
+    const result = await service.computeGpa(TENANT_ID, STUDENT_ID, PERIOD_ID);
+
+    // 30% doesn't match any range → fallback (30/100)*4 = 1.2
+    expect(result.gpa_value).toBe(1.2);
+  });
+
   it('should respect tenant gpaPrecision setting', async () => {
     mockPrisma.student.findFirst.mockResolvedValue({
       id: STUDENT_ID,
@@ -341,7 +456,11 @@ describe('GpaService — getGpaSnapshot', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [...MOCK_FACADE_PROVIDERS, GpaService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        GpaService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
     }).compile();
 
     service = module.get<GpaService>(GpaService);

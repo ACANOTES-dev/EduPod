@@ -1,7 +1,11 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, ClassesReadFacade, AcademicReadFacade } from '../../common/tests/mock-facades';
+import {
+  MOCK_FACADE_PROVIDERS,
+  ClassesReadFacade,
+  AcademicReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { ClassGradeConfigsService } from './class-grade-configs.service';
@@ -26,7 +30,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: typeof mockRlsTx) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: typeof mockRlsTx) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -101,48 +107,56 @@ describe('ClassGradeConfigsService', () => {
     it('should throw NotFoundException when class does not exist', async () => {
       mockClassesFacade.existsOrThrow.mockRejectedValue(new NotFoundException('class not found'));
 
-      await expect(
-        service.upsert(TENANT_ID, CLASS_ID, SUBJECT_ID, validDto),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.upsert(TENANT_ID, CLASS_ID, SUBJECT_ID, validDto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw NotFoundException when subject does not exist', async () => {
       mockAcademicFacade.findSubjectsGeneric.mockResolvedValue([]);
 
-      await expect(
-        service.upsert(TENANT_ID, CLASS_ID, SUBJECT_ID, validDto),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.upsert(TENANT_ID, CLASS_ID, SUBJECT_ID, validDto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException when subject is not academic', async () => {
-      mockAcademicFacade.findSubjectsGeneric.mockResolvedValue([{ id: SUBJECT_ID, subject_type: 'extracurricular' }]);
+      mockAcademicFacade.findSubjectsGeneric.mockResolvedValue([
+        { id: SUBJECT_ID, subject_type: 'extracurricular' },
+      ]);
 
-      await expect(
-        service.upsert(TENANT_ID, CLASS_ID, SUBJECT_ID, validDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.upsert(TENANT_ID, CLASS_ID, SUBJECT_ID, validDto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw NotFoundException when grading scale does not exist', async () => {
-      mockAcademicFacade.findSubjectsGeneric.mockResolvedValue([{ id: SUBJECT_ID, subject_type: 'academic' }]);
+      mockAcademicFacade.findSubjectsGeneric.mockResolvedValue([
+        { id: SUBJECT_ID, subject_type: 'academic' },
+      ]);
       mockPrisma.gradingScale.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.upsert(TENANT_ID, CLASS_ID, SUBJECT_ID, validDto),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.upsert(TENANT_ID, CLASS_ID, SUBJECT_ID, validDto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw NotFoundException when a category_id does not exist', async () => {
-      mockAcademicFacade.findSubjectsGeneric.mockResolvedValue([{ id: SUBJECT_ID, subject_type: 'academic' }]);
+      mockAcademicFacade.findSubjectsGeneric.mockResolvedValue([
+        { id: SUBJECT_ID, subject_type: 'academic' },
+      ]);
       mockPrisma.gradingScale.findFirst.mockResolvedValue({ id: SCALE_ID });
       mockPrisma.assessmentCategory.findMany.mockResolvedValue([]); // none found
 
-      await expect(
-        service.upsert(TENANT_ID, CLASS_ID, SUBJECT_ID, validDto),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.upsert(TENANT_ID, CLASS_ID, SUBJECT_ID, validDto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should upsert and return config when all validations pass', async () => {
-      mockAcademicFacade.findSubjectsGeneric.mockResolvedValue([{ id: SUBJECT_ID, subject_type: 'academic' }]);
+      mockAcademicFacade.findSubjectsGeneric.mockResolvedValue([
+        { id: SUBJECT_ID, subject_type: 'academic' },
+      ]);
       mockPrisma.gradingScale.findFirst.mockResolvedValue({ id: SCALE_ID });
       mockPrisma.assessmentCategory.findMany.mockResolvedValue([{ id: CATEGORY_ID }]);
       mockRlsTx.classSubjectGradeConfig.upsert.mockResolvedValue(sampleConfig);
@@ -174,6 +188,15 @@ describe('ClassGradeConfigsService', () => {
       expect(result.data[0]?.category_weights[0]?.category_name).toBe('Quizzes');
     });
 
+    it('should fall back to "Unknown" when a category cannot be resolved', async () => {
+      mockPrisma.classSubjectGradeConfig.findMany.mockResolvedValue([sampleConfig]);
+      mockPrisma.assessmentCategory.findMany.mockResolvedValue([]);
+
+      const result = await service.findByClass(TENANT_ID, CLASS_ID);
+
+      expect(result.data[0]?.category_weights[0]?.category_name).toBe('Unknown');
+    });
+
     it('should return empty data when no configs exist for the class', async () => {
       mockPrisma.classSubjectGradeConfig.findMany.mockResolvedValue([]);
 
@@ -190,9 +213,9 @@ describe('ClassGradeConfigsService', () => {
     it('should throw NotFoundException when config does not exist', async () => {
       mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.findOne(TENANT_ID, CLASS_ID, SUBJECT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(TENANT_ID, CLASS_ID, SUBJECT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should return config when it exists', async () => {
@@ -210,18 +233,18 @@ describe('ClassGradeConfigsService', () => {
     it('should throw NotFoundException when config does not exist', async () => {
       mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.delete(TENANT_ID, CLASS_ID, SUBJECT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.delete(TENANT_ID, CLASS_ID, SUBJECT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw ConflictException when graded assessments exist for the class+subject', async () => {
       mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue({ id: CONFIG_ID });
       mockPrisma.grade.count.mockResolvedValue(3);
 
-      await expect(
-        service.delete(TENANT_ID, CLASS_ID, SUBJECT_ID),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.delete(TENANT_ID, CLASS_ID, SUBJECT_ID)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should delete config when no graded assessments exist', async () => {

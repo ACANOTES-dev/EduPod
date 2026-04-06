@@ -43,10 +43,7 @@ describe('BehaviourConfigService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        BehaviourConfigService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [BehaviourConfigService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<BehaviourConfigService>(BehaviourConfigService);
@@ -121,9 +118,7 @@ describe('BehaviourConfigService', () => {
         name: 'Praise',
       });
 
-      await expect(service.createCategory(TENANT_ID, dto)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(service.createCategory(TENANT_ID, dto)).rejects.toThrow(ConflictException);
 
       expect(mockPrisma.behaviourCategory.create).not.toHaveBeenCalled();
     });
@@ -234,9 +229,7 @@ describe('BehaviourConfigService', () => {
 
   describe('listTemplates', () => {
     it('should return templates filtered by active status', async () => {
-      const templates = [
-        { id: 'tmpl-1', text: 'Well done!', display_order: 1 },
-      ];
+      const templates = [{ id: 'tmpl-1', text: 'Well done!', display_order: 1 }];
       mockPrisma.behaviourDescriptionTemplate.findMany.mockResolvedValue(templates);
 
       const result = await service.listTemplates(TENANT_ID);
@@ -331,6 +324,93 @@ describe('BehaviourConfigService', () => {
       expect(mockPrisma.behaviourDescriptionTemplate.update).toHaveBeenCalledWith({
         where: { id: TEMPLATE_ID },
         data: expect.objectContaining({ is_active: false }),
+      });
+    });
+
+    it('should update locale field', async () => {
+      const existing = { id: TEMPLATE_ID, locale: 'en', tenant_id: TENANT_ID };
+      mockPrisma.behaviourDescriptionTemplate.findFirst.mockResolvedValue(existing);
+      mockPrisma.behaviourDescriptionTemplate.update.mockResolvedValue({
+        ...existing,
+        locale: 'ar',
+      });
+
+      await service.updateTemplate(TENANT_ID, TEMPLATE_ID, {
+        locale: 'ar' as const,
+      });
+
+      expect(mockPrisma.behaviourDescriptionTemplate.update).toHaveBeenCalledWith({
+        where: { id: TEMPLATE_ID },
+        data: expect.objectContaining({ locale: 'ar' }),
+      });
+    });
+
+    it('should update display_order field', async () => {
+      const existing = { id: TEMPLATE_ID, display_order: 1, tenant_id: TENANT_ID };
+      mockPrisma.behaviourDescriptionTemplate.findFirst.mockResolvedValue(existing);
+      mockPrisma.behaviourDescriptionTemplate.update.mockResolvedValue({
+        ...existing,
+        display_order: 5,
+      });
+
+      await service.updateTemplate(TENANT_ID, TEMPLATE_ID, {
+        display_order: 5,
+      });
+
+      expect(mockPrisma.behaviourDescriptionTemplate.update).toHaveBeenCalledWith({
+        where: { id: TEMPLATE_ID },
+        data: expect.objectContaining({ display_order: 5 }),
+      });
+    });
+  });
+
+  // ─── updateCategory — additional branch coverage ──────────────────────
+
+  describe('updateCategory — optional field branches', () => {
+    it('should skip name dup check when name is undefined', async () => {
+      const existing = { id: CATEGORY_ID, name: 'Old Name', tenant_id: TENANT_ID };
+      mockPrisma.behaviourCategory.findFirst.mockResolvedValueOnce(existing);
+      mockPrisma.behaviourCategory.update.mockResolvedValue({
+        ...existing,
+        severity: 5,
+      });
+
+      await service.updateCategory(TENANT_ID, CATEGORY_ID, { severity: 5 });
+
+      // Only one findFirst call (for the category itself), no dup check
+      expect(mockPrisma.behaviourCategory.findFirst).toHaveBeenCalledTimes(1);
+    });
+
+    it('should update all optional fields in a single call', async () => {
+      const existing = { id: CATEGORY_ID, name: 'Cat', tenant_id: TENANT_ID };
+      mockPrisma.behaviourCategory.findFirst.mockResolvedValueOnce(existing);
+      mockPrisma.behaviourCategory.update.mockResolvedValue(existing);
+
+      await service.updateCategory(TENANT_ID, CATEGORY_ID, {
+        name_ar: 'عربي',
+        polarity: 'positive',
+        color: '#FF0000',
+        icon: 'star',
+        requires_follow_up: true,
+        requires_parent_notification: true,
+        parent_visible: false,
+        benchmark_category: 'praise',
+        display_order: 3,
+      });
+
+      expect(mockPrisma.behaviourCategory.update).toHaveBeenCalledWith({
+        where: { id: CATEGORY_ID },
+        data: expect.objectContaining({
+          name_ar: 'عربي',
+          polarity: 'positive',
+          color: '#FF0000',
+          icon: 'star',
+          requires_follow_up: true,
+          requires_parent_notification: true,
+          parent_visible: false,
+          benchmark_category: 'praise',
+          display_order: 3,
+        }),
       });
     });
   });

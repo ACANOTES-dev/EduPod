@@ -23,7 +23,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: typeof mockRlsTx) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: typeof mockRlsTx) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -64,10 +66,7 @@ describe('GradingScalesService', () => {
     mockRlsTx.gradingScale.delete.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        GradingScalesService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [GradingScalesService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<GradingScalesService>(GradingScalesService);
@@ -98,8 +97,22 @@ describe('GradingScalesService', () => {
       mockRlsTx.gradingScale.create.mockRejectedValue(p2002);
 
       await expect(
-        service.create(TENANT_ID, { name: 'Standard Scale', config_json: { type: 'numeric' as const, ranges: [{ label: 'A', min: 90, max: 100 }] } }),
+        service.create(TENANT_ID, {
+          name: 'Standard Scale',
+          config_json: { type: 'numeric' as const, ranges: [{ label: 'A', min: 90, max: 100 }] },
+        }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('should rethrow non-P2002 errors from create', async () => {
+      mockRlsTx.gradingScale.create.mockRejectedValue(new Error('Connection lost'));
+
+      await expect(
+        service.create(TENANT_ID, {
+          name: 'Test',
+          config_json: { type: 'numeric' as const, ranges: [] },
+        }),
+      ).rejects.toThrow('Connection lost');
     });
   });
 
@@ -164,9 +177,9 @@ describe('GradingScalesService', () => {
     it('should throw NotFoundException when scale does not exist', async () => {
       mockPrisma.gradingScale.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.update(TENANT_ID, SCALE_ID, { name: 'New Name' }),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.update(TENANT_ID, SCALE_ID, { name: 'New Name' })).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw ConflictException when updating config of an in-use scale', async () => {
@@ -177,7 +190,9 @@ describe('GradingScalesService', () => {
       mockPrisma.grade.count.mockResolvedValue(3);
 
       await expect(
-        service.update(TENANT_ID, SCALE_ID, { config_json: { type: 'numeric' as const, ranges: [{ min: 0, max: 100, label: 'A' }] } }),
+        service.update(TENANT_ID, SCALE_ID, {
+          config_json: { type: 'numeric' as const, ranges: [{ min: 0, max: 100, label: 'A' }] },
+        }),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -189,6 +204,37 @@ describe('GradingScalesService', () => {
 
       expect(result).toMatchObject({ name: 'Updated Name' });
       expect(mockPrisma.classSubjectGradeConfig.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should update config_json when scale is not in use', async () => {
+      mockPrisma.gradingScale.findFirst.mockResolvedValue({ id: SCALE_ID });
+      mockPrisma.classSubjectGradeConfig.findMany.mockResolvedValue([]);
+      const newConfig = { type: 'numeric' as const, ranges: [{ min: 0, max: 100, label: 'Pass' }] };
+      mockRlsTx.gradingScale.update.mockResolvedValue({ ...sampleScale, config_json: newConfig });
+
+      const result = await service.update(TENANT_ID, SCALE_ID, { config_json: newConfig });
+
+      expect(result.config_json).toEqual(newConfig);
+    });
+
+    it('should throw ConflictException on duplicate name during update (P2002)', async () => {
+      mockPrisma.gradingScale.findFirst.mockResolvedValue({ id: SCALE_ID });
+      const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', {
+        code: 'P2002',
+        clientVersion: '5.0.0',
+      });
+      mockRlsTx.gradingScale.update.mockRejectedValue(p2002);
+
+      await expect(service.update(TENANT_ID, SCALE_ID, { name: 'Duplicate Name' })).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('should rethrow non-P2002 errors from update', async () => {
+      mockPrisma.gradingScale.findFirst.mockResolvedValue({ id: SCALE_ID });
+      mockRlsTx.gradingScale.update.mockRejectedValue(new Error('DB error'));
+
+      await expect(service.update(TENANT_ID, SCALE_ID, { name: 'X' })).rejects.toThrow('DB error');
     });
   });
 

@@ -133,6 +133,51 @@ describe('PastoralReportSafeguardingService', () => {
       expect(result.active_cp_cases).toBe(2);
     });
 
+    it('should default date range when no dates provided', async () => {
+      setupWithoutCpAccess(mockDb);
+
+      const result = await service.build(mockDb as never, TENANT_ID, USER_ID, {});
+
+      // Should default to 1-year range ending today
+      expect(result.period.to).toBeDefined();
+      expect(result.period.from).toBeDefined();
+      // The from date should be roughly 1 year before the to date
+      const from = new Date(result.period.from);
+      const to = new Date(result.period.to);
+      const diffMs = to.getTime() - from.getTime();
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+      expect(diffDays).toBeGreaterThanOrEqual(364);
+      expect(diffDays).toBeLessThanOrEqual(366);
+    });
+
+    it('should use from_date with default to_date when only from_date provided', async () => {
+      setupWithoutCpAccess(mockDb);
+
+      const result = await service.build(mockDb as never, TENANT_ID, USER_ID, {
+        from_date: '2025-06-01',
+      });
+
+      expect(result.period.from).toBe('2025-06-01');
+      // to_date defaults to today
+      expect(result.period.to).toBeDefined();
+    });
+
+    it('should use to_date with default from_date (1 year before to_date) when only to_date provided', async () => {
+      setupWithoutCpAccess(mockDb);
+
+      const result = await service.build(mockDb as never, TENANT_ID, USER_ID, {
+        to_date: '2026-03-15',
+      });
+
+      expect(result.period.to).toBe('2026-03-15');
+      // From should be approximately 1 year before — exact date depends on timezone
+      const from = new Date(result.period.from);
+      const to = new Date(result.period.to);
+      const diffDays = (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24);
+      expect(diffDays).toBeGreaterThanOrEqual(364);
+      expect(diffDays).toBeLessThanOrEqual(366);
+    });
+
     it('should fire audit event', async () => {
       setupWithoutCpAccess(mockDb);
 

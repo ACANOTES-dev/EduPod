@@ -266,5 +266,57 @@ describe('PastoralReportStudentSummaryService', () => {
         }),
       );
     });
+
+    it('should fall back for sparse student, case, concern, intervention, and referral data', async () => {
+      mockDb.cpAccessGrant.findFirst.mockResolvedValue(null);
+      mockDb.student.findFirst.mockResolvedValue({
+        id: STUDENT_ID,
+        first_name: 'Alice',
+        last_name: 'Smith',
+        full_name: null,
+        student_number: null,
+        year_group: null,
+        homeroom_class: null,
+      });
+      mockDb.pastoralConcern.findMany.mockResolvedValue([
+        makeConcern({
+          versions: [],
+        }),
+      ]);
+      mockDb.pastoralCase.findMany.mockResolvedValue([
+        makeCase({
+          owner: null,
+          next_review_date: null,
+        }),
+      ]);
+      mockDb.pastoralIntervention.findMany.mockResolvedValue([
+        makeIntervention({
+          target_outcomes: 'Improve attendance',
+        }),
+      ]);
+      mockDb.pastoralReferral.findMany.mockResolvedValue([
+        makeReferral({
+          status: 'submitted',
+          submitted_at: null,
+        }),
+      ]);
+      mockDb.cpRecord.count.mockResolvedValue(0);
+
+      const result = await service.build(mockDb as never, TENANT_ID, USER_ID, STUDENT_ID, {});
+
+      expect(result.student).toEqual({
+        id: STUDENT_ID,
+        full_name: 'Alice Smith',
+        student_number: '',
+        year_group: '',
+        class_name: '',
+      });
+      expect(result.concerns[0]!.narrative).toBe('');
+      expect(result.cases[0]!.case_owner).toBe('Unknown');
+      expect(result.cases[0]!.review_date).toBeNull();
+      expect(result.interventions[0]!.target_outcomes).toBe('Improve attendance');
+      expect(result.referrals[0]!.submitted_at).toBeNull();
+      expect(result.referrals[0]!.wait_days).toBeNull();
+    });
   });
 });

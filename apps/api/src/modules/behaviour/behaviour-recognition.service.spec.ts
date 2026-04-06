@@ -21,9 +21,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(
-      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx),
-    ),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -225,9 +225,9 @@ describe('BehaviourRecognitionService', () => {
     it('should set parent_consent_status to granted when requires_parent_consent=false', async () => {
       const mockTx = {
         behaviourPublicationApproval: {
-          create: jest.fn().mockResolvedValue(
-            makePublication({ parent_consent_status: 'granted' }),
-          ),
+          create: jest
+            .fn()
+            .mockResolvedValue(makePublication({ parent_consent_status: 'granted' })),
         },
       } as unknown as PrismaService;
 
@@ -246,9 +246,7 @@ describe('BehaviourRecognitionService', () => {
     it('should auto-publish when both gates pass', async () => {
       const mockTx = {
         behaviourPublicationApproval: {
-          create: jest.fn().mockResolvedValue(
-            makePublication({ published_at: new Date() }),
-          ),
+          create: jest.fn().mockResolvedValue(makePublication({ published_at: new Date() })),
         },
       } as unknown as PrismaService;
 
@@ -272,9 +270,9 @@ describe('BehaviourRecognitionService', () => {
     it('should not publish when admin_approval_required=true', async () => {
       const mockTx = {
         behaviourPublicationApproval: {
-          create: jest.fn().mockResolvedValue(
-            makePublication({ admin_approved: false, published_at: null }),
-          ),
+          create: jest
+            .fn()
+            .mockResolvedValue(makePublication({ admin_approved: false, published_at: null })),
         },
       } as unknown as PrismaService;
 
@@ -382,9 +380,9 @@ describe('BehaviourRecognitionService', () => {
     it('should throw NotFoundException for non-existent publication', async () => {
       mockRlsTx.behaviourPublicationApproval.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.approvePublication(TENANT_ID, 'non-existent', USER_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.approvePublication(TENANT_ID, 'non-existent', USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should record history on approval', async () => {
@@ -432,9 +430,9 @@ describe('BehaviourRecognitionService', () => {
     it('should throw NotFoundException for non-existent publication', async () => {
       mockRlsTx.behaviourPublicationApproval.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.rejectPublication(TENANT_ID, 'non-existent', USER_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.rejectPublication(TENANT_ID, 'non-existent', USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should record history on rejection', async () => {
@@ -457,6 +455,39 @@ describe('BehaviourRecognitionService', () => {
         'rejected',
         { unpublished_at: null },
         { unpublished_at: unpublishedAt },
+      );
+    });
+  });
+
+  // ─── getPublicationDetail ──────────────────────────────────────────────
+
+  describe('getPublicationDetail', () => {
+    it('should return publication detail when found', async () => {
+      const publication = makePublication({
+        student: { id: STUDENT_ID, first_name: 'John', last_name: 'Doe' },
+        admin_approved_by: null,
+      });
+      mockPrisma.behaviourPublicationApproval.findFirst.mockResolvedValue(publication);
+
+      const result = await service.getPublicationDetail(TENANT_ID, PUBLICATION_ID);
+
+      expect(result).toEqual(publication);
+      expect(mockPrisma.behaviourPublicationApproval.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: PUBLICATION_ID, tenant_id: TENANT_ID },
+          include: expect.objectContaining({
+            student: expect.any(Object),
+            admin_approved_by: expect.any(Object),
+          }),
+        }),
+      );
+    });
+
+    it('should throw NotFoundException when publication not found', async () => {
+      mockPrisma.behaviourPublicationApproval.findFirst.mockResolvedValue(null);
+
+      await expect(service.getPublicationDetail(TENANT_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
       );
     });
   });

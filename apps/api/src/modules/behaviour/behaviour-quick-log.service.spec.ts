@@ -270,6 +270,42 @@ describe('BehaviourQuickLogService', () => {
         }),
       );
     });
+
+    it('should default description to empty string when undefined', async () => {
+      const dtoNoDesc: QuickLogDto = {
+        ...baseDto,
+        description: undefined,
+      };
+
+      await service.quickLog(TENANT_ID, USER_ID, dtoNoDesc);
+
+      expect(mockBehaviourService.createIncident).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        expect.objectContaining({ description: '' }),
+      );
+    });
+
+    it('should pass through schedule_entry_id, subject_id, room_id when provided', async () => {
+      const dtoWithExtras: QuickLogDto = {
+        ...baseDto,
+        schedule_entry_id: 'sched-1',
+        subject_id: 'subj-1',
+        room_id: 'room-1',
+      };
+
+      await service.quickLog(TENANT_ID, USER_ID, dtoWithExtras);
+
+      expect(mockBehaviourService.createIncident).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        expect.objectContaining({
+          schedule_entry_id: 'sched-1',
+          subject_id: 'subj-1',
+          room_id: 'room-1',
+        }),
+      );
+    });
   });
 
   // ─── bulkPositive ──────────────────────────────────────────────────────
@@ -316,6 +352,67 @@ describe('BehaviourQuickLogService', () => {
 
       expect(result.count).toBe(3);
       expect(result.data).toHaveLength(3);
+    });
+
+    it('should default description to empty string when undefined', async () => {
+      mockBehaviourService.createIncident.mockResolvedValue(makeIncidentResult());
+
+      const dtoNoDesc: BulkPositiveDto = {
+        ...baseBulkDto,
+        description: undefined,
+        student_ids: [STUDENT_ID_1],
+      };
+
+      await service.bulkPositive(TENANT_ID, USER_ID, dtoNoDesc);
+
+      expect(mockBehaviourService.createIncident).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        expect.objectContaining({ description: '' }),
+      );
+    });
+
+    it('should pass through template_id and schedule_entry_id when provided', async () => {
+      mockBehaviourService.createIncident.mockResolvedValue(makeIncidentResult());
+
+      const dtoWithExtras: BulkPositiveDto = {
+        ...baseBulkDto,
+        template_id: TEMPLATE_ID,
+        schedule_entry_id: 'sched-1',
+        student_ids: [STUDENT_ID_1],
+      };
+
+      await service.bulkPositive(TENANT_ID, USER_ID, dtoWithExtras);
+
+      expect(mockBehaviourService.createIncident).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        expect.objectContaining({
+          template_id: TEMPLATE_ID,
+          schedule_entry_id: 'sched-1',
+        }),
+      );
+    });
+  });
+
+  // ─── getContext — year_group null ──────────────────────────────────────
+
+  describe('getContext — edge cases', () => {
+    it('should handle student with null year_group', async () => {
+      mockPrisma.behaviourIncidentParticipant.findMany.mockResolvedValue([
+        makeParticipant(STUDENT_ID_1, {
+          student: {
+            id: STUDENT_ID_1,
+            first_name: 'Alice',
+            last_name: 'Smith',
+            year_group: null,
+          },
+        }),
+      ]);
+
+      const result = await service.getContext(TENANT_ID, USER_ID);
+
+      expect(result.recent_students[0]?.year_group).toBeNull();
     });
   });
 });

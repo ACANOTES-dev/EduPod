@@ -21,12 +21,39 @@ describe('BehaviourPulseService', () => {
   });
 
   describe('computeComposite', () => {
-    const makeDimensions = (overrides: Partial<Record<string, number | null>> = {}): PulseDimension[] => [
-      { name: 'positive_ratio', value: 'positive_ratio' in overrides ? overrides.positive_ratio! : 0.8, weight: 0.2, label: 'Positive Ratio' },
-      { name: 'severity_index', value: 'severity_index' in overrides ? overrides.severity_index! : 0.9, weight: 0.25, label: 'Severity Index' },
-      { name: 'serious_incidents', value: 'serious_incidents' in overrides ? overrides.serious_incidents! : 1.0, weight: 0.25, label: 'Serious Incidents' },
-      { name: 'resolution_rate', value: 'resolution_rate' in overrides ? overrides.resolution_rate! : 0.7, weight: 0.15, label: 'Resolution Rate' },
-      { name: 'reporting_confidence', value: 'reporting_confidence' in overrides ? overrides.reporting_confidence! : 0.6, weight: 0.15, label: 'Reporting Confidence' },
+    const makeDimensions = (
+      overrides: Partial<Record<string, number | null>> = {},
+    ): PulseDimension[] => [
+      {
+        name: 'positive_ratio',
+        value: 'positive_ratio' in overrides ? overrides.positive_ratio! : 0.8,
+        weight: 0.2,
+        label: 'Positive Ratio',
+      },
+      {
+        name: 'severity_index',
+        value: 'severity_index' in overrides ? overrides.severity_index! : 0.9,
+        weight: 0.25,
+        label: 'Severity Index',
+      },
+      {
+        name: 'serious_incidents',
+        value: 'serious_incidents' in overrides ? overrides.serious_incidents! : 1.0,
+        weight: 0.25,
+        label: 'Serious Incidents',
+      },
+      {
+        name: 'resolution_rate',
+        value: 'resolution_rate' in overrides ? overrides.resolution_rate! : 0.7,
+        weight: 0.15,
+        label: 'Resolution Rate',
+      },
+      {
+        name: 'reporting_confidence',
+        value: 'reporting_confidence' in overrides ? overrides.reporting_confidence! : 0.6,
+        weight: 0.15,
+        label: 'Reporting Confidence',
+      },
     ];
 
     it('should return composite = null when reporting_confidence < 0.50', () => {
@@ -61,10 +88,10 @@ describe('BehaviourPulseService', () => {
 
     it('should compute weighted average correctly', () => {
       const dims = makeDimensions({
-        positive_ratio: 0.5,      // 0.5 * 0.20 = 0.10
-        severity_index: 0.8,      // 0.8 * 0.25 = 0.20
-        serious_incidents: 0.6,   // 0.6 * 0.25 = 0.15
-        resolution_rate: 1.0,     // 1.0 * 0.15 = 0.15
+        positive_ratio: 0.5, // 0.5 * 0.20 = 0.10
+        severity_index: 0.8, // 0.8 * 0.25 = 0.20
+        serious_incidents: 0.6, // 0.6 * 0.25 = 0.15
+        resolution_rate: 1.0, // 1.0 * 0.15 = 0.15
         reporting_confidence: 0.7, // 0.7 * 0.15 = 0.105
       });
       const result = service.computeComposite(dims);
@@ -162,7 +189,9 @@ describe('BehaviourPulseService', () => {
         mockPrisma as unknown as PrismaService,
         {} as never as RedisService, // RedisService (not needed for dimension methods)
         { count: jest.fn().mockResolvedValue(0) } as unknown as StudentReadFacade,
-        { countMembershipsWithPermission: jest.fn().mockResolvedValue(0) } as unknown as RbacReadFacade,
+        {
+          countMembershipsWithPermission: jest.fn().mockResolvedValue(0),
+        } as unknown as RbacReadFacade,
       );
     });
 
@@ -216,6 +245,226 @@ describe('BehaviourPulseService', () => {
       const result = await dimService.computeResolutionRate(TENANT, FROM, TO);
 
       expect(result).toBe(1.0);
+    });
+
+    it('should compute resolution_rate as resolved / required', async () => {
+      mockPrisma.behaviourIncident.count
+        .mockResolvedValueOnce(10) // followUpsRequired
+        .mockResolvedValueOnce(7); // resolvedCount
+
+      const result = await dimService.computeResolutionRate(TENANT, FROM, TO);
+
+      expect(result).toBeCloseTo(0.7, 5);
+    });
+
+    it('should return reporting_confidence = null when total staff is 0', async () => {
+      // distinctReporters query returns some rows but staff = 0
+      mockPrisma.behaviourIncident.findMany.mockResolvedValue([{ reported_by_id: 'user-1' }]);
+
+      const result = await dimService.computeReportingConfidence(TENANT, FROM, TO);
+
+      expect(result).toBeNull();
+    });
+
+    it('should compute reporting_confidence as reporters / totalStaff', async () => {
+      mockPrisma.behaviourIncident.findMany.mockResolvedValue([
+        { reported_by_id: 'user-1' },
+        { reported_by_id: 'user-2' },
+      ]);
+
+      // Override rbac facade to return 10 staff
+      const rbacFacade = (
+        dimService as unknown as { rbacReadFacade: { countMembershipsWithPermission: jest.Mock } }
+      ).rbacReadFacade;
+      rbacFacade.countMembershipsWithPermission.mockResolvedValue(10);
+
+      const result = await dimService.computeReportingConfidence(TENANT, FROM, TO);
+
+      expect(result).toBeCloseTo(0.2, 5); // 2/10
+    });
+
+    it('should compute serious incident rate = 1.0 when enrolled = 0', async () => {
+      const studentFacade = (dimService as unknown as { studentReadFacade: { count: jest.Mock } })
+        .studentReadFacade;
+
+      mockPrisma.behaviourIncident.count.mockResolvedValue(5); // seriousCount
+      studentFacade.count.mockResolvedValue(0); // enrolledCount
+
+      const result = await dimService.computeSeriousIncidentRate(TENANT, FROM, TO);
+
+      expect(result).toBe(1.0);
+    });
+
+    it('should return 1.0 when serious count is 0', async () => {
+      const studentFacade = (dimService as unknown as { studentReadFacade: { count: jest.Mock } })
+        .studentReadFacade;
+
+      mockPrisma.behaviourIncident.count.mockResolvedValue(0); // seriousCount
+      studentFacade.count.mockResolvedValue(100); // enrolledCount
+
+      const result = await dimService.computeSeriousIncidentRate(TENANT, FROM, TO);
+
+      expect(result).toBe(1.0);
+    });
+
+    it('should apply graduated decay for rate <= 0.5', async () => {
+      const studentFacade = (dimService as unknown as { studentReadFacade: { count: jest.Mock } })
+        .studentReadFacade;
+
+      // rate = (1/400)*100 = 0.25 -> 1.0 - (0.25/0.5)*0.2 = 0.9
+      mockPrisma.behaviourIncident.count.mockResolvedValue(1);
+      studentFacade.count.mockResolvedValue(400);
+
+      const result = await dimService.computeSeriousIncidentRate(TENANT, FROM, TO);
+
+      expect(result).toBeCloseTo(0.9, 2);
+    });
+
+    it('should apply graduated decay for rate in (0.5, 2.0]', async () => {
+      const studentFacade = (dimService as unknown as { studentReadFacade: { count: jest.Mock } })
+        .studentReadFacade;
+
+      // rate = (1/100)*100 = 1.0 -> 0.8 - ((1.0-0.5)/1.5)*0.4 = 0.6667
+      mockPrisma.behaviourIncident.count.mockResolvedValue(1);
+      studentFacade.count.mockResolvedValue(100);
+
+      const result = await dimService.computeSeriousIncidentRate(TENANT, FROM, TO);
+
+      expect(result).toBeCloseTo(0.6667, 2);
+    });
+
+    it('should apply graduated decay for rate in (2.0, 5.0]', async () => {
+      const studentFacade = (dimService as unknown as { studentReadFacade: { count: jest.Mock } })
+        .studentReadFacade;
+
+      // rate = (3/100)*100 = 3.0 -> 0.4 - ((3.0-2.0)/3.0)*0.3 = 0.3
+      mockPrisma.behaviourIncident.count.mockResolvedValue(3);
+      studentFacade.count.mockResolvedValue(100);
+
+      const result = await dimService.computeSeriousIncidentRate(TENANT, FROM, TO);
+
+      expect(result).toBeCloseTo(0.3, 2);
+    });
+
+    it('should return 0.0 for rate > 5.0', async () => {
+      const studentFacade = (dimService as unknown as { studentReadFacade: { count: jest.Mock } })
+        .studentReadFacade;
+
+      // rate = (10/100)*100 = 10.0 -> 0.0
+      mockPrisma.behaviourIncident.count.mockResolvedValue(10);
+      studentFacade.count.mockResolvedValue(100);
+
+      const result = await dimService.computeSeriousIncidentRate(TENANT, FROM, TO);
+
+      expect(result).toBe(0.0);
+    });
+  });
+
+  // ─── getPulse (cache + composition) ─────────────────────────────────────
+
+  describe('getPulse', () => {
+    let pulseService: BehaviourPulseService;
+    let pulsePrisma: {
+      behaviourIncident: {
+        groupBy: jest.Mock;
+        aggregate: jest.Mock;
+        count: jest.Mock;
+        findMany: jest.Mock;
+      };
+    };
+    let mockRedisClient: { get: jest.Mock; set: jest.Mock; del: jest.Mock };
+
+    const PULSE_TENANT = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+
+    beforeEach(() => {
+      pulsePrisma = {
+        behaviourIncident: {
+          groupBy: jest.fn().mockResolvedValue([]),
+          aggregate: jest.fn().mockResolvedValue({ _avg: { severity: null }, _count: 0 }),
+          count: jest.fn().mockResolvedValue(0),
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+      };
+
+      mockRedisClient = {
+        get: jest.fn().mockResolvedValue(null),
+        set: jest.fn().mockResolvedValue('OK'),
+        del: jest.fn().mockResolvedValue(1),
+      };
+
+      pulseService = new BehaviourPulseService(
+        pulsePrisma as unknown as PrismaService,
+        { getClient: () => mockRedisClient } as unknown as RedisService,
+        { count: jest.fn().mockResolvedValue(100) } as unknown as StudentReadFacade,
+        {
+          countMembershipsWithPermission: jest.fn().mockResolvedValue(10),
+        } as unknown as RbacReadFacade,
+      );
+    });
+
+    it('should return cached result when available', async () => {
+      const cached = {
+        dimensions: [],
+        composite: 0.8,
+        composite_available: true,
+        gate_reason: null,
+        cached_at: new Date().toISOString(),
+        pulse_enabled: true,
+      };
+      mockRedisClient.get.mockResolvedValue(JSON.stringify(cached));
+
+      const result = await pulseService.getPulse(PULSE_TENANT);
+
+      expect(result).toEqual(cached);
+      // Should NOT call any Prisma methods when cache hit
+      expect(pulsePrisma.behaviourIncident.groupBy).not.toHaveBeenCalled();
+    });
+
+    it('should compute fresh result and cache it on miss', async () => {
+      mockRedisClient.get.mockResolvedValue(null);
+
+      const result = await pulseService.getPulse(PULSE_TENANT);
+
+      expect(result.dimensions).toHaveLength(5);
+      expect(result.pulse_enabled).toBe(true);
+      expect(result.cached_at).toBeDefined();
+      // Should set cache
+      expect(mockRedisClient.set).toHaveBeenCalledWith(
+        `behaviour:pulse:${PULSE_TENANT}`,
+        expect.any(String),
+        'EX',
+        300,
+      );
+    });
+
+    it('should set gate_reason when reporting_confidence < 0.5', async () => {
+      mockRedisClient.get.mockResolvedValue(null);
+      // reportingConfidence will be null because findMany returns [] and staff returns 10
+      // -> 0/10 = 0.0 which is < 0.5
+
+      const result = await pulseService.getPulse(PULSE_TENANT);
+
+      expect(result.gate_reason).toContain('50%');
+      expect(result.composite).toBeNull();
+      expect(result.composite_available).toBe(false);
+    });
+  });
+
+  // ─── invalidateCache ──────────────────────────────────────────────────────
+
+  describe('invalidateCache', () => {
+    it('should delete the cache key for the tenant', async () => {
+      const mockDel = jest.fn().mockResolvedValue(1);
+      const cacheService = new BehaviourPulseService(
+        {} as unknown as PrismaService,
+        { getClient: () => ({ del: mockDel }) } as unknown as RedisService,
+        {} as unknown as StudentReadFacade,
+        {} as unknown as RbacReadFacade,
+      );
+
+      await cacheService.invalidateCache('tenant-123');
+
+      expect(mockDel).toHaveBeenCalledWith('behaviour:pulse:tenant-123');
     });
   });
 });

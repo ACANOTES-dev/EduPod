@@ -77,10 +77,7 @@ describe('ReportCardCustomFieldsService — createFieldDef', () => {
     mockRlsTx.reportCardCustomFieldDef.create.mockReset().mockResolvedValue(baseFieldDef);
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReportCardCustomFieldsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ReportCardCustomFieldsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardCustomFieldsService>(ReportCardCustomFieldsService);
@@ -153,10 +150,7 @@ describe('ReportCardCustomFieldsService — findAllFieldDefs', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReportCardCustomFieldsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ReportCardCustomFieldsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardCustomFieldsService>(ReportCardCustomFieldsService);
@@ -188,10 +182,7 @@ describe('ReportCardCustomFieldsService — findOneFieldDef', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReportCardCustomFieldsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ReportCardCustomFieldsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardCustomFieldsService>(ReportCardCustomFieldsService);
@@ -227,10 +218,7 @@ describe('ReportCardCustomFieldsService — removeFieldDef', () => {
     mockRlsTx.reportCardCustomFieldDef.delete.mockReset().mockResolvedValue(baseFieldDef);
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReportCardCustomFieldsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ReportCardCustomFieldsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardCustomFieldsService>(ReportCardCustomFieldsService);
@@ -258,6 +246,100 @@ describe('ReportCardCustomFieldsService — removeFieldDef', () => {
   });
 });
 
+// ─── updateFieldDef ──────────────────────────────────────────────────────────
+
+describe('ReportCardCustomFieldsService — updateFieldDef', () => {
+  let service: ReportCardCustomFieldsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRlsTx.reportCardCustomFieldDef.update.mockReset().mockResolvedValue({
+      ...baseFieldDef,
+      label: 'Updated Label',
+    });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [ReportCardCustomFieldsService, { provide: PrismaService, useValue: mockPrisma }],
+    }).compile();
+
+    service = module.get<ReportCardCustomFieldsService>(ReportCardCustomFieldsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should throw NotFoundException when field def not found', async () => {
+    mockPrisma.reportCardCustomFieldDef.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.updateFieldDef(TENANT_ID, FIELD_DEF_ID, { label: 'New Label' }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should update label successfully', async () => {
+    mockPrisma.reportCardCustomFieldDef.findFirst.mockResolvedValue(baseFieldDef);
+
+    await service.updateFieldDef(TENANT_ID, FIELD_DEF_ID, { label: 'Updated Label' });
+
+    expect(mockRlsTx.reportCardCustomFieldDef.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: FIELD_DEF_ID },
+        data: expect.objectContaining({ label: 'Updated Label' }),
+      }),
+    );
+  });
+
+  it('should update multiple fields at once', async () => {
+    mockPrisma.reportCardCustomFieldDef.findFirst.mockResolvedValue(baseFieldDef);
+
+    await service.updateFieldDef(TENANT_ID, FIELD_DEF_ID, {
+      label: 'New Label',
+      label_ar: 'عنوان جديد',
+      field_type: 'select',
+      section_type: 'extracurricular',
+      display_order: 5,
+    });
+
+    expect(mockRlsTx.reportCardCustomFieldDef.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          label: 'New Label',
+          label_ar: 'عنوان جديد',
+          field_type: 'select',
+          section_type: 'extracurricular',
+          display_order: 5,
+        }),
+      }),
+    );
+  });
+
+  it('should update options_json with a value', async () => {
+    mockPrisma.reportCardCustomFieldDef.findFirst.mockResolvedValue(baseFieldDef);
+
+    await service.updateFieldDef(TENANT_ID, FIELD_DEF_ID, {
+      options_json: { choices: ['A', 'B', 'C'] },
+    });
+
+    expect(mockRlsTx.reportCardCustomFieldDef.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          options_json: { choices: ['A', 'B', 'C'] },
+        }),
+      }),
+    );
+  });
+
+  it('should clear options_json to JsonNull when set to null', async () => {
+    mockPrisma.reportCardCustomFieldDef.findFirst.mockResolvedValue(baseFieldDef);
+
+    await service.updateFieldDef(TENANT_ID, FIELD_DEF_ID, {
+      options_json: null,
+    });
+
+    expect(mockRlsTx.reportCardCustomFieldDef.update).toHaveBeenCalledTimes(1);
+  });
+});
+
 // ─── saveFieldValues ──────────────────────────────────────────────────────────
 
 describe('ReportCardCustomFieldsService — saveFieldValues', () => {
@@ -275,10 +357,7 @@ describe('ReportCardCustomFieldsService — saveFieldValues', () => {
     });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReportCardCustomFieldsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ReportCardCustomFieldsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardCustomFieldsService>(ReportCardCustomFieldsService);
@@ -314,9 +393,9 @@ describe('ReportCardCustomFieldsService — saveFieldValues', () => {
   it('should throw NotFoundException when report card not found', async () => {
     mockPrisma.reportCard.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.saveFieldValues(TENANT_ID, REPORT_CARD_ID, USER_ID, []),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.saveFieldValues(TENANT_ID, REPORT_CARD_ID, USER_ID, [])).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should throw ConflictException when report card is not draft', async () => {
@@ -325,9 +404,9 @@ describe('ReportCardCustomFieldsService — saveFieldValues', () => {
       status: 'published',
     });
 
-    await expect(
-      service.saveFieldValues(TENANT_ID, REPORT_CARD_ID, USER_ID, []),
-    ).rejects.toThrow(ConflictException);
+    await expect(service.saveFieldValues(TENANT_ID, REPORT_CARD_ID, USER_ID, [])).rejects.toThrow(
+      ConflictException,
+    );
   });
 
   it('should throw NotFoundException when field_def_id does not belong to tenant', async () => {
@@ -355,10 +434,7 @@ describe('ReportCardCustomFieldsService — getFieldValues', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReportCardCustomFieldsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ReportCardCustomFieldsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ReportCardCustomFieldsService>(ReportCardCustomFieldsService);

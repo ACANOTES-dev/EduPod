@@ -1,3 +1,4 @@
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { AcademicReadFacade } from '../academics/academic-read.facade';
@@ -12,8 +13,34 @@ const INCIDENT_ID = '33333333-3333-3333-3333-333333333333';
 const ACADEMIC_YEAR_ID = '44444444-4444-4444-4444-444444444444';
 const AWARD_TYPE_ID = '55555555-5555-5555-5555-555555555555';
 const AWARD_ID = '66666666-6666-6666-6666-666666666666';
+const USER_ID = '77777777-7777-7777-7777-777777777777';
 
 const mockNotificationsQueue = { add: jest.fn().mockResolvedValue({}) };
+
+// ─── RLS mock for createManualAward ──────────────────────────────────────
+
+const mockRlsTx = {
+  behaviourAwardType: { findFirst: jest.fn() },
+  student: { findFirst: jest.fn() },
+  academicYear: { findFirst: jest.fn() },
+  academicPeriod: { findFirst: jest.fn() },
+  behaviourRecognitionAward: {
+    findFirst: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
+    create: jest.fn(),
+    count: jest.fn(),
+    updateMany: jest.fn(),
+  },
+  behaviourIncidentParticipant: { aggregate: jest.fn() },
+};
+
+jest.mock('../../common/middleware/rls.middleware', () => ({
+  createRlsClient: jest.fn().mockReturnValue({
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+  }),
+}));
 
 /** Build a base award type with sensible defaults; override per test. */
 function buildAwardType(overrides: Record<string, unknown> = {}) {
@@ -508,44 +535,165 @@ describe('BehaviourAwardService', () => {
   // ─── createManualAward — branch coverage ──────────────────────────────────
 
   describe('BehaviourAwardService — createManualAward', () => {
-    const _USER_ID = '77777777-7777-7777-7777-777777777777';
+    function resetRlsTx() {
+      Object.values(mockRlsTx).forEach((model) => {
+        if (typeof model === 'object') {
+          Object.values(model).forEach((fn) => {
+            if (typeof fn === 'function' && 'mockReset' in fn) fn.mockReset();
+          });
+        }
+      });
+    }
 
-    // We need a fresh prisma mock and RLS mock for createManualAward
-    let _mockCreateRlsTx: Record<string, Record<string, jest.Mock>>;
+    function setupManualAwardDefaults(awardTypeOverrides: Record<string, unknown> = {}) {
+      const awardType = buildAwardType(awardTypeOverrides);
+      mockRlsTx.behaviourAwardType.findFirst.mockResolvedValue(awardType);
+      mockRlsTx.student.findFirst.mockResolvedValue({ id: STUDENT_ID, tenant_id: TENANT_ID });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
+      mockRlsTx.academicPeriod.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourRecognitionAward.findFirst.mockResolvedValue(null);
+      mockRlsTx.behaviourRecognitionAward.count.mockResolvedValue(0);
+      mockRlsTx.behaviourRecognitionAward.findMany.mockResolvedValue([]);
+      mockRlsTx.behaviourIncidentParticipant.aggregate.mockResolvedValue({
+        _sum: { points_awarded: 50 },
+      });
+      mockRlsTx.behaviourRecognitionAward.create.mockResolvedValue({
+        id: AWARD_ID,
+        tenant_id: TENANT_ID,
+        student_id: STUDENT_ID,
+        award_type_id: awardType.id,
+        points_at_award: 50,
+        awarded_at: new Date(),
+      });
+      return awardType;
+    }
 
-    beforeEach(() => {
-      _mockCreateRlsTx = {
-        behaviourAwardType: {
-          findFirst: jest.fn(),
-        },
-        student: {
-          findFirst: jest.fn(),
-        },
-        academicYear: {
-          findFirst: jest.fn(),
-        },
-        academicPeriod: {
-          findFirst: jest.fn(),
-        },
-        behaviourRecognitionAward: {
-          findFirst: jest.fn(),
-          count: jest.fn(),
-          create: jest.fn(),
-          findMany: jest.fn().mockResolvedValue([]),
-          updateMany: jest.fn(),
-        },
-        behaviourIncidentParticipant: {
-          aggregate: jest.fn(),
-        },
-      };
+    beforeEach(() => resetRlsTx());
 
-      // Since we can't easily re-mock the RLS middleware per describe,
-      // we'll inject the mockCreateRlsTx into the service's prisma field
-      // and use createRlsClient mock from the module level.
-      // The module-level mock is not available here, so we'll use direct service calls
-      // where the tx is passed directly (like checkAndCreateAutoAwards).
+    it('should create a manual award successfully', async () => {
+      setupManualAwardDefaults();
+
+      const result = (await service.createManualAward(TENANT_ID, USER_ID, {
+        student_id: STUDENT_ID,
+        award_type_id: AWARD_TYPE_ID,
+        notes: 'Great work',
+      })) as { id: string };
+
+      expect(result.id).toBe(AWARD_ID);
+      expect(mockRlsTx.behaviourRecognitionAward.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          student_id: STUDENT_ID,
+          award_type_id: AWARD_TYPE_ID,
+          notes: 'Great work',
+          triggered_by_incident_id: null,
+        }),
+      });
     });
 
+    it('should throw AWARD_TYPE_NOT_FOUND when award type inactive or missing', async () => {
+      mockRlsTx.behaviourAwardType.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createManualAward(TENANT_ID, USER_ID, {
+          student_id: STUDENT_ID,
+          award_type_id: 'bad-id',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw STUDENT_NOT_FOUND when student does not exist', async () => {
+      mockRlsTx.behaviourAwardType.findFirst.mockResolvedValue(buildAwardType());
+      mockRlsTx.student.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createManualAward(TENANT_ID, USER_ID, {
+          student_id: 'bad-student',
+          award_type_id: AWARD_TYPE_ID,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw NO_ACTIVE_ACADEMIC_YEAR when none exists', async () => {
+      mockRlsTx.behaviourAwardType.findFirst.mockResolvedValue(buildAwardType());
+      mockRlsTx.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
+      mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createManualAward(TENANT_ID, USER_ID, {
+          student_id: STUDENT_ID,
+          award_type_id: AWARD_TYPE_ID,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw AWARD_NOT_ELIGIBLE when eligibility check fails', async () => {
+      setupManualAwardDefaults({ repeat_mode: 'once_ever' });
+      // First findFirst for dedup returns existing award
+      mockRlsTx.behaviourRecognitionAward.findFirst.mockResolvedValue({
+        id: 'existing-award',
+      });
+
+      await expect(
+        service.createManualAward(TENANT_ID, USER_ID, {
+          student_id: STUDENT_ID,
+          award_type_id: AWARD_TYPE_ID,
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should handle tier supersession on manual award', async () => {
+      setupManualAwardDefaults({
+        supersedes_lower_tiers: true,
+        tier_group: 'achievement',
+        tier_level: 3,
+      });
+      mockRlsTx.behaviourRecognitionAward.findMany.mockResolvedValue([
+        { id: 'lower-1' },
+        { id: 'lower-2' },
+      ]);
+      mockRlsTx.behaviourRecognitionAward.updateMany.mockResolvedValue({ count: 2 });
+
+      await service.createManualAward(TENANT_ID, USER_ID, {
+        student_id: STUDENT_ID,
+        award_type_id: AWARD_TYPE_ID,
+      });
+
+      expect(mockRlsTx.behaviourRecognitionAward.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['lower-1', 'lower-2'] } },
+        data: { superseded_by_id: AWARD_ID },
+      });
+    });
+
+    it('should handle notification queue failure without failing award creation', async () => {
+      setupManualAwardDefaults();
+      mockNotificationsQueue.add.mockRejectedValueOnce(new Error('Queue down'));
+
+      const result = (await service.createManualAward(TENANT_ID, USER_ID, {
+        student_id: STUDENT_ID,
+        award_type_id: AWARD_TYPE_ID,
+      })) as { id: string };
+
+      expect(result.id).toBe(AWARD_ID);
+    });
+
+    it('should set notes to null when not provided', async () => {
+      setupManualAwardDefaults();
+
+      await service.createManualAward(TENANT_ID, USER_ID, {
+        student_id: STUDENT_ID,
+        award_type_id: AWARD_TYPE_ID,
+      });
+
+      expect(mockRlsTx.behaviourRecognitionAward.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ notes: null }),
+      });
+    });
+  });
+
+  // ─── checkAndCreateAutoAwards — additional ─────────────────────────────
+
+  describe('BehaviourAwardService — checkAndCreateAutoAwards additional', () => {
     it('should not create award when award type is not found', async () => {
       mockTx.behaviourAwardType.findMany.mockResolvedValue([]);
       mockTx.behaviourIncidentParticipant.aggregate.mockResolvedValue({

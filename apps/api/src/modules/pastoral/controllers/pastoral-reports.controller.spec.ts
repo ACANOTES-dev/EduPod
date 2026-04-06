@@ -266,6 +266,26 @@ describe('PastoralReportsController', () => {
       });
       expect(res.end).toHaveBeenCalledWith(pdfBuffer);
     });
+
+    it('should default locale to en for student summary PDFs', async () => {
+      const pdfBuffer = Buffer.from('fake-pdf');
+      mockExportService.exportStudentSummary.mockResolvedValue(pdfBuffer);
+
+      await controller.getStudentSummaryPdf(
+        TENANT,
+        USER,
+        STUDENT_ID,
+        undefined as unknown as string,
+        createMockResponse() as unknown as import('express').Response,
+      );
+
+      expect(mockExportService.exportStudentSummary).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        STUDENT_ID,
+        'en',
+      );
+    });
   });
 
   describe('getSstActivity', () => {
@@ -307,6 +327,25 @@ describe('PastoralReportsController', () => {
         'Content-Disposition': expect.stringContaining('.pdf'),
       });
       expect(res.end).toHaveBeenCalledWith(pdfBuffer);
+    });
+
+    it('should default locale to en for SST activity PDFs', async () => {
+      mockExportService.exportSstActivity.mockResolvedValue(Buffer.from('fake-pdf'));
+
+      await controller.getSstActivityPdf(
+        TENANT,
+        USER,
+        {},
+        undefined as unknown as string,
+        createMockResponse() as unknown as import('express').Response,
+      );
+
+      expect(mockExportService.exportSstActivity).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        {},
+        'en',
+      );
     });
   });
 
@@ -361,6 +400,26 @@ describe('PastoralReportsController', () => {
       });
       expect(res.end).toHaveBeenCalledWith(pdfBuffer);
     });
+
+    it('should default locale to en for safeguarding PDFs', async () => {
+      mockReportService.getSafeguardingCompliance.mockResolvedValue({ data: { compliance: true } });
+      mockExportService.renderPdf.mockResolvedValue(Buffer.from('fake-pdf'));
+
+      await controller.getSafeguardingCompliancePdf(
+        TENANT,
+        USER,
+        {},
+        undefined as unknown as string,
+        createMockResponse() as unknown as import('express').Response,
+      );
+
+      expect(mockExportService.renderPdf).toHaveBeenCalledWith(
+        'safeguarding-compliance',
+        { data: { compliance: true } },
+        'en',
+        TENANT_ID,
+      );
+    });
   });
 
   describe('getWellbeingProgramme', () => {
@@ -414,6 +473,26 @@ describe('PastoralReportsController', () => {
       });
       expect(res.end).toHaveBeenCalledWith(pdfBuffer);
     });
+
+    it('should default locale to en for wellbeing PDFs', async () => {
+      mockReportService.getWellbeingProgramme.mockResolvedValue({ data: { programme: 'data' } });
+      mockExportService.renderPdf.mockResolvedValue(Buffer.from('fake-pdf'));
+
+      await controller.getWellbeingProgrammePdf(
+        TENANT,
+        USER,
+        {},
+        undefined as unknown as string,
+        createMockResponse() as unknown as import('express').Response,
+      );
+
+      expect(mockExportService.renderPdf).toHaveBeenCalledWith(
+        'wellbeing-programme',
+        { data: { programme: 'data' } },
+        'en',
+        TENANT_ID,
+      );
+    });
   });
 
   describe('getDesInspectionPdf', () => {
@@ -445,6 +524,26 @@ describe('PastoralReportsController', () => {
       });
       expect(res.end).toHaveBeenCalledWith(pdfBuffer);
     });
+
+    it('should default locale to en for DES inspection PDFs', async () => {
+      mockReportService.getDesInspection.mockResolvedValue({ data: { inspection: 'data' } });
+      mockExportService.renderPdf.mockResolvedValue(Buffer.from('fake-pdf'));
+
+      await controller.getDesInspectionPdf(
+        TENANT,
+        USER,
+        {},
+        undefined as unknown as string,
+        createMockResponse() as unknown as import('express').Response,
+      );
+
+      expect(mockExportService.renderPdf).toHaveBeenCalledWith(
+        'des-inspection',
+        { data: { inspection: 'data' } },
+        'en',
+        TENANT_ID,
+      );
+    });
   });
 
   // ─── Export Delegation ──────────────────────────────────────────────────
@@ -464,6 +563,24 @@ describe('PastoralReportsController', () => {
       );
       expect(result).toBe(mockResult);
     });
+
+    it('should default locale to en when exporting student summaries', async () => {
+      mockExportService.exportStudentSummary.mockResolvedValue(Buffer.from('pdf'));
+
+      await controller.exportStudentSummary(
+        TENANT,
+        USER,
+        STUDENT_ID,
+        undefined as unknown as string,
+      );
+
+      expect(mockExportService.exportStudentSummary).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        STUDENT_ID,
+        'en',
+      );
+    });
   });
 
   describe('exportSstActivity', () => {
@@ -481,6 +598,19 @@ describe('PastoralReportsController', () => {
         'en',
       );
       expect(result).toBe(mockResult);
+    });
+
+    it('should default locale to en when exporting SST activity', async () => {
+      mockExportService.exportSstActivity.mockResolvedValue(Buffer.from('pdf'));
+
+      await controller.exportSstActivity(TENANT, USER, {}, undefined as unknown as string);
+
+      expect(mockExportService.exportSstActivity).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        {},
+        'en',
+      );
     });
   });
 

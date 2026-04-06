@@ -222,6 +222,48 @@ describe('GradeThresholdService — update', () => {
 
     expect(result.id).toBe(CONFIG_ID);
   });
+
+  it('should clear other defaults when is_default is set to true', async () => {
+    mockPrisma.gradeThresholdConfig.findFirst.mockResolvedValueOnce({
+      id: CONFIG_ID,
+      name: 'Old Name',
+    });
+
+    await service.update(TENANT_ID, CONFIG_ID, { is_default: true });
+
+    expect(mockRlsTx.gradeThresholdConfig.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          is_default: true,
+          id: { not: CONFIG_ID },
+        }),
+        data: { is_default: false },
+      }),
+    );
+  });
+
+  it('should update thresholds_json when provided', async () => {
+    mockPrisma.gradeThresholdConfig.findFirst.mockResolvedValueOnce({
+      id: CONFIG_ID,
+      name: 'Old Name',
+    });
+
+    const newThresholds: ThresholdEntry[] = [
+      { min_score: 80, label: 'Pass', label_ar: 'ناجح' },
+      { min_score: 0, label: 'Fail', label_ar: 'راسب' },
+    ];
+
+    await service.update(TENANT_ID, CONFIG_ID, { thresholds_json: newThresholds });
+
+    expect(mockRlsTx.gradeThresholdConfig.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          thresholds_json: newThresholds,
+        }),
+      }),
+    );
+  });
 });
 
 // ─── remove Tests ────────────────────────────────────────────────────────────

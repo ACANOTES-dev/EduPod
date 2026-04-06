@@ -718,6 +718,72 @@ describe('GradeCurveService — applyCurve additional branches', () => {
     expect(result.grades_updated).toBe(2);
   });
 
+  it('should skip grade update for null raw_score records in the update loop', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({
+      id: ASSESSMENT_ID,
+      status: 'open',
+      max_score: 100,
+      curve_applied: 'none',
+    });
+    mockPrisma.grade.findMany.mockResolvedValue([
+      { id: 'g1', student_id: 's1', raw_score: 70 },
+      { id: 'g2', student_id: 's2', raw_score: null },
+    ]);
+
+    const result = await service.applyCurve(TENANT_ID, ASSESSMENT_ID, USER_ID, {
+      method: 'linear_shift',
+      params: { shift: 10 },
+    });
+
+    // Only the non-null score should be updated
+    expect(mockRlsTx.grade.update).toHaveBeenCalledTimes(1);
+    expect(result.grades_updated).toBe(1);
+  });
+
+  it('should skip grade update for bell curve null scores in mixed set', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({
+      id: ASSESSMENT_ID,
+      status: 'open',
+      max_score: 100,
+      curve_applied: 'none',
+    });
+    mockPrisma.grade.findMany.mockResolvedValue([
+      { id: 'g1', student_id: 's1', raw_score: 50 },
+      { id: 'g2', student_id: 's2', raw_score: null },
+      { id: 'g3', student_id: 's3', raw_score: 80 },
+    ]);
+
+    const result = await service.applyCurve(TENANT_ID, ASSESSMENT_ID, USER_ID, {
+      method: 'bell',
+      params: { target_mean: 75, target_stddev: 10 },
+    });
+
+    // Only 2 non-null scores should be updated
+    expect(mockRlsTx.grade.update).toHaveBeenCalledTimes(2);
+    expect(result.grades_updated).toBe(2);
+  });
+
+  it('should skip grade update for custom mapping null scores', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({
+      id: ASSESSMENT_ID,
+      status: 'open',
+      max_score: 100,
+      curve_applied: 'none',
+    });
+    mockPrisma.grade.findMany.mockResolvedValue([
+      { id: 'g1', student_id: 's1', raw_score: 50 },
+      { id: 'g2', student_id: 's2', raw_score: null },
+    ]);
+
+    const result = await service.applyCurve(TENANT_ID, ASSESSMENT_ID, USER_ID, {
+      method: 'custom',
+      params: { mappings: [{ from: 50, to: 75 }] },
+    });
+
+    expect(mockRlsTx.grade.update).toHaveBeenCalledTimes(1);
+    expect(result.grades_updated).toBe(1);
+  });
+
   it('should handle custom curve with undefined params (empty mappings)', async () => {
     mockPrisma.assessment.findFirst.mockResolvedValue({
       id: ASSESSMENT_ID,

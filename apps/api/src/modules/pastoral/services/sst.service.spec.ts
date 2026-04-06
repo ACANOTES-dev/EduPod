@@ -281,6 +281,26 @@ describe('SstService', () => {
       expect(result.active).toBe(true);
     });
 
+    it('should clear role_description when set to null', async () => {
+      const existing = makeMember({ role_description: 'Old role' });
+      const updated = makeMember({ role_description: null });
+      mockRlsTx.sstMember.findUnique.mockResolvedValue(existing);
+      mockRlsTx.sstMember.update.mockResolvedValue(updated);
+
+      const result = await service.updateMember(
+        TENANT_ID,
+        MEMBER_ID,
+        { role_description: null as unknown as string },
+        ACTOR_USER_ID,
+      );
+
+      expect(result.role_description).toBeNull();
+      expect(mockRlsTx.sstMember.update).toHaveBeenCalledWith({
+        where: { id: MEMBER_ID },
+        data: expect.objectContaining({ role_description: null }),
+      });
+    });
+
     it('should throw NotFoundException for non-existent member', async () => {
       mockRlsTx.sstMember.findUnique.mockResolvedValue(null);
 
@@ -365,6 +385,15 @@ describe('SstService', () => {
       expect(result[0]?.user_name).toBeDefined();
     });
 
+    it('should return null user_name when user relation is null', async () => {
+      const members = [makeMember({ id: 'member-1', user_id: USER_ID_A, user: null })];
+      mockRlsTx.sstMember.findMany.mockResolvedValue(members);
+
+      const result = await service.listMembers(TENANT_ID);
+
+      expect(result[0]?.user_name).toBeNull();
+    });
+
     it('should list only active members when filter active=true', async () => {
       const activeMembers = [makeMember({ id: 'member-1', user_id: USER_ID_A, active: true })];
       mockRlsTx.sstMember.findMany.mockResolvedValue(activeMembers);
@@ -427,6 +456,16 @@ describe('SstService', () => {
         { user_id: USER_ID_A, name: 'Jane Doe' },
         { user_id: USER_ID_B, name: 'John Smith' },
       ]);
+    });
+
+    it('should fall back to user_id when user_name is null', async () => {
+      const activeMembers = [makeMember({ id: 'member-1', user_id: USER_ID_A, user: null })];
+      mockRlsTx.sstMember.findMany.mockResolvedValue(activeMembers);
+
+      const result = await service.getActiveMembers(TENANT_ID);
+
+      // user_name is null from listMembers, so should fall back to user_id
+      expect(result).toEqual([{ user_id: USER_ID_A, name: USER_ID_A }]);
     });
   });
 

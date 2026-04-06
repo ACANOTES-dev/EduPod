@@ -1,7 +1,11 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, AcademicReadFacade } from '../../../common/tests/mock-facades';
+import {
+  MOCK_FACADE_PROVIDERS,
+  AcademicReadFacade,
+  StudentReadFacade,
+} from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { StandardsService } from './standards.service';
@@ -32,7 +36,9 @@ const mockRlsTx = {
 
 jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -97,18 +103,32 @@ describe('StandardsService — createStandard', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should throw NotFoundException when subject does not exist', async () => {
-    mockAcademicFacade.findSubjectByIdOrThrow.mockRejectedValue(new NotFoundException('subject not found'));
+    mockAcademicFacade.findSubjectByIdOrThrow.mockRejectedValue(
+      new NotFoundException('subject not found'),
+    );
 
     await expect(
-      service.createStandard(TENANT_ID, { subject_id: SUBJECT_ID, year_group_id: YEAR_GROUP_ID, code: 'X', description: 'Y' }),
+      service.createStandard(TENANT_ID, {
+        subject_id: SUBJECT_ID,
+        year_group_id: YEAR_GROUP_ID,
+        code: 'X',
+        description: 'Y',
+      }),
     ).rejects.toThrow(NotFoundException);
   });
 
   it('should throw NotFoundException when year group does not exist', async () => {
-    mockAcademicFacade.findYearGroupByIdOrThrow.mockRejectedValue(new NotFoundException('year group not found'));
+    mockAcademicFacade.findYearGroupByIdOrThrow.mockRejectedValue(
+      new NotFoundException('year group not found'),
+    );
 
     await expect(
-      service.createStandard(TENANT_ID, { subject_id: SUBJECT_ID, year_group_id: YEAR_GROUP_ID, code: 'X', description: 'Y' }),
+      service.createStandard(TENANT_ID, {
+        subject_id: SUBJECT_ID,
+        year_group_id: YEAR_GROUP_ID,
+        code: 'X',
+        description: 'Y',
+      }),
     ).rejects.toThrow(NotFoundException);
   });
 
@@ -201,9 +221,7 @@ describe('StandardsService — deleteStandard', () => {
   it('should throw NotFoundException when standard does not exist', async () => {
     mockPrisma.curriculumStandard.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.deleteStandard(TENANT_ID, STANDARD_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.deleteStandard(TENANT_ID, STANDARD_ID)).rejects.toThrow(NotFoundException);
   });
 
   it('should delete the standard when it exists', async () => {
@@ -255,20 +273,19 @@ describe('StandardsService — mapAssessmentStandards', () => {
     mockPrisma.curriculumStandard.findMany.mockResolvedValue([{ id: 'std-1' }]);
 
     await expect(
-      service.mapAssessmentStandards(TENANT_ID, ASSESSMENT_ID, { standard_ids: ['std-1', 'std-missing'] }),
+      service.mapAssessmentStandards(TENANT_ID, ASSESSMENT_ID, {
+        standard_ids: ['std-1', 'std-missing'],
+      }),
     ).rejects.toThrow(NotFoundException);
   });
 
   it('should replace existing mappings with new standard_ids', async () => {
     mockPrisma.assessment.findFirst.mockResolvedValue({ id: ASSESSMENT_ID });
-    mockPrisma.curriculumStandard.findMany.mockResolvedValue([
-      { id: 'std-1' },
-      { id: 'std-2' },
-    ]);
+    mockPrisma.curriculumStandard.findMany.mockResolvedValue([{ id: 'std-1' }, { id: 'std-2' }]);
 
-    const result = await service.mapAssessmentStandards(TENANT_ID, ASSESSMENT_ID, {
+    const result = (await service.mapAssessmentStandards(TENANT_ID, ASSESSMENT_ID, {
       standard_ids: ['std-1', 'std-2'],
-    }) as { mapped_count: number };
+    })) as { mapped_count: number };
 
     expect(result.mapped_count).toBe(2);
     expect(mockRlsTx.assessmentStandardMapping.deleteMany).toHaveBeenCalled();
@@ -278,7 +295,9 @@ describe('StandardsService — mapAssessmentStandards', () => {
   it('should allow clearing all mappings with empty standard_ids', async () => {
     mockPrisma.assessment.findFirst.mockResolvedValue({ id: ASSESSMENT_ID });
 
-    const result = await service.mapAssessmentStandards(TENANT_ID, ASSESSMENT_ID, { standard_ids: [] }) as { mapped_count: number };
+    const result = (await service.mapAssessmentStandards(TENANT_ID, ASSESSMENT_ID, {
+      standard_ids: [],
+    })) as { mapped_count: number };
 
     expect(result.mapped_count).toBe(0);
     expect(mockRlsTx.assessmentStandardMapping.deleteMany).toHaveBeenCalled();
@@ -363,6 +382,231 @@ describe('StandardsService — computeCompetencySnapshots', () => {
     expect(mockRlsTx.studentCompetencySnapshot.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({ competency_level: 'Developing' }),
+      }),
+    );
+  });
+
+  it('should return snapshots_computed:0 when all grades have null raw_score', async () => {
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        max_score: 100,
+        standard_mappings: [{ standard_id: STANDARD_ID }],
+        grades: [{ raw_score: null }],
+      },
+    ]);
+    mockPrisma.competencyScale.findFirst.mockResolvedValue(null);
+
+    const result = await service.computeCompetencySnapshots(TENANT_ID, 'student-1', 'period-1');
+
+    expect(result.snapshots_computed).toBe(0);
+  });
+
+  it('should skip standards with maxTotal=0', async () => {
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        max_score: 0,
+        standard_mappings: [{ standard_id: 'std-zero' }],
+        grades: [{ raw_score: 0 }],
+      },
+      {
+        id: 'a2',
+        max_score: 100,
+        standard_mappings: [{ standard_id: STANDARD_ID }],
+        grades: [{ raw_score: 80 }],
+      },
+    ]);
+    mockPrisma.competencyScale.findFirst.mockResolvedValue(null);
+
+    const result = await service.computeCompetencySnapshots(TENANT_ID, 'student-1', 'period-1');
+
+    expect(result.snapshots_computed).toBe(1);
+  });
+
+  it('should resolve to lowest level when score is below all thresholds', async () => {
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        max_score: 100,
+        standard_mappings: [{ standard_id: STANDARD_ID }],
+        grades: [{ raw_score: 5 }],
+      },
+    ]);
+    mockPrisma.competencyScale.findFirst.mockResolvedValue({
+      levels_json: [
+        { label: 'Proficient', threshold_min: 70 },
+        { label: 'Mastered', threshold_min: 90 },
+      ],
+    });
+
+    const result = await service.computeCompetencySnapshots(TENANT_ID, 'student-1', 'period-1');
+
+    expect(result.snapshots_computed).toBe(1);
+    expect(mockRlsTx.studentCompetencySnapshot.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ competency_level: 'Proficient' }),
+      }),
+    );
+  });
+});
+
+// ─── bulkImportStandards Tests ──────────────────────────────────────────────
+
+describe('StandardsService — bulkImportStandards', () => {
+  let service: StandardsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+
+    mockRlsTx.curriculumStandard.create.mockReset().mockResolvedValue(baseStandard);
+    mockRlsTx.curriculumStandard.update.mockReset().mockResolvedValue(baseStandard);
+    mockRlsTx.curriculumStandard.findFirst.mockReset();
+
+    mockAcademicFacade.findSubjectByIdOrThrow.mockResolvedValue({ id: SUBJECT_ID });
+    mockAcademicFacade.findYearGroupByIdOrThrow.mockResolvedValue({ id: YEAR_GROUP_ID });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
+        StandardsService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
+    }).compile();
+
+    service = module.get<StandardsService>(StandardsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should create new standards when none exist', async () => {
+    mockRlsTx.curriculumStandard.findFirst.mockResolvedValue(null);
+
+    const result = await service.bulkImportStandards(TENANT_ID, {
+      subject_id: SUBJECT_ID,
+      year_group_id: YEAR_GROUP_ID,
+      standards: [
+        { code: 'MATH-001', description: 'Fractions' },
+        { code: 'MATH-002', description: 'Decimals' },
+      ],
+    });
+
+    expect(result.created).toBe(2);
+    expect(result.updated).toBe(0);
+    expect(result.total).toBe(2);
+    expect(mockRlsTx.curriculumStandard.create).toHaveBeenCalledTimes(2);
+  });
+
+  it('should update existing standards', async () => {
+    mockRlsTx.curriculumStandard.findFirst.mockResolvedValue({ id: STANDARD_ID });
+
+    const result = await service.bulkImportStandards(TENANT_ID, {
+      subject_id: SUBJECT_ID,
+      year_group_id: YEAR_GROUP_ID,
+      standards: [{ code: 'MATH-001', description: 'Updated fractions' }],
+    });
+
+    expect(result.created).toBe(0);
+    expect(result.updated).toBe(1);
+    expect(mockRlsTx.curriculumStandard.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: STANDARD_ID },
+        data: expect.objectContaining({ description: 'Updated fractions' }),
+      }),
+    );
+  });
+
+  it('should handle a mix of creates and updates', async () => {
+    mockRlsTx.curriculumStandard.findFirst
+      .mockResolvedValueOnce({ id: STANDARD_ID }) // existing
+      .mockResolvedValueOnce(null); // new
+
+    const result = await service.bulkImportStandards(TENANT_ID, {
+      subject_id: SUBJECT_ID,
+      year_group_id: YEAR_GROUP_ID,
+      standards: [
+        { code: 'MATH-001', description: 'Updated' },
+        { code: 'MATH-NEW', description: 'Brand new' },
+      ],
+    });
+
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(1);
+    expect(result.total).toBe(2);
+  });
+});
+
+// ─── getCompetencySnapshots Tests ───────────────────────────────────────────
+
+describe('StandardsService — getCompetencySnapshots', () => {
+  let service: StandardsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  const mockStudentFacade = { findOneGeneric: jest.fn() };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+
+    mockStudentFacade.findOneGeneric.mockResolvedValue({
+      id: 'student-1',
+      first_name: 'Ali',
+      last_name: 'Hassan',
+    });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
+        { provide: StudentReadFacade, useValue: mockStudentFacade },
+        StandardsService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
+    }).compile();
+
+    service = module.get<StandardsService>(StandardsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should throw NotFoundException when student not found', async () => {
+    mockStudentFacade.findOneGeneric.mockResolvedValue(null);
+
+    await expect(service.getCompetencySnapshots(TENANT_ID, 'student-1')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('should return snapshots for a student', async () => {
+    mockPrisma.studentCompetencySnapshot.findMany.mockResolvedValue([
+      {
+        id: 'snap-1',
+        standard: {
+          id: 'std-1',
+          code: 'MATH-001',
+          description: 'Fractions',
+          subject_id: SUBJECT_ID,
+        },
+        academic_period: { id: 'period-1', name: 'Term 1' },
+        competency_level: 'Mastered',
+        score_average: 95.5,
+      },
+    ]);
+
+    const result = await service.getCompetencySnapshots(TENANT_ID, 'student-1');
+
+    expect(result.student.first_name).toBe('Ali');
+    expect(result.data).toHaveLength(1);
+  });
+
+  it('should filter by periodId when provided', async () => {
+    mockPrisma.studentCompetencySnapshot.findMany.mockResolvedValue([]);
+
+    await service.getCompetencySnapshots(TENANT_ID, 'student-1', 'period-1');
+
+    expect(mockPrisma.studentCompetencySnapshot.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ academic_period_id: 'period-1' }),
       }),
     );
   });

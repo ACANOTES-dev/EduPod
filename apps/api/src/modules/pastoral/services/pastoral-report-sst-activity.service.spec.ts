@@ -257,5 +257,44 @@ describe('PastoralReportSstActivityService', () => {
         }),
       );
     });
+
+    it('should use default dates, map extra intervention statuses, and group unassigned students', async () => {
+      mockDb.pastoralCase.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+      mockDb.pastoralCase.findMany.mockResolvedValue([]);
+      mockDb.pastoralConcern.findMany.mockResolvedValue([
+        {
+          category: 'attendance',
+          severity: 'urgent',
+          created_at: new Date('2026-02-05T10:00:00Z'),
+          student_id: STUDENT_ID,
+          student: null,
+        },
+      ]);
+      mockDb.pastoralIntervention.findMany.mockResolvedValue([
+        { status: 'not_achieved' },
+        { status: 'escalated' },
+      ]);
+      mockDb.sstMeetingAction.findMany.mockResolvedValue([]);
+
+      const result = await service.build(mockDb as never, TENANT_ID, USER_ID, {});
+
+      expect(result.period.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(result.period.to).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(result.intervention_outcomes).toEqual({
+        achieved: 0,
+        partially_achieved: 0,
+        not_achieved: 1,
+        escalated: 1,
+        in_progress: 0,
+      });
+      expect(result.by_year_group).toEqual([
+        {
+          year_group_name: 'Unassigned',
+          student_count: 1,
+          concern_count: 1,
+          concerns_per_student: 1,
+        },
+      ]);
+    });
   });
 });

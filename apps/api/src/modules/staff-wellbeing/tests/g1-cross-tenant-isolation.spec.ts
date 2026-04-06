@@ -67,16 +67,15 @@ const mockRlsTx = {
   },
 };
 
-const mockCreateRlsClient = jest.fn().mockReturnValue({
-  $transaction: jest
-    .fn()
-    .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
-});
-
 jest.mock('../../../common/middleware/rls.middleware', () => ({
-  createRlsClient: mockCreateRlsClient,
+  createRlsClient: jest.fn().mockReturnValue({
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+  }),
 }));
 
+import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { BoardReportService } from '../services/board-report.service';
 import { HmacService } from '../services/hmac.service';
 import { SurveyResultsService } from '../services/survey-results.service';
@@ -94,6 +93,8 @@ const TENANT_B_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const SURVEY_ID = '11111111-1111-1111-1111-111111111111';
 const USER_ID = '22222222-2222-2222-2222-222222222222';
 const STAFF_PROFILE_ID = '33333333-3333-3333-3333-333333333333';
+
+const mockCreateRlsClient = jest.mocked(createRlsClient);
 
 // ─── Dependency Mocks ───────────────────────────────────────────────────────
 

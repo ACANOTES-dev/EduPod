@@ -26,9 +26,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -54,10 +52,7 @@ describe('PastoralEventService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        PastoralEventService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [PastoralEventService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<PastoralEventService>(PastoralEventService);
@@ -132,20 +127,51 @@ describe('PastoralEventService', () => {
       // Should NOT have inserted
       expect(mockRlsTx.pastoralEvent.create).not.toHaveBeenCalled();
       // Should have logged an error
+      expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('Payload validation failed'));
+    });
+
+    it('discards event with unknown event_type and logs error', async () => {
+      const loggerSpy = jest.spyOn(
+        (service as unknown as { logger: { error: jest.Mock } }).logger,
+        'error',
+      );
+
+      const unknownTypeEvent: PastoralEventInput = {
+        ...validConcernCreatedEvent,
+        event_type: 'totally_made_up_event',
+      };
+
+      await service.write(unknownTypeEvent);
+
+      // Should NOT have inserted
+      expect(mockRlsTx.pastoralEvent.create).not.toHaveBeenCalled();
+      // Should have logged unknown type
       expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Payload validation failed'),
+        expect.stringContaining('Unknown pastoral event type: totally_made_up_event'),
       );
     });
 
     it('never throws to caller on DB error', async () => {
-      mockRlsTx.pastoralEvent.create.mockRejectedValue(
-        new Error('DB connection lost'),
-      );
+      mockRlsTx.pastoralEvent.create.mockRejectedValue(new Error('DB connection lost'));
 
       // Should not throw — fire-and-forget contract
-      await expect(
-        service.write(validConcernCreatedEvent),
-      ).resolves.toBeUndefined();
+      await expect(service.write(validConcernCreatedEvent)).resolves.toBeUndefined();
+    });
+
+    it('logs non-Error thrown values in catch', async () => {
+      const loggerSpy = jest.spyOn(
+        (service as unknown as { logger: { error: jest.Mock } }).logger,
+        'error',
+      );
+
+      mockRlsTx.pastoralEvent.create.mockRejectedValue('string-error');
+
+      await service.write(validConcernCreatedEvent);
+
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to write pastoral event'),
+        'string-error',
+      );
     });
   });
 
@@ -170,13 +196,7 @@ describe('PastoralEventService', () => {
       mockRlsTx.pastoralEvent.findMany.mockResolvedValue(mockEvents);
       mockRlsTx.pastoralEvent.count.mockResolvedValue(15);
 
-      const result = await service.getStudentChronology(
-        TENANT_ID,
-        USER_ID,
-        STUDENT_ID,
-        1,
-        10,
-      );
+      const result = await service.getStudentChronology(TENANT_ID, USER_ID, STUDENT_ID, 1, 10);
 
       expect(result.data).toHaveLength(10);
       expect(result.meta).toEqual({ page: 1, pageSize: 10, total: 15 });

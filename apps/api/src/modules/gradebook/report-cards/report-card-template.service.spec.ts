@@ -330,6 +330,80 @@ describe('ReportCardTemplateService — update', () => {
       ConflictException,
     );
   });
+
+  it('should update sections_json when provided', async () => {
+    mockPrisma.reportCardTemplate.findFirst.mockResolvedValue({
+      id: TEMPLATE_ID,
+      locale: 'en',
+    });
+
+    const newSections = [{ type: 'grades', title: 'Grades', visible: true }];
+    await service.update(TENANT_ID, TEMPLATE_ID, {
+      sections_json: newSections as unknown as TemplateSectionConfig[],
+    });
+
+    expect(mockRlsTx.reportCardTemplate.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          sections_json: newSections,
+        }),
+      }),
+    );
+  });
+
+  it('should update branding_overrides_json when provided', async () => {
+    mockPrisma.reportCardTemplate.findFirst.mockResolvedValue({
+      id: TEMPLATE_ID,
+      locale: 'en',
+    });
+
+    const brandingOverrides = { logo_url: 'https://example.com/logo.png' };
+    await service.update(TENANT_ID, TEMPLATE_ID, {
+      branding_overrides_json: brandingOverrides,
+    });
+
+    expect(mockRlsTx.reportCardTemplate.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          branding_overrides_json: brandingOverrides,
+        }),
+      }),
+    );
+  });
+
+  it('should clear branding_overrides_json to JsonNull when set to null', async () => {
+    mockPrisma.reportCardTemplate.findFirst.mockResolvedValue({
+      id: TEMPLATE_ID,
+      locale: 'en',
+    });
+
+    await service.update(TENANT_ID, TEMPLATE_ID, {
+      branding_overrides_json: null,
+    });
+
+    expect(mockRlsTx.reportCardTemplate.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('should clear other defaults when is_default is set to true', async () => {
+    mockPrisma.reportCardTemplate.findFirst.mockResolvedValue({
+      id: TEMPLATE_ID,
+      locale: 'en',
+    });
+
+    await service.update(TENANT_ID, TEMPLATE_ID, { is_default: true });
+
+    expect(mockRlsTx.reportCardTemplate.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          locale: 'en',
+          is_default: true,
+          id: { not: TEMPLATE_ID },
+        }),
+        data: { is_default: false },
+      }),
+    );
+  });
 });
 
 // ─── remove ───────────────────────────────────────────────────────────────────

@@ -378,5 +378,169 @@ describe('NepsVisitService', () => {
         where: { id: VISIT_STUDENT_ID },
       });
     });
+
+    it('should throw NotFoundException when visit-student not found', async () => {
+      mockRlsTx.pastoralNepsVisitStudent.findFirst.mockResolvedValue(null);
+
+      await expect(service.removeStudent(TENANT_ID, VISIT_STUDENT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ─── update — not found ────────────────────────────────────────────
+
+  describe('update — not found', () => {
+    it('should throw NotFoundException when visit not found', async () => {
+      mockRlsTx.pastoralNepsVisit.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(TENANT_ID, VISIT_ID, { psychologist_name: 'Dr. New' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── update — individual field branches ────────────────────────────
+
+  describe('update — individual field branches', () => {
+    it('should update only visit_date when provided', async () => {
+      mockRlsTx.pastoralNepsVisit.findFirst.mockResolvedValue(makeVisit());
+      mockRlsTx.pastoralNepsVisit.update.mockResolvedValue(
+        makeVisit({ visit_date: new Date('2026-06-01') }),
+      );
+
+      await service.update(TENANT_ID, VISIT_ID, { visit_date: '2026-06-01' });
+
+      expect(mockRlsTx.pastoralNepsVisit.update).toHaveBeenCalledWith({
+        where: { id: VISIT_ID },
+        data: { visit_date: new Date('2026-06-01') },
+      });
+    });
+
+    it('should update only notes when provided', async () => {
+      mockRlsTx.pastoralNepsVisit.findFirst.mockResolvedValue(makeVisit());
+      mockRlsTx.pastoralNepsVisit.update.mockResolvedValue(makeVisit({ notes: 'New notes' }));
+
+      await service.update(TENANT_ID, VISIT_ID, { notes: 'New notes' });
+
+      expect(mockRlsTx.pastoralNepsVisit.update).toHaveBeenCalledWith({
+        where: { id: VISIT_ID },
+        data: { notes: 'New notes' },
+      });
+    });
+  });
+
+  // ─── addStudent — not found and error rethrow ──────────────────────
+
+  describe('addStudent — not found', () => {
+    it('should throw NotFoundException when visit not found', async () => {
+      mockRlsTx.pastoralNepsVisit.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.addStudent(TENANT_ID, VISIT_ID, { student_id: STUDENT_ID }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should re-throw non-P2002 errors from create', async () => {
+      mockRlsTx.pastoralNepsVisit.findFirst.mockResolvedValue(makeVisit());
+      mockRlsTx.pastoralNepsVisitStudent.create.mockRejectedValue(new Error('Connection lost'));
+
+      await expect(
+        service.addStudent(TENANT_ID, VISIT_ID, { student_id: STUDENT_ID }),
+      ).rejects.toThrow('Connection lost');
+    });
+  });
+
+  // ─── updateStudentOutcome — not found and null outcome ─────────────
+
+  describe('updateStudentOutcome — not found', () => {
+    it('should throw NotFoundException when visit-student not found', async () => {
+      mockRlsTx.pastoralNepsVisitStudent.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateStudentOutcome(TENANT_ID, VISIT_STUDENT_ID, {
+          outcome: 'Some outcome',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should set outcome to null when outcome is undefined', async () => {
+      mockRlsTx.pastoralNepsVisitStudent.findFirst.mockResolvedValue(
+        makeVisitStudent({ outcome: 'Old outcome' }),
+      );
+      mockRlsTx.pastoralNepsVisitStudent.update.mockResolvedValue(
+        makeVisitStudent({ outcome: null }),
+      );
+
+      await service.updateStudentOutcome(TENANT_ID, VISIT_STUDENT_ID, {});
+
+      expect(mockRlsTx.pastoralNepsVisitStudent.update).toHaveBeenCalledWith({
+        where: { id: VISIT_STUDENT_ID },
+        data: { outcome: null },
+      });
+    });
+  });
+
+  // ─── list — partial date filters ──────────────────────────────────
+
+  describe('list — partial date filters', () => {
+    it('should filter by from_date only', async () => {
+      mockRlsTx.pastoralNepsVisit.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralNepsVisit.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, {
+        from_date: '2026-03-01',
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(mockRlsTx.pastoralNepsVisit.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tenant_id: TENANT_ID,
+            visit_date: { gte: new Date('2026-03-01') },
+          },
+        }),
+      );
+    });
+
+    it('should filter by to_date only', async () => {
+      mockRlsTx.pastoralNepsVisit.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralNepsVisit.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, {
+        to_date: '2026-03-31',
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(mockRlsTx.pastoralNepsVisit.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tenant_id: TENANT_ID,
+            visit_date: { lte: new Date('2026-03-31') },
+          },
+        }),
+      );
+    });
+  });
+
+  // ─── create — with notes ──────────────────────────────────────────
+
+  describe('create — with notes', () => {
+    it('should pass notes when provided', async () => {
+      mockRlsTx.pastoralNepsVisit.create.mockResolvedValue(makeVisit({ notes: 'Visit notes' }));
+
+      const result = await service.create(TENANT_ID, ACTOR_USER_ID, {
+        visit_date: '2026-03-20',
+        psychologist_name: 'Dr. Smith',
+        notes: 'Visit notes',
+      });
+
+      expect(result.notes).toBe('Visit notes');
+      expect(mockRlsTx.pastoralNepsVisit.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ notes: 'Visit notes' }),
+      });
+    });
   });
 });

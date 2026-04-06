@@ -35,11 +35,29 @@ function buildMockPrisma() {
     },
     behaviourIncident: {
       count: jest.fn().mockResolvedValue(0),
+      findMany: jest.fn().mockResolvedValue([]),
     },
     behaviourPolicyRule: {
       findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(null),
+      count: jest.fn().mockResolvedValue(0),
     },
     behaviourPolicyEvaluation: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    behaviourPolicyRuleVersion: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
+    behaviourCategory: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
+    behaviourAttachment: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    behaviourTask: {
       findMany: jest.fn().mockResolvedValue([]),
     },
   };
@@ -355,6 +373,336 @@ describe('BehaviourReadFacade', () => {
       expect(prisma.behaviourPolicyEvaluation.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { tenant_id: TENANT_ID, incident_id: INCIDENT_ID },
+        }),
+      );
+    });
+  });
+
+  // ─── findPolicyEvaluationTrace ──────────────────────────────────────────
+
+  describe('BehaviourReadFacade — findPolicyEvaluationTrace', () => {
+    it('should include action_executions and rule_version', async () => {
+      await facade.findPolicyEvaluationTrace(TENANT_ID, INCIDENT_ID);
+
+      expect(prisma.behaviourPolicyEvaluation.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenant_id: TENANT_ID, incident_id: INCIDENT_ID },
+          include: expect.objectContaining({
+            action_executions: expect.any(Object),
+            rule_version: true,
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── findPolicyRuleById ─────────────────────────────────────────────────
+
+  describe('BehaviourReadFacade — findPolicyRuleById', () => {
+    it('should return null when rule does not exist', async () => {
+      prisma.behaviourPolicyRule.findFirst.mockResolvedValue(null);
+
+      const result = await facade.findPolicyRuleById(TENANT_ID, 'nonexistent');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return the rule when found', async () => {
+      const rule = { id: 'rule-1', name: 'Auto-escalate', is_active: true };
+      prisma.behaviourPolicyRule.findFirst.mockResolvedValue(rule);
+
+      const result = await facade.findPolicyRuleById(TENANT_ID, 'rule-1');
+
+      expect(result).toEqual(rule);
+      expect(prisma.behaviourPolicyRule.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'rule-1', tenant_id: TENANT_ID },
+        }),
+      );
+    });
+  });
+
+  // ─── findPolicyRulesPaginated ───────────────────────────────────────────
+
+  describe('BehaviourReadFacade — findPolicyRulesPaginated', () => {
+    it('should return paginated data with total', async () => {
+      prisma.behaviourPolicyRule.findMany.mockResolvedValue([{ id: 'rule-1' }]);
+      prisma.behaviourPolicyRule.count.mockResolvedValue(5);
+
+      const result = await facade.findPolicyRulesPaginated(TENANT_ID, {}, { skip: 0, take: 10 });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(5);
+    });
+
+    it('should apply stage filter when provided', async () => {
+      prisma.behaviourPolicyRule.findMany.mockResolvedValue([]);
+      prisma.behaviourPolicyRule.count.mockResolvedValue(0);
+
+      await facade.findPolicyRulesPaginated(TENANT_ID, { stage: 'pre_log' }, { skip: 0, take: 10 });
+
+      expect(prisma.behaviourPolicyRule.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ stage: 'pre_log' }),
+        }),
+      );
+    });
+
+    it('should apply is_active filter when provided', async () => {
+      prisma.behaviourPolicyRule.findMany.mockResolvedValue([]);
+      prisma.behaviourPolicyRule.count.mockResolvedValue(0);
+
+      await facade.findPolicyRulesPaginated(TENANT_ID, { is_active: true }, { skip: 0, take: 10 });
+
+      expect(prisma.behaviourPolicyRule.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ is_active: true }),
+        }),
+      );
+    });
+  });
+
+  // ─── findPolicyRuleVersions ─────────────────────────────────────────────
+
+  describe('BehaviourReadFacade — findPolicyRuleVersions', () => {
+    it('should query versions by rule_id and tenant_id ordered desc', async () => {
+      await facade.findPolicyRuleVersions(TENANT_ID, 'rule-1');
+
+      expect(prisma.behaviourPolicyRuleVersion.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { rule_id: 'rule-1', tenant_id: TENANT_ID },
+          orderBy: { version: 'desc' },
+        }),
+      );
+    });
+  });
+
+  // ─── findPolicyRuleVersion ──────────────────────────────────────────────
+
+  describe('BehaviourReadFacade — findPolicyRuleVersion', () => {
+    it('should return null when version does not exist', async () => {
+      prisma.behaviourPolicyRuleVersion.findFirst.mockResolvedValue(null);
+
+      const result = await facade.findPolicyRuleVersion(TENANT_ID, 'rule-1', 99);
+
+      expect(result).toBeNull();
+    });
+
+    it('should query by rule_id, tenant_id and version', async () => {
+      const version = { id: 'v-1', version: 2, rule_id: 'rule-1' };
+      prisma.behaviourPolicyRuleVersion.findFirst.mockResolvedValue(version);
+
+      const result = await facade.findPolicyRuleVersion(TENANT_ID, 'rule-1', 2);
+
+      expect(result).toEqual(version);
+      expect(prisma.behaviourPolicyRuleVersion.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { rule_id: 'rule-1', tenant_id: TENANT_ID, version: 2 },
+        }),
+      );
+    });
+  });
+
+  // ─── findCategories ─────────────────────────────────────────────────────
+
+  describe('BehaviourReadFacade — findCategories', () => {
+    it('should return categories with id and name', async () => {
+      const cats = [{ id: 'cat-1', name: 'Disruption' }];
+      prisma.behaviourCategory.findMany.mockResolvedValue(cats);
+
+      const result = await facade.findCategories(TENANT_ID);
+
+      expect(result).toEqual(cats);
+      expect(prisma.behaviourCategory.findMany).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID },
+        select: { id: true, name: true },
+      });
+    });
+  });
+
+  // ─── findCategoryById ───────────────────────────────────────────────────
+
+  describe('BehaviourReadFacade — findCategoryById', () => {
+    it('should return null when category does not exist', async () => {
+      prisma.behaviourCategory.findFirst.mockResolvedValue(null);
+
+      const result = await facade.findCategoryById(TENANT_ID, 'nonexistent');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return category name when found', async () => {
+      prisma.behaviourCategory.findFirst.mockResolvedValue({ name: 'Praise' });
+
+      const result = await facade.findCategoryById(TENANT_ID, 'cat-1');
+
+      expect(result).toEqual({ name: 'Praise' });
+    });
+  });
+
+  // ─── findIncidentsForReplay ─────────────────────────────────────────────
+
+  describe('BehaviourReadFacade — findIncidentsForReplay', () => {
+    it('should filter by date range and excluded statuses', async () => {
+      const from = new Date('2026-01-01');
+      const to = new Date('2026-03-31');
+
+      await facade.findIncidentsForReplay(TENANT_ID, from, to, ['withdrawn']);
+
+      expect(prisma.behaviourIncident.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            occurred_at: { gte: from, lte: to },
+            status: { notIn: ['withdrawn'] },
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── findSanctionsForTusla ──────────────────────────────────────────────
+
+  describe('BehaviourReadFacade — findSanctionsForTusla', () => {
+    it('should filter by types and minimum suspension days', async () => {
+      await facade.findSanctionsForTusla(TENANT_ID, {
+        types: ['suspension_external'],
+        minSuspensionDays: 20,
+      });
+
+      expect(prisma.behaviourSanction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            type: { in: ['suspension_external'] },
+            suspension_days: { gte: 20 },
+          }),
+        }),
+      );
+    });
+
+    it('should apply date filter when provided', async () => {
+      const dateFilter = { gte: new Date('2026-01-01'), lte: new Date('2026-06-30') };
+
+      await facade.findSanctionsForTusla(TENANT_ID, {
+        types: ['suspension_internal'],
+        minSuspensionDays: 20,
+        dateFilter,
+      });
+
+      expect(prisma.behaviourSanction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            created_at: dateFilter,
+          }),
+        }),
+      );
+    });
+
+    it('should not include created_at when no dateFilter', async () => {
+      await facade.findSanctionsForTusla(TENANT_ID, {
+        types: ['suspension_external'],
+        minSuspensionDays: 20,
+      });
+
+      const call = (prisma.behaviourSanction.findMany as jest.Mock).mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(call.where).not.toHaveProperty('created_at');
+    });
+  });
+
+  // ─── findExclusionCasesForTusla ─────────────────────────────────────────
+
+  describe('BehaviourReadFacade — findExclusionCasesForTusla', () => {
+    it('should query exclusion cases with tenant filter', async () => {
+      await facade.findExclusionCasesForTusla(TENANT_ID, {});
+
+      expect(prisma.behaviourExclusionCase.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenant_id: TENANT_ID }),
+        }),
+      );
+    });
+
+    it('should apply date filter when provided', async () => {
+      const dateFilter = { gte: new Date('2026-01-01'), lte: new Date('2026-06-30') };
+
+      await facade.findExclusionCasesForTusla(TENANT_ID, { dateFilter });
+
+      expect(prisma.behaviourExclusionCase.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ created_at: dateFilter }),
+        }),
+      );
+    });
+
+    it('should not include created_at when no dateFilter', async () => {
+      await facade.findExclusionCasesForTusla(TENANT_ID, {});
+
+      const call = (prisma.behaviourExclusionCase.findMany as jest.Mock).mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(call.where).not.toHaveProperty('created_at');
+    });
+  });
+
+  // ─── findAttachmentById ─────────────────────────────────────────────────
+
+  describe('BehaviourReadFacade — findAttachmentById', () => {
+    it('should return null when attachment does not exist', async () => {
+      prisma.behaviourAttachment.findFirst.mockResolvedValue(null);
+
+      const result = await facade.findAttachmentById(TENANT_ID, 'nonexistent');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return attachment when found', async () => {
+      const attachment = { id: 'att-1', file_name: 'report.pdf' };
+      prisma.behaviourAttachment.findFirst.mockResolvedValue(attachment);
+
+      const result = await facade.findAttachmentById(TENANT_ID, 'att-1');
+
+      expect(result).toEqual(attachment);
+      expect(prisma.behaviourAttachment.findFirst).toHaveBeenCalledWith({
+        where: { id: 'att-1', tenant_id: TENANT_ID },
+      });
+    });
+  });
+
+  // ─── findAttachmentsByEntity ────────────────────────────────────────────
+
+  describe('BehaviourReadFacade — findAttachmentsByEntity', () => {
+    it('should query by entity_type and entity_id', async () => {
+      await facade.findAttachmentsByEntity(TENANT_ID, 'incident', INCIDENT_ID);
+
+      expect(prisma.behaviourAttachment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tenant_id: TENANT_ID,
+            entity_type: 'incident',
+            entity_id: INCIDENT_ID,
+          },
+        }),
+      );
+    });
+  });
+
+  // ─── findOverdueTasksByEntityTypes ──────────────────────────────────────
+
+  describe('BehaviourReadFacade — findOverdueTasksByEntityTypes', () => {
+    it('should filter by entity types and overdue status', async () => {
+      await facade.findOverdueTasksByEntityTypes(TENANT_ID, ['safeguarding_concern'], 10);
+
+      expect(prisma.behaviourTask.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            entity_type: { in: ['safeguarding_concern'] },
+            status: { in: ['pending', 'in_progress', 'overdue'] },
+          }),
+          take: 10,
         }),
       );
     });

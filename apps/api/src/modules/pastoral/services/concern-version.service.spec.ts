@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -25,7 +26,9 @@ const mockRlsTx = {
 
 jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -111,9 +114,7 @@ describe('ConcernVersionService', () => {
 
   describe('amendNarrative', () => {
     function setupConcernLock(tier = 1) {
-      mockRlsTx.$queryRaw.mockResolvedValue([
-        { id: CONCERN_ID, student_id: STUDENT_ID, tier },
-      ]);
+      mockRlsTx.$queryRaw.mockResolvedValue([{ id: CONCERN_ID, student_id: STUDENT_ID, tier }]);
     }
 
     function setupLatestVersion(versionNumber: number, narrative: string) {
@@ -236,6 +237,54 @@ describe('ConcernVersionService', () => {
         },
         ip_address: '10.0.0.1',
       });
+    });
+
+    it('throws NotFoundException when concern is not found', async () => {
+      mockRlsTx.$queryRaw.mockResolvedValue([]);
+
+      await expect(
+        service.amendNarrative(
+          TENANT_ID,
+          USER_ID,
+          CONCERN_ID,
+          { new_narrative: 'Updated narrative', amendment_reason: 'Reason' },
+          null,
+        ),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockRlsTx.pastoralConcernVersion.findFirst).not.toHaveBeenCalled();
+      expect(mockRlsTx.pastoralConcernVersion.create).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when $queryRaw returns null', async () => {
+      mockRlsTx.$queryRaw.mockResolvedValue(null);
+
+      await expect(
+        service.amendNarrative(
+          TENANT_ID,
+          USER_ID,
+          CONCERN_ID,
+          { new_narrative: 'Updated narrative', amendment_reason: 'Reason' },
+          null,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws NotFoundException when no versions exist for concern', async () => {
+      mockRlsTx.$queryRaw.mockResolvedValue([{ id: CONCERN_ID, student_id: STUDENT_ID, tier: 1 }]);
+      mockRlsTx.pastoralConcernVersion.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.amendNarrative(
+          TENANT_ID,
+          USER_ID,
+          CONCERN_ID,
+          { new_narrative: 'Updated narrative', amendment_reason: 'Reason' },
+          null,
+        ),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockRlsTx.pastoralConcernVersion.create).not.toHaveBeenCalled();
     });
 
     it('prevents concurrent amendments (SELECT FOR UPDATE present)', async () => {

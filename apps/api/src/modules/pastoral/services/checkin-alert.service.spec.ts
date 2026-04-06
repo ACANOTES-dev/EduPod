@@ -459,4 +459,90 @@ describe('CheckinAlertService', () => {
       expect(result).toBe(false);
     });
   });
+
+  // ─── evaluateCheckin — outside monitoring hours ────────────────────
+
+  describe('evaluateCheckin — outside monitoring hours', () => {
+    const setupFlagMocks = () => {
+      mockRlsTx.pastoralConcern.create.mockResolvedValue({
+        id: CONCERN_ID,
+        tenant_id: TENANT_ID,
+        student_id: STUDENT_ID,
+        category: 'emotional',
+        severity: 'elevated',
+        tier: 2,
+      });
+      mockRlsTx.studentCheckin.update.mockResolvedValue({
+        id: CHECKIN_ID,
+        flagged: true,
+      });
+    };
+
+    it('schedules notification with deliver_after when outside monitoring hours', async () => {
+      // Configure settings with weekdays only 08:00-16:00
+      mockConfigFacade.findSettings.mockResolvedValue(
+        makeTenantSettingsRecord({
+          monitoring_hours_start: '08:00',
+          monitoring_hours_end: '16:00',
+          monitoring_days: [1, 2, 3, 4, 5],
+        }),
+      );
+      setupFlagMocks();
+
+      // Use a Saturday evening — outside both hours and days
+      const saturday8pm = new Date('2026-03-28T20:00:00');
+      jest.useFakeTimers({ now: saturday8pm });
+
+      try {
+        await service.evaluateCheckin(
+          TENANT_ID,
+          STUDENT_ID,
+          CHECKIN_ID,
+          '2026-03-28',
+          3,
+          'I feel like suicide',
+        );
+
+        expect(mockNotificationsQueue.add).toHaveBeenCalledWith(
+          'pastoral:checkin-alert-notification',
+          expect.objectContaining({
+            deliver_after: expect.any(String),
+          }),
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('does NOT schedule deliver_after when within monitoring hours', async () => {
+      mockConfigFacade.findSettings.mockResolvedValue(
+        makeTenantSettingsRecord({
+          monitoring_hours_start: '08:00',
+          monitoring_hours_end: '16:00',
+          monitoring_days: [1, 2, 3, 4, 5],
+        }),
+      );
+      setupFlagMocks();
+
+      // Use a Wednesday 10am — within hours
+      const wednesday10am = new Date('2026-03-25T10:00:00');
+      jest.useFakeTimers({ now: wednesday10am });
+
+      try {
+        await service.evaluateCheckin(
+          TENANT_ID,
+          STUDENT_ID,
+          CHECKIN_ID,
+          '2026-03-25',
+          3,
+          'I feel like suicide',
+        );
+
+        const addCall = mockNotificationsQueue.add.mock.calls[0]![1] as Record<string, unknown>;
+        expect(addCall).not.toHaveProperty('deliver_after');
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  });
 });

@@ -1,7 +1,12 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, ClassesReadFacade, ConfigurationReadFacade, StudentReadFacade } from '../../common/tests/mock-facades';
+import {
+  MOCK_FACADE_PROVIDERS,
+  ClassesReadFacade,
+  ConfigurationReadFacade,
+  StudentReadFacade,
+} from '../../common/tests/mock-facades';
 import { PrismaService } from '../prisma/prisma.service';
 
 import type { BulkUpsertGradesDto } from './dto/gradebook.dto';
@@ -25,7 +30,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: typeof mockRlsTx) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: typeof mockRlsTx) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -43,9 +50,7 @@ function buildMockPrisma() {
 
 function buildValidDto(overrides: Partial<BulkUpsertGradesDto> = {}): BulkUpsertGradesDto {
   return {
-    grades: [
-      { student_id: STUDENT_ID, raw_score: 85, is_missing: false, comment: undefined },
-    ],
+    grades: [{ student_id: STUDENT_ID, raw_score: 85, is_missing: false, comment: undefined }],
     ...overrides,
   };
 }
@@ -141,9 +146,7 @@ describe('GradesService', () => {
         class_id: CLASS_ID,
         max_score: 100,
       });
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([
-        { student_id: STUDENT_ID },
-      ]);
+      mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: STUDENT_ID }]);
       mockPrisma.tenantSetting.findFirst.mockResolvedValue({
         settings: { gradebook: { requireGradeComment: true } },
       });
@@ -153,7 +156,11 @@ describe('GradesService', () => {
           TENANT_ID,
           ASSESSMENT_ID,
           USER_ID,
-          buildValidDto({ grades: [{ student_id: STUDENT_ID, raw_score: 85, is_missing: false, comment: undefined }] }),
+          buildValidDto({
+            grades: [
+              { student_id: STUDENT_ID, raw_score: 85, is_missing: false, comment: undefined },
+            ],
+          }),
         ),
       ).rejects.toThrow(BadRequestException);
     });
@@ -214,6 +221,121 @@ describe('GradesService', () => {
       );
     });
 
+    it('should keep enteredAt null when both existing and new raw_score are null', async () => {
+      mockPrisma.assessment.findFirst.mockResolvedValue({
+        id: ASSESSMENT_ID,
+        status: 'open',
+        class_id: CLASS_ID,
+        max_score: 100,
+      });
+      mockClassesFacade.findEnrolledStudentIds.mockResolvedValue([STUDENT_ID]);
+      mockConfigFacade.findSettings.mockResolvedValue(null);
+      mockPrisma.grade.findMany.mockResolvedValue([
+        {
+          student_id: STUDENT_ID,
+          raw_score: null,
+          entered_at: null,
+          entered_by_user_id: null,
+        },
+      ]);
+      mockRlsTx.grade.upsert.mockResolvedValue({ id: 'grade-1' });
+
+      await service.bulkUpsert(
+        TENANT_ID,
+        ASSESSMENT_ID,
+        USER_ID,
+        buildValidDto({ grades: [{ student_id: STUDENT_ID, raw_score: null, is_missing: true }] }),
+      );
+
+      expect(mockRlsTx.grade.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({
+            entered_at: null,
+          }),
+        }),
+      );
+    });
+
+    it('should set enteredAt null for new records with null raw_score', async () => {
+      mockPrisma.assessment.findFirst.mockResolvedValue({
+        id: ASSESSMENT_ID,
+        status: 'open',
+        class_id: CLASS_ID,
+        max_score: 100,
+      });
+      mockClassesFacade.findEnrolledStudentIds.mockResolvedValue([STUDENT_ID]);
+      mockConfigFacade.findSettings.mockResolvedValue(null);
+      mockPrisma.grade.findMany.mockResolvedValue([]); // no existing grades
+      mockRlsTx.grade.upsert.mockResolvedValue({ id: 'grade-1' });
+
+      await service.bulkUpsert(
+        TENANT_ID,
+        ASSESSMENT_ID,
+        USER_ID,
+        buildValidDto({ grades: [{ student_id: STUDENT_ID, raw_score: null, is_missing: true }] }),
+      );
+
+      expect(mockRlsTx.grade.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            entered_at: null,
+          }),
+        }),
+      );
+    });
+
+    it('should not throw when comment is provided and requireGradeComment is true', async () => {
+      mockPrisma.assessment.findFirst.mockResolvedValue({
+        id: ASSESSMENT_ID,
+        status: 'open',
+        class_id: CLASS_ID,
+        max_score: 100,
+      });
+      mockClassesFacade.findEnrolledStudentIds.mockResolvedValue([STUDENT_ID]);
+      mockConfigFacade.findSettings.mockResolvedValue({
+        settings: { gradebook: { requireGradeComment: true } },
+      });
+      mockPrisma.grade.findMany.mockResolvedValue([]);
+      mockRlsTx.grade.upsert.mockResolvedValue({ id: 'grade-1' });
+
+      const result = await service.bulkUpsert(
+        TENANT_ID,
+        ASSESSMENT_ID,
+        USER_ID,
+        buildValidDto({
+          grades: [
+            { student_id: STUDENT_ID, raw_score: 85, is_missing: false, comment: 'Good work' },
+          ],
+        }),
+      );
+
+      expect(result.data).toHaveLength(1);
+    });
+
+    it('should skip comment validation when raw_score is null even with requireGradeComment', async () => {
+      mockPrisma.assessment.findFirst.mockResolvedValue({
+        id: ASSESSMENT_ID,
+        status: 'open',
+        class_id: CLASS_ID,
+        max_score: 100,
+      });
+      mockClassesFacade.findEnrolledStudentIds.mockResolvedValue([STUDENT_ID]);
+      mockConfigFacade.findSettings.mockResolvedValue({
+        settings: { gradebook: { requireGradeComment: true } },
+      });
+      mockPrisma.grade.findMany.mockResolvedValue([]);
+      mockRlsTx.grade.upsert.mockResolvedValue({ id: 'grade-1' });
+
+      const result = await service.bulkUpsert(
+        TENANT_ID,
+        ASSESSMENT_ID,
+        USER_ID,
+        buildValidDto({ grades: [{ student_id: STUDENT_ID, raw_score: null, is_missing: true }] }),
+      );
+
+      expect(result.data).toHaveLength(1);
+    });
+
     it('edge: should throw BadRequestException when score is negative', async () => {
       mockPrisma.assessment.findFirst.mockResolvedValue({
         id: ASSESSMENT_ID,
@@ -241,9 +363,9 @@ describe('GradesService', () => {
     it('should throw NotFoundException when assessment does not exist', async () => {
       mockPrisma.assessment.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.findByAssessment(TENANT_ID, ASSESSMENT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findByAssessment(TENANT_ID, ASSESSMENT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should return grades with student info when assessment exists', async () => {
@@ -251,7 +373,12 @@ describe('GradesService', () => {
       mockPrisma.grade.findMany.mockResolvedValue([
         {
           id: 'grade-1',
-          student: { id: STUDENT_ID, first_name: 'Alice', last_name: 'Smith', student_number: 'S001' },
+          student: {
+            id: STUDENT_ID,
+            first_name: 'Alice',
+            last_name: 'Smith',
+            student_number: 'S001',
+          },
           entered_by: null,
           raw_score: 85,
           is_missing: false,
@@ -270,9 +397,9 @@ describe('GradesService', () => {
     it('should throw NotFoundException when student does not exist', async () => {
       mockStudentFacade.findById.mockResolvedValue(null);
 
-      await expect(
-        service.findByStudent(TENANT_ID, STUDENT_ID, {}),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findByStudent(TENANT_ID, STUDENT_ID, {})).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should return grades with assessment info when student exists', async () => {
@@ -319,6 +446,44 @@ describe('GradesService', () => {
         expect.objectContaining({
           where: expect.objectContaining({
             assessment: expect.objectContaining({ class_id: CLASS_ID }),
+          }),
+        }),
+      );
+    });
+
+    it('should pass subject_id filter to grade query when provided', async () => {
+      mockStudentFacade.findById.mockResolvedValue({
+        id: STUDENT_ID,
+        first_name: 'Alice',
+        last_name: 'Smith',
+      });
+      mockPrisma.grade.findMany.mockResolvedValue([]);
+
+      await service.findByStudent(TENANT_ID, STUDENT_ID, { subject_id: 'sub-1' });
+
+      expect(mockPrisma.grade.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            assessment: expect.objectContaining({ subject_id: 'sub-1' }),
+          }),
+        }),
+      );
+    });
+
+    it('should pass academic_period_id filter to grade query when provided', async () => {
+      mockStudentFacade.findById.mockResolvedValue({
+        id: STUDENT_ID,
+        first_name: 'Alice',
+        last_name: 'Smith',
+      });
+      mockPrisma.grade.findMany.mockResolvedValue([]);
+
+      await service.findByStudent(TENANT_ID, STUDENT_ID, { academic_period_id: 'period-1' });
+
+      expect(mockPrisma.grade.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            assessment: expect.objectContaining({ academic_period_id: 'period-1' }),
           }),
         }),
       );

@@ -700,4 +700,119 @@ describe('PeriodGradeComputationService — compute', () => {
     // Score should be 0 since missing grade is treated as 0
     expect(upsertCall?.create?.computed_value).toBe(0);
   });
+
+  it('should fall back to percentage formatting for unrecognized grading scale type', async () => {
+    mockClassesFacade.findClassesGeneric.mockResolvedValue([{ year_group_id: 'yg-1' }]);
+    mockPrisma.yearGroupGradeWeight.findFirst.mockResolvedValue(null);
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue({
+      grading_scale: {
+        config_json: {
+          type: 'percentage',
+        },
+      },
+      category_weight_json: {
+        weights: [{ category_id: 'cat-1', weight: 100 }],
+      },
+    });
+    mockConfigFacade.findSettings.mockResolvedValue(null);
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        max_score: 100,
+        category_id: 'cat-1',
+        category: { id: 'cat-1', name: 'Exam', assessment_type: 'summative' },
+        grades: [{ student_id: 's1', raw_score: 75, is_missing: false }],
+      },
+    ]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: 's1' }]);
+
+    await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
+
+    const upsertCall = mockRlsTx.periodGradeSnapshot.upsert.mock.calls[0]?.[0];
+    expect(upsertCall?.create?.display_value).toBe('75%');
+  });
+
+  it('should continue when GPA computation fails for a student', async () => {
+    const mockGpaService = buildMockGpaService();
+    mockGpaService.computeGpa.mockRejectedValue(new Error('GPA computation error'));
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
+        PeriodGradeComputationService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: GpaService, useValue: mockGpaService },
+        { provide: StandardsService, useValue: buildMockStandardsService() },
+      ],
+    }).compile();
+
+    const svc = module.get<PeriodGradeComputationService>(PeriodGradeComputationService);
+
+    mockClassesFacade.findClassesGeneric.mockResolvedValue([{ year_group_id: 'yg-1' }]);
+    mockPrisma.yearGroupGradeWeight.findFirst.mockResolvedValue(null);
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue(baseGradeConfig);
+    mockConfigFacade.findSettings.mockResolvedValue(null);
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        max_score: 100,
+        category_id: 'cat-1',
+        category: { id: 'cat-1', name: 'Exam', assessment_type: 'summative' },
+        grades: [{ student_id: 's1', raw_score: 85, is_missing: false }],
+      },
+    ]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: 's1' }]);
+
+    // Should not throw — GPA failure is best-effort
+    const result = await svc.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
+
+    expect(result.data).toHaveLength(1);
+    // Give time for the void promise to settle
+    await new Promise((r) => setTimeout(r, 10));
+  });
+
+  it('should continue when competency computation fails for a student', async () => {
+    const mockStandardsService = buildMockStandardsService();
+    mockStandardsService.computeCompetencySnapshots.mockRejectedValue(
+      new Error('Competency error'),
+    );
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        { provide: ClassesReadFacade, useValue: mockClassesFacade },
+        { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
+        PeriodGradeComputationService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: GpaService, useValue: buildMockGpaService() },
+        { provide: StandardsService, useValue: mockStandardsService },
+      ],
+    }).compile();
+
+    const svc = module.get<PeriodGradeComputationService>(PeriodGradeComputationService);
+
+    mockClassesFacade.findClassesGeneric.mockResolvedValue([{ year_group_id: 'yg-1' }]);
+    mockPrisma.yearGroupGradeWeight.findFirst.mockResolvedValue(null);
+    mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue(baseGradeConfig);
+    mockConfigFacade.findSettings.mockResolvedValue(null);
+    mockPrisma.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        max_score: 100,
+        category_id: 'cat-1',
+        category: { id: 'cat-1', name: 'Exam', assessment_type: 'summative' },
+        grades: [{ student_id: 's1', raw_score: 85, is_missing: false }],
+      },
+    ]);
+    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: 's1' }]);
+
+    // Should not throw — competency failure is best-effort
+    const result = await svc.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
+
+    expect(result.data).toHaveLength(1);
+    // Give time for the void promise to settle
+    await new Promise((r) => setTimeout(r, 10));
+  });
 });

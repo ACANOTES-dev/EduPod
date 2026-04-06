@@ -213,6 +213,18 @@ describe('CheckinAdminController', () => {
         'weekly',
       );
     });
+
+    it('should default missing dates to empty strings and unknown group_by to weekly', async () => {
+      mockAnalyticsService.getSchoolMoodTrends.mockResolvedValue({ data: [] });
+
+      await controller.moodTrends(TENANT, { group_by: 'unexpected' } as never);
+
+      expect(mockAnalyticsService.getSchoolMoodTrends).toHaveBeenCalledWith(
+        TENANT_ID,
+        { from: '', to: '' },
+        'weekly',
+      );
+    });
   });
 
   describe('dayOfWeekPatterns', () => {
@@ -249,6 +261,17 @@ describe('CheckinAdminController', () => {
       expect(mockAnalyticsService.getDayOfWeekPatterns).toHaveBeenCalledWith(TENANT_ID, null, {
         from: '2026-01-01',
         to: '2026-03-31',
+      });
+    });
+
+    it('should default the day-of-week date range to empty strings', async () => {
+      mockAnalyticsService.getDayOfWeekPatterns.mockResolvedValue({ data: [] });
+
+      await controller.dayOfWeekPatterns(TENANT, {} as never);
+
+      expect(mockAnalyticsService.getDayOfWeekPatterns).toHaveBeenCalledWith(TENANT_ID, null, {
+        from: '',
+        to: '',
       });
     });
   });

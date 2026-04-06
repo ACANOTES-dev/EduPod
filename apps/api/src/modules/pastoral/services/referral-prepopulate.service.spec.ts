@@ -42,9 +42,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -86,10 +84,7 @@ describe('ReferralPrepopulateService', () => {
     }
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReferralPrepopulateService,
-        { provide: PrismaService, useValue: {} },
-      ],
+      providers: [ReferralPrepopulateService, { provide: PrismaService, useValue: {} }],
     }).compile();
 
     service = module.get<ReferralPrepopulateService>(ReferralPrepopulateService);
@@ -255,6 +250,31 @@ describe('ReferralPrepopulateService', () => {
       expect(result.attendance.total_days).toBe(0);
       expect(result.attendance.period.from).toBe('');
       expect(result.attendance.period.to).toBe('');
+    });
+
+    it('should preserve academic year strings when date fields are not Date objects', async () => {
+      mockRlsTx.academicYear.findFirst
+        .mockResolvedValueOnce({
+          id: ACADEMIC_YEAR_ID,
+          start_date: '2025-09-01',
+          end_date: '2026-06-30',
+        })
+        .mockResolvedValueOnce({ id: ACADEMIC_YEAR_ID })
+        .mockResolvedValueOnce({
+          start_date: '2025-09-01',
+          end_date: '2026-06-30',
+        });
+      mockRlsTx.academicPeriod.findMany.mockResolvedValue([]);
+      mockRlsTx.dailyAttendanceSummary.findMany.mockResolvedValue([]);
+      mockRlsTx.grade.findMany.mockResolvedValue([]);
+      mockRlsTx.behaviourIncidentParticipant.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralParentContact.findMany.mockResolvedValue([]);
+
+      const result = await service.generateSnapshot(TENANT_ID, STUDENT_ID);
+
+      expect(result.attendance.period).toEqual({ from: '2025-09-01', to: '2026-06-30' });
+      expect(result.behaviour.period).toEqual({ from: '2025-09-01', to: '2026-06-30' });
     });
   });
 
@@ -473,6 +493,44 @@ describe('ReferralPrepopulateService', () => {
       );
       expect(history!.trend).toBe('insufficient_data');
     });
+
+    it('should skip null scores and ignore grades from periods outside the active ordering', async () => {
+      setupActiveYear();
+      mockRlsTx.academicPeriod.findMany.mockResolvedValue([
+        { id: PERIOD_1_ID },
+        { id: PERIOD_2_ID },
+      ]);
+      mockRlsTx.grade.findMany.mockResolvedValue([
+        {
+          raw_score: null,
+          assessment: {
+            subject: { name: 'History' },
+            academic_period_id: PERIOD_1_ID,
+          },
+        },
+        {
+          raw_score: 88,
+          assessment: {
+            subject: { name: 'History' },
+            academic_period_id: 'outside-period',
+          },
+        },
+      ]);
+      mockRlsTx.dailyAttendanceSummary.findMany.mockResolvedValue([]);
+      mockRlsTx.behaviourIncidentParticipant.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([]);
+      mockRlsTx.pastoralParentContact.findMany.mockResolvedValue([]);
+
+      const result = await service.generateSnapshot(TENANT_ID, STUDENT_ID);
+
+      expect(result.academic_performance.subjects).toEqual([
+        {
+          subject_name: 'History',
+          current_grade: null,
+          trend: 'insufficient_data',
+        },
+      ]);
+    });
   });
 
   // ─── 7. Behaviour — groups incidents by category ────────────────────────
@@ -611,19 +669,16 @@ describe('ReferralPrepopulateService', () => {
 
   describe('All sections in one transaction', () => {
     it('should use createRlsClient and execute all queries in a single transaction', async () => {
-      const { createRlsClient } = jest.requireMock(
-        '../../../common/middleware/rls.middleware',
-      ) as { createRlsClient: jest.Mock };
+      const { createRlsClient } = jest.requireMock('../../../common/middleware/rls.middleware') as {
+        createRlsClient: jest.Mock;
+      };
 
       setupEmptyDefaults();
 
       await service.generateSnapshot(TENANT_ID, STUDENT_ID);
 
       // Verify createRlsClient was called with correct tenant
-      expect(createRlsClient).toHaveBeenCalledWith(
-        expect.anything(),
-        { tenant_id: TENANT_ID },
-      );
+      expect(createRlsClient).toHaveBeenCalledWith(expect.anything(), { tenant_id: TENANT_ID });
 
       // Verify $transaction was called (all sub-queries run inside it)
       const rlsClient = createRlsClient.mock.results[0]?.value as {

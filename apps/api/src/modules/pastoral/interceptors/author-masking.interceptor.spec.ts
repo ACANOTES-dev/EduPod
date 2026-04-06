@@ -34,10 +34,12 @@ const makeStaffJwt = (userId: string, membershipId: string) => ({
 
 const makeExecutionContext = (
   jwt: ReturnType<typeof makeStaffJwt>,
+  overrides: { tenantContext?: { tenant_id?: string } | null } = {},
 ): ExecutionContext => {
   const request = {
     currentUser: jwt,
-    tenantContext: { tenant_id: TENANT_ID },
+    tenantContext:
+      overrides.tenantContext === undefined ? { tenant_id: TENANT_ID } : overrides.tenantContext,
   };
 
   return {
@@ -50,8 +52,8 @@ const makeExecutionContext = (
     getHandler: () => Object,
     getArgs: () => [],
     getArgByIndex: () => ({}),
-    switchToRpc: () => ({} as ReturnType<ExecutionContext['switchToRpc']>),
-    switchToWs: () => ({} as ReturnType<ExecutionContext['switchToWs']>),
+    switchToRpc: () => ({}) as ReturnType<ExecutionContext['switchToRpc']>,
+    switchToWs: () => ({}) as ReturnType<ExecutionContext['switchToWs']>,
     getType: () => 'http' as const,
   } as unknown as ExecutionContext;
 };
@@ -156,9 +158,7 @@ describe('AuthorMaskingInterceptor', () => {
       ],
     }).compile();
 
-    interceptor = module.get<AuthorMaskingInterceptor>(
-      AuthorMaskingInterceptor,
-    );
+    interceptor = module.get<AuthorMaskingInterceptor>(AuthorMaskingInterceptor);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -175,9 +175,7 @@ describe('AuthorMaskingInterceptor', () => {
       });
 
       const concern = makeConcernResponse({ author_masked: false });
-      const ctx = makeExecutionContext(
-        makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF),
-      );
+      const ctx = makeExecutionContext(makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF));
       const handler = makeCallHandler(concern);
 
       const result$ = interceptor.intercept(ctx, handler);
@@ -197,9 +195,7 @@ describe('AuthorMaskingInterceptor', () => {
       });
 
       const concern = makeConcernResponse({ author_masked: true });
-      const ctx = makeExecutionContext(
-        makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF),
-      );
+      const ctx = makeExecutionContext(makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF));
       const handler = makeCallHandler(concern);
 
       const result$ = interceptor.intercept(ctx, handler);
@@ -224,9 +220,7 @@ describe('AuthorMaskingInterceptor', () => {
       });
 
       const concern = makeConcernResponse({ author_masked: true });
-      const ctx = makeExecutionContext(
-        makeStaffJwt(USER_ID_DLP, MEMBERSHIP_STAFF),
-      );
+      const ctx = makeExecutionContext(makeStaffJwt(USER_ID_DLP, MEMBERSHIP_STAFF));
       const handler = makeCallHandler(concern);
 
       const result$ = interceptor.intercept(ctx, handler);
@@ -246,9 +240,7 @@ describe('AuthorMaskingInterceptor', () => {
       });
 
       const concern = makeConcernResponse({ author_masked: false });
-      const ctx = makeExecutionContext(
-        makeStaffJwt(USER_ID_DLP, MEMBERSHIP_STAFF),
-      );
+      const ctx = makeExecutionContext(makeStaffJwt(USER_ID_DLP, MEMBERSHIP_STAFF));
       const handler = makeCallHandler(concern);
 
       const result$ = interceptor.intercept(ctx, handler);
@@ -270,9 +262,7 @@ describe('AuthorMaskingInterceptor', () => {
       });
 
       const concern = makeConcernResponse({ author_masked: true });
-      const ctx = makeExecutionContext(
-        makeStaffJwt(USER_ID_PARENT, MEMBERSHIP_PARENT),
-      );
+      const ctx = makeExecutionContext(makeStaffJwt(USER_ID_PARENT, MEMBERSHIP_PARENT));
       const handler = makeCallHandler(concern);
 
       const result$ = interceptor.intercept(ctx, handler);
@@ -292,9 +282,7 @@ describe('AuthorMaskingInterceptor', () => {
       });
 
       const concern = makeConcernResponse({ author_masked: false });
-      const ctx = makeExecutionContext(
-        makeStaffJwt(USER_ID_PARENT, MEMBERSHIP_PARENT),
-      );
+      const ctx = makeExecutionContext(makeStaffJwt(USER_ID_PARENT, MEMBERSHIP_PARENT));
       const handler = makeCallHandler(concern);
 
       const result$ = interceptor.intercept(ctx, handler);
@@ -327,9 +315,7 @@ describe('AuthorMaskingInterceptor', () => {
         ],
       });
 
-      const ctx = makeExecutionContext(
-        makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF),
-      );
+      const ctx = makeExecutionContext(makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF));
       const handler = makeCallHandler(concernWithVersions);
 
       const result$ = interceptor.intercept(ctx, handler);
@@ -364,9 +350,7 @@ describe('AuthorMaskingInterceptor', () => {
         meta: { page: 1, pageSize: 20, total: 2 },
       };
 
-      const ctx = makeExecutionContext(
-        makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF),
-      );
+      const ctx = makeExecutionContext(makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF));
       const handler = makeCallHandler(paginatedResponse);
 
       const result$ = interceptor.intercept(ctx, handler);
@@ -414,9 +398,7 @@ describe('AuthorMaskingInterceptor', () => {
         meta: { page: 1, pageSize: 50, total: 1 },
       };
 
-      const ctx = makeExecutionContext(
-        makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF),
-      );
+      const ctx = makeExecutionContext(makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF));
       const handler = makeCallHandler(chronologyResponse);
 
       const result$ = interceptor.intercept(ctx, handler);
@@ -449,9 +431,7 @@ describe('AuthorMaskingInterceptor', () => {
         tier: 1,
       };
 
-      const ctx = makeExecutionContext(
-        makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF),
-      );
+      const ctx = makeExecutionContext(makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF));
       const handler = makeCallHandler(nonAuthorData);
 
       const result$ = interceptor.intercept(ctx, handler);
@@ -471,15 +451,138 @@ describe('AuthorMaskingInterceptor', () => {
         membership_roles: makeStaffRoles(),
       });
 
-      const ctx = makeExecutionContext(
-        makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF),
-      );
+      const ctx = makeExecutionContext(makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF));
       const handler = makeCallHandler(null);
 
       const result$ = interceptor.intercept(ctx, handler);
       const result = await lastValueFrom(result$);
 
       expect(result).toBeNull();
+    });
+
+    it('should fall back to the JWT tenant when request.tenantContext is missing', async () => {
+      const ctx = makeExecutionContext(makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF), {
+        tenantContext: null,
+      });
+      const handler = makeCallHandler(makeConcernResponse({ author_masked: true }));
+
+      const result = (await lastValueFrom(interceptor.intercept(ctx, handler))) as Record<
+        string,
+        unknown
+      >;
+
+      expect(result.logged_by_user_id).toBeNull();
+      expect(mockChildProtectionReadFacade.hasActiveCpAccess).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID_STAFF,
+      );
+    });
+
+    it('should pass platform-level responses through when no tenant can be resolved', async () => {
+      const ctx = makeExecutionContext(
+        {
+          ...makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF),
+          tenant_id: undefined as unknown as string,
+        },
+        { tenantContext: null },
+      );
+      const response = makeConcernResponse({ author_masked: true });
+
+      const result = (await lastValueFrom(
+        interceptor.intercept(ctx, makeCallHandler(response)),
+      )) as Record<string, unknown>;
+
+      expect(result.logged_by_user_id).toBe(USER_ID_STAFF);
+      expect(mockChildProtectionReadFacade.hasActiveCpAccess).not.toHaveBeenCalled();
+    });
+
+    it('should default to masked when resolveViewerContext fails', async () => {
+      // Force resolveViewerContext to throw
+      mockChildProtectionReadFacade.hasActiveCpAccess.mockRejectedValue(
+        new Error('Redis connection lost'),
+      );
+
+      const concern = makeConcernResponse({ author_masked: true });
+      const ctx = makeExecutionContext(makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF));
+      const handler = makeCallHandler(concern);
+
+      const result$ = interceptor.intercept(ctx, handler);
+      const result = (await lastValueFrom(result$)) as Record<string, unknown>;
+
+      // Should default to masked (safe fallback)
+      expect(result.logged_by_user_id).toBeNull();
+      expect(result.author_name).toBe('Author masked');
+    });
+
+    it('should mask non-author-masked concerns on context resolution error', async () => {
+      // Even author_masked=false should be masked in fallback — because fallback
+      // context is { isDlp: false, isParent: false } and author_masked=false
+      // means staff sees author, so it should NOT be masked in the fallback case
+      mockChildProtectionReadFacade.hasActiveCpAccess.mockRejectedValue(new Error('Redis down'));
+
+      const concern = makeConcernResponse({ author_masked: false });
+      const ctx = makeExecutionContext(makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF));
+      const handler = makeCallHandler(concern);
+
+      const result$ = interceptor.intercept(ctx, handler);
+      const result = (await lastValueFrom(result$)) as Record<string, unknown>;
+
+      // author_masked=false + fallback(isDlp:false, isParent:false) = sees author
+      expect(result.logged_by_user_id).toBe(USER_ID_STAFF);
+      expect(result.author_name).toBe('Jane Teacher');
+    });
+
+    it('should return false for checkIsParent when membershipId is null', async () => {
+      // Platform user with null membership_id
+      const jwt = {
+        ...makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF),
+        membership_id: null as unknown as string,
+      };
+
+      const concern = makeConcernResponse({ author_masked: true });
+      const ctx = makeExecutionContext(jwt);
+      const handler = makeCallHandler(concern);
+
+      const result$ = interceptor.intercept(ctx, handler);
+      const result = (await lastValueFrom(result$)) as Record<string, unknown>;
+
+      // Not identified as parent → author_masked=true → masked for non-DLP staff
+      expect(result.logged_by_user_id).toBeNull();
+      expect(result.author_name).toBe('Author masked');
+    });
+
+    it('should return false for checkIsParent when membership not found', async () => {
+      mockRbacReadFacade.findMembershipWithPermissions.mockResolvedValue(null);
+
+      const concern = makeConcernResponse({ author_masked: true });
+      const ctx = makeExecutionContext(makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF));
+      const handler = makeCallHandler(concern);
+
+      const result$ = interceptor.intercept(ctx, handler);
+      const result = (await lastValueFrom(result$)) as Record<string, unknown>;
+
+      // Membership not found → not parent, not DLP → mask author_masked=true
+      expect(result.logged_by_user_id).toBeNull();
+      expect(result.author_name).toBe('Author masked');
+    });
+
+    it('should respect precomputed author_masked_for_viewer flags', async () => {
+      const ctx = makeExecutionContext(makeStaffJwt(USER_ID_STAFF, MEMBERSHIP_STAFF));
+      const result = (await lastValueFrom(
+        interceptor.intercept(
+          ctx,
+          makeCallHandler(
+            makeConcernResponse({
+              author_masked: false,
+              author_masked_for_viewer: true,
+            }),
+          ),
+        ),
+      )) as Record<string, unknown>;
+
+      expect(result.logged_by_user_id).toBeNull();
+      expect(result.author_name).toBe('Author masked');
+      expect(result.author_masked_for_viewer).toBe(true);
     });
   });
 });

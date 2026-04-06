@@ -170,6 +170,68 @@ describe('BehaviourExportAnalyticsService', () => {
       expect(result.content).toContain('Jane Smith,5,20,100,2026-04-01,No');
     });
 
+    it('should handle categories with null rate_per_100', async () => {
+      mockIncidentAnalytics.getCategories.mockResolvedValue({
+        categories: [
+          { category_name: 'Praise', polarity: 'positive', count: 5, rate_per_100: null },
+        ],
+      });
+
+      const result = await service.exportCsv(TENANT_ID, USER_ID, PERMISSIONS, {
+        exportType: 'categories',
+        exposureNormalised: false,
+      });
+
+      // rate_per_100 null should render as empty string
+      expect(result.content).toContain('Praise,positive,5,');
+    });
+
+    it('should handle staff with null last_logged_at and inactive=true', async () => {
+      mockStaffAnalytics.getStaffActivity.mockResolvedValue({
+        staff: [
+          {
+            staff_name: 'Inactive Teacher',
+            last_7_days: 0,
+            last_30_days: 0,
+            total_year: 0,
+            last_logged_at: null,
+            inactive_flag: true,
+          },
+        ],
+      });
+
+      const result = await service.exportCsv(TENANT_ID, USER_ID, PERMISSIONS, {
+        exportType: 'staff_activity',
+        exposureNormalised: false,
+      });
+
+      expect(result.content).toContain('Inactive Teacher,0,0,0,,Yes');
+    });
+
+    it('should filter out participants without student for incidents export', async () => {
+      mockPrismaService.behaviourIncident.findMany.mockResolvedValue([
+        {
+          incident_number: 'INC-002',
+          occurred_at: NOW,
+          category: { name: 'Praise' },
+          polarity: 'positive',
+          severity: 1,
+          status: 'active',
+          reported_by: { first_name: 'Jane', last_name: 'Doe' },
+          participants: [{ student: null }, { student: { first_name: 'Bob', last_name: 'Brown' } }],
+          description: 'Good work',
+        },
+      ]);
+
+      const result = await service.exportCsv(TENANT_ID, USER_ID, PERMISSIONS, {
+        exportType: 'incidents',
+        exposureNormalised: false,
+      });
+
+      // Only Bob Brown should appear, null student filtered out
+      expect(result.content).toContain('Bob Brown');
+    });
+
     it('should return empty CSV for unknown export type', async () => {
       const result = await service.exportCsv(TENANT_ID, USER_ID, PERMISSIONS, {
         exportType: 'unknown' as unknown as

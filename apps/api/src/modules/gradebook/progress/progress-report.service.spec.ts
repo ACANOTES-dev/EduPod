@@ -397,4 +397,98 @@ describe('ProgressReportService — list', () => {
 
     expect(result.data).toHaveLength(0);
   });
+
+  it('should filter by class_id when provided', async () => {
+    mockPrisma.progressReport.findMany.mockResolvedValue([]);
+    mockPrisma.progressReport.count.mockResolvedValue(0);
+
+    await service.list(TENANT_ID, { page: 1, pageSize: 20, class_id: CLASS_ID });
+
+    expect(mockPrisma.progressReport.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ class_id: CLASS_ID }),
+      }),
+    );
+  });
+
+  it('should filter by academic_period_id when provided', async () => {
+    mockPrisma.progressReport.findMany.mockResolvedValue([]);
+    mockPrisma.progressReport.count.mockResolvedValue(0);
+
+    await service.list(TENANT_ID, { page: 1, pageSize: 20, academic_period_id: PERIOD_ID });
+
+    expect(mockPrisma.progressReport.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ academic_period_id: PERIOD_ID }),
+      }),
+    );
+  });
+
+  it('should filter by status when provided', async () => {
+    mockPrisma.progressReport.findMany.mockResolvedValue([]);
+    mockPrisma.progressReport.count.mockResolvedValue(0);
+
+    await service.list(TENANT_ID, { page: 1, pageSize: 20, status: 'sent' });
+
+    expect(mockPrisma.progressReport.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: 'sent' }),
+      }),
+    );
+  });
+});
+
+describe('ProgressReportService — computeTrend', () => {
+  let service: ProgressReportService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ProgressReportService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: NotificationsService, useValue: buildMockNotificationsService() },
+      ],
+    }).compile();
+
+    service = module.get<ProgressReportService>(ProgressReportService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should return improving when the latest snapshot increases by more than 5', async () => {
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      { computed_value: 70, snapshot_at: new Date('2025-01-01') },
+      { computed_value: 80, snapshot_at: new Date('2025-02-01') },
+    ]);
+
+    const trend = await service['computeTrend'](TENANT_ID, STUDENT_ID, 'subject-1');
+
+    expect(trend).toBe('improving');
+  });
+
+  it('should return declining when the latest snapshot drops by more than 5', async () => {
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      { computed_value: 82, snapshot_at: new Date('2025-01-01') },
+      { computed_value: 70, snapshot_at: new Date('2025-02-01') },
+    ]);
+
+    const trend = await service['computeTrend'](TENANT_ID, STUDENT_ID, 'subject-1');
+
+    expect(trend).toBe('declining');
+  });
+
+  it('should treat missing computed values as 0 when comparing snapshots', async () => {
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      { computed_value: null, snapshot_at: new Date('2025-01-01') },
+      { computed_value: null, snapshot_at: new Date('2025-02-01') },
+    ]);
+
+    const trend = await service['computeTrend'](TENANT_ID, STUDENT_ID, 'subject-1');
+
+    expect(trend).toBe('stable');
+  });
 });

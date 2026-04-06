@@ -26,7 +26,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: typeof mockRlsTx) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: typeof mockRlsTx) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -78,9 +80,9 @@ describe('ResultsMatrixService', () => {
         new NotFoundException({ code: 'CLASS_NOT_FOUND', message: 'Class not found' }),
       );
 
-      await expect(
-        service.getMatrix(TENANT_ID, CLASS_ID, PERIOD_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getMatrix(TENANT_ID, CLASS_ID, PERIOD_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should return an empty matrix when no students are enrolled', async () => {
@@ -195,9 +197,7 @@ describe('ResultsMatrixService', () => {
     });
 
     it('should only save grades for enrolled students', async () => {
-      mockPrisma.assessment.findMany.mockResolvedValue([
-        { id: ASSESSMENT_ID, max_score: 100 },
-      ]);
+      mockPrisma.assessment.findMany.mockResolvedValue([{ id: ASSESSMENT_ID, max_score: 100 }]);
       // No active enrolments
       mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([]);
 
@@ -215,12 +215,8 @@ describe('ResultsMatrixService', () => {
     });
 
     it('should clamp score to max_score when score exceeds maximum', async () => {
-      mockPrisma.assessment.findMany.mockResolvedValue([
-        { id: ASSESSMENT_ID, max_score: 50 },
-      ]);
-      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([
-        { student_id: STUDENT_ID },
-      ]);
+      mockPrisma.assessment.findMany.mockResolvedValue([{ id: ASSESSMENT_ID, max_score: 50 }]);
+      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_ID }]);
       mockRlsTx.grade.upsert.mockResolvedValue({ id: 'grade-1' });
 
       await service.saveMatrix(TENANT_ID, CLASS_ID, USER_ID, [
@@ -240,12 +236,8 @@ describe('ResultsMatrixService', () => {
     });
 
     it('should save grades and return the correct saved count', async () => {
-      mockPrisma.assessment.findMany.mockResolvedValue([
-        { id: ASSESSMENT_ID, max_score: 100 },
-      ]);
-      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([
-        { student_id: STUDENT_ID },
-      ]);
+      mockPrisma.assessment.findMany.mockResolvedValue([{ id: ASSESSMENT_ID, max_score: 100 }]);
+      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_ID }]);
       mockRlsTx.grade.upsert.mockResolvedValue({ id: 'grade-1' });
 
       const result = await service.saveMatrix(TENANT_ID, CLASS_ID, USER_ID, [
@@ -259,6 +251,92 @@ describe('ResultsMatrixService', () => {
 
       expect(result.saved).toBe(1);
       expect(mockRlsTx.grade.upsert).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle null raw_score in saveMatrix without setting entered_at', async () => {
+      mockPrisma.assessment.findMany.mockResolvedValue([{ id: ASSESSMENT_ID, max_score: 100 }]);
+      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_ID }]);
+      mockRlsTx.grade.upsert.mockResolvedValue({ id: 'grade-1' });
+
+      await service.saveMatrix(TENANT_ID, CLASS_ID, USER_ID, [
+        {
+          student_id: STUDENT_ID,
+          assessment_id: ASSESSMENT_ID,
+          raw_score: null,
+          is_missing: true,
+        },
+      ]);
+
+      expect(mockRlsTx.grade.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            raw_score: null,
+            entered_at: null,
+          }),
+        }),
+      );
+    });
+
+    it('should clamp negative scores to 0', async () => {
+      mockPrisma.assessment.findMany.mockResolvedValue([{ id: ASSESSMENT_ID, max_score: 100 }]);
+      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_ID }]);
+      mockRlsTx.grade.upsert.mockResolvedValue({ id: 'grade-1' });
+
+      await service.saveMatrix(TENANT_ID, CLASS_ID, USER_ID, [
+        {
+          student_id: STUDENT_ID,
+          assessment_id: ASSESSMENT_ID,
+          raw_score: -10,
+          is_missing: false,
+        },
+      ]);
+
+      expect(mockRlsTx.grade.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ raw_score: 0 }),
+        }),
+      );
+    });
+  });
+
+  // ─── getMatrix with null grades ──────────────────────────────────────────
+
+  describe('getMatrix — null raw_score handling', () => {
+    it('should convert null raw_score to null in grades lookup', async () => {
+      mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([
+        {
+          student: {
+            id: STUDENT_ID,
+            first_name: 'Alice',
+            last_name: 'Smith',
+            student_number: 'S001',
+          },
+        },
+      ]);
+      mockPrisma.assessment.findMany.mockResolvedValue([
+        {
+          id: ASSESSMENT_ID,
+          subject_id: SUBJECT_ID,
+          title: 'Quiz 1',
+          max_score: 100,
+          status: 'open',
+          subject: { id: SUBJECT_ID, name: 'Math', code: 'MATH' },
+          category: { id: 'cat-1', name: 'Quizzes' },
+        },
+      ]);
+      mockPrisma.grade.findMany.mockResolvedValue([
+        {
+          student_id: STUDENT_ID,
+          assessment_id: ASSESSMENT_ID,
+          raw_score: null,
+          is_missing: true,
+        },
+      ]);
+
+      const result = await service.getMatrix(TENANT_ID, CLASS_ID, PERIOD_ID);
+
+      expect(result.grades[STUDENT_ID]?.[ASSESSMENT_ID]?.raw_score).toBeNull();
+      expect(result.grades[STUDENT_ID]?.[ASSESSMENT_ID]?.is_missing).toBe(true);
     });
   });
 });

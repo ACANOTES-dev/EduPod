@@ -2,7 +2,12 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, ParentReadFacade, StudentReadFacade, TenantReadFacade } from '../../common/tests/mock-facades';
+import {
+  MOCK_FACADE_PROVIDERS,
+  ParentReadFacade,
+  StudentReadFacade,
+  TenantReadFacade,
+} from '../../common/tests/mock-facades';
 import { AcademicPeriodsService } from '../academics/academic-periods.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -59,7 +64,11 @@ const mockAcademicPeriodsService = {
 
 const mockParentFacade = { findByUserId: jest.fn() };
 const mockStudentFacade = { isParentLinked: jest.fn() };
-const mockTenantFacade = { findDefaultLocale: jest.fn(), findNameById: jest.fn(), findBranding: jest.fn() };
+const mockTenantFacade = {
+  findDefaultLocale: jest.fn(),
+  findNameById: jest.fn(),
+  findBranding: jest.fn(),
+};
 
 describe('ParentGradebookController', () => {
   let controller: ParentGradebookController;
@@ -273,5 +282,39 @@ describe('ParentGradebookController', () => {
       expect.objectContaining({ school_name: 'Test School' }),
     );
     expect(mockRes.send).toHaveBeenCalledWith(pdfBuffer);
+  });
+
+  it('should fall back to an empty school name when tenant branding has no name', async () => {
+    mockParentFacade.findByUserId.mockResolvedValue({ id: PARENT_ID });
+    mockStudentFacade.isParentLinked.mockResolvedValue(true);
+    mockReportCardsQueriesService.findOne.mockResolvedValue({
+      id: REPORT_CARD_ID,
+      student_id: STUDENT_ID,
+      status: 'published',
+      template_locale: 'en',
+      snapshot_payload_json: { student: 'Ali' },
+    });
+    mockTenantFacade.findNameById.mockResolvedValue(null);
+    mockTenantFacade.findBranding.mockResolvedValue({
+      school_name_ar: null,
+      logo_url: null,
+      primary_color: null,
+    });
+    mockPdfRenderingService.renderPdf.mockResolvedValue(Buffer.from('%PDF-1.4'));
+
+    await controller.getStudentReportCardPdf(
+      tenantContext,
+      userContext,
+      STUDENT_ID,
+      REPORT_CARD_ID,
+      { set: jest.fn(), send: jest.fn() } as never,
+    );
+
+    expect(mockPdfRenderingService.renderPdf).toHaveBeenCalledWith(
+      'report-card',
+      'en',
+      { student: 'Ali' },
+      expect.objectContaining({ school_name: '' }),
+    );
   });
 });

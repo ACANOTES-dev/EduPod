@@ -1,7 +1,11 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { ClassesReadFacade, MOCK_FACADE_PROVIDERS, StudentReadFacade } from '../../../common/tests/mock-facades';
+import {
+  ClassesReadFacade,
+  MOCK_FACADE_PROVIDERS,
+  StudentReadFacade,
+} from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 
@@ -111,7 +115,11 @@ describe('ReportCardsQueriesService — findAll', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [...MOCK_FACADE_PROVIDERS, ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ReportCardsQueriesService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
     }).compile();
 
     service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
@@ -190,7 +198,11 @@ describe('ReportCardsQueriesService — findOne', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [...MOCK_FACADE_PROVIDERS, ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ReportCardsQueriesService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
     }).compile();
 
     service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
@@ -296,6 +308,40 @@ describe('ReportCardsService — update', () => {
       data: { principal_comment?: string | null };
     };
     expect(updateCall.data.principal_comment).toBe('Well done!');
+  });
+
+  it('should clear comments and update template locale when explicit nulls are provided', async () => {
+    mockPrisma.reportCard.findFirst.mockResolvedValue({
+      ...baseReportCard,
+      status: 'draft',
+      snapshot_payload_json: {
+        teacher_comment: 'Existing teacher note',
+        principal_comment: 'Existing principal note',
+      },
+    });
+
+    await service.update(TENANT_ID, REPORT_CARD_ID, {
+      teacher_comment: null,
+      principal_comment: null,
+      template_locale: 'ar',
+    });
+
+    const updateCall = mockRlsTx.reportCard.update.mock.calls[0]?.[0] as {
+      data: {
+        teacher_comment?: string | null;
+        principal_comment?: string | null;
+        template_locale?: string;
+        snapshot_payload_json?: Record<string, unknown>;
+      };
+    };
+
+    expect(updateCall.data.teacher_comment).toBeNull();
+    expect(updateCall.data.principal_comment).toBeNull();
+    expect(updateCall.data.template_locale).toBe('ar');
+    expect(updateCall.data.snapshot_payload_json).toMatchObject({
+      teacher_comment: null,
+      principal_comment: null,
+    });
   });
 });
 
@@ -439,7 +485,11 @@ describe('ReportCardsQueriesService — gradeOverview', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [...MOCK_FACADE_PROVIDERS, ReportCardsQueriesService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ...MOCK_FACADE_PROVIDERS,
+        ReportCardsQueriesService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
     }).compile();
 
     service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);

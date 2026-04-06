@@ -20,7 +20,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -65,6 +67,122 @@ describe('BehaviourTasksService', () => {
 
   afterEach(() => jest.clearAllMocks());
 
+  // ─── listTasks ─────────────────────────────────────────────────────
+
+  describe('listTasks', () => {
+    it('should list tasks with no filters', async () => {
+      await service.listTasks(TENANT_ID, { page: 1, pageSize: 20 });
+
+      expect(mockPrisma.behaviourTask.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenant_id: TENANT_ID },
+        }),
+      );
+    });
+
+    it('should apply status filter', async () => {
+      await service.listTasks(TENANT_ID, { page: 1, pageSize: 20, status: 'pending' });
+
+      expect(mockPrisma.behaviourTask.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: 'pending' }),
+        }),
+      );
+    });
+
+    it('should apply priority filter', async () => {
+      await service.listTasks(TENANT_ID, { page: 1, pageSize: 20, priority: 'high' });
+
+      expect(mockPrisma.behaviourTask.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ priority: 'high' }),
+        }),
+      );
+    });
+
+    it('should apply assigned_to_id filter', async () => {
+      await service.listTasks(TENANT_ID, { page: 1, pageSize: 20, assigned_to_id: USER_ID });
+
+      expect(mockPrisma.behaviourTask.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ assigned_to_id: USER_ID }),
+        }),
+      );
+    });
+
+    it('should apply entity_type and entity_id filters', async () => {
+      await service.listTasks(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        entity_type: 'incident',
+        entity_id: 'inc-1',
+      });
+
+      expect(mockPrisma.behaviourTask.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            entity_type: 'incident',
+            entity_id: 'inc-1',
+          }),
+        }),
+      );
+    });
+
+    it('should override status to overdue when overdue_only is true', async () => {
+      await service.listTasks(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        overdue_only: true,
+      });
+
+      expect(mockPrisma.behaviourTask.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: 'overdue' }),
+        }),
+      );
+    });
+
+    it('should return correct pagination meta', async () => {
+      mockPrisma.behaviourTask.findMany.mockResolvedValue([{ id: 'task-1' }]);
+      mockPrisma.behaviourTask.count.mockResolvedValue(25);
+
+      const result = await service.listTasks(TENANT_ID, { page: 2, pageSize: 10 });
+
+      expect(result.meta).toEqual({ page: 2, pageSize: 10, total: 25 });
+      expect(mockPrisma.behaviourTask.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10, take: 10 }),
+      );
+    });
+  });
+
+  // ─── getTask ─────────────────────────────────────────────────────────
+
+  describe('getTask', () => {
+    it('should return task with included relations', async () => {
+      const task = { id: TASK_ID, tenant_id: TENANT_ID, title: 'Follow up' };
+      mockPrisma.behaviourTask.findFirst.mockResolvedValue(task);
+
+      const result = await service.getTask(TENANT_ID, TASK_ID);
+
+      expect(result).toEqual(task);
+      expect(mockPrisma.behaviourTask.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: TASK_ID, tenant_id: TENANT_ID },
+          include: expect.objectContaining({
+            assigned_to: expect.any(Object),
+            created_by: expect.any(Object),
+          }),
+        }),
+      );
+    });
+
+    it('should throw NotFoundException when task does not exist', async () => {
+      mockPrisma.behaviourTask.findFirst.mockResolvedValue(null);
+
+      await expect(service.getTask(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
   // ─── completeTask ─────────────────────────────────────────────────────
 
   describe('completeTask', () => {
@@ -75,9 +193,9 @@ describe('BehaviourTasksService', () => {
       mockRlsTx.behaviourTask!.findFirst.mockResolvedValue(task);
       mockRlsTx.behaviourTask!.update.mockResolvedValue(updated);
 
-      const result = await service.completeTask(TENANT_ID, TASK_ID, USER_ID, {
+      const result = (await service.completeTask(TENANT_ID, TASK_ID, USER_ID, {
         completion_notes: 'Spoke with parents',
-      }) as { status: string };
+      })) as { status: string };
 
       expect(result.status).toBe('completed');
       expect(mockRlsTx.behaviourTask!.update).toHaveBeenCalledWith({
@@ -116,9 +234,9 @@ describe('BehaviourTasksService', () => {
         tenant_id: TENANT_ID,
       });
 
-      await expect(
-        service.completeTask(TENANT_ID, TASK_ID, USER_ID, {}),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.completeTask(TENANT_ID, TASK_ID, USER_ID, {})).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw TASK_ALREADY_CLOSED for already cancelled task', async () => {
@@ -128,17 +246,17 @@ describe('BehaviourTasksService', () => {
         tenant_id: TENANT_ID,
       });
 
-      await expect(
-        service.completeTask(TENANT_ID, TASK_ID, USER_ID, {}),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.completeTask(TENANT_ID, TASK_ID, USER_ID, {})).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw NotFoundException when task does not exist', async () => {
       mockRlsTx.behaviourTask!.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.completeTask(TENANT_ID, TASK_ID, USER_ID, {}),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.completeTask(TENANT_ID, TASK_ID, USER_ID, {})).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should handle null completion_notes', async () => {
@@ -167,9 +285,9 @@ describe('BehaviourTasksService', () => {
       mockRlsTx.behaviourTask!.findFirst.mockResolvedValue(task);
       mockRlsTx.behaviourTask!.update.mockResolvedValue(updated);
 
-      const result = await service.cancelTask(TENANT_ID, TASK_ID, USER_ID, {
+      const result = (await service.cancelTask(TENANT_ID, TASK_ID, USER_ID, {
         reason: 'No longer needed',
-      }) as { status: string };
+      })) as { status: string };
 
       expect(result.status).toBe('cancelled');
       expect(mockRlsTx.behaviourTask!.update).toHaveBeenCalledWith({
