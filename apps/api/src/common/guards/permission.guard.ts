@@ -84,6 +84,12 @@ export class PermissionGuard implements CanActivate {
       });
     }
 
+    // ─── Owner bypass: school_owner role has unrestricted access ──────────────
+    const isOwner = await this.permissionCacheService.isOwner(user.membership_id);
+    if (isOwner) {
+      return true;
+    }
+
     const permissions = await this.permissionCacheService.getPermissions(user.membership_id);
 
     // Support single permission (string) or multiple (OR logic — any one grants access)

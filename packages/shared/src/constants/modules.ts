@@ -16,6 +16,8 @@ export const MODULE_KEYS = [
   'ai_functions',
   'behaviour',
   'staff_wellbeing',
+  'engagement',
+  'pastoral',
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];

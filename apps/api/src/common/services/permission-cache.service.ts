@@ -32,6 +32,42 @@ export class PermissionCacheService {
     private readonly redis: RedisService,
   ) {}
 
+  // ─── Owner bypass ───────────────────────────────────────────────────────────
+
+  /**
+   * Check if a membership holds the school_owner role.
+   * Owners bypass ALL permission checks — they are the God account for the tenant.
+   * Cached separately with a 5-minute TTL since role assignments change rarely.
+   */
+  async isOwner(membershipId: string): Promise<boolean> {
+    const client = this.redis.getClient();
+    const cacheKey = `owner:${membershipId}`;
+
+    const cached = await client.get(cacheKey);
+    if (cached !== null) {
+      return cached === '1';
+    }
+
+    const ownerRole = await runWithRlsContext(
+      this.prisma,
+      { membership_id: membershipId },
+      async (tx) =>
+        tx.membershipRole.findFirst({
+          where: {
+            membership_id: membershipId,
+            role: { role_key: 'school_owner' },
+          },
+          select: { role_id: true },
+        }),
+    );
+
+    const isOwner = ownerRole !== null;
+    await client.setex(cacheKey, 300, isOwner ? '1' : '0');
+    return isOwner;
+  }
+
+  // ─── Permission resolution ────────────────────────────────────────────────
+
   /** Return cached permission keys for a membership, loading from DB on cache miss (TTL: 60s). */
   async getPermissions(membershipId: string): Promise<string[]> {
     const client = this.redis.getClient();
@@ -76,7 +112,10 @@ export class PermissionCacheService {
 
   async invalidate(membershipId: string): Promise<void> {
     const client = this.redis.getClient();
-    await client.del(`permissions:${membershipId}`);
+    const pipeline = client.pipeline();
+    pipeline.del(`permissions:${membershipId}`);
+    pipeline.del(`owner:${membershipId}`);
+    await pipeline.exec();
   }
 
   /**
@@ -97,6 +136,7 @@ export class PermissionCacheService {
     const pipeline = client.pipeline();
     for (const m of memberships) {
       pipeline.del(`permissions:${m.id}`);
+      pipeline.del(`owner:${m.id}`);
     }
     await pipeline.exec();
   }
