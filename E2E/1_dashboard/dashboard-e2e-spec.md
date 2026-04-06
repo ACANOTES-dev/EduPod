@@ -1,5 +1,8 @@
 # E2E Test Specification: Dashboard Page
 
+> **Coverage:** This document covers **1 page** out of **341 total pages** (322 school + 8 platform + 5 auth + 6 public).
+> **School Pages Covered So Far:** 1 / 322
+
 **Page URL:** `https://edupod.app/en/dashboard`
 **Page Title:** School OS
 **Prerequisite:** You must be logged in as a user with the **School Owner** role. Use the credentials provided by the project team. After login, the browser must land on the dashboard page. If it does not, navigate to the URL above manually.
@@ -24,6 +27,7 @@
 10. [Quick Actions (Right Sidebar)](#10-quick-actions-right-sidebar)
 11. [Global Search / Command Palette](#11-global-search--command-palette)
 12. [Registration Wizard](#12-registration-wizard)
+13. [Arabic Translation & RTL](#13-arabic-translation--rtl)
 
 ---
 
@@ -257,6 +261,115 @@ The Registration Wizard is a 5-step modal dialog triggered **only** by clicking 
 |      |                                | **Emergency Contact:** A collapsible section with a **"+ Add Emergency Contact"** button.                                                                                                 |                                                                                                                    |
 | 12.3 | Close the wizard               | Click the **X** button (top-right corner of the modal) or press **Escape**                                                                                                                | The modal closes. The dashboard is fully visible and unchanged. No data is saved. The URL remains `/en/dashboard`. |     |
 | 12.4 | Re-open and verify state reset | Click "Register New Family" again                                                                                                                                                         | The wizard opens fresh at Step 1 with all fields empty (no data persisted from the previous opening).              |     |
+
+---
+
+## 13. Arabic Translation & RTL
+
+To test the Arabic translation, switch the interface to Arabic by opening the **User Profile menu** (top-right) and clicking the **Arabic language toggle**. The URL should change from `/en/dashboard` to `/ar/dashboard`. The entire page must switch to right-to-left (RTL) layout.
+
+**Rule:** The ONLY English text allowed on the Arabic dashboard is the **school name** (e.g., "Nurul Huda School") and the **user's name** (e.g., "Yusuf"). Every other visible string must be in Arabic.
+
+### 13.1 Morph Bar in Arabic
+
+| #       | What to Check                | Expected Arabic Text            | Pass/Fail |
+| ------- | ---------------------------- | ------------------------------- | --------- |
+| 13.1.1  | Home button                  | **الرئيسية**                    |           |
+| 13.1.2  | People button                | **الأشخاص**                     |           |
+| 13.1.3  | Learning button              | **التعلّم**                     |           |
+| 13.1.4  | Wellbeing button             | **الرفاهية**                    |           |
+| 13.1.5  | Operations button            | **العمليات**                    |           |
+| 13.1.6  | Finance button               | **المالية**                     |           |
+| 13.1.7  | Reports button               | **التقارير**                    |           |
+| 13.1.8  | Regulatory button            | **التنظيمي**                    |           |
+| 13.1.9  | Settings button              | **الإعدادات**                   |           |
+| 13.1.10 | Notifications button tooltip | **الإشعارات**                   |           |
+| 13.1.11 | User role label              | **مالك المدرسة** (School Owner) |           |
+
+### 13.2 Greeting Row in Arabic
+
+| #      | What to Check     | Expected Arabic Text                                                                                                  | Pass/Fail |
+| ------ | ----------------- | --------------------------------------------------------------------------------------------------------------------- | --------- |
+| 13.2.1 | Greeting heading  | **مساء الخير، [First Name]** (or صباح الخير for morning). The user's first name remains in English.                   |           |
+| 13.2.2 | Date line         | Date must be in Arabic format using Arabic month names (e.g., **الاثنين، ٦ أبريل**). Must NOT show "Monday, 6 April". |           |
+| 13.2.3 | Report Issue link | **الإبلاغ عن مشكلة**                                                                                                  |           |
+
+### 13.3 Priority Feed in Arabic
+
+| #      | What to Check                   | Expected Arabic Text                                           | Pass/Fail |
+| ------ | ------------------------------- | -------------------------------------------------------------- | --------- |
+| 13.3.1 | Section heading                 | **يحتاج انتباهك**                                              |           |
+| 13.3.2 | Outstanding Balance card title  | **رصيد مستحق**                                                 |           |
+| 13.3.3 | Outstanding Balance description | **[amount] غير مدفوع عبر الفواتير**                            |           |
+| 13.3.4 | Review invoices link            | **مراجعة الفواتير**                                            |           |
+| 13.3.5 | Empty state (if no cards)       | **كل شيء على ما يرام** and **لا يوجد شيء يحتاج انتباهك الآن.** |           |
+
+### 13.4 Mini Calendar in Arabic
+
+| #      | What to Check               | Expected Arabic Text                                                                                                                  | Pass/Fail |
+| ------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 13.4.1 | Month name                  | Arabic month name (e.g., **أبريل** for April). Must NOT show English month name.                                                      |           |
+| 13.4.2 | Day-of-week abbreviations   | **اث** (Mon), **ثل** (Tue), **أر** (Wed), **خم** (Thu), **جم** (Fri), **سب** (Sat), **أح** (Sun). Must NOT show Mo/Tu/We/Th/Fr/Sa/Su. |           |
+| 13.4.3 | Previous/Next month buttons | Aria labels should be Arabic (not visible, but test by hovering if tooltips appear).                                                  |           |
+
+### 13.5 Upcoming Events in Arabic
+
+| #      | What to Check     | Expected Arabic Text             | Pass/Fail |
+| ------ | ----------------- | -------------------------------- | --------- |
+| 13.5.1 | Section heading   | **الأحداث القادمة**              |           |
+| 13.5.2 | Filter buttons    | **الكل**, **أكاديمي**, **إداري** |           |
+| 13.5.3 | Empty state       | **لا توجد أحداث قادمة**          |           |
+| 13.5.4 | Go to Events link | **الذهاب إلى الأحداث**           |           |
+
+### 13.6 Activity Feed in Arabic
+
+| #      | What to Check     | Expected Arabic Text           | Pass/Fail |
+| ------ | ----------------- | ------------------------------ | --------- |
+| 13.6.1 | Section heading   | **نشاط اليوم**                 |           |
+| 13.6.2 | View all log link | **عرض كل السجل**               |           |
+| 13.6.3 | Empty state       | **لم يتم تسجيل أي نشاط اليوم** |           |
+
+### 13.7 School Snapshot in Arabic
+
+| #      | What to Check        | Expected Arabic Text | Pass/Fail |
+| ------ | -------------------- | -------------------- | --------- |
+| 13.7.1 | Card heading         | **لمحة عن المدرسة**  |           |
+| 13.7.2 | Total Students label | **إجمالي الطلاب**    |           |
+| 13.7.3 | Teaching Staff label | **الكادر التعليمي**  |           |
+| 13.7.4 | Active Classes label | **الفصول النشطة**    |           |
+| 13.7.5 | Attendance label     | **الحضور**           |           |
+
+### 13.8 This Week Card in Arabic
+
+| #      | What to Check          | Expected Arabic Text | Pass/Fail |
+| ------ | ---------------------- | -------------------- | --------- |
+| 13.8.1 | Card heading           | **هذا الأسبوع**      |           |
+| 13.8.2 | Attendance Rate label  | **معدل الحضور**      |           |
+| 13.8.3 | New Admissions label   | **قبول جديد**        |           |
+| 13.8.4 | Incidents Logged label | **الحوادث المسجلة**  |           |
+
+### 13.9 Quick Actions in Arabic
+
+| #      | What to Check              | Expected Arabic Text  | Pass/Fail |
+| ------ | -------------------------- | --------------------- | --------- |
+| 13.9.1 | Register New Family button | **تسجيل عائلة جديدة** |           |
+| 13.9.2 | Register New Student link  | **تسجيل طالب جديد**   |           |
+| 13.9.3 | Record Payment link        | **تسجيل دفعة**        |           |
+| 13.9.4 | Take Attendance link       | **تسجيل الحضور**      |           |
+| 13.9.5 | Send Announcement link     | **إرسال إعلان**       |           |
+| 13.9.6 | Find Student link          | **البحث عن طالب**     |           |
+
+### 13.10 RTL Layout Verification
+
+| #       | What to Check                  | Expected Result                                                                                                                                                         | Pass/Fail |
+| ------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 13.10.1 | Page direction                 | The `<html>` element has `dir="rtl"`. All text is right-aligned by default.                                                                                             |           |
+| 13.10.2 | Morph bar layout               | The school logo and name are on the **far right**. Notification bell and user profile are on the **far left**. This is the mirror image of the English layout.          |           |
+| 13.10.3 | School Snapshot position       | On desktop, the School Snapshot sidebar appears on the **left** side instead of the right.                                                                              |           |
+| 13.10.4 | Quick Actions grid             | Buttons are right-aligned within their grid cells. Icons appear to the right of text (mirrored from English).                                                           |           |
+| 13.10.5 | Calendar layout                | The calendar week starts from the right. Day abbreviations read right-to-left.                                                                                          |           |
+| 13.10.6 | No overlapping or clipped text | All Arabic text fits within its containers. No text is cut off, overlapping, or overflowing.                                                                            |           |
+| 13.10.7 | Switch back to English         | Open user menu, click the English language toggle. The page returns to English (LTR). URL changes back to `/en/dashboard`. All elements return to their English labels. |           |
 
 ---
 
