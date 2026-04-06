@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import React from 'react';
 
 import type { PriorityData } from './admin-home';
@@ -40,18 +41,22 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-function buildCards(data: PriorityData): PriorityCard[] {
+function buildCards(
+  data: PriorityData,
+  t: ReturnType<typeof useTranslations<'dashboard'>>,
+): PriorityCard[] {
   const cards: PriorityCard[] = [];
 
   if (data.outstanding_amount && data.outstanding_amount > 0) {
+    const formattedAmount = formatCurrency(data.outstanding_amount);
     cards.push({
       id: 'finance-outstanding',
       icon: CircleDollarSign,
       iconBg: 'bg-amber-100 dark:bg-amber-500/20',
       iconColor: 'text-amber-600 dark:text-amber-400',
-      title: 'Outstanding Balance',
-      description: `${formatCurrency(data.outstanding_amount)} unpaid across invoices`,
-      actionLabel: 'Review invoices',
+      title: t('outstandingBalance'),
+      description: t('unpaidAcrossInvoices', { amount: formattedAmount }),
+      actionLabel: t('reviewInvoices'),
       href: '/finance/invoices',
     });
   }
@@ -63,9 +68,10 @@ function buildCards(data: PriorityData): PriorityCard[] {
       icon: AlertTriangle,
       iconBg: 'bg-red-100 dark:bg-red-500/20',
       iconColor: 'text-red-600 dark:text-red-400',
-      title: `${count} Open Incident${count === 1 ? '' : 's'}`,
-      description: 'Follow-ups and alerts requiring action',
-      actionLabel: 'View incidents',
+      title:
+        count === 1 ? t('openIncidentSingular', { count }) : t('openIncidentPlural', { count }),
+      description: t('followUpsAndAlerts'),
+      actionLabel: t('viewIncidents'),
       href: '/behaviour/incidents',
     });
   }
@@ -77,9 +83,12 @@ function buildCards(data: PriorityData): PriorityCard[] {
       icon: ClipboardCheck,
       iconBg: 'bg-blue-100 dark:bg-blue-500/20',
       iconColor: 'text-blue-600 dark:text-blue-400',
-      title: `${count} Pending Approval${count === 1 ? '' : 's'}`,
-      description: 'Requests waiting for your decision',
-      actionLabel: 'Review',
+      title:
+        count === 1
+          ? t('pendingApprovalSingular', { count })
+          : t('pendingApprovalPlural', { count }),
+      description: t('requestsWaiting'),
+      actionLabel: t('review'),
       href: '/approvals',
     });
   }
@@ -91,9 +100,12 @@ function buildCards(data: PriorityData): PriorityCard[] {
       icon: GraduationCap,
       iconBg: 'bg-violet-100 dark:bg-violet-500/20',
       iconColor: 'text-violet-600 dark:text-violet-400',
-      title: `${count} Pending Application${count === 1 ? '' : 's'}`,
-      description: 'Admissions applications under review',
-      actionLabel: 'View applications',
+      title:
+        count === 1
+          ? t('pendingApplicationSingular', { count })
+          : t('pendingApplicationPlural', { count }),
+      description: t('admissionsUnderReview'),
+      actionLabel: t('viewApplications'),
       href: '/admissions',
     });
   }
@@ -105,16 +117,18 @@ function buildCards(data: PriorityData): PriorityCard[] {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function PriorityFeed(props: PriorityFeedProps) {
+  const t = useTranslations('dashboard');
+
   const cards = React.useMemo(() => {
     if (props.customItems) return props.customItems;
-    return buildCards(props.priorityData ?? {});
-  }, [props.customItems, props.priorityData]);
+    return buildCards(props.priorityData ?? {}, t);
+  }, [props.customItems, props.priorityData, t]);
 
   const hasItems = cards.length > 0;
 
   return (
     <div className="rounded-[16px] border border-border bg-surface p-5 shadow-sm flex flex-col gap-4">
-      <h3 className="text-[16px] font-semibold text-text-primary">Needs Your Attention</h3>
+      <h3 className="text-[16px] font-semibold text-text-primary">{t('needsYourAttention')}</h3>
 
       {hasItems ? (
         <div
@@ -158,10 +172,8 @@ export function PriorityFeed(props: PriorityFeedProps) {
             <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
-            <p className="text-[14px] font-semibold text-text-primary">All clear</p>
-            <p className="text-[12px] text-text-tertiary mt-0.5">
-              Nothing needs your attention right now.
-            </p>
+            <p className="text-[14px] font-semibold text-text-primary">{t('allClear')}</p>
+            <p className="text-[12px] text-text-tertiary mt-0.5">{t('nothingNeedsAttention')}</p>
           </div>
         </div>
       )}

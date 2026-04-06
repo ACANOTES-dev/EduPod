@@ -1,20 +1,21 @@
 'use client';
 
 import { MessageCircleWarning } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 import { useAuth } from '@/providers/auth-provider';
 
 export function GreetingRow({ schoolName }: { schoolName: string }) {
   const { user } = useAuth();
   const t = useTranslations('dashboard');
+  const locale = useLocale();
 
   const hour = new Date().getHours();
   let greeting = t('goodMorning', { name: user?.first_name || 'Admin' });
   if (hour >= 12 && hour < 17) greeting = t('goodAfternoon', { name: user?.first_name || 'Admin' });
   if (hour >= 17) greeting = t('goodEvening', { name: user?.first_name || 'Admin' });
 
-  const dateStr = new Intl.DateTimeFormat('en-IE', {
+  const dateStr = new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA' : 'en-IE', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',

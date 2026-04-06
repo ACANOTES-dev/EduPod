@@ -1,8 +1,7 @@
 'use client';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useMemo, useState } from 'react';
-
-const DAY_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
 function getCalendarDays(year: number, month: number) {
   const firstDay = new Date(year, month, 1);
@@ -55,6 +54,19 @@ export interface MiniCalendarProps {
 }
 
 export function MiniCalendar({ eventDates = [] }: MiniCalendarProps) {
+  const t = useTranslations('dashboard');
+  const locale = useLocale();
+
+  const dayLabels = [
+    t('dayMo'),
+    t('dayTu'),
+    t('dayWe'),
+    t('dayTh'),
+    t('dayFr'),
+    t('daySa'),
+    t('daySu'),
+  ];
+
   const today = useMemo(() => new Date(), []);
   const [viewDate, setViewDate] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
@@ -64,7 +76,7 @@ export function MiniCalendar({ eventDates = [] }: MiniCalendarProps) {
   const month = viewDate.getMonth();
   const cells = useMemo(() => getCalendarDays(year, month), [year, month]);
 
-  const monthLabel = new Intl.DateTimeFormat('en', { month: 'long' }).format(viewDate);
+  const monthLabel = new Intl.DateTimeFormat(locale, { month: 'long' }).format(viewDate);
 
   const prev = useCallback(() => {
     setViewDate(new Date(year, month - 1, 1));
@@ -113,7 +125,7 @@ export function MiniCalendar({ eventDates = [] }: MiniCalendarProps) {
             type="button"
             onClick={prev}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-text-secondary hover:bg-surface-secondary hover:text-text-primary transition-colors"
-            aria-label="Previous month"
+            aria-label={t('previousMonth')}
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -121,7 +133,7 @@ export function MiniCalendar({ eventDates = [] }: MiniCalendarProps) {
             type="button"
             onClick={next}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-text-secondary hover:bg-surface-secondary hover:text-text-primary transition-colors"
-            aria-label="Next month"
+            aria-label={t('nextMonth')}
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -130,9 +142,9 @@ export function MiniCalendar({ eventDates = [] }: MiniCalendarProps) {
 
       {/* Day headers */}
       <div className="grid grid-cols-7 gap-0 mb-1">
-        {DAY_LABELS.map((d) => (
+        {dayLabels.map((d, idx) => (
           <div
-            key={d}
+            key={idx}
             className="flex h-8 items-center justify-center text-[11px] font-medium text-text-tertiary"
           >
             {d}

@@ -2,6 +2,7 @@
 import { ClipboardCheck, CreditCard, Search, Send, UserPlus, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 function cn(...classes: (string | undefined | null | false)[]) {
   return classes.filter(Boolean).join(' ');
@@ -22,15 +23,6 @@ function openRegistrationWizard() {
   window.dispatchEvent(new CustomEvent('open-registration-wizard'));
 }
 
-const DEFAULT_ACTIONS: QuickAction[] = [
-  { icon: UserPlus, label: 'Register New Family', onClick: openRegistrationWizard },
-  { icon: Users, label: 'Register New Student', href: '/households' },
-  { icon: CreditCard, label: 'Record Payment', href: '/finance/payments/new' },
-  { icon: ClipboardCheck, label: 'Take Attendance', href: '/attendance' },
-  { icon: Send, label: 'Send Announcement', href: '/communications', fullWidth: true },
-  { icon: Search, label: 'Find Student', href: '/students', fullWidth: true },
-];
-
 export function QuickActions({
   variant = 'grid',
   customActions,
@@ -38,7 +30,18 @@ export function QuickActions({
   variant?: 'grid' | 'horizontal';
   customActions?: QuickAction[];
 }) {
-  const actions = customActions ?? DEFAULT_ACTIONS;
+  const t = useTranslations('dashboard');
+
+  const defaultActions: QuickAction[] = [
+    { icon: UserPlus, label: t('registerNewFamily'), onClick: openRegistrationWizard },
+    { icon: Users, label: t('registerNewStudent'), href: '/households' },
+    { icon: CreditCard, label: t('recordPayment'), href: '/finance/payments/new' },
+    { icon: ClipboardCheck, label: t('takeAttendance'), href: '/attendance' },
+    { icon: Send, label: t('sendAnnouncement'), href: '/communications', fullWidth: true },
+    { icon: Search, label: t('findStudent'), href: '/students', fullWidth: true },
+  ];
+
+  const actions = customActions ?? defaultActions;
 
   const sharedClasses =
     'flex items-center gap-2 bg-surface-secondary rounded-[10px] px-3 py-2.5 transition-colors group hover:bg-primary-50 hover:text-primary-700';

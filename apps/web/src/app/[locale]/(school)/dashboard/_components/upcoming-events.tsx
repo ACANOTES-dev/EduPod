@@ -1,6 +1,7 @@
 'use client';
 import { Calendar } from 'lucide-react';
 import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -15,12 +16,6 @@ export interface UpcomingEventItem {
 }
 
 type EventCategory = 'all' | 'academic' | 'admin';
-
-const TABS: Array<{ key: EventCategory; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'academic', label: 'Academic' },
-  { key: 'admin', label: 'Admin' },
-];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -43,11 +38,11 @@ function categoriseEvent(eventType: string): EventCategory {
 }
 
 /** Format an ISO date string to a short display form like "Apr 10". */
-function formatShortDate(isoDate: string | null): string {
+function formatShortDate(isoDate: string | null, locale: string): string {
   if (!isoDate) return '';
   const date = new Date(isoDate);
   if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(date);
+  return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(date);
 }
 
 /** Filter to only future events (today onwards). */
@@ -71,7 +66,15 @@ export interface UpcomingEventsProps {
 }
 
 export function UpcomingEvents({ events = [], loading = false }: UpcomingEventsProps) {
+  const t = useTranslations('dashboard');
+  const locale = useLocale();
   const [activeTab, setActiveTab] = React.useState<EventCategory>('all');
+
+  const tabs: Array<{ key: EventCategory; label: string }> = [
+    { key: 'all', label: t('filterAll') },
+    { key: 'academic', label: t('filterAcademic') },
+    { key: 'admin', label: t('filterAdmin') },
+  ];
 
   // Filter to future events only, then apply category filter
   const futureEvents = React.useMemo(
@@ -89,11 +92,11 @@ export function UpcomingEvents({ events = [], loading = false }: UpcomingEventsP
 
   return (
     <div className="rounded-[16px] border border-border bg-surface p-5 shadow-sm flex flex-col">
-      <h3 className="text-[16px] font-semibold text-text-primary mb-3">Upcoming Events</h3>
+      <h3 className="text-[16px] font-semibold text-text-primary mb-3">{t('upcomingEvents')}</h3>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-4">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.key}
             type="button"
@@ -113,12 +116,12 @@ export function UpcomingEvents({ events = [], loading = false }: UpcomingEventsP
       <div className="flex flex-col gap-3 flex-1">
         {loading ? (
           <div className="flex items-center justify-center py-6 text-[13px] text-text-tertiary">
-            Loading events...
+            {t('loadingEvents')}
           </div>
         ) : filteredEvents.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-6 text-text-tertiary">
             <Calendar className="h-5 w-5" />
-            <span className="text-[13px]">No upcoming events</span>
+            <span className="text-[13px]">{t('noUpcomingEvents')}</span>
           </div>
         ) : (
           filteredEvents.slice(0, 6).map((event) => (
@@ -128,7 +131,7 @@ export function UpcomingEvents({ events = [], loading = false }: UpcomingEventsP
               className="flex items-start gap-3 rounded-lg p-1.5 -ms-1.5 hover:bg-surface-secondary transition-colors"
             >
               <span className="text-[12px] font-semibold text-primary-600 whitespace-nowrap min-w-[48px]">
-                {formatShortDate(event.start_date)}
+                {formatShortDate(event.start_date, locale)}
               </span>
               <span className="text-[13px] font-medium text-text-primary leading-snug">
                 {event.title}
@@ -142,7 +145,7 @@ export function UpcomingEvents({ events = [], loading = false }: UpcomingEventsP
         href="/engagement/events"
         className="mt-4 text-[12px] font-medium text-primary-600 hover:text-primary-700 transition-colors"
       >
-        Go to Events &rarr;
+        {t('goToEvents')} &rarr;
       </Link>
     </div>
   );

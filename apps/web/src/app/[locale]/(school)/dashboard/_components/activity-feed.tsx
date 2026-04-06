@@ -1,6 +1,7 @@
 'use client';
 import { Activity } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,27 +50,28 @@ function formatAction(action: string, entityType: string): string {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ActivityFeed({ activities = [], loading = false }: ActivityFeedProps) {
+  const t = useTranslations('dashboard');
   return (
     <div className="rounded-[16px] border border-border bg-surface p-5 shadow-sm flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-[16px] font-semibold text-text-primary">Today&apos;s Activity</h3>
+        <h3 className="text-[16px] font-semibold text-text-primary">{t('todaysActivity')}</h3>
         <Link
           href="/settings/audit-log"
           className="text-[12px] font-medium text-primary-600 hover:text-primary-700 transition-colors"
         >
-          View all log &rarr;
+          {t('viewAllLog')} &rarr;
         </Link>
       </div>
 
       <div className="flex flex-col gap-3">
         {loading ? (
           <div className="flex items-center justify-center py-6 text-[13px] text-text-tertiary">
-            Loading activity...
+            {t('loadingActivity')}
           </div>
         ) : activities.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-6 text-text-tertiary">
             <Activity className="h-5 w-5" />
-            <span className="text-[13px]">No activity recorded today</span>
+            <span className="text-[13px]">{t('noActivityToday')}</span>
           </div>
         ) : (
           activities.slice(0, 5).map((item) => (
@@ -85,7 +87,7 @@ export function ActivityFeed({ activities = [], loading = false }: ActivityFeedP
                   {formatAction(item.action, item.entity_type)}
                 </p>
                 <p className="text-[12px] text-text-tertiary truncate">
-                  {item.actor_name ?? 'System'}
+                  {item.actor_name ?? t('systemActor')}
                 </p>
               </div>
               <span className="shrink-0 text-[12px] text-text-tertiary">

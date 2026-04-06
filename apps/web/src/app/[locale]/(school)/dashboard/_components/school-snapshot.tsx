@@ -1,5 +1,7 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 type DashboardSnapshotData = {
   stats?: {
     total_students?: number | string;
@@ -14,44 +16,47 @@ type SnapshotStat = {
   value: number | string;
 };
 
-function buildStats(data?: DashboardSnapshotData | null): SnapshotStat[] {
-  const stats = data?.stats;
-  return [
-    {
-      label: 'Total Students',
-      value: stats?.total_students ?? '—',
-    },
-    {
-      label: 'Teaching Staff',
-      value: stats?.active_staff ?? '—',
-    },
-    {
-      label: 'Active Classes',
-      value: stats?.total_classes ?? '—',
-    },
-    {
-      label: 'Attendance',
-      value:
-        stats?.attendance_rate != null
-          ? typeof stats.attendance_rate === 'number'
-            ? `${stats.attendance_rate}%`
-            : stats.attendance_rate
-          : '—',
-    },
-  ];
-}
-
 export function SchoolSnapshot({
   variant = 'default',
   data,
   customStats,
-  title = 'School Snapshot',
+  title,
 }: {
   variant?: 'default' | 'compact';
   data?: DashboardSnapshotData | null;
   customStats?: SnapshotStat[];
   title?: string;
 }) {
+  const t = useTranslations('dashboard');
+
+  function buildStats(snapshotData?: DashboardSnapshotData | null): SnapshotStat[] {
+    const s = snapshotData?.stats;
+    return [
+      {
+        label: t('totalStudentsLabel'),
+        value: s?.total_students ?? '—',
+      },
+      {
+        label: t('teachingStaff'),
+        value: s?.active_staff ?? '—',
+      },
+      {
+        label: t('activeClassesLabel'),
+        value: s?.total_classes ?? '—',
+      },
+      {
+        label: t('attendanceLabel'),
+        value:
+          s?.attendance_rate != null
+            ? typeof s.attendance_rate === 'number'
+              ? `${s.attendance_rate}%`
+              : s.attendance_rate
+            : '—',
+      },
+    ];
+  }
+
+  const resolvedTitle = title ?? t('schoolSnapshot');
   const stats = customStats ?? buildStats(data);
 
   if (variant === 'compact') {
@@ -79,7 +84,7 @@ export function SchoolSnapshot({
 
   return (
     <div className="rounded-[16px] border border-border bg-surface p-5 shadow-sm">
-      <h3 className="text-[16px] font-semibold text-text-primary mb-4">{title}</h3>
+      <h3 className="text-[16px] font-semibold text-text-primary mb-4">{resolvedTitle}</h3>
 
       <div className="grid grid-cols-2 gap-x-6 gap-y-1">
         {/* Row 1 */}
