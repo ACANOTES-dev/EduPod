@@ -2,7 +2,7 @@
 
 > **Purpose**: Before changing a status field or adding a transition, check here for the full contract.
 > **Maintenance**: Update when adding new statuses or changing transition rules.
-> **Last verified**: 2026-04-06
+> **Last verified**: 2026-04-07
 
 ---
 
@@ -287,14 +287,14 @@ revoked*
 ### PayrollRunStatus
 
 ```
-draft             -> [pending_approval, cancelled]
+draft             -> [pending_approval, finalised, cancelled]
 pending_approval  -> [draft (rejected), finalised (approved)]
 finalised*
 cancelled*
 ```
 
 - **Guarded by**: `packages/shared/src/payroll/state-machine.ts` — `isValidPayrollRunTransition()`. Wired in `payroll-runs.service.ts` (`finalise()`, `cancelRun()`, `executeFinalisation()`).
-- **Side effects**: `finalised` generates payslip numbers (SequenceService) and creates individual payslip records. If via approval, this happens in the worker processor.
+- **Side effects**: `finalised` generates payslip numbers (SequenceService) and creates individual payslip records. This can happen directly from `draft` or through the approval callback path.
 - **Danger**: `finalised` via approval callback happens in the worker, not the API. If worker fails mid-generation, some payslips may be created and others not.
 
 ---
@@ -518,6 +518,43 @@ completed*
 - **Guarded by**: `packages/shared/src/compliance/state-machine.ts` — `isValidComplianceTransition()`. Wired in `compliance.service.ts` (`classify()`, `approve()`, `reject()`, `execute()`).
 - **Side effects**: `create()` auto-sets `deadline_at = now + 30 days`. `extend()` sets `extension_granted=true`, `extension_deadline_at = deadline_at + 60 days` (Article 12(3)). `compliance:deadline-check` cron sets `deadline_exceeded=true` when effective deadline passes. Erasure execution also deletes consent records + tokenisation mappings.
 - **Subject types**: `student`, `parent`, `household`, `user`, `staff` (Phase F), `applicant` (Phase F)
+
+---
+
+## Regulatory & Child Protection
+
+### RegulatoryTransferStatus
+
+```
+pending    -> [accepted, rejected, cancelled]
+accepted   -> [completed, cancelled]
+rejected*
+completed*
+cancelled*
+```
+
+- **Guarded by**: `apps/api/src/modules/regulatory/regulatory-transfers.service.ts`
+- **Prisma enum mapping**: API `pending|accepted|rejected|completed|cancelled` maps to DB `transfer_pending|transfer_accepted|transfer_rejected|transfer_completed|transfer_cancelled`
+- **Side effects**: transfer lifecycle updates are local to the inter-school transfer record; `ppod_confirmed` is tracked separately and does not itself drive a status transition
+
+### MandatedReportStatus
+
+```
+none             -> [draft]
+draft            -> [submitted]
+submitted        -> [acknowledged]
+acknowledged     -> [outcome_received]
+outcome_received*
+```
+
+- **Guarded by**: `apps/api/src/modules/child-protection/services/mandated-report.service.ts`
+- **Prisma enum mapping**: `mr_draft`, `mr_submitted`, `mr_acknowledged`, `outcome_received`
+- **Side effects**:
+  - `none -> draft`: creates the mandated report draft on the linked CP record and writes a pastoral event
+  - `draft -> submitted`: stores Tusla reference details and submission metadata
+  - `submitted -> acknowledged`: records acknowledgement details
+  - `acknowledged -> outcome_received`: records the final outcome
+- **Note**: this is a synthetic lifecycle layered over `cp_records.mandated_report_status`; a CP record can also remain in `none` forever if no mandated report is opened
 
 ---
 
@@ -798,7 +835,7 @@ withdrawn_appeal*
   - Every transition: a `status_change` event is added to `security_incident_events` timeline
   - `contained -> reported`: should correlate with DPC notification (72-hour Article 33 requirement)
   - `detected` → `investigating`: acknowledges the incident, stops the 12-hour escalation cron
-- **Guarded by**: `INCIDENT_STATUS_TRANSITIONS` map in `@school/shared` + validated in `SecurityIncidentsService.update()`
+- **Guarded by**: `SECURITY_INCIDENT_STATUS_TRANSITIONS` in `packages/shared/src/security/incident.types.ts` + validated in `SecurityIncidentsService.update()`
 - **Platform-level**: No tenant_id. Incidents may span multiple tenants.
 - **72-hour clock**: Starts at `detected_at`. Breach deadline cron fires escalation events at 12h, 48h, and 72h for high/critical severity incidents.
 
@@ -818,12 +855,26 @@ withdrawn_appeal*
 - **Side effects**:
   - `draft -> published`: sets `published_at` timestamp, makes assignment visible to students/parents
   - `published -> archived`: hides from default views but retains for analytics
-- **Guarded by**: `VALID_HOMEWORK_TRANSITIONS` in `packages/shared/src/constants/homework-status.ts` + will be enforced in `homework.service.ts` (Phase B)
-- **Simplicity**: 3 states, 2 transitions — follows the `FormDefinitionStatus` pattern rather than complex invoice/behaviour machines
+- **Guarded by**: `VALID_HOMEWORK_TRANSITIONS` in `packages/shared/src/constants/homework-status.ts` + enforced in `apps/api/src/modules/homework/homework.service.ts`
+- **Simplicity**: 3 states, 2 transitions — follows the published/archive pattern rather than the more complex finance or behaviour machines
 
 ---
 
 ## Engagement Module Lifecycles
+
+### EngagementFormTemplateStatus
+
+```
+draft      -> [published]
+published  -> [archived]
+archived*
+```
+
+- **Guarded by**: `VALID_TRANSITIONS` in `apps/api/src/modules/engagement/form-templates.service.ts`
+- **Side effects**:
+  - `draft -> published`: makes the template available for distribution and parent submission flows
+  - `published -> archived`: retires the template from new use while preserving historical submissions
+- **Note**: the service also prevents unsafe edits when submissions already exist, even if the raw status transition is valid
 
 ### EngagementEventStatus
 

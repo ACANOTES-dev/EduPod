@@ -1,471 +1,341 @@
 # Module Blast Radius Map
 
-> **Purpose**: Before modifying a module's public service API, check here to know what else breaks.
-> **Maintenance**: Update when adding new cross-module imports or changing module exports.
-> **Last verified**: 2026-04-06
+> **Purpose**: Before modifying a module's public API, shared table contract, or exported service, check here to see what else breaks.
+> **Maintenance**: Update when adding module exports, changing shared service interfaces, or introducing new cross-module reads/writes.
+> **Last verified**: 2026-04-07
 
 ---
 
 ## How to read this
 
-Each module lists:
+Each entry lists:
 
-- **Exports**: Services other modules can inject
-- **Consumed by**: Modules that import and call these services
-- **Blast radius**: What breaks if you change the exported service interface
+- **Contract**: the service, facade, or table boundary other code depends on
+- **Primary consumers**: the modules or workers most likely to break first
+- **Blast radius**: how wide the impact is if the contract changes
+- **Notes**: the non-obvious coupling to re-check before shipping
 
-If a module isn't listed, it has no downstream dependents (safe to modify in isolation).
+If a module is not listed individually, it is either:
+
+- isolated enough to change locally, or
+- represented through a higher-level shared contract such as a read facade, queue payload, or shared schema
 
 ---
 
-## Tier 1 — Global Infrastructure (change = everything breaks)
+## Current Topology
 
-### PrismaService
+- The live API surface is wired through `AppModule` plus feature sub-modules under [apps/api/src/modules](/Users/ram/Desktop/SDB/apps/api/src/modules).
+- The API-side cross-module read contract is now centered on `ReadFacadesModule` and the `31` `*-read.facade.ts` files under [apps/api/src/modules](/Users/ram/Desktop/SDB/apps/api/src/modules).
+- The worker remains a separate dependency graph. Processor contracts are driven by queue names, job payloads, shared schemas, and direct table access through raw `PrismaClient`.
+- The NestJS import graph is no longer the whole story. A change can be safe in Nest terms and still break workers, reports, analytics, or scheduled jobs if it changes shared tables, enums, or queue payloads.
 
-- **Change cost**: CRITICAL -- every module depends on this; interface changes require full regression across all 43 modules
-- **Blast radius**: Every module. Every service. Every test.
-- **Rule**: Never modify PrismaService interface without full regression.
+---
+
+## Tier 1 — Global Infrastructure
+
+### PrismaService + request-scoped RLS context
+
+- **Contract**: `PrismaService`, `createRlsClient()`, request context propagation, bootstrap RLS policies
+- **Primary consumers**: effectively every API module; every worker processor through raw Prisma; auth bootstrap; tenant resolution
+- **Blast radius**: CRITICAL
+- **Notes**: changes here can break tenant isolation, plain Prisma reads, interactive transactions, worker jobs, and login/bootstrap flows simultaneously
 
 ### RedisService
 
-- **Change cost**: HIGH -- 15 modules use Redis caching; key format or TTL changes require auditing all consumers
-- **Blast radius**: Auth, attendance, classes, communications, domains, finance reports, gradebook, households, memberships, notifications, payroll, staff-profiles, students, dashboard, website
-- **Rule**: Cache key format changes require auditing all consumers.
+- **Contract**: Redis connection, key naming, TTL behavior, queue support services
+- **Primary consumers**: auth/session flows, permission cache, notifications unread counts, workload caches, assorted throttles and feature caches
+- **Blast radius**: CRITICAL
+- **Notes**: Redis changes affect both API behavior and BullMQ queue health
+
+### PermissionCacheService (CommonModule)
+
+- **Contract**: permission resolution cache invalidation
+- **Primary consumers**: global `PermissionGuard`, RBAC mutations, membership/role changes, impersonation-sensitive paths
+- **Blast radius**: CRITICAL
+- **Notes**: stale cache entries create either privilege leakage or platform-wide lockout
+
+### AuditLogService + SecurityAuditService (AuditLogModule)
+
+- **Contract**: mutation audit writes, sensitive-read logging, security event logging
+- **Primary consumers**: global interceptor, auth, safeguarding, child protection, behaviour, privacy/compliance flows
+- **Blast radius**: HIGH
+- **Notes**: the interceptor path is async via the `audit-log` queue; direct security writes remain synchronous
 
 ---
 
-### GdprTokenService (GdprModule)
+## Tier 2 — Shared Cross-Cutting Services
 
-- **Change cost**: HIGH -- 8 AI services across 4 modules route through this; interface changes break all AI features
-- **Exports**: `GdprTokenService`
-- **Consumed by**: GradebookModule (ai-comments, ai-grading, ai-progress-summary, nl-query, report-card-template), SchedulingModule (ai-substitution), AttendanceModule (attendance-scan), BehaviourModule (behaviour-ai)
-- **Blast radius**: HIGH. Every AI service routes through this for tokenisation + audit. Changing the `processOutbound`/`processInbound` interface breaks all AI features.
-- **Rule**: The `gdpr_anonymisation_tokens` mapping table must NEVER be exposed via any API endpoint. Token values are security-sensitive.
+### ReadFacadesModule
 
-### AiAuditService (GdprModule)
+- **Contract**: the API-side cross-module read boundary
+- **Primary consumers**: compliance, reports, dashboards, behaviour, pastoral, regulatory, scheduling, parent-facing views
+- **Blast radius**: HIGH
+- **Notes**: schema changes must be reflected in the owning facade before consumers are updated; the lint rule blocks new API-side cross-module Prisma bypasses, but workers still read tables directly
 
-- **Change cost**: MEDIUM -- 10 AI services log through this; failures are fire-and-forget so breakage is silent, not blocking
-- **Exports**: `AiAuditService`
-- **Consumed by**: GradebookModule (ai-comments, ai-grading, ai-progress-summary, nl-query, report-card-template), ReportsModule (ai-report-narrator, ai-predictions), SchedulingModule (ai-substitution), AttendanceModule (attendance-scan), BehaviourModule (behaviour-ai)
-- **Blast radius**: MEDIUM. All 10 AI services log through this for Article 22 compliance. Changing the `log()` interface breaks audit trail for all AI features. However, `log()` is fire-and-forget — failures do NOT break AI features.
-- **Rule**: `log()` must NEVER throw. AI audit trail failures must not cascade to AI feature failures. The `ai_processing_logs` table has 24-month retention for academic appeal periods.
+### SequenceModule / SequenceService
 
-### ConsentService (GdprModule)
+- **Contract**: sequence allocation and formatting
+- **Primary consumers**: admissions, behaviour, child protection, finance, payroll, households, registration, security incidents, SEN, staff profiles, students
+- **Blast radius**: HIGH
+- **Notes**: format changes cascade into application numbers, invoice numbers, household references, support plan numbers, incident numbers, and other externally visible identifiers
 
-- **Change cost**: HIGH -- consent withdrawal is synchronous and immediately affects WhatsApp delivery, AI features, allergy reports, risk detection, and benchmarking
-- **Exports**: `ConsentService`
-- **Consumed by**: GradebookModule (ai-grading, ai-comments, ai-progress-summary), CommunicationsModule (`NotificationDispatchService`)
-- **Prisma-direct consumers of `consent_records`**: RegistrationModule, AdmissionsModule, StudentsModule, Gradebook worker (`GradebookRiskDetectionProcessor`), Behaviour analytics benchmarking query
-- **Blast radius**: HIGH. Consent withdrawal is synchronous and immediately changes WhatsApp delivery, AI feature availability, allergy-report visibility, risk detection eligibility, and cross-school benchmarking participation.
-- **Rule**: Do not cache active-consent decisions or rely solely on background/materialized refresh paths for consent-gated processing. Parent self-service withdrawal must take effect on the next read.
+### ConfigurationModule
 
-### DpaService + PrivacyNoticesService + SubProcessorsService (GdprModule)
+- **Contract**: `SettingsService`, `EncryptionService`, key-rotation behavior, module-settings schemas
+- **Primary consumers**: nearly every policy-driven domain, especially attendance, behaviour, communications, finance, payroll, SEN, homework, wellbeing, regulatory
+- **Blast radius**: HIGH
+- **Notes**: settings are now per-module rows, but schema/default drift still affects all tenants; encryption changes remain one-way-risk territory
 
-- **Change cost**: HIGH -- DpaAcceptedGuard is global APP_GUARD; changing version lookup or exempt-path allowlist can lock every tenant-scoped API surface
-- **Exports**: `DpaService`, `PrivacyNoticesService`, `SubProcessorsService`
-- **Consumed by**: Global `DpaAcceptedGuard` (`APP_GUARD`), all tenant-scoped API surfaces indirectly through the guard, the legal settings UI, the parent portal privacy notice page, and the public sub-processor register page. GDPR no longer imports CommunicationsModule — notifications are written directly via Prisma.
-- **Blast radius**: HIGH. `DpaAcceptedGuard` is global, so changing current-version lookup, acceptance checks, or the exempt-path allowlist can lock every tenant-scoped API surface. Privacy notice publish logic fans out notifications to every active tenant membership and resets acknowledgement requirements for users who only acknowledged older versions. Sub-processor register content is public and versioned, so changes affect both legal disclosure and tenant admin notification flows.
-- **Rule**: Keep the DPA guard allowlist aligned with the frontend redirect destination `/settings/legal/dpa`, and do not relax the draft-only edit rule for privacy notices after `published_at` is set.
+### ApprovalsModule / ApprovalRequestsService
 
----
+- **Contract**: approval lifecycle plus callback dispatch
+- **Primary consumers**: announcements, invoices, payroll finalisation, approval dashboards and callback health tooling
+- **Blast radius**: HIGH
+- **Notes**: approval callback mappings and worker processors must remain in sync
 
-## Tier 2 — Cross-Cutting Services (change = multiple domains break)
+### GdprModule
 
-### SequenceService (SequenceModule)
+- **Contract**: `ConsentService`, `GdprTokenService`, `AiAuditService`, DPA/privacy notice services
+- **Primary consumers**: communications, gradebook AI, reports AI, attendance scan, behaviour AI, compliance exports, public legal surfaces
+- **Blast radius**: HIGH
+- **Notes**: consent checks are synchronous contracts, not eventual-consistency hints; DPA/privacy version checks are global access gates
 
-- **Change cost**: HIGH -- 14 consumers rely on sequence format; format changes affect receipt/invoice/application/payslip/student/staff/household/payment numbers across the platform
-- **Module location**: `apps/api/src/modules/sequence/`
-- **Consumed by**: Admissions, behaviour, credit notes, fee generation, households, imports, invoices, payments, receipts, recurring invoices, refunds, registration, staff profiles, students
-- **Via TenantsModule**: TenantsModule imports and re-exports SequenceModule for backward compatibility — modules that already import TenantsModule for other reasons can continue to receive SequenceService via that path.
-- **Blast radius**: HIGH. Sequence format changes affect receipt numbers, invoice numbers, application IDs, payslip numbers, student IDs, staff IDs, household references, payment references, incident numbers, sanction numbers, appeal numbers across 14 consumers.
-- **Danger**: The `refund` sequence type is used in code but NOT in the canonical `SEQUENCE_TYPES` constant. If you validate against the constant, refunds break silently.
+### RbacModule
 
-### SettingsService (ConfigurationModule)
+- **Contract**: roles, memberships, invitations, RBAC read surface
+- **Primary consumers**: approvals, compliance, safeguarding, pastoral, early warning, tenants/platform flows, auth/session resolution
+- **Blast radius**: HIGH
+- **Notes**: this is both a domain module and a platform dependency; membership status or role-shape changes affect routing, access checks, and recipient resolution
 
-- **Change cost**: HIGH -- settings JSONB shape changes require migrating ALL tenants' stored data; affects attendance, behaviour, finance, payroll, and SEN policies
-- **Consumed by**: Attendance (service + upload + pattern + parent notification), behaviour (parent notification send-gate, quick-log defaults, points settings), finance (invoices, payment reminders, recurring invoices), payroll (runs, calendar, exports), SEN (review-cycle, plan-number prefix, SNA schedule format)
-- **Blast radius**: HIGH. Settings shape changes affect attendance policies, behaviour module policies, finance billing rules, and payroll calculation.
-- **Danger**: Settings are tenant-specific. A schema change requires migrating ALL tenants' stored JSONB settings. The `tenantSettingsSchema` in shared/ is the single source of truth.
-- **Note**: ConfigurationModule exports only `SettingsService` and `EncryptionService`. All other services (BrandingService, StripeConfigService, NotificationSettingsService, KeyRotationService) are internal.
+### PdfRenderingModule
 
-### EncryptionService (ConfigurationModule)
+- **Contract**: synchronous render service, async PDF job service, output contract for rendered files
+- **Primary consumers**: finance, payroll, gradebook/report cards, behaviour, child protection, pastoral, engagement trip packs
+- **Blast radius**: HIGH
+- **Notes**: output key conventions and callback contracts matter as much as the HTML-to-PDF rendering itself
 
-- **Change cost**: HIGH -- algorithm or key changes make existing encrypted data permanently unreadable (DZ-09)
-- **Consumed by**: Admissions payment, finance/Stripe, payslips, staff profiles, AuthModule (MFA TOTP secret encryption)
-- **Blast radius**: MEDIUM. All encrypted field access (bank details, Stripe keys, MFA secrets).
-- **Danger**: Changing encryption/decryption logic makes existing encrypted data unreadable.
+### SearchModule / SearchIndexService
 
-### ApprovalRequestsService (ApprovalsModule)
+- **Contract**: async search indexing contract
+- **Primary consumers**: students, staff, households, behaviour, search admin flows, entity mutations across the platform
+- **Blast radius**: MEDIUM
+- **Notes**: failures usually create stale search rather than data corruption, but search contracts are still relied on for discoverability
 
-- **Change cost**: HIGH -- approval callback dispatch must stay in sync with all consumer worker processors; missing either side = approved items never execute (DZ-03)
-- **Consumed by**: Admissions/applications, communications/announcements, finance/invoices, payroll/runs
-- **Blast radius**: HIGH. The approval callback dispatch system (Mode A) routes approved requests to domain-specific BullMQ queues. The `MODE_A_CALLBACKS` mapping connects approval types to queue/job pairs.
-- **Danger**: Adding a new approval type requires updating BOTH the callback map AND the corresponding worker processor. Missing either = approved items never execute.
+### ReportsModule / ReportsDataAccessService
 
-### PdfRenderingService + PdfJobService (PdfRenderingModule)
+- **Contract**: cross-domain analytics aggregation
+- **Primary consumers**: dashboard, board reporting, workload/leadership reporting, compliance-style exports
+- **Blast radius**: MEDIUM-HIGH
+- **Notes**: this module is where table-shape changes surface after features seem to work elsewhere
 
-- **Exports**: `PdfRenderingService` (synchronous rendering), `PdfJobService` (async queue-based rendering)
-- **Consumed by**: Finance/receipts, finance/statements, payroll/reports, payslips, behaviour/documents, child-protection/export, engagement/trip-packs, gradebook/report-cards, pastoral/concern-reports
-- **Queue**: `pdf-rendering` queue with `pdf:render` job processed by `PdfRenderProcessor` in worker
-- **Blast radius**: MEDIUM. Template changes affect all PDF-generating domains. The async path (`PdfJobService`) stores rendered PDFs to S3 — S3 path changes affect retrieval.
+### PolicyEngineModule
 
-### S3Service (S3Module)
-
-- **Consumed by**: Branding, compliance, imports (service + validation + processing)
-- **Blast radius**: LOW-MEDIUM. File storage path changes affect document retrieval.
-
-### PolicyEvaluationEngine + PolicyRulesService (PolicyEngineModule)
-
-- **Exports**: `PolicyEvaluationEngine`, `PolicyRulesService`, `PolicyReplayService`
-- **Consumed by**: BehaviourModule (via `forwardRef`)
-- **Circular dependency**: PolicyEngineModule ↔ BehaviourModule via `forwardRef()`. PolicyEvaluationEngine depends on `BehaviourHistoryService`, and BehaviourModule uses PolicyEvaluationEngine for incident policy evaluation.
-- **Blast radius**: MEDIUM. Changes to policy evaluation logic affect behaviour incident processing, automated sanctions, and award calculations.
-
-### SequenceService (SequenceModule)
-
-- **Exports**: `SequenceService`
-- **Consumed by**: Admissions, behaviour, child-protection, finance, households, imports, pastoral, registration, security-incidents, SEN, staff-profiles, students (12 modules)
-- **Blast radius**: HIGH. Sequence format changes affect receipt numbers, invoice numbers, application IDs, payslip numbers, student IDs, staff IDs, household references, payment references, incident numbers, sanction numbers, appeal numbers across all consumers.
-- **Note**: Extracted from TenantsModule. TenantsModule re-exports SequenceModule for backward compatibility.
-
-### SearchIndexService (SearchModule)
-
-- **Consumed by**: Various services enqueue `search:index-entity` jobs on mutations
-- **Blast radius**: LOW. Search index is eventually consistent; breakage = stale search results, not data loss.
-
-### RolesService + MembershipsService + RbacReadFacade (RbacModule)
-
-- **Change cost**: MEDIUM -- 9 modules import RbacModule for role/membership/invitation services
-- **Exports**: `RolesService`, `MembershipsService`, `InvitationsService`, `RbacReadFacade`
-- **Consumed by**: ApprovalsModule, BehaviourAnalyticsModule, ComplianceModule (via forwardRef), EarlyWarningModule, FinanceModule, GdprModule, PastoralModule (core + SST sub-modules), SafeguardingModule, TenantsModule
-- **Blast radius**: MEDIUM. Role and membership changes affect permission resolution, approval routing, notification recipient resolution, and DSAR traversal.
+- **Contract**: policy evaluation and replay
+- **Primary consumers**: BehaviourModule
+- **Blast radius**: MEDIUM-HIGH
+- **Notes**: the dependency graph is narrow, but policy evaluation sits on automated sanctions, interventions, tasks, and alerting
 
 ---
 
-## Tier 3 — Domain Services (change = specific feature breaks)
+## Tier 3 — Domain Hubs
 
-### AuthService (AuthModule)
+### StudentsModule
 
-- **Change cost**: LOW -- fully decomposed into 5 sub-services (TokenService, SessionService, RateLimitService, MfaService, PasswordResetService) with thin delegation facade. AuthService is ~690 lines, down from ~1,220.
-- **Imports**: ConfigurationModule (EncryptionService for MFA TOTP secret encryption/decryption)
-- **Consumed by**: TenantsModule (via TokenService for impersonation tokens)
-- **Blast radius**: LOW (only tenant provisioning uses it directly; auth flow is middleware-based)
+- **Contract**: canonical student lifecycle, student read facade, parent/student linkage assumptions
+- **Primary consumers**: academics, classes, attendance, gradebook, finance, behaviour, safeguarding, pastoral, regulatory, SEN, homework, reports, search
+- **Blast radius**: VERY HIGH
+- **Notes**: student status, parent links, and year-group relationships ripple almost everywhere
 
-### StaffProfilesService (StaffProfilesModule)
+### StaffProfilesModule
 
-- **Change cost**: HIGH -- 15+ modules read staff_profiles directly via Prisma; schema changes silently break payroll, scheduling, attendance, behaviour scope
-- **Consumed by**: Imported by its own controllers only, but staff data is READ by payroll, scheduling, attendance, classes via Prisma directly
-- **Blast radius**: MEDIUM. Schema changes to staff_profiles table affect payroll calculations, scheduling solver, attendance marking, class assignments.
-- **Danger**: Other modules query staff_profiles via Prisma, not through StaffProfilesService. A schema change won't cause import errors but WILL cause runtime query failures in payroll/scheduling/attendance.
+- **Contract**: canonical staff record shape and staff read facade
+- **Primary consumers**: classes, scheduling, attendance, payroll, behaviour, safeguarding, pastoral, SEN, wellbeing, regulatory, reports
+- **Blast radius**: VERY HIGH
+- **Notes**: this is the people anchor for both operational and compliance workflows
 
-### ClassesService + ClassEnrolmentsService (ClassesModule)
+### ClassesModule
 
-- **Change cost**: HIGH -- 14+ modules read classes/class_enrolments directly via Prisma; circular dep with SchedulesModule via ModuleRef (DZ-07)
-- **Consumed by**: No direct importers, but class data is READ by gradebook, attendance, scheduling, finance, report cards
-- **Danger**: Same pattern as StaffProfiles — other modules query classes/class_enrolments via Prisma directly.
+- **Contract**: classes, class enrolments, class staffing, classes read facade
+- **Primary consumers**: attendance, gradebook, homework, behaviour scope, pastoral scope, scheduling, reports, parent-facing class views
+- **Blast radius**: VERY HIGH
+- **Notes**: class enrolment shape changes hit both academic and safeguarding-style visibility rules
 
-### FinanceReadFacade (FinanceModule)
+### AcademicsModule
 
-- **Change cost**: LOW -- read-only facade for cross-module finance reads
-- **Exports**: `FinanceReadFacade`
-- **Consumed by**: ComplianceModule (DSAR traversal, retention policies)
-- **Blast radius**: LOW. Read-only; changes to select shapes only affect consumer display, not data integrity.
-- **Methods**: findInvoicesByHousehold, findPaymentsByHousehold, findRefundsByHousehold, findCreditNotesByHousehold, findPaymentPlanRequestsByHousehold, findScholarshipsByStudent, findScholarshipsByHouseholds, findActiveFeeStructures, findActiveDiscounts, countInvoicesBeforeDate
+- **Contract**: academic years, periods, year groups, academic read facade
+- **Primary consumers**: classes, attendance, gradebook, homework, SEN, regulatory, staff wellbeing, reports
+- **Blast radius**: VERY HIGH
+- **Notes**: year/period status changes also trigger worker-side automation
 
-### InvoicesService (FinanceModule)
+### AttendanceModule
 
-- **Consumed by**: RegistrationModule (creates registration invoices)
-- **Blast radius**: LOW direct, but invoice status changes trigger payment cascades.
+- **Contract**: attendance tables, attendance read facade, alert semantics, parent-notification rules
+- **Primary consumers**: dashboards, reports, regulatory, early warning, gradebook risk context, parent digests
+- **Blast radius**: HIGH
+- **Notes**: worker processors and regulatory scans read the same attendance artifacts on separate codepaths
 
-### GradebookReadFacade (GradebookModule)
+### GradebookModule
 
-- **Change cost**: LOW -- read-only facade for cross-module gradebook reads
-- **Exports**: `GradebookReadFacade`
-- **Consumed by**: ComplianceModule (DSAR traversal)
-- **Blast radius**: LOW. Read-only; changes to select shapes only affect consumer display.
-- **Methods**: findGradesForStudent, findRecentGrades, findPeriodSnapshotsForStudent, findGpaSnapshotsForStudent, findRiskAlertsForStudent, findAllRiskAlertsForStudent, findReportCardsForStudent, findCompetencySnapshotsForStudent, findProgressReportsForStudent
+- **Contract**: assessments, grades, report-card state, gradebook read facade
+- **Primary consumers**: report cards, parent views, compliance export, early warning, reports, AI comment flows
+- **Blast radius**: HIGH
+- **Notes**: period closure, assessment status, and report-card lifecycle changes have worker consequences
 
-### BehaviourReadFacade (BehaviourModule)
+### FinanceModule
 
-- **Change cost**: LOW -- read-only facade for cross-module behaviour reads
-- **Exports**: `BehaviourReadFacade`
-- **Consumed by**: ComplianceModule (DSAR traversal, retention policies)
-- **Blast radius**: LOW. Read-only; changes to select shapes only affect consumer display.
-- **Methods**: findIncidentsForStudent, findSanctionsForStudent, findAppealsForStudent, findExclusionCasesForStudent, findRecognitionAwardsForStudent, findRecentIncidents, findRecentSanctions, findInterventionsForStudent, findParentAcknowledgements, countIncidentsBeforeDate, findSuspensionsForStudent, findPolicyRules, findPolicyEvaluationsForIncident
+- **Contract**: invoices, payments, refunds, credit notes, fee assignment rules, finance read facade
+- **Primary consumers**: registration, payroll context, parent finance surfaces, compliance, reports, parent digests
+- **Blast radius**: HIGH
+- **Notes**: finance state changes are consumed by both user flows and recurring/background processes
 
-### NotificationsService + NotificationDispatchService (CommunicationsModule)
+### PayrollModule
 
-- **Change cost**: MEDIUM -- WhatsApp dispatch hard-depends on consent; parent daily digest reads from 6+ modules via Prisma direct
-- **Consumed by**: AttendanceModule (parent notifications)
-- **Blast radius**: MEDIUM. Notification channel/template changes affect attendance alerts, GDPR legal/privacy fan-out notifications, and the parent daily digest.
-- **Danger**: WhatsApp dispatch now hard-depends on `consent_records` through `ConsentService`. Missing or withdrawn `whatsapp_channel` consent marks the original notification failed and creates an SMS fallback. CommunicationsModule imports GdprModule directly (no `forwardRef`) for ConsentService. GdprModule no longer imports CommunicationsModule — privacy notice publishes and sub-processor register updates write `notifications` records directly via Prisma and invalidate Redis unread-count caches.
-- **Parent daily digest cross-module reads**: The `notifications:parent-daily-digest` worker processor reads data from 6+ modules via Prisma direct: `daily_attendance_summaries` (Attendance), `grades` + `assessments` (Gradebook), `behaviour_incidents` + `behaviour_recognition_awards` (Behaviour), `homework_assignments` + `class_enrolments` (Homework/Classes), `invoices` (Finance), `students` + `student_parents` (Students), and `users.preferred_locale` (platform-level). Schema changes to any of these tables affect digest content generation.
+- **Contract**: payroll runs, payroll read surface, payslip generation contract
+- **Primary consumers**: approvals, wellbeing board/workload reports, exports, staff self-service
+- **Blast radius**: HIGH
+- **Notes**: payroll finalisation crosses approvals, sequences, and PDF/export flows
 
-### SchoolClosuresService (SchoolClosuresModule)
+### CommunicationsModule
 
-- **Consumed by**: AttendanceModule
-- **Blast radius**: LOW. Closure data affects attendance session generation.
-
-### AcademicPeriodsService (AcademicsModule)
-
-- **Consumed by**: No direct importers, but academic periods are READ by gradebook, report cards, scheduling, promotion
-- **Danger**: Period status transitions (planned -> active -> closed) trigger gradebook and report card auto-generation cron jobs in the worker.
-
-### PermissionCacheService (CommonModule -- Global)
-
-- **Change cost**: CRITICAL -- cache invalidation bugs cause permission escalation or lockout across every protected endpoint (DZ-08)
-- **Consumed by**: PermissionGuard (every protected endpoint)
-- **Blast radius**: CRITICAL. Cache invalidation bugs = users can't access features. Cache poisoning = permission escalation.
-
-### AuditLogService + SecurityAuditService (AuditLogModule -- Global)
-
-- **Change cost**: HIGH -- global interceptor on every mutation endpoint; metadata shape changes affect all audit logging and security event visibility
-- **Consumed by**: Global `AuditLogInterceptor`, `AuthService`, `TenantsService`, `PermissionGuard`, safeguarding/behaviour attachment services
-- **Blast radius**: HIGH. Changes to audit metadata shape or service signatures affect mutation logging, sensitive read coverage, security event logging, and permission-denied visibility.
-- **Danger**: Sensitive read logging depends on the global interceptor plus `@SensitiveDataAccess()` metadata. Breaking either side silently reduces Phase G audit coverage.
-
----
-
-## Tier 4 — Isolated Modules (safe to modify independently)
-
-These modules have NO downstream dependents. Changes are contained:
-
-- ParentsModule
-- HouseholdsModule (except reads tenant sequences)
-- RoomsModule (only consumed by SchedulesModule)
-- PeriodGridModule (only consumed by SchedulingRunsModule)
-- PreferencesModule
-- DashboardModule (imports ReportsModule for `ReportsDataAccessService`)
-- HealthModule
-- WebsiteModule
-- ComplianceModule
-- ReportsModule (exports `ReportsDataAccessService` — centralised cross-module read facade. All analytics queries to foreign tables are routed through this service instead of direct Prisma access. DashboardModule imports ReportsModule for this.)
-- ParentInquiriesModule
-- SecurityIncidentsModule (platform-level, no tenant scope — reads `audit_logs` for anomaly detection, writes `security_incidents` and `security_incident_events`. No downstream dependents.)
-- AiModule (wraps Anthropic client; consumed by modules that call Claude API directly)
-- ConfigModule (NestJS ConfigModule wrapper — env validation)
-- MetricsModule (Prometheus metrics endpoint — no downstream dependents)
-- EngagementModule (events, conferences, forms, trip packs — no downstream dependents)
-- ImportsModule (CSV/Excel import pipeline — no downstream dependents)
-- ClassRequirementsModule (class staffing requirements — no downstream dependents)
-- StaffAvailabilityModule (staff availability scheduling — no downstream dependents)
-- StaffPreferencesModule (staff scheduling preferences — no downstream dependents)
-- PastoralCheckinsModule (stub — not yet implemented)
-- PastoralDsarModule (stub — not yet implemented)
-- CriticalIncidentsModule (stub — not yet implemented)
-
-### RegulatoryModule
-
-- **Last verified**: 2026-04-01
-- **Exports**: None — all services internal to the module
-- **Controllers**: 1 controller (RegulatoryController) — Phases A–E: calendar CRUD, submission CRUD, Tusla compliance, DES returns, October returns, PPOD/POD sync, CBA sync, transfers, dashboard
-- **Imports**: `AuthModule`, `S3Module`
-- **Consumed by**: None externally. Worker module has 5 processors on the `regulatory` queue (they re-implement logic using raw PrismaClient, not imported services).
-- **Blast radius**: LOW. Self-contained module with no downstream dependents.
-- **Cross-module Prisma-direct reads**: `students`, `daily_attendance_summaries`, `attendance_records`, `behaviour_sanctions`, `behaviour_exclusion_cases`, `staff_profiles`, `subjects`, `classes`, `class_enrolments`, `ppod_student_mappings`, `ppod_sync_logs`, `attendance_pattern_alerts`
-- **Danger**: Schema changes to `daily_attendance_summaries` or `attendance_records` will affect Tusla threshold/SAR generation and the tusla-threshold-scan worker processor. Schema changes to `behaviour_sanctions` or `behaviour_exclusion_cases` will affect suspension/expulsion notification queries. Schema changes to `staff_profiles` or `subjects` will affect DES September Returns pipeline. Schema changes to `ppod_student_mappings` or `ppod_sync_logs` will affect PPOD sync/import processors.
-- **Queues**: `regulatory` queue with 5 jobs: `regulatory:check-deadlines` (cron 07:00), `regulatory:scan-tusla-thresholds` (cron 06:00), `regulatory:generate-des-files` (on-demand), `regulatory:ppod-sync` (on-demand), `regulatory:ppod-import` (on-demand)
-
-ComplianceModule note: anonymisation/export flows now import `SearchModule` and `S3Module` for secondary cleanup. Failures there leave stale search/cache/export artifacts, but the transactional DB anonymisation path still completes because post-commit cleanup is logged rather than rolled back. Phase F added `DsarTraversalService` which queries ~20 Prisma models across all modules for DSAR data collection — no new module imports, uses direct Prisma reads. Student DSAR traversal now also includes gradebook `period_grade_snapshots`, `student_competency_snapshots`, and `student_academic_risk_alerts`. Access export / portability execution now writes an audit-only GDPR token usage log via `GdprTokenService` using the `never` DSAR policies before the compliance request is marked completed. `compliance:deadline-check` cron job added to worker (compliance queue). Erasure pipeline now also cleans up `consent_records` and `gdpr_anonymisation_tokens`.
-
----
-
-## Tier 3 — Domain Modules with Cross-Module Dependencies
+- **Contract**: announcement publishing, notification record contract, dispatch semantics, audience resolution
+- **Primary consumers**: announcements, parent inquiries, attendance alerts, behaviour/pastoral fan-out, legal/privacy notices, digests
+- **Blast radius**: VERY HIGH
+- **Notes**: this is the delivery backbone for multiple modules, not a standalone feature silo
 
 ### BehaviourModule
 
-- **Change cost**: VERY HIGH -- 6 sub-modules, 40+ services, 193 endpoints, 12 worker processors; changes cascade through appeal/sanction/exclusion chains (DZ-13/17/18). Verify sub-module placement for every change.
-- **Last verified**: 2026-04-05
-- **Exports** (25 services): `BehaviourService`, `BehaviourConfigService`, `BehaviourStudentsService`, `BehaviourTasksService`, `BehaviourHistoryService`, `BehaviourScopeService`, `BehaviourQuickLogService`, `BehaviourPointsService`, `BehaviourAwardService`, `BehaviourRecognitionService`, `BehaviourHouseService`, `BehaviourInterventionsService`, `BehaviourGuardianRestrictionsService`, `PolicyRulesService`, `PolicyEvaluationEngine`, `PolicyReplayService`, `BehaviourSanctionsService`, `BehaviourAppealsService`, `BehaviourExclusionCasesService`, `BehaviourExportService`, `BehaviourAmendmentsService`, `BehaviourPulseService`, `BehaviourAnalyticsService`, `BehaviourAlertsService`, `BehaviourAIService`, `BehaviourDocumentService`, `BehaviourDocumentTemplateService`, `BehaviourParentService`, `BehaviourLegalHoldService`, `BehaviourAdminService`
-- **Controllers**: 16 controllers, 193 endpoints total:
-  - `BehaviourController` (21) — core incident CRUD, quick-log
-  - `BehaviourConfigController` (21) — categories, templates, settings
-  - `BehaviourAdminController` (21) — admin ops, legal holds, data export
-  - `BehaviourAnalyticsController` (20) — analytics, pulse, AI queries
-  - `BehaviourSanctionsController` (14) — sanction lifecycle
-  - `BehaviourStudentsController` (13) — student profiles, histories
-  - `BehaviourRecognitionController` (12) — awards, award types, recognition wall
-  - `BehaviourInterventionsController` (12) — intervention lifecycle
-  - `BehaviourAppealsController` (10) — appeal submission, decisions, documents
-  - `BehaviourExclusionsController` (10) — exclusion case lifecycle
-  - `BehaviourAlertsController` (8) — alert management
-  - `BehaviourTasksController` (8) — task management
-  - `BehaviourParentController` (7) — parent portal (summary, incidents, sanctions, points, recognition, acknowledge, appeal)
-  - `BehaviourGuardianRestrictionsController` (6) — restriction management
-  - `BehaviourDocumentsController` (6) — document generation, templates
-  - `BehaviourAmendmentsController` (4) — amendment trail, corrections
-- **Imports**: `AuthModule` (guards, permission cache), `SequenceModule` (SequenceService for incident/sanction/appeal/exclusion numbers), `ApprovalsModule` (approval request creation from policy actions), `PdfRenderingModule` (Puppeteer PDF generation for documents), `S3Module` (S3 storage for generated documents), `BullModule.registerQueue('notifications')`, `BullModule.registerQueue('behaviour')`
-- **Internal dependencies**:
-  - `BehaviourPulseService` -> PrismaService, RedisService
-  - `BehaviourAnalyticsService` -> PrismaService, BehaviourScopeService, BehaviourPulseService
-  - `BehaviourAlertsService` -> PrismaService
-  - `BehaviourAIService` -> PrismaService, BehaviourScopeService, BehaviourAnalyticsService, ConfigService, `@anthropic-ai/sdk` (Claude API)
-  - `BehaviourDocumentService` -> PrismaService, S3Service, PdfRenderingService, BehaviourDocumentTemplateService, BehaviourHistoryService
-  - `BehaviourParentService` -> PrismaService (reads student_parents, guardian_restrictions, incidents, sanctions, awards, publication_approvals)
-  - `BehaviourSanctionsService` -> `@Optional() BehaviourDocumentService` (auto-generate detention_notice/suspension_letter)
-  - `BehaviourExclusionCasesService` -> `@Optional() BehaviourDocumentService` (auto-generate exclusion_notice), reads `tenant_settings`
-  - `BehaviourAppealsService` -> `@Optional() BehaviourDocumentService` (auto-generate appeal_hearing_invite/appeal_decision_letter)
-  - `BehaviourAmendmentsService` -> creates correction ack rows, notifications, supersedes documents on sendCorrection()
-  - `BehaviourAdminService` -> PrismaService, `StudentReadFacade` (student cohort/export reads are facade-routed)
-  - `BehaviourAwardService` -> PrismaService, `AcademicReadFacade` (period date-range reads are facade-routed)
-- **External dependencies**: `@anthropic-ai/sdk` (Anthropic Claude API), `handlebars` (template compilation for document generation), `puppeteer` (PDF rendering via PdfRenderingModule)
-- **Queues** — 12 processors on the `behaviour` queue, plus enqueues to `notifications`:
-  - _Enqueues to `behaviour` queue_: `behaviour:evaluate-policy`, `behaviour:check-awards`, `behaviour:suspension-return`, `behaviour:detect-patterns`, `behaviour:task-reminders`, `behaviour:refresh-mv-student-summary`, `behaviour:refresh-mv-benchmarks`, `behaviour:refresh-mv-exposure-rates`, `behaviour:partition-maintenance`, `behaviour:cron-dispatch-daily`, `behaviour:cron-dispatch-sla`, `behaviour:cron-dispatch-monthly`, `behaviour:guardian-restriction-check`, `behaviour:retention-check`
-  - _Enqueues to `notifications` queue_: parent notifications, sanction notices, appeal outcomes, correction notices, `behaviour:digest-notifications`
-  - _Processors (12)_: `BehaviourCronDispatchProcessor` (dispatches per-tenant daily/SLA/monthly jobs — also dispatches safeguarding SLA/break-glass jobs), `BehaviourParentNotificationProcessor`, `DigestNotificationsProcessor`, `BehaviourTaskRemindersProcessor`, `BehaviourCheckAwardsProcessor`, `BehaviourGuardianRestrictionCheckProcessor`, `EvaluatePolicyProcessor`, `BehaviourSuspensionReturnProcessor`, `DetectPatternsProcessor`, `RefreshMVProcessor` (handles 3 MV refresh job types), `RetentionCheckProcessor`, `PartitionMaintenanceProcessor`
-- **Consumed by**: None yet externally. Internally, PolicyEvaluationEngine creates tasks, sanctions, interventions. SanctionService auto-creates exclusion cases + auto-generates documents. AppealService cascades decisions to sanctions/incidents + auto-generates documents. AmendmentsService dispatches correction notifications + supersedes documents. BehaviourAnalyticsService reads from materialized views refreshed by cron jobs.
-- **Blast radius**: HIGH. ApprovalsModule changes affect behaviour policy actions. Sanction lifecycle creates exclusion cases, legal holds, amendment notices, auto-generates documents. Appeal decisions cascade to sanctions, incidents, exclusion cases, and generate documents. Amendment corrections dispatch parent notifications and supersede existing documents. Document generation depends on PdfRenderingModule (Puppeteer) and S3Module. Materialized view refreshes depend on underlying tables.
-- **Cross-module Prisma-direct reads**: Reads `students`, `student_parents`, `class_staff`, `class_enrolments`, `academic_years`, `academic_periods`, `subjects`, `rooms`, `schedules`, `tenant_settings`, `users`, `staff_profiles`, `parents`, `year_groups`, `notifications`, `behaviour_publication_approvals` directly via PrismaService. These are read-only lookups for context snapshots, scope resolution, student data, and parent portal rendering.
-- **Danger**: Schema changes to `students`, `class_enrolments`, or `class_staff` affect scope resolution in `BehaviourScopeService`. Schema changes to `student_parents` affect parent notification dispatch in the worker and parent portal rendering. The `@anthropic-ai/sdk` dependency requires an API key configured per tenant. Puppeteer PDF generation runs synchronously in API transactions — see DZ-19. Amendment correction chain touches 5 tables — see DZ-20. Break-glass expiry processor has no dispatch mechanism — see DZ-23.
+- **Contract**: incidents, sanctions, tasks, interventions, appeals, exclusions, behaviour read facade, policy engine coupling
+- **Primary consumers**: safeguarding, pastoral sync, parent portal, reports, early warning triggers, approval-driven discipline flows
+- **Blast radius**: VERY HIGH
+- **Notes**: this is one of the densest modules in the codebase; lifecycle and worker changes fan out quickly
 
 ### SafeguardingModule
 
-- **Change cost**: HIGH -- handles child safeguarding concerns, referrals, break-glass access, sealed records; any data leak is a legal liability
-- **Last verified**: 2026-04-04
-- **Exports**: `SafeguardingService`
-- **Controllers**: 1 controller, 21 endpoints:
-  - `SafeguardingController` (21) — safeguarding concerns, actions, referrals, attachments, case files, seals, break-glass, dashboard
-- **Imports**: `AuthModule`, `ChildProtectionModule`, `PastoralCoreModule`, `PdfRenderingModule`, `SequenceModule`, `BullModule.registerQueue('notifications')`, `BullModule.registerQueue('behaviour')`
-- **Internal services**: `SafeguardingService` (facade), `SafeguardingConcernsService`, `SafeguardingReferralsService`, `SafeguardingReportingService`, `SafeguardingSealService`, `SafeguardingAttachmentService`, `SafeguardingBreakGlassService`
-- **Worker processors** (4, on `behaviour` queue): `SlaCheckProcessor` (`safeguarding:sla-check`), `CriticalEscalationProcessor` (`safeguarding:critical-escalation`), `BreakGlassExpiryProcessor` (`behaviour:break-glass-expiry`), `AttachmentScanProcessor` (`behaviour:attachment-scan`)
-- **Consumed by**: None directly. Cron jobs dispatched by `BehaviourCronDispatchProcessor`.
-- **Blast radius**: HIGH. Safeguarding data is subject to strict access controls (break-glass, sealing). Changes affect audit trail, SLA enforcement, and TUSLA/Garda referral workflows.
-- **Cross-module Prisma-direct reads**: `tenant_memberships`, `safeguarding_concerns`, `safeguarding_actions`, `safeguarding_break_glass_grants`, `behaviour_incidents`, `behaviour_attachments`, `tenant_settings`
+- **Contract**: safeguarding concern lifecycle, sealing, break-glass, referrals, safeguarding SLA/escalation jobs
+- **Primary consumers**: pastoral sync, audit/security coverage, child protection-style downstream workflows
+- **Blast radius**: VERY HIGH
+- **Notes**: status-projection and sealed-record access rules are safety-critical contracts
 
-### SenModule
+### PastoralModule
 
-- **Last verified**: 2026-04-01
-- **Exports**: None — all services internal to the module
-- **Controllers**: `SenProfileController`, `SenSupportPlanController`, `SenGoalController`, `SenResourceController`, `SenSnaController`, `SenProfessionalController`, `SenAccommodationController`, `SenReportsController`, `SenTransitionController`
-- **Imports**: `AuthModule`, `SequenceModule` (`SequenceService` for support plan numbers), `ConfigurationModule` (`SettingsService` for SEN review-cycle, plan-number prefix, and `sen.sna_schedule_format`)
-- **Consumed by**: No external module imports. Controllers use the services directly; read access also depends on `PermissionCacheService` through the global auth/permission stack.
-- **Blast radius**: MEDIUM. Changing support-plan numbering impacts versioned SEN plans across tenants. Changing scope resolution affects which students class teachers can see. Changing goal/progress lifecycle behavior affects plan review workflows, stale-goal compliance reporting, and historical progress tracking. Changing resource-allocation capacity rules affects utilisation dashboards, student-hour assignment limits, SNA coordination workflows, and the NCSE return resource-hour totals. Changing transition-note or handover-pack composition affects controlled information-sharing during class/year/school transitions.
-- **Cross-module Prisma-direct reads**: `students` (via `sen_profiles.student_id` scope chain, reporting, handover, and student-hour/SNA joins), `staff_profiles`, `class_staff`, `class_enrolments`, `academic_years`, `academic_periods`, `year_groups`, `users`, `pastoral_referrals` (optional FK link from professional involvements)
-- **Danger**: `SenScopeService` relies on `staff_profiles`, `class_staff`, and `class_enrolments` to derive class-scoped visibility, so schema or status changes there can silently overexpose or hide SEN records. `SenSupportPlanService` depends on tenant settings defaults for `sen.default_review_cycle_weeks` and `sen.plan_number_prefix`; changing those schemas requires keeping the service behavior and shared defaults aligned. `SenReportsService` reads `students.gender`, `students.year_group_id`, `academic_years`, and goal-progress recency directly for NCSE/overview/compliance reporting, so schema changes there can silently skew statutory or operational outputs. `SenTransitionService` assembles handover packs from support plans, goals, accommodations, professional involvements, student-hours, SNA assignments, and transition notes; changes to any of those shapes can break downstream handover payloads or omit information unexpectedly. `SenSnaService` validates assignment schedules against `sen.sna_schedule_format`, so changing that shared settings schema or its defaults without updating the validator can reject legitimate assignments or accept malformed ones. `SenProfessionalService` reads `pastoral_referrals` directly via Prisma for optional referral linking — schema changes to `pastoral_referrals` can affect professional involvement creation. `SenAccommodationService.getExamReport()` joins through `sen_profiles -> students -> year_groups` — schema changes to `students.year_group_id` or `year_groups` can affect exam accommodation reporting.
+- **Contract**: concerns, cases, referrals, SST, critical incidents, check-ins, pastoral reporting
+- **Primary consumers**: child protection links, early warning signals, parent-facing pastoral views, PDF exports
+- **Blast radius**: VERY HIGH
+- **Notes**: `PastoralModule` is the live implementation surface; the top-level `PastoralCheckinsModule` and `PastoralDsarModule` wrappers remain empty stubs
 
----
+### ChildProtectionModule
 
-## Cross-Module Query Pattern (Prisma Bypass)
+- **Contract**: CP records, CP access, CP exports, mandated report lifecycle
+- **Primary consumers**: pastoral escalation/linking, PDF export, access guard flows
+- **Blast radius**: HIGH
+- **Notes**: tightly coupled to Pastoral via `forwardRef()` and shared concern linkage
 
-**Critical awareness**: Many modules query other modules' tables directly via PrismaService rather than injecting the owning module's service. This means:
+### EarlyWarningModule
 
-1. **Schema changes** to these tables break consumers that aren't visible in the NestJS module import graph
-2. The NestJS dependency graph underestimates actual coupling
-
-Known Prisma-direct consumers:
-| Table | Queried directly by |
-|-------|-------------------|
-| `staff_profiles` | Payroll, scheduling, attendance, classes, reports, dashboard, behaviour (scope resolution), compliance (DSAR/retention/erasure), configuration (key-rotation batch re-encryption), early-warning (cohort, routing, service), engagement (conferences), regulatory (DES September Returns), schedules (conflict detection), search (index), sen (scope, SNA), staff-availability, staff-preferences |
-| `students` + `student_parents` | Attendance, gradebook, report cards, finance, admissions, reports, parent-daily-digest (worker), academics (promotion, year-groups), behaviour (analytics, pulse, points, students-view), classes (assignments), communications (audience-resolution), compliance (DSAR/anonymisation/retention), early-warning (routing), engagement (event-participants, conferences, form-submissions), gdpr (age-gate, consent), homework (completions, analytics, parent, diary), imports, parent-inquiries, pastoral (notification, report), regulatory (DES, October returns, Tusla, transfers), search (index), sen |
-| `classes` + `class_enrolments` | Gradebook, attendance, scheduling, report cards, parent-daily-digest (worker), behaviour (scope, comparison-analytics), communications (audience-resolution), compliance (DSAR), early-warning (cohort, routing, service), engagement (conferences, event-participants, trip-pack), homework (completions, analytics, parent), pastoral (parent-pastoral), schedules (conflict-detection, timetables), sen (scope) |
-| `academic_periods` + `academic_years` | Gradebook, report cards, scheduling, promotion, attendance, behaviour (admin, award, house, points), classes (assignments, service), early-warning (cohort, service), regulatory (DES, October returns), sen (reports, resource), staff-wellbeing (board-report, workload-data) |
-| `invoices` + `payments` | Finance reports, dashboard, parent portal, parent-daily-digest (worker), compliance (DSAR/retention — reads invoice count for retention eligibility checks) |
-| `attendance_records` + `attendance_sessions` + `daily_attendance_summaries` | Reports, dashboard, gradebook risk detection, parent-daily-digest (worker), behaviour (behaviour-students reads `daily_attendance_summaries` for at-risk context), compliance (DSAR traversal, retention-policies), gradebook (report-cards embed daily summaries; AI services read attendance records for comment/progress context), regulatory (Tusla threshold scanning reads both `attendance_records` and `daily_attendance_summaries`), schedules (counts open sessions before allowing closure deletion), school-closures (checks for open/flagged attendance sessions before applying a closure) |
-| `behaviour_incidents` + `behaviour_recognition_awards` | Behaviour module reads these via Prisma (owned), reports, dashboard, parent-daily-digest (worker), compliance (DSAR traversal reads `behaviourRecognitionAward`; retention-policies counts `behaviourIncident` for retention eligibility) |
-| `grades` + `assessments` | Gradebook (owned), parent-daily-digest (worker), compliance (DSAR traversal reads grades), reports (grade-analytics, student-progress, reports-data-access read assessments) |
-| `homework_assignments` | Homework (owned), parent-daily-digest (worker) |
-
-**Rule**: When changing schema for any table in the left column, grep for that table name across ALL modules, not just the owning module.
-
----
-
-## StaffWellbeingModule
-
-- **Exports**: `HmacService`, `WorkloadComputeService`, `WorkloadCacheService`
-- **Reads from** (read-only, no writes):
-  - `SchedulingModule` → Schedule, SchedulePeriodTemplate (teaching load, timetable quality, room changes)
-  - `SubstitutionModule` / Scheduling → SubstitutionRecord (cover duties, absence proxy, fairness analysis)
-  - `StaffProfilesModule` → staff_profiles (staff metadata, DOB for aggregate workforce transition in V2)
-  - `PayrollModule` → compensation_records (compensation context for V2 reports)
-  - `CommunicationsModule` → notification infrastructure (survey open/close notifications)
-  - `ConfigurationModule` → EncryptionService (HMAC secret encryption), SettingsService (tenant settings)
-- **Blast radius**: None downstream. Changes to StaffWellbeingModule cannot break any other module.
-- **Reverse blast radius** (changes to these modules affect wellbeing):
-  - Schedule model changes affect workload computation
-  - SubstitutionRecord model changes affect cover fairness and absence trends
-  - EncryptionService interface changes affect HMAC secret management
-- **Special risk**: `survey_responses` table has NO tenant_id and NO RLS — see DZ-27 in danger-zones.md
-
----
-
-## EarlyWarningModule
-
-**Location**: `apps/api/src/modules/early-warning/early-warning.module.ts`
-
-- **Exports**: None — all services are internal to the module. No other module injects EarlyWarning services directly.
-- **Consumed by**:
-  - Worker: `evaluate-policy.processor.ts` (behaviour module), `notify-concern.processor.ts` (pastoral module), `attendance-pattern-detection.processor.ts` (attendance module) — all enqueue `early-warning:compute-student` jobs directly onto the EARLY_WARNING queue via BullMQ. The worker re-implements signal collection logic in `signal-collection.utils.ts` using raw PrismaClient — it does NOT import API services.
-  - API: `EarlyWarningController` and `EarlyWarningService` are internal — the controller and service are registered in the module
-- **Consumes**:
-  - `PrismaModule` → `PrismaService` (DB access for signal collectors, routing resolution, trigger config checks)
-  - `BullModule` → `early-warning` queue (for `EarlyWarningTriggerService` to enqueue compute-student jobs)
-  - Reads from: `early_warning_configs`, `student_risk_profiles`, `student_risk_signals`, `early_warning_tier_transitions`, `class_enrolments`, `class_staff`, `staff_profiles`, `membership_roles`, `students`, `notifications`, `pastoral_cases`, `pastoral_interventions`
-- **Blast radius**: LOW. Self-contained module with no downstream NestJS dependents.
-- **Reverse blast radius** (changes to these modules affect early-warning):
-  - `attendance` module: `daily_attendance_summaries`, `attendance_pattern_alerts` are read by the attendance signal collector
-  - `gradebook` module: assessment data read by the grades signal collector
-  - `behaviour` module: incident data read by the behaviour signal collector
-  - `pastoral` module: concern/case data read by the wellbeing signal collector; `pastoral_interventions` table written to on red-tier entries
-  - Schema changes to `class_staff`, `staff_profiles`, `membership_roles` affect recipient routing resolution
-
----
+- **Contract**: student risk profiles, risk signals, config-driven tiering, trigger semantics
+- **Primary consumers**: attendance/behaviour/pastoral worker triggers, dashboards, routing/assignment flows
+- **Blast radius**: HIGH
+- **Notes**: no other API module imports its services directly, but many processors feed it indirectly through queue jobs and shared signal tables
 
 ### HomeworkModule
 
-**Location**: `apps/api/src/modules/homework/homework.module.ts`
-**Registered in**: `apps/api/src/app.module.ts`
+- **Contract**: homework assignments/completions, diary notes, parent homework visibility
+- **Primary consumers**: parent digests, behaviour daily dispatch, class/student read paths, analytics
+- **Blast radius**: MEDIUM-HIGH
+- **Notes**: exports are narrow, but worker automation and parent-facing surfaces depend on its table contracts
 
-**Exports**: HomeworkService, HomeworkCompletionsService, HomeworkDiaryService, HomeworkAnalyticsService, HomeworkParentService
+### RegulatoryModule
 
-**Controllers** (5): HomeworkController (17 endpoints), HomeworkCompletionsController (5), HomeworkDiaryController (6), HomeworkParentController (6), HomeworkAnalyticsController (10) — 44 total
+- **Contract**: calendar, submissions, Tusla, DES/October returns, PPOD/POD, transfers
+- **Primary consumers**: worker processors on the `regulatory` queue, academic/attendance/behaviour/staff data contracts
+- **Blast radius**: HIGH
+- **Notes**: exports are limited, but the module is a wide reader of other domain data
 
-**Tables**: homework_assignments, homework_attachments, homework_completions, homework_recurrence_rules, diary_notes, diary_parent_notes
+### SchedulingModule + SchedulingRunsModule
 
-**Queue**: `homework` (4 jobs: overdue-detection, generate-recurring, digest-homework, completion-reminder)
+- **Contract**: solver inputs/outputs, run status, generated timetable application
+- **Primary consumers**: classes, staff availability/preferences, rooms, closures, staff wellbeing metrics, personal timetables
+- **Blast radius**: HIGH
+- **Notes**: solver result shape and run-status semantics matter to multiple user surfaces and workers
 
-**Permissions**: homework.view, homework.manage, homework.mark_own, homework.view_diary, homework.write_diary, homework.view_analytics, parent.homework
+### SenModule
 
-**Tenant Module Key**: `homework` in tenant_settings
+- **Contract**: SEN profiles, support plans, goals, referrals, accommodations, SNA/resource allocation
+- **Primary consumers**: pastoral linkage, staff/class scope rules, reports, transition/handover packs
+- **Blast radius**: HIGH
+- **Notes**: scope resolution depends on staff/class contracts outside the module
 
-**Imports**: AuthModule, S3Module, BullModule
+### StaffWellbeingModule
 
-**Reverse Blast Radius**:
-
-- Changes to `classes`, `students`, `subjects`, `academic_years`, `academic_periods` schema affect homework queries
-- Changes to `student_parents` affect parent portal visibility
-- Changes to `tenant_settings` schema affect homework settings
-- Communications queue changes affect digest/reminder notifications
-
----
-
-## PastoralModule
-
-**Change cost**: HIGH -- 7 sub-modules, 30+ services, 14 controllers, 8 worker processors; circular dep with ChildProtectionModule via forwardRef (DZ-35). Verify sub-module placement for every change.
-
-**Location**: `apps/api/src/modules/pastoral/pastoral.module.ts`
-
-- **Exports** (17 services): `AffectedTrackingService`, `CaseService`, `CheckinService`, `ConcernService`, `ConcernVersionService`, `CriticalIncidentService`, `InterventionService`, `NepsVisitService`, `ParentContactService`, `PastoralDsarService`, `PastoralEventService`, `PastoralNotificationService`, `PastoralReportService`, `ReferralService`, `SstService`, `StudentChronologyService`
-- **Controllers** (14): `CasesController`, `CheckinAdminController`, `CheckinConfigController`, `CheckinsController`, `ConcernsController`, `CriticalIncidentsController`, `InterventionsController`, `ParentContactsController`, `ParentPastoralController`, `PastoralAdminController`, `PastoralDsarController`, `PastoralImportController`, `PastoralReportsController`, `ReferralsController`, `SstController`
-- **Imports**: `AuthModule`, `forwardRef(() => ChildProtectionModule)` (circular — CP module imports Pastoral), `CommunicationsModule`, `PdfRenderingModule`, `SequenceModule`, `BullModule.registerQueue('pastoral')`, `BullModule.registerQueue('notifications')`
-- **Consumed by**:
-  - `EarlyWarningModule` worker processors read `pastoral_cases` and `pastoral_interventions` via Prisma direct
-  - `ChildProtectionModule` uses `forwardRef(PastoralModule)` for CP record linking to pastoral concerns
-- **Blast radius**: HIGH. PastoralModule contains the full pastoral care system — concerns, cases, SST meetings, referrals, child protection liaison, check-ins, critical incidents, and DSAR traversal. Changes to exported services affect CP records, early-warning signal collection, and Pastoral DSAR export.
-- **Cross-module Prisma-direct reads**: `students`, `student_parents`, `parents`, `class_enrolments`, `class_staff`, `staff_profiles`, `academic_years`, `academic_periods`, `school_closures`, `tenant_settings`, `memberships`, `behaviour_incidents`, `behaviour_sanctions`, `safeguarding_concerns`
-- **Queues**: `pastoral` queue (8 job processors): `pastoral:notify-concern`, `pastoral:escalation-timeout`, `pastoral:checkin-alert`, `pastoral:intervention-review-reminder`, `pastoral:overdue-actions`, `pastoral:precompute-agenda`, `pastoral:sync-behaviour-safeguarding`, `pastoral:wellbeing-flag-expiry`
-- **Circular dependency**: `PastoralModule` ↔ `ChildProtectionModule` via `forwardRef()`. This is intentional — CP records link to pastoral concerns, and pastoral concerns can escalate to CP. If either module removes `forwardRef`, NestJS will throw a circular dependency error at startup.
-- **State machines**: CaseStatus (`open → active → monitoring → resolved → closed`), ReferralStatus (8 states), SstMeetingStatus, CriticalIncidentStatus, PastoralInterventionStatus, ReferralRecommendationStatus — all guarded within respective service files.
+- **Contract**: workload metrics, surveys, resource directory, board-report aggregation
+- **Primary consumers**: leadership reporting, wellbeing dashboards, survey moderation jobs
+- **Blast radius**: MEDIUM
+- **Notes**: downstream breakage is limited, but upstream schedule/substitution/staff-data changes can distort outputs quickly
 
 ---
 
-## ChildProtectionModule
+## Tier 4 — Low-Dependency Modules
 
-**Location**: `apps/api/src/modules/child-protection/child-protection.module.ts`
+These modules are comparatively safe to change in isolation as long as their shared schemas and queues stay stable:
 
-- **Exports**: `CpAccessService`, `CpExportService`, `CpRecordService`
-- **Controllers** (3): `CpAccessController`, `CpExportController`, `CpRecordsController`
-- **Imports**: `AuthModule`, `forwardRef(() => PastoralModule)`, `PdfRenderingModule`, `SequenceModule`
-- **Consumed by**: None externally — self-contained child protection record system
-- **Blast radius**: MEDIUM. Changes to `CpRecordService` affect CP record creation/linking from pastoral concerns. Changes to `CpAccessService` affect the break-glass style CP access guard (`CpAccessGuard`).
-- **Cross-module Prisma-direct reads**: `pastoral_concerns` (via PastoralModule forwardRef), `staff_profiles`, `students`, `memberships`
-- **Circular dependency**: See PastoralModule entry above — `ChildProtectionModule` ↔ `PastoralModule` via `forwardRef()`.
+- `HealthModule`
+- `MetricsModule`
+- `PreferencesModule`
+- `ParentsModule`
+- `HouseholdsModule`
+- `ParentInquiriesModule`
+- `WebsiteModule`
+- `RoomsModule`
+- `PeriodGridModule`
+- `ClassRequirementsModule`
+- `StaffAvailabilityModule`
+- `StaffPreferencesModule`
+- `ImportsModule`
+- `SecurityIncidentsModule`
+- `DashboardModule` (mostly a reader/aggregator over other module contracts)
+
+These still need regression testing if their tables, shared DTOs, or queue payloads change, but they do not currently sit at the center of the platform's dependency graph.
+
+---
+
+## Worker-Side Reverse Blast Radius
+
+The worker is where blast radius often hides after API refactors appear safe.
+
+### Shared tables with heavy worker dependence
+
+- `notifications`: communications dispatch, retries, digests, pastoral fan-out, behaviour fan-out, legal/privacy notifications
+- `tenant_settings` / `tenant_module_settings`: behaviour, homework, wellbeing, regulatory, early warning, communications, payroll
+- `students`, `student_parents`, `class_enrolments`, `class_staff`, `staff_profiles`: attendance, homework, early warning, pastoral, wellbeing, regulatory
+- `approval_requests`: approval callback processors plus reconciliation
+- `security_incidents` and `audit_logs`: anomaly scan, breach deadline, platform security workflows
+
+### Shared queue semantics
+
+- Queue name changes are wide-impact changes because API modules, worker processors, cron registration, and tests all reference the same constants or job names.
+- Job payload shape changes are cross-process breaking changes. They must be treated like API contract changes.
+
+---
+
+## Stub Wrappers To Treat Carefully
+
+These modules are still present in `AppModule`, but the live functionality sits elsewhere:
+
+- [apps/api/src/modules/pastoral-checkins/pastoral-checkins.module.ts](/Users/ram/Desktop/SDB/apps/api/src/modules/pastoral-checkins/pastoral-checkins.module.ts)
+- [apps/api/src/modules/pastoral-dsar/pastoral-dsar.module.ts](/Users/ram/Desktop/SDB/apps/api/src/modules/pastoral-dsar/pastoral-dsar.module.ts)
+- [apps/api/src/modules/critical-incidents/critical-incidents.module.ts](/Users/ram/Desktop/SDB/apps/api/src/modules/critical-incidents/critical-incidents.module.ts)
+
+Do not document these as live functional surfaces. The implemented pastoral and critical-incident behavior is under [apps/api/src/modules/pastoral](/Users/ram/Desktop/SDB/apps/api/src/modules/pastoral).
+
+---
+
+## Practical Rule
+
+Before changing any exported service, shared enum, queue payload, or core table:
+
+1. check the owning module
+2. check the relevant read facade
+3. check worker processors touching the same table or job
+4. check architecture docs for matching state-machine and danger-zone entries
+
+If a change touches any of those layers, it is not a local refactor.

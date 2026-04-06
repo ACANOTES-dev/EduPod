@@ -2,7 +2,7 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-04-06
+> **Last verified**: 2026-04-07
 
 ---
 
@@ -559,14 +559,32 @@ The compute-student processor validates `early_warning_configs.is_enabled` and `
 
 ---
 
-## DZ-33: Homework — Cross-Module Cron Dispatch
+## DZ-33: Homework — Dual Dispatch Paths With Payload Contract Drift
 
-**Risk**: Silent job cessation if cron scheduler configuration changes or homework queue name is modified
-**Location**: `apps/worker/src/cron/cron-scheduler.service.ts`, `apps/worker/src/base/queue.constants.ts`
+**Risk**: noisy failing cron jobs, duplicate scheduling paths, and false assumptions about which automation path is actually live
+**Location**: `apps/worker/src/cron/cron-scheduler.service.ts`, `apps/worker/src/processors/behaviour/cron-dispatch.processor.ts`, `apps/worker/src/processors/homework/digest-homework.processor.ts`, `apps/worker/src/processors/homework/completion-reminder.processor.ts`
 
-The `homework:digest-homework` and `homework:completion-reminder` jobs are per-tenant jobs dispatched from the cross-tenant cron scheduler. If the cron scheduler configuration changes or the homework queue name is modified, these jobs will silently stop running. There is no health check to detect missing cron registrations.
+The homework reminder/digest automation now has two different dispatch paths:
 
-**Mitigation**: Verify all 4 homework cron jobs appear in the BullMQ dashboard after each deploy. The `registerHomeworkCronJobs()` method in `CronSchedulerService` is the single source of truth for cron registration.
+1. `CronSchedulerService.registerHomeworkCronJobs()` registers repeatable jobs for:
+   - `homework:generate-recurring`
+   - `homework:overdue-detection`
+   - `homework:digest-homework`
+   - `homework:completion-reminder`
+2. `BehaviourCronDispatchProcessor.dispatchDaily()` also enqueues:
+   - `homework:digest-homework`
+   - `homework:completion-reminder`
+     per tenant with valid `tenant_id` payloads
+
+The problem is that the `HomeworkDigestProcessor` and `HomeworkCompletionReminderProcessor` both reject missing `tenant_id`, but the direct cron registrations in `CronSchedulerService` enqueue those jobs with `{}`.
+
+That means the current codebase contains:
+
+- one valid per-tenant dispatch path for digest/reminder jobs
+- one invalid repeatable dispatch path for the same jobs
+- two different architectural “sources of truth” for the same automation
+
+**Mitigation**: Treat the per-tenant behaviour-dispatch path as the only payload-compatible path for `homework:digest-homework` and `homework:completion-reminder` unless the direct cron registrations are fixed to iterate tenants explicitly. Do not document `registerHomeworkCronJobs()` as the sole source of truth for homework automation in its current form.
 
 ---
 
