@@ -32,6 +32,7 @@ describe('BrandingService', () => {
   };
   let mockS3: {
     upload: jest.Mock;
+    getPresignedUrl: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -46,6 +47,7 @@ describe('BrandingService', () => {
     } as unknown as typeof mockPrisma;
     mockS3 = {
       upload: jest.fn(),
+      getPresignedUrl: jest.fn().mockResolvedValue('https://presigned.example.com/logo.png'),
     };
 
     (createRlsClient as jest.Mock).mockReturnValue(mockPrisma);
@@ -69,13 +71,17 @@ describe('BrandingService', () => {
   afterEach(() => jest.clearAllMocks());
 
   describe('getBranding', () => {
-    it('should return branding when found', async () => {
+    it('should return branding with presigned logo URL when found', async () => {
       mockPrisma.tenantBranding.findUnique.mockResolvedValue(mockBranding);
 
       const result = await service.getBranding(TENANT_ID);
 
       expect(mockPrisma.tenantBranding.findUnique).toHaveBeenCalledWith(TENANT_ID);
-      expect(result).toEqual(mockBranding);
+      expect(result).toEqual({
+        ...mockBranding,
+        logo_url: 'https://presigned.example.com/logo.png',
+      });
+      expect(mockS3.getPresignedUrl).toHaveBeenCalledWith(mockBranding.logo_url, 3600);
     });
 
     it('should throw NotFoundException when branding not found', async () => {
@@ -151,7 +157,8 @@ describe('BrandingService', () => {
           update: { logo_url: `${TENANT_ID}/logos/logo.png` },
         }),
       );
-      expect(result.logo_url).toBe(`${TENANT_ID}/logos/logo.png`);
+      expect(result.logo_url).toBe('https://presigned.example.com/logo.png');
+      expect(mockS3.getPresignedUrl).toHaveBeenCalledWith(`${TENANT_ID}/logos/logo.png`, 3600);
     });
 
     it('should reject invalid file extensions', async () => {

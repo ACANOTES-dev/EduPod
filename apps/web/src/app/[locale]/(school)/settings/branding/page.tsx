@@ -36,13 +36,14 @@ export default function BrandingPage() {
   React.useEffect(() => {
     async function fetchBranding() {
       try {
-        const data = await apiClient<BrandingApiResponse>('/api/v1/branding');
+        const result = await apiClient<{ data: BrandingApiResponse }>('/api/v1/branding');
+        const data = result.data ?? (result as unknown as BrandingApiResponse);
         if (data.primary_color) setPrimaryColor(data.primary_color);
         if (data.secondary_color) setSecondaryColor(data.secondary_color);
         if (data.logo_url) setLogoUrl(data.logo_url);
       } catch (err) {
         // Branding may not exist yet — that's fine, use defaults
-        console.error('[data]', err);
+        console.error('[fetchBranding]', err);
       } finally {
         setLoading(false);
       }
@@ -103,7 +104,8 @@ export default function BrandingPage() {
         throw errData;
       }
 
-      const result = (await response.json()) as BrandingApiResponse;
+      const raw = (await response.json()) as { data?: BrandingApiResponse };
+      const result = raw.data ?? (raw as unknown as BrandingApiResponse);
       if (result.logo_url) setLogoUrl(result.logo_url);
       toast.success(t('logoUploaded'));
     } catch (err: unknown) {

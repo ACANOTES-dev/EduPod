@@ -23,6 +23,7 @@ export class BrandingService {
 
   /**
    * Get branding for a tenant.
+   * Resolves the raw S3 key in logo_url to a presigned URL (1-hour expiry).
    */
   async getBranding(tenantId: string) {
     const branding = await this.tenantReadFacade.findBranding(tenantId);
@@ -32,6 +33,16 @@ export class BrandingService {
         code: 'BRANDING_NOT_FOUND',
         message: 'Branding configuration not found for this tenant',
       });
+    }
+
+    if (branding.logo_url) {
+      try {
+        const presignedUrl = await this.s3.getPresignedUrl(branding.logo_url, 3600);
+        return { ...branding, logo_url: presignedUrl };
+      } catch {
+        // S3 key might be invalid — return branding without resolving the URL
+        console.error('[BrandingService.getBranding] Failed to resolve logo presigned URL');
+      }
     }
 
     return branding;
@@ -112,6 +123,8 @@ export class BrandingService {
       });
     });
 
-    return branding;
+    // Return presigned URL so the frontend can display the logo immediately
+    const presignedUrl = await this.s3.getPresignedUrl(fullKey, 3600);
+    return { ...branding, logo_url: presignedUrl };
   }
 }
