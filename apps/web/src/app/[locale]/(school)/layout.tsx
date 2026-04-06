@@ -48,6 +48,13 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
   const [wizardOpen, setWizardOpen] = React.useState(false);
   const pathname = usePathname();
 
+  // Listen for registration wizard open events from dashboard quick actions
+  React.useEffect(() => {
+    const handler = () => setWizardOpen(true);
+    window.addEventListener('open-registration-wizard', handler);
+    return () => window.removeEventListener('open-registration-wizard', handler);
+  }, []);
+
   // Wire global API error toast
   React.useEffect(() => {
     const segments = (pathname ?? '').split('/').filter(Boolean);
