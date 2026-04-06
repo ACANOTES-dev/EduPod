@@ -15,7 +15,7 @@ import { NotificationPanel } from '@/components/notifications/notification-panel
 import { RequireRole } from '@/components/require-role';
 import { UserMenu } from '@/components/user-menu';
 import { useShortcuts } from '@/hooks/use-shortcuts';
-import { setApiErrorHandler } from '@/lib/api-client';
+import { apiClient, setApiErrorHandler } from '@/lib/api-client';
 import { hubConfigs, hubSubStripConfigs } from '@/lib/nav-config';
 import type { RoleKey } from '@/lib/route-roles';
 import { RequireAuth, useAuth } from '@/providers/auth-provider';
@@ -46,6 +46,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
   const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const [wizardOpen, setWizardOpen] = React.useState(false);
+  const [logoUrl, setLogoUrl] = React.useState<string | null>(null);
   const pathname = usePathname();
 
   // Listen for registration wizard open events from dashboard quick actions
@@ -53,6 +54,24 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
     const handler = () => setWizardOpen(true);
     window.addEventListener('open-registration-wizard', handler);
     return () => window.removeEventListener('open-registration-wizard', handler);
+  }, []);
+
+  // Fetch branding logo for the morph bar
+  React.useEffect(() => {
+    async function fetchLogo() {
+      try {
+        const result = await apiClient<{ data?: { logo_url?: string | null } }>(
+          '/api/v1/branding',
+          { silent: true },
+        );
+        const url = result.data?.logo_url ?? (result as unknown as { logo_url?: string }).logo_url;
+        if (url) setLogoUrl(url);
+      } catch (err) {
+        // Branding may not exist yet — that's fine, show initial instead
+        console.error('[fetchLogo]', err);
+      }
+    }
+    void fetchLogo();
   }, []);
 
   // Wire global API error toast
@@ -149,6 +168,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
         morphBar={
           <MorphBar
             schoolName={schoolName}
+            logoUrl={logoUrl ?? undefined}
             activeHub={activeHub}
             hubs={derivedHubs}
             onHubClick={handleHubClick}
