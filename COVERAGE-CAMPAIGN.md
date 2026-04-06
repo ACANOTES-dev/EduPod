@@ -5,6 +5,37 @@
 
 ---
 
+## Parallel Session Protocol
+
+To reduce shared-file collisions during the remaining push to 90%, the repo now includes a lightweight lock system:
+
+- Command entrypoint: `pnpm coverage:lock`
+- Tracker folder: `coverage-locks/`
+- Usage guide: `coverage-locks/README.md`
+- Prompt templates: `coverage-locks/SESSION-PROMPTS.md`
+
+Use locks only for shared files or shared scopes. Module-owned files should still be edited without locks.
+
+**Core commands:**
+
+```bash
+pnpm coverage:lock acquire --target apps/api/src/common/middleware/rls.middleware.ts --session behaviour-r4 --module behaviour --reason "shared RLS mock" --wait
+pnpm coverage:lock heartbeat --target apps/api/src/common/middleware/rls.middleware.ts --session behaviour-r4
+pnpm coverage:lock release --target apps/api/src/common/middleware/rls.middleware.ts --session behaviour-r4
+pnpm coverage:lock status
+pnpm coverage:lock cleanup
+```
+
+**Protocol:**
+
+1. Own your module first.
+2. Acquire a lock before touching any file outside your module.
+3. Refresh the lock every 60-90 seconds while still editing that shared file.
+4. Release immediately when done.
+5. Reclaim or clean up stale locks after TTL expiry if a session dies mid-edit.
+
+---
+
 ## Progress Summary
 
 | Metric         | Before | Current | Target | Gap                     |

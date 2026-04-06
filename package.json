@@ -24,6 +24,7 @@
     "test:changed": "turbo run test:changed",
     "validate": "pnpm lint && pnpm type-check && pnpm test:unit",
     "validate:fast": "pnpm lint:ci && pnpm type-check && pnpm check:worker-processor-specs && pnpm i18n:check && pnpm hotspots:check && npx tsx scripts/audit-rls.ts && node scripts/check-raw-sql-governance.js && node scripts/check-module-cohesion.js --max-errors 0 && node scripts/check-module-tiers.js && node scripts/check-global-providers.js && pnpm check:boundaries -- --max-violations 0 && node scripts/check-cross-module-deps.js --max-violations 0",
+    "coverage:lock": "tsx scripts/coverage-lock.ts",
     "i18n:check": "node scripts/check-i18n.js",
     "i18n:baseline": "node scripts/check-i18n.js --write-baseline",
     "hotspots:check": "node scripts/check-hotspot-budgets.js",
