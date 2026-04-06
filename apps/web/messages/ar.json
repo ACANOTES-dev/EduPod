@@ -273,6 +273,7 @@
     "goodMorning": "صباح الخير، {name}",
     "goodAfternoon": "مساء الخير، {name}",
     "goodEvening": "مساء الخير، {name}",
+    "reportIssue": "الإبلاغ عن مشكلة",
     "allHouseholdsComplete": "جميع الأسر مكتملة.",
     "noAttendanceToday": "لم يتم تسجيل جلسات حضور اليوم.",
     "noAdmissionsActivity": "لا يوجد نشاط قبول حتى الآن.",

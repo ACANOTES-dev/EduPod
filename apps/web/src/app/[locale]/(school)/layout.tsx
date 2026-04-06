@@ -11,7 +11,9 @@ import { AppShell, MorphBar, SubStrip, MobileNavOverlay, ToastProvider } from '@
 import { ErrorBoundary } from '@/components/error-boundary';
 import { GlobalSearch } from '@/components/global-search';
 import { PrivacyNoticeBanner } from '@/components/legal/privacy-notice-banner';
+import { NotificationPanel } from '@/components/notifications/notification-panel';
 import { RequireRole } from '@/components/require-role';
+import { UserMenu } from '@/components/user-menu';
 import { useShortcuts } from '@/hooks/use-shortcuts';
 import { setApiErrorHandler } from '@/lib/api-client';
 import { hubConfigs, hubSubStripConfigs } from '@/lib/nav-config';
@@ -132,12 +134,14 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
       }));
   }, [t, userRoleKeys]);
 
+  const schoolName = user?.memberships?.[0]?.tenant?.name || t('common.appName');
+
   return (
     <RequireAuth>
       <AppShell
         morphBar={
           <MorphBar
-            schoolName={t('common.appName')}
+            schoolName={schoolName}
             activeHub={activeHub}
             hubs={derivedHubs}
             onHubClick={handleHubClick}
@@ -147,6 +151,8 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
             onHamburgerClick={() => setMobileNavOpen(true)}
             userName={user?.first_name || 'User'}
             onUserClick={() => {}}
+            renderNotification={() => <NotificationPanel />}
+            renderUser={() => <UserMenu />}
           />
         }
         subStrip={
@@ -176,7 +182,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
         hubs={derivedHubs}
         activeHub={activeHub}
         onHubClick={handleHubClick}
-        schoolName={t('common.appName')}
+        schoolName={schoolName}
         onSearchClick={() => {
           setMobileNavOpen(false);
           setCommandPaletteOpen(true);

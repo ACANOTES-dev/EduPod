@@ -6,7 +6,7 @@ import * as React from 'react';
 
 import { Button, Input, Label, toast } from '@school/ui';
 
-import { apiClient } from '@/lib/api-client';
+import { apiClient, getAccessToken } from '@/lib/api-client';
 
 interface BrandingData {
   logo_url: string | null;
@@ -79,15 +79,20 @@ export default function BrandingPage() {
       const formData = new FormData();
       formData.append('file', file);
 
+      const uploadHeaders: Record<string, string> = {};
+      const token = getAccessToken();
+      if (token) {
+        uploadHeaders['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL ?? ''}/api/v1/branding/logo`,
         {
           method: 'POST',
           body: formData,
           credentials: 'include',
-          headers: {
-            // Don't set Content-Type for multipart/form-data — browser sets it with boundary
-          },
+          headers: uploadHeaders,
+          // Content-Type is intentionally omitted — browser sets it with the multipart boundary
         },
       );
 

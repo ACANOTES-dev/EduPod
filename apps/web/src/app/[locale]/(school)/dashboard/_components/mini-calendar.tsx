@@ -28,7 +28,7 @@ function getCalendarDays(year: number, month: number) {
   }
 
   // Next month padding
-  const remaining = 42 - cells.length; // 6 rows × 7
+  const remaining = 42 - cells.length; // 6 rows x 7
   for (let d = 1; d <= remaining; d++) {
     cells.push({ day: d, currentMonth: false });
   }
@@ -36,7 +36,25 @@ function getCalendarDays(year: number, month: number) {
   return cells;
 }
 
-export function MiniCalendar() {
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Normalise a Date or ISO string to "YYYY-MM-DD" for quick Set lookups. */
+function toDateKey(d: Date | string): string {
+  const date = typeof d === 'string' ? new Date(d) : d;
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export interface MiniCalendarProps {
+  /** ISO date strings (or Date objects) that have at least one event. */
+  eventDates?: Array<string | Date>;
+}
+
+export function MiniCalendar({ eventDates = [] }: MiniCalendarProps) {
   const today = useMemo(() => new Date(), []);
   const [viewDate, setViewDate] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
@@ -61,6 +79,24 @@ export function MiniCalendar() {
     day === today.getDate() &&
     month === today.getMonth() &&
     year === today.getFullYear();
+
+  // Build a Set of "YYYY-MM-DD" keys for O(1) lookup
+  const eventDateSet = useMemo(() => new Set(eventDates.map(toDateKey)), [eventDates]);
+
+  const todayKey = useMemo(() => toDateKey(today), [today]);
+
+  /** Check if a cell date has an event. */
+  const hasEvent = (day: number, currentMonth: boolean): boolean => {
+    if (!currentMonth) return false;
+    const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return eventDateSet.has(key);
+  };
+
+  /** Check if a cell date is in the past (before today). */
+  const isPast = (day: number): boolean => {
+    const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return key < todayKey;
+  };
 
   // Only show 5 rows if 42-cell grid has an empty last row
   const cell35 = cells[35];
@@ -106,20 +142,33 @@ export function MiniCalendar() {
 
       {/* Day grid */}
       <div className="grid grid-cols-7 gap-0">
-        {displayCells.map((cell, i) => (
-          <div
-            key={i}
-            className={`flex h-8 w-full items-center justify-center text-[12px] rounded-full transition-colors ${
-              isToday(cell.day, cell.currentMonth)
-                ? 'bg-primary-600 text-white font-bold'
-                : cell.currentMonth
-                  ? 'text-text-primary font-medium hover:bg-surface-secondary cursor-pointer'
-                  : 'text-text-tertiary/50'
-            }`}
-          >
-            {cell.day}
-          </div>
-        ))}
+        {displayCells.map((cell, i) => {
+          const cellIsToday = isToday(cell.day, cell.currentMonth);
+          const cellHasEvent = hasEvent(cell.day, cell.currentMonth);
+          const cellIsPast = isPast(cell.day);
+
+          return (
+            <div
+              key={i}
+              className={`flex h-9 w-full flex-col items-center justify-center rounded-full transition-colors ${
+                cellIsToday
+                  ? 'bg-primary-600 text-white font-bold'
+                  : cell.currentMonth
+                    ? 'text-text-primary font-medium hover:bg-surface-secondary cursor-pointer'
+                    : 'text-text-tertiary/50'
+              }`}
+            >
+              <span className="text-[12px] leading-none">{cell.day}</span>
+              {cellHasEvent && (
+                <span
+                  className={`mt-0.5 inline-block h-1 w-1 rounded-full ${
+                    cellIsToday ? 'bg-white' : cellIsPast ? 'bg-text-tertiary/40' : 'bg-primary-600'
+                  }`}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

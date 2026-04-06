@@ -28,6 +28,7 @@ const mockPrisma = {
   $transaction: jest.fn(),
   membershipRole: {
     findMany: jest.fn(),
+    findFirst: jest.fn(),
   },
   tenantMembership: {
     findMany: jest.fn(),
@@ -169,17 +170,64 @@ describe('PermissionCacheService', () => {
     });
   });
 
+  describe('isOwner', () => {
+    it('should return true and cache the result when membership holds the school_owner role', async () => {
+      mockRedisClient.get.mockResolvedValue(null);
+      mockPrisma.membershipRole.findFirst = jest
+        .fn()
+        .mockResolvedValue({ role_id: 'role-owner-id' });
+
+      const result = await service.isOwner(MEMBERSHIP_ID);
+
+      expect(result).toBe(true);
+      expect(mockRedisClient.setex).toHaveBeenCalledWith(`owner:${MEMBERSHIP_ID}`, 300, '1');
+    });
+
+    it('should return false and cache the result when membership does not hold the school_owner role', async () => {
+      mockRedisClient.get.mockResolvedValue(null);
+      mockPrisma.membershipRole.findFirst = jest.fn().mockResolvedValue(null);
+
+      const result = await service.isOwner(MEMBERSHIP_ID);
+
+      expect(result).toBe(false);
+      expect(mockRedisClient.setex).toHaveBeenCalledWith(`owner:${MEMBERSHIP_ID}`, 300, '0');
+    });
+
+    it('should return true from cache without querying the DB on cache hit', async () => {
+      mockRedisClient.get.mockResolvedValue('1');
+
+      const result = await service.isOwner(MEMBERSHIP_ID);
+
+      expect(result).toBe(true);
+      expect(mockPrisma.membershipRole.findFirst).not.toHaveBeenCalled();
+      expect(mockRedisClient.setex).not.toHaveBeenCalled();
+    });
+
+    it('should return false from cache without querying the DB on cache hit', async () => {
+      mockRedisClient.get.mockResolvedValue('0');
+
+      const result = await service.isOwner(SECOND_MEMBERSHIP_ID);
+
+      expect(result).toBe(false);
+      expect(mockPrisma.membershipRole.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
   describe('invalidate', () => {
-    it('should delete the Redis cache key for the given membership', async () => {
+    it('should delete both cache keys for the given membership via pipeline', async () => {
       await service.invalidate(MEMBERSHIP_ID);
 
-      expect(mockRedisClient.del).toHaveBeenCalledWith(`permissions:${MEMBERSHIP_ID}`);
+      expect(mockRedisClient.pipeline).toHaveBeenCalled();
+      expect(mockPipelineInstance.del).toHaveBeenCalledWith(`permissions:${MEMBERSHIP_ID}`);
+      expect(mockPipelineInstance.del).toHaveBeenCalledWith(`owner:${MEMBERSHIP_ID}`);
+      expect(mockPipelineInstance.exec).toHaveBeenCalled();
     });
 
     it('should use the correct cache key format', async () => {
       await service.invalidate(OTHER_MEMBERSHIP_ID);
 
-      expect(mockRedisClient.del).toHaveBeenCalledWith(`permissions:${OTHER_MEMBERSHIP_ID}`);
+      expect(mockPipelineInstance.del).toHaveBeenCalledWith(`permissions:${OTHER_MEMBERSHIP_ID}`);
+      expect(mockPipelineInstance.del).toHaveBeenCalledWith(`owner:${OTHER_MEMBERSHIP_ID}`);
     });
   });
 
@@ -201,16 +249,25 @@ describe('PermissionCacheService', () => {
         }),
       );
 
-      // Pipeline del called once per membership
-      expect(mockPipelineInstance.del).toHaveBeenCalledTimes(3);
+      // Pipeline del called twice per membership (permissions: + owner:)
+      expect(mockPipelineInstance.del).toHaveBeenCalledTimes(6);
       expect(mockPipelineInstance.del).toHaveBeenCalledWith(
         'permissions:77777777-7777-4777-8777-777777777777',
+      );
+      expect(mockPipelineInstance.del).toHaveBeenCalledWith(
+        'owner:77777777-7777-4777-8777-777777777777',
       );
       expect(mockPipelineInstance.del).toHaveBeenCalledWith(
         'permissions:88888888-8888-4888-8888-888888888888',
       );
       expect(mockPipelineInstance.del).toHaveBeenCalledWith(
+        'owner:88888888-8888-4888-8888-888888888888',
+      );
+      expect(mockPipelineInstance.del).toHaveBeenCalledWith(
         'permissions:99999999-9999-4999-8999-999999999999',
+      );
+      expect(mockPipelineInstance.del).toHaveBeenCalledWith(
+        'owner:99999999-9999-4999-8999-999999999999',
       );
 
       // Pipeline executed

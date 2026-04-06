@@ -1,38 +1,50 @@
 'use client';
-import { useEffect, useState } from 'react';
 
-function ProgressBar({ label, percentage, colorClass }: { label: string, percentage: number, colorClass: string }) {
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    const timer = setTimeout(() => setWidth(percentage), 100);
-    return () => clearTimeout(timer);
-  }, [percentage]);
+// ─── Types ────────────────────────────────────────────────────────────────────
 
+export interface WeeklyMetrics {
+  /** Average attendance rate this week as a percentage string, e.g. "96%". Null if unavailable. */
+  attendanceRate: string | null;
+  /** Number of new admission applications this week. Null if unavailable. */
+  newAdmissions: number | null;
+  /** Number of behaviour incidents logged this week. Null if unavailable. */
+  incidentsLogged: number | null;
+}
+
+export interface ThisWeekCardProps {
+  metrics?: WeeklyMetrics;
+  loading?: boolean;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+function MetricRow({ label, value }: { label: string; value: string | number | null }) {
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex justify-between items-end">
-        <span className="text-[12px] font-medium text-text-secondary">{label}</span>
-        <span className="text-[12px] font-bold text-text-primary">{percentage}%</span>
-      </div>
-      <div className="h-1.5 w-full rounded-full bg-surface-secondary overflow-hidden">
-        <div 
-          className={`h-full rounded-full ${colorClass}`} 
-          style={{ width: `${width}%`, transition: 'width 0.6s ease-out' }}
-        />
-      </div>
+    <div className="flex items-center justify-between py-2">
+      <span className="text-[13px] font-medium text-text-secondary">{label}</span>
+      <span className="text-[16px] font-bold text-text-primary tabular-nums">
+        {value ?? '\u2014'}
+      </span>
     </div>
   );
 }
 
-export function ThisWeekCard() {
+export function ThisWeekCard({ metrics, loading = false }: ThisWeekCardProps) {
   return (
-    <div className="rounded-[16px] border border-border bg-surface p-5 shadow-sm flex flex-col gap-4">
+    <div className="rounded-[16px] border border-border bg-surface p-5 shadow-sm flex flex-col gap-3">
       <h3 className="text-[16px] font-semibold text-text-primary">This Week</h3>
-      <div className="space-y-4">
-        <ProgressBar label="Avg. Attendance" percentage={96} colorClass="bg-success-text" />
-        <ProgressBar label="Wellbeing Surveys" percentage={74} colorClass="bg-amber-500" />
-        <ProgressBar label="Term Fees Collected" percentage={82} colorClass="bg-info-text" />
-      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-4 text-[13px] text-text-tertiary">
+          Loading...
+        </div>
+      ) : (
+        <div className="divide-y divide-border">
+          <MetricRow label="Attendance Rate" value={metrics?.attendanceRate ?? null} />
+          <MetricRow label="New Admissions" value={metrics?.newAdmissions ?? null} />
+          <MetricRow label="Incidents Logged" value={metrics?.incidentsLogged ?? null} />
+        </div>
+      )}
     </div>
   );
 }

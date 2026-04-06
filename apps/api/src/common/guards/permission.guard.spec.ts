@@ -31,7 +31,7 @@ function createExecutionContext(request: Record<string, unknown>) {
 describe('PermissionGuard', () => {
   let guard: PermissionGuard;
   let mockReflector: { getAllAndOverride: jest.Mock };
-  let mockPermissionCacheService: { getPermissions: jest.Mock };
+  let mockPermissionCacheService: { getPermissions: jest.Mock; isOwner: jest.Mock };
   let mockSecurityAuditService: { logPermissionDenied: jest.Mock };
 
   beforeEach(() => {
@@ -40,6 +40,7 @@ describe('PermissionGuard', () => {
     };
     mockPermissionCacheService = {
       getPermissions: jest.fn(),
+      isOwner: jest.fn().mockResolvedValue(false),
     };
     mockSecurityAuditService = {
       logPermissionDenied: jest.fn().mockResolvedValue(undefined),
@@ -86,5 +87,26 @@ describe('PermissionGuard', () => {
       'jest-agent',
       undefined,
     );
+  });
+
+  it('allows access when the user is an owner, regardless of permissions', async () => {
+    mockReflector.getAllAndOverride.mockReturnValue('students.manage');
+    mockPermissionCacheService.isOwner.mockResolvedValue(true);
+
+    const context = createExecutionContext({
+      currentUser: mockUser,
+      headers: { 'user-agent': 'jest-agent' },
+      ip: '127.0.0.1',
+      originalUrl: '/api/v1/students/123',
+      tenantContext: { tenant_id: 'tenant-123' },
+    });
+
+    const allowed = await guard.canActivate(context as never);
+
+    expect(allowed).toBe(true);
+    // getPermissions should NOT be called — owner bypass short-circuits before it
+    expect(mockPermissionCacheService.getPermissions).not.toHaveBeenCalled();
+    // No permission denied audit event should be emitted
+    expect(mockSecurityAuditService.logPermissionDenied).not.toHaveBeenCalled();
   });
 });

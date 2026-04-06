@@ -25,6 +25,10 @@ export interface MorphBarProps {
   userName: string;
   onUserClick: () => void;
   className?: string;
+  /** When provided, replaces the built-in bell button with a custom component */
+  renderNotification?: () => React.ReactNode;
+  /** When provided, replaces the built-in avatar button with a custom component */
+  renderUser?: () => React.ReactNode;
 }
 
 export const MorphBar = React.forwardRef<HTMLElement, MorphBarProps>(
@@ -43,6 +47,8 @@ export const MorphBar = React.forwardRef<HTMLElement, MorphBarProps>(
       userName,
       onUserClick,
       className,
+      renderNotification,
+      renderUser,
     },
     ref,
   ) => {
@@ -119,29 +125,37 @@ export const MorphBar = React.forwardRef<HTMLElement, MorphBarProps>(
           >
             <Search className="h-[18px] w-[18px]" />
           </button>
-          <button
-            onClick={onNotificationClick}
-            className="group relative rounded-pill p-1.5 text-[var(--color-bar-text)] transition-colors hover:bg-black/5 hover:text-[var(--color-text-primary)]"
-          >
-            <Bell className="h-5 w-5 group-hover:animate-[bounce_300ms_ease-in-out_1]" />
-            {notificationCount > 0 && (
-              <span className="absolute top-0 end-0 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-pill bg-emerald-700 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-[var(--color-bar-bg)]">
-                {notificationCount > 9 ? '9+' : notificationCount}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={onUserClick}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-secondary)] text-xs font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-hover)] ms-1 overflow-hidden"
-          >
-            {userAvatar ? (
-              <img src={userAvatar} alt={userName} className="h-full w-full object-cover" />
-            ) : userName ? (
-              userName.charAt(0).toUpperCase()
-            ) : (
-              'U'
-            )}
-          </button>
+          {renderNotification ? (
+            renderNotification()
+          ) : (
+            <button
+              onClick={onNotificationClick}
+              className="group relative rounded-pill p-1.5 text-[var(--color-bar-text)] transition-colors hover:bg-black/5 hover:text-[var(--color-text-primary)]"
+            >
+              <Bell className="h-5 w-5 group-hover:animate-[bounce_300ms_ease-in-out_1]" />
+              {notificationCount > 0 && (
+                <span className="absolute top-0 end-0 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-pill bg-emerald-700 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-[var(--color-bar-bg)]">
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </span>
+              )}
+            </button>
+          )}
+          {renderUser ? (
+            renderUser()
+          ) : (
+            <button
+              onClick={onUserClick}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-secondary)] text-xs font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-hover)] ms-1 overflow-hidden"
+            >
+              {userAvatar ? (
+                <img src={userAvatar} alt={userName} className="h-full w-full object-cover" />
+              ) : userName ? (
+                userName.charAt(0).toUpperCase()
+              ) : (
+                'U'
+              )}
+            </button>
+          )}
         </div>
       </header>
     );

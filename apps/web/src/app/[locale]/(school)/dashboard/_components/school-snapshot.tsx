@@ -1,69 +1,44 @@
 'use client';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 type DashboardSnapshotData = {
   stats?: {
     total_students?: number | string;
     active_staff?: number | string;
     total_classes?: number | string;
+    attendance_rate?: number | string | null;
   };
 };
 
 type SnapshotStat = {
   label: string;
   value: number | string;
-  trend?: {
-    direction: 'up' | 'down' | 'flat';
-    text: string;
-  };
 };
 
-const DEFAULT_STATS: [SnapshotStat, SnapshotStat, SnapshotStat, SnapshotStat] = [
-  {
-    label: 'Total Students',
-    value: 209,
-    trend: { direction: 'up', text: '+2% from last week' },
-  },
-  {
-    label: 'Teaching Staff',
-    value: 32,
-    trend: { direction: 'flat', text: 'No change' },
-  },
-  {
-    label: 'Active Classes',
-    value: 15,
-    trend: { direction: 'up', text: '+1%' },
-  },
-  {
-    label: 'Attendance',
-    value: '96.4%',
-    trend: { direction: 'down', text: '-0.5% from last week' },
-  },
-];
-
-function TrendBadge({ trend }: { trend?: SnapshotStat['trend'] }) {
-  if (!trend) return null;
-
-  const colorMap = {
-    up: 'text-emerald-600 dark:text-emerald-400',
-    down: 'text-red-500 dark:text-red-400',
-    flat: 'text-text-tertiary',
-  };
-
-  const IconMap = {
-    up: TrendingUp,
-    down: TrendingDown,
-    flat: Minus,
-  };
-
-  const Icon = IconMap[trend.direction];
-
-  return (
-    <div className={`flex items-center gap-1 mt-1 ${colorMap[trend.direction]}`}>
-      <Icon className="h-3 w-3" />
-      <span className="text-[11px] font-medium">{trend.text}</span>
-    </div>
-  );
+function buildStats(data?: DashboardSnapshotData | null): SnapshotStat[] {
+  const stats = data?.stats;
+  return [
+    {
+      label: 'Total Students',
+      value: stats?.total_students ?? '—',
+    },
+    {
+      label: 'Teaching Staff',
+      value: stats?.active_staff ?? '—',
+    },
+    {
+      label: 'Active Classes',
+      value: stats?.total_classes ?? '—',
+    },
+    {
+      label: 'Attendance',
+      value:
+        stats?.attendance_rate != null
+          ? typeof stats.attendance_rate === 'number'
+            ? `${stats.attendance_rate}%`
+            : stats.attendance_rate
+          : '—',
+    },
+  ];
 }
 
 export function SchoolSnapshot({
@@ -77,12 +52,7 @@ export function SchoolSnapshot({
   customStats?: SnapshotStat[];
   title?: string;
 }) {
-  const stats = customStats ?? [
-    { ...DEFAULT_STATS[0], value: data?.stats?.total_students ?? DEFAULT_STATS[0].value },
-    { ...DEFAULT_STATS[1], value: data?.stats?.active_staff ?? DEFAULT_STATS[1].value },
-    { ...DEFAULT_STATS[2], value: data?.stats?.total_classes ?? DEFAULT_STATS[2].value },
-    DEFAULT_STATS[3],
-  ];
+  const stats = customStats ?? buildStats(data);
 
   if (variant === 'compact') {
     return (
@@ -99,7 +69,7 @@ export function SchoolSnapshot({
     );
   }
 
-  // Default variant — 2×2 grid with trends
+  // Default variant — 2x2 grid, no trends
   const s0 = stats[0];
   const s1 = stats[1];
   const s2 = stats[2];
@@ -116,12 +86,10 @@ export function SchoolSnapshot({
         <div className="flex flex-col py-3">
           <p className="text-[12px] font-medium text-text-tertiary">{s0.label}</p>
           <p className="text-[32px] font-bold text-text-primary leading-tight">{s0.value}</p>
-          <TrendBadge trend={s0.trend} />
         </div>
         <div className="flex flex-col py-3">
           <p className="text-[12px] font-medium text-text-tertiary">{s1.label}</p>
           <p className="text-[32px] font-bold text-text-primary leading-tight">{s1.value}</p>
-          <TrendBadge trend={s1.trend} />
         </div>
 
         {/* Divider */}
@@ -131,12 +99,10 @@ export function SchoolSnapshot({
         <div className="flex flex-col py-3">
           <p className="text-[12px] font-medium text-text-tertiary">{s2.label}</p>
           <p className="text-[32px] font-bold text-text-primary leading-tight">{s2.value}</p>
-          <TrendBadge trend={s2.trend} />
         </div>
         <div className="flex flex-col py-3">
           <p className="text-[12px] font-medium text-text-tertiary">{s3.label}</p>
           <p className="text-[32px] font-bold text-text-primary leading-tight">{s3.value}</p>
-          <TrendBadge trend={s3.trend} />
         </div>
       </div>
     </div>

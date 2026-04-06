@@ -274,6 +274,7 @@
     "goodMorning": "Good morning, {name}",
     "goodAfternoon": "Good afternoon, {name}",
     "goodEvening": "Good evening, {name}",
+    "reportIssue": "Report Issue",
     "allHouseholdsComplete": "All households are complete.",
     "noAttendanceToday": "No attendance sessions recorded today.",
     "noAdmissionsActivity": "No admissions activity yet.",

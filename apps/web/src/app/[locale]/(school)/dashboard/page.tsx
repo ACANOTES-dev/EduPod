@@ -1,40 +1,114 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/providers/auth-provider';
 
 import { AccountingHome } from './_components/accounting-home';
+import type { DashboardData, PriorityData } from './_components/admin-home';
 import { AdminHome } from './_components/admin-home';
 import { FrontOfficeHome } from './_components/front-office-home';
 import { ParentHome } from './_components/parent-home';
 import { TeacherHome } from './_components/teacher-home';
 
-type DashboardData = {
+// ─── API response shapes ────────────────────────────────────────────────────
+
+type SchoolAdminApiResponse = {
   stats?: {
     total_students?: number | string;
     active_staff?: number | string;
     total_classes?: number | string;
   };
+  pending_approvals?: number;
+  admissions?: {
+    recent_submissions?: number;
+    pending_review?: number;
+    accepted?: number;
+  };
 };
+
+type FinanceDashboardApiResponse = {
+  outstanding?: number;
+  expected_revenue?: number;
+  received_payments?: number;
+};
+
+type BehaviourOverviewApiResponse = {
+  total_incidents?: number;
+  open_follow_ups?: number;
+  active_alerts?: number;
+};
+
+// ─── Component ──────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [data, setData] = useState<DashboardData | null>(null);
+  const [data, setData] = React.useState<DashboardData | null>(null);
+  const [priorityData, setPriorityData] = React.useState<PriorityData>({});
 
-  const fetchDashboard = useCallback(async () => {
+  const fetchDashboard = React.useCallback(async () => {
     try {
-      const result = await apiClient<{ data: DashboardData }>('/api/v1/dashboard/school-admin');
-      setData(result.data);
+      const result = await apiClient<SchoolAdminApiResponse>('/api/v1/dashboard/school-admin');
+      setData({
+        stats: result.stats,
+      });
+
+      // Extract priority items from the dashboard response
+      const priority: PriorityData = {};
+
+      if (result.pending_approvals && result.pending_approvals > 0) {
+        priority.pending_approvals = result.pending_approvals;
+      }
+      if (result.admissions?.pending_review && result.admissions.pending_review > 0) {
+        priority.pending_admissions = result.admissions.pending_review;
+      }
+
+      setPriorityData((prev) => ({ ...prev, ...priority }));
     } catch (err) {
-      console.error('[setData]', err);
+      console.error('[fetchDashboard]', err);
     }
   }, []);
 
-  useEffect(() => {
+  const fetchFinance = React.useCallback(async () => {
+    try {
+      const result = await apiClient<FinanceDashboardApiResponse>('/api/v1/finance/dashboard', {
+        silent: true,
+      });
+      if (result.outstanding && result.outstanding > 0) {
+        setPriorityData((prev) => ({
+          ...prev,
+          outstanding_amount: result.outstanding,
+        }));
+      }
+    } catch (err) {
+      console.error('[fetchFinanceDashboard]', err);
+    }
+  }, []);
+
+  const fetchBehaviour = React.useCallback(async () => {
+    try {
+      const result = await apiClient<BehaviourOverviewApiResponse>(
+        '/api/v1/behaviour/analytics/overview',
+        { silent: true },
+      );
+      const openCount = (result.open_follow_ups ?? 0) + (result.active_alerts ?? 0);
+      if (openCount > 0) {
+        setPriorityData((prev) => ({
+          ...prev,
+          unresolved_incidents: openCount,
+        }));
+      }
+    } catch (err) {
+      console.error('[fetchBehaviourOverview]', err);
+    }
+  }, []);
+
+  React.useEffect(() => {
     void fetchDashboard();
-  }, [fetchDashboard]);
+    void fetchFinance();
+    void fetchBehaviour();
+  }, [fetchDashboard, fetchFinance, fetchBehaviour]);
 
   const schoolName = user?.memberships?.[0]?.tenant?.name || 'EduPod School';
 
@@ -55,5 +129,5 @@ export default function DashboardPage() {
   }
 
   // Default to Principal/Admin/Owner
-  return <AdminHome schoolName={schoolName} data={data} />;
+  return <AdminHome schoolName={schoolName} data={data} priorityData={priorityData} />;
 }
