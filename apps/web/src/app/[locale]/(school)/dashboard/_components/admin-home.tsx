@@ -168,21 +168,11 @@ export function AdminHome({
       const weekStart = startOfWeekISO();
       const today = todayISODate();
 
-      // Fire all metric fetches in parallel — each one is independent and
-      // may fail individually without blocking the others.
+      // Use existing endpoints that are known to work.
+      // Behaviour incidents is the only reliable weekly metric we can derive.
       const results = await Promise.allSettled([
-        // Attendance — try dashboard stats endpoint
-        apiClient<{ data?: { average_attendance_rate?: number } }>(
-          `/api/v1/dashboard/stats?date_from=${weekStart}&date_to=${today}`,
-          { silent: true },
-        ),
-        // New admissions this week
-        apiClient<{ meta?: { total?: number } }>(
-          `/api/v1/admissions/applications?page=1&pageSize=1&start_date=${weekStart}&end_date=${today}`,
-          { silent: true },
-        ),
-        // Behaviour incidents this week
-        apiClient<{ meta?: { total?: number } }>(
+        // Behaviour incidents this week — list endpoint with date range
+        apiClient<{ data?: unknown[]; meta?: { total?: number } }>(
           `/api/v1/behaviour/incidents?page=1&pageSize=1&start_date=${weekStart}&end_date=${today}`,
           { silent: true },
         ),
@@ -196,25 +186,10 @@ export function AdminHome({
         incidentsLogged: null,
       };
 
-      // Parse attendance
+      // Parse incidents — response may be { data: [...], meta: { total } }
       if (results[0]?.status === 'fulfilled') {
-        const rate = results[0].value?.data?.average_attendance_rate;
-        if (typeof rate === 'number') {
-          metrics.attendanceRate = `${Math.round(rate)}%`;
-        }
-      }
-
-      // Parse admissions
-      if (results[1]?.status === 'fulfilled') {
-        const total = results[1].value?.meta?.total;
-        if (typeof total === 'number') {
-          metrics.newAdmissions = total;
-        }
-      }
-
-      // Parse incidents
-      if (results[2]?.status === 'fulfilled') {
-        const total = results[2].value?.meta?.total;
+        const raw = results[0].value;
+        const total = raw?.meta?.total ?? (raw?.data as unknown[] | undefined)?.length;
         if (typeof total === 'number') {
           metrics.incidentsLogged = total;
         }

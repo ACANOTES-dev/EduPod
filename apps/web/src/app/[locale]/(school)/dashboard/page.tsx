@@ -15,29 +15,35 @@ import { TeacherHome } from './_components/teacher-home';
 // ─── API response shapes ────────────────────────────────────────────────────
 
 type SchoolAdminApiResponse = {
-  stats?: {
-    total_students?: number | string;
-    active_staff?: number | string;
-    total_classes?: number | string;
-  };
-  pending_approvals?: number;
-  admissions?: {
-    recent_submissions?: number;
-    pending_review?: number;
-    accepted?: number;
+  data?: {
+    stats?: {
+      total_students?: number | string;
+      active_staff?: number | string;
+      total_classes?: number | string;
+    };
+    pending_approvals?: number;
+    admissions?: {
+      recent_submissions?: number;
+      pending_review?: number;
+      accepted?: number;
+    };
   };
 };
 
 type FinanceDashboardApiResponse = {
-  outstanding?: number;
-  expected_revenue?: number;
-  received_payments?: number;
+  data?: {
+    outstanding?: number;
+    expected_revenue?: number;
+    received_payments?: number;
+  };
 };
 
 type BehaviourOverviewApiResponse = {
-  total_incidents?: number;
-  open_follow_ups?: number;
-  active_alerts?: number;
+  data?: {
+    total_incidents?: number;
+    open_follow_ups?: number;
+    active_alerts?: number;
+  };
 };
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -50,18 +56,25 @@ export default function DashboardPage() {
   const fetchDashboard = React.useCallback(async () => {
     try {
       const result = await apiClient<SchoolAdminApiResponse>('/api/v1/dashboard/school-admin');
+      const payload = result.data ?? result;
       setData({
-        stats: result.stats,
+        stats: (payload as Record<string, unknown>).stats as DashboardData['stats'],
       });
 
       // Extract priority items from the dashboard response
       const priority: PriorityData = {};
+      const approvals = (payload as Record<string, unknown>).pending_approvals as
+        | number
+        | undefined;
+      const admissions = (payload as Record<string, unknown>).admissions as
+        | { pending_review?: number }
+        | undefined;
 
-      if (result.pending_approvals && result.pending_approvals > 0) {
-        priority.pending_approvals = result.pending_approvals;
+      if (approvals && approvals > 0) {
+        priority.pending_approvals = approvals;
       }
-      if (result.admissions?.pending_review && result.admissions.pending_review > 0) {
-        priority.pending_admissions = result.admissions.pending_review;
+      if (admissions?.pending_review && admissions.pending_review > 0) {
+        priority.pending_admissions = admissions.pending_review;
       }
 
       setPriorityData((prev) => ({ ...prev, ...priority }));
@@ -75,10 +88,12 @@ export default function DashboardPage() {
       const result = await apiClient<FinanceDashboardApiResponse>('/api/v1/finance/dashboard', {
         silent: true,
       });
-      if (result.outstanding && result.outstanding > 0) {
+      const finance = result.data ?? result;
+      const outstanding = (finance as Record<string, unknown>).outstanding as number | undefined;
+      if (outstanding && outstanding > 0) {
         setPriorityData((prev) => ({
           ...prev,
-          outstanding_amount: result.outstanding,
+          outstanding_amount: outstanding,
         }));
       }
     } catch (err) {
@@ -92,7 +107,10 @@ export default function DashboardPage() {
         '/api/v1/behaviour/analytics/overview',
         { silent: true },
       );
-      const openCount = (result.open_follow_ups ?? 0) + (result.active_alerts ?? 0);
+      const behaviour = result.data ?? result;
+      const bData = behaviour as Record<string, unknown>;
+      const openCount =
+        ((bData.open_follow_ups as number) ?? 0) + ((bData.active_alerts as number) ?? 0);
       if (openCount > 0) {
         setPriorityData((prev) => ({
           ...prev,
