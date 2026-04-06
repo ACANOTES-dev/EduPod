@@ -55,7 +55,9 @@ export default function DashboardPage() {
 
   const fetchDashboard = React.useCallback(async () => {
     try {
-      const result = await apiClient<SchoolAdminApiResponse>('/api/v1/dashboard/school-admin');
+      const result = await apiClient<SchoolAdminApiResponse>('/api/v1/dashboard/school-admin', {
+        silent: true,
+      });
       const payload = result.data ?? result;
       setData({
         stats: (payload as Record<string, unknown>).stats as DashboardData['stats'],

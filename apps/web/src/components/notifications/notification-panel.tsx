@@ -105,6 +105,7 @@ export function NotificationPanel() {
     try {
       const result = await apiClient<{ data: { count: number } }>(
         '/api/v1/notifications/unread-count',
+        { silent: true },
       );
       setUnreadCount(result.data.count);
     } catch (err) {
@@ -117,6 +118,7 @@ export function NotificationPanel() {
     try {
       const result = await apiClient<{ data: NotificationItem[] }>(
         '/api/v1/notifications?pageSize=20',
+        { silent: true },
       );
       setNotifications(result.data);
     } catch (err) {

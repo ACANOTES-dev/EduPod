@@ -108,6 +108,7 @@ export function AdminHome({
       try {
         const result = await apiClient<{ data: CalendarEvent[] }>(
           '/api/v1/engagement/calendar-events',
+          { silent: true },
         );
         if (cancelled) return;
         const events = result.data ?? [];
@@ -144,6 +145,7 @@ export function AdminHome({
         const today = todayISODate();
         const result = await apiClient<AuditLogResponse>(
           `/api/v1/audit-logs?page=1&pageSize=5&start_date=${today}&end_date=${today}`,
+          { silent: true },
         );
         if (cancelled) return;
         setActivities(result.data ?? []);
