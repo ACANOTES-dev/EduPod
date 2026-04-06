@@ -56,8 +56,10 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
     return () => window.removeEventListener('open-registration-wizard', handler);
   }, []);
 
-  // Fetch branding logo for the morph bar
+  // Fetch branding logo for the morph bar (wait for auth so the token is available)
   React.useEffect(() => {
+    if (!user) return;
+
     async function fetchLogo() {
       try {
         const result = await apiClient<{ data?: { logo_url?: string | null } }>(
@@ -72,7 +74,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
       }
     }
     void fetchLogo();
-  }, []);
+  }, [user]);
 
   // Wire global API error toast
   React.useEffect(() => {
