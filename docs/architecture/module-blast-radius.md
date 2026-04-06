@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying a module's public service API, check here to know what else breaks.
 > **Maintenance**: Update when adding new cross-module imports or changing module exports.
-> **Last verified**: 2026-04-03
+> **Last verified**: 2026-04-06
 
 ---
 

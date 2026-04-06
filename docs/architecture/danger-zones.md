@@ -2,7 +2,7 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-04-05
+> **Last verified**: 2026-04-06
 
 ---
 
@@ -218,7 +218,7 @@ For negative incidents with `severity >= parent_notification_send_gate_severity`
 
 ---
 
-## DZ-19: useApiQuery Option Identity Caused Global Request Storm — RESOLVED
+## DZ-19a: useApiQuery Option Identity Caused Global Request Storm — RESOLVED
 
 **Risk**: Re-render loops can spam a shared API endpoint until the global throttler locks out the whole UI
 **Location**: `apps/web/src/hooks/use-api-query.ts`, `apps/web/src/components/legal/privacy-notice-banner.tsx`

@@ -2,7 +2,7 @@
 
 > **Purpose**: Complete inventory of every feature, mapped to its code location. This is the single source of truth for "what does this product do and where does it live."
 > **Maintenance**: Updated only on user confirmation that a feature change is final. See `.claude/rules/feature-map-maintenance.md`.
-> **Last verified**: 2026-04-03
+> **Last verified**: 2026-04-06
 
 ---
 
@@ -149,7 +149,7 @@
 
 **Key features**:
 
-- Create with auto-generated household_number (random XXX999-9 format)
+- Create with auto-generated household_number (sequential HH-YYYYMM-000001 format via SequenceService)
 - Emergency contacts (1-3 per household)
 - Billing parent designation
 - Merge: move students/parents/contacts from source → target, archive source

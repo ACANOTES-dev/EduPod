@@ -2,7 +2,7 @@
 
 > **Purpose**: Before changing a status field or adding a transition, check here for the full contract.
 > **Maintenance**: Update when adding new statuses or changing transition rules.
-> **Last verified**: 2026-04-02
+> **Last verified**: 2026-04-06
 
 ---
 
@@ -820,6 +820,77 @@ withdrawn_appeal*
   - `published -> archived`: hides from default views but retains for analytics
 - **Guarded by**: `VALID_HOMEWORK_TRANSITIONS` in `packages/shared/src/constants/homework-status.ts` + will be enforced in `homework.service.ts` (Phase B)
 - **Simplicity**: 3 states, 2 transitions — follows the `FormDefinitionStatus` pattern rather than complex invoice/behaviour machines
+
+---
+
+## Engagement Module Lifecycles
+
+### EngagementEventStatus
+
+```
+draft         -> [published, cancelled]
+published     -> [open, cancelled]
+open          -> [closed, cancelled]
+closed        -> [in_progress, cancelled]
+in_progress   -> [completed, cancelled]
+completed     -> [archived]
+cancelled     -> [archived]
+archived*
+```
+
+- **Guarded by**: `EVENT_VALID_TRANSITIONS` in `packages/shared/src/engagement/engagement-constants.ts`
+- **Side effects**:
+  - `published -> open`: triggers downstream form distribution and invoice generation jobs
+  - `* -> cancelled`: enqueues `engagement:cancel-event` to reverse pending forms/invoices
+  - `completed -> archived`: terminal. Retains data for analytics.
+- **Note**: `cancelled` is NOT terminal — it can transition to `archived` for cleanup.
+
+### EngagementSubmissionStatus
+
+```
+pending       -> [submitted, expired]
+submitted     -> [acknowledged, revoked]
+acknowledged  -> [revoked]
+expired*
+revoked*
+```
+
+- **Guarded by**: `SUBMISSION_VALID_TRANSITIONS` in `packages/shared/src/engagement/engagement-constants.ts`
+- **Side effects**:
+  - `pending -> submitted`: records parent response + optional signature
+  - `submitted -> acknowledged`: admin acknowledges submission
+  - `* -> revoked`: consent withdrawal path (GDPR)
+- **Terminal states**: `expired`, `revoked`
+
+### ConferenceSlotStatus
+
+```
+available     -> [booked, blocked]
+booked        -> [completed, cancelled]
+blocked       -> [available]
+completed*
+cancelled     -> [available]
+```
+
+- **Guarded by**: `SLOT_VALID_TRANSITIONS` in `packages/shared/src/engagement/engagement-constants.ts`
+- **Side effects**:
+  - `available -> booked`: creates a `ConferenceBooking` record
+  - `booked -> cancelled`: releases the slot back to `available` (via `cancelled -> available`)
+- **Note**: `cancelled` is NOT terminal — slots return to `available` for rebooking.
+
+### ConferenceBookingStatus
+
+```
+confirmed     -> [completed, cancelled, no_show]
+completed*
+cancelled*
+no_show*
+```
+
+- **Guarded by**: `BOOKING_VALID_TRANSITIONS` in `packages/shared/src/engagement/engagement-constants.ts`
+- **Initial state**: `confirmed` (created on successful slot booking)
+- **Terminal states**: `completed`, `cancelled`, `no_show`
+- **Side effects**: `confirmed -> cancelled` also transitions the parent slot back to `available`.
 
 ---
 
