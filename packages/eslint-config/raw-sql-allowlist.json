@@ -176,6 +176,12 @@
       "reason": "Aggregate query on materialized view within RLS transaction for export"
     },
     {
+      "file": "apps/api/test/rls-leakage-p2.e2e-spec.ts",
+      "methods": ["$executeRawUnsafe", "$queryRawUnsafe"],
+      "category": "test-setup",
+      "reason": "RLS e2e suite uses explicit SET LOCAL role/context and direct verification queries to assert tenant isolation across Phase 2 tables"
+    },
+    {
       "file": "apps/worker/src/processors/communications/dispatch-notifications.processor.ts",
       "methods": ["$executeRaw"],
       "category": "rls-infrastructure",

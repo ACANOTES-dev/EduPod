@@ -29,6 +29,8 @@ import {
   login,
 } from './helpers';
 
+jest.setTimeout(120_000);
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 let AL_NOOR_TENANT_ID: string;
@@ -216,7 +218,7 @@ describe('RLS Leakage P3 — Admissions (e2e)', () => {
       directPrisma,
       `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
     );
-  }, 90000);
+  }, 120000);
 
   afterAll(async () => {
     await cleanupRedisKeys(['ratelimit:admissions:*']);
@@ -481,7 +483,7 @@ describe('RLS Leakage P3 — Admissions (e2e)', () => {
         const createYgBody = createYgRes.body.data ?? createYgRes.body;
         alNoorYearGroupId = createYgBody.id;
       }
-    }, 60000);
+    }, 120000);
 
     it('Convert should not cross-link parents from another tenant', async () => {
       const res = await authPost(

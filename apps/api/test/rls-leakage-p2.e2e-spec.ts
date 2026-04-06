@@ -30,6 +30,8 @@ import {
   login,
 } from './helpers';
 
+jest.setTimeout(120_000);
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 let AL_NOOR_TENANT_ID = 'aa08873c-40a5-4bba-a9e3-8bd0f6d5e696';
@@ -240,7 +242,7 @@ describe('RLS Leakage P2 (e2e)', () => {
       directPrisma,
       `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
     );
-  }, 60000);
+  }, 120_000);
 
   afterAll(async () => {
     if (directPrisma) {

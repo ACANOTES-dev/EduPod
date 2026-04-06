@@ -71,6 +71,7 @@ export async function createTestApp(): Promise<INestApplication> {
   // inherit brute-force counters, sessions, or stale tenant-domain caches.
   await cleanupRedisKeys([
     'brute_force:*',
+    'ip_login_throttle:*',
     'session:*',
     'user_sessions:*',
     'tenant_domain:*',

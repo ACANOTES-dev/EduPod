@@ -7,6 +7,7 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { RequestContextService } from '../../common/services/request-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 const TENANT_A_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -26,7 +27,7 @@ describe('Homework RLS Integration Tests', () => {
 
   beforeAll(async () => {
     module = await Test.createTestingModule({
-      providers: [PrismaService],
+      providers: [PrismaService, RequestContextService],
     }).compile();
 
     prisma = module.get(PrismaService);

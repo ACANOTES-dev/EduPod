@@ -7,6 +7,7 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { RequestContextService } from '../../common/services/request-context.service';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { ClassesReadFacade } from '../classes/classes-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
@@ -23,6 +24,18 @@ const CLASS_ID = '10ad0000-0000-4000-a000-000000000003';
 const SUBJECT_ID = '10ad0000-0000-4000-a000-000000000004';
 const USER_ID = '10ad0000-0000-4000-a000-000000000005';
 const HOUSEHOLD_ID = '10ad0000-0000-4000-a000-000000000006';
+
+const mockAcademicReadFacade = {};
+const mockClassesReadFacade = {};
+const mockStudentReadFacade = {
+  findByIds: jest.fn(async (_tenantId: string, studentIds: string[]) =>
+    studentIds.map((id) => ({
+      id,
+      first_name: 'Load',
+      last_name: 'Student',
+    })),
+  ),
+};
 
 describe('Homework Performance Load Tests', () => {
   let module: TestingModule;
@@ -41,9 +54,10 @@ describe('Homework Performance Load Tests', () => {
         HomeworkLoadAnalyticsService,
         HomeworkStudentAnalyticsService,
         PrismaService,
-        AcademicReadFacade,
-        ClassesReadFacade,
-        StudentReadFacade,
+        RequestContextService,
+        { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
+        { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
+        { provide: StudentReadFacade, useValue: mockStudentReadFacade },
       ],
     }).compile();
 
