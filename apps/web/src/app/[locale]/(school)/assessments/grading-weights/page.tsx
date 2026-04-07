@@ -56,6 +56,8 @@ interface GradingWeight {
   status: 'draft' | 'pending_approval' | 'approved' | 'rejected';
   rejection_reason: string | null;
   category_weights: CategoryWeight[];
+  /** Raw Prisma JSON — API returns this instead of category_weights */
+  category_weights_json?: { weights?: CategoryWeight[] };
   subject?: { id: string; name: string } | null;
   year_group?: { id: string; name: string } | null;
   academic_period?: { id: string; name: string } | null;
@@ -64,6 +66,11 @@ interface GradingWeight {
 interface GradingWeightsResponse {
   data: GradingWeight[];
   meta: { page: number; pageSize: number; total: number };
+}
+
+/** Extract weights array from the raw API response's category_weights_json field */
+function extractWeightsFromJson(item: GradingWeight): CategoryWeight[] {
+  return item.category_weights_json?.weights ?? [];
 }
 
 interface AssessmentCategory {
@@ -142,7 +149,15 @@ export default function GradingWeightsPage() {
       const res = await apiClient<GradingWeightsResponse>(
         `/api/v1/gradebook/teacher-grading-weights?${params.toString()}`,
       );
-      const items = Array.isArray(res.data) ? res.data : [];
+      const raw = Array.isArray(res.data) ? res.data : [];
+      // API returns category_weights_json: { weights: [...] } — normalize to category_weights: [...]
+      const items = raw.map((item) => ({
+        ...item,
+        category_weights:
+          Array.isArray(item.category_weights) && item.category_weights.length > 0
+            ? item.category_weights
+            : extractWeightsFromJson(item),
+      }));
       setData(items);
       setTotal(res.meta?.total ?? items.length);
     } catch (err) {
