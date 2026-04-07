@@ -1,9 +1,24 @@
 export type BillingFrequency = 'one_off' | 'term' | 'monthly' | 'custom';
 export type DiscountType = 'fixed' | 'percent';
-export type InvoiceStatus = 'draft' | 'pending_approval' | 'issued' | 'partially_paid' | 'paid' | 'overdue' | 'void' | 'cancelled' | 'written_off';
+export type InvoiceStatus =
+  | 'draft'
+  | 'pending_approval'
+  | 'issued'
+  | 'partially_paid'
+  | 'paid'
+  | 'overdue'
+  | 'void'
+  | 'cancelled'
+  | 'written_off';
 export type InstallmentStatus = 'pending' | 'paid' | 'overdue';
 export type PaymentMethod = 'stripe' | 'cash' | 'bank_transfer' | 'card_manual';
-export type PaymentStatus = 'pending' | 'posted' | 'failed' | 'voided' | 'refunded_partial' | 'refunded_full';
+export type PaymentStatus =
+  | 'pending'
+  | 'posted'
+  | 'failed'
+  | 'voided'
+  | 'refunded_partial'
+  | 'refunded_full';
 export type RefundStatus = 'pending_approval' | 'approved' | 'executed' | 'failed' | 'rejected';
 
 export interface FeeGenerationPreviewLine {
@@ -56,6 +71,8 @@ export interface HouseholdStatementData {
   opening_balance: number;
   closing_balance: number;
   currency_code: string;
+  date_from: string;
+  date_to: string;
 }
 
 export interface FinanceDashboardData {

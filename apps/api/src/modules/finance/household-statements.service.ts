@@ -217,6 +217,8 @@ export class HouseholdStatementsService {
       opening_balance: 0,
       closing_balance: runningBalance,
       currency_code: tenant?.currency_code ?? 'USD',
+      date_from: filters.date_from ?? '',
+      date_to: filters.date_to ?? '',
     };
   }
 
