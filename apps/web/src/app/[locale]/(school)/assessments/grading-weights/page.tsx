@@ -322,7 +322,13 @@ export default function GradingWeightsPage() {
 
   const formatWeightsSummary = (cw: CategoryWeight[]): string => {
     if (cw.length === 0) return '—';
-    return cw.map((w) => `${w.category_name} ${w.weight}%`).join(', ');
+    return cw
+      .map((w) => {
+        const catName =
+          w.category_name || categories.find((c) => c.id === w.category_id)?.name || '?';
+        return `${catName} ${w.weight}%`;
+      })
+      .join(', ');
   };
 
   // ── Columns ─────────────────────────────────────────────────────────────────
