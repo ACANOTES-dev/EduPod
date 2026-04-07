@@ -218,7 +218,12 @@ export class TenantResolutionMiddleware implements NestMiddleware {
   }
 
   private isProxyHostname(hostname: string): boolean {
-    return hostname === this.platformDomain || hostname === 'localhost' || hostname === '127.0.0.1';
+    return (
+      hostname === this.platformDomain ||
+      hostname.endsWith(`.${this.platformDomain}`) ||
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1'
+    );
   }
 
   private getRequestHostname(req: Request): string {
