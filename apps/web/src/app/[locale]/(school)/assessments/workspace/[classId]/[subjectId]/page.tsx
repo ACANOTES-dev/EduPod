@@ -10,7 +10,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -172,6 +172,8 @@ export default function AssessmentWorkspacePage() {
   const t = useTranslations('teacherAssessments');
   const tc = useTranslations('common');
   const params = useParams();
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const classId = params?.classId as string;
   const subjectId = params?.subjectId as string;
 
@@ -274,7 +276,9 @@ export default function AssessmentWorkspacePage() {
         actions={
           setupComplete ? (
             <Button asChild>
-              <Link href={`/assessments/workspace/${classId}/${subjectId}/create`}>
+              <Link
+                href={`/${locale}/gradebook/${classId}/assessments/new?subject_id=${subjectId}`}
+              >
                 <Plus className="me-2 h-4 w-4" />
                 {t('wsCreateAssessment')}
               </Link>

@@ -2,7 +2,7 @@
 /* eslint-disable school/no-hand-rolled-forms -- legacy form; migrate to react-hook-form when touched (HR-025) */
 
 import { ArrowLeft } from 'lucide-react';
-import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -51,6 +51,8 @@ export default function NewAssessmentPage() {
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
+  const searchParams = useSearchParams();
+  const preSelectedSubjectId = searchParams?.get('subject_id') ?? '';
   const params = useParams();
   const classId = params?.classId as string;
 
@@ -58,7 +60,7 @@ export default function NewAssessmentPage() {
   const [periods, setPeriods] = React.useState<AcademicPeriod[]>([]);
   const [categories, setCategories] = React.useState<AssessmentCategory[]>([]);
 
-  const [subjectId, setSubjectId] = React.useState('');
+  const [subjectId, setSubjectId] = React.useState(preSelectedSubjectId);
   const [periodId, setPeriodId] = React.useState('');
   const [categoryId, setCategoryId] = React.useState('');
   const [title, setTitle] = React.useState('');
@@ -72,16 +74,28 @@ export default function NewAssessmentPage() {
   React.useEffect(() => {
     apiClient<ListResponse<Subject>>('/api/v1/subjects?pageSize=100&subject_type=academic')
       .then((res) => setSubjects(res.data))
-      .catch((err) => { console.error('[AssessmentsNewPage]', err); });
+      .catch((err) => {
+        console.error('[AssessmentsNewPage]', err);
+      });
     apiClient<ListResponse<AcademicPeriod>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
-      .catch((err) => { console.error('[AssessmentsNewPage]', err); });
+      .catch((err) => {
+        console.error('[AssessmentsNewPage]', err);
+      });
     apiClient<ListResponse<AssessmentCategory>>(
       '/api/v1/gradebook/assessment-categories?pageSize=50',
     )
       .then((res) => setCategories(res.data))
-      .catch((err) => { console.error('[AssessmentsNewPage]', err); });
+      .catch((err) => {
+        console.error('[AssessmentsNewPage]', err);
+      });
   }, []);
+
+  React.useEffect(() => {
+    if (preSelectedSubjectId && !subjectId) {
+      setSubjectId(preSelectedSubjectId);
+    }
+  }, [preSelectedSubjectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
