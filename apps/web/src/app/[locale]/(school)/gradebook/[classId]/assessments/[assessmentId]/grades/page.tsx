@@ -109,9 +109,21 @@ export default function GradeEntryPage() {
   const fetchAssessmentData = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const [assessmentRes, gradesRes] = await Promise.all([
+      const [assessmentRes, gradesRes, studentsRes] = await Promise.all([
         apiClient<AssessmentResponse>(`/api/v1/gradebook/assessments/${assessmentId}`),
         apiClient<GradesListResponse>(`/api/v1/gradebook/assessments/${assessmentId}/grades`),
+        apiClient<{
+          data: Array<{
+            id: string;
+            first_name: string;
+            last_name: string;
+            student_number?: string;
+          }>;
+        }>(`/api/v1/students?class_id=${classId}&pageSize=200&status=active`, {
+          silent: true,
+        }).catch(() => ({
+          data: [] as Array<{ id: string; first_name: string; last_name: string }>,
+        })),
       ]);
 
       const a = assessmentRes.data;
@@ -123,16 +135,42 @@ export default function GradeEntryPage() {
         status: a.status,
       });
 
+      // Build grade map from existing grades
       const gradeRecords = Array.isArray(gradesRes.data) ? gradesRes.data : [];
-      setGrades(
-        gradeRecords.map((g) => ({
-          student_id: g.student_id,
-          student_name: g.student ? `${g.student.first_name} ${g.student.last_name}` : g.student_id,
-          score: g.raw_score !== null ? Number(g.raw_score) : null,
-          is_missing: g.is_missing,
-          comment: g.comment ?? '',
-        })),
-      );
+      const gradeMap = new Map(gradeRecords.map((g) => [g.student_id, g]));
+
+      // Merge enrolled students with existing grades
+      const enrolled = Array.isArray(studentsRes.data) ? studentsRes.data : [];
+      const merged: StudentGrade[] = enrolled.map((s) => {
+        const existing = gradeMap.get(s.id);
+        return {
+          student_id: s.id,
+          student_name: `${s.first_name} ${s.last_name}`,
+          score:
+            existing?.raw_score !== null && existing?.raw_score !== undefined
+              ? Number(existing.raw_score)
+              : null,
+          is_missing: existing?.is_missing ?? false,
+          comment: existing?.comment ?? '',
+        };
+      });
+
+      // Include any graded students not in enrolled list (edge case)
+      for (const g of gradeRecords) {
+        if (!enrolled.find((s) => s.id === g.student_id)) {
+          merged.push({
+            student_id: g.student_id,
+            student_name: g.student
+              ? `${g.student.first_name} ${g.student.last_name}`
+              : g.student_id,
+            score: g.raw_score !== null ? Number(g.raw_score) : null,
+            is_missing: g.is_missing,
+            comment: g.comment ?? '',
+          });
+        }
+      }
+
+      setGrades(merged);
     } catch (err) {
       console.error('[AssessmentsGradesPage]', err);
       setAssessment(null);
@@ -140,7 +178,7 @@ export default function GradeEntryPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [assessmentId]);
+  }, [assessmentId, classId]);
 
   const handleUnlockRequest = async () => {
     if (!unlockReason.trim()) return;
