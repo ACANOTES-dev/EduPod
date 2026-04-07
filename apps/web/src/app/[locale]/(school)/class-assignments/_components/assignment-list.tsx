@@ -66,10 +66,10 @@ export function AssignmentList({
         return (
           <div
             key={group.id}
-            className={`overflow-hidden rounded-xl border transition-colors ${
+            className={`overflow-hidden rounded-xl border shadow-sm transition-colors ${
               isExpanded
-                ? 'border-primary-300 bg-primary-50/30 dark:border-primary-700 dark:bg-primary-950/20'
-                : 'border-border bg-surface'
+                ? 'border-primary-300 bg-primary-50/40 dark:border-primary-700 dark:bg-primary-950/20'
+                : 'border-black/[0.12] bg-surface dark:border-border'
             }`}
           >
             {/* Accordion header */}
@@ -78,7 +78,7 @@ export function AssignmentList({
               onClick={() => onToggleGroup(group.id)}
               className={`flex w-full items-center justify-between px-4 py-3 transition-colors ${
                 isExpanded
-                  ? 'bg-primary-100/50 dark:bg-primary-900/30'
+                  ? 'bg-primary-100/60 dark:bg-primary-900/30'
                   : 'hover:bg-surface-secondary'
               }`}
             >
@@ -100,7 +100,7 @@ export function AssignmentList({
               <div className="border-t border-primary-200 dark:border-primary-800">
                 {/* Capacity indicators */}
                 {group.homeroom_classes.length > 0 && (
-                  <div className="flex flex-wrap gap-3 border-b border-primary-200/50 bg-primary-50/10 px-4 py-2 dark:border-primary-800/50 dark:bg-primary-950/5">
+                  <div className="flex flex-wrap gap-3 border-b border-primary-200 bg-primary-50/30 px-4 py-2 dark:border-primary-800/50 dark:bg-primary-950/5">
                     {group.homeroom_classes.map((cls) => {
                       const count =
                         cls.enrolled_count +
@@ -130,7 +130,7 @@ export function AssignmentList({
 
                 {/* Select-all + auto-balance row */}
                 {visibleStudents.length > 0 && (
-                  <div className="flex items-center justify-between border-b border-primary-200/50 bg-primary-50/20 px-4 py-2 dark:border-primary-800/50 dark:bg-primary-950/10">
+                  <div className="flex items-center justify-between border-b border-primary-200 bg-primary-50/30 px-4 py-2 dark:border-primary-800/50 dark:bg-primary-950/10">
                     <div className="flex items-center gap-3">
                       <Checkbox
                         id={`select-all-${group.id}`}
@@ -169,7 +169,7 @@ export function AssignmentList({
                     <p className="text-sm text-text-tertiary">{t('noStudents')}</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-primary-100 dark:divide-primary-900/50">
+                  <div className="divide-y divide-primary-200/60 dark:divide-primary-900/50">
                     {visibleStudents.map((student) => {
                       const pendingClass = pendingChanges.get(student.id);
                       const effectiveClassId =

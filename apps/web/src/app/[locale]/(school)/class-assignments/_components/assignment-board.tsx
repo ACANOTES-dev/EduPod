@@ -81,10 +81,10 @@ export function AssignmentBoard({
                 return (
                   <div
                     key={cls.id}
-                    className={`min-w-[200px] flex-1 rounded-xl border p-3 transition-colors ${
+                    className={`min-w-[200px] flex-1 rounded-xl border p-3 shadow-sm transition-colors ${
                       draggedStudent
                         ? 'border-primary-300 bg-primary-50/20 dark:border-primary-700 dark:bg-primary-950/10'
-                        : 'border-border bg-surface'
+                        : 'border-black/[0.12] bg-surface-secondary/40 dark:border-border dark:bg-surface'
                     }`}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => onDrop(cls.id)}
@@ -156,7 +156,7 @@ function UnassignedColumn({ unassigned, groupId, onDragStart, onDrop, t }: Unass
             key={student.id}
             draggable
             onDragStart={() => onDragStart(student.id, groupId)}
-            className="flex cursor-grab items-center gap-2 rounded-lg border border-border bg-surface p-2 transition-colors hover:bg-surface-secondary active:cursor-grabbing"
+            className="flex cursor-grab items-center gap-2 rounded-lg border border-black/[0.08] bg-surface p-2 shadow-sm transition-colors hover:bg-surface-secondary active:cursor-grabbing dark:border-border"
           >
             <GripVertical className="h-3.5 w-3.5 shrink-0 text-text-tertiary" />
             <div className="min-w-0">
@@ -187,10 +187,10 @@ function StudentCard({ student, isPending, groupId, onDragStart }: StudentCardPr
     <div
       draggable
       onDragStart={() => onDragStart(student.id, groupId)}
-      className={`flex cursor-grab items-center gap-2 rounded-lg border p-2 transition-colors hover:bg-surface-secondary active:cursor-grabbing ${
+      className={`flex cursor-grab items-center gap-2 rounded-lg border p-2 shadow-sm transition-colors hover:bg-surface-secondary active:cursor-grabbing ${
         isPending
           ? 'border-primary-300 bg-primary-50/30 dark:bg-primary-950/10'
-          : 'border-border bg-surface'
+          : 'border-black/[0.08] bg-surface dark:border-border'
       }`}
     >
       <GripVertical className="h-3.5 w-3.5 shrink-0 text-text-tertiary" />
