@@ -45,7 +45,9 @@ export function PdfPreviewModal({ open, onOpenChange, title, pdfUrl }: PdfPrevie
       })
       .then((blob) => {
         if (cancelled) return;
-        const url = URL.createObjectURL(blob);
+        // Ensure the blob has the correct MIME type for PDF viewing/download
+        const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+        const url = URL.createObjectURL(pdfBlob);
         setBlobUrl(url);
       })
       .catch((err) => {

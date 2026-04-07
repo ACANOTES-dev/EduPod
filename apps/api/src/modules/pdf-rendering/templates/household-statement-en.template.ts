@@ -33,38 +33,51 @@ function escapeHtml(str: string | null | undefined): string {
 }
 
 function formatCurrency(amount: number, currency: string): string {
-  return `${currency} ${amount.toFixed(2)}`;
+  return `${currency} ${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return escapeHtml(dateStr);
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function formatType(type: string): string {
   const map: Record<string, string> = {
     invoice: 'Invoice',
+    invoice_issued: 'Invoice',
     payment: 'Payment',
+    payment_received: 'Payment',
+    allocation: 'Allocation',
     refund: 'Refund',
     write_off: 'Write-off',
     credit_note: 'Credit Note',
   };
-  return map[type] || type;
+  return map[type] || type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function renderHouseholdStatementEn(data: unknown, branding: PdfBranding): string {
   const stmt = data as HouseholdStatementData;
-  const primaryColor = branding.primary_color || '#1e40af';
+  const primaryColor = branding.primary_color || '#1a56db';
 
   const entryRows = stmt.entries
     .map(
-      (e) => `
-      <tr>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">${escapeHtml(e.date)}</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">${formatType(e.type)}</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">${escapeHtml(e.reference)}</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">${escapeHtml(e.description)}</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 12px;">${e.debit !== null ? formatCurrency(e.debit, stmt.currency_code) : ''}</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 12px; color: #16a34a;">${e.credit !== null ? formatCurrency(e.credit, stmt.currency_code) : ''}</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 12px; font-weight: 500;">${formatCurrency(e.running_balance, stmt.currency_code)}</td>
+      (e, idx) => `
+      <tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; white-space: nowrap;">${formatDate(e.date)}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px;">${formatType(e.type)}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; font-family: 'Courier New', monospace; letter-spacing: -0.3px;">${escapeHtml(e.reference)}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; color: #374151;">${escapeHtml(e.description)}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 11px; font-family: 'Courier New', monospace;">${e.debit !== null ? formatCurrency(e.debit, stmt.currency_code) : ''}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 11px; font-family: 'Courier New', monospace; color: #059669;">${e.credit !== null ? formatCurrency(e.credit, stmt.currency_code) : ''}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 11px; font-family: 'Courier New', monospace; font-weight: 600;">${formatCurrency(e.running_balance, stmt.currency_code)}</td>
       </tr>`,
     )
     .join('');
+
+  const periodFrom = formatDate(stmt.date_from);
+  const periodTo = formatDate(stmt.date_to);
 
   return `<!DOCTYPE html>
 <html lang="en" dir="ltr">
@@ -72,53 +85,74 @@ export function renderHouseholdStatementEn(data: unknown, branding: PdfBranding)
   <meta charset="UTF-8">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #111827; font-size: 14px; background: white; }
-    @page { size: A4 landscape; margin: 0; }
+    body {
+      font-family: -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      color: #111827;
+      font-size: 13px;
+      background: white;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    @page { size: A4; margin: 0; }
   </style>
 </head>
 <body>
-  <div style="padding: 0;">
-    <!-- Header -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid ${primaryColor}; padding-bottom: 16px; margin-bottom: 24px;">
-      <div>
-        <h1 style="font-size: 24px; font-weight: 700; color: ${primaryColor};">ACCOUNT STATEMENT</h1>
-        <p style="font-size: 16px; font-weight: 600; margin-top: 4px;">${escapeHtml(branding.school_name)}</p>
-      </div>
-      ${branding.logo_url ? `<img src="${escapeHtml(branding.logo_url)}" alt="Logo" style="height: 60px; max-width: 120px; object-fit: contain;">` : ''}
-    </div>
+  <!-- Header bar -->
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 28px;">
+    <tr>
+      <td style="padding: 0;">
+        <div style="background: ${primaryColor}; color: white; padding: 20px 24px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="vertical-align: middle;">
+                <div style="font-size: 22px; font-weight: 700; letter-spacing: 0.5px;">ACCOUNT STATEMENT</div>
+                <div style="font-size: 14px; font-weight: 400; margin-top: 4px; opacity: 0.9;">${escapeHtml(branding.school_name)}</div>
+              </td>
+              <td style="vertical-align: middle; text-align: right; width: 140px;">
+                ${branding.logo_url ? `<img src="${escapeHtml(branding.logo_url)}" alt="" style="height: 50px; max-width: 120px; object-fit: contain; border-radius: 4px;" onerror="this.style.display='none'">` : ''}
+              </td>
+            </tr>
+          </table>
+        </div>
+      </td>
+    </tr>
+  </table>
 
-    <!-- Household Info & Date Range -->
-    <div style="display: flex; justify-content: space-between; margin-bottom: 24px;">
-      <div>
-        <p style="font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Account Holder</p>
-        <p style="font-size: 14px; font-weight: 600;">${escapeHtml(stmt.household.household_name)}</p>
-        ${stmt.household.billing_parent_name ? `<p style="font-size: 13px; color: #374151;">${escapeHtml(stmt.household.billing_parent_name)}</p>` : ''}
-      </div>
-      <div style="text-align: right;">
-        <table style="font-size: 13px; margin-left: auto;">
-          <tr>
-            <td style="padding: 3px 12px 3px 0; color: #6b7280; font-weight: 500;">Period:</td>
-            <td style="padding: 3px 0; font-weight: 500;">${escapeHtml(stmt.date_from)} &ndash; ${escapeHtml(stmt.date_to)}</td>
-          </tr>
-          <tr>
-            <td style="padding: 3px 12px 3px 0; color: #6b7280; font-weight: 500;">Opening Balance:</td>
-            <td style="padding: 3px 0; font-weight: 600;">${formatCurrency(stmt.opening_balance, stmt.currency_code)}</td>
-          </tr>
-        </table>
-      </div>
-    </div>
+  <div style="padding: 0 24px;">
+    <!-- Account holder & period info -->
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+      <tr>
+        <td style="vertical-align: top; width: 50%;">
+          <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 6px;">Account Holder</div>
+          <div style="font-size: 15px; font-weight: 700; color: #111827;">${escapeHtml(stmt.household.household_name)}</div>
+          ${stmt.household.billing_parent_name ? `<div style="font-size: 12px; color: #4b5563; margin-top: 2px;">c/o ${escapeHtml(stmt.household.billing_parent_name)}</div>` : ''}
+        </td>
+        <td style="vertical-align: top; text-align: right; width: 50%;">
+          <table style="margin-left: auto; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 3px 16px 3px 0; font-size: 11px; color: #6b7280; font-weight: 500;">Statement Period:</td>
+              <td style="padding: 3px 0; font-size: 11px; font-weight: 600;">${periodFrom} &ndash; ${periodTo}</td>
+            </tr>
+            <tr>
+              <td style="padding: 3px 16px 3px 0; font-size: 11px; color: #6b7280; font-weight: 500;">Opening Balance:</td>
+              <td style="padding: 3px 0; font-size: 11px; font-weight: 700; font-family: 'Courier New', monospace;">${formatCurrency(stmt.opening_balance, stmt.currency_code)}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
 
     <!-- Ledger Table -->
-    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
       <thead>
         <tr style="background: ${primaryColor}; color: white;">
-          <th style="padding: 10px 8px; text-align: left; font-weight: 600; width: 90px;">Date</th>
-          <th style="padding: 10px 8px; text-align: left; font-weight: 600; width: 90px;">Type</th>
-          <th style="padding: 10px 8px; text-align: left; font-weight: 600; width: 120px;">Reference</th>
-          <th style="padding: 10px 8px; text-align: left; font-weight: 600;">Description</th>
-          <th style="padding: 10px 8px; text-align: right; font-weight: 600; width: 110px;">Debit</th>
-          <th style="padding: 10px 8px; text-align: right; font-weight: 600; width: 110px;">Credit</th>
-          <th style="padding: 10px 8px; text-align: right; font-weight: 600; width: 120px;">Balance</th>
+          <th style="padding: 10px 12px; text-align: left; font-weight: 600; font-size: 11px; width: 80px;">Date</th>
+          <th style="padding: 10px 12px; text-align: left; font-weight: 600; font-size: 11px; width: 72px;">Type</th>
+          <th style="padding: 10px 12px; text-align: left; font-weight: 600; font-size: 11px; width: 110px;">Reference</th>
+          <th style="padding: 10px 12px; text-align: left; font-weight: 600; font-size: 11px;">Description</th>
+          <th style="padding: 10px 12px; text-align: right; font-weight: 600; font-size: 11px; width: 100px;">Debit</th>
+          <th style="padding: 10px 12px; text-align: right; font-weight: 600; font-size: 11px; width: 100px;">Credit</th>
+          <th style="padding: 10px 12px; text-align: right; font-weight: 600; font-size: 11px; width: 100px;">Balance</th>
         </tr>
       </thead>
       <tbody>
@@ -127,20 +161,18 @@ export function renderHouseholdStatementEn(data: unknown, branding: PdfBranding)
     </table>
 
     <!-- Closing Balance -->
-    <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
-      <table style="font-size: 14px; min-width: 280px;">
-        <tr style="border-top: 2px solid ${primaryColor};">
-          <td style="padding: 10px 16px 6px 0; font-weight: 700;">Closing Balance:</td>
-          <td style="padding: 10px 0 6px 0; text-align: right; font-weight: 700; font-size: 16px; color: ${stmt.closing_balance > 0 ? '#dc2626' : '#16a34a'};">
-            ${formatCurrency(stmt.closing_balance, stmt.currency_code)}
-          </td>
-        </tr>
-      </table>
-    </div>
+    <table style="margin-left: auto; border-collapse: collapse; margin-bottom: 40px;">
+      <tr style="border-top: 2px solid ${primaryColor}; border-bottom: 2px solid ${primaryColor};">
+        <td style="padding: 12px 24px 12px 16px; font-weight: 700; font-size: 13px;">Closing Balance</td>
+        <td style="padding: 12px 16px 12px 24px; text-align: right; font-weight: 700; font-size: 15px; font-family: 'Courier New', monospace; color: ${stmt.closing_balance > 0 ? '#dc2626' : '#059669'};">
+          ${formatCurrency(stmt.closing_balance, stmt.currency_code)}
+        </td>
+      </tr>
+    </table>
 
     <!-- Footer -->
-    <div style="margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center;">
-      <p>${escapeHtml(branding.school_name)} &mdash; This statement is for informational purposes only.</p>
+    <div style="padding-top: 16px; border-top: 1px solid #d1d5db; font-size: 10px; color: #9ca3af; text-align: center;">
+      ${escapeHtml(branding.school_name)} &mdash; This statement is for informational purposes only.
     </div>
   </div>
 </body>
