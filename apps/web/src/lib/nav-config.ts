@@ -283,6 +283,7 @@ export const hubConfigs: HubConfig[] = [
       '/report-cards',
       '/promotion',
       '/diary',
+      '/assessments',
     ],
     roles: [...STAFF_ROLES, 'parent'],
   },
@@ -377,8 +378,13 @@ export const hubGroupedSubStripConfigs: Record<string, SubStripGroupConfig[]> = 
     {
       labelKey: 'nav.assessment',
       children: [
+        { labelKey: 'nav.assessments', href: '/assessments' },
         { labelKey: 'nav.gradebook', href: '/gradebook' },
         { labelKey: 'nav.reportCards', href: '/report-cards' },
+        { labelKey: 'nav.assessmentCategories', href: '/assessments/categories' },
+        { labelKey: 'nav.gradingWeights', href: '/assessments/grading-weights' },
+        { labelKey: 'nav.rubricTemplates', href: '/assessments/rubric-templates' },
+        { labelKey: 'nav.curriculumStandards', href: '/assessments/curriculum-standards' },
       ],
     },
     {
