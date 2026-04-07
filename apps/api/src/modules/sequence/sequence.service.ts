@@ -63,19 +63,17 @@ export class SequenceService {
   }
 
   private formatNumber(sequenceType: string, value: number, prefix?: string): string {
-    const now = new Date();
-    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
     const padded = String(value).padStart(6, '0');
 
     if (prefix) {
-      return `${prefix}-${yearMonth}-${padded}`;
+      return `${prefix}-${padded}`;
     }
 
     switch (sequenceType) {
       case 'application':
-        return `APP-${yearMonth}-${padded}`;
+        return `APP-${padded}`;
       default:
-        return `${sequenceType.toUpperCase()}-${yearMonth}-${padded}`;
+        return `${sequenceType.toUpperCase()}-${padded}`;
     }
   }
 }

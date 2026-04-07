@@ -29,7 +29,10 @@ export class HouseholdStatementsService {
     filters: StatementFilters,
   ): Promise<HouseholdStatementData> {
     // Validate household exists
-    const household = await this.householdReadFacade.findByIdWithBillingParent(tenantId, householdId);
+    const household = await this.householdReadFacade.findByIdWithBillingParent(
+      tenantId,
+      householdId,
+    );
     if (!household) {
       throw new NotFoundException({
         code: 'HOUSEHOLD_NOT_FOUND',
@@ -235,6 +238,11 @@ export class HouseholdStatementsService {
       primary_color: branding?.primary_color ?? undefined,
     };
 
-    return this.pdfRenderingService.renderPdf('statement', locale, statement, pdfBranding);
+    return this.pdfRenderingService.renderPdf(
+      'household-statement',
+      locale,
+      statement,
+      pdfBranding,
+    );
   }
 }

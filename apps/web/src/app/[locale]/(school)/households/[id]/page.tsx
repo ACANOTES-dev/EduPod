@@ -35,8 +35,6 @@ import { InvoiceStatusBadge } from '../../finance/_components/invoice-status-bad
 import { MergeDialog } from '../_components/merge-dialog';
 import { SplitDialog } from '../_components/split-dialog';
 
-
-
 interface Invoice {
   id: string;
   invoice_number: string;
@@ -137,6 +135,20 @@ export default function HouseholdHubPage() {
   });
   const [isSavingContact, setIsSavingContact] = React.useState(false);
 
+  // Add/Edit Guardian dialog
+  const [guardianDialogOpen, setGuardianDialogOpen] = React.useState(false);
+  const [editingGuardian, setEditingGuardian] = React.useState<Parent | null>(null);
+  const [guardianForm, setGuardianForm] = React.useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    whatsapp_phone: '',
+    relationship_label: '',
+    preferred_contact_channels: ['email'] as ('email' | 'whatsapp')[],
+  });
+  const [isSavingGuardian, setIsSavingGuardian] = React.useState(false);
+
   // Add Student dialog
   interface YearGroup {
     id: string;
@@ -178,14 +190,20 @@ export default function HouseholdHubPage() {
     if (!id) return;
     apiClient<{ data: Invoice[] }>(`/api/v1/finance/invoices?household_id=${id}&pageSize=50`)
       .then((res) => setInvoices(Array.isArray(res.data) ? res.data : []))
-      .catch((err) => { console.error('[HouseholdsPage]', err); return setInvoices([]); });
+      .catch((err) => {
+        console.error('[HouseholdsPage]', err);
+        return setInvoices([]);
+      });
   }, [id]);
 
   // Fetch year groups for add-student form
   React.useEffect(() => {
     apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=50')
       .then((res) => setYearGroups(Array.isArray(res.data) ? res.data : []))
-      .catch((err) => { console.error('[HouseholdsPage]', err); return setYearGroups([]); });
+      .catch((err) => {
+        console.error('[HouseholdsPage]', err);
+        return setYearGroups([]);
+      });
   }, []);
 
   const openAddStudent = () => {
@@ -236,7 +254,9 @@ export default function HouseholdHubPage() {
       // Refresh invoices
       apiClient<{ data: Invoice[] }>(`/api/v1/finance/invoices?household_id=${id}&pageSize=50`)
         .then((res) => setInvoices(Array.isArray(res.data) ? res.data : []))
-        .catch((err) => { console.error('[HouseholdsPage]', err); });
+        .catch((err) => {
+          console.error('[HouseholdsPage]', err);
+        });
     } catch (err) {
       console.error('[HouseholdsPage]', err);
       toast.error('Failed to add student');
@@ -315,6 +335,123 @@ export default function HouseholdHubPage() {
     }
   };
 
+  const openAddGuardian = () => {
+    setEditingGuardian(null);
+    setGuardianForm({
+      first_name: '',
+      last_name: '',
+      email: '',
+      phone: '',
+      whatsapp_phone: '',
+      relationship_label: '',
+      preferred_contact_channels: ['email'],
+    });
+    setGuardianDialogOpen(true);
+  };
+
+  const openEditGuardian = (guardian: Parent) => {
+    setEditingGuardian(guardian);
+    // Fetch full guardian details for editing
+    apiClient<{
+      data: {
+        first_name: string;
+        last_name: string;
+        email?: string | null;
+        phone?: string | null;
+        whatsapp_phone?: string | null;
+        relationship_label?: string | null;
+        preferred_contact_channels?: ('email' | 'whatsapp')[];
+      };
+    }>(`/api/v1/parents/${guardian.id}`, { silent: true })
+      .then((res) => {
+        const g = res.data;
+        setGuardianForm({
+          first_name: g.first_name ?? '',
+          last_name: g.last_name ?? '',
+          email: g.email ?? '',
+          phone: g.phone ?? '',
+          whatsapp_phone: g.whatsapp_phone ?? '',
+          relationship_label: g.relationship_label ?? '',
+          preferred_contact_channels: g.preferred_contact_channels ?? ['email'],
+        });
+      })
+      .catch(() => {
+        // Fallback to basic info from household data
+        setGuardianForm({
+          first_name: guardian.first_name ?? '',
+          last_name: guardian.last_name ?? '',
+          email: '',
+          phone: '',
+          whatsapp_phone: '',
+          relationship_label: guardian.relationship_label ?? '',
+          preferred_contact_channels: ['email'],
+        });
+      });
+    setGuardianDialogOpen(true);
+  };
+
+  const handleSaveGuardian = async () => {
+    if (!guardianForm.first_name || !guardianForm.last_name) {
+      toast.error('First name and last name are required');
+      return;
+    }
+    setIsSavingGuardian(true);
+    try {
+      if (editingGuardian) {
+        // Update existing guardian
+        await apiClient(`/api/v1/parents/${editingGuardian.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            first_name: guardianForm.first_name,
+            last_name: guardianForm.last_name,
+            email: guardianForm.email || null,
+            phone: guardianForm.phone || null,
+            whatsapp_phone: guardianForm.whatsapp_phone || null,
+            relationship_label: guardianForm.relationship_label || null,
+            preferred_contact_channels: guardianForm.preferred_contact_channels,
+          }),
+        });
+        toast.success(t('guardianUpdated'));
+      } else {
+        // Create new guardian and link to household
+        const res = await apiClient<{ data: { id: string } }>('/api/v1/parents', {
+          method: 'POST',
+          body: JSON.stringify({
+            first_name: guardianForm.first_name,
+            last_name: guardianForm.last_name,
+            email: guardianForm.email || undefined,
+            phone: guardianForm.phone || undefined,
+            whatsapp_phone: guardianForm.whatsapp_phone || undefined,
+            relationship_label: guardianForm.relationship_label || undefined,
+            preferred_contact_channels: guardianForm.preferred_contact_channels,
+            household_id: id,
+            role_label: guardianForm.relationship_label || undefined,
+          }),
+        });
+        // If the parent was created without household linking, link them
+        if (res.data?.id) {
+          await apiClient(`/api/v1/households/${id}/parents`, {
+            method: 'POST',
+            body: JSON.stringify({
+              parent_id: res.data.id,
+              role_label: guardianForm.relationship_label || undefined,
+            }),
+          }).catch(() => {
+            // May already be linked if create handled it
+          });
+        }
+        toast.success(t('guardianSaved'));
+      }
+      setGuardianDialogOpen(false);
+      await fetchHousehold();
+    } catch (err) {
+      console.error('[HouseholdsPage]', err);
+      toast.error(t('failedToSaveGuardian'));
+    } finally {
+      setIsSavingGuardian(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -327,7 +464,9 @@ export default function HouseholdHubPage() {
 
   if (!household) {
     return (
-      <div className="flex h-64 items-center justify-center text-text-tertiary">{t('householdNotFound')}</div>
+      <div className="flex h-64 items-center justify-center text-text-tertiary">
+        {t('householdNotFound')}
+      </div>
     );
   }
 
@@ -344,15 +483,21 @@ export default function HouseholdHubPage() {
   const actions = (
     <>
       <Button variant="outline" onClick={() => router.push(`/households/${id}/edit`)}>
-        <Edit className="me-2 h-4 w-4" />{tCommon('edit')}</Button>
-      <Button variant="outline" onClick={() => setMergeOpen(true)}>{t('merge2')}</Button>
-      <Button variant="outline" onClick={() => setSplitOpen(true)}>{t('split2')}</Button>
+        <Edit className="me-2 h-4 w-4" />
+        {tCommon('edit')}
+      </Button>
+      <Button variant="outline" onClick={() => setMergeOpen(true)}>
+        {t('merge2')}
+      </Button>
+      <Button variant="outline" onClick={() => setSplitOpen(true)}>
+        {t('split2')}
+      </Button>
     </>
   );
 
   const metrics = [
     { label: 'Students', value: students.length },
-    { label: 'Parents', value: parents.length },
+    { label: t('guardians'), value: parents.length },
     { label: 'Emergency Contacts', value: contacts.length },
   ];
 
@@ -403,7 +548,9 @@ export default function HouseholdHubPage() {
           {students.length} {students.length === 1 ? 'Student' : 'Students'}
         </h3>
         <Button size="sm" onClick={openAddStudent}>
-          <Plus className="me-2 h-4 w-4" />{t('addStudent')}</Button>
+          <Plus className="me-2 h-4 w-4" />
+          {t('addStudent')}
+        </Button>
       </div>
 
       {students.length === 0 ? (
@@ -443,9 +590,20 @@ export default function HouseholdHubPage() {
   );
 
   const parentsTab = (
-    <div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-text-primary">
+          {parents.length}{' '}
+          {parents.length === 1 ? t('guardians').replace(/s$/i, '') : t('guardians')}
+        </h3>
+        <Button size="sm" onClick={openAddGuardian}>
+          <Plus className="me-2 h-4 w-4" />
+          {t('addGuardian')}
+        </Button>
+      </div>
+
       {parents.length === 0 ? (
-        <p className="text-sm text-text-tertiary">{t('noParentsInThisHousehold')}</p>
+        <p className="text-sm text-text-tertiary">{t('noGuardiansInThisHousehold')}</p>
       ) : (
         <ul className="divide-y divide-border rounded-xl border border-border">
           {parents.map((parent) => (
@@ -462,15 +620,28 @@ export default function HouseholdHubPage() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {parent.is_primary_contact && <StatusBadge status="info">{t('primary')}</StatusBadge>}
-                {parent.is_billing_contact && <StatusBadge status="neutral">{t('billing')}</StatusBadge>}
+                {parent.is_primary_contact && (
+                  <StatusBadge status="info">{t('primary')}</StatusBadge>
+                )}
+                {parent.is_billing_contact && (
+                  <StatusBadge status="neutral">{t('billing')}</StatusBadge>
+                )}
                 {parent.id !== household.primary_billing_parent_id && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => void handleSetBillingParent(parent.id)}
-                  >{t('setBilling')}</Button>
+                  >
+                    {t('setBilling')}
+                  </Button>
                 )}
+                <button
+                  onClick={() => openEditGuardian(parent)}
+                  className="p-1.5 text-text-tertiary hover:text-text-primary transition-colors rounded"
+                  aria-label={t('editGuardian')}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
               </div>
             </li>
           ))}
@@ -520,7 +691,9 @@ export default function HouseholdHubPage() {
 
       {contacts.length < 3 && (
         <Button variant="outline" size="sm" onClick={openAddContact}>
-          <Plus className="me-1 h-3.5 w-3.5" />{t('addContact')}</Button>
+          <Plus className="me-1 h-3.5 w-3.5" />
+          {t('addContact')}
+        </Button>
       )}
     </div>
   );
@@ -548,11 +721,21 @@ export default function HouseholdHubPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-secondary">
-                <th className="px-4 py-2.5 text-start font-medium text-text-secondary">{t('invoice')}</th>
-                <th className="px-4 py-2.5 text-start font-medium text-text-secondary">{t('status')}</th>
-                <th className="px-4 py-2.5 text-end font-medium text-text-secondary">{t('totalAmount')}</th>
-                <th className="px-4 py-2.5 text-end font-medium text-text-secondary">{t('balance')}</th>
-                <th className="px-4 py-2.5 text-start font-medium text-text-secondary">{t('dueDate')}</th>
+                <th className="px-4 py-2.5 text-start font-medium text-text-secondary">
+                  {t('invoice')}
+                </th>
+                <th className="px-4 py-2.5 text-start font-medium text-text-secondary">
+                  {t('status')}
+                </th>
+                <th className="px-4 py-2.5 text-end font-medium text-text-secondary">
+                  {t('totalAmount')}
+                </th>
+                <th className="px-4 py-2.5 text-end font-medium text-text-secondary">
+                  {t('balance')}
+                </th>
+                <th className="px-4 py-2.5 text-start font-medium text-text-secondary">
+                  {t('dueDate')}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -611,7 +794,7 @@ export default function HouseholdHubPage() {
         tabs={[
           { key: 'overview', label: 'Overview', content: overviewTab },
           { key: 'students', label: `Students (${students.length})`, content: studentsTab },
-          { key: 'parents', label: `Parents (${parents.length})`, content: parentsTab },
+          { key: 'guardians', label: `${t('guardians')} (${parents.length})`, content: parentsTab },
           { key: 'contacts', label: 'Emergency Contacts', content: contactsTab },
           { key: 'finance', label: `Finance (${invoices.length})`, content: financeTab },
         ]}
@@ -679,7 +862,9 @@ export default function HouseholdHubPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setContactDialogOpen(false)}>{tCommon('cancel')}</Button>
+            <Button variant="outline" onClick={() => setContactDialogOpen(false)}>
+              {tCommon('cancel')}
+            </Button>
             <Button onClick={() => void handleSaveContact()} disabled={isSavingContact}>
               {isSavingContact ? 'Saving...' : 'Save'}
             </Button>
@@ -703,11 +888,123 @@ export default function HouseholdHubPage() {
         onSplit={(newId) => router.push(`/households/${newId}`)}
       />
 
+      {/* Add/Edit Guardian dialog */}
+      <Dialog open={guardianDialogOpen} onOpenChange={setGuardianDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingGuardian ? t('editGuardian') : t('addGuardian')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="guard_first">{t('guardianFirstName')}</Label>
+                <Input
+                  id="guard_first"
+                  value={guardianForm.first_name}
+                  onChange={(e) => setGuardianForm((p) => ({ ...p, first_name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="guard_last">{t('guardianLastName')}</Label>
+                <Input
+                  id="guard_last"
+                  value={guardianForm.last_name}
+                  onChange={(e) => setGuardianForm((p) => ({ ...p, last_name: e.target.value }))}
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="guard_email">{t('guardianEmail')}</Label>
+              <Input
+                id="guard_email"
+                type="email"
+                dir="ltr"
+                value={guardianForm.email}
+                onChange={(e) => setGuardianForm((p) => ({ ...p, email: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="guard_phone">{t('guardianPhone')}</Label>
+                <Input
+                  id="guard_phone"
+                  type="tel"
+                  dir="ltr"
+                  value={guardianForm.phone}
+                  onChange={(e) => setGuardianForm((p) => ({ ...p, phone: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="guard_whatsapp">{t('guardianWhatsApp')}</Label>
+                <Input
+                  id="guard_whatsapp"
+                  type="tel"
+                  dir="ltr"
+                  value={guardianForm.whatsapp_phone}
+                  onChange={(e) =>
+                    setGuardianForm((p) => ({ ...p, whatsapp_phone: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="guard_rel">{t('guardianRelationship')}</Label>
+              <Input
+                id="guard_rel"
+                value={guardianForm.relationship_label}
+                onChange={(e) =>
+                  setGuardianForm((p) => ({ ...p, relationship_label: e.target.value }))
+                }
+                placeholder="e.g. Mother, Father, Uncle"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t('guardianContactChannel')}</Label>
+              <Select
+                value={guardianForm.preferred_contact_channels[0] ?? 'email'}
+                onValueChange={(v) =>
+                  setGuardianForm((p) => ({
+                    ...p,
+                    preferred_contact_channels: [v as 'email' | 'whatsapp'],
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setGuardianDialogOpen(false)}
+              disabled={isSavingGuardian}
+            >
+              {tCommon('cancel')}
+            </Button>
+            <Button onClick={() => void handleSaveGuardian()} disabled={isSavingGuardian}>
+              {isSavingGuardian && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+              {isSavingGuardian ? tCommon('saving') : tCommon('save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add Student dialog */}
       <Dialog open={addStudentOpen} onOpenChange={setAddStudentOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{t('addStudentTo')}{household.household_name}</DialogTitle>
+            <DialogTitle>
+              {t('addStudentTo')}
+              {household.household_name}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {/* Name row */}
@@ -832,7 +1129,9 @@ export default function HouseholdHubPage() {
               variant="outline"
               onClick={() => setAddStudentOpen(false)}
               disabled={isSavingStudent}
-            >{tCommon('cancel')}</Button>
+            >
+              {tCommon('cancel')}
+            </Button>
             <Button onClick={() => void handleSaveStudent()} disabled={isSavingStudent}>
               {isSavingStudent && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
               {isSavingStudent ? 'Adding...' : 'Add Student & Assign Fees'}

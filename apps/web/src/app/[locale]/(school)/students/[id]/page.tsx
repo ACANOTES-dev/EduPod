@@ -138,16 +138,18 @@ export default function StudentHubPage() {
     if (!id) return;
     setHwLoading(true);
     apiClient<{
-      overall: { total_assigned: number; total_completed: number; completion_rate: number };
-      by_subject: Array<{
-        subject_id: string | null;
-        subject_name: string | null;
-        total_assigned: number;
-        total_completed: number;
-        completion_rate: number;
-      }>;
-    }>(`/api/v1/homework/analytics/student/${id}`)
-      .then((res) => setHwData(res))
+      data: {
+        overall: { total_assigned: number; total_completed: number; completion_rate: number };
+        by_subject: Array<{
+          subject_id: string | null;
+          subject_name: string | null;
+          total_assigned: number;
+          total_completed: number;
+          completion_rate: number;
+        }>;
+      };
+    }>(`/api/v1/homework/analytics/student/${id}`, { silent: true })
+      .then((res) => setHwData(res.data))
       .catch((err) => console.error('[StudentHub] Failed to load homework data', err))
       .finally(() => setHwLoading(false));
   }, [id]);
@@ -159,7 +161,10 @@ export default function StudentHubPage() {
     if (!id) return;
     apiClient<{ data: SenProfileSummary }>(`/api/v1/sen/students/${id}/profile`, { silent: true })
       .then((res) => setSenProfile(res.data))
-      .catch((err) => { console.error('[StudentsPage]', err); return setSenProfile(null); });
+      .catch((err) => {
+        console.error('[StudentsPage]', err);
+        return setSenProfile(null);
+      });
   }, [id]);
 
   const handleStatusChange = async (newStatus: string) => {
@@ -192,7 +197,9 @@ export default function StudentHubPage() {
 
   if (!student) {
     return (
-      <div className="flex h-64 items-center justify-center text-text-tertiary">{t('studentNotFound')}</div>
+      <div className="flex h-64 items-center justify-center text-text-tertiary">
+        {t('studentNotFound')}
+      </div>
     );
   }
 
@@ -201,12 +208,16 @@ export default function StudentHubPage() {
   const actions = (
     <>
       <Button variant="outline" onClick={() => router.push(`/students/${id}/edit`)}>
-        <Edit className="me-2 h-4 w-4" />{tCommon('edit')}</Button>
+        <Edit className="me-2 h-4 w-4" />
+        {tCommon('edit')}
+      </Button>
 
       {allowedNextStatuses.length > 0 && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" disabled={isChangingStatus}>{t('statusChange')}<ChevronDown className="ms-2 h-4 w-4" />
+            <Button variant="outline" disabled={isChangingStatus}>
+              {t('statusChange')}
+              <ChevronDown className="ms-2 h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
@@ -306,7 +317,9 @@ export default function StudentHubPage() {
                 {parent.relationship_label && (
                   <span className="text-xs text-text-tertiary">({parent.relationship_label})</span>
                 )}
-                {parent.is_primary_contact && <StatusBadge status="info">{t('primary')}</StatusBadge>}
+                {parent.is_primary_contact && (
+                  <StatusBadge status="info">{t('primary')}</StatusBadge>
+                )}
               </li>
             ))}
           </ul>
@@ -387,7 +400,7 @@ export default function StudentHubPage() {
             <Skeleton key={i} className="h-16 w-full" />
           ))}
         </div>
-      ) : !hwData ? (
+      ) : !hwData?.overall ? (
         <p className="text-sm text-text-tertiary">{t('noHomeworkDataAvailable')}</p>
       ) : (
         <>
@@ -474,7 +487,9 @@ export default function StudentHubPage() {
                 size="sm"
                 onClick={() => router.push(`/sen/students/${id}`)}
               >
-                <HeartHandshake className="me-2 h-4 w-4" />{t('viewFullSenProfile')}</Button>
+                <HeartHandshake className="me-2 h-4 w-4" />
+                {t('viewFullSenProfile')}
+              </Button>
             )}
           </div>
         ),

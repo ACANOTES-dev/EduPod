@@ -101,11 +101,11 @@ describe('StudentsService — create', () => {
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRedis = buildMockRedis();
-    mockSequence = { nextNumber: jest.fn().mockResolvedValue('STU-202601-0001') };
+    mockSequence = { nextNumber: jest.fn().mockResolvedValue('STU-000001') };
 
     mockRlsTx.student.create.mockReset().mockResolvedValue({
       ...baseStudent,
-      student_number: 'STU-202601-0001',
+      student_number: 'STU-000001',
       household: { id: HOUSEHOLD_ID, household_name: 'Doe Family' },
       year_group: null,
       homeroom_class: null,
@@ -167,7 +167,7 @@ describe('StudentsService — create', () => {
           tenant_id: TENANT_ID,
           first_name: 'John',
           last_name: 'Doe',
-          student_number: 'STU-202601-0001',
+          student_number: 'STU-000001',
         }),
       }),
     );
@@ -1055,11 +1055,11 @@ describe('StudentsService — create (class_homeroom_id validation)', () => {
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRedis = buildMockRedis();
-    mockSequence = { nextNumber: jest.fn().mockResolvedValue('STU-202601-0001') };
+    mockSequence = { nextNumber: jest.fn().mockResolvedValue('STU-000001') };
 
     mockRlsTx.student.create.mockReset().mockResolvedValue({
       ...baseStudent,
-      student_number: 'STU-202601-0001',
+      student_number: 'STU-000001',
       household: { id: HOUSEHOLD_ID, household_name: 'Doe Family' },
       year_group: null,
       homeroom_class: { id: 'class-1', name: '5A' },

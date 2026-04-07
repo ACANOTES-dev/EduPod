@@ -48,9 +48,7 @@ describe('SequenceService', () => {
 
     const result = await service.nextNumber(TENANT_ID, 'application');
 
-    const now = new Date();
-    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-    expect(result).toBe(`APP-${yearMonth}-000001`);
+    expect(result).toBe('APP-000001');
     expect(mockTx.$queryRaw).toHaveBeenCalled();
     expect(mockTx.$executeRaw).toHaveBeenCalled();
   });
@@ -109,9 +107,7 @@ describe('SequenceService', () => {
 
     const result = await service.nextNumber(TENANT_ID, 'invoice', mockTx, 'INV');
 
-    const now = new Date();
-    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-    expect(result).toBe(`INV-${yearMonth}-000001`);
+    expect(result).toBe('INV-000001');
   });
 
   it('should use default UPPER_CASE format for unknown sequence types without prefix', async () => {
@@ -120,23 +116,19 @@ describe('SequenceService', () => {
 
     const result = await service.nextNumber(TENANT_ID, 'receipt', mockTx);
 
-    const now = new Date();
-    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-    expect(result).toBe(`RECEIPT-${yearMonth}-000003`);
+    expect(result).toBe('RECEIPT-000003');
   });
 
   // ─── generateHouseholdReference ──────────────────────────────────────────
 
   describe('SequenceService — generateHouseholdReference', () => {
-    it('should return a sequential reference in HH-YYYYMM-000001 format', async () => {
+    it('should return a sequential reference in HH-000001 format', async () => {
       mockTx.$queryRaw.mockResolvedValue([{ current_value: BigInt(0) }]);
       mockTx.$executeRaw.mockResolvedValue(1);
 
       const result = await service.generateHouseholdReference(TENANT_ID, mockTx);
 
-      const now = new Date();
-      const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-      expect(result).toBe(`HH-${yearMonth}-000001`);
+      expect(result).toBe('HH-000001');
     });
 
     it('should increment sequentially', async () => {
@@ -145,7 +137,7 @@ describe('SequenceService', () => {
 
       const result = await service.generateHouseholdReference(TENANT_ID, mockTx);
 
-      expect(result).toMatch(/HH-\d{6}-000042$/);
+      expect(result).toBe('HH-000042');
     });
 
     it('should create its own RLS transaction when no tx is provided', async () => {
@@ -154,7 +146,7 @@ describe('SequenceService', () => {
 
       const result = await service.generateHouseholdReference(TENANT_ID);
 
-      expect(result).toMatch(/^HH-\d{6}-000001$/);
+      expect(result).toBe('HH-000001');
       expect(mockPrisma.$extends).toHaveBeenCalled();
     });
   });
