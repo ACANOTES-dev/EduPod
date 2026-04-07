@@ -90,6 +90,7 @@
     "rubricTemplates": "Rubrics",
     "curriculumStandards": "Standards",
     "assessmentApprovals": "Approvals",
+    "assessmentDashboard": "Dashboard",
     "periodGrid": "Period Grid",
     "curriculum": "Curriculum",
     "competencies": "Competencies",
@@ -4810,7 +4811,16 @@
     "approvalsTypeCategory": "Category",
     "approvalsTypeWeight": "Weight",
     "approvalsRequestedBy": "Requested By",
-    "approvalsReason": "Reason"
+    "approvalsReason": "Reason",
+    "configSection": "Assessment Configuration",
+    "configCategoriesTitle": "Assessment Categories",
+    "configCategoriesDesc": "Define assessment types and scopes",
+    "configWeightsTitle": "Grading Weights",
+    "configWeightsDesc": "Configure category weight distribution",
+    "configRubricsTitle": "Rubric Templates",
+    "configRubricsDesc": "Create reusable marking guides",
+    "configStandardsTitle": "Curriculum Standards",
+    "configStandardsDesc": "Define learning objectives"
   },
   "reportCards": {
     "title": "Report Cards",

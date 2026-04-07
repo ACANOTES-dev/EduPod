@@ -90,6 +90,7 @@
     "rubricTemplates": "القوالب",
     "curriculumStandards": "المعايير",
     "assessmentApprovals": "الموافقات",
+    "assessmentDashboard": "لوحة المعلومات",
     "periodGrid": "شبكة الحصص",
     "curriculum": "المنهج",
     "competencies": "الكفاءات",
@@ -4802,7 +4803,16 @@
     "approvalsTypeCategory": "فئة",
     "approvalsTypeWeight": "وزن",
     "approvalsRequestedBy": "مقدم الطلب",
-    "approvalsReason": "السبب"
+    "approvalsReason": "السبب",
+    "configSection": "تكوين التقييم",
+    "configCategoriesTitle": "فئات التقييم",
+    "configCategoriesDesc": "تحديد أنواع ونطاقات التقييم",
+    "configWeightsTitle": "أوزان التقييم",
+    "configWeightsDesc": "تكوين توزيع أوزان الفئات",
+    "configRubricsTitle": "قوالب معايير التقييم",
+    "configRubricsDesc": "إنشاء أدلة تقييم قابلة لإعادة الاستخدام",
+    "configStandardsTitle": "معايير المنهج",
+    "configStandardsDesc": "تحديد الأهداف التعليمية"
   },
   "reportCards": {
     "title": "بطاقات التقارير",

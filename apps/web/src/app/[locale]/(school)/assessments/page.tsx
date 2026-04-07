@@ -1,6 +1,15 @@
 'use client';
 
-import { CheckCircle2, LayoutGrid, XCircle } from 'lucide-react';
+import {
+  BookOpen,
+  CheckCircle2,
+  ClipboardList,
+  LayoutGrid,
+  Scale,
+  Target,
+  XCircle,
+} from 'lucide-react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -8,6 +17,8 @@ import { Badge, StatCard } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
+import { InlineApprovalQueue } from './_components/inline-approval-queue';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -30,6 +41,19 @@ interface TeachingAllocation {
 
 interface AllocationsResponse {
   data: TeachingAllocation[];
+}
+
+interface PaginatedResponse<T> {
+  data: T[];
+  meta?: { page: number; pageSize: number; total: number };
+}
+
+interface ConfigCounts {
+  categories: number;
+  approvedCategories: number;
+  weights: number;
+  rubrics: number;
+  standards: number;
 }
 
 // ─── Summary helpers ─────────────────────────────────────────────────────────
@@ -67,6 +91,11 @@ function LoadingSkeleton() {
         ))}
       </div>
       <div className="h-64 animate-pulse rounded-2xl bg-surface-secondary" />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-28 animate-pulse rounded-lg bg-surface-secondary" />
+        ))}
+      </div>
     </div>
   );
 }
@@ -226,28 +255,98 @@ function AllocationCard({
   );
 }
 
+// ─── Config quick-access card ───────────────────────────────────────────────
+
+function ConfigCard({
+  href,
+  icon: Icon,
+  title,
+  description,
+  countLabel,
+}: {
+  href: string;
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  countLabel: string | null;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex flex-col gap-2 rounded-lg border border-border bg-surface p-4 transition-colors hover:border-primary-300 cursor-pointer"
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-50 text-primary transition-colors group-hover:bg-primary-100">
+          <Icon className="h-5 w-5" />
+        </div>
+        {countLabel !== null && <Badge variant="secondary">{countLabel}</Badge>}
+      </div>
+      <div>
+        <p className="text-sm font-medium text-text-primary">{title}</p>
+        <p className="text-xs text-text-secondary mt-0.5">{description}</p>
+      </div>
+    </Link>
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function TeacherAssessmentsDashboardPage() {
   const t = useTranslations('teacherAssessments');
 
   const [allocations, setAllocations] = React.useState<TeachingAllocation[]>([]);
+  const [configCounts, setConfigCounts] = React.useState<ConfigCounts>({
+    categories: 0,
+    approvedCategories: 0,
+    weights: 0,
+    rubrics: 0,
+    standards: 0,
+  });
   const [isLoading, setIsLoading] = React.useState(true);
 
-  const fetchAllocations = React.useCallback(async () => {
+  const fetchData = React.useCallback(async () => {
     try {
-      const res = await apiClient<AllocationsResponse>('/api/v1/gradebook/teaching-allocations');
-      setAllocations(res.data);
+      const [allocationsRes, categoriesRes, weightsRes, rubricsRes, standardsRes] =
+        await Promise.all([
+          apiClient<AllocationsResponse>('/api/v1/gradebook/teaching-allocations'),
+          apiClient<PaginatedResponse<{ id: string; status: string }>>(
+            '/api/v1/gradebook/assessment-categories?pageSize=100',
+          ).catch(() => ({ data: [], meta: { page: 1, pageSize: 100, total: 0 } })),
+          apiClient<PaginatedResponse<{ id: string }>>(
+            '/api/v1/gradebook/teacher-grading-weights?pageSize=1',
+          ).catch(() => ({ data: [], meta: { page: 1, pageSize: 1, total: 0 } })),
+          apiClient<PaginatedResponse<{ id: string }>>(
+            '/api/v1/gradebook/rubric-templates?page=1&pageSize=1',
+          ).catch(() => ({ data: [], meta: { page: 1, pageSize: 1, total: 0 } })),
+          apiClient<PaginatedResponse<{ id: string }>>(
+            '/api/v1/gradebook/curriculum-standards?page=1&pageSize=1',
+          ).catch(() => ({ data: [], meta: { page: 1, pageSize: 1, total: 0 } })),
+        ]);
+
+      setAllocations(allocationsRes.data);
+
+      const allCategories = categoriesRes.data;
+      const approvedCats = allCategories.filter(
+        (c: { id: string; status: string }) => c.status === 'approved',
+      ).length;
+
+      setConfigCounts({
+        categories: categoriesRes.meta?.total ?? allCategories.length,
+        approvedCategories: approvedCats,
+        weights: weightsRes.meta?.total ?? weightsRes.data.length,
+        rubrics: rubricsRes.meta?.total ?? rubricsRes.data.length,
+        standards: standardsRes.meta?.total ?? standardsRes.data.length,
+      });
     } catch (err) {
-      console.error('[TeacherAssessmentsDashboard.fetchAllocations]', err);
+      console.error('[TeacherAssessmentsDashboard.fetchData]', err);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   React.useEffect(() => {
-    void fetchAllocations();
-  }, [fetchAllocations]);
+    void fetchData();
+  }, [fetchData]);
 
   if (isLoading) {
     return <LoadingSkeleton />;
@@ -292,6 +391,44 @@ export default function TeacherAssessmentsDashboardPage() {
           </div>
         </>
       )}
+
+      {/* ── Config Quick-Access Cards ──────────────────────────────────────── */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold text-text-primary">{t('configSection')}</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <ConfigCard
+            href="/assessments/categories"
+            icon={BookOpen}
+            title={t('configCategoriesTitle')}
+            description={t('configCategoriesDesc')}
+            countLabel={`${configCounts.approvedCategories}/${configCounts.categories}`}
+          />
+          <ConfigCard
+            href="/assessments/grading-weights"
+            icon={Scale}
+            title={t('configWeightsTitle')}
+            description={t('configWeightsDesc')}
+            countLabel={String(configCounts.weights)}
+          />
+          <ConfigCard
+            href="/assessments/rubric-templates"
+            icon={ClipboardList}
+            title={t('configRubricsTitle')}
+            description={t('configRubricsDesc')}
+            countLabel={String(configCounts.rubrics)}
+          />
+          <ConfigCard
+            href="/assessments/curriculum-standards"
+            icon={Target}
+            title={t('configStandardsTitle')}
+            description={t('configStandardsDesc')}
+            countLabel={String(configCounts.standards)}
+          />
+        </div>
+      </div>
+
+      {/* ── Approval Queue (leadership only) ───────────────────────────────── */}
+      <InlineApprovalQueue />
     </div>
   );
 }
