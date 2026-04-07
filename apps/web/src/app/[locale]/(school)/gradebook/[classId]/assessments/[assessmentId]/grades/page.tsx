@@ -41,11 +41,25 @@ interface StudentGrade {
   comment: string;
 }
 
-interface GradesResponse {
-  data: {
-    assessment: AssessmentDetail;
-    grades: StudentGrade[];
+interface AssessmentResponse {
+  data: AssessmentDetail & {
+    category?: { id: string; name: string };
+    subject?: { id: string; name: string };
+    class_entity?: { id: string; name: string };
   };
+}
+
+interface GradeRecord {
+  id: string;
+  student_id: string;
+  raw_score: number | null;
+  is_missing: boolean;
+  comment: string | null;
+  student?: { id: string; first_name: string; last_name: string; student_number?: string };
+}
+
+interface GradesListResponse {
+  data: GradeRecord[];
 }
 
 const STATUS_VARIANT: Record<string, 'warning' | 'info' | 'success' | 'neutral' | 'danger'> = {
@@ -95,11 +109,30 @@ export default function GradeEntryPage() {
   const fetchAssessmentData = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await apiClient<GradesResponse>(
-        `/api/v1/gradebook/assessments/${assessmentId}/grades`,
+      const [assessmentRes, gradesRes] = await Promise.all([
+        apiClient<AssessmentResponse>(`/api/v1/gradebook/assessments/${assessmentId}`),
+        apiClient<GradesListResponse>(`/api/v1/gradebook/assessments/${assessmentId}/grades`),
+      ]);
+
+      const a = assessmentRes.data;
+      setAssessment({
+        id: a.id,
+        title: a.title,
+        category_name: a.category?.name ?? '',
+        max_score: typeof a.max_score === 'number' ? a.max_score : Number(a.max_score),
+        status: a.status,
+      });
+
+      const gradeRecords = Array.isArray(gradesRes.data) ? gradesRes.data : [];
+      setGrades(
+        gradeRecords.map((g) => ({
+          student_id: g.student_id,
+          student_name: g.student ? `${g.student.first_name} ${g.student.last_name}` : g.student_id,
+          score: g.raw_score !== null ? Number(g.raw_score) : null,
+          is_missing: g.is_missing,
+          comment: g.comment ?? '',
+        })),
       );
-      setAssessment(res.data.assessment);
-      setGrades(res.data.grades);
     } catch (err) {
       console.error('[AssessmentsGradesPage]', err);
       setAssessment(null);
