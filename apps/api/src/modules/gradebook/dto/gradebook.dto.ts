@@ -9,6 +9,7 @@ import type {
   computePeriodGradesSchema,
   copyYearGroupGradeWeightsSchema,
   createAiGradingInstructionSchema,
+  createUnlockRequestSchema,
   createAssessmentCategorySchema,
   createAssessmentFromTemplateSchema,
   createAssessmentSchema,
@@ -29,6 +30,7 @@ import type {
   resolveRiskAlertSchema,
   reviewAiGradingInstructionSchema,
   reviewConfigSchema,
+  reviewUnlockRequestSchema,
   saveRubricGradesSchema,
   sendProgressReportSchema,
   setDefaultGradeSchema,
@@ -112,6 +114,10 @@ export type PublishGradesDto = z.infer<typeof publishGradesSchema>;
 export type ReviewConfigDto = z.infer<typeof reviewConfigSchema>;
 export type CreateTeacherGradingWeightDto = z.infer<typeof createTeacherGradingWeightSchema>;
 export type UpdateTeacherGradingWeightDto = z.infer<typeof updateTeacherGradingWeightSchema>;
+
+// ─── Unlock Requests ─────────────────────────────────────────────────────
+export type CreateUnlockRequestDto = z.infer<typeof createUnlockRequestSchema>;
+export type ReviewUnlockRequestDto = z.infer<typeof reviewUnlockRequestSchema>;
 
 // ─── D2: Progress Reports ─────────────────────────────────────────────────
 export type GenerateProgressReportsDto = z.infer<typeof generateProgressReportsSchema>;

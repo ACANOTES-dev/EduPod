@@ -49,6 +49,7 @@ import { TeacherGradingWeightsService } from './teacher-grading-weights.service'
 import { TeachingAllocationsService } from './teaching-allocations.service';
 import { TranscriptsController } from './transcripts.controller';
 import { TranscriptsService } from './transcripts.service';
+import { UnlockRequestService } from './unlock-request.service';
 import { YearGroupGradeWeightsService } from './year-group-grade-weights.service';
 
 @Module({
@@ -93,6 +94,7 @@ import { YearGroupGradeWeightsService } from './year-group-grade-weights.service
     YearGroupGradeWeightsService,
     TeachingAllocationsService,
     TeacherGradingWeightsService,
+    UnlockRequestService,
 
     // ─── Advanced Grading (C1-C7) ────────────────────────────────────────────
     RubricService,

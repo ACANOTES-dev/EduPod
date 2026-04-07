@@ -19,6 +19,7 @@ import { PeriodGradeComputationService } from './grading/period-grade-computatio
 import { ResultsMatrixService } from './results-matrix.service';
 import { TeacherGradingWeightsService } from './teacher-grading-weights.service';
 import { TeachingAllocationsService } from './teaching-allocations.service';
+import { UnlockRequestService } from './unlock-request.service';
 import { YearGroupGradeWeightsService } from './year-group-grade-weights.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -140,6 +141,15 @@ describe('GradebookController', () => {
         { provide: YearGroupGradeWeightsService, useValue: mockYearGroupGradeWeightsService },
         { provide: TeachingAllocationsService, useValue: mockTeachingAllocationsService },
         { provide: TeacherGradingWeightsService, useValue: mockTeacherGradingWeightsService },
+        {
+          provide: UnlockRequestService,
+          useValue: {
+            create: jest.fn(),
+            findPending: jest.fn(),
+            findByAssessment: jest.fn(),
+            review: jest.fn(),
+          },
+        },
         { provide: PermissionCacheService, useValue: mockPermissionCacheService },
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -514,10 +524,10 @@ describe('GradebookController', () => {
   // ─── Assessment status transition ──────────────────────────────────────
 
   it('should transition assessment status', async () => {
-    const transitioned = { id: ASSESSMENT_ID, status: 'closed' };
+    const transitioned = { id: ASSESSMENT_ID, status: 'submitted_locked' };
     mockAssessmentsService.transitionStatus.mockResolvedValue(transitioned);
 
-    const dto = { status: 'closed' as const };
+    const dto = { status: 'submitted_locked' as const };
     const result = await controller.transitionAssessmentStatus(tenantContext, ASSESSMENT_ID, dto);
 
     expect(result).toEqual(transitioned);

@@ -3969,6 +3969,20 @@
     "permission": "gradebook.enter_grades"
   },
   {
+    "method": "POST",
+    "path": "/v1/gradebook/assessments/:id/unlock-request",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.approve_config"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/gradebook/assessments/:id/unlock-requests",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.approve_unlock"
+  },
+  {
     "method": "GET",
     "path": "/v1/gradebook/classes/:classId/grade-configs",
     "controller": "GradebookController",
@@ -4141,7 +4155,7 @@
     "path": "/v1/gradebook/import/template",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.approve_config"
+    "permission": "gradebook.approve_unlock"
   },
   {
     "method": "POST",
@@ -4356,6 +4370,20 @@
   {
     "method": "GET",
     "path": "/v1/gradebook/teaching-allocations/all",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/gradebook/unlock-requests",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.request_unlock"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/gradebook/unlock-requests/:id/review",
     "controller": "GradebookController",
     "module": "gradebook",
     "permission": "gradebook.view"

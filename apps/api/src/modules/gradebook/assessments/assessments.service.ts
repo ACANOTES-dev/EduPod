@@ -288,10 +288,14 @@ export class AssessmentsService {
       });
     }
 
-    if (assessment.status !== 'draft' && assessment.status !== 'open') {
+    if (
+      assessment.status !== 'draft' &&
+      assessment.status !== 'open' &&
+      assessment.status !== 'reopened'
+    ) {
       throw new ConflictException({
         code: 'ASSESSMENT_NOT_EDITABLE',
-        message: `Cannot update assessment with status "${assessment.status}". Only draft or open assessments can be updated.`,
+        message: `Cannot update assessment with status "${assessment.status}". Only draft, open, or reopened assessments can be updated.`,
       });
     }
 
@@ -371,8 +375,9 @@ export class AssessmentsService {
 
   /**
    * Transition assessment status via state machine.
-   * VALID: draft->open, open->closed, closed->locked, closed->open
-   * BLOCKED: locked->anything, draft->closed, draft->locked
+   * VALID: draft->open, open->submitted_locked, reopened->final_locked
+   * UNLOCK FLOW: submitted_locked->unlock_requested->reopened (via UnlockRequestService)
+   * TERMINAL: final_locked
    */
   async transitionStatus(tenantId: string, id: string, dto: TransitionAssessmentStatusDto) {
     const assessment = await this.prisma.assessment.findFirst({
@@ -390,12 +395,23 @@ export class AssessmentsService {
     const currentStatus = assessment.status;
     const newStatus = dto.status;
 
-    // Define valid transitions
+    // Define valid transitions (teacher-centric assessment lifecycle)
+    // draft → open (teacher opens for grade entry)
+    // open → submitted_locked (teacher final-submits grades)
+    // submitted_locked → unlock_requested (handled by UnlockRequestService, not direct transition)
+    // unlock_requested → reopened (handled by UnlockRequestService approval)
+    // reopened → final_locked (teacher resubmits after amendment)
+    // Legacy: 'closed' and 'locked' mapped for backward compat
     const validTransitions: Record<string, string[]> = {
       draft: ['open'],
-      open: ['closed'],
-      closed: ['locked', 'open'],
-      locked: [],
+      open: ['submitted_locked'],
+      submitted_locked: [], // unlock flow handled by UnlockRequestService
+      unlock_requested: [], // approval flow handled by UnlockRequestService
+      reopened: ['final_locked'],
+      final_locked: [], // terminal state
+      // Legacy backward compat (enum values still exist)
+      closed: ['submitted_locked'],
+      locked: ['final_locked'],
     };
 
     const allowed = validTransitions[currentStatus] ?? [];

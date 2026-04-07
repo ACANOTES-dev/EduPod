@@ -25,9 +25,11 @@ import {
   copyYearGroupGradeWeightsSchema,
   createAssessmentSchema,
   createTeacherGradingWeightSchema,
+  createUnlockRequestSchema,
   importProcessSchema,
   overridePeriodGradeSchema,
   reviewConfigSchema,
+  reviewUnlockRequestSchema,
   saveResultsMatrixSchema,
   transitionAssessmentStatusSchema,
   updateAssessmentSchema,
@@ -62,6 +64,7 @@ import { PeriodGradeComputationService } from './grading/period-grade-computatio
 import { ResultsMatrixService } from './results-matrix.service';
 import { TeacherGradingWeightsService } from './teacher-grading-weights.service';
 import { TeachingAllocationsService } from './teaching-allocations.service';
+import { UnlockRequestService } from './unlock-request.service';
 import { YearGroupGradeWeightsService } from './year-group-grade-weights.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -84,6 +87,11 @@ const listAssessmentsQuerySchema = z.object({
   academic_period_id: z.string().uuid().optional(),
   category_id: z.string().uuid().optional(),
   status: z.enum(['draft', 'open', 'closed', 'locked']).optional(),
+});
+
+const listUnlockRequestsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 const listPeriodGradesQuerySchema = z.object({
@@ -109,6 +117,7 @@ export class GradebookController {
     private readonly prisma: PrismaService,
     private readonly classesReadFacade: ClassesReadFacade,
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly unlockRequestService: UnlockRequestService,
   ) {}
 
   // ─── Teaching Allocations ──────────────────────────────────────────────
@@ -540,6 +549,56 @@ export class GradebookController {
     dto: z.infer<typeof reviewConfigSchema>,
   ) {
     return this.teacherGradingWeightsService.review(tenant.tenant_id, id, user.sub, dto);
+  }
+
+  // ─── Unlock Requests ──────────────────────────────────────────────────
+
+  // POST /v1/gradebook/assessments/:id/unlock-request
+  @Post('gradebook/assessments/:id/unlock-request')
+  @RequiresPermission('gradebook.request_unlock')
+  @HttpCode(HttpStatus.CREATED)
+  async createUnlockRequest(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(createUnlockRequestSchema))
+    dto: z.infer<typeof createUnlockRequestSchema>,
+  ) {
+    return this.unlockRequestService.create(tenant.tenant_id, id, user.sub, dto.reason);
+  }
+
+  // GET /v1/gradebook/unlock-requests
+  @Get('gradebook/unlock-requests')
+  @RequiresPermission('gradebook.approve_unlock')
+  async listPendingUnlockRequests(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query(new ZodValidationPipe(listUnlockRequestsQuerySchema))
+    query: z.infer<typeof listUnlockRequestsQuerySchema>,
+  ) {
+    return this.unlockRequestService.findPending(tenant.tenant_id, query);
+  }
+
+  // GET /v1/gradebook/assessments/:id/unlock-requests
+  @Get('gradebook/assessments/:id/unlock-requests')
+  @RequiresPermission('gradebook.view')
+  async listAssessmentUnlockRequests(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.unlockRequestService.findByAssessment(tenant.tenant_id, id);
+  }
+
+  // POST /v1/gradebook/unlock-requests/:id/review
+  @Post('gradebook/unlock-requests/:id/review')
+  @RequiresPermission('gradebook.approve_unlock')
+  async reviewUnlockRequest(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(reviewUnlockRequestSchema))
+    dto: z.infer<typeof reviewUnlockRequestSchema>,
+  ) {
+    return this.unlockRequestService.review(tenant.tenant_id, id, user.sub, dto);
   }
 
   // ─── Import ─────────────────────────────────────────────────────────────

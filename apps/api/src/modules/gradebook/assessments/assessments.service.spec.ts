@@ -346,10 +346,10 @@ describe('AssessmentsService — update', () => {
     );
   });
 
-  it('should throw ConflictException when assessment is locked', async () => {
+  it('should throw ConflictException when assessment is submitted_locked', async () => {
     mockPrisma.assessment.findFirst.mockResolvedValue({
       ...baseAssessment,
-      status: 'locked',
+      status: 'submitted_locked',
     });
 
     await expect(service.update(TENANT_ID, ASSESSMENT_ID, { title: 'New Title' })).rejects.toThrow(
@@ -443,31 +443,34 @@ describe('AssessmentsService — transitionStatus', () => {
     );
   });
 
-  it('should throw BadRequestException for locked -> anything transition', async () => {
-    mockPrisma.assessment.findFirst.mockResolvedValue({ id: ASSESSMENT_ID, status: 'locked' });
+  it('should throw BadRequestException for final_locked -> anything transition', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({
+      id: ASSESSMENT_ID,
+      status: 'final_locked',
+    });
 
     await expect(
       service.transitionStatus(TENANT_ID, ASSESSMENT_ID, { status: 'open' }),
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('should throw BadRequestException for draft -> closed (invalid transition)', async () => {
+  it('should throw BadRequestException for draft -> submitted_locked (invalid transition)', async () => {
     mockPrisma.assessment.findFirst.mockResolvedValue({ id: ASSESSMENT_ID, status: 'draft' });
 
     await expect(
-      service.transitionStatus(TENANT_ID, ASSESSMENT_ID, { status: 'closed' }),
+      service.transitionStatus(TENANT_ID, ASSESSMENT_ID, { status: 'submitted_locked' }),
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('should allow closed -> open (reopen)', async () => {
-    mockPrisma.assessment.findFirst.mockResolvedValue({ id: ASSESSMENT_ID, status: 'closed' });
-    mockRlsTx.assessment.update.mockResolvedValue({ ...baseAssessment, status: 'open' });
+  it('should block submitted_locked -> open (unlock handled by UnlockRequestService)', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({
+      id: ASSESSMENT_ID,
+      status: 'submitted_locked',
+    });
 
-    await service.transitionStatus(TENANT_ID, ASSESSMENT_ID, { status: 'open' });
-
-    expect(mockRlsTx.assessment.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { status: 'open' } }),
-    );
+    await expect(
+      service.transitionStatus(TENANT_ID, ASSESSMENT_ID, { status: 'open' }),
+    ).rejects.toThrow(BadRequestException);
   });
 });
 
@@ -717,12 +720,23 @@ describe('AssessmentsService — update (field branches)', () => {
     expect(mockRlsTx.assessment.update).toHaveBeenCalled();
   });
 
-  it('should throw ConflictException when assessment status is closed', async () => {
-    mockPrisma.assessment.findFirst.mockResolvedValue({ ...baseAssessment, status: 'closed' });
+  it('should throw ConflictException when assessment status is final_locked', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({
+      ...baseAssessment,
+      status: 'final_locked',
+    });
 
     await expect(service.update(TENANT_ID, ASSESSMENT_ID, { title: 'New' })).rejects.toThrow(
       ConflictException,
     );
+  });
+
+  it('should allow update on reopened assessment', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({ ...baseAssessment, status: 'reopened' });
+
+    await service.update(TENANT_ID, ASSESSMENT_ID, { title: 'Reopened Title' });
+
+    expect(mockRlsTx.assessment.update).toHaveBeenCalled();
   });
 
   it('should pass optimistic concurrency check when timestamps match', async () => {
@@ -852,39 +866,39 @@ describe('AssessmentsService — transitionStatus (more transitions)', () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  it('should transition from open to closed', async () => {
+  it('should transition from open to submitted_locked', async () => {
     mockPrisma.assessment.findFirst.mockResolvedValue({ id: ASSESSMENT_ID, status: 'open' });
 
-    await service.transitionStatus(TENANT_ID, ASSESSMENT_ID, { status: 'closed' });
+    await service.transitionStatus(TENANT_ID, ASSESSMENT_ID, { status: 'submitted_locked' });
 
     expect(mockRlsTx.assessment.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { status: 'closed' } }),
+      expect.objectContaining({ data: { status: 'submitted_locked' } }),
     );
   });
 
-  it('should transition from closed to locked', async () => {
-    mockPrisma.assessment.findFirst.mockResolvedValue({ id: ASSESSMENT_ID, status: 'closed' });
+  it('should transition from reopened to final_locked', async () => {
+    mockPrisma.assessment.findFirst.mockResolvedValue({ id: ASSESSMENT_ID, status: 'reopened' });
 
-    await service.transitionStatus(TENANT_ID, ASSESSMENT_ID, { status: 'locked' });
+    await service.transitionStatus(TENANT_ID, ASSESSMENT_ID, { status: 'final_locked' });
 
     expect(mockRlsTx.assessment.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { status: 'locked' } }),
+      expect.objectContaining({ data: { status: 'final_locked' } }),
     );
   });
 
-  it('should block draft -> locked transition', async () => {
+  it('should block draft -> final_locked transition', async () => {
     mockPrisma.assessment.findFirst.mockResolvedValue({ id: ASSESSMENT_ID, status: 'draft' });
 
     await expect(
-      service.transitionStatus(TENANT_ID, ASSESSMENT_ID, { status: 'locked' }),
+      service.transitionStatus(TENANT_ID, ASSESSMENT_ID, { status: 'final_locked' }),
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('should block open -> locked transition', async () => {
+  it('should block open -> final_locked transition', async () => {
     mockPrisma.assessment.findFirst.mockResolvedValue({ id: ASSESSMENT_ID, status: 'open' });
 
     await expect(
-      service.transitionStatus(TENANT_ID, ASSESSMENT_ID, { status: 'locked' }),
+      service.transitionStatus(TENANT_ID, ASSESSMENT_ID, { status: 'final_locked' }),
     ).rejects.toThrow(BadRequestException);
   });
 });

@@ -86,6 +86,25 @@ export const reviewConfigSchema = z
   );
 export type ReviewConfigDto = z.infer<typeof reviewConfigSchema>;
 
+// ─── Unlock Request ─────────────────────────────────────────────────────
+
+export const createUnlockRequestSchema = z.object({
+  reason: z.string().min(1).max(1000),
+});
+export type CreateUnlockRequestDto = z.infer<typeof createUnlockRequestSchema>;
+
+export const reviewUnlockRequestSchema = z
+  .object({
+    status: z.enum(['approved', 'rejected']),
+    rejection_reason: z.string().min(1).max(1000).optional(),
+  })
+  .refine(
+    (data) =>
+      data.status !== 'rejected' || (data.rejection_reason && data.rejection_reason.length > 0),
+    { message: 'rejection_reason is required when rejecting', path: ['rejection_reason'] },
+  );
+export type ReviewUnlockRequestDto = z.infer<typeof reviewUnlockRequestSchema>;
+
 // ─── Teacher Grading Weights ────────────────────────────────────────────
 
 export const createTeacherGradingWeightSchema = z.object({

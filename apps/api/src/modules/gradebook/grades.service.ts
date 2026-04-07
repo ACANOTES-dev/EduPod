@@ -51,16 +51,23 @@ export class GradesService {
       });
     }
 
-    if (assessment.status !== 'draft' && assessment.status !== 'open') {
+    if (
+      assessment.status !== 'draft' &&
+      assessment.status !== 'open' &&
+      assessment.status !== 'reopened'
+    ) {
       throw new ConflictException({
         code: 'ASSESSMENT_NOT_GRADEABLE',
-        message: `Cannot enter grades for assessment with status "${assessment.status}". Status must be draft or open.`,
+        message: `Cannot enter grades for assessment with status "${assessment.status}". Status must be draft, open, or reopened.`,
       });
     }
 
     // 2. Verify all students are enrolled in the class
     const studentIds = dto.grades.map((g) => g.student_id);
-    const allEnrolledIds = await this.classesReadFacade.findEnrolledStudentIds(tenantId, assessment.class_id);
+    const allEnrolledIds = await this.classesReadFacade.findEnrolledStudentIds(
+      tenantId,
+      assessment.class_id,
+    );
     const enrolledStudentIds = new Set(allEnrolledIds.filter((id) => studentIds.includes(id)));
     const notEnrolled = studentIds.filter((id) => !enrolledStudentIds.has(id));
 
@@ -114,16 +121,16 @@ export class GradesService {
         student_id: { in: studentIds },
       },
       select: {
+        id: true,
         student_id: true,
         raw_score: true,
+        comment: true,
         entered_at: true,
         entered_by_user_id: true,
       },
     });
 
-    const existingGradeMap = new Map(
-      existingGrades.map((g) => [g.student_id, g]),
-    );
+    const existingGradeMap = new Map(existingGrades.map((g) => [g.student_id, g]));
 
     // 6. Upsert all grades within an RLS transaction
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
@@ -186,6 +193,35 @@ export class GradesService {
         results.push(result);
       }
 
+      // If assessment is reopened, create audit entries for changed grades
+      if (assessment.status === 'reopened') {
+        for (const grade of dto.grades) {
+          const existing = existingGradeMap.get(grade.student_id);
+          if (!existing) continue;
+
+          const oldScore = existing.raw_score !== null ? Number(existing.raw_score) : null;
+          const newScore = grade.raw_score;
+
+          // Only audit if score actually changed
+          if (oldScore !== newScore) {
+            await db.gradeEditAudit.create({
+              data: {
+                tenant_id: tenantId,
+                grade_id: results.find((r) => r.student_id === grade.student_id)?.id ?? '',
+                assessment_id: assessmentId,
+                student_id: grade.student_id,
+                old_raw_score: existing.raw_score,
+                new_raw_score: grade.raw_score,
+                old_comment: existing.comment ?? null,
+                new_comment: grade.comment ?? null,
+                edited_by_user_id: userId,
+                reason: 'Grade amended after assessment unlock',
+              },
+            });
+          }
+        }
+      }
+
       return results;
     });
 
@@ -239,11 +275,7 @@ export class GradesService {
   /**
    * Get a student's grades across assessments with optional filters.
    */
-  async findByStudent(
-    tenantId: string,
-    studentId: string,
-    filters: FindByStudentFilters,
-  ) {
+  async findByStudent(tenantId: string, studentId: string, filters: FindByStudentFilters) {
     const student = await this.studentReadFacade.findById(tenantId, studentId);
 
     if (!student) {
