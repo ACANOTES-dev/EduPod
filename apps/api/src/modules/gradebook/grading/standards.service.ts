@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -9,6 +14,7 @@ import type {
   BulkImportStandardsDto,
   CreateCurriculumStandardDto,
   MapAssessmentStandardsDto,
+  ReviewConfigDto,
 } from '../dto/gradebook.dto';
 
 interface ListStandardsParams {
@@ -33,7 +39,7 @@ export class StandardsService {
   /**
    * Create a single curriculum standard.
    */
-  async createStandard(tenantId: string, dto: CreateCurriculumStandardDto) {
+  async createStandard(tenantId: string, userId: string, dto: CreateCurriculumStandardDto) {
     await this.validateSubjectAndYearGroup(tenantId, dto.subject_id, dto.year_group_id);
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
@@ -48,6 +54,8 @@ export class StandardsService {
           year_group_id: dto.year_group_id,
           code: dto.code,
           description: dto.description,
+          status: 'draft',
+          created_by_user_id: userId,
         },
       });
     });
@@ -155,6 +163,89 @@ export class StandardsService {
     return prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       return db.curriculumStandard.delete({ where: { id } });
+    });
+  }
+
+  /**
+   * Submit a teacher-created standard for approval.
+   * Only the owner can submit, and the standard must be in draft status.
+   */
+  async submitForApproval(tenantId: string, id: string, userId: string) {
+    const standard = await this.prisma.curriculumStandard.findFirst({
+      where: { id, tenant_id: tenantId },
+      select: { id: true, status: true, created_by_user_id: true },
+    });
+
+    if (!standard) {
+      throw new NotFoundException({
+        code: 'STANDARD_NOT_FOUND',
+        message: `Curriculum standard with id "${id}" not found`,
+      });
+    }
+
+    if (standard.created_by_user_id !== userId) {
+      throw new ForbiddenException({
+        code: 'NOT_OWNER',
+        message: 'Only the creator of this standard can submit it for approval',
+      });
+    }
+
+    if (standard.status !== 'draft') {
+      throw new ConflictException({
+        code: 'INVALID_STATUS',
+        message: `Cannot submit for approval: standard is "${standard.status}", expected "draft"`,
+      });
+    }
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      return db.curriculumStandard.update({
+        where: { id },
+        data: { status: 'pending_approval' },
+      });
+    });
+  }
+
+  /**
+   * Approve or reject a standard that is pending approval.
+   */
+  async review(tenantId: string, id: string, reviewerUserId: string, dto: ReviewConfigDto) {
+    const standard = await this.prisma.curriculumStandard.findFirst({
+      where: { id, tenant_id: tenantId },
+      select: { id: true, status: true },
+    });
+
+    if (!standard) {
+      throw new NotFoundException({
+        code: 'STANDARD_NOT_FOUND',
+        message: `Curriculum standard with id "${id}" not found`,
+      });
+    }
+
+    if (standard.status !== 'pending_approval') {
+      throw new ConflictException({
+        code: 'INVALID_STATUS',
+        message: `Cannot review: standard is "${standard.status}", expected "pending_approval"`,
+      });
+    }
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      return db.curriculumStandard.update({
+        where: { id },
+        data: {
+          status: dto.status,
+          reviewed_by_user_id: reviewerUserId,
+          reviewed_at: new Date(),
+          rejection_reason: dto.status === 'rejected' ? dto.rejection_reason : null,
+        },
+      });
     });
   }
 

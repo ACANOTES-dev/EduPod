@@ -29,6 +29,7 @@ import {
   listRubricTemplatesQuerySchema,
   listStandardsQuerySchema,
   mapAssessmentStandardsSchema,
+  reviewConfigSchema,
   saveRubricGradesSchema,
   setDefaultGradeSchema,
   undoCurveSchema,
@@ -154,10 +155,11 @@ export class GradebookAdvancedController {
   @HttpCode(HttpStatus.CREATED)
   async createCurriculumStandard(
     @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
     @Body(new ZodValidationPipe(createCurriculumStandardSchema))
     dto: z.infer<typeof createCurriculumStandardSchema>,
   ) {
-    return this.standardsService.createStandard(tenant.tenant_id, dto);
+    return this.standardsService.createStandard(tenant.tenant_id, user.sub, dto);
   }
 
   @Get('gradebook/curriculum-standards')
@@ -441,7 +443,10 @@ export class GradebookAdvancedController {
     }
 
     // Load enrolled students
-    const enrolledStudentIds = await this.classesReadFacade.findEnrolledStudentIds(tenant.tenant_id, assessment.class_id);
+    const enrolledStudentIds = await this.classesReadFacade.findEnrolledStudentIds(
+      tenant.tenant_id,
+      assessment.class_id,
+    );
     const enrolments = enrolledStudentIds.map((id) => ({ student_id: id }));
 
     if (enrolments.length === 0) {
@@ -488,5 +493,55 @@ export class GradebookAdvancedController {
       filled: (upsertResult.data as unknown[]).length,
       data: upsertResult.data,
     };
+  }
+
+  // ─── Approval Workflows ───────────────────────────────────────────────────
+
+  // POST /v1/gradebook/rubric-templates/:id/submit
+  @Post('gradebook/rubric-templates/:id/submit')
+  @RequiresPermission('gradebook.manage_own_config')
+  async submitRubricTemplate(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.rubricService.submitForApproval(tenant.tenant_id, id, user.sub);
+  }
+
+  // POST /v1/gradebook/rubric-templates/:id/review
+  @Post('gradebook/rubric-templates/:id/review')
+  @RequiresPermission('gradebook.approve_config')
+  async reviewRubricTemplate(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(reviewConfigSchema))
+    dto: z.infer<typeof reviewConfigSchema>,
+  ) {
+    return this.rubricService.review(tenant.tenant_id, id, user.sub, dto);
+  }
+
+  // POST /v1/gradebook/curriculum-standards/:id/submit
+  @Post('gradebook/curriculum-standards/:id/submit')
+  @RequiresPermission('gradebook.manage_own_config')
+  async submitStandard(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.standardsService.submitForApproval(tenant.tenant_id, id, user.sub);
+  }
+
+  // POST /v1/gradebook/curriculum-standards/:id/review
+  @Post('gradebook/curriculum-standards/:id/review')
+  @RequiresPermission('gradebook.approve_config')
+  async reviewStandard(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(reviewConfigSchema))
+    dto: z.infer<typeof reviewConfigSchema>,
+  ) {
+    return this.standardsService.review(tenant.tenant_id, id, user.sub, dto);
   }
 }

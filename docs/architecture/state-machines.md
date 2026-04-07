@@ -417,15 +417,34 @@ resolved*
 ### AssessmentStatus
 
 ```
-draft  -> [open]
-open   -> [closed]
-closed -> [locked, open]  (CAN REOPEN)
-locked*
+draft             -> [open]                          (teacher opens for grade entry)
+open              -> [submitted_locked]              (teacher final-submits all grades)
+submitted_locked  -> [unlock_requested]              (teacher requests unlock)
+unlock_requested  -> [reopened, submitted_locked]    (approver grants or denies)
+reopened          -> [final_locked]                   (teacher resubmits after amendment)
+final_locked*
 ```
 
-- **Guarded by**: `assessments.service.ts` line 392 (explicit transition map)
-- **Side effects**: `open` allows grade entry. `closed` triggers grade calculation. `locked` is permanent.
-- **Note**: `closed -> open` is allowed (reopening). This is intentional for corrections.
+- **Guarded by**: `assessments.service.ts` `transitionStatus()` and unlock request flow
+- **Side effects**: `submitted_locked` triggers grade calculation eligibility.
+- **Legacy values**: `closed` and `locked` exist in the Prisma enum for backward compatibility but have been data-migrated:
+  - `closed` → `submitted_locked`
+  - `locked` → `final_locked`
+- **Note**: The unlock flow (`submitted_locked -> unlock_requested -> reopened`) replaces the old `closed -> open` reopen path. Only an approver can grant the unlock; denial keeps the assessment in `submitted_locked`.
+
+### ConfigApprovalStatus (AssessmentCategory, RubricTemplate, CurriculumStandard, TeacherGradingWeight)
+
+```
+draft             -> [pending_approval]   (teacher submits)
+pending_approval  -> [approved, rejected] (approver reviews)
+rejected          -> [draft]              (teacher edits and resets)
+approved          -> [archived]           (admin archives)
+archived*
+```
+
+- **Guarded by**: each respective service's `submitForApproval()` and `review()` methods
+- **Side effects**: Only `approved` items can be used in assessment creation.
+- **Note**: This config approval workflow applies to teacher-created configuration entities (assessment categories, rubric templates, curriculum standards, teacher grading weights). It ensures all teacher-authored config is reviewed before it enters the active grading pipeline.
 
 ### ReportCardStatus
 

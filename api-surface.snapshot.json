@@ -3822,6 +3822,20 @@
     "permission": "gradebook.view"
   },
   {
+    "method": "POST",
+    "path": "/v1/gradebook/assessment-categories/:id/review",
+    "controller": "AssessmentCategoriesController",
+    "module": "gradebook",
+    "permission": "gradebook.manage_own_config"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/gradebook/assessment-categories/:id/submit",
+    "controller": "AssessmentCategoriesController",
+    "module": "gradebook",
+    "permission": "gradebook.manage"
+  },
+  {
     "method": "GET",
     "path": "/v1/gradebook/assessment-templates",
     "controller": "GradebookAdvancedController",
@@ -4054,6 +4068,20 @@
   },
   {
     "method": "POST",
+    "path": "/v1/gradebook/curriculum-standards/:id/review",
+    "controller": "GradebookAdvancedController",
+    "module": "gradebook",
+    "permission": "gradebook.manage_own_config"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/gradebook/curriculum-standards/:id/submit",
+    "controller": "GradebookAdvancedController",
+    "module": "gradebook",
+    "permission": "gradebook.approve_config"
+  },
+  {
+    "method": "POST",
     "path": "/v1/gradebook/curriculum-standards/import",
     "controller": "GradebookAdvancedController",
     "module": "gradebook",
@@ -4113,7 +4141,7 @@
     "path": "/v1/gradebook/import/template",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.approve_config"
   },
   {
     "method": "POST",
@@ -4235,6 +4263,20 @@
     "permission": "gradebook.view"
   },
   {
+    "method": "POST",
+    "path": "/v1/gradebook/rubric-templates/:id/review",
+    "controller": "GradebookAdvancedController",
+    "module": "gradebook",
+    "permission": "gradebook.manage_own_config"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/gradebook/rubric-templates/:id/submit",
+    "controller": "GradebookAdvancedController",
+    "module": "gradebook",
+    "permission": "gradebook.enter_grades"
+  },
+  {
     "method": "GET",
     "path": "/v1/gradebook/students/:studentId/competency-snapshots",
     "controller": "GradebookAdvancedController",
@@ -4251,6 +4293,69 @@
   {
     "method": "GET",
     "path": "/v1/gradebook/students/:studentId/period-grades",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/gradebook/teacher-grading-weights",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.manage_own_config"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/gradebook/teacher-grading-weights",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.manage"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/gradebook/teacher-grading-weights/:id",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.manage_own_config"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/gradebook/teacher-grading-weights/:id",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.view"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/gradebook/teacher-grading-weights/:id",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/gradebook/teacher-grading-weights/:id/review",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.manage_own_config"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/gradebook/teacher-grading-weights/:id/submit",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.manage_own_config"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/gradebook/teaching-allocations",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/gradebook/teaching-allocations/all",
     "controller": "GradebookController",
     "module": "gradebook",
     "permission": "gradebook.view"

@@ -108,7 +108,7 @@ describe('StandardsService — createStandard', () => {
     );
 
     await expect(
-      service.createStandard(TENANT_ID, {
+      service.createStandard(TENANT_ID, 'user-id', {
         subject_id: SUBJECT_ID,
         year_group_id: YEAR_GROUP_ID,
         code: 'X',
@@ -123,7 +123,7 @@ describe('StandardsService — createStandard', () => {
     );
 
     await expect(
-      service.createStandard(TENANT_ID, {
+      service.createStandard(TENANT_ID, 'user-id', {
         subject_id: SUBJECT_ID,
         year_group_id: YEAR_GROUP_ID,
         code: 'X',
@@ -133,7 +133,7 @@ describe('StandardsService — createStandard', () => {
   });
 
   it('should create standard with correct tenant_id', async () => {
-    await service.createStandard(TENANT_ID, {
+    await service.createStandard(TENANT_ID, 'user-id', {
       subject_id: SUBJECT_ID,
       year_group_id: YEAR_GROUP_ID,
       code: 'MATH-001',

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -10,6 +11,7 @@ import { AcademicReadFacade } from '../../academics/academic-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import type {
   CreateRubricTemplateDto,
+  ReviewConfigDto,
   SaveRubricGradesDto,
   UpdateRubricTemplateDto,
 } from '../dto/gradebook.dto';
@@ -307,6 +309,93 @@ export class RubricService {
         rubric_total: totalRawScore,
         criteria_saved: dto.criteria_scores.length,
       };
+    });
+  }
+
+  // ─── Approval workflow ────────────────────────────────────────────────────
+
+  /**
+   * Submit a draft rubric template for approval.
+   * Only the creator can submit, and only from 'draft' status.
+   */
+  async submitForApproval(tenantId: string, id: string, userId: string) {
+    const template = await this.prisma.rubricTemplate.findFirst({
+      where: { id, tenant_id: tenantId },
+      select: { id: true, status: true, created_by_user_id: true },
+    });
+
+    if (!template) {
+      throw new NotFoundException({
+        code: 'RUBRIC_NOT_FOUND',
+        message: `Rubric template with id "${id}" not found`,
+      });
+    }
+
+    if (template.created_by_user_id !== userId) {
+      throw new ForbiddenException({
+        code: 'NOT_OWNER',
+        message: 'Only the creator of a rubric template can submit it for approval',
+      });
+    }
+
+    if (template.status !== 'draft') {
+      throw new ConflictException({
+        code: 'INVALID_STATUS',
+        message: 'Only draft rubric templates can be submitted for approval',
+      });
+    }
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      return db.rubricTemplate.update({
+        where: { id },
+        data: { status: 'pending_approval' },
+      });
+    });
+  }
+
+  /**
+   * Review a pending rubric template — approve or reject it.
+   */
+  async review(tenantId: string, id: string, reviewerUserId: string, dto: ReviewConfigDto) {
+    const template = await this.prisma.rubricTemplate.findFirst({
+      where: { id, tenant_id: tenantId },
+      select: { id: true, status: true },
+    });
+
+    if (!template) {
+      throw new NotFoundException({
+        code: 'RUBRIC_NOT_FOUND',
+        message: `Rubric template with id "${id}" not found`,
+      });
+    }
+
+    if (template.status !== 'pending_approval') {
+      throw new ConflictException({
+        code: 'INVALID_STATUS',
+        message: 'Only rubric templates with pending_approval status can be reviewed',
+      });
+    }
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      return db.rubricTemplate.update({
+        where: { id },
+        data: {
+          status: dto.status,
+          reviewed_by_user_id: reviewerUserId,
+          reviewed_at: new Date(),
+          ...(dto.status === 'rejected' && dto.rejection_reason
+            ? { rejection_reason: dto.rejection_reason }
+            : {}),
+        },
+      });
     });
   }
 }

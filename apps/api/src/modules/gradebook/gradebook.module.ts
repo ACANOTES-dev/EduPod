@@ -10,6 +10,7 @@ import { ConfigurationModule } from '../configuration/configuration.module';
 import { GdprModule } from '../gdpr/gdpr.module';
 import { ParentsModule } from '../parents/parents.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
+import { SchedulingModule } from '../scheduling/scheduling.module';
 import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 import { StudentsModule } from '../students/students.module';
 import { TenantsModule } from '../tenants/tenants.module';
@@ -44,6 +45,8 @@ import { ParentGradebookController } from './parent-gradebook.controller';
 import { ProgressReportService } from './progress/progress-report.service';
 import { ReportCardModule } from './report-cards/report-card.module';
 import { ResultsMatrixService } from './results-matrix.service';
+import { TeacherGradingWeightsService } from './teacher-grading-weights.service';
+import { TeachingAllocationsService } from './teaching-allocations.service';
 import { TranscriptsController } from './transcripts.controller';
 import { TranscriptsService } from './transcripts.service';
 import { YearGroupGradeWeightsService } from './year-group-grade-weights.service';
@@ -60,6 +63,7 @@ import { YearGroupGradeWeightsService } from './year-group-grade-weights.service
     GdprModule,
     ParentsModule,
     PdfRenderingModule,
+    SchedulingModule,
     StaffProfilesModule,
     StudentsModule,
     TenantsModule,
@@ -87,6 +91,8 @@ import { YearGroupGradeWeightsService } from './year-group-grade-weights.service
     TranscriptsService,
     BulkImportService,
     YearGroupGradeWeightsService,
+    TeachingAllocationsService,
+    TeacherGradingWeightsService,
 
     // ─── Advanced Grading (C1-C7) ────────────────────────────────────────────
     RubricService,

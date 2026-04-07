@@ -179,7 +179,11 @@ If a module is not listed individually, it is either:
 - **Contract**: assessments, grades, report-card state, gradebook read facade
 - **Primary consumers**: report cards, parent views, compliance export, early warning, reports, AI comment flows
 - **Blast radius**: HIGH
-- **Notes**: period closure, assessment status, and report-card lifecycle changes have worker consequences
+- **Notes**:
+  - Period closure, assessment status, and report-card lifecycle changes have worker consequences
+  - Now imports `SchedulingModule` (for `TeachingAllocationsService` derivation — resolves which teachers teach which classes/subjects)
+  - New services: `TeachingAllocationsService`, `TeacherGradingWeightsService`
+  - Config approval workflow added to: `AssessmentCategoriesService`, `RubricService`, `StandardsService` — teacher-created config items require approver sign-off before use in assessments
 
 ### FinanceModule
 

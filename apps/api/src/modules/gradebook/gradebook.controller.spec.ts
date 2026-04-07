@@ -17,6 +17,8 @@ import { GradebookController } from './gradebook.controller';
 import { GradesService } from './grades.service';
 import { PeriodGradeComputationService } from './grading/period-grade-computation.service';
 import { ResultsMatrixService } from './results-matrix.service';
+import { TeacherGradingWeightsService } from './teacher-grading-weights.service';
+import { TeachingAllocationsService } from './teaching-allocations.service';
 import { YearGroupGradeWeightsService } from './year-group-grade-weights.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -83,6 +85,21 @@ const mockYearGroupGradeWeightsService = {
   copyFromYearGroup: jest.fn(),
 };
 
+const mockTeachingAllocationsService = {
+  getMyAllocations: jest.fn(),
+  getAllAllocations: jest.fn(),
+};
+
+const mockTeacherGradingWeightsService = {
+  create: jest.fn(),
+  findAll: jest.fn(),
+  findOne: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
+  submitForApproval: jest.fn(),
+  review: jest.fn(),
+};
+
 const mockPermissionCacheService = {
   getPermissions: jest.fn(),
 };
@@ -121,6 +138,8 @@ describe('GradebookController', () => {
         { provide: ResultsMatrixService, useValue: mockResultsMatrixService },
         { provide: BulkImportService, useValue: mockBulkImportService },
         { provide: YearGroupGradeWeightsService, useValue: mockYearGroupGradeWeightsService },
+        { provide: TeachingAllocationsService, useValue: mockTeachingAllocationsService },
+        { provide: TeacherGradingWeightsService, useValue: mockTeacherGradingWeightsService },
         { provide: PermissionCacheService, useValue: mockPermissionCacheService },
         { provide: PrismaService, useValue: mockPrisma },
       ],

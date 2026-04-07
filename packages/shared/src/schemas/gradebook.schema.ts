@@ -49,23 +49,83 @@ export type UpdateGradingScaleDto = z.infer<typeof updateGradingScaleSchema>;
 
 export const createAssessmentCategorySchema = z.object({
   name: z.string().min(1).max(100),
-  default_weight: z.number().positive(),
+  default_weight: z.number().positive().optional(),
+  subject_id: z.string().uuid().optional(),
+  year_group_id: z.string().uuid().optional(),
 });
 export type CreateAssessmentCategoryDto = z.infer<typeof createAssessmentCategorySchema>;
 
 export const updateAssessmentCategorySchema = z.object({
   name: z.string().min(1).max(100).optional(),
   default_weight: z.number().positive().optional(),
+  subject_id: z.string().uuid().optional(),
+  year_group_id: z.string().uuid().optional(),
 });
 export type UpdateAssessmentCategoryDto = z.infer<typeof updateAssessmentCategorySchema>;
+
+// ─── Config Approval ────────────────────────────────────────────────────
+
+export const CONFIG_APPROVAL_STATUSES = [
+  'draft',
+  'pending_approval',
+  'approved',
+  'rejected',
+  'archived',
+] as const;
+export type ConfigApprovalStatus = (typeof CONFIG_APPROVAL_STATUSES)[number];
+
+export const reviewConfigSchema = z
+  .object({
+    status: z.enum(['approved', 'rejected']),
+    rejection_reason: z.string().min(1).max(1000).optional(),
+  })
+  .refine(
+    (data) =>
+      data.status !== 'rejected' || (data.rejection_reason && data.rejection_reason.length > 0),
+    { message: 'rejection_reason is required when rejecting', path: ['rejection_reason'] },
+  );
+export type ReviewConfigDto = z.infer<typeof reviewConfigSchema>;
+
+// ─── Teacher Grading Weights ────────────────────────────────────────────
+
+export const createTeacherGradingWeightSchema = z.object({
+  subject_id: z.string().uuid(),
+  year_group_id: z.string().uuid(),
+  academic_period_id: z.string().uuid(),
+  category_weights: z
+    .array(
+      z.object({
+        category_id: z.string().uuid(),
+        weight: z.number().min(0).max(100),
+      }),
+    )
+    .min(1),
+});
+export type CreateTeacherGradingWeightDto = z.infer<typeof createTeacherGradingWeightSchema>;
+
+export const updateTeacherGradingWeightSchema = z.object({
+  category_weights: z
+    .array(
+      z.object({
+        category_id: z.string().uuid(),
+        weight: z.number().min(0).max(100),
+      }),
+    )
+    .min(1),
+});
+export type UpdateTeacherGradingWeightDto = z.infer<typeof updateTeacherGradingWeightSchema>;
 
 // ─── Category Weight JSON ────────────────────────────────────────────────
 
 export const categoryWeightJsonSchema = z.object({
-  weights: z.array(z.object({
-    category_id: z.string().uuid(),
-    weight: z.number().positive(),
-  })).min(1),
+  weights: z
+    .array(
+      z.object({
+        category_id: z.string().uuid(),
+        weight: z.number().positive(),
+      }),
+    )
+    .min(1),
 });
 
 export const upsertGradeConfigSchema = z.object({
@@ -101,7 +161,16 @@ export const updateAssessmentSchema = z.object({
 export type UpdateAssessmentDto = z.infer<typeof updateAssessmentSchema>;
 
 export const transitionAssessmentStatusSchema = z.object({
-  status: z.enum(['draft', 'open', 'closed', 'locked']),
+  status: z.enum([
+    'draft',
+    'open',
+    'closed',
+    'locked',
+    'submitted_locked',
+    'unlock_requested',
+    'reopened',
+    'final_locked',
+  ]),
 });
 export type TransitionAssessmentStatusDto = z.infer<typeof transitionAssessmentStatusSchema>;
 
@@ -177,26 +246,32 @@ export const reportCardSnapshotSchema = z.object({
     start_date: z.string(),
     end_date: z.string(),
   }),
-  subjects: z.array(z.object({
-    subject_name: z.string(),
-    subject_code: z.string().nullable(),
-    computed_value: z.number(),
-    display_value: z.string(),
-    overridden_value: z.string().nullable(),
-    assessments: z.array(z.object({
-      title: z.string(),
-      category: z.string(),
-      max_score: z.number(),
-      raw_score: z.number().nullable(),
-      is_missing: z.boolean(),
-    })),
-  })),
-  attendance_summary: z.object({
-    total_days: z.number(),
-    present_days: z.number(),
-    absent_days: z.number(),
-    late_days: z.number(),
-  }).optional(),
+  subjects: z.array(
+    z.object({
+      subject_name: z.string(),
+      subject_code: z.string().nullable(),
+      computed_value: z.number(),
+      display_value: z.string(),
+      overridden_value: z.string().nullable(),
+      assessments: z.array(
+        z.object({
+          title: z.string(),
+          category: z.string(),
+          max_score: z.number(),
+          raw_score: z.number().nullable(),
+          is_missing: z.boolean(),
+        }),
+      ),
+    }),
+  ),
+  attendance_summary: z
+    .object({
+      total_days: z.number(),
+      present_days: z.number(),
+      absent_days: z.number(),
+      late_days: z.number(),
+    })
+    .optional(),
   teacher_comment: z.string().nullable(),
   principal_comment: z.string().nullable(),
 });
@@ -206,10 +281,14 @@ export const reportCardSnapshotSchema = z.object({
 export const upsertYearGroupGradeWeightSchema = z.object({
   year_group_id: z.string().uuid(),
   academic_period_id: z.string().uuid(),
-  category_weights: z.array(z.object({
-    category_id: z.string().uuid(),
-    weight: z.number().min(0).max(100),
-  })).min(1),
+  category_weights: z
+    .array(
+      z.object({
+        category_id: z.string().uuid(),
+        weight: z.number().min(0).max(100),
+      }),
+    )
+    .min(1),
 });
 export type UpsertYearGroupGradeWeightDto = z.infer<typeof upsertYearGroupGradeWeightSchema>;
 
@@ -222,23 +301,31 @@ export type CopyYearGroupGradeWeightsDto = z.infer<typeof copyYearGroupGradeWeig
 // ─── Results Matrix ─────────────────────────────────────────────────────
 
 export const saveResultsMatrixSchema = z.object({
-  grades: z.array(z.object({
-    student_id: z.string().uuid(),
-    assessment_id: z.string().uuid(),
-    raw_score: z.number().nullable(),
-    is_missing: z.boolean(),
-  })).min(1),
+  grades: z
+    .array(
+      z.object({
+        student_id: z.string().uuid(),
+        assessment_id: z.string().uuid(),
+        raw_score: z.number().nullable(),
+        is_missing: z.boolean(),
+      }),
+    )
+    .min(1),
 });
 export type SaveResultsMatrixDto = z.infer<typeof saveResultsMatrixSchema>;
 
 // ─── Import ──────────────────────────────────────────────────────────────
 
 export const importProcessSchema = z.object({
-  rows: z.array(z.object({
-    student_id: z.string().uuid(),
-    assessment_id: z.string().uuid(),
-    score: z.number(),
-  })).min(1),
+  rows: z
+    .array(
+      z.object({
+        student_id: z.string().uuid(),
+        assessment_id: z.string().uuid(),
+        score: z.number(),
+      }),
+    )
+    .min(1),
 });
 export type ImportProcessDto = z.infer<typeof importProcessSchema>;
 
@@ -284,10 +371,14 @@ export type CreateCurriculumStandardDto = z.infer<typeof createCurriculumStandar
 export const bulkImportStandardsSchema = z.object({
   subject_id: z.string().uuid(),
   year_group_id: z.string().uuid(),
-  standards: z.array(z.object({
-    code: z.string().min(1).max(50),
-    description: z.string().min(1),
-  })).min(1),
+  standards: z
+    .array(
+      z.object({
+        code: z.string().min(1).max(50),
+        description: z.string().min(1),
+      }),
+    )
+    .min(1),
 });
 export type BulkImportStandardsDto = z.infer<typeof bulkImportStandardsSchema>;
 
@@ -295,10 +386,14 @@ export type BulkImportStandardsDto = z.infer<typeof bulkImportStandardsSchema>;
 
 export const createCompetencyScaleSchema = z.object({
   name: z.string().min(1).max(100),
-  levels: z.array(z.object({
-    label: z.string().min(1).max(100),
-    threshold_min: z.number().min(0).max(100),
-  })).min(1),
+  levels: z
+    .array(
+      z.object({
+        label: z.string().min(1).max(100),
+        threshold_min: z.number().min(0).max(100),
+      }),
+    )
+    .min(1),
 });
 export type CreateCompetencyScaleDto = z.infer<typeof createCompetencyScaleSchema>;
 
@@ -431,10 +526,15 @@ export type MapAssessmentStandardsDto = z.infer<typeof mapAssessmentStandardsSch
 
 export const updateCompetencyScaleSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  levels: z.array(z.object({
-    label: z.string().min(1).max(100),
-    threshold_min: z.number().min(0).max(100),
-  })).min(1).optional(),
+  levels: z
+    .array(
+      z.object({
+        label: z.string().min(1).max(100),
+        threshold_min: z.number().min(0).max(100),
+      }),
+    )
+    .min(1)
+    .optional(),
 });
 export type UpdateCompetencyScaleDto = z.infer<typeof updateCompetencyScaleSchema>;
 
@@ -618,10 +718,14 @@ export const updateCustomFieldDefSchema = z.object({
 export type UpdateCustomFieldDefDto = z.infer<typeof updateCustomFieldDefSchema>;
 
 export const saveCustomFieldValuesSchema = z.object({
-  values: z.array(z.object({
-    field_def_id: z.string().uuid(),
-    value: z.string().min(1),
-  })).min(1),
+  values: z
+    .array(
+      z.object({
+        field_def_id: z.string().uuid(),
+        value: z.string().min(1),
+      }),
+    )
+    .min(1),
 });
 export type SaveCustomFieldValuesDto = z.infer<typeof saveCustomFieldValuesSchema>;
 

@@ -6,7 +6,17 @@ import { AssessmentCategoriesService } from './assessment-categories.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const CATEGORY_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+const USER_ID = '33333333-3333-3333-3333-333333333333';
 const tenantContext = { tenant_id: TENANT_ID };
+const userContext = {
+  sub: USER_ID,
+  membership_id: '44444444-4444-4444-4444-444444444444',
+  email: 'teacher@school.ie',
+  tenant_id: TENANT_ID,
+  type: 'access' as const,
+  iat: 0,
+  exp: 0,
+};
 
 const mockAssessmentCategoriesService = {
   create: jest.fn(),
@@ -44,10 +54,14 @@ describe('AssessmentCategoriesController', () => {
     const expected = [{ id: CATEGORY_ID, name: 'Homework', weight: 20 }];
     mockAssessmentCategoriesService.findAll.mockResolvedValue(expected);
 
-    const result = await controller.findAll(tenantContext);
+    const result = await controller.findAll(tenantContext, {});
 
     expect(result).toEqual(expected);
-    expect(mockAssessmentCategoriesService.findAll).toHaveBeenCalledWith(TENANT_ID);
+    expect(mockAssessmentCategoriesService.findAll).toHaveBeenCalledWith(TENANT_ID, {
+      subject_id: undefined,
+      year_group_id: undefined,
+      status: undefined,
+    });
   });
 
   it('should return a single assessment category by id', async () => {
@@ -65,10 +79,10 @@ describe('AssessmentCategoriesController', () => {
     const created = { id: CATEGORY_ID, ...dto, tenant_id: TENANT_ID };
     mockAssessmentCategoriesService.create.mockResolvedValue(created);
 
-    const result = await controller.create(tenantContext, dto);
+    const result = await controller.create(tenantContext, userContext, dto);
 
     expect(result).toEqual(created);
-    expect(mockAssessmentCategoriesService.create).toHaveBeenCalledWith(TENANT_ID, dto);
+    expect(mockAssessmentCategoriesService.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
   });
 
   it('should update an assessment category and return the updated record', async () => {
@@ -76,17 +90,26 @@ describe('AssessmentCategoriesController', () => {
     const updated = { id: CATEGORY_ID, name: 'Updated Category', tenant_id: TENANT_ID };
     mockAssessmentCategoriesService.update.mockResolvedValue(updated);
 
-    const result = await controller.update(tenantContext, CATEGORY_ID, dto);
+    const result = await controller.update(tenantContext, userContext, CATEGORY_ID, dto);
 
     expect(result).toEqual(updated);
-    expect(mockAssessmentCategoriesService.update).toHaveBeenCalledWith(TENANT_ID, CATEGORY_ID, dto);
+    expect(mockAssessmentCategoriesService.update).toHaveBeenCalledWith(
+      TENANT_ID,
+      CATEGORY_ID,
+      USER_ID,
+      dto,
+    );
   });
 
   it('should delete an assessment category and delegate to the service', async () => {
     mockAssessmentCategoriesService.delete.mockResolvedValue({ id: CATEGORY_ID });
 
-    await controller.delete(tenantContext, CATEGORY_ID);
+    await controller.delete(tenantContext, userContext, CATEGORY_ID);
 
-    expect(mockAssessmentCategoriesService.delete).toHaveBeenCalledWith(TENANT_ID, CATEGORY_ID);
+    expect(mockAssessmentCategoriesService.delete).toHaveBeenCalledWith(
+      TENANT_ID,
+      CATEGORY_ID,
+      USER_ID,
+    );
   });
 });

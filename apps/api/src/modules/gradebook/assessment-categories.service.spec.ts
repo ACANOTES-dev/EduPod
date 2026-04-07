@@ -10,6 +10,7 @@ import { AssessmentCategoriesService } from './assessment-categories.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const CATEGORY_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const USER_ID = '33333333-3333-3333-3333-333333333333';
 
 // ─── RLS mock ─────────────────────────────────────────────────────────────────
 
@@ -23,7 +24,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: typeof mockRlsTx) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: typeof mockRlsTx) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -59,10 +62,7 @@ describe('AssessmentCategoriesService', () => {
     mockRlsTx.assessmentCategory.delete.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AssessmentCategoriesService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [AssessmentCategoriesService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<AssessmentCategoriesService>(AssessmentCategoriesService);
@@ -76,7 +76,10 @@ describe('AssessmentCategoriesService', () => {
     it('should create and return a new assessment category with numeric default_weight', async () => {
       mockRlsTx.assessmentCategory.create.mockResolvedValue(sampleCategory);
 
-      const result = await service.create(TENANT_ID, { name: 'Quizzes', default_weight: 0.3 });
+      const result = await service.create(TENANT_ID, USER_ID, {
+        name: 'Quizzes',
+        default_weight: 0.3,
+      });
 
       expect(result.name).toBe('Quizzes');
       expect(typeof result.default_weight).toBe('number');
@@ -91,7 +94,7 @@ describe('AssessmentCategoriesService', () => {
       mockRlsTx.assessmentCategory.create.mockRejectedValue(p2002);
 
       await expect(
-        service.create(TENANT_ID, { name: 'Quizzes', default_weight: 0.3 }),
+        service.create(TENANT_ID, USER_ID, { name: 'Quizzes', default_weight: 0.3 }),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -155,7 +158,7 @@ describe('AssessmentCategoriesService', () => {
       mockPrisma.assessmentCategory.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.update(TENANT_ID, CATEGORY_ID, { name: 'Exams' }),
+        service.update(TENANT_ID, CATEGORY_ID, USER_ID, { name: 'Exams' }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -163,7 +166,7 @@ describe('AssessmentCategoriesService', () => {
       mockPrisma.assessmentCategory.findFirst.mockResolvedValue({ id: CATEGORY_ID });
       mockRlsTx.assessmentCategory.update.mockResolvedValue({ ...sampleCategory, name: 'Exams' });
 
-      const result = await service.update(TENANT_ID, CATEGORY_ID, { name: 'Exams' });
+      const result = await service.update(TENANT_ID, CATEGORY_ID, USER_ID, { name: 'Exams' });
 
       expect(result.name).toBe('Exams');
       expect(mockRlsTx.assessmentCategory.update).toHaveBeenCalledTimes(1);
@@ -178,7 +181,7 @@ describe('AssessmentCategoriesService', () => {
       mockRlsTx.assessmentCategory.update.mockRejectedValue(p2002);
 
       await expect(
-        service.update(TENANT_ID, CATEGORY_ID, { name: 'Exams' }),
+        service.update(TENANT_ID, CATEGORY_ID, USER_ID, { name: 'Exams' }),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -189,14 +192,18 @@ describe('AssessmentCategoriesService', () => {
     it('should throw NotFoundException when category does not exist', async () => {
       mockPrisma.assessmentCategory.findFirst.mockResolvedValue(null);
 
-      await expect(service.delete(TENANT_ID, CATEGORY_ID)).rejects.toThrow(NotFoundException);
+      await expect(service.delete(TENANT_ID, CATEGORY_ID, USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw ConflictException when assessments reference the category', async () => {
       mockPrisma.assessmentCategory.findFirst.mockResolvedValue({ id: CATEGORY_ID });
       mockPrisma.assessment.count.mockResolvedValue(5);
 
-      await expect(service.delete(TENANT_ID, CATEGORY_ID)).rejects.toThrow(ConflictException);
+      await expect(service.delete(TENANT_ID, CATEGORY_ID, USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should delete the category when no assessments reference it', async () => {
@@ -204,7 +211,7 @@ describe('AssessmentCategoriesService', () => {
       mockPrisma.assessment.count.mockResolvedValue(0);
       mockRlsTx.assessmentCategory.delete.mockResolvedValue(sampleCategory);
 
-      const result = await service.delete(TENANT_ID, CATEGORY_ID);
+      const result = await service.delete(TENANT_ID, CATEGORY_ID, USER_ID);
 
       expect(result).toEqual(sampleCategory);
       expect(mockRlsTx.assessmentCategory.delete).toHaveBeenCalledWith({

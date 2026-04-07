@@ -199,10 +199,10 @@ describe('GradebookAdvancedController', () => {
     const created = { id: STANDARD_ID, ...dto };
     mockStandardsService.createStandard.mockResolvedValue(created);
 
-    const result = await controller.createCurriculumStandard(tenantContext, dto);
+    const result = await controller.createCurriculumStandard(tenantContext, userContext, dto);
 
     expect(result).toEqual(created);
-    expect(mockStandardsService.createStandard).toHaveBeenCalledWith(TENANT_ID, dto);
+    expect(mockStandardsService.createStandard).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
   });
 
   // ─── Competency Scales ──────────────────────────────────────────────────

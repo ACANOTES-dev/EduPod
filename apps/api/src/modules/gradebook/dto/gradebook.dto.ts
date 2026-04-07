@@ -17,6 +17,7 @@ import type {
   createCurriculumStandardSchema,
   createGradingScaleSchema,
   createRubricTemplateSchema,
+  createTeacherGradingWeightSchema,
   generateAiCommentsSchema,
   generateProgressReportsSchema,
   generateReportCardsSchema,
@@ -27,6 +28,7 @@ import type {
   publishGradesSchema,
   resolveRiskAlertSchema,
   reviewAiGradingInstructionSchema,
+  reviewConfigSchema,
   saveRubricGradesSchema,
   sendProgressReportSchema,
   setDefaultGradeSchema,
@@ -40,6 +42,7 @@ import type {
   updateProgressReportEntrySchema,
   updateReportCardSchema,
   updateRubricTemplateSchema,
+  updateTeacherGradingWeightSchema,
   upsertGradeConfigSchema,
   upsertYearGroupGradeWeightSchema,
 } from '@school/shared';
@@ -104,6 +107,11 @@ export type NlQueryDto = z.infer<typeof nlQuerySchema>;
 
 // ─── D1: Grade Publishing ─────────────────────────────────────────────────
 export type PublishGradesDto = z.infer<typeof publishGradesSchema>;
+
+// ─── Teacher-Centric Config ──────────────────────────────────────────────
+export type ReviewConfigDto = z.infer<typeof reviewConfigSchema>;
+export type CreateTeacherGradingWeightDto = z.infer<typeof createTeacherGradingWeightSchema>;
+export type UpdateTeacherGradingWeightDto = z.infer<typeof updateTeacherGradingWeightSchema>;
 
 // ─── D2: Progress Reports ─────────────────────────────────────────────────
 export type GenerateProgressReportsDto = z.infer<typeof generateProgressReportsSchema>;

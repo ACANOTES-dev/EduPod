@@ -20,17 +20,20 @@ import {
 import { z } from 'zod';
 
 import {
-  upsertGradeConfigSchema,
-  upsertYearGroupGradeWeightSchema,
-  copyYearGroupGradeWeightsSchema,
-  createAssessmentSchema,
-  updateAssessmentSchema,
-  transitionAssessmentStatusSchema,
   bulkUpsertGradesSchema,
   computePeriodGradesSchema,
-  overridePeriodGradeSchema,
-  saveResultsMatrixSchema,
+  copyYearGroupGradeWeightsSchema,
+  createAssessmentSchema,
+  createTeacherGradingWeightSchema,
   importProcessSchema,
+  overridePeriodGradeSchema,
+  reviewConfigSchema,
+  saveResultsMatrixSchema,
+  transitionAssessmentStatusSchema,
+  updateAssessmentSchema,
+  updateTeacherGradingWeightSchema,
+  upsertGradeConfigSchema,
+  upsertYearGroupGradeWeightSchema,
 } from '@school/shared';
 import type { JwtPayload } from '@school/shared';
 
@@ -57,6 +60,8 @@ import { ClassGradeConfigsService } from './class-grade-configs.service';
 import { GradesService } from './grades.service';
 import { PeriodGradeComputationService } from './grading/period-grade-computation.service';
 import { ResultsMatrixService } from './results-matrix.service';
+import { TeacherGradingWeightsService } from './teacher-grading-weights.service';
+import { TeachingAllocationsService } from './teaching-allocations.service';
 import { YearGroupGradeWeightsService } from './year-group-grade-weights.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -98,11 +103,34 @@ export class GradebookController {
     private readonly resultsMatrixService: ResultsMatrixService,
     private readonly bulkImportService: BulkImportService,
     private readonly yearGroupGradeWeightsService: YearGroupGradeWeightsService,
+    private readonly teachingAllocationsService: TeachingAllocationsService,
+    private readonly teacherGradingWeightsService: TeacherGradingWeightsService,
     private readonly permissionCacheService: PermissionCacheService,
     private readonly prisma: PrismaService,
     private readonly classesReadFacade: ClassesReadFacade,
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
   ) {}
+
+  // ─── Teaching Allocations ──────────────────────────────────────────────
+
+  // GET /v1/gradebook/teaching-allocations
+  @Get('gradebook/teaching-allocations')
+  @RequiresPermission('gradebook.view')
+  async getMyAllocations(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return {
+      data: await this.teachingAllocationsService.getMyAllocations(tenant.tenant_id, user.sub),
+    };
+  }
+
+  // GET /v1/gradebook/teaching-allocations/all
+  @Get('gradebook/teaching-allocations/all')
+  @RequiresPermission('gradebook.manage')
+  async getAllAllocations(@CurrentTenant() tenant: { tenant_id: string }) {
+    return { data: await this.teachingAllocationsService.getAllAllocations(tenant.tenant_id) };
+  }
 
   // ─── Grade Configs ──────────────────────────────────────────────────────
 
@@ -416,6 +444,102 @@ export class GradebookController {
     dto: z.infer<typeof copyYearGroupGradeWeightsSchema>,
   ) {
     return this.yearGroupGradeWeightsService.copyFromYearGroup(tenant.tenant_id, dto);
+  }
+
+  // ─── Teacher Grading Weights ──────────────────────────────────────────
+
+  // POST /v1/gradebook/teacher-grading-weights
+  @Post('gradebook/teacher-grading-weights')
+  @RequiresPermission('gradebook.manage_own_config')
+  @HttpCode(HttpStatus.CREATED)
+  async createTeacherWeight(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(createTeacherGradingWeightSchema))
+    dto: z.infer<typeof createTeacherGradingWeightSchema>,
+  ) {
+    return this.teacherGradingWeightsService.create(tenant.tenant_id, user.sub, dto);
+  }
+
+  // GET /v1/gradebook/teacher-grading-weights
+  @Get('gradebook/teacher-grading-weights')
+  @RequiresPermission('gradebook.view')
+  async listTeacherWeights(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Query('subject_id') subjectId?: string,
+    @Query('year_group_id') yearGroupId?: string,
+    @Query('academic_period_id') periodId?: string,
+    @Query('status') status?: string,
+  ) {
+    // Check if user has gradebook.manage — if so, they see all
+    const permissions = user.membership_id
+      ? await this.permissionCacheService.getPermissions(user.membership_id)
+      : [];
+    const isLeadership = permissions.includes('gradebook.manage');
+    return this.teacherGradingWeightsService.findAll(
+      tenant.tenant_id,
+      isLeadership ? null : user.sub,
+      { subject_id: subjectId, year_group_id: yearGroupId, academic_period_id: periodId, status },
+    );
+  }
+
+  // GET /v1/gradebook/teacher-grading-weights/:id
+  @Get('gradebook/teacher-grading-weights/:id')
+  @RequiresPermission('gradebook.view')
+  async getTeacherWeight(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.teacherGradingWeightsService.findOne(tenant.tenant_id, id);
+  }
+
+  // PATCH /v1/gradebook/teacher-grading-weights/:id
+  @Patch('gradebook/teacher-grading-weights/:id')
+  @RequiresPermission('gradebook.manage_own_config')
+  async updateTeacherWeight(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateTeacherGradingWeightSchema))
+    dto: z.infer<typeof updateTeacherGradingWeightSchema>,
+  ) {
+    return this.teacherGradingWeightsService.update(tenant.tenant_id, id, user.sub, dto);
+  }
+
+  // DELETE /v1/gradebook/teacher-grading-weights/:id
+  @Delete('gradebook/teacher-grading-weights/:id')
+  @RequiresPermission('gradebook.manage_own_config')
+  async deleteTeacherWeight(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.teacherGradingWeightsService.delete(tenant.tenant_id, id, user.sub);
+  }
+
+  // POST /v1/gradebook/teacher-grading-weights/:id/submit
+  @Post('gradebook/teacher-grading-weights/:id/submit')
+  @RequiresPermission('gradebook.manage_own_config')
+  async submitTeacherWeight(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.teacherGradingWeightsService.submitForApproval(tenant.tenant_id, id, user.sub);
+  }
+
+  // POST /v1/gradebook/teacher-grading-weights/:id/review
+  @Post('gradebook/teacher-grading-weights/:id/review')
+  @RequiresPermission('gradebook.approve_config')
+  async reviewTeacherWeight(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(reviewConfigSchema))
+    dto: z.infer<typeof reviewConfigSchema>,
+  ) {
+    return this.teacherGradingWeightsService.review(tenant.tenant_id, id, user.sub, dto);
   }
 
   // ─── Import ─────────────────────────────────────────────────────────────
