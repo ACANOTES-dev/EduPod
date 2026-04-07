@@ -119,7 +119,7 @@ export default function GradeEntryPage() {
             last_name: string;
             student_number?: string;
           }>;
-        }>(`/api/v1/students?class_id=${classId}&pageSize=200&status=active`, {
+        }>(`/api/v1/students?class_id=${classId}&pageSize=200`, {
           silent: true,
         }).catch(() => ({
           data: [] as Array<{ id: string; first_name: string; last_name: string }>,
