@@ -110,7 +110,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!cancelled && data?.data?.access_token) {
           setAccessToken(data.data.access_token);
           const fullUser = await fetchMe();
-          if (!cancelled) setUser(fullUser);
+          if (!cancelled && fullUser) {
+            // Auto-switch tenant if the refreshed token is unscoped (tenant_id absent)
+            // and the user has exactly one active membership
+            const activeMemberships = (fullUser.memberships ?? []).filter(
+              (m) => m.membership_status === 'active',
+            );
+            const tokenPayload = data.data.access_token.split('.')[1];
+            const decoded = tokenPayload ? JSON.parse(atob(tokenPayload)) : {};
+            if (!decoded.tenant_id && activeMemberships.length === 1 && activeMemberships[0]) {
+              try {
+                const switchData = await apiClient<{ data: { access_token: string } }>(
+                  '/api/v1/auth/switch-tenant',
+                  {
+                    method: 'POST',
+                    body: JSON.stringify({ tenant_id: activeMemberships[0].tenant_id }),
+                  },
+                );
+                if (!cancelled && switchData?.data?.access_token) {
+                  setAccessToken(switchData.data.access_token);
+                  const scopedUser = await fetchMe();
+                  if (!cancelled) setUser(scopedUser);
+                  return;
+                }
+              } catch (switchErr) {
+                console.error('[AuthProvider] auto-switch tenant failed', switchErr);
+              }
+            }
+            setUser(fullUser);
+          }
         }
       } catch (err) {
         console.error('[AuthProvider]', err);
