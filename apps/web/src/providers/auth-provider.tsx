@@ -118,6 +118,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             );
             const tokenPayload = data.data.access_token.split('.')[1];
             const decoded = tokenPayload ? JSON.parse(atob(tokenPayload)) : {};
+            // eslint-disable-next-line no-console -- temporary diagnostic for auto-switch
+            console.log('[AuthProvider] bootstrap auto-switch check:', {
+              decodedTenantId: decoded.tenant_id,
+              activeMembershipsCount: activeMemberships.length,
+              shouldSwitch: !decoded.tenant_id && activeMemberships.length === 1,
+            });
             if (!decoded.tenant_id && activeMemberships.length === 1 && activeMemberships[0]) {
               try {
                 const switchData = await apiClient<{ data: { access_token: string } }>(
