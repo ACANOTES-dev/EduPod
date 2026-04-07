@@ -4812,7 +4812,13 @@
     "configRubricsTitle": "قوالب معايير التقييم",
     "configRubricsDesc": "إنشاء أدلة تقييم قابلة لإعادة الاستخدام",
     "configStandardsTitle": "معايير المنهج",
-    "configStandardsDesc": "تحديد الأهداف التعليمية"
+    "configStandardsDesc": "تحديد الأهداف التعليمية",
+    "myConfigStatus": "حالة تكويناتي",
+    "noConfigItems": "لم يتم إنشاء عناصر تكوين بعد. استخدم البطاقات أعلاه لإنشاء الفئات والأوزان والقوالب والمعايير.",
+    "viewWorkspace": "عرض منطقة العمل",
+    "clickToManage": "انقر على صف لإدارة التقييمات لهذا التخصيص",
+    "configItemName": "الاسم",
+    "configItemType": "النوع"
   },
   "reportCards": {
     "title": "بطاقات التقارير",

@@ -4,6 +4,7 @@ import {
   BookOpen,
   CheckCircle2,
   ClipboardList,
+  ExternalLink,
   LayoutGrid,
   Scale,
   Target,
@@ -13,7 +14,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Badge, StatCard } from '@school/ui';
+import { Badge, StatCard, StatusBadge } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -54,6 +55,14 @@ interface ConfigCounts {
   weights: number;
   rubrics: number;
   standards: number;
+}
+
+interface MyConfigItem {
+  id: string;
+  name: string;
+  type: 'category' | 'weight';
+  status: string;
+  rejection_reason?: string | null;
 }
 
 // ─── Summary helpers ─────────────────────────────────────────────────────────
@@ -121,80 +130,110 @@ function AllocationsTable({
   t: ReturnType<typeof useTranslations>;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-surface overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border">
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                {t('class')}
-              </th>
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                {t('subject')}
-              </th>
-              <th className="hidden px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary sm:table-cell">
-                {t('yearGroup')}
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                {t('gradeConfig')}
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                {t('categories')}
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                {t('weights')}
-              </th>
-              <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                {t('assessments')}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {allocations.map((allocation) => (
-              <tr
-                key={`${allocation.class_id}-${allocation.subject_id}`}
-                className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary"
-              >
-                <td className="px-4 py-3 text-sm font-medium text-text-primary">
-                  {allocation.class_name}
-                </td>
-                <td className="px-4 py-3 text-sm text-text-primary">
-                  <span>{allocation.subject_name}</span>
-                  {allocation.subject_code && (
-                    <span className="ms-1.5 font-mono text-xs text-text-tertiary">
-                      ({allocation.subject_code})
-                    </span>
-                  )}
-                </td>
-                <td className="hidden px-4 py-3 text-sm text-text-secondary sm:table-cell">
-                  {allocation.year_group_name}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-center">
-                    <StatusIcon ok={allocation.has_grade_config} />
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-center">
-                    <Badge variant={allocation.has_approved_categories > 0 ? 'success' : 'warning'}>
-                      {allocation.has_approved_categories}
-                    </Badge>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-center">
-                    <StatusIcon ok={allocation.has_approved_weights} />
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-end">
-                  <span className="text-sm font-mono text-text-primary">
-                    {allocation.assessment_count}
-                  </span>
-                </td>
+    <div className="space-y-2">
+      <p className="text-xs text-text-tertiary">{t('clickToManage')}</p>
+      <div className="rounded-2xl border border-border bg-surface overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('class')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('subject')}
+                </th>
+                <th className="hidden px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary sm:table-cell">
+                  {t('yearGroup')}
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('gradeConfig')}
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('categories')}
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('weights')}
+                </th>
+                <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('assessments')}
+                </th>
+                <th className="px-4 py-3 w-10" />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {allocations.map((allocation) => (
+                <tr
+                  key={`${allocation.class_id}-${allocation.subject_id}`}
+                  className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary group"
+                >
+                  <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                    <Link
+                      href={`/assessments/workspace/${allocation.class_id}/${allocation.subject_id}`}
+                      className="block"
+                    >
+                      {allocation.class_name}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-primary">
+                    <Link
+                      href={`/assessments/workspace/${allocation.class_id}/${allocation.subject_id}`}
+                      className="block"
+                    >
+                      <span>{allocation.subject_name}</span>
+                      {allocation.subject_code && (
+                        <span className="ms-1.5 font-mono text-xs text-text-tertiary">
+                          ({allocation.subject_code})
+                        </span>
+                      )}
+                    </Link>
+                  </td>
+                  <td className="hidden px-4 py-3 text-sm text-text-secondary sm:table-cell">
+                    <Link
+                      href={`/assessments/workspace/${allocation.class_id}/${allocation.subject_id}`}
+                      className="block"
+                    >
+                      {allocation.year_group_name}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-center">
+                      <StatusIcon ok={allocation.has_grade_config} />
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-center">
+                      <Badge
+                        variant={allocation.has_approved_categories > 0 ? 'success' : 'warning'}
+                      >
+                        {allocation.has_approved_categories}
+                      </Badge>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-center">
+                      <StatusIcon ok={allocation.has_approved_weights} />
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-end">
+                    <span className="text-sm font-mono text-text-primary">
+                      {allocation.assessment_count}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/assessments/workspace/${allocation.class_id}/${allocation.subject_id}`}
+                      className="text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100"
+                      aria-label={t('viewWorkspace')}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -210,16 +249,22 @@ function AllocationCard({
   t: ReturnType<typeof useTranslations>;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-surface p-4 space-y-3">
-      <div>
-        <p className="text-sm font-medium text-text-primary">{allocation.class_name}</p>
-        <p className="text-xs text-text-secondary">
-          {allocation.subject_name}
-          {allocation.subject_code && (
-            <span className="ms-1 font-mono text-text-tertiary">({allocation.subject_code})</span>
-          )}
-        </p>
-        <p className="text-xs text-text-tertiary">{allocation.year_group_name}</p>
+    <Link
+      href={`/assessments/workspace/${allocation.class_id}/${allocation.subject_id}`}
+      className="block rounded-2xl border border-border bg-surface p-4 space-y-3 transition-colors hover:border-primary-300 cursor-pointer"
+    >
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm font-medium text-text-primary">{allocation.class_name}</p>
+          <p className="text-xs text-text-secondary">
+            {allocation.subject_name}
+            {allocation.subject_code && (
+              <span className="ms-1 font-mono text-text-tertiary">({allocation.subject_code})</span>
+            )}
+          </p>
+          <p className="text-xs text-text-tertiary">{allocation.year_group_name}</p>
+        </div>
+        <ExternalLink className="h-4 w-4 text-text-tertiary shrink-0" />
       </div>
 
       <div className="grid grid-cols-3 gap-2">
@@ -251,7 +296,7 @@ function AllocationCard({
           {allocation.assessment_count}
         </span>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -286,6 +331,178 @@ function ConfigCard({
         <p className="text-xs text-text-secondary mt-0.5">{description}</p>
       </div>
     </Link>
+  );
+}
+
+// ─── Status helpers ─────────────────────────────────────────────────────────
+
+const STATUS_SORT_ORDER: Record<string, number> = {
+  pending_approval: 0,
+  rejected: 1,
+  draft: 2,
+  approved: 3,
+  archived: 4,
+};
+
+function statusToSemantic(status: string): 'neutral' | 'warning' | 'success' | 'danger' {
+  switch (status) {
+    case 'approved':
+      return 'success';
+    case 'pending_approval':
+      return 'warning';
+    case 'rejected':
+      return 'danger';
+    default:
+      return 'neutral';
+  }
+}
+
+// ─── My config status ──────────────────────────────────────────────────────
+
+function MyConfigStatus({ t }: { t: ReturnType<typeof useTranslations> }) {
+  const [items, setItems] = React.useState<MyConfigItem[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function fetchMyConfig() {
+      try {
+        const [categoriesRes, weightsRes] = await Promise.all([
+          apiClient<
+            PaginatedResponse<{
+              id: string;
+              name: string;
+              status: string;
+              rejection_reason?: string | null;
+            }>
+          >('/api/v1/gradebook/assessment-categories?pageSize=100', {
+            silent: true,
+          }).catch(() => null),
+          apiClient<
+            PaginatedResponse<{
+              id: string;
+              subject_name?: string;
+              year_group_name?: string;
+              status: string;
+              rejection_reason?: string | null;
+            }>
+          >('/api/v1/gradebook/teacher-grading-weights?pageSize=100', {
+            silent: true,
+          }).catch(() => null),
+        ]);
+
+        const result: MyConfigItem[] = [];
+
+        if (categoriesRes) {
+          for (const cat of categoriesRes.data) {
+            result.push({
+              id: cat.id,
+              name: cat.name,
+              type: 'category',
+              status: cat.status,
+              rejection_reason: cat.rejection_reason,
+            });
+          }
+        }
+
+        if (weightsRes) {
+          for (const w of weightsRes.data) {
+            result.push({
+              id: w.id,
+              name: `${w.subject_name ?? '—'} / ${w.year_group_name ?? '—'}`,
+              type: 'weight',
+              status: w.status,
+              rejection_reason: w.rejection_reason,
+            });
+          }
+        }
+
+        // Sort: pending first, then rejected, then draft, then approved
+        result.sort(
+          (a, b) => (STATUS_SORT_ORDER[a.status] ?? 99) - (STATUS_SORT_ORDER[b.status] ?? 99),
+        );
+
+        setItems(result);
+      } catch (err) {
+        console.error('[MyConfigStatus.fetchMyConfig]', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void fetchMyConfig();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        <div className="h-6 w-48 animate-pulse rounded-lg bg-surface-secondary" />
+        <div className="h-24 animate-pulse rounded-2xl bg-surface-secondary" />
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold text-text-primary">{t('myConfigStatus')}</h2>
+        <div className="rounded-2xl border border-border bg-surface p-6">
+          <p className="text-sm text-text-tertiary text-center">{t('noConfigItems')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <h2 className="text-lg font-semibold text-text-primary">{t('myConfigStatus')}</h2>
+      <div className="rounded-2xl border border-border bg-surface overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('configItemName')}
+                </th>
+                <th className="px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('configItemType')}
+                </th>
+                <th className="px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('status')}
+                </th>
+                <th className="px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('rejectionReason')}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr
+                  key={`${item.type}-${item.id}`}
+                  className="border-b border-border last:border-b-0"
+                >
+                  <td className="px-4 py-2.5 text-sm text-text-primary">{item.name}</td>
+                  <td className="px-4 py-2.5 text-sm text-text-secondary">
+                    {item.type === 'category'
+                      ? t('approvalsTypeCategory')
+                      : t('approvalsTypeWeight')}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <StatusBadge status={statusToSemantic(item.status)}>
+                      {t(item.status === 'pending_approval' ? 'pendingApproval' : item.status)}
+                    </StatusBadge>
+                  </td>
+                  <td className="px-4 py-2.5 text-sm text-text-secondary">
+                    {item.status === 'rejected' && item.rejection_reason
+                      ? item.rejection_reason
+                      : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -426,6 +643,9 @@ export default function TeacherAssessmentsDashboardPage() {
           />
         </div>
       </div>
+
+      {/* ── My Config Status (teacher view) ──────────────────────────────── */}
+      <MyConfigStatus t={t} />
 
       {/* ── Approval Queue (leadership only) ───────────────────────────────── */}
       <InlineApprovalQueue />

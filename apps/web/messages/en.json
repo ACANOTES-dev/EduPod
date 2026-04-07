@@ -4820,7 +4820,13 @@
     "configRubricsTitle": "Rubric Templates",
     "configRubricsDesc": "Create reusable marking guides",
     "configStandardsTitle": "Curriculum Standards",
-    "configStandardsDesc": "Define learning objectives"
+    "configStandardsDesc": "Define learning objectives",
+    "myConfigStatus": "My Configuration Status",
+    "noConfigItems": "No configuration items created yet. Use the cards above to create categories, weights, rubrics, and standards.",
+    "viewWorkspace": "View Workspace",
+    "clickToManage": "Click a row to manage assessments for that allocation",
+    "configItemName": "Name",
+    "configItemType": "Type"
   },
   "reportCards": {
     "title": "Report Cards",

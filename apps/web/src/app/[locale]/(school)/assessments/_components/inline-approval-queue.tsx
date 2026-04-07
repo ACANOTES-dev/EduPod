@@ -76,9 +76,9 @@ export function InlineApprovalQueue() {
             status: string;
             created_by_name?: string;
           }>
-        >('/api/v1/gradebook/assessment-categories?status=pending_approval&pageSize=100').catch(
-          () => null,
-        ),
+        >('/api/v1/gradebook/assessment-categories?status=pending_approval&pageSize=100', {
+          silent: true,
+        }).catch(() => null),
         apiClient<
           PaginatedResponse<{
             id: string;
@@ -87,10 +87,12 @@ export function InlineApprovalQueue() {
             status: string;
             created_by_name?: string;
           }>
-        >('/api/v1/gradebook/teacher-grading-weights?status=pending_approval&pageSize=100').catch(
-          () => null,
-        ),
-        apiClient<{ data: UnlockRequest[] }>('/api/v1/gradebook/unlock-requests').catch(() => null),
+        >('/api/v1/gradebook/teacher-grading-weights?status=pending_approval&pageSize=100', {
+          silent: true,
+        }).catch(() => null),
+        apiClient<{ data: UnlockRequest[] }>('/api/v1/gradebook/unlock-requests', {
+          silent: true,
+        }).catch(() => null),
       ]);
 
       // If all three failed (likely 403), hide the section
