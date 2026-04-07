@@ -14,7 +14,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Badge, StatCard, StatusBadge } from '@school/ui';
+import { Badge, cn, StatCard, StatusBadge } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -57,10 +57,12 @@ interface ConfigCounts {
   standards: number;
 }
 
+type ConfigTabKey = 'categories' | 'weights' | 'rubrics' | 'standards';
+
 interface MyConfigItem {
   id: string;
   name: string;
-  type: 'category' | 'weight';
+  type: 'category' | 'weight' | 'rubric' | 'standard';
   status: string;
   rejection_reason?: string | null;
 }
@@ -360,13 +362,17 @@ function statusToSemantic(status: string): 'neutral' | 'warning' | 'success' | '
 // ─── My config status ──────────────────────────────────────────────────────
 
 function MyConfigStatus({ t }: { t: ReturnType<typeof useTranslations> }) {
-  const [items, setItems] = React.useState<MyConfigItem[]>([]);
+  const [activeTab, setActiveTab] = React.useState<ConfigTabKey>('categories');
+  const [categoryItems, setCategoryItems] = React.useState<MyConfigItem[]>([]);
+  const [weightItems, setWeightItems] = React.useState<MyConfigItem[]>([]);
+  const [rubricItems, setRubricItems] = React.useState<MyConfigItem[]>([]);
+  const [standardItems, setStandardItems] = React.useState<MyConfigItem[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     async function fetchMyConfig() {
       try {
-        const [categoriesRes, weightsRes] = await Promise.all([
+        const [categoriesRes, weightsRes, rubricsRes, standardsRes] = await Promise.all([
           apiClient<
             PaginatedResponse<{
               id: string;
@@ -388,40 +394,88 @@ function MyConfigStatus({ t }: { t: ReturnType<typeof useTranslations> }) {
           >('/api/v1/gradebook/teacher-grading-weights?pageSize=100', {
             silent: true,
           }).catch(() => null),
+          apiClient<
+            PaginatedResponse<{
+              id: string;
+              name: string;
+              status: string;
+              rejection_reason?: string | null;
+            }>
+          >('/api/v1/gradebook/rubric-templates?page=1&pageSize=100', {
+            silent: true,
+          }).catch(() => null),
+          apiClient<
+            PaginatedResponse<{
+              id: string;
+              code: string;
+              status: string;
+              rejection_reason?: string | null;
+            }>
+          >('/api/v1/gradebook/curriculum-standards?page=1&pageSize=100', {
+            silent: true,
+          }).catch(() => null),
         ]);
 
-        const result: MyConfigItem[] = [];
+        const sortItems = (items: MyConfigItem[]) =>
+          items.sort(
+            (a, b) => (STATUS_SORT_ORDER[a.status] ?? 99) - (STATUS_SORT_ORDER[b.status] ?? 99),
+          );
 
         if (categoriesRes) {
-          for (const cat of categoriesRes.data) {
-            result.push({
-              id: cat.id,
-              name: cat.name,
-              type: 'category',
-              status: cat.status,
-              rejection_reason: cat.rejection_reason,
-            });
-          }
+          setCategoryItems(
+            sortItems(
+              categoriesRes.data.map((cat) => ({
+                id: cat.id,
+                name: cat.name,
+                type: 'category' as const,
+                status: cat.status,
+                rejection_reason: cat.rejection_reason,
+              })),
+            ),
+          );
         }
 
         if (weightsRes) {
-          for (const w of weightsRes.data) {
-            result.push({
-              id: w.id,
-              name: `${w.subject_name ?? '—'} / ${w.year_group_name ?? '—'}`,
-              type: 'weight',
-              status: w.status,
-              rejection_reason: w.rejection_reason,
-            });
-          }
+          setWeightItems(
+            sortItems(
+              weightsRes.data.map((w) => ({
+                id: w.id,
+                name: `${w.subject_name ?? '\u2014'} / ${w.year_group_name ?? '\u2014'}`,
+                type: 'weight' as const,
+                status: w.status,
+                rejection_reason: w.rejection_reason,
+              })),
+            ),
+          );
         }
 
-        // Sort: pending first, then rejected, then draft, then approved
-        result.sort(
-          (a, b) => (STATUS_SORT_ORDER[a.status] ?? 99) - (STATUS_SORT_ORDER[b.status] ?? 99),
-        );
+        if (rubricsRes) {
+          setRubricItems(
+            sortItems(
+              rubricsRes.data.map((r) => ({
+                id: r.id,
+                name: r.name,
+                type: 'rubric' as const,
+                status: r.status,
+                rejection_reason: r.rejection_reason,
+              })),
+            ),
+          );
+        }
 
-        setItems(result);
+        if (standardsRes) {
+          setStandardItems(
+            sortItems(
+              standardsRes.data.map((s) => ({
+                id: s.id,
+                name: s.code,
+                type: 'standard' as const,
+                status: s.status,
+                rejection_reason: s.rejection_reason,
+              })),
+            ),
+          );
+        }
       } catch (err) {
         console.error('[MyConfigStatus.fetchMyConfig]', err);
       } finally {
@@ -432,18 +486,30 @@ function MyConfigStatus({ t }: { t: ReturnType<typeof useTranslations> }) {
     void fetchMyConfig();
   }, []);
 
+  const tabConfig: { key: ConfigTabKey; label: string; items: MyConfigItem[] }[] = [
+    { key: 'categories', label: t('categories'), items: categoryItems },
+    { key: 'weights', label: t('weights'), items: weightItems },
+    { key: 'rubrics', label: t('rubricTemplates'), items: rubricItems },
+    { key: 'standards', label: t('curriculumStandards'), items: standardItems },
+  ];
+
+  const activeItems = tabConfig.find((tab) => tab.key === activeTab)?.items ?? [];
+
   if (loading) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-3 pb-8">
         <div className="h-6 w-48 animate-pulse rounded-lg bg-surface-secondary" />
         <div className="h-24 animate-pulse rounded-2xl bg-surface-secondary" />
       </div>
     );
   }
 
-  if (items.length === 0) {
+  const totalItems =
+    categoryItems.length + weightItems.length + rubricItems.length + standardItems.length;
+
+  if (totalItems === 0) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-3 pb-8">
         <h2 className="text-lg font-semibold text-text-primary">{t('myConfigStatus')}</h2>
         <div className="rounded-2xl border border-border bg-surface p-6">
           <p className="text-sm text-text-tertiary text-center">{t('noConfigItems')}</p>
@@ -453,55 +519,73 @@ function MyConfigStatus({ t }: { t: ReturnType<typeof useTranslations> }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pb-8">
       <h2 className="text-lg font-semibold text-text-primary">{t('myConfigStatus')}</h2>
-      <div className="rounded-2xl border border-border bg-surface overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  {t('configItemName')}
-                </th>
-                <th className="px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  {t('configItemType')}
-                </th>
-                <th className="px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  {t('status')}
-                </th>
-                <th className="px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  {t('rejectionReason')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr
-                  key={`${item.type}-${item.id}`}
-                  className="border-b border-border last:border-b-0"
-                >
-                  <td className="px-4 py-2.5 text-sm text-text-primary">{item.name}</td>
-                  <td className="px-4 py-2.5 text-sm text-text-secondary">
-                    {item.type === 'category'
-                      ? t('approvalsTypeCategory')
-                      : t('approvalsTypeWeight')}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <StatusBadge status={statusToSemantic(item.status)}>
-                      {t(item.status === 'pending_approval' ? 'pendingApproval' : item.status)}
-                    </StatusBadge>
-                  </td>
-                  <td className="px-4 py-2.5 text-sm text-text-secondary">
-                    {item.status === 'rejected' && item.rejection_reason
-                      ? item.rejection_reason
-                      : '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+
+      {/* Tab buttons */}
+      <div className="flex overflow-x-auto border-b border-border">
+        {tabConfig.map((tab) => (
+          <button
+            key={tab.key}
+            className={cn(
+              'px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
+              activeTab === tab.key
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-text-secondary hover:text-text-primary hover:border-border',
+            )}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            {tab.label} ({tab.items.length})
+          </button>
+        ))}
       </div>
+
+      {/* Tab content */}
+      {activeItems.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-surface p-6">
+          <p className="text-sm text-text-tertiary text-center">{t('noConfigItems')}</p>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-border bg-surface overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('configItemName')}
+                  </th>
+                  <th className="px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('status')}
+                  </th>
+                  <th className="px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('rejectionReason')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeItems.map((item) => (
+                  <tr
+                    key={`${item.type}-${item.id}`}
+                    className="border-b border-border last:border-b-0"
+                  >
+                    <td className="px-4 py-2.5 text-sm text-text-primary">{item.name}</td>
+                    <td className="px-4 py-2.5">
+                      <StatusBadge status={statusToSemantic(item.status)}>
+                        {t(item.status === 'pending_approval' ? 'pendingApproval' : item.status)}
+                      </StatusBadge>
+                    </td>
+                    <td className="px-4 py-2.5 text-sm text-text-secondary">
+                      {item.status === 'rejected' && item.rejection_reason
+                        ? item.rejection_reason
+                        : '\u2014'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

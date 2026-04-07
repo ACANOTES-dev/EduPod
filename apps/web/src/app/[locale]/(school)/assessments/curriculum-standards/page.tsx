@@ -349,11 +349,13 @@ export default function CurriculumStandardsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('allSubjects')}</SelectItem>
-            {subjects.map((s) => (
-              <SelectItem key={s.id} value={s.id}>
-                {s.name}
-              </SelectItem>
-            ))}
+            {subjects
+              .filter((s) => s.id)
+              .map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.name}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
 
@@ -369,11 +371,13 @@ export default function CurriculumStandardsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('allYearGroups')}</SelectItem>
-            {yearGroups.map((yg) => (
-              <SelectItem key={yg.id} value={yg.id}>
-                {yg.name}
-              </SelectItem>
-            ))}
+            {yearGroups
+              .filter((yg) => yg.id)
+              .map((yg) => (
+                <SelectItem key={yg.id} value={yg.id}>
+                  {yg.name}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
       </div>
@@ -430,11 +434,13 @@ export default function CurriculumStandardsPage() {
                   <SelectValue placeholder={t('selectSubject')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {subjects.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
+                  {subjects
+                    .filter((s) => s.id)
+                    .map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -445,11 +451,13 @@ export default function CurriculumStandardsPage() {
                   <SelectValue placeholder={t('selectYearGroup')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {yearGroups.map((yg) => (
-                    <SelectItem key={yg.id} value={yg.id}>
-                      {yg.name}
-                    </SelectItem>
-                  ))}
+                  {yearGroups
+                    .filter((yg) => yg.id)
+                    .map((yg) => (
+                      <SelectItem key={yg.id} value={yg.id}>
+                        {yg.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

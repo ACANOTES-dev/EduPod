@@ -412,34 +412,44 @@ export default function AssessmentCategoriesPage() {
 
             <div>
               <Label htmlFor="cat-subject">{t('subjectScope')}</Label>
-              <Select value={subjectId} onValueChange={setSubjectId}>
+              <Select
+                value={subjectId || '__all__'}
+                onValueChange={(v) => setSubjectId(v === '__all__' ? '' : v)}
+              >
                 <SelectTrigger id="cat-subject" className="w-full">
                   <SelectValue placeholder={t('allSubjects')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{t('allSubjects')}</SelectItem>
-                  {subjects.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="__all__">{t('allSubjects')}</SelectItem>
+                  {subjects
+                    .filter((s) => s.id)
+                    .map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div>
               <Label htmlFor="cat-yg">{t('yearGroupScope')}</Label>
-              <Select value={yearGroupId} onValueChange={setYearGroupId}>
+              <Select
+                value={yearGroupId || '__all__'}
+                onValueChange={(v) => setYearGroupId(v === '__all__' ? '' : v)}
+              >
                 <SelectTrigger id="cat-yg" className="w-full">
                   <SelectValue placeholder={t('allYearGroups')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{t('allYearGroups')}</SelectItem>
-                  {yearGroups.map((yg) => (
-                    <SelectItem key={yg.id} value={yg.id}>
-                      {yg.name}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="__all__">{t('allYearGroups')}</SelectItem>
+                  {yearGroups
+                    .filter((yg) => yg.id)
+                    .map((yg) => (
+                      <SelectItem key={yg.id} value={yg.id}>
+                        {yg.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

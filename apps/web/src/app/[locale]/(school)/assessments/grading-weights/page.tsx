@@ -480,17 +480,22 @@ export default function GradingWeightsPage() {
             {/* Subject */}
             <div>
               <Label htmlFor="gw-subject">{t('subject')}</Label>
-              <Select value={subjectId} onValueChange={setSubjectId}>
+              <Select
+                value={subjectId || '__all__'}
+                onValueChange={(v) => setSubjectId(v === '__all__' ? '' : v)}
+              >
                 <SelectTrigger id="gw-subject" className="w-full">
                   <SelectValue placeholder={t('allSubjects')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{t('allSubjects')}</SelectItem>
-                  {subjects.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="__all__">{t('allSubjects')}</SelectItem>
+                  {subjects
+                    .filter((s) => s.id)
+                    .map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -498,17 +503,22 @@ export default function GradingWeightsPage() {
             {/* Year Group */}
             <div>
               <Label htmlFor="gw-yg">{t('yearGroup')}</Label>
-              <Select value={yearGroupId} onValueChange={setYearGroupId}>
+              <Select
+                value={yearGroupId || '__all__'}
+                onValueChange={(v) => setYearGroupId(v === '__all__' ? '' : v)}
+              >
                 <SelectTrigger id="gw-yg" className="w-full">
                   <SelectValue placeholder={t('allYearGroups')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{t('allYearGroups')}</SelectItem>
-                  {yearGroups.map((yg) => (
-                    <SelectItem key={yg.id} value={yg.id}>
-                      {yg.name}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="__all__">{t('allYearGroups')}</SelectItem>
+                  {yearGroups
+                    .filter((yg) => yg.id)
+                    .map((yg) => (
+                      <SelectItem key={yg.id} value={yg.id}>
+                        {yg.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -516,17 +526,22 @@ export default function GradingWeightsPage() {
             {/* Academic Period */}
             <div>
               <Label htmlFor="gw-period">{t('academicPeriod')}</Label>
-              <Select value={periodId} onValueChange={setPeriodId}>
+              <Select
+                value={periodId || '__all__'}
+                onValueChange={(v) => setPeriodId(v === '__all__' ? '' : v)}
+              >
                 <SelectTrigger id="gw-period" className="w-full">
                   <SelectValue placeholder={t('allPeriods')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{t('allPeriods')}</SelectItem>
-                  {periods.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="__all__">{t('allPeriods')}</SelectItem>
+                  {periods
+                    .filter((p) => p.id)
+                    .map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
