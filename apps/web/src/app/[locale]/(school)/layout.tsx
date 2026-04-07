@@ -6,7 +6,14 @@ import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { toast } from '@school/ui';
-import { AppShell, MorphBar, SubStrip, MobileNavOverlay, ToastProvider } from '@school/ui';
+import {
+  AppShell,
+  GroupedSubStrip,
+  MobileNavOverlay,
+  MorphBar,
+  SubStrip,
+  ToastProvider,
+} from '@school/ui';
 
 import { ErrorBoundary } from '@/components/error-boundary';
 import { GlobalSearch } from '@/components/global-search';
@@ -16,7 +23,7 @@ import { RequireRole } from '@/components/require-role';
 import { UserMenu } from '@/components/user-menu';
 import { useShortcuts } from '@/hooks/use-shortcuts';
 import { apiClient, setApiErrorHandler } from '@/lib/api-client';
-import { hubConfigs, hubSubStripConfigs } from '@/lib/nav-config';
+import { hubConfigs, hubGroupedSubStripConfigs, hubSubStripConfigs } from '@/lib/nav-config';
 import type { RoleKey } from '@/lib/route-roles';
 import { RequireAuth, useAuth } from '@/providers/auth-provider';
 
@@ -141,9 +148,29 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
     [router, locale],
   );
 
+  // ─── Grouped sub-strip (two-level nav for hubs like Learning) ──────────────
+  const groupedConfigs = activeHub ? hubGroupedSubStripConfigs[activeHub] : null;
+  const filteredGroupedTabs = React.useMemo(() => {
+    if (!groupedConfigs) return [];
+    return groupedConfigs
+      .filter((g) => !g.roles || g.roles.some((r) => userRoleKeys.includes(r as RoleKey)))
+      .map((g) => ({
+        label: t(g.labelKey),
+        ...(g.href ? { href: `/${locale}${g.href}` } : {}),
+        ...(g.children
+          ? {
+              children: g.children
+                .filter((c) => !c.roles || c.roles.some((r) => userRoleKeys.includes(r as RoleKey)))
+                .map((c) => ({ label: t(c.labelKey), href: `/${locale}${c.href}` })),
+            }
+          : {}),
+      }));
+  }, [groupedConfigs, userRoleKeys, t, locale]);
+
+  // ─── Flat sub-strip (single-level nav for other hubs) ─────────────────────
   const subStripConfigs = activeHub ? hubSubStripConfigs[activeHub] : null;
   const filteredSubStripTabs = React.useMemo(() => {
-    if (!subStripConfigs) return [];
+    if (!subStripConfigs || groupedConfigs) return [];
     return subStripConfigs
       .filter((tab) => !tab.roles || tab.roles.some((r) => userRoleKeys.includes(r as RoleKey)))
       .map((tab) => ({
@@ -151,7 +178,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
         href: `/${locale}${tab.href}`,
         overflow: tab.overflow,
       }));
-  }, [subStripConfigs, userRoleKeys, t, locale]);
+  }, [subStripConfigs, groupedConfigs, userRoleKeys, t, locale]);
 
   const derivedHubs = React.useMemo(() => {
     return hubConfigs
@@ -185,7 +212,13 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
           />
         }
         subStrip={
-          filteredSubStripTabs.length > 0 ? (
+          filteredGroupedTabs.length > 0 ? (
+            <GroupedSubStrip
+              groups={filteredGroupedTabs}
+              activeTabHref={pathname || ''}
+              LinkComponent={StripLink}
+            />
+          ) : filteredSubStripTabs.length > 0 ? (
             <SubStrip
               tabs={filteredSubStripTabs}
               activeTabHref={pathname || ''}

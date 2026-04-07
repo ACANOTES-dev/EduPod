@@ -157,7 +157,10 @@ export default function MarkAttendancePage() {
 
         setRecords(Array.from(existingMap.values()));
       })
-      .catch((err) => { console.error('[AttendanceMarkPage]', err); return setError('Failed to load session'); })
+      .catch((err) => {
+        console.error('[AttendanceMarkPage]', err);
+        return setError('Failed to load session');
+      })
       .finally(() => setLoading(false));
   }, [sessionId]);
 
@@ -253,7 +256,7 @@ export default function MarkAttendancePage() {
         }),
       });
       await apiClient(`/api/v1/attendance-sessions/${sessionId}/submit`, {
-        method: 'POST',
+        method: 'PATCH',
       });
       toast.success(t('submitted'));
       router.back();
@@ -339,7 +342,9 @@ export default function MarkAttendancePage() {
                           <Badge
                             variant="info"
                             className="cursor-default px-1.5 py-0.5 text-[10px]"
-                          >{t('sen')}</Badge>
+                          >
+                            {t('sen')}
+                          </Badge>
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>

@@ -339,21 +339,67 @@ export interface SubStripTabConfig {
   roles?: RoleKey[];
 }
 
+// ─── Grouped sub-strip configurations (two-level nav) ────────────────────────
+
+export interface SubStripGroupConfig {
+  /** Translation key for the group header displayed in Level 2 */
+  labelKey: string;
+  /** If set, clicking navigates directly (no children / single-page group) */
+  href?: string;
+  /** Children shown in the Level 3 sub-sub-strip */
+  children?: SubStripTabConfig[];
+  /** Role-gate for the entire group */
+  roles?: RoleKey[];
+}
+
+/**
+ * Hubs that use grouped (two-level) sub-strip navigation.
+ * If a hub key appears here, the layout renders GroupedSubStrip instead of SubStrip.
+ */
+export const hubGroupedSubStripConfigs: Record<string, SubStripGroupConfig[]> = {
+  learning: [
+    {
+      labelKey: 'nav.classes',
+      children: [
+        { labelKey: 'nav.classes', href: '/classes' },
+        { labelKey: 'nav.classAssignments', href: '/class-assignments' },
+        { labelKey: 'nav.promotion', href: '/promotion', roles: ADMIN_ROLES },
+      ],
+    },
+    {
+      labelKey: 'nav.curriculum',
+      children: [
+        { labelKey: 'nav.subjects', href: '/subjects' },
+        { labelKey: 'nav.curriculumMatrix', href: '/curriculum-matrix' },
+      ],
+      roles: ADMIN_ROLES,
+    },
+    {
+      labelKey: 'nav.assessment',
+      children: [
+        { labelKey: 'nav.gradebook', href: '/gradebook' },
+        { labelKey: 'nav.reportCards', href: '/report-cards' },
+      ],
+    },
+    {
+      labelKey: 'nav.homework',
+      children: [
+        { labelKey: 'nav.homework', href: '/homework' },
+        { labelKey: 'nav.diary', href: '/diary' },
+      ],
+    },
+    {
+      labelKey: 'nav.attendance',
+      href: '/attendance',
+    },
+  ],
+};
+
 export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
   people: [
     { labelKey: 'nav.students', href: '/students' },
     { labelKey: 'nav.staff', href: '/staff', roles: ADMIN_ROLES },
     { labelKey: 'nav.households', href: '/households', roles: ADMIN_ROLES },
-  ],
-  learning: [
-    { labelKey: 'nav.classes', href: '/classes' },
-    { labelKey: 'nav.attendance', href: '/attendance' },
-    { labelKey: 'nav.gradebook', href: '/gradebook' },
-    { labelKey: 'nav.reportCards', href: '/report-cards' },
-    { labelKey: 'nav.subjects', href: '/subjects', overflow: true, roles: ADMIN_ROLES },
-    { labelKey: 'nav.curriculum', href: '/curriculum-matrix', overflow: true, roles: ADMIN_ROLES },
-    { labelKey: 'nav.classAssignments', href: '/class-assignments', overflow: true },
-    { labelKey: 'nav.promotion', href: '/promotion', overflow: true, roles: ADMIN_ROLES },
   ],
   wellbeing: [
     { labelKey: 'nav.behaviour', href: '/behaviour' },
