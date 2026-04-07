@@ -22,6 +22,7 @@ interface ListAssessmentsParams {
   pageSize: number;
   class_id?: string;
   subject_id?: string;
+  academic_year_id?: string;
   academic_period_id?: string;
   category_id?: string;
   status?: string;
@@ -135,6 +136,7 @@ export class AssessmentsService {
       pageSize,
       class_id,
       subject_id,
+      academic_year_id,
       academic_period_id,
       category_id,
       status,
@@ -150,6 +152,10 @@ export class AssessmentsService {
 
     if (subject_id) {
       where.subject_id = subject_id;
+    }
+
+    if (academic_year_id) {
+      where.academic_period = { academic_year_id };
     }
 
     if (academic_period_id) {

@@ -77,23 +77,31 @@ export default function GradebookPage() {
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/academic-years?pageSize=50')
       .then((res) => setAcademicYears(res.data))
-      .catch((err) => { console.error('[GradebookPage]', err); });
+      .catch((err) => {
+        console.error('[GradebookPage]', err);
+      });
     apiClient<ListResponse<SelectOption>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setAcademicPeriods(res.data))
-      .catch((err) => { console.error('[GradebookPage]', err); });
+      .catch((err) => {
+        console.error('[GradebookPage]', err);
+      });
     apiClient<ListResponse<SelectOption>>('/api/v1/classes?pageSize=100')
       .then((res) => setClasses(res.data))
-      .catch((err) => { console.error('[GradebookPage]', err); });
+      .catch((err) => {
+        console.error('[GradebookPage]', err);
+      });
     apiClient<ListResponse<SelectOption>>('/api/v1/subjects?pageSize=100&subject_type=academic')
       .then((res) => setSubjects(res.data))
-      .catch((err) => { console.error('[GradebookPage]', err); });
+      .catch((err) => {
+        console.error('[GradebookPage]', err);
+      });
   }, []);
 
   const fetchAssessments = React.useCallback(
     async (year: string, period: string, classId: string, subjectId: string) => {
       setIsLoading(true);
       try {
-        const params = new URLSearchParams({ pageSize: '200' });
+        const params = new URLSearchParams({ pageSize: '100' });
         if (year !== 'all') params.set('academic_year_id', year);
         if (period !== 'all') params.set('academic_period_id', period);
         if (classId !== 'all') params.set('class_id', classId);

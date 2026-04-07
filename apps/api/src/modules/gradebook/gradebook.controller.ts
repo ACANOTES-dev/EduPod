@@ -75,6 +75,7 @@ const listAssessmentsQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   class_id: z.string().uuid().optional(),
   subject_id: z.string().uuid().optional(),
+  academic_year_id: z.string().uuid().optional(),
   academic_period_id: z.string().uuid().optional(),
   category_id: z.string().uuid().optional(),
   status: z.enum(['draft', 'open', 'closed', 'locked']).optional(),
