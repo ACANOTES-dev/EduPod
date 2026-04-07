@@ -71,30 +71,31 @@ const TABS: SettingsTab[] = [
     href: 'grading-scales',
     roles: ADMIN_SETTINGS_ROLES,
   },
-  {
-    key: 'assessment-categories',
-    labelKey: 'assessmentCategories',
-    href: 'assessment-categories',
-    roles: ADMIN_SETTINGS_ROLES,
-  },
-  {
-    key: 'grading-weights',
-    labelKey: 'gradingWeights',
-    href: 'grading-weights',
-    roles: ADMIN_SETTINGS_ROLES,
-  },
-  {
-    key: 'rubric-templates',
-    labelKey: 'rubricTemplates',
-    href: 'rubric-templates',
-    roles: ADMIN_SETTINGS_ROLES,
-  },
-  {
-    key: 'curriculum-standards',
-    labelKey: 'curriculumStandards',
-    href: 'curriculum-standards',
-    roles: ADMIN_SETTINGS_ROLES,
-  },
+  // Moved to /assessments/* teacher workflow
+  // {
+  //   key: 'assessment-categories',
+  //   labelKey: 'assessmentCategories',
+  //   href: 'assessment-categories',
+  //   roles: ADMIN_SETTINGS_ROLES,
+  // },
+  // {
+  //   key: 'grading-weights',
+  //   labelKey: 'gradingWeights',
+  //   href: 'grading-weights',
+  //   roles: ADMIN_SETTINGS_ROLES,
+  // },
+  // {
+  //   key: 'rubric-templates',
+  //   labelKey: 'rubricTemplates',
+  //   href: 'rubric-templates',
+  //   roles: ADMIN_SETTINGS_ROLES,
+  // },
+  // {
+  //   key: 'curriculum-standards',
+  //   labelKey: 'curriculumStandards',
+  //   href: 'curriculum-standards',
+  //   roles: ADMIN_SETTINGS_ROLES,
+  // },
   {
     key: 'competency-scales',
     labelKey: 'competencyScales',

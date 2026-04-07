@@ -385,6 +385,7 @@ export const hubGroupedSubStripConfigs: Record<string, SubStripGroupConfig[]> = 
         { labelKey: 'nav.gradingWeights', href: '/assessments/grading-weights' },
         { labelKey: 'nav.rubricTemplates', href: '/assessments/rubric-templates' },
         { labelKey: 'nav.curriculumStandards', href: '/assessments/curriculum-standards' },
+        { labelKey: 'nav.assessmentApprovals', href: '/assessments/approvals', roles: ADMIN_ROLES },
       ],
     },
     {

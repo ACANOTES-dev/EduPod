@@ -5,7 +5,20 @@ import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, Checkbox, Input, StatusBadge, Textarea, toast } from '@school/ui';
+import {
+  Button,
+  Checkbox,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  StatusBadge,
+  Textarea,
+  toast,
+} from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -35,11 +48,15 @@ interface GradesResponse {
   };
 }
 
-const STATUS_VARIANT: Record<string, 'warning' | 'info' | 'success' | 'neutral'> = {
+const STATUS_VARIANT: Record<string, 'warning' | 'info' | 'success' | 'neutral' | 'danger'> = {
   draft: 'warning',
   open: 'info',
   closed: 'success',
   locked: 'neutral',
+  submitted_locked: 'success',
+  unlock_requested: 'warning',
+  reopened: 'info',
+  final_locked: 'neutral',
 };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -55,34 +72,66 @@ export default function GradeEntryPage() {
   const classId = params?.classId as string;
   const assessmentId = params?.assessmentId as string;
 
+  const tUnlock = useTranslations('teacherAssessments');
+
   const [assessment, setAssessment] = React.useState<AssessmentDetail | null>(null);
   const [grades, setGrades] = React.useState<StudentGrade[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
+  const [unlockDialogOpen, setUnlockDialogOpen] = React.useState(false);
+  const [unlockReason, setUnlockReason] = React.useState('');
+  const [submittingUnlock, setSubmittingUnlock] = React.useState(false);
 
   const scoreRefs = React.useRef<(HTMLInputElement | null)[]>([]);
 
-  const isLocked = assessment?.status === 'closed' || assessment?.status === 'locked';
+  const isLocked =
+    assessment?.status !== 'draft' &&
+    assessment?.status !== 'open' &&
+    assessment?.status !== 'reopened';
+
+  const canRequestUnlock =
+    assessment?.status === 'submitted_locked' || assessment?.status === 'final_locked';
+
+  const fetchAssessmentData = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await apiClient<GradesResponse>(
+        `/api/v1/gradebook/assessments/${assessmentId}/grades`,
+      );
+      setAssessment(res.data.assessment);
+      setGrades(res.data.grades);
+    } catch (err) {
+      console.error('[AssessmentsGradesPage]', err);
+      setAssessment(null);
+      setGrades([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [assessmentId]);
+
+  const handleUnlockRequest = async () => {
+    if (!unlockReason.trim()) return;
+    setSubmittingUnlock(true);
+    try {
+      await apiClient(`/api/v1/gradebook/assessments/${assessmentId}/unlock-request`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: unlockReason.trim() }),
+      });
+      toast.success(tUnlock('unlockRequested'));
+      setUnlockDialogOpen(false);
+      setUnlockReason('');
+      void fetchAssessmentData();
+    } catch (err) {
+      console.error('[AssessmentsGradesPage] unlock request', err);
+      toast.error(tc('errorGeneric'));
+    } finally {
+      setSubmittingUnlock(false);
+    }
+  };
 
   React.useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const res = await apiClient<GradesResponse>(
-          `/api/v1/gradebook/assessments/${assessmentId}/grades`,
-        );
-        setAssessment(res.data.assessment);
-        setGrades(res.data.grades);
-      } catch (err) {
-        console.error('[AssessmentsGradesPage]', err);
-        setAssessment(null);
-        setGrades([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    void fetchData();
-  }, [assessmentId]);
+    void fetchAssessmentData();
+  }, [fetchAssessmentData]);
 
   const updateGrade = React.useCallback(
     (studentId: string, field: keyof StudentGrade, value: unknown) => {
@@ -193,9 +242,22 @@ export default function GradeEntryPage() {
       </div>
 
       {isLocked && (
-        <div className="flex items-center gap-2 rounded-xl border border-warning-fill bg-warning-fill/10 p-4 text-sm text-warning-text">
-          <Lock className="h-4 w-4" />
-          {t('locked')}
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-warning-fill bg-warning-fill/10 p-4 text-sm text-warning-text">
+          <div className="flex items-center gap-2">
+            <Lock className="h-4 w-4" />
+            {t('locked')}
+          </div>
+          {canRequestUnlock && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setUnlockDialogOpen(true)}
+              className="shrink-0"
+            >
+              <Lock className="me-1.5 h-3.5 w-3.5" />
+              {tUnlock('requestUnlock')}
+            </Button>
+          )}
         </div>
       )}
 
@@ -209,14 +271,18 @@ export default function GradeEntryPage() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-border bg-surface-secondary">
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{tCommon('student')}</th>
+              <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                {tCommon('student')}
+              </th>
               <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
                 {t('score')}
               </th>
               <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
                 {t('missing')}
               </th>
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('comment')}</th>
+              <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                {t('comment')}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -272,6 +338,41 @@ export default function GradeEntryPage() {
           </Button>
         </div>
       )}
+
+      {/* Unlock request dialog */}
+      <Dialog open={unlockDialogOpen} onOpenChange={setUnlockDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{tUnlock('requestUnlock')}</DialogTitle>
+            <DialogDescription>{tUnlock('unlockReason')}</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={unlockReason}
+            onChange={(e) => setUnlockReason(e.target.value)}
+            placeholder={tUnlock('unlockReasonPlaceholder')}
+            rows={4}
+            className="mt-2"
+          />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setUnlockDialogOpen(false);
+                setUnlockReason('');
+              }}
+              disabled={submittingUnlock}
+            >
+              {tc('cancel')}
+            </Button>
+            <Button
+              onClick={handleUnlockRequest}
+              disabled={submittingUnlock || !unlockReason.trim()}
+            >
+              {submittingUnlock ? tc('loading') : tc('submit')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
