@@ -293,7 +293,7 @@ describe('HouseholdStatementsService — branch coverage', () => {
       await service.renderPdf(TENANT_ID, HOUSEHOLD_ID, 'en', {});
 
       expect(mockPdfService.renderPdf).toHaveBeenCalledWith(
-        'statement',
+        'household-statement',
         'en',
         expect.any(Object),
         expect.objectContaining({
@@ -311,7 +311,7 @@ describe('HouseholdStatementsService — branch coverage', () => {
       await service.renderPdf(TENANT_ID, HOUSEHOLD_ID, 'ar', {});
 
       expect(mockPdfService.renderPdf).toHaveBeenCalledWith(
-        'statement',
+        'household-statement',
         'ar',
         expect.any(Object),
         expect.objectContaining({
@@ -327,7 +327,7 @@ describe('HouseholdStatementsService — branch coverage', () => {
       await service.renderPdf(TENANT_ID, HOUSEHOLD_ID, 'en', {});
 
       expect(mockPdfService.renderPdf).toHaveBeenCalledWith(
-        'statement',
+        'household-statement',
         'en',
         expect.any(Object),
         expect.objectContaining({

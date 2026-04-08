@@ -3955,6 +3955,13 @@
     "permission": "gradebook.enter_grades"
   },
   {
+    "method": "POST",
+    "path": "/v1/gradebook/assessments/:id/duplicate",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.enter_grades"
+  },
+  {
     "method": "PUT",
     "path": "/v1/gradebook/assessments/:id/standards",
     "controller": "GradebookAdvancedController",
@@ -3984,6 +3991,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/gradebook/classes/:classId/allocations",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.manage"
+  },
+  {
+    "method": "GET",
     "path": "/v1/gradebook/classes/:classId/grade-configs",
     "controller": "GradebookController",
     "module": "gradebook",
@@ -3994,7 +4008,7 @@
     "path": "/v1/gradebook/classes/:classId/results-matrix",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.override_final_grade"
+    "permission": "gradebook.view"
   },
   {
     "method": "PUT",
@@ -4022,7 +4036,7 @@
     "path": "/v1/gradebook/classes/:classId/subjects/:subjectId/grade-config",
     "controller": "GradebookController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "gradebook.view"
   },
   {
     "method": "GET",
@@ -4189,6 +4203,27 @@
     "method": "POST",
     "path": "/v1/gradebook/period-grades/compute-gpa",
     "controller": "GradebookAdvancedController",
+    "module": "gradebook",
+    "permission": "gradebook.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/gradebook/period-grades/cross-period",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/gradebook/period-grades/cross-subject",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.override_final_grade"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/gradebook/period-grades/year-overview",
+    "controller": "GradebookController",
     "module": "gradebook",
     "permission": "gradebook.view"
   },
@@ -4387,6 +4422,48 @@
     "controller": "GradebookController",
     "module": "gradebook",
     "permission": "gradebook.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/gradebook/weight-config/period-weights",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.manage"
+  },
+  {
+    "method": "PUT",
+    "path": "/v1/gradebook/weight-config/period-weights",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/gradebook/weight-config/period-weights/propagate",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/gradebook/weight-config/subject-weights",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.manage"
+  },
+  {
+    "method": "PUT",
+    "path": "/v1/gradebook/weight-config/subject-weights",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/gradebook/weight-config/subject-weights/propagate",
+    "controller": "GradebookController",
+    "module": "gradebook",
+    "permission": "gradebook.manage"
   },
   {
     "method": "PUT",

@@ -326,7 +326,7 @@ describe('HouseholdStatementsService', () => {
 
       expect(result).toBe(pdfBuffer);
       expect(mockPdfRenderingService.renderPdf).toHaveBeenCalledWith(
-        'statement',
+        'household-statement',
         'en',
         expect.objectContaining({ household: expect.objectContaining({ id: HOUSEHOLD_ID }) }),
         expect.objectContaining({ school_name: 'Test School' }),

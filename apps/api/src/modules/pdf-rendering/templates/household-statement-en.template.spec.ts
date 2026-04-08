@@ -80,8 +80,9 @@ describe('renderHouseholdStatementEn', () => {
   it('should include date range', () => {
     const result = renderHouseholdStatementEn(STATEMENT_DATA, BRANDING);
 
-    expect(result).toContain('2025-09-01');
-    expect(result).toContain('2026-01-31');
+    // Template formats dates via formatDate() -> '01 Sept 2025' style
+    expect(result).toContain('01 Sept 2025');
+    expect(result).toContain('31 Jan 2026');
   });
 
   it('should render ledger entries', () => {
@@ -105,7 +106,8 @@ describe('renderHouseholdStatementEn', () => {
     const result = renderHouseholdStatementEn(STATEMENT_DATA, BRANDING);
 
     expect(result).toContain('EUR 500.00');
-    expect(result).toContain('EUR 1550.00');
+    // toLocaleString adds comma separator for thousands
+    expect(result).toContain('EUR 1,550.00');
   });
 
   it('should include school branding', () => {
@@ -148,14 +150,15 @@ describe('renderHouseholdStatementEn', () => {
     const data = { ...STATEMENT_DATA, closing_balance: 0 };
     const result = renderHouseholdStatementEn(data, BRANDING);
 
-    expect(result).toContain('#16a34a');
+    // Template uses #059669 for non-positive closing balance
+    expect(result).toContain('#059669');
   });
 
   it('should use green for negative closing balance (credit)', () => {
     const data = { ...STATEMENT_DATA, closing_balance: -100 };
     const result = renderHouseholdStatementEn(data, BRANDING);
 
-    expect(result).toContain('#16a34a');
+    expect(result).toContain('#059669');
   });
 
   // ─── Entry type formatting branches ────────────────────────────────────────
@@ -225,8 +228,8 @@ describe('renderHouseholdStatementEn', () => {
   it('should render debit amount when not null', () => {
     const result = renderHouseholdStatementEn(STATEMENT_DATA, BRANDING);
 
-    // First entry has debit: 2500.0
-    expect(result).toContain('EUR 2500.00');
+    // First entry has debit: 2500.0 — toLocaleString adds comma for thousands
+    expect(result).toContain('EUR 2,500.00');
   });
 
   it('should render empty cell when debit is null', () => {
@@ -239,9 +242,10 @@ describe('renderHouseholdStatementEn', () => {
   it('should render credit amount with green color when not null', () => {
     const result = renderHouseholdStatementEn(STATEMENT_DATA, BRANDING);
 
-    // Second entry has credit: 1000.0
-    expect(result).toContain('EUR 1000.00');
-    expect(result).toContain('#16a34a');
+    // Second entry has credit: 1000.0 — toLocaleString adds comma for thousands
+    expect(result).toContain('EUR 1,000.00');
+    // Template uses #059669 for credit column color
+    expect(result).toContain('#059669');
   });
 
   // ─── Logo and branding branches ────────────────────────────────────────────
@@ -257,6 +261,7 @@ describe('renderHouseholdStatementEn', () => {
     const brandingNoColor: PdfBranding = { school_name: 'Minimal' };
     const result = renderHouseholdStatementEn(STATEMENT_DATA, brandingNoColor);
 
-    expect(result).toContain('#1e40af');
+    // Template default primary color is #1a56db
+    expect(result).toContain('#1a56db');
   });
 });
