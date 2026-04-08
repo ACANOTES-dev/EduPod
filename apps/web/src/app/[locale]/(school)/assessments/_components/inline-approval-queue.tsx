@@ -160,8 +160,9 @@ export function InlineApprovalQueue() {
 
   const handleApproveUnlock = async (req: UnlockRequest) => {
     try {
-      await apiClient(`/api/v1/gradebook/unlock-requests/${req.id}/approve`, {
+      await apiClient(`/api/v1/gradebook/unlock-requests/${req.id}/review`, {
         method: 'POST',
+        body: JSON.stringify({ status: 'approved' }),
       });
       toast.success(t('approveSuccess'));
       void fetchApprovals();
@@ -186,11 +187,15 @@ export function InlineApprovalQueue() {
       } else if (rejectTarget.type === 'weight') {
         endpoint = `/api/v1/gradebook/teacher-grading-weights/${rejectTarget.id}/reject`;
       } else {
-        endpoint = `/api/v1/gradebook/unlock-requests/${rejectTarget.id}/reject`;
+        endpoint = `/api/v1/gradebook/unlock-requests/${rejectTarget.id}/review`;
       }
+      const rejectBody =
+        rejectTarget.type === 'unlock'
+          ? { status: 'rejected', reason: rejectReason.trim() }
+          : { reason: rejectReason.trim() };
       await apiClient(endpoint, {
         method: 'POST',
-        body: JSON.stringify({ reason: rejectReason.trim() }),
+        body: JSON.stringify(rejectBody),
       });
       toast.success(t('rejectSuccess'));
       setRejectTarget(null);
