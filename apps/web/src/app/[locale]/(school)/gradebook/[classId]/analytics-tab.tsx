@@ -87,25 +87,91 @@ export function AnalyticsTab({ classId }: { classId: string }) {
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
-      .catch((err) => { console.error('[AnalyticsTab]', err); });
+      .catch((err) => {
+        console.error('[AnalyticsTab]', err);
+      });
     apiClient<ListResponse<SelectOption>>('/api/v1/subjects?pageSize=100&subject_type=academic')
       .then((res) => setSubjects(res.data))
-      .catch((err) => { console.error('[AnalyticsTab]', err); });
+      .catch((err) => {
+        console.error('[AnalyticsTab]', err);
+      });
   }, []);
 
-  // Fetch analytics when filters change
+  // Fetch analytics when filters change — calls two separate backend endpoints
   React.useEffect(() => {
     if (!periodId || !subjectId) return;
     setIsLoading(true);
-    const params = new URLSearchParams({
-      academic_period_id: periodId,
+
+    const trendParams = new URLSearchParams({
       subject_id: subjectId,
+      period_id: periodId,
     });
-    apiClient<ClassAnalyticsResponse>(
-      `/api/v1/gradebook/classes/${classId}/analytics?${params.toString()}`,
-    )
-      .then((res) => setAnalytics(res))
-      .catch((err) => { console.error('[AnalyticsTab]', err); return setAnalytics(null); })
+    const distParams = new URLSearchParams({
+      class_id: classId,
+      subject_id: subjectId,
+      period_id: periodId,
+    });
+
+    Promise.all([
+      apiClient<
+        {
+          assessment_id: string;
+          title: string;
+          due_date: string | null;
+          average: number;
+          count: number;
+        }[]
+      >(`/api/v1/gradebook/analytics/classes/${classId}/trend?${trendParams.toString()}`).catch(
+        () =>
+          [] as {
+            assessment_id: string;
+            title: string;
+            due_date: string | null;
+            average: number;
+            count: number;
+          }[],
+      ),
+      apiClient<{
+        mean: number;
+        median: number;
+        stddev: number;
+        min: number;
+        max: number;
+        passRate: number;
+        count: number;
+        histogram: { label: string; min: number; max: number; count: number }[];
+      }>(`/api/v1/gradebook/analytics/period-distribution?${distParams.toString()}`).catch(
+        () => null,
+      ),
+    ])
+      .then(([trendData, distData]) => {
+        const totalStudents = distData?.count ?? 0;
+        setAnalytics({
+          trend: trendData.map((tp) => ({
+            assessment_title: tp.title,
+            class_average: tp.average,
+            assessment_date: tp.due_date,
+          })),
+          distribution:
+            distData?.histogram?.map((b) => ({
+              range_label: b.label,
+              count: b.count,
+              percentage: totalStudents > 0 ? (b.count / totalStudents) * 100 : 0,
+            })) ?? [],
+          summary: {
+            mean: distData?.mean ?? null,
+            median: distData?.median ?? null,
+            std_dev: distData?.stddev ?? null,
+            pass_rate: distData?.passRate ?? null,
+            min_score: distData?.min ?? null,
+            max_score: distData?.max ?? null,
+          },
+        });
+      })
+      .catch((err) => {
+        console.error('[AnalyticsTab]', err);
+        setAnalytics(null);
+      })
       .finally(() => setIsLoading(false));
   }, [classId, periodId, subjectId]);
 

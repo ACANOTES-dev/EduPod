@@ -94,7 +94,7 @@ export const navSectionConfigs: NavSectionConfig[] = [
       { labelKey: 'nav.attendance', href: '/attendance' },
       { labelKey: 'nav.gradebook', href: '/gradebook' },
       { labelKey: 'nav.homework', href: '/homework' },
-      { labelKey: 'nav.reportCards', href: '/report-cards', roles: ADMIN_ROLES },
+      { labelKey: 'nav.reportCards', href: '/report-cards', roles: [...ADMIN_ROLES, 'teacher'] },
     ],
   },
   {

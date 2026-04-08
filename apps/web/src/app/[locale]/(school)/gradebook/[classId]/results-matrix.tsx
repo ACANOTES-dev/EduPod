@@ -101,7 +101,9 @@ export function ResultsMatrix({ classId }: { classId: string }) {
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
-      .catch((err) => { console.error('[ResultsMatrix]', err); });
+      .catch((err) => {
+        console.error('[ResultsMatrix]', err);
+      });
   }, []);
 
   // Fetch matrix when period changes
@@ -216,8 +218,8 @@ export function ResultsMatrix({ classId }: { classId: string }) {
     }
   };
 
-  // Filter subjects
-  const displaySubjects = matrix
+  // Filter subjects (guard against undefined subjects in API response)
+  const displaySubjects = matrix?.subjects
     ? subjectFilter === 'all'
       ? matrix.subjects
       : matrix.subjects.filter((s) => s.id === subjectFilter)
@@ -440,9 +442,14 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                   {tc('student').toLowerCase()}s{' · '}
                   <strong className="text-text-primary">{displaySubjects.length}</strong>{' '}
                   {t('subject').toLowerCase()}s{' · '}
-                  <strong className="text-text-primary">{filledCells}</strong>{t('of')}{' '}
-                  <strong className="text-text-primary">{totalCells}</strong>{t('gradesEntered')}{dirtyGrades.size > 0 && (
-                    <span className="ms-2 text-warning-text">({dirtyGrades.size}{t('unsaved')}</span>
+                  <strong className="text-text-primary">{filledCells}</strong>
+                  {t('of')} <strong className="text-text-primary">{totalCells}</strong>
+                  {t('gradesEntered')}
+                  {dirtyGrades.size > 0 && (
+                    <span className="ms-2 text-warning-text">
+                      ({dirtyGrades.size}
+                      {t('unsaved')}
+                    </span>
                   )}
                 </p>
                 <div className="flex items-center gap-2">
@@ -476,7 +483,9 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                             if (!isNaN(val) && val >= 0) applyDefaultScore(val);
                           }}
                           disabled={!defaultScoreInput}
-                        >{t('apply')}</Button>
+                        >
+                          {t('apply')}
+                        </Button>
                       </div>
                     </PopoverContent>
                   </Popover>

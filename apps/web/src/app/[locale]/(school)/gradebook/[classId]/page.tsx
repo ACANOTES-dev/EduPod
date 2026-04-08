@@ -27,14 +27,12 @@ import {
   toast,
 } from '@school/ui';
 
-
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 import { AnalyticsTab } from './analytics-tab';
 import { ResultsMatrix } from './results-matrix';
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -98,6 +96,23 @@ const STATUS_VARIANT: Record<string, 'warning' | 'info' | 'success' | 'neutral'>
   open: 'info',
   closed: 'success',
   locked: 'neutral',
+  submitted_locked: 'neutral',
+  unlock_requested: 'warning',
+  reopened: 'info',
+  final_locked: 'neutral',
+};
+
+// ─── Status label key map ─────────────────────────────────────────────────────
+
+const STATUS_LABEL_KEY: Record<string, string> = {
+  draft: 'statusDraft',
+  open: 'statusOpen',
+  closed: 'statusClosed',
+  locked: 'statusLocked',
+  submitted_locked: 'statusSubmittedLocked',
+  unlock_requested: 'statusUnlockRequested',
+  reopened: 'statusReopened',
+  final_locked: 'statusFinalLocked',
 };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -120,7 +135,9 @@ export default function ClassGradebookPage() {
   React.useEffect(() => {
     apiClient<{ data: AssessmentTemplate[] }>('/api/v1/gradebook/assessment-templates?pageSize=100')
       .then((res) => setAssessmentTemplates(res.data))
-      .catch((err) => { console.error('[GradebookPage]', err); });
+      .catch((err) => {
+        console.error('[GradebookPage]', err);
+      });
   }, []);
 
   const handleCreateFromTemplate = (tplId: string) => {
@@ -144,7 +161,9 @@ export default function ClassGradebookPage() {
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/subjects?pageSize=100&subject_type=academic')
       .then((res) => setAssessmentSubjects(res.data))
-      .catch((err) => { console.error('[GradebookPage]', err); });
+      .catch((err) => {
+        console.error('[GradebookPage]', err);
+      });
   }, []);
 
   const fetchAssessments = React.useCallback(
@@ -160,7 +179,16 @@ export default function ClassGradebookPage() {
         const res = await apiClient<AssessmentsResponse>(
           `/api/v1/gradebook/assessments?${params.toString()}`,
         );
-        setAssessments(res.data);
+        // Normalise: API returns category as nested { id, name } object
+        const normalised = res.data.map((a) => {
+          const cat = (a as unknown as { category?: { id: string; name: string } }).category;
+          return {
+            ...a,
+            category_name: a.category_name || cat?.name || '',
+            category_id: a.category_id || cat?.id || '',
+          };
+        });
+        setAssessments(normalised);
         setAssessmentsTotal(res.meta.total);
       } catch (err) {
         console.error('[GradebookPage]', err);
@@ -208,13 +236,7 @@ export default function ClassGradebookPage() {
       header: 'Status',
       render: (row: Assessment) => (
         <StatusBadge status={STATUS_VARIANT[row.status] ?? 'neutral'} dot>
-          {t(
-            `status${row.status.charAt(0).toUpperCase() + row.status.slice(1)}` as
-              | 'statusDraft'
-              | 'statusOpen'
-              | 'statusClosed'
-              | 'statusLocked',
-          )}
+          {t(STATUS_LABEL_KEY[row.status] ?? 'statusDraft')}
         </StatusBadge>
       ),
     },
@@ -265,7 +287,9 @@ export default function ClassGradebookPage() {
               setNewStatus('');
               setStatusDialogOpen(true);
             }}
-          >{t('publishingStatus')}</Button>
+          >
+            {t('publishingStatus')}
+          </Button>
         </div>
       ),
     },
@@ -291,10 +315,14 @@ export default function ClassGradebookPage() {
     if (activeTab === 'grades') {
       apiClient<ListResponse<SelectOption>>('/api/v1/subjects?pageSize=100&subject_type=academic')
         .then((res) => setPgSubjects(res.data))
-        .catch((err) => { console.error('[GradebookPage]', err); });
+        .catch((err) => {
+          console.error('[GradebookPage]', err);
+        });
       apiClient<ListResponse<SelectOption>>('/api/v1/academic-periods?pageSize=50')
         .then((res) => setPgPeriods(res.data))
-        .catch((err) => { console.error('[GradebookPage]', err); });
+        .catch((err) => {
+          console.error('[GradebookPage]', err);
+        });
     }
   }, [activeTab]);
 
@@ -566,7 +594,9 @@ export default function ClassGradebookPage() {
               </DialogHeader>
               <div className="space-y-4">
                 {statusTarget && (
-                  <p className="text-sm text-text-secondary">{t('current')}<Badge variant="secondary">{statusTarget.status}</Badge>
+                  <p className="text-sm text-text-secondary">
+                    {t('current')}
+                    <Badge variant="secondary">{statusTarget.status}</Badge>
                   </p>
                 )}
                 <Select value={newStatus} onValueChange={setNewStatus}>
@@ -629,7 +659,9 @@ export default function ClassGradebookPage() {
           </div>
 
           {!pgSubjectId || !pgPeriodId ? (
-            <p className="py-8 text-center text-sm text-text-tertiary">{t('selectASubjectAndPeriod')}</p>
+            <p className="py-8 text-center text-sm text-text-tertiary">
+              {t('selectASubjectAndPeriod')}
+            </p>
           ) : (
             <DataTable
               columns={periodGradeColumns}
@@ -651,7 +683,8 @@ export default function ClassGradebookPage() {
               </DialogHeader>
               <div className="space-y-4">
                 {overrideTarget && (
-                  <p className="text-sm text-text-secondary">{t('student')}{' '}
+                  <p className="text-sm text-text-secondary">
+                    {t('student')}{' '}
                     <span className="font-medium text-text-primary">
                       {overrideTarget.student_name}
                     </span>

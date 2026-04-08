@@ -34,7 +34,12 @@ export const LEGAL_ROLES: RoleKey[] = [...STAFF_ROLES, 'parent', 'student'];
 // ─── Unrestricted paths ──────────────────────────────────────────────────────
 
 /** Routes that any authenticated user can access (no role check needed). */
-export const UNRESTRICTED_PATHS = ['/dashboard', '/profile', '/profile/communication', '/select-school'];
+export const UNRESTRICTED_PATHS = [
+  '/dashboard',
+  '/profile',
+  '/profile/communication',
+  '/select-school',
+];
 
 // ─── Route-role map ──────────────────────────────────────────────────────────
 
@@ -95,7 +100,7 @@ export const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
     prefix: '/homework',
     roles: [...ADMIN_ROLES, 'teacher'],
   },
-  { prefix: '/report-cards', roles: ADMIN_ROLES },
+  { prefix: '/report-cards', roles: [...ADMIN_ROLES, 'teacher'] },
   { prefix: '/rooms', roles: ADMIN_ROLES },
   { prefix: '/schedules', roles: ADMIN_ROLES },
   {
@@ -133,9 +138,7 @@ export const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
 export function isAllowedForRoute(pathWithoutLocale: string, roleKeys: RoleKey[]): boolean {
   // Unrestricted paths — any authenticated user
   if (
-    UNRESTRICTED_PATHS.some(
-      (p) => pathWithoutLocale === p || pathWithoutLocale.startsWith(p + '/'),
-    )
+    UNRESTRICTED_PATHS.some((p) => pathWithoutLocale === p || pathWithoutLocale.startsWith(p + '/'))
   ) {
     return true;
   }
