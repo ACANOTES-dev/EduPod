@@ -5,11 +5,8 @@
 -- ─── New Enum: ConfigApprovalStatus ─────────────────────────────────────────
 CREATE TYPE "ConfigApprovalStatus" AS ENUM ('draft', 'pending_approval', 'approved', 'rejected', 'archived');
 
--- ─── Extend AssessmentStatus Enum ───────────────────────────────────────────
-ALTER TYPE "AssessmentStatus" ADD VALUE IF NOT EXISTS 'submitted_locked';
-ALTER TYPE "AssessmentStatus" ADD VALUE IF NOT EXISTS 'unlock_requested';
-ALTER TYPE "AssessmentStatus" ADD VALUE IF NOT EXISTS 'reopened';
-ALTER TYPE "AssessmentStatus" ADD VALUE IF NOT EXISTS 'final_locked';
+-- NOTE: AssessmentStatus enum extensions moved to 20260407110000_extend_assessment_status_enum
+-- (PostgreSQL requires new enum values to be committed before use in the same transaction)
 
 -- ─── Modify assessment_categories ───────────────────────────────────────────
 
