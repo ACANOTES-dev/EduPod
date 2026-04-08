@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying a module's public API, shared table contract, or exported service, check here to see what else breaks.
 > **Maintenance**: Update when adding module exports, changing shared service interfaces, or introducing new cross-module reads/writes.
-> **Last verified**: 2026-04-07
+> **Last verified**: 2026-04-08
 
 ---
 
@@ -125,6 +125,7 @@ If a module is not listed individually, it is either:
 
 - **Contract**: cross-domain analytics aggregation
 - **Primary consumers**: dashboard, board reporting, workload/leadership reporting, compliance-style exports
+- **Imports**: AdmissionsModule, SchedulesModule
 - **Blast radius**: MEDIUM-HIGH
 - **Notes**: this module is where table-shape changes surface after features seem to work elsewhere
 
@@ -157,6 +158,7 @@ If a module is not listed individually, it is either:
 
 - **Contract**: classes, class enrolments, class staffing, classes read facade
 - **Primary consumers**: attendance, gradebook, homework, behaviour scope, pastoral scope, scheduling, reports, parent-facing class views
+- **Imports**: SchedulesModule
 - **Blast radius**: VERY HIGH
 - **Notes**: class enrolment shape changes hit both academic and safeguarding-style visibility rules
 
@@ -171,6 +173,7 @@ If a module is not listed individually, it is either:
 
 - **Contract**: attendance tables, attendance read facade, alert semantics, parent-notification rules
 - **Primary consumers**: dashboards, reports, regulatory, early warning, gradebook risk context, parent digests
+- **Imports**: SchoolClosuresModule
 - **Blast radius**: HIGH
 - **Notes**: worker processors and regulatory scans read the same attendance artifacts on separate codepaths
 
@@ -201,6 +204,7 @@ If a module is not listed individually, it is either:
 
 - **Contract**: payroll runs, payroll read surface, payslip generation contract
 - **Primary consumers**: approvals, wellbeing board/workload reports, exports, staff self-service
+- **Imports**: SchedulesModule, SchoolClosuresModule
 - **Blast radius**: HIGH
 - **Notes**: payroll finalisation crosses approvals, sequences, and PDF/export flows
 
@@ -257,15 +261,25 @@ If a module is not listed individually, it is either:
 
 - **Contract**: calendar, submissions, Tusla, DES/October returns, PPOD/POD, transfers
 - **Primary consumers**: worker processors on the `regulatory` queue, academic/attendance/behaviour/staff data contracts
+- **Imports**: SchedulesModule
 - **Blast radius**: HIGH
 - **Notes**: exports are limited, but the module is a wide reader of other domain data
 
-### SchedulingModule + SchedulingRunsModule
+### SchedulingModule
 
-- **Contract**: solver inputs/outputs, run status, generated timetable application
+- **Contract**: solver inputs/outputs, generated timetable application
 - **Primary consumers**: classes, staff availability/preferences, rooms, closures, staff wellbeing metrics, personal timetables
+- **Imports**: RoomsModule, StaffProfilesModule
 - **Blast radius**: HIGH
 - **Notes**: solver result shape and run-status semantics matter to multiple user surfaces and workers
+
+### SchedulingRunsModule
+
+- **Contract**: run status, solver execution lifecycle
+- **Primary consumers**: scheduling UI, staff wellbeing metrics
+- **Imports**: SchedulesModule
+- **Blast radius**: HIGH
+- **Notes**: run-status semantics and solver execution state matter to scheduling surfaces and worker processors
 
 ### SenModule
 
@@ -281,20 +295,74 @@ If a module is not listed individually, it is either:
 - **Blast radius**: MEDIUM
 - **Notes**: downstream breakage is limited, but upstream schedule/substitution/staff-data changes can distort outputs quickly
 
+### AdmissionsModule
+
+- **Contract**: application lifecycle, admissions read facade, enrolment pipeline
+- **Primary consumers**: registration, compliance, reports, search, parent-facing application views
+- **Imports**: ApprovalsModule, SearchModule, SequenceModule
+- **Blast radius**: HIGH
+- **Notes**: application state changes feed registration, finance, and compliance workflows
+
+### ComplianceModule
+
+- **Contract**: compliance audits, data exports, cross-domain compliance aggregation
+- **Primary consumers**: regulatory, GDPR/DPA, leadership dashboards
+- **Imports**: AdmissionsModule, AttendanceModule, BehaviourModule, ClassesModule, CommunicationsModule, FinanceModule, GdprModule, GradebookModule, HouseholdsModule, ParentInquiriesModule, ParentsModule, PayrollModule, SearchModule, StaffProfilesModule, StudentsModule, WebsiteModule
+- **Blast radius**: HIGH
+- **Notes**: widest reader module in the codebase; any domain schema change may affect compliance exports
+
+### EngagementModule
+
+- **Contract**: engagement tracking, trip management, parent engagement surfaces
+- **Primary consumers**: pastoral, parent-facing views, PDF exports
+- **Imports**: ClassesModule, ParentsModule, PdfRenderingModule, StaffProfilesModule, StudentsModule, TenantsModule
+- **Blast radius**: MEDIUM
+- **Notes**: imports multiple domain modules for trip/engagement context resolution
+
+### RegistrationModule
+
+- **Contract**: registration workflows, post-admissions enrolment processing
+- **Primary consumers**: finance, compliance, student lifecycle
+- **Imports**: FinanceModule, SequenceModule
+- **Blast radius**: MEDIUM-HIGH
+- **Notes**: bridges admissions into finance and student record creation
+
+### SchoolClosuresModule
+
+- **Contract**: school closure definitions, closure impact resolution
+- **Primary consumers**: attendance, payroll, scheduling, regulatory
+- **Imports**: AcademicsModule, AttendanceModule, ClassesModule
+- **Blast radius**: MEDIUM
+- **Notes**: closure changes affect attendance marking, payroll calculations, and schedule validity
+
 ---
 
 ## Tier 4 — Low-Dependency Modules
 
 These modules are comparatively safe to change in isolation as long as their shared schemas and queues stay stable:
 
+### HouseholdsModule
+
+- **Contract**: household grouping, household references
+- **Imports**: RegistrationModule
+- **Blast radius**: LOW
+- **Notes**: primarily a grouping construct; registration import adds enrolment-time household linkage
+
+### RoomsModule
+
+- **Contract**: room definitions, room availability
+- **Imports**: SchedulesModule
+- **Blast radius**: LOW
+- **Notes**: scheduling import adds timetable-aware room conflict checking
+
+Other low-dependency modules:
+
 - `HealthModule`
 - `MetricsModule`
 - `PreferencesModule`
 - `ParentsModule`
-- `HouseholdsModule`
 - `ParentInquiriesModule`
 - `WebsiteModule`
-- `RoomsModule`
 - `PeriodGridModule`
 - `ClassRequirementsModule`
 - `StaffAvailabilityModule`
