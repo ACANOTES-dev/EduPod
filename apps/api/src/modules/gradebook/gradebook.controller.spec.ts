@@ -20,6 +20,7 @@ import { ResultsMatrixService } from './results-matrix.service';
 import { TeacherGradingWeightsService } from './teacher-grading-weights.service';
 import { TeachingAllocationsService } from './teaching-allocations.service';
 import { UnlockRequestService } from './unlock-request.service';
+import { WeightConfigService } from './weight-config.service';
 import { YearGroupGradeWeightsService } from './year-group-grade-weights.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -66,6 +67,9 @@ const mockGradesService = {
 
 const mockPeriodGradeComputationService = {
   compute: jest.fn(),
+  computeCrossSubject: jest.fn(),
+  computeCrossPeriod: jest.fn(),
+  computeYearOverview: jest.fn(),
 };
 
 const mockResultsMatrixService = {
@@ -89,6 +93,7 @@ const mockYearGroupGradeWeightsService = {
 const mockTeachingAllocationsService = {
   getMyAllocations: jest.fn(),
   getAllAllocations: jest.fn(),
+  getClassAllocations: jest.fn(),
 };
 
 const mockTeacherGradingWeightsService = {
@@ -141,6 +146,17 @@ describe('GradebookController', () => {
         { provide: YearGroupGradeWeightsService, useValue: mockYearGroupGradeWeightsService },
         { provide: TeachingAllocationsService, useValue: mockTeachingAllocationsService },
         { provide: TeacherGradingWeightsService, useValue: mockTeacherGradingWeightsService },
+        {
+          provide: WeightConfigService,
+          useValue: {
+            getSubjectWeights: jest.fn(),
+            upsertSubjectWeights: jest.fn(),
+            getPeriodWeights: jest.fn(),
+            upsertPeriodWeights: jest.fn(),
+            propagateSubjectWeightsToClasses: jest.fn(),
+            propagatePeriodWeightsToClasses: jest.fn(),
+          },
+        },
         {
           provide: UnlockRequestService,
           useValue: {

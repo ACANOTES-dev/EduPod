@@ -15,7 +15,10 @@ import {
   ClassesReadFacade,
   ConfigurationReadFacade,
 } from '../../../common/tests/mock-facades';
+import { AcademicReadFacade } from '../../academics/academic-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StudentReadFacade } from '../../students/student-read.facade';
+import { WeightConfigService } from '../weight-config.service';
 
 import { GpaService } from './gpa.service';
 import { PeriodGradeComputationService } from './period-grade-computation.service';
@@ -84,6 +87,16 @@ const baseGradeConfig = {
 
 const mockClassesFacade = { findClassesGeneric: jest.fn(), findEnrolmentsGeneric: jest.fn() };
 const mockConfigFacade = { findSettings: jest.fn() };
+const mockWeightConfigService = {
+  resolveSubjectWeightsForClass: jest.fn().mockResolvedValue(new Map()),
+  resolvePeriodWeightsForClass: jest.fn().mockResolvedValue(new Map()),
+};
+const mockAcademicReadFacade = {
+  findPeriodsForYear: jest.fn().mockResolvedValue([]),
+};
+const mockStudentReadFacade = {
+  findByIds: jest.fn().mockResolvedValue([]),
+};
 
 describe('PeriodGradeComputationService — compute', () => {
   let service: PeriodGradeComputationService;
@@ -105,6 +118,9 @@ describe('PeriodGradeComputationService — compute', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GpaService, useValue: buildMockGpaService() },
         { provide: StandardsService, useValue: buildMockStandardsService() },
+        { provide: WeightConfigService, useValue: mockWeightConfigService },
+        { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
+        { provide: StudentReadFacade, useValue: mockStudentReadFacade },
       ],
     }).compile();
 
@@ -745,6 +761,9 @@ describe('PeriodGradeComputationService — compute', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GpaService, useValue: mockGpaService },
         { provide: StandardsService, useValue: buildMockStandardsService() },
+        { provide: WeightConfigService, useValue: mockWeightConfigService },
+        { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
+        { provide: StudentReadFacade, useValue: mockStudentReadFacade },
       ],
     }).compile();
 
@@ -788,6 +807,9 @@ describe('PeriodGradeComputationService — compute', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GpaService, useValue: buildMockGpaService() },
         { provide: StandardsService, useValue: mockStandardsService },
+        { provide: WeightConfigService, useValue: mockWeightConfigService },
+        { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
+        { provide: StudentReadFacade, useValue: mockStudentReadFacade },
       ],
     }).compile();
 

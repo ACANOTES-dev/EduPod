@@ -1,12 +1,19 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { MOCK_FACADE_PROVIDERS, ClassesReadFacade, ConfigurationReadFacade } from '../../common/tests/mock-facades';
+import {
+  MOCK_FACADE_PROVIDERS,
+  ClassesReadFacade,
+  ConfigurationReadFacade,
+} from '../../common/tests/mock-facades';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentReadFacade } from '../students/student-read.facade';
 
 import { GpaService } from './grading/gpa.service';
 import { PeriodGradeComputationService } from './grading/period-grade-computation.service';
 import { StandardsService } from './grading/standards.service';
+import { WeightConfigService } from './weight-config.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const CLASS_ID = 'class-1';
@@ -27,7 +34,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -44,7 +53,10 @@ function buildMockPrisma() {
   };
 }
 
-function makeSummativeAssessment(id: string, grades: Array<{ student_id: string; raw_score: number | null }>) {
+function makeSummativeAssessment(
+  id: string,
+  grades: Array<{ student_id: string; raw_score: number | null }>,
+) {
   return {
     id,
     category_id: CATEGORY_SUMMATIVE,
@@ -54,7 +66,10 @@ function makeSummativeAssessment(id: string, grades: Array<{ student_id: string;
   };
 }
 
-function makeFormativeAssessment(id: string, grades: Array<{ student_id: string; raw_score: number | null }>) {
+function makeFormativeAssessment(
+  id: string,
+  grades: Array<{ student_id: string; raw_score: number | null }>,
+) {
   return {
     id,
     category_id: CATEGORY_FORMATIVE,
@@ -75,9 +90,7 @@ describe('PeriodGradeComputationService', () => {
   let mockGpaService: { computeGpa: jest.Mock };
   let mockStandardsService: { computeCompetencySnapshots: jest.Mock };
 
-  const baseClassWeights = [
-    { category_id: CATEGORY_SUMMATIVE, weight: 100 },
-  ];
+  const baseClassWeights = [{ category_id: CATEGORY_SUMMATIVE, weight: 100 }];
 
   const baseGradingScale = {
     config_json: {
@@ -123,6 +136,18 @@ describe('PeriodGradeComputationService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GpaService, useValue: mockGpaService },
         { provide: StandardsService, useValue: mockStandardsService },
+        {
+          provide: WeightConfigService,
+          useValue: {
+            resolveSubjectWeightsForClass: jest.fn().mockResolvedValue(new Map()),
+            resolvePeriodWeightsForClass: jest.fn().mockResolvedValue(new Map()),
+          },
+        },
+        {
+          provide: AcademicReadFacade,
+          useValue: { findPeriodsForYear: jest.fn().mockResolvedValue([]) },
+        },
+        { provide: StudentReadFacade, useValue: { findByIds: jest.fn().mockResolvedValue([]) } },
       ],
     }).compile();
 
@@ -147,22 +172,20 @@ describe('PeriodGradeComputationService', () => {
     expect(result.data).toHaveLength(2);
     const snapA = result.data.find((_s: { id: string }) => {
       // find by checking what was upserted
-      return mockRlsTx.periodGradeSnapshot.upsert.mock.calls.some(
-        (call: unknown[]) => {
-          const arg = call[0] as { create: { student_id: string; computed_value: number } };
-          return arg.create?.student_id === STUDENT_A && Math.abs(arg.create?.computed_value - 80) < 0.01;
-        },
-      );
+      return mockRlsTx.periodGradeSnapshot.upsert.mock.calls.some((call: unknown[]) => {
+        const arg = call[0] as { create: { student_id: string; computed_value: number } };
+        return (
+          arg.create?.student_id === STUDENT_A && Math.abs(arg.create?.computed_value - 80) < 0.01
+        );
+      });
     });
     expect(snapA).toBeDefined();
 
     // Student A should be 80% → display "B"
-    const callA = mockRlsTx.periodGradeSnapshot.upsert.mock.calls.find(
-      (call: unknown[]) => {
-        const arg = call[0] as { create: { student_id: string } };
-        return arg.create?.student_id === STUDENT_A;
-      },
-    );
+    const callA = mockRlsTx.periodGradeSnapshot.upsert.mock.calls.find((call: unknown[]) => {
+      const arg = call[0] as { create: { student_id: string } };
+      return arg.create?.student_id === STUDENT_A;
+    });
     expect(callA).toBeDefined();
     const argA = callA[0] as { create: { computed_value: number; display_value: string } };
     expect(argA.create.computed_value).toBeCloseTo(80, 2);
@@ -204,12 +227,10 @@ describe('PeriodGradeComputationService', () => {
     await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
 
     // (80% * 50 + 60% * 50) / 100 = 70%
-    const callA = mockRlsTx.periodGradeSnapshot.upsert.mock.calls.find(
-      (call: unknown[]) => {
-        const arg = call[0] as { create: { student_id: string } };
-        return arg.create?.student_id === STUDENT_A;
-      },
-    );
+    const callA = mockRlsTx.periodGradeSnapshot.upsert.mock.calls.find((call: unknown[]) => {
+      const arg = call[0] as { create: { student_id: string } };
+      return arg.create?.student_id === STUDENT_A;
+    });
     const argA = callA[0] as { create: { computed_value: number; display_value: string } };
     expect(argA.create.computed_value).toBeCloseTo(70, 2);
     expect(argA.create.display_value).toBe('C');
@@ -256,12 +277,10 @@ describe('PeriodGradeComputationService', () => {
     // Only cat1 graded: 80% for cat1, cat2 excluded
     // total weighted = 80 * 50 = 4000, total used weight = 50
     // result = 4000 / 50 = 80%
-    const callA = mockRlsTx.periodGradeSnapshot.upsert.mock.calls.find(
-      (call: unknown[]) => {
-        const arg = call[0] as { create: { student_id: string } };
-        return arg.create?.student_id === STUDENT_A;
-      },
-    );
+    const callA = mockRlsTx.periodGradeSnapshot.upsert.mock.calls.find((call: unknown[]) => {
+      const arg = call[0] as { create: { student_id: string } };
+      return arg.create?.student_id === STUDENT_A;
+    });
     const argA = callA[0] as { create: { computed_value: number } };
     expect(argA.create.computed_value).toBeCloseTo(80, 2);
   });
@@ -280,12 +299,10 @@ describe('PeriodGradeComputationService', () => {
 
     await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
 
-    const callA = mockRlsTx.periodGradeSnapshot.upsert.mock.calls.find(
-      (call: unknown[]) => {
-        const arg = call[0] as { create: { student_id: string } };
-        return arg.create?.student_id === STUDENT_A;
-      },
-    );
+    const callA = mockRlsTx.periodGradeSnapshot.upsert.mock.calls.find((call: unknown[]) => {
+      const arg = call[0] as { create: { student_id: string } };
+      return arg.create?.student_id === STUDENT_A;
+    });
     const argA = callA[0] as { create: { computed_value: number } };
     expect(argA.create.computed_value).toBeCloseTo(0, 2);
   });
@@ -343,25 +360,23 @@ describe('PeriodGradeComputationService', () => {
 
     const result = await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
 
-    expect(result.warnings).toContainEqual(
-      expect.objectContaining({ code: 'WEIGHTS_NORMALIZED' }),
-    );
+    expect(result.warnings).toContainEqual(expect.objectContaining({ code: 'WEIGHTS_NORMALIZED' }));
   });
 
   it('should throw NotFoundException when no grade config is found', async () => {
     mockPrisma.classSubjectGradeConfig.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should throw BadRequestException when no published assessments exist', async () => {
     mockPrisma.assessment.findMany.mockResolvedValue([]);
 
-    await expect(
-      service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should throw BadRequestException when no active students are enrolled', async () => {
@@ -370,9 +385,9 @@ describe('PeriodGradeComputationService', () => {
     ]);
     mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([]);
 
-    await expect(
-      service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should throw BadRequestException when formative is excluded and no summative assessments remain', async () => {
@@ -390,9 +405,9 @@ describe('PeriodGradeComputationService', () => {
     ]);
     mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_A }]);
 
-    await expect(
-      service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should prefer year-group weights over class-subject weights when available', async () => {
@@ -419,12 +434,10 @@ describe('PeriodGradeComputationService', () => {
     await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
 
     // Student A got 90 in the year-group category → 90%
-    const callA = mockRlsTx.periodGradeSnapshot.upsert.mock.calls.find(
-      (call: unknown[]) => {
-        const arg = call[0] as { create: { student_id: string } };
-        return arg.create?.student_id === STUDENT_A;
-      },
-    );
+    const callA = mockRlsTx.periodGradeSnapshot.upsert.mock.calls.find((call: unknown[]) => {
+      const arg = call[0] as { create: { student_id: string } };
+      return arg.create?.student_id === STUDENT_A;
+    });
     const argA = callA[0] as { create: { computed_value: number } };
     expect(argA.create.computed_value).toBeCloseTo(90, 2);
   });
@@ -453,12 +466,10 @@ describe('PeriodGradeComputationService', () => {
 
     await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
 
-    const callA = mockRlsTx.periodGradeSnapshot.upsert.mock.calls.find(
-      (call: unknown[]) => {
-        const arg = call[0] as { create: { student_id: string } };
-        return arg.create?.student_id === STUDENT_A;
-      },
-    );
+    const callA = mockRlsTx.periodGradeSnapshot.upsert.mock.calls.find((call: unknown[]) => {
+      const arg = call[0] as { create: { student_id: string } };
+      return arg.create?.student_id === STUDENT_A;
+    });
     const argA = callA[0] as { create: { display_value: string } };
     expect(argA.create.display_value).toBe('B');
   });
@@ -478,12 +489,10 @@ describe('PeriodGradeComputationService', () => {
 
     await service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID);
 
-    const callA = mockRlsTx.periodGradeSnapshot.upsert.mock.calls.find(
-      (call: unknown[]) => {
-        const arg = call[0] as { create: { student_id: string } };
-        return arg.create?.student_id === STUDENT_A;
-      },
-    );
+    const callA = mockRlsTx.periodGradeSnapshot.upsert.mock.calls.find((call: unknown[]) => {
+      const arg = call[0] as { create: { student_id: string } };
+      return arg.create?.student_id === STUDENT_A;
+    });
     const argA = callA[0] as { create: { computed_value: number } };
     // No data for category → totalUsedWeight = 0 → computed_value = 0
     expect(argA.create.computed_value).toBe(0);
@@ -503,8 +512,8 @@ describe('PeriodGradeComputationService', () => {
     ]);
     mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([{ student_id: STUDENT_A }]);
 
-    await expect(
-      service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.compute(TENANT_ID, CLASS_ID, SUBJECT_ID, PERIOD_ID)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 });
