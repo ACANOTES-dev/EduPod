@@ -114,15 +114,23 @@ export default function GradeEntryPage() {
         apiClient<GradesListResponse>(`/api/v1/gradebook/assessments/${assessmentId}/grades`),
         apiClient<{
           data: Array<{
-            id: string;
-            first_name: string;
-            last_name: string;
-            student_number?: string;
+            student_id: string;
+            status: string;
+            student?: {
+              id: string;
+              first_name: string;
+              last_name: string;
+              student_number?: string;
+            };
           }>;
-        }>(`/api/v1/students?class_id=${classId}&pageSize=100`, {
+        }>(`/api/v1/classes/${classId}/enrolments?pageSize=100`, {
           silent: true,
         }).catch(() => ({
-          data: [] as Array<{ id: string; first_name: string; last_name: string }>,
+          data: [] as Array<{
+            student_id: string;
+            status: string;
+            student?: { id: string; first_name: string; last_name: string };
+          }>,
         })),
       ]);
 
@@ -139,12 +147,15 @@ export default function GradeEntryPage() {
       const gradeRecords = Array.isArray(gradesRes.data) ? gradesRes.data : [];
       const gradeMap = new Map(gradeRecords.map((g) => [g.student_id, g]));
 
-      // Merge enrolled students with existing grades
-      const enrolled = Array.isArray(studentsRes.data) ? studentsRes.data : [];
-      const merged: StudentGrade[] = enrolled.map((s) => {
-        const existing = gradeMap.get(s.id);
+      // Merge enrolled students with existing grades (via class enrolments endpoint)
+      const enrolments = (Array.isArray(studentsRes.data) ? studentsRes.data : []).filter(
+        (e) => e.status === 'active' && e.student,
+      );
+      const merged: StudentGrade[] = enrolments.map((e) => {
+        const s = e.student!;
+        const existing = gradeMap.get(e.student_id);
         return {
-          student_id: s.id,
+          student_id: e.student_id,
           student_name: `${s.first_name} ${s.last_name}`,
           score:
             existing?.raw_score !== null && existing?.raw_score !== undefined
@@ -157,7 +168,7 @@ export default function GradeEntryPage() {
 
       // Include any graded students not in enrolled list (edge case)
       for (const g of gradeRecords) {
-        if (!enrolled.find((s) => s.id === g.student_id)) {
+        if (!enrolments.find((e) => e.student_id === g.student_id)) {
           merged.push({
             student_id: g.student_id,
             student_name: g.student
