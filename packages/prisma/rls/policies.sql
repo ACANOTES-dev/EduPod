@@ -2374,3 +2374,21 @@ DROP POLICY IF EXISTS grade_edit_audits_tenant_isolation ON grade_edit_audits;
 CREATE POLICY grade_edit_audits_tenant_isolation ON grade_edit_audits
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- ─── Subject Period Weights ─────────────────────────────────────────────────
+ALTER TABLE subject_period_weights ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subject_period_weights FORCE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS subject_period_weights_tenant_isolation ON subject_period_weights;
+CREATE POLICY subject_period_weights_tenant_isolation ON subject_period_weights
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- ─── Period Year Weights ────────────────────────────────────────────────────
+ALTER TABLE period_year_weights ENABLE ROW LEVEL SECURITY;
+ALTER TABLE period_year_weights FORCE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS period_year_weights_tenant_isolation ON period_year_weights;
+CREATE POLICY period_year_weights_tenant_isolation ON period_year_weights
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
