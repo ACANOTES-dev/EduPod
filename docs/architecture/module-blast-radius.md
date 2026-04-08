@@ -176,14 +176,19 @@ If a module is not listed individually, it is either:
 
 ### GradebookModule
 
-- **Contract**: assessments, grades, report-card state, gradebook read facade
+- **Contract**: assessments, grades, report-card state, gradebook read facade, weight configuration, cross-subject/period aggregation
 - **Primary consumers**: report cards, parent views, compliance export, early warning, reports, AI comment flows
+- **Imports**: AcademicsModule, AiModule, AttendanceModule, AuthModule, ClassesModule, CommunicationsModule, ConfigurationModule, GdprModule, ParentsModule, PdfRenderingModule, SchedulingModule, StaffProfilesModule, StudentsModule, TenantsModule
 - **Blast radius**: HIGH
 - **Notes**:
   - Period closure, assessment status, and report-card lifecycle changes have worker consequences
-  - Now imports `SchedulingModule` (for `TeachingAllocationsService` derivation — resolves which teachers teach which classes/subjects)
-  - New services: `TeachingAllocationsService`, `TeacherGradingWeightsService`
-  - Config approval workflow added to: `AssessmentCategoriesService`, `RubricService`, `StandardsService` — teacher-created config items require approver sign-off before use in assessments
+  - Imports `SchedulingModule` for `TeachingAllocationsService` derivation (resolves which teachers teach which classes/subjects)
+  - Imports `AiModule` for AI-assisted grading and comment generation
+  - Imports `TenantsModule` for tenant settings resolution (formative weight caps, missing grade policy)
+  - New services: `TeachingAllocationsService`, `TeacherGradingWeightsService`, `WeightConfigService`
+  - `WeightConfigService` manages subject-period and period-year weight configuration for cross-aggregation
+  - `PeriodGradeComputationService` extended with cross-subject, cross-period, and year-overview aggregation
+  - Config approval workflow on: `AssessmentCategoriesService`, `RubricService`, `StandardsService`
 
 ### FinanceModule
 
