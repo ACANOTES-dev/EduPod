@@ -111,12 +111,14 @@ export function ResultsMatrix({ classId }: { classId: string }) {
     if (!periodId) return;
     setIsLoading(true);
     setDirtyGrades(new Map());
-    apiClient<MatrixData>(
+    apiClient<{ data: MatrixData }>(
       `/api/v1/gradebook/classes/${classId}/results-matrix?academic_period_id=${periodId}`,
     )
       .then((res) => {
-        setMatrix(res);
-        setLocalGrades(res.grades);
+        // API wraps response in { data: ... }
+        const matrixData = res.data;
+        setMatrix(matrixData);
+        setLocalGrades(matrixData.grades ?? {});
       })
       .catch((err) => {
         console.error('[ResultsMatrix]', err);
