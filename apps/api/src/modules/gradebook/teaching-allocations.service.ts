@@ -3,8 +3,8 @@
  *
  * Allocations are derived from the intersection of:
  *   1. TeacherCompetency (teacher -> subject -> year_group for an academic year)
- *   2. CurriculumRequirement (year_group -> subject for an academic year)
- *   3. Classes (classes under each year_group)
+ *   2. ClassSubjectGradeConfig (class -> subject assignment from the Curriculum Matrix)
+ *   3. Classes (active classes under each year_group)
  *
  * Each allocation is enriched with gradebook setup status: whether grade configs,
  * approved assessment categories, approved grading weights, and assessments exist.
@@ -114,6 +114,15 @@ export class TeachingAllocationsService {
     return this.deriveAllocations(tenantId, activeYear.id, competencies);
   }
 
+  /**
+   * Get all teaching allocations for a specific class (any teacher can view).
+   * Used by the assessments tab to show all subjects + teacher names per subject.
+   */
+  async getClassAllocations(tenantId: string, classId: string): Promise<TeachingAllocation[]> {
+    const allAllocations = await this.getAllAllocations(tenantId);
+    return allAllocations.filter((a) => a.class_id === classId);
+  }
+
   // ─── Private helpers ─────────────────────────────────────────────────────────
 
   /**
@@ -141,25 +150,33 @@ export class TeachingAllocationsService {
       : [...new Set(competencies.map((c) => c.staff_profile_id))];
 
     // 2. Fetch reference data in parallel via facades
-    const [curriculumRequirements, classes, subjects, yearGroups, staffProfiles] =
-      await Promise.all([
-        // Curriculum requirements to validate subject-in-curriculum
-        this.schedulingReadFacade.findCurriculumRequirements(tenantId, academicYearId, {
-          yearGroupIds,
-        }),
-        // Active classes for the academic year (filtered to relevant year groups)
-        this.classesReadFacade.findByAcademicYear(tenantId, academicYearId),
-        // Subject details (name, code)
-        this.academicReadFacade.findSubjectsByIds(tenantId, subjectIds),
-        // Year group names
-        this.academicReadFacade.findAllYearGroups(tenantId),
-        // Staff profile user names
-        this.staffProfileReadFacade.findByIds(tenantId, staffProfileIds),
-      ]);
+    const [classSubjectConfigs, classes, subjects, yearGroups, staffProfiles] = await Promise.all([
+      // Curriculum Matrix assignments (class+subject) — the source of truth for
+      // which subjects are taught in which classes
+      this.prisma.classSubjectGradeConfig.findMany({
+        where: {
+          tenant_id: tenantId,
+          subject_id: { in: subjectIds },
+        },
+        select: {
+          class_id: true,
+          subject_id: true,
+        },
+      }),
+      // Active classes for the academic year (filtered to relevant year groups)
+      this.classesReadFacade.findByAcademicYear(tenantId, academicYearId),
+      // Subject details (name, code)
+      this.academicReadFacade.findSubjectsByIds(tenantId, subjectIds),
+      // Year group names
+      this.academicReadFacade.findAllYearGroups(tenantId),
+      // Staff profile user names
+      this.staffProfileReadFacade.findByIds(tenantId, staffProfileIds),
+    ]);
 
     // 3. Build lookup maps
-    const curriculumSet = new Set(
-      curriculumRequirements.map((cr) => `${cr.year_group_id}:${cr.subject_id}`),
+    // Class-level subject assignments from the Curriculum Matrix (class_subject_grade_configs)
+    const classSubjectConfigSet = new Set(
+      classSubjectConfigs.map((csg) => `${csg.class_id}:${csg.subject_id}`),
     );
 
     // Filter classes to only active ones in the relevant year_groups
@@ -192,13 +209,6 @@ export class TeachingAllocationsService {
     const rawAllocations: RawAllocation[] = [];
 
     for (const competency of competencies) {
-      const currKey = `${competency.year_group_id}:${competency.subject_id}`;
-
-      // Skip if subject is not in the curriculum for this year_group
-      if (!curriculumSet.has(currKey)) {
-        continue;
-      }
-
       const subject = subjectMap.get(competency.subject_id);
       if (!subject) continue;
 
@@ -207,6 +217,11 @@ export class TeachingAllocationsService {
       const yearGroupClasses = classesByYearGroup.get(competency.year_group_id) ?? [];
 
       for (const cls of yearGroupClasses) {
+        // Skip if subject is not assigned to this class in the Curriculum Matrix
+        if (!classSubjectConfigSet.has(`${cls.id}:${competency.subject_id}`)) {
+          continue;
+        }
+
         rawAllocations.push({
           class_id: cls.id,
           class_name: cls.name,

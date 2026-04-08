@@ -26,8 +26,11 @@ import {
   createAssessmentSchema,
   createTeacherGradingWeightSchema,
   createUnlockRequestSchema,
+  crossPeriodGradesQuerySchema,
+  crossSubjectGradesQuerySchema,
   importProcessSchema,
   overridePeriodGradeSchema,
+  propagateWeightsSchema,
   reviewConfigSchema,
   reviewUnlockRequestSchema,
   saveResultsMatrixSchema,
@@ -35,7 +38,10 @@ import {
   updateAssessmentSchema,
   updateTeacherGradingWeightSchema,
   upsertGradeConfigSchema,
+  upsertPeriodWeightsSchema,
+  upsertSubjectWeightsSchema,
   upsertYearGroupGradeWeightSchema,
+  yearOverviewGradesQuerySchema,
 } from '@school/shared';
 import type { JwtPayload } from '@school/shared';
 
@@ -65,6 +71,7 @@ import { ResultsMatrixService } from './results-matrix.service';
 import { TeacherGradingWeightsService } from './teacher-grading-weights.service';
 import { TeachingAllocationsService } from './teaching-allocations.service';
 import { UnlockRequestService } from './unlock-request.service';
+import { WeightConfigService } from './weight-config.service';
 import { YearGroupGradeWeightsService } from './year-group-grade-weights.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -87,6 +94,10 @@ const listAssessmentsQuerySchema = z.object({
   academic_period_id: z.string().uuid().optional(),
   category_id: z.string().uuid().optional(),
   status: z.enum(['draft', 'open', 'closed', 'locked']).optional(),
+  exclude_cancelled: z
+    .enum(['true', 'false'])
+    .transform((v) => v === 'true')
+    .optional(),
 });
 
 const listUnlockRequestsQuerySchema = z.object({
@@ -118,6 +129,7 @@ export class GradebookController {
     private readonly classesReadFacade: ClassesReadFacade,
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
     private readonly unlockRequestService: UnlockRequestService,
+    private readonly weightConfigService: WeightConfigService,
   ) {}
 
   // ─── Teaching Allocations ──────────────────────────────────────────────
@@ -139,6 +151,18 @@ export class GradebookController {
   @RequiresPermission('gradebook.manage')
   async getAllAllocations(@CurrentTenant() tenant: { tenant_id: string }) {
     return { data: await this.teachingAllocationsService.getAllAllocations(tenant.tenant_id) };
+  }
+
+  // GET /v1/gradebook/classes/:classId/allocations
+  @Get('gradebook/classes/:classId/allocations')
+  @RequiresPermission('gradebook.view')
+  async getClassAllocations(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('classId', ParseUUIDPipe) classId: string,
+  ) {
+    return {
+      data: await this.teachingAllocationsService.getClassAllocations(tenant.tenant_id, classId),
+    };
   }
 
   // ─── Grade Configs ──────────────────────────────────────────────────────
@@ -254,6 +278,17 @@ export class GradebookController {
     dto: z.infer<typeof transitionAssessmentStatusSchema>,
   ) {
     return this.assessmentsService.transitionStatus(tenant.tenant_id, id, dto);
+  }
+
+  // POST /v1/gradebook/assessments/:id/duplicate
+  @Post('gradebook/assessments/:id/duplicate')
+  @RequiresPermission('gradebook.enter_grades')
+  @HttpCode(HttpStatus.CREATED)
+  async duplicateAssessment(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.assessmentsService.duplicate(tenant.tenant_id, id);
   }
 
   @Delete('gradebook/assessments/:id')
@@ -397,6 +432,54 @@ export class GradebookController {
         },
       });
     });
+  }
+
+  // ─── Cross-Aggregation (All Subjects / All Periods) ─────────────────────
+
+  // GET /v1/gradebook/period-grades/cross-subject
+  @Get('gradebook/period-grades/cross-subject')
+  @RequiresPermission('gradebook.view')
+  async getCrossSubjectGrades(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query(new ZodValidationPipe(crossSubjectGradesQuerySchema))
+    query: z.infer<typeof crossSubjectGradesQuerySchema>,
+  ) {
+    return this.periodGradeComputationService.computeCrossSubject(
+      tenant.tenant_id,
+      query.class_id,
+      query.academic_period_id,
+    );
+  }
+
+  // GET /v1/gradebook/period-grades/cross-period
+  @Get('gradebook/period-grades/cross-period')
+  @RequiresPermission('gradebook.view')
+  async getCrossPeriodGrades(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query(new ZodValidationPipe(crossPeriodGradesQuerySchema))
+    query: z.infer<typeof crossPeriodGradesQuerySchema>,
+  ) {
+    return this.periodGradeComputationService.computeCrossPeriod(
+      tenant.tenant_id,
+      query.class_id,
+      query.subject_id,
+      query.academic_year_id,
+    );
+  }
+
+  // GET /v1/gradebook/period-grades/year-overview
+  @Get('gradebook/period-grades/year-overview')
+  @RequiresPermission('gradebook.view')
+  async getYearOverviewGrades(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query(new ZodValidationPipe(yearOverviewGradesQuerySchema))
+    query: z.infer<typeof yearOverviewGradesQuerySchema>,
+  ) {
+    return this.periodGradeComputationService.computeYearOverview(
+      tenant.tenant_id,
+      query.class_id,
+      query.academic_year_id,
+    );
   }
 
   // ─── Results Matrix ────────────────────────────────────────────────────
@@ -663,5 +746,85 @@ export class GradebookController {
       permissions,
       staffProfileId: staffProfile?.id,
     };
+  }
+
+  // ─── Weight Configuration (cross-subject / cross-period) ──────────────────
+
+  // GET /v1/gradebook/weight-config/subject-weights?academic_year_id=...&academic_period_id=...
+  @Get('gradebook/weight-config/subject-weights')
+  @RequiresPermission('gradebook.manage')
+  async getSubjectWeights(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query('academic_year_id', ParseUUIDPipe) academicYearId: string,
+    @Query('academic_period_id') academicPeriodId?: string,
+  ) {
+    return this.weightConfigService.getSubjectWeights(
+      tenant.tenant_id,
+      academicYearId,
+      academicPeriodId,
+    );
+  }
+
+  // PUT /v1/gradebook/weight-config/subject-weights
+  @Put('gradebook/weight-config/subject-weights')
+  @RequiresPermission('gradebook.manage')
+  async upsertSubjectWeights(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Body(new ZodValidationPipe(upsertSubjectWeightsSchema))
+    dto: z.infer<typeof upsertSubjectWeightsSchema>,
+  ) {
+    return this.weightConfigService.upsertSubjectWeights(tenant.tenant_id, dto);
+  }
+
+  // GET /v1/gradebook/weight-config/period-weights?academic_year_id=...
+  @Get('gradebook/weight-config/period-weights')
+  @RequiresPermission('gradebook.manage')
+  async getPeriodWeights(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query('academic_year_id', ParseUUIDPipe) academicYearId: string,
+  ) {
+    return this.weightConfigService.getPeriodWeights(tenant.tenant_id, academicYearId);
+  }
+
+  // PUT /v1/gradebook/weight-config/period-weights
+  @Put('gradebook/weight-config/period-weights')
+  @RequiresPermission('gradebook.manage')
+  async upsertPeriodWeights(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Body(new ZodValidationPipe(upsertPeriodWeightsSchema))
+    dto: z.infer<typeof upsertPeriodWeightsSchema>,
+  ) {
+    return this.weightConfigService.upsertPeriodWeights(tenant.tenant_id, dto);
+  }
+
+  // POST /v1/gradebook/weight-config/subject-weights/propagate
+  @Post('gradebook/weight-config/subject-weights/propagate')
+  @RequiresPermission('gradebook.manage')
+  async propagateSubjectWeights(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Body(new ZodValidationPipe(propagateWeightsSchema))
+    dto: z.infer<typeof propagateWeightsSchema>,
+  ) {
+    return this.weightConfigService.propagateSubjectWeightsToClasses(
+      tenant.tenant_id,
+      dto.academic_year_id,
+      dto.academic_period_id ?? '',
+      dto.year_group_id,
+    );
+  }
+
+  // POST /v1/gradebook/weight-config/period-weights/propagate
+  @Post('gradebook/weight-config/period-weights/propagate')
+  @RequiresPermission('gradebook.manage')
+  async propagatePeriodWeights(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Body(new ZodValidationPipe(propagateWeightsSchema))
+    dto: z.infer<typeof propagateWeightsSchema>,
+  ) {
+    return this.weightConfigService.propagatePeriodWeightsToClasses(
+      tenant.tenant_id,
+      dto.academic_year_id,
+      dto.year_group_id,
+    );
   }
 }

@@ -41,7 +41,14 @@ export class GradesService {
     // 1. Verify assessment exists and status allows grading
     const assessment = await this.prisma.assessment.findFirst({
       where: { id: assessmentId, tenant_id: tenantId },
-      select: { id: true, status: true, class_id: true, max_score: true },
+      select: {
+        id: true,
+        status: true,
+        class_id: true,
+        max_score: true,
+        due_date: true,
+        grading_deadline: true,
+      },
     });
 
     if (!assessment) {
@@ -51,18 +58,42 @@ export class GradesService {
       });
     }
 
-    if (
-      assessment.status !== 'draft' &&
-      assessment.status !== 'open' &&
-      assessment.status !== 'reopened'
-    ) {
+    if (assessment.status !== 'open' && assessment.status !== 'reopened') {
       throw new ConflictException({
         code: 'ASSESSMENT_NOT_GRADEABLE',
-        message: `Cannot enter grades for assessment with status "${assessment.status}". Status must be draft, open, or reopened.`,
+        message: `Cannot enter grades for assessment with status "${assessment.status}". Status must be open or reopened.`,
       });
     }
 
-    // 2. Verify all students are enrolled in the class
+    // 2. Enforce grading window for "open" assessments (reopened bypasses — admin approved)
+    if (assessment.status === 'open') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (assessment.due_date) {
+        const dueDate = new Date(assessment.due_date);
+        dueDate.setHours(0, 0, 0, 0);
+        if (today < dueDate) {
+          throw new ConflictException({
+            code: 'GRADING_WINDOW_NOT_OPEN',
+            message: `Grading is not yet available. The exam due date is ${dueDate.toISOString().split('T')[0]}.`,
+          });
+        }
+      }
+
+      if (assessment.grading_deadline) {
+        const deadline = new Date(assessment.grading_deadline);
+        deadline.setHours(0, 0, 0, 0);
+        if (today > deadline) {
+          throw new ConflictException({
+            code: 'GRADING_WINDOW_CLOSED',
+            message: `The grading deadline (${deadline.toISOString().split('T')[0]}) has passed. Contact administration to reopen.`,
+          });
+        }
+      }
+    }
+
+    // 3. Verify all students are enrolled in the class
     const studentIds = dto.grades.map((g) => g.student_id);
     const allEnrolledIds = await this.classesReadFacade.findEnrolledStudentIds(
       tenantId,
@@ -78,7 +109,7 @@ export class GradesService {
       });
     }
 
-    // 3. Check tenant setting for comment requirement
+    // 4. Check tenant setting for comment requirement
     const settingsRow = await this.configurationReadFacade.findSettings(tenantId);
 
     const settings = ((settingsRow?.settings ?? {}) as Record<string, unknown>) ?? {};
@@ -96,7 +127,7 @@ export class GradesService {
       }
     }
 
-    // 4. Validate scores against max_score
+    // 5. Validate scores against max_score
     const maxScore = Number(assessment.max_score);
     for (const grade of dto.grades) {
       if (grade.raw_score !== null && grade.raw_score > maxScore) {
@@ -113,7 +144,7 @@ export class GradesService {
       }
     }
 
-    // 5. Load existing grades to determine entered_at/entered_by_user_id
+    // 6. Load existing grades to determine entered_at/entered_by_user_id
     const existingGrades = await this.prisma.grade.findMany({
       where: {
         tenant_id: tenantId,
@@ -132,7 +163,7 @@ export class GradesService {
 
     const existingGradeMap = new Map(existingGrades.map((g) => [g.student_id, g]));
 
-    // 6. Upsert all grades within an RLS transaction
+    // 7. Upsert all grades within an RLS transaction
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
     const now = new Date();
 

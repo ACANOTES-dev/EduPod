@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Lock } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Clock, Lock, ShieldAlert } from 'lucide-react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -31,6 +31,8 @@ interface AssessmentDetail {
   category_name: string;
   max_score: number;
   status: string;
+  due_date: string | null;
+  grading_deadline: string | null;
 }
 
 interface StudentGrade {
@@ -80,13 +82,70 @@ function parseDecimal(
 const STATUS_VARIANT: Record<string, 'warning' | 'info' | 'success' | 'neutral' | 'danger'> = {
   draft: 'warning',
   open: 'info',
-  closed: 'success',
+  closed: 'danger',
   locked: 'neutral',
   submitted_locked: 'success',
   unlock_requested: 'warning',
   reopened: 'info',
   final_locked: 'neutral',
 };
+
+// ─── Computed status display ──────────────────────────────────────────────────
+
+const STATUS_DISPLAY: Record<string, string> = {
+  draft: 'statusDraft',
+  open: 'statusOpen',
+  closed: 'statusClosed',
+  locked: 'statusLocked',
+  submitted_locked: 'statusSubmittedLocked',
+  unlock_requested: 'statusUnlockRequested',
+  reopened: 'statusReopened',
+  final_locked: 'statusFinalLocked',
+};
+
+type GradingWindowState = 'before_due_date' | 'in_window' | 'past_deadline' | 'no_dates';
+
+function computeGradingWindow(assessment: AssessmentDetail): GradingWindowState {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (!assessment.due_date) return 'no_dates';
+
+  const dueDate = new Date(assessment.due_date);
+  dueDate.setHours(0, 0, 0, 0);
+
+  if (today < dueDate) return 'before_due_date';
+
+  if (assessment.grading_deadline) {
+    const deadline = new Date(assessment.grading_deadline);
+    deadline.setHours(0, 0, 0, 0);
+    if (today > deadline) return 'past_deadline';
+  }
+
+  return 'in_window';
+}
+
+function computeDisplayStatusKey(assessment: AssessmentDetail): string {
+  if (assessment.status === 'open') {
+    const window = computeGradingWindow(assessment);
+    if (window === 'before_due_date') return 'statusScheduled';
+    if (window === 'past_deadline') return 'statusOverdue';
+    return 'statusPendingGrading';
+  }
+  return STATUS_DISPLAY[assessment.status] ?? 'statusDraft';
+}
+
+function computeDisplayVariant(
+  assessment: AssessmentDetail,
+): 'warning' | 'info' | 'success' | 'neutral' | 'danger' {
+  if (assessment.status === 'open') {
+    const window = computeGradingWindow(assessment);
+    if (window === 'before_due_date') return 'info';
+    if (window === 'past_deadline') return 'danger';
+    return 'warning';
+  }
+  return STATUS_VARIANT[assessment.status] ?? 'neutral';
+}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -110,13 +169,22 @@ export default function GradeEntryPage() {
   const [unlockDialogOpen, setUnlockDialogOpen] = React.useState(false);
   const [unlockReason, setUnlockReason] = React.useState('');
   const [submittingUnlock, setSubmittingUnlock] = React.useState(false);
+  const [submitDialogOpen, setSubmitDialogOpen] = React.useState(false);
 
   const scoreRefs = React.useRef<(HTMLInputElement | null)[]>([]);
 
-  const isLocked =
-    assessment?.status !== 'draft' &&
-    assessment?.status !== 'open' &&
-    assessment?.status !== 'reopened';
+  // ─── Grading permissions ─────────────────────────────────────────────────
+  const gradingWindow = assessment ? computeGradingWindow(assessment) : 'no_dates';
+
+  // Assessment is locked if not in an editable status
+  const isLocked = assessment?.status !== 'open' && assessment?.status !== 'reopened';
+
+  // Can enter grades: must be open (in grading window) or reopened
+  const canEnterGrades = assessment
+    ? (assessment.status === 'open' &&
+        (gradingWindow === 'in_window' || gradingWindow === 'no_dates')) ||
+      assessment.status === 'reopened'
+    : false;
 
   const canRequestUnlock =
     assessment?.status === 'submitted_locked' || assessment?.status === 'final_locked';
@@ -150,12 +218,15 @@ export default function GradeEntryPage() {
       ]);
 
       const a = assessmentRes.data;
+      const rawAssessment = a as unknown as Record<string, unknown>;
       setAssessment({
         id: a.id,
         title: a.title,
         category_name: a.category?.name ?? '',
         max_score: typeof a.max_score === 'number' ? a.max_score : Number(a.max_score),
         status: a.status,
+        due_date: (rawAssessment.due_date as string) ?? null,
+        grading_deadline: (rawAssessment.grading_deadline as string) ?? null,
       });
 
       // Build grade map from existing grades
@@ -250,10 +321,13 @@ export default function GradeEntryPage() {
     [assessment],
   );
 
-  const handleSave = async () => {
+  // Submit grades and auto-lock — called after user confirms the dialog
+  const handleSubmitGrades = async () => {
     if (!assessment) return;
     setSaving(true);
+    setSubmitDialogOpen(false);
     try {
+      // 1. Save the grades
       await apiClient(`/api/v1/gradebook/assessments/${assessmentId}/grades`, {
         method: 'PUT',
         body: JSON.stringify({
@@ -265,10 +339,27 @@ export default function GradeEntryPage() {
           })),
         }),
       });
-      toast.success('Grades saved');
+
+      // 2. Auto-transition to submitted_locked
+      try {
+        await apiClient(`/api/v1/gradebook/assessments/${assessmentId}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'submitted_locked' }),
+        });
+      } catch (lockErr) {
+        // Grades saved but lock failed — notify user
+        console.error('[AssessmentsGradesPage] auto-lock failed', lockErr);
+        toast.error(t('submitLockFailed'));
+        void fetchAssessmentData();
+        return;
+      }
+
+      toast.success(t('submitSuccess'));
+      void fetchAssessmentData();
     } catch (err) {
       console.error('[AssessmentsGradesPage]', err);
-      toast.error(tc('errorGeneric'));
+      const apiErr = err as { message?: string };
+      toast.error(apiErr.message ?? tc('errorGeneric'));
     } finally {
       setSaving(false);
     }
@@ -321,8 +412,8 @@ export default function GradeEntryPage() {
       <div className="rounded-xl border border-border bg-surface p-5">
         <div className="flex flex-wrap items-center gap-4">
           <h2 className="text-lg font-semibold text-text-primary">{assessment.title}</h2>
-          <StatusBadge status={STATUS_VARIANT[assessment.status] ?? 'neutral'} dot>
-            {assessment.status}
+          <StatusBadge status={computeDisplayVariant(assessment)} dot>
+            {t(computeDisplayStatusKey(assessment))}
           </StatusBadge>
         </div>
         <div className="mt-2 flex flex-wrap gap-4 text-sm text-text-secondary">
@@ -332,10 +423,57 @@ export default function GradeEntryPage() {
           <span>
             {t('maxScore')}: <span dir="ltr">{assessment.max_score}</span>
           </span>
+          {assessment.due_date && (
+            <span>
+              {t('dueDate')}:{' '}
+              <span dir="ltr">{new Date(assessment.due_date).toLocaleDateString()}</span>
+            </span>
+          )}
+          {assessment.grading_deadline && (
+            <span>
+              {t('gradingDeadline')}:{' '}
+              <span dir="ltr">{new Date(assessment.grading_deadline).toLocaleDateString()}</span>
+            </span>
+          )}
         </div>
       </div>
 
-      {isLocked && (
+      {/* Grading window banners */}
+      {assessment.status === 'open' && gradingWindow === 'before_due_date' && (
+        <div className="flex items-center gap-2 rounded-xl border border-info-fill bg-info-fill/10 p-4 text-sm text-info-text">
+          <CalendarClock className="h-4 w-4 shrink-0" />
+          <span>
+            {t('gradingNotYetOpen')}{' '}
+            <span dir="ltr" className="font-medium">
+              {assessment.due_date ? new Date(assessment.due_date).toLocaleDateString() : ''}
+            </span>
+          </span>
+        </div>
+      )}
+
+      {assessment.status === 'open' && gradingWindow === 'past_deadline' && (
+        <div className="flex items-center gap-2 rounded-xl border border-danger-fill bg-danger-fill/10 p-4 text-sm text-danger-text">
+          <Clock className="h-4 w-4 shrink-0" />
+          <span>{t('gradingDeadlinePassed')}</span>
+        </div>
+      )}
+
+      {assessment.status === 'open' &&
+        (gradingWindow === 'in_window' || gradingWindow === 'no_dates') && (
+          <div className="flex items-center gap-2 rounded-xl border border-warning-fill bg-warning-fill/10 p-4 text-sm text-warning-text">
+            <ShieldAlert className="h-4 w-4 shrink-0" />
+            <span>{t('submitWarningBanner')}</span>
+          </div>
+        )}
+
+      {assessment.status === 'reopened' && (
+        <div className="flex items-center gap-2 rounded-xl border border-info-fill bg-info-fill/10 p-4 text-sm text-info-text">
+          <Lock className="h-4 w-4 shrink-0" />
+          <span>{t('reopenedBanner')}</span>
+        </div>
+      )}
+
+      {isLocked && !canEnterGrades && (
         <div className="flex items-center justify-between gap-2 rounded-xl border border-warning-fill bg-warning-fill/10 p-4 text-sm text-warning-text">
           <div className="flex items-center gap-2">
             <Lock className="h-4 w-4" />
@@ -396,7 +534,7 @@ export default function GradeEntryPage() {
                     value={grade.score != null ? String(grade.score) : ''}
                     onChange={(e) => updateGrade(grade.student_id, 'score', e.target.value)}
                     onKeyDown={(e) => handleScoreKeyDown(e, idx)}
-                    disabled={isLocked || grade.is_missing}
+                    disabled={!canEnterGrades || grade.is_missing}
                     className="w-24"
                     placeholder="—"
                     dir="ltr"
@@ -406,7 +544,7 @@ export default function GradeEntryPage() {
                   <Checkbox
                     checked={grade.is_missing}
                     onCheckedChange={(v) => updateGrade(grade.student_id, 'is_missing', v)}
-                    disabled={isLocked}
+                    disabled={!canEnterGrades}
                     aria-label={t('missing')}
                   />
                 </td>
@@ -414,7 +552,7 @@ export default function GradeEntryPage() {
                   <Textarea
                     value={grade.comment}
                     onChange={(e) => updateGrade(grade.student_id, 'comment', e.target.value)}
-                    disabled={isLocked}
+                    disabled={!canEnterGrades}
                     className="min-h-[36px] resize-none"
                     rows={1}
                   />
@@ -425,13 +563,31 @@ export default function GradeEntryPage() {
         </table>
       </div>
 
-      {!isLocked && (
+      {canEnterGrades && (
         <div className="flex justify-end">
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? tc('loading') : t('save')}
+          <Button onClick={() => setSubmitDialogOpen(true)} disabled={saving}>
+            {saving ? tc('loading') : t('submitGrades')}
           </Button>
         </div>
       )}
+
+      {/* Submit confirmation dialog */}
+      <Dialog open={submitDialogOpen} onOpenChange={setSubmitDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('submitGradesTitle')}</DialogTitle>
+            <DialogDescription>{t('submitGradesWarning')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSubmitDialogOpen(false)} disabled={saving}>
+              {tc('cancel')}
+            </Button>
+            <Button onClick={handleSubmitGrades} disabled={saving}>
+              {saving ? tc('loading') : t('submitGradesConfirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Unlock request dialog */}
       <Dialog open={unlockDialogOpen} onOpenChange={setUnlockDialogOpen}>

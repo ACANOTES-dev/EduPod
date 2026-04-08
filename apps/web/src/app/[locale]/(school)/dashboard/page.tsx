@@ -124,11 +124,30 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const fetchUnlockRequests = React.useCallback(async () => {
+    try {
+      const result = await apiClient<{ data: unknown[]; meta: { total: number } }>(
+        '/api/v1/gradebook/unlock-requests?page=1&pageSize=1',
+        { silent: true },
+      );
+      const total = result.meta?.total ?? result.data?.length ?? 0;
+      if (total > 0) {
+        setPriorityData((prev) => ({
+          ...prev,
+          pending_unlock_requests: total,
+        }));
+      }
+    } catch (err) {
+      console.error('[fetchUnlockRequests]', err);
+    }
+  }, []);
+
   React.useEffect(() => {
     void fetchDashboard();
     void fetchFinance();
     void fetchBehaviour();
-  }, [fetchDashboard, fetchFinance, fetchBehaviour]);
+    void fetchUnlockRequests();
+  }, [fetchDashboard, fetchFinance, fetchBehaviour, fetchUnlockRequests]);
 
   const schoolName = user?.memberships?.[0]?.tenant?.name || 'EduPod School';
 

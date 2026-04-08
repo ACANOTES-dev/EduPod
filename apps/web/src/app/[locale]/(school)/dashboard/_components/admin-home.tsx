@@ -35,6 +35,8 @@ export type PriorityData = {
   pending_approvals?: number;
   /** Count of admissions applications pending review */
   pending_admissions?: number;
+  /** Count of pending assessment unlock requests */
+  pending_unlock_requests?: number;
 };
 
 // ─── API response types ─────────────────────────────────────────────────────

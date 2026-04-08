@@ -190,6 +190,7 @@ export const transitionAssessmentStatusSchema = z.object({
     'reopened',
     'final_locked',
   ]),
+  cancellation_reason: z.string().min(1).optional(),
 });
 export type TransitionAssessmentStatusDto = z.infer<typeof transitionAssessmentStatusSchema>;
 
@@ -782,3 +783,60 @@ export const acknowledgeReportCardSchema = z.object({
   parent_id: z.string().uuid(),
 });
 export type AcknowledgeReportCardDto = z.infer<typeof acknowledgeReportCardSchema>;
+
+// ─── Weight Configuration (cross-subject / cross-period) ──────────────────────
+
+export const subjectWeightEntrySchema = z.object({
+  subject_id: z.string().uuid(),
+  weight: z.number().min(0).max(100),
+});
+
+export const upsertSubjectWeightsSchema = z.object({
+  academic_year_id: z.string().uuid(),
+  academic_period_id: z.string().uuid(),
+  scope_type: z.enum(['year_group', 'class']),
+  scope_id: z.string().uuid(),
+  weights: z.array(subjectWeightEntrySchema).min(1),
+});
+export type UpsertSubjectWeightsDto = z.infer<typeof upsertSubjectWeightsSchema>;
+
+export const periodWeightEntrySchema = z.object({
+  academic_period_id: z.string().uuid(),
+  weight: z.number().min(0).max(100),
+});
+
+export const upsertPeriodWeightsSchema = z.object({
+  academic_year_id: z.string().uuid(),
+  scope_type: z.enum(['year_group', 'class']),
+  scope_id: z.string().uuid(),
+  weights: z.array(periodWeightEntrySchema).min(1),
+});
+export type UpsertPeriodWeightsDto = z.infer<typeof upsertPeriodWeightsSchema>;
+
+export const propagateWeightsSchema = z.object({
+  academic_year_id: z.string().uuid(),
+  academic_period_id: z.string().uuid().optional(),
+  year_group_id: z.string().uuid(),
+});
+export type PropagateWeightsDto = z.infer<typeof propagateWeightsSchema>;
+
+// ─── Cross-aggregation query schemas ────────────────────────────────────
+
+export const crossSubjectGradesQuerySchema = z.object({
+  class_id: z.string().uuid(),
+  academic_period_id: z.string().uuid(),
+});
+export type CrossSubjectGradesQuery = z.infer<typeof crossSubjectGradesQuerySchema>;
+
+export const crossPeriodGradesQuerySchema = z.object({
+  class_id: z.string().uuid(),
+  subject_id: z.string().uuid(),
+  academic_year_id: z.string().uuid(),
+});
+export type CrossPeriodGradesQuery = z.infer<typeof crossPeriodGradesQuerySchema>;
+
+export const yearOverviewGradesQuerySchema = z.object({
+  class_id: z.string().uuid(),
+  academic_year_id: z.string().uuid(),
+});
+export type YearOverviewGradesQuery = z.infer<typeof yearOverviewGradesQuerySchema>;

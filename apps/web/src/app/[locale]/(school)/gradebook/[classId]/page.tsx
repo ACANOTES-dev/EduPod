@@ -6,7 +6,6 @@ import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
-  Badge,
   Button,
   Dialog,
   DialogContent,
@@ -118,6 +117,14 @@ interface SelectOption {
   name: string;
 }
 
+interface ClassAllocation {
+  class_id: string;
+  subject_id: string;
+  subject_name: string;
+  staff_profile_id: string;
+  teacher_name: string;
+}
+
 interface ListResponse<T> {
   data: T[];
 }
@@ -132,30 +139,6 @@ interface AssessmentTemplate {
 }
 
 type TabKey = 'assessments' | 'results' | 'grades' | 'analytics';
-
-const STATUS_VARIANT: Record<string, 'warning' | 'info' | 'success' | 'neutral'> = {
-  draft: 'warning',
-  open: 'info',
-  closed: 'success',
-  locked: 'neutral',
-  submitted_locked: 'neutral',
-  unlock_requested: 'warning',
-  reopened: 'info',
-  final_locked: 'neutral',
-};
-
-// ─── Status label key map ─────────────────────────────────────────────────────
-
-const STATUS_LABEL_KEY: Record<string, string> = {
-  draft: 'statusDraft',
-  open: 'statusOpen',
-  closed: 'statusClosed',
-  locked: 'statusLocked',
-  submitted_locked: 'statusSubmittedLocked',
-  unlock_requested: 'statusUnlockRequested',
-  reopened: 'statusReopened',
-  final_locked: 'statusFinalLocked',
-};
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -192,42 +175,77 @@ export default function ClassGradebookPage() {
   const [assessmentsTotal, setAssessmentsTotal] = React.useState(0);
   const [assessmentsPage, setAssessmentsPage] = React.useState(1);
   const [assessmentsLoading, setAssessmentsLoading] = React.useState(true);
-  const [statusDialogOpen, setStatusDialogOpen] = React.useState(false);
-  const [statusTarget, setStatusTarget] = React.useState<Assessment | null>(null);
-  const [newStatus, setNewStatus] = React.useState('');
   const [assessmentSubjectFilter, setAssessmentSubjectFilter] = React.useState('all');
   const [assessmentSubjects, setAssessmentSubjects] = React.useState<SelectOption[]>([]);
   const PAGE_SIZE = 20;
 
-  // Load subjects for the filter dropdown
+  // ─── Allocations (for subject grouping & ownership) ──────────────────────
+  const [mySubjectIds, setMySubjectIds] = React.useState<Set<string>>(new Set());
+  const [classAllocations, setClassAllocations] = React.useState<ClassAllocation[]>([]);
+  const [allocationsLoaded, setAllocationsLoaded] = React.useState(false);
+
+  // Load teaching allocations → subject ownership + subject filter options
+  // Uses allSettled because the owner/principal has no staff profile (my-allocations 404s)
   React.useEffect(() => {
-    apiClient<ListResponse<SelectOption>>('/api/v1/subjects?pageSize=100&subject_type=academic')
-      .then((res) => setAssessmentSubjects(res.data))
-      .catch((err) => {
-        console.error('[GradebookPage]', err);
-      });
-  }, []);
+    void Promise.allSettled([
+      apiClient<{ data: ClassAllocation[] }>('/api/v1/gradebook/teaching-allocations'),
+      apiClient<{ data: ClassAllocation[] }>(`/api/v1/gradebook/classes/${classId}/allocations`),
+    ]).then(([myResult, classResult]) => {
+      // My allocations — may fail for admin users (no staff profile)
+      if (myResult.status === 'fulfilled') {
+        const mySubjects = new Set(
+          myResult.value.data.filter((a) => a.class_id === classId).map((a) => a.subject_id),
+        );
+        setMySubjectIds(mySubjects);
+      }
+
+      // Class allocations — should always succeed
+      if (classResult.status === 'fulfilled') {
+        setClassAllocations(classResult.value.data);
+
+        // Derive unique subjects for the filter dropdown
+        const subjectMap = new Map<string, string>();
+        for (const a of classResult.value.data) {
+          if (!subjectMap.has(a.subject_id)) {
+            subjectMap.set(a.subject_id, a.subject_name);
+          }
+        }
+        setAssessmentSubjects(
+          [...subjectMap.entries()]
+            .map(([id, name]) => ({ id, name }))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        );
+      }
+
+      setAllocationsLoaded(true);
+    });
+  }, [classId]);
 
   const fetchAssessments = React.useCallback(
     async (p: number, subjectId: string) => {
       setAssessmentsLoading(true);
       try {
+        const effectivePageSize = subjectId === 'all' ? 100 : PAGE_SIZE;
         const params = new URLSearchParams({
           page: String(p),
-          pageSize: String(PAGE_SIZE),
+          pageSize: String(effectivePageSize),
           class_id: classId,
+          exclude_cancelled: 'true',
         });
         if (subjectId !== 'all') params.set('subject_id', subjectId);
         const res = await apiClient<AssessmentsResponse>(
           `/api/v1/gradebook/assessments?${params.toString()}`,
         );
-        // Normalise: API returns category as nested { id, name } object
+        // Normalise: API returns category/subject as nested objects
         const normalised = res.data.map((a) => {
           const cat = (a as unknown as { category?: { id: string; name: string } }).category;
+          const sub = a.subject;
           return {
             ...a,
             category_name: a.category_name || cat?.name || '',
             category_id: a.category_id || cat?.id || '',
+            subject_id: a.subject_id || sub?.id || '',
+            subject_name: a.subject_name || sub?.name || '',
           };
         });
         setAssessments(normalised);
@@ -249,20 +267,95 @@ export default function ClassGradebookPage() {
     }
   }, [activeTab, assessmentsPage, assessmentSubjectFilter, fetchAssessments]);
 
-  const handleStatusChange = async () => {
-    if (!statusTarget || !newStatus) return;
-    try {
-      await apiClient(`/api/v1/gradebook/assessments/${statusTarget.id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: newStatus }),
-      });
-      setStatusDialogOpen(false);
-      setStatusTarget(null);
-      void fetchAssessments(assessmentsPage, assessmentSubjectFilter);
-    } catch (err) {
-      console.error('[GradebookPage]', err);
-      toast.error(tc('errorGeneric'));
+  // ─── Subject grouping for the "All Subjects" view ──────────────────────
+  const groupedBySubject = React.useMemo(() => {
+    if (assessmentSubjectFilter !== 'all') return null;
+
+    const groups = new Map<
+      string,
+      { subjectName: string; teacherName: string; assessments: Assessment[] }
+    >();
+
+    for (const a of assessments) {
+      const subjectId = a.subject_id || a.subject?.id || '';
+      if (!subjectId) continue;
+      const subjectName = a.subject_name || a.subject?.name || '';
+
+      if (!groups.has(subjectId)) {
+        const allocation = classAllocations.find((al) => al.subject_id === subjectId);
+        groups.set(subjectId, {
+          subjectName,
+          teacherName: allocation?.teacher_name || '',
+          assessments: [],
+        });
+      }
+      // Non-null assertion safe: we just set the key above
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      groups.get(subjectId)!.assessments.push(a);
     }
+
+    return [...groups.entries()].sort(([, a], [, b]) => a.subjectName.localeCompare(b.subjectName));
+  }, [assessments, assessmentSubjectFilter, classAllocations]);
+
+  /** True when the single-subject filter points to a subject the teacher owns (or allocations not yet loaded / admin). */
+  const isFilteredSubjectOwned =
+    assessmentSubjectFilter === 'all' ||
+    !allocationsLoaded ||
+    mySubjectIds.size === 0 ||
+    mySubjectIds.has(assessmentSubjectFilter);
+
+  // ─── Computed status display ──────────────────────────────────────────────
+  const computeDisplayStatus = (
+    row: Assessment,
+  ): { key: string; variant: 'warning' | 'info' | 'success' | 'neutral' | 'danger' } => {
+    if (row.status === 'open') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (row.due_date) {
+        const dueDate = new Date(row.due_date);
+        dueDate.setHours(0, 0, 0, 0);
+        if (today < dueDate) {
+          return { key: 'statusScheduled', variant: 'info' };
+        }
+      }
+
+      if (row.grading_deadline) {
+        const deadline = new Date(row.grading_deadline);
+        deadline.setHours(0, 0, 0, 0);
+        if (today > deadline) {
+          return { key: 'statusOverdue', variant: 'danger' };
+        }
+      }
+
+      // Past due_date but before grading_deadline (or no deadline) → Pending Grading
+      return { key: 'statusPendingGrading', variant: 'warning' };
+    }
+
+    const variantMap: Record<string, 'warning' | 'info' | 'success' | 'neutral' | 'danger'> = {
+      draft: 'warning',
+      closed: 'danger',
+      submitted_locked: 'success',
+      unlock_requested: 'warning',
+      reopened: 'info',
+      final_locked: 'neutral',
+      locked: 'neutral',
+    };
+
+    const labelMap: Record<string, string> = {
+      draft: 'statusDraft',
+      closed: 'statusClosed',
+      submitted_locked: 'statusSubmittedLocked',
+      unlock_requested: 'statusUnlockRequested',
+      reopened: 'statusReopened',
+      final_locked: 'statusFinalLocked',
+      locked: 'statusLocked',
+    };
+
+    return {
+      key: labelMap[row.status] ?? 'statusDraft',
+      variant: variantMap[row.status] ?? 'neutral',
+    };
   };
 
   const assessmentColumns = [
@@ -276,11 +369,14 @@ export default function ClassGradebookPage() {
     {
       key: 'status',
       header: 'Status',
-      render: (row: Assessment) => (
-        <StatusBadge status={STATUS_VARIANT[row.status] ?? 'neutral'} dot>
-          {t(STATUS_LABEL_KEY[row.status] ?? 'statusDraft')}
-        </StatusBadge>
-      ),
+      render: (row: Assessment) => {
+        const display = computeDisplayStatus(row);
+        return (
+          <StatusBadge status={display.variant} dot>
+            {t(display.key)}
+          </StatusBadge>
+        );
+      },
     },
     {
       key: 'category',
@@ -308,8 +404,8 @@ export default function ClassGradebookPage() {
     {
       key: 'actions',
       header: tc('actions'),
-      render: (row: Assessment) => (
-        <div className="flex items-center gap-1">
+      render: (row: Assessment) =>
+        isFilteredSubjectOwned ? (
           <Button
             variant="ghost"
             size="sm"
@@ -320,20 +416,7 @@ export default function ClassGradebookPage() {
           >
             {t('gradeEntry')}
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              setStatusTarget(row);
-              setNewStatus('');
-              setStatusDialogOpen(true);
-            }}
-          >
-            {t('publishingStatus')}
-          </Button>
-        </div>
-      ),
+        ) : null,
     },
   ];
 
@@ -346,28 +429,73 @@ export default function ClassGradebookPage() {
   const [overrideScore, setOverrideScore] = React.useState('');
   const [overrideLetter, setOverrideLetter] = React.useState('');
 
-  // Subject & period selectors required by API
+  // Subject & period selectors — support "all" for matrix views
   const [pgSubjects, setPgSubjects] = React.useState<SelectOption[]>([]);
   const [pgPeriods, setPgPeriods] = React.useState<SelectOption[]>([]);
   const [pgSubjectId, setPgSubjectId] = React.useState('');
   const [pgPeriodId, setPgPeriodId] = React.useState('');
+  const [academicYearId, setAcademicYearId] = React.useState('');
+  const [showPercentages, setShowPercentages] = React.useState(false);
 
-  // Load subject/period options when tab activates
+  // Matrix data for cross-aggregation views
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [matrixData, setMatrixData] = React.useState<Record<string, unknown> | null>(null);
+  const [matrixLoading, setMatrixLoading] = React.useState(false);
+  const [matrixType, setMatrixType] = React.useState<
+    'cross-subject' | 'cross-period' | 'year-overview' | null
+  >(null);
+
+  const isAllSubjects = pgSubjectId === 'all';
+  const isAllPeriods = pgPeriodId === 'all';
+  const isMatrixView = isAllSubjects || isAllPeriods;
+
+  // What type of matrix the current dropdown selection expects
+  const expectedMatrixType =
+    isAllSubjects && isAllPeriods
+      ? ('year-overview' as const)
+      : isAllSubjects
+        ? ('cross-subject' as const)
+        : isAllPeriods
+          ? ('cross-period' as const)
+          : null;
+
+  // Load class academic year + period/subject options when grades tab activates
   React.useEffect(() => {
-    if (activeTab === 'grades') {
-      apiClient<ListResponse<SelectOption>>('/api/v1/subjects?pageSize=100&subject_type=academic')
-        .then((res) => setPgSubjects(res.data))
+    if (activeTab !== 'grades') return;
+
+    // Fetch class to get academic_year_id (response wrapped in { data: {...} })
+    apiClient<{ data: { academic_year_id: string } }>(`/api/v1/classes/${classId}`)
+      .then((res) => {
+        const yearId = res.data.academic_year_id;
+        setAcademicYearId(yearId);
+        // Load periods for this year
+        return apiClient<ListResponse<SelectOption>>(
+          `/api/v1/academic-periods?pageSize=50&academic_year_id=${yearId}`,
+        );
+      })
+      .then((res) => setPgPeriods(res.data))
+      .catch((err) => {
+        console.error('[GradebookPage] grades init', err);
+      });
+
+    // Subjects from class allocations (already loaded) or from curriculum matrix
+    if (assessmentSubjects.length > 0) {
+      setPgSubjects(assessmentSubjects);
+    } else {
+      apiClient<{ data: Array<{ subject_id: string; subject: { id: string; name: string } }> }>(
+        `/api/v1/gradebook/classes/${classId}/grade-configs`,
+      )
+        .then((res) => {
+          const subs = res.data.map((c) => ({ id: c.subject_id, name: c.subject.name }));
+          setPgSubjects(subs.sort((a, b) => a.name.localeCompare(b.name)));
+        })
         .catch((err) => {
-          console.error('[GradebookPage]', err);
-        });
-      apiClient<ListResponse<SelectOption>>('/api/v1/academic-periods?pageSize=50')
-        .then((res) => setPgPeriods(res.data))
-        .catch((err) => {
-          console.error('[GradebookPage]', err);
+          console.error('[GradebookPage] subjects', err);
         });
     }
-  }, [activeTab]);
+  }, [activeTab, classId, assessmentSubjects]);
 
+  // ─── Flat view fetch (specific subject + specific period) ──────────────
   const fetchPeriodGrades = React.useCallback(
     async (subjectId: string, periodId: string) => {
       if (!subjectId || !periodId) return;
@@ -392,15 +520,79 @@ export default function ClassGradebookPage() {
     [classId],
   );
 
+  // ─── Matrix view fetch (cross-aggregation) ────────────────────────────
+  const fetchMatrixData = React.useCallback(
+    async (subjectId: string, periodId: string) => {
+      setMatrixLoading(true);
+      setMatrixData(null);
+      setMatrixType(null);
+      try {
+        const allSubjects = subjectId === 'all';
+        const allPeriods = periodId === 'all';
+
+        let url: string;
+        const params = new URLSearchParams({ class_id: classId });
+
+        if (allSubjects && allPeriods) {
+          params.set('academic_year_id', academicYearId);
+          url = `/api/v1/gradebook/period-grades/year-overview?${params.toString()}`;
+        } else if (allSubjects) {
+          params.set('academic_period_id', periodId);
+          url = `/api/v1/gradebook/period-grades/cross-subject?${params.toString()}`;
+        } else {
+          params.set('subject_id', subjectId);
+          params.set('academic_year_id', academicYearId);
+          url = `/api/v1/gradebook/period-grades/cross-period?${params.toString()}`;
+        }
+
+        const raw = await apiClient<{ data: Record<string, unknown> } | Record<string, unknown>>(
+          url,
+        );
+        // API may wrap response in { data: ... } — unwrap if present
+        const res =
+          'data' in raw &&
+          typeof raw.data === 'object' &&
+          raw.data !== null &&
+          !Array.isArray(raw.data)
+            ? (raw.data as Record<string, unknown>)
+            : raw;
+        setMatrixData(res as Record<string, unknown>);
+        setMatrixType(
+          allSubjects && allPeriods
+            ? 'year-overview'
+            : allSubjects
+              ? 'cross-subject'
+              : 'cross-period',
+        );
+      } catch (err) {
+        console.error('[GradebookPage] matrix', err);
+        setMatrixData(null);
+        setMatrixType(null);
+      } finally {
+        setMatrixLoading(false);
+      }
+    },
+    [classId, academicYearId],
+  );
+
+  // Fetch data when subject/period selection changes
   React.useEffect(() => {
-    if (activeTab === 'grades' && pgSubjectId && pgPeriodId) {
+    if (activeTab !== 'grades' || !pgSubjectId || !pgPeriodId) return;
+
+    if (pgSubjectId !== 'all' && pgPeriodId !== 'all') {
+      // Flat view
+      setMatrixData(null);
       void fetchPeriodGrades(pgSubjectId, pgPeriodId);
+    } else if (academicYearId) {
+      // Matrix view
+      setPeriodGrades([]);
+      void fetchMatrixData(pgSubjectId, pgPeriodId);
     }
-  }, [activeTab, pgSubjectId, pgPeriodId, fetchPeriodGrades]);
+  }, [activeTab, pgSubjectId, pgPeriodId, academicYearId, fetchPeriodGrades, fetchMatrixData]);
 
   const handleComputeGrades = async () => {
-    if (!pgSubjectId || !pgPeriodId) {
-      toast.error('Select a subject and period first');
+    if (!pgSubjectId || !pgPeriodId || pgSubjectId === 'all' || pgPeriodId === 'all') {
+      toast.error('Select a specific subject and period to compute grades');
       return;
     }
     setComputing(true);
@@ -434,7 +626,9 @@ export default function ClassGradebookPage() {
         }),
       });
       setOverrideDialogOpen(false);
-      if (pgSubjectId && pgPeriodId) void fetchPeriodGrades(pgSubjectId, pgPeriodId);
+      if (pgSubjectId && pgPeriodId && pgSubjectId !== 'all' && pgPeriodId !== 'all') {
+        void fetchPeriodGrades(pgSubjectId, pgPeriodId);
+      }
     } catch (err) {
       console.error('[GradebookPage]', err);
       toast.error(tc('errorGeneric'));
@@ -557,7 +751,7 @@ export default function ClassGradebookPage() {
                   {t('newAssessment')}
                 </Button>
               </div>
-            ) : activeTab === 'grades' ? (
+            ) : activeTab === 'grades' && !isMatrixView ? (
               <Button onClick={handleComputeGrades} disabled={computing}>
                 {computing ? tc('loading') : t('computeGrades')}
               </Button>
@@ -591,7 +785,7 @@ export default function ClassGradebookPage() {
       {/* Tab content */}
       {activeTab === 'assessments' && (
         <>
-          {/* Subject filter for assessments */}
+          {/* Subject filter */}
           <div className="flex flex-wrap items-center gap-3">
             <Select
               value={assessmentSubjectFilter}
@@ -614,55 +808,148 @@ export default function ClassGradebookPage() {
             </Select>
           </div>
 
-          <DataTable
-            columns={assessmentColumns}
-            data={assessments}
-            page={assessmentsPage}
-            pageSize={PAGE_SIZE}
-            total={assessmentsTotal}
-            onPageChange={setAssessmentsPage}
-            onRowClick={(row) =>
-              router.push(`/${locale}/gradebook/${classId}/assessments/${row.id}/grades`)
-            }
-            keyExtractor={(row) => row.id}
-            isLoading={assessmentsLoading}
-          />
-
-          {/* Status change dialog */}
-          <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{t('changeStatus')}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                {statusTarget && (
-                  <p className="text-sm text-text-secondary">
-                    {t('current')}
-                    <Badge variant="secondary">{statusTarget.status}</Badge>
-                  </p>
-                )}
-                <Select value={newStatus} onValueChange={setNewStatus}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('selectNewStatus')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">{t('statusDraft')}</SelectItem>
-                    <SelectItem value="open">{t('statusOpen')}</SelectItem>
-                    <SelectItem value="closed">{t('statusClosed')}</SelectItem>
-                    <SelectItem value="locked">{t('statusLocked')}</SelectItem>
-                  </SelectContent>
-                </Select>
+          {assessmentsLoading ? (
+            <div className="py-12 text-center text-sm text-text-tertiary">{tc('loading')}</div>
+          ) : assessmentSubjectFilter === 'all' && groupedBySubject ? (
+            /* ─── Grouped view (all subjects) ──────────────────────── */
+            groupedBySubject.length === 0 ? (
+              <p className="py-12 text-center text-sm text-text-tertiary">{t('noClasses')}</p>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-surface-secondary">
+                      <th className="px-4 py-3 text-start font-medium text-text-secondary">
+                        {t('title2')}
+                      </th>
+                      <th className="px-4 py-3 text-start font-medium text-text-secondary">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-start font-medium text-text-secondary">
+                        {t('category')}
+                      </th>
+                      <th className="px-4 py-3 text-start font-medium text-text-secondary">
+                        {t('maxScore')}
+                      </th>
+                      <th className="px-4 py-3 text-start font-medium text-text-secondary">
+                        {t('dueDate')}
+                      </th>
+                      <th className="px-4 py-3 text-start font-medium text-text-secondary">
+                        {tc('actions')}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groupedBySubject.map(([subjectId, group]) => {
+                      const isOwned =
+                        !allocationsLoaded ||
+                        mySubjectIds.size === 0 ||
+                        mySubjectIds.has(subjectId);
+                      return (
+                        <React.Fragment key={subjectId}>
+                          {/* Section header */}
+                          <tr className="bg-primary-50 dark:bg-primary-950/20 border-b border-border">
+                            <td colSpan={6} className="px-4 py-2.5">
+                              <span className="font-semibold text-text-primary">
+                                {group.subjectName}
+                              </span>
+                              {group.teacherName && (
+                                <span className="ms-3 text-xs text-text-secondary">
+                                  — {group.teacherName}
+                                </span>
+                              )}
+                              <span className="ms-3 text-xs text-text-tertiary">
+                                ({group.assessments.length})
+                              </span>
+                            </td>
+                          </tr>
+                          {/* Assessment rows */}
+                          {group.assessments.map((row) => {
+                            const display = computeDisplayStatus(row);
+                            return (
+                              <tr
+                                key={row.id}
+                                className={`border-b border-border transition-colors ${
+                                  isOwned
+                                    ? 'hover:bg-surface-secondary cursor-pointer'
+                                    : 'opacity-50'
+                                }`}
+                                onClick={
+                                  isOwned
+                                    ? () =>
+                                        router.push(
+                                          `/${locale}/gradebook/${classId}/assessments/${row.id}/grades`,
+                                        )
+                                    : undefined
+                                }
+                              >
+                                <td className="px-4 py-3 font-medium text-text-primary">
+                                  {row.title}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <StatusBadge status={display.variant} dot>
+                                    {t(display.key)}
+                                  </StatusBadge>
+                                </td>
+                                <td className="px-4 py-3 text-text-secondary">
+                                  {row.category_name}
+                                </td>
+                                <td className="px-4 py-3 font-mono text-text-secondary" dir="ltr">
+                                  {row.max_score}
+                                </td>
+                                <td
+                                  className="px-4 py-3 font-mono text-text-secondary text-xs"
+                                  dir="ltr"
+                                >
+                                  {row.due_date ?? '—'}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {isOwned && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        router.push(
+                                          `/${locale}/gradebook/${classId}/assessments/${row.id}/grades`,
+                                        );
+                                      }}
+                                    >
+                                      {t('gradeEntry')}
+                                    </Button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>
-                  {tc('cancel')}
-                </Button>
-                <Button onClick={handleStatusChange} disabled={!newStatus}>
-                  {tc('confirm')}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            )
+          ) : (
+            /* ─── Flat view (single subject) ─────────────────────── */
+            <div className={!isFilteredSubjectOwned ? 'opacity-50' : ''}>
+              <DataTable
+                columns={assessmentColumns}
+                data={assessments}
+                page={assessmentsPage}
+                pageSize={PAGE_SIZE}
+                total={assessmentsTotal}
+                onPageChange={setAssessmentsPage}
+                onRowClick={
+                  isFilteredSubjectOwned
+                    ? (row) =>
+                        router.push(`/${locale}/gradebook/${classId}/assessments/${row.id}/grades`)
+                    : undefined
+                }
+                keyExtractor={(row) => row.id}
+                isLoading={assessmentsLoading}
+              />
+            </div>
+          )}
         </>
       )}
 
@@ -672,13 +959,14 @@ export default function ClassGradebookPage() {
 
       {activeTab === 'grades' && (
         <>
-          {/* Subject + period selectors required by API */}
+          {/* Subject + period selectors with "All" options + display toggle */}
           <div className="flex flex-wrap items-center gap-3">
             <Select value={pgSubjectId} onValueChange={setPgSubjectId}>
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder={t('subject')} />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">{t('allSubjects')}</SelectItem>
                 {pgSubjects.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name}
@@ -691,6 +979,7 @@ export default function ClassGradebookPage() {
                 <SelectValue placeholder={t('period')} />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">{t('allPeriods')}</SelectItem>
                 {pgPeriods.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name}
@@ -698,13 +987,263 @@ export default function ClassGradebookPage() {
                 ))}
               </SelectContent>
             </Select>
+
+            {/* Display toggle: letter grade vs percentage */}
+            {isMatrixView && (
+              <div className="ms-auto flex items-center gap-1 rounded-lg border border-border p-0.5 text-xs">
+                <button
+                  onClick={() => setShowPercentages(false)}
+                  className={`rounded-md px-3 py-1.5 font-medium transition-colors ${
+                    !showPercentages
+                      ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300'
+                      : 'text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  A B C
+                </button>
+                <button
+                  onClick={() => setShowPercentages(true)}
+                  className={`rounded-md px-3 py-1.5 font-medium transition-colors ${
+                    showPercentages
+                      ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300'
+                      : 'text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  %
+                </button>
+              </div>
+            )}
           </div>
 
           {!pgSubjectId || !pgPeriodId ? (
             <p className="py-8 text-center text-sm text-text-tertiary">
               {t('selectASubjectAndPeriod')}
             </p>
-          ) : (
+          ) : matrixLoading || periodGradesLoading ? (
+            <div className="py-12 text-center text-sm text-text-tertiary">{tc('loading')}</div>
+          ) : isMatrixView && matrixData && matrixType === expectedMatrixType ? (
+            /* ─── Matrix views ─────────────────────────────────────── */
+            <div className="overflow-x-auto rounded-lg border border-border">
+              {isAllSubjects && !isAllPeriods
+                ? /* Cross-subject matrix: rows=students, cols=subjects, last=Overall */
+                  (() => {
+                    const d = matrixData as {
+                      students: Array<{
+                        student_id: string;
+                        student_name: string;
+                        subject_grades: Record<
+                          string,
+                          { computed: number | null; display: string | null }
+                        >;
+                        overall: { computed: number | null; display: string | null };
+                      }>;
+                      subjects: Array<{ id: string; name: string; weight: number }>;
+                    };
+                    return (
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border bg-surface-secondary">
+                            <th className="sticky start-0 z-10 bg-surface-secondary px-4 py-3 text-start font-medium text-text-secondary">
+                              {t('student')}
+                            </th>
+                            {d.subjects.map((s) => (
+                              <th
+                                key={s.id}
+                                className="px-3 py-3 text-center font-medium text-text-secondary whitespace-nowrap"
+                              >
+                                <div>{s.name}</div>
+                                <div className="text-xs font-normal text-text-tertiary">
+                                  {Math.round(s.weight * 10) / 10}%
+                                </div>
+                              </th>
+                            ))}
+                            <th className="px-3 py-3 text-center font-semibold text-primary-700 whitespace-nowrap">
+                              {t('weightConfigTotal')}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {d.students.map((row) => (
+                            <tr key={row.student_id} className="border-b border-border">
+                              <td className="sticky start-0 z-10 bg-background px-4 py-3 font-medium text-text-primary whitespace-nowrap">
+                                {row.student_name}
+                              </td>
+                              {d.subjects.map((s) => {
+                                const cell = row.subject_grades[s.id];
+                                return (
+                                  <td
+                                    key={s.id}
+                                    className="px-3 py-3 text-center font-mono text-text-secondary"
+                                    dir="ltr"
+                                  >
+                                    {cell?.computed != null
+                                      ? showPercentages
+                                        ? `${cell.computed}%`
+                                        : (cell.display ?? `${cell.computed}%`)
+                                      : '—'}
+                                  </td>
+                                );
+                              })}
+                              <td
+                                className="px-3 py-3 text-center font-mono font-semibold text-primary-700"
+                                dir="ltr"
+                              >
+                                {row.overall.computed != null ? `${row.overall.computed}%` : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    );
+                  })()
+                : !isAllSubjects && isAllPeriods
+                  ? /* Cross-period matrix: rows=students, cols=periods, last=Annual */
+                    (() => {
+                      const d = matrixData as {
+                        students: Array<{
+                          student_id: string;
+                          student_name: string;
+                          period_grades: Record<
+                            string,
+                            { computed: number | null; display: string | null }
+                          >;
+                          annual: { computed: number | null; display: string | null };
+                        }>;
+                        periods: Array<{ id: string; name: string; weight: number }>;
+                      };
+                      return (
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-border bg-surface-secondary">
+                              <th className="sticky start-0 z-10 bg-surface-secondary px-4 py-3 text-start font-medium text-text-secondary">
+                                {t('student')}
+                              </th>
+                              {d.periods.map((p) => (
+                                <th
+                                  key={p.id}
+                                  className="px-3 py-3 text-center font-medium text-text-secondary whitespace-nowrap"
+                                >
+                                  <div>{p.name}</div>
+                                  <div className="text-xs font-normal text-text-tertiary">
+                                    {Math.round(p.weight * 10) / 10}%
+                                  </div>
+                                </th>
+                              ))}
+                              <th className="px-3 py-3 text-center font-semibold text-primary-700 whitespace-nowrap">
+                                Annual
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {d.students.map((row) => (
+                              <tr key={row.student_id} className="border-b border-border">
+                                <td className="sticky start-0 z-10 bg-background px-4 py-3 font-medium text-text-primary whitespace-nowrap">
+                                  {row.student_name}
+                                </td>
+                                {d.periods.map((p) => {
+                                  const cell = row.period_grades[p.id];
+                                  return (
+                                    <td
+                                      key={p.id}
+                                      className="px-3 py-3 text-center font-mono text-text-secondary"
+                                      dir="ltr"
+                                    >
+                                      {cell?.computed != null
+                                        ? showPercentages
+                                          ? `${cell.computed}%`
+                                          : (cell.display ?? `${cell.computed}%`)
+                                        : '—'}
+                                    </td>
+                                  );
+                                })}
+                                <td
+                                  className="px-3 py-3 text-center font-mono font-semibold text-primary-700"
+                                  dir="ltr"
+                                >
+                                  {row.annual.computed != null ? `${row.annual.computed}%` : '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      );
+                    })()
+                  : /* Year overview matrix: rows=students, cols=periods (each with Overall), last=Year */
+                    (() => {
+                      const d = matrixData as {
+                        students: Array<{
+                          student_id: string;
+                          student_name: string;
+                          period_overalls: Record<
+                            string,
+                            { computed: number | null; display: string | null }
+                          >;
+                          year_overall: { computed: number | null; display: string | null };
+                        }>;
+                        periods: Array<{ id: string; name: string; weight: number }>;
+                      };
+                      return (
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-border bg-surface-secondary">
+                              <th className="sticky start-0 z-10 bg-surface-secondary px-4 py-3 text-start font-medium text-text-secondary">
+                                {t('student')}
+                              </th>
+                              {d.periods.map((p) => (
+                                <th
+                                  key={p.id}
+                                  className="px-3 py-3 text-center font-medium text-text-secondary whitespace-nowrap"
+                                >
+                                  <div>{p.name}</div>
+                                  <div className="text-xs font-normal text-text-tertiary">
+                                    {Math.round(p.weight * 10) / 10}%
+                                  </div>
+                                </th>
+                              ))}
+                              <th className="px-3 py-3 text-center font-semibold text-primary-700 whitespace-nowrap bg-primary-50 dark:bg-primary-950/20">
+                                Year
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {d.students.map((row) => (
+                              <tr key={row.student_id} className="border-b border-border">
+                                <td className="sticky start-0 z-10 bg-background px-4 py-3 font-medium text-text-primary whitespace-nowrap">
+                                  {row.student_name}
+                                </td>
+                                {d.periods.map((p) => {
+                                  const cell = row.period_overalls[p.id];
+                                  return (
+                                    <td
+                                      key={p.id}
+                                      className="px-3 py-3 text-center font-mono text-text-secondary"
+                                      dir="ltr"
+                                    >
+                                      {cell?.computed != null
+                                        ? showPercentages
+                                          ? `${cell.computed}%`
+                                          : (cell.display ?? `${cell.computed}%`)
+                                        : '—'}
+                                    </td>
+                                  );
+                                })}
+                                <td
+                                  className="px-3 py-3 text-center font-mono font-bold text-primary-700 bg-primary-50/50 dark:bg-primary-950/10"
+                                  dir="ltr"
+                                >
+                                  {row.year_overall.computed != null
+                                    ? `${row.year_overall.computed}%`
+                                    : '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      );
+                    })()}
+            </div>
+          ) : !isMatrixView ? (
+            /* ─── Flat view (specific subject + specific period) ─── */
             <DataTable
               columns={periodGradeColumns}
               data={periodGrades}
@@ -715,7 +1254,7 @@ export default function ClassGradebookPage() {
               keyExtractor={(row) => row.id}
               isLoading={periodGradesLoading}
             />
-          )}
+          ) : null}
 
           {/* Override dialog */}
           <Dialog open={overrideDialogOpen} onOpenChange={setOverrideDialogOpen}>

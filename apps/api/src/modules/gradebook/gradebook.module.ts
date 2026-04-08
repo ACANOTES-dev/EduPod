@@ -50,6 +50,7 @@ import { TeachingAllocationsService } from './teaching-allocations.service';
 import { TranscriptsController } from './transcripts.controller';
 import { TranscriptsService } from './transcripts.service';
 import { UnlockRequestService } from './unlock-request.service';
+import { WeightConfigService } from './weight-config.service';
 import { YearGroupGradeWeightsService } from './year-group-grade-weights.service';
 
 @Module({
@@ -95,6 +96,7 @@ import { YearGroupGradeWeightsService } from './year-group-grade-weights.service
     TeachingAllocationsService,
     TeacherGradingWeightsService,
     UnlockRequestService,
+    WeightConfigService,
 
     // ─── Advanced Grading (C1-C7) ────────────────────────────────────────────
     RubricService,

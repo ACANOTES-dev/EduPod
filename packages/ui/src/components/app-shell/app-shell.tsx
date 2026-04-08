@@ -16,10 +16,8 @@ export function AppShell({ morphBar, subStrip, children, className }: AppShellPr
     <div className={cn('flex flex-col h-screen bg-background', className)}>
       {morphBar}
       {subStrip}
-      <main className="flex-1 overflow-y-auto w-full relative p-4 sm:p-6 lg:p-8">
-        <div className="mx-auto max-w-content h-full">
-          {children}
-        </div>
+      <main className="flex-1 overflow-y-auto w-full relative p-4 pb-8 sm:p-6 sm:pb-10 lg:p-8 lg:pb-12">
+        <div className="mx-auto max-w-content h-full">{children}</div>
       </main>
     </div>
   );

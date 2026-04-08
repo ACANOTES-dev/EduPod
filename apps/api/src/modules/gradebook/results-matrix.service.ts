@@ -105,13 +105,13 @@ export class ResultsMatrixService {
 
     const studentIds = students.map((s) => s.id);
 
-    // 3. Get all non-draft assessments for this class + period
+    // 3. Get all active assessments for this class + period (exclude draft + cancelled)
     const assessments = await this.prisma.assessment.findMany({
       where: {
         tenant_id: tenantId,
         class_id: classId,
         academic_period_id: academicPeriodId,
-        status: { not: 'draft' },
+        status: { notIn: ['draft', 'closed'] },
       },
       include: {
         subject: {

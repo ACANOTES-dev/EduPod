@@ -35,6 +35,21 @@ interface ConfigApprovalItem {
   status: string;
 }
 
+interface RawUnlockRequest {
+  id: string;
+  assessment_id: string;
+  assessment?: {
+    id: string;
+    title: string;
+    class_entity?: { name: string };
+    subject?: { name: string };
+  };
+  requested_by?: { first_name: string; last_name: string };
+  reason: string;
+  status: string;
+  created_at: string;
+}
+
 interface UnlockRequest {
   id: string;
   assessment_id: string;
@@ -45,6 +60,22 @@ interface UnlockRequest {
   reason: string;
   status: string;
   created_at: string;
+}
+
+function normaliseUnlockRequest(raw: RawUnlockRequest): UnlockRequest {
+  return {
+    id: raw.id,
+    assessment_id: raw.assessment_id,
+    assessment_title: raw.assessment?.title ?? '—',
+    class_name: raw.assessment?.class_entity?.name ?? '—',
+    subject_name: raw.assessment?.subject?.name ?? '—',
+    requested_by_name: raw.requested_by
+      ? `${raw.requested_by.first_name} ${raw.requested_by.last_name}`.trim()
+      : '—',
+    reason: raw.reason,
+    status: raw.status,
+    created_at: raw.created_at,
+  };
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -90,7 +121,7 @@ export function InlineApprovalQueue() {
         >('/api/v1/gradebook/teacher-grading-weights?status=pending_approval&pageSize=100', {
           silent: true,
         }).catch(() => null),
-        apiClient<{ data: UnlockRequest[] }>('/api/v1/gradebook/unlock-requests', {
+        apiClient<{ data: RawUnlockRequest[] }>('/api/v1/gradebook/unlock-requests', {
           silent: true,
         }).catch(() => null),
       ]);
@@ -128,7 +159,7 @@ export function InlineApprovalQueue() {
       }
 
       setConfigItems(items);
-      setUnlockRequests(unlocksRes?.data ?? []);
+      setUnlockRequests((unlocksRes?.data ?? []).map(normaliseUnlockRequest));
     } catch (err) {
       console.error('[InlineApprovalQueue.fetchApprovals]', err);
       setHasPermission(false);

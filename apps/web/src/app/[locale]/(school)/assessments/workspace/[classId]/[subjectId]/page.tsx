@@ -5,8 +5,11 @@ import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
+  Copy,
   LayoutGrid,
+  MoreVertical,
   Plus,
+  Trash2,
   XCircle,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -14,7 +17,25 @@ import { useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Badge, Button, StatusBadge, toast } from '@school/ui';
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Input,
+  Label,
+  StatusBadge,
+  Textarea,
+  toast,
+} from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -45,6 +66,7 @@ interface AllocationsResponse {
 type AssessmentStatus =
   | 'draft'
   | 'open'
+  | 'closed'
   | 'submitted_locked'
   | 'unlock_requested'
   | 'reopened'
@@ -56,6 +78,7 @@ interface Assessment {
   status: AssessmentStatus;
   max_score: number | null;
   due_date: string | null;
+  cancellation_reason: string | null;
 }
 
 interface AssessmentsResponse {
@@ -80,6 +103,7 @@ type SemanticVariant = 'warning' | 'info' | 'success' | 'neutral' | 'danger';
 const STATUS_VARIANT: Record<string, SemanticVariant> = {
   draft: 'warning',
   open: 'info',
+  closed: 'danger',
   submitted_locked: 'success',
   unlock_requested: 'warning',
   reopened: 'info',
@@ -143,6 +167,7 @@ function statusLabel(status: string, t: ReturnType<typeof useTranslations>): str
   const map: Record<string, string> = {
     draft: t('draft'),
     open: t('wsOpen'),
+    closed: t('wsCancelled'),
     submitted_locked: t('wsSubmittedLocked'),
     unlock_requested: t('wsUnlockRequested'),
     reopened: t('wsReopened'),
@@ -184,6 +209,15 @@ export default function AssessmentWorkspacePage() {
   const [approvedCategoryCount, setApprovedCategoryCount] = React.useState(0);
   const [isLoading, setIsLoading] = React.useState(true);
   const [assessmentsLoading, setAssessmentsLoading] = React.useState(true);
+  const [cancelDialogOpen, setCancelDialogOpen] = React.useState(false);
+  const [cancelTargetId, setCancelTargetId] = React.useState<string | null>(null);
+  const [cancelReason, setCancelReason] = React.useState('');
+  const [cancelSubmitting, setCancelSubmitting] = React.useState(false);
+  const [editDialogOpen, setEditDialogOpen] = React.useState(false);
+  const [editTargetId, setEditTargetId] = React.useState<string | null>(null);
+  const [editDueDate, setEditDueDate] = React.useState('');
+  const [editGradingDeadline, setEditGradingDeadline] = React.useState('');
+  const [editSaving, setEditSaving] = React.useState(false);
 
   // ── Fetch allocation ───────────────────────────────────────────────────────
 
@@ -228,6 +262,86 @@ export default function AssessmentWorkspacePage() {
       console.error('[AssessmentWorkspace.fetchCategories]', err);
     }
   }, [subjectId]);
+
+  // ── Cancel assessment handlers ──────────────────────────────────────────────
+
+  const openCancelDialog = React.useCallback((assessmentId: string) => {
+    setCancelTargetId(assessmentId);
+    setCancelReason('');
+    setCancelDialogOpen(true);
+  }, []);
+
+  const handleConfirmCancel = React.useCallback(async () => {
+    if (!cancelTargetId || !cancelReason.trim()) return;
+    setCancelSubmitting(true);
+    try {
+      await apiClient(`/api/v1/gradebook/assessments/${cancelTargetId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          status: 'closed',
+          cancellation_reason: cancelReason.trim(),
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+      toast.success(t('wsCancelSuccess'));
+      setCancelDialogOpen(false);
+      void fetchAssessments();
+    } catch (err) {
+      console.error('[AssessmentWorkspace.handleConfirmCancel]', err);
+      toast.error(t('wsCancelError'));
+    } finally {
+      setCancelSubmitting(false);
+    }
+  }, [cancelTargetId, cancelReason, fetchAssessments, t]);
+
+  // ── Reschedule (duplicate) assessment handler ─────────────────────────────
+
+  const handleReschedule = React.useCallback(
+    async (assessmentId: string) => {
+      try {
+        const newAssessment = await apiClient<Assessment>(
+          `/api/v1/gradebook/assessments/${assessmentId}/duplicate`,
+          { method: 'POST' },
+        );
+        toast.success(t('wsRescheduleSuccess'));
+        void fetchAssessments();
+        // Open edit dialog for the new assessment so teacher can set dates
+        setEditTargetId(newAssessment.id);
+        setEditDueDate('');
+        setEditGradingDeadline('');
+        setEditDialogOpen(true);
+      } catch (err) {
+        console.error('[AssessmentWorkspace.handleReschedule]', err);
+        toast.error(t('wsRescheduleError'));
+      }
+    },
+    [fetchAssessments, t],
+  );
+
+  // ── Save assessment dates handler ─────────────────────────────────────────
+
+  const handleSaveDates = React.useCallback(async () => {
+    if (!editTargetId) return;
+    setEditSaving(true);
+    try {
+      await apiClient(`/api/v1/gradebook/assessments/${editTargetId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          ...(editDueDate ? { due_date: editDueDate } : {}),
+          ...(editGradingDeadline ? { grading_deadline: editGradingDeadline } : {}),
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+      toast.success(tc('saved'));
+      setEditDialogOpen(false);
+      void fetchAssessments();
+    } catch (err) {
+      console.error('[AssessmentWorkspace.handleSaveDates]', err);
+      toast.error(tc('errorGeneric'));
+    } finally {
+      setEditSaving(false);
+    }
+  }, [editTargetId, editDueDate, editGradingDeadline, fetchAssessments, tc]);
 
   // ── Effects ────────────────────────────────────────────────────────────────
 
@@ -367,8 +481,15 @@ export default function AssessmentWorkspacePage() {
                           key={assessment.id}
                           className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary"
                         >
-                          <td className="px-4 py-3 text-sm font-medium text-text-primary">
-                            {assessment.title}
+                          <td className="px-4 py-3">
+                            <span className="text-sm font-medium text-text-primary">
+                              {assessment.title}
+                            </span>
+                            {assessment.status === 'closed' && assessment.cancellation_reason && (
+                              <p className="mt-1 text-xs text-text-tertiary">
+                                {t('wsCancelledReason')}: {assessment.cancellation_reason}
+                              </p>
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             <StatusBadge
@@ -385,11 +506,48 @@ export default function AssessmentWorkspacePage() {
                             {formatShortDate(assessment.due_date)}
                           </td>
                           <td className="px-4 py-3 text-end">
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/gradebook/assessments/${assessment.id}/grades`}>
-                                <BookOpen className="h-4 w-4" />
-                              </Link>
-                            </Button>
+                            {assessment.status === 'closed' ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => void handleReschedule(assessment.id)}
+                              >
+                                <Copy className="me-1.5 h-3.5 w-3.5" />
+                                {t('wsReschedule')}
+                              </Button>
+                            ) : assessment.status !== 'final_locked' ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {['draft', 'open', 'reopened'].includes(assessment.status) && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setEditTargetId(assessment.id);
+                                        setEditDueDate(assessment.due_date?.split('T')[0] ?? '');
+                                        setEditGradingDeadline('');
+                                        setEditDialogOpen(true);
+                                      }}
+                                    >
+                                      <CalendarDays className="me-2 h-4 w-4" />
+                                      {t('wsEditDates')}
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem
+                                    className="text-danger-text focus:text-danger-text"
+                                    onClick={() => openCancelDialog(assessment.id)}
+                                  >
+                                    <Trash2 className="me-2 h-4 w-4" />
+                                    {t('wsCancelAssessment')}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : (
+                              <span className="text-xs text-text-tertiary">—</span>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -407,7 +565,14 @@ export default function AssessmentWorkspacePage() {
                   className="rounded-2xl border border-border bg-surface p-4 space-y-3"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium text-text-primary">{assessment.title}</p>
+                    <div>
+                      <p className="text-sm font-medium text-text-primary">{assessment.title}</p>
+                      {assessment.status === 'closed' && assessment.cancellation_reason && (
+                        <p className="mt-1 text-xs text-text-tertiary">
+                          {t('wsCancelledReason')}: {assessment.cancellation_reason}
+                        </p>
+                      )}
+                    </div>
                     <StatusBadge status={STATUS_VARIANT[assessment.status] ?? 'neutral'} dot>
                       {statusLabel(assessment.status, t)}
                     </StatusBadge>
@@ -429,12 +594,28 @@ export default function AssessmentWorkspacePage() {
                   </div>
 
                   <div className="flex justify-end border-t border-border pt-2">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/gradebook/assessments/${assessment.id}/grades`}>
-                        <BookOpen className="me-1.5 h-4 w-4" />
-                        {t('wsGradeEntry')}
-                      </Link>
-                    </Button>
+                    {assessment.status === 'closed' ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleReschedule(assessment.id)}
+                      >
+                        <Copy className="me-1.5 h-4 w-4" />
+                        {t('wsReschedule')}
+                      </Button>
+                    ) : assessment.status !== 'final_locked' ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-danger-text"
+                        onClick={() => openCancelDialog(assessment.id)}
+                      >
+                        <Trash2 className="me-1.5 h-4 w-4" />
+                        {t('wsCancelAssessment')}
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-text-tertiary">—</span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -442,6 +623,72 @@ export default function AssessmentWorkspacePage() {
           </>
         )}
       </div>
+
+      {/* Cancel Assessment Dialog */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('wsCancelAssessment')}</DialogTitle>
+            <DialogDescription>{t('wsCancelDialogDescription')}</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder={t('wsCancelReasonPlaceholder')}
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            rows={3}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
+              {tc('cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!cancelReason.trim() || cancelSubmitting}
+              onClick={() => void handleConfirmCancel()}
+            >
+              {cancelSubmitting ? tc('loading') : t('wsCancelConfirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Assessment Dates Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('wsEditDatesTitle')}</DialogTitle>
+            <DialogDescription>{t('wsEditDatesDescription')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-due-date">{t('wsDueDate')}</Label>
+              <Input
+                id="edit-due-date"
+                type="date"
+                value={editDueDate}
+                onChange={(e) => setEditDueDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-grading-deadline">{t('wsGradingDeadline')}</Label>
+              <Input
+                id="edit-grading-deadline"
+                type="date"
+                value={editGradingDeadline}
+                onChange={(e) => setEditGradingDeadline(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              {tc('cancel')}
+            </Button>
+            <Button disabled={editSaving} onClick={() => void handleSaveDates()}>
+              {editSaving ? tc('loading') : tc('save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

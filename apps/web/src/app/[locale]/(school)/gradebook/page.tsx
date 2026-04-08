@@ -101,7 +101,7 @@ export default function GradebookPage() {
     async (year: string, period: string, classId: string, subjectId: string) => {
       setIsLoading(true);
       try {
-        const params = new URLSearchParams({ pageSize: '100' });
+        const params = new URLSearchParams({ pageSize: '100', exclude_cancelled: 'true' });
         if (year !== 'all') params.set('academic_year_id', year);
         if (period !== 'all') params.set('academic_period_id', period);
         if (classId !== 'all') params.set('class_id', classId);

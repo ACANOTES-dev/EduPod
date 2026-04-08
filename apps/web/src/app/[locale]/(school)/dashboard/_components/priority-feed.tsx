@@ -6,6 +6,7 @@ import {
   CircleDollarSign,
   ClipboardCheck,
   GraduationCap,
+  LockOpen,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -110,8 +111,23 @@ function buildCards(
     });
   }
 
-  // Show a maximum of 3 cards
-  return cards.slice(0, 3);
+  if (data.pending_unlock_requests && data.pending_unlock_requests > 0) {
+    const count = data.pending_unlock_requests;
+    cards.push({
+      id: 'unlock-requests',
+      icon: LockOpen,
+      iconBg: 'bg-orange-100 dark:bg-orange-500/20',
+      iconColor: 'text-orange-600 dark:text-orange-400',
+      title:
+        count === 1 ? t('unlockRequestSingular', { count }) : t('unlockRequestPlural', { count }),
+      description: t('unlockRequestDescription'),
+      actionLabel: t('reviewUnlockRequests'),
+      href: '/assessments?tab=approvals',
+    });
+  }
+
+  // Show a maximum of 6 cards (2 rows of 3)
+  return cards.slice(0, 6);
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -140,6 +156,7 @@ export function PriorityFeed(props: PriorityFeedProps) {
                 : 'md:grid-cols-3'
           }`}
         >
+          {/* Note: grid-cols-3 naturally wraps to 2 rows when there are 4-6 items */}
           {cards.map((card) => {
             const Icon = card.icon;
             return (

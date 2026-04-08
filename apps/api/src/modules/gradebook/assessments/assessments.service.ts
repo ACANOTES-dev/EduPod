@@ -26,6 +26,7 @@ interface ListAssessmentsParams {
   academic_period_id?: string;
   category_id?: string;
   status?: string;
+  exclude_cancelled?: boolean;
   assignedClassIds?: string[];
 }
 
@@ -140,6 +141,7 @@ export class AssessmentsService {
       academic_period_id,
       category_id,
       status,
+      exclude_cancelled,
       assignedClassIds,
     } = params;
     const skip = (page - 1) * pageSize;
@@ -168,6 +170,14 @@ export class AssessmentsService {
 
     if (status) {
       where.status = status as $Enums.AssessmentStatus;
+    }
+
+    // Exclude cancelled (closed) assessments from gradebook views
+    if (exclude_cancelled) {
+      where.status = {
+        ...((where.status as object) ?? {}),
+        not: 'closed' as $Enums.AssessmentStatus,
+      };
     }
 
     // Teacher filter: restrict to assigned classes
@@ -401,14 +411,15 @@ export class AssessmentsService {
     // submitted_locked → unlock_requested (handled by UnlockRequestService, not direct transition)
     // unlock_requested → reopened (handled by UnlockRequestService approval)
     // reopened → final_locked (teacher resubmits after amendment)
+    // Any non-terminal status → closed (cancel assessment)
     // Legacy: 'closed' and 'locked' mapped for backward compat
     const validTransitions: Record<string, string[]> = {
-      draft: ['open'],
-      open: ['submitted_locked'],
-      submitted_locked: [], // unlock flow handled by UnlockRequestService
-      unlock_requested: [], // approval flow handled by UnlockRequestService
-      reopened: ['final_locked'],
-      final_locked: [], // terminal state
+      draft: ['open', 'closed'],
+      open: ['submitted_locked', 'closed'],
+      submitted_locked: ['closed'], // unlock flow handled by UnlockRequestService
+      unlock_requested: ['closed'], // approval flow handled by UnlockRequestService
+      reopened: ['submitted_locked', 'final_locked', 'closed'],
+      final_locked: [], // terminal state — cannot be cancelled
       // Legacy backward compat (enum values still exist)
       closed: ['submitted_locked'],
       locked: ['final_locked'],
@@ -422,6 +433,14 @@ export class AssessmentsService {
       });
     }
 
+    // Require a cancellation reason when transitioning to closed (cancelled)
+    if (newStatus === 'closed' && !dto.cancellation_reason) {
+      throw new BadRequestException({
+        code: 'CANCELLATION_REASON_REQUIRED',
+        message: 'A cancellation reason is required when cancelling an assessment',
+      });
+    }
+
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
@@ -429,7 +448,12 @@ export class AssessmentsService {
 
       return db.assessment.update({
         where: { id },
-        data: { status: newStatus as $Enums.AssessmentStatus },
+        data: {
+          status: newStatus as $Enums.AssessmentStatus,
+          ...(newStatus === 'closed' && dto.cancellation_reason
+            ? { cancellation_reason: dto.cancellation_reason }
+            : {}),
+        },
       });
     });
   }
@@ -476,6 +500,62 @@ export class AssessmentsService {
     return prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       return db.assessment.delete({ where: { id } });
+    });
+  }
+
+  /**
+   * Duplicate an assessment as a new draft. Copies all core fields
+   * (class, subject, period, category, title, max_score) but resets
+   * dates so the teacher can set new ones.
+   */
+  async duplicate(tenantId: string, sourceId: string) {
+    const source = await this.prisma.assessment.findFirst({
+      where: { id: sourceId, tenant_id: tenantId },
+      select: {
+        class_id: true,
+        subject_id: true,
+        academic_period_id: true,
+        category_id: true,
+        title: true,
+        max_score: true,
+        counts_toward_report_card: true,
+      },
+    });
+
+    if (!source) {
+      throw new NotFoundException({
+        code: 'ASSESSMENT_NOT_FOUND',
+        message: `Assessment with id "${sourceId}" not found`,
+      });
+    }
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      return db.assessment.create({
+        data: {
+          tenant_id: tenantId,
+          class_id: source.class_id,
+          subject_id: source.subject_id,
+          academic_period_id: source.academic_period_id,
+          category_id: source.category_id,
+          title: source.title,
+          max_score: source.max_score,
+          counts_toward_report_card: source.counts_toward_report_card,
+          status: 'draft',
+          due_date: null,
+          grading_deadline: null,
+        },
+        include: {
+          class_entity: { select: { id: true, name: true } },
+          subject: { select: { id: true, name: true, code: true } },
+          academic_period: { select: { id: true, name: true } },
+          category: { select: { id: true, name: true } },
+          _count: { select: { grades: true } },
+        },
+      });
     });
   }
 }

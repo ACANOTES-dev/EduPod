@@ -1,9 +1,12 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../../academics/academic-read.facade';
 import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { ConfigurationReadFacade } from '../../configuration/configuration-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StudentReadFacade } from '../../students/student-read.facade';
+import { WeightConfigService } from '../weight-config.service';
 
 import { GpaService } from './gpa.service';
 import { StandardsService } from './standards.service';
@@ -35,6 +38,48 @@ export interface ComputationWarning {
   message: string;
 }
 
+// ─── Cross-aggregation result types ─────────────────────────────────────────
+
+export interface GradeCell {
+  computed: number | null;
+  display: string | null;
+}
+
+export interface CrossSubjectResult {
+  students: Array<{
+    student_id: string;
+    student_name: string;
+    subject_grades: Record<string, GradeCell>;
+    overall: GradeCell;
+  }>;
+  subjects: Array<{ id: string; name: string; weight: number }>;
+  warnings: ComputationWarning[];
+}
+
+export interface CrossPeriodResult {
+  students: Array<{
+    student_id: string;
+    student_name: string;
+    period_grades: Record<string, GradeCell>;
+    annual: GradeCell;
+  }>;
+  periods: Array<{ id: string; name: string; weight: number }>;
+  warnings: ComputationWarning[];
+}
+
+export interface YearOverviewResult {
+  students: Array<{
+    student_id: string;
+    student_name: string;
+    grades: Record<string, Record<string, GradeCell>>;
+    period_overalls: Record<string, GradeCell>;
+    year_overall: GradeCell;
+  }>;
+  subjects: Array<{ id: string; name: string }>;
+  periods: Array<{ id: string; name: string; weight: number }>;
+  warnings: ComputationWarning[];
+}
+
 @Injectable()
 export class PeriodGradeComputationService {
   private readonly logger = new Logger(PeriodGradeComputationService.name);
@@ -45,6 +90,9 @@ export class PeriodGradeComputationService {
     private readonly standardsService: StandardsService,
     private readonly classesReadFacade: ClassesReadFacade,
     private readonly configurationReadFacade: ConfigurationReadFacade,
+    private readonly weightConfigService: WeightConfigService,
+    private readonly academicReadFacade: AcademicReadFacade,
+    private readonly studentReadFacade: StudentReadFacade,
   ) {}
 
   /**
@@ -319,6 +367,413 @@ export class PeriodGradeComputationService {
         formative_cap_applied: formativeWeightCap != null,
       },
     };
+  }
+
+  // ─── Cross-Subject Aggregation (All Subjects × Specific Period) ─────────
+
+  /**
+   * Aggregate existing period grade snapshots across all subjects for a period.
+   * Uses subject_period_weights for the weighted average, normalising when
+   * a subject has no computed snapshot for a given student.
+   */
+  async computeCrossSubject(
+    tenantId: string,
+    classId: string,
+    periodId: string,
+  ): Promise<CrossSubjectResult> {
+    const warnings: ComputationWarning[] = [];
+
+    // 1. Subjects from curriculum matrix
+    const classSubjects = await this.prisma.classSubjectGradeConfig.findMany({
+      where: { tenant_id: tenantId, class_id: classId },
+      include: { subject: { select: { id: true, name: true } } },
+    });
+    const subjects = classSubjects
+      .map((cs) => ({ id: cs.subject_id, name: cs.subject.name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const subjectIds = subjects.map((s) => s.id);
+
+    // 2. Existing snapshots
+    const snapshots = await this.prisma.periodGradeSnapshot.findMany({
+      where: {
+        tenant_id: tenantId,
+        class_id: classId,
+        academic_period_id: periodId,
+        subject_id: { in: subjectIds },
+      },
+    });
+
+    // 3. Enrolled students (with names)
+    const { studentMap, studentIds } = await this.loadEnrolledStudents(tenantId, classId);
+
+    // 4. Subject weights (equal-weight fallback)
+    const subjectWeights = await this.resolveSubjectWeightsOrEqual(
+      tenantId,
+      classId,
+      periodId,
+      subjectIds,
+      warnings,
+    );
+
+    // 5. Build lookup: studentId → subjectId → GradeCell
+    const snapshotLookup = this.buildSnapshotLookup(snapshots, 'subject_id');
+
+    // 6. Weighted average per student
+    const studentRows = studentIds.map((sid) => {
+      const grades = snapshotLookup.get(sid) ?? new Map<string, GradeCell>();
+      const subjectGrades: Record<string, GradeCell> = {};
+      const activeIds = new Set<string>();
+
+      for (const s of subjects) {
+        const cell = grades.get(s.id) ?? { computed: null, display: null };
+        subjectGrades[s.id] = cell;
+        if (cell.computed !== null) activeIds.add(s.id);
+      }
+
+      const overall = this.weightedAverage(subjectWeights, subjectGrades, activeIds);
+
+      return {
+        student_id: sid,
+        student_name: studentMap.get(sid) ?? '',
+        subject_grades: subjectGrades,
+        overall,
+      };
+    });
+
+    return {
+      students: studentRows,
+      subjects: subjects.map((s) => ({
+        ...s,
+        weight: subjectWeights.get(s.id) ?? 0,
+      })),
+      warnings,
+    };
+  }
+
+  // ─── Cross-Period Aggregation (Specific Subject × All Periods) ─────────
+
+  /**
+   * Aggregate existing period grade snapshots across all periods for a subject.
+   * Uses period_year_weights for the weighted average.
+   */
+  async computeCrossPeriod(
+    tenantId: string,
+    classId: string,
+    subjectId: string,
+    academicYearId: string,
+  ): Promise<CrossPeriodResult> {
+    const warnings: ComputationWarning[] = [];
+
+    // 1. Periods for the academic year (via facade)
+    const periods = (
+      await this.academicReadFacade.findPeriodsForYear(tenantId, academicYearId)
+    ).map((p) => ({ id: p.id, name: p.name }));
+    const periodIds = periods.map((p) => p.id);
+
+    // 2. Existing snapshots
+    const snapshots = await this.prisma.periodGradeSnapshot.findMany({
+      where: {
+        tenant_id: tenantId,
+        class_id: classId,
+        subject_id: subjectId,
+        academic_period_id: { in: periodIds },
+      },
+    });
+
+    // 3. Enrolled students
+    const { studentMap, studentIds } = await this.loadEnrolledStudents(tenantId, classId);
+
+    // 4. Period weights (equal-weight fallback)
+    const periodWeights = await this.resolvePeriodWeightsOrEqual(
+      tenantId,
+      classId,
+      academicYearId,
+      periodIds,
+      warnings,
+    );
+
+    // 5. Build lookup: studentId → periodId → GradeCell
+    const snapshotLookup = this.buildSnapshotLookup(snapshots, 'academic_period_id');
+
+    // 6. Weighted average per student
+    const studentRows = studentIds.map((sid) => {
+      const grades = snapshotLookup.get(sid) ?? new Map<string, GradeCell>();
+      const periodGrades: Record<string, GradeCell> = {};
+      const activeIds = new Set<string>();
+
+      for (const p of periods) {
+        const cell = grades.get(p.id) ?? { computed: null, display: null };
+        periodGrades[p.id] = cell;
+        if (cell.computed !== null) activeIds.add(p.id);
+      }
+
+      const annual = this.weightedAverage(periodWeights, periodGrades, activeIds);
+
+      return {
+        student_id: sid,
+        student_name: studentMap.get(sid) ?? '',
+        period_grades: periodGrades,
+        annual,
+      };
+    });
+
+    return {
+      students: studentRows,
+      periods: periods.map((p) => ({
+        ...p,
+        weight: periodWeights.get(p.id) ?? 0,
+      })),
+      warnings,
+    };
+  }
+
+  // ─── Year Overview (All Subjects × All Periods) ───────────────────────
+
+  /**
+   * Full year matrix: for each period compute a cross-subject overall,
+   * then weight the period overalls to produce a year-end grade.
+   */
+  async computeYearOverview(
+    tenantId: string,
+    classId: string,
+    academicYearId: string,
+  ): Promise<YearOverviewResult> {
+    const warnings: ComputationWarning[] = [];
+
+    // 1. Periods + subjects
+    const periods = (
+      await this.academicReadFacade.findPeriodsForYear(tenantId, academicYearId)
+    ).map((p) => ({ id: p.id, name: p.name }));
+    const periodIds = periods.map((p) => p.id);
+
+    const classSubjects = await this.prisma.classSubjectGradeConfig.findMany({
+      where: { tenant_id: tenantId, class_id: classId },
+      include: { subject: { select: { id: true, name: true } } },
+    });
+    const subjects = classSubjects
+      .map((cs) => ({ id: cs.subject_id, name: cs.subject.name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const subjectIds = subjects.map((s) => s.id);
+
+    // 2. ALL snapshots for this class in the year
+    const snapshots = await this.prisma.periodGradeSnapshot.findMany({
+      where: {
+        tenant_id: tenantId,
+        class_id: classId,
+        subject_id: { in: subjectIds },
+        academic_period_id: { in: periodIds },
+      },
+    });
+
+    // 3. Students
+    const { studentMap, studentIds } = await this.loadEnrolledStudents(tenantId, classId);
+
+    // 4. Weights
+    const periodWeights = await this.resolvePeriodWeightsOrEqual(
+      tenantId,
+      classId,
+      academicYearId,
+      periodIds,
+      warnings,
+    );
+
+    // Subject weights per period (may differ per period)
+    const subjectWeightsByPeriod = new Map<string, Map<string, number>>();
+    for (const p of periods) {
+      const sw = await this.resolveSubjectWeightsOrEqual(
+        tenantId,
+        classId,
+        p.id,
+        subjectIds,
+        warnings,
+      );
+      subjectWeightsByPeriod.set(p.id, sw);
+    }
+
+    // 5. Triple-keyed lookup: studentId → periodId → subjectId → GradeCell
+    const tripleMap = new Map<string, Map<string, Map<string, GradeCell>>>();
+    for (const snap of snapshots) {
+      if (!tripleMap.has(snap.student_id)) tripleMap.set(snap.student_id, new Map());
+      const byPeriod = tripleMap.get(snap.student_id)!;
+      if (!byPeriod.has(snap.academic_period_id)) byPeriod.set(snap.academic_period_id, new Map());
+      byPeriod.get(snap.academic_period_id)!.set(snap.subject_id, {
+        computed: snap.computed_value ? Number(snap.computed_value) : null,
+        display: snap.display_value,
+      });
+    }
+
+    // 6. For each student: per-period overall → year overall
+    const studentRows = studentIds.map((sid) => {
+      const studentPeriods = tripleMap.get(sid) ?? new Map();
+      const grades: Record<string, Record<string, GradeCell>> = {};
+      const periodOveralls: Record<string, GradeCell> = {};
+      const activePeriodsForYear = new Set<string>();
+
+      for (const period of periods) {
+        const periodSubjects = studentPeriods.get(period.id) ?? new Map();
+        const subjectWeights = subjectWeightsByPeriod.get(period.id) ?? new Map();
+        const periodSubjectGrades: Record<string, GradeCell> = {};
+        const activeSubjectIds = new Set<string>();
+
+        for (const s of subjects) {
+          const cell = periodSubjects.get(s.id) ?? { computed: null, display: null };
+          periodSubjectGrades[s.id] = cell;
+          if (cell.computed !== null) activeSubjectIds.add(s.id);
+        }
+
+        grades[period.id] = periodSubjectGrades;
+
+        // Period overall = weighted average of subject grades
+        const periodOverall = this.weightedAverage(
+          subjectWeights,
+          periodSubjectGrades,
+          activeSubjectIds,
+        );
+        periodOveralls[period.id] = periodOverall;
+        if (periodOverall.computed !== null) activePeriodsForYear.add(period.id);
+      }
+
+      // Year overall = weighted average of period overalls
+      const yearOverall = this.weightedAverage(periodWeights, periodOveralls, activePeriodsForYear);
+
+      return {
+        student_id: sid,
+        student_name: studentMap.get(sid) ?? '',
+        grades,
+        period_overalls: periodOveralls,
+        year_overall: yearOverall,
+      };
+    });
+
+    return {
+      students: studentRows,
+      subjects,
+      periods: periods.map((p) => ({ ...p, weight: periodWeights.get(p.id) ?? 0 })),
+      warnings,
+    };
+  }
+
+  // ─── Shared aggregation helpers ─────────────────────────────────────────
+
+  /** Load enrolled students for a class — returns id→name map and ordered id list. */
+  private async loadEnrolledStudents(
+    tenantId: string,
+    classId: string,
+  ): Promise<{ studentMap: Map<string, string>; studentIds: string[] }> {
+    const enrolments = (await this.classesReadFacade.findEnrolmentsGeneric(
+      tenantId,
+      { class_id: classId, status: 'active' },
+      { student_id: true },
+    )) as Array<{ student_id: string }>;
+
+    const ids = enrolments.map((e) => e.student_id);
+    const students = await this.studentReadFacade.findByIds(tenantId, ids);
+
+    return {
+      studentMap: new Map(students.map((s) => [s.id, `${s.first_name} ${s.last_name}`])),
+      studentIds: ids,
+    };
+  }
+
+  /** Build a lookup: studentId → dimensionId → GradeCell from snapshot rows. */
+  private buildSnapshotLookup(
+    snapshots: Array<{
+      student_id: string;
+      subject_id: string;
+      academic_period_id: string;
+      computed_value: unknown;
+      display_value: string | null;
+    }>,
+    dimensionKey: 'subject_id' | 'academic_period_id',
+  ): Map<string, Map<string, GradeCell>> {
+    const lookup = new Map<string, Map<string, GradeCell>>();
+    for (const snap of snapshots) {
+      if (!lookup.has(snap.student_id)) lookup.set(snap.student_id, new Map());
+      lookup.get(snap.student_id)!.set(snap[dimensionKey], {
+        computed: snap.computed_value != null ? Number(snap.computed_value) : null,
+        display: snap.display_value,
+      });
+    }
+    return lookup;
+  }
+
+  /** Weighted average with automatic normalisation for missing entries. */
+  private weightedAverage(
+    weights: Map<string, number>,
+    values: Record<string, GradeCell>,
+    activeIds: Set<string>,
+  ): GradeCell {
+    if (activeIds.size === 0) return { computed: null, display: null };
+
+    // Normalise: only consider weights for active (non-null) entries
+    let activeTotalWeight = 0;
+    for (const id of activeIds) {
+      activeTotalWeight += weights.get(id) ?? 0;
+    }
+    if (activeTotalWeight === 0) return { computed: null, display: null };
+
+    let weightedSum = 0;
+    for (const id of activeIds) {
+      const rawWeight = weights.get(id) ?? 0;
+      const effectiveWeight = (rawWeight / activeTotalWeight) * 100;
+      const score = values[id]?.computed ?? 0;
+      weightedSum += score * effectiveWeight;
+    }
+
+    const result = weightedSum / 100;
+    const rounded = Math.round(result * 100) / 100;
+    return { computed: rounded, display: `${rounded}%` };
+  }
+
+  /** Resolve subject weights — falls back to equal weights when unconfigured. */
+  private async resolveSubjectWeightsOrEqual(
+    tenantId: string,
+    classId: string,
+    periodId: string,
+    subjectIds: string[],
+    warnings: ComputationWarning[],
+  ): Promise<Map<string, number>> {
+    const weights = await this.weightConfigService.resolveSubjectWeightsForClass(
+      tenantId,
+      classId,
+      periodId,
+    );
+    if (weights.size > 0) return weights;
+
+    // Fall back to equal weights
+    const eq = 100 / subjectIds.length;
+    const map = new Map<string, number>();
+    for (const id of subjectIds) map.set(id, eq);
+    warnings.push({
+      code: 'EQUAL_SUBJECT_WEIGHTS',
+      message: 'No subject weights configured — using equal weights.',
+    });
+    return map;
+  }
+
+  /** Resolve period weights — falls back to equal weights when unconfigured. */
+  private async resolvePeriodWeightsOrEqual(
+    tenantId: string,
+    classId: string,
+    academicYearId: string,
+    periodIds: string[],
+    warnings: ComputationWarning[],
+  ): Promise<Map<string, number>> {
+    const weights = await this.weightConfigService.resolvePeriodWeightsForClass(
+      tenantId,
+      classId,
+      academicYearId,
+    );
+    if (weights.size > 0) return weights;
+
+    const eq = 100 / periodIds.length;
+    const map = new Map<string, number>();
+    for (const id of periodIds) map.set(id, eq);
+    warnings.push({
+      code: 'EQUAL_PERIOD_WEIGHTS',
+      message: 'No period weights configured — using equal weights.',
+    });
+    return map;
   }
 
   // ─── Private Helpers ──────────────────────────────────────────────────────

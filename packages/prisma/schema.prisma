@@ -751,6 +751,8 @@ model Tenant {
   conf_time_slots        ConferenceTimeSlot[]
   conf_bookings          ConferenceBooking[]
   eng_incident_reports   EngagementIncidentReport[]
+  subject_period_weights SubjectPeriodWeight[]
+  period_year_weights    PeriodYearWeight[]
 
   @@map("tenants")
 }
@@ -1847,7 +1849,9 @@ model AcademicYear {
   eng_form_templates   EngagementFormTemplate[]
   eng_form_submissions EngagementFormSubmission[]
   eng_consent_records  EngagementConsentRecord[]
-  eng_events           EngagementEvent[]
+  eng_events                EngagementEvent[]
+  subject_period_weights    SubjectPeriodWeight[]     @relation("SubjectPeriodWeightYear")
+  period_year_weights       PeriodYearWeight[]        @relation("PeriodYearWeightYear")
 
   @@unique([tenant_id, name], name: "idx_academic_years_tenant_name")
   @@index([tenant_id], name: "idx_academic_years_tenant")
@@ -1900,7 +1904,9 @@ model AcademicPeriod {
   sen_support_plans SenSupportPlan[]
 
   // Homework Relations
-  homework_assignments HomeworkAssignment[]
+  homework_assignments   HomeworkAssignment[]
+  subject_period_weights SubjectPeriodWeight[] @relation("SubjectPeriodWeightPeriod")
+  period_year_weights    PeriodYearWeight[]    @relation("PeriodYearWeightPeriod")
 
   @@unique([tenant_id, academic_year_id, name], name: "idx_academic_periods_tenant_year_name")
   @@index([tenant_id, academic_year_id], name: "idx_academic_periods_tenant_year")
@@ -2222,7 +2228,9 @@ model YearGroup {
   grading_weights       TeacherGradingWeight[] @relation("grading_weight_year_group")
 
   // Scheduling World-Class Relations
-  exam_slots ExamSlot[]
+  exam_slots             ExamSlot[]
+  subject_period_weights SubjectPeriodWeight[] @relation("SubjectPeriodWeightYearGroup")
+  period_year_weights    PeriodYearWeight[]    @relation("PeriodYearWeightYearGroup")
 
   @@unique([tenant_id, name], name: "idx_year_groups_tenant_name")
   @@index([tenant_id], name: "idx_year_groups_tenant")
@@ -2273,7 +2281,8 @@ model Subject {
   reg_des_code_mappings DesSubjectCodeMapping[] @relation("reg_des_subject_mapping")
 
   // Homework Relations
-  homework_assignments HomeworkAssignment[]
+  homework_assignments   HomeworkAssignment[]
+  subject_period_weights SubjectPeriodWeight[] @relation("SubjectPeriodWeightSubject")
 
   @@unique([tenant_id, name], name: "idx_subjects_tenant_name")
   @@index([tenant_id], name: "idx_subjects_tenant")
@@ -2325,7 +2334,9 @@ model Class {
   report_card_batch_jobs ReportCardBatchJob[]
 
   // Homework Relations
-  homework_assignments HomeworkAssignment[]
+  homework_assignments   HomeworkAssignment[]
+  subject_period_weights SubjectPeriodWeight[] @relation("SubjectPeriodWeightClass")
+  period_year_weights    PeriodYearWeight[]    @relation("PeriodYearWeightClass")
 
   @@unique([tenant_id, name, academic_year_id], name: "idx_classes_tenant_name_year")
   @@index([tenant_id, academic_year_id], name: "idx_classes_tenant_year")
@@ -3130,6 +3141,7 @@ model Assessment {
   due_date                    DateTime?        @db.Date
   grading_deadline            DateTime?        @db.Date
   status                      AssessmentStatus @default(draft)
+  cancellation_reason         String?          @db.Text
   counts_toward_report_card   Boolean          @default(true)
   // Rubric (C1)
   rubric_template_id          String?          @db.Uuid
@@ -3236,6 +3248,64 @@ model YearGroupGradeWeight {
   @@unique([tenant_id, year_group_id, academic_period_id], name: "idx_year_group_grade_weights_unique")
   @@index([tenant_id], name: "idx_year_group_grade_weights_tenant")
   @@map("year_group_grade_weights")
+}
+
+// ─── Subject weights per period (cross-subject aggregation) ───────────────────
+// Determines how much each subject contributes to the overall period grade.
+// Scoped to either a year group (all subclasses inherit) or a specific class.
+
+model SubjectPeriodWeight {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  academic_year_id   String   @db.Uuid
+  academic_period_id String   @db.Uuid
+  year_group_id      String?  @db.Uuid
+  class_id           String?  @db.Uuid
+  subject_id         String   @db.Uuid
+  weight             Decimal  @db.Decimal(5, 2)
+  created_at         DateTime @default(now()) @db.Timestamptz()
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year   AcademicYear   @relation("SubjectPeriodWeightYear", fields: [academic_year_id], references: [id])
+  academic_period AcademicPeriod @relation("SubjectPeriodWeightPeriod", fields: [academic_period_id], references: [id])
+  year_group      YearGroup?     @relation("SubjectPeriodWeightYearGroup", fields: [year_group_id], references: [id])
+  class_entity    Class?         @relation("SubjectPeriodWeightClass", fields: [class_id], references: [id])
+  subject         Subject        @relation("SubjectPeriodWeightSubject", fields: [subject_id], references: [id])
+
+  @@unique([tenant_id, academic_period_id, year_group_id, subject_id], name: "idx_spw_year_group_unique")
+  @@unique([tenant_id, academic_period_id, class_id, subject_id], name: "idx_spw_class_unique")
+  @@index([tenant_id], name: "idx_spw_tenant")
+  @@index([tenant_id, academic_period_id], name: "idx_spw_tenant_period")
+  @@map("subject_period_weights")
+}
+
+// ─── Period weights for final year (cross-period aggregation) ─────────────────
+// Determines how much each academic period contributes to the final year grade.
+// Scoped to either a year group (all subclasses inherit) or a specific class.
+
+model PeriodYearWeight {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  academic_year_id   String   @db.Uuid
+  academic_period_id String   @db.Uuid
+  year_group_id      String?  @db.Uuid
+  class_id           String?  @db.Uuid
+  weight             Decimal  @db.Decimal(5, 2)
+  created_at         DateTime @default(now()) @db.Timestamptz()
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year   AcademicYear   @relation("PeriodYearWeightYear", fields: [academic_year_id], references: [id])
+  academic_period AcademicPeriod @relation("PeriodYearWeightPeriod", fields: [academic_period_id], references: [id])
+  year_group      YearGroup?     @relation("PeriodYearWeightYearGroup", fields: [year_group_id], references: [id])
+  class_entity    Class?         @relation("PeriodYearWeightClass", fields: [class_id], references: [id])
+
+  @@unique([tenant_id, academic_year_id, academic_period_id, year_group_id], name: "idx_pyw_year_group_unique", map: "idx_pyw_yg_unique")
+  @@unique([tenant_id, academic_year_id, academic_period_id, class_id], name: "idx_pyw_class_unique", map: "idx_pyw_cls_unique")
+  @@index([tenant_id], name: "idx_pyw_tenant")
+  @@index([tenant_id, academic_year_id], name: "idx_pyw_tenant_year")
+  @@map("period_year_weights")
 }
 
 model ReportCard {
