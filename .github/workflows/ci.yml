@@ -5,10 +5,55 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '30 2 * * *'
 
 jobs:
-  ci:
+  changes:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: changes-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed areas
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'apps/api/**'
+              - 'apps/worker/**'
+              - 'packages/prisma/**'
+              - 'packages/shared/**'
+              - 'scripts/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'turbo.json'
+            frontend:
+              - 'apps/web/**'
+              - 'packages/ui/**'
+              - 'packages/shared/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'turbo.json'
+
+  ci:
+    if: github.event_name != 'schedule'
+    needs: [changes]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: ci-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     env:
       SENTRY_ENVIRONMENT: ci
       SENTRY_RELEASE: ${{ github.sha }}
@@ -96,9 +141,83 @@ jobs:
       - name: Cross-module dependency check
         run: node scripts/check-cross-module-deps.js --max-violations 0
 
-  verification:
-    needs: [ci]
+  unit-tests:
+    if: github.event_name != 'schedule'
+    needs: [changes, ci]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: unit-tests-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      SENTRY_ENVIRONMENT: ci
+      SENTRY_RELEASE: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @school/prisma exec prisma generate
+
+      - name: Run unit tests with coverage enforcement
+        run: pnpm --filter @school/api --filter @school/worker run test:coverage && pnpm --filter @school/shared --filter @school/web --filter @school/prisma run test
+
+      - name: Test coverage gate
+        run: pnpm run check:test-gate
+
+  build:
+    if: github.event_name == 'push' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
+    needs: [changes, ci, unit-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    concurrency:
+      group: build-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      SENTRY_ENVIRONMENT: ci
+      SENTRY_RELEASE: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @school/prisma exec prisma generate
+
+      - name: Build
+        run: pnpm build --force
+
+  backend-verification:
+    if: github.event_name == 'push' || needs.changes.outputs.backend == 'true'
+    needs: [changes, ci, unit-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    concurrency:
+      group: backend-verification-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     env:
       SENTRY_ENVIRONMENT: ci
       SENTRY_RELEASE: ${{ github.sha }}
@@ -139,13 +258,7 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @school/prisma exec prisma generate
 
-      - name: Run unit tests with coverage enforcement
-        run: pnpm --filter @school/api --filter @school/worker run test:coverage && pnpm --filter @school/shared --filter @school/web --filter @school/prisma run test
-
-      - name: Test coverage gate
-        run: pnpm run check:test-gate
-
-      - name: Setup Test Database
+      - name: Setup test database
         run: |
           psql "postgresql://prisma:password@localhost:5432/edupod_test" -c "DO \$\$ BEGIN CREATE TYPE timerange AS RANGE (subtype = time); EXCEPTION WHEN duplicate_object THEN null; END \$\$;"
           pnpm --filter @school/prisma exec prisma migrate deploy
@@ -155,8 +268,8 @@ jobs:
           DATABASE_URL: postgresql://prisma:password@localhost:5432/edupod_test?schema=public
           REDIS_URL: redis://localhost:6379
 
-      - name: Run RLS leakage tests
-        run: pnpm --filter @school/api run test:rls
+      - name: Run backend integration and e2e tests
+        run: NODE_OPTIONS="--max-old-space-size=6144" pnpm --filter @school/api run test:integration -- --bail=1
         env:
           API_PORT: '0'
           APP_URL: http://localhost:3000
@@ -168,125 +281,15 @@ jobs:
           NODE_ENV: test
           PLATFORM_DOMAIN: edupod.app
           REDIS_URL: redis://localhost:6379
-
-      - name: Run integration and e2e tests
-        run: NODE_OPTIONS="--max-old-space-size=6144" pnpm --filter @school/api run test:integration
-        env:
-          API_PORT: '0'
-          APP_URL: http://localhost:3000
-          DATABASE_URL: postgresql://prisma:password@localhost:5432/edupod_test?schema=public
-          ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          JWT_REFRESH_SECRET: 1a5be597a11a3d357ec51c55b88bdd4fe6a138f9f816dd0e8f048d802f87b2b3
-          JWT_SECRET: 73e10ad593c9fb3e3c0aaef14332e1f4f38dfe27bb579e35ef57e8303a767d48
-          MFA_ISSUER: SchoolOS-Test
-          NODE_ENV: test
-          PLATFORM_DOMAIN: edupod.app
-          REDIS_URL: redis://localhost:6379
-
-      - name: Build
-        run: pnpm build --force
-
-  deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [ci, verification, integration]
-    runs-on: ubuntu-latest
-    env:
-      SENTRY_ENVIRONMENT: production
-    concurrency:
-      group: production-deploy
-      cancel-in-progress: false
-    steps:
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1.0.0
-        env:
-          DEPLOY_SHA: ${{ github.sha }}
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          command_timeout: 20m
-          envs: DEPLOY_SHA
-          script: |
-            cd /opt/edupod/app
-            DEPLOY_SHA="$DEPLOY_SHA" SENTRY_ENVIRONMENT="$SENTRY_ENVIRONMENT" bash scripts/deploy-production.sh
-
-  integration:
-    needs: [ci]
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: school_platform
-          POSTGRES_PASSWORD: localpassword
-          POSTGRES_USER: postgres
-        ports:
-          - 5553:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d school_platform"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7
-        ports:
-          - 5554:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      API_PORT: '0'
-      APP_URL: http://localhost:5551
-      DATABASE_URL: postgresql://postgres:localpassword@localhost:5553/school_platform
-      ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-      JWT_REFRESH_SECRET: 1a5be597a11a3d357ec51c55b88bdd4fe6a138f9f816dd0e8f048d802f87b2b3
-      JWT_SECRET: 73e10ad593c9fb3e3c0aaef14332e1f4f38dfe27bb579e35ef57e8303a767d48
-      MFA_ISSUER: SchoolOS-Test
-      NODE_ENV: test
-      PLATFORM_DOMAIN: edupod.app
-      REDIS_URL: redis://localhost:5554
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: pnpm/action-setup@v5
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '24'
-          cache: 'pnpm'
-          package-manager-cache: false
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Generate Prisma client
-        run: pnpm --filter @school/prisma exec prisma generate
-
-      - name: Build shared packages
-        run: pnpm --filter @school/shared --filter @school/prisma run build
-
-      - name: Apply Prisma migrations
-        run: pnpm --filter @school/prisma exec prisma migrate deploy
-
-      - name: Apply post-migrate SQL
-        run: pnpm db:post-migrate
-
-      - name: Seed base data
-        run: pnpm db:seed
-
-      - name: Run integration tests
-        run: NODE_OPTIONS="--max-old-space-size=6144" pnpm test:integration
-
-      - name: Restore drill verification
-        run: bash scripts/ci-restore-drill.sh
 
   visual:
-    needs: [ci]
+    if: github.event_name == 'push' || needs.changes.outputs.frontend == 'true'
+    needs: [changes, ci]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+    concurrency:
+      group: visual-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     env:
       API_URL: http://localhost:5552
       APP_URL: http://localhost:5551
@@ -320,3 +323,97 @@ jobs:
             apps/web/e2e/playwright-report
             apps/web/e2e/test-results
           if-no-files-found: ignore
+
+  restore-drill:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      API_PORT: '0'
+      APP_URL: http://localhost:5551
+      DATABASE_URL: postgresql://postgres:localpassword@localhost:5553/school_platform
+      ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      JWT_REFRESH_SECRET: 1a5be597a11a3d357ec51c55b88bdd4fe6a138f9f816dd0e8f048d802f87b2b3
+      JWT_SECRET: 73e10ad593c9fb3e3c0aaef14332e1f4f38dfe27bb579e35ef57e8303a767d48
+      MFA_ISSUER: SchoolOS-Test
+      NODE_ENV: test
+      PLATFORM_DOMAIN: edupod.app
+      REDIS_URL: redis://localhost:5554
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: school_platform
+          POSTGRES_PASSWORD: localpassword
+          POSTGRES_USER: postgres
+        ports:
+          - 5553:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d school_platform"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 5554:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @school/prisma exec prisma generate
+
+      - name: Build shared packages
+        run: pnpm --filter @school/shared --filter @school/prisma run build
+
+      - name: Apply Prisma migrations
+        run: pnpm --filter @school/prisma exec prisma migrate deploy
+
+      - name: Apply post-migrate SQL
+        run: pnpm db:post-migrate
+
+      - name: Seed base data
+        run: pnpm db:seed
+
+      - name: Restore drill verification
+        run: bash scripts/ci-restore-drill.sh
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [ci, unit-tests, build, backend-verification]
+    runs-on: ubuntu-latest
+    env:
+      SENTRY_ENVIRONMENT: production
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.0
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 20m
+          envs: DEPLOY_SHA
+          script: |
+            cd /opt/edupod/app
+            DEPLOY_SHA="$DEPLOY_SHA" SENTRY_ENVIRONMENT="$SENTRY_ENVIRONMENT" bash scripts/deploy-production.sh

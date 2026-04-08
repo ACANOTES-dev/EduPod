@@ -20,29 +20,29 @@ Bilingual English/Arabic support with full RTL behaviour is foundational for all
 
 ### 2.1 Core Tech Stack
 
-| Layer                 | Technology                         | Notes                                                                                                                                                 |
-| --------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Backend**           | NestJS + TypeScript                | Modular monolith                                                                                                                                      |
-| **ORM**               | Prisma                             | With RLS middleware for tenant context injection                                                                                                      |
-| **Database**          | PostgreSQL 16+                     | Shared database, shared schema, RLS on all tenant tables                                                                                              |
-| **Cache/Sessions**    | Redis 7                            | Sessions, caching, rate limiting, queue coordination. **Production: AOF persistence enabled** to survive restarts without losing BullMQ delayed jobs. |
-| **Job Queue**         | BullMQ                             | Background job processing with dead-letter support                                                                                                    |
-| **Frontend**          | Next.js 14+ (App Router)           | Single codebase, role-aware shells                                                                                                                    |
-| **UI Framework**      | React + TypeScript + Tailwind CSS  | Logical CSS utilities only (no physical left/right)                                                                                                   |
-| **Component Library** | shadcn/ui on Radix primitives      | Accessible, composable                                                                                                                                |
-| **i18n**              | next-intl                          | Locales: `en`, `ar`                                                                                                                                   |
-| **Rich Text**         | TipTap                             | BiDi support, mixed-direction content                                                                                                                 |
-| **Search**            | PostgreSQL full-text + Meilisearch | Fuzzy search with tenant-safe indexes                                                                                                                 |
-| **Email**             | Resend                             | Transactional email with webhook delivery tracking                                                                                                    |
-| **WhatsApp**          | Twilio WhatsApp Business API       | Pre-approved platform-level templates                                                                                                                 |
-| **Payments**          | Stripe Direct                      | Per-school Stripe accounts, encrypted key storage                                                                                                     |
-| **PDF Rendering**     | Puppeteer                          | On-demand, locale-specific templates, Noto Sans Arabic                                                                                                |
-| **File Storage**      | AWS S3                             | Logos, website media, temporary import files only                                                                                                     |
-| **Hosting**           | Hetzner VPS                        | Frontend, backend, and worker services on single server (multi-environment planned)                                                                   |
-| **Database Hosting**  | PostgreSQL on Hetzner              | Single server, automated backups                                                                                                                      |
-| **CDN/Edge**          | Cloudflare for SaaS                | Custom domains, SSL, CDN, edge protection                                                                                                             |
-| **Monitoring**        | Sentry + custom alerts             | Error tracking + operational alerts                                                                                                                   |
-| **CI/CD**             | GitHub Actions                     | Lint → type-check → test → build → deploy                                                                                                             |
+| Layer                 | Technology                         | Notes                                                                                                                                                         |
+| --------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Backend**           | NestJS + TypeScript                | Modular monolith                                                                                                                                              |
+| **ORM**               | Prisma                             | With RLS middleware for tenant context injection                                                                                                              |
+| **Database**          | PostgreSQL 16+                     | Shared database, shared schema, RLS on all tenant tables                                                                                                      |
+| **Cache/Sessions**    | Redis 7                            | Sessions, caching, rate limiting, queue coordination. **Production: AOF persistence enabled** to survive restarts without losing BullMQ delayed jobs.         |
+| **Job Queue**         | BullMQ                             | Background job processing with dead-letter support                                                                                                            |
+| **Frontend**          | Next.js 14+ (App Router)           | Single codebase, role-aware shells                                                                                                                            |
+| **UI Framework**      | React + TypeScript + Tailwind CSS  | Logical CSS utilities only (no physical left/right)                                                                                                           |
+| **Component Library** | shadcn/ui on Radix primitives      | Accessible, composable                                                                                                                                        |
+| **i18n**              | next-intl                          | Locales: `en`, `ar`                                                                                                                                           |
+| **Rich Text**         | TipTap                             | BiDi support, mixed-direction content                                                                                                                         |
+| **Search**            | PostgreSQL full-text + Meilisearch | Fuzzy search with tenant-safe indexes                                                                                                                         |
+| **Email**             | Resend                             | Transactional email with webhook delivery tracking                                                                                                            |
+| **WhatsApp**          | Twilio WhatsApp Business API       | Pre-approved platform-level templates                                                                                                                         |
+| **Payments**          | Stripe Direct                      | Per-school Stripe accounts, encrypted key storage                                                                                                             |
+| **PDF Rendering**     | Puppeteer                          | On-demand, locale-specific templates, Noto Sans Arabic                                                                                                        |
+| **File Storage**      | AWS S3                             | Logos, website media, temporary import files only                                                                                                             |
+| **Hosting**           | Hetzner VPS                        | Frontend, backend, and worker services on single server (multi-environment planned)                                                                           |
+| **Database Hosting**  | PostgreSQL on Hetzner              | Single server, automated backups                                                                                                                              |
+| **CDN/Edge**          | Cloudflare for SaaS                | Custom domains, SSL, CDN, edge protection                                                                                                                     |
+| **Monitoring**        | Sentry + custom alerts             | Error tracking + operational alerts                                                                                                                           |
+| **CI/CD**             | GitHub Actions                     | Fast static/unit gates on every PR, selective visual/backend verification by changed area, full main-branch verification before deploy, nightly restore drill |
 
 ### 2.2 Monorepo Package Structure (Turborepo)
 
