@@ -151,9 +151,9 @@ describe('SchoolLayout — filterNavForRoles', () => {
       expect(getHrefs(sections)).not.toContain('/payroll');
     });
 
-    it('should NOT include report cards (admin only)', () => {
+    it('should include report cards (teachers view their class report cards)', () => {
       const sections = filterNavForRoles(navSectionConfigs, ['teacher']);
-      expect(getHrefs(sections)).not.toContain('/report-cards');
+      expect(getHrefs(sections)).toContain('/report-cards');
     });
 
     it('should include SEN section', () => {
