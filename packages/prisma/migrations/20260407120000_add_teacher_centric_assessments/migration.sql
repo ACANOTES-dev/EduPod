@@ -8,6 +8,9 @@ CREATE TYPE "ConfigApprovalStatus" AS ENUM ('draft', 'pending_approval', 'approv
 -- NOTE: AssessmentStatus enum extensions moved to 20260407110000_extend_assessment_status_enum
 -- (PostgreSQL requires new enum values to be committed before use in the same transaction)
 
+-- ─── Modify assessments table ──────────────────────────────────────────────
+ALTER TABLE "assessments" ADD COLUMN IF NOT EXISTS "cancellation_reason" TEXT;
+
 -- ─── Modify assessment_categories ───────────────────────────────────────────
 
 -- Make default_weight nullable (deprecated)
