@@ -535,6 +535,9 @@ model Tenant {
   progress_reports             ProgressReport[]
   progress_report_entries      ProgressReportEntry[]
   nl_query_history             NlQueryHistory[]
+  teacher_grading_weights      TeacherGradingWeight[]
+  assessment_unlock_requests   AssessmentUnlockRequest[]
+  grade_edit_audits            GradeEditAudit[]
 
   // Report Cards Enhancement Relations
   report_card_templates           ReportCardTemplate[]
@@ -739,15 +742,17 @@ model Tenant {
   diary_parent_notes        DiaryParentNote[]
 
   // Engagement Relations
-  eng_form_templates      EngagementFormTemplate[]
-  eng_form_submissions    EngagementFormSubmission[]
-  eng_consent_records     EngagementConsentRecord[]
-  eng_events              EngagementEvent[]
-  eng_event_staff         EngagementEventStaff[]
-  eng_event_participants  EngagementEventParticipant[]
-  conf_time_slots         ConferenceTimeSlot[]
-  conf_bookings           ConferenceBooking[]
-  eng_incident_reports    EngagementIncidentReport[]
+  eng_form_templates     EngagementFormTemplate[]
+  eng_form_submissions   EngagementFormSubmission[]
+  eng_consent_records    EngagementConsentRecord[]
+  eng_events             EngagementEvent[]
+  eng_event_staff        EngagementEventStaff[]
+  eng_event_participants EngagementEventParticipant[]
+  conf_time_slots        ConferenceTimeSlot[]
+  conf_bookings          ConferenceBooking[]
+  eng_incident_reports   EngagementIncidentReport[]
+  subject_period_weights SubjectPeriodWeight[]
+  period_year_weights    PeriodYearWeight[]
 
   @@map("tenants")
 }
@@ -974,23 +979,23 @@ model TenantStripeConfig {
 
 /// Platform-level table — NOT tenant-scoped, no RLS
 model User {
-  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email             String           @unique @db.Citext
-  password_hash     String           @db.Text
-  first_name        String           @db.VarChar(100)
-  last_name         String           @db.VarChar(100)
-  phone             String?          @db.VarChar(50)
-  preferred_locale  String?          @db.VarChar(10)
-  global_status     UserGlobalStatus @default(active)
-  email_verified_at DateTime?        @db.Timestamptz()
-  mfa_enabled        Boolean          @default(false)
-  mfa_secret         String?          @db.Text
-  mfa_secret_key_ref String?          @db.VarChar(10)
-  failed_login_attempts Int          @default(0)
-  locked_until          DateTime?    @db.Timestamptz()
-  last_login_at     DateTime?        @db.Timestamptz()
-  created_at        DateTime         @default(now()) @db.Timestamptz()
-  updated_at        DateTime         @default(now()) @updatedAt @db.Timestamptz()
+  id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                 String           @unique @db.Citext
+  password_hash         String           @db.Text
+  first_name            String           @db.VarChar(100)
+  last_name             String           @db.VarChar(100)
+  phone                 String?          @db.VarChar(50)
+  preferred_locale      String?          @db.VarChar(10)
+  global_status         UserGlobalStatus @default(active)
+  email_verified_at     DateTime?        @db.Timestamptz()
+  mfa_enabled           Boolean          @default(false)
+  mfa_secret            String?          @db.Text
+  mfa_secret_key_ref    String?          @db.VarChar(10)
+  failed_login_attempts Int              @default(0)
+  locked_until          DateTime?        @db.Timestamptz()
+  last_login_at         DateTime?        @db.Timestamptz()
+  created_at            DateTime         @default(now()) @db.Timestamptz()
+  updated_at            DateTime         @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   memberships                 TenantMembership[]
@@ -1069,6 +1074,7 @@ model User {
 
   // P5+ World-Class Gradebook Relations
   rubric_templates_created     RubricTemplate[]           @relation("rubric_template_creator")
+  rubric_templates_reviewed    RubricTemplate[]           @relation("rubric_template_reviewer")
   assessment_templates_created AssessmentTemplate[]       @relation("assessment_template_creator")
   ai_instructions_submitted    AiGradingInstruction[]     @relation("ai_instruction_submitter")
   ai_instructions_reviewed     AiGradingInstruction[]     @relation("ai_instruction_reviewer")
@@ -1079,6 +1085,15 @@ model User {
   risk_alerts_acknowledged     StudentAcademicRiskAlert[] @relation("risk_alert_acknowledger")
   progress_reports_generated   ProgressReport[]           @relation("progress_report_generator")
   nl_query_history             NlQueryHistory[]
+  categories_created           AssessmentCategory[]       @relation("category_creator")
+  categories_reviewed          AssessmentCategory[]       @relation("category_reviewer")
+  standards_created            CurriculumStandard[]       @relation("standard_creator")
+  standards_reviewed           CurriculumStandard[]       @relation("standard_reviewer")
+  grading_weights_created      TeacherGradingWeight[]     @relation("grading_weight_creator")
+  grading_weights_reviewed     TeacherGradingWeight[]     @relation("grading_weight_reviewer")
+  unlock_requests_submitted    AssessmentUnlockRequest[]  @relation("unlock_requester")
+  unlock_requests_reviewed     AssessmentUnlockRequest[]  @relation("unlock_reviewer")
+  grade_edits_audited          GradeEditAudit[]           @relation("grade_edit_auditor")
 
   // Report Cards Enhancement Relations
   report_card_templates_created     ReportCardTemplate[]         @relation("report_card_template_creator")
@@ -1213,7 +1228,7 @@ model User {
   hw_diary_parent_notes   DiaryParentNote[]    @relation("hw_diary_note_author")
 
   // Engagement Relations
-  eng_form_templates_created EngagementFormTemplate[]  @relation("eng_form_template_creator")
+  eng_form_templates_created EngagementFormTemplate[]   @relation("eng_form_template_creator")
   eng_form_submitted         EngagementFormSubmission[] @relation("eng_form_submitter")
   eng_form_acknowledged      EngagementFormSubmission[] @relation("eng_form_acknowledger")
   eng_events_created         EngagementEvent[]          @relation("eng_event_creator")
@@ -1625,6 +1640,7 @@ model Student {
   gpa_snapshots                GpaSnapshot[]
   student_academic_risk_alerts StudentAcademicRiskAlert[]
   progress_reports             ProgressReport[]
+  grade_edit_audits            GradeEditAudit[]
 
   // Behaviour Management Relations
   bh_incident_participants BehaviourIncidentParticipant[] @relation("bh_participant_student")
@@ -1679,10 +1695,10 @@ model Student {
   hw_diary_parent_notes DiaryParentNote[]
 
   // Engagement Relations
-  eng_form_submissions    EngagementFormSubmission[]
-  eng_consent_records     EngagementConsentRecord[]
-  eng_event_participants  EngagementEventParticipant[]
-  eng_conf_bookings       ConferenceBooking[]
+  eng_form_submissions   EngagementFormSubmission[]
+  eng_consent_records    EngagementConsentRecord[]
+  eng_event_participants EngagementEventParticipant[]
+  eng_conf_bookings      ConferenceBooking[]
 
   @@index([tenant_id], name: "idx_students_tenant")
   @@index([tenant_id, status], name: "idx_students_tenant_status")
@@ -1833,7 +1849,9 @@ model AcademicYear {
   eng_form_templates   EngagementFormTemplate[]
   eng_form_submissions EngagementFormSubmission[]
   eng_consent_records  EngagementConsentRecord[]
-  eng_events           EngagementEvent[]
+  eng_events                EngagementEvent[]
+  subject_period_weights    SubjectPeriodWeight[]     @relation("SubjectPeriodWeightYear")
+  period_year_weights       PeriodYearWeight[]        @relation("PeriodYearWeightYear")
 
   @@unique([tenant_id, name], name: "idx_academic_years_tenant_name")
   @@index([tenant_id], name: "idx_academic_years_tenant")
@@ -1868,6 +1886,7 @@ model AcademicPeriod {
   student_competency_snapshots StudentCompetencySnapshot[]
   gpa_snapshots                GpaSnapshot[]
   progress_reports             ProgressReport[]
+  grading_weights              TeacherGradingWeight[]      @relation("grading_weight_period")
 
   // Report Cards Enhancement Relations
   report_card_batch_jobs ReportCardBatchJob[]
@@ -1885,7 +1904,9 @@ model AcademicPeriod {
   sen_support_plans SenSupportPlan[]
 
   // Homework Relations
-  homework_assignments HomeworkAssignment[]
+  homework_assignments   HomeworkAssignment[]
+  subject_period_weights SubjectPeriodWeight[] @relation("SubjectPeriodWeightPeriod")
+  period_year_weights    PeriodYearWeight[]    @relation("PeriodYearWeightPeriod")
 
   @@unique([tenant_id, academic_year_id, name], name: "idx_academic_periods_tenant_year_name")
   @@index([tenant_id, academic_year_id], name: "idx_academic_periods_tenant_year")
@@ -1913,9 +1934,9 @@ model SenProfile {
   updated_at              DateTime        @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant           Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  student          Student                     @relation(fields: [student_id], references: [id], onDelete: Restrict)
-  sen_coordinator  User?                       @relation("sen_profile_coordinator", fields: [sen_coordinator_user_id], references: [id], onDelete: SetNull)
+  tenant           Tenant                       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student          Student                      @relation(fields: [student_id], references: [id], onDelete: Restrict)
+  sen_coordinator  User?                        @relation("sen_profile_coordinator", fields: [sen_coordinator_user_id], references: [id], onDelete: SetNull)
   support_plans    SenSupportPlan[]
   student_hours    SenStudentHours[]
   sna_assignments  SenSnaAssignment[]
@@ -1984,8 +2005,8 @@ model SenGoal {
   updated_at      DateTime      @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant         Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  support_plan   SenSupportPlan     @relation(fields: [support_plan_id], references: [id], onDelete: Cascade)
+  tenant         Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  support_plan   SenSupportPlan    @relation(fields: [support_plan_id], references: [id], onDelete: Cascade)
   strategies     SenGoalStrategy[]
   progress_notes SenGoalProgress[]
 
@@ -2202,10 +2223,14 @@ model YearGroup {
   year_group_grade_weights YearGroupGradeWeight[]
 
   // P5+ World-Class Gradebook Relations
-  curriculum_standards CurriculumStandard[]
+  curriculum_standards  CurriculumStandard[]
+  assessment_categories AssessmentCategory[]   @relation("category_year_group")
+  grading_weights       TeacherGradingWeight[] @relation("grading_weight_year_group")
 
   // Scheduling World-Class Relations
-  exam_slots ExamSlot[]
+  exam_slots             ExamSlot[]
+  subject_period_weights SubjectPeriodWeight[] @relation("SubjectPeriodWeightYearGroup")
+  period_year_weights    PeriodYearWeight[]    @relation("PeriodYearWeightYearGroup")
 
   @@unique([tenant_id, name], name: "idx_year_groups_tenant_name")
   @@index([tenant_id], name: "idx_year_groups_tenant")
@@ -2242,6 +2267,8 @@ model Subject {
   ai_grading_instructions      AiGradingInstruction[]
   student_academic_risk_alerts StudentAcademicRiskAlert[]
   progress_report_entries      ProgressReportEntry[]
+  assessment_categories        AssessmentCategory[]       @relation("category_subject")
+  grading_weights              TeacherGradingWeight[]     @relation("grading_weight_subject")
 
   // Scheduling World-Class Relations
   exam_slots ExamSlot[]
@@ -2254,7 +2281,8 @@ model Subject {
   reg_des_code_mappings DesSubjectCodeMapping[] @relation("reg_des_subject_mapping")
 
   // Homework Relations
-  homework_assignments HomeworkAssignment[]
+  homework_assignments   HomeworkAssignment[]
+  subject_period_weights SubjectPeriodWeight[] @relation("SubjectPeriodWeightSubject")
 
   @@unique([tenant_id, name], name: "idx_subjects_tenant_name")
   @@index([tenant_id], name: "idx_subjects_tenant")
@@ -2306,7 +2334,9 @@ model Class {
   report_card_batch_jobs ReportCardBatchJob[]
 
   // Homework Relations
-  homework_assignments HomeworkAssignment[]
+  homework_assignments   HomeworkAssignment[]
+  subject_period_weights SubjectPeriodWeight[] @relation("SubjectPeriodWeightClass")
+  period_year_weights    PeriodYearWeight[]    @relation("PeriodYearWeightClass")
 
   @@unique([tenant_id, name, academic_year_id], name: "idx_classes_tenant_name_year")
   @@index([tenant_id, academic_year_id], name: "idx_classes_tenant_year")
@@ -2918,6 +2948,10 @@ enum AssessmentStatus {
   open
   closed
   locked
+  submitted_locked
+  unlock_requested
+  reopened
+  final_locked
 }
 
 enum ReportCardStatus {
@@ -3044,21 +3078,32 @@ model GradingScale {
 }
 
 model AssessmentCategory {
-  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id       String         @db.Uuid
-  name            String         @db.VarChar(100)
-  default_weight  Decimal        @db.Decimal(5, 2)
-  assessment_type AssessmentType @default(summative)
-  created_at      DateTime       @default(now()) @db.Timestamptz()
-  updated_at      DateTime       @default(now()) @updatedAt @db.Timestamptz()
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String               @db.Uuid
+  name                String               @db.VarChar(100)
+  default_weight      Decimal?             @db.Decimal(5, 2)
+  assessment_type     AssessmentType       @default(summative)
+  created_by_user_id  String?              @db.Uuid
+  subject_id          String?              @db.Uuid
+  year_group_id       String?              @db.Uuid
+  status              ConfigApprovalStatus @default(approved)
+  reviewed_by_user_id String?              @db.Uuid
+  reviewed_at         DateTime?            @db.Timestamptz()
+  rejection_reason    String?              @db.Text
+  created_at          DateTime             @default(now()) @db.Timestamptz()
+  updated_at          DateTime             @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   tenant               Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by           User?                @relation("category_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  subject              Subject?             @relation("category_subject", fields: [subject_id], references: [id], onDelete: SetNull)
+  year_group           YearGroup?           @relation("category_year_group", fields: [year_group_id], references: [id], onDelete: SetNull)
+  reviewed_by          User?                @relation("category_reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
   assessments          Assessment[]
   assessment_templates AssessmentTemplate[]
 
-  @@unique([tenant_id, name], name: "idx_assessment_categories_tenant_name")
   @@index([tenant_id], name: "idx_assessment_categories_tenant")
+  @@index([tenant_id, subject_id, year_group_id], name: "idx_assessment_categories_scope")
   @@map("assessment_categories")
 }
 
@@ -3096,6 +3141,7 @@ model Assessment {
   due_date                    DateTime?        @db.Date
   grading_deadline            DateTime?        @db.Date
   status                      AssessmentStatus @default(draft)
+  cancellation_reason         String?          @db.Text
   counts_toward_report_card   Boolean          @default(true)
   // Rubric (C1)
   rubric_template_id          String?          @db.Uuid
@@ -3120,6 +3166,8 @@ model Assessment {
   standard_mappings   AssessmentStandardMapping[]
   curve_audits        GradeCurveAudit[]
   ai_references       AiGradingReference[]
+  unlock_requests     AssessmentUnlockRequest[]
+  grade_edit_audits   GradeEditAudit[]
 
   @@index([tenant_id, class_id], name: "idx_assessments_tenant_class")
   @@index([tenant_id, academic_period_id], name: "idx_assessments_tenant_period")
@@ -3141,11 +3189,12 @@ model Grade {
   updated_at         DateTime  @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant        Tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  assessment    Assessment    @relation(fields: [assessment_id], references: [id], onDelete: Cascade)
-  student       Student       @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  entered_by    User          @relation("grades_entered", fields: [entered_by_user_id], references: [id], onDelete: Cascade)
+  tenant        Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assessment    Assessment       @relation(fields: [assessment_id], references: [id], onDelete: Cascade)
+  student       Student          @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  entered_by    User             @relation("grades_entered", fields: [entered_by_user_id], references: [id], onDelete: Cascade)
   rubric_grades RubricGrade[]
+  edit_audits   GradeEditAudit[]
 
   @@unique([tenant_id, assessment_id, student_id], name: "idx_grades_unique")
   @@index([tenant_id, student_id], name: "idx_grades_student")
@@ -3201,6 +3250,64 @@ model YearGroupGradeWeight {
   @@map("year_group_grade_weights")
 }
 
+// ─── Subject weights per period (cross-subject aggregation) ───────────────────
+// Determines how much each subject contributes to the overall period grade.
+// Scoped to either a year group (all subclasses inherit) or a specific class.
+
+model SubjectPeriodWeight {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  academic_year_id   String   @db.Uuid
+  academic_period_id String   @db.Uuid
+  year_group_id      String?  @db.Uuid
+  class_id           String?  @db.Uuid
+  subject_id         String   @db.Uuid
+  weight             Decimal  @db.Decimal(5, 2)
+  created_at         DateTime @default(now()) @db.Timestamptz()
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year   AcademicYear   @relation("SubjectPeriodWeightYear", fields: [academic_year_id], references: [id])
+  academic_period AcademicPeriod @relation("SubjectPeriodWeightPeriod", fields: [academic_period_id], references: [id])
+  year_group      YearGroup?     @relation("SubjectPeriodWeightYearGroup", fields: [year_group_id], references: [id])
+  class_entity    Class?         @relation("SubjectPeriodWeightClass", fields: [class_id], references: [id])
+  subject         Subject        @relation("SubjectPeriodWeightSubject", fields: [subject_id], references: [id])
+
+  @@unique([tenant_id, academic_period_id, year_group_id, subject_id], name: "idx_spw_year_group_unique")
+  @@unique([tenant_id, academic_period_id, class_id, subject_id], name: "idx_spw_class_unique")
+  @@index([tenant_id], name: "idx_spw_tenant")
+  @@index([tenant_id, academic_period_id], name: "idx_spw_tenant_period")
+  @@map("subject_period_weights")
+}
+
+// ─── Period weights for final year (cross-period aggregation) ─────────────────
+// Determines how much each academic period contributes to the final year grade.
+// Scoped to either a year group (all subclasses inherit) or a specific class.
+
+model PeriodYearWeight {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  academic_year_id   String   @db.Uuid
+  academic_period_id String   @db.Uuid
+  year_group_id      String?  @db.Uuid
+  class_id           String?  @db.Uuid
+  weight             Decimal  @db.Decimal(5, 2)
+  created_at         DateTime @default(now()) @db.Timestamptz()
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year   AcademicYear   @relation("PeriodYearWeightYear", fields: [academic_year_id], references: [id])
+  academic_period AcademicPeriod @relation("PeriodYearWeightPeriod", fields: [academic_period_id], references: [id])
+  year_group      YearGroup?     @relation("PeriodYearWeightYearGroup", fields: [year_group_id], references: [id])
+  class_entity    Class?         @relation("PeriodYearWeightClass", fields: [class_id], references: [id])
+
+  @@unique([tenant_id, academic_year_id, academic_period_id, year_group_id], name: "idx_pyw_year_group_unique", map: "idx_pyw_yg_unique")
+  @@unique([tenant_id, academic_year_id, academic_period_id, class_id], name: "idx_pyw_class_unique", map: "idx_pyw_cls_unique")
+  @@index([tenant_id], name: "idx_pyw_tenant")
+  @@index([tenant_id, academic_year_id], name: "idx_pyw_tenant_year")
+  @@map("period_year_weights")
+}
+
 model ReportCard {
   id                         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id                  String           @db.Uuid
@@ -3243,6 +3350,14 @@ model ReportCard {
 enum AssessmentType {
   formative
   summative
+}
+
+enum ConfigApprovalStatus {
+  draft
+  pending_approval
+  approved
+  rejected
+  archived
 }
 
 enum CurveMethod {
@@ -3324,19 +3439,24 @@ enum ScenarioStatus {
 // ─── P5+: Gradebook World-Class Enhancement Models ────────────────────────
 
 model RubricTemplate {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id          String   @db.Uuid
-  name               String   @db.VarChar(200)
-  subject_id         String?  @db.Uuid
-  criteria_json      Json
-  created_by_user_id String   @db.Uuid
-  created_at         DateTime @default(now()) @db.Timestamptz()
-  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String               @db.Uuid
+  name                String               @db.VarChar(200)
+  subject_id          String?              @db.Uuid
+  criteria_json       Json
+  created_by_user_id  String               @db.Uuid
+  status              ConfigApprovalStatus @default(approved)
+  reviewed_by_user_id String?              @db.Uuid
+  reviewed_at         DateTime?            @db.Timestamptz()
+  rejection_reason    String?              @db.Text
+  created_at          DateTime             @default(now()) @db.Timestamptz()
+  updated_at          DateTime             @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   tenant               Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   subject              Subject?             @relation(fields: [subject_id], references: [id], onDelete: SetNull)
   created_by           User                 @relation("rubric_template_creator", fields: [created_by_user_id], references: [id], onDelete: Cascade)
+  reviewed_by          User?                @relation("rubric_template_reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
   assessments          Assessment[]         @relation("assessment_rubric")
   assessment_templates AssessmentTemplate[] @relation("template_rubric")
   rubric_grades        RubricGrade[]
@@ -3368,19 +3488,26 @@ model RubricGrade {
 }
 
 model CurriculumStandard {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id     String   @db.Uuid
-  subject_id    String   @db.Uuid
-  year_group_id String   @db.Uuid
-  code          String   @db.VarChar(50)
-  description   String   @db.Text
-  created_at    DateTime @default(now()) @db.Timestamptz()
-  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz()
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String               @db.Uuid
+  subject_id          String               @db.Uuid
+  year_group_id       String               @db.Uuid
+  code                String               @db.VarChar(50)
+  description         String               @db.Text
+  created_by_user_id  String?              @db.Uuid
+  status              ConfigApprovalStatus @default(approved)
+  reviewed_by_user_id String?              @db.Uuid
+  reviewed_at         DateTime?            @db.Timestamptz()
+  rejection_reason    String?              @db.Text
+  created_at          DateTime             @default(now()) @db.Timestamptz()
+  updated_at          DateTime             @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   tenant               Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   subject              Subject                     @relation(fields: [subject_id], references: [id], onDelete: Cascade)
   year_group           YearGroup                   @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
+  created_by           User?                       @relation("standard_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  reviewed_by          User?                       @relation("standard_reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
   assessment_mappings  AssessmentStandardMapping[]
   competency_snapshots StudentCompetencySnapshot[]
 
@@ -8874,13 +9001,13 @@ model EngagementFormTemplate {
   updated_at         DateTime             @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant          Tenant                    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  academic_year   AcademicYear?             @relation(fields: [academic_year_id], references: [id], onDelete: SetNull)
-  created_by      User                      @relation("eng_form_template_creator", fields: [created_by_user_id], references: [id])
+  tenant          Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year   AcademicYear?              @relation(fields: [academic_year_id], references: [id], onDelete: SetNull)
+  created_by      User                       @relation("eng_form_template_creator", fields: [created_by_user_id], references: [id])
   submissions     EngagementFormSubmission[]
   consent_records EngagementConsentRecord[]
-  events_consent  EngagementEvent[]         @relation("event_consent_form")
-  events_risk     EngagementEvent[]         @relation("event_risk_assessment")
+  events_consent  EngagementEvent[]          @relation("event_consent_form")
+  events_risk     EngagementEvent[]          @relation("event_risk_assessment")
 
   @@index([tenant_id, status], name: "idx_eng_form_templates_tenant_status")
   @@index([tenant_id, form_type], name: "idx_eng_form_templates_tenant_type")
@@ -8940,12 +9067,12 @@ model EngagementConsentRecord {
   updated_at         DateTime            @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant          Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  student         Student                 @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  form_template   EngagementFormTemplate  @relation(fields: [form_template_id], references: [id], onDelete: Cascade)
+  tenant          Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student         Student                  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  form_template   EngagementFormTemplate   @relation(fields: [form_template_id], references: [id], onDelete: Cascade)
   form_submission EngagementFormSubmission @relation(fields: [form_submission_id], references: [id], onDelete: Cascade)
-  event           EngagementEvent?        @relation(fields: [event_id], references: [id], onDelete: SetNull)
-  academic_year   AcademicYear            @relation(fields: [academic_year_id], references: [id])
+  event           EngagementEvent?         @relation(fields: [event_id], references: [id], onDelete: SetNull)
+  academic_year   AcademicYear             @relation(fields: [academic_year_id], references: [id])
 
   @@index([tenant_id, student_id, status], name: "idx_eng_consent_student_status")
   @@index([tenant_id, consent_type, status], name: "idx_eng_consent_type_status")
@@ -8954,59 +9081,59 @@ model EngagementConsentRecord {
 }
 
 model EngagementEvent {
-  id                          String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id                   String                @db.Uuid
-  title                       String                @db.VarChar(255)
-  title_ar                    String?               @db.VarChar(255)
-  description                 String?               @db.Text
-  description_ar              String?               @db.Text
-  event_type                  EngagementEventType
-  status                      EngagementEventStatus @default(draft)
+  id             String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String                @db.Uuid
+  title          String                @db.VarChar(255)
+  title_ar       String?               @db.VarChar(255)
+  description    String?               @db.Text
+  description_ar String?               @db.Text
+  event_type     EngagementEventType
+  status         EngagementEventStatus @default(draft)
 
   // ─── Scheduling ──────────────────────────────────────────────────────────────
-  start_date                  DateTime?             @db.Date
-  end_date                    DateTime?             @db.Date
-  start_time                  DateTime?             @db.Time
-  end_time                    DateTime?             @db.Time
-  location                    String?               @db.VarChar(255)
-  location_ar                 String?               @db.VarChar(255)
+  start_date  DateTime? @db.Date
+  end_date    DateTime? @db.Date
+  start_time  DateTime? @db.Time
+  end_time    DateTime? @db.Time
+  location    String?   @db.VarChar(255)
+  location_ar String?   @db.VarChar(255)
 
   // ─── Targeting ───────────────────────────────────────────────────────────────
-  capacity                    Int?
-  target_type                 EventTargetType       @default(whole_school)
-  target_config_json          Json?
+  capacity           Int?
+  target_type        EventTargetType @default(whole_school)
+  target_config_json Json?
 
   // ─── Linked forms ────────────────────────────────────────────────────────────
-  consent_form_template_id    String?               @db.Uuid
-  risk_assessment_template_id String?               @db.Uuid
+  consent_form_template_id    String? @db.Uuid
+  risk_assessment_template_id String? @db.Uuid
 
   // ─── Payment ─────────────────────────────────────────────────────────────────
-  fee_amount                  Decimal?              @db.Decimal(12, 2)
-  fee_description             String?               @db.VarChar(255)
+  fee_amount      Decimal? @db.Decimal(12, 2)
+  fee_description String?  @db.VarChar(255)
 
   // ─── Conference-specific ─────────────────────────────────────────────────────
-  slot_duration_minutes       Int?
-  buffer_minutes              Int?
+  slot_duration_minutes Int?
+  buffer_minutes        Int?
 
   // ─── Deadlines ───────────────────────────────────────────────────────────────
-  consent_deadline            DateTime?             @db.Date
-  payment_deadline            DateTime?             @db.Date
-  booking_deadline            DateTime?             @db.Date
+  consent_deadline DateTime? @db.Date
+  payment_deadline DateTime? @db.Date
+  booking_deadline DateTime? @db.Date
 
   // ─── Risk assessment gate ────────────────────────────────────────────────────
-  risk_assessment_required    Boolean               @default(false)
-  risk_assessment_approved    Boolean               @default(false)
-  risk_assessment_approved_by String?               @db.Uuid
-  risk_assessment_approved_at DateTime?             @db.Timestamptz()
+  risk_assessment_required    Boolean   @default(false)
+  risk_assessment_approved    Boolean   @default(false)
+  risk_assessment_approved_by String?   @db.Uuid
+  risk_assessment_approved_at DateTime? @db.Timestamptz()
 
   // ─── Metadata ────────────────────────────────────────────────────────────────
-  academic_year_id            String                @db.Uuid
-  created_by_user_id          String                @db.Uuid
-  created_at                  DateTime              @default(now()) @db.Timestamptz()
-  updated_at                  DateTime              @default(now()) @updatedAt @db.Timestamptz()
+  academic_year_id   String   @db.Uuid
+  created_by_user_id String   @db.Uuid
+  created_at         DateTime @default(now()) @db.Timestamptz()
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant                   Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  tenant                   Tenant                       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   consent_form_template    EngagementFormTemplate?      @relation("event_consent_form", fields: [consent_form_template_id], references: [id], onDelete: SetNull)
   risk_assessment_template EngagementFormTemplate?      @relation("event_risk_assessment", fields: [risk_assessment_template_id], references: [id], onDelete: SetNull)
   academic_year            AcademicYear                 @relation(fields: [academic_year_id], references: [id])
@@ -9083,9 +9210,9 @@ model ConferenceTimeSlot {
   updated_at DateTime       @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant  Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  event   EngagementEvent   @relation(fields: [event_id], references: [id], onDelete: Cascade)
-  teacher StaffProfile      @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  tenant  Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  event   EngagementEvent    @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  teacher StaffProfile       @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
   booking ConferenceBooking?
 
   @@index([tenant_id, event_id, teacher_id], name: "idx_conf_slots_event_teacher")
@@ -9135,4 +9262,88 @@ model EngagementIncidentReport {
 
   @@index([tenant_id, event_id], name: "idx_eng_incidents_event")
   @@map("engagement_incident_reports")
+}
+
+// ─── Teacher-Centric Assessments ────────────────────────────────────────────
+
+model TeacherGradingWeight {
+  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String               @db.Uuid
+  created_by_user_id    String               @db.Uuid
+  subject_id            String               @db.Uuid
+  year_group_id         String               @db.Uuid
+  academic_period_id    String               @db.Uuid
+  category_weights_json Json
+  status                ConfigApprovalStatus @default(draft)
+  reviewed_by_user_id   String?              @db.Uuid
+  reviewed_at           DateTime?            @db.Timestamptz()
+  rejection_reason      String?              @db.Text
+  created_at            DateTime             @default(now()) @db.Timestamptz()
+  updated_at            DateTime             @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by      User           @relation("grading_weight_creator", fields: [created_by_user_id], references: [id], onDelete: Cascade)
+  subject         Subject        @relation("grading_weight_subject", fields: [subject_id], references: [id], onDelete: Cascade)
+  year_group      YearGroup      @relation("grading_weight_year_group", fields: [year_group_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod @relation("grading_weight_period", fields: [academic_period_id], references: [id], onDelete: Cascade)
+  reviewed_by     User?          @relation("grading_weight_reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, created_by_user_id, subject_id, year_group_id, academic_period_id], name: "idx_teacher_grading_weights_unique")
+  @@index([tenant_id], name: "idx_teacher_grading_weights_tenant")
+  @@index([tenant_id, created_by_user_id], name: "idx_teacher_grading_weights_creator")
+  @@map("teacher_grading_weights")
+}
+
+model AssessmentUnlockRequest {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String             @db.Uuid
+  assessment_id        String             @db.Uuid
+  requested_by_user_id String             @db.Uuid
+  reason               String             @db.Text
+  status               ApprovalStepStatus @default(pending)
+  reviewed_by_user_id  String?            @db.Uuid
+  reviewed_at          DateTime?          @db.Timestamptz()
+  rejection_reason     String?            @db.Text
+  created_at           DateTime           @default(now()) @db.Timestamptz()
+  updated_at           DateTime           @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant            Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assessment        Assessment       @relation(fields: [assessment_id], references: [id], onDelete: Cascade)
+  requested_by      User             @relation("unlock_requester", fields: [requested_by_user_id], references: [id], onDelete: Cascade)
+  reviewed_by       User?            @relation("unlock_reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
+  grade_edit_audits GradeEditAudit[]
+
+  @@index([tenant_id, assessment_id], name: "idx_unlock_requests_assessment")
+  @@index([tenant_id, status], name: "idx_unlock_requests_status")
+  @@map("assessment_unlock_requests")
+}
+
+model GradeEditAudit {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String   @db.Uuid
+  grade_id          String   @db.Uuid
+  assessment_id     String   @db.Uuid
+  student_id        String   @db.Uuid
+  old_raw_score     Decimal? @db.Decimal(10, 4)
+  new_raw_score     Decimal? @db.Decimal(10, 4)
+  old_comment       String?  @db.Text
+  new_comment       String?  @db.Text
+  edited_by_user_id String   @db.Uuid
+  reason            String   @db.Text
+  unlock_request_id String?  @db.Uuid
+  created_at        DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant         Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  grade          Grade                    @relation(fields: [grade_id], references: [id], onDelete: Cascade)
+  assessment     Assessment               @relation(fields: [assessment_id], references: [id], onDelete: Cascade)
+  student        Student                  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  edited_by      User                     @relation("grade_edit_auditor", fields: [edited_by_user_id], references: [id], onDelete: Cascade)
+  unlock_request AssessmentUnlockRequest? @relation(fields: [unlock_request_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, assessment_id], name: "idx_grade_edit_audits_assessment")
+  @@index([tenant_id, grade_id], name: "idx_grade_edit_audits_grade")
+  @@map("grade_edit_audits")
 }
