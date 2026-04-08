@@ -67,8 +67,50 @@ interface PeriodGrade {
   final_letter: string | null;
 }
 
+// ─── API response shape (differs from UI model) ──────────────────────────────
+
+interface RawPeriodGrade {
+  id: string;
+  student_id: string;
+  computed_value: { s: number; e: number; d: number[] } | number | string | null;
+  display_value: string | null;
+  overridden_value: { s: number; e: number; d: number[] } | number | string | null;
+  student: { id: string; first_name: string; last_name: string };
+}
+
 interface PeriodGradesResponse {
-  data: PeriodGrade[];
+  data: RawPeriodGrade[];
+}
+
+/** Parse a Prisma Decimal object (serialised as { s, e, d }) to a JS number. */
+function parseDecimal(
+  val: { s: number; e: number; d: number[] } | number | string | null | undefined,
+): number | null {
+  if (val == null) return null;
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') return parseFloat(val) || null;
+  if (typeof val === 'object' && 'd' in val && 'e' in val && 's' in val) {
+    const firstDigit = val.d[0] ?? 0;
+    const digitLen = String(firstDigit).length;
+    return val.s * firstDigit * Math.pow(10, val.e - digitLen + 1);
+  }
+  return null;
+}
+
+function normalisePeriodGrade(raw: RawPeriodGrade): PeriodGrade {
+  const computed = parseDecimal(raw.computed_value);
+  const override = parseDecimal(raw.overridden_value);
+  return {
+    id: raw.id,
+    student_id: raw.student_id,
+    student_name: `${raw.student?.first_name ?? ''} ${raw.student?.last_name ?? ''}`.trim(),
+    computed_score: computed,
+    computed_letter: raw.display_value ?? null,
+    override_score: override,
+    override_letter: null,
+    final_score: override ?? computed,
+    final_letter: raw.display_value ?? null,
+  };
 }
 
 interface SelectOption {
@@ -339,7 +381,7 @@ export default function ClassGradebookPage() {
         const res = await apiClient<PeriodGradesResponse>(
           `/api/v1/gradebook/period-grades?${prms.toString()}`,
         );
-        setPeriodGrades(res.data);
+        setPeriodGrades(res.data.map(normalisePeriodGrade));
       } catch (err) {
         console.error('[GradebookPage]', err);
         setPeriodGrades([]);
