@@ -38,7 +38,7 @@ pnpm install --frozen-lockfile
 pnpm install --frozen-lockfile
 ```
 
-This installs workspace dependencies and prepares Husky, which enables both pre-commit and commit-message checks.
+This installs workspace dependencies and prepares Husky, which enables pre-commit, commit-message, and pre-push checks.
 
 ## 4. Configure Environment Variables
 
@@ -125,6 +125,11 @@ pnpm hotspots:check
 4. Run targeted tests while iterating.
 5. Run the full verification set before pushing or opening a PR.
 6. Refresh hotspot metrics if you changed a tracked hotspot module.
+
+The pre-push hook now runs the local CI-parity fast gate automatically:
+
+- `pnpm validate:fast`
+- `pnpm test:affected`
 
 ## 13. Working with Tenancy and RLS
 

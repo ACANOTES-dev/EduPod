@@ -80,26 +80,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Security audit
-        run: |
-          # Blocking — high-severity vulns fail the pipeline.
-          # pnpm.auditConfig.ignoreCves handles CVE-based ignores.
-          # GHSA-only advisories (no CVE assigned) are filtered here.
-          export IGNORED_GHSAS="GHSA-h25m-26qc-wcjf"
-          pnpm audit --audit-level=high --ignore-registry-errors --json 2>/dev/null | \
-            node -e "
-              const data = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-              const ignored = new Set((process.env.IGNORED_GHSAS || '').split(','));
-              const advisories = data.advisories || {};
-              const unignored = Object.values(advisories).filter(a =>
-                a.severity === 'high' && !ignored.has(a.github_advisory_id)
-              );
-              if (unignored.length > 0) {
-                console.error('Unignored high-severity advisories:');
-                unignored.forEach(a => console.error('  ' + a.github_advisory_id + ' ' + a.module_name + ': ' + a.title));
-                process.exit(1);
-              }
-              console.log('Security audit passed (' + Object.keys(advisories).length + ' advisories, all high-sev ignored or below threshold)');
-            "
+        run: pnpm audit:security
 
       - name: Generate Prisma client
         run: pnpm --filter @school/prisma exec prisma generate
@@ -270,7 +251,7 @@ jobs:
           REDIS_URL: redis://localhost:6379
 
       - name: Run backend integration and e2e tests
-        run: NODE_OPTIONS="--max-old-space-size=6144" pnpm --filter @school/api run test:integration -- --bail=1
+        run: NODE_OPTIONS="--max-old-space-size=6144" pnpm --filter @school/api exec jest --config jest.integration.config.js --runInBand --bail=1
         env:
           API_PORT: '0'
           APP_URL: http://localhost:3000

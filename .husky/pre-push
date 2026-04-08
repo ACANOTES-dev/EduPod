@@ -1,1 +1,1 @@
-bash scripts/check-architecture-freshness.sh
+bash scripts/pre-push-check.sh

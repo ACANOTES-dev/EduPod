@@ -18,8 +18,10 @@ This repo uses Husky to keep the local developer workflow honest without turning
 
 **Pre-push hook** — runs on every `git push`:
 
-- Prints an architecture-doc freshness reminder when code changed but nothing under `architecture/` changed
-- Does not block the push; it is a safety nudge before production-facing changes leave your machine
+- Runs the architecture freshness check before every push
+- Runs the same fast validation gate CI uses, including the shared high-severity security audit policy
+- Runs affected tests so obvious regressions fail locally before CI starts
+- Blocks the push if any of those checks fail
 
 ## Setup
 
@@ -47,7 +49,7 @@ pnpm commitlint --edit "$1"
 ### `.husky/pre-push`
 
 ```bash
-bash scripts/check-architecture-freshness.sh
+bash scripts/pre-push-check.sh
 ```
 
 ### `lint-staged` config in root `package.json`
@@ -87,5 +89,6 @@ The git hooks catch formatting and code hygiene locally, and commitlint keeps hi
 The main goal is fast local feedback:
 
 1. Catch obvious staged-file issues before they land in a commit
-2. Remind you to update `architecture/` when the code change likely has cross-cutting impact
-3. Keep the heavier checks (`pnpm validate`, integration tests, visual smoke) available on demand instead of forcing them into every commit
+2. Stop pushes that would fail the fast CI gate anyway
+3. Catch likely regressions with affected tests before the branch leaves your machine
+4. Keep the heaviest checks (full integration, restore drill, deploy) in CI rather than every local iteration
