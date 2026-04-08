@@ -175,7 +175,8 @@ export function ResultsMatrix({ classId }: { classId: string }) {
     for (const student of matrix.students) {
       for (const subject of displaySubjects) {
         for (const assessment of subject.assessments) {
-          if (assessment.status === 'closed' || assessment.status === 'locked') continue;
+          if (['closed', 'locked', 'submitted_locked', 'final_locked'].includes(assessment.status))
+            continue;
           const existing = nextLocal[student.id]?.[assessment.id];
           // Only fill cells that are currently empty (no score and not marked missing)
           if (existing?.raw_score != null || existing?.is_missing) continue;
@@ -342,21 +343,18 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                                   : 'border-e border-e-border'
                               }`}
                               style={{
-                                width: 38,
-                                minWidth: 38,
-                                height: 115,
-                                writingMode: 'vertical-rl',
-                                transform: 'rotate(180deg)',
+                                width: 72,
+                                minWidth: 72,
+                                padding: '8px 4px',
                                 textAlign: 'center',
-                                verticalAlign: 'middle',
-                                padding: '6px 2px',
-                                whiteSpace: 'nowrap',
+                                verticalAlign: 'bottom',
+                                whiteSpace: 'normal',
                               }}
                             >
-                              <span className="text-[11px] font-semibold text-text-primary">
-                                {assessment.title}{' '}
+                              <span className="block text-[10px] font-semibold text-text-primary leading-tight">
+                                {assessment.title}
                               </span>
-                              <span className="text-[11px] font-bold text-danger-text">
+                              <span className="block text-[10px] font-bold text-danger-text mt-0.5">
                                 /{assessment.max_score}
                               </span>
                             </th>
@@ -383,7 +381,10 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                             const isLastInSubject = ai === subject.assessments.length - 1;
                             const grade = getGrade(student.id, assessment.id);
                             const isLocked =
-                              assessment.status === 'closed' || assessment.status === 'locked';
+                              assessment.status === 'closed' ||
+                              assessment.status === 'locked' ||
+                              assessment.status === 'submitted_locked' ||
+                              assessment.status === 'final_locked';
 
                             return (
                               <td
@@ -393,11 +394,11 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                                     ? 'border-e-2 border-e-primary-100'
                                     : 'border-e border-e-border/50'
                                 }`}
-                                style={{ width: 38 }}
+                                style={{ width: 72 }}
                               >
                                 {isLocked ? (
                                   <span
-                                    className="inline-block w-[34px] rounded bg-surface-secondary px-1 py-1 text-center text-xs font-medium text-text-tertiary"
+                                    className="inline-block w-[60px] rounded bg-surface-secondary px-1 py-1 text-center text-xs font-medium text-text-tertiary"
                                     dir="ltr"
                                   >
                                     {grade.raw_score != null ? grade.raw_score : '—'}
@@ -418,7 +419,7 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                                     }
                                     placeholder="—"
                                     dir="ltr"
-                                    className={`w-[34px] rounded border px-1 py-1 text-center text-xs font-medium tabular-nums transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                                    className={`w-[60px] rounded border px-1 py-1 text-center text-xs font-medium tabular-nums transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
                                       grade.is_missing
                                         ? 'border-danger-200 bg-danger-50 text-danger-text'
                                         : grade.raw_score != null

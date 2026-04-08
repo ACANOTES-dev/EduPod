@@ -199,7 +199,7 @@ export class ResultsMatrixService {
         tenant_id: tenantId,
         id: { in: assessmentIds },
         class_id: classId,
-        status: { in: ['draft', 'open'] },
+        status: { in: ['draft', 'open', 'reopened'] },
       },
       select: { id: true, max_score: true },
     });

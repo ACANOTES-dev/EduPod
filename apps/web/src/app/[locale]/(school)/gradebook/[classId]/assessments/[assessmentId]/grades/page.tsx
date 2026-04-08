@@ -62,6 +62,21 @@ interface GradesListResponse {
   data: GradeRecord[];
 }
 
+/** Parse a Prisma Decimal object (serialised as { s, e, d }) to a JS number. */
+function parseDecimal(
+  val: { s: number; e: number; d: number[] } | number | string | null | undefined,
+): number | null {
+  if (val == null) return null;
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') return parseFloat(val) || null;
+  if (typeof val === 'object' && 'd' in val && 'e' in val && 's' in val) {
+    const firstDigit = val.d[0] ?? 0;
+    const digitLen = String(firstDigit).length;
+    return val.s * firstDigit * Math.pow(10, val.e - digitLen + 1);
+  }
+  return null;
+}
+
 const STATUS_VARIANT: Record<string, 'warning' | 'info' | 'success' | 'neutral' | 'danger'> = {
   draft: 'warning',
   open: 'info',
@@ -157,10 +172,7 @@ export default function GradeEntryPage() {
         return {
           student_id: e.student_id,
           student_name: `${s.first_name} ${s.last_name}`,
-          score:
-            existing?.raw_score !== null && existing?.raw_score !== undefined
-              ? Number(existing.raw_score)
-              : null,
+          score: parseDecimal(existing?.raw_score),
           is_missing: existing?.is_missing ?? false,
           comment: existing?.comment ?? '',
         };
@@ -174,7 +186,7 @@ export default function GradeEntryPage() {
             student_name: g.student
               ? `${g.student.first_name} ${g.student.last_name}`
               : g.student_id,
-            score: g.raw_score !== null ? Number(g.raw_score) : null,
+            score: parseDecimal(g.raw_score),
             is_missing: g.is_missing,
             comment: g.comment ?? '',
           });
@@ -247,9 +259,9 @@ export default function GradeEntryPage() {
         body: JSON.stringify({
           grades: grades.map((g) => ({
             student_id: g.student_id,
-            score: g.score,
+            raw_score: g.score,
             is_missing: g.is_missing,
-            comment: g.comment || undefined,
+            comment: g.comment || null,
           })),
         }),
       });
