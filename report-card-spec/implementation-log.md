@@ -517,7 +517,7 @@ When you finish an implementation, append an entry to the **Completions** sectio
 
 - **Completed at:** 2026-04-09 20:40 (local time)
 - **Completed by:** Claude Opus 4.6 (Claude Code)
-- **Branch / commit:** `main` @ `<pending>`
+- **Branch / commit:** `main` @ `fc73441a`
 - **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
 - **Status:** ✅ complete
 - **Summary:** Rebuilt the school-facing Report Cards frontend as a gradebook-mirror class-first surface. Landing is now year-grouped class cards, per-class `/report-cards/[classId]` is a students × subjects matrix consuming the new impl-06 endpoint with top-3 rank badges and score/grade toggle, and `/report-cards/library` is a filterable document library with role-scoped rows and per-language signed-URL downloads. Legacy orphan `report-cards/[id]` single-report detail page was renamed to `[classId]` and its contents replaced — no UI surface linked to the old detail view, so nothing breaks.
