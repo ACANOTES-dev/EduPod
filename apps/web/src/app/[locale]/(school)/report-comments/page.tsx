@@ -1,7 +1,7 @@
 'use client';
 
 import { FileText, GraduationCap, MessageSquare, Users } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -80,10 +80,12 @@ export default function ReportCommentsLandingPage() {
   const tClose = useTranslations('reportComments.closeConfirm');
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const { hasAnyRole } = useRoleCheck();
   const isAdmin = hasAnyRole('school_owner', 'school_principal', 'admin', 'school_vice_principal');
 
+  const [prefilledPeriodId, setPrefilledPeriodId] = React.useState<string | null>(null);
   const [activeWindow, setActiveWindow] = React.useState<ActiveWindow | null>(null);
   const [period, setPeriod] = React.useState<AcademicPeriod | null>(null);
   const [grouped, setGrouped] = React.useState<GroupedCards[]>([]);
@@ -100,6 +102,26 @@ export default function ReportCommentsLandingPage() {
   const bumpRefresh = React.useCallback((): void => {
     setRefreshToken((n) => n + 1);
   }, []);
+
+  // Query-param handoff from the Teacher Requests approve flow: detect
+  // ?open_window_period=<id> and auto-open the OpenWindow modal pre-filled
+  // with that period. Clear the query param after consumption so it doesn't
+  // stick on refresh.
+  const openWindowHandoffRef = React.useRef(false);
+  React.useEffect(() => {
+    if (openWindowHandoffRef.current) return;
+    if (!searchParams || !isAdmin) return;
+    const periodId = searchParams.get('open_window_period');
+    if (!periodId) return;
+    openWindowHandoffRef.current = true;
+    setPrefilledPeriodId(periodId);
+    setOpenWindowModalOpen(true);
+    if (typeof window !== 'undefined' && window.history?.replaceState) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('open_window_period');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [searchParams, isAdmin]);
 
   // ─── Load data ──────────────────────────────────────────────────────────
   React.useEffect(() => {
@@ -505,8 +527,12 @@ export default function ReportCommentsLandingPage() {
         <>
           <OpenWindowModal
             open={openWindowModalOpen}
-            onOpenChange={setOpenWindowModalOpen}
+            onOpenChange={(next) => {
+              setOpenWindowModalOpen(next);
+              if (!next) setPrefilledPeriodId(null);
+            }}
             onSuccess={bumpRefresh}
+            defaultPeriodId={prefilledPeriodId}
           />
           <ExtendWindowModal
             open={extendWindowModalOpen}

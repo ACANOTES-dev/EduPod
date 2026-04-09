@@ -41,6 +41,8 @@ interface OpenWindowModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  /** Pre-fill the academic period when launched from an approved teacher request. */
+  defaultPeriodId?: string | null;
 }
 
 // ─── Form schema (separate from backend schema to avoid the datetime ISO)
@@ -75,7 +77,12 @@ function nowLocalInput(): string {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function OpenWindowModal({ open, onOpenChange, onSuccess }: OpenWindowModalProps) {
+export function OpenWindowModal({
+  open,
+  onOpenChange,
+  onSuccess,
+  defaultPeriodId,
+}: OpenWindowModalProps) {
   const t = useTranslations('reportComments.openWindowModal');
   const tc = useTranslations('common');
   const [periods, setPeriods] = React.useState<AcademicPeriod[]>([]);
@@ -83,7 +90,7 @@ export function OpenWindowModal({ open, onOpenChange, onSuccess }: OpenWindowMod
   const form = useForm<OpenWindowFormValues>({
     resolver: zodResolver(openWindowFormSchema),
     defaultValues: {
-      academic_period_id: '',
+      academic_period_id: defaultPeriodId ?? '',
       opens_at_local: nowLocalInput(),
       closes_at_local: '',
       instructions: '',
@@ -109,13 +116,13 @@ export function OpenWindowModal({ open, onOpenChange, onSuccess }: OpenWindowMod
   React.useEffect(() => {
     if (open) {
       form.reset({
-        academic_period_id: '',
+        academic_period_id: defaultPeriodId ?? '',
         opens_at_local: nowLocalInput(),
         closes_at_local: '',
         instructions: '',
       });
     }
-  }, [open, form]);
+  }, [open, form, defaultPeriodId]);
 
   const onSubmit = async (values: OpenWindowFormValues): Promise<void> => {
     try {

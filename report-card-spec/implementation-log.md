@@ -813,3 +813,71 @@ The impl 11 doc assumed `@react-pdf/renderer` was already a worker dependency an
 - **`default_template_id` select uses a sentinel value `'none'`** because Radix's `<Select>` rejects empty strings. The `onValueChange` handler maps `'none'` back to `null` before committing to form state.
 - **The settings page writes `principal_name` as `null` when the input is empty** via `react-hook-form`'s `setValueAs`. This keeps the backend's "both signature key and name set or both null" invariant happy when the admin clears the name.
 - **Tests are smoke-level only** — they assert the route renders without crashing and that the step indicator / save button appear when the tester is authenticated. Authenticated Playwright fixtures are out of scope for this impl; wire them up in a follow-up if you want true end-to-end wizard coverage.
+
+### Implementation 10: Frontend Teacher Requests
+
+- **Completed at:** 2026-04-09 21:55 (local time)
+- **Completed by:** Claude Opus 4.6 (Claude Code)
+- **Branch / commit:** `main` @ `<pending>`
+- **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
+- **Status:** ✅ complete
+- **Summary:** Built the Report Cards Teacher Requests frontend surface under `/[locale]/(school)/report-cards/requests/`: a list view with teacher "my requests" + admin pending/all/mine tabs, a submit form with query-param pre-fill for inline "Request regenerate" handoffs, a detail view with approve-and-open / auto-approve / reject / cancel actions, and a shared reject modal. Also wired the query-param handoff into impl 08's report-comments landing (auto-opens the OpenWindow modal with the approved period pre-filled) — impl 09's wizard already consumed `scope_mode/scope_ids/period_id` so no changes were needed there.
+
+**What changed:**
+
+- `apps/web/src/app/[locale]/(school)/report-cards/requests/page.tsx` — list view. Non-admins see their own requests (the backend scopes non-admin list calls to the caller automatically). Admins get a three-tab switcher: Pending review (default, `?status=pending`), All (no filter), My requests (`?my=true`). Renders a responsive table with requester, type, period, scope summary, reason, status badge, timestamp, and actions. Admins can open the detail view; teachers can cancel their own pending rows inline. A best-effort `Promise.allSettled` fan-out looks up requester names via `/api/v1/users/:id` for admin views and gracefully falls back to a truncated id when the lookup fails (non-admin callers skip the lookup entirely because the endpoint is admin-gated).
+- `apps/web/src/app/[locale]/(school)/report-cards/requests/new/page.tsx` — submit form (`react-hook-form` + `zodResolver` over a local schema that's a flat superset of `submitTeacherRequestSchema`). Radio-based request-type picker, academic period select, conditional scope selector (year-group checkbox grid / class checkbox grid / student debounced search), and a required ≥10-char reason textarea. The submit handler re-validates the shaped payload against the shared schema before POSTing. Query-param pre-fill accepts `?type=&period_id=&class_id=|year_group_id=|student_id=` and wipes the params from the URL after consumption so they don't stick on refresh.
+- `apps/web/src/app/[locale]/(school)/report-cards/requests/[id]/page.tsx` — detail view. Fetches the request, its academic period, and (for admins only) the requester + reviewer user summaries. Shows a status badge, details card, reason, and review-note block when present. Admin pending-row actions: **Approve & open** (sends `auto_execute=false` and routes to `/report-comments?open_window_period=<id>` for window requests or `/report-cards/generate?scope_mode=<>&scope_ids=<>&period_id=<>` for regen requests — with the teacher-request `student` scope translated to the wizard's `individual` mode), **Auto-approve & execute** (sends `auto_execute=true` after a confirm prompt), and **Reject** (opens the shared reject modal). Authors see a Cancel button on their own pending requests.
+- `apps/web/src/app/[locale]/(school)/report-cards/requests/_components/reject-modal.tsx` — shared Dialog-based reject form wired to the shared `rejectTeacherRequestSchema`. Required review note, PATCH to `/reject`, toasts on success/failure, fires the `onRejected` callback to bump the parent refresh token.
+- `apps/web/src/app/[locale]/(school)/report-comments/page.tsx` — added a `searchParams`-driven effect that detects `?open_window_period=<id>` on mount (admin-only) and auto-opens the OpenWindow modal pre-filled with that period. The effect runs once (guarded by `openWindowHandoffRef`) and clears the query param via `window.history.replaceState` so a refresh doesn't re-open the modal. Also added a `prefilledPeriodId` state threaded into `<OpenWindowModal>` and reset when the modal closes.
+- `apps/web/src/app/[locale]/(school)/report-comments/_components/open-window-modal.tsx` — added a `defaultPeriodId?: string | null` prop that pre-fills the academic period on open and is re-applied every time the modal reopens (via the existing `form.reset` effect).
+- `apps/web/src/lib/nav-config.ts` — added a `Requests` entry to the Learning hub assessment grouped sub-strip, role-gated to `[...ADMIN_ROLES, 'teacher']` so it appears for every caller who can view or submit requests.
+- `apps/web/messages/en.json`, `apps/web/messages/ar.json` — added the full `reportCards.requests` translation block (list, tabs, statuses, submit form, detail view, reject modal) and a `nav.reportCardsRequests` key.
+- `apps/web/e2e/visual/report-cards-requests.spec.ts` — Playwright smoke suite covering list, submit, and detail routes in en + ar, a query-param pre-fill smoke for the submit page, and two handoff-target smokes that load `/report-comments?open_window_period=<bogus>` and `/report-cards/generate?scope_mode=class&scope_ids=<bogus>&period_id=<bogus>` to assert neither target crashes when the handoff URL arrives with unseeded ids. Matches impl 07/08/09's smoke-style pattern (bogus UUIDs + tolerant of empty/error states) so it stays green against unseeded environments.
+
+**Database changes:**
+
+- None (frontend-only impl; all data flows through the impl 05 teacher-requests endpoints).
+
+**Test coverage:**
+
+- Unit specs added: 0 (frontend-only; matches impl 07/08/09 convention for unseeded environments)
+- Integration/E2E specs added: 1 (`report-cards-requests.spec.ts`, 9 tests)
+- RLS leakage tests: N/A — no new tables
+- `turbo test` status: ✅ all green (7/7 tasks successful under session lock `impl-10.turbo-test`; `@school/web` ran 264/264 unit tests; backend packages fully cached — no API code touched this impl)
+- `turbo lint` status: ✅ 0 errors across the workspace (only pre-existing warnings; the one initial `import/order` error on the detail page was fixed before the final run)
+- `turbo type-check` status: ✅ clean
+- `turbo build --filter=@school/web` status: ✅ all four new routes compile — `/[locale]/report-cards/requests` (5.68 kB / 263 kB First Load), `/[locale]/report-cards/requests/new` (4.1 kB / 306 kB), `/[locale]/report-cards/requests/[id]` (5.79 kB / 307 kB). Existing `/[locale]/report-comments` re-compiled with the new handoff effect (5.78 kB / 294 kB).
+
+**Architecture docs updated (if applicable):**
+
+- `docs/architecture/module-blast-radius.md` — not required (frontend-only, no new cross-module backend deps; the pages call existing impl 05 endpoints through `apiClient`)
+- `docs/architecture/event-job-catalog.md` — not required (no new BullMQ jobs; approvals with `auto_execute=true` trigger the existing comment-window open or generation-run jobs through the service layer that impl 05 wired)
+- `docs/architecture/state-machines.md` — not required (`TeacherRequestStatus` was already documented in impl 01; the frontend only observes it)
+- `docs/architecture/danger-zones.md` — not required (DZ-43 already flags the `auto_execute` concern from impl 05; the frontend adds a `window.confirm()` guard on the auto-approve button to honour that mitigation)
+- `docs/architecture/feature-map.md` — NOT updated (per project rule — will be batched into a single update after impl 12)
+
+**Regression check:**
+
+- Ran full `turbo test` under session lock `impl-10.turbo-test`: ✅ all 7 task results green
+- Any unrelated test failures: none
+- The pre-existing unrelated deletion of `apps/web/src/app/[locale]/(school)/report-cards/[id]/page.tsx` was already in the working tree at session start and is NOT included in this commit (it belongs to the impl 07 / impl 12 cleanup scope).
+
+**Blockers or follow-ups:**
+
+- **Requester name lookup is best-effort.** The list view fires one `GET /api/v1/users/:id` call per unique requester in the current page (admins only, via `Promise.allSettled`). With up to 100 rows per page this is acceptable but wasteful. A backend enrichment on `GET /v1/report-card-teacher-requests` (or a new bulk `users?ids=...` endpoint) would let the frontend drop the N+1 entirely. Low priority — flagged for a future cleanup.
+- **Student scope picker uses the global `/api/v1/students?search=` endpoint** the same way the wizard's step-1 student search does. It does NOT restrict results to students the caller actually teaches. That matches the wizard's behaviour and the backend's permission boundary (teachers can submit requests for any student, but only admins can approve them). If a future iteration wants to hide students the caller cannot teach, wire a `mine=true` flag into the students endpoint rather than filtering client-side.
+- **The "Auto-approve & execute" flow uses `window.confirm()`** for the explicit double-confirm. Matches DZ-43's mitigation but the UX could be upgraded to a shadcn `AlertDialog` with stronger wording. Not in scope for v1.
+- **Teacher "my requests" badge on the Requests nav entry** is not wired. The nav-config shape doesn't currently support a dynamic badge count, so adding one would require extending `NavItemConfig` and the `MorphBar` sub-strip renderer. Flagged for a follow-up if admin dashboards need the at-a-glance count.
+- Local commit only — not pushed to GitHub per nightly-only push policy.
+
+**Notes for the next agent:**
+
+- **Query-param handoff contract:**
+  - `/report-comments?open_window_period=<period_id>` — admin-only; auto-opens the OpenWindow modal pre-filled with the given period. Clears the query param after consumption. The effect is guarded by `openWindowHandoffRef` so it runs exactly once per mount.
+  - `/report-cards/generate?scope_mode=<year_group|class|individual>&scope_ids=<comma,separated>&period_id=<uuid>` — admin-only; impl 09's wizard detects all three params, pre-fills state, forces `contentScope='grades_only'` with `['en','ar']` locales, and jumps to step 6 (Review). The teacher-request `student` scope is translated to `individual` when building this URL in the detail page's `handleApproveAndOpen`.
+  - `/report-cards/requests/new?type=regenerate_reports&class_id=<uuid>&period_id=<uuid>` (or `year_group_id` / `student_id`) — pre-fills the submit form and routes the user straight to it. The prefill runs exactly once (guarded by `prefilledRef`) and wipes the search string via `history.replaceState`.
+- **Non-admin scoping is backend-enforced.** The list view passes `?my=true` only when the admin explicitly clicks the "My requests" tab. Non-admins send no filter — the backend service's `list` method injects `requested_by_user_id` for non-admins automatically. Do NOT re-implement this filter on the client; it's load-bearing for authorisation.
+- **Reject modal lives under `requests/_components/`** and is imported from the detail page via a relative `../_components/reject-modal` path. If you add more shared components to this feature (e.g., a scope-summary card), colocate them under `_components/` too.
+- **The `Checkbox` + `RadioGroup` pickers on the submit page use direct `form.setValue` calls rather than `Controller` for the scope_ids array** because the shared shadcn `Checkbox` doesn't integrate cleanly with `register('scope_ids.N')`. This is the same pattern used by impl 09's step-1 scope picker.
+- **The detail page's redirect after approve-and-open happens only on success.** If the PATCH throws, we surface a toast error and stay on the detail page — the request row stays `pending` by the impl 05 invariant ("auto-execute failure leaves request pending" only applies to `auto_execute=true`; here the approval flipped successfully so the request is actually `approved` on the server, but the frontend stays put so the admin can retry the navigation manually). If you want to re-bump the refresh token on error too, do it in the catch branch, not the finally branch.
