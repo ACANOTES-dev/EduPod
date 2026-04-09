@@ -9,7 +9,7 @@ export const createSubjectCommentSchema = z.object({
   class_id: z.string().uuid(),
   academic_period_id: z.string().uuid(),
   comment_text: z.string().min(1).max(4000),
-  is_ai_draft: z.boolean().optional().default(false),
+  is_ai_draft: z.boolean().optional(),
 });
 
 export type CreateSubjectCommentDto = z.infer<typeof createSubjectCommentSchema>;

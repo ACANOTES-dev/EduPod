@@ -144,3 +144,73 @@ When you finish an implementation, append an entry to the **Completions** sectio
 - The `report_comment_windows` partial unique index is the database guarantee that backs the "one open window per tenant" rule. Do not duplicate the check at the application layer — let the unique violation surface as a typed error.
 - The default "Grades Only" templates are seeded for both `en` and `ar` locales. The English template is `is_default = true`; the Arabic template is `is_default = false`.
 - `ReportCard.template_id` is currently nullable to accommodate the backfill. Make it `NOT NULL` only after every consumer writes it consistently.
+
+### Implementation 02: Comment System Backend
+
+- **Completed at:** 2026-04-09
+- **Completed by:** Claude Opus 4.6 (Claude Code)
+- **Branch / commit:** `main` @ `<pending commit>`
+- **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
+- **Status:** ✅ complete
+- **Summary:** Built the full backend comment subsystem: windows, subject comments, overall comments, and single-student AI drafting with strict server-side window enforcement. The `assertWindowOpenForPeriod` primitive on `ReportCommentWindowsService` is the single reusable cost-control mechanism — every comment write and every AI call routes through it.
+
+**What changed:**
+
+- `apps/api/src/modules/gradebook/report-cards/dto/comment-window.dto.ts` — thin re-export from `@school/shared`
+- `apps/api/src/modules/gradebook/report-cards/dto/subject-comment.dto.ts` — thin re-export
+- `apps/api/src/modules/gradebook/report-cards/dto/overall-comment.dto.ts` — thin re-export
+- `apps/api/src/modules/gradebook/report-cards/report-comment-windows.service.ts` (+ spec) — windows CRUD, state machine, `assertWindowOpenForPeriod`
+- `apps/api/src/modules/gradebook/report-cards/report-comment-windows.controller.ts` (+ spec) — `/v1/report-comment-windows` endpoints (list, active, one, open, close, extend, reopen, update)
+- `apps/api/src/modules/gradebook/report-cards/report-card-subject-comments.service.ts` (+ spec) — upsert/finalise/unfinalise/bulkFinalise with authorship + window enforcement
+- `apps/api/src/modules/gradebook/report-cards/report-card-subject-comments.controller.ts` (+ spec) — `/v1/report-card-subject-comments` endpoints including `/ai-draft`
+- `apps/api/src/modules/gradebook/report-cards/report-card-overall-comments.service.ts` (+ spec) — homeroom-teacher gated upsert/finalise/unfinalise
+- `apps/api/src/modules/gradebook/report-cards/report-card-overall-comments.controller.ts` (+ spec) — `/v1/report-card-overall-comments` endpoints
+- `apps/api/src/modules/gradebook/report-cards/report-card-ai-draft.service.ts` (+ spec) — single-student subject draft with window enforcement + GDPR tokenisation (existing bulk `ai-generate-comments` endpoint preserved intact for backwards compat)
+- `apps/api/src/modules/gradebook/report-cards/report-card.module.ts` — registered new services, controllers, and `ReportCommentWindowsService` export for downstream impls
+- `apps/api/test/report-cards/comment-windows.e2e-spec.ts` — lifecycle + enforcement e2e
+- `apps/api/test/report-cards/subject-comments.e2e-spec.ts` — window enforcement + authorship + bulk finalise e2e
+- `apps/api/test/report-cards/overall-comments.e2e-spec.ts` — homeroom authorship + enforcement e2e
+- `apps/api/test/report-cards/ai-draft.e2e-spec.ts` — AI draft guards (Anthropic/Consent/GDPR stubbed via NestJS `overrideProvider`)
+- `packages/shared/src/report-cards/subject-comment.schema.ts` — removed `.default(false)` from `is_ai_draft` so the inferred DTO keeps it optional (schema test updated accordingly)
+- `api-surface.snapshot.json` — regenerated for the 21 new routes
+
+**Database changes:**
+
+- None (uses tables from impl 01)
+
+**Test coverage:**
+
+- Unit specs added: 4 service specs + 3 controller specs (81 tests total, all passing)
+- Integration/E2E specs added: 4 (20 tests total, all passing). The RLS leakage coverage for the three new tables lives in impl 01's `rls-leakage.e2e-spec.ts` — those 19 tests still pass on this branch.
+- `turbo test` status: ✅ all 14986 tests green across 718 suites (api) + full workspace green
+- `turbo lint` status: ✅ 0 errors (833 pre-existing warnings, none introduced)
+- `turbo type-check` status: ✅ green for all packages
+
+**Architecture docs updated (if applicable):**
+
+- `docs/architecture/module-blast-radius.md` — not required (no cross-module imports added; the comment services depend on existing read facades from `academics`, `classes`, `students`, plus existing `gdpr`, `ai`, `configuration` modules already imported by the report-card module)
+- `docs/architecture/event-job-catalog.md` — not required (AI call is synchronous; no new BullMQ jobs or crons)
+- `docs/architecture/state-machines.md` — verified that `CommentWindowStatus` is already documented from impl 01; no additional state machines introduced
+- `docs/architecture/danger-zones.md` — not required
+
+**Regression check:**
+
+- Ran full `turbo test`: ✅ all 14986 tests green across all packages
+- DI verification script from `00-common-knowledge.md §3.7`: ✅ `DI OK`
+- Any unrelated test failures: none (the only failure during development was the `api-surface` snapshot which was re-committed after the new routes were added)
+
+**Blockers or follow-ups:**
+
+- Implementation 08 (frontend report comments) is now unblocked.
+- Implementation 05 (teacher requests) can now import `ReportCommentWindowsService` from the report-card module exports and call `reopen` or `open` to satisfy approved teacher requests.
+- Note on the `api-surface` snapshot tool: it has a pre-existing bug where each route row is populated with the _previous_ route's `@RequiresPermission` value (because the block scan starts from `prev.matchEnd`). Runtime permission checks remain correct via NestJS reflection on the decorated method; the snapshot is authoritative for presence/absence of routes but not for per-row permission accuracy.
+
+**Notes for the next agent:**
+
+- **`ReportCommentWindowsService.assertWindowOpenForPeriod(tenantId, periodId)` is the reusable cost-control primitive.** Every new endpoint that consumes AI OR writes a teacher-authored comment must call it BEFORE any billable work. Do not duplicate the check at the controller layer — it lives in the services.
+- **Authorship checks always run BEFORE window checks** to avoid leaking window state to unauthorised users (they get 403 `INVALID_AUTHOR` instead of 403 `COMMENT_WINDOW_CLOSED`).
+- `CommentActor = { userId: string; isAdmin: boolean }` is the shared shape passed between the controllers and services; the controllers compute `isAdmin` via `PermissionCacheService.getPermissions(user.membership_id).includes('report_cards.manage')`.
+- The single-student AI draft endpoint is `POST /v1/report-card-subject-comments/ai-draft` with payload `{ student_id, subject_id, class_id, academic_period_id }`. Response is `{ comment_text, model, tokens_used }`. The caller (frontend in impl 08) is responsible for persisting the returned text by calling `POST /v1/report-card-subject-comments` with `is_ai_draft: true`.
+- The existing bulk `POST /v1/gradebook/ai/generate-comments` endpoint is untouched; it remains available for the legacy overview page until impl 08 lands.
+- An edit on a finalised subject or overall comment clears its finalisation (`finalised_at` + `finalised_by_user_id` reset to null), so the comment must be explicitly re-finalised after any text change. This matches the design spec's "strict finalisation" rule.
+- All writes use `createRlsClient(prisma, { tenant_id, user_id }).$transaction(...)` — the sole permitted use of `as unknown as PrismaService` remains inside those transaction blocks.

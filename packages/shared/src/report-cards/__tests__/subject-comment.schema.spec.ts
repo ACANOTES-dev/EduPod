@@ -22,7 +22,7 @@ describe('createSubjectCommentSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('defaults is_ai_draft to false when omitted', () => {
+  it('accepts a payload with is_ai_draft omitted', () => {
     const result = createSubjectCommentSchema.parse({
       student_id: STUDENT_ID,
       subject_id: SUBJECT_ID,
@@ -30,7 +30,7 @@ describe('createSubjectCommentSchema', () => {
       academic_period_id: PERIOD_ID,
       comment_text: 'Doing well.',
     });
-    expect(result.is_ai_draft).toBe(false);
+    expect(result.is_ai_draft).toBeUndefined();
   });
 
   it('rejects an empty comment', () => {
