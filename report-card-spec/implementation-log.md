@@ -738,3 +738,78 @@ The impl 11 doc assumed `@react-pdf/renderer` was already a worker dependency an
 - Cards on the landing page currently render **all** classes — non-ideal for teachers but the most conservative v1 given the missing "my assignments" endpoint. If you add that endpoint, add a `mine` query param to the landing page load, keep the pre-filter behind the flag, and ratchet the UX once confident. Do NOT hide cards client-side based on `class_staff` joins — the frontend does not have access to that table directly.
 - Tests are deliberately lightweight (smoke-level) because of the same "unseeded environment" constraint that impl 07 solved the same way. If you later add authenticated fixtures, you can rewrite the tests to drive real flows (open window → write comment → finalise → verify).
 - No architecture doc updates were required, but if impl 10 adds a "request reopen" follow-up badge on the window banner, that would still not need an architecture update — the file is a pure client component with no new cross-module surface.
+
+---
+
+### Implementation 09: Frontend Generation Wizard & Settings
+
+- **Completed at:** 2026-04-09 21:33 (local time)
+- **Completed by:** claude-opus-4-6[1m] / impl-09 session
+- **Branch / commit:** `main` @ `<backfilled>`
+- **Pull request:** direct to main (nightly deploy picks up HEAD)
+- **Status:** ✅ complete
+- **Summary:** Built the 6-step report card generation wizard and the tenant settings page. The wizard drives scope (year group / class / individual), period, template, personal-info field overrides, a comment-gate dry-run preview, and a polling progress view once the generation run is submitted. The settings page edits every report-card tenant setting via `react-hook-form` + `zodResolver` and handles principal signature upload / removal through a dedicated multipart component.
+
+**What changed:**
+
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/page.tsx` — top-level wizard page with `useReducer` state, polling effect, `beforeunload` guard, and the step indicator
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/types.ts` — typed reducer + `WizardState`/`WizardAction` definitions + personal-info section grouping
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/scope-helpers.ts` — converts the flat (mode, ids[]) state to the discriminated scope schema
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-1-scope.tsx` — radio-card mode picker plus mode-specific year-group/class checkbox grids and a debounced student-search autocomplete for individual scope
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-2-period.tsx` — academic period radio list
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-3-template.tsx` — content-scope cards with "coming soon" badges for unavailable scopes
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-4-fields.tsx` — personal-info field checkbox grid grouped into Identity/Dates/Academic/Media with a live preview column
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-5-comment-gate.tsx` — auto-runs the dry-run POST on step entry, shows a summary + drill-in issue lists + the force-generate checkbox when blocked
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-6-review.tsx` — static review rows summarising every selection
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/polling-status.tsx` — terminal-state aware progress card (running / completed / partial_success / failed) with "view library" and "start another" actions
+- `apps/web/src/app/[locale]/(school)/report-cards/settings/page.tsx` — full tenant settings form (`react-hook-form` + `zodResolver(updateReportCardTenantSettingsSchema)`) covering display defaults, comment gate, personal info defaults, default template, principal details + grade-thresholds link
+- `apps/web/src/app/[locale]/(school)/report-cards/settings/_components/signature-upload.tsx` — multipart upload using `fetch` + `FormData` + `getAccessToken()`, with client-side PNG/JPG/WebP + 2MB validation, live preview, and delete action
+- `apps/web/src/lib/nav-config.ts` — added `Generate` and `Settings` entries to the Learning hub sub-strip under the Assessment group, gated to `ADMIN_ROLES`
+- `apps/web/messages/en.json`, `apps/web/messages/ar.json` — added `reportCards.wizard` and `reportCards.settings` translation blocks plus `nav.reportCardsGenerate` / `nav.reportCardsSettings` keys
+- `apps/web/e2e/visual/report-cards-wizard.spec.ts`, `apps/web/e2e/visual/report-cards-settings.spec.ts` — Playwright smoke tests covering the EN + AR routes and the query-param handoff URL shape
+
+**Database changes:**
+
+- (none — frontend only)
+
+**Test coverage:**
+
+- Unit specs added: 0 (frontend pages are smoke-tested via Playwright, per the impl 07/08 convention for unseeded environments)
+- Integration/E2E specs added: 2 (`report-cards-wizard.spec.ts`, `report-cards-settings.spec.ts`)
+- RLS leakage tests: N/A (no new tables)
+- `turbo test` status: ✅ all green — 7/7 tasks successful; `@school/web` ran a fresh 264/264; backend packages cached from impl 08's `15077` baseline (no code outside `apps/web` was touched)
+- `turbo lint` status: ✅ 0 errors across the workspace (842 pre-existing warnings on `@school/api`, none introduced by this impl; the three initial `school/no-untranslated-strings` warnings that landed on `step-5-comment-gate.tsx` were fixed before the final run)
+- `turbo type-check` status: ✅ 8/8 tasks successful
+- `turbo build --filter=@school/web` status: ✅ green. Route map confirms `/[locale]/report-cards/generate` ships at 10.9 kB / 269 kB First Load and `/[locale]/report-cards/settings` ships at 6.42 kB / 310 kB First Load.
+
+**Architecture docs updated (if applicable):**
+
+- `docs/architecture/module-blast-radius.md` — not required (frontend-only change, no new cross-module service imports; the wizard consumes existing impl 03 + impl 04 endpoints through `apiClient`)
+- `docs/architecture/event-job-catalog.md` — not required (no new BullMQ jobs; the wizard triggers the existing `report-cards:generate` job via `POST /v1/report-cards/generation-runs`)
+- `docs/architecture/state-machines.md` — not required (no new lifecycle; polling observes the existing `ReportCardBatchJob` status machine)
+- `docs/architecture/danger-zones.md` — not required
+
+**Regression check:**
+
+- Ran full `turbo test` under session lock `impl-09.turbo-test`: ✅ all 7 task results green; `@school/web` fresh 264/264
+- Any unrelated test failures: none
+
+**Blockers or follow-ups:**
+
+- **Signature preview is placeholder-only:** the existing `GET /v1/report-card-tenant-settings` endpoint returns `principal_signature_storage_key` but no signed URL. The `SignatureUpload` component accepts a `signatureUrl` prop and renders a preview when it's set, but the settings page currently passes `null` because no endpoint exists to mint a short-TTL signed URL for the signature key. If impl 11 (PDF rendering) or a later ticket adds a `GET /v1/report-card-tenant-settings/principal-signature/url` endpoint, plug it into `loadSettings` and pass the result to `<SignatureUpload signatureUrl={...} />`. Immediately after a successful upload the user sees a local `FileReader` dataURL preview so the round-trip feels correct.
+- **Polling interval is fixed at 3 seconds.** Matches spec. If long runs become common, consider exponential backoff.
+- **`partial_success` / `running` statuses are tolerated client-side** even though the current worker processor (`report-card-generation.processor.ts`) only writes `queued` → `completed` / `failed`. The normalisation shim in the page maps any unknown status to `'running'` so the UI degrades gracefully if a later worker change introduces intermediate states.
+- **`report-cards.wizard.field_national_id` is shown as a standard field in step 4** — the spec notes it's "only visible to admin contexts". The wizard is already admin-gated (`report_cards.manage`) so the field is safe to expose there, but the backend must continue to enforce GDPR decryption rules when rendering PDFs. No frontend change needed.
+- Local commit only — not pushed to GitHub per nightly-push policy.
+
+**Notes for the next agent:**
+
+- **Query-param handoff for impl 10**: the wizard detects `?scope_mode=&scope_ids=&period_id=` on mount (via `useSearchParams`) and, when all three are present, pre-fills state, sets `contentScope='grades_only'` with `['en','ar']` locales, and jumps straight to **Step 6 (Review)**. Impl 10's approve-and-redirect flow for `regenerate_reports` teacher requests can rely on this. The prefill runs exactly once (guarded by a `prefilledRef`), so if the admin navigates back and forth between steps the prefilled values stay put.
+- **Wizard reducer discipline**: all wizard mutations go through `wizardReducer` in `types.ts`. Do NOT add local `useState` inside step components for state that should persist across step transitions. The one exception is transient search input (`studentQuery` in step 1) and UI-only toggles (`showDetails` in step 5), which are correctly scoped to the component.
+- **`PERSONAL_INFO_FIELD_SECTIONS` lives in `wizard/types.ts`** and is re-declared locally in `settings/page.tsx` so the settings page doesn't have to reach into the wizard folder. If you refactor either copy, update both.
+- **Polling cleanup**: the page's polling effect clears its `setInterval` on both unmount and status transition to terminal. Do NOT re-use this pattern without the terminal-state check or you will keep hammering a completed run.
+- **`beforeunload` guard** only fires when a run is mid-flight (`runId !== null && !isTerminalStatus(runStatus)`). The guard uses the classic `e.returnValue = msg` pattern for maximum browser compatibility — modern browsers display their own message but still honour the guard.
+- **Signature upload bypasses `apiClient`** because `apiClient` always sets `Content-Type: application/json`. Follow the same pattern (`fetch` + `getAccessToken()`) whenever you need to POST multipart/form-data. Keep the validation inline on the client but trust the backend as the authoritative guard.
+- **`default_template_id` select uses a sentinel value `'none'`** because Radix's `<Select>` rejects empty strings. The `onValueChange` handler maps `'none'` back to `null` before committing to form state.
+- **The settings page writes `principal_name` as `null` when the input is empty** via `react-hook-form`'s `setValueAs`. This keeps the backend's "both signature key and name set or both null" invariant happy when the admin clears the name.
+- **Tests are smoke-level only** — they assert the route renders without crashing and that the step indicator / save button appear when the tester is authenticated. Authenticated Playwright fixtures are out of scope for this impl; wire them up in a follow-up if you want true end-to-end wizard coverage.
