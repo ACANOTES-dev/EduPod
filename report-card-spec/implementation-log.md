@@ -818,7 +818,7 @@ The impl 11 doc assumed `@react-pdf/renderer` was already a worker dependency an
 
 - **Completed at:** 2026-04-09 21:55 (local time)
 - **Completed by:** Claude Opus 4.6 (Claude Code)
-- **Branch / commit:** `main` @ `<pending>`
+- **Branch / commit:** `main` @ `acd80dbb`
 - **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
 - **Status:** ✅ complete
 - **Summary:** Built the Report Cards Teacher Requests frontend surface under `/[locale]/(school)/report-cards/requests/`: a list view with teacher "my requests" + admin pending/all/mine tabs, a submit form with query-param pre-fill for inline "Request regenerate" handoffs, a detail view with approve-and-open / auto-approve / reject / cancel actions, and a shared reject modal. Also wired the query-param handoff into impl 08's report-comments landing (auto-opens the OpenWindow modal with the approved period pre-filled) — impl 09's wizard already consumed `scope_mode/scope_ids/period_id` so no changes were needed there.
