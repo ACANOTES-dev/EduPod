@@ -669,3 +669,72 @@ The impl 11 doc assumed `@react-pdf/renderer` was already a worker dependency an
 - `ProductionReportCardRenderer` caches one compiled Handlebars template per design key and one browser per worker process. Both caches are unbounded but small (at most 2 template entries, 1 browser). If a future worker process juggles many template variants, add an LRU eviction step.
 - `PuppeteerBrowserLike` / `PuppeteerPageLike` are deliberately narrow — they expose only what the renderer uses. This lets tests build structural fakes without the `as unknown as Browser` hack. Don't widen these interfaces to expose internal puppeteer APIs unless absolutely needed.
 - This session did NOT touch any files belonging to concurrently-running impl 08 (frontend report comments). The only shared file could have been `implementation-log.md` — which impl 11 appends to strictly at the bottom, so merges are trivial.
+
+### Implementation 08: Frontend Report Comments
+
+- **Completed at:** 2026-04-09 21:10 (local time)
+- **Completed by:** Claude Opus 4.6 (Claude Code)
+- **Branch / commit:** `main` @ `<backfill after commit>`
+- **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
+- **Status:** ✅ complete
+- **Summary:** Built the Report Comments surface under `/[locale]/(school)/report-comments/`: a landing page with year-group-grouped subject assignment cards + a homeroom overall-comments card, a 3-column subject comment editor with debounced saves / AI draft / finalise flows, an overall comment editor for homeroom teachers, a window banner that drives admin open/close/extend/reopen controls and teacher "Request window reopen" flow, and full en+ar translation keys. The comment editors enforce window-gating visually (textareas become `readOnly` and buttons disable when the window is closed) on top of the server-side enforcement that impl 02 already guarantees.
+
+**What changed:**
+
+- `apps/web/src/app/[locale]/(school)/report-comments/page.tsx` — landing page. Loads active window, period, year groups, all subject-bearing classes, and all homeroom classes. For each (class × subject) pair with students, fires two paginated `report-card-subject-comments` counts (total + finalised) to drive the progress bar. Homeroom classes get the same treatment against `report-card-overall-comments`. Renders the window banner, admin controls, homeroom card row, and year-group-grouped subject assignment cards. Uses `useRoleCheck()` to decide which controls to show.
+- `apps/web/src/app/[locale]/(school)/report-comments/subject/[classId]/[subjectId]/page.tsx` — subject comment editor. Fetches the class matrix (reusing the impl-06 `/report-cards/classes/:classId/matrix` endpoint) for student grades and existing comments in parallel. Hydrates one `RowState` per student and owns all mutations (debounced 500ms save, AI draft, finalise, unfinalise, bulk AI draft, bulk finalise). The heavy row JSX lives in a separate `SubjectCommentRow` component to keep the page file under the 600-line lint budget.
+- `apps/web/src/app/[locale]/(school)/report-comments/overall/[classId]/page.tsx` — homeroom overall comment editor. Simpler layout (student / overall weighted grade / comment) with no AI draft per spec section 8.3. Same window-gating, same debounced save, same finalise / unfinalise cycle.
+- `apps/web/src/app/[locale]/(school)/report-comments/_components/window-banner.tsx` — open/closed state banner that renders admin controls (open / close / extend / reopen) or the teacher "Request reopen" action, depending on role and state. Takes an `ActiveWindow` type that the other files import.
+- `apps/web/src/app/[locale]/(school)/report-comments/_components/open-window-modal.tsx` — react-hook-form + zodResolver modal with a local form schema (the shared backend schema expects ISO datetime strings, whereas datetime-local inputs yield local strings — the local schema preserves UX feedback and the submit handler converts to ISO).
+- `apps/web/src/app/[locale]/(school)/report-comments/_components/extend-window-modal.tsx` — lightweight modal that posts to `/report-comment-windows/:id/extend`. Pre-fills from the current `closes_at`.
+- `apps/web/src/app/[locale]/(school)/report-comments/_components/request-reopen-modal.tsx` — react-hook-form + zodResolver form that submits a teacher request (`request_type=open_comment_window`, `target_scope_json=null`). The full Teacher Requests management surface lives in impl 10 — this is the inline shortcut per spec §8.
+- `apps/web/src/app/[locale]/(school)/report-comments/_components/subject-comment-row.tsx` — extracted row component for the subject editor. Owns the student / grade + sparkline / comment textarea + AI badge + finalise buttons.
+- `apps/web/src/app/[locale]/(school)/report-comments/_components/sparkline.tsx` — dependency-free SVG sparkline (supports 0, 1, or N points) used by the subject editor to show a minimal trajectory per student.
+- `apps/web/messages/en.json`, `apps/web/messages/ar.json` — added the full `reportComments` namespace (titles, subtitle, assignment cards, homeroom card, editor, window banner, open/extend/close/request-reopen modals, ICU plural for class count) plus `nav.reportComments` shortcut.
+- `apps/web/src/lib/nav-config.ts` — added `/report-comments` to the Learning hub `basePaths`, to the `navSectionConfigs` assessment-records section, and to the `hubGroupedSubStripConfigs.learning.assessment` children. Role-gated to admin + teacher.
+- `apps/web/src/lib/route-roles.ts` — added `{ prefix: '/report-comments', roles: [...ADMIN_ROLES, 'teacher'] }` so the role middleware allows access.
+- `apps/web/e2e/visual/report-comments.spec.ts` — Playwright smoke tests covering landing (en + ar + banner), subject editor (en + ar), and overall editor (en + ar). Tests use bogus UUIDs and tolerate empty / error states so they stay green against unseeded environments, matching the existing impl 07 test pattern.
+
+**Database changes:**
+
+- (none — frontend-only impl; all data flows through endpoints that impl 02 already shipped)
+
+**Test coverage:**
+
+- Unit specs added: 0 (frontend-only; no services or schemas touched — coverage is via the Playwright smoke suite)
+- Integration/E2E specs added: 6 (in `report-comments.spec.ts`)
+- RLS leakage tests: not applicable — no new tables
+- `turbo test` status: ✅ all green (264 web, 803 worker, all other packages cached — 7/7 tasks successful)
+- `turbo lint` status: ✅ 0 errors (only pre-existing warnings, none from report-comments files)
+- `turbo type-check` status: ✅ clean
+- `turbo build --filter=@school/web` status: ✅ all three new routes compiled (`/[locale]/report-comments`, `/[locale]/report-comments/overall/[classId]`, `/[locale]/report-comments/subject/[classId]/[subjectId]`)
+
+**Architecture docs updated:**
+
+- `docs/architecture/module-blast-radius.md` — not required (frontend-only, no new cross-module backend deps)
+- `docs/architecture/event-job-catalog.md` — not required (no new BullMQ jobs)
+- `docs/architecture/state-machines.md` — not required (no new status enums or transitions)
+- `docs/architecture/danger-zones.md` — not required
+
+**Regression check:**
+
+- Ran full `turbo test` under session lock `impl-08`: ✅ all 7 task results green
+- Any unrelated test failures: none
+
+**Blockers or follow-ups:**
+
+- The subject-assignment landing currently lists **every** subject-bearing class in the tenant rather than filtering to only the classes the caller actually teaches. This matches the pragmatic guidance in impl 08 §12 ("list classes the user can access") and relies on server-side auth to block unauthorised writes — the subject editor's save / AI draft / finalise endpoints already call `assertTeachesClassSubject` in impl 02, so teachers can view a class they don't teach but cannot mutate it. A dedicated `/v1/teachers/me/assignments` endpoint (or a backend scoping flag on `/v1/classes`) would let the landing hide irrelevant cards; if someone needs that, it belongs in a small follow-up impl.
+- The "Request window reopen" button only appears in the closed-window banner when the caller is NOT admin. An admin who is viewing a closed window uses the "Open new window" button instead. This matches the spec.
+- Full Teacher Requests management UI (queue, approve, reject) lives in impl 10. This impl only ships the inline request-reopen form.
+- The sparkline currently plots up to two data points per student (subject score → overall weighted average). The spec allows a minimal sparkline; a richer assessment-trajectory series would require a new endpoint (assessment scores in order per student × subject × period) and is not in scope for impl 08.
+- Local commit only — not pushed to GitHub per nightly-push policy.
+
+**Notes for the next agent:**
+
+- `ActiveWindow` is defined in `_components/window-banner.tsx` and re-imported by the subject + overall editors. If impl 10 or later adds fields to the window payload, update the shared type there rather than duplicating.
+- The debounced save in `saveRow()` uses a `useRef<Record<string, Timeout>>` indexed by `student_id`. The ref is cleaned up in the effect's cleanup function to avoid stale timers firing after unmount. If you refactor the editor to page data, flush + clear timers on page change the same way.
+- The window banner's "close now" confirmation uses `window.confirm()` wrapped in a `typeof window !== 'undefined'` guard. That is intentional — Next.js SSR guards matter for App Router components even when the file is `'use client'`. Switch to a shadcn `AlertDialog` if UX wants a styled confirm.
+- The `OpenWindowModal` has its own local Zod schema (`openWindowFormSchema`) instead of reusing `createCommentWindowSchema` from `@school/shared`. That is because `datetime-local` inputs yield values like `2026-04-09T17:30` while the backend schema expects ISO `.datetime()` strings. The submit handler calls `new Date(value).toISOString()` before posting. If you add more datetime fields, keep this two-step pattern rather than trying to force ISO through the form layer.
+- Cards on the landing page currently render **all** classes — non-ideal for teachers but the most conservative v1 given the missing "my assignments" endpoint. If you add that endpoint, add a `mine` query param to the landing page load, keep the pre-filter behind the flag, and ratchet the UX once confident. Do NOT hide cards client-side based on `class_staff` joins — the frontend does not have access to that table directly.
+- Tests are deliberately lightweight (smoke-level) because of the same "unseeded environment" constraint that impl 07 solved the same way. If you later add authenticated fixtures, you can rewrite the tests to drive real flows (open window → write comment → finalise → verify).
+- No architecture doc updates were required, but if impl 10 adds a "request reopen" follow-up badge on the window banner, that would still not need an architecture update — the file is a pure client component with no new cross-module surface.

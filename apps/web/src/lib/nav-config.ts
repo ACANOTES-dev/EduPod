@@ -95,6 +95,11 @@ export const navSectionConfigs: NavSectionConfig[] = [
       { labelKey: 'nav.gradebook', href: '/gradebook' },
       { labelKey: 'nav.homework', href: '/homework' },
       { labelKey: 'nav.reportCards', href: '/report-cards', roles: [...ADMIN_ROLES, 'teacher'] },
+      {
+        labelKey: 'nav.reportComments',
+        href: '/report-comments',
+        roles: [...ADMIN_ROLES, 'teacher'],
+      },
     ],
   },
   {
@@ -288,6 +293,7 @@ export const hubConfigs: HubConfig[] = [
       '/attendance',
       '/homework',
       '/report-cards',
+      '/report-comments',
       '/diary',
     ],
     roles: [...STAFF_ROLES, 'parent'],
@@ -387,6 +393,7 @@ export const hubGroupedSubStripConfigs: Record<string, SubStripGroupConfig[]> = 
         { labelKey: 'nav.assessmentDashboard', href: '/assessments' },
         { labelKey: 'nav.gradebook', href: '/gradebook' },
         { labelKey: 'nav.reportCards', href: '/report-cards' },
+        { labelKey: 'nav.reportComments', href: '/report-comments' },
         { labelKey: 'nav.gradeAnalytics', href: '/analytics' },
       ],
     },
