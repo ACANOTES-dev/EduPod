@@ -5,7 +5,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, ReportCardContentScope, ReportCardTemplate } from '@prisma/client';
 
 import type { GdprOutboundData } from '@school/shared/gdpr';
 
@@ -41,6 +41,52 @@ export interface UpdateTemplateDto {
   is_default?: boolean;
 }
 
+// ─── Content scope catalogue ─────────────────────────────────────────────────
+// The Postgres enum `ReportCardContentScope` currently only contains
+// `grades_only`. The design spec reserves additional scopes for future waves
+// (grades+homework, grades+attendance, full master). The frontend wants to
+// render "coming soon" badges for those so this service exposes the planned
+// catalogue alongside the available-today list.
+
+export type PlannedContentScope =
+  | 'grades_only'
+  | 'grades_homework'
+  | 'grades_attendance'
+  | 'grades_homework_attendance'
+  | 'full_master';
+
+interface ContentScopeMeta {
+  key: PlannedContentScope;
+  name: string;
+  is_available: boolean;
+}
+
+const CONTENT_SCOPE_CATALOGUE: ContentScopeMeta[] = [
+  { key: 'grades_only', name: 'Grades Only', is_available: true },
+  { key: 'grades_homework', name: 'Grades + Homework', is_available: false },
+  { key: 'grades_attendance', name: 'Grades + Attendance', is_available: false },
+  {
+    key: 'grades_homework_attendance',
+    name: 'Grades + Homework + Attendance',
+    is_available: false,
+  },
+  { key: 'full_master', name: 'Full Master Report', is_available: false },
+];
+
+export interface ContentScopeLocaleEntry {
+  template_id: string;
+  locale: string;
+  is_default: boolean;
+}
+
+export interface ContentScopeSummary {
+  content_scope: PlannedContentScope;
+  name: string;
+  locales: ContentScopeLocaleEntry[];
+  is_default: boolean;
+  is_available: boolean;
+}
+
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -53,6 +99,97 @@ export class ReportCardTemplateService {
     private readonly aiAuditService: AiAuditService,
     private readonly anthropicClient: AnthropicClientService,
   ) {}
+
+  // ─── Content scopes (impl 03) ─────────────────────────────────────────────
+  //
+  // Groups a tenant's templates by content_scope. Also emits entries for
+  // planned-but-not-yet-available scopes so the frontend can render "coming
+  // soon" badges from a single response.
+
+  async listContentScopes(tenantId: string): Promise<ContentScopeSummary[]> {
+    const templates = await this.prisma.reportCardTemplate.findMany({
+      where: { tenant_id: tenantId },
+      select: {
+        id: true,
+        locale: true,
+        is_default: true,
+        content_scope: true,
+      },
+      orderBy: [{ is_default: 'desc' }, { locale: 'asc' }],
+    });
+
+    // Group rows by content_scope
+    const byScope = new Map<ReportCardContentScope, ContentScopeLocaleEntry[]>();
+    for (const row of templates) {
+      const list = byScope.get(row.content_scope) ?? [];
+      list.push({
+        template_id: row.id,
+        locale: row.locale,
+        is_default: row.is_default,
+      });
+      byScope.set(row.content_scope, list);
+    }
+
+    return CONTENT_SCOPE_CATALOGUE.map((meta) => {
+      // Only `grades_only` is a real DB enum value today. The other catalogue
+      // entries will never have matching rows, so they always emit `[]`.
+      const locales =
+        meta.key === 'grades_only'
+          ? (byScope.get('grades_only' as ReportCardContentScope) ?? [])
+          : [];
+      const isDefault = locales.some((l) => l.is_default);
+      return {
+        content_scope: meta.key,
+        name: meta.name,
+        locales,
+        is_default: isDefault,
+        is_available: meta.is_available,
+      };
+    });
+  }
+
+  /**
+   * Resolves the template row for a (scope, locale) pair — used by the
+   * generation service (impl 04) to pick the right template per student per
+   * language.
+   *
+   * For v1, only `grades_only` is an accepted scope at the DB layer. Calls
+   * with other scopes return `null`.
+   */
+  async resolveForGeneration(
+    tenantId: string,
+    params: { contentScope: PlannedContentScope; locale: string },
+  ): Promise<ReportCardTemplate | null> {
+    const { contentScope, locale } = params;
+
+    // Only `grades_only` is a real Postgres enum value today.
+    if (contentScope !== 'grades_only') {
+      return null;
+    }
+
+    // Prefer the tenant's default for this locale; fall back to the first
+    // template in the scope/locale pair if none is marked default.
+    const byDefault = await this.prisma.reportCardTemplate.findFirst({
+      where: {
+        tenant_id: tenantId,
+        content_scope: 'grades_only',
+        locale,
+        is_default: true,
+      },
+    });
+    if (byDefault) {
+      return byDefault;
+    }
+
+    return this.prisma.reportCardTemplate.findFirst({
+      where: {
+        tenant_id: tenantId,
+        content_scope: 'grades_only',
+        locale,
+      },
+      orderBy: { created_at: 'asc' },
+    });
+  }
 
   // ─── Create ───────────────────────────────────────────────────────────────
 

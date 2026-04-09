@@ -119,6 +119,15 @@ export class ReportCardsEnhancedController {
     return this.templateService.findAll(tenant.tenant_id, query);
   }
 
+  // Static route `content-scopes` MUST come before the dynamic `:id` route
+  // so NestJS matches it first.
+  @Get('report-cards/templates/content-scopes')
+  @RequiresPermission('report_cards.view')
+  async listTemplateContentScopes(@CurrentTenant() tenant: { tenant_id: string }) {
+    const data = await this.templateService.listContentScopes(tenant.tenant_id);
+    return { data };
+  }
+
   @Get('report-cards/templates/:id')
   @RequiresPermission('gradebook.view')
   async getTemplate(

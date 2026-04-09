@@ -674,3 +674,160 @@ describe('ReportCardTemplateService — convertFromImage', () => {
     expect(result.sections_json[0]).toHaveProperty('type');
   });
 });
+
+// ─── listContentScopes (impl 03) ─────────────────────────────────────────────
+
+describe('ReportCardTemplateService — listContentScopes', () => {
+  let service: ReportCardTemplateService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ReportCardTemplateService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: GdprTokenService, useValue: mockGdprTokenService },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: {
+            isConfigured: true,
+            createMessage: jest.fn().mockResolvedValue({ content: [{ type: 'text', text: '[]' }] }),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get<ReportCardTemplateService>(ReportCardTemplateService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('groups templates correctly by content_scope and locale', async () => {
+    mockPrisma.reportCardTemplate.findMany.mockResolvedValue([
+      { id: 't-en', locale: 'en', is_default: true, content_scope: 'grades_only' },
+      { id: 't-ar', locale: 'ar', is_default: false, content_scope: 'grades_only' },
+    ]);
+
+    const result = await service.listContentScopes(TENANT_ID);
+
+    const gradesOnly = result.find((r) => r.content_scope === 'grades_only');
+    expect(gradesOnly).toBeDefined();
+    expect(gradesOnly?.locales).toHaveLength(2);
+    expect(gradesOnly?.locales.map((l) => l.locale).sort()).toEqual(['ar', 'en']);
+    expect(gradesOnly?.is_available).toBe(true);
+    expect(gradesOnly?.is_default).toBe(true);
+  });
+
+  it('marks non-grades_only scopes as is_available: false with empty locales', async () => {
+    mockPrisma.reportCardTemplate.findMany.mockResolvedValue([
+      { id: 't-en', locale: 'en', is_default: true, content_scope: 'grades_only' },
+    ]);
+
+    const result = await service.listContentScopes(TENANT_ID);
+    const unavailable = result.filter((r) => !r.is_available);
+
+    expect(unavailable.length).toBeGreaterThan(0);
+    unavailable.forEach((row) => {
+      expect(row.locales).toEqual([]);
+      expect(row.content_scope).not.toBe('grades_only');
+    });
+  });
+
+  it('returns grades_only as the first entry with is_available: true', async () => {
+    mockPrisma.reportCardTemplate.findMany.mockResolvedValue([]);
+
+    const result = await service.listContentScopes(TENANT_ID);
+
+    expect(result[0]?.content_scope).toBe('grades_only');
+    expect(result[0]?.is_available).toBe(true);
+  });
+});
+
+// ─── resolveForGeneration (impl 03) ──────────────────────────────────────────
+
+describe('ReportCardTemplateService — resolveForGeneration', () => {
+  let service: ReportCardTemplateService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ReportCardTemplateService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: GdprTokenService, useValue: mockGdprTokenService },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+        {
+          provide: AnthropicClientService,
+          useValue: {
+            isConfigured: true,
+            createMessage: jest.fn().mockResolvedValue({ content: [{ type: 'text', text: '[]' }] }),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get<ReportCardTemplateService>(ReportCardTemplateService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('returns the default English template when one exists', async () => {
+    const enTemplate = { ...baseTemplate, id: 't-en', locale: 'en', is_default: true };
+    mockPrisma.reportCardTemplate.findFirst.mockResolvedValueOnce(enTemplate);
+
+    const result = await service.resolveForGeneration(TENANT_ID, {
+      contentScope: 'grades_only',
+      locale: 'en',
+    });
+
+    expect(result?.id).toBe('t-en');
+    expect(mockPrisma.reportCardTemplate.findFirst).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        tenant_id: TENANT_ID,
+        content_scope: 'grades_only',
+        locale: 'en',
+        is_default: true,
+      }),
+    });
+  });
+
+  it('falls back to a non-default row when no default is set for the locale', async () => {
+    mockPrisma.reportCardTemplate.findFirst
+      .mockResolvedValueOnce(null) // default lookup misses
+      .mockResolvedValueOnce({ ...baseTemplate, id: 't-ar', locale: 'ar' }); // fallback hits
+
+    const result = await service.resolveForGeneration(TENANT_ID, {
+      contentScope: 'grades_only',
+      locale: 'ar',
+    });
+
+    expect(result?.id).toBe('t-ar');
+    expect(mockPrisma.reportCardTemplate.findFirst).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns null when no template exists for the (scope, locale) pair', async () => {
+    mockPrisma.reportCardTemplate.findFirst.mockResolvedValue(null);
+
+    const result = await service.resolveForGeneration(TENANT_ID, {
+      contentScope: 'grades_only',
+      locale: 'fr',
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it('returns null for unavailable scopes without touching the DB', async () => {
+    const result = await service.resolveForGeneration(TENANT_ID, {
+      contentScope: 'grades_homework',
+      locale: 'en',
+    });
+
+    expect(result).toBeNull();
+    expect(mockPrisma.reportCardTemplate.findFirst).not.toHaveBeenCalled();
+  });
+});

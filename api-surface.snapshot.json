@@ -7603,6 +7603,34 @@
   },
   {
     "method": "GET",
+    "path": "/v1/report-card-tenant-settings",
+    "controller": "ReportCardTenantSettingsController",
+    "module": "gradebook",
+    "permission": "report_cards.view"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/report-card-tenant-settings",
+    "controller": "ReportCardTenantSettingsController",
+    "module": "gradebook",
+    "permission": "report_cards.view"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/report-card-tenant-settings/principal-signature",
+    "controller": "ReportCardTenantSettingsController",
+    "module": "gradebook",
+    "permission": "report_cards.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/report-card-tenant-settings/principal-signature",
+    "controller": "ReportCardTenantSettingsController",
+    "module": "gradebook",
+    "permission": "report_cards.manage"
+  },
+  {
+    "method": "GET",
     "path": "/v1/report-cards",
     "controller": "ReportCardsController",
     "module": "gradebook",
@@ -7928,11 +7956,18 @@
     "path": "/v1/report-cards/templates/:id",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "report_cards.view"
   },
   {
     "method": "PATCH",
     "path": "/v1/report-cards/templates/:id",
+    "controller": "ReportCardsEnhancedController",
+    "module": "gradebook",
+    "permission": "gradebook.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/report-cards/templates/content-scopes",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
     "permission": "gradebook.view"

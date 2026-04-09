@@ -8,6 +8,7 @@ import { ClassesModule } from '../../classes/classes.module';
 import { ConfigurationModule } from '../../configuration/configuration.module';
 import { GdprModule } from '../../gdpr/gdpr.module';
 import { PdfRenderingModule } from '../../pdf-rendering/pdf-rendering.module';
+import { S3Module } from '../../s3/s3.module';
 import { StudentsModule } from '../../students/students.module';
 import { TenantsModule } from '../../tenants/tenants.module';
 
@@ -23,6 +24,8 @@ import { ReportCardOverallCommentsService } from './report-card-overall-comments
 import { ReportCardSubjectCommentsController } from './report-card-subject-comments.controller';
 import { ReportCardSubjectCommentsService } from './report-card-subject-comments.service';
 import { ReportCardTemplateService } from './report-card-template.service';
+import { ReportCardTenantSettingsController } from './report-card-tenant-settings.controller';
+import { ReportCardTenantSettingsService } from './report-card-tenant-settings.service';
 import { ReportCardVerificationService } from './report-card-verification.service';
 import {
   ReportCardVerificationController,
@@ -51,6 +54,7 @@ import { ReportCommentWindowsService } from './report-comment-windows.service';
     ConfigurationModule,
     GdprModule,
     PdfRenderingModule,
+    S3Module,
     StudentsModule,
     TenantsModule,
     BullModule.registerQueue({ name: 'gradebook' }),
@@ -62,6 +66,7 @@ import { ReportCommentWindowsService } from './report-comment-windows.service';
     ReportCommentWindowsController,
     ReportCardSubjectCommentsController,
     ReportCardOverallCommentsController,
+    ReportCardTenantSettingsController,
   ],
   providers: [
     // ─── Core ────────────────────────────────────────────────────────────────
@@ -91,7 +96,18 @@ import { ReportCommentWindowsService } from './report-comment-windows.service';
     ReportCardSubjectCommentsService,
     ReportCardOverallCommentsService,
     ReportCardAiDraftService,
+
+    // ─── Tenant Settings (impl 03) ───────────────────────────────────────────
+    ReportCardTenantSettingsService,
   ],
-  exports: [ReportCardsService, ReportCardsQueriesService, ReportCommentWindowsService],
+  exports: [
+    ReportCardsService,
+    ReportCardsQueriesService,
+    ReportCommentWindowsService,
+    // Exported so impl 04 (generation) can read tenant defaults and resolve
+    // the correct template for a (scope, locale) pair.
+    ReportCardTemplateService,
+    ReportCardTenantSettingsService,
+  ],
 })
 export class ReportCardModule {}

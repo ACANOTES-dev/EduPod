@@ -214,3 +214,66 @@ When you finish an implementation, append an entry to the **Completions** sectio
 - The existing bulk `POST /v1/gradebook/ai/generate-comments` endpoint is untouched; it remains available for the legacy overview page until impl 08 lands.
 - An edit on a finalised subject or overall comment clears its finalisation (`finalised_at` + `finalised_by_user_id` reset to null), so the comment must be explicitly re-finalised after any text change. This matches the design spec's "strict finalisation" rule.
 - All writes use `createRlsClient(prisma, { tenant_id, user_id }).$transaction(...)` — the sole permitted use of `as unknown as PrismaService` remains inside those transaction blocks.
+
+### Implementation 03: Settings & Templates Backend
+
+- **Completed at:** 2026-04-09
+- **Completed by:** Claude Opus 4.6 (Claude Code)
+- **Branch / commit:** `main` @ `<pending commit>`
+- **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
+- **Status:** ✅ complete
+- **Summary:** Built the `ReportCardTenantSettingsService` + controller with lazy default bootstrap, full Zod re-validation on every partial update, and a principal-signature upload/delete flow that validates mime-type, magic bytes, and a 2 MB size cap via the existing S3 storage provider. Additively refactored `ReportCardTemplateService` to expose `listContentScopes()` and `resolveForGeneration()` without disturbing any of its existing CRUD/AI-conversion methods.
+
+**What changed:**
+
+- `apps/api/src/modules/gradebook/report-cards/dto/tenant-settings.dto.ts` — thin re-export of `reportCardTenantSettingsPayloadSchema` and `updateReportCardTenantSettingsSchema` from `@school/shared`
+- `apps/api/src/modules/gradebook/report-cards/report-card-tenant-settings.service.ts` (+ `.spec.ts`) — new service: `get`, `getPayload`, `update`, `uploadPrincipalSignature`, `deletePrincipalSignature`. Lazy default bootstrap, partial-merge + full-schema re-validation, PNG/JPEG/WEBP magic-byte verification, 2 MB size cap, deterministic S3 key `tenant/{tenant_id}/report-cards/principal-signature.{ext}`, previous-key cleanup on extension change.
+- `apps/api/src/modules/gradebook/report-cards/report-card-tenant-settings.controller.ts` (+ `.spec.ts`) — new `/v1/report-card-tenant-settings` routes: `GET` (view), `PATCH` (manage), `POST /principal-signature` (manage, multipart via the shared `createFileInterceptor({ allowedMimes: IMAGE, maxSizeMb: 2 })`), `DELETE /principal-signature` (manage).
+- `apps/api/src/modules/gradebook/report-cards/report-card-template.service.ts` — additive refactor: new `listContentScopes(tenantId)` groups templates by `content_scope` and always emits entries for the planned-but-unavailable scopes (`grades_homework`, `grades_attendance`, `grades_homework_attendance`, `full_master`) as `is_available: false`; new `resolveForGeneration(tenantId, { contentScope, locale })` picks the default template for a (scope, locale) pair with fallback to a non-default row. Existing CRUD/AI-conversion methods untouched.
+- `apps/api/src/modules/gradebook/report-cards/report-card-template.service.spec.ts` — added 7 tests covering `listContentScopes` and `resolveForGeneration`; existing specs still green.
+- `apps/api/src/modules/gradebook/report-cards/report-cards-enhanced.controller.ts` — added `GET /v1/report-cards/templates/content-scopes` (permission: `report_cards.view`) **before** the dynamic `:id` route so NestJS matches it first.
+- `apps/api/src/modules/gradebook/report-cards/report-card.module.ts` — imports `S3Module`; registers `ReportCardTenantSettingsController` + `ReportCardTenantSettingsService`; adds `ReportCardTemplateService` and `ReportCardTenantSettingsService` to `exports` so impl 04 (generation) can consume `listContentScopes`, `resolveForGeneration`, and `getPayload`.
+- `apps/api/test/report-cards/tenant-settings.e2e-spec.ts` — 8 e2e tests against the real Postgres (AppModule with `S3Service` stubbed): lazy bootstrap, partial merge, invalid payload rejection, signature upload happy path, magic-byte mismatch, `PRINCIPAL_NAME_REQUIRED`, delete clears both fields, tenant isolation via the service.
+- `apps/api/test/report-cards/templates.e2e-spec.ts` — 6 e2e tests: `listContentScopes` grouping shape, unavailable-scope entries, `resolveForGeneration` for en / ar / missing locale / unavailable scope.
+- `api-surface.snapshot.json` — regenerated for the 5 new routes (4 settings + 1 template content-scopes). The known pre-existing snapshot bug documented in impl 02's notes (previous-route permission bleeds into the next row) surfaces here too for the dynamic `:id` template route — the runtime permission is still correctly enforced via NestJS reflection on the decorated method.
+
+**Database changes:**
+
+- None (uses tables + `content_scope` column from impl 01).
+
+**Test coverage:**
+
+- Unit specs added: 2 (service + controller for tenant settings; 17 tests). Extended the existing `report-card-template.service.spec.ts` with 7 more tests (30 total in that file).
+- Integration/E2E specs added: 2 (`tenant-settings.e2e-spec.ts` → 8 tests, `templates.e2e-spec.ts` → 6 tests). Full `/report-cards/*` e2e suite is 7 files / 53 tests green.
+- RLS leakage: `report_card_tenant_settings` is covered by impl 01's `rls-leakage.e2e-spec.ts` (still passing); impl 03's `tenant-settings.e2e-spec.ts` additionally verifies tenant-isolation at the service layer by running writes against two different tenants in the same test.
+- `turbo test` status: ✅ all 15010 tests green across 720 suites.
+- `turbo lint` status: ✅ 0 errors, 834 pre-existing warnings (no new rule violations from this impl).
+- `turbo type-check` status: ✅ green for all 14 tasks.
+- DI verification script from `00-common-knowledge.md §3.7`: ✅ `DI OK`.
+
+**Architecture docs updated (if applicable):**
+
+- `docs/architecture/module-blast-radius.md` — not required (new `S3Module` import on `ReportCardModule` is a standard shared-infrastructure dependency; no domain-module cross-talk added)
+- `docs/architecture/event-job-catalog.md` — not required (no BullMQ jobs or crons added)
+- `docs/architecture/state-machines.md` — not required
+- `docs/architecture/danger-zones.md` — not required (the "JSONB validated at write time but not at read time" concern is mitigated here because `get()` routes every read through `reportCardTenantSettingsPayloadSchema.parse` in `toResult`, so any historical drift surfaces immediately rather than silently)
+
+**Regression check:**
+
+- Ran full `turbo test`: ✅ 15010/15010 green across 720 suites.
+- Any unrelated test failures: none. The `api-surface` snapshot test was updated via the root-level `pnpm -w run snapshot:api` script after adding the new routes.
+
+**Blockers or follow-ups:**
+
+- Implementation 04 (generation) can now call `ReportCardTemplateService.resolveForGeneration` and `ReportCardTenantSettingsService.getPayload` via the module exports.
+- Implementation 09 (frontend wizard + settings) is unblocked.
+- Local commit only — not pushed to GitHub per nightly-only push policy.
+
+**Notes for the next agent:**
+
+- The tenant-settings upload endpoint is multipart/form-data. It accepts the file under the `file` field and an optional `principal_name` text field. If the tenant has no `principal_name` persisted yet, the caller MUST supply it in the upload request or the service throws `PRINCIPAL_NAME_REQUIRED` — this is enforced to honour the impl-01 Zod refine that forbids a half-configured signature pair.
+- `ReportCardTenantSettingsService.get()` is safe to call on tenants that have no row yet — it lazily creates a default row using `reportCardTenantSettingsPayloadSchema.parse({})`. Impl 04 can call `getPayload` without worrying about tenant seeding.
+- `listContentScopes` always emits five entries: `grades_only` (always `is_available: true`) plus four "coming soon" placeholders. The frontend can render a single response without needing its own catalogue.
+- `resolveForGeneration` returns `null` for any content scope other than `grades_only` without touching the DB — future waves will add the other scopes to the Postgres enum and relax that guard.
+- Principal signatures are stored under `{tenant_id}/report-cards/principal-signature.{png|jpg|webp}`. Re-uploads with a different extension automatically delete the previous file so the bucket stays tidy.
+- Magic-byte validation is defence-in-depth: multer already filters by declared mime type, but the service re-verifies the first few bytes per PNG/JPEG/WEBP signatures to catch spoofed uploads. Adding new accepted mime types requires updating both `SIGNATURE_ALLOWED_MIMES` and `MAGIC_BYTE_MATCHERS` together.
