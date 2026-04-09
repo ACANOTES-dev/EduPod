@@ -350,6 +350,79 @@ Per `CLAUDE.md` — Autonomous Execution Policy:
 
 ---
 
+## 10a. Parallel worktree orchestration — session lock protocol
+
+When multiple sessions are running in parallel across different git worktrees of this repo, they all share the same local Postgres and Redis. Running `turbo test` (or anything else that hits the DB) in two worktrees at the same time causes non-deterministic test failures as sessions collide on fixtures.
+
+**You MUST use the session-lock protocol around any DB-touching command when you detect that other sessions may be running.** Even if you are not sure — acquire the lock anyway. The worst case is you wait a few seconds. The best case is you avoid flaky test failures.
+
+### Your session ID
+
+Your session ID is your implementation number: **`impl-04`**, **`impl-05`**, **`impl-06`**, **`impl-07`**, **`impl-08`**, **`impl-09`**, **`impl-10`**, **`impl-11`**, **`impl-12`**. Use your ID consistently across all lock calls in your session.
+
+### Commands that MUST be lock-wrapped
+
+| Command                      | Lock name to use |
+| ---------------------------- | ---------------- |
+| `turbo test`                 | `turbo-test`     |
+| `pnpm --filter api test`     | `api-test`       |
+| `pnpm --filter api test:e2e` | `api-e2e`        |
+| `pnpm prisma migrate dev`    | `prisma-migrate` |
+| `pnpm prisma migrate reset`  | `prisma-reset`   |
+| `pnpm prisma db seed`        | `prisma-seed`    |
+
+### Commands that do NOT need locking
+
+Free to run in parallel without coordination: `turbo lint`, `turbo type-check`, `turbo build`, `pnpm prisma generate` (per-worktree), editing/reading files, the DI verification script (in-memory), git operations.
+
+### Protocol
+
+Before running any lock-wrapped command:
+
+```bash
+.session-locks/lock.sh acquire <your-session-id> <lock-name>
+```
+
+This blocks until no other session holds the lock. It prints a waiting message every 5 seconds so you see progress.
+
+Run your command.
+
+After the command finishes (success OR failure — release always):
+
+```bash
+.session-locks/lock.sh release <your-session-id> <lock-name>
+```
+
+Example — the full pattern for running `turbo test` as impl-05:
+
+```bash
+.session-locks/lock.sh acquire impl-05 turbo-test
+turbo test
+TEST_RESULT=$?
+.session-locks/lock.sh release impl-05 turbo-test
+# now handle $TEST_RESULT (retry fixes if non-zero, etc.)
+```
+
+**Critical:** you MUST release the lock even if the command fails. If you forget, every other session will block forever until someone manually runs `lock.sh cleanup <your-session-id>`.
+
+### Checking for other sessions
+
+If you want to see what else is running before you start:
+
+```bash
+.session-locks/lock.sh status
+```
+
+### If you crash mid-command
+
+If your session crashes during a lock-wrapped command, the `.start` file stays behind and blocks everyone else. To recover, the user can run `.session-locks/lock.sh cleanup <your-session-id>` to wipe your stale locks. You should not normally need to do this yourself — just be disciplined about releasing.
+
+### Full protocol docs
+
+See `/Users/ram/Desktop/SDB/.session-locks/README.md` for the complete protocol, edge cases, and script internals.
+
+---
+
 ## 11. Known constraints from design-spec.md
 
 Quick reference — full detail in `design-spec.md`:
