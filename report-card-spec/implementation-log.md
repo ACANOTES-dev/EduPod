@@ -443,7 +443,7 @@ When you finish an implementation, append an entry to the **Completions** sectio
 
 - **Completed at:** 2026-04-09 20:15 (local time)
 - **Completed by:** Claude Opus 4.6 (Claude Code)
-- **Branch / commit:** `main` @ `<to-be-filled>`
+- **Branch / commit:** `main` @ `6a677eb8`
 - **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
 - **Status:** ✅ complete
 - **Summary:** Landed the two backend endpoints that power the new class-first report cards UX — `GET /v1/report-cards/classes/:classId/matrix` (students × subjects matrix with dense top-3 rank) and `GET /v1/report-cards/library` (non-superseded report cards with 5-minute signed-URL downloads and role-scoped visibility). The old flat overview endpoint is now marked `@deprecated` and logs a warning on every hit, but remains functional for the existing frontend until impl 12.
