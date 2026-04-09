@@ -618,26 +618,31 @@ export function LeadershipDashboard() {
       row.total += 1;
     }
 
-    // Flag subjects that are assigned in this filter context but have zero assessments
+    // A subject is treated as "in curriculum" for the current filter scope if
+    // either a teaching allocation exists or at least one assessment was already
+    // created for it in scope. The assessment-side fallback catches cases where
+    // allocations data is missing for historical records.
     for (const row of rowMap.values()) {
+      if (!row.assignedInContext && row.total > 0) {
+        row.assignedInContext = true;
+      }
       row.missingAssessments = row.assignedInContext && row.total === 0;
     }
 
+    const isFiltered = yearGroupFilter !== 'all' || classFilter !== 'all';
+
     return [...rowMap.values()].sort((a, b) => {
-      // Missing-assessment rows first (admin priority)
-      if (a.missingAssessments !== b.missingAssessments) {
-        return a.missingAssessments ? -1 : 1;
-      }
-      // Then assigned over unassigned
-      if (a.assignedInContext !== b.assignedInContext) {
+      // When a filter is active: in-curriculum subjects first, then out-of-curriculum.
+      // Within each group, sort alphabetically.
+      // When no filter is active: pure alphabetical across all subjects.
+      if (isFiltered && a.assignedInContext !== b.assignedInContext) {
         return a.assignedInContext ? -1 : 1;
       }
-      // Then by total descending
-      if (b.total !== a.total) return b.total - a.total;
-      // Then alphabetical
       return a.subject_name.localeCompare(b.subject_name);
     });
   }, [subjects, allocations, assessments, yearGroupFilter, classFilter, today]);
+
+  const isFilteredView = yearGroupFilter !== 'all' || classFilter !== 'all';
 
   const filteredTotalAssessments = React.useMemo(
     () => subjectActivity.reduce((acc, r) => acc + r.total, 0),
@@ -1072,60 +1077,65 @@ export function LeadershipDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {subjectActivity.map((row) => (
-                  <tr
-                    key={row.subject_id}
-                    className={cn(
-                      'border-b border-border last:border-b-0 transition-colors',
-                      row.missingAssessments
-                        ? 'bg-danger-fill/30 hover:bg-danger-fill/50'
-                        : 'hover:bg-surface-secondary/40',
-                    )}
-                  >
-                    <td className="px-4 py-2.5 text-sm font-medium text-text-primary">
-                      <div className="flex items-center gap-2">
-                        <span>{row.subject_name}</span>
-                        {row.missingAssessments && (
-                          <HoverFollowTooltip
-                            as="span"
-                            title={t('activityNoAssessments')}
-                            body={t('activityNoAssessmentsTooltip')}
-                            className="inline-flex cursor-help items-center gap-1 rounded-md border border-danger-text/30 bg-danger-fill px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-danger-text"
-                          >
-                            <AlertTriangle className="h-3 w-3" />
-                            {t('activityNoAssessments')}
-                          </HoverFollowTooltip>
+                {subjectActivity.map((row) => {
+                  const outOfCurriculum = isFilteredView && !row.assignedInContext;
+                  return (
+                    <tr
+                      key={row.subject_id}
+                      className={cn(
+                        'border-b border-border last:border-b-0 transition-colors',
+                        row.missingAssessments
+                          ? 'bg-danger-fill/30 hover:bg-danger-fill/50'
+                          : outOfCurriculum
+                            ? 'bg-warning-fill opacity-60 hover:opacity-80'
+                            : 'hover:bg-surface-secondary/40',
+                      )}
+                    >
+                      <td className="px-4 py-2.5 text-sm font-medium text-text-primary">
+                        <div className="flex items-center gap-2">
+                          <span>{row.subject_name}</span>
+                          {row.missingAssessments && (
+                            <HoverFollowTooltip
+                              as="span"
+                              title={t('activityNoAssessments')}
+                              body={t('activityNoAssessmentsTooltip')}
+                              className="inline-flex cursor-help items-center gap-1 rounded-md border border-danger-text/30 bg-danger-fill px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-danger-text"
+                            >
+                              <AlertTriangle className="h-3 w-3" />
+                              {t('activityNoAssessments')}
+                            </HoverFollowTooltip>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5 text-end font-mono text-sm text-info-text">
+                        {row.scheduled || <span className="text-text-tertiary">—</span>}
+                      </td>
+                      <td className="px-3 py-2.5 text-end font-mono text-sm">
+                        {row.pendingGrading > 0 ? (
+                          <span className="text-warning-text">{row.pendingGrading}</span>
+                        ) : (
+                          <span className="text-text-tertiary">—</span>
                         )}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2.5 text-end font-mono text-sm text-info-text">
-                      {row.scheduled || <span className="text-text-tertiary">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5 text-end font-mono text-sm">
-                      {row.pendingGrading > 0 ? (
-                        <span className="text-warning-text">{row.pendingGrading}</span>
-                      ) : (
-                        <span className="text-text-tertiary">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-end font-mono text-sm">
-                      {row.overdue > 0 ? (
-                        <span className="text-danger-text">{row.overdue}</span>
-                      ) : (
-                        <span className="text-text-tertiary">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-end font-mono text-sm text-success-text">
-                      {row.submittedLocked || <span className="text-text-tertiary">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5 text-end font-mono text-sm text-text-secondary">
-                      {row.finalLocked || <span className="text-text-tertiary">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5 text-end font-mono text-sm font-semibold text-text-primary">
-                      {row.total || <span className="text-text-tertiary">—</span>}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-3 py-2.5 text-end font-mono text-sm">
+                        {row.overdue > 0 ? (
+                          <span className="text-danger-text">{row.overdue}</span>
+                        ) : (
+                          <span className="text-text-tertiary">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-end font-mono text-sm text-success-text">
+                        {row.submittedLocked || <span className="text-text-tertiary">—</span>}
+                      </td>
+                      <td className="px-3 py-2.5 text-end font-mono text-sm text-text-secondary">
+                        {row.finalLocked || <span className="text-text-tertiary">—</span>}
+                      </td>
+                      <td className="px-3 py-2.5 text-end font-mono text-sm font-semibold text-text-primary">
+                        {row.total || <span className="text-text-tertiary">—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
