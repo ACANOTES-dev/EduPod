@@ -886,7 +886,7 @@ The impl 11 doc assumed `@react-pdf/renderer` was already a worker dependency an
 
 - **Completed at:** 2026-04-09 22:25 (local time)
 - **Completed by:** Claude Opus 4.6 (session impl-12)
-- **Branch / commit:** `main` @ `<commit-sha>` (backfilled after commit)
+- **Branch / commit:** `main` @ `160308af`
 - **Pull request:** direct to main (no push — nightly deploy picks up HEAD per impl-12 prompt policy)
 - **Status:** ✅ complete
 - **Summary:** Final cleanup pass for the Report Cards redesign. Removed the legacy flat overview endpoint and the legacy synchronous batch-PDF endpoint, deleted dead frontend helpers that were only reachable from the pre-redesign report card detail page, removed the worker placeholder renderer now that the production renderer is the sole DI binding, and backfilled architecture docs with two new danger-zone entries (AI window cost control, PDF font replacement requires re-deploy).
