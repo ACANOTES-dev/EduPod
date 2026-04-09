@@ -503,7 +503,7 @@ The physical `BatchJobStatus` enum only carries four values today (`queued`, `pr
 - **Comment gating**: enforced synchronously by `dryRunCommentGate` before a run is enqueued. A run cannot move past `queued` without either (a) all required comments finalised or (b) an explicit `override_comment_gate` flag from an admin whose tenant has `allow_admin_force_generate = true`.
 - **Overwrite semantics**: per-student upsert on `(tenant_id, student_id, academic_period_id, template_id, template_locale)`. Previous `pdf_storage_key` is deleted in the same transaction — see `danger-zones.md` for the data-loss tradeoff.
 
-### TeacherRequestStatus _(Report Cards Redesign — impl 01)_
+### TeacherRequestStatus _(Report Cards Redesign — impl 01, wired impl 05)_
 
 ```
 pending   -> [approved, rejected, cancelled]
@@ -513,11 +513,13 @@ cancelled* (terminal — author cancelled before review)
 completed* (terminal — admin executed the requested action)
 ```
 
-- **Guarded by**: `teacher-requests.service.ts` (introduced in a later impl). State validation lives in `VALID_TRANSITIONS`.
+- **Guarded by**: `apps/api/src/modules/gradebook/report-cards/report-card-teacher-requests.service.ts`. State validation lives in `VALID_TRANSITIONS`; every transition call runs `assertTransitionAllowed` before the DB update.
 - **Side effects**:
-  - `approved`: the principal has approved but not yet acted. The request becomes `completed` once the resulting action lands (a new comment window is opened or a regeneration run starts), at which point `resulting_run_id` or `resulting_window_id` is set.
-  - `rejected`: optional `review_note` is recorded; no downstream action.
-  - `cancelled`: only the author can cancel, and only while `pending`.
+  - `pending` → `approved`: if the caller passes `auto_execute = true`, the service calls `ReportCommentWindowsService.open` (for `open_comment_window` requests) or `ReportCardGenerationService.generateRun` (for `regenerate_reports` requests) BEFORE flipping status. A downstream failure leaves the request in `pending`. When auto-execute succeeds, `resulting_window_id` or `resulting_run_id` is populated on the request row in the same transaction as the status update.
+  - `approved` → `completed`: housekeeping transition invoked by downstream flows when the resulting window closes or the generation run finishes. Currently called explicitly; no automatic completion wiring yet.
+  - `rejected`: review note is recorded; in-app notification sent to the author via `NotificationsService.createBatch`.
+  - `cancelled`: only the author can cancel, and only while `pending`. Enforced server-side via `requested_by_user_id === actor.userId` check before the state transition.
+- **Notification fan-out**: on `submit`, every membership with `report_cards.manage` receives an in-app notification (`template_key: report_cards.teacher_request_submitted`). On `approve`/`reject`, the author receives a single in-app notification with the decision and any review note. Notification failures are logged but do not roll back the state transition.
 - **Note**: `request_type = open_comment_window` requests must have `target_scope_json IS NULL`; `request_type = regenerate_reports` requests must carry a non-null `target_scope_json`. Cross-field rule is enforced by `submitTeacherRequestSchema` in `@school/shared/report-cards`.
 
 ### AcademicAlertStatus

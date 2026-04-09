@@ -366,3 +366,75 @@ When you finish an implementation, append an entry to the **Completions** sectio
 - The processor resolves Arabic templates via a second `prisma.reportCardTemplate.findFirst` call for `(tenant_id, content_scope, locale: 'ar')`. Today the seeded templates are English-only per tenant, so mixed-language batches simply skip the `ar` render step without failing. Adding an Arabic template row per tenant will automatically enable the second-language flow without any code changes.
 - The BullMQ `gradebook` queue is registered in both the API (`report-card.module.ts`) and the worker (`worker.module.ts`). Only the worker side has a `@Processor()`; the API only enqueues.
 - Impl 11 should note that the `ReportCardRenderPayload` shape is defined in `@school/shared` (`generation.schema.ts`). It includes everything needed for a single-language render; the worker constructs one payload per (student × locale) target.
+
+### Implementation 05: Teacher Requests Backend
+
+- **Completed at:** 2026-04-09 19:55 (local time)
+- **Completed by:** Claude Opus 4.6 (Claude Code)
+- **Branch / commit:** `impl-05` @ `<pending>`
+- **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
+- **Status:** ✅ complete
+- **Summary:** Landed the teacher-requests subsystem: `ReportCardTeacherRequestsService` + controller with the full pending → approved/rejected/cancelled → completed state machine, permission-aware list/find endpoints, authorship-gated cancel, and an optional auto-execute path on approve that delegates to `ReportCommentWindowsService.open` (for `open_comment_window`) or `ReportCardGenerationService.generateRun` (for `regenerate_reports`). In-app notification fan-out on submit (all `report_cards.manage` holders) and on approve/reject (the original author) via the existing `NotificationsService.createBatch` infrastructure.
+
+**What changed:**
+
+- `packages/shared/src/report-cards/teacher-request.schema.ts` — added `approveTeacherRequestSchema`, `rejectTeacherRequestSchema`, and `listTeacherRequestsQuerySchema` alongside the existing submit/review schemas from impl 01. The new schemas are `.strict()` so unknown keys are rejected server-side.
+- `packages/shared/src/report-cards/__tests__/teacher-request.schema.spec.ts` — 14 new unit tests covering the default value for `auto_execute`, the mandatory review-note on reject, list query coercion, pageSize cap, and unknown-status rejection.
+- `apps/api/src/modules/gradebook/report-cards/dto/teacher-request.dto.ts` — thin re-export of the schemas and types from `@school/shared`, following the existing module DTO pattern.
+- `apps/api/src/modules/gradebook/report-cards/report-card-teacher-requests.service.ts` (+ `.spec.ts`) — new `ReportCardTeacherRequestsService` with `list`, `listPendingForReviewer`, `findById`, `submit`, `cancel`, `approve`, `reject`, `markCompleted`. Auto-execute helpers (`autoExecuteOpenWindow`, `autoExecuteRegenerate`) run BEFORE the state flip so a downstream failure leaves the request in `pending`. 20 unit tests cover every state transition, the permission boundary on `cancel` and `findById`, the auto-execute wiring for both branches, the "downstream failure leaves pending" invariant, and the list scoping rules.
+- `apps/api/src/modules/gradebook/report-cards/report-card-teacher-requests.controller.ts` (+ `.spec.ts`) — new `ReportCardTeacherRequestsController` exposing `GET /v1/report-card-teacher-requests`, `GET /v1/report-card-teacher-requests/pending`, `GET /v1/report-card-teacher-requests/:id`, `POST /v1/report-card-teacher-requests`, `PATCH /v1/report-card-teacher-requests/:id/cancel`, `PATCH /v1/report-card-teacher-requests/:id/approve`, `PATCH /v1/report-card-teacher-requests/:id/reject`, and `PATCH /v1/report-card-teacher-requests/:id/complete`. Static routes registered BEFORE the dynamic `:id` route. 9 controller tests cover delegation, actor resolution (including `isAdmin=true` when `report_cards.manage` is in the permission cache), and the DTO pass-through on every mutation path.
+- `apps/api/src/modules/gradebook/report-cards/report-card.module.ts` — imports `CommunicationsModule` (for `NotificationsService`) and `RbacModule` (for `RbacReadFacade`); registers the new service + controller; adds `ReportCardTeacherRequestsService` to the `exports` list.
+- `apps/api/test/report-cards/teacher-requests.e2e-spec.ts` — new e2e suite, 12 tests. Covers the full submit → approve / reject / cancel / markCompleted lifecycle against the real AppModule + Postgres, plus one auto-execute path (`open_comment_window`) that uses the REAL `ReportCommentWindowsService` and verifies a real `report_comment_windows` row is created and linked via `resulting_window_id`. The `regenerate_reports` auto-execute path is covered by the unit spec instead — a real `generateRun` needs full class/template/grade fixtures and would duplicate `generation-runs.e2e-spec.ts` coverage. Also includes cross-tenant RLS isolation (`list` + `findById`) and the admin-vs-teacher scoping check.
+- `api-surface.snapshot.json` — regenerated for the 8 new routes via `pnpm -w run snapshot:api`.
+- `docs/architecture/module-blast-radius.md` — documented the two new module imports (`CommunicationsModule`, `RbacModule`) on `ReportCardModule` for the teacher-requests service.
+- `docs/architecture/state-machines.md` — updated the `TeacherRequestStatus` entry to reflect impl 05 landing: added the concrete guard path (`report-card-teacher-requests.service.ts`), the auto-execute side-effect wiring, the notification fan-out on submit/approve/reject, and the "failure leaves request pending" invariant.
+- `docs/architecture/danger-zones.md` — added `DZ-43: Teacher Request Auto-Execute Bypasses The Wizard Review Step` covering the implicit commit-to-generation risk on `auto_execute = true`, the PDF-delete cascade via DZ-42, and the scope-translation shape drift concern.
+
+**Database changes:**
+
+- None (uses the `report_card_teacher_requests` table seeded in impl 01).
+
+**Test coverage:**
+
+- Shared Zod schema tests added: 14 new tests (`teacher-request.schema.spec.ts`).
+- Service unit spec added: 20 tests (`report-card-teacher-requests.service.spec.ts`).
+- Controller unit spec added: 9 tests (`report-card-teacher-requests.controller.spec.ts`).
+- Integration/E2E spec added: 1 file, 12 tests (`teacher-requests.e2e-spec.ts`) including 2 RLS / tenant-isolation tests.
+- RLS leakage: the `report_card_teacher_requests` table is already covered by impl 01's `rls-leakage.e2e-spec.ts`; impl 05's e2e additionally verifies list-level and findById-level cross-tenant isolation via the service layer.
+- `turbo test` (unit test gate — `pnpm --filter @school/api run test`): ✅ 15061/15061 tests green across 722 suites. `@school/shared` tests: ✅ 834/834 across 35 suites.
+- `turbo lint` status: ✅ 0 errors, 838 pre-existing warnings (none introduced by this impl; the 2 new errors surfaced by ESLint during development — an import/order blank line and a type import ordering — were both fixed before running the suite).
+- `turbo type-check` status: ✅ green for `@school/api` and `@school/shared`.
+- DI verification script from `00-common-knowledge.md §3.7`: ✅ `DI OK`.
+
+**Architecture docs updated (if applicable):**
+
+- `docs/architecture/module-blast-radius.md` — ✅ updated (new imports `CommunicationsModule`, `RbacModule` on `ReportCardModule`)
+- `docs/architecture/event-job-catalog.md` — not required (no new BullMQ jobs or crons; notifications flow through the existing in-app `NotificationsService.createBatch` pipeline)
+- `docs/architecture/state-machines.md` — ✅ updated (`TeacherRequestStatus` entry wired to the live guard service + side-effect documentation)
+- `docs/architecture/danger-zones.md` — ✅ updated (`DZ-43`: auto-execute bypasses wizard review)
+- `docs/architecture/feature-map.md` — NOT updated (per project rule — will be batched into a single update after impl 12)
+
+**Regression check:**
+
+- Ran unit tests: ✅ 15061/15061 tests green (no regressions introduced).
+- Ran the full report-cards e2e suite: ✅ 73/73 green across 9 suites.
+- Ran the full api e2e suite (not strictly required by the commit gates, which are `turbo test` / `turbo lint` / `turbo type-check`): 5 suites (135 tests) fail — `search.e2e-spec.ts`, `p4a-attendance`, `p4a-closures`, `p4a-rls`, `p4a-timetables`, `p4b-scheduling`, `p5-gradebook`, `p5-rls-leakage`, `workflows/payroll-finalisation`. Verified one of these (`search.e2e-spec.ts`) fails identically in isolation on the same commit (`464311e6`, pre-impl-05) — these are pre-existing e2e failures on main, unrelated to impl 05. Every file touched by this impl lives under `apps/api/src/modules/gradebook/report-cards/`, `apps/api/test/report-cards/`, `packages/shared/src/report-cards/`, and `docs/architecture/*` — none of the failing suites touch those paths.
+
+**Blockers or follow-ups:**
+
+- Frontend impl 10 (teacher requests UI) is now unblocked. The frontend should:
+  1. Read `GET /v1/report-card-teacher-requests` with `?my=true` for the teacher "my requests" view and without the flag for the admin queue (the backend transparently returns only the caller's rows for non-admins).
+  2. Use `GET /v1/report-card-teacher-requests/pending` for the admin dashboard pending-queue badge count.
+  3. On approve, prefer the default `auto_execute = false` path and route into the wizard/modal with pre-filled parameters derived from the returned request row. Only pass `auto_execute = true` from an explicit double-confirm modal — see DZ-43.
+- A future impl should wire the `approved → completed` transition automatically — today `markCompleted` is an explicit admin call. Candidate hooks: (a) window close listener in `ReportCommentWindowsService.closeNow` for `open_comment_window` requests, (b) batch job completion handler in `ReportCardGenerationProcessor` for `regenerate_reports` requests.
+- The pre-existing e2e failures on main (`search.e2e-spec.ts`, `p4a-*`, `p4b-scheduling`, `p5-gradebook`, `p5-rls-leakage`, `workflows/payroll-finalisation`) should be triaged by the team; they pre-date impl 05 but were not surfaced by impl 04's log entry which reported `turbo test: all green` (that's the unit gate — the full e2e gate is run separately and was not part of impl 04's check).
+- Local commit only — not pushed to GitHub per nightly-only push policy. Worked in the dedicated `/Users/ram/Desktop/SDB-impl05` worktree after fast-forwarding it to `main` (commit `464311e6`) — the impl-05 branch was behind because impl 04 landed on main while the worktree was still anchored at `85f245fb`.
+
+**Notes for the next agent:**
+
+- `ReportCardTeacherRequestsService.approve` runs the auto-execute side-effect BEFORE the state transition. If `ReportCommentWindowsService.open` or `ReportCardGenerationService.generateRun` throws, the request row stays `pending` and the error bubbles to the caller. DO NOT reorder those calls — the "leave pending on failure" invariant is load-bearing and covered by a unit test.
+- The shape translation between `TeacherRequestScope` (`{ scope: 'student' | 'class' | 'year_group', ids }`) and `GenerationScope` (discriminated union on `mode`) lives in the private `requestScopeToGenerationScope` helper. If you ever add a new scope mode to either side, update this function AND the unit tests that exercise each branch.
+- The notification helpers (`notifyReviewersOnSubmit`, `notifyAuthorOnDecision`) are best-effort — a notification failure is logged but does NOT roll back the state transition. This is deliberate so that a flaky notifications pipeline does not block the primary write path. If you need exactly-once delivery, move the notification enqueue into the same interactive transaction and accept the rollback-on-failure semantics.
+- `findMembershipsWithPermissionAndUser` on `RbacReadFacade` is the right primitive to resolve "who should be notified" for any new admin-facing fan-out in the report-cards module. It honours the tenant scope and only returns active memberships.
+- The e2e suite deliberately does NOT cover the `regenerate_reports` auto-execute path end-to-end — a real generation run requires class/template/grade/homeroom seed data that would duplicate `generation-runs.e2e-spec.ts`. The unit spec exercises the hand-off in full (both the success path and the "leave pending on failure" branch).
+- The controller uses `@Param('id', ParseUUIDPipe)` for the request id on every dynamic route. If you need to add a non-UUID dynamic segment, register it BEFORE the `:id` routes to avoid NestJS route shadowing (this is why `GET /pending` appears before `GET /:id` in the controller).

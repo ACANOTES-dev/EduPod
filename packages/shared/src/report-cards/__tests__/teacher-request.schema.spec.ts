@@ -1,4 +1,7 @@
 import {
+  approveTeacherRequestSchema,
+  listTeacherRequestsQuerySchema,
+  rejectTeacherRequestSchema,
   reviewTeacherRequestSchema,
   submitTeacherRequestSchema,
   teacherRequestStatusSchema,
@@ -128,5 +131,99 @@ describe('reviewTeacherRequestSchema', () => {
 
   it('rejects unknown decisions', () => {
     expect(reviewTeacherRequestSchema.safeParse({ decision: 'defer' }).success).toBe(false);
+  });
+});
+
+describe('approveTeacherRequestSchema', () => {
+  it('accepts an empty object and defaults auto_execute to false', () => {
+    const result = approveTeacherRequestSchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.auto_execute).toBe(false);
+    }
+  });
+
+  it('accepts a review_note and auto_execute = true', () => {
+    const result = approveTeacherRequestSchema.safeParse({
+      review_note: 'Approved — starting regen now.',
+      auto_execute: true,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.auto_execute).toBe(true);
+    }
+  });
+
+  it('rejects unknown keys', () => {
+    const result = approveTeacherRequestSchema.safeParse({
+      review_note: 'ok',
+      bogus: true,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a review_note over the limit', () => {
+    const result = approveTeacherRequestSchema.safeParse({
+      review_note: 'x'.repeat(2001),
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('rejectTeacherRequestSchema', () => {
+  it('requires a non-empty review_note', () => {
+    expect(rejectTeacherRequestSchema.safeParse({}).success).toBe(false);
+    expect(rejectTeacherRequestSchema.safeParse({ review_note: '' }).success).toBe(false);
+    expect(rejectTeacherRequestSchema.safeParse({ review_note: 'Not this period.' }).success).toBe(
+      true,
+    );
+  });
+
+  it('rejects unknown keys', () => {
+    const result = rejectTeacherRequestSchema.safeParse({
+      review_note: 'Not this period.',
+      auto_execute: true,
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('listTeacherRequestsQuerySchema', () => {
+  it('applies defaults for page and pageSize', () => {
+    const result = listTeacherRequestsQuerySchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.page).toBe(1);
+      expect(result.data.pageSize).toBe(20);
+      expect(result.data.my).toBeUndefined();
+    }
+  });
+
+  it('coerces page and pageSize from strings', () => {
+    const result = listTeacherRequestsQuerySchema.safeParse({
+      page: '3',
+      pageSize: '50',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.page).toBe(3);
+      expect(result.data.pageSize).toBe(50);
+    }
+  });
+
+  it('parses the my=true flag to a boolean', () => {
+    const parsed = listTeacherRequestsQuerySchema.safeParse({ my: 'true' });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.my).toBe(true);
+    }
+  });
+
+  it('rejects pageSize above the cap', () => {
+    expect(listTeacherRequestsQuerySchema.safeParse({ pageSize: 500 }).success).toBe(false);
+  });
+
+  it('rejects unknown statuses', () => {
+    expect(listTeacherRequestsQuerySchema.safeParse({ status: 'archived' }).success).toBe(false);
   });
 });

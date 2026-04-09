@@ -5,9 +5,11 @@ import { AcademicsModule } from '../../academics/academics.module';
 import { AiModule } from '../../ai/ai.module';
 import { AttendanceModule } from '../../attendance/attendance.module';
 import { ClassesModule } from '../../classes/classes.module';
+import { CommunicationsModule } from '../../communications/communications.module';
 import { ConfigurationModule } from '../../configuration/configuration.module';
 import { GdprModule } from '../../gdpr/gdpr.module';
 import { PdfRenderingModule } from '../../pdf-rendering/pdf-rendering.module';
+import { RbacModule } from '../../rbac/rbac.module';
 import { S3Module } from '../../s3/s3.module';
 import { StudentsModule } from '../../students/students.module';
 import { TenantsModule } from '../../tenants/tenants.module';
@@ -24,6 +26,8 @@ import { ReportCardOverallCommentsController } from './report-card-overall-comme
 import { ReportCardOverallCommentsService } from './report-card-overall-comments.service';
 import { ReportCardSubjectCommentsController } from './report-card-subject-comments.controller';
 import { ReportCardSubjectCommentsService } from './report-card-subject-comments.service';
+import { ReportCardTeacherRequestsController } from './report-card-teacher-requests.controller';
+import { ReportCardTeacherRequestsService } from './report-card-teacher-requests.service';
 import { ReportCardTemplateService } from './report-card-template.service';
 import { ReportCardTenantSettingsController } from './report-card-tenant-settings.controller';
 import { ReportCardTenantSettingsService } from './report-card-tenant-settings.service';
@@ -52,9 +56,11 @@ import { ReportCommentWindowsService } from './report-comment-windows.service';
     AiModule,
     AttendanceModule,
     ClassesModule,
+    CommunicationsModule,
     ConfigurationModule,
     GdprModule,
     PdfRenderingModule,
+    RbacModule,
     S3Module,
     StudentsModule,
     TenantsModule,
@@ -68,6 +74,7 @@ import { ReportCommentWindowsService } from './report-comment-windows.service';
     ReportCardSubjectCommentsController,
     ReportCardOverallCommentsController,
     ReportCardTenantSettingsController,
+    ReportCardTeacherRequestsController,
   ],
   providers: [
     // ─── Core ────────────────────────────────────────────────────────────────
@@ -103,6 +110,9 @@ import { ReportCommentWindowsService } from './report-comment-windows.service';
 
     // ─── Generation runs (impl 04) ───────────────────────────────────────────
     ReportCardGenerationService,
+
+    // ─── Teacher requests (impl 05) ──────────────────────────────────────────
+    ReportCardTeacherRequestsService,
   ],
   exports: [
     ReportCardsService,
@@ -115,6 +125,9 @@ import { ReportCommentWindowsService } from './report-comment-windows.service';
     // Exported so impl 05 (teacher requests) can auto-execute approved
     // regeneration requests.
     ReportCardGenerationService,
+    // Exported so other backend modules may mark requests completed when
+    // their downstream flow finishes (housekeeping hook for impl 06+).
+    ReportCardTeacherRequestsService,
   ],
 })
 export class ReportCardModule {}

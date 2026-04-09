@@ -7603,6 +7603,62 @@
   },
   {
     "method": "GET",
+    "path": "/v1/report-card-teacher-requests",
+    "controller": "ReportCardTeacherRequestsController",
+    "module": "gradebook",
+    "permission": "report_cards.comment"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/report-card-teacher-requests",
+    "controller": "ReportCardTeacherRequestsController",
+    "module": "gradebook",
+    "permission": "report_cards.comment"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/report-card-teacher-requests/:id",
+    "controller": "ReportCardTeacherRequestsController",
+    "module": "gradebook",
+    "permission": "report_cards.manage"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/report-card-teacher-requests/:id/approve",
+    "controller": "ReportCardTeacherRequestsController",
+    "module": "gradebook",
+    "permission": "report_cards.comment"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/report-card-teacher-requests/:id/cancel",
+    "controller": "ReportCardTeacherRequestsController",
+    "module": "gradebook",
+    "permission": "report_cards.comment"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/report-card-teacher-requests/:id/complete",
+    "controller": "ReportCardTeacherRequestsController",
+    "module": "gradebook",
+    "permission": "report_cards.manage"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/report-card-teacher-requests/:id/reject",
+    "controller": "ReportCardTeacherRequestsController",
+    "module": "gradebook",
+    "permission": "report_cards.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/report-card-teacher-requests/pending",
+    "controller": "ReportCardTeacherRequestsController",
+    "module": "gradebook",
+    "permission": "report_cards.comment"
+  },
+  {
+    "method": "GET",
     "path": "/v1/report-card-tenant-settings",
     "controller": "ReportCardTenantSettingsController",
     "module": "gradebook",

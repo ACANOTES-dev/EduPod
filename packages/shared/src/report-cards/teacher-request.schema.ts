@@ -74,6 +74,53 @@ export const reviewTeacherRequestSchema = z.object({
 
 export type ReviewTeacherRequestDto = z.infer<typeof reviewTeacherRequestSchema>;
 
+// ─── Approve request ────────────────────────────────────────────────────────
+// Principal approves a pending request. When auto_execute is true the approval
+// also triggers the downstream side-effect (open window / start generation run).
+// Otherwise the approval just flips the status and the frontend routes the
+// principal into the wizard/modal with pre-filled parameters.
+
+export const approveTeacherRequestSchema = z
+  .object({
+    review_note: z.string().max(2000).optional(),
+    auto_execute: z.boolean().optional().default(false),
+  })
+  .strict();
+
+export type ApproveTeacherRequestDto = z.infer<typeof approveTeacherRequestSchema>;
+
+// ─── Reject request ─────────────────────────────────────────────────────────
+// Principal rejects a pending request. A review note is required so the
+// teacher understands why.
+
+export const rejectTeacherRequestSchema = z
+  .object({
+    review_note: z.string().min(1).max(2000),
+  })
+  .strict();
+
+export type RejectTeacherRequestDto = z.infer<typeof rejectTeacherRequestSchema>;
+
+// ─── List query ─────────────────────────────────────────────────────────────
+// Supports filtering by status and scoping to the caller via `my=true` flag.
+// The caller's own user id is injected server-side from the JWT; the `my`
+// flag only tells the service whether to apply that filter.
+
+export const listTeacherRequestsQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    status: teacherRequestStatusSchema.optional(),
+    request_type: teacherRequestTypeSchema.optional(),
+    my: z
+      .enum(['true', 'false'])
+      .transform((v) => v === 'true')
+      .optional(),
+  })
+  .strict();
+
+export type ListTeacherRequestsQuery = z.infer<typeof listTeacherRequestsQuerySchema>;
+
 // ─── Cancel request ─────────────────────────────────────────────────────────
 // Author can cancel their own pending request.
 

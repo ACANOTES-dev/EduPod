@@ -739,3 +739,25 @@ This is a deliberate product choice (see `design-spec.md` §7.3), but it creates
 
 - `apps/worker/src/processors/gradebook/report-card-generation.processor.ts` — `renderAndUpsert` is the single place that deletes the previous PDF.
 - `apps/api/src/modules/gradebook/report-cards/report-card-generation.service.ts` — `generateRun` is the entrypoint that enqueues the job.
+
+## DZ-43: Teacher Request Auto-Execute Bypasses The Wizard Review Step
+
+**Risk**: When an admin approves a `regenerate_reports` teacher request with `auto_execute = true`, `ReportCardTeacherRequestsService.approve` calls `ReportCardGenerationService.generateRun` directly, skipping the wizard's 6-step review UX (scope confirmation, comment-gate dry-run, personal-info field override, explicit force-generate toggle). The approver is committing to a real generation run at the moment of approval — there is no "preview what will happen" step on the auto-execute path.
+
+This matters because:
+
+1. **Comment gate is still enforced** but with `override_comment_gate = false` — if any required comment is missing/unfinalised the run fails fast with `COMMENT_GATE_BLOCKING`, which is recoverable but surprising if the approver expected an immediate run.
+2. **PDFs get deleted** on auto-execute of a regenerate request — every caveat on DZ-42 still applies. The approver does not see a "this will delete N existing PDFs" warning.
+3. **Scope mismatch is possible** — the teacher submits a `target_scope_json` shape; the service translates it into the generation scope discriminated union. Any silent scope drift between the two shapes would fan out without human review.
+
+**Mitigation**:
+
+- The default for `auto_execute` is `false` (explicit opt-in required from the admin). The design spec §10.3 prefers the human-in-the-loop path where approval just pre-fills the wizard.
+- `auto_execute = true` still runs inside the same permission check — only users with `report_cards.manage` can hit this path.
+- The side-effect call runs BEFORE the state transition, so any downstream failure leaves the request in `pending` for a clean retry.
+- The frontend (impl 10) is expected to show a double-confirm modal when the admin selects `auto_execute = true`.
+
+**Code pointers**:
+
+- `apps/api/src/modules/gradebook/report-cards/report-card-teacher-requests.service.ts` — `approve` is the single entrypoint; the auto-execute path is in `autoExecuteOpenWindow` and `autoExecuteRegenerate`.
+- `packages/shared/src/report-cards/teacher-request.schema.ts` — `approveTeacherRequestSchema` exposes the `auto_execute` flag.
