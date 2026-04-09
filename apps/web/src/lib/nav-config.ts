@@ -271,20 +271,24 @@ export const hubConfigs: HubConfig[] = [
   },
   {
     key: 'learning',
+    // Order matters: handleHubClick navigates to the first basePath the user
+    // is permitted to access. Admin roles land on /classes; teacher roles
+    // (who cannot access /classes) land on /assessments, which is the first
+    // teacher-accessible entry after the admin-only prefix.
     labelKey: 'nav.learning',
     basePaths: [
       '/classes',
       '/subjects',
       '/curriculum-matrix',
       '/class-assignments',
-      '/attendance',
+      '/promotion',
+      '/assessments',
       '/gradebook',
+      '/analytics',
+      '/attendance',
       '/homework',
       '/report-cards',
-      '/promotion',
       '/diary',
-      '/assessments',
-      '/analytics',
     ],
     roles: [...STAFF_ROLES, 'parent'],
   },

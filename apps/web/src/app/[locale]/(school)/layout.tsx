@@ -24,6 +24,7 @@ import { UserMenu } from '@/components/user-menu';
 import { useShortcuts } from '@/hooks/use-shortcuts';
 import { apiClient, setApiErrorHandler } from '@/lib/api-client';
 import { hubConfigs, hubGroupedSubStripConfigs, hubSubStripConfigs } from '@/lib/nav-config';
+import { isAllowedForRoute } from '@/lib/route-roles';
 import type { RoleKey } from '@/lib/route-roles';
 import { RequireAuth, useAuth } from '@/providers/auth-provider';
 
@@ -141,11 +142,16 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
   const handleHubClick = React.useCallback(
     (hubKey: string) => {
       const hub = hubConfigs.find((h) => h.key === hubKey);
-      if (hub && hub.basePaths.length > 0) {
-        router.push(`/${locale}${hub.basePaths[0]}`);
-      }
+      if (!hub || hub.basePaths.length === 0) return;
+      // Navigate to the first basePath the user is permitted to access, so
+      // roles without access to the default landing tab (e.g. teachers and
+      // the Learning hub's /classes default) land on a reachable page.
+      const firstAllowed =
+        hub.basePaths.find((bp) => isAllowedForRoute(bp, userRoleKeys as RoleKey[])) ??
+        hub.basePaths[0];
+      router.push(`/${locale}${firstAllowed}`);
     },
-    [router, locale],
+    [router, locale, userRoleKeys],
   );
 
   // ─── Grouped sub-strip (two-level nav for hubs like Learning) ──────────────
