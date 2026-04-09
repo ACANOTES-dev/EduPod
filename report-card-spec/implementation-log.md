@@ -219,7 +219,7 @@ When you finish an implementation, append an entry to the **Completions** sectio
 
 - **Completed at:** 2026-04-09
 - **Completed by:** Claude Opus 4.6 (Claude Code)
-- **Branch / commit:** `main` @ `<pending commit>`
+- **Branch / commit:** `main` @ `aa348ec3`
 - **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
 - **Status:** ✅ complete
 - **Summary:** Built the `ReportCardTenantSettingsService` + controller with lazy default bootstrap, full Zod re-validation on every partial update, and a principal-signature upload/delete flow that validates mime-type, magic bytes, and a 2 MB size cap via the existing S3 storage provider. Additively refactored `ReportCardTemplateService` to expose `listContentScopes()` and `resolveForGeneration()` without disturbing any of its existing CRUD/AI-conversion methods.
