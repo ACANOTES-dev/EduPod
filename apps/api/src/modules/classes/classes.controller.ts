@@ -34,11 +34,15 @@ import type { UpdateClassDto, UpdateClassStatusDto } from './dto/update-class.dt
 
 const listClassesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  pageSize: z.coerce.number().int().min(1).max(500).default(20),
   academic_year_id: z.string().uuid().optional(),
   year_group_id: z.string().uuid().optional(),
   status: z.enum(['active', 'inactive', 'archived']).optional(),
   search: z.string().optional(),
+  homeroom_only: z
+    .union([z.boolean(), z.enum(['true', 'false'])])
+    .transform((v) => (typeof v === 'boolean' ? v : v === 'true'))
+    .optional(),
 });
 
 @Controller('v1/classes')
@@ -70,6 +74,7 @@ export class ClassesController {
       year_group_id: query.year_group_id,
       status: query.status,
       search: query.search,
+      homeroom_only: query.homeroom_only,
     });
   }
 

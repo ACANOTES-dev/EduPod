@@ -132,10 +132,10 @@ export default function ReportCardsClassPage() {
       setLoadFailed(false);
       setNotFound(false);
       try {
-        const res = await apiClient<ClassMatrixResponse>(
+        const res = await apiClient<{ data: ClassMatrixResponse }>(
           `/api/v1/report-cards/classes/${classId}/matrix?academic_period_id=${periodId}`,
         );
-        if (!cancelled) setMatrix(res);
+        if (!cancelled) setMatrix(res.data);
       } catch (err) {
         console.error('[ReportCardsClassPage]', err);
         if (!cancelled) {

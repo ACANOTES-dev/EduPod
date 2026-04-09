@@ -134,10 +134,11 @@ export default function ReportCommentsLandingPage() {
         // 1. Fetch active window (may be null if closed)
         let currentWindow: ActiveWindow | null = null;
         try {
-          currentWindow = await apiClient<ActiveWindow | null>(
+          const activeRes = await apiClient<{ data: ActiveWindow | null }>(
             '/api/v1/report-comment-windows/active',
             { silent: true },
           );
+          currentWindow = activeRes.data ?? null;
         } catch (err) {
           // 404 or similar => no open window
           console.error('[ReportCommentsLanding] active window', err);

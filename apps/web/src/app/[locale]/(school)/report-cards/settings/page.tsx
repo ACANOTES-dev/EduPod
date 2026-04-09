@@ -111,8 +111,10 @@ export default function ReportCardSettingsPage() {
   // Load settings and template list.
   const loadSettings = React.useCallback(async () => {
     try {
-      const res = await apiClient<SettingsResponse>('/api/v1/report-card-tenant-settings');
-      const s = res.settings;
+      const res = await apiClient<{ data: SettingsResponse }>(
+        '/api/v1/report-card-tenant-settings',
+      );
+      const s = res.data.settings;
       form.reset({
         matrix_display_mode: s.matrix_display_mode,
         show_top_rank_badge: s.show_top_rank_badge,
@@ -158,7 +160,7 @@ export default function ReportCardSettingsPage() {
   // Submit.
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      await apiClient<SettingsResponse>('/api/v1/report-card-tenant-settings', {
+      await apiClient<{ data: SettingsResponse }>('/api/v1/report-card-tenant-settings', {
         method: 'PATCH',
         body: JSON.stringify(values),
       });

@@ -85,11 +85,13 @@ export default function GenerateReportCardsPage() {
     let cancelled = false;
     async function load() {
       try {
-        const res = await apiClient<SettingsResponse>('/api/v1/report-card-tenant-settings');
+        const res = await apiClient<{ data: SettingsResponse }>(
+          '/api/v1/report-card-tenant-settings',
+        );
         if (cancelled) return;
         dispatch({
           type: 'SET_FIELDS',
-          fields: res.settings?.default_personal_info_fields ?? [],
+          fields: res.data.settings?.default_personal_info_fields ?? [],
         });
       } catch (err) {
         console.error('[GenerateReportCardsPage.loadSettings]', err);
@@ -138,18 +140,19 @@ export default function GenerateReportCardsPage() {
     let cancelled = false;
     const tick = async () => {
       try {
-        const res = await apiClient<GenerationRunRow>(
+        const res = await apiClient<{ data: GenerationRunRow }>(
           `/api/v1/report-cards/generation-runs/${state.submit.runId}`,
           { silent: true },
         );
         if (cancelled) return;
+        const row = res.data;
         const snapshot: GenerationRunSnapshot = {
-          id: res.id,
-          status: normaliseStatus(res.status),
-          students_generated_count: res.students_generated_count,
-          students_blocked_count: res.students_blocked_count,
-          total_count: res.total_count,
-          errors: res.errors ?? [],
+          id: row.id,
+          status: normaliseStatus(row.status),
+          students_generated_count: row.students_generated_count,
+          students_blocked_count: row.students_blocked_count,
+          total_count: row.total_count,
+          errors: row.errors ?? [],
         };
         dispatch({ type: 'POLL_UPDATE', snapshot });
       } catch (err) {
@@ -216,12 +219,15 @@ export default function GenerateReportCardsPage() {
         personal_info_fields: state.personalInfoFields,
         override_comment_gate: state.overrideCommentGate,
       };
-      const res = await apiClient<GenerationRunResponse>('/api/v1/report-cards/generation-runs', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-        silent: true,
-      });
-      dispatch({ type: 'SUBMIT_SUCCESS', runId: res.batch_job_id });
+      const res = await apiClient<{ data: GenerationRunResponse }>(
+        '/api/v1/report-cards/generation-runs',
+        {
+          method: 'POST',
+          body: JSON.stringify(payload),
+          silent: true,
+        },
+      );
+      dispatch({ type: 'SUBMIT_SUCCESS', runId: res.data.batch_job_id });
     } catch (err) {
       const message =
         err && typeof err === 'object' && 'message' in err
