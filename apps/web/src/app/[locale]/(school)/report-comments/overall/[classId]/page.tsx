@@ -116,10 +116,11 @@ export default function OverallCommentEditorPage() {
       try {
         let currentWindow: ActiveWindow | null = null;
         try {
-          currentWindow = await apiClient<ActiveWindow | null>(
+          const activeRes = await apiClient<{ data: ActiveWindow | null }>(
             '/api/v1/report-comment-windows/active',
             { silent: true },
           );
+          currentWindow = activeRes.data ?? null;
         } catch (err) {
           console.error('[OverallCommentEditor] active window', err);
         }
@@ -141,7 +142,7 @@ export default function OverallCommentEditorPage() {
         }
 
         const [matrixRes, commentsRes] = await Promise.all([
-          apiClient<ClassMatrixResponse>(
+          apiClient<{ data: ClassMatrixResponse }>(
             `/api/v1/report-cards/classes/${classId}/matrix?academic_period_id=${periodId}`,
           ),
           apiClient<OverallCommentListResponse>(
@@ -150,15 +151,16 @@ export default function OverallCommentEditorPage() {
         ]);
         if (cancelledRef.current) return;
 
-        setMatrix(matrixRes);
+        const matrixData = matrixRes.data;
+        setMatrix(matrixData);
 
         const commentByStudent = new Map<string, OverallCommentRow>();
         for (const c of commentsRes.data ?? []) {
           commentByStudent.set(c.student_id, c);
         }
 
-        const initialRows: RowState[] = matrixRes.students.map((student) => {
-          const overall = matrixRes.overall_by_student[student.id] ?? null;
+        const initialRows: RowState[] = matrixData.students.map((student) => {
+          const overall = matrixData.overall_by_student[student.id] ?? null;
           const existing = commentByStudent.get(student.id) ?? null;
           return {
             student_id: student.id,
@@ -206,16 +208,20 @@ export default function OverallCommentEditorPage() {
     }
     updateRow(row.student_id, { status: 'saving' });
     try {
-      const saved = await apiClient<OverallCommentRow>('/api/v1/report-card-overall-comments', {
-        method: 'POST',
-        body: JSON.stringify({
-          student_id: row.student_id,
-          class_id: classId,
-          academic_period_id: activeWindow.academic_period_id,
-          comment_text: trimmed,
-        }),
-        silent: true,
-      });
+      const savedRes = await apiClient<{ data: OverallCommentRow }>(
+        '/api/v1/report-card-overall-comments',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            student_id: row.student_id,
+            class_id: classId,
+            academic_period_id: activeWindow.academic_period_id,
+            comment_text: trimmed,
+          }),
+          silent: true,
+        },
+      );
+      const saved = savedRes.data;
       updateRow(row.student_id, {
         comment_id: saved.id,
         finalised_at: saved.finalised_at,
@@ -242,11 +248,11 @@ export default function OverallCommentEditorPage() {
   const handleFinalise = async (row: RowState): Promise<void> => {
     if (!canEdit || !row.comment_id) return;
     try {
-      const res = await apiClient<OverallCommentRow>(
+      const res = await apiClient<{ data: OverallCommentRow }>(
         `/api/v1/report-card-overall-comments/${row.comment_id}/finalise`,
         { method: 'PATCH' },
       );
-      updateRow(row.student_id, { finalised_at: res.finalised_at });
+      updateRow(row.student_id, { finalised_at: res.data.finalised_at });
       toast.success(t('finaliseSuccess'));
     } catch (err) {
       console.error('[OverallCommentEditor] finalise', err);
@@ -257,11 +263,11 @@ export default function OverallCommentEditorPage() {
   const handleUnfinalise = async (row: RowState): Promise<void> => {
     if (!canEdit || !row.comment_id) return;
     try {
-      const res = await apiClient<OverallCommentRow>(
+      const res = await apiClient<{ data: OverallCommentRow }>(
         `/api/v1/report-card-overall-comments/${row.comment_id}/unfinalise`,
         { method: 'PATCH' },
       );
-      updateRow(row.student_id, { finalised_at: res.finalised_at });
+      updateRow(row.student_id, { finalised_at: res.data.finalised_at });
     } catch (err) {
       console.error('[OverallCommentEditor] unfinalise', err);
       toast.error(t('finaliseFailed'));

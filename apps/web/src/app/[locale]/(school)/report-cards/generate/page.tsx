@@ -57,6 +57,7 @@ interface GenerationRunRow {
 
 export default function GenerateReportCardsPage() {
   const t = useTranslations('reportCards.wizard');
+  const tShared = useTranslations('reportCards');
   const router = useRouter();
   const locale = useLocale();
   const { roleKeys } = useRoleCheck();
@@ -255,7 +256,22 @@ export default function GenerateReportCardsPage() {
 
   return (
     <div className="space-y-6 pb-10">
-      <PageHeader title={t('title')} description={t('subtitle')} />
+      <PageHeader
+        title={t('title')}
+        description={t('subtitle')}
+        actions={
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push(`/${locale}/report-cards`)}
+            className="min-h-11"
+          >
+            <ArrowLeft className="me-1.5 h-4 w-4" aria-hidden="true" />
+            {tShared('backToReportCards')}
+          </Button>
+        }
+      />
 
       {showPolling ? (
         <PollingStatus

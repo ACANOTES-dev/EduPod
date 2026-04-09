@@ -332,7 +332,14 @@ export function Step1Scope({ state, dispatch }: Step1Props) {
       {/* Selection count */}
       {state.scope.mode && state.scope.ids.length > 0 ? (
         <div className="rounded-xl border border-primary-200 bg-primary-50/40 p-3 text-sm text-primary-800">
-          {t('studentsSelected', { count: state.scope.ids.length })}
+          {t(
+            state.scope.mode === 'year_group'
+              ? 'yearGroupsSelected'
+              : state.scope.mode === 'class'
+                ? 'classesSelected'
+                : 'studentsSelected',
+            { count: state.scope.ids.length },
+          )}
         </div>
       ) : null}
     </div>

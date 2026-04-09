@@ -378,9 +378,22 @@ export class ReportCardsQueriesService {
     }));
     const subjectIds = subjects.map((s) => s.id);
 
+    // Per-subject grading scale map — used to re-derive the letter grade for
+    // each cell from the aggregated score. Without this we would echo the last
+    // period's raw `display_value` token (which may be a percentage string,
+    // and may not match the aggregated value).
+    const subjectScaleMap = new Map<string, GradingScaleConfig>();
+    for (const cs of classSubjects) {
+      if (cs.grading_scale?.config_json) {
+        subjectScaleMap.set(
+          cs.subject.id,
+          cs.grading_scale.config_json as unknown as GradingScaleConfig,
+        );
+      }
+    }
+
     // Keep a grading scale around for the overall letter grade (heuristic:
-    // first subject with a scale). The per-subject display values come straight
-    // from the stored snapshot, so we only need the scale for overall_grade.
+    // first subject with a scale).
     let overallScale: GradingScaleConfig | null = null;
     for (const cs of classSubjects) {
       if (cs.grading_scale?.config_json) {
@@ -469,6 +482,7 @@ export class ReportCardsQueriesService {
       snapshots,
       periodWeights,
       assessmentCountBySubject,
+      subjectScaleMap,
     );
 
     // 8. Compute the weighted overall per student using the subject weights
@@ -906,6 +920,7 @@ export class ReportCardsQueriesService {
     }>,
     periodWeights: Map<string, number>,
     assessmentCountBySubject: Map<string, number>,
+    subjectScaleMap: Map<string, GradingScaleConfig>,
   ): Record<string, Record<string, ClassMatrixCell>> {
     // Index snapshots by student → subject → period
     const bySubject = new Map<string, Map<string, Map<string, MatrixAggregationRow>>>();
@@ -935,7 +950,6 @@ export class ReportCardsQueriesService {
         let weightedSum = 0;
         let weightSum = 0;
         let anyOverride = false;
-        let displayValue: string | null = null;
         for (const [periodId, row] of periodMap) {
           if (row.computed === null) continue;
           const weight = periodWeights.get(periodId);
@@ -945,14 +959,21 @@ export class ReportCardsQueriesService {
             weightedSum += row.computed * effectiveWeight;
             weightSum += effectiveWeight;
             if (row.has_override) anyOverride = true;
-            displayValue = row.display; // keep the most recent display token
           }
         }
 
         const score = weightSum > 0 ? weightedSum / weightSum : null;
+        // Derive the letter grade from the aggregated score using the subject's
+        // grading scale. Falling back to the last period's raw display token
+        // would be wrong: that token can be a stale percentage string or a
+        // letter that doesn't match the weighted average. When the subject has
+        // no grading scale configured, applyGradingScale returns the rounded
+        // percentage as a fallback — same pattern used for overall_grade.
+        const subjectScale = subjectScaleMap.get(subjectId) ?? null;
+        const grade = score !== null ? this.applyGradingScale(score, subjectScale) : null;
         cells[studentId]![subjectId] = {
           score,
-          grade: displayValue,
+          grade,
           assessment_count: assessmentCountBySubject.get(subjectId) ?? 0,
           has_override: anyOverride,
         };

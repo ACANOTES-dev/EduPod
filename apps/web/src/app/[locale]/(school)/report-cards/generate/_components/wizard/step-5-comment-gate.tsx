@@ -33,7 +33,7 @@ export function Step5CommentGate({ state, dispatch }: Step5Props) {
         academic_period_id: state.academicPeriodId,
         content_scope: state.contentScope ?? 'grades_only',
       };
-      const result = await apiClient<CommentGateDryRunResult>(
+      const res = await apiClient<{ data: CommentGateDryRunResult }>(
         '/api/v1/report-cards/generation-runs/dry-run',
         {
           method: 'POST',
@@ -41,7 +41,7 @@ export function Step5CommentGate({ state, dispatch }: Step5Props) {
           silent: true,
         },
       );
-      dispatch({ type: 'DRY_RUN_SUCCESS', result });
+      dispatch({ type: 'DRY_RUN_SUCCESS', result: res.data });
     } catch (err) {
       const message =
         err && typeof err === 'object' && 'message' in err

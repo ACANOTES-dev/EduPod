@@ -1,6 +1,8 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { ArrowLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 import {
   Bar,
@@ -15,7 +17,7 @@ import {
   YAxis,
 } from 'recharts';
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -47,12 +49,10 @@ interface TrendItem {
   completion_pct: number;
 }
 
-interface AnalyticsResponse {
-  data: {
-    summary: AnalyticsSummary;
-    class_comparison: ClassComparisonItem[];
-    trends: TrendItem[];
-  };
+interface AnalyticsCombined {
+  summary: AnalyticsSummary;
+  class_comparison: ClassComparisonItem[];
+  trends: TrendItem[];
 }
 
 interface ListResponse<T> {
@@ -64,27 +64,46 @@ interface ListResponse<T> {
 export default function ReportCardAnalyticsPage() {
   const t = useTranslations('reportCards');
   const tc = useTranslations('common');
+  const router = useRouter();
+  const locale = useLocale();
 
   const [periods, setPeriods] = React.useState<AcademicPeriod[]>([]);
   const [selectedPeriod, setSelectedPeriod] = React.useState('all');
-  const [analytics, setAnalytics] = React.useState<AnalyticsResponse['data'] | null>(null);
+  const [analytics, setAnalytics] = React.useState<AnalyticsCombined | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
     apiClient<ListResponse<AcademicPeriod>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
-      .catch((err) => { console.error('[ReportCardsAnalyticsPage]', err); });
+      .catch((err) => {
+        console.error('[ReportCardsAnalyticsPage]', err);
+      });
   }, []);
 
+  // Backend exposes TWO separate endpoints: /analytics/dashboard and
+  // /analytics/class-comparison. There is no combined endpoint and no trends
+  // endpoint — the latter is a planned feature, so the trends array degrades
+  // gracefully to empty and the trend chart simply doesn't render.
   const fetchAnalytics = React.useCallback(async (periodId: string) => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
       if (periodId !== 'all') params.set('academic_period_id', periodId);
-      const res = await apiClient<AnalyticsResponse>(
-        `/api/v1/report-cards/analytics?${params.toString()}`,
-      );
-      setAnalytics(res.data);
+      const qs = params.toString();
+      const qsSuffix = qs.length > 0 ? `?${qs}` : '';
+      const [dashboardRes, comparisonRes] = await Promise.all([
+        apiClient<{ data: AnalyticsSummary }>(
+          `/api/v1/report-cards/analytics/dashboard${qsSuffix}`,
+        ),
+        apiClient<{ data: ClassComparisonItem[] }>(
+          `/api/v1/report-cards/analytics/class-comparison${qsSuffix}`,
+        ),
+      ]);
+      setAnalytics({
+        summary: dashboardRes.data,
+        class_comparison: comparisonRes.data ?? [],
+        trends: [],
+      });
     } catch (err) {
       console.error('[ReportCardsAnalyticsPage]', err);
       setAnalytics(null);
@@ -99,8 +118,22 @@ export default function ReportCardAnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <PageHeader title={t('analyticsTitle')} />
+      <PageHeader
+        title={t('analyticsTitle')}
+        actions={
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push(`/${locale}/report-cards`)}
+            className="min-h-11"
+          >
+            <ArrowLeft className="me-1.5 h-4 w-4" aria-hidden="true" />
+            {t('backToReportCards')}
+          </Button>
+        }
+      />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
         <Select
           value={selectedPeriod}
           onValueChange={(v) => {

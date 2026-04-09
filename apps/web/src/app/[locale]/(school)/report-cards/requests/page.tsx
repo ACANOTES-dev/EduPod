@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, MessageSquare, Plus } from 'lucide-react';
+import { AlertCircle, ArrowLeft, MessageSquare, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -50,7 +50,7 @@ interface UserSummary {
   last_name?: string | null;
 }
 
-type AdminTab = 'pending' | 'all' | 'mine';
+type AdminTab = 'pending' | 'all';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -83,6 +83,7 @@ function displayUserName(user: UserSummary | undefined, fallbackId: string): str
 
 export default function ReportCardRequestsPage() {
   const t = useTranslations('reportCards.requests');
+  const tShared = useTranslations('reportCards');
   const tStatus = useTranslations('reportCards.requests.status');
   const router = useRouter();
   const locale = useLocale();
@@ -114,8 +115,6 @@ export default function ReportCardRequestsPage() {
         if (isAdmin) {
           if (activeTab === 'pending') {
             params.set('status', 'pending');
-          } else if (activeTab === 'mine') {
-            params.set('my', 'true');
           }
           // 'all' -> no extra filter
         }
@@ -155,14 +154,14 @@ export default function ReportCardRequestsPage() {
         if (userIds.size > 0 && isAdmin) {
           const lookups = await Promise.allSettled(
             Array.from(userIds).map((uid) =>
-              apiClient<UserSummary>(`/api/v1/users/${uid}`, { silent: true }),
+              apiClient<{ data: UserSummary }>(`/api/v1/users/${uid}`, { silent: true }),
             ),
           );
           if (cancelled) return;
           const userMap: Record<string, UserSummary> = {};
           for (const result of lookups) {
-            if (result.status === 'fulfilled' && result.value.id) {
-              userMap[result.value.id] = result.value;
+            if (result.status === 'fulfilled' && result.value.data?.id) {
+              userMap[result.value.data.id] = result.value.data;
             }
           }
           setUsers(userMap);
@@ -232,21 +231,37 @@ export default function ReportCardRequestsPage() {
         title={t('title')}
         description={t('subtitle')}
         actions={
-          <Button
-            type="button"
-            onClick={() => router.push(`/${locale}/report-cards/requests/new`)}
-            className="min-h-11"
-          >
-            <Plus className="me-2 h-4 w-4" aria-hidden="true" />
-            {t('newRequest')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push(`/${locale}/report-cards`)}
+              className="min-h-11"
+            >
+              <ArrowLeft className="me-1.5 h-4 w-4" aria-hidden="true" />
+              {tShared('backToReportCards')}
+            </Button>
+            {/* "New request" is a teacher-only affordance — admins review
+                requests, they don't file them. */}
+            {!isAdmin && (
+              <Button
+                type="button"
+                onClick={() => router.push(`/${locale}/report-cards/requests/new`)}
+                className="min-h-11"
+              >
+                <Plus className="me-2 h-4 w-4" aria-hidden="true" />
+                {t('newRequest')}
+              </Button>
+            )}
+          </div>
         }
       />
 
-      {/* Admin tabs */}
+      {/* Admin tabs — 'mine' is excluded: admins don't file their own requests. */}
       {isAdmin && (
         <div className="flex flex-wrap items-center gap-2 overflow-x-auto">
-          {(['pending', 'all', 'mine'] as const).map((tab) => (
+          {(['pending', 'all'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -259,7 +274,6 @@ export default function ReportCardRequestsPage() {
             >
               {tab === 'pending' && t('tabPending')}
               {tab === 'all' && t('tabAll')}
-              {tab === 'mine' && t('tabMine')}
               {tab === 'pending' && pendingCount > 0 && (
                 <span className="ms-2 inline-flex items-center rounded-full bg-primary-100 px-2 py-0.5 text-xs text-primary-700">
                   {pendingCount}

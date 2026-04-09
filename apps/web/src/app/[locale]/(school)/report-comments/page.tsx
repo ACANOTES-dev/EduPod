@@ -1,11 +1,11 @@
 'use client';
 
-import { FileText, GraduationCap, MessageSquare, Users } from 'lucide-react';
+import { ArrowLeft, FileText, GraduationCap, MessageSquare, Users } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { EmptyState, toast } from '@school/ui';
+import { Button, EmptyState, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
@@ -78,6 +78,7 @@ export default function ReportCommentsLandingPage() {
   const tCard = useTranslations('reportComments.assignmentCard');
   const tHomeroom = useTranslations('reportComments.homeroomCard');
   const tClose = useTranslations('reportComments.closeConfirm');
+  const tRC = useTranslations('reportCards');
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -361,7 +362,22 @@ export default function ReportCommentsLandingPage() {
 
   return (
     <div className="space-y-8 pb-8">
-      <PageHeader title={t('title')} description={t('subtitle')} />
+      <PageHeader
+        title={t('title')}
+        description={t('subtitle')}
+        actions={
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push(`/${locale}/report-cards`)}
+            className="min-h-11"
+          >
+            <ArrowLeft className="me-1.5 h-4 w-4" aria-hidden="true" />
+            {tRC('backToReportCards')}
+          </Button>
+        }
+      />
 
       {/* Window banner */}
       <WindowBanner

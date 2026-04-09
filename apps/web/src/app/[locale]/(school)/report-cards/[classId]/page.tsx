@@ -261,9 +261,9 @@ export default function ReportCardsClassPage() {
           ) : matrix.subjects.length === 0 ? (
             <EmptyState icon={Medal} title={tm('noGradesYet')} />
           ) : (
-            <div className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
+            <div className="inline-block max-w-full rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="border-collapse" style={{ tableLayout: 'fixed' }}>
+                <table className="w-max border-collapse" style={{ tableLayout: 'fixed' }}>
                   <thead>
                     <tr>
                       <th

@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
@@ -70,6 +71,7 @@ interface ContentScopeSummary {
 export default function ReportCardSettingsPage() {
   const t = useTranslations('reportCards.settings');
   const tw = useTranslations('reportCards.wizard');
+  const tShared = useTranslations('reportCards');
   const locale = useLocale();
   const router = useRouter();
   const { roleKeys } = useRoleCheck();
@@ -189,7 +191,22 @@ export default function ReportCardSettingsPage() {
   if (loading) {
     return (
       <div className="space-y-6 pb-10">
-        <PageHeader title={t('title')} description={t('subtitle')} />
+        <PageHeader
+          title={t('title')}
+          description={t('subtitle')}
+          actions={
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push(`/${locale}/report-cards`)}
+              className="min-h-11"
+            >
+              <ArrowLeft className="me-1.5 h-4 w-4" aria-hidden="true" />
+              {tShared('backToReportCards')}
+            </Button>
+          }
+        />
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-28 animate-pulse rounded-2xl bg-surface-secondary" />
@@ -203,7 +220,22 @@ export default function ReportCardSettingsPage() {
 
   return (
     <div className="space-y-6 pb-10">
-      <PageHeader title={t('title')} description={t('subtitle')} />
+      <PageHeader
+        title={t('title')}
+        description={t('subtitle')}
+        actions={
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push(`/${locale}/report-cards`)}
+            className="min-h-11"
+          >
+            <ArrowLeft className="me-1.5 h-4 w-4" aria-hidden="true" />
+            {tShared('backToReportCards')}
+          </Button>
+        }
+      />
 
       {!canManage ? (
         <div className="rounded-xl border border-border bg-surface-secondary/40 p-3 text-sm text-text-secondary">

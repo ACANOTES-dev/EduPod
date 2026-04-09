@@ -569,8 +569,86 @@ describe('ReportCardsQueriesService — getClassMatrix', () => {
 
     const cell = result.cells[STUDENT_A_ID]![SUBJECT_A_ID]!;
     expect(cell.has_override).toBe(true);
-    expect(cell.grade).toBe('A+');
+    // Without a grading scale on the subject, the grade is derived from the
+    // score via applyGradingScale's no-scale fallback (rounded percentage).
+    // The override flag is preserved, but the raw overridden_value string is
+    // NOT echoed into the grade field — score-derivation is authoritative.
+    expect(cell.grade).toBe('50%');
     expect(cell.score).toBeCloseTo(50, 5);
+  });
+
+  it('derives cell.grade from the aggregated score via the subject scale, ignoring stale display_value tokens', async () => {
+    // Regression guard for Bug #1 (matrix grade derivation). Before the fix,
+    // the service echoed the last period's raw display_value into cell.grade,
+    // which produced nonsense like "70.5%" showing up as a letter grade when
+    // aggregating across periods. Now we derive the letter from the weighted
+    // score using the subject's grading scale.
+    seedClass();
+    seedEnrolments([{ id: STUDENT_A_ID, first: 'Ali', last: 'Hassan' }]);
+
+    // Seed a subject with a grading scale that maps 90+ → A, 80+ → B, etc.
+    // Shape matches GradingScaleConfig (type: 'numeric', ranges: [{min, label}]).
+    mockPrisma.classSubjectGradeConfig.findMany.mockResolvedValue([
+      {
+        subject: { id: SUBJECT_A_ID, name: 'Math', code: 'MATH' },
+        grading_scale: {
+          config_json: {
+            type: 'numeric',
+            ranges: [
+              { min: 90, label: 'A' },
+              { min: 80, label: 'B' },
+              { min: 70, label: 'C' },
+              { min: 60, label: 'D' },
+              { min: 0, label: 'F' },
+            ],
+          },
+        },
+      },
+    ]);
+
+    const P1 = 'cccccccc-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const P2 = 'cccccccc-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    mockAcademicFacade.findPeriodsForYear.mockResolvedValue([
+      { id: P1, name: 'T1' },
+      { id: P2, name: 'T2' },
+    ]);
+
+    // Snapshots carry wrong display_value tokens (e.g., "70.5%" as a string
+    // in a subject whose grading scale uses letters). The fix must ignore
+    // these and re-derive from the aggregated numeric score.
+    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      {
+        student_id: STUDENT_A_ID,
+        subject_id: SUBJECT_A_ID,
+        academic_period_id: P1,
+        computed_value: 80 as unknown as import('@prisma/client').Prisma.Decimal,
+        display_value: '70.5%', // deliberately misleading
+        overridden_value: null,
+      },
+      {
+        student_id: STUDENT_A_ID,
+        subject_id: SUBJECT_A_ID,
+        academic_period_id: P2,
+        computed_value: 90 as unknown as import('@prisma/client').Prisma.Decimal,
+        display_value: '59.2%', // deliberately misleading
+        overridden_value: null,
+      },
+    ]);
+    mockPrisma.subjectPeriodWeight.findMany.mockResolvedValue([]);
+    mockPrisma.periodYearWeight.findMany.mockResolvedValue([]);
+    mockPrisma.assessment.groupBy.mockResolvedValue([]);
+
+    const result = await service.getClassMatrix(TENANT_ID, {
+      classId: CLASS_ID_MATRIX,
+      academicPeriodId: 'all',
+    });
+
+    const cell = result.cells[STUDENT_A_ID]![SUBJECT_A_ID]!;
+    // Aggregated score: equal weights → (80 + 90) / 2 = 85
+    expect(cell.score).toBeCloseTo(85, 5);
+    // 85 sits in the 80-89 band → 'B'. NOT the '70.5%' or '59.2%' display
+    // tokens from the snapshots.
+    expect(cell.grade).toBe('B');
   });
 
   it('aggregates across all periods when academicPeriodId === "all"', async () => {

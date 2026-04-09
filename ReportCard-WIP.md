@@ -1,0 +1,735 @@
+# Report Cards — Iteration WIP
+
+**Status:** in progress
+**Last updated:** 2026-04-10
+**Owner of this doc:** whoever is currently driving the Report Cards iteration
+**Source branch:** `main` (local, ahead of origin by many commits that deliberately bypass CI — see _Deployment_ section)
+
+This document is a **self-contained handoff**. Any session (human or AI) should be able to pick this up cold, catch up on the background, see what's been done, and execute the remaining phases without needing to re-interrogate the codebase or the user. Treat the **Implementation log** at the bottom as the single source of truth for "what's done vs. what's next" — update it as you go.
+
+---
+
+## 1. Purpose
+
+The Report Cards feature is in its first real QA/iteration cycle after the initial 12-impl build-out. The user (school owner / principal role) walked through the current admin surfaces and flagged **structural, cosmetic, and behavioural issues**. Two additional bugs were found during a Playwright scan. Separately, the user asked for a **substantial redesign** of how the Report Cards surfaces are organised (collapse 5+ tabs into one dashboard, move Report Cards under the Learning hub as its own sub-strip group, route teacher requests into the admin "Needs Your Attention" card).
+
+Everything below is **scoped to the admin view** — `school_owner`, `school_principal`, `school_vice_principal`, `admin`. A separate pass for the `teacher` role will follow **after** the admin pass is shipped and verified.
+
+---
+
+## 2. Context for the incoming session
+
+### 2.1 Test account (production)
+
+- Login page: `https://edupod.app/en/login`
+- School Owner: `owner@nhqs.test` / `Password123!` (display name: Yusuf Rahman)
+- Staff/Teacher: `Sarah.daly@nhqs.test` / `Password123!`
+- Tenant: Nurul Huda School (class 2A has the richest sample data — 25 students, all subjects, both S1 and S2 snapshots)
+
+### 2.2 What you need to know about the codebase
+
+- Turborepo monorepo: `apps/web` (Next.js 14 App Router), `apps/api` (NestJS modular monolith), `apps/worker` (BullMQ), `packages/shared` (Zod schemas + types), `packages/prisma` (schema + migrations).
+- **Envelope interceptor is the #1 source of frontend bugs in this feature.** `apps/api/src/common/interceptors/response-transform.interceptor.ts` wraps any non-paginated response in `{ data: T }`. If the response already has a top-level `data` field (paginated lists with `data + meta`), it's passed through untouched. Every `apiClient<T>` call on the frontend must account for this — if you type it as the inner shape and the backend returns a wrapped shape, you get `undefined.whatever` at runtime and a "Something went wrong" screen. **When in doubt, type the frontend call as `apiClient<{ data: T }>` and read `res.data`.**
+- **RLS is enforced at the DB layer.** Every tenant-scoped service call goes through `createRlsClient().$transaction()` for writes. Reads use direct `this.prisma.model.findX({ where: { tenant_id } })`. Never `$executeRawUnsafe` outside the RLS middleware.
+- **Frontend source of truth is `docs/plans/ux-redesign-final-spec.md`** — morph shell, sub-strip navigation, token-driven theming, logical CSS properties (`ms-`/`me-` never `ml-`/`mr-`), Figtree + JetBrains Mono fonts.
+- **No pushing to `origin/main`.** The user is deliberately keeping the CI test gate clear for nightly runs. Deployment goes direct to the server via git bundle + `scripts/deploy-production.sh`. See _Deployment_ section.
+
+### 2.3 Key files you will touch
+
+**Frontend — report cards surfaces:**
+
+- `apps/web/src/app/[locale]/(school)/report-cards/page.tsx` — landing (becomes the new consolidated dashboard in Phase 2)
+- `apps/web/src/app/[locale]/(school)/report-cards/[classId]/page.tsx` — class matrix (subject grades per student)
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/page.tsx` — 6-step generation wizard
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-1-scope.tsx`
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-2-period.tsx`
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-5-comment-gate.tsx`
+- `apps/web/src/app/[locale]/(school)/report-cards/settings/page.tsx`
+- `apps/web/src/app/[locale]/(school)/report-cards/requests/page.tsx`
+- `apps/web/src/app/[locale]/(school)/report-cards/requests/new/page.tsx`
+- `apps/web/src/app/[locale]/(school)/report-cards/requests/[id]/page.tsx`
+- `apps/web/src/app/[locale]/(school)/report-cards/library/page.tsx`
+- `apps/web/src/app/[locale]/(school)/report-cards/analytics/page.tsx`
+- `apps/web/src/app/[locale]/(school)/report-cards/approvals/page.tsx` — retire in Phase 2
+- `apps/web/src/app/[locale]/(school)/report-cards/bulk/page.tsx` — retire in Phase 2
+- `apps/web/src/app/[locale]/(school)/report-comments/page.tsx` — landing
+- `apps/web/src/app/[locale]/(school)/report-comments/overall/[classId]/page.tsx` — overall comment editor
+
+**Frontend — infrastructure:**
+
+- `apps/web/src/lib/nav-config.ts` — morph shell nav + sub-strip groups. Phase 2 adds a new top-level Report Cards group under `hubGroupedSubStripConfigs.learning`.
+- `apps/web/src/app/[locale]/(school)/dashboard/page.tsx` — admin home, where teacher requests get routed into `PriorityFeed`
+- `apps/web/src/app/[locale]/(school)/dashboard/_components/admin-home.tsx` — `PriorityData` type lives here (line 29)
+- `apps/web/src/app/[locale]/(school)/dashboard/_components/priority-feed.tsx` — "Needs Your Attention" card renderer
+- `apps/web/messages/en.json` + `apps/web/messages/ar.json` — i18n strings (bilingual, both must be kept in sync)
+
+**Backend — report cards module:**
+
+- `apps/api/src/modules/gradebook/report-cards/report-cards-queries.service.ts` — class matrix builder, library queries (this is where Bug #1 root cause lives, already fixed in `buildMatrixCells` — see Implementation log)
+- `apps/api/src/modules/gradebook/report-cards/report-cards.controller.ts` — matrix + library endpoints
+- `apps/api/src/modules/gradebook/report-cards/report-card-generation.service.ts` — the generation run orchestrator (heavy touch in Phase 1b)
+- `apps/api/src/modules/gradebook/report-cards/report-card-transcript.service.ts` — PDF rendering data assembly (heavy touch in Phase 1b)
+- `apps/api/src/modules/gradebook/report-cards/report-card-teacher-requests.controller.ts` — Already exposes `GET /v1/report-card-teacher-requests/pending` — Phase 2 priority card calls this
+- `apps/api/src/modules/gradebook/report-cards/report-card-teacher-requests.service.ts`
+- `apps/api/src/modules/gradebook/report-cards/report-comment-windows.service.ts`
+- `apps/api/src/modules/gradebook/report-cards/report-card-overall-comments.service.ts`
+- `apps/api/src/modules/gradebook/report-cards/report-card-subject-comments.service.ts`
+- `apps/api/src/modules/gradebook/report-cards/report-card-analytics.service.ts`
+
+**Backend — related gradebook infra:**
+
+- `apps/api/src/modules/gradebook/grading/period-grade-computation.service.ts` — `computeYearOverview` at line 569 is the authoritative full-year aggregation path (used by Phase 1b)
+- `apps/api/src/modules/classes/classes.controller.ts` — pageSize cap raised to 500 in a previous session for the wizard's class list (don't regress this)
+
+**Shared schemas:**
+
+- `packages/shared/src/report-cards/generation.schema.ts` — `startGenerationRunSchema`, `dryRunGenerationCommentGateSchema` (heavy touch in Phase 1b to accept nullable period)
+- `packages/shared/src/report-cards/comment-window.schema.ts`
+- `packages/shared/src/report-cards/overall-comment.schema.ts`
+- `packages/shared/src/report-cards/subject-comment.schema.ts`
+- `packages/shared/src/report-cards/teacher-request.schema.ts`
+- `packages/shared/src/report-cards/matrix-library.schema.ts`
+
+**Prisma:**
+
+- `packages/prisma/schema.prisma` — the schema. Report card models live roughly at lines 3372–4200. Phase 1b migration makes `academic_period_id` nullable on 8+ report-card-related tables and adds `academic_year_id` NOT NULL columns with backfill.
+- `packages/prisma/rls/policies.sql` or `packages/prisma/migrations/**/post_migrate.sql` — RLS policy boilerplate (unchanged in Phase 1b, period nullability doesn't touch RLS)
+
+---
+
+## 3. Bug inventory (with reproduction evidence + root causes)
+
+All 9 bugs were reproduced on production via Playwright as Yusuf Rahman (School Owner). Evidence captured in session.
+
+### Bug #1 — Class matrix: Grade toggle shows percentages instead of letters for some cells
+
+**Reproduction:** `/en/report-cards` → click 2A → All Periods + Grade toggle.
+Examples seen in the UI:
+
+- `Dylan Brennan → Economics = 70.5%`
+- `Theo Collins → Chemistry = 80.3%`
+- `Sarah Doyle → Chemistry = 59.8%`
+- `Aiden Healy → Economics = 59.2%`, `English = 59.6%`
+- `Charlotte Hill → Biology = 80.4%`
+- `Jessica McLoughlin → Geography = 59.8%`
+- `Jake ONeill → English = 70.8%`
+
+In Score mode the same Economics cell shows `69.8%` — so the Grade-mode string is **not** a fallback to `cell.score` on the frontend. The backend is actively returning a percentage string in the `grade` field for some cells.
+
+**Root cause (confirmed):** `apps/api/src/modules/gradebook/report-cards/report-cards-queries.service.ts`, `buildMatrixCells` method (lines ~896 onwards). Original code:
+
+```ts
+let displayValue: string | null = null;
+for (const [periodId, row] of periodMap) {
+  ...
+  displayValue = row.display; // "keep the most recent display token"
+}
+...
+cells[studentId]![subjectId] = {
+  score,
+  grade: displayValue,  // ← the raw last-period display token, unrelated to aggregated score
+  ...
+};
+```
+
+`display_value` comes straight from `PeriodGradeSnapshot.display_value`, which is a pre-formatted string written when the snapshot was computed. For some subjects/scales it's a letter (`"B"`), for others it's a percentage (`"70.5%"`). The aggregated weighted-average cell was echoing whatever token the last period happened to have, regardless of what the aggregated score actually maps to.
+
+**Fix (already applied this session):** build `subjectScaleMap: Map<subjectId, GradingScaleConfig>` from `classSubjects[*].grading_scale.config_json`, pass it into `buildMatrixCells`, and derive the cell grade from the aggregated score:
+
+```ts
+const subjectScale = subjectScaleMap.get(subjectId) ?? null;
+const grade =
+  score !== null && subjectScale !== null ? this.applyGradingScale(score, subjectScale) : null;
+```
+
+This is the same pattern the overall-grade code path already used on lines 506/527. **Test coverage to add:** a unit test in `report-cards-queries.service.spec.ts` that proves the grade is derived from the aggregated score, not from any individual period's stored display token.
+
+---
+
+### Bug #2 — Class matrix: 218px trailing whitespace after the Overall column
+
+**Reproduction:** Same page. Measured via `document.querySelector('table').offsetWidth` vs parent wrapper width: table is 1060px, outer bordered wrapper is 1280px → 218px empty space inside the border, to the right of the Overall column.
+
+**Root cause:** `apps/web/src/app/[locale]/(school)/report-cards/[classId]/page.tsx:266`:
+
+```tsx
+<table className="border-collapse" style={{ tableLayout: 'fixed' }}>
+```
+
+Columns are `180 + 7×110 + 110 = 1060px`. `table-layout: fixed` with no explicit table width makes the table shrink to its column sum; the wrapper is full-width; the gap appears inside the border.
+
+**Fix (not yet applied):** easiest is to wrap the scroll container in a `w-fit` shell or give the table `className="w-max"`. Alternative: give the table `w-full` and change columns to proportional widths — but proportional widths lose the sticky-column look. Go with `w-max` or wrapper `w-fit`.
+
+---
+
+### Bug #3 — Generate wizard: Scope summary says "1 student selected" when a class was selected ✅ FIXED
+
+**Reproduction:** Wizard Step 1 → Class → click 2A → counter says `1 student selected`. Click 3A too → says `2 students selected`. Should say `N classes selected`.
+
+**Root cause:** `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-1-scope.tsx:335` always called `t('studentsSelected', { count })` regardless of `state.scope.mode`.
+
+**Fix (applied):** branch on `scope.mode`, added new translation keys `classesSelected` and `yearGroupsSelected` in both `en.json` and `ar.json`.
+
+---
+
+### Bug #4 — Generate wizard: No "All periods" option in Step 2 ⚠️ STOPGAP IN PLACE → Phase 1b does the real fix
+
+**Reproduction:** Wizard Step 2 only shows `S1 2025-2026` and `S2 2025-2026`. No way to pick a full-year report.
+
+**Current state:** A disabled "All periods" card with a "Coming soon" badge is in `step-2-period.tsx` as a visible placeholder. **This is a stopgap.** The user confirmed the real implementation should happen via **Option B** (Phase 1b — see section 5).
+
+The user's exact words after pushing back on the stopgap:
+
+> "Wait our gradebook already has 'all period' grade information/grades"
+> "let's do this right and go with option B"
+
+---
+
+### Bug #5 — Generate wizard Step 5 crashes page ✅ FIXED
+
+**Reproduction:** Wizard Class → 2A → S1 → Grades Only → Full name → Next → `Something went wrong`. Console:
+
+```
+TypeError: Cannot read properties of undefined (reading 'en')
+  at report-cards/generate/page-d787377f5f81ebc3.js:1:20488
+```
+
+**Root cause:** Envelope mismatch in `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-5-comment-gate.tsx:36`. Called as `apiClient<CommentGateDryRunResult>`, backend returns `{ data: CommentGateDryRunResult }`. Line 100–101 reads `result.languages_preview.en/.ar`, which was `undefined.en`.
+
+**Fix (applied):** wrap type in `{ data: ... }`, dispatch `result: res.data`.
+
+---
+
+### Bug #6 — Report Comments → 2A Overall crashes ✅ FIXED
+
+**Reproduction:** `/en/report-comments` → click 2A card → `Something went wrong`. Console:
+
+```
+[OverallCommentEditor] TypeError: Cannot read properties of undefined (reading 'map')
+TypeError: Cannot read properties of undefined (reading 'name')
+```
+
+**Root cause:** Multiple envelope mismatches in `apps/web/src/app/[locale]/(school)/report-comments/overall/[classId]/page.tsx`:
+
+- Active window fetch (line 119)
+- Matrix fetch (line 144)
+- Save comment POST (line 209)
+- Finalise PATCH (line 245)
+- Unfinalise PATCH (line 260)
+
+**Fix (applied):** every single-object `apiClient<T>` call wrapped in `{ data: T }` and results read via `res.data`. Paginated list call (`OverallCommentListResponse` with `{ data, meta }`) left untouched — the interceptor passes that through.
+
+---
+
+### Bug #7 — Admin sees "New request" and "My requests" on /report-cards/requests
+
+**Reproduction:** `/en/report-cards/requests` as Yusuf Rahman shows both a `New request` button and a `My requests` tab. These should be teacher-only.
+
+**Root cause:** `apps/web/src/app/[locale]/(school)/report-cards/requests/page.tsx` — role gating missing. `canManage` is true for admin roles; both elements must be hidden when `canManage === true`.
+
+**Fix (not yet applied):** wrap the button and the tab in `{!canManage && (...)}` or equivalent. Admins see `Pending review` + `All` tabs + approve/reject affordances only.
+
+---
+
+### Bug #8 — /en/report-cards/approvals 404s on data fetch
+
+**Reproduction:** Page loads empty state. Console:
+
+```
+GET /api/v1/report-card-approvals?page=1&pageSize=20&status=pending → 404
+[ReportCardsApprovalsPage] { error: ... }
+```
+
+**Root cause:** The approvals page calls a ghost endpoint `/api/v1/report-card-approvals` that doesn't exist. The real approval flow lives inside `/api/v1/report-card-teacher-requests`.
+
+**Fix (not yet applied):** **retire the approvals route entirely in Phase 2.** For Phase 1a, the minimum is to either delete the page or stop the 404 noise by redirecting `/report-cards/approvals` → `/report-cards/requests`. Recommendation: add a tiny server-side redirect so any bookmarks keep working.
+
+---
+
+### Bug #9 — /en/report-cards/analytics 400s on load
+
+**Reproduction:** Console:
+
+```
+GET /api/v1/report-cards/analytics? → 400
+[ReportCardsAnalyticsPage] { error: ... }
+```
+
+The request URL has an empty query string. The backend Zod schema requires at least one param (likely `academic_period_id`).
+
+**Root cause:** `apps/web/src/app/[locale]/(school)/report-cards/analytics/page.tsx` fires the fetch before any period is resolved.
+
+**Fix (not yet applied):** guard the fetch until `academic_period_id` is set; default to the first loaded period or to `'all'` if the backend supports it. Verify the backend Zod contract first before picking the default.
+
+---
+
+### Additional context (not bugs, but noted during scan)
+
+- `/en/report-cards/bulk` — a 4-step "Generate → Review → Approve → Notify" page exists as an orphan route (no sub-strip link). Duplicates the wizard. Retire in Phase 2.
+- Class matrix page **already supports "All periods"** as the default (combobox shows `All periods`). So "All periods" is a wizard-only missing feature, not a matrix-page missing feature.
+
+---
+
+## 4. Design decisions (user-approved)
+
+### 4.1 Consolidate 5+ Report Cards surfaces into one admin dashboard
+
+**Problem:** When an admin clicks "Report Cards" under Learning, the sub-strip expands into 8 child tabs (Dashboard, Gradebook, Report Cards, Generate, Settings, Requests, Report Comments, Analytics). That's clutter the user explicitly rejected.
+
+**Decision:** `/report-cards` becomes **one dashboard**. All sub-features are reachable from tiles/cards on that dashboard. Sub-pages still exist as dedicated routes (the generation wizard, settings, requests, etc.) but are no longer tabs in the sub-strip. Every sub-page gets a **Back to Report Cards** button in its header.
+
+**Dashboard layout:**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Report Cards                                          [⚙ Settings] │
+│  <active period name> · <school name>                              │
+├─────────────────────────────────────────────────────────────────────┤
+│  QUICK ACTIONS (4 primary tiles)                                    │
+│  ▶ Generate new run · 💬 Write comments · 📚 Library · 📥 Requests │
+├─────────────────────────────────────────────────────────────────────┤
+│  LIVE RUN STATUS            │    ANALYTICS SNAPSHOT                 │
+│  (only if a run is active,  │    Avg overall · distribution ·       │
+│   otherwise empty state)    │    top performers · trend vs prev    │
+├─────────────────────────────────────────────────────────────────────┤
+│  CLASSES BY YEAR GROUP                                              │
+│  (the current landing content moves here as the bottom section)    │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Sub-page mapping:**
+
+| Current route                            | New home                                                                            |
+| ---------------------------------------- | ----------------------------------------------------------------------------------- |
+| `/report-cards` (classes landing)        | Becomes the dashboard; classes-by-year-group moves to a bottom section              |
+| `/report-cards/[classId]` (class matrix) | Unchanged, reached from a class card                                                |
+| `/report-cards/generate`                 | Kept as its own page, reached from the Generate tile. Add Back button.              |
+| `/report-cards/settings`                 | Reached from the gear icon in the dashboard header. Add Back button.                |
+| `/report-cards/requests`                 | Reached from the Teacher Requests tile (with pending-count badge). Add Back button. |
+| `/report-comments`                       | Reached from the Write Comments tile. Add Back button.                              |
+| `/report-cards/library`                  | Reached from the Library tile (shows `0 documents` or count). Add Back button.      |
+| `/report-cards/analytics`                | **Option A — keep standalone + inline snapshot on dashboard.** Add Back button.     |
+| `/report-cards/bulk`                     | **Retire** — duplicates the wizard                                                  |
+| `/report-cards/approvals`                | **Retire** — calls a ghost endpoint; approvals flow is inside teacher requests      |
+
+### 4.2 Nav: Report Cards as its own Learning sub-strip group
+
+**Current state:** `apps/web/src/lib/nav-config.ts` puts Report Cards inside the Assessment sub-group (line ~392). That's why clicking Report Cards expands 8 child tabs.
+
+**Decision:** Add a new top-level group in `hubGroupedSubStripConfigs.learning` called "Report Cards", parallel to Classes/Curriculum/Assessment/Homework/Attendance. Clicking it goes straight to `/report-cards` with **no children** in the sub-strip — the dashboard handles navigation internally.
+
+**Expected Learning sub-strip after Phase 2:**
+
+```
+Learning → Classes | Curriculum | Assessment | Homework | Attendance | Report Cards
+```
+
+Remove Report Cards entries (`reportCards`, `reportCardsGenerate`, `reportCardsSettings`, `reportCardsRequests`, `reportComments`, `gradeAnalytics`) from the Assessment group's children while you're there.
+
+### 4.3 Teacher requests → admin home "Needs Your Attention" priority card
+
+**Goal:** When a teacher requests a comment-window reopen, the admin sees a priority card on `/dashboard` saying e.g. "2 teacher requests pending — Review requests →". Clicking it lands on `/report-cards/requests`.
+
+**Wiring:**
+
+1. Add `pending_report_card_requests?: number` to `PriorityData` type in `apps/web/src/app/[locale]/(school)/dashboard/_components/admin-home.tsx:29`.
+2. Add `fetchReportCardRequests` in `apps/web/src/app/[locale]/(school)/dashboard/page.tsx` — call `/api/v1/report-card-teacher-requests/pending?pageSize=1` and read `meta.total`. Wire it into the same `useEffect` as the other fetches.
+3. Add a new card case in `apps/web/src/app/[locale]/(school)/dashboard/_components/priority-feed.tsx#buildCards` — use `Inbox` or `MessageSquare` icon, link to `/report-cards/requests`. Follow the exact same pattern as the existing `pending-approvals` and `unlock-requests` cards.
+4. New i18n keys: `teacherRequestSingular`, `teacherRequestPlural`, `teacherRequestDescription`, `reviewRequests` in both en + ar.
+
+Backend endpoint already exists: `GET /api/v1/report-card-teacher-requests/pending` on `report-card-teacher-requests.controller.ts:80`. Verify response shape (paginated with `meta.total`, or a single count).
+
+---
+
+## 5. Product Q&A (verbatim user decisions)
+
+These answer the product-behaviour questions that surfaced when the user chose Option B for Bug #4. Treat these as the authoritative spec for Phase 1b.
+
+### Q1. When a full-year report card is being written, where do the teacher comments come from?
+
+**User answer:** **Require teachers to write new comments during a full-year comment window.**
+
+Implication: `ReportCommentWindow` gets a new discriminator — a window is either for a single period OR for a full year. When a full-year window is open, teachers write brand new overall + subject comments that are stored with `academic_period_id = NULL` and `academic_year_id = <yearId>`. The full-year report card generation reads these new comments, NOT the last period's comments.
+
+### Q2. Approval workflow for full-year report cards?
+
+**User answer:** **Create a new "full year" approval config row.**
+
+Implication: `ReportCardApprovalConfig` rows gain a `(tenant_id, academic_year_id, NULL period_id)` combination. The approval service resolves configs by period when period is non-null, by year when period is null. **Never silently bypass approvals** for null-period rows — explicit gate: "is this a full-year row? then look up the full-year config for this year; if none exists, error loudly."
+
+### Q3. Teacher request to reopen a comment window — what does "full year" mean?
+
+**User answer:** **Reopening full-year = reopening all other periods together** (could be 1, 2, 3+ periods — depends on how many periods are in the year).
+
+Implication: `ReportCardTeacherRequest.request_type` gains a full-year variant (or the existing reopen type carries a `scope: 'period' | 'full_year'` flag). When an admin approves a full-year reopen, the service runs a single transaction that reopens every period's comment window in that academic year simultaneously, plus the full-year comment window if one exists.
+
+### Q4. Batch job idempotency — how to dedupe when `academic_period_id` can be null?
+
+**User asked for recommendation. Recommendation (accepted):**
+
+- **Add `academic_year_id NOT NULL` column** to `ReportCard` and `ReportCardBatchJob` (backfilled from `academic_period.academic_year_id` in the same migration).
+- **Replace the single unique constraint with two partial unique indexes** on each affected table:
+
+  ```sql
+  CREATE UNIQUE INDEX uniq_report_card_period
+    ON report_cards (class_id, academic_period_id, template_id)
+    WHERE academic_period_id IS NOT NULL;
+
+  CREATE UNIQUE INDEX uniq_report_card_full_year
+    ON report_cards (class_id, academic_year_id, template_id)
+    WHERE academic_period_id IS NULL;
+  ```
+
+Rationale: Postgres treats NULL as "not equal to anything" in normal unique constraints, so two `(class, NULL, template)` rows would both be considered unique → double-generation. Partial indexes eliminate that.
+
+### Q5. PDF filename / storage path when period is null?
+
+**User asked for recommendation. Recommendation (accepted):**
+
+- **Centralize all filename/storage-key construction in a single helper** in the generation service:
+  ```ts
+  function buildReportCardStorageKey(params: {
+    tenantId: string;
+    academicYearId: string;
+    academicPeriodId: string | null;
+    studentId: string;
+    templateLocale: string;
+  }): string {
+    const periodSegment = params.academicPeriodId ?? 'full-year';
+    return `tenants/${params.tenantId}/report-cards/${params.academicYearId}/${periodSegment}/${params.studentId}-${params.templateLocale}.pdf`;
+  }
+  ```
+- **Human-readable download filenames** use the period name (not UUID): `Oscar-Allen_S1-2025-2026.pdf` or `Oscar-Allen_Full-Year-2025-2026.pdf`.
+- **Grep every existing construction site** (`report_card_${`, any `.pdf` template literal) and route through the helper. This is the mechanical piece most prone to being missed.
+
+---
+
+## 6. Phase plan
+
+The work is split into four focused phases so commits stay revertable and blast radius is contained.
+
+### Phase 1a — small bug bundle (IN PROGRESS)
+
+Quick cosmetic + envelope-mismatch fixes. Single commit. No schema or product changes. Aim: unblock the wizard, stop the crashes, fix the cosmetic issues.
+
+**Tasks:**
+
+- [x] Bug #5 — Step 5 envelope mismatch (✅ done)
+- [x] Bug #6 — Overall comments envelope mismatch (✅ done)
+- [x] Bug #3 — Wizard scope label by mode (✅ done)
+- [~] Bug #4 — Stopgap "Coming soon" card in Step 2 (in place; will be REMOVED in Phase 1b and replaced with the real option)
+- [x] Bug #1 — Matrix grade derivation in backend (✅ `buildMatrixCells` updated; unit test still to add)
+- [ ] Bug #2 — Matrix table width (218px gap)
+- [ ] Bug #7 — Hide "New request" / "My requests" for admins
+- [ ] Bug #9 — Analytics 400 on empty query
+- [ ] Bug #8 — Retire approvals ghost (Phase 1a: redirect or delete; Phase 2: remove from nav)
+- [ ] Back-to-dashboard buttons on all sub-pages (generate, settings, requests, report-comments, library, analytics; verify class matrix already has one)
+- [ ] Unit test for Bug #1 fix — `report-cards-queries.service.spec.ts` should prove `grade` is derived from aggregated `score`, not from any individual period's `display_value`
+- [ ] `turbo test` (affected packages: `@school/api`, `@school/web`, `@school/shared`)
+- [ ] Commit: `fix(report-cards): phase 1a bug bundle (envelope, matrix, wizard, role gating)`
+
+**Do NOT touch in Phase 1a:** schema, `ReportCard.academic_period_id`, generation service, transcript service, nav config, dashboard consolidation, priority feed.
+
+### Phase 1b — Full-year report cards (Option B)
+
+This is the real implementation of Bug #4. Separate commit so it's revertable.
+
+**Tasks:**
+
+1. **Remove the Phase 1a stopgap:** delete the disabled "Coming soon" card from `step-2-period.tsx`.
+
+2. **Prisma migration** (`npx prisma migrate dev --name add_full_year_report_cards`):
+   - `ReportCard`: `academic_period_id` → nullable; new `academic_year_id UUID NOT NULL` column (backfill from `academic_period.academic_year_id`); new FK to `academic_years(id)`.
+   - `ReportCardBatchJob`: same treatment.
+   - `ReportCardSubjectComment`: same treatment.
+   - `ReportCardOverallComment`: same treatment.
+   - `ReportCardTeacherRequest`: same treatment (null period_id + year_id).
+   - `ReportCardApproval`: same treatment.
+   - `ReportCardApprovalConfig`: same treatment.
+   - `ReportCommentWindow`: same treatment.
+   - `ReportCardDelivery`, `ReportCardAcknowledgment`, `ReportCardVerificationToken` — verify: do they reference period? If yes, same treatment.
+   - On every affected table, **drop the existing unique constraint** that includes `academic_period_id` and **replace with two partial unique indexes** per the Q4 pattern.
+   - `post_migrate.sql` — RLS policies on affected tables stay unchanged (tenant-scoped, not period-scoped). Verify.
+
+3. **Shared Zod schemas** (`packages/shared/src/report-cards/*.schema.ts`):
+   - `startGenerationRunSchema` — `academic_period_id: z.string().uuid().nullable()`; require `academic_year_id: z.string().uuid()` when period is null (cross-field `.refine()`).
+   - `dryRunGenerationCommentGateSchema` — same.
+   - `createCommentWindowSchema`, `createTeacherRequestSchema`, `createOverallCommentSchema`, `createSubjectCommentSchema` — same treatment where applicable.
+   - Matrix/library list query schemas — add `academic_year_id` filter alongside `academic_period_id`.
+
+4. **Backend services:**
+   - `report-card-generation.service.ts`: when `dto.academic_period_id === null`, fetch data via `periodGradeComputationService.computeYearOverview(tenantId, classId, academicYearId)`, feed into the transcript builder. When non-null, existing per-period path. **All writes store both `academic_period_id` (nullable) and `academic_year_id` (always set).**
+   - `report-card-transcript.service.ts`: accept year-overview-shaped input as an alternate branch. The transcript needs to render a per-subject column structure that covers all periods in the year — reuse the `computeYearOverview` output which already has `grades[periodId][subjectId]`.
+   - `report-comment-windows.service.ts`: allow creating full-year windows (`{ academic_period_id: null, academic_year_id }`). Teachers write fresh comments during the window. The existing window listing should return full-year windows alongside per-period ones.
+   - `report-card-overall-comments.service.ts` + `report-card-subject-comments.service.ts`: writes allow `academic_period_id: null` + `academic_year_id: <yearId>`. Reads filter by `(period | year)` depending on which the caller provides.
+   - `report-card-teacher-requests.service.ts`: new request shape for full-year reopen. When approved, run a transaction that reopens every period's comment window in the year (plus the full-year window if present). This is the trickiest code change — keep it in a single `$transaction` to avoid partial reopens.
+   - Approval service (find the file containing approval config lookup): add the null-period lookup path — `findFirst({ tenant_id, academic_year_id, academic_period_id: null })`. Error loudly if no full-year config exists ("Cannot generate full-year report cards without a full-year approval config — configure one in Settings").
+   - **New helper**: `buildReportCardStorageKey` in the generation service (see Q5). Grep and migrate ALL existing filename/storage-key construction sites.
+   - Batch job service: honour the new partial indexes. Dedup check uses `(class, period, template) WHERE period IS NOT NULL` or `(class, year, template) WHERE period IS NULL`.
+
+5. **Frontend:**
+   - `step-2-period.tsx`: replace the stopgap with a real "Full Year <year name>" card at the top of the period list. Clicking sets `academicPeriodId: null` (or a sentinel — reducer decision). Reducer in `generate/_components/wizard/types.ts` changes the state shape: `academicPeriodId: string | null` (distinct from "not selected yet" — probably use a tuple `{ periodId: string | null; selected: boolean }`).
+   - `step-5-comment-gate.tsx`: dry-run payload carries nullable period. Backend handles it.
+   - `step-6-review.tsx`: show "Full Year 2025-2026" in the review summary when period is null.
+   - Library filter: add "Full Year" as a period option alongside S1/S2 (the library list query already has a period filter — extend it to accept `null` via a sentinel query param).
+   - Report Comments landing: surface full-year windows alongside per-period ones.
+   - Request Reopen modal (`report-comments/_components/request-reopen-modal.tsx`): add a "Full Year" option that creates a full-year reopen request.
+   - Comment window editor: handle full-year windows (title, labelling, "Write comments for the full year" copy).
+
+6. **Tests:**
+   - Migration idempotency: `npx prisma migrate reset && npx prisma migrate deploy` roundtrip clean.
+   - `report-card-generation.service.spec.ts`: add a full-year scenario. Fixture has 2 periods, both with snapshots. Generate with `period_id: null, year_id: X`. Assert the resulting ReportCard row has `period_id = null`, `year_id = X`, and the transcript data matches `computeYearOverview`'s output.
+   - `report-card-teacher-requests.service.spec.ts`: full-year reopen approval unlocks all per-period windows in the year atomically.
+   - Approval service spec: full-year config lookup works; absence of full-year config errors loudly.
+   - RLS spec: full-year rows from tenant A are invisible to tenant B.
+   - Batch job spec: the partial-index pair prevents double generation.
+   - E2E in `apps/api/test/`: generate a full-year report card end-to-end via HTTP, assert library list includes it with `period: null`.
+   - Frontend e2e (Playwright) is deferred to Phase 3.
+
+7. **Commit:** `feat(report-cards): full-year report cards (Option B)`.
+
+**Rollback plan for Phase 1b:**
+
+- Before running the migration, tag the current HEAD: `pre-phase-1b-<date>`.
+- Before running on production, take a `pg_dump` of the affected tables (the deploy script already does pre-deploy backups).
+- If things go wrong, `git revert` the Phase 1b commit and run `npx prisma migrate resolve --rolled-back <migration_name>` + manual SQL to re-add NOT NULL constraints. The schema change is reversible **only if no null-period rows exist yet** — once the first full-year report card is generated, rolling back means either backfilling or deleting those rows.
+
+### Phase 2 — Dashboard consolidation + nav move + priority feed
+
+**Tasks:**
+
+1. **Nav move** (`apps/web/src/lib/nav-config.ts`):
+   - Add new `Report Cards` top-level group to `hubGroupedSubStripConfigs.learning`, parallel to Classes/Curriculum/Assessment/Homework/Attendance. No children (clicking goes straight to `/report-cards`).
+   - Remove `reportCards`, `reportCardsGenerate`, `reportCardsSettings`, `reportCardsRequests`, `reportComments`, `gradeAnalytics` from the existing `Assessment` group's children.
+   - Update the `basePaths` array on the `learning` hub entry if needed to keep `/report-cards` and `/report-comments` routable from the hub.
+   - Add any needed i18n keys (`nav.reportCards` already exists per grep — verify).
+
+2. **New consolidated `/report-cards` dashboard** (`apps/web/src/app/[locale]/(school)/report-cards/page.tsx`):
+   - Full rebuild. Header: title + period selector + settings gear.
+   - Quick-action tiles (4 cards): Generate, Write Comments, Library (`0 documents` or fetched count), Teacher Requests (pending badge from `/api/v1/report-card-teacher-requests/pending`).
+   - Live Run Status panel (fetch via polling if an active run exists; otherwise "No runs in progress").
+   - Inline Analytics snapshot panel (call `/api/v1/report-cards/analytics` with the resolved period; render the same numbers the standalone page shows). Include "See full analytics →" link to the standalone page.
+   - Classes by year group section (the existing landing content moves here).
+   - Responsive: mobile-first (stack tiles vertically on `<sm`), `min-w-0 flex-1` on content, `w-full` on tiles.
+
+3. **Back-to-dashboard buttons** — verify/add across all sub-pages. Should be a single `<Button variant="ghost">` in the page header actions with `onClick={() => router.push(`/${locale}/report-cards`)}`. Reuse the existing pattern from `report-cards/[classId]/page.tsx`.
+
+4. **Priority feed card** for teacher requests (see section 4.3 above).
+   - `admin-home.tsx:29` — add `pending_report_card_requests` to `PriorityData`.
+   - `dashboard/page.tsx` — add `fetchReportCardRequests`. Wire into `useEffect`.
+   - `priority-feed.tsx#buildCards` — add new case with `Inbox` icon.
+   - i18n keys for the card copy.
+
+5. **Retire `/report-cards/bulk` and `/report-cards/approvals`:**
+   - Delete both `page.tsx` files.
+   - Verify no imports reference them.
+   - Remove any nav entries.
+   - Add `redirect('/report-cards/requests')` stubs **only if** you want bookmark-safety — otherwise let them 404.
+
+6. **Tests:**
+   - `turbo test` again.
+   - Frontend unit tests for `priority-feed.tsx` if they exist.
+
+7. **Commit:** `feat(report-cards): consolidated dashboard + nav move + teacher-request priority card`.
+
+### Phase 3 — Deploy + verify
+
+**Tasks:**
+
+1. **Tag** pre-deploy: `git tag pre-deploy-report-cards-<yyyymmdd-hhmm>`.
+2. **Deploy** via the existing direct-to-server flow — **do NOT push to `origin/main`**. The user is deliberately keeping the CI nightly gate clean.
+   - Create a git bundle of all new commits since server HEAD.
+   - `scp` the bundle to `root@46.62.244.139:/tmp/`.
+   - SSH, `cd /opt/edupod/app`, `sudo -u edupod git fetch /tmp/bundle.pack <local_head>`, `sudo -u edupod git reset --hard <local_head>`.
+   - Run `DEPLOY_SHA=<local_head> sudo -u edupod bash scripts/deploy-production.sh`. The script handles: `pnpm install --frozen-lockfile`, `prisma generate`, preflight, build, `pg_dump` pre-deploy backup, `prisma migrate deploy`, post-migrate SQL, PM2 restart, smoke tests.
+   - If Node OOMs during type-check/build, set `NODE_OPTIONS="--max-old-space-size=8192"`.
+3. **Playwright verify on prod** as Yusuf Rahman:
+   - `/en/report-cards` → new dashboard renders, 0 console errors
+   - Click Generate tile → wizard all 6 steps → submit → polling shows progress → completion
+   - Click class card → matrix, Grade mode shows letters only (no percentages), no trailing whitespace, Score mode shows percentages
+   - `/en/report-cards/requests` — no New Request / My Requests for admin
+   - `/en/report-comments` → click 2A → editor loads, 0 console errors
+   - `/en/report-cards/library` — shows 0 or listed docs
+   - `/en/report-cards/analytics` — loads without 400
+   - `/en/report-cards/settings` — loads and saves
+   - Learning hub sub-strip shows Report Cards as its own group
+   - `/en/dashboard` — if any teacher requests exist, priority card shows
+   - Full-year (Phase 1b): verify Step 2 shows real Full Year option, generate a full-year report card end-to-end, verify it appears in library with period "Full Year"
+
+   **Screenshots via Playwright:** DO NOT take screenshots. Use `browser_snapshot` only (accessibility tree). The user explicitly forbids screenshot output.
+
+4. **Rollback if something breaks:** `git reset --hard <pre-deploy-tag>` on the server + `pg_restore` from the pre-deploy backup (dump lives at `/opt/edupod/backups/predeploy/predeploy-<ts>.dump`).
+
+---
+
+## 7. Implementation log (session journal — UPDATE AS YOU GO)
+
+**Session 1 — 2026-04-09 (previous session)**
+
+- Reproduced all 9 bugs via Playwright as Yusuf Rahman on production
+- Root-caused bugs and mapped them to source files
+- Presented design proposal + got user approval (Option A for analytics, library 0-count OK, wizard stays own page with Back buttons)
+- User deferred "All periods" product questions, chose Option B
+
+**Session 2 — 2026-04-10 (current session — Phase 1a partial)**
+
+_Completed:_
+
+- ✅ Bug #5 — `step-5-comment-gate.tsx`: `apiClient<CommentGateDryRunResult>` → `apiClient<{ data: CommentGateDryRunResult }>`; dispatch `result: res.data`.
+- ✅ Bug #6 — `report-comments/overall/[classId]/page.tsx`: wrapped envelopes on 5 apiClient calls (active window, matrix, save POST, finalise PATCH, unfinalise PATCH).
+- ✅ Bug #3 — `step-1-scope.tsx`: branched selection label on `scope.mode`. Added i18n keys `classesSelected`, `yearGroupsSelected`, `periodAll`, `periodAllHint` in both `en.json` and `ar.json`.
+- ✅ Bug #4 stopgap — `step-2-period.tsx`: added disabled "Coming soon" card at top of period list. (Will be removed in Phase 1b.)
+- ✅ Bug #1 partial — `report-cards-queries.service.ts`: added `subjectScaleMap`, passed into `buildMatrixCells`, derived `cell.grade` via `applyGradingScale(score, subjectScale)` instead of echoing last-period `display_value`. **Unit test still to add.**
+
+_In progress when document was written:_ Phase 1a was paused to write this doc.
+
+_Remaining Phase 1a:_
+
+- Bug #2 — matrix table width
+- Bug #7 — requests page role gating
+- Bug #8 — retire approvals ghost (Phase 1a scope: redirect or noop; full removal in Phase 2)
+- Bug #9 — analytics 400 on empty query
+- Back-to-dashboard buttons on sub-pages
+- Unit test for Bug #1
+- `turbo test`
+- Commit Phase 1a
+
+---
+
+## 8. Files touched so far (Session 2)
+
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-5-comment-gate.tsx` — envelope fix
+- `apps/web/src/app/[locale]/(school)/report-comments/overall/[classId]/page.tsx` — envelope fixes (5 sites)
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-1-scope.tsx` — label by mode
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-2-period.tsx` — stopgap "Coming soon" card
+- `apps/web/messages/en.json` — new i18n keys (`classesSelected`, `yearGroupsSelected`, `periodAll`, `periodAllHint`)
+- `apps/web/messages/ar.json` — same new i18n keys in Arabic
+- `apps/api/src/modules/gradebook/report-cards/report-cards-queries.service.ts` — `subjectScaleMap` + `buildMatrixCells` grade derivation
+
+No files have been committed yet. `git status` will show all of the above as modified.
+
+---
+
+## 9. Reference
+
+### 9.1 Useful endpoints
+
+| Endpoint                                                                 | Purpose                                                                      |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------- | ---------------------------------------------- |
+| `GET /api/v1/report-cards/classes/:classId/matrix?academic_period_id=<id | all>`                                                                        | Class matrix for report cards landing drill-in |
+| `GET /api/v1/academic-periods?pageSize=50`                               | Wizard Step 2 period list                                                    |
+| `GET /api/v1/classes?pageSize=200`                                       | Wizard Step 1 class list (homeroom_only flag supported; pageSize cap is 500) |
+| `GET /api/v1/year-groups?pageSize=100`                                   | Wizard Step 1 year group list                                                |
+| `GET /api/v1/students?search=<q>&pageSize=20&status=active`              | Wizard Step 1 individual student search                                      |
+| `GET /api/v1/report-card-tenant-settings`                                | Settings page load + wizard defaults                                         |
+| `PATCH /api/v1/report-card-tenant-settings`                              | Settings page save                                                           |
+| `GET /api/v1/report-cards/templates/content-scopes`                      | Wizard Step 3 template list                                                  |
+| `POST /api/v1/report-cards/generation-runs/dry-run`                      | Step 5 comment gate check                                                    |
+| `POST /api/v1/report-cards/generation-runs`                              | Step 6 submit                                                                |
+| `GET /api/v1/report-cards/generation-runs/:id`                           | Polling for live-run status                                                  |
+| `GET /api/v1/report-cards/library?...`                                   | Library listing                                                              |
+| `GET /api/v1/report-cards/analytics?academic_period_id=<id>`             | Analytics (needs a period filter or it 400s)                                 |
+| `GET /api/v1/report-card-teacher-requests`                               | Requests list (all / pending)                                                |
+| `GET /api/v1/report-card-teacher-requests/pending?pageSize=1`            | Pending count for the priority card                                          |
+| `POST /api/v1/report-card-teacher-requests`                              | Create a request (teacher-only)                                              |
+| `GET /api/v1/report-comment-windows/active`                              | Active comment window lookup                                                 |
+| `POST /api/v1/report-comment-windows`                                    | Admin opens a window                                                         |
+| `POST /api/v1/report-card-overall-comments`                              | Save/upsert an overall comment                                               |
+| `PATCH /api/v1/report-card-overall-comments/:id/finalise`                | Finalise                                                                     |
+| `PATCH /api/v1/report-card-overall-comments/:id/unfinalise`              | Unfinalise                                                                   |
+
+### 9.2 Test commands
+
+```bash
+# Run report-card tests only (fast)
+cd /Users/ram/Desktop/SDB
+pnpm --filter @school/api test -- report-cards
+pnpm --filter @school/web test -- report-cards
+pnpm --filter @school/shared test -- report-cards
+
+# Full affected suite (slow but the mandatory gate per CLAUDE.md)
+turbo test --filter=@school/api --filter=@school/web --filter=@school/shared
+
+# Type check
+turbo type-check
+# OOM: NODE_OPTIONS="--max-old-space-size=8192" npx tsc --noEmit
+
+# Lint
+turbo lint
+```
+
+### 9.3 Production deploy flow (hard rules)
+
+- Primary server: `root@46.62.244.139`
+- App lives at `/opt/edupod/app` owned by `edupod:edupod` (chown if needed; do NOT leave root-owned files)
+- PM2 processes run as the `edupod` user, not root
+- Ports: api=3001, web=5551, worker=5556
+- **Never push to `origin/main`** during this iteration cycle — the user is keeping the CI nightly gate clean
+- Deploy flow:
+  1. Tag locally: `git tag pre-deploy-report-cards-<yyyymmdd-hhmm>`
+  2. Create bundle: `git bundle create /tmp/rc-deploy.bundle <server_head>..<local_head>`
+  3. `scp /tmp/rc-deploy.bundle root@46.62.244.139:/tmp/`
+  4. SSH, `cd /opt/edupod/app`, `sudo -u edupod git fetch /tmp/rc-deploy.bundle <local_head>`, `sudo -u edupod git reset --hard <local_head>`
+  5. `DEPLOY_SHA=<local_head> sudo -u edupod bash scripts/deploy-production.sh`
+  6. Wait for smoke tests to pass at the end of the script
+- **Do NOT update tenant_domain records** or any other production DB data without explicit approval
+- **Do NOT change credentials** without explicit approval
+- **Do NOT upgrade packages on the server** — version control flows from the codebase
+- **The nhqs tenant is reached at `nhqs.edupod.app` or the root `edupod.app` — NEVER `nurul-huda.edupod.app`**
+
+### 9.4 Rollback tags / backup paths
+
+- Rollback tag format: `pre-deploy-report-cards-<yyyymmdd-hhmm>`
+- DB pre-deploy backup: `/opt/edupod/backups/predeploy/predeploy-<yyyymmdd-hhmmss>.dump`
+- Restore: `pg_restore -d edupod_prod /opt/edupod/backups/predeploy/<dump>` (verify DB name)
+
+---
+
+## 10. Gotchas / things that WILL bite you if you don't read this
+
+1. **Envelope interceptor.** Any single-object response is wrapped in `{ data: T }`. Any response that already has `data` (paginated lists) is passed through untouched. If you type an `apiClient<T>` as the inner shape when the backend wraps it, you get `undefined.X` at runtime. When in doubt, type as `{ data: T }` and read `res.data`. Half of this feature's bugs are this mistake.
+
+2. **`academic_period_id` is NOT NULL until Phase 1b.** Every INSERT and every query predicate assumes it's a string. Phase 1b migration is the ONLY place you touch this. Do not partially-nullify it in Phase 1a or Phase 2.
+
+3. **Phase 1b migration is the point of no return.** Once a full-year report card is generated (period_id = null), rolling back the schema requires backfilling or deleting those rows. Tag + backup before deploying Phase 1b.
+
+4. **RLS — never `$executeRawUnsafe` outside the middleware.** All tenant-scoped writes go through `createRlsClient().$transaction()`. Reads use `this.prisma.model.findX({ where: { tenant_id } })` directly.
+
+5. **Logical CSS properties only.** `ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`, `text-start`, `text-end`, `rounded-s-`, `rounded-e-`, `border-s-`, `border-e-`. NEVER `ml-`, `mr-`, `left-`, `right-`, `text-left`, etc. There's a lint rule and it WILL fail CI.
+
+6. **Interactive transactions only.** `prisma.$transaction(async (tx) => { ... })`. Never the sequential/batch `prisma.$transaction([...])` API — there's an ESLint rule and it will fail the lint step.
+
+7. **Bilingual i18n is mandatory.** Every new `t('key')` must have corresponding entries in BOTH `apps/web/messages/en.json` AND `apps/web/messages/ar.json`. Missing Arabic keys will show the raw key at runtime.
+
+8. **Full regression tests are mandatory before commit** per `CLAUDE.md`. `turbo test` must pass. Do NOT skip with `--no-verify`.
+
+9. **Screenshots are forbidden** during Playwright verification. Use `browser_snapshot` (accessibility tree) only. The user explicitly rejected screenshots as output.
+
+10. **Back buttons, not browser back.** Every sub-page gets an explicit "Back to Report Cards" Button in its header actions. Do not rely on the browser back stack.
+
+11. **`/report-cards/bulk` and `/report-cards/approvals` are on the chopping block.** Don't waste time fixing them in Phase 1a — they're being deleted in Phase 2. The Phase 1a approvals "fix" is just redirect/noop.
+
+12. **The Phase 1a stopgap card in Step 2 MUST be removed in Phase 1b.** Don't leave the "Coming soon" card around after the real implementation lands.
+
+13. **`computeYearOverview` at `period-grade-computation.service.ts:569` is the canonical full-year data source.** Do not rewrite the aggregation logic in the report-card generation service — delegate to this method. The user explicitly pointed out "our gradebook already has 'all period' grade information/grades" — this is what they meant.
+
+14. **Do not regress the classes endpoint pageSize cap.** Previous session raised it from 100 → 500 in `apps/api/src/modules/classes/classes.controller.ts`. The wizard's class list depends on this. Also `homeroom_only` was added to the query schema there — don't strip it.
+
+15. **Do not touch the ResponseTransformInterceptor.** It is the source of the envelope wrapping. Changing it to not wrap would break every frontend call site that ALREADY accounts for the wrapping (including the fixes in this session). Fix the frontend instead.
+
+---
+
+## 11. How to resume this work
+
+If you're an incoming session and this doc is all you have:
+
+1. Read sections 1–5 to get full context.
+2. Read section 7 (Implementation log) to see what's done.
+3. Find the current phase in section 6 and pick the next unchecked task.
+4. Update section 7 as you go — mark tasks done, note any new findings, log any unexpected issues.
+5. When you finish a phase, update section 7 to mark it complete and move to the next phase.
+6. Before committing, run `turbo test` and `turbo type-check`. Do NOT skip these gates.
+7. Before deploying, tag + backup. Don't push to origin/main.
+8. After deploying, verify on prod with Playwright snapshots as Yusuf Rahman.
+
+Good luck. The design is solid, the root causes are well-understood, and the user has been explicit about their preferences. The only genuinely hard work is Phase 1b — be deliberate about it, don't try to speedrun the migration, and lean on `computeYearOverview` for the aggregation instead of writing new math.
