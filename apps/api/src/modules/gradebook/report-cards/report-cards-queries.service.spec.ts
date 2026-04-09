@@ -3,7 +3,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import {
   AcademicReadFacade,
-  AttendanceReadFacade,
   ClassesReadFacade,
   MOCK_FACADE_PROVIDERS,
   SchedulingReadFacade,
@@ -23,7 +22,6 @@ const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const REPORT_CARD_ID = 'rc-1';
 const STUDENT_ID = 'student-1';
 const PERIOD_ID = 'period-1';
-const CLASS_ID = 'class-1';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -49,18 +47,6 @@ function buildMockPrisma() {
     periodYearWeight: { findMany: jest.fn() },
     assessment: { groupBy: jest.fn() },
     teacherCompetency: { findMany: jest.fn() },
-  };
-}
-
-function buildMockAcademicReadFacade() {
-  return {
-    findPeriodById: jest.fn().mockResolvedValue(null),
-  };
-}
-
-function buildMockClassesReadFacade() {
-  return {
-    findEnrolmentsGeneric: jest.fn().mockResolvedValue([]),
   };
 }
 
@@ -261,218 +247,6 @@ describe('ReportCardsQueriesService — findOne', () => {
 
     expect(result.id).toBe(REPORT_CARD_ID);
     expect(result.revisions).toHaveLength(1);
-  });
-});
-
-// ─── gradeOverview Tests ─────────────────────────────────────────────────────
-
-describe('ReportCardsQueriesService — gradeOverview', () => {
-  let service: ReportCardsQueriesService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
-
-  beforeEach(async () => {
-    mockPrisma = buildMockPrisma();
-
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ...MOCK_FACADE_PROVIDERS,
-        ReportCardsQueriesService,
-        { provide: PrismaService, useValue: mockPrisma },
-        { provide: S3Service, useValue: mockS3Service },
-      ],
-    }).compile();
-
-    service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
-  });
-
-  afterEach(() => jest.clearAllMocks());
-
-  it('should return paginated grade overview', async () => {
-    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
-      {
-        id: 'snap-1',
-        computed_value: 85,
-        display_value: 'A',
-        overridden_value: null,
-        student: {
-          id: STUDENT_ID,
-          first_name: 'Ali',
-          last_name: 'Hassan',
-          student_number: 'STU001',
-        },
-        subject: { id: 's1', name: 'Math' },
-        academic_period: { id: PERIOD_ID, name: 'Term 1' },
-        class_entity: { id: CLASS_ID, name: '5A' },
-      },
-    ]);
-    mockPrisma.periodGradeSnapshot.count.mockResolvedValue(1);
-
-    const result = await service.gradeOverview(TENANT_ID, {
-      page: 1,
-      pageSize: 20,
-    });
-
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0]?.student_name).toBe('Ali Hassan');
-    expect(result.data[0]?.final_grade).toBe('A');
-    expect(result.data[0]?.has_override).toBe(false);
-    expect(result.meta.total).toBe(1);
-  });
-
-  it('should use overridden_value for final_grade when present', async () => {
-    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
-      {
-        id: 'snap-1',
-        computed_value: 85,
-        display_value: 'A',
-        overridden_value: 'A+',
-        student: {
-          id: STUDENT_ID,
-          first_name: 'Ali',
-          last_name: 'Hassan',
-          student_number: 'STU001',
-        },
-        subject: { id: 's1', name: 'Math' },
-        academic_period: { id: PERIOD_ID, name: 'Term 1' },
-        class_entity: { id: CLASS_ID, name: '5A' },
-      },
-    ]);
-    mockPrisma.periodGradeSnapshot.count.mockResolvedValue(1);
-
-    const result = await service.gradeOverview(TENANT_ID, {
-      page: 1,
-      pageSize: 20,
-    });
-
-    expect(result.data[0]?.final_grade).toBe('A+');
-    expect(result.data[0]?.has_override).toBe(true);
-  });
-
-  it('should filter by class_id and academic_period_id', async () => {
-    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
-    mockPrisma.periodGradeSnapshot.count.mockResolvedValue(0);
-
-    await service.gradeOverview(TENANT_ID, {
-      page: 1,
-      pageSize: 20,
-      class_id: CLASS_ID,
-      academic_period_id: PERIOD_ID,
-    });
-
-    expect(mockPrisma.periodGradeSnapshot.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          class_id: CLASS_ID,
-          academic_period_id: PERIOD_ID,
-        }),
-      }),
-    );
-  });
-});
-
-// ─── buildBatchSnapshots Tests ───────────────────────────────────────────────
-
-describe('ReportCardsQueriesService — buildBatchSnapshots', () => {
-  let service: ReportCardsQueriesService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
-  let mockAcademicFacade: ReturnType<typeof buildMockAcademicReadFacade>;
-  let mockClassesFacade: ReturnType<typeof buildMockClassesReadFacade>;
-  let mockAttendanceFacade: { groupSummariesByStatus: jest.Mock };
-
-  beforeEach(async () => {
-    mockPrisma = buildMockPrisma();
-    mockAcademicFacade = buildMockAcademicReadFacade();
-    mockClassesFacade = buildMockClassesReadFacade();
-    mockAttendanceFacade = { groupSummariesByStatus: jest.fn().mockResolvedValue([]) };
-
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ...MOCK_FACADE_PROVIDERS,
-        ReportCardsQueriesService,
-        { provide: PrismaService, useValue: mockPrisma },
-        { provide: S3Service, useValue: mockS3Service },
-        { provide: AcademicReadFacade, useValue: mockAcademicFacade },
-        { provide: ClassesReadFacade, useValue: mockClassesFacade },
-        { provide: AttendanceReadFacade, useValue: mockAttendanceFacade },
-      ],
-    }).compile();
-
-    service = module.get<ReportCardsQueriesService>(ReportCardsQueriesService);
-  });
-
-  afterEach(() => jest.clearAllMocks());
-
-  it('should throw NotFoundException when period not found', async () => {
-    mockAcademicFacade.findPeriodById.mockResolvedValue(null);
-
-    await expect(service.buildBatchSnapshots(TENANT_ID, CLASS_ID, PERIOD_ID)).rejects.toThrow(
-      NotFoundException,
-    );
-  });
-
-  it('should return empty array when no enrolments', async () => {
-    mockAcademicFacade.findPeriodById.mockResolvedValue({
-      id: PERIOD_ID,
-      name: 'Term 1',
-      start_date: new Date('2026-01-01'),
-      end_date: new Date('2026-03-31'),
-      academic_year: { id: 'ay-1', name: '2025-2026' },
-    });
-    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([]);
-
-    const result = await service.buildBatchSnapshots(TENANT_ID, CLASS_ID, PERIOD_ID);
-
-    expect(result).toEqual([]);
-  });
-
-  it('should build payloads for each enrolled student', async () => {
-    mockAcademicFacade.findPeriodById.mockResolvedValue({
-      id: PERIOD_ID,
-      name: 'Term 1',
-      start_date: new Date('2026-01-01'),
-      end_date: new Date('2026-03-31'),
-      academic_year: { id: 'ay-1', name: '2025-2026' },
-    });
-    mockClassesFacade.findEnrolmentsGeneric.mockResolvedValue([
-      {
-        student: {
-          id: STUDENT_ID,
-          first_name: 'Ali',
-          last_name: 'Hassan',
-          student_number: 'STU001',
-          year_group: { name: 'Year 5' },
-          homeroom_class: { name: '5A' },
-        },
-      },
-    ]);
-    mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
-      {
-        student_id: STUDENT_ID,
-        subject_id: 's1',
-        computed_value: 85,
-        display_value: 'A',
-        overridden_value: null,
-        subject: { id: 's1', name: 'Math', code: 'MATH' },
-      },
-    ]);
-    mockAttendanceFacade.groupSummariesByStatus.mockResolvedValue([
-      { derived_status: 'present', _count: { _all: 40 } },
-      { derived_status: 'absent', _count: { _all: 5 } },
-    ]);
-
-    const result = await service.buildBatchSnapshots(TENANT_ID, CLASS_ID, PERIOD_ID);
-
-    expect(result).toHaveLength(1);
-    expect(result[0]?.studentId).toBe(STUDENT_ID);
-
-    const payload = result[0]?.payload as Record<string, unknown>;
-    const subjects = payload?.subjects as Array<Record<string, unknown>>;
-    expect(subjects).toHaveLength(1);
-
-    const attendance = payload?.attendance_summary as Record<string, number>;
-    expect(attendance?.total_days).toBe(45);
-    expect(attendance?.present_days).toBe(40);
-    expect(attendance?.absent_days).toBe(5);
   });
 });
 

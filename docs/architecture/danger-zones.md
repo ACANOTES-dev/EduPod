@@ -800,3 +800,49 @@ Google Fonts are loaded via CDN `<link>` tags inside each template's `<head>`. P
 - `apps/worker/src/report-card-templates/{editorial-academic,modern-editorial}/index.hbs` — the templates themselves.
 - `apps/worker/nest-cli.json` — `compilerOptions.assets` — the config that copies `.hbs` files into `dist/`.
 - `apps/worker/src/report-card-templates/_shared/template-helpers.ts` — the view-model adapter that funnels `ReportCardRenderPayload` into the template.
+
+## DZ-46: Comment Window Enforcement Is The Sole AI Cost Control For Report Cards
+
+**Risk**: `ReportCardAiDraftService` (impl 02) is gated by a single server-side check: the per-tenant comment window must be in the `open` state for the targeted academic period. Every AI draft call — single-student subject comment generation used by the Report Comments editor — passes through that check. If the check is ever bypassed, regressed, or silently weakened, an attacker (or a well-meaning frontend bug) can cause unbounded AI spend against the tenant's account. The rest of the stack (permission check, rate limits, audit logging) is secondary — the window is THE gate. The frontend also disables AI buttons when the window is closed, but the frontend gate is advisory only; the server-side enforcement is the real control.
+
+**Why this is load-bearing**:
+
+1. **No per-request throttle**: there is no token bucket, no daily cap, no tenant-level spend ceiling on the AI provider. A single open window with a few hundred students × 10 subjects × multiple "regenerate draft" clicks can run into the thousands of provider calls in minutes.
+2. **No dry-run**: every AI call is real. There is no preview mode, no cached-response short-circuit.
+3. **Window state is tenant-global**: at most one window open per tenant at a time (enforced by the partial unique index `report_comment_windows_one_open_per_tenant`). Opening a window is the explicit admin action that says "spend is authorised right now for this period."
+4. **Closing a window is idempotent but not revertible mid-flight**: closing a window does not cancel in-flight AI calls that were accepted during the open state. If a window is closed mid-stream, already-enqueued calls will still complete.
+
+**Mitigation**:
+
+- The window check MUST live inside `ReportCardAiDraftService.generate*` methods, directly before the provider call. Do NOT move it to a guard, interceptor, or middleware — every future refactor will break guards before it breaks the service. Keep the call site local to the cost-incurring line.
+- The service throws `COMMENT_WINDOW_CLOSED` with a structured error code. Frontend surfaces it as "Comments are closed" and the AI button is disabled; backend rejects anyway.
+- Every AI call is audit-logged with tenant, user, student, period, and a cost estimate. If a bug ever bypasses the gate, the audit log is the detection mechanism. If an AI cost spike happens, start by querying the audit log for calls outside any known window.
+- Before introducing a new AI entry point (bulk regeneration, auto-draft-on-open, etc.), re-read this entry. Any new pathway must either (a) route through the same window check, or (b) introduce a new equivalent gate and document it here.
+
+**Code pointers**:
+
+- `apps/api/src/modules/gradebook/report-cards/report-card-ai-draft.service.ts` — the single-student AI draft path; look for the call to `ReportCommentWindowsService.requireOpenForPeriod` (or equivalent gating helper) before the provider call.
+- `apps/api/src/modules/gradebook/report-cards/report-comment-windows.service.ts` — the window open/close state machine (see `state-machines.md#CommentWindowStatus`).
+- `packages/prisma/migrations/*_add_report_comment_windows_*` — the partial unique index that enforces "at most one open window per tenant".
+
+## DZ-47: Report Card PDF Font Replacement Requires Re-Deploy, Not A Hot-Swap
+
+**Risk**: The `ProductionReportCardRenderer` (impl 11) ships with a fixed set of font families embedded in the Handlebars templates: Fraunces + Archivo + JetBrains Mono for the editorial-academic design; Bricolage Grotesque + Source Serif 4 + JetBrains Mono for modern-editorial; Noto Naskh Arabic for the Arabic variants of both. These fonts are loaded via Google Fonts CDN `<link>` tags at render time. There is no runtime font configuration, no tenant-level font override, no per-template font swap. If a tenant or product decision later requires a different font — for branding, compliance, or accessibility — the change requires:
+
+1. Editing the `<link>` URL in the affected `.hbs` template.
+2. Verifying visual fidelity against every content scope the template supports (different subject counts, different comment lengths, Arabic vs English).
+3. Re-deploying the worker.
+4. Re-rendering every outstanding report card for any tenants who care about long-archive consistency (old PDFs still use the previous font).
+
+**Mitigation**:
+
+- Do NOT attempt to hot-swap the font by editing settings or tenant config — the system has no such pathway and adding one is a significant change. Instead, treat font selection as a build-time decision.
+- Before changing a font, check whether previously-rendered PDFs need to be regenerated for consistency. If yes, schedule a regeneration run through the wizard after deploy.
+- Self-hosting fonts: if the deployment environment blocks the Google Fonts CDN (airgapped, strict firewall, compliance requirement), the mitigation is to download the font files, bundle them under `apps/worker/src/report-card-templates/_shared/fonts/`, and switch the templates to `@font-face` declarations. This is a deliberate deploy-time change — do not paper over CDN failures with a runtime fallback, because the fallback will silently produce wrong-looking PDFs.
+- When adding a new template design, register its fonts in both the `.hbs` file AND the test fixtures so visual regression catches font drift early.
+
+**Code pointers**:
+
+- `apps/worker/src/report-card-templates/editorial-academic/index.hbs` — Fraunces + Archivo + JetBrains Mono `<link>` tags.
+- `apps/worker/src/report-card-templates/modern-editorial/index.hbs` — Bricolage Grotesque + Source Serif 4 + JetBrains Mono + Noto Naskh Arabic `<link>` tags.
+- `apps/worker/src/processors/gradebook/report-card-production.renderer.ts` — the Puppeteer renderer that fetches the fonts via the launched Chromium instance.

@@ -231,20 +231,6 @@ export const generateReportCardsSchema = z.object({
 });
 export type GenerateReportCardsDto = z.infer<typeof generateReportCardsSchema>;
 
-export const generateBatchReportCardsSchema = z.object({
-  class_id: z.string().uuid(),
-  academic_period_id: z.string().uuid(),
-  template_id: z.string().min(1).max(50).optional().default('classic'),
-});
-export type GenerateBatchReportCardsDto = z.infer<typeof generateBatchReportCardsSchema>;
-
-export const reportCardOverviewQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  class_id: z.string().uuid().optional(),
-  academic_period_id: z.string().uuid().optional(),
-});
-
 export const updateReportCardSchema = z.object({
   teacher_comment: z.string().nullable().optional(),
   principal_comment: z.string().nullable().optional(),

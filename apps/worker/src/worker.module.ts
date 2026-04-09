@@ -98,7 +98,6 @@ import { RegulatoryPpodImportProcessor } from './processors/regulatory/ppod-impo
 import { RegulatoryPpodSyncProcessor } from './processors/regulatory/ppod-sync.processor';
 import { RegulatoryTuslaThresholdScanProcessor } from './processors/regulatory/tusla-threshold-scan.processor';
 import { REPORT_CARD_RENDERER_TOKEN } from './processors/report-card-render.contract';
-import { PlaceholderReportCardRenderer } from './processors/report-card-render.placeholder';
 import { AttachmentScanProcessor } from './processors/safeguarding/attachment-scan.processor';
 import { BreakGlassExpiryProcessor } from './processors/safeguarding/break-glass-expiry.processor';
 import { CriticalEscalationProcessor } from './processors/safeguarding/critical-escalation.processor';
@@ -402,12 +401,10 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     ReportCardAutoGenerateProcessor,
     ReportCardGenerationProcessor,
     // Report Cards Redesign — renderer + storage writer bindings.
-    // Impl 11 replaces the placeholder renderer from impl 04 with the
-    // production Handlebars + Puppeteer renderer that ports the HTML
-    // reference designs (editorial-academic, modern-editorial). The
-    // placeholder is still registered as a fallback for dev environments
-    // where puppeteer's chromium is not available.
-    PlaceholderReportCardRenderer,
+    // The production Handlebars + Puppeteer renderer (impl 11) ports the HTML
+    // reference designs (editorial-academic, modern-editorial) and emits
+    // bilingual EN/AR PDFs from the same template via view-model direction +
+    // translation table.
     ProductionReportCardRenderer,
     { provide: PUPPETEER_LAUNCHER_TOKEN, useClass: DefaultPuppeteerLauncher },
     { provide: TEMPLATE_DESIGN_RESOLVER_TOKEN, useClass: PrismaTemplateDesignResolver },

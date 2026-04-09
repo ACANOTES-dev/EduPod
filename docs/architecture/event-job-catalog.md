@@ -261,7 +261,7 @@ Missing any one of those leaves “approved but not actually executed” items i
 - **Major side effects**: PDF bytes written to object storage under `tenant/{tenant_id}/report-cards/{student_id}/{period_id}/{template_id}/{locale}.pdf`; `ReportCard` rows upserted; previous PDFs deleted (data loss — see `danger-zones.md`).
 - **RLS**: `TenantAwareJob` sets `app.current_tenant_id` at the top of the transaction. All reads and writes stay inside the transaction.
 - **DI bindings** (worker module):
-  - `REPORT_CARD_RENDERER_TOKEN` → `ProductionReportCardRenderer` (impl 11 — Handlebars + Puppeteer, ports `editorial-academic` and `modern-editorial` designs; bilingual EN/AR from the same template via view-model direction + translation table). The `PlaceholderReportCardRenderer` is still registered as a dev-mode fallback.
+  - `REPORT_CARD_RENDERER_TOKEN` → `ProductionReportCardRenderer` (impl 11 — Handlebars + Puppeteer, ports `editorial-academic` and `modern-editorial` designs; bilingual EN/AR from the same template via view-model direction + translation table). Impl 12 removed the `PlaceholderReportCardRenderer` fallback; the production renderer is now the sole binding.
   - `PUPPETEER_LAUNCHER_TOKEN` → `DefaultPuppeteerLauncher` (dynamic `import('puppeteer')`, `--no-sandbox` args).
   - `TEMPLATE_DESIGN_RESOLVER_TOKEN` → `PrismaTemplateDesignResolver` — reads `reportCardTemplate.branding_overrides_json.design_key` (cached per process) to pick which template design to render; falls back to `editorial-academic` if the key is unset, unknown, or the lookup throws.
   - `REPORT_CARD_STORAGE_WRITER_TOKEN` → `NullReportCardStorageWriter` (swap to S3 writer in production bootstrap)

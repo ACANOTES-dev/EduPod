@@ -35,9 +35,8 @@ export interface ReportCardStorageWriter {
 export const REPORT_CARD_STORAGE_WRITER_TOKEN = 'REPORT_CARD_STORAGE_WRITER';
 
 /**
- * No-op storage writer. The placeholder renderer exercise only requires the
- * bytes to be produced — no real upload happens in tests or in the workerless
- * default. Swap this binding in production to an S3 implementation.
+ * No-op storage writer used by tests and the workerless default. Swap this
+ * binding in production to an S3-backed implementation.
  */
 export class NullReportCardStorageWriter implements ReportCardStorageWriter {
   async upload(tenantId: string, key: string): Promise<string> {

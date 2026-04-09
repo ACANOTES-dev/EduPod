@@ -4,7 +4,6 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Logger,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -19,11 +18,9 @@ import { z } from 'zod';
 import {
   classMatrixQuerySchema,
   dryRunGenerationCommentGateSchema,
-  generateBatchReportCardsSchema,
   generateReportCardsSchema,
   listGenerationRunsQuerySchema,
   listReportCardLibraryQuerySchema,
-  reportCardOverviewQuerySchema,
   startGenerationRunSchema,
   updateReportCardSchema,
 } from '@school/shared';
@@ -60,8 +57,6 @@ const listReportCardsQuerySchema = z.object({
 @Controller('v1')
 @UseGuards(AuthGuard, PermissionGuard)
 export class ReportCardsController {
-  private readonly deprecationLogger = new Logger(ReportCardsController.name);
-
   constructor(
     private readonly reportCardsService: ReportCardsService,
     private readonly reportCardsQueriesService: ReportCardsQueriesService,
@@ -195,25 +190,6 @@ export class ReportCardsController {
     });
   }
 
-  /**
-   * @deprecated Report Cards Redesign (impl 06): use
-   *   `GET /v1/report-cards/classes/:classId/matrix` for the class matrix view
-   *   and `GET /v1/report-cards/library` for the document library. This flat
-   *   overview is preserved until impl 12 flips the frontend over.
-   */
-  @Get('report-cards/overview')
-  @RequiresPermission('gradebook.view')
-  async gradeOverview(
-    @CurrentTenant() tenant: { tenant_id: string },
-    @Query(new ZodValidationPipe(reportCardOverviewQuerySchema))
-    query: z.infer<typeof reportCardOverviewQuerySchema>,
-  ) {
-    this.deprecationLogger.warn(
-      '[DEPRECATED] GET /v1/report-cards/overview — prefer /v1/report-cards/classes/:classId/matrix or /v1/report-cards/library (impl 06)',
-    );
-    return this.reportCardsQueriesService.gradeOverview(tenant.tenant_id, query);
-  }
-
   @Get('report-cards/:id')
   @RequiresPermission('gradebook.view')
   async findOne(
@@ -254,51 +230,6 @@ export class ReportCardsController {
     return this.reportCardsService.revise(tenant.tenant_id, id);
   }
 
-  @Post('report-cards/generate-batch')
-  @RequiresPermission('gradebook.manage')
-  async generateBatchPdf(
-    @CurrentTenant() tenant: { tenant_id: string },
-    @Body(new ZodValidationPipe(generateBatchReportCardsSchema))
-    dto: z.infer<typeof generateBatchReportCardsSchema>,
-    @Res() res: Response,
-  ) {
-    // 1. Build snapshot payloads for all students in the class
-    const snapshots = await this.reportCardsQueriesService.buildBatchSnapshots(
-      tenant.tenant_id,
-      dto.class_id,
-      dto.academic_period_id,
-    );
-
-    if (snapshots.length === 0) {
-      res.status(HttpStatus.NO_CONTENT).send();
-      return;
-    }
-
-    // 2. Load tenant branding
-    const branding = await this.loadBranding(tenant.tenant_id);
-
-    // 3. Render each student's report card as HTML and combine
-    const templateKey = dto.template_id === 'modern' ? 'report-card-modern' : 'report-card';
-    const htmlPages: string[] = [];
-    for (const snap of snapshots) {
-      // Render each student individually. We use 'en' as default locale.
-      const html = this.pdfRenderingService.renderHtml(templateKey, 'en', snap.payload, branding);
-      htmlPages.push(html);
-    }
-
-    // 4. Combine all pages into a single multi-page HTML
-    const combinedHtml = this.buildCombinedHtml(htmlPages);
-
-    // 5. Render to PDF
-    const pdfBuffer = await this.pdfRenderingService.renderFromHtml(combinedHtml);
-
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': 'inline; filename="report-cards-batch.pdf"',
-    });
-    res.send(pdfBuffer);
-  }
-
   @Get('report-cards/:id/pdf')
   @RequiresPermission('gradebook.view')
   async renderPdf(
@@ -327,38 +258,6 @@ export class ReportCardsController {
   }
 
   // ─── Private Helpers ────────────────────────────────────────────────────
-
-  private buildCombinedHtml(htmlPages: string[]): string {
-    // Extract body content from each HTML page and combine with page breaks
-    const bodies = htmlPages.map((html) => {
-      const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-      return bodyMatch ? bodyMatch[1] : html;
-    });
-
-    // Extract style from the first page (all pages share the same template styles)
-    const styleMatch = htmlPages[0]?.match(/<style>([\s\S]*?)<\/style>/i);
-    const style = styleMatch ? styleMatch[1] : '';
-
-    return `<!DOCTYPE html>
-<html lang="en" dir="ltr">
-<head>
-  <meta charset="UTF-8">
-  <style>
-    ${style}
-    .page-break { page-break-after: always; }
-    .page-break:last-child { page-break-after: avoid; }
-  </style>
-</head>
-<body>
-  ${bodies
-    .map(
-      (body, i) =>
-        `<div class="page-break"${i === bodies.length - 1 ? ' style="page-break-after: avoid;"' : ''}>${body}</div>`,
-    )
-    .join('\n  ')}
-</body>
-</html>`;
-  }
 
   private async loadBranding(tenantId: string) {
     const tenantName = await this.tenantReadFacade.findNameById(tenantId);

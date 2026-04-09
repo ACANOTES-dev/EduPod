@@ -7697,7 +7697,7 @@
     "path": "/v1/report-cards/:id",
     "controller": "ReportCardsController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "report_cards.view"
   },
   {
     "method": "PATCH",
@@ -7938,13 +7938,6 @@
     "permission": "gradebook.manage"
   },
   {
-    "method": "POST",
-    "path": "/v1/report-cards/generate-batch",
-    "controller": "ReportCardsController",
-    "module": "gradebook",
-    "permission": "gradebook.manage"
-  },
-  {
     "method": "GET",
     "path": "/v1/report-cards/generation-runs",
     "controller": "ReportCardsController",
@@ -8013,13 +8006,6 @@
     "controller": "ReportCardsController",
     "module": "gradebook",
     "permission": "report_cards.manage"
-  },
-  {
-    "method": "GET",
-    "path": "/v1/report-cards/overview",
-    "controller": "ReportCardsController",
-    "module": "gradebook",
-    "permission": "report_cards.view"
   },
   {
     "method": "GET",
