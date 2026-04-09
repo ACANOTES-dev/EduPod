@@ -285,6 +285,7 @@
 **Frontend**:
 
 - `apps/web/src/app/[locale]/(school)/gradebook/`
+- `apps/web/src/app/[locale]/(school)/analytics/`
 - `apps/web/src/app/[locale]/(school)/report-cards/`
 - `apps/web/src/app/[locale]/(school)/settings/grading-scales/`
 - `apps/web/src/app/[locale]/(school)/settings/grading-weights/`

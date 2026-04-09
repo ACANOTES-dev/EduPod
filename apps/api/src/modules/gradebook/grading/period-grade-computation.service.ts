@@ -383,15 +383,29 @@ export class PeriodGradeComputationService {
   ): Promise<CrossSubjectResult> {
     const warnings: ComputationWarning[] = [];
 
-    // 1. Subjects from curriculum matrix
+    // 1. Subjects from curriculum matrix (include grading scale for display fixup)
     const classSubjects = await this.prisma.classSubjectGradeConfig.findMany({
       where: { tenant_id: tenantId, class_id: classId },
-      include: { subject: { select: { id: true, name: true } } },
+      include: {
+        subject: { select: { id: true, name: true } },
+        grading_scale: { select: { config_json: true } },
+      },
     });
     const subjects = classSubjects
       .map((cs) => ({ id: cs.subject_id, name: cs.subject.name }))
       .sort((a, b) => a.name.localeCompare(b.name));
     const subjectIds = subjects.map((s) => s.id);
+
+    // Build subject → grading scale lookup for display fixup
+    const subjectScales = new Map<string, GradingScaleConfig>();
+    for (const cs of classSubjects) {
+      if (cs.grading_scale?.config_json) {
+        subjectScales.set(
+          cs.subject_id,
+          cs.grading_scale.config_json as unknown as GradingScaleConfig,
+        );
+      }
+    }
 
     // 2. Existing snapshots
     const snapshots = await this.prisma.periodGradeSnapshot.findMany({
@@ -426,6 +440,13 @@ export class PeriodGradeComputationService {
 
       for (const s of subjects) {
         const cell = grades.get(s.id) ?? { computed: null, display: null };
+        // Fixup: if display is a percentage but a grading scale exists, apply it
+        if (cell.computed !== null && cell.display?.endsWith('%')) {
+          const scale = subjectScales.get(s.id);
+          if (scale) {
+            cell.display = this.applyGradingScale(cell.computed, scale);
+          }
+        }
         subjectGrades[s.id] = cell;
         if (cell.computed !== null) activeIds.add(s.id);
       }
@@ -495,6 +516,15 @@ export class PeriodGradeComputationService {
     // 5. Build lookup: studentId → periodId → GradeCell
     const snapshotLookup = this.buildSnapshotLookup(snapshots, 'academic_period_id');
 
+    // 5b. Load grading scale for display fixup
+    const subjectConfig = await this.prisma.classSubjectGradeConfig.findFirst({
+      where: { tenant_id: tenantId, class_id: classId, subject_id: subjectId },
+      include: { grading_scale: { select: { config_json: true } } },
+    });
+    const scaleForSubject = subjectConfig?.grading_scale?.config_json
+      ? (subjectConfig.grading_scale.config_json as unknown as GradingScaleConfig)
+      : null;
+
     // 6. Weighted average per student
     const studentRows = studentIds.map((sid) => {
       const grades = snapshotLookup.get(sid) ?? new Map<string, GradeCell>();
@@ -503,6 +533,9 @@ export class PeriodGradeComputationService {
 
       for (const p of periods) {
         const cell = grades.get(p.id) ?? { computed: null, display: null };
+        if (cell.computed !== null && cell.display?.endsWith('%') && scaleForSubject) {
+          cell.display = this.applyGradingScale(cell.computed, scaleForSubject);
+        }
         periodGrades[p.id] = cell;
         if (cell.computed !== null) activeIds.add(p.id);
       }
@@ -863,9 +896,10 @@ export class PeriodGradeComputationService {
    */
   private applyGradingScale(percentage: number, config: GradingScaleConfig): string {
     if (config.type === 'numeric' && config.ranges) {
-      // Find the range that contains this percentage
-      for (const range of config.ranges) {
-        if (percentage >= range.min && percentage <= range.max) {
+      // Sort ranges descending by min so we match the highest applicable range first
+      const sorted = [...config.ranges].sort((a, b) => b.min - a.min);
+      for (const range of sorted) {
+        if (percentage >= range.min) {
           return range.label;
         }
       }

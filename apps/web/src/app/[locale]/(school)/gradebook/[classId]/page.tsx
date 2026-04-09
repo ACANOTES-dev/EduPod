@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, BarChart2, Pencil, Plus } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronRight, Pencil, Plus } from 'lucide-react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -30,7 +30,6 @@ import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { AnalyticsTab } from './analytics-tab';
 import { ResultsMatrix } from './results-matrix';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -138,7 +137,7 @@ interface AssessmentTemplate {
   counts_toward_report_card: boolean;
 }
 
-type TabKey = 'assessments' | 'results' | 'grades' | 'analytics';
+type TabKey = 'assessments' | 'results' | 'grades';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -183,6 +182,20 @@ export default function ClassGradebookPage() {
   const [mySubjectIds, setMySubjectIds] = React.useState<Set<string>>(new Set());
   const [classAllocations, setClassAllocations] = React.useState<ClassAllocation[]>([]);
   const [allocationsLoaded, setAllocationsLoaded] = React.useState(false);
+
+  // ─── Collapsible subject groups ─────────────────────────────────────────
+  const [collapsedSubjects, setCollapsedSubjects] = React.useState<Set<string>>(new Set());
+  const toggleSubjectCollapse = React.useCallback((subjectId: string) => {
+    setCollapsedSubjects((prev) => {
+      const next = new Set(prev);
+      if (next.has(subjectId)) {
+        next.delete(subjectId);
+      } else {
+        next.add(subjectId);
+      }
+      return next;
+    });
+  }, []);
 
   // Load teaching allocations → subject ownership + subject filter options
   // Uses allSettled because the owner/principal has no staff profile (my-allocations 404s)
@@ -273,7 +286,7 @@ export default function ClassGradebookPage() {
 
     const groups = new Map<
       string,
-      { subjectName: string; teacherName: string; assessments: Assessment[] }
+      { subjectName: string; teacherNames: string; assessments: Assessment[] }
     >();
 
     for (const a of assessments) {
@@ -282,10 +295,13 @@ export default function ClassGradebookPage() {
       const subjectName = a.subject_name || a.subject?.name || '';
 
       if (!groups.has(subjectId)) {
-        const allocation = classAllocations.find((al) => al.subject_id === subjectId);
+        // Collect ALL teachers for this subject, deduplicate, sort alphabetically by first name
+        const allocations = classAllocations.filter((al) => al.subject_id === subjectId);
+        const uniqueNames = [...new Set(allocations.map((al) => al.teacher_name).filter(Boolean))];
+        uniqueNames.sort((a, b) => a.localeCompare(b));
         groups.set(subjectId, {
           subjectName,
-          teacherName: allocation?.teacher_name || '',
+          teacherNames: uniqueNames.join(', '),
           assessments: [],
         });
       }
@@ -296,6 +312,23 @@ export default function ClassGradebookPage() {
 
     return [...groups.entries()].sort(([, a], [, b]) => a.subjectName.localeCompare(b.subjectName));
   }, [assessments, assessmentSubjectFilter, classAllocations]);
+
+  // Auto-collapse non-owned subjects once allocations and assessments are loaded
+  const collapsedInitialised = React.useRef(false);
+  React.useEffect(() => {
+    if (collapsedInitialised.current) return;
+    if (!allocationsLoaded || !groupedBySubject || mySubjectIds.size === 0) return;
+    const nonOwned = new Set<string>();
+    for (const [subjectId] of groupedBySubject) {
+      if (!mySubjectIds.has(subjectId)) {
+        nonOwned.add(subjectId);
+      }
+    }
+    if (nonOwned.size > 0) {
+      setCollapsedSubjects(nonOwned);
+      collapsedInitialised.current = true;
+    }
+  }, [allocationsLoaded, groupedBySubject, mySubjectIds]);
 
   /** True when the single-subject filter points to a subject the teacher owns (or allocations not yet loaded / admin). */
   const isFilteredSubjectOwned =
@@ -700,15 +733,10 @@ export default function ClassGradebookPage() {
     { key: 'assessments', label: t('assessments') },
     { key: 'results', label: t('results') },
     { key: 'grades', label: t('grades') },
-    {
-      key: 'analytics',
-      label: t('analytics'),
-      icon: <BarChart2 className="inline-block me-1 h-3.5 w-3.5" />,
-    },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-8">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => router.push(`/${locale}/gradebook`)}>
           <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
@@ -845,83 +873,97 @@ export default function ClassGradebookPage() {
                         !allocationsLoaded ||
                         mySubjectIds.size === 0 ||
                         mySubjectIds.has(subjectId);
+                      const isCollapsed = collapsedSubjects.has(subjectId);
                       return (
                         <React.Fragment key={subjectId}>
                           {/* Section header */}
-                          <tr className="bg-primary-50 dark:bg-primary-950/20 border-b border-border">
+                          <tr
+                            className="bg-primary-50 dark:bg-primary-950/20 border-b border-border cursor-pointer select-none"
+                            onClick={() => toggleSubjectCollapse(subjectId)}
+                          >
                             <td colSpan={6} className="px-4 py-2.5">
-                              <span className="font-semibold text-text-primary">
-                                {group.subjectName}
-                              </span>
-                              {group.teacherName && (
-                                <span className="ms-3 text-xs text-text-secondary">
-                                  — {group.teacherName}
-                                </span>
-                              )}
-                              <span className="ms-3 text-xs text-text-tertiary">
-                                ({group.assessments.length})
-                              </span>
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <span className="font-semibold text-text-primary">
+                                    {group.subjectName}
+                                  </span>
+                                  {group.teacherNames && (
+                                    <span className="ms-3 text-xs text-text-secondary">
+                                      — {group.teacherNames}
+                                    </span>
+                                  )}
+                                  <span className="ms-3 text-xs text-text-tertiary">
+                                    ({group.assessments.length})
+                                  </span>
+                                </div>
+                                {isCollapsed ? (
+                                  <ChevronRight className="h-4 w-4 text-text-tertiary rtl:rotate-180" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4 text-text-tertiary" />
+                                )}
+                              </div>
                             </td>
                           </tr>
-                          {/* Assessment rows */}
-                          {group.assessments.map((row) => {
-                            const display = computeDisplayStatus(row);
-                            return (
-                              <tr
-                                key={row.id}
-                                className={`border-b border-border transition-colors ${
-                                  isOwned
-                                    ? 'hover:bg-surface-secondary cursor-pointer'
-                                    : 'opacity-50'
-                                }`}
-                                onClick={
-                                  isOwned
-                                    ? () =>
-                                        router.push(
-                                          `/${locale}/gradebook/${classId}/assessments/${row.id}/grades`,
-                                        )
-                                    : undefined
-                                }
-                              >
-                                <td className="px-4 py-3 font-medium text-text-primary">
-                                  {row.title}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <StatusBadge status={display.variant} dot>
-                                    {t(display.key)}
-                                  </StatusBadge>
-                                </td>
-                                <td className="px-4 py-3 text-text-secondary">
-                                  {row.category_name}
-                                </td>
-                                <td className="px-4 py-3 font-mono text-text-secondary" dir="ltr">
-                                  {row.max_score}
-                                </td>
-                                <td
-                                  className="px-4 py-3 font-mono text-text-secondary text-xs"
-                                  dir="ltr"
+                          {/* Assessment rows (hidden when collapsed) */}
+                          {!isCollapsed &&
+                            group.assessments.map((row) => {
+                              const display = computeDisplayStatus(row);
+                              return (
+                                <tr
+                                  key={row.id}
+                                  className={`border-b border-border transition-colors ${
+                                    isOwned
+                                      ? 'hover:bg-surface-secondary cursor-pointer'
+                                      : 'opacity-50'
+                                  }`}
+                                  onClick={
+                                    isOwned
+                                      ? () =>
+                                          router.push(
+                                            `/${locale}/gradebook/${classId}/assessments/${row.id}/grades`,
+                                          )
+                                      : undefined
+                                  }
                                 >
-                                  {row.due_date ?? '—'}
-                                </td>
-                                <td className="px-4 py-3">
-                                  {isOwned && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        router.push(
-                                          `/${locale}/gradebook/${classId}/assessments/${row.id}/grades`,
-                                        );
-                                      }}
-                                    >
-                                      {t('gradeEntry')}
-                                    </Button>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })}
+                                  <td className="px-4 py-3 font-medium text-text-primary">
+                                    {row.title}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <StatusBadge status={display.variant} dot>
+                                      {t(display.key)}
+                                    </StatusBadge>
+                                  </td>
+                                  <td className="px-4 py-3 text-text-secondary">
+                                    {row.category_name}
+                                  </td>
+                                  <td className="px-4 py-3 font-mono text-text-secondary" dir="ltr">
+                                    {row.max_score}
+                                  </td>
+                                  <td
+                                    className="px-4 py-3 font-mono text-text-secondary text-xs"
+                                    dir="ltr"
+                                  >
+                                    {row.due_date ?? '—'}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {isOwned && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          router.push(
+                                            `/${locale}/gradebook/${classId}/assessments/${row.id}/grades`,
+                                          );
+                                        }}
+                                      >
+                                        {t('gradeEntry')}
+                                      </Button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
                         </React.Fragment>
                       );
                     })}
@@ -954,8 +996,6 @@ export default function ClassGradebookPage() {
       )}
 
       {activeTab === 'results' && <ResultsMatrix classId={classId} />}
-
-      {activeTab === 'analytics' && <AnalyticsTab classId={classId} />}
 
       {activeTab === 'grades' && (
         <>

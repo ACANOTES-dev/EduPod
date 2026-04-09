@@ -489,7 +489,7 @@ export class GradebookController {
   async getResultsMatrix(
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('classId', ParseUUIDPipe) classId: string,
-    @Query('academic_period_id', ParseUUIDPipe) academicPeriodId: string,
+    @Query('academic_period_id') academicPeriodId?: string,
   ) {
     return this.resultsMatrixService.getMatrix(tenant.tenant_id, classId, academicPeriodId);
   }

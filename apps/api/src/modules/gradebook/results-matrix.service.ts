@@ -61,7 +61,7 @@ export class ResultsMatrixService {
   async getMatrix(
     tenantId: string,
     classId: string,
-    academicPeriodId: string,
+    academicPeriodId?: string,
   ): Promise<ResultsMatrixResponse> {
     // 1. Verify the class exists
     await this.classesReadFacade.existsOrThrow(tenantId, classId);
@@ -105,12 +105,12 @@ export class ResultsMatrixService {
 
     const studentIds = students.map((s) => s.id);
 
-    // 3. Get all active assessments for this class + period (exclude draft + cancelled)
+    // 3. Get all active assessments for this class (optionally filtered by period)
     const assessments = await this.prisma.assessment.findMany({
       where: {
         tenant_id: tenantId,
         class_id: classId,
-        academic_period_id: academicPeriodId,
+        ...(academicPeriodId ? { academic_period_id: academicPeriodId } : {}),
         status: { notIn: ['draft', 'closed'] },
       },
       include: {

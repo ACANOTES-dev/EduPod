@@ -381,6 +381,7 @@ export const hubGroupedSubStripConfigs: Record<string, SubStripGroupConfig[]> = 
         { labelKey: 'nav.assessmentDashboard', href: '/assessments' },
         { labelKey: 'nav.gradebook', href: '/gradebook' },
         { labelKey: 'nav.reportCards', href: '/report-cards' },
+        { labelKey: 'nav.gradeAnalytics', href: '/analytics' },
       ],
     },
     {

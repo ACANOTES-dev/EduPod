@@ -1,12 +1,15 @@
 'use client';
 
-import { Save, Target } from 'lucide-react';
+import { saveAs } from 'file-saver';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { Download } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+import * as XLSX from 'xlsx';
 
 import {
   Button,
-  Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -15,7 +18,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  toast,
 } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
@@ -78,24 +80,11 @@ export function ResultsMatrix({ classId }: { classId: string }) {
   // Matrix data
   const [matrix, setMatrix] = React.useState<MatrixData | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
-  const [isSaving, setIsSaving] = React.useState(false);
 
-  // Dirty grades tracking: { `${studentId}:${assessmentId}`: GradeEntry }
-  const [dirtyGrades, setDirtyGrades] = React.useState<
-    Map<
-      string,
-      { student_id: string; assessment_id: string; raw_score: number | null; is_missing: boolean }
-    >
-  >(new Map());
-
-  // Local grade overrides for UI (merged with server data)
+  // Local grade view (merged from server data)
   const [localGrades, setLocalGrades] = React.useState<Record<string, Record<string, GradeEntry>>>(
     {},
   );
-
-  // Default score popover
-  const [defaultPopoverOpen, setDefaultPopoverOpen] = React.useState(false);
-  const [defaultScoreInput, setDefaultScoreInput] = React.useState('');
 
   // Load filter options
   React.useEffect(() => {
@@ -110,12 +99,12 @@ export function ResultsMatrix({ classId }: { classId: string }) {
   React.useEffect(() => {
     if (!periodId) return;
     setIsLoading(true);
-    setDirtyGrades(new Map());
-    apiClient<{ data: MatrixData }>(
-      `/api/v1/gradebook/classes/${classId}/results-matrix?academic_period_id=${periodId}`,
-    )
+    const url =
+      periodId === 'all'
+        ? `/api/v1/gradebook/classes/${classId}/results-matrix`
+        : `/api/v1/gradebook/classes/${classId}/results-matrix?academic_period_id=${periodId}`;
+    apiClient<{ data: MatrixData }>(url)
       .then((res) => {
-        // API wraps response in { data: ... }
         const matrixData = res.data;
         setMatrix(matrixData);
         setLocalGrades(matrixData.grades ?? {});
@@ -131,94 +120,6 @@ export function ResultsMatrix({ classId }: { classId: string }) {
   // Get grade value for a cell
   const getGrade = (studentId: string, assessmentId: string): GradeEntry => {
     return localGrades[studentId]?.[assessmentId] ?? { raw_score: null, is_missing: false };
-  };
-
-  // Update a grade cell
-  const updateGrade = (
-    studentId: string,
-    assessmentId: string,
-    value: string,
-    maxScore: number,
-  ) => {
-    const numValue = value === '' ? null : Math.min(Math.max(0, Number(value)), maxScore);
-    const key = `${studentId}:${assessmentId}`;
-
-    setLocalGrades((prev) => ({
-      ...prev,
-      [studentId]: {
-        ...prev[studentId],
-        [assessmentId]: { raw_score: numValue, is_missing: false },
-      },
-    }));
-
-    setDirtyGrades((prev) => {
-      const next = new Map(prev);
-      next.set(key, {
-        student_id: studentId,
-        assessment_id: assessmentId,
-        raw_score: numValue,
-        is_missing: false,
-      });
-      return next;
-    });
-  };
-
-  // Apply default score to all empty cells
-  const applyDefaultScore = (defaultScore: number) => {
-    if (!matrix) return;
-    setDefaultPopoverOpen(false);
-    setDefaultScoreInput('');
-
-    const nextLocal = { ...localGrades };
-    const nextDirty = new Map(dirtyGrades);
-
-    for (const student of matrix.students) {
-      for (const subject of displaySubjects) {
-        for (const assessment of subject.assessments) {
-          if (['closed', 'locked', 'submitted_locked', 'final_locked'].includes(assessment.status))
-            continue;
-          const existing = nextLocal[student.id]?.[assessment.id];
-          // Only fill cells that are currently empty (no score and not marked missing)
-          if (existing?.raw_score != null || existing?.is_missing) continue;
-
-          const clamped = Math.min(Math.max(0, defaultScore), assessment.max_score);
-          nextLocal[student.id] = {
-            ...nextLocal[student.id],
-            [assessment.id]: { raw_score: clamped, is_missing: false },
-          };
-          const key = `${student.id}:${assessment.id}`;
-          nextDirty.set(key, {
-            student_id: student.id,
-            assessment_id: assessment.id,
-            raw_score: clamped,
-            is_missing: false,
-          });
-        }
-      }
-    }
-
-    setLocalGrades(nextLocal);
-    setDirtyGrades(nextDirty);
-  };
-
-  // Save dirty grades
-  const handleSave = async () => {
-    if (dirtyGrades.size === 0) return;
-    setIsSaving(true);
-    try {
-      const grades = Array.from(dirtyGrades.values());
-      await apiClient(`/api/v1/gradebook/classes/${classId}/results-matrix`, {
-        method: 'PUT',
-        body: JSON.stringify({ grades }),
-      });
-      setDirtyGrades(new Map());
-      toast.success(t('save'));
-    } catch (err) {
-      console.error('[ResultsMatrix]', err);
-      toast.error(tc('errorGeneric'));
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   // Filter subjects (guard against undefined subjects in API response)
@@ -248,6 +149,104 @@ export function ResultsMatrix({ classId }: { classId: string }) {
       }, 0)
     : 0;
 
+  // ─── Export helpers ─────────────────────────────────────────────────────
+
+  /** Build a flat 2D array from the matrix for export */
+  const buildExportRows = (): { headers: string[][]; rows: (string | number)[][] } => {
+    // Row 1: subject group headers
+    const subjectRow: string[] = ['Student'];
+    for (const subject of displaySubjects) {
+      subjectRow.push(subject.name);
+      // fill remaining columns for this subject's assessments
+      for (let i = 1; i < subject.assessments.length; i++) {
+        subjectRow.push('');
+      }
+    }
+
+    // Row 2: assessment titles
+    const assessmentRow: string[] = [''];
+    for (const subject of displaySubjects) {
+      for (const a of subject.assessments) {
+        assessmentRow.push(`${a.title} (/${a.max_score})`);
+      }
+    }
+
+    // Data rows
+    const rows: (string | number)[][] = [];
+    if (matrix) {
+      for (const student of matrix.students) {
+        const row: (string | number)[] = [`${student.first_name} ${student.last_name}`];
+        for (const subject of displaySubjects) {
+          for (const a of subject.assessments) {
+            const grade = getGrade(student.id, a.id);
+            row.push(grade.raw_score != null ? grade.raw_score : '—');
+          }
+        }
+        rows.push(row);
+      }
+    }
+
+    return { headers: [subjectRow, assessmentRow], rows };
+  };
+
+  const exportToExcel = () => {
+    const { headers, rows } = buildExportRows();
+    const ws = XLSX.utils.aoa_to_sheet([...headers, ...rows]);
+
+    // Merge subject header cells
+    const merges: XLSX.Range[] = [];
+    let col = 1;
+    for (const subject of displaySubjects) {
+      if (subject.assessments.length > 1) {
+        merges.push({ s: { r: 0, c: col }, e: { r: 0, c: col + subject.assessments.length - 1 } });
+      }
+      col += subject.assessments.length;
+    }
+    ws['!merges'] = merges;
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 25 },
+      ...displaySubjects.flatMap((s) => s.assessments.map(() => ({ wch: 18 }))),
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const periodLabel =
+      periodId === 'all'
+        ? 'All Periods'
+        : (periods.find((p) => p.id === periodId)?.name ?? 'Results');
+    XLSX.utils.book_append_sheet(wb, ws, periodLabel.slice(0, 31));
+
+    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    saveAs(
+      new Blob([buf], { type: 'application/octet-stream' }),
+      `results-matrix-${periodLabel}.xlsx`,
+    );
+  };
+
+  const exportToPdf = () => {
+    const { headers, rows } = buildExportRows();
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
+    const periodLabel =
+      periodId === 'all'
+        ? 'All Periods'
+        : (periods.find((p) => p.id === periodId)?.name ?? 'Results');
+
+    doc.setFontSize(14);
+    doc.text(`Results Matrix — ${periodLabel}`, 14, 15);
+
+    autoTable(doc, {
+      head: headers,
+      body: rows.map((r) => r.map(String)),
+      startY: 22,
+      styles: { fontSize: 7, cellPadding: 1.5 },
+      headStyles: { fillColor: [34, 120, 74], textColor: 255, fontSize: 7 },
+      theme: 'grid',
+    });
+
+    doc.save(`results-matrix-${periodLabel}.pdf`);
+  };
+
   return (
     <div className="space-y-4">
       {/* Filters */}
@@ -257,6 +256,7 @@ export function ResultsMatrix({ classId }: { classId: string }) {
             <SelectValue placeholder={t('period')} />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">{t('allPeriods')}</SelectItem>
             {periods.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.name}
@@ -279,6 +279,32 @@ export function ResultsMatrix({ classId }: { classId: string }) {
               ))}
             </SelectContent>
           </Select>
+        )}
+
+        {/* Export dropdown — right side */}
+        {matrix && displaySubjects.length > 0 && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="ms-auto">
+                <Download className="me-1.5 h-3.5 w-3.5" />
+                {tc('export')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-40 p-1">
+              <button
+                onClick={exportToExcel}
+                className="w-full rounded-md px-3 py-2 text-start text-sm hover:bg-surface-secondary transition-colors"
+              >
+                Export as Excel
+              </button>
+              <button
+                onClick={exportToPdf}
+                className="w-full rounded-md px-3 py-2 text-start text-sm hover:bg-surface-secondary transition-colors"
+              >
+                Export as PDF
+              </button>
+            </PopoverContent>
+          </Popover>
         )}
       </div>
 
@@ -380,11 +406,6 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                           subject.assessments.map((assessment, ai) => {
                             const isLastInSubject = ai === subject.assessments.length - 1;
                             const grade = getGrade(student.id, assessment.id);
-                            const isLocked =
-                              assessment.status === 'closed' ||
-                              assessment.status === 'locked' ||
-                              assessment.status === 'submitted_locked' ||
-                              assessment.status === 'final_locked';
 
                             return (
                               <td
@@ -396,38 +417,12 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                                 }`}
                                 style={{ width: 72 }}
                               >
-                                {isLocked ? (
-                                  <span
-                                    className="inline-block w-[60px] rounded bg-surface-secondary px-1 py-1 text-center text-xs font-medium text-text-tertiary"
-                                    dir="ltr"
-                                  >
-                                    {grade.raw_score != null ? grade.raw_score : '—'}
-                                  </span>
-                                ) : (
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    max={assessment.max_score}
-                                    value={grade.raw_score != null ? grade.raw_score : ''}
-                                    onChange={(e) =>
-                                      updateGrade(
-                                        student.id,
-                                        assessment.id,
-                                        e.target.value,
-                                        assessment.max_score,
-                                      )
-                                    }
-                                    placeholder="—"
-                                    dir="ltr"
-                                    className={`w-[60px] rounded border px-1 py-1 text-center text-xs font-medium tabular-nums transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
-                                      grade.is_missing
-                                        ? 'border-danger-200 bg-danger-50 text-danger-text'
-                                        : grade.raw_score != null
-                                          ? 'border-success-200 bg-success-50 text-text-primary'
-                                          : 'border-border bg-surface text-text-tertiary'
-                                    }`}
-                                  />
-                                )}
+                                <span
+                                  className="inline-block w-[60px] rounded bg-surface-secondary px-1 py-1 text-center text-xs font-medium text-text-tertiary"
+                                  dir="ltr"
+                                >
+                                  {grade.raw_score != null ? grade.raw_score : '—'}
+                                </span>
                               </td>
                             );
                           }),
@@ -438,8 +433,8 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                 </table>
               </div>
 
-              {/* Save bar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface-secondary/50 px-4 py-3">
+              {/* Stats bar */}
+              <div className="flex flex-wrap items-center gap-3 border-t border-border bg-surface-secondary/50 px-4 py-3">
                 <p className="text-xs text-text-secondary">
                   <strong className="text-text-primary">{matrix.students.length}</strong>{' '}
                   {tc('student').toLowerCase()}s{' · '}
@@ -448,60 +443,7 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                   <strong className="text-text-primary">{filledCells}</strong>
                   {t('of')} <strong className="text-text-primary">{totalCells}</strong>
                   {t('gradesEntered')}
-                  {dirtyGrades.size > 0 && (
-                    <span className="ms-2 text-warning-text">
-                      ({dirtyGrades.size}
-                      {t('unsaved')}
-                    </span>
-                  )}
                 </p>
-                <div className="flex items-center gap-2">
-                  {/* Set Default Score */}
-                  <Popover open={defaultPopoverOpen} onOpenChange={setDefaultPopoverOpen}>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" disabled={!matrix}>
-                        <Target className="me-1.5 h-3.5 w-3.5" />
-                        {t('setDefault')}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent align="end" className="w-56 p-3">
-                      <p className="mb-2 text-xs font-medium text-text-primary">
-                        {t('setDefaultScore')}
-                      </p>
-                      <p className="mb-3 text-xs text-text-secondary">{t('setDefaultScoreHint')}</p>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min={0}
-                          value={defaultScoreInput}
-                          onChange={(e) => setDefaultScoreInput(e.target.value)}
-                          placeholder={t('score')}
-                          className="flex-1"
-                          dir="ltr"
-                        />
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            const val = Number(defaultScoreInput);
-                            if (!isNaN(val) && val >= 0) applyDefaultScore(val);
-                          }}
-                          disabled={!defaultScoreInput}
-                        >
-                          {t('apply')}
-                        </Button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-
-                  <Button
-                    onClick={handleSave}
-                    disabled={dirtyGrades.size === 0 || isSaving}
-                    size="sm"
-                  >
-                    <Save className="me-2 h-3.5 w-3.5" />
-                    {isSaving ? tc('loading') : t('save')}
-                  </Button>
-                </div>
               </div>
             </div>
           )}
