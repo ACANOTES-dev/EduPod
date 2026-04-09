@@ -149,7 +149,7 @@ When you finish an implementation, append an entry to the **Completions** sectio
 
 - **Completed at:** 2026-04-09
 - **Completed by:** Claude Opus 4.6 (Claude Code)
-- **Branch / commit:** `main` @ `<pending commit>`
+- **Branch / commit:** `main` @ `63b0af60`
 - **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
 - **Status:** ✅ complete
 - **Summary:** Built the full backend comment subsystem: windows, subject comments, overall comments, and single-student AI drafting with strict server-side window enforcement. The `assertWindowOpenForPeriod` primitive on `ReportCommentWindowsService` is the single reusable cost-control mechanism — every comment write and every AI call routes through it.
