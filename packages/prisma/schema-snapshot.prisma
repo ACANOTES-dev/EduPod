@@ -551,6 +551,13 @@ model Tenant {
   report_card_acknowledgments     ReportCardAcknowledgment[]
   report_card_verification_tokens ReportCardVerificationToken[]
 
+  // Report Cards Redesign Relations
+  report_comment_windows       ReportCommentWindow[]
+  report_card_subject_comments ReportCardSubjectComment[]
+  report_card_overall_comments ReportCardOverallComment[]
+  report_card_teacher_requests ReportCardTeacherRequest[]
+  report_card_tenant_settings  ReportCardTenantSettings?
+
   // P6 Relations
   fee_structures            FeeStructure[]
   discounts                 Discount[]
@@ -1101,6 +1108,16 @@ model User {
   report_card_batch_jobs_requested  ReportCardBatchJob[]         @relation("batch_job_requester")
   report_card_custom_fields_entered ReportCardCustomFieldValue[] @relation("custom_field_enterer")
 
+  // Report Cards Redesign Relations
+  report_comment_windows_opened     ReportCommentWindow[]      @relation("comment_window_opener")
+  report_comment_windows_closed     ReportCommentWindow[]      @relation("comment_window_closer")
+  report_subject_comments_authored  ReportCardSubjectComment[] @relation("subject_comment_author")
+  report_subject_comments_finalised ReportCardSubjectComment[] @relation("subject_comment_finaliser")
+  report_overall_comments_authored  ReportCardOverallComment[] @relation("overall_comment_author")
+  report_overall_comments_finalised ReportCardOverallComment[] @relation("overall_comment_finaliser")
+  report_teacher_requests_authored  ReportCardTeacherRequest[] @relation("teacher_request_author")
+  report_teacher_requests_reviewed  ReportCardTeacherRequest[] @relation("teacher_request_reviewer")
+
   // Scheduling World-Class Relations
   absences_reported            TeacherAbsence[]            @relation("absence_reporter")
   substitutions_assigned       SubstitutionRecord[]        @relation("substitution_assigner")
@@ -1584,32 +1601,33 @@ model HouseholdParent {
 }
 
 model Student {
-  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id         String        @db.Uuid
-  household_id      String        @db.Uuid
-  student_number    String?       @db.VarChar(50)
-  national_id       String?       @db.VarChar(50)
-  first_name        String        @db.VarChar(100)
-  middle_name       String?       @db.VarChar(100)
-  last_name         String        @db.VarChar(100)
-  full_name         String?       @db.VarChar(255)
-  first_name_ar     String?       @db.VarChar(100)
-  last_name_ar      String?       @db.VarChar(100)
-  full_name_ar      String?       @db.VarChar(255)
-  date_of_birth     DateTime      @db.Date
-  gender            Gender?
-  status            StudentStatus
-  entry_date        DateTime?     @db.Date
-  exit_date         DateTime?     @db.Date
-  year_group_id     String?       @db.Uuid
-  class_homeroom_id String?       @db.Uuid
-  medical_notes     String?       @db.Text
-  has_allergy       Boolean       @default(false)
-  allergy_details   String?       @db.Text
-  nationality       String?       @db.VarChar(100)
-  city_of_birth     String?       @db.VarChar(100)
-  created_at        DateTime      @default(now()) @db.Timestamptz()
-  updated_at        DateTime      @default(now()) @updatedAt @db.Timestamptz()
+  id                        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                 String        @db.Uuid
+  household_id              String        @db.Uuid
+  student_number            String?       @db.VarChar(50)
+  national_id               String?       @db.VarChar(50)
+  first_name                String        @db.VarChar(100)
+  middle_name               String?       @db.VarChar(100)
+  last_name                 String        @db.VarChar(100)
+  full_name                 String?       @db.VarChar(255)
+  first_name_ar             String?       @db.VarChar(100)
+  last_name_ar              String?       @db.VarChar(100)
+  full_name_ar              String?       @db.VarChar(255)
+  date_of_birth             DateTime      @db.Date
+  gender                    Gender?
+  status                    StudentStatus
+  entry_date                DateTime?     @db.Date
+  exit_date                 DateTime?     @db.Date
+  year_group_id             String?       @db.Uuid
+  class_homeroom_id         String?       @db.Uuid
+  medical_notes             String?       @db.Text
+  has_allergy               Boolean       @default(false)
+  allergy_details           String?       @db.Text
+  nationality               String?       @db.VarChar(100)
+  city_of_birth             String?       @db.VarChar(100)
+  preferred_second_language String?       @db.VarChar(10)
+  created_at                DateTime      @default(now()) @db.Timestamptz()
+  updated_at                DateTime      @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   tenant                     Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -1626,6 +1644,10 @@ model Student {
   grades                 Grade[]
   period_grade_snapshots PeriodGradeSnapshot[]
   report_cards           ReportCard[]
+
+  // Report Cards Redesign Relations
+  report_card_subject_comments ReportCardSubjectComment[]
+  report_card_overall_comments ReportCardOverallComment[]
 
   // P6 Relations
   fee_assignments HouseholdFeeAssignment[]
@@ -1846,12 +1868,12 @@ model AcademicYear {
   homework_assignments HomeworkAssignment[]
 
   // Engagement Relations
-  eng_form_templates   EngagementFormTemplate[]
-  eng_form_submissions EngagementFormSubmission[]
-  eng_consent_records  EngagementConsentRecord[]
-  eng_events                EngagementEvent[]
-  subject_period_weights    SubjectPeriodWeight[]     @relation("SubjectPeriodWeightYear")
-  period_year_weights       PeriodYearWeight[]        @relation("PeriodYearWeightYear")
+  eng_form_templates     EngagementFormTemplate[]
+  eng_form_submissions   EngagementFormSubmission[]
+  eng_consent_records    EngagementConsentRecord[]
+  eng_events             EngagementEvent[]
+  subject_period_weights SubjectPeriodWeight[]      @relation("SubjectPeriodWeightYear")
+  period_year_weights    PeriodYearWeight[]         @relation("PeriodYearWeightYear")
 
   @@unique([tenant_id, name], name: "idx_academic_years_tenant_name")
   @@index([tenant_id], name: "idx_academic_years_tenant")
@@ -1890,6 +1912,12 @@ model AcademicPeriod {
 
   // Report Cards Enhancement Relations
   report_card_batch_jobs ReportCardBatchJob[]
+
+  // Report Cards Redesign Relations
+  report_comment_windows       ReportCommentWindow[]
+  report_card_subject_comments ReportCardSubjectComment[]
+  report_card_overall_comments ReportCardOverallComment[]
+  report_card_teacher_requests ReportCardTeacherRequest[]
 
   // Scheduling World-Class Relations
   exam_sessions ExamSession[]
@@ -2256,6 +2284,9 @@ model Subject {
   assessments                 Assessment[]
   period_grade_snapshots      PeriodGradeSnapshot[]
 
+  // Report Cards Redesign Relations
+  report_card_subject_comments ReportCardSubjectComment[]
+
   // P4B-v2 Relations
   curriculum_requirements CurriculumRequirement[]
   teacher_competencies    TeacherCompetency[]
@@ -2332,6 +2363,10 @@ model Class {
 
   // Report Cards Enhancement Relations
   report_card_batch_jobs ReportCardBatchJob[]
+
+  // Report Cards Redesign Relations
+  report_card_subject_comments ReportCardSubjectComment[]
+  report_card_overall_comments ReportCardOverallComment[]
 
   // Homework Relations
   homework_assignments   HomeworkAssignment[]
@@ -2958,6 +2993,32 @@ enum ReportCardStatus {
   draft
   published
   revised
+  superseded
+}
+
+// ─── Report Cards Redesign — Comment Windows & Teacher Requests ───────────
+
+enum CommentWindowStatus {
+  scheduled
+  open
+  closed
+}
+
+enum TeacherRequestType {
+  open_comment_window
+  regenerate_reports
+}
+
+enum TeacherRequestStatus {
+  pending
+  approved
+  rejected
+  completed
+  cancelled
+}
+
+enum ReportCardContentScope {
+  grades_only
 }
 
 // ─── P6 Enums ──────────────────────────────────────────────────────────────
@@ -3313,10 +3374,17 @@ model ReportCard {
   tenant_id                  String           @db.Uuid
   student_id                 String           @db.Uuid
   academic_period_id         String           @db.Uuid
+  template_id                String?          @db.Uuid
   status                     ReportCardStatus @default(draft)
   template_locale            String           @db.VarChar(10)
+  /// Deprecated by Report Cards Redesign — impl 01. Use `overall_comment_text` for new code.
+  /// Kept for backwards compatibility until existing consumers are migrated.
   teacher_comment            String?          @db.Text
+  overall_comment_text       String?          @db.Text
   principal_comment          String?          @db.Text
+  subject_comments_json      Json?
+  personal_info_fields_json  Json?
+  pdf_storage_key            String?          @db.VarChar(512)
   published_at               DateTime?        @db.Timestamptz()
   published_by_user_id       String?          @db.Uuid
   revision_of_report_card_id String?          @db.Uuid
@@ -3325,12 +3393,13 @@ model ReportCard {
   updated_at                 DateTime         @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  student         Student        @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  academic_period AcademicPeriod @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
-  published_by    User?          @relation("report_card_publisher", fields: [published_by_user_id], references: [id], onDelete: SetNull)
-  revision_of     ReportCard?    @relation("report_card_revisions", fields: [revision_of_report_card_id], references: [id], onDelete: SetNull)
-  revisions       ReportCard[]   @relation("report_card_revisions")
+  tenant          Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student         Student             @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod      @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  template        ReportCardTemplate? @relation("report_card_template", fields: [template_id], references: [id], onDelete: Restrict)
+  published_by    User?               @relation("report_card_publisher", fields: [published_by_user_id], references: [id], onDelete: SetNull)
+  revision_of     ReportCard?         @relation("report_card_revisions", fields: [revision_of_report_card_id], references: [id], onDelete: SetNull)
+  revisions       ReportCard[]        @relation("report_card_revisions")
 
   // Report Cards Enhancement Relations
   approvals           ReportCardApproval[]
@@ -3808,20 +3877,22 @@ enum BatchJobStatus {
 // ─── Report Cards World-Class Enhancement Models ──────────────────────────
 
 model ReportCardTemplate {
-  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id               String   @db.Uuid
-  name                    String   @db.VarChar(200)
-  is_default              Boolean  @default(false)
-  locale                  String   @db.VarChar(10)
+  id                      String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String                 @db.Uuid
+  name                    String                 @db.VarChar(200)
+  is_default              Boolean                @default(false)
+  locale                  String                 @db.VarChar(10)
+  content_scope           ReportCardContentScope @default(grades_only)
   sections_json           Json
   branding_overrides_json Json?
-  created_by_user_id      String   @db.Uuid
-  created_at              DateTime @default(now()) @db.Timestamptz()
-  updated_at              DateTime @default(now()) @updatedAt @db.Timestamptz()
+  created_by_user_id      String                 @db.Uuid
+  created_at              DateTime               @default(now()) @db.Timestamptz()
+  updated_at              DateTime               @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  created_by User   @relation("report_card_template_creator", fields: [created_by_user_id], references: [id], onDelete: Cascade)
+  tenant       Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by   User         @relation("report_card_template_creator", fields: [created_by_user_id], references: [id], onDelete: Cascade)
+  report_cards ReportCard[] @relation("report_card_template")
 
   @@unique([tenant_id, name, locale], name: "idx_report_card_templates_unique")
   @@index([tenant_id], name: "idx_report_card_templates_tenant")
@@ -3889,28 +3960,164 @@ model ReportCardDelivery {
 }
 
 model ReportCardBatchJob {
-  id                   String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id            String         @db.Uuid
-  class_id             String         @db.Uuid
-  academic_period_id   String         @db.Uuid
-  template_id          String?        @db.Uuid
-  status               BatchJobStatus @default(queued)
-  total_count          Int            @db.SmallInt
-  completed_count      Int            @default(0) @db.SmallInt
-  file_url             String?        @db.Text
-  requested_by_user_id String         @db.Uuid
-  error_message        String?        @db.Text
-  created_at           DateTime       @default(now()) @db.Timestamptz()
-  updated_at           DateTime       @default(now()) @updatedAt @db.Timestamptz()
+  id                        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                 String         @db.Uuid
+  class_id                  String         @db.Uuid
+  academic_period_id        String         @db.Uuid
+  template_id               String?        @db.Uuid
+  status                    BatchJobStatus @default(queued)
+  total_count               Int            @db.SmallInt
+  completed_count           Int            @default(0) @db.SmallInt
+  file_url                  String?        @db.Text
+  requested_by_user_id      String         @db.Uuid
+  error_message             String?        @db.Text
+  scope_type                String?        @db.VarChar(32)
+  scope_ids_json            Json?
+  personal_info_fields_json Json?
+  languages_requested       String[]       @default([])
+  students_generated_count  Int            @default(0)
+  students_blocked_count    Int            @default(0)
+  errors_json               Json?
+  created_at                DateTime       @default(now()) @db.Timestamptz()
+  updated_at                DateTime       @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  class_entity    Class          @relation(fields: [class_id], references: [id], onDelete: Cascade)
-  academic_period AcademicPeriod @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
-  requested_by    User           @relation("batch_job_requester", fields: [requested_by_user_id], references: [id], onDelete: Cascade)
+  tenant           Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  class_entity     Class                      @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  academic_period  AcademicPeriod             @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  requested_by     User                       @relation("batch_job_requester", fields: [requested_by_user_id], references: [id], onDelete: Cascade)
+  teacher_requests ReportCardTeacherRequest[] @relation("teacher_request_resulting_run")
 
   @@index([tenant_id, status], name: "idx_report_card_batch_jobs_status")
   @@map("report_card_batch_jobs")
+}
+
+// ─── Report Cards Redesign — New Models ───────────────────────────────────
+
+model ReportCommentWindow {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String              @db.Uuid
+  academic_period_id String              @db.Uuid
+  opens_at           DateTime            @db.Timestamptz()
+  closes_at          DateTime            @db.Timestamptz()
+  status             CommentWindowStatus @default(scheduled)
+  opened_by_user_id  String              @db.Uuid
+  closed_at          DateTime?           @db.Timestamptz()
+  closed_by_user_id  String?             @db.Uuid
+  instructions       String?             @db.Text
+  created_at         DateTime            @default(now()) @db.Timestamptz()
+  updated_at         DateTime            @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant           Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_period  AcademicPeriod             @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  opened_by        User                       @relation("comment_window_opener", fields: [opened_by_user_id], references: [id], onDelete: Restrict)
+  closed_by        User?                      @relation("comment_window_closer", fields: [closed_by_user_id], references: [id], onDelete: SetNull)
+  teacher_requests ReportCardTeacherRequest[] @relation("teacher_request_resulting_window")
+
+  @@index([tenant_id, status], name: "idx_report_comment_windows_tenant_status")
+  @@index([tenant_id, academic_period_id], name: "idx_report_comment_windows_period")
+  @@map("report_comment_windows")
+}
+
+model ReportCardSubjectComment {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String    @db.Uuid
+  student_id           String    @db.Uuid
+  subject_id           String    @db.Uuid
+  class_id             String    @db.Uuid
+  academic_period_id   String    @db.Uuid
+  author_user_id       String    @db.Uuid
+  comment_text         String    @db.Text
+  is_ai_draft          Boolean   @default(false)
+  finalised_at         DateTime? @db.Timestamptz()
+  finalised_by_user_id String?   @db.Uuid
+  last_ai_drafted_at   DateTime? @db.Timestamptz()
+  created_at           DateTime  @default(now()) @db.Timestamptz()
+  updated_at           DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student         Student        @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  subject         Subject        @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  class_entity    Class          @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  author          User           @relation("subject_comment_author", fields: [author_user_id], references: [id], onDelete: Restrict)
+  finalised_by    User?          @relation("subject_comment_finaliser", fields: [finalised_by_user_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, student_id, subject_id, academic_period_id], name: "idx_subj_comments_unique")
+  @@index([tenant_id, author_user_id, academic_period_id], name: "idx_subj_comments_teacher")
+  @@index([tenant_id, class_id, subject_id, academic_period_id], name: "idx_subj_comments_class")
+  @@map("report_card_subject_comments")
+}
+
+model ReportCardOverallComment {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String    @db.Uuid
+  student_id           String    @db.Uuid
+  class_id             String    @db.Uuid
+  academic_period_id   String    @db.Uuid
+  author_user_id       String    @db.Uuid
+  comment_text         String    @db.Text
+  finalised_at         DateTime? @db.Timestamptz()
+  finalised_by_user_id String?   @db.Uuid
+  created_at           DateTime  @default(now()) @db.Timestamptz()
+  updated_at           DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student         Student        @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  class_entity    Class          @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  author          User           @relation("overall_comment_author", fields: [author_user_id], references: [id], onDelete: Restrict)
+  finalised_by    User?          @relation("overall_comment_finaliser", fields: [finalised_by_user_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, student_id, academic_period_id], name: "idx_overall_comments_unique")
+  @@index([tenant_id, class_id, academic_period_id], name: "idx_overall_comments_class")
+  @@map("report_card_overall_comments")
+}
+
+model ReportCardTeacherRequest {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String               @db.Uuid
+  requested_by_user_id String               @db.Uuid
+  request_type         TeacherRequestType
+  academic_period_id   String               @db.Uuid
+  target_scope_json    Json?
+  reason               String               @db.Text
+  status               TeacherRequestStatus @default(pending)
+  reviewed_by_user_id  String?              @db.Uuid
+  reviewed_at          DateTime?            @db.Timestamptz()
+  review_note          String?              @db.Text
+  resulting_run_id     String?              @db.Uuid
+  resulting_window_id  String?              @db.Uuid
+  created_at           DateTime             @default(now()) @db.Timestamptz()
+  updated_at           DateTime             @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant           Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  requested_by     User                 @relation("teacher_request_author", fields: [requested_by_user_id], references: [id], onDelete: Restrict)
+  reviewed_by      User?                @relation("teacher_request_reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
+  academic_period  AcademicPeriod       @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  resulting_run    ReportCardBatchJob?  @relation("teacher_request_resulting_run", fields: [resulting_run_id], references: [id], onDelete: SetNull)
+  resulting_window ReportCommentWindow? @relation("teacher_request_resulting_window", fields: [resulting_window_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, status], name: "idx_teacher_requests_status")
+  @@index([tenant_id, requested_by_user_id], name: "idx_teacher_requests_user")
+  @@map("report_card_teacher_requests")
+}
+
+model ReportCardTenantSettings {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String   @unique @db.Uuid
+  settings_json Json
+  created_at    DateTime @default(now()) @db.Timestamptz()
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("report_card_tenant_settings")
 }
 
 model ReportCardCustomFieldDef {

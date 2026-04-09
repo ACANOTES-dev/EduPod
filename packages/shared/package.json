@@ -6,17 +6,42 @@
   "types": "./src/index.ts",
   "typesVersions": {
     "*": {
-      "behaviour": ["src/behaviour/index.ts"],
-      "pastoral": ["src/pastoral/index.ts"],
-      "sen": ["src/sen/index.ts"],
-      "staff-wellbeing": ["src/staff-wellbeing/index.ts"],
-      "gdpr": ["src/gdpr/index.ts"],
-      "security": ["src/security/index.ts"],
-      "regulatory": ["src/regulatory/index.ts"],
-      "early-warning": ["src/early-warning/index.ts"],
-      "engagement": ["src/engagement/index.ts"],
-      "ai": ["src/ai/index.ts"],
-      "scheduler": ["src/scheduler/index.ts"]
+      "behaviour": [
+        "src/behaviour/index.ts"
+      ],
+      "pastoral": [
+        "src/pastoral/index.ts"
+      ],
+      "sen": [
+        "src/sen/index.ts"
+      ],
+      "staff-wellbeing": [
+        "src/staff-wellbeing/index.ts"
+      ],
+      "gdpr": [
+        "src/gdpr/index.ts"
+      ],
+      "security": [
+        "src/security/index.ts"
+      ],
+      "regulatory": [
+        "src/regulatory/index.ts"
+      ],
+      "early-warning": [
+        "src/early-warning/index.ts"
+      ],
+      "engagement": [
+        "src/engagement/index.ts"
+      ],
+      "ai": [
+        "src/ai/index.ts"
+      ],
+      "scheduler": [
+        "src/scheduler/index.ts"
+      ],
+      "report-cards": [
+        "src/report-cards/index.ts"
+      ]
     }
   },
   "exports": {
@@ -79,6 +104,10 @@
     "./scheduler": {
       "types": "./src/scheduler/index.ts",
       "default": "./dist/scheduler/index.js"
+    },
+    "./report-cards": {
+      "types": "./src/report-cards/index.ts",
+      "default": "./dist/report-cards/index.js"
     }
   },
   "scripts": {

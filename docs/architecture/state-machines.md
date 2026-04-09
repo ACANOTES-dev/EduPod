@@ -2,7 +2,7 @@
 
 > **Purpose**: Before changing a status field or adding a transition, check here for the full contract.
 > **Maintenance**: Update when adding new statuses or changing transition rules.
-> **Last verified**: 2026-04-07
+> **Last verified**: 2026-04-09
 
 ---
 
@@ -449,10 +449,47 @@ archived*
 ### ReportCardStatus
 
 ```
-draft     -> [published, revised]
-published -> [revised]
-revised*  (creates a new version)
+draft      -> [published, revised, superseded]
+published  -> [revised, superseded]
+revised    -> [superseded]  (revised creates a new version chain)
+superseded* (overwritten by a regeneration run)
 ```
+
+- **Guarded by**: `report-cards.service.ts` (existing) and the regeneration pipeline introduced by Implementation 03 of the Report Cards Redesign.
+- **Side effects**: When a row is `superseded`, the canonical query excludes it; the file at `pdf_storage_key` is queued for cleanup; downstream listings render the new version only. The `revision_of_report_card_id` chain is preserved for audit.
+- **Note**: `superseded` was added by Implementation 01 (Report Cards Redesign — Database Foundation). Existing transitions are preserved.
+
+### CommentWindowStatus _(Report Cards Redesign — impl 01)_
+
+```
+scheduled -> [open, closed]
+open      -> [closed]
+closed    -> [open]   (admin reopen — typically via teacher request approval)
+```
+
+- **Guarded by**: `comment-windows.service.ts` (introduced in a later impl) and the partial unique index `report_comment_windows_one_open_per_tenant` which enforces "at most one `open` window per tenant" at the database layer.
+- **Side effects**:
+  - `scheduled -> open`: enables teacher comment edits and AI draft requests for the targeted academic period.
+  - `open -> closed`: blocks further comment edits and AI calls. The AI draft endpoint must reject calls outside an open window with `COMMENT_WINDOW_CLOSED`.
+  - `closed -> open`: reopening a previously closed window — only allowed when no other window for the same tenant is currently `open` (enforced by the partial unique index).
+- **Cost control**: this state machine is the core mechanism that gates AI cost. Server-side enforcement is mandatory.
+
+### TeacherRequestStatus _(Report Cards Redesign — impl 01)_
+
+```
+pending   -> [approved, rejected, cancelled]
+approved  -> [completed]
+rejected* (terminal — author may submit a new request)
+cancelled* (terminal — author cancelled before review)
+completed* (terminal — admin executed the requested action)
+```
+
+- **Guarded by**: `teacher-requests.service.ts` (introduced in a later impl). State validation lives in `VALID_TRANSITIONS`.
+- **Side effects**:
+  - `approved`: the principal has approved but not yet acted. The request becomes `completed` once the resulting action lands (a new comment window is opened or a regeneration run starts), at which point `resulting_run_id` or `resulting_window_id` is set.
+  - `rejected`: optional `review_note` is recorded; no downstream action.
+  - `cancelled`: only the author can cancel, and only while `pending`.
+- **Note**: `request_type = open_comment_window` requests must have `target_scope_json IS NULL`; `request_type = regenerate_reports` requests must carry a non-null `target_scope_json`. Cross-field rule is enforced by `submitTeacherRequestSchema` in `@school/shared/report-cards`.
 
 ### AcademicAlertStatus
 

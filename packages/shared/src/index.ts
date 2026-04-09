@@ -149,6 +149,9 @@ export * from './schemas/scheduling-enhanced.schema';
 // Reports World-Class Enhancement Schemas
 export * from './schemas/reports-enhanced.schema';
 
+// Report Cards Redesign (Implementation 01)
+export * from './report-cards';
+
 // ─── Domain modules ───────────────────────────────────────────────────────
 // These are available via subpath imports:
 //   @school/shared/behaviour

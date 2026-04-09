@@ -334,6 +334,26 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
     description: 'Perform bulk operations on report cards (generate, publish, export)',
     permission_tier: 'admin',
   },
+  // Report Cards Redesign (Implementation 01) — three-tier permission model:
+  //   .view    — read-only access for front-office / parents-facing roles
+  //   .comment — teachers: edit own subject comments + submit teacher requests
+  //   .manage  — principal/vice-principal: wizard, settings, windows, approvals
+  {
+    permission_key: 'report_cards.view',
+    description: 'View report cards and the report cards library (read-only)',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'report_cards.comment',
+    description: 'Edit own subject comments and submit report-card teacher requests (teachers)',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'report_cards.manage',
+    description:
+      'Run the report card generation wizard, manage settings, comment windows, and approvals',
+    permission_tier: 'admin',
+  },
 
   // ─── Admin tier — Admissions ───────────────────────────────────────────────
   {

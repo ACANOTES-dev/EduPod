@@ -478,6 +478,100 @@ async function main() {
       console.log(`  User "${u.email}" → ${u.role_key} @ ${u.tenant_slug}`);
     }
 
+    // Step 6b: Seed Report Card redesign defaults per tenant
+    // - Default `report_card_tenant_settings` row (idempotent)
+    // - Default "Grades Only" templates for both English and Arabic locales
+    // - Point settings.default_template_id at the English template
+    console.log('Seed: Step 6b — Report Card redesign defaults');
+    const defaultReportCardSettings = {
+      matrix_display_mode: 'grade',
+      show_top_rank_badge: false,
+      default_personal_info_fields: [
+        'full_name',
+        'student_number',
+        'date_of_birth',
+        'class_name',
+        'year_group',
+        'homeroom_teacher',
+      ],
+      require_finalised_comments: true,
+      allow_admin_force_generate: true,
+      principal_signature_storage_key: null,
+      principal_name: null,
+      grade_threshold_set_id: null,
+      default_template_id: null,
+    };
+
+    for (const [slug, tenantId] of tenantMap.entries()) {
+      // Pick the platform user as the system creator for default templates.
+      // This is the same well-known account used elsewhere in the seed; if it
+      // does not exist yet, fall back to the first user in the tenant.
+      const creator =
+        (await prisma.user.findUnique({ where: { email: DEV_PLATFORM_USER.email } })) ??
+        (await prisma.tenantMembership
+          .findFirst({ where: { tenant_id: tenantId } })
+          .then((m) => (m ? prisma.user.findUnique({ where: { id: m.user_id } }) : null)));
+
+      if (!creator) {
+        console.log(`  ⚠ No creator user available for tenant "${slug}"; skipping templates.`);
+        continue;
+      }
+
+      // Default English Grades Only template
+      const enTemplate = await prisma.reportCardTemplate.upsert({
+        where: {
+          idx_report_card_templates_unique: {
+            tenant_id: tenantId,
+            name: 'Grades Only',
+            locale: 'en',
+          },
+        },
+        update: { content_scope: 'grades_only', is_default: true },
+        create: {
+          tenant_id: tenantId,
+          name: 'Grades Only',
+          is_default: true,
+          locale: 'en',
+          content_scope: 'grades_only',
+          sections_json: {},
+          created_by_user_id: creator.id,
+        },
+      });
+
+      // Default Arabic Grades Only template
+      await prisma.reportCardTemplate.upsert({
+        where: {
+          idx_report_card_templates_unique: {
+            tenant_id: tenantId,
+            name: 'Grades Only',
+            locale: 'ar',
+          },
+        },
+        update: { content_scope: 'grades_only' },
+        create: {
+          tenant_id: tenantId,
+          name: 'Grades Only',
+          is_default: false,
+          locale: 'ar',
+          content_scope: 'grades_only',
+          sections_json: {},
+          created_by_user_id: creator.id,
+        },
+      });
+
+      // Default tenant settings — point default_template_id at the English template
+      await prisma.reportCardTenantSettings.upsert({
+        where: { tenant_id: tenantId },
+        update: {},
+        create: {
+          tenant_id: tenantId,
+          settings_json: { ...defaultReportCardSettings, default_template_id: enTemplate.id },
+        },
+      });
+
+      console.log(`  Tenant "${slug}" — report card defaults seeded.`);
+    }
+
     // Step 7: Seed P4A rooms and schedules per tenant
     console.log('Seed: Step 7 — P4A rooms and schedules');
     for (const [slug, tenantId] of tenantMap.entries()) {
