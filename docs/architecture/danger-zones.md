@@ -777,3 +777,26 @@ This matters because:
 - `apps/api/src/modules/gradebook/report-cards/report-cards-queries.service.ts` — `getClassMatrix`, `computePeriodOverall`, `combinePeriodsWithWeights`, `resolveSubjectWeightsForClass`, `resolvePeriodWeightsForClass`, `applyGradingScale`.
 - `apps/api/src/modules/gradebook/grading/period-grade-computation.service.ts` — `computeCrossSubject`, `computeYearOverview`, `weightedAverage`, `applyGradingScale` (the original implementations).
 - `apps/api/src/modules/gradebook/weight-config.service.ts` — `resolveSubjectWeightsForClass`, `resolvePeriodWeightsForClass` (the canonical helpers that both sites ultimately mirror).
+
+## DZ-45: Report Card Template Assets Are Not TypeScript — Silent Deploy Drift If Build Config Breaks
+
+**Risk**: `ProductionReportCardRenderer` (impl 11) renders the Handlebars template source files located at `apps/worker/src/report-card-templates/{editorial-academic,modern-editorial}/index.hbs`. These `.hbs` files are NOT TypeScript and are NOT picked up by `nest build` / `tsc` on their own — they're copied to `dist/` only because `nest-cli.json` now has an explicit `assets` entry for `report-card-templates/**/*.hbs`. If anyone edits `nest-cli.json` and drops the assets rule, the build will still succeed, `turbo test` will still pass (Jest runs against `src/`, not `dist/`), and `turbo type-check` will still be green — but the deployed worker will hit a `ENOENT` when it tries to `fs.readFile` the template at runtime, and every report card generation job will fail with the same error.
+
+Google Fonts are loaded via CDN `<link>` tags inside each template's `<head>`. Puppeteer fetches them when rendering. Two failure modes follow:
+
+1. **Font CDN blocked**: in airgapped or firewalled deployments Puppeteer will silently fall back to system fonts and the output will look nothing like the reference designs. There is no warning — only visual drift on the delivered PDF.
+2. **Font file replaced upstream**: if Google Fonts ever redefines the metrics for Fraunces / Bricolage Grotesque / Noto Naskh Arabic, previously-rendered PDFs and newly-rendered PDFs will differ subtly. This is a low-probability risk but a real one for long-archive correctness.
+
+**Mitigation**:
+
+- Never remove the `assets` entries from `apps/worker/nest-cli.json` without a matching code change (e.g., bundling templates into a `.ts` module as exported string literals).
+- The template path resolution in `ProductionReportCardRenderer` uses `path.resolve(__dirname, '..', '..', 'report-card-templates')` which correctly resolves in both dev (`src/`) and prod (`dist/apps/worker/src/`) layouts because the relative path is identical — keep this invariant when moving files.
+- Unit tests for the renderer (`report-card-production.renderer.spec.ts`) exercise the real template-loading path via the source directory, so any missing or renamed template file fails tests loudly.
+- If the product moves to airgapped deployment, the font loading strategy must switch to self-hosted `@font-face` with the font files bundled under `_shared/fonts/`. That's a deliberate deploy-time change, not something to paper over with a runtime fallback.
+
+**Code pointers**:
+
+- `apps/worker/src/processors/gradebook/report-card-production.renderer.ts` — `loadTemplateSource`, `TEMPLATE_ROOT`, `getCompiledTemplate`.
+- `apps/worker/src/report-card-templates/{editorial-academic,modern-editorial}/index.hbs` — the templates themselves.
+- `apps/worker/nest-cli.json` — `compilerOptions.assets` — the config that copies `.hbs` files into `dist/`.
+- `apps/worker/src/report-card-templates/_shared/template-helpers.ts` — the view-model adapter that funnels `ReportCardRenderPayload` into the template.

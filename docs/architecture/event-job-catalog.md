@@ -252,7 +252,7 @@ Missing any one of those leaves “approved but not actually executed” items i
   4. Load grade snapshots, finalised subject comments, finalised overall comments, and personal-info for the resolved students in bulk.
   5. For each student:
      - Build the `ReportCardRenderPayload` (English).
-     - Call the injected `ReportCardRenderer` (`REPORT_CARD_RENDERER_TOKEN`) — bound to `PlaceholderReportCardRenderer` today; `ProductionReportCardRenderer` will swap in at impl 11.
+     - Call the injected `ReportCardRenderer` (`REPORT_CARD_RENDERER_TOKEN`) — bound to `ProductionReportCardRenderer` as of impl 11. The production renderer compiles a Handlebars template (editorial-academic or modern-editorial) with the `ReportCardRenderPayload` view model, then renders the resulting HTML to a PDF buffer via Puppeteer.
      - Upload bytes via `ReportCardStorageWriter` (`REPORT_CARD_STORAGE_WRITER_TOKEN`) and upsert the `ReportCard` row keyed by (student, period, template, template_locale).
      - Delete the previous `pdf_storage_key` when the upsert replaces an existing row — overwrite semantics, no document version history.
      - If `student.preferred_second_language = 'ar'` AND the template has an Arabic locale row, repeat for `ar`.
@@ -261,8 +261,11 @@ Missing any one of those leaves “approved but not actually executed” items i
 - **Major side effects**: PDF bytes written to object storage under `tenant/{tenant_id}/report-cards/{student_id}/{period_id}/{template_id}/{locale}.pdf`; `ReportCard` rows upserted; previous PDFs deleted (data loss — see `danger-zones.md`).
 - **RLS**: `TenantAwareJob` sets `app.current_tenant_id` at the top of the transaction. All reads and writes stay inside the transaction.
 - **DI bindings** (worker module):
-  - `REPORT_CARD_RENDERER_TOKEN` → `PlaceholderReportCardRenderer` (production swap at impl 11)
+  - `REPORT_CARD_RENDERER_TOKEN` → `ProductionReportCardRenderer` (impl 11 — Handlebars + Puppeteer, ports `editorial-academic` and `modern-editorial` designs; bilingual EN/AR from the same template via view-model direction + translation table). The `PlaceholderReportCardRenderer` is still registered as a dev-mode fallback.
+  - `PUPPETEER_LAUNCHER_TOKEN` → `DefaultPuppeteerLauncher` (dynamic `import('puppeteer')`, `--no-sandbox` args).
+  - `TEMPLATE_DESIGN_RESOLVER_TOKEN` → `PrismaTemplateDesignResolver` — reads `reportCardTemplate.branding_overrides_json.design_key` (cached per process) to pick which template design to render; falls back to `editorial-academic` if the key is unset, unknown, or the lookup throws.
   - `REPORT_CARD_STORAGE_WRITER_TOKEN` → `NullReportCardStorageWriter` (swap to S3 writer in production bootstrap)
+- **Template assets**: Handlebars `.hbs` source files live under `apps/worker/src/report-card-templates/{editorial-academic,modern-editorial}/index.hbs`; the nest-cli `assets` config copies them into `dist/` on build so the runtime `path.resolve` works in both dev (ts-node) and prod (compiled JS).
 
 ### `homework`
 

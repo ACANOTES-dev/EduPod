@@ -1,0 +1,80 @@
+/* Shared reset + page sizing for report card HTML templates.
+ *
+ * These rules are the same across every template. They are inlined into the
+ * final HTML in the renderer so Puppeteer has zero extra HTTP requests for
+ * CSS.
+ *
+ * Do not add colours, fonts, or typography here — those are template-specific
+ * and live inside each template's `.hbs` file. This file is strictly layout
+ * reset + A4 paper geometry.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+html[dir='rtl'] body {
+  text-align: start;
+}
+
+body {
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'kern', 'liga';
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  body {
+    padding: 0;
+  }
+  .page {
+    margin: 0;
+    box-shadow: none;
+    page-break-after: always;
+  }
+  .page:last-child {
+    page-break-after: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* The renderer writes this explicitly when it's rendering for Puppeteer. It
+ * disables the screen-only drop-shadow / outer padding so the template sits
+ * flush with the PDF page edges. */
+html[data-medium='print'] body {
+  background: #fff !important;
+  padding: 0 !important;
+}
+html[data-medium='print'] .page {
+  margin: 0 !important;
+  box-shadow: none !important;
+}

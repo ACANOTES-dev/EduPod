@@ -61,6 +61,13 @@ import {
   REPORT_CARD_STORAGE_WRITER_TOKEN,
   ReportCardGenerationProcessor,
 } from './processors/gradebook/report-card-generation.processor';
+import {
+  DefaultPuppeteerLauncher,
+  PrismaTemplateDesignResolver,
+  ProductionReportCardRenderer,
+  PUPPETEER_LAUNCHER_TOKEN,
+  TEMPLATE_DESIGN_RESOLVER_TOKEN,
+} from './processors/gradebook/report-card-production.renderer';
 import { HomeworkCompletionReminderProcessor } from './processors/homework/completion-reminder.processor';
 import { HomeworkDigestProcessor } from './processors/homework/digest-homework.processor';
 import { HomeworkGenerateRecurringProcessor } from './processors/homework/generate-recurring.processor';
@@ -394,12 +401,17 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     GradebookRiskDetectionProcessor,
     ReportCardAutoGenerateProcessor,
     ReportCardGenerationProcessor,
-    // Report Cards Redesign — renderer + storage writer bindings (impl 04)
-    // Placeholder renderer is swapped for the production React-PDF template
-    // in impl 11. The Null storage writer is swapped for an S3-backed
-    // writer in the worker bootstrap when credentials are available.
+    // Report Cards Redesign — renderer + storage writer bindings.
+    // Impl 11 replaces the placeholder renderer from impl 04 with the
+    // production Handlebars + Puppeteer renderer that ports the HTML
+    // reference designs (editorial-academic, modern-editorial). The
+    // placeholder is still registered as a fallback for dev environments
+    // where puppeteer's chromium is not available.
     PlaceholderReportCardRenderer,
-    { provide: REPORT_CARD_RENDERER_TOKEN, useExisting: PlaceholderReportCardRenderer },
+    ProductionReportCardRenderer,
+    { provide: PUPPETEER_LAUNCHER_TOKEN, useClass: DefaultPuppeteerLauncher },
+    { provide: TEMPLATE_DESIGN_RESOLVER_TOKEN, useClass: PrismaTemplateDesignResolver },
+    { provide: REPORT_CARD_RENDERER_TOKEN, useExisting: ProductionReportCardRenderer },
     { provide: REPORT_CARD_STORAGE_WRITER_TOKEN, useClass: NullReportCardStorageWriter },
     // Cron scheduler — registers repeatable BullMQ jobs on startup
     CronSchedulerService,

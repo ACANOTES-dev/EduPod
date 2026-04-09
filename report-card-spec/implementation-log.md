@@ -588,3 +588,84 @@ The legacy `/report-cards/[id]` single-document detail view has been removed. Th
 - The rank badge appears only when `overall.rank_position` is 1, 2, or 3. The backend emits `null` for all other positions, so the frontend check is defensive. The Medal icon and amber pill styling are consistent with the "Top {rank}" pattern used in the per-student analytics page — if that pattern evolves, update both surfaces together.
 - The legacy orphan files under `apps/web/src/app/[locale]/(school)/report-cards/{_components,analytics,approvals,bulk}/` were left in place. They still build and lint cleanly. Impl 12's cleanup pass should remove them, but you can delete them in a later impl if the generate/approve/bulk flows are superseded earlier by impls 09/10.
 - Playwright specs were placed under `apps/web/e2e/visual/` to match the existing pattern (where `playwright.config.ts` has `testDir: './visual'`). They do NOT capture screenshots (to avoid baseline churn and per the author preference for snapshot-based verification). They use `page.waitForLoadState('networkidle')` and role-based locators and are robust against unseeded environments.
+
+### Implementation 11: PDF Template Rendering
+
+- **Completed at:** 2026-04-09 20:55 (local time)
+- **Completed by:** Claude Opus 4.6 (Claude Code)
+- **Branch / commit:** `main` @ `<sha>` (backfilled after commit)
+- **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
+- **Status:** ✅ complete
+- **Summary:** Shipped the production Report Card PDF renderer. Ports the two user-supplied HTML reference designs (Editorial Academic — Fraunces + forest green + gold; Modern Editorial — Bricolage Grotesque + cobalt blue) as Handlebars templates, renders them through the worker's existing Puppeteer pipeline, and wires the new `ProductionReportCardRenderer` as the `REPORT_CARD_RENDERER_TOKEN` binding. English and Arabic are served from a single template per design via view-model direction + translation table — the same `.hbs` file produces LTR and RTL output. Template design is selected per tenant from `ReportCardTemplate.branding_overrides_json.design_key` with a stable cache and an `editorial-academic` fallback.
+
+**Deviation from the impl 11 spec — react-pdf → puppeteer + handlebars**
+
+The impl 11 doc assumed `@react-pdf/renderer` was already a worker dependency and asked for React-PDF components. That assumption was factually wrong: `apps/worker/package.json` has no react-pdf, and the existing PDF rendering infrastructure (`pdf-render.processor.ts`, `mass-report-card-pdf.processor.ts`) is built on Puppeteer + Handlebars (both already installed). Given the HTML reference designs are heavy on CSS grid, flexbox, SVG watermarks, variable fonts, and `inset-inline-start` logical properties — all of which React-PDF cannot express natively — a faithful React-PDF port would have required rewriting every style from scratch with significantly lower visual fidelity, plus adding a large new dependency tree. Puppeteer ingests the HTML as-is, resolves Google Fonts natively, handles RTL directly, and matches the reference designs pixel-for-pixel. This is a pure implementation-level swap — the `ReportCardRenderer` contract (`render(payload) => Promise<Buffer>`) is unchanged, the worker processor is untouched, and the rest of the system has no knowledge of the rendering engine.
+
+**What changed:**
+
+- Moved the HTML reference designs from `report-card-spec/template-0{1,2,3}{,-ar}.html` to `docs/features/report-cards/html-references/` with a README explaining their role. The `report-card-spec/` folder is now clean of rendering assets.
+- Added `apps/worker/src/report-card-templates/` with:
+  - `editorial-academic/{index.hbs,manifest.json}` — ports template-01 HTML, grades-only content scope
+  - `modern-editorial/{index.hbs,manifest.json}` — ports template-02 HTML, grades-only content scope
+  - `_shared/template-helpers.ts` — typed view-model adapter that turns a `ReportCardRenderPayload` into the localised, presentation-ready `TemplateViewModel`. Handles English / Arabic translation tables, detail-field ordering, Gregorian/Western-numerals date formatting, mark and grade formatting, rank-badge labelling, and signature state.
+  - `_shared/template-helpers.spec.ts` — 24 unit tests covering both languages, missing-field handling, null-score handling, rank-badge variants, and the internal escape / percent / grade-class helpers.
+  - `_shared/page-base.css` — shared reset + print rules (not wired in yet; each template currently self-contains its own reset, kept as an extension point).
+- Added `apps/worker/src/processors/gradebook/report-card-production.renderer.ts`:
+  - `ProductionReportCardRenderer` — implements `ReportCardRenderer`, loads + compiles templates lazily, reuses a single puppeteer browser across renders, closes on `onModuleDestroy`.
+  - `DefaultPuppeteerLauncher` / `PuppeteerLauncher` — abstraction so unit tests can swap the launcher. Real launcher dynamically imports `puppeteer` (same pattern as `pdf-render.processor.ts`).
+  - `PrismaTemplateDesignResolver` / `TemplateDesignResolver` — reads `reportCardTemplate.branding_overrides_json.design_key` with a per-process cache, falls back to slugifying the template name, and defaults to `editorial-academic` when nothing resolves.
+  - `PuppeteerBrowserLike` / `PuppeteerPageLike` — narrow structural interfaces exposing only `newPage`, `setContent`, `pdf`, and `close`, so test fakes typecheck without needing a full `puppeteer.Browser` mock (also avoids the banned `as unknown as X` cast).
+- Added `report-card-production.renderer.spec.ts` — 16 tests covering design-key resolution (null, unknown, known, thrown), HTML content assertions (student name, subjects, marks, overall average, rank badge, RTL markers, Arabic translated labels), edge cases (empty subjects, 12-subject overflow, missing signature), browser lifecycle (reuse, destroy, no-op destroy, page close on pdf() throw).
+- Updated `apps/worker/src/worker.module.ts`:
+  - Imports the new renderer bindings.
+  - Registers `ProductionReportCardRenderer`, `DefaultPuppeteerLauncher`, `PrismaTemplateDesignResolver` as providers.
+  - Swaps `REPORT_CARD_RENDERER_TOKEN` from `useExisting: PlaceholderReportCardRenderer` to `useExisting: ProductionReportCardRenderer`. The placeholder stays registered as a dev-mode fallback (impl 12 can delete it).
+- Updated `apps/worker/nest-cli.json` with explicit `compilerOptions.assets` entries so the `.hbs` templates and `manifest.json` files are copied from `src/` into `dist/` on `nest build`. Without this, the compiled worker would ENOENT at render time in production.
+- Updated `docs/architecture/event-job-catalog.md` to note the production renderer is now bound and document the three new DI tokens.
+- Added `docs/architecture/danger-zones.md` DZ-45: "Report Card Template Assets Are Not TypeScript — Silent Deploy Drift If Build Config Breaks". Covers both the nest-cli assets-copy invariant and the Google Fonts CDN fallback risk for airgapped deployments.
+
+**Files touched outside `apps/worker/`:**
+
+- `docs/architecture/event-job-catalog.md` — renderer binding note (impl 11 wiring)
+- `docs/architecture/danger-zones.md` — DZ-45 added
+- `docs/features/report-cards/html-references/{README.md,template-0{1,2,3}{,-ar}.html}` — new reference directory
+- `report-card-spec/template-0{1,2,3}{,-ar}.html` — deleted (moved)
+
+**Test coverage:**
+
+- Unit: `template-helpers.spec.ts` — 24 tests (English, Arabic, edge cases, internals)
+- Unit: `report-card-production.renderer.spec.ts` — 16 tests (design resolution, HTML content, browser lifecycle, edge cases)
+- Regression: full `turbo test` green — 803 worker tests pass, no other package affected
+- Lint: `turbo lint` clean (only pre-existing warnings unrelated to impl 11)
+- Types: `turbo type-check` clean
+- DI: worker module compiles cleanly with the new bindings (verified via `Test.createTestingModule({ imports: [WorkerModule] }).compile()` — fails only at the post-compile DB auth step, which is expected when no real DB credentials are set)
+- Build: `nest build` emits `.hbs` + `manifest.json` into `dist/apps/worker/src/report-card-templates/` via the new nest-cli `assets` entries
+
+**Architecture docs updated:**
+
+- `docs/architecture/event-job-catalog.md` — updated `report-cards:generate` DI binding note
+- `docs/architecture/danger-zones.md` — DZ-45 added
+- `module-blast-radius.md` — no update needed (changes are internal to the worker)
+- `state-machines.md` — no update needed
+- `feature-map.md` — no update needed (no new endpoints, no new pages)
+
+**Blockers or follow-ups:**
+
+- Principal signature loading from storage is deferred: `buildTemplateViewModel` accepts a `signatureDataUrl` parameter, the templates render it when present, but the renderer passes `null` today. When the worker gains an image-loading helper (or when an S3 signed-URL fetch lands), wire it in `ProductionReportCardRenderer.render` before calling `buildTemplateViewModel`. No signature file is currently in use in either of the two onboarding tenants, so this is safe to defer to impl 12 or a follow-up.
+- The `editorial-academic` template's "radar chart" from the reference HTML is NOT rendered — the grades-only payload has no class-average data to plot against, so showing a one-polygon radar would be misleading. Replaced with a simple two-tile "overall average / overall grade" summary card that matches the `ReportCardRenderPayload.grades.overall` shape.
+- The `modern-editorial` template's "horizontal bars vs class average" chart is also omitted for the same reason — no class-average data in the grades-only payload. Kept the cobalt "final grade" card and added an inline overall-comment panel to fill the space when a comment exists.
+- The page-2 content from the reference HTMLs (assignments / behavioural / attendance) is intentionally absent — the grades-only content scope does not carry that data. When homework / behaviour / attendance template variants are added in future phases, those sections come back.
+- Impl 12 (cleanup) can now delete `apps/worker/src/processors/report-card-render.placeholder.ts` safely; the production renderer is the active binding.
+- Local commit only — not pushed to GitHub per nightly-push policy.
+
+**Notes for the next agent:**
+
+- The `TEMPLATE_ROOT` resolution uses `path.resolve(__dirname, '..', '..', 'report-card-templates')`. In dev (`ts-node` running from `src/`) and in prod (compiled JS in `dist/apps/worker/src/`) this resolves correctly because both the renderer file and the templates directory share the same relative layout. If you ever move the renderer or the templates, keep the `../../report-card-templates` invariant or update the resolution to walk up until it finds the directory.
+- `branding_overrides_json.design_key` is how a tenant picks between `editorial-academic` and `modern-editorial`. If `design_key` is missing, the resolver falls back to slugifying the template `name` (e.g., "Modern Editorial" → `modern-editorial`), and if that also doesn't match a known design, defaults to `editorial-academic`. The admin UI for picking a design is NOT built here — the field is set manually in `branding_overrides_json` for now. Impl 12 or a later design-picker feature can surface this in the settings UI.
+- Google Fonts are loaded via CDN `<link>` in each template's `<head>`. This makes rendering online-dependent. If the deployment goes airgapped, bundle the TTF files under `_shared/fonts/` and swap to `@font-face` with `url('file://...')` — the nest-cli assets rule already copies `_shared/` contents if you add a `*.ttf` glob.
+- The view-model translation table for personal-info field labels lives in `_shared/template-helpers.ts` (`DETAIL_LABELS`). It is keyed by `PersonalInfoFieldKey` from `@school/shared`, so TypeScript catches missing translations at compile time if a new field is added to the shared enum.
+- The `extractDesignKey` helper treats `branding_overrides_json` as `unknown` and narrows safely — intentional because the JSONB column has no compile-time schema. If impl 12 or later adds a Zod schema for `branding_overrides_json`, the helper can be simplified.
+- `ProductionReportCardRenderer` caches one compiled Handlebars template per design key and one browser per worker process. Both caches are unbounded but small (at most 2 template entries, 1 browser). If a future worker process juggles many template variants, add an LRU eviction step.
+- `PuppeteerBrowserLike` / `PuppeteerPageLike` are deliberately narrow — they expose only what the renderer uses. This lets tests build structural fakes without the `as unknown as Browser` hack. Don't widen these interfaces to expose internal puppeteer APIs unless absolutely needed.
+- This session did NOT touch any files belonging to concurrently-running impl 08 (frontend report comments). The only shared file could have been `implementation-log.md` — which impl 11 appends to strictly at the bottom, so merges are trivial.

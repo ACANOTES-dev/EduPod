@@ -4,6 +4,21 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true,
-    "tsConfigPath": "tsconfig.build.json"
+    "tsConfigPath": "tsconfig.build.json",
+    "assets": [
+      {
+        "include": "report-card-templates/**/*.hbs",
+        "outDir": "dist/apps/worker/src"
+      },
+      {
+        "include": "report-card-templates/**/manifest.json",
+        "outDir": "dist/apps/worker/src"
+      },
+      {
+        "include": "report-card-templates/**/*.css",
+        "outDir": "dist/apps/worker/src"
+      }
+    ],
+    "watchAssets": true
   }
 }

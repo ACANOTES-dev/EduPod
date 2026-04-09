@@ -1,0 +1,14 @@
+{
+  "id": "editorial-academic",
+  "name": {
+    "en": "Editorial Academic",
+    "ar": "الأكاديمي الكلاسيكي"
+  },
+  "content_scope": "grades_only",
+  "languages": ["en", "ar"],
+  "description": {
+    "en": "Fraunces serif display with an antique-gold and forest-green accent palette on warm paper.",
+    "ar": "خط Fraunces مع لمسات ذهبية وخضراء كلاسيكية."
+  },
+  "version": "1.0.0"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "modern-editorial",
+  "name": {
+    "en": "Modern Editorial",
+    "ar": "التقرير الحديث"
+  },
+  "content_scope": "grades_only",
+  "languages": ["en", "ar"],
+  "description": {
+    "en": "Bricolage Grotesque display with cobalt-blue accent on cool paper — an editorial, Swiss-inspired layout.",
+    "ar": "خط Bricolage Grotesque مع لمسة كوبالت زرقاء، بتصميم تحريري."
+  },
+  "version": "1.0.0"
+}
