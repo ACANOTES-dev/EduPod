@@ -282,7 +282,7 @@ When you finish an implementation, append an entry to the **Completions** sectio
 
 - **Completed at:** 2026-04-09 19:20 (local time)
 - **Completed by:** Claude Opus 4.6 (Claude Code)
-- **Branch / commit:** `main` @ `<sha>` _(backfilled after commit)_
+- **Branch / commit:** `main` @ `5d9216df`
 - **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
 - **Status:** ✅ complete
 - **Summary:** Refactored `ReportCardGenerationService` into a NestJS-injectable provider with the full new-flow API (`resolveScope`, `dryRunCommentGate`, `generateRun`, `getRun`, `listRuns`), wired four new wizard-facing endpoints under `/v1/report-cards/generation-runs`, and shipped a tenant-aware `ReportCardGenerationProcessor` in the worker with a placeholder React-PDF-style renderer. Impl 11 will swap the placeholder for the production templates without touching the processor.
