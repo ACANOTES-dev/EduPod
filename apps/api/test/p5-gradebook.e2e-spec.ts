@@ -350,6 +350,7 @@ describe('P5 Gradebook (e2e)', () => {
 
   describe('Assessments (/api/v1/gradebook/assessments)', () => {
     let newAssessmentId: string;
+    let cancellableAssessmentId: string;
 
     it('POST → 201 (admin creates assessment)', async () => {
       const res = await authPost(app, '/api/v1/gradebook/assessments', adminToken, {
@@ -391,81 +392,70 @@ describe('P5 Gradebook (e2e)', () => {
       expect(res.body.data.status).toBe('open');
     });
 
-    it('PATCH /:id/status → 200 (open → closed)', async () => {
+    it('PATCH /:id/status → 200 (open → submitted_locked)', async () => {
       const res = await authPatch(
         app,
         `/api/v1/gradebook/assessments/${newAssessmentId}/status`,
         adminToken,
-        { status: 'closed' },
+        { status: 'submitted_locked' },
         AL_NOOR_DOMAIN,
       ).expect(200);
 
-      expect(res.body.data.status).toBe('closed');
+      expect(res.body.data.status).toBe('submitted_locked');
     });
 
-    it('PATCH /:id/status → 200 (closed → open, re-open)', async () => {
+    it('PATCH /:id/status → 400 (submitted_locked → open, re-open)', async () => {
       const res = await authPatch(
         app,
         `/api/v1/gradebook/assessments/${newAssessmentId}/status`,
         adminToken,
         { status: 'open' },
-        AL_NOOR_DOMAIN,
-      ).expect(200);
-
-      expect(res.body.data.status).toBe('open');
-    });
-
-    it('PATCH /:id/status → 200 (close again, then lock)', async () => {
-      // Close first
-      await authPatch(
-        app,
-        `/api/v1/gradebook/assessments/${newAssessmentId}/status`,
-        adminToken,
-        { status: 'closed' },
-        AL_NOOR_DOMAIN,
-      ).expect(200);
-
-      // Lock
-      const res = await authPatch(
-        app,
-        `/api/v1/gradebook/assessments/${newAssessmentId}/status`,
-        adminToken,
-        { status: 'locked' },
-        AL_NOOR_DOMAIN,
-      ).expect(200);
-
-      expect(res.body.data.status).toBe('locked');
-    });
-
-    it('PATCH /:id/status → 400 (invalid: draft → closed)', async () => {
-      // Create a new draft assessment for this test
-      const draftRes = await authPost(app, '/api/v1/gradebook/assessments', adminToken, {
-        class_id: td.classId,
-        subject_id: td.subjectId,
-        academic_period_id: td.academicPeriodId,
-        category_id: td.categoryExamsId,
-        title: `Draft Only ${Date.now()}`,
-        max_score: 50,
-      }, AL_NOOR_DOMAIN).expect(201);
-
-      const res = await authPatch(
-        app,
-        `/api/v1/gradebook/assessments/${draftRes.body.data.id}/status`,
-        adminToken,
-        { status: 'closed' },
         AL_NOOR_DOMAIN,
       ).expect(400);
 
       expect(res.body.error?.code).toBe('INVALID_STATUS_TRANSITION');
     });
 
-    it('PATCH /:id/status → 400 (invalid: locked → open)', async () => {
-      // newAssessmentId is now locked
+    it('PATCH /:id/status → 400 (draft → closed without cancellation reason)', async () => {
+      const draftRes = await authPost(app, '/api/v1/gradebook/assessments', adminToken, {
+        class_id: td.classId,
+        subject_id: td.subjectId,
+        academic_period_id: td.academicPeriodId,
+        category_id: td.categoryExamsId,
+        title: `Cancellable Draft ${Date.now()}`,
+        max_score: 75,
+      }, AL_NOOR_DOMAIN).expect(201);
+      cancellableAssessmentId = draftRes.body.data.id;
+
+      const res = await authPatch(
+        app,
+        `/api/v1/gradebook/assessments/${cancellableAssessmentId}/status`,
+        adminToken,
+        { status: 'closed' },
+        AL_NOOR_DOMAIN,
+      ).expect(400);
+
+      expect(res.body.error?.code).toBe('CANCELLATION_REASON_REQUIRED');
+    });
+
+    it('PATCH /:id/status → 200 (draft → closed with cancellation reason)', async () => {
+      const res = await authPatch(
+        app,
+        `/api/v1/gradebook/assessments/${cancellableAssessmentId}/status`,
+        adminToken,
+        { status: 'closed', cancellation_reason: 'Assessment withdrawn before grading' },
+        AL_NOOR_DOMAIN,
+      ).expect(200);
+
+      expect(res.body.data.status).toBe('closed');
+    });
+
+    it('PATCH /:id/status → 400 (invalid: submitted_locked → final_locked)', async () => {
       const res = await authPatch(
         app,
         `/api/v1/gradebook/assessments/${newAssessmentId}/status`,
         adminToken,
-        { status: 'open' },
+        { status: 'final_locked' },
         AL_NOOR_DOMAIN,
       ).expect(400);
 
@@ -514,18 +504,35 @@ describe('P5 Gradebook (e2e)', () => {
     });
 
     it('PUT → 409 (grades on closed assessment)', async () => {
-      // Close the test assessment
+      const lockedAssessmentRes = await authPost(app, '/api/v1/gradebook/assessments', adminToken, {
+        class_id: td.classId,
+        subject_id: td.subjectId,
+        academic_period_id: td.academicPeriodId,
+        category_id: td.categoryHomeworkId,
+        title: `Locked Assessment ${Date.now()}`,
+        max_score: 100,
+      }, AL_NOOR_DOMAIN).expect(201);
+      const lockedAssessmentId = lockedAssessmentRes.body.data.id;
+
       await authPatch(
         app,
-        `/api/v1/gradebook/assessments/${td.assessmentId}/status`,
+        `/api/v1/gradebook/assessments/${lockedAssessmentId}/status`,
         adminToken,
-        { status: 'closed' },
+        { status: 'open' },
+        AL_NOOR_DOMAIN,
+      ).expect(200);
+
+      await authPatch(
+        app,
+        `/api/v1/gradebook/assessments/${lockedAssessmentId}/status`,
+        adminToken,
+        { status: 'submitted_locked' },
         AL_NOOR_DOMAIN,
       ).expect(200);
 
       const res = await authPut(
         app,
-        `/api/v1/gradebook/assessments/${td.assessmentId}/grades`,
+        `/api/v1/gradebook/assessments/${lockedAssessmentId}/grades`,
         adminToken,
         {
           grades: [
@@ -536,15 +543,6 @@ describe('P5 Gradebook (e2e)', () => {
       ).expect(409);
 
       expect(res.body.error?.code).toBe('ASSESSMENT_NOT_GRADEABLE');
-
-      // Re-open for subsequent tests
-      await authPatch(
-        app,
-        `/api/v1/gradebook/assessments/${td.assessmentId}/status`,
-        adminToken,
-        { status: 'open' },
-        AL_NOOR_DOMAIN,
-      ).expect(200);
     });
 
     it('PUT → 400 (non-enrolled student)', async () => {

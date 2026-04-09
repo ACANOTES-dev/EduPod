@@ -163,7 +163,13 @@ describe('AssessmentCategoriesService', () => {
     });
 
     it('should update category name and return updated record', async () => {
-      mockPrisma.assessmentCategory.findFirst.mockResolvedValue({ id: CATEGORY_ID });
+      mockPrisma.assessmentCategory.findFirst.mockResolvedValue({
+        id: CATEGORY_ID,
+        created_by_user_id: null,
+        subject_id: null,
+        year_group_id: null,
+        status: 'approved',
+      });
       mockRlsTx.assessmentCategory.update.mockResolvedValue({ ...sampleCategory, name: 'Exams' });
 
       const result = await service.update(TENANT_ID, CATEGORY_ID, USER_ID, { name: 'Exams' });
@@ -173,7 +179,13 @@ describe('AssessmentCategoriesService', () => {
     });
 
     it('should throw ConflictException on duplicate name during update', async () => {
-      mockPrisma.assessmentCategory.findFirst.mockResolvedValue({ id: CATEGORY_ID });
+      mockPrisma.assessmentCategory.findFirst.mockResolvedValue({
+        id: CATEGORY_ID,
+        created_by_user_id: null,
+        subject_id: null,
+        year_group_id: null,
+        status: 'approved',
+      });
       const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', {
         code: 'P2002',
         clientVersion: '5.0.0',
@@ -183,6 +195,22 @@ describe('AssessmentCategoriesService', () => {
       await expect(
         service.update(TENANT_ID, CATEGORY_ID, USER_ID, { name: 'Exams' }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('should allow admins to update approved global categories created by another user', async () => {
+      mockPrisma.assessmentCategory.findFirst.mockResolvedValue({
+        id: CATEGORY_ID,
+        created_by_user_id: '44444444-4444-4444-4444-444444444444',
+        subject_id: null,
+        year_group_id: null,
+        status: 'approved',
+      });
+      mockRlsTx.assessmentCategory.update.mockResolvedValue({ ...sampleCategory, name: 'Global Exams' });
+
+      const result = await service.update(TENANT_ID, CATEGORY_ID, USER_ID, { name: 'Global Exams' });
+
+      expect(result.name).toBe('Global Exams');
+      expect(mockRlsTx.assessmentCategory.update).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -198,7 +226,12 @@ describe('AssessmentCategoriesService', () => {
     });
 
     it('should throw ConflictException when assessments reference the category', async () => {
-      mockPrisma.assessmentCategory.findFirst.mockResolvedValue({ id: CATEGORY_ID });
+      mockPrisma.assessmentCategory.findFirst.mockResolvedValue({
+        id: CATEGORY_ID,
+        created_by_user_id: null,
+        subject_id: null,
+        year_group_id: null,
+      });
       mockPrisma.assessment.count.mockResolvedValue(5);
 
       await expect(service.delete(TENANT_ID, CATEGORY_ID, USER_ID)).rejects.toThrow(
@@ -207,7 +240,30 @@ describe('AssessmentCategoriesService', () => {
     });
 
     it('should delete the category when no assessments reference it', async () => {
-      mockPrisma.assessmentCategory.findFirst.mockResolvedValue({ id: CATEGORY_ID });
+      mockPrisma.assessmentCategory.findFirst.mockResolvedValue({
+        id: CATEGORY_ID,
+        created_by_user_id: null,
+        subject_id: null,
+        year_group_id: null,
+      });
+      mockPrisma.assessment.count.mockResolvedValue(0);
+      mockRlsTx.assessmentCategory.delete.mockResolvedValue(sampleCategory);
+
+      const result = await service.delete(TENANT_ID, CATEGORY_ID, USER_ID);
+
+      expect(result).toEqual(sampleCategory);
+      expect(mockRlsTx.assessmentCategory.delete).toHaveBeenCalledWith({
+        where: { id: CATEGORY_ID },
+      });
+    });
+
+    it('should allow admins to delete global categories created by another user', async () => {
+      mockPrisma.assessmentCategory.findFirst.mockResolvedValue({
+        id: CATEGORY_ID,
+        created_by_user_id: '44444444-4444-4444-4444-444444444444',
+        subject_id: null,
+        year_group_id: null,
+      });
       mockPrisma.assessment.count.mockResolvedValue(0);
       mockRlsTx.assessmentCategory.delete.mockResolvedValue(sampleCategory);
 

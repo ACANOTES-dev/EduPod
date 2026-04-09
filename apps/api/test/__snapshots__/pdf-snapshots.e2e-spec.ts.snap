@@ -8,102 +8,122 @@ exports[`PDF Template Snapshots Household Statement AR: renders deterministic HT
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Noto Sans Arabic', 'Arial', sans-serif; color: #111827; font-size: 14px; background: white; direction: rtl; }
-    @page { size: A4 landscape; margin: 0; }
+    body {
+      font-family: 'Noto Sans Arabic', 'Arial', sans-serif;
+      color: #111827;
+      font-size: 13px;
+      background: white;
+      direction: rtl;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    @page { size: A4; margin: 0; }
   </style>
 </head>
 <body>
-  <div style="padding: 0;">
-    <!-- Header -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #047857; padding-bottom: 16px; margin-bottom: 24px;">
-      <div>
-        <h1 style="font-size: 24px; font-weight: 700; color: #047857;">كشف حساب</h1>
-        <p style="font-size: 16px; font-weight: 600; margin-top: 4px;">مدرسة النور الدولية</p>
-      </div>
-      <img src="https://example.com/logo.png" alt="الشعار" style="height: 60px; max-width: 120px; object-fit: contain;">
-    </div>
+  <!-- Header bar -->
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 28px;">
+    <tr>
+      <td style="padding: 0;">
+        <div style="background: #047857; color: white; padding: 20px 24px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="vertical-align: middle;">
+                <div style="font-size: 22px; font-weight: 700; letter-spacing: 0.5px;">كشف حساب</div>
+                <div style="font-size: 14px; font-weight: 400; margin-top: 4px; opacity: 0.9;">مدرسة النور الدولية</div>
+              </td>
+              <td style="vertical-align: middle; text-align: left; width: 140px;">
+                <img src="https://example.com/logo.png" alt="" style="height: 50px; max-width: 120px; object-fit: contain; border-radius: 4px;" onerror="this.style.display='none'">
+              </td>
+            </tr>
+          </table>
+        </div>
+      </td>
+    </tr>
+  </table>
 
-    <!-- Household Info & Date Range -->
-    <div style="display: flex; justify-content: space-between; margin-bottom: 24px;">
-      <div>
-        <p style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">صاحب الحساب</p>
-        <p style="font-size: 14px; font-weight: 600;">Al-Rashid Family</p>
-        <p style="font-size: 13px; color: #374151;">Ahmed Al-Rashid</p>
-      </div>
-      <div>
-        <table style="font-size: 13px;">
-          <tr>
-            <td style="padding: 3px 0 3px 12px; color: #6b7280; font-weight: 500;">الفترة:</td>
-            <td style="padding: 3px 0; font-weight: 500;" dir="ltr">2025-09-01 &ndash; 2026-03-16</td>
-          </tr>
-          <tr>
-            <td style="padding: 3px 0 3px 12px; color: #6b7280; font-weight: 500;">الرصيد الافتتاحي:</td>
-            <td style="padding: 3px 0; font-weight: 600;" dir="ltr">AED 0.00</td>
-          </tr>
-        </table>
-      </div>
-    </div>
+  <div style="padding: 0 24px;">
+    <!-- Account holder & period info -->
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+      <tr>
+        <td style="vertical-align: top; width: 50%;">
+          <div style="font-size: 10px; color: #6b7280; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 6px;">صاحب الحساب</div>
+          <div style="font-size: 15px; font-weight: 700; color: #111827;">Al-Rashid Family</div>
+          <div style="font-size: 12px; color: #4b5563; margin-top: 2px;">Ahmed Al-Rashid</div>
+        </td>
+        <td style="vertical-align: top; text-align: left; width: 50%;">
+          <table style="margin-right: auto; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 3px 0 3px 16px; font-size: 11px; color: #6b7280; font-weight: 500;">الفترة:</td>
+              <td style="padding: 3px 0; font-size: 11px; font-weight: 600;" dir="ltr">01 Sept 2025 &ndash; 16 Mar 2026</td>
+            </tr>
+            <tr>
+              <td style="padding: 3px 0 3px 16px; font-size: 11px; color: #6b7280; font-weight: 500;">الرصيد الافتتاحي:</td>
+              <td style="padding: 3px 0; font-size: 11px; font-weight: 700; font-family: 'Courier New', monospace;" dir="ltr">AED 0.00</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
 
     <!-- Ledger Table -->
-    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
       <thead>
         <tr style="background: #047857; color: white;">
-          <th style="padding: 10px 8px; text-align: right; font-weight: 600; width: 90px;">التاريخ</th>
-          <th style="padding: 10px 8px; text-align: right; font-weight: 600; width: 90px;">النوع</th>
-          <th style="padding: 10px 8px; text-align: right; font-weight: 600; width: 120px;">المرجع</th>
-          <th style="padding: 10px 8px; text-align: right; font-weight: 600;">الوصف</th>
-          <th style="padding: 10px 8px; text-align: left; font-weight: 600; width: 110px;">مدين</th>
-          <th style="padding: 10px 8px; text-align: left; font-weight: 600; width: 110px;">دائن</th>
-          <th style="padding: 10px 8px; text-align: left; font-weight: 600; width: 120px;">الرصيد</th>
+          <th style="padding: 10px 12px; text-align: right; font-weight: 600; font-size: 11px; width: 80px;">التاريخ</th>
+          <th style="padding: 10px 12px; text-align: right; font-weight: 600; font-size: 11px; width: 72px;">النوع</th>
+          <th style="padding: 10px 12px; text-align: right; font-weight: 600; font-size: 11px; width: 110px;">المرجع</th>
+          <th style="padding: 10px 12px; text-align: right; font-weight: 600; font-size: 11px;">الوصف</th>
+          <th style="padding: 10px 12px; text-align: left; font-weight: 600; font-size: 11px; width: 100px;">مدين</th>
+          <th style="padding: 10px 12px; text-align: left; font-weight: 600; font-size: 11px; width: 100px;">دائن</th>
+          <th style="padding: 10px 12px; text-align: left; font-weight: 600; font-size: 11px; width: 100px;">الرصيد</th>
         </tr>
       </thead>
       <tbody>
         
-      <tr>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;" dir="ltr">2025-09-15</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">فاتورة</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;" dir="ltr">INV-202509-0001</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">Tuition Fee — Term 1</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 12px;" dir="ltr">AED 15000.00</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 12px; color: #16a34a;" dir="ltr"></td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 12px; font-weight: 500;" dir="ltr">AED 15000.00</td>
+      <tr style="background: #ffffff;">
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; white-space: nowrap;" dir="ltr">15 Sept 2025</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px;">فاتورة</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; font-family: 'Courier New', monospace;" dir="ltr">INV-202509-0001</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; color: #374151;">Tuition Fee — Term 1</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 11px; font-family: 'Courier New', monospace;" dir="ltr">AED 15,000.00</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 11px; font-family: 'Courier New', monospace; color: #059669;" dir="ltr"></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 11px; font-family: 'Courier New', monospace; font-weight: 600;" dir="ltr">AED 15,000.00</td>
       </tr>
-      <tr>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;" dir="ltr">2025-10-01</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">دفعة</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;" dir="ltr">REC-202510-0001</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">Bank transfer payment</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 12px;" dir="ltr"></td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 12px; color: #16a34a;" dir="ltr">AED 15000.00</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 12px; font-weight: 500;" dir="ltr">AED 0.00</td>
+      <tr style="background: #f9fafb;">
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; white-space: nowrap;" dir="ltr">01 Oct 2025</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px;">دفعة</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; font-family: 'Courier New', monospace;" dir="ltr">REC-202510-0001</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; color: #374151;">Bank transfer payment</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 11px; font-family: 'Courier New', monospace;" dir="ltr"></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 11px; font-family: 'Courier New', monospace; color: #059669;" dir="ltr">AED 15,000.00</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 11px; font-family: 'Courier New', monospace; font-weight: 600;" dir="ltr">AED 0.00</td>
       </tr>
-      <tr>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;" dir="ltr">2026-01-15</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">فاتورة</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;" dir="ltr">INV-202601-0001</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">Tuition Fee — Term 2</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 12px;" dir="ltr">AED 16500.00</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 12px; color: #16a34a;" dir="ltr"></td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 12px; font-weight: 500;" dir="ltr">AED 16500.00</td>
+      <tr style="background: #ffffff;">
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; white-space: nowrap;" dir="ltr">15 Jan 2026</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px;">فاتورة</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; font-family: 'Courier New', monospace;" dir="ltr">INV-202601-0001</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; color: #374151;">Tuition Fee — Term 2</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 11px; font-family: 'Courier New', monospace;" dir="ltr">AED 16,500.00</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 11px; font-family: 'Courier New', monospace; color: #059669;" dir="ltr"></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 11px; font-family: 'Courier New', monospace; font-weight: 600;" dir="ltr">AED 16,500.00</td>
       </tr>
       </tbody>
     </table>
 
     <!-- Closing Balance -->
-    <div style="display: flex; justify-content: flex-start; margin-top: 16px;">
-      <table style="font-size: 14px; min-width: 280px;">
-        <tr style="border-top: 2px solid #047857;">
-          <td style="padding: 10px 0 6px 16px; font-weight: 700;">الرصيد الختامي:</td>
-          <td style="padding: 10px 0 6px 0; text-align: left; font-weight: 700; font-size: 16px; color: #dc2626;" dir="ltr">
-            AED 16500.00
-          </td>
-        </tr>
-      </table>
-    </div>
+    <table style="margin-right: auto; border-collapse: collapse; margin-bottom: 40px;">
+      <tr style="border-top: 2px solid #047857; border-bottom: 2px solid #047857;">
+        <td style="padding: 12px 16px 12px 24px; font-weight: 700; font-size: 13px;">الرصيد الختامي</td>
+        <td style="padding: 12px 24px 12px 16px; text-align: left; font-weight: 700; font-size: 15px; font-family: 'Courier New', monospace; color: #dc2626;" dir="ltr">
+          AED 16,500.00
+        </td>
+      </tr>
+    </table>
 
     <!-- Footer -->
-    <div style="margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center;">
-      <p>مدرسة النور الدولية &mdash; هذا الكشف لأغراض إعلامية فقط.</p>
+    <div style="padding-top: 16px; border-top: 1px solid #d1d5db; font-size: 10px; color: #9ca3af; text-align: center;">
+      مدرسة النور الدولية &mdash; هذا الكشف لأغراض إعلامية فقط.
     </div>
   </div>
 </body>
@@ -117,102 +137,121 @@ exports[`PDF Template Snapshots Household Statement EN: renders deterministic HT
   <meta charset="UTF-8">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #111827; font-size: 14px; background: white; }
-    @page { size: A4 landscape; margin: 0; }
+    body {
+      font-family: -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      color: #111827;
+      font-size: 13px;
+      background: white;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    @page { size: A4; margin: 0; }
   </style>
 </head>
 <body>
-  <div style="padding: 0;">
-    <!-- Header -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #047857; padding-bottom: 16px; margin-bottom: 24px;">
-      <div>
-        <h1 style="font-size: 24px; font-weight: 700; color: #047857;">ACCOUNT STATEMENT</h1>
-        <p style="font-size: 16px; font-weight: 600; margin-top: 4px;">Al Noor International School</p>
-      </div>
-      <img src="https://example.com/logo.png" alt="Logo" style="height: 60px; max-width: 120px; object-fit: contain;">
-    </div>
+  <!-- Header bar -->
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 28px;">
+    <tr>
+      <td style="padding: 0;">
+        <div style="background: #047857; color: white; padding: 20px 24px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="vertical-align: middle;">
+                <div style="font-size: 22px; font-weight: 700; letter-spacing: 0.5px;">ACCOUNT STATEMENT</div>
+                <div style="font-size: 14px; font-weight: 400; margin-top: 4px; opacity: 0.9;">Al Noor International School</div>
+              </td>
+              <td style="vertical-align: middle; text-align: right; width: 140px;">
+                <img src="https://example.com/logo.png" alt="" style="height: 50px; max-width: 120px; object-fit: contain; border-radius: 4px;" onerror="this.style.display='none'">
+              </td>
+            </tr>
+          </table>
+        </div>
+      </td>
+    </tr>
+  </table>
 
-    <!-- Household Info & Date Range -->
-    <div style="display: flex; justify-content: space-between; margin-bottom: 24px;">
-      <div>
-        <p style="font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Account Holder</p>
-        <p style="font-size: 14px; font-weight: 600;">Al-Rashid Family</p>
-        <p style="font-size: 13px; color: #374151;">Ahmed Al-Rashid</p>
-      </div>
-      <div style="text-align: right;">
-        <table style="font-size: 13px; margin-left: auto;">
-          <tr>
-            <td style="padding: 3px 12px 3px 0; color: #6b7280; font-weight: 500;">Period:</td>
-            <td style="padding: 3px 0; font-weight: 500;">2025-09-01 &ndash; 2026-03-16</td>
-          </tr>
-          <tr>
-            <td style="padding: 3px 12px 3px 0; color: #6b7280; font-weight: 500;">Opening Balance:</td>
-            <td style="padding: 3px 0; font-weight: 600;">AED 0.00</td>
-          </tr>
-        </table>
-      </div>
-    </div>
+  <div style="padding: 0 24px;">
+    <!-- Account holder & period info -->
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+      <tr>
+        <td style="vertical-align: top; width: 50%;">
+          <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 6px;">Account Holder</div>
+          <div style="font-size: 15px; font-weight: 700; color: #111827;">Al-Rashid Family</div>
+          <div style="font-size: 12px; color: #4b5563; margin-top: 2px;">c/o Ahmed Al-Rashid</div>
+        </td>
+        <td style="vertical-align: top; text-align: right; width: 50%;">
+          <table style="margin-left: auto; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 3px 16px 3px 0; font-size: 11px; color: #6b7280; font-weight: 500;">Statement Period:</td>
+              <td style="padding: 3px 0; font-size: 11px; font-weight: 600;">01 Sept 2025 &ndash; 16 Mar 2026</td>
+            </tr>
+            <tr>
+              <td style="padding: 3px 16px 3px 0; font-size: 11px; color: #6b7280; font-weight: 500;">Opening Balance:</td>
+              <td style="padding: 3px 0; font-size: 11px; font-weight: 700; font-family: 'Courier New', monospace;">AED 0.00</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
 
     <!-- Ledger Table -->
-    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
       <thead>
         <tr style="background: #047857; color: white;">
-          <th style="padding: 10px 8px; text-align: left; font-weight: 600; width: 90px;">Date</th>
-          <th style="padding: 10px 8px; text-align: left; font-weight: 600; width: 90px;">Type</th>
-          <th style="padding: 10px 8px; text-align: left; font-weight: 600; width: 120px;">Reference</th>
-          <th style="padding: 10px 8px; text-align: left; font-weight: 600;">Description</th>
-          <th style="padding: 10px 8px; text-align: right; font-weight: 600; width: 110px;">Debit</th>
-          <th style="padding: 10px 8px; text-align: right; font-weight: 600; width: 110px;">Credit</th>
-          <th style="padding: 10px 8px; text-align: right; font-weight: 600; width: 120px;">Balance</th>
+          <th style="padding: 10px 12px; text-align: left; font-weight: 600; font-size: 11px; width: 80px;">Date</th>
+          <th style="padding: 10px 12px; text-align: left; font-weight: 600; font-size: 11px; width: 72px;">Type</th>
+          <th style="padding: 10px 12px; text-align: left; font-weight: 600; font-size: 11px; width: 110px;">Reference</th>
+          <th style="padding: 10px 12px; text-align: left; font-weight: 600; font-size: 11px;">Description</th>
+          <th style="padding: 10px 12px; text-align: right; font-weight: 600; font-size: 11px; width: 100px;">Debit</th>
+          <th style="padding: 10px 12px; text-align: right; font-weight: 600; font-size: 11px; width: 100px;">Credit</th>
+          <th style="padding: 10px 12px; text-align: right; font-weight: 600; font-size: 11px; width: 100px;">Balance</th>
         </tr>
       </thead>
       <tbody>
         
-      <tr>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">2025-09-15</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">Invoice</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">INV-202509-0001</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">Tuition Fee — Term 1</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 12px;">AED 15000.00</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 12px; color: #16a34a;"></td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 12px; font-weight: 500;">AED 15000.00</td>
+      <tr style="background: #ffffff;">
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; white-space: nowrap;">15 Sept 2025</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px;">Invoice</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; font-family: 'Courier New', monospace; letter-spacing: -0.3px;">INV-202509-0001</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; color: #374151;">Tuition Fee — Term 1</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 11px; font-family: 'Courier New', monospace;">AED 15,000.00</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 11px; font-family: 'Courier New', monospace; color: #059669;"></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 11px; font-family: 'Courier New', monospace; font-weight: 600;">AED 15,000.00</td>
       </tr>
-      <tr>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">2025-10-01</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">Payment</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">REC-202510-0001</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">Bank transfer payment</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 12px;"></td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 12px; color: #16a34a;">AED 15000.00</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 12px; font-weight: 500;">AED 0.00</td>
+      <tr style="background: #f9fafb;">
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; white-space: nowrap;">01 Oct 2025</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px;">Payment</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; font-family: 'Courier New', monospace; letter-spacing: -0.3px;">REC-202510-0001</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; color: #374151;">Bank transfer payment</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 11px; font-family: 'Courier New', monospace;"></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 11px; font-family: 'Courier New', monospace; color: #059669;">AED 15,000.00</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 11px; font-family: 'Courier New', monospace; font-weight: 600;">AED 0.00</td>
       </tr>
-      <tr>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">2026-01-15</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">Invoice</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">INV-202601-0001</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px;">Tuition Fee — Term 2</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 12px;">AED 16500.00</td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 12px; color: #16a34a;"></td>
-        <td style="padding: 7px 8px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 12px; font-weight: 500;">AED 16500.00</td>
+      <tr style="background: #ffffff;">
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; white-space: nowrap;">15 Jan 2026</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px;">Invoice</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; font-family: 'Courier New', monospace; letter-spacing: -0.3px;">INV-202601-0001</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 11px; color: #374151;">Tuition Fee — Term 2</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 11px; font-family: 'Courier New', monospace;">AED 16,500.00</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 11px; font-family: 'Courier New', monospace; color: #059669;"></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 11px; font-family: 'Courier New', monospace; font-weight: 600;">AED 16,500.00</td>
       </tr>
       </tbody>
     </table>
 
     <!-- Closing Balance -->
-    <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
-      <table style="font-size: 14px; min-width: 280px;">
-        <tr style="border-top: 2px solid #047857;">
-          <td style="padding: 10px 16px 6px 0; font-weight: 700;">Closing Balance:</td>
-          <td style="padding: 10px 0 6px 0; text-align: right; font-weight: 700; font-size: 16px; color: #dc2626;">
-            AED 16500.00
-          </td>
-        </tr>
-      </table>
-    </div>
+    <table style="margin-left: auto; border-collapse: collapse; margin-bottom: 40px;">
+      <tr style="border-top: 2px solid #047857; border-bottom: 2px solid #047857;">
+        <td style="padding: 12px 24px 12px 16px; font-weight: 700; font-size: 13px;">Closing Balance</td>
+        <td style="padding: 12px 16px 12px 24px; text-align: right; font-weight: 700; font-size: 15px; font-family: 'Courier New', monospace; color: #dc2626;">
+          AED 16,500.00
+        </td>
+      </tr>
+    </table>
 
     <!-- Footer -->
-    <div style="margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center;">
-      <p>Al Noor International School &mdash; This statement is for informational purposes only.</p>
+    <div style="padding-top: 16px; border-top: 1px solid #d1d5db; font-size: 10px; color: #9ca3af; text-align: center;">
+      Al Noor International School &mdash; This statement is for informational purposes only.
     </div>
   </div>
 </body>

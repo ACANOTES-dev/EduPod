@@ -310,7 +310,6 @@ export async function setupP5TestData(
       category_id: categoryHomeworkId,
       title: `P5 Homework 1 ${ts}`,
       max_score: 100,
-      due_date: dateInYear(10, 15),
     },
     AL_NOOR_DOMAIN,
   ).expect(201);

@@ -263,16 +263,18 @@ export class AssessmentCategoriesService {
       });
     }
 
-    // Ownership check for teacher-owned categories
-    if (category.created_by_user_id && category.created_by_user_id !== userId) {
+    const isTeacherScoped = Boolean(category.subject_id && category.year_group_id);
+
+    // Ownership check for teacher-scoped categories only
+    if (isTeacherScoped && category.created_by_user_id !== userId) {
       throw new ForbiddenException({
         code: 'NOT_CATEGORY_OWNER',
         message: 'You can only update your own categories',
       });
     }
 
-    // Status gate for teacher-owned categories
-    if (category.created_by_user_id) {
+    // Status gate for teacher-scoped categories
+    if (isTeacherScoped) {
       if (category.status !== 'draft' && category.status !== 'rejected') {
         throw new ConflictException({
           code: 'CATEGORY_NOT_EDITABLE',
@@ -301,8 +303,8 @@ export class AssessmentCategoriesService {
           updateData.year_group_id = dto.year_group_id;
         }
 
-        // Reset status to draft when editing a rejected teacher-owned category
-        if (category.created_by_user_id && category.status === 'rejected') {
+        // Reset status to draft when editing a rejected teacher-scoped category
+        if (isTeacherScoped && category.status === 'rejected') {
           updateData.status = 'draft';
           updateData.rejection_reason = null;
           updateData.reviewed_at = null;
@@ -345,8 +347,10 @@ export class AssessmentCategoriesService {
       });
     }
 
-    // Ownership check for teacher-owned categories
-    if (category.created_by_user_id && category.created_by_user_id !== userId) {
+    const isTeacherScoped = Boolean(category.subject_id && category.year_group_id);
+
+    // Ownership check for teacher-scoped categories only
+    if (isTeacherScoped && category.created_by_user_id !== userId) {
       throw new ForbiddenException({
         code: 'NOT_CATEGORY_OWNER',
         message: 'You can only delete your own categories',
