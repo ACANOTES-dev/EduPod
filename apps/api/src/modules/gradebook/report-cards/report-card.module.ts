@@ -11,6 +11,8 @@ import { GdprModule } from '../../gdpr/gdpr.module';
 import { PdfRenderingModule } from '../../pdf-rendering/pdf-rendering.module';
 import { RbacModule } from '../../rbac/rbac.module';
 import { S3Module } from '../../s3/s3.module';
+import { SchedulingModule } from '../../scheduling/scheduling.module';
+import { StaffProfilesModule } from '../../staff-profiles/staff-profiles.module';
 import { StudentsModule } from '../../students/students.module';
 import { TenantsModule } from '../../tenants/tenants.module';
 
@@ -62,6 +64,8 @@ import { ReportCommentWindowsService } from './report-comment-windows.service';
     PdfRenderingModule,
     RbacModule,
     S3Module,
+    SchedulingModule,
+    StaffProfilesModule,
     StudentsModule,
     TenantsModule,
     BullModule.registerQueue({ name: 'gradebook' }),

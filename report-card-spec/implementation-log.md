@@ -438,3 +438,77 @@ When you finish an implementation, append an entry to the **Completions** sectio
 - `findMembershipsWithPermissionAndUser` on `RbacReadFacade` is the right primitive to resolve "who should be notified" for any new admin-facing fan-out in the report-cards module. It honours the tenant scope and only returns active memberships.
 - The e2e suite deliberately does NOT cover the `regenerate_reports` auto-execute path end-to-end — a real generation run requires class/template/grade/homeroom seed data that would duplicate `generation-runs.e2e-spec.ts`. The unit spec exercises the hand-off in full (both the success path and the "leave pending on failure" branch).
 - The controller uses `@Param('id', ParseUUIDPipe)` for the request id on every dynamic route. If you need to add a non-UUID dynamic segment, register it BEFORE the `:id` routes to avoid NestJS route shadowing (this is why `GET /pending` appears before `GET /:id` in the controller).
+
+### Implementation 06: Matrix & Library Backend
+
+- **Completed at:** 2026-04-09 20:15 (local time)
+- **Completed by:** Claude Opus 4.6 (Claude Code)
+- **Branch / commit:** `main` @ `<to-be-filled>`
+- **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
+- **Status:** ✅ complete
+- **Summary:** Landed the two backend endpoints that power the new class-first report cards UX — `GET /v1/report-cards/classes/:classId/matrix` (students × subjects matrix with dense top-3 rank) and `GET /v1/report-cards/library` (non-superseded report cards with 5-minute signed-URL downloads and role-scoped visibility). The old flat overview endpoint is now marked `@deprecated` and logs a warning on every hit, but remains functional for the existing frontend until impl 12.
+
+**What changed:**
+
+- `packages/shared/src/report-cards/matrix-library.schema.ts` — new Zod schemas `classMatrixQuerySchema` (union of uuid | 'all') and `listReportCardLibraryQuerySchema` (page/pageSize + class/year_group/period/language filters).
+- `packages/shared/src/report-cards/index.ts` — re-export the new schemas from the barrel.
+- `packages/shared/src/report-cards/__tests__/matrix-library.schema.spec.ts` — 11 unit tests covering defaults, coercion, uuid validation, and strict-mode rejection for both schemas.
+- `apps/api/src/modules/gradebook/report-cards/report-cards-queries.service.ts` — two new methods: `getClassMatrix` (class lookup → students → subjects → period grade snapshots → weighted subject/period aggregation → dense top-3 rank) and `listReportCardLibrary` (admin vs. teacher scoping → filtered report card list → signed URL per row → languages_available grouping across siblings). Gradebook coupling is documented as danger-zone **DZ-44** because the two methods intentionally mirror `PeriodGradeComputationService.computeCrossSubject` / `computeYearOverview`.
+- `apps/api/src/modules/gradebook/report-cards/report-cards-queries.service.spec.ts` — 12 new unit tests across two new `describe` blocks (`getClassMatrix`, `listReportCardLibrary`), including rank-tie behaviour, all-periods aggregation, override flag propagation, admin vs. teacher scoping, language grouping, and the S3 presign-failure fallback. Existing 17 tests still green (total 29).
+- `apps/api/src/modules/gradebook/report-cards/report-cards.controller.ts` — added two new routes under `/v1/report-cards` (registered BEFORE the dynamic `:id` route): `GET /classes/:classId/matrix` and `GET /library`. The legacy `GET /overview` method is annotated `@deprecated` with a JSDoc note and now logs a warning on every invocation. New `hasAnyPermission` helper resolves caller scope for the library endpoint via `PermissionCacheService` (admin = holder of `report_cards.view` OR `report_cards.manage`).
+- `apps/api/src/modules/gradebook/report-cards/report-cards.controller.spec.ts` — 5 new controller tests (2 for matrix, 3 for library) covering delegation, admin/teacher scope resolution, and filter passthrough. Existing 16 tests still green (total 21).
+- `apps/api/src/modules/gradebook/report-cards/report-cards.service.spec.ts` — added `{ provide: S3Service, useValue: mockS3Service }` to every TestingModule that instantiates `ReportCardsQueriesService` because impl 06 added S3Service as a new constructor parameter on the queries service. No behaviour changes.
+- `apps/api/src/modules/gradebook/report-cards/report-card.module.ts` — `ReportCardModule` now imports `StaffProfilesModule` (for `StaffProfileReadFacade.resolveProfileId`) and `SchedulingModule` (for `SchedulingReadFacade.findTeacherCompetencies`). Both modules are already stable upstream dependencies; no circular imports.
+- `apps/api/test/report-cards/matrix.e2e-spec.ts` — new e2e suite (4 tests). Seeds class + students + subjects + grading scale + `PeriodGradeSnapshot` rows across two terms, exercises the full single-period and all-periods matrix code paths, verifies rank calculation and cross-tenant RLS.
+- `apps/api/test/report-cards/library.e2e-spec.ts` — new e2e suite (6 tests). Seeds admin + homeroom teacher + unrelated teacher, homeroom and non-homeroom classes, report cards in three locales/statuses, and exercises admin visibility, teacher scoping, unrelated-teacher empty result, language filter, class filter, and cross-tenant RLS isolation. Stubs `S3Service.getPresignedUrl` via `overrideProvider` so the test does not need real AWS credentials.
+- `api-surface.snapshot.json` — regenerated for the two new routes (`GET /v1/report-cards/classes/:classId/matrix`, `GET /v1/report-cards/library`). The pre-existing per-row permission-bleed bug in the snapshot tool (documented in impl 02's log entry) still applies; runtime permission enforcement is correct via NestJS reflection on the decorated methods.
+- `docs/architecture/danger-zones.md` — new **DZ-44: Report Card Matrix Reuses Gradebook Aggregation — Silent Drift Risk** with mitigation and code pointers.
+- `docs/architecture/module-blast-radius.md` — added impl-06 note under `GradebookModule` documenting the new `StaffProfilesModule` + `SchedulingModule` imports and the new `ReportCardsQueriesService` methods.
+
+**Database changes:**
+
+- None (uses impl 01 tables and columns only).
+
+**Test coverage:**
+
+- Shared Zod schema tests added: 11 (`matrix-library.schema.spec.ts`)
+- Unit specs added on the queries service: 12 new tests across two new `describe` blocks (total in file now 29)
+- Controller specs added: 5 new tests (total in file now 21)
+- Integration/E2E specs added: 2 files (`matrix.e2e-spec.ts` → 4 tests; `library.e2e-spec.ts` → 6 tests)
+- RLS leakage: the two new endpoints' cross-tenant isolation is verified directly in `matrix.e2e-spec.ts` and `library.e2e-spec.ts` (no new tenant-scoped tables means nothing to add to `rls-leakage.e2e-spec.ts`).
+- `turbo test` status: ✅ all 722 suites / 15077 tests green across the whole workspace.
+- `turbo lint` status: ✅ 0 errors (839 pre-existing warnings, none introduced).
+- `turbo type-check` status: ✅ green for every package.
+- DI verification script from `00-common-knowledge.md §3.7`: ✅ `DI OK`.
+
+**Architecture docs updated (if applicable):**
+
+- `docs/architecture/module-blast-radius.md` — ✅ updated (new module imports + new queries service methods)
+- `docs/architecture/event-job-catalog.md` — not required (no BullMQ jobs or crons added; the two new endpoints are synchronous reads)
+- `docs/architecture/state-machines.md` — not required (no new status enums or transitions)
+- `docs/architecture/danger-zones.md` — ✅ updated (**DZ-44** gradebook aggregation coupling)
+- `docs/architecture/feature-map.md` — NOT updated (per project rule — will be batched into a single update after impl 12)
+
+**Regression check:**
+
+- Ran full `turbo test`: ✅ 15077/15077 tests green across 722 suites.
+- Any unrelated test failures: none. The `api-surface.spec.ts` snapshot test was updated via the root-level `pnpm -w run snapshot:api` script after adding the new routes.
+
+**Blockers or follow-ups:**
+
+- Impl 07 (frontend overview / matrix / library) is now unblocked. The frontend should:
+  1. Call `GET /v1/report-cards/classes/:classId/matrix?academic_period_id=<id|all>` for the matrix view.
+  2. Call `GET /v1/report-cards/library?<filters>` for the library view.
+  3. Treat the `pdf_download_url` on each library row as short-lived (5 minutes) — do not cache it client-side; re-request the endpoint before any new download.
+- Impl 12 (cleanup) should delete the now-deprecated `GET /v1/report-cards/overview` endpoint, its controller method, and the `ReportCardsQueriesService.gradeOverview` method once the frontend is fully flipped over.
+- **Tech debt follow-up**: the pre-existing partial unique index `idx_report_cards_active_unique` on `(tenant_id, student_id, academic_period_id)` where `status IN ('draft', 'published')` still prevents storing two published rows for the same student/period, even when `template_locale` differs. The new design requires the index to include `template_locale`. For now, the library e2e test stores the second-language row with `status = 'revised'` to side-step the constraint. A follow-up migration should relax the index — tracked under impl 04's tech debt list (constraint narrowing + native upsert switch).
+- Local commit only — not pushed to GitHub per nightly-push policy.
+
+**Notes for the next agent:**
+
+- **DZ-44 is load-bearing.** Before changing ANY of these three files, re-read the danger zone entry: `report-cards-queries.service.ts`, `period-grade-computation.service.ts`, `weight-config.service.ts`. The report card matrix numbers and the gradebook matrix numbers are coupled by contract, not by shared code. A change to either side MUST be mirrored.
+- The rank helper is named `computeDenseRankTop3` for consistency with the spec vocabulary, but it is actually **standard competition rank** — two tied students at rank 1 mean the next distinct value gets rank 3, not 2. Do not "fix" this to true dense rank without also updating the design spec §14.
+- The library's teacher scoping expands from staff profile → (homeroom classes ∪ explicit ClassStaff assignments ∪ classes derived from TeacherCompetency × curriculum matrix) → active enrolments → student IDs. The homeroom lookup walks `ClassesReadFacade.findClassesGeneric` with `homeroom_teacher_staff_id` (there is no dedicated facade helper yet — if you add more call sites, consider promoting one). The teaching-competency walk goes through `SchedulingReadFacade.findTeacherCompetencies` and filters by staff profile in memory.
+- The signed URL TTL is 5 minutes. If you need a longer window, change `LIBRARY_SIGNED_URL_TTL_SECONDS` — but first revisit the design spec §11 which calls out the 5-minute expectation explicitly.
+- The matrix endpoint aggregates display_value from `PeriodGradeSnapshot` for per-cell grades, and applies a class-wide grading scale (first found) for the overall letter grade. If a class has mixed grading scales across subjects, the overall letter uses the first non-null scale — documented in the inline comment near `overallScale`. If this ever becomes a complaint, switch to "no overall letter grade when scales are heterogeneous" rather than inventing a blended rule.
+- The `languages_available` field is computed by a second `reportCard.findMany` call filtered to the same (student, period) pairs as the current page. This is O(pageSize × siblings) rather than ideal O(page), but it keeps the logic simple and the page size is capped at 100. If library listings grow into the tens of thousands of documents, revisit with a materialised view or a separate `report_card_documents` aggregate.

@@ -36,6 +36,8 @@ const mockReportCardsQueriesService = {
   gradeOverview: jest.fn(),
   buildBatchSnapshots: jest.fn(),
   generateTranscript: jest.fn(),
+  getClassMatrix: jest.fn(),
+  listReportCardLibrary: jest.fn(),
 };
 
 const mockPdfRenderingService = {
@@ -215,6 +217,118 @@ describe('ReportCardsController', () => {
         pageSize: 20,
       });
       expect(result).toEqual(overview);
+    });
+  });
+
+  // ─── getClassMatrix (impl 06) ────────────────────────────────────────────
+
+  describe('getClassMatrix', () => {
+    const CLASS_ID = 'cccccccc-1111-4111-8111-111111111111';
+
+    it('delegates to service.getClassMatrix with the period filter', async () => {
+      const matrix = {
+        class: { id: CLASS_ID, name: '5A', year_group: null },
+        period: { id: 'all', name: 'Full year' },
+        students: [],
+        subjects: [],
+        cells: {},
+        overall_by_student: {},
+      };
+      mockReportCardsQueriesService.getClassMatrix.mockResolvedValue(matrix);
+
+      const result = await controller.getClassMatrix(tenantContext, CLASS_ID, {
+        academic_period_id: 'all',
+      });
+
+      expect(mockReportCardsQueriesService.getClassMatrix).toHaveBeenCalledWith(TENANT_ID, {
+        classId: CLASS_ID,
+        academicPeriodId: 'all',
+      });
+      expect(result).toEqual(matrix);
+    });
+
+    it('passes through a concrete academic period id', async () => {
+      mockReportCardsQueriesService.getClassMatrix.mockResolvedValue({
+        class: { id: CLASS_ID, name: '5A', year_group: null },
+        period: { id: PERIOD_ID, name: 'Term 1' },
+        students: [],
+        subjects: [],
+        cells: {},
+        overall_by_student: {},
+      });
+
+      await controller.getClassMatrix(tenantContext, CLASS_ID, {
+        academic_period_id: PERIOD_ID,
+      });
+
+      expect(mockReportCardsQueriesService.getClassMatrix).toHaveBeenCalledWith(TENANT_ID, {
+        classId: CLASS_ID,
+        academicPeriodId: PERIOD_ID,
+      });
+    });
+  });
+
+  // ─── listLibrary (impl 06) ───────────────────────────────────────────────
+
+  describe('listLibrary', () => {
+    it('calls service with admin scope when caller has report_cards.view', async () => {
+      mockPermissionCacheService.getPermissions.mockResolvedValue(['report_cards.view']);
+      mockReportCardsQueriesService.listReportCardLibrary.mockResolvedValue({
+        data: [],
+        meta: { page: 1, pageSize: 20, total: 0 },
+      });
+
+      await controller.listLibrary(tenantContext, { ...jwtUser, membership_id: 'm-1' } as never, {
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(mockReportCardsQueriesService.listReportCardLibrary).toHaveBeenCalledWith(
+        TENANT_ID,
+        { user_id: USER_ID, is_admin: true },
+        { page: 1, pageSize: 20 },
+      );
+    });
+
+    it('calls service with teacher scope when caller lacks view/manage', async () => {
+      mockPermissionCacheService.getPermissions.mockResolvedValue(['report_cards.comment']);
+      mockReportCardsQueriesService.listReportCardLibrary.mockResolvedValue({
+        data: [],
+        meta: { page: 1, pageSize: 20, total: 0 },
+      });
+
+      await controller.listLibrary(tenantContext, { ...jwtUser, membership_id: 'm-2' } as never, {
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(mockReportCardsQueriesService.listReportCardLibrary).toHaveBeenCalledWith(
+        TENANT_ID,
+        { user_id: USER_ID, is_admin: false },
+        { page: 1, pageSize: 20 },
+      );
+    });
+
+    it('passes filters through untouched', async () => {
+      mockPermissionCacheService.getPermissions.mockResolvedValue(['report_cards.manage']);
+      mockReportCardsQueriesService.listReportCardLibrary.mockResolvedValue({
+        data: [],
+        meta: { page: 1, pageSize: 20, total: 0 },
+      });
+
+      const classFilter = '11111111-1111-4111-8111-111111111111';
+      await controller.listLibrary(tenantContext, { ...jwtUser, membership_id: 'm-3' } as never, {
+        page: 2,
+        pageSize: 50,
+        class_id: classFilter,
+        language: 'ar',
+      });
+
+      expect(mockReportCardsQueriesService.listReportCardLibrary).toHaveBeenCalledWith(
+        TENANT_ID,
+        { user_id: USER_ID, is_admin: true },
+        { page: 2, pageSize: 50, class_id: classFilter, language: 'ar' },
+      );
     });
   });
 

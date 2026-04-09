@@ -761,3 +761,19 @@ This matters because:
 
 - `apps/api/src/modules/gradebook/report-cards/report-card-teacher-requests.service.ts` — `approve` is the single entrypoint; the auto-execute path is in `autoExecuteOpenWindow` and `autoExecuteRegenerate`.
 - `packages/shared/src/report-cards/teacher-request.schema.ts` — `approveTeacherRequestSchema` exposes the `auto_execute` flag.
+
+## DZ-44: Report Card Matrix Reuses Gradebook Aggregation — Silent Drift Risk
+
+**Risk**: `ReportCardsQueriesService.getClassMatrix` (impl 06) powers the new class-first report cards matrix view. It reuses the **same** data source (`PeriodGradeSnapshot`) and the **same** weighting tables (`SubjectPeriodWeight`, `PeriodYearWeight`) as the gradebook's own matrix aggregation inside `PeriodGradeComputationService.computeCrossSubject` / `computeYearOverview`. This is intentional — the design spec requires that the report card matrix and the gradebook matrix show IDENTICAL numbers — but it creates a silent coupling: any future change to gradebook aggregation semantics (e.g., a tweak to how equal-weight fallback works, or a change to how period weights combine) will silently shift report card numbers too, with no build failure, no test failure, and no obvious breadcrumb.
+
+**Mitigation**:
+
+- The two implementations share their data source but do NOT share code (the report cards service intentionally inlines the weighted-average math rather than pulling in `PeriodGradeComputationService` via a circular module dep). Treat both sites as "tied by contract": a change to either MUST be mirrored in the other.
+- The e2e coverage in `apps/api/test/report-cards/matrix.e2e-spec.ts` exercises the full snapshot → weighted average → rank pipeline with real seed data. Any semantic drift in gradebook aggregation will surface there if the test fixtures are kept in sync.
+- If the product later wants to diverge — e.g., report cards should use a different rounding rule than the gradebook — deliberately fork the code and document the divergence here. Do NOT quietly edit only one side.
+
+**Code pointers**:
+
+- `apps/api/src/modules/gradebook/report-cards/report-cards-queries.service.ts` — `getClassMatrix`, `computePeriodOverall`, `combinePeriodsWithWeights`, `resolveSubjectWeightsForClass`, `resolvePeriodWeightsForClass`, `applyGradingScale`.
+- `apps/api/src/modules/gradebook/grading/period-grade-computation.service.ts` — `computeCrossSubject`, `computeYearOverview`, `weightedAverage`, `applyGradingScale` (the original implementations).
+- `apps/api/src/modules/gradebook/weight-config.service.ts` — `resolveSubjectWeightsForClass`, `resolvePeriodWeightsForClass` (the canonical helpers that both sites ultimately mirror).

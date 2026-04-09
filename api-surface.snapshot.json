@@ -7890,6 +7890,13 @@
   },
   {
     "method": "GET",
+    "path": "/v1/report-cards/classes/:classId/matrix",
+    "controller": "ReportCardsController",
+    "module": "gradebook",
+    "permission": "report_cards.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/report-cards/custom-fields",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
@@ -8002,10 +8009,17 @@
   },
   {
     "method": "GET",
-    "path": "/v1/report-cards/overview",
+    "path": "/v1/report-cards/library",
     "controller": "ReportCardsController",
     "module": "gradebook",
     "permission": "report_cards.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/report-cards/overview",
+    "controller": "ReportCardsController",
+    "module": "gradebook",
+    "permission": "report_cards.view"
   },
   {
     "method": "GET",

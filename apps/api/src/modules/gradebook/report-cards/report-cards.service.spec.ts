@@ -8,9 +8,18 @@ import {
 } from '../../../common/tests/mock-facades';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
+import { S3Service } from '../../s3/s3.service';
 
 import { ReportCardsQueriesService } from './report-cards-queries.service';
 import { ReportCardsService } from './report-cards.service';
+
+// Impl 06 added an S3Service dependency to ReportCardsQueriesService for
+// library signed URLs. Every test suite that instantiates the queries
+// service must provide a stub, even when the method under test doesn't hit
+// the library code path.
+const mockS3Service = {
+  getPresignedUrl: jest.fn().mockResolvedValue('https://signed.example/url'),
+};
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const STUDENT_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
@@ -119,6 +128,7 @@ describe('ReportCardsQueriesService — findAll', () => {
         ...MOCK_FACADE_PROVIDERS,
         ReportCardsQueriesService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: S3Service, useValue: mockS3Service },
       ],
     }).compile();
 
@@ -202,6 +212,7 @@ describe('ReportCardsQueriesService — findOne', () => {
         ...MOCK_FACADE_PROVIDERS,
         ReportCardsQueriesService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: S3Service, useValue: mockS3Service },
       ],
     }).compile();
 
@@ -489,6 +500,7 @@ describe('ReportCardsQueriesService — gradeOverview', () => {
         ...MOCK_FACADE_PROVIDERS,
         ReportCardsQueriesService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: S3Service, useValue: mockS3Service },
       ],
     }).compile();
 
@@ -612,6 +624,7 @@ describe('ReportCardsQueriesService — generateTranscript', () => {
         ...MOCK_FACADE_PROVIDERS,
         ReportCardsQueriesService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: S3Service, useValue: mockS3Service },
         { provide: StudentReadFacade, useValue: mockStudentFacade },
       ],
     }).compile();
