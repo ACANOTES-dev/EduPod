@@ -593,7 +593,7 @@ The legacy `/report-cards/[id]` single-document detail view has been removed. Th
 
 - **Completed at:** 2026-04-09 20:55 (local time)
 - **Completed by:** Claude Opus 4.6 (Claude Code)
-- **Branch / commit:** `main` @ `<sha>` (backfilled after commit)
+- **Branch / commit:** `main` @ `a39d86e4` (README follow-up `d972c424`)
 - **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
 - **Status:** ✅ complete
 - **Summary:** Shipped the production Report Card PDF renderer. Ports the two user-supplied HTML reference designs (Editorial Academic — Fraunces + forest green + gold; Modern Editorial — Bricolage Grotesque + cobalt blue) as Handlebars templates, renders them through the worker's existing Puppeteer pipeline, and wires the new `ProductionReportCardRenderer` as the `REPORT_CARD_RENDERER_TOKEN` binding. English and Arabic are served from a single template per design via view-model direction + translation table — the same `.hbs` file produces LTR and RTL output. Template design is selected per tenant from `ReportCardTemplate.branding_overrides_json.design_key` with a stable cache and an `editorial-academic` fallback.
