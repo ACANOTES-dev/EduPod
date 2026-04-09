@@ -284,6 +284,7 @@ export const hubConfigs: HubConfig[] = [
       '/promotion',
       '/diary',
       '/assessments',
+      '/analytics',
     ],
     roles: [...STAFF_ROLES, 'parent'],
   },

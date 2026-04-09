@@ -3,7 +3,7 @@
 import { saveAs } from 'file-saver';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Download } from 'lucide-react';
+import { Download, Info } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import * as XLSX from 'xlsx';
@@ -31,30 +31,27 @@ interface MatrixStudent {
   student_number: string | null;
 }
 
-interface MatrixAssessment {
-  id: string;
-  title: string;
+interface MatrixCategory {
+  category_id: string;
   category_name: string;
-  max_score: number;
-  status: string;
 }
 
 interface MatrixSubject {
   id: string;
   name: string;
   code: string | null;
-  assessments: MatrixAssessment[];
+  categories: MatrixCategory[];
 }
 
-interface GradeEntry {
-  raw_score: number | null;
-  is_missing: boolean;
+interface CategoryCell {
+  percentage: number | null;
+  assessment_count: number;
 }
 
 interface MatrixData {
   students: MatrixStudent[];
   subjects: MatrixSubject[];
-  grades: Record<string, Record<string, GradeEntry>>;
+  cells: Record<string, Record<string, Record<string, CategoryCell>>>;
 }
 
 interface SelectOption {
@@ -64,6 +61,13 @@ interface SelectOption {
 
 interface ListResponse<T> {
   data: T[];
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
+
+function formatCell(cell: CategoryCell | undefined): string {
+  if (!cell || cell.percentage == null) return '—';
+  return `${cell.percentage.toFixed(1)}%`;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -80,11 +84,12 @@ export function ResultsMatrix({ classId }: { classId: string }) {
   // Matrix data
   const [matrix, setMatrix] = React.useState<MatrixData | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [selectedStudentId, setSelectedStudentId] = React.useState<string | null>(null);
 
-  // Local grade view (merged from server data)
-  const [localGrades, setLocalGrades] = React.useState<Record<string, Record<string, GradeEntry>>>(
-    {},
-  );
+  // Clear selection when switching filters or class
+  React.useEffect(() => {
+    setSelectedStudentId(null);
+  }, [classId, periodId, subjectFilter]);
 
   // Load filter options
   React.useEffect(() => {
@@ -105,21 +110,21 @@ export function ResultsMatrix({ classId }: { classId: string }) {
         : `/api/v1/gradebook/classes/${classId}/results-matrix?academic_period_id=${periodId}`;
     apiClient<{ data: MatrixData }>(url)
       .then((res) => {
-        const matrixData = res.data;
-        setMatrix(matrixData);
-        setLocalGrades(matrixData.grades ?? {});
+        setMatrix(res.data);
       })
       .catch((err) => {
         console.error('[ResultsMatrix]', err);
         setMatrix(null);
-        setLocalGrades({});
       })
       .finally(() => setIsLoading(false));
   }, [classId, periodId]);
 
-  // Get grade value for a cell
-  const getGrade = (studentId: string, assessmentId: string): GradeEntry => {
-    return localGrades[studentId]?.[assessmentId] ?? { raw_score: null, is_missing: false };
+  const getCell = (
+    studentId: string,
+    subjectId: string,
+    categoryId: string,
+  ): CategoryCell | undefined => {
+    return matrix?.cells[studentId]?.[subjectId]?.[categoryId];
   };
 
   // Filter subjects (guard against undefined subjects in API response)
@@ -129,9 +134,9 @@ export function ResultsMatrix({ classId }: { classId: string }) {
       : matrix.subjects.filter((s) => s.id === subjectFilter)
     : [];
 
-  // Count stats
-  const totalAssessments = displaySubjects.reduce((acc, s) => acc + s.assessments.length, 0);
-  const totalCells = (matrix?.students.length ?? 0) * totalAssessments;
+  // Stats
+  const totalCategories = displaySubjects.reduce((acc, s) => acc + s.categories.length, 0);
+  const totalCells = (matrix?.students.length ?? 0) * totalCategories;
   const filledCells = matrix
     ? matrix.students.reduce((acc, student) => {
         return (
@@ -139,15 +144,27 @@ export function ResultsMatrix({ classId }: { classId: string }) {
           displaySubjects.reduce((sacc, subject) => {
             return (
               sacc +
-              subject.assessments.reduce((aacc, assessment) => {
-                const grade = getGrade(student.id, assessment.id);
-                return aacc + (grade.raw_score != null || grade.is_missing ? 1 : 0);
+              subject.categories.reduce((cacc, category) => {
+                const cell = getCell(student.id, subject.id, category.category_id);
+                return cacc + (cell && cell.percentage != null ? 1 : 0);
               }, 0)
             );
           }, 0)
         );
       }, 0)
     : 0;
+
+  // ─── Context title ──────────────────────────────────────────────────────
+
+  const buildContextTitle = (): string => {
+    const periodLabel =
+      periodId === 'all' ? 'all periods' : (periods.find((p) => p.id === periodId)?.name ?? '—');
+    const subjectLabel =
+      subjectFilter === 'all'
+        ? 'all subjects'
+        : (matrix?.subjects.find((s) => s.id === subjectFilter)?.name ?? '—');
+    return `This table displays results for ${periodLabel} and ${subjectLabel}`;
+  };
 
   // ─── Export helpers ─────────────────────────────────────────────────────
 
@@ -157,17 +174,16 @@ export function ResultsMatrix({ classId }: { classId: string }) {
     const subjectRow: string[] = ['Student'];
     for (const subject of displaySubjects) {
       subjectRow.push(subject.name);
-      // fill remaining columns for this subject's assessments
-      for (let i = 1; i < subject.assessments.length; i++) {
+      for (let i = 1; i < subject.categories.length; i++) {
         subjectRow.push('');
       }
     }
 
-    // Row 2: assessment titles
-    const assessmentRow: string[] = [''];
+    // Row 2: category titles
+    const categoryRow: string[] = [''];
     for (const subject of displaySubjects) {
-      for (const a of subject.assessments) {
-        assessmentRow.push(`${a.title} (/${a.max_score})`);
+      for (const cat of subject.categories) {
+        categoryRow.push(cat.category_name);
       }
     }
 
@@ -177,37 +193,48 @@ export function ResultsMatrix({ classId }: { classId: string }) {
       for (const student of matrix.students) {
         const row: (string | number)[] = [`${student.first_name} ${student.last_name}`];
         for (const subject of displaySubjects) {
-          for (const a of subject.assessments) {
-            const grade = getGrade(student.id, a.id);
-            row.push(grade.raw_score != null ? grade.raw_score : '—');
+          for (const cat of subject.categories) {
+            const cell = getCell(student.id, subject.id, cat.category_id);
+            row.push(cell && cell.percentage != null ? `${cell.percentage.toFixed(1)}%` : '—');
           }
         }
         rows.push(row);
       }
     }
 
-    return { headers: [subjectRow, assessmentRow], rows };
+    return { headers: [subjectRow, categoryRow], rows };
   };
 
   const exportToExcel = () => {
     const { headers, rows } = buildExportRows();
-    const ws = XLSX.utils.aoa_to_sheet([...headers, ...rows]);
+    const title = buildContextTitle();
 
-    // Merge subject header cells
+    // Build title row padded to the full table width so the merge is clean
+    const totalCols = 1 + displaySubjects.reduce((acc, s) => acc + s.categories.length, 0);
+    const titleRow: string[] = new Array(totalCols).fill('');
+    titleRow[0] = title;
+
+    // Sheet layout: [title, subjectRow, categoryRow, ...data]
+    const ws = XLSX.utils.aoa_to_sheet([titleRow, ...headers, ...rows]);
+
     const merges: XLSX.Range[] = [];
+    // Merge title across the full table width
+    if (totalCols > 1) {
+      merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } });
+    }
+    // Subject group headers are now at row 1 (was row 0 before the title)
     let col = 1;
     for (const subject of displaySubjects) {
-      if (subject.assessments.length > 1) {
-        merges.push({ s: { r: 0, c: col }, e: { r: 0, c: col + subject.assessments.length - 1 } });
+      if (subject.categories.length > 1) {
+        merges.push({ s: { r: 1, c: col }, e: { r: 1, c: col + subject.categories.length - 1 } });
       }
-      col += subject.assessments.length;
+      col += subject.categories.length;
     }
     ws['!merges'] = merges;
 
-    // Set column widths
     ws['!cols'] = [
       { wch: 25 },
-      ...displaySubjects.flatMap((s) => s.assessments.map(() => ({ wch: 18 }))),
+      ...displaySubjects.flatMap((s) => s.categories.map(() => ({ wch: 20 }))),
     ];
 
     const wb = XLSX.utils.book_new();
@@ -226,6 +253,7 @@ export function ResultsMatrix({ classId }: { classId: string }) {
 
   const exportToPdf = () => {
     const { headers, rows } = buildExportRows();
+    const title = buildContextTitle();
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
     const periodLabel =
       periodId === 'all'
@@ -233,14 +261,14 @@ export function ResultsMatrix({ classId }: { classId: string }) {
         : (periods.find((p) => p.id === periodId)?.name ?? 'Results');
 
     doc.setFontSize(14);
-    doc.text(`Results Matrix — ${periodLabel}`, 14, 15);
+    doc.text(title, 14, 15);
 
     autoTable(doc, {
       head: headers,
       body: rows.map((r) => r.map(String)),
       startY: 22,
-      styles: { fontSize: 7, cellPadding: 1.5 },
-      headStyles: { fillColor: [34, 120, 74], textColor: 255, fontSize: 7 },
+      styles: { fontSize: 8, cellPadding: 1.5 },
+      headStyles: { fillColor: [34, 120, 74], textColor: 255, fontSize: 8 },
       theme: 'grid',
     });
 
@@ -249,6 +277,17 @@ export function ResultsMatrix({ classId }: { classId: string }) {
 
   return (
     <div className="space-y-4">
+      {/* Notice banner — always visible, not included in exports */}
+      <div className="flex items-start gap-3 rounded-lg border border-info-text/20 bg-info-fill px-4 py-3 text-sm text-info-text">
+        <Info className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+        <p className="leading-relaxed">
+          <strong className="font-semibold">Note:</strong> The scores shown here are raw inputs
+          pooled by category. They aren&apos;t necessarily the numbers that drive a student&apos;s
+          final grade — category weights, period weights and the grading scale decide that. See the{' '}
+          <strong className="font-semibold">Grades</strong> tab for the computed result.
+        </p>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <Select value={periodId} onValueChange={setPeriodId}>
@@ -333,6 +372,12 @@ export function ResultsMatrix({ classId }: { classId: string }) {
             </p>
           ) : (
             <div className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
+              {/* Context title — visible in the UI and also injected into exports */}
+              <div className="border-b border-border bg-surface-secondary/60 px-4 py-2.5">
+                <p className="text-xs font-medium italic text-text-secondary">
+                  {buildContextTitle()}
+                </p>
+              </div>
               <div className="overflow-x-auto">
                 <table className="border-collapse" style={{ tableLayout: 'fixed' }}>
                   <thead>
@@ -348,40 +393,37 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                       {displaySubjects.map((subject) => (
                         <th
                           key={subject.id}
-                          colSpan={subject.assessments.length}
+                          colSpan={subject.categories.length}
                           className="bg-primary-700 text-white text-xs font-semibold px-2 py-2 text-center border-e-2 border-white/20 last:border-e-0"
                         >
                           {subject.name}
                         </th>
                       ))}
                     </tr>
-                    {/* Assessment sub-headers — vertical text */}
+                    {/* Category sub-headers */}
                     <tr>
                       {displaySubjects.map((subject, si) =>
-                        subject.assessments.map((assessment, ai) => {
-                          const isLastInSubject = ai === subject.assessments.length - 1;
+                        subject.categories.map((category, ci) => {
+                          const isLastInSubject = ci === subject.categories.length - 1;
                           return (
                             <th
-                              key={assessment.id}
+                              key={`${subject.id}:${category.category_id}`}
                               className={`bg-surface-secondary border-b-2 border-border ${
                                 isLastInSubject && si < displaySubjects.length - 1
                                   ? 'border-e-2 border-e-primary-200'
                                   : 'border-e border-e-border'
                               }`}
                               style={{
-                                width: 72,
-                                minWidth: 72,
-                                padding: '8px 4px',
+                                width: 96,
+                                minWidth: 96,
+                                padding: '8px 6px',
                                 textAlign: 'center',
                                 verticalAlign: 'bottom',
                                 whiteSpace: 'normal',
                               }}
                             >
                               <span className="block text-[10px] font-semibold text-text-primary leading-tight">
-                                {assessment.title}
-                              </span>
-                              <span className="block text-[10px] font-bold text-danger-text mt-0.5">
-                                /{assessment.max_score}
+                                {category.category_name}
                               </span>
                             </th>
                           );
@@ -390,45 +432,56 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {matrix.students.map((student, rowIdx) => (
-                      <tr
-                        key={student.id}
-                        className={`${rowIdx % 2 === 1 ? 'bg-surface-secondary/50' : ''} hover:bg-primary-50 transition-colors`}
-                      >
-                        <td
-                          className="sticky start-0 z-10 bg-inherit px-3 py-1.5 text-sm font-medium text-text-primary border-e-2 border-border whitespace-nowrap overflow-hidden text-ellipsis"
-                          style={{ width: 140, maxWidth: 140 }}
-                          title={`${student.first_name} ${student.last_name}`}
+                    {matrix.students.map((student, rowIdx) => {
+                      const isSelected = selectedStudentId === student.id;
+                      const rowBg = isSelected
+                        ? 'bg-primary-100'
+                        : rowIdx % 2 === 1
+                          ? 'bg-surface-secondary'
+                          : 'bg-surface';
+                      const rowHover = isSelected ? 'hover:bg-primary-100' : 'hover:bg-primary-50';
+                      return (
+                        <tr
+                          key={student.id}
+                          onClick={() => setSelectedStudentId(isSelected ? null : student.id)}
+                          aria-selected={isSelected}
+                          className={`cursor-pointer ${rowBg} ${rowHover} transition-colors`}
                         >
-                          {student.first_name} {student.last_name}
-                        </td>
-                        {displaySubjects.map((subject, si) =>
-                          subject.assessments.map((assessment, ai) => {
-                            const isLastInSubject = ai === subject.assessments.length - 1;
-                            const grade = getGrade(student.id, assessment.id);
+                          <td
+                            className="sticky start-0 z-10 bg-inherit px-3 py-1.5 text-sm font-medium text-text-primary border-e-2 border-border whitespace-nowrap overflow-hidden text-ellipsis"
+                            style={{ width: 140, maxWidth: 140 }}
+                            title={`${student.first_name} ${student.last_name}`}
+                          >
+                            {student.first_name} {student.last_name}
+                          </td>
+                          {displaySubjects.map((subject, si) =>
+                            subject.categories.map((category, ci) => {
+                              const isLastInSubject = ci === subject.categories.length - 1;
+                              const cell = getCell(student.id, subject.id, category.category_id);
 
-                            return (
-                              <td
-                                key={assessment.id}
-                                className={`px-0.5 py-1 text-center border-b border-border ${
-                                  isLastInSubject && si < displaySubjects.length - 1
-                                    ? 'border-e-2 border-e-primary-100'
-                                    : 'border-e border-e-border/50'
-                                }`}
-                                style={{ width: 72 }}
-                              >
-                                <span
-                                  className="inline-block w-[60px] rounded bg-surface-secondary px-1 py-1 text-center text-xs font-medium text-text-tertiary"
-                                  dir="ltr"
+                              return (
+                                <td
+                                  key={`${subject.id}:${category.category_id}`}
+                                  className={`px-1 py-1 text-center border-b border-border ${
+                                    isLastInSubject && si < displaySubjects.length - 1
+                                      ? 'border-e-2 border-e-primary-100'
+                                      : 'border-e border-e-border/50'
+                                  }`}
+                                  style={{ width: 96 }}
                                 >
-                                  {grade.raw_score != null ? grade.raw_score : '—'}
-                                </span>
-                              </td>
-                            );
-                          }),
-                        )}
-                      </tr>
-                    ))}
+                                  <span
+                                    className="inline-block w-[80px] rounded bg-surface-secondary px-1 py-1 text-center text-xs font-semibold text-text-primary tabular-nums"
+                                    dir="ltr"
+                                  >
+                                    {formatCell(cell)}
+                                  </span>
+                                </td>
+                              );
+                            }),
+                          )}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
