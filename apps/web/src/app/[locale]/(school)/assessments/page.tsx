@@ -18,8 +18,12 @@ import { Badge, cn, StatCard, StatusBadge } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { ADMIN_ROLES } from '@/lib/route-roles';
+import type { RoleKey } from '@/lib/route-roles';
+import { useAuth } from '@/providers/auth-provider';
 
 import { InlineApprovalQueue } from './_components/inline-approval-queue';
+import { LeadershipDashboard } from './_components/leadership-dashboard';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -592,7 +596,27 @@ function MyConfigStatus({ t }: { t: ReturnType<typeof useTranslations> }) {
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-export default function TeacherAssessmentsDashboardPage() {
+export default function AssessmentsDashboardPage() {
+  const { user } = useAuth();
+
+  // Admin / leadership roles get the purpose-built oversight dashboard.
+  // Teachers (and all other staff roles) see the teacher-centric allocations view.
+  const isLeadership = React.useMemo(() => {
+    if (!user?.memberships) return false;
+    const roleKeys = user.memberships.flatMap(
+      (m) => m.roles?.map((r) => r.role_key as RoleKey) ?? [],
+    );
+    return ADMIN_ROLES.some((r) => roleKeys.includes(r));
+  }, [user]);
+
+  if (isLeadership) {
+    return <LeadershipDashboard />;
+  }
+
+  return <TeacherAssessmentsDashboard />;
+}
+
+function TeacherAssessmentsDashboard() {
   const t = useTranslations('teacherAssessments');
 
   const [allocations, setAllocations] = React.useState<TeachingAllocation[]>([]);
