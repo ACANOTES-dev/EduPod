@@ -745,7 +745,7 @@ The impl 11 doc assumed `@react-pdf/renderer` was already a worker dependency an
 
 - **Completed at:** 2026-04-09 21:33 (local time)
 - **Completed by:** claude-opus-4-6[1m] / impl-09 session
-- **Branch / commit:** `main` @ `<backfilled>`
+- **Branch / commit:** `main` @ `754f4c7d`
 - **Pull request:** direct to main (nightly deploy picks up HEAD)
 - **Status:** ✅ complete
 - **Summary:** Built the 6-step report card generation wizard and the tenant settings page. The wizard drives scope (year group / class / individual), period, template, personal-info field overrides, a comment-gate dry-run preview, and a polling progress view once the generation run is submitted. The settings page edits every report-card tenant setting via `react-hook-form` + `zodResolver` and handles principal signature upload / removal through a dedicated multipart component.
