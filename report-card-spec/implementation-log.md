@@ -512,3 +512,79 @@ When you finish an implementation, append an entry to the **Completions** sectio
 - The signed URL TTL is 5 minutes. If you need a longer window, change `LIBRARY_SIGNED_URL_TTL_SECONDS` — but first revisit the design spec §11 which calls out the 5-minute expectation explicitly.
 - The matrix endpoint aggregates display_value from `PeriodGradeSnapshot` for per-cell grades, and applies a class-wide grading scale (first found) for the overall letter grade. If a class has mixed grading scales across subjects, the overall letter uses the first non-null scale — documented in the inline comment near `overallScale`. If this ever becomes a complaint, switch to "no overall letter grade when scales are heterogeneous" rather than inventing a blended rule.
 - The `languages_available` field is computed by a second `reportCard.findMany` call filtered to the same (student, period) pairs as the current page. This is O(pageSize × siblings) rather than ideal O(page), but it keeps the logic simple and the page size is capped at 100. If library listings grow into the tens of thousands of documents, revisit with a materialised view or a separate `report_card_documents` aggregate.
+
+### Implementation 07: Frontend Overview, Matrix & Library
+
+- **Completed at:** 2026-04-09 20:40 (local time)
+- **Completed by:** Claude Opus 4.6 (Claude Code)
+- **Branch / commit:** `main` @ `<pending>`
+- **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
+- **Status:** ✅ complete
+- **Summary:** Rebuilt the school-facing Report Cards frontend as a gradebook-mirror class-first surface. Landing is now year-grouped class cards, per-class `/report-cards/[classId]` is a students × subjects matrix consuming the new impl-06 endpoint with top-3 rank badges and score/grade toggle, and `/report-cards/library` is a filterable document library with role-scoped rows and per-language signed-URL downloads. Legacy orphan `report-cards/[id]` single-report detail page was renamed to `[classId]` and its contents replaced — no UI surface linked to the old detail view, so nothing breaks.
+
+**What changed:**
+
+- `apps/web/src/app/[locale]/(school)/report-cards/page.tsx` — rebuilt from the old overview/generate tab layout into a year-grouped class-card landing that mirrors `apps/web/src/app/[locale]/(school)/gradebook/page.tsx`. Data sources: `/api/v1/year-groups` + `/api/v1/classes` (uses the `_count.class_enrolments` included by `ClassesService.findMany` to filter empty classes and render student counts). Click navigates to `/{locale}/report-cards/{classId}`. Top-right "View Library" button routes to `/report-cards/library`.
+- `apps/web/src/app/[locale]/(school)/report-cards/[classId]/page.tsx` — rename of the old `[id]/page.tsx` folder (via `git mv`) with the contents fully rewritten. New file consumes `GET /v1/report-cards/classes/:classId/matrix` (impl 06), exposes an all/period selector plus a grade/score toggle, renders a `<thead>`/`<tbody>` matrix with `sticky start-0` student column, overall column with weighted average or letter grade, and per-student top-3 rank badges (amber pill + Medal icon). Handles CLASS_NOT_FOUND 404 and generic load-failure empty states. The old single-report-card detail view was orphaned (no UI linked to it; verified by grep) and is slated for impl 12 cleanup, so its code path is not preserved.
+- `apps/web/src/app/[locale]/(school)/report-cards/library/page.tsx` — new page consuming `GET /v1/report-cards/library` (impl 06). Filter toolbar (class, year group, period, language) feeds client-managed pagination (pageSize=20). Columns: Student, Class, Period, Template scope, Languages (EN/AR chips from `languages_available`), Generated timestamp (`Intl.DateTimeFormat` with Gregorian calendar + Latin numerals per i18n rule), and Download actions per available language. Downloads re-fetch a fresh signed URL from the backend before calling `window.open(url, '_blank')` — never caches URLs client-side, respects the 5-minute TTL called out in design spec §11 and impl-06 notes. Uses the shared `DataTable` component.
+- `apps/web/messages/en.json` — added new keys under `reportCards`: `librarySection`, `librarySectionButton`, `noClasses`, `classesCount`, `studentsCount`, `backToReportCards`, a nested `classMatrix.*` block, and a nested `library.*` block. No existing keys touched.
+- `apps/web/messages/ar.json` — full Arabic translations for every new key. No `[AR]` stubs. Gregorian calendar / Western numerals preserved per the i18n rule.
+- `apps/web/e2e/visual/report-cards-overview.spec.ts` — new Playwright smoke spec covering EN + AR landing renders, the "View Library" link presence, and a bogus-UUID matrix route to verify graceful empty/not-found rendering without crashing.
+- `apps/web/e2e/visual/report-cards-library.spec.ts` — new Playwright smoke spec covering EN + AR library renders and the presence of the filter combobox controls.
+
+**Route map (before → after):**
+
+| Route                            | Before                                                              | After                                                                                           |
+| -------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `/[locale]/report-cards`         | Tab shell (Overview + Generate) reading `/v1/report-cards/overview` | Year-grouped class cards mirroring the gradebook landing                                        |
+| `/[locale]/report-cards/[id]`    | Single report card detail page (orphaned — no UI linked to it)      | Renamed to `[classId]` → class matrix view consuming `/v1/report-cards/classes/:classId/matrix` |
+| `/[locale]/report-cards/library` | —                                                                   | New document library with filters + per-language signed-URL downloads                           |
+
+The legacy `/report-cards/[id]` single-document detail view has been removed. This was orphaned UI: nothing in the app (navigation, links, `router.push`, or programmatic redirects) routed users there — verified by grepping `apps/web/src/` for `/report-cards/${` and `router.push.*report-cards/`. The only remaining references to a single report card by id are API paths (`/api/v1/report-cards/${id}/...`) called from the parent dashboard `grades-tab.tsx`, which opens the PDF endpoint directly in a new tab and does not navigate into the school-facing detail page. The legacy orphan pages under `analytics/`, `approvals/`, `bulk/`, and `_components/` were left untouched — impl 12 will clean them up in the final pass.
+
+**Database changes:**
+
+- None (frontend-only impl).
+
+**Test coverage:**
+
+- New Playwright specs added: 2 files, 7 test cases total covering EN/AR renders, navigation affordances, and graceful-failure paths. The specs intentionally treat empty states as valid renders so they pass against unseeded environments.
+- `pnpm turbo test` (full workspace): ✅ all 15077 tests green across 722 suites (identical baseline to impl 06's log entry — no regressions). Ran under the `impl-07.turbo-test` session lock per the parallel-worktree protocol.
+- `pnpm turbo test --filter=@school/web`: ✅ 264/264 tests green across 12 suites.
+- `pnpm turbo lint --filter=@school/web`: ✅ 0 errors. Warnings unchanged from baseline (pre-existing max-lines warnings on unrelated files). The two floating-promise errors surfaced on first run (the async IIFEs inside `useEffect` on the matrix and library pages) were fixed by prefixing them with `void` — verified with a second lint run.
+- `pnpm turbo lint` (full workspace): ✅ 0 errors across @school/ui (53 warnings pre-existing), @school/worker (12 warnings pre-existing), and @school/api (842 warnings pre-existing). None of my files contribute warnings.
+- `pnpm turbo type-check --filter=@school/web`: ✅ green after clearing stale `.next/types` generated for the now-renamed `[id]` route. Follow-up agents touching Next.js dynamic segments should `rm -rf apps/web/.next/types` before running type-check locally if Next has previously built the app with a different folder layout.
+- `NODE_OPTIONS="--max-old-space-size=8192" pnpm --filter @school/api run type-check`: ✅ green. The default 4 GB ceiling OOMs on the API type-check locally; this is an environmental quirk unrelated to impl 07 but worth noting.
+- `pnpm turbo build --filter=@school/web`: ✅ green. Route map confirms `/[locale]/report-cards`, `/[locale]/report-cards/[classId]`, and `/[locale]/report-cards/library` all ship (4.11 kB, 3.57 kB, 4.63 kB respectively).
+
+**Architecture docs updated (if applicable):**
+
+- `docs/architecture/module-blast-radius.md` — not required (frontend-only; no cross-module backend imports changed)
+- `docs/architecture/event-job-catalog.md` — not required
+- `docs/architecture/state-machines.md` — not required
+- `docs/architecture/danger-zones.md` — not required (DZ-44 from impl 06 already covers the gradebook-aggregation coupling which this frontend consumes)
+- `docs/architecture/feature-map.md` — NOT updated (per project rule — will be batched into a single update after impl 12)
+
+**Regression check:**
+
+- Ran full `turbo test`: ✅ 15077/15077 tests green across 722 suites. No regressions introduced — exact same count as impl 06's landing.
+- Ran full `turbo lint`: ✅ 0 errors workspace-wide.
+- Any unrelated test failures: none.
+
+**Blockers or follow-ups:**
+
+- Impl 08 (comment editor), impl 09 (generation wizard + settings), impl 10 (teacher requests) are unblocked independently of this impl — they do not depend on 07.
+- Impl 12 (cleanup) should delete the legacy `analytics/`, `approvals/`, `bulk/`, and `_components/` folders under `apps/web/src/app/[locale]/(school)/report-cards/` once the new wizard (impl 09) is confirmed to cover the generate/approve/bulk flows. The existing orphan pages still build and lint cleanly, so they are dormant not dangerous.
+- The old `/v1/report-cards/overview` endpoint is no longer consumed by any frontend surface after this impl. Its backend deprecation warning (added in impl 06) will now fire only for external API clients (if any) — impl 12 can delete the endpoint once confidence is established.
+- Local commit only — not pushed to GitHub per nightly-push policy.
+- Note: the working tree also contained unrelated deletions under `report-card-spec/template-0X*.html` and untracked `apps/worker/src/report-card-templates/`, `docs/features/report-cards/` directories — these are impl 11 (PDF template rendering) prep work from a previous session and are intentionally NOT included in the impl 07 commit.
+
+**Notes for the next agent:**
+
+- The matrix page uses `params.classId` because the Next.js dynamic segment folder is `[classId]`. The rename from `[id]` to `[classId]` was necessary because Next.js does not allow two dynamic segments at the same directory level (`[id]` + `[classId]` would conflict), so the legacy orphan detail page had to yield its folder slot. If impl 08/09/10 need a different dynamic segment at this level, use a nested route (e.g. `[classId]/comments/[studentId]/page.tsx`) rather than adding another sibling dynamic segment.
+- The landing page uses `_count.class_enrolments` from the classes list endpoint to filter empty classes. This relies on the existing `ClassesService.findMany` behaviour (see `apps/api/src/modules/classes/classes.service.ts:155-161`) which already scopes the count to `status: 'active'`. If the classes service stops including this count, the landing page will show all classes regardless of enrolments.
+- Library downloads re-query the backend for a fresh signed URL before opening the PDF. This is deliberate — the URL TTL is 5 minutes and reusing the in-memory URL after a long idle session would result in a 403 from S3. The re-query is a single page-size-1 call filtered to the exact student/period/language, so it is cheap.
+- The date formatter for `generated_at` hardcodes `calendar: 'gregory'` and `numberingSystem: 'latn'` per the project's i18n rule that Arabic UIs must still show Gregorian dates and Latin numerals. Do not remove those options without also updating the i18n rule in `.claude/rules/frontend.md`.
+- The rank badge appears only when `overall.rank_position` is 1, 2, or 3. The backend emits `null` for all other positions, so the frontend check is defensive. The Medal icon and amber pill styling are consistent with the "Top {rank}" pattern used in the per-student analytics page — if that pattern evolves, update both surfaces together.
+- The legacy orphan files under `apps/web/src/app/[locale]/(school)/report-cards/{_components,analytics,approvals,bulk}/` were left in place. They still build and lint cleanly. Impl 12's cleanup pass should remove them, but you can delete them in a later impl if the generate/approve/bulk flows are superseded earlier by impls 09/10.
+- Playwright specs were placed under `apps/web/e2e/visual/` to match the existing pattern (where `playwright.config.ts` has `testDir: './visual'`). They do NOT capture screenshots (to avoid baseline churn and per the author preference for snapshot-based verification). They use `page.waitForLoadState('networkidle')` and role-based locators and are robust against unseeded environments.
