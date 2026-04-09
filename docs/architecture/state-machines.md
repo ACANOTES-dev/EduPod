@@ -474,6 +474,35 @@ closed    -> [open]   (admin reopen — typically via teacher request approval)
   - `closed -> open`: reopening a previously closed window — only allowed when no other window for the same tenant is currently `open` (enforced by the partial unique index).
 - **Cost control**: this state machine is the core mechanism that gates AI cost. Server-side enforcement is mandatory.
 
+### ReportCardBatchJob (generation run) _(Report Cards Redesign — impl 04)_
+
+Logical lifecycle exposed by `ReportCardGenerationService` + `ReportCardGenerationProcessor`:
+
+```
+pending (queued)       -> [running (processing), failed]
+running (processing)   -> [completed, partial_success, failed]
+completed*             (terminal — every student produced at least one PDF)
+partial_success*       (terminal — at least one student failed, see errors_json)
+failed*                (terminal — infrastructure-level failure before any student was processed)
+```
+
+The physical `BatchJobStatus` enum only carries four values today (`queued`, `processing`, `completed`, `failed`). The logical states above map onto them like so:
+
+- `pending` = `queued`
+- `running` = `processing`
+- `completed` = `completed` with `students_blocked_count = 0`
+- `partial_success` = `completed` with `students_blocked_count > 0` (inspect `errors_json`)
+- `failed` = `failed` with `error_message` set
+
+- **Guarded by**: `ReportCardGenerationService.generateRun` (insert as `queued` with `total_count = resolvedStudentIds.length`) and `ReportCardGenerationJob.processJob` (transitions `queued → processing → completed | failed`).
+- **Side effects**:
+  - `queued → processing`: sets `status = processing` and marks the start of PDF rendering.
+  - `processing → completed`: every student's PDFs have been rendered and upserted; counters are final.
+  - Per-student errors accumulate on `errors_json` without changing the terminal status — a completed run with a non-zero `students_blocked_count` is the logical "partial success" signal. The frontend wizard displays this as a warning banner.
+  - `processing → failed`: infrastructure failure (tenant/template missing, DB unreachable) — no reports are produced and `error_message` is recorded.
+- **Comment gating**: enforced synchronously by `dryRunCommentGate` before a run is enqueued. A run cannot move past `queued` without either (a) all required comments finalised or (b) an explicit `override_comment_gate` flag from an admin whose tenant has `allow_admin_force_generate = true`.
+- **Overwrite semantics**: per-student upsert on `(tenant_id, student_id, academic_period_id, template_id, template_locale)`. Previous `pdf_storage_key` is deleted in the same transaction — see `danger-zones.md` for the data-loss tradeoff.
+
 ### TeacherRequestStatus _(Report Cards Redesign — impl 01)_
 
 ```

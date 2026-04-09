@@ -9,3 +9,4 @@ export * from './subject-comment.schema';
 export * from './overall-comment.schema';
 export * from './teacher-request.schema';
 export * from './tenant-settings.schema';
+export * from './generation.schema';

@@ -1,5 +1,21 @@
-import { NotFoundException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { Queue } from 'bullmq';
+
+import type {
+  CommentGateDryRunResult,
+  DryRunGenerationCommentGateDto,
+  GenerationScope,
+  ListGenerationRunsQuery,
+  StartGenerationRunDto,
+} from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { AcademicReadFacade } from '../../academics/academic-read.facade';
@@ -9,7 +25,38 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { StudentReadFacade } from '../../students/student-read.facade';
 import { TenantReadFacade } from '../../tenants/tenant-read.facade';
 
+import { ReportCardTemplateService } from './report-card-template.service';
+import { ReportCardTenantSettingsService } from './report-card-tenant-settings.service';
+
+// ─── Generation job BullMQ constants ─────────────────────────────────────────
+// The job name matches the catalog entry in docs/architecture/event-job-catalog.md.
+export const REPORT_CARD_GENERATE_JOB = 'report-cards:generate';
+export const REPORT_CARD_GENERATE_QUEUE = 'gradebook';
+
+// ─── Generation run response shapes ──────────────────────────────────────────
+
+export interface GenerationRunSummary {
+  id: string;
+  status: string;
+  scope_type: string | null;
+  scope_ids: string[];
+  academic_period_id: string;
+  template_id: string | null;
+  personal_info_fields: string[];
+  languages_requested: string[];
+  students_generated_count: number;
+  students_blocked_count: number;
+  total_count: number;
+  errors: Array<{ student_id: string; message: string }>;
+  requested_by_user_id: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+@Injectable()
 export class ReportCardGenerationService {
+  private readonly logger = new Logger(ReportCardGenerationService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly academicReadFacade: AcademicReadFacade,
@@ -17,7 +64,17 @@ export class ReportCardGenerationService {
     private readonly tenantReadFacade: TenantReadFacade,
     private readonly attendanceReadFacade: AttendanceReadFacade,
     private readonly classesReadFacade: ClassesReadFacade,
+    @Optional() private readonly templateService?: ReportCardTemplateService,
+    @Optional() private readonly tenantSettingsService?: ReportCardTenantSettingsService,
+    @Optional()
+    @InjectQueue(REPORT_CARD_GENERATE_QUEUE)
+    private readonly generationQueue?: Queue,
   ) {}
+
+  // ─── Legacy: generate draft report cards inline (existing flow) ───────────
+  // Preserved for backwards compatibility with the legacy
+  // POST /v1/report-cards/generate-batch endpoint. New work should route
+  // through `generateRun`; legacy removal is scheduled for impl 12.
 
   async generate(tenantId: string, studentIds: string[], periodId: string) {
     const period = await this.academicReadFacade.findPeriodById(tenantId, periodId);
@@ -29,7 +86,6 @@ export class ReportCardGenerationService {
       });
     }
 
-    // Need the academic year info — findPeriodById includes it
     const periodWithYear = period as typeof period & { academic_year: { name: string } };
 
     const students = (await this.studentReadFacade.findManyGeneric(tenantId, {
@@ -400,4 +456,552 @@ export class ReportCardGenerationService {
       generated: result.data.length,
     };
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Report Cards Redesign (impl 04) — new generation run flow
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Resolves a `GenerationScope` into a concrete, tenant-scoped list of
+   * student IDs plus the primary class IDs that back them. The scope modes
+   * expand via existing joins; no new schema is introduced.
+   *
+   * Returns both the student IDs (dedupe-ordered) and the ordered set of
+   * class IDs involved so the caller can populate the (currently non-null)
+   * `report_card_batch_jobs.class_id` column with a representative class.
+   */
+  async resolveScope(
+    tenantId: string,
+    scope: GenerationScope,
+  ): Promise<{ studentIds: string[]; classIds: string[] }> {
+    if (scope.mode === 'class') {
+      if (scope.class_ids.length === 0) {
+        return { studentIds: [], classIds: [] };
+      }
+
+      const enrolments = (await this.classesReadFacade.findEnrolmentsGeneric(
+        tenantId,
+        { class_id: { in: scope.class_ids }, status: 'active' },
+        { student_id: true, class_id: true },
+      )) as Array<{ student_id: string; class_id: string }>;
+
+      const seen = new Set<string>();
+      const studentIds: string[] = [];
+      for (const row of enrolments) {
+        if (!seen.has(row.student_id)) {
+          seen.add(row.student_id);
+          studentIds.push(row.student_id);
+        }
+      }
+
+      return { studentIds, classIds: scope.class_ids };
+    }
+
+    if (scope.mode === 'year_group') {
+      if (scope.year_group_ids.length === 0) {
+        return { studentIds: [], classIds: [] };
+      }
+
+      // Pull active enrolments whose parent class belongs to one of the
+      // requested year groups. Uses the classes facade's generic helper with
+      // a nested relation filter so gradebook never touches the classes
+      // Prisma models directly.
+      const enrolments = (await this.classesReadFacade.findEnrolmentsGeneric(
+        tenantId,
+        {
+          status: 'active',
+          class_entity: { year_group_id: { in: scope.year_group_ids } },
+        },
+        { student_id: true, class_id: true },
+      )) as Array<{ student_id: string; class_id: string }>;
+
+      const seenStudents = new Set<string>();
+      const studentIds: string[] = [];
+      const seenClasses = new Set<string>();
+      const classIds: string[] = [];
+      for (const row of enrolments) {
+        if (!seenStudents.has(row.student_id)) {
+          seenStudents.add(row.student_id);
+          studentIds.push(row.student_id);
+        }
+        if (!seenClasses.has(row.class_id)) {
+          seenClasses.add(row.class_id);
+          classIds.push(row.class_id);
+        }
+      }
+
+      return { studentIds, classIds };
+    }
+
+    // individual
+    if (scope.student_ids.length === 0) {
+      return { studentIds: [], classIds: [] };
+    }
+
+    const students = (await this.studentReadFacade.findManyGeneric(tenantId, {
+      where: { id: { in: scope.student_ids } },
+      select: { id: true, class_homeroom_id: true },
+    })) as Array<{ id: string; class_homeroom_id: string | null }>;
+
+    if (students.length !== scope.student_ids.length) {
+      const foundIds = new Set(students.map((s) => s.id));
+      const missing = scope.student_ids.filter((id) => !foundIds.has(id));
+      throw new NotFoundException({
+        code: 'STUDENTS_NOT_FOUND',
+        message: `Students not found: ${missing.join(', ')}`,
+      });
+    }
+
+    // Prefer homeroom class; fall back to the student's first active
+    // enrolment when no homeroom is set.
+    const classIds: string[] = [];
+    const seenClasses = new Set<string>();
+    const missingHomeroom: string[] = [];
+    for (const student of students) {
+      if (student.class_homeroom_id) {
+        if (!seenClasses.has(student.class_homeroom_id)) {
+          seenClasses.add(student.class_homeroom_id);
+          classIds.push(student.class_homeroom_id);
+        }
+      } else {
+        missingHomeroom.push(student.id);
+      }
+    }
+
+    if (missingHomeroom.length > 0) {
+      const enrolments = (await this.classesReadFacade.findEnrolmentsGeneric(
+        tenantId,
+        { student_id: { in: missingHomeroom }, status: 'active' },
+        { class_id: true },
+      )) as Array<{ class_id: string }>;
+      for (const row of enrolments) {
+        if (!seenClasses.has(row.class_id)) {
+          seenClasses.add(row.class_id);
+          classIds.push(row.class_id);
+        }
+      }
+    }
+
+    return { studentIds: scope.student_ids, classIds };
+  }
+
+  /**
+   * Dry-run the comment gate for the wizard's final validation step.
+   * Computes missing and unfinalised subject and overall comments across the
+   * resolved scope + period + tenant setting combination.
+   */
+  async dryRunCommentGate(
+    tenantId: string,
+    dto: DryRunGenerationCommentGateDto,
+  ): Promise<CommentGateDryRunResult> {
+    if (!this.tenantSettingsService) {
+      throw new Error('ReportCardTenantSettingsService dependency missing');
+    }
+
+    const { studentIds } = await this.resolveScope(tenantId, dto.scope);
+
+    if (studentIds.length === 0) {
+      throw new NotFoundException({
+        code: 'SCOPE_EMPTY',
+        message: 'The selected scope does not resolve to any students',
+      });
+    }
+
+    const period = await this.academicReadFacade.findPeriodById(tenantId, dto.academic_period_id);
+    if (!period) {
+      throw new NotFoundException({
+        code: 'PERIOD_NOT_FOUND',
+        message: `Academic period with id "${dto.academic_period_id}" not found`,
+      });
+    }
+
+    const settings = await this.tenantSettingsService.getPayload(tenantId);
+
+    // Gather data in parallel — RLS is enforced globally on reads.
+    const [studentsRaw, snapshots, subjectComments, overallComments] = await Promise.all([
+      this.studentReadFacade.findManyGeneric(tenantId, {
+        where: { id: { in: studentIds } },
+        select: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          preferred_second_language: true,
+        },
+      }) as Promise<
+        Array<{
+          id: string;
+          first_name: string;
+          last_name: string;
+          preferred_second_language: string | null;
+        }>
+      >,
+      this.prisma.periodGradeSnapshot.findMany({
+        where: {
+          tenant_id: tenantId,
+          student_id: { in: studentIds },
+          academic_period_id: dto.academic_period_id,
+        },
+        select: {
+          student_id: true,
+          subject_id: true,
+          subject: { select: { id: true, name: true } },
+        },
+      }),
+      this.prisma.reportCardSubjectComment.findMany({
+        where: {
+          tenant_id: tenantId,
+          student_id: { in: studentIds },
+          academic_period_id: dto.academic_period_id,
+        },
+        select: {
+          student_id: true,
+          subject_id: true,
+          finalised_at: true,
+          comment_text: true,
+        },
+      }),
+      this.prisma.reportCardOverallComment.findMany({
+        where: {
+          tenant_id: tenantId,
+          student_id: { in: studentIds },
+          academic_period_id: dto.academic_period_id,
+        },
+        select: {
+          student_id: true,
+          finalised_at: true,
+          comment_text: true,
+        },
+      }),
+    ]);
+
+    const students = studentsRaw;
+    const studentName = new Map<string, string>();
+    const arStudents = new Set<string>();
+    for (const student of students) {
+      studentName.set(student.id, `${student.first_name} ${student.last_name}`);
+      if (student.preferred_second_language === 'ar') {
+        arStudents.add(student.id);
+      }
+    }
+
+    const subjectCommentKey = new Map<string, { finalised: boolean }>();
+    for (const row of subjectComments) {
+      subjectCommentKey.set(`${row.student_id}:${row.subject_id}`, {
+        finalised: row.finalised_at !== null,
+      });
+    }
+
+    const overallCommentByStudent = new Map<string, { finalised: boolean }>();
+    for (const row of overallComments) {
+      overallCommentByStudent.set(row.student_id, { finalised: row.finalised_at !== null });
+    }
+
+    const missingSubjectComments: CommentGateDryRunResult['missing_subject_comments'] = [];
+    const unfinalisedSubjectComments: CommentGateDryRunResult['unfinalised_subject_comments'] = [];
+
+    const seenPair = new Set<string>();
+    for (const snapshot of snapshots) {
+      const pairKey = `${snapshot.student_id}:${snapshot.subject_id}`;
+      if (seenPair.has(pairKey)) {
+        continue;
+      }
+      seenPair.add(pairKey);
+
+      const name = studentName.get(snapshot.student_id) ?? snapshot.student_id;
+      const existing = subjectCommentKey.get(pairKey);
+      if (!existing) {
+        missingSubjectComments.push({
+          student_id: snapshot.student_id,
+          student_name: name,
+          subject_id: snapshot.subject_id,
+          subject_name: snapshot.subject.name,
+        });
+      } else if (!existing.finalised) {
+        unfinalisedSubjectComments.push({
+          student_id: snapshot.student_id,
+          student_name: name,
+          subject_id: snapshot.subject_id,
+          subject_name: snapshot.subject.name,
+        });
+      }
+    }
+
+    const missingOverallComments: CommentGateDryRunResult['missing_overall_comments'] = [];
+    const unfinalisedOverallComments: CommentGateDryRunResult['unfinalised_overall_comments'] = [];
+    for (const student of students) {
+      const existing = overallCommentByStudent.get(student.id);
+      const name = `${student.first_name} ${student.last_name}`;
+      if (!existing) {
+        missingOverallComments.push({ student_id: student.id, student_name: name });
+      } else if (!existing.finalised) {
+        unfinalisedOverallComments.push({ student_id: student.id, student_name: name });
+      }
+    }
+
+    const anyMissing =
+      missingSubjectComments.length > 0 ||
+      unfinalisedSubjectComments.length > 0 ||
+      missingOverallComments.length > 0 ||
+      unfinalisedOverallComments.length > 0;
+
+    // Check whether the template has an Arabic locale for the languages preview.
+    let hasArabicLocale = false;
+    if (this.templateService) {
+      const arTemplate = await this.templateService.resolveForGeneration(tenantId, {
+        contentScope: dto.content_scope,
+        locale: 'ar',
+      });
+      hasArabicLocale = arTemplate !== null;
+    }
+
+    const arCount = hasArabicLocale ? studentIds.filter((id) => arStudents.has(id)).length : 0;
+
+    return {
+      students_total: studentIds.length,
+      languages_preview: {
+        en: studentIds.length,
+        ar: arCount,
+      },
+      missing_subject_comments: missingSubjectComments,
+      unfinalised_subject_comments: unfinalisedSubjectComments,
+      missing_overall_comments: missingOverallComments,
+      unfinalised_overall_comments: unfinalisedOverallComments,
+      require_finalised_comments: settings.require_finalised_comments,
+      allow_admin_force_generate: settings.allow_admin_force_generate,
+      would_block: settings.require_finalised_comments && anyMissing,
+    };
+  }
+
+  /**
+   * Kicks off a new generation run. Validates the scope, gates comments,
+   * inserts a `ReportCardBatchJob` row, and enqueues the background job.
+   */
+  async generateRun(
+    tenantId: string,
+    actorUserId: string,
+    dto: StartGenerationRunDto,
+  ): Promise<{ batch_job_id: string }> {
+    if (!this.templateService || !this.tenantSettingsService || !this.generationQueue) {
+      throw new Error('ReportCardGenerationService is not wired for generateRun');
+    }
+
+    const period = await this.academicReadFacade.findPeriodById(tenantId, dto.academic_period_id);
+    if (!period) {
+      throw new NotFoundException({
+        code: 'PERIOD_NOT_FOUND',
+        message: `Academic period with id "${dto.academic_period_id}" not found`,
+      });
+    }
+
+    const { studentIds, classIds } = await this.resolveScope(tenantId, dto.scope);
+    if (studentIds.length === 0) {
+      throw new NotFoundException({
+        code: 'SCOPE_EMPTY',
+        message: 'The selected scope does not resolve to any students',
+      });
+    }
+    if (classIds.length === 0) {
+      throw new NotFoundException({
+        code: 'SCOPE_EMPTY',
+        message: 'The selected scope does not map to any class',
+      });
+    }
+
+    const dryRun = await this.dryRunCommentGate(tenantId, {
+      scope: dto.scope,
+      academic_period_id: dto.academic_period_id,
+      content_scope: dto.content_scope,
+    });
+
+    if (dryRun.would_block && !dto.override_comment_gate) {
+      throw new ForbiddenException({
+        code: 'COMMENT_GATE_BLOCKING',
+        message:
+          'Generation is blocked because finalised comments are required and some are missing or unfinalised',
+        details: {
+          missing_subject_comments: dryRun.missing_subject_comments.length,
+          unfinalised_subject_comments: dryRun.unfinalised_subject_comments.length,
+          missing_overall_comments: dryRun.missing_overall_comments.length,
+          unfinalised_overall_comments: dryRun.unfinalised_overall_comments.length,
+        },
+      });
+    }
+
+    if (dto.override_comment_gate && !dryRun.allow_admin_force_generate) {
+      throw new ForbiddenException({
+        code: 'FORCE_GENERATE_DISABLED',
+        message: 'Force generate is not enabled for this tenant',
+      });
+    }
+
+    const settings = await this.tenantSettingsService.getPayload(tenantId);
+    const personalInfoFields =
+      dto.personal_info_fields && dto.personal_info_fields.length > 0
+        ? dto.personal_info_fields
+        : settings.default_personal_info_fields;
+
+    const template = await this.templateService.resolveForGeneration(tenantId, {
+      contentScope: dto.content_scope,
+      locale: 'en',
+    });
+
+    if (!template) {
+      throw new NotFoundException({
+        code: 'TEMPLATE_NOT_FOUND',
+        message: `No English template available for content scope "${dto.content_scope}"`,
+      });
+    }
+
+    const languages: string[] = ['en'];
+    if (dryRun.languages_preview.ar > 0) {
+      languages.push('ar');
+    }
+
+    // Representative class for the legacy non-null column. Picked from the
+    // resolved scope (first class in deterministic order) — see the
+    // danger-zones entry added in this impl.
+    const representativeClassId = classIds[0]!;
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+    const batchJob = await prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      return db.reportCardBatchJob.create({
+        data: {
+          tenant_id: tenantId,
+          class_id: representativeClassId,
+          academic_period_id: dto.academic_period_id,
+          template_id: template.id,
+          status: 'queued',
+          total_count: studentIds.length,
+          completed_count: 0,
+          requested_by_user_id: actorUserId,
+          scope_type: dto.scope.mode,
+          scope_ids_json: scopeToIdList(dto.scope) as unknown as Prisma.InputJsonValue,
+          personal_info_fields_json: personalInfoFields as unknown as Prisma.InputJsonValue,
+          languages_requested: languages,
+          students_generated_count: 0,
+          students_blocked_count: 0,
+          errors_json: [] as unknown as Prisma.InputJsonValue,
+        },
+      });
+    });
+
+    await this.generationQueue.add(
+      REPORT_CARD_GENERATE_JOB,
+      {
+        tenant_id: tenantId,
+        user_id: actorUserId,
+        batch_job_id: batchJob.id,
+      },
+      { jobId: `${REPORT_CARD_GENERATE_JOB}:${batchJob.id}` },
+    );
+
+    this.logger.log(
+      `Enqueued ${REPORT_CARD_GENERATE_JOB} for tenant ${tenantId} batch=${batchJob.id} students=${studentIds.length} languages=[${languages.join(',')}]`,
+    );
+
+    return { batch_job_id: batchJob.id };
+  }
+
+  async getRun(tenantId: string, runId: string): Promise<GenerationRunSummary> {
+    const run = await this.prisma.reportCardBatchJob.findFirst({
+      where: { id: runId, tenant_id: tenantId },
+    });
+
+    if (!run) {
+      throw new NotFoundException({
+        code: 'GENERATION_RUN_NOT_FOUND',
+        message: `Generation run with id "${runId}" not found`,
+      });
+    }
+
+    return toGenerationRunSummary(run);
+  }
+
+  async listRuns(tenantId: string, query: ListGenerationRunsQuery) {
+    const [rows, total] = await Promise.all([
+      this.prisma.reportCardBatchJob.findMany({
+        where: { tenant_id: tenantId },
+        orderBy: { created_at: 'desc' },
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      this.prisma.reportCardBatchJob.count({ where: { tenant_id: tenantId } }),
+    ]);
+
+    return {
+      data: rows.map(toGenerationRunSummary),
+      meta: { page: query.page, pageSize: query.pageSize, total },
+    };
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function scopeToIdList(scope: GenerationScope): string[] {
+  if (scope.mode === 'year_group') return scope.year_group_ids;
+  if (scope.mode === 'class') return scope.class_ids;
+  return scope.student_ids;
+}
+
+function toGenerationRunSummary(row: {
+  id: string;
+  tenant_id: string;
+  status: string;
+  class_id: string;
+  scope_type: string | null;
+  scope_ids_json: Prisma.JsonValue | null;
+  academic_period_id: string;
+  template_id: string | null;
+  personal_info_fields_json: Prisma.JsonValue | null;
+  languages_requested: string[];
+  students_generated_count: number;
+  students_blocked_count: number;
+  total_count: number;
+  errors_json: Prisma.JsonValue | null;
+  requested_by_user_id: string;
+  created_at: Date;
+  updated_at: Date;
+}): GenerationRunSummary {
+  const scopeIds = Array.isArray(row.scope_ids_json)
+    ? (row.scope_ids_json.filter((v) => typeof v === 'string') as string[])
+    : [];
+  const personalInfoFields = Array.isArray(row.personal_info_fields_json)
+    ? (row.personal_info_fields_json.filter((v) => typeof v === 'string') as string[])
+    : [];
+
+  let errors: GenerationRunSummary['errors'] = [];
+  if (Array.isArray(row.errors_json)) {
+    errors = row.errors_json.flatMap((entry) => {
+      if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+        return [];
+      }
+      const obj = entry as Record<string, unknown>;
+      return [
+        {
+          student_id: typeof obj.student_id === 'string' ? obj.student_id : '',
+          message: typeof obj.message === 'string' ? obj.message : 'Unknown error',
+        },
+      ];
+    });
+  }
+
+  return {
+    id: row.id,
+    status: row.status,
+    scope_type: row.scope_type,
+    scope_ids: scopeIds,
+    academic_period_id: row.academic_period_id,
+    template_id: row.template_id,
+    personal_info_fields: personalInfoFields,
+    languages_requested: row.languages_requested,
+    students_generated_count: row.students_generated_count,
+    students_blocked_count: row.students_blocked_count,
+    total_count: row.total_count,
+    errors,
+    requested_by_user_id: row.requested_by_user_id,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
 }

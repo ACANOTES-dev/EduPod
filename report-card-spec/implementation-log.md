@@ -277,3 +277,92 @@ When you finish an implementation, append an entry to the **Completions** sectio
 - `resolveForGeneration` returns `null` for any content scope other than `grades_only` without touching the DB — future waves will add the other scopes to the Postgres enum and relax that guard.
 - Principal signatures are stored under `{tenant_id}/report-cards/principal-signature.{png|jpg|webp}`. Re-uploads with a different extension automatically delete the previous file so the bucket stays tidy.
 - Magic-byte validation is defence-in-depth: multer already filters by declared mime type, but the service re-verifies the first few bytes per PNG/JPEG/WEBP signatures to catch spoofed uploads. Adding new accepted mime types requires updating both `SIGNATURE_ALLOWED_MIMES` and `MAGIC_BYTE_MATCHERS` together.
+
+### Implementation 04: Generation Backend
+
+- **Completed at:** 2026-04-09 19:20 (local time)
+- **Completed by:** Claude Opus 4.6 (Claude Code)
+- **Branch / commit:** `main` @ `<sha>` _(backfilled after commit)_
+- **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
+- **Status:** ✅ complete
+- **Summary:** Refactored `ReportCardGenerationService` into a NestJS-injectable provider with the full new-flow API (`resolveScope`, `dryRunCommentGate`, `generateRun`, `getRun`, `listRuns`), wired four new wizard-facing endpoints under `/v1/report-cards/generation-runs`, and shipped a tenant-aware `ReportCardGenerationProcessor` in the worker with a placeholder React-PDF-style renderer. Impl 11 will swap the placeholder for the production templates without touching the processor.
+
+**What changed:**
+
+- `packages/shared/src/report-cards/generation.schema.ts` — new Zod schemas (`generationScopeSchema`, `dryRunGenerationCommentGateSchema`, `startGenerationRunSchema`, `listGenerationRunsQuerySchema`) + the `ReportCardRenderPayload` contract type shared between API, worker, and (future) renderer.
+- `packages/shared/src/report-cards/index.ts` — re-export barrel entry for the new generation schemas.
+- `packages/shared/src/report-cards/__tests__/generation.schema.spec.ts` — 13 unit tests covering every mode, refinement, and boundary.
+- `apps/api/src/modules/gradebook/report-cards/report-card-generation.service.ts` — major refactor: added `@Injectable()`, added `ReportCardTemplateService`, `ReportCardTenantSettingsService`, and `@InjectQueue('gradebook')` dependencies (all `@Optional()` so the legacy `new` site in `ReportCardsService` continues to compile), and added the new methods `resolveScope`, `dryRunCommentGate`, `generateRun`, `getRun`, `listRuns`. Legacy methods (`generate`, `buildBatchSnapshots`, `generateBulkDrafts`) are preserved untouched for backwards compatibility.
+- `apps/api/src/modules/gradebook/report-cards/report-card-generation.service.spec.ts` — extended with 20 new tests covering scope resolution, the comment-gate dry run, happy path + blocking branches, and `listRuns`/`getRun`. Existing 20 legacy tests still pass unchanged.
+- `apps/api/src/modules/gradebook/report-cards/report-cards.controller.ts` — four new routes (all behind `report_cards.manage`):
+  - `POST /v1/report-cards/generation-runs/dry-run`
+  - `POST /v1/report-cards/generation-runs`
+  - `GET /v1/report-cards/generation-runs`
+  - `GET /v1/report-cards/generation-runs/:id`
+    Static routes registered BEFORE the dynamic `:id` route to avoid NestJS route shadowing.
+- `apps/api/src/modules/gradebook/report-cards/report-cards.controller.spec.ts` — added `mockGenerationService` provider so the controller TestingModule compiles with the new dependency.
+- `apps/api/src/modules/gradebook/report-cards/report-card.module.ts` — registered `ReportCardGenerationService` as a provider and added it to `exports` so impl 05 (teacher requests) can inject it for the auto-execute path.
+- `apps/api/test/report-cards/generation-runs.e2e-spec.ts` — new e2e suite (8 tests): dry-run against class and year_group scopes, blocking + override + SCOPE_EMPTY paths on `generateRun`, `listRuns` + `getRun`, and cross-tenant isolation. Uses the real AppModule + Postgres with the BullMQ `gradebook` queue stubbed via `overrideProvider(getQueueToken('gradebook'))`.
+- `apps/worker/src/processors/report-card-render.contract.ts` — `ReportCardRenderer` interface and `REPORT_CARD_RENDERER_TOKEN` DI symbol.
+- `apps/worker/src/processors/report-card-render.placeholder.ts` — `PlaceholderReportCardRenderer` that builds a valid minimal single-page PDF (hand-crafted bytes, no new deps) with the student summary, subjects, and comments. Impl 11 swaps the DI binding.
+- `apps/worker/src/processors/gradebook/report-card-generation.processor.ts` — new processor on the `gradebook` queue listening for `report-cards:generate`. Implementation class `ReportCardGenerationJob extends TenantAwareJob` loads the batch job row, resolves the scope, fetches grades + finalised comments in bulk, computes top-3 rank badges when enabled, builds the `ReportCardRenderPayload` per (student × locale), calls the injected renderer, upserts the `ReportCard` row, and deletes the prior `pdf_storage_key` when overwriting. Per-student errors accumulate in `errors_json`; infrastructure failures mark the whole job `failed`. Also exports a `NullReportCardStorageWriter` and `REPORT_CARD_STORAGE_WRITER_TOKEN` so production can bind an S3-backed writer later.
+- `apps/worker/src/processors/gradebook/report-card-generation.processor.spec.ts` — 8 tests: job name constant, tenant_id guardrails (inherited from `TenantAwareJob`), happy path for one student, dual-language flow for ar-preferred students, ar-disabled flow when no ar template, per-student error isolation, and the upsert + storage-delete branch.
+- `apps/worker/src/worker.module.ts` — registered `ReportCardGenerationProcessor`, `PlaceholderReportCardRenderer`, and the renderer + storage DI tokens (`REPORT_CARD_RENDERER_TOKEN`, `REPORT_CARD_STORAGE_WRITER_TOKEN`).
+- `api-surface.snapshot.json` — regenerated for the four new routes.
+- `docs/architecture/event-job-catalog.md` — documented the refactored `report-cards:generate` job (queue, payload, flow, side effects, DI bindings).
+- `docs/architecture/state-machines.md` — added the `ReportCardBatchJob` generation-run lifecycle with the mapping between logical `pending → running → completed / partial_success / failed` and the physical `BatchJobStatus` enum values already in the schema.
+- `docs/architecture/module-blast-radius.md` — noted the new cross-module dependencies on `ReportCardTemplateService` + `ReportCardTenantSettingsService` and the new BullMQ job.
+- `docs/architecture/danger-zones.md` — added `DZ-42: Report Card Regeneration Deletes Previous PDFs` documenting the overwrite semantics and the audit-history tradeoff.
+
+**Database changes:**
+
+- None (uses impl 01 tables and columns). Noted below in "Blockers or follow-ups": the `ReportCardBatchJob.class_id` column is non-null in the current schema, which forces `generateRun` to pick a representative class id from the resolved scope. A future refactor should make `class_id` nullable or drop it.
+
+**Test coverage:**
+
+- Shared Zod schema tests added: 13 (`generation.schema.spec.ts`)
+- Unit specs added on the generation service: 20 new tests (total 40 in the file)
+- Worker processor spec added: 8 tests (`report-card-generation.processor.spec.ts`)
+- Integration/E2E spec added: 1 file, 8 tests (`generation-runs.e2e-spec.ts`)
+- RLS leakage tests: none added (no new tables; impl 01's `rls-leakage.e2e-spec.ts` already covers every redesign-owned tenant-scoped table). Cross-tenant isolation for the new `generation-runs` endpoints is verified directly in `generation-runs.e2e-spec.ts`.
+- `turbo test` status: ✅ all 15026 tests green across 720 API suites, 35 shared suites (823 tests), plus worker + web suites.
+- `turbo lint` status: ✅ 0 errors (pre-existing warnings only; none introduced by this impl).
+- `turbo type-check` status: ✅ green across all 8 packages.
+- DI verification script from `00-common-knowledge.md §3.7`: ✅ `DI OK` for the API; also verified the worker module DI graph with `PRISMA_CLIENT` stubbed (`WORKER DI OK`).
+
+**Architecture docs updated (if applicable):**
+
+- `docs/architecture/module-blast-radius.md` — ✅ updated (new cross-module deps + new BullMQ job)
+- `docs/architecture/event-job-catalog.md` — ✅ updated (`report-cards:generate` documented in full)
+- `docs/architecture/state-machines.md` — ✅ updated (ReportCardBatchJob lifecycle)
+- `docs/architecture/danger-zones.md` — ✅ updated (DZ-42: PDF overwrite data loss)
+- `docs/architecture/feature-map.md` — NOT updated (per project rule — will be batched into a single update after impl 12)
+
+**Regression check:**
+
+- Ran full `turbo test`: ✅ 15026/15026 tests green.
+- Any unrelated test failures: none. Pre-lock `report-cards.controller.spec.ts` had to receive the new `ReportCardGenerationService` provider mock, and `api-surface.spec.ts` had to regenerate the snapshot via `pnpm -w run snapshot:api`. Both fixes are in this commit and part of the test coverage above.
+
+**Blockers or follow-ups:**
+
+- Impl 09 (frontend wizard + settings) is now unblocked. The wizard should:
+  1. Call `POST /v1/report-cards/generation-runs/dry-run` on step 6 for the preview summary.
+  2. Submit via `POST /v1/report-cards/generation-runs` with `override_comment_gate` only when the admin ticks the force box.
+  3. Poll `GET /v1/report-cards/generation-runs/:id` until `status` is terminal (`completed` or `failed`) — treat `completed` with `students_blocked_count > 0` as "partial success".
+- Impl 11 (PDF template rendering) is now unblocked. Replace the `PlaceholderReportCardRenderer` DI binding with a production `ProductionReportCardRenderer` that implements the same `ReportCardRenderer` contract. No other file changes are required in the worker.
+- Impl 05 (teacher requests) can inject `ReportCardGenerationService` from `ReportCardModule` and call `generateRun` directly when auto-executing an approved `regenerate_reports` request.
+- Impl 12 (cleanup) should remove the legacy `POST /v1/report-cards/generate-batch` endpoint once impl 09's wizard has fully replaced it in the frontend.
+- **Tech debt**: `ReportCardBatchJob.class_id` is non-null in the current Prisma schema but the new scope model doesn't always have a single class. `generateRun` picks the first resolved class id as a representative value. A follow-up migration should make `class_id` nullable (or drop it entirely in favour of `scope_type` + `scope_ids_json`). Impl 01's migration set did not touch this column so it remains out-of-scope here.
+- **Tech debt**: there is no unique index on `(tenant_id, student_id, academic_period_id, template_id, template_locale)` on the `report_cards` table, so the processor emulates upsert via `findFirst` + `update`/`create` inside an interactive transaction rather than a native `upsert`. When the unique index lands, the processor can switch to a single `upsert` call with no behaviour change.
+- Local commit only — not pushed to GitHub per nightly-push policy.
+
+**Notes for the next agent:**
+
+- The render contract lives at `apps/worker/src/processors/report-card-render.contract.ts` and the DI token is `REPORT_CARD_RENDERER_TOKEN`. Impl 11 implements the interface and binds the real class in `worker.module.ts` — no changes to the processor are needed.
+- The storage writer contract lives alongside the processor in `apps/worker/src/processors/gradebook/report-card-generation.processor.ts` (token: `REPORT_CARD_STORAGE_WRITER_TOKEN`). Production needs to bind an S3-backed implementation in the worker bootstrap — the `NullReportCardStorageWriter` is only safe for tests.
+- Overwrite semantics: the previous `pdf_storage_key` is deleted inside the same interactive transaction as the upsert. If you ever need audit history of prior PDFs, revisit `DZ-42` before changing the processor.
+- `ReportCardGenerationService` constructor parameters are ordered so the optional redesign deps sit at positions 7–9. The legacy `ReportCardsService` still instantiates it with the first 6 args only (undefined optional deps) — DON'T add more required deps to the front of the constructor without also updating `ReportCardsService`.
+- Comment gate enforcement is strict by default (`require_finalised_comments = true`). The admin override flag is also gated on `allow_admin_force_generate` — both must be true for the override to succeed, otherwise the service throws `FORCE_GENERATE_DISABLED`.
+- The processor resolves Arabic templates via a second `prisma.reportCardTemplate.findFirst` call for `(tenant_id, content_scope, locale: 'ar')`. Today the seeded templates are English-only per tenant, so mixed-language batches simply skip the `ar` render step without failing. Adding an Arabic template row per tenant will automatically enable the second-language flow without any code changes.
+- The BullMQ `gradebook` queue is registered in both the API (`report-card.module.ts`) and the worker (`worker.module.ts`). Only the worker side has a `@Processor()`; the API only enqueues.
+- Impl 11 should note that the `ReportCardRenderPayload` shape is defined in `@school/shared` (`generation.schema.ts`). It includes everything needed for a single-language render; the worker constructs one payload per (student × locale) target.

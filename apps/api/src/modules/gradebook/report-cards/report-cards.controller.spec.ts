@@ -7,6 +7,7 @@ import { MOCK_FACADE_PROVIDERS } from '../../../common/tests/mock-facades';
 import { PdfRenderingService } from '../../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
+import { ReportCardGenerationService } from './report-card-generation.service';
 import { ReportCardsQueriesService } from './report-cards-queries.service';
 import { ReportCardsController } from './report-cards.controller';
 import { ReportCardsService } from './report-cards.service';
@@ -52,6 +53,13 @@ const mockPermissionCacheService = {
   getPermissions: jest.fn(),
 };
 
+const mockGenerationService = {
+  dryRunCommentGate: jest.fn(),
+  generateRun: jest.fn(),
+  getRun: jest.fn(),
+  listRuns: jest.fn(),
+};
+
 describe('ReportCardsController', () => {
   let controller: ReportCardsController;
 
@@ -65,6 +73,7 @@ describe('ReportCardsController', () => {
         { provide: PdfRenderingService, useValue: mockPdfRenderingService },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PermissionCacheService, useValue: mockPermissionCacheService },
+        { provide: ReportCardGenerationService, useValue: mockGenerationService },
       ],
     })
       .overrideGuard(AuthGuard)

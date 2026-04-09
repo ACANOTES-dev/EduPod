@@ -749,3 +749,507 @@ describe('ReportCardGenerationService — generateBulkDrafts', () => {
     expect(result.data).toEqual([]);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Report Cards Redesign (impl 04) — new flow tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import type { ReportCardTemplateService } from './report-card-template.service';
+import type { ReportCardTenantSettingsService } from './report-card-tenant-settings.service';
+
+const TENANT_ID_V2 = '11111111-1111-4111-8111-111111111111';
+const PERIOD_ID_V2 = '22222222-2222-4222-8222-222222222222';
+const CLASS_ID_V2 = '33333333-3333-4333-8333-333333333333';
+const STUDENT_A = '44444444-4444-4444-8444-444444444444';
+const STUDENT_B = '55555555-5555-4555-8555-555555555555';
+const YEAR_GROUP_ID = '66666666-6666-4666-8666-666666666666';
+const TEMPLATE_ID = '77777777-7777-4777-8777-777777777777';
+
+function buildV2Prisma() {
+  return {
+    // legacy (impl 01 code paths still reference these)
+    periodGradeSnapshot: { findMany: jest.fn() },
+    assessment: { findMany: jest.fn() },
+    reportCard: { findMany: jest.fn() },
+    // impl 04 gradebook-owned models
+    reportCardSubjectComment: { findMany: jest.fn() },
+    reportCardOverallComment: { findMany: jest.fn() },
+    reportCardBatchJob: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
+    },
+  };
+}
+
+function buildV2ClassesFacade() {
+  return {
+    findEnrolmentsGeneric: jest.fn().mockResolvedValue([]),
+    findClassEnrolmentsWithStudents: jest.fn().mockResolvedValue([]),
+  };
+}
+
+function buildV2StudentFacade() {
+  return {
+    findManyGeneric: jest.fn().mockResolvedValue([]),
+  };
+}
+
+function buildV2TemplateService(overrides?: Partial<ReportCardTemplateService>) {
+  return {
+    resolveForGeneration: jest.fn().mockResolvedValue({
+      id: TEMPLATE_ID,
+      tenant_id: TENANT_ID_V2,
+      locale: 'en',
+      content_scope: 'grades_only',
+      is_default: true,
+    }),
+    ...overrides,
+  } as unknown as ReportCardTemplateService;
+}
+
+function buildV2SettingsService(
+  payload?: Partial<{
+    require_finalised_comments: boolean;
+    allow_admin_force_generate: boolean;
+    default_personal_info_fields: string[];
+  }>,
+) {
+  return {
+    getPayload: jest.fn().mockResolvedValue({
+      matrix_display_mode: 'grade',
+      show_top_rank_badge: false,
+      default_personal_info_fields: payload?.default_personal_info_fields ?? [],
+      require_finalised_comments: payload?.require_finalised_comments ?? true,
+      allow_admin_force_generate: payload?.allow_admin_force_generate ?? true,
+      principal_signature_storage_key: null,
+      principal_name: null,
+      grade_threshold_set_id: null,
+      default_template_id: null,
+    }),
+  } as unknown as ReportCardTenantSettingsService;
+}
+
+function buildV2Queue() {
+  return { add: jest.fn().mockResolvedValue({ id: 'job-1' }) };
+}
+
+function buildV2Service(opts?: {
+  prisma?: ReturnType<typeof buildV2Prisma>;
+  template?: ReturnType<typeof buildV2TemplateService>;
+  settings?: ReturnType<typeof buildV2SettingsService>;
+  queue?: ReturnType<typeof buildV2Queue>;
+  academic?: ReturnType<typeof buildMockAcademicFacade>;
+  classes?: ReturnType<typeof buildV2ClassesFacade>;
+  student?: ReturnType<typeof buildV2StudentFacade>;
+}) {
+  const prisma = opts?.prisma ?? buildV2Prisma();
+  const academic = opts?.academic ?? buildMockAcademicFacade();
+  const classes = opts?.classes ?? buildV2ClassesFacade();
+  const student = opts?.student ?? buildV2StudentFacade();
+  const template = opts?.template ?? buildV2TemplateService();
+  const settings = opts?.settings ?? buildV2SettingsService();
+  const queue = opts?.queue ?? buildV2Queue();
+
+  const service = new ReportCardGenerationService(
+    prisma as unknown as PrismaService,
+    academic as unknown as AcademicReadFacade,
+    student as unknown as StudentReadFacade,
+    buildMockTenantFacade() as unknown as TenantReadFacade,
+    buildMockAttendanceFacade() as unknown as AttendanceReadFacade,
+    classes as unknown as ClassesReadFacade,
+    template,
+    settings,
+    queue as unknown as import('bullmq').Queue,
+  );
+
+  return { service, prisma, template, settings, queue, academic, classes, student };
+}
+
+describe('ReportCardGenerationService — resolveScope', () => {
+  afterEach(() => jest.clearAllMocks());
+
+  it('expands class mode to deduped student IDs', async () => {
+    const { service, classes } = buildV2Service();
+    classes.findEnrolmentsGeneric.mockResolvedValue([
+      { student_id: STUDENT_A, class_id: CLASS_ID_V2 },
+      { student_id: STUDENT_A, class_id: CLASS_ID_V2 }, // dup
+      { student_id: STUDENT_B, class_id: CLASS_ID_V2 },
+    ]);
+
+    const result = await service.resolveScope(TENANT_ID_V2, {
+      mode: 'class',
+      class_ids: [CLASS_ID_V2],
+    });
+
+    expect(result.studentIds).toEqual([STUDENT_A, STUDENT_B]);
+    expect(result.classIds).toEqual([CLASS_ID_V2]);
+  });
+
+  it('expands year_group mode via enrolments with nested class filter', async () => {
+    const { service, classes } = buildV2Service();
+    classes.findEnrolmentsGeneric.mockResolvedValue([
+      { student_id: STUDENT_A, class_id: CLASS_ID_V2 },
+    ]);
+
+    const result = await service.resolveScope(TENANT_ID_V2, {
+      mode: 'year_group',
+      year_group_ids: [YEAR_GROUP_ID],
+    });
+
+    expect(result.studentIds).toEqual([STUDENT_A]);
+    expect(result.classIds).toEqual([CLASS_ID_V2]);
+  });
+
+  it('returns empty when year_group has no enrolments', async () => {
+    const { service, classes } = buildV2Service();
+    classes.findEnrolmentsGeneric.mockResolvedValue([]);
+
+    const result = await service.resolveScope(TENANT_ID_V2, {
+      mode: 'year_group',
+      year_group_ids: [YEAR_GROUP_ID],
+    });
+
+    expect(result.studentIds).toEqual([]);
+    expect(result.classIds).toEqual([]);
+  });
+
+  it('expands individual mode and verifies tenant ownership', async () => {
+    const { service, student } = buildV2Service();
+    student.findManyGeneric.mockResolvedValue([{ id: STUDENT_A, class_homeroom_id: CLASS_ID_V2 }]);
+
+    const result = await service.resolveScope(TENANT_ID_V2, {
+      mode: 'individual',
+      student_ids: [STUDENT_A],
+    });
+
+    expect(result.studentIds).toEqual([STUDENT_A]);
+    expect(result.classIds).toEqual([CLASS_ID_V2]);
+  });
+
+  it('throws STUDENTS_NOT_FOUND when individual scope contains an unknown id', async () => {
+    const { service, student } = buildV2Service();
+    student.findManyGeneric.mockResolvedValue([]);
+
+    await expect(
+      service.resolveScope(TENANT_ID_V2, {
+        mode: 'individual',
+        student_ids: [STUDENT_A],
+      }),
+    ).rejects.toThrow(NotFoundException);
+  });
+});
+
+describe('ReportCardGenerationService — dryRunCommentGate', () => {
+  afterEach(() => jest.clearAllMocks());
+
+  function mockCommentGateData(
+    prisma: ReturnType<typeof buildV2Prisma>,
+    classes: ReturnType<typeof buildV2ClassesFacade>,
+    studentFacade: ReturnType<typeof buildV2StudentFacade>,
+  ) {
+    classes.findEnrolmentsGeneric.mockResolvedValue([
+      { student_id: STUDENT_A, class_id: CLASS_ID_V2 },
+      { student_id: STUDENT_B, class_id: CLASS_ID_V2 },
+    ]);
+    studentFacade.findManyGeneric.mockResolvedValue([
+      {
+        id: STUDENT_A,
+        first_name: 'Ali',
+        last_name: 'Hassan',
+        preferred_second_language: 'ar',
+      },
+      {
+        id: STUDENT_B,
+        first_name: 'Sara',
+        last_name: 'Khan',
+        preferred_second_language: null,
+      },
+    ]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      {
+        student_id: STUDENT_A,
+        subject_id: 'subj-1',
+        subject: { id: 'subj-1', name: 'Math' },
+      },
+      {
+        student_id: STUDENT_B,
+        subject_id: 'subj-1',
+        subject: { id: 'subj-1', name: 'Math' },
+      },
+    ]);
+  }
+
+  it('flags would_block when strict mode + missing comments', async () => {
+    const academic = buildMockAcademicFacade();
+    academic.findPeriodById.mockResolvedValue({ id: PERIOD_ID_V2 });
+    const { service, prisma, classes, student } = buildV2Service({ academic });
+    mockCommentGateData(prisma, classes, student);
+    prisma.reportCardSubjectComment.findMany.mockResolvedValue([]);
+    prisma.reportCardOverallComment.findMany.mockResolvedValue([]);
+
+    const result = await service.dryRunCommentGate(TENANT_ID_V2, {
+      scope: { mode: 'class', class_ids: [CLASS_ID_V2] },
+      academic_period_id: PERIOD_ID_V2,
+      content_scope: 'grades_only',
+    });
+
+    expect(result.students_total).toBe(2);
+    expect(result.missing_subject_comments.length).toBe(2);
+    expect(result.missing_overall_comments.length).toBe(2);
+    expect(result.would_block).toBe(true);
+    // One student requested 'ar' AND the mock template resolver returns a non-null ar template
+    expect(result.languages_preview.en).toBe(2);
+    expect(result.languages_preview.ar).toBe(1);
+  });
+
+  it('does not block when strict mode is off', async () => {
+    const academic = buildMockAcademicFacade();
+    academic.findPeriodById.mockResolvedValue({ id: PERIOD_ID_V2 });
+    const settings = buildV2SettingsService({ require_finalised_comments: false });
+    const { service, prisma, classes, student } = buildV2Service({ academic, settings });
+    mockCommentGateData(prisma, classes, student);
+    prisma.reportCardSubjectComment.findMany.mockResolvedValue([]);
+    prisma.reportCardOverallComment.findMany.mockResolvedValue([]);
+
+    const result = await service.dryRunCommentGate(TENANT_ID_V2, {
+      scope: { mode: 'class', class_ids: [CLASS_ID_V2] },
+      academic_period_id: PERIOD_ID_V2,
+      content_scope: 'grades_only',
+    });
+
+    expect(result.would_block).toBe(false);
+  });
+
+  it('separates missing from unfinalised comments', async () => {
+    const academic = buildMockAcademicFacade();
+    academic.findPeriodById.mockResolvedValue({ id: PERIOD_ID_V2 });
+    const { service, prisma, classes, student } = buildV2Service({ academic });
+    mockCommentGateData(prisma, classes, student);
+    prisma.reportCardSubjectComment.findMany.mockResolvedValue([
+      {
+        student_id: STUDENT_A,
+        subject_id: 'subj-1',
+        finalised_at: new Date(),
+        comment_text: 'ok',
+      },
+      {
+        student_id: STUDENT_B,
+        subject_id: 'subj-1',
+        finalised_at: null,
+        comment_text: 'draft',
+      },
+    ]);
+    prisma.reportCardOverallComment.findMany.mockResolvedValue([
+      { student_id: STUDENT_A, finalised_at: new Date(), comment_text: 'ok' },
+      { student_id: STUDENT_B, finalised_at: new Date(), comment_text: 'ok' },
+    ]);
+
+    const result = await service.dryRunCommentGate(TENANT_ID_V2, {
+      scope: { mode: 'class', class_ids: [CLASS_ID_V2] },
+      academic_period_id: PERIOD_ID_V2,
+      content_scope: 'grades_only',
+    });
+
+    expect(result.missing_subject_comments.length).toBe(0);
+    expect(result.unfinalised_subject_comments.length).toBe(1);
+    expect(result.unfinalised_subject_comments[0]?.student_id).toBe(STUDENT_B);
+    expect(result.would_block).toBe(true); // unfinalised still blocks
+  });
+
+  it('throws SCOPE_EMPTY when scope resolves to zero students', async () => {
+    const { service, classes } = buildV2Service();
+    classes.findEnrolmentsGeneric.mockResolvedValue([]);
+
+    await expect(
+      service.dryRunCommentGate(TENANT_ID_V2, {
+        scope: { mode: 'class', class_ids: [CLASS_ID_V2] },
+        academic_period_id: PERIOD_ID_V2,
+        content_scope: 'grades_only',
+      }),
+    ).rejects.toThrow(/SCOPE_EMPTY|not resolve/);
+  });
+});
+
+describe('ReportCardGenerationService — generateRun', () => {
+  beforeEach(() => {
+    (createRlsClient as jest.Mock).mockReturnValue({
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({
+          reportCardBatchJob: {
+            create: jest.fn().mockResolvedValue({ id: 'batch-job-1' }),
+          },
+        }),
+      ),
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function seedHappyPath(
+    prisma: ReturnType<typeof buildV2Prisma>,
+    classes: ReturnType<typeof buildV2ClassesFacade>,
+    studentFacade: ReturnType<typeof buildV2StudentFacade>,
+  ) {
+    classes.findEnrolmentsGeneric.mockResolvedValue([
+      { student_id: STUDENT_A, class_id: CLASS_ID_V2 },
+    ]);
+    studentFacade.findManyGeneric.mockResolvedValue([
+      {
+        id: STUDENT_A,
+        first_name: 'Ali',
+        last_name: 'Hassan',
+        preferred_second_language: null,
+      },
+    ]);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
+    prisma.reportCardSubjectComment.findMany.mockResolvedValue([]);
+    prisma.reportCardOverallComment.findMany.mockResolvedValue([]);
+  }
+
+  it('throws SCOPE_EMPTY when no students resolve', async () => {
+    const academic = buildMockAcademicFacade();
+    academic.findPeriodById.mockResolvedValue({ id: PERIOD_ID_V2 });
+    const { service, classes } = buildV2Service({ academic });
+    classes.findEnrolmentsGeneric.mockResolvedValue([]);
+
+    await expect(
+      service.generateRun(TENANT_ID_V2, 'user-1', {
+        scope: { mode: 'class', class_ids: [CLASS_ID_V2] },
+        academic_period_id: PERIOD_ID_V2,
+        content_scope: 'grades_only',
+        override_comment_gate: false,
+      }),
+    ).rejects.toThrow(/SCOPE_EMPTY|not resolve/);
+  });
+
+  it('throws COMMENT_GATE_BLOCKING when strict and no override', async () => {
+    const academic = buildMockAcademicFacade();
+    academic.findPeriodById.mockResolvedValue({ id: PERIOD_ID_V2 });
+    const { service, prisma, classes, student } = buildV2Service({ academic });
+    seedHappyPath(prisma, classes, student);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      {
+        student_id: STUDENT_A,
+        subject_id: 'subj-1',
+        subject: { id: 'subj-1', name: 'Math' },
+      },
+    ]);
+
+    await expect(
+      service.generateRun(TENANT_ID_V2, 'user-1', {
+        scope: { mode: 'class', class_ids: [CLASS_ID_V2] },
+        academic_period_id: PERIOD_ID_V2,
+        content_scope: 'grades_only',
+        override_comment_gate: false,
+      }),
+    ).rejects.toThrow(/COMMENT_GATE_BLOCKING|Generation is blocked/);
+  });
+
+  it('creates a batch job and enqueues when override is set', async () => {
+    const academic = buildMockAcademicFacade();
+    academic.findPeriodById.mockResolvedValue({ id: PERIOD_ID_V2 });
+    const { service, prisma, classes, student, queue } = buildV2Service({ academic });
+    seedHappyPath(prisma, classes, student);
+
+    const result = await service.generateRun(TENANT_ID_V2, 'user-1', {
+      scope: { mode: 'class', class_ids: [CLASS_ID_V2] },
+      academic_period_id: PERIOD_ID_V2,
+      content_scope: 'grades_only',
+      override_comment_gate: true,
+    });
+
+    expect(result.batch_job_id).toBe('batch-job-1');
+    expect(queue.add).toHaveBeenCalledTimes(1);
+    const [jobName, payload] = queue.add.mock.calls[0] ?? [];
+    expect(jobName).toBe('report-cards:generate');
+    expect(payload).toMatchObject({
+      tenant_id: TENANT_ID_V2,
+      batch_job_id: 'batch-job-1',
+    });
+  });
+
+  it('rejects FORCE_GENERATE_DISABLED when tenant disables force', async () => {
+    const academic = buildMockAcademicFacade();
+    academic.findPeriodById.mockResolvedValue({ id: PERIOD_ID_V2 });
+    const settings = buildV2SettingsService({
+      require_finalised_comments: true,
+      allow_admin_force_generate: false,
+    });
+    const { service, prisma, classes, student } = buildV2Service({ academic, settings });
+    seedHappyPath(prisma, classes, student);
+    prisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      {
+        student_id: STUDENT_A,
+        subject_id: 'subj-1',
+        subject: { id: 'subj-1', name: 'Math' },
+      },
+    ]);
+
+    await expect(
+      service.generateRun(TENANT_ID_V2, 'user-1', {
+        scope: { mode: 'class', class_ids: [CLASS_ID_V2] },
+        academic_period_id: PERIOD_ID_V2,
+        content_scope: 'grades_only',
+        override_comment_gate: true,
+      }),
+    ).rejects.toThrow(/FORCE_GENERATE_DISABLED|Force generate/);
+  });
+});
+
+describe('ReportCardGenerationService — listRuns / getRun', () => {
+  afterEach(() => jest.clearAllMocks());
+
+  const rowFixture = {
+    id: 'batch-1',
+    tenant_id: TENANT_ID_V2,
+    status: 'completed',
+    class_id: CLASS_ID_V2,
+    scope_type: 'class',
+    scope_ids_json: [CLASS_ID_V2],
+    academic_period_id: PERIOD_ID_V2,
+    template_id: TEMPLATE_ID,
+    personal_info_fields_json: ['full_name'],
+    languages_requested: ['en', 'ar'],
+    students_generated_count: 3,
+    students_blocked_count: 0,
+    total_count: 3,
+    errors_json: [],
+    requested_by_user_id: 'user-1',
+    created_at: new Date('2026-04-09'),
+    updated_at: new Date('2026-04-09'),
+  };
+
+  it('getRun returns the summary for an existing run', async () => {
+    const { service, prisma } = buildV2Service();
+    prisma.reportCardBatchJob.findFirst.mockResolvedValue(rowFixture);
+
+    const result = await service.getRun(TENANT_ID_V2, 'batch-1');
+
+    expect(result.id).toBe('batch-1');
+    expect(result.scope_type).toBe('class');
+    expect(result.languages_requested).toEqual(['en', 'ar']);
+  });
+
+  it('getRun throws GENERATION_RUN_NOT_FOUND when missing', async () => {
+    const { service, prisma } = buildV2Service();
+    prisma.reportCardBatchJob.findFirst.mockResolvedValue(null);
+
+    await expect(service.getRun(TENANT_ID_V2, 'missing')).rejects.toThrow(NotFoundException);
+  });
+
+  it('listRuns paginates by created_at desc', async () => {
+    const { service, prisma } = buildV2Service();
+    prisma.reportCardBatchJob.findMany.mockResolvedValue([rowFixture]);
+    prisma.reportCardBatchJob.count.mockResolvedValue(1);
+
+    const result = await service.listRuns(TENANT_ID_V2, { page: 1, pageSize: 20 });
+
+    expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
+    expect(result.data).toHaveLength(1);
+  });
+});

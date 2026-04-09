@@ -16,9 +16,12 @@ import type { Response } from 'express';
 import { z } from 'zod';
 
 import {
+  dryRunGenerationCommentGateSchema,
   generateBatchReportCardsSchema,
   generateReportCardsSchema,
+  listGenerationRunsQuerySchema,
   reportCardOverviewQuerySchema,
+  startGenerationRunSchema,
   updateReportCardSchema,
 } from '@school/shared';
 import type { JwtPayload } from '@school/shared';
@@ -32,6 +35,7 @@ import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { PdfRenderingService } from '../../pdf-rendering/pdf-rendering.service';
 import { TenantReadFacade } from '../../tenants/tenant-read.facade';
 
+import { ReportCardGenerationService } from './report-card-generation.service';
 import { ReportCardsQueriesService } from './report-cards-queries.service';
 import { ReportCardsService } from './report-cards.service';
 
@@ -57,6 +61,7 @@ export class ReportCardsController {
     private readonly reportCardsQueriesService: ReportCardsQueriesService,
     private readonly pdfRenderingService: PdfRenderingService,
     private readonly tenantReadFacade: TenantReadFacade,
+    private readonly generationService: ReportCardGenerationService,
   ) {}
 
   @Post('report-cards/generate')
@@ -82,6 +87,56 @@ export class ReportCardsController {
     query: z.infer<typeof listReportCardsQuerySchema>,
   ) {
     return this.reportCardsQueriesService.findAll(tenant.tenant_id, query);
+  }
+
+  // ─── Generation runs (impl 04) ──────────────────────────────────────────
+  // IMPORTANT: register BEFORE the dynamic `:id` route so NestJS matches the
+  // literal segment `generation-runs` first.
+
+  // POST /v1/report-cards/generation-runs/dry-run
+  @Post('report-cards/generation-runs/dry-run')
+  @RequiresPermission('report_cards.manage')
+  @HttpCode(HttpStatus.OK)
+  async dryRunGenerationRun(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Body(new ZodValidationPipe(dryRunGenerationCommentGateSchema))
+    dto: z.infer<typeof dryRunGenerationCommentGateSchema>,
+  ) {
+    return this.generationService.dryRunCommentGate(tenant.tenant_id, dto);
+  }
+
+  // POST /v1/report-cards/generation-runs
+  @Post('report-cards/generation-runs')
+  @RequiresPermission('report_cards.manage')
+  @HttpCode(HttpStatus.CREATED)
+  async startGenerationRun(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(startGenerationRunSchema))
+    dto: z.infer<typeof startGenerationRunSchema>,
+  ) {
+    return this.generationService.generateRun(tenant.tenant_id, user.sub, dto);
+  }
+
+  // GET /v1/report-cards/generation-runs
+  @Get('report-cards/generation-runs')
+  @RequiresPermission('report_cards.manage')
+  async listGenerationRuns(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query(new ZodValidationPipe(listGenerationRunsQuerySchema))
+    query: z.infer<typeof listGenerationRunsQuerySchema>,
+  ) {
+    return this.generationService.listRuns(tenant.tenant_id, query);
+  }
+
+  // GET /v1/report-cards/generation-runs/:id
+  @Get('report-cards/generation-runs/:id')
+  @RequiresPermission('report_cards.manage')
+  async getGenerationRun(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.generationService.getRun(tenant.tenant_id, id);
   }
 
   @Get('report-cards/overview')

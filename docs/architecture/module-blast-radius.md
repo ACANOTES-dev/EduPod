@@ -192,6 +192,8 @@ If a module is not listed individually, it is either:
   - `WeightConfigService` manages subject-period and period-year weight configuration for cross-aggregation
   - `PeriodGradeComputationService` extended with cross-subject, cross-period, and year-overview aggregation
   - Config approval workflow on: `AssessmentCategoriesService`, `RubricService`, `StandardsService`
+  - **Report Cards Redesign (impl 04)**: `ReportCardGenerationService` is now a NestJS provider that depends on `ReportCardTemplateService`, `ReportCardTenantSettingsService`, the `BullModule` `gradebook` queue, and the existing read facades (`AcademicReadFacade`, `ClassesReadFacade`, `StudentReadFacade`, `AttendanceReadFacade`, `TenantReadFacade`). It is exported from `ReportCardModule` so impl 05's teacher requests can call `generateRun` directly when auto-executing an approved `regenerate_reports` request.
+  - **Report Cards Redesign (impl 04)**: enqueues a new `report-cards:generate` BullMQ job (queue `gradebook`). See `event-job-catalog.md` for payload and processor details. The worker hosts the new `ReportCardGenerationProcessor` plus two DI bindings — `REPORT_CARD_RENDERER_TOKEN` (placeholder today, React-PDF production renderer at impl 11) and `REPORT_CARD_STORAGE_WRITER_TOKEN` (null writer today, S3-backed writer in production bootstrap).
 
 ### FinanceModule
 

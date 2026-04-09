@@ -7883,6 +7883,34 @@
   },
   {
     "method": "GET",
+    "path": "/v1/report-cards/generation-runs",
+    "controller": "ReportCardsController",
+    "module": "gradebook",
+    "permission": "report_cards.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/report-cards/generation-runs",
+    "controller": "ReportCardsController",
+    "module": "gradebook",
+    "permission": "report_cards.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/report-cards/generation-runs/:id",
+    "controller": "ReportCardsController",
+    "module": "gradebook",
+    "permission": "report_cards.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/report-cards/generation-runs/dry-run",
+    "controller": "ReportCardsController",
+    "module": "gradebook",
+    "permission": "gradebook.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/report-cards/grade-thresholds",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
@@ -7921,7 +7949,7 @@
     "path": "/v1/report-cards/overview",
     "controller": "ReportCardsController",
     "module": "gradebook",
-    "permission": "gradebook.view"
+    "permission": "report_cards.manage"
   },
   {
     "method": "GET",

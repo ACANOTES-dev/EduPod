@@ -716,3 +716,26 @@ The production failure mode is nasty because PgBouncer can hand the app pooled s
 **Risk**: `ImportProcessingProcessor` and `ImportValidationProcessor` performed S3 downloads and deletes inside the `TenantAwareJob` Prisma transaction. S3 network failures could deadlock the transaction, and inconsistent rollback could leave orphan S3 files or missing data.
 
 **Resolution**: S3 download now runs before the transaction; S3 delete runs after the transaction commits. `processJob()` receives a pre-fetched buffer. If S3 download fails, no transaction is opened. If S3 delete fails after commit, the import data is safely persisted and the file can be cleaned up later by the file cleanup cron.
+
+---
+
+## DZ-42: Report Card Regeneration Deletes Previous PDFs
+
+**Risk**: `ReportCardGenerationProcessor` (impl 04) implements "run overwrite" semantics: every regeneration run upserts the `ReportCard` row keyed by `(tenant_id, student_id, academic_period_id, template_id, template_locale)` and deletes the previous `pdf_storage_key` in the same transaction. There is no document-level version history — the previously-generated PDF is permanently destroyed the moment a new run completes.
+
+This is a deliberate product choice (see `design-spec.md` §7.3), but it creates two risks:
+
+1. **Audit trail loss** — if a tenant disputes the content of an earlier report card (e.g., before a grade correction), the old PDF cannot be recovered. The `ReportCardBatchJob` log preserves run metadata, but not the rendered output.
+2. **Partial-run PDF delete on reruns** — a rerun that replaces student A's PDF successfully but fails on student B leaves A with the new bytes and B still pointing at the previous `pdf_storage_key`. Because the upsert + delete run inside the same per-student interactive transaction, this is the correct "atomic per student" behaviour, but it means batch-level rollback is NOT available.
+
+**Mitigation**:
+
+- The wizard's comment-gate dry-run + admin confirmation flow makes unintended regenerations hard to trigger.
+- Regeneration is gated on `report_cards.manage` (admin-only).
+- `ReportCardBatchJob` preserves `requested_by_user_id`, `created_at`, scope, and counters — enough to reconstruct WHO ran WHAT and WHEN even if the PDF is gone.
+- If the product later requires immutable document history, revisit by adding an `archived_pdf_storage_key` column + an append-only `ReportCardVersion` table. Do NOT change the overwrite behaviour without updating `design-spec.md` first.
+
+**Code pointers**:
+
+- `apps/worker/src/processors/gradebook/report-card-generation.processor.ts` — `renderAndUpsert` is the single place that deletes the previous PDF.
+- `apps/api/src/modules/gradebook/report-cards/report-card-generation.service.ts` — `generateRun` is the entrypoint that enqueues the job.

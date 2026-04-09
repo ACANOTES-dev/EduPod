@@ -19,6 +19,7 @@ import { ReportCardAnalyticsService } from './report-card-analytics.service';
 import { ReportCardApprovalService } from './report-card-approval.service';
 import { ReportCardCustomFieldsService } from './report-card-custom-fields.service';
 import { ReportCardDeliveryService } from './report-card-delivery.service';
+import { ReportCardGenerationService } from './report-card-generation.service';
 import { ReportCardOverallCommentsController } from './report-card-overall-comments.controller';
 import { ReportCardOverallCommentsService } from './report-card-overall-comments.service';
 import { ReportCardSubjectCommentsController } from './report-card-subject-comments.controller';
@@ -99,6 +100,9 @@ import { ReportCommentWindowsService } from './report-comment-windows.service';
 
     // ─── Tenant Settings (impl 03) ───────────────────────────────────────────
     ReportCardTenantSettingsService,
+
+    // ─── Generation runs (impl 04) ───────────────────────────────────────────
+    ReportCardGenerationService,
   ],
   exports: [
     ReportCardsService,
@@ -108,6 +112,9 @@ import { ReportCommentWindowsService } from './report-comment-windows.service';
     // the correct template for a (scope, locale) pair.
     ReportCardTemplateService,
     ReportCardTenantSettingsService,
+    // Exported so impl 05 (teacher requests) can auto-execute approved
+    // regeneration requests.
+    ReportCardGenerationService,
   ],
 })
 export class ReportCardModule {}

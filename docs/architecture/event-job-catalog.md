@@ -231,8 +231,38 @@ Missing any one of those leaves “approved but not actually executed” items i
 - `report-cards:auto-generate`
 - `gradebook:bulk-import-process`
 - `gradebook:mass-report-card-pdf`
+- `report-cards:generate` _(impl 04 — Report Cards Redesign)_
 - **Sources**: cron scheduler plus gradebook/report-card actions
 - **Major side effects**: academic alerts, draft report cards, bulk result import, report-card PDF generation
+
+#### `report-cards:generate` (impl 04)
+
+- **Enqueued by**: `ReportCardGenerationService.generateRun` (POST `/v1/report-cards/generation-runs`) — triggered by the admin wizard submit step. Will also be invoked from impl 05's teacher-request approval flow when `auto_execute` is true.
+- **Payload**:
+  ```ts
+  { tenant_id: string; user_id: string; batch_job_id: string; correlation_id?: string }
+  ```
+- **Processor**: `ReportCardGenerationProcessor` → `ReportCardGenerationJob extends TenantAwareJob`
+- **Queue defaults**: `attempts=3`, `backoff=exponential 5s`, `removeOnComplete=100`, `removeOnFail=500` (inherits queue-level defaults)
+- **Lock duration**: 5 minutes (long-running rendering + upload pipeline)
+- **Flow**:
+  1. Load the `ReportCardBatchJob` row by id (tenant-scoped) and move to `processing`.
+  2. Resolve the scope from `scope_ids_json` + `scope_type` → student IDs (year_group / class / individual modes).
+  3. Load the tenant, tenant settings, template, and optional Arabic template row.
+  4. Load grade snapshots, finalised subject comments, finalised overall comments, and personal-info for the resolved students in bulk.
+  5. For each student:
+     - Build the `ReportCardRenderPayload` (English).
+     - Call the injected `ReportCardRenderer` (`REPORT_CARD_RENDERER_TOKEN`) — bound to `PlaceholderReportCardRenderer` today; `ProductionReportCardRenderer` will swap in at impl 11.
+     - Upload bytes via `ReportCardStorageWriter` (`REPORT_CARD_STORAGE_WRITER_TOKEN`) and upsert the `ReportCard` row keyed by (student, period, template, template_locale).
+     - Delete the previous `pdf_storage_key` when the upsert replaces an existing row — overwrite semantics, no document version history.
+     - If `student.preferred_second_language = 'ar'` AND the template has an Arabic locale row, repeat for `ar`.
+     - On per-student error: append `{ student_id, message }` to `errors_json`, increment `students_blocked_count`, and continue.
+  6. Update the batch job status to `completed` with final counters. Infrastructure-level failures (tenant or template not found) write `status = 'failed'` with `error_message`.
+- **Major side effects**: PDF bytes written to object storage under `tenant/{tenant_id}/report-cards/{student_id}/{period_id}/{template_id}/{locale}.pdf`; `ReportCard` rows upserted; previous PDFs deleted (data loss — see `danger-zones.md`).
+- **RLS**: `TenantAwareJob` sets `app.current_tenant_id` at the top of the transaction. All reads and writes stay inside the transaction.
+- **DI bindings** (worker module):
+  - `REPORT_CARD_RENDERER_TOKEN` → `PlaceholderReportCardRenderer` (production swap at impl 11)
+  - `REPORT_CARD_STORAGE_WRITER_TOKEN` → `NullReportCardStorageWriter` (swap to S3 writer in production bootstrap)
 
 ### `homework`
 

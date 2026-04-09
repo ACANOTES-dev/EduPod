@@ -56,6 +56,11 @@ import { BulkImportProcessor } from './processors/gradebook/bulk-import.processo
 import { GradebookRiskDetectionProcessor } from './processors/gradebook/gradebook-risk-detection.processor';
 import { MassReportCardPdfProcessor } from './processors/gradebook/mass-report-card-pdf.processor';
 import { ReportCardAutoGenerateProcessor } from './processors/gradebook/report-card-auto-generate.processor';
+import {
+  NullReportCardStorageWriter,
+  REPORT_CARD_STORAGE_WRITER_TOKEN,
+  ReportCardGenerationProcessor,
+} from './processors/gradebook/report-card-generation.processor';
 import { HomeworkCompletionReminderProcessor } from './processors/homework/completion-reminder.processor';
 import { HomeworkDigestProcessor } from './processors/homework/digest-homework.processor';
 import { HomeworkGenerateRecurringProcessor } from './processors/homework/generate-recurring.processor';
@@ -85,6 +90,8 @@ import { RegulatoryDesGenerateProcessor } from './processors/regulatory/des-retu
 import { RegulatoryPpodImportProcessor } from './processors/regulatory/ppod-import.processor';
 import { RegulatoryPpodSyncProcessor } from './processors/regulatory/ppod-sync.processor';
 import { RegulatoryTuslaThresholdScanProcessor } from './processors/regulatory/tusla-threshold-scan.processor';
+import { REPORT_CARD_RENDERER_TOKEN } from './processors/report-card-render.contract';
+import { PlaceholderReportCardRenderer } from './processors/report-card-render.placeholder';
 import { AttachmentScanProcessor } from './processors/safeguarding/attachment-scan.processor';
 import { BreakGlassExpiryProcessor } from './processors/safeguarding/break-glass-expiry.processor';
 import { CriticalEscalationProcessor } from './processors/safeguarding/critical-escalation.processor';
@@ -386,6 +393,14 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     BulkImportProcessor,
     GradebookRiskDetectionProcessor,
     ReportCardAutoGenerateProcessor,
+    ReportCardGenerationProcessor,
+    // Report Cards Redesign — renderer + storage writer bindings (impl 04)
+    // Placeholder renderer is swapped for the production React-PDF template
+    // in impl 11. The Null storage writer is swapped for an S3-backed
+    // writer in the worker bootstrap when credentials are available.
+    PlaceholderReportCardRenderer,
+    { provide: REPORT_CARD_RENDERER_TOKEN, useExisting: PlaceholderReportCardRenderer },
+    { provide: REPORT_CARD_STORAGE_WRITER_TOKEN, useClass: NullReportCardStorageWriter },
     // Cron scheduler — registers repeatable BullMQ jobs on startup
     CronSchedulerService,
     // Finance queue processors
