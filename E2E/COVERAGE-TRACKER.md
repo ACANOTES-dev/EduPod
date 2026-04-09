@@ -4,13 +4,13 @@
 
 | Route Group | Total Pages | Covered | Remaining |
 | ----------- | ----------- | ------- | --------- |
-| (school)    | 322         | 15      | 307       |
+| (school)    | 322         | 23      | 299       |
 | (platform)  | 8           | 0       | 8         |
 | (auth)      | 5           | 0       | 5         |
 | (public)    | 6           | 0       | 6         |
-| **TOTAL**   | **341**     | **15**  | **326**   |
+| **TOTAL**   | **341**     | **23**  | **318**   |
 
-**Overall Progress: 15 / 341 (4.4%)**
+**Overall Progress: 23 / 341 (6.7%)**
 
 ---
 
@@ -20,17 +20,18 @@
 | --- | --------------------------------------------- | ----- | -------------------------------------------------- | ------------- |
 | 1   | `/dashboard`                                  | 3     | [1_dashboard](./1_dashboard/dashboard-e2e-spec.md) | 1/3 covered   |
 | 2   | `/students` `/staff` `/households` `/parents` | 14    | [2_people](./2_people/people-e2e-spec.md)          | 14/14 covered |
-| 3   | `/settings`                                   | 39    | _Not started_                                      |               |
-| 4   | `/behaviour`                                  | 25    | _Not started_                                      |               |
+| 3   | `/assessments` `/gradebook` `/analytics`      | 10    | [3_learning/assessment](./3_learning/assessment/)  | 8/10 covered  |
+| 4   | `/settings`                                   | 39    | _Not started_                                      |               |
+| 5   | `/behaviour`                                  | 25    | _Not started_                                      |               |
 
-| 4 | `/regulatory` | 25 | _Not started_ | |
-| 5 | `/scheduling` | 25 | _Not started_ | |
-| 6 | `/engagement` | 22 | _Not started_ | |
-| 7 | `/finance` | 23 | _Not started_ | |
-| 8 | `/pastoral` | 20 | _Not started_ | |
-| 9 | `/reports` | 20 | _Not started_ | |
-| 10 | `/homework` | 11 | _Not started_ | |
-| 11 | `/gradebook` | 10 | _Not started_ | |
+| 5 | `/regulatory` | 25 | _Not started_ | |
+| 6 | `/scheduling` | 25 | _Not started_ | |
+| 7 | `/engagement` | 22 | _Not started_ | |
+| 8 | `/finance` | 23 | _Not started_ | |
+| 9 | `/pastoral` | 20 | _Not started_ | |
+| 10 | `/reports` | 20 | _Not started_ | |
+| 11 | `/homework` | 11 | _Not started_ | |
+| 12 | `/gradebook` | 10 | (covered by row 3 above) | |
 | 12 | `/payroll` | 10 | _Not started_ | |
 | 13 | `/sen` | 8 | _Not started_ | |
 | 14 | `/admissions` | 7 | _Not started_ | |
@@ -67,10 +68,13 @@
 
 ## Completed Specifications
 
-| #   | Spec                                             | Pages Covered | Date Completed |
-| --- | ------------------------------------------------ | ------------- | -------------- |
-| 1   | [Dashboard](./1_dashboard/dashboard-e2e-spec.md) | 1             | 2026-04-07     |
-| 2   | [People](./2_people/people-e2e-spec.md)          | 14            | 2026-04-07     |
+| #   | Spec                                                                             | Pages Covered | Date Completed |
+| --- | -------------------------------------------------------------------------------- | ------------- | -------------- |
+| 1   | [Dashboard](./1_dashboard/dashboard-e2e-spec.md)                                 | 1             | 2026-04-07     |
+| 2   | [People](./2_people/people-e2e-spec.md)                                          | 14            | 2026-04-07     |
+| 3   | [Learning — Assessment Dashboard](./3_learning/assessment/dashboard-e2e-spec.md) | 3             | 2026-04-09     |
+| 4   | [Learning — Gradebook](./3_learning/assessment/gradebook-e2e-spec.md)            | 4             | 2026-04-09     |
+| 5   | [Learning — Analytics](./3_learning/assessment/analytics-e2e-spec.md)            | 1             | 2026-04-09     |
 
 ---
 
