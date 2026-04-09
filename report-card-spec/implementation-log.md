@@ -371,7 +371,7 @@ When you finish an implementation, append an entry to the **Completions** sectio
 
 - **Completed at:** 2026-04-09 19:55 (local time)
 - **Completed by:** Claude Opus 4.6 (Claude Code)
-- **Branch / commit:** `impl-05` @ `<pending>`
+- **Branch / commit:** `impl-05` @ `42149423`
 - **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
 - **Status:** ✅ complete
 - **Summary:** Landed the teacher-requests subsystem: `ReportCardTeacherRequestsService` + controller with the full pending → approved/rejected/cancelled → completed state machine, permission-aware list/find endpoints, authorship-gated cancel, and an optional auto-execute path on approve that delegates to `ReportCommentWindowsService.open` (for `open_comment_window`) or `ReportCardGenerationService.generateRun` (for `regenerate_reports`). In-app notification fan-out on submit (all `report_cards.manage` holders) and on approve/reject (the original author) via the existing `NotificationsService.createBatch` infrastructure.
