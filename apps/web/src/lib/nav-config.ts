@@ -367,6 +367,7 @@ export const hubGroupedSubStripConfigs: Record<string, SubStripGroupConfig[]> = 
         { labelKey: 'nav.classAssignments', href: '/class-assignments' },
         { labelKey: 'nav.promotion', href: '/promotion', roles: ADMIN_ROLES },
       ],
+      roles: ADMIN_ROLES,
     },
     {
       labelKey: 'nav.curriculum',

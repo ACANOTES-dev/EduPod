@@ -164,8 +164,12 @@ describe('RequireRole — route access logic', () => {
       expect(isAllowed('/en/attendance', PARENT_USER)).toBe(false);
     });
 
-    it('should allow teachers to access /classes', () => {
-      expect(isAllowed('/en/classes', TEACHER_USER)).toBe(true);
+    it('should deny teachers from /classes (admin only)', () => {
+      expect(isAllowed('/en/classes', TEACHER_USER)).toBe(false);
+    });
+
+    it('should deny teachers from /class-assignments (admin only)', () => {
+      expect(isAllowed('/en/class-assignments', TEACHER_USER)).toBe(false);
     });
 
     it('should allow teachers to access /timetables', () => {
