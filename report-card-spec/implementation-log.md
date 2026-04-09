@@ -674,7 +674,7 @@ The impl 11 doc assumed `@react-pdf/renderer` was already a worker dependency an
 
 - **Completed at:** 2026-04-09 21:10 (local time)
 - **Completed by:** Claude Opus 4.6 (Claude Code)
-- **Branch / commit:** `main` @ `<backfill after commit>`
+- **Branch / commit:** `main` @ `7da50fe7`
 - **Pull request:** direct to main (local commit only — not pushed per nightly-only push policy)
 - **Status:** ✅ complete
 - **Summary:** Built the Report Comments surface under `/[locale]/(school)/report-comments/`: a landing page with year-group-grouped subject assignment cards + a homeroom overall-comments card, a 3-column subject comment editor with debounced saves / AI draft / finalise flows, an overall comment editor for homeroom teachers, a window banner that drives admin open/close/extend/reopen controls and teacher "Request window reopen" flow, and full en+ar translation keys. The comment editors enforce window-gating visually (textareas become `readOnly` and buttons disable when the window is closed) on top of the server-side enforcement that impl 02 already guarantees.
