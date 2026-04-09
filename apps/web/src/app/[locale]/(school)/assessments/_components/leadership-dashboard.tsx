@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   BookOpen,
   CheckCircle2,
+  ClipboardCheck,
   ClipboardList,
   Clock,
   ExternalLink,
@@ -20,8 +21,18 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, cn, StatCard } from '@school/ui';
+import {
+  Button,
+  cn,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  StatCard,
+} from '@school/ui';
 
+import { HoverFollowTooltip } from '@/components/hover-follow-tooltip';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
@@ -69,6 +80,12 @@ interface Assessment {
   created_at: string;
 }
 
+interface SubjectEntity {
+  id: string;
+  name: string;
+  code: string | null;
+}
+
 interface PaginatedResponse<T> {
   data: T[];
   meta: { page: number; pageSize: number; total: number };
@@ -94,8 +111,6 @@ interface Kpis {
   submittedLocked: number;
   finalLocked: number;
   activeTeachers: number;
-  totalOpen: number;
-  totalLocked: number;
   totalActive: number;
 }
 
@@ -108,7 +123,7 @@ interface TeacherAttention {
   oldestOverdueDays: number | null;
 }
 
-interface SubjectActivity {
+interface SubjectActivityRow {
   subject_id: string;
   subject_name: string;
   scheduled: number;
@@ -117,6 +132,10 @@ interface SubjectActivity {
   submittedLocked: number;
   finalLocked: number;
   total: number;
+  /** True when the subject is assigned to the current filter context */
+  assignedInContext: boolean;
+  /** Flag: assigned to this class/year but has zero active assessments */
+  missingAssessments: boolean;
 }
 
 // ─── Date helpers (local-TZ safe comparisons) ────────────────────────────────
@@ -129,7 +148,6 @@ function startOfToday(): Date {
 
 function parseYmdAsLocal(ymd: string | null): Date | null {
   if (!ymd) return null;
-  // API returns ISO strings like "2025-11-01T00:00:00.000Z" — take the date part only
   const datePart = ymd.split('T')[0];
   if (!datePart) return null;
   const parts = datePart.split('-').map(Number);
@@ -183,7 +201,7 @@ function StatusIcon({ ok }: { ok: boolean }) {
 
 function LoadingSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-10">
       <div className="h-8 w-56 animate-pulse rounded-lg bg-surface-secondary" />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {Array.from({ length: 6 }).map((_, i) => (
@@ -199,17 +217,21 @@ function LoadingSkeleton() {
   );
 }
 
-// Tone wrapper around StatCard for KPI visual weight
+// Tone wrapper around StatCard for KPI visual weight, with hover-follow tooltip
 function KpiCard({
   label,
   value,
   tone,
   icon: Icon,
+  tooltipTitle,
+  tooltipBody,
 }: {
   label: string;
   value: number;
   tone: 'neutral' | 'info' | 'warning' | 'danger' | 'success';
   icon?: React.ElementType;
+  tooltipTitle: string;
+  tooltipBody: string;
 }) {
   const toneClasses: Record<typeof tone, string> = {
     neutral: 'border-border',
@@ -219,7 +241,7 @@ function KpiCard({
     success: 'border-success-text/30 bg-success-fill/30',
   };
   return (
-    <div className="relative">
+    <HoverFollowTooltip title={tooltipTitle} body={tooltipBody} className="relative cursor-help">
       <StatCard label={label} value={value} className={cn(toneClasses[tone], 'pe-10')} />
       {Icon && (
         <Icon
@@ -233,7 +255,7 @@ function KpiCard({
           )}
         />
       )}
-    </div>
+    </HoverFollowTooltip>
   );
 }
 
@@ -257,26 +279,56 @@ function ConfigCard({
   return (
     <Link
       href={href}
-      className="group flex flex-col gap-2 rounded-2xl border border-border bg-surface p-4 transition-colors hover:border-primary-300"
+      className="group flex min-w-0 flex-col gap-2 rounded-2xl border border-border bg-surface p-4 transition-colors hover:border-primary-300"
     >
-      <div className="flex items-start justify-between">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary-700 transition-colors group-hover:bg-primary-100">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-700 transition-colors group-hover:bg-primary-100">
           <Icon className="h-5 w-5" />
         </div>
-        <div className="text-end">
-          <p className="font-mono text-lg font-semibold text-text-primary">{primaryLabel}</p>
+        <div className="min-w-0 text-end">
+          <p className="truncate font-mono text-lg font-semibold text-text-primary">
+            {primaryLabel}
+          </p>
           {secondaryLabel && (
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+            <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
               {secondaryLabel}
             </p>
           )}
         </div>
       </div>
-      <div>
-        <p className="text-sm font-medium text-text-primary">{title}</p>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium text-text-primary">{title}</p>
         <p className="mt-0.5 text-xs text-text-secondary">{description}</p>
       </div>
     </Link>
+  );
+}
+
+// ─── Column header with hover-follow tooltip ────────────────────────────────
+
+function ColumnHeader({
+  label,
+  tooltipBody,
+  align = 'start',
+}: {
+  label: string;
+  tooltipBody: string;
+  align?: 'start' | 'center' | 'end';
+}) {
+  const alignClass =
+    align === 'center' ? 'justify-center' : align === 'end' ? 'justify-end' : 'justify-start';
+  return (
+    <HoverFollowTooltip
+      as="span"
+      title={label}
+      body={tooltipBody}
+      className={cn(
+        'inline-flex cursor-help items-center text-[10px] font-semibold uppercase tracking-wider text-text-tertiary underline decoration-dotted underline-offset-4',
+        alignClass,
+      )}
+    >
+      {label}
+    </HoverFollowTooltip>
   );
 }
 
@@ -287,6 +339,7 @@ export function LeadershipDashboard() {
 
   const [allocations, setAllocations] = React.useState<Allocation[]>([]);
   const [assessments, setAssessments] = React.useState<Assessment[]>([]);
+  const [subjects, setSubjects] = React.useState<SubjectEntity[]>([]);
   const [configCounts, setConfigCounts] = React.useState<ConfigCounts>({
     categories: 0,
     approvedCategories: 0,
@@ -300,15 +353,21 @@ export function LeadershipDashboard() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [refreshKey, setRefreshKey] = React.useState(0);
 
+  // Filter state for Activity by Subject
+  const [yearGroupFilter, setYearGroupFilter] = React.useState<string>('all');
+  const [classFilter, setClassFilter] = React.useState<string>('all');
+
   const fetchData = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch allocations (school-wide) and config counts in parallel
-      const [allocationsRes, categoriesRes, weightsRes, rubricsRes, standardsRes] =
+      const [allocationsRes, subjectsRes, categoriesRes, weightsRes, rubricsRes, standardsRes] =
         await Promise.all([
           apiClient<{ data: Allocation[] }>('/api/v1/gradebook/teaching-allocations/all', {
             silent: true,
           }).catch(() => ({ data: [] })),
+          apiClient<PaginatedResponse<SubjectEntity>>('/api/v1/subjects?pageSize=100', {
+            silent: true,
+          }).catch(() => ({ data: [], meta: { page: 1, pageSize: 100, total: 0 } })),
           apiClient<PaginatedResponse<{ id: string; status: string }>>(
             '/api/v1/gradebook/assessment-categories?pageSize=100',
             { silent: true },
@@ -328,6 +387,7 @@ export function LeadershipDashboard() {
         ]);
 
       setAllocations(allocationsRes.data);
+      setSubjects(subjectsRes.data);
 
       // Paginate through all non-cancelled assessments
       const PAGE_SIZE = 100;
@@ -379,12 +439,11 @@ export function LeadershipDashboard() {
 
   const today = React.useMemo(() => startOfToday(), []);
 
-  // class+subject → teacher_name lookup (first primary teacher if multiple)
+  // class+subject → first teacher lookup (prefer primary)
   const teacherByClassSubject = React.useMemo(() => {
     const map = new Map<string, { staff_profile_id: string; teacher_name: string }>();
     for (const a of allocations) {
       const key = `${a.class_id}:${a.subject_id}`;
-      // Prefer primary teachers when multiple exist
       const existing = map.get(key);
       if (!existing || (a.is_primary && !existing)) {
         map.set(key, { staff_profile_id: a.staff_profile_id, teacher_name: a.teacher_name });
@@ -393,6 +452,37 @@ export function LeadershipDashboard() {
     return map;
   }, [allocations]);
 
+  // Year group options from allocations
+  const yearGroupOptions = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const a of allocations) {
+      if (!map.has(a.year_group_id)) map.set(a.year_group_id, a.year_group_name);
+    }
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [allocations]);
+
+  // Class options, filtered by year group if one is selected
+  const classOptions = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const a of allocations) {
+      if (yearGroupFilter !== 'all' && a.year_group_id !== yearGroupFilter) continue;
+      if (!map.has(a.class_id)) map.set(a.class_id, a.class_name);
+    }
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [allocations, yearGroupFilter]);
+
+  // Clear class filter if it's no longer valid under the current year filter
+  React.useEffect(() => {
+    if (classFilter !== 'all' && !classOptions.some((c) => c.id === classFilter)) {
+      setClassFilter('all');
+    }
+  }, [classOptions, classFilter]);
+
+  // KPIs — always school-wide, NOT filtered
   const kpis = React.useMemo<Kpis>(() => {
     const result: Kpis = {
       scheduled: 0,
@@ -401,24 +491,19 @@ export function LeadershipDashboard() {
       submittedLocked: 0,
       finalLocked: 0,
       activeTeachers: 0,
-      totalOpen: 0,
-      totalLocked: 0,
       totalActive: 0,
     };
     for (const a of assessments) {
       const bucket = categoriseAssessment(a, today);
       if (!bucket) continue;
       result[bucket] += 1;
-      if (bucket === 'scheduled' || bucket === 'pendingGrading' || bucket === 'overdue') {
-        result.totalOpen += 1;
-      }
-      if (bucket === 'submittedLocked' || bucket === 'finalLocked') result.totalLocked += 1;
       result.totalActive += 1;
     }
     result.activeTeachers = new Set(allocations.map((a) => a.staff_profile_id)).size;
     return result;
   }, [assessments, allocations, today]);
 
+  // Teachers needing attention — school-wide (not filtered)
   const teachersNeedingAttention = React.useMemo<TeacherAttention[]>(() => {
     const byTeacher = new Map<string, TeacherAttention>();
     for (const a of assessments) {
@@ -467,35 +552,100 @@ export function LeadershipDashboard() {
       });
   }, [assessments, teacherByClassSubject, today]);
 
-  const subjectActivity = React.useMemo<SubjectActivity[]>(() => {
-    const map = new Map<string, SubjectActivity>();
+  // Subject activity rows — include ALL subjects, filtered by year/class
+  const subjectActivity = React.useMemo<SubjectActivityRow[]>(() => {
+    // subject_id → set of class_ids in current filter scope where the subject is assigned
+    const subjectAssignedClassIds = new Map<string, Set<string>>();
+    for (const a of allocations) {
+      if (yearGroupFilter !== 'all' && a.year_group_id !== yearGroupFilter) continue;
+      if (classFilter !== 'all' && a.class_id !== classFilter) continue;
+      let set = subjectAssignedClassIds.get(a.subject_id);
+      if (!set) {
+        set = new Set<string>();
+        subjectAssignedClassIds.set(a.subject_id, set);
+      }
+      set.add(a.class_id);
+    }
+
+    // Merge all known subjects
+    const subjectIndex = new Map<string, { id: string; name: string }>();
+    for (const s of subjects) subjectIndex.set(s.id, { id: s.id, name: s.name });
+    for (const a of allocations) {
+      if (!subjectIndex.has(a.subject_id)) {
+        subjectIndex.set(a.subject_id, { id: a.subject_id, name: a.subject_name });
+      }
+    }
+    for (const a of assessments) {
+      const sid = a.subject?.id ?? a.subject_id;
+      if (sid && !subjectIndex.has(sid)) {
+        subjectIndex.set(sid, { id: sid, name: a.subject?.name ?? '—' });
+      }
+    }
+
+    // Build row map
+    const rowMap = new Map<string, SubjectActivityRow>();
+    for (const [subjectId, meta] of subjectIndex) {
+      const assignedInContext = subjectAssignedClassIds.has(subjectId);
+      rowMap.set(subjectId, {
+        subject_id: subjectId,
+        subject_name: meta.name,
+        scheduled: 0,
+        pendingGrading: 0,
+        overdue: 0,
+        submittedLocked: 0,
+        finalLocked: 0,
+        total: 0,
+        assignedInContext,
+        missingAssessments: false,
+      });
+    }
+
+    // Count assessments per subject within filter scope
     for (const a of assessments) {
       const bucket = categoriseAssessment(a, today);
       if (!bucket) continue;
-      const subjectId = a.subject?.id ?? a.subject_id;
-      const subjectName = a.subject?.name ?? '—';
-      let row = map.get(subjectId);
-      if (!row) {
-        row = {
-          subject_id: subjectId,
-          subject_name: subjectName,
-          scheduled: 0,
-          pendingGrading: 0,
-          overdue: 0,
-          submittedLocked: 0,
-          finalLocked: 0,
-          total: 0,
-        };
-        map.set(subjectId, row);
+
+      if (classFilter !== 'all' && a.class_id !== classFilter) continue;
+      if (yearGroupFilter !== 'all') {
+        const alloc = allocations.find((al) => al.class_id === a.class_id);
+        if (!alloc || alloc.year_group_id !== yearGroupFilter) continue;
       }
+
+      const sid = a.subject?.id ?? a.subject_id;
+      const row = rowMap.get(sid);
+      if (!row) continue;
       row[bucket] += 1;
       row.total += 1;
     }
-    return [...map.values()].sort((a, b) => b.total - a.total);
-  }, [assessments, today]);
 
+    // Flag subjects that are assigned in this filter context but have zero assessments
+    for (const row of rowMap.values()) {
+      row.missingAssessments = row.assignedInContext && row.total === 0;
+    }
+
+    return [...rowMap.values()].sort((a, b) => {
+      // Missing-assessment rows first (admin priority)
+      if (a.missingAssessments !== b.missingAssessments) {
+        return a.missingAssessments ? -1 : 1;
+      }
+      // Then assigned over unassigned
+      if (a.assignedInContext !== b.assignedInContext) {
+        return a.assignedInContext ? -1 : 1;
+      }
+      // Then by total descending
+      if (b.total !== a.total) return b.total - a.total;
+      // Then alphabetical
+      return a.subject_name.localeCompare(b.subject_name);
+    });
+  }, [subjects, allocations, assessments, yearGroupFilter, classFilter, today]);
+
+  const filteredTotalAssessments = React.useMemo(
+    () => subjectActivity.reduce((acc, r) => acc + r.total, 0),
+    [subjectActivity],
+  );
+
+  // Class config health rows
   const classConfigHealth = React.useMemo(() => {
-    // Collapse to one row per class, reporting missing items
     interface Row {
       class_id: string;
       class_name: string;
@@ -541,46 +691,80 @@ export function LeadershipDashboard() {
 
   if (isLoading) return <LoadingSkeleton />;
 
+  const subjectCount = subjectActivity.length;
+
   return (
-    <div className="space-y-6">
-      {/* Header with refresh */}
+    <div className="space-y-6 pb-10">
+      {/* Header with actions */}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <PageHeader
-          title="Assessment Oversight"
-          description="School-wide assessment activity, teacher grading progress, approvals, and configuration health."
-        />
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setRefreshKey((k) => k + 1)}
-          className="shrink-0"
-        >
-          <RefreshCw className="me-1.5 h-3.5 w-3.5" />
-          Refresh
-        </Button>
+        <PageHeader title={t('leadershipTitle')} description={t('leadershipDescription')} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="default" size="sm" asChild>
+            <Link href="/assessments/approvals">
+              <ClipboardCheck className="me-1.5 h-3.5 w-3.5" />
+              {t('openApprovalsQueue')}
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setRefreshKey((k) => k + 1)}>
+            <RefreshCw className="me-1.5 h-3.5 w-3.5" />
+            {t('refresh')}
+          </Button>
+        </div>
       </div>
 
-      {/* KPI strip — 6 tone-coded cards */}
+      {/* KPI strip — 6 tone-coded cards with hover tooltips */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <KpiCard label="Scheduled" value={kpis.scheduled} tone="info" icon={Clock} />
         <KpiCard
-          label="Pending Grading"
+          label={t('kpiScheduled')}
+          value={kpis.scheduled}
+          tone="info"
+          icon={Clock}
+          tooltipTitle={t('kpiScheduled')}
+          tooltipBody={t('kpiScheduledTooltip')}
+        />
+        <KpiCard
+          label={t('kpiPendingGrading')}
           value={kpis.pendingGrading}
           tone="warning"
           icon={ClipboardList}
+          tooltipTitle={t('kpiPendingGrading')}
+          tooltipBody={t('kpiPendingGradingTooltip')}
         />
-        <KpiCard label="Overdue" value={kpis.overdue} tone="danger" icon={AlertTriangle} />
         <KpiCard
-          label="Submitted"
+          label={t('kpiOverdue')}
+          value={kpis.overdue}
+          tone="danger"
+          icon={AlertTriangle}
+          tooltipTitle={t('kpiOverdue')}
+          tooltipBody={t('kpiOverdueTooltip')}
+        />
+        <KpiCard
+          label={t('kpiSubmitted')}
           value={kpis.submittedLocked}
           tone="success"
           icon={CheckCircle2}
+          tooltipTitle={t('kpiSubmitted')}
+          tooltipBody={t('kpiSubmittedTooltip')}
         />
-        <KpiCard label="Final Locked" value={kpis.finalLocked} tone="neutral" icon={Sparkles} />
-        <KpiCard label="Active Teachers" value={kpis.activeTeachers} tone="neutral" icon={Users} />
+        <KpiCard
+          label={t('kpiFinalLocked')}
+          value={kpis.finalLocked}
+          tone="neutral"
+          icon={Sparkles}
+          tooltipTitle={t('kpiFinalLocked')}
+          tooltipBody={t('kpiFinalLockedTooltip')}
+        />
+        <KpiCard
+          label={t('kpiActiveTeachers')}
+          value={kpis.activeTeachers}
+          tone="neutral"
+          icon={Users}
+          tooltipTitle={t('kpiActiveTeachers')}
+          tooltipBody={t('kpiActiveTeachersTooltip')}
+        />
       </div>
 
-      {/* Approvals Action Queue (reuses existing InlineApprovalQueue) */}
+      {/* Inline Approvals Queue (reuses existing component) */}
       <div>
         <InlineApprovalQueue />
       </div>
@@ -593,40 +777,49 @@ export function LeadershipDashboard() {
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-warning-text" />
               <h2 className="text-sm font-semibold text-text-primary">
-                Teachers needing attention
+                {t('teachersNeedingAttention')}
               </h2>
             </div>
             <span className="text-[11px] font-medium text-text-tertiary">
-              {teachersNeedingAttention.length} teacher
-              {teachersNeedingAttention.length === 1 ? '' : 's'}
+              {teachersNeedingAttention.length === 1
+                ? t('teachersCount', { count: teachersNeedingAttention.length })
+                : t('teachersCountPlural', { count: teachersNeedingAttention.length })}
             </span>
           </header>
           {teachersNeedingAttention.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 p-10 text-center">
               <CheckCircle2 className="h-8 w-8 text-success-text" />
-              <p className="text-sm text-text-secondary">
-                Every teacher is on top of their grading. Nothing overdue.
-              </p>
+              <p className="text-sm text-text-secondary">{t('teachersNeedingAttentionEmpty')}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border bg-surface-secondary/30">
-                    <th className="px-4 py-2 text-start text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                      Teacher
+                    <th className="px-4 py-2 text-start">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+                        {t('colTeacher')}
+                      </span>
                     </th>
-                    <th className="px-3 py-2 text-end text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                      Overdue
+                    <th className="px-3 py-2 text-end">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+                        {t('colOverdue')}
+                      </span>
                     </th>
-                    <th className="px-3 py-2 text-end text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                      Pending
+                    <th className="px-3 py-2 text-end">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+                        {t('colPending')}
+                      </span>
                     </th>
-                    <th className="hidden sm:table-cell px-3 py-2 text-end text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                      Scheduled
+                    <th className="hidden sm:table-cell px-3 py-2 text-end">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+                        {t('colScheduled')}
+                      </span>
                     </th>
-                    <th className="px-3 py-2 text-end text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                      Oldest overdue
+                    <th className="px-3 py-2 text-end">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+                        {t('colOldestOverdue')}
+                      </span>
                     </th>
                   </tr>
                 </thead>
@@ -688,35 +881,60 @@ export function LeadershipDashboard() {
           <header className="flex items-center justify-between border-b border-border bg-surface-secondary/60 px-4 py-3">
             <div className="flex items-center gap-2">
               <LayoutGrid className="h-4 w-4 text-info-text" />
-              <h2 className="text-sm font-semibold text-text-primary">Config health</h2>
+              <h2 className="text-sm font-semibold text-text-primary">{t('configHealth')}</h2>
             </div>
             <span className="text-[11px] font-medium text-text-tertiary">
-              {totalClasses - classesWithGaps}/{totalClasses} ready
+              {t('configHealthReady', {
+                ready: totalClasses - classesWithGaps,
+                total: totalClasses,
+              })}
             </span>
           </header>
           {classesWithGaps === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 p-10 text-center">
               <CheckCircle2 className="h-8 w-8 text-success-text" />
-              <p className="text-sm text-text-secondary">
-                Every class has grade config, categories, and weights approved.
-              </p>
+              <p className="text-sm text-text-secondary">{t('configHealthEmpty')}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full table-fixed">
                 <thead>
                   <tr className="border-b border-border bg-surface-secondary/30">
-                    <th className="px-4 py-2 text-start text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                      Class
+                    <th className="w-[34%] px-4 py-2">
+                      <div className="flex items-center justify-start">
+                        <ColumnHeader
+                          label={t('colClass')}
+                          tooltipBody={t('tipColClass')}
+                          align="start"
+                        />
+                      </div>
                     </th>
-                    <th className="px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                      Config
+                    <th className="w-[22%] px-1 py-2">
+                      <div className="flex items-center justify-center">
+                        <ColumnHeader
+                          label={t('colConfig')}
+                          tooltipBody={t('tipColConfig')}
+                          align="center"
+                        />
+                      </div>
                     </th>
-                    <th className="px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                      Categories
+                    <th className="w-[22%] px-1 py-2">
+                      <div className="flex items-center justify-center">
+                        <ColumnHeader
+                          label={t('colCategories')}
+                          tooltipBody={t('tipColCategories')}
+                          align="center"
+                        />
+                      </div>
                     </th>
-                    <th className="px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                      Weights
+                    <th className="w-[22%] px-1 py-2">
+                      <div className="flex items-center justify-center">
+                        <ColumnHeader
+                          label={t('colWeights')}
+                          tooltipBody={t('tipColWeights')}
+                          align="center"
+                        />
+                      </div>
                     </th>
                   </tr>
                 </thead>
@@ -729,14 +947,20 @@ export function LeadershipDashboard() {
                       <td className="px-4 py-2.5 text-sm font-medium text-text-primary">
                         {row.class_name}
                       </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <StatusIcon ok={row.missing_grade_config === 0} />
+                      <td className="px-1 py-2.5">
+                        <div className="flex items-center justify-center">
+                          <StatusIcon ok={row.missing_grade_config === 0} />
+                        </div>
                       </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <StatusIcon ok={row.missing_categories === 0} />
+                      <td className="px-1 py-2.5">
+                        <div className="flex items-center justify-center">
+                          <StatusIcon ok={row.missing_categories === 0} />
+                        </div>
                       </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <StatusIcon ok={row.missing_weights === 0} />
+                      <td className="px-1 py-2.5">
+                        <div className="flex items-center justify-center">
+                          <StatusIcon ok={row.missing_weights === 0} />
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -747,47 +971,103 @@ export function LeadershipDashboard() {
         </section>
       </div>
 
-      {/* Subject Activity Table */}
+      {/* Subject Activity Table with filters */}
       <section className="rounded-2xl border border-border bg-surface overflow-hidden">
-        <header className="flex items-center justify-between border-b border-border bg-surface-secondary/60 px-4 py-3">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface-secondary/60 px-4 py-3">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary-600" />
-            <h2 className="text-sm font-semibold text-text-primary">Activity by subject</h2>
+            <h2 className="text-sm font-semibold text-text-primary">{t('activityBySubject')}</h2>
           </div>
-          <span className="text-[11px] font-medium text-text-tertiary">
-            {subjectActivity.length} subject{subjectActivity.length === 1 ? '' : 's'} ·{' '}
-            {kpis.totalActive} active assessment{kpis.totalActive === 1 ? '' : 's'}
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={yearGroupFilter} onValueChange={setYearGroupFilter}>
+              <SelectTrigger className="h-8 w-[140px] text-xs">
+                <SelectValue placeholder={t('activityBySubjectFilterYear')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('activityBySubjectAllYears')}</SelectItem>
+                {yearGroupOptions.map((yg) => (
+                  <SelectItem key={yg.id} value={yg.id}>
+                    {yg.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={classFilter} onValueChange={setClassFilter}>
+              <SelectTrigger className="h-8 w-[140px] text-xs">
+                <SelectValue placeholder={t('activityBySubjectFilterClass')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('activityBySubjectAllClasses')}</SelectItem>
+                {classOptions.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-[11px] font-medium text-text-tertiary">
+              {t('activityBySubjectCount', {
+                subjects: subjectCount,
+                assessments: filteredTotalAssessments,
+              })}
+            </span>
+          </div>
         </header>
-        {subjectActivity.length === 0 ? (
-          <div className="p-10 text-center text-sm text-text-tertiary">
-            No active assessments across the school.
-          </div>
+        {subjectCount === 0 ? (
+          <div className="p-10 text-center text-sm text-text-tertiary">—</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-surface-secondary/30">
-                  <th className="px-4 py-2 text-start text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                    Subject
+                  <th className="px-4 py-2 text-start">
+                    <ColumnHeader
+                      label={t('colSubject')}
+                      tooltipBody={t('tipColSubject')}
+                      align="start"
+                    />
                   </th>
-                  <th className="px-3 py-2 text-end text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                    Scheduled
+                  <th className="px-3 py-2 text-end">
+                    <ColumnHeader
+                      label={t('colScheduled')}
+                      tooltipBody={t('kpiScheduledTooltip')}
+                      align="end"
+                    />
                   </th>
-                  <th className="px-3 py-2 text-end text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                    Pending
+                  <th className="px-3 py-2 text-end">
+                    <ColumnHeader
+                      label={t('colPending')}
+                      tooltipBody={t('kpiPendingGradingTooltip')}
+                      align="end"
+                    />
                   </th>
-                  <th className="px-3 py-2 text-end text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                    Overdue
+                  <th className="px-3 py-2 text-end">
+                    <ColumnHeader
+                      label={t('colOverdue')}
+                      tooltipBody={t('kpiOverdueTooltip')}
+                      align="end"
+                    />
                   </th>
-                  <th className="px-3 py-2 text-end text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                    Submitted
+                  <th className="px-3 py-2 text-end">
+                    <ColumnHeader
+                      label={t('colSubmitted')}
+                      tooltipBody={t('tipColSubmitted')}
+                      align="end"
+                    />
                   </th>
-                  <th className="px-3 py-2 text-end text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                    Final
+                  <th className="px-3 py-2 text-end">
+                    <ColumnHeader
+                      label={t('colFinal')}
+                      tooltipBody={t('tipColFinal')}
+                      align="end"
+                    />
                   </th>
-                  <th className="px-3 py-2 text-end text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                    Total
+                  <th className="px-3 py-2 text-end">
+                    <ColumnHeader
+                      label={t('colTotal')}
+                      tooltipBody={t('tipColTotal')}
+                      align="end"
+                    />
                   </th>
                 </tr>
               </thead>
@@ -795,10 +1075,28 @@ export function LeadershipDashboard() {
                 {subjectActivity.map((row) => (
                   <tr
                     key={row.subject_id}
-                    className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary/40"
+                    className={cn(
+                      'border-b border-border last:border-b-0 transition-colors',
+                      row.missingAssessments
+                        ? 'bg-danger-fill/30 hover:bg-danger-fill/50'
+                        : 'hover:bg-surface-secondary/40',
+                    )}
                   >
                     <td className="px-4 py-2.5 text-sm font-medium text-text-primary">
-                      {row.subject_name}
+                      <div className="flex items-center gap-2">
+                        <span>{row.subject_name}</span>
+                        {row.missingAssessments && (
+                          <HoverFollowTooltip
+                            as="span"
+                            title={t('activityNoAssessments')}
+                            body={t('activityNoAssessmentsTooltip')}
+                            className="inline-flex cursor-help items-center gap-1 rounded-md border border-danger-text/30 bg-danger-fill px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-danger-text"
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                            {t('activityNoAssessments')}
+                          </HoverFollowTooltip>
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-2.5 text-end font-mono text-sm text-info-text">
                       {row.scheduled || <span className="text-text-tertiary">—</span>}
@@ -824,7 +1122,7 @@ export function LeadershipDashboard() {
                       {row.finalLocked || <span className="text-text-tertiary">—</span>}
                     </td>
                     <td className="px-3 py-2.5 text-end font-mono text-sm font-semibold text-text-primary">
-                      {row.total}
+                      {row.total || <span className="text-text-tertiary">—</span>}
                     </td>
                   </tr>
                 ))}
@@ -838,8 +1136,8 @@ export function LeadershipDashboard() {
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-semibold text-text-primary">{t('configSection')}</h2>
-          <span className="text-xs text-text-tertiary">
-            Reusable building blocks teachers draw from when creating assessments
+          <span className="hidden text-xs text-text-tertiary sm:inline">
+            {t('configSectionHint')}
           </span>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -849,11 +1147,7 @@ export function LeadershipDashboard() {
             title={t('configCategoriesTitle')}
             description={t('configCategoriesDesc')}
             primaryLabel={`${configCounts.approvedCategories}/${configCounts.categories}`}
-            secondaryLabel={
-              configCounts.pendingCategories > 0
-                ? `${configCounts.pendingCategories} pending`
-                : 'Approved'
-            }
+            secondaryLabel={t('configCatsApproved', { pending: configCounts.pendingCategories })}
           />
           <ConfigCard
             href="/assessments/grading-weights"
@@ -861,11 +1155,7 @@ export function LeadershipDashboard() {
             title={t('configWeightsTitle')}
             description={t('configWeightsDesc')}
             primaryLabel={`${configCounts.approvedWeights}/${configCounts.weights}`}
-            secondaryLabel={
-              configCounts.pendingWeights > 0
-                ? `${configCounts.pendingWeights} pending`
-                : 'Approved'
-            }
+            secondaryLabel={t('configWtsApproved', { pending: configCounts.pendingWeights })}
           />
           <ConfigCard
             href="/assessments/rubric-templates"
@@ -873,7 +1163,7 @@ export function LeadershipDashboard() {
             title={t('configRubricsTitle')}
             description={t('configRubricsDesc')}
             primaryLabel={String(configCounts.rubrics)}
-            secondaryLabel="Templates"
+            secondaryLabel={t('configRubricsLabel')}
           />
           <ConfigCard
             href="/assessments/curriculum-standards"
@@ -881,58 +1171,48 @@ export function LeadershipDashboard() {
             title={t('configStandardsTitle')}
             description={t('configStandardsDesc')}
             primaryLabel={String(configCounts.standards)}
-            secondaryLabel="Standards"
+            secondaryLabel={t('configStandardsLabel')}
           />
         </div>
       </section>
 
-      {/* Jump-off row — deep links to related tools */}
+      {/* Jump-to row — three tools (approvals link lives in header) */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-text-primary">Jump to</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Link
-            href="/assessments/approvals"
-            className="flex items-center justify-between rounded-2xl border border-border bg-surface p-4 transition-colors hover:border-primary-300"
-          >
-            <div>
-              <p className="text-sm font-medium text-text-primary">Approvals queue</p>
-              <p className="text-xs text-text-secondary">
-                Review pending categories, weights, and unlock requests
-              </p>
-            </div>
-            <ExternalLink className="h-4 w-4 text-text-tertiary" />
-          </Link>
+        <h2 className="text-lg font-semibold text-text-primary">{t('jumpTo')}</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Link
             href="/curriculum-matrix"
-            className="flex items-center justify-between rounded-2xl border border-border bg-surface p-4 transition-colors hover:border-primary-300"
+            className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4 transition-colors hover:border-primary-300"
           >
-            <div>
-              <p className="text-sm font-medium text-text-primary">Curriculum matrix</p>
-              <p className="text-xs text-text-secondary">Class × subject teaching coverage</p>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-text-primary">
+                {t('jumpCurriculumMatrix')}
+              </p>
+              <p className="truncate text-xs text-text-secondary">
+                {t('jumpCurriculumMatrixDesc')}
+              </p>
             </div>
-            <ExternalLink className="h-4 w-4 text-text-tertiary" />
+            <ExternalLink className="h-4 w-4 shrink-0 text-text-tertiary" />
           </Link>
           <Link
             href="/gradebook"
-            className="flex items-center justify-between rounded-2xl border border-border bg-surface p-4 transition-colors hover:border-primary-300"
+            className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4 transition-colors hover:border-primary-300"
           >
-            <div>
-              <p className="text-sm font-medium text-text-primary">Gradebook</p>
-              <p className="text-xs text-text-secondary">Browse classes, assessments and grades</p>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-text-primary">{t('jumpGradebook')}</p>
+              <p className="truncate text-xs text-text-secondary">{t('jumpGradebookDesc')}</p>
             </div>
-            <ExternalLink className="h-4 w-4 text-text-tertiary" />
+            <ExternalLink className="h-4 w-4 shrink-0 text-text-tertiary" />
           </Link>
           <Link
             href="/analytics"
-            className="flex items-center justify-between rounded-2xl border border-border bg-surface p-4 transition-colors hover:border-primary-300"
+            className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4 transition-colors hover:border-primary-300"
           >
-            <div>
-              <p className="text-sm font-medium text-text-primary">Grade analytics</p>
-              <p className="text-xs text-text-secondary">
-                Class overview, subject deep dive, student profile
-              </p>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-text-primary">{t('jumpAnalytics')}</p>
+              <p className="truncate text-xs text-text-secondary">{t('jumpAnalyticsDesc')}</p>
             </div>
-            <ExternalLink className="h-4 w-4 text-text-tertiary" />
+            <ExternalLink className="h-4 w-4 shrink-0 text-text-tertiary" />
           </Link>
         </div>
       </section>
