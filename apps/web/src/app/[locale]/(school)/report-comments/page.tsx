@@ -247,12 +247,15 @@ export default function ReportCommentsLandingPage() {
           return true;
         });
 
-        // B10: for an admin with a full curriculum matrix (nhqs has ~42
-        // pairs), firing 2 × N count requests in parallel hits the API
-        // rate limiter and most requests come back 429. Process the pairs
-        // in small batches so the fan-out stays manageable. A batch size
-        // of 5 keeps the admin landing well under the per-IP limit while
-        // still loading in a couple of seconds for a typical matrix.
+        // B10: for an admin the landing can see the full curriculum
+        // matrix — on nhqs that's 108 subject pairs, which means 216
+        // per-pair count requests. With the 100 req / 60 s throttler in
+        // place the fan-out burned the whole budget in the first few
+        // batches and most requests came back 429. Admins don't write
+        // the comments themselves (they oversee via the banner), so skip
+        // the per-pair count fetch entirely for them. Teachers keep the
+        // counts — their card set is small (Sarah sees 11 pairs), two
+        // batches cover it comfortably.
         const fetchPairCounts = async (pair: { class_id: string; subject_id: string }) => {
           const cls = classById.get(pair.class_id)!;
           const studentCount = cls._count?.class_enrolments ?? 0;
@@ -285,11 +288,27 @@ export default function ReportCommentsLandingPage() {
           finalised: number;
           total: number;
         }> = [];
-        for (let i = 0; i < visiblePairs.length; i += COUNT_BATCH_SIZE) {
-          const batch = visiblePairs.slice(i, i + COUNT_BATCH_SIZE);
-          const settled = await Promise.all(batch.map(fetchPairCounts));
-          if (cancelled) return;
-          countResults.push(...settled);
+        if (scope.is_admin) {
+          // Admin path: skip fan-out, build cards with zero counts. The
+          // card UI already handles zero-count by showing "No comments
+          // yet" instead of a progress bar.
+          for (const pair of visiblePairs) {
+            const cls = classById.get(pair.class_id)!;
+            countResults.push({
+              pair,
+              cls,
+              studentCount: cls._count?.class_enrolments ?? 0,
+              finalised: 0,
+              total: 0,
+            });
+          }
+        } else {
+          for (let i = 0; i < visiblePairs.length; i += COUNT_BATCH_SIZE) {
+            const batch = visiblePairs.slice(i, i + COUNT_BATCH_SIZE);
+            const settled = await Promise.all(batch.map(fetchPairCounts));
+            if (cancelled) return;
+            countResults.push(...settled);
+          }
         }
         if (cancelled) return;
 
@@ -387,11 +406,27 @@ export default function ReportCommentsLandingPage() {
         };
 
         const homeroomResults: HomeroomCard[] = [];
-        for (let i = 0; i < homeroomClasses.length; i += COUNT_BATCH_SIZE) {
-          const batch = homeroomClasses.slice(i, i + COUNT_BATCH_SIZE);
-          const settled = await Promise.all(batch.map(fetchHomeroomCounts));
-          if (cancelled) return;
-          homeroomResults.push(...settled);
+        if (scope.is_admin) {
+          // Admin path: skip count fan-out here too. The homeroom card
+          // list for an admin shows every class with active enrolments
+          // (up to 14 in nhqs); without this guard the same rate-limit
+          // fan-out repeats for the overall-comment counts.
+          for (const cls of homeroomClasses) {
+            homeroomResults.push({
+              class_id: cls.id,
+              class_name: cls.name,
+              student_count: cls._count?.class_enrolments ?? 0,
+              finalised_count: 0,
+              total_count: 0,
+            });
+          }
+        } else {
+          for (let i = 0; i < homeroomClasses.length; i += COUNT_BATCH_SIZE) {
+            const batch = homeroomClasses.slice(i, i + COUNT_BATCH_SIZE);
+            const settled = await Promise.all(batch.map(fetchHomeroomCounts));
+            if (cancelled) return;
+            homeroomResults.push(...settled);
+          }
         }
         setHomeroomCards(homeroomResults);
       } catch (err) {
