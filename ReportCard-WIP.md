@@ -38,7 +38,8 @@ Everything below is **scoped to the admin view** — `school_owner`, `school_pri
 
 **Frontend — report cards surfaces:**
 
-- `apps/web/src/app/[locale]/(school)/report-cards/page.tsx` — landing (becomes the new consolidated dashboard in Phase 2)
+- `apps/web/src/app/[locale]/(school)/report-cards/page.tsx` — consolidated dashboard (rebuilt in Phase 2)
+- `apps/web/src/app/[locale]/(school)/report-cards/_components/dashboard-panels.tsx` — extracted QuickActionTile / LiveRunStatusPanel / AnalyticsSnapshotPanel
 - `apps/web/src/app/[locale]/(school)/report-cards/[classId]/page.tsx` — class matrix (subject grades per student)
 - `apps/web/src/app/[locale]/(school)/report-cards/generate/page.tsx` — 6-step generation wizard
 - `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-1-scope.tsx`
@@ -50,8 +51,8 @@ Everything below is **scoped to the admin view** — `school_owner`, `school_pri
 - `apps/web/src/app/[locale]/(school)/report-cards/requests/[id]/page.tsx`
 - `apps/web/src/app/[locale]/(school)/report-cards/library/page.tsx`
 - `apps/web/src/app/[locale]/(school)/report-cards/analytics/page.tsx`
-- `apps/web/src/app/[locale]/(school)/report-cards/approvals/page.tsx` — retire in Phase 2
-- `apps/web/src/app/[locale]/(school)/report-cards/bulk/page.tsx` — retire in Phase 2
+- ~~`apps/web/src/app/[locale]/(school)/report-cards/approvals/page.tsx`~~ — **deleted in Phase 2**
+- ~~`apps/web/src/app/[locale]/(school)/report-cards/bulk/page.tsx`~~ — **deleted in Phase 2**
 - `apps/web/src/app/[locale]/(school)/report-comments/page.tsx` — landing
 - `apps/web/src/app/[locale]/(school)/report-comments/overall/[classId]/page.tsx` — overall comment editor
 
@@ -265,7 +266,7 @@ The request URL has an empty query string. The backend Zod schema requires at le
 
 ### Additional context (not bugs, but noted during scan)
 
-- `/en/report-cards/bulk` — a 4-step "Generate → Review → Approve → Notify" page exists as an orphan route (no sub-strip link). Duplicates the wizard. Retire in Phase 2.
+- ~~`/en/report-cards/bulk` — a 4-step "Generate → Review → Approve → Notify" page exists as an orphan route (no sub-strip link). Duplicates the wizard. Retire in Phase 2.~~ **Deleted in Phase 2 (commit `a8b31af4`).**
 - Class matrix page **already supports "All periods"** as the default (combobox shows `All periods`). So "All periods" is a wizard-only missing feature, not a matrix-page missing feature.
 
 ---
@@ -727,6 +728,16 @@ _Completed:_
 | **Worker actually processing the full-year job** | 🔴     | **Blocked by the pre-existing 5-processor race documented in the backlog above.** Job state in BullMQ is `completed` (returned normally), `attemptsMade: 1`, `failedReason: undefined`, no `[ReportCardGenerationProcessor]` log line was emitted, and the DB row stayed `status: queued`. The wrong worker (one of the other 4 `@Processor(GRADEBOOK)` classes) silently completed the job via the `if (job.name !== EXPECTED) return;` guard. This is NOT a Phase 1b regression — the per-period path has the same race; Phase 1a never tested through actual generation. |
 
 **Net Phase 1b status:** the schema, the API, the wizard, the dry-run gate, and the enqueue are all proven on prod. The only unproven piece is the worker actually consuming the queued job — and that's blocked on a pre-existing latent bug that affects the entire gradebook queue, not just full-year. Recommended next step: take the consolidator fix from the backlog and ship it as a tiny standalone follow-up.
+
+**Session 4 — 2026-04-10 (Queue dispatcher fix + Phase 2 complete locally)**
+
+_Completed:_
+
+- ✅ **Gradebook queue dispatcher consolidation (commit `b2392e45`)** — new `GradebookQueueDispatcher` is the single `@Processor(GRADEBOOK)` class; routes `job.name` → one of 5 injectable processor services. Strips `@Processor` + `WorkerHost` from the 5 existing classes so BullMQ creates exactly one Worker on the queue. Unknown job names throw loudly so BullMQ retries instead of silently completing. 12 files, +225/-123. Deletes 4 dead "ignore different job name" tests, adds 6 new dispatcher routing tests. Worker suite now 110 / 805 (+2).
+- ✅ **Phase 2 — Dashboard consolidation + nav move + priority card (commit `a8b31af4`)** — nav-config.ts now has Report Cards as its own top-level Learning group (no children); Assessment group stripped of 6 report-card children. `/report-cards` page rebuilt as a consolidated dashboard with period selector, settings gear, 4 quick-action tiles (Generate / Write Comments / Library / Requests with pending-count badge), live-run polling panel, inline analytics snapshot, classes-by-year-group bottom section. Panels extracted to `_components/dashboard-panels.tsx` to stay under the 600-line lint threshold. Retired `/report-cards/bulk` and `/report-cards/approvals` routes (deleted both files). Dashboard priority feed gets a new rose-coloured `Inbox` card for pending teacher requests, fetched from `GET /v1/report-card-teacher-requests?status=pending&pageSize=1` (permission `report_cards.comment` — accessible to both teachers and admins; rendered only on AdminHome). New `reportCards.dashboard.*` + `dashboard.reportCardRequest*` i18n keys in en + ar. 10 files, +682/-728. Removed orphan `nav.reportCardsGenerate/Settings/Requests` i18n keys as a follow-up loose-end cleanup.
+- ✅ Regression after Phase 2: @school/api 722 / 15,057 · @school/shared 36 / 845 · @school/worker 110 / 805 · @school/web 12 / 264. Type-check + lint clean on all four packages (warnings only, no errors).
+
+**Phase 2 — DONE.** Local HEAD ready for Phase 3 deploy. Neither commit pushed to `origin/main` per the CI gate hold.
 
 **Backlog items surfaced during Phase 1b (not Phase 1b scope, deferred):**
 
