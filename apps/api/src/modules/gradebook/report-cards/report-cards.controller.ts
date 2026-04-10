@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -48,6 +49,7 @@ import { TenantReadFacade } from '../../tenants/tenant-read.facade';
 import { ReportCardGenerationService } from './report-card-generation.service';
 import { ReportCardsQueriesService } from './report-cards-queries.service';
 import { ReportCardsService } from './report-cards.service';
+import { ReportCommentWindowsService } from './report-comment-windows.service';
 
 // ─── Query Schemas ────────────────────────────────────────────────────────
 
@@ -73,6 +75,7 @@ export class ReportCardsController {
     private readonly tenantReadFacade: TenantReadFacade,
     private readonly generationService: ReportCardGenerationService,
     private readonly permissionCacheService: PermissionCacheService,
+    private readonly commentWindowsService: ReportCommentWindowsService,
   ) {}
 
   // ─── Role helpers (impl 06) ─────────────────────────────────────────────
@@ -95,6 +98,37 @@ export class ReportCardsController {
     return required.some((p) => perms.includes(p));
   }
 
+  /**
+   * B12: assert that the actor can read this class's report card data.
+   * Admins (report_cards.manage or owner bypass) always pass. Teachers
+   * must either be the homeroom teacher (resolved via the comment window
+   * homeroom assignments) or teach at least one subject in the class
+   * (derived from teacher_competencies × curriculum matrix).
+   */
+  private async assertClassReadScope(
+    tenantId: string,
+    user: JwtPayload,
+    classId: string,
+  ): Promise<void> {
+    const isAdmin = await this.hasAnyPermission(user, ['report_cards.manage']);
+    if (isAdmin) return;
+
+    const scope = await this.commentWindowsService.getLandingScopeForActor(tenantId, {
+      userId: user.sub,
+      isAdmin: false,
+    });
+    const allowedClassIds = new Set<string>([
+      ...scope.overall_class_ids,
+      ...scope.subject_assignments.map((p) => p.class_id),
+    ]);
+    if (!allowedClassIds.has(classId)) {
+      throw new ForbiddenException({
+        code: 'CLASS_OUT_OF_SCOPE',
+        message: 'You do not teach this class and cannot read its report cards',
+      });
+    }
+  }
+
   @Post('report-cards/generate')
   @RequiresPermission('gradebook.manage')
   @HttpCode(HttpStatus.CREATED)
@@ -114,9 +148,33 @@ export class ReportCardsController {
   @RequiresPermission('gradebook.view')
   async findAll(
     @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
     @Query(new ZodValidationPipe(listReportCardsQuerySchema))
     query: z.infer<typeof listReportCardsQuerySchema>,
   ) {
+    // B12: teachers see only the report cards for classes they teach.
+    // Admins (report_cards.manage or owner bypass) see everything.
+    const isAdmin = await this.hasAnyPermission(user, ['report_cards.manage']);
+    if (!isAdmin) {
+      const scope = await this.commentWindowsService.getLandingScopeForActor(tenant.tenant_id, {
+        userId: user.sub,
+        isAdmin: false,
+      });
+      const allowedClassIds = new Set<string>([
+        ...scope.overall_class_ids,
+        ...scope.subject_assignments.map((p) => p.class_id),
+      ]);
+      if (allowedClassIds.size === 0) {
+        return {
+          data: [],
+          meta: { page: query.page, pageSize: query.pageSize, total: 0 },
+        };
+      }
+      return this.reportCardsQueriesService.findAll(tenant.tenant_id, {
+        ...query,
+        class_ids: Array.from(allowedClassIds),
+      });
+    }
     return this.reportCardsQueriesService.findAll(tenant.tenant_id, query);
   }
 
@@ -242,10 +300,14 @@ export class ReportCardsController {
   @RequiresPermission('report_cards.view')
   async getClassMatrix(
     @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
     @Param('classId', ParseUUIDPipe) classId: string,
     @Query(new ZodValidationPipe(classMatrixQuerySchema))
     query: ClassMatrixQuery,
   ) {
+    // B12: teachers are scoped to classes they actually teach. Admins
+    // (anyone with report_cards.manage or owner bypass) can hit any class.
+    await this.assertClassReadScope(tenant.tenant_id, user, classId);
     return this.reportCardsQueriesService.getClassMatrix(tenant.tenant_id, {
       classId,
       academicPeriodId: query.academic_period_id,

@@ -356,6 +356,34 @@ export class ReportCommentWindowsService {
     });
   }
 
+  /**
+   * Find the most recent prior window for a scope and return its homeroom
+   * assignments. Used by the teacher-request auto-execute flow so that
+   * reopening a window carries forward the homeroom picks the admin made
+   * the first time around — without this the teacher who triggered the
+   * request would land on an empty overall-comment scope. Returns an empty
+   * array when there is no prior window (fresh period) or when the prior
+   * window had no assignments.
+   */
+  async findLatestHomeroomAssignmentsForScope(
+    tenantId: string,
+    scope: CommentWindowScope,
+  ): Promise<Array<{ class_id: string; homeroom_teacher_staff_id: string }>> {
+    const scopeWhere: Prisma.ReportCommentWindowWhereInput =
+      scope.periodId !== null
+        ? { academic_period_id: scope.periodId }
+        : { academic_period_id: null, academic_year_id: scope.yearId };
+
+    const latest = await this.prisma.reportCommentWindow.findFirst({
+      where: { tenant_id: tenantId, ...scopeWhere },
+      orderBy: { opens_at: 'desc' },
+      select: { id: true },
+    });
+
+    if (!latest) return [];
+    return this.listHomeroomAssignmentsForWindow(tenantId, latest.id);
+  }
+
   // ─── Landing endpoint scoping ────────────────────────────────────────────
   //
   // The /report-comments landing page asks the backend "what classes can I

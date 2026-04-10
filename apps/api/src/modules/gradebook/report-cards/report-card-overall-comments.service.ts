@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nest
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import type { CreateOverallCommentDto, UpdateOverallCommentDto } from './dto/overall-comment.dto';
@@ -34,6 +35,7 @@ export class ReportCardOverallCommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly windowsService: ReportCommentWindowsService,
+    private readonly classesReadFacade: ClassesReadFacade,
   ) {}
 
   // ─── Read ─────────────────────────────────────────────────────────────────
@@ -158,6 +160,23 @@ export class ReportCardOverallCommentsService {
     });
     await this.windowsService.assertWindowOpen(tenantId, scope);
     await this.assertHomeroomTeacher(tenantId, actor, dto.class_id, scope);
+
+    // Validate the (student, class) pair exists before the insert — an
+    // unknown student_id or a class mismatch used to fall through to
+    // Prisma's FK check and surface as an ugly 500. Throw a 404 with a
+    // descriptive code instead so the frontend can render a sensible
+    // message (B13).
+    const enrolments = (await this.classesReadFacade.findEnrolmentsGeneric(
+      tenantId,
+      { student_id: dto.student_id, class_id: dto.class_id },
+      { id: true },
+    )) as Array<{ id: string }>;
+    if (enrolments.length === 0) {
+      throw new NotFoundException({
+        code: 'STUDENT_NOT_ENROLLED_IN_CLASS',
+        message: `Student "${dto.student_id}" is not enrolled in class "${dto.class_id}"`,
+      });
+    }
 
     const prismaWithRls = createRlsClient(this.prisma, {
       tenant_id: tenantId,

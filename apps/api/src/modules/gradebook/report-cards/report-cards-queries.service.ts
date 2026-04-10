@@ -20,6 +20,12 @@ interface ListReportCardsParams {
   academic_period_id?: string;
   status?: string;
   include_revisions?: boolean;
+  /**
+   * B12 teacher scoping: when set, restrict results to report cards whose
+   * student is enrolled in one of these class_ids. Used by the controller
+   * to narrow non-admin requests to the teacher's own classes.
+   */
+  class_ids?: string[];
 }
 
 export interface ClassMatrixCell {
@@ -203,7 +209,8 @@ export class ReportCardsQueriesService {
    * Excludes revised by default unless include_revisions=true.
    */
   async findAll(tenantId: string, params: ListReportCardsParams) {
-    const { page, pageSize, student_id, academic_period_id, status, include_revisions } = params;
+    const { page, pageSize, student_id, academic_period_id, status, include_revisions, class_ids } =
+      params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.ReportCardWhereInput = { tenant_id: tenantId };
@@ -223,6 +230,18 @@ export class ReportCardsQueriesService {
     // Exclude revised report cards by default
     if (!include_revisions) {
       where.status = where.status ? where.status : { not: 'revised' };
+    }
+
+    // B12 teacher scoping: narrow to report cards for students who are
+    // either the homeroom student of one of the allowed classes OR are
+    // enrolled via class_enrolments. Either link is sufficient.
+    if (class_ids && class_ids.length > 0) {
+      where.student = {
+        OR: [
+          { class_homeroom_id: { in: class_ids } },
+          { class_enrolments: { some: { class_id: { in: class_ids } } } },
+        ],
+      };
     }
 
     const [data, total] = await Promise.all([

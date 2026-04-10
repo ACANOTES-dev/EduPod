@@ -247,7 +247,13 @@ export default function ReportCommentsLandingPage() {
           return true;
         });
 
-        const countPromises = visiblePairs.map(async (pair) => {
+        // B10: for an admin with a full curriculum matrix (nhqs has ~42
+        // pairs), firing 2 × N count requests in parallel hits the API
+        // rate limiter and most requests come back 429. Process the pairs
+        // in small batches so the fan-out stays manageable. A batch size
+        // of 5 keeps the admin landing well under the per-IP limit while
+        // still loading in a couple of seconds for a typical matrix.
+        const fetchPairCounts = async (pair: { class_id: string; subject_id: string }) => {
           const cls = classById.get(pair.class_id)!;
           const studentCount = cls._count?.class_enrolments ?? 0;
           let finalised = 0;
@@ -269,9 +275,22 @@ export default function ReportCommentsLandingPage() {
             }
           }
           return { pair, cls, studentCount, finalised, total };
-        });
+        };
 
-        const countResults = await Promise.all(countPromises);
+        const COUNT_BATCH_SIZE = 5;
+        const countResults: Array<{
+          pair: { class_id: string; subject_id: string };
+          cls: ClassRecord;
+          studentCount: number;
+          finalised: number;
+          total: number;
+        }> = [];
+        for (let i = 0; i < visiblePairs.length; i += COUNT_BATCH_SIZE) {
+          const batch = visiblePairs.slice(i, i + COUNT_BATCH_SIZE);
+          const settled = await Promise.all(batch.map(fetchPairCounts));
+          if (cancelled) return;
+          countResults.push(...settled);
+        }
         if (cancelled) return;
 
         const assignmentCards: AssignmentCard[] = countResults.map(
@@ -334,7 +353,11 @@ export default function ReportCommentsLandingPage() {
           return overallAllowed.has(c.id);
         });
 
-        const homeroomPromises = homeroomClasses.map(async (cls) => {
+        // B10: same batching pattern as subject counts. For an admin with
+        // 14 homeroom classes this is 28 sequential count calls; in
+        // batches of 5 that finishes in well under a second without
+        // tripping the rate limiter.
+        const fetchHomeroomCounts = async (cls: ClassRecord) => {
           const studentCount = cls._count?.class_enrolments ?? 0;
           let finalised = 0;
           let total = 0;
@@ -361,10 +384,15 @@ export default function ReportCommentsLandingPage() {
             finalised_count: finalised,
             total_count: total,
           };
-        });
+        };
 
-        const homeroomResults = await Promise.all(homeroomPromises);
-        if (cancelled) return;
+        const homeroomResults: HomeroomCard[] = [];
+        for (let i = 0; i < homeroomClasses.length; i += COUNT_BATCH_SIZE) {
+          const batch = homeroomClasses.slice(i, i + COUNT_BATCH_SIZE);
+          const settled = await Promise.all(batch.map(fetchHomeroomCounts));
+          if (cancelled) return;
+          homeroomResults.push(...settled);
+        }
         setHomeroomCards(homeroomResults);
       } catch (err) {
         console.error('[ReportCommentsLanding]', err);

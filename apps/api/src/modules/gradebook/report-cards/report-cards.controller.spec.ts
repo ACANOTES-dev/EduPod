@@ -11,6 +11,7 @@ import { ReportCardGenerationService } from './report-card-generation.service';
 import { ReportCardsQueriesService } from './report-cards-queries.service';
 import { ReportCardsController } from './report-cards.controller';
 import { ReportCardsService } from './report-cards.service';
+import { ReportCommentWindowsService } from './report-comment-windows.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const REPORT_CARD_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
@@ -19,7 +20,12 @@ const PERIOD_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 const USER_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
 
 const tenantContext = { tenant_id: TENANT_ID };
-const jwtUser = { sub: USER_ID, email: 'teacher@school.com' };
+const jwtUser = {
+  sub: USER_ID,
+  email: 'teacher@school.com',
+  membership_id: 'm-teacher',
+  tenant_id: TENANT_ID,
+};
 
 const mockReportCardsService = {
   generate: jest.fn(),
@@ -65,6 +71,19 @@ const mockGenerationService = {
   listRuns: jest.fn(),
 };
 
+// B12: findAll and getClassMatrix call getLandingScopeForActor for
+// non-admins to scope results to the teacher's own classes. Default to
+// "admin, no filter" so existing tests that don't care about scoping
+// still exercise the full dataset.
+const mockCommentWindowsService = {
+  getLandingScopeForActor: jest.fn().mockResolvedValue({
+    is_admin: true,
+    overall_class_ids: [],
+    subject_assignments: [],
+    active_window_id: null,
+  }),
+};
+
 describe('ReportCardsController', () => {
   let controller: ReportCardsController;
 
@@ -79,6 +98,7 @@ describe('ReportCardsController', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PermissionCacheService, useValue: mockPermissionCacheService },
         { provide: ReportCardGenerationService, useValue: mockGenerationService },
+        { provide: ReportCommentWindowsService, useValue: mockCommentWindowsService },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -116,11 +136,20 @@ describe('ReportCardsController', () => {
   // ─── findAll ─────────────────────────────────────────────────────────────
 
   describe('findAll', () => {
+    beforeEach(() => {
+      // These tests exercise the admin path — short-circuit via owner
+      // bypass so the scope lookup isn't consulted.
+      mockPermissionCacheService.isOwner.mockResolvedValue(true);
+    });
+
     it('should delegate to service.findAll and return paginated result', async () => {
       const paginated = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
       mockReportCardsQueriesService.findAll.mockResolvedValue(paginated);
 
-      const result = await controller.findAll(tenantContext, { page: 1, pageSize: 20 });
+      const result = await controller.findAll(tenantContext, jwtUser as never, {
+        page: 1,
+        pageSize: 20,
+      });
 
       expect(mockReportCardsQueriesService.findAll).toHaveBeenCalledWith(TENANT_ID, {
         page: 1,
@@ -133,12 +162,56 @@ describe('ReportCardsController', () => {
       const paginated = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
       mockReportCardsQueriesService.findAll.mockResolvedValue(paginated);
 
-      await controller.findAll(tenantContext, { page: 1, pageSize: 20, status: 'published' });
+      await controller.findAll(tenantContext, jwtUser as never, {
+        page: 1,
+        pageSize: 20,
+        status: 'published',
+      });
 
       expect(mockReportCardsQueriesService.findAll).toHaveBeenCalledWith(
         TENANT_ID,
         expect.objectContaining({ status: 'published' }),
       );
+    });
+
+    it('B12: scopes a non-admin teacher to their own classes via the landing scope', async () => {
+      // Override the beforeEach admin default.
+      mockPermissionCacheService.isOwner.mockResolvedValue(false);
+      mockPermissionCacheService.getPermissions.mockResolvedValue(['report_cards.view']);
+      mockCommentWindowsService.getLandingScopeForActor.mockResolvedValueOnce({
+        is_admin: false,
+        overall_class_ids: ['class-2a'],
+        subject_assignments: [{ class_id: 'class-4a', subject_id: 'subj-maths' }],
+        active_window_id: null,
+      });
+      const paginated = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
+      mockReportCardsQueriesService.findAll.mockResolvedValue(paginated);
+
+      await controller.findAll(tenantContext, jwtUser as never, { page: 1, pageSize: 20 });
+
+      expect(mockReportCardsQueriesService.findAll).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({ class_ids: expect.arrayContaining(['class-2a', 'class-4a']) }),
+      );
+    });
+
+    it('B12: returns an empty result for a non-admin with no allowed classes', async () => {
+      mockPermissionCacheService.isOwner.mockResolvedValue(false);
+      mockPermissionCacheService.getPermissions.mockResolvedValue(['report_cards.view']);
+      mockCommentWindowsService.getLandingScopeForActor.mockResolvedValueOnce({
+        is_admin: false,
+        overall_class_ids: [],
+        subject_assignments: [],
+        active_window_id: null,
+      });
+
+      const result = await controller.findAll(tenantContext, jwtUser as never, {
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(result).toEqual({ data: [], meta: { page: 1, pageSize: 20, total: 0 } });
+      expect(mockReportCardsQueriesService.findAll).not.toHaveBeenCalled();
     });
   });
 
@@ -211,6 +284,11 @@ describe('ReportCardsController', () => {
   describe('getClassMatrix', () => {
     const CLASS_ID = 'cccccccc-1111-4111-8111-111111111111';
 
+    beforeEach(() => {
+      // Admin bypass for the happy-path tests; the B12 test below overrides.
+      mockPermissionCacheService.isOwner.mockResolvedValue(true);
+    });
+
     it('delegates to service.getClassMatrix with the period filter', async () => {
       const matrix = {
         class: { id: CLASS_ID, name: '5A', year_group: null },
@@ -222,7 +300,7 @@ describe('ReportCardsController', () => {
       };
       mockReportCardsQueriesService.getClassMatrix.mockResolvedValue(matrix);
 
-      const result = await controller.getClassMatrix(tenantContext, CLASS_ID, {
+      const result = await controller.getClassMatrix(tenantContext, jwtUser as never, CLASS_ID, {
         academic_period_id: 'all',
       });
 
@@ -243,7 +321,7 @@ describe('ReportCardsController', () => {
         overall_by_student: {},
       });
 
-      await controller.getClassMatrix(tenantContext, CLASS_ID, {
+      await controller.getClassMatrix(tenantContext, jwtUser as never, CLASS_ID, {
         academic_period_id: PERIOD_ID,
       });
 
@@ -251,6 +329,24 @@ describe('ReportCardsController', () => {
         classId: CLASS_ID,
         academicPeriodId: PERIOD_ID,
       });
+    });
+
+    it('B12: blocks a non-admin teacher whose scope does not include the class', async () => {
+      mockPermissionCacheService.isOwner.mockResolvedValue(false);
+      mockPermissionCacheService.getPermissions.mockResolvedValue(['report_cards.view']);
+      mockCommentWindowsService.getLandingScopeForActor.mockResolvedValueOnce({
+        is_admin: false,
+        overall_class_ids: [],
+        subject_assignments: [{ class_id: 'other-class', subject_id: 'subj-maths' }],
+        active_window_id: null,
+      });
+
+      await expect(
+        controller.getClassMatrix(tenantContext, jwtUser as never, CLASS_ID, {
+          academic_period_id: 'all',
+        }),
+      ).rejects.toThrow(/CLASS_OUT_OF_SCOPE|do not teach/);
+      expect(mockReportCardsQueriesService.getClassMatrix).not.toHaveBeenCalled();
     });
   });
 

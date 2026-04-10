@@ -1,6 +1,7 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import type { CreateOverallCommentDto } from './dto/overall-comment.dto';
@@ -53,6 +54,13 @@ const mockWindowsService = {
   getHomeroomTeacherForClass: jest.fn(),
 };
 
+// B13: upsert now validates the (student, class) enrolment pair before the
+// insert. Default: a single matching enrolment row — tests that cover the
+// not-enrolled branch override this.
+const mockClassesReadFacade = {
+  findEnrolmentsGeneric: jest.fn().mockResolvedValue([{ id: 'enrolment-1' }]),
+};
+
 const baseComment = {
   id: COMMENT_ID,
   tenant_id: TENANT_ID,
@@ -85,6 +93,9 @@ describe('ReportCardOverallCommentsService', () => {
     mockRlsTx.reportCardOverallComment.update.mockReset();
     mockWindowsService.assertWindowOpen.mockReset().mockResolvedValue(undefined);
     mockWindowsService.getHomeroomTeacherForClass.mockReset().mockResolvedValue(HOMEROOM_RESULT);
+    mockClassesReadFacade.findEnrolmentsGeneric
+      .mockReset()
+      .mockResolvedValue([{ id: 'enrolment-1' }]);
     // Default: per-period scope. Tests that exercise full-year override
     // this on a per-test basis.
     mockWindowsService.resolveCommentScope
@@ -109,6 +120,7 @@ describe('ReportCardOverallCommentsService', () => {
         ReportCardOverallCommentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: ReportCommentWindowsService, useValue: mockWindowsService },
+        { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
       ],
     }).compile();
 

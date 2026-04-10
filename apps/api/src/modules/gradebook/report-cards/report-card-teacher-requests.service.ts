@@ -466,12 +466,28 @@ export class ReportCardTeacherRequestsService {
       return this.openFullYearReopen(tenantId, actor, request, opensAt, closesAt);
     }
 
+    // Carry forward the homeroom assignments from the most recent prior
+    // window for this period (B14). Without this, the new window has an
+    // empty overall-comment scope and the teacher who requested the reopen
+    // — usually the homeroom teacher wanting to fix one student's
+    // comment — can't actually write anything. findLatestHomeroomAssignmentsForScope
+    // returns [] when there's no prior window at all, which is the fresh
+    // period case and stays consistent with the manual open-window flow.
+    const priorAssignments = await this.commentWindowsService.findLatestHomeroomAssignmentsForScope(
+      tenantId,
+      {
+        periodId: request.academic_period_id,
+        yearId: request.academic_year_id,
+      },
+    );
+
     const window = await this.commentWindowsService.open(tenantId, actor.userId, {
       academic_period_id: request.academic_period_id,
       academic_year_id: request.academic_year_id,
       opens_at: opensAt.toISOString(),
       closes_at: closesAt.toISOString(),
       instructions: `Opened in response to teacher request #${request.id}`,
+      homeroom_assignments: priorAssignments,
     });
 
     return window.id;

@@ -24,6 +24,7 @@ import {
 } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
+import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 
 import {
@@ -93,6 +94,11 @@ export default function ReportCardsDashboardPage() {
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
+  const { hasAnyRole } = useRoleCheck();
+  // B11: teachers see a reduced dashboard — no Generate / Requests /
+  // Live run / Settings entry points. Admin-only affordances are hidden
+  // rather than disabled, so the page looks coherent for both audiences.
+  const isAdmin = hasAnyRole('school_owner', 'school_principal', 'school_vice_principal', 'admin');
 
   // ─── Period state ──────────────────────────────────────────────────────────
   const [periods, setPeriods] = React.useState<AcademicPeriodOption[]>([]);
@@ -300,32 +306,39 @@ export default function ReportCardsDashboardPage() {
                 </SelectContent>
               </Select>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push(`/${locale}/report-cards/settings`)}
-              aria-label={t('dashboard.settingsAria')}
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/${locale}/report-cards/settings`)}
+                aria-label={t('dashboard.settingsAria')}
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         }
       />
 
-      {/* ─── Quick action tiles ─────────────────────────────────────────── */}
+      {/* ─── Quick action tiles ───────────────────────────────────────────
+          B11: teachers see only the two tiles they can act on (Write
+          comments + Library read-only). Generate and Teacher Requests
+          are admin-only affordances. */}
       <section
-        className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-2'}`}
         aria-label={t('dashboard.quickActionsAria')}
       >
-        <QuickActionTile
-          icon={Sparkles}
-          title={t('dashboard.tileGenerateTitle')}
-          description={t('dashboard.tileGenerateDescription')}
-          actionLabel={t('dashboard.tileGenerateAction')}
-          accent="from-violet-400 via-violet-500 to-violet-600"
-          iconBg="bg-violet-100 text-violet-700"
-          onClick={() => router.push(`/${locale}/report-cards/generate`)}
-        />
+        {isAdmin && (
+          <QuickActionTile
+            icon={Sparkles}
+            title={t('dashboard.tileGenerateTitle')}
+            description={t('dashboard.tileGenerateDescription')}
+            actionLabel={t('dashboard.tileGenerateAction')}
+            accent="from-violet-400 via-violet-500 to-violet-600"
+            iconBg="bg-violet-100 text-violet-700"
+            onClick={() => router.push(`/${locale}/report-cards/generate`)}
+          />
+        )}
         <QuickActionTile
           icon={MessageSquare}
           title={t('dashboard.tileCommentsTitle')}
@@ -348,32 +361,38 @@ export default function ReportCardsDashboardPage() {
           iconBg="bg-sky-100 text-sky-700"
           onClick={() => router.push(`/${locale}/report-cards/library`)}
         />
-        <QuickActionTile
-          icon={Inbox}
-          title={t('dashboard.tileRequestsTitle')}
-          description={
-            pendingRequestCount > 0
-              ? t('dashboard.tileRequestsPending', { count: pendingRequestCount })
-              : t('dashboard.tileRequestsAllClear')
-          }
-          actionLabel={t('dashboard.tileRequestsAction')}
-          accent="from-rose-400 via-rose-500 to-rose-600"
-          iconBg="bg-rose-100 text-rose-700"
-          badge={pendingRequestCount > 0 ? pendingRequestCount : null}
-          onClick={() => router.push(`/${locale}/report-cards/requests`)}
-        />
+        {isAdmin && (
+          <QuickActionTile
+            icon={Inbox}
+            title={t('dashboard.tileRequestsTitle')}
+            description={
+              pendingRequestCount > 0
+                ? t('dashboard.tileRequestsPending', { count: pendingRequestCount })
+                : t('dashboard.tileRequestsAllClear')
+            }
+            actionLabel={t('dashboard.tileRequestsAction')}
+            accent="from-rose-400 via-rose-500 to-rose-600"
+            iconBg="bg-rose-100 text-rose-700"
+            badge={pendingRequestCount > 0 ? pendingRequestCount : null}
+            onClick={() => router.push(`/${locale}/report-cards/requests`)}
+          />
+        )}
       </section>
 
-      {/* ─── Live run status + Analytics snapshot ───────────────────────── */}
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <LiveRunStatusPanel run={activeRun} locale={locale} />
-        <AnalyticsSnapshotPanel
-          analytics={analytics}
-          loading={analyticsLoading}
-          locale={locale}
-          periodId={selectedPeriodId}
-        />
-      </section>
+      {/* ─── Live run status + Analytics snapshot ─────────────────────────
+          B11: both panels are admin-focused (run orchestration + school-wide
+          analytics). Teachers don't see either. */}
+      {isAdmin && (
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <LiveRunStatusPanel run={activeRun} locale={locale} />
+          <AnalyticsSnapshotPanel
+            analytics={analytics}
+            loading={analyticsLoading}
+            locale={locale}
+            periodId={selectedPeriodId}
+          />
+        </section>
+      )}
 
       {/* ─── Classes by year group ───────────────────────────────────────── */}
       <section className="space-y-6">

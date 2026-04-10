@@ -96,6 +96,11 @@ const mockRbacReadFacade = {
 
 const mockCommentWindowsService = {
   open: jest.fn(),
+  // B14: auto-execute open_comment_window now carries forward the
+  // homeroom assignments from the most recent prior window so the
+  // reopened window isn't empty. Default to [] — tests that cover the
+  // carry-forward path override this.
+  findLatestHomeroomAssignmentsForScope: jest.fn().mockResolvedValue([]),
 };
 
 const mockGenerationService = {
@@ -115,6 +120,9 @@ describe('ReportCardTeacherRequestsService', () => {
     mockNotificationsService.createBatch.mockReset().mockResolvedValue(undefined);
     mockRbacReadFacade.findMembershipsWithPermissionAndUser.mockReset().mockResolvedValue([]);
     mockCommentWindowsService.open.mockReset();
+    mockCommentWindowsService.findLatestHomeroomAssignmentsForScope
+      .mockReset()
+      .mockResolvedValue([]);
     mockGenerationService.generateRun.mockReset();
 
     const moduleRef: TestingModule = await Test.createTestingModule({
@@ -287,6 +295,12 @@ describe('ReportCardTeacherRequestsService', () => {
     it('should auto-execute open_comment_window and link the resulting window id', async () => {
       mockPrisma.reportCardTeacherRequest.findFirst.mockResolvedValue(basePendingRequest);
       mockCommentWindowsService.open.mockResolvedValue({ id: WINDOW_ID });
+      // B14: simulate a prior window with two homeroom assignments that
+      // should be carried forward onto the newly-opened window.
+      mockCommentWindowsService.findLatestHomeroomAssignmentsForScope.mockResolvedValueOnce([
+        { class_id: 'class-2a', homeroom_teacher_staff_id: 'staff-sarah' },
+        { class_id: 'class-3b', homeroom_teacher_staff_id: 'staff-aiden' },
+      ]);
       mockRlsTx.reportCardTeacherRequest.update.mockImplementation(
         async (args: { data: Record<string, unknown> }) => ({
           ...basePendingRequest,
@@ -298,10 +312,23 @@ describe('ReportCardTeacherRequestsService', () => {
         auto_execute: true,
       });
 
+      expect(mockCommentWindowsService.findLatestHomeroomAssignmentsForScope).toHaveBeenCalledWith(
+        TENANT_ID,
+        {
+          periodId: PERIOD_ID,
+          yearId: basePendingRequest.academic_year_id,
+        },
+      );
       expect(mockCommentWindowsService.open).toHaveBeenCalledWith(
         TENANT_ID,
         ADMIN_ID,
-        expect.objectContaining({ academic_period_id: PERIOD_ID }),
+        expect.objectContaining({
+          academic_period_id: PERIOD_ID,
+          homeroom_assignments: [
+            { class_id: 'class-2a', homeroom_teacher_staff_id: 'staff-sarah' },
+            { class_id: 'class-3b', homeroom_teacher_staff_id: 'staff-aiden' },
+          ],
+        }),
       );
       expect(result.resulting_window_id).toBe(WINDOW_ID);
       expect(result.resulting_run_id).toBeNull();
