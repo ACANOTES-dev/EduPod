@@ -110,9 +110,9 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `completed`   | 2026-04-11 00:21 Europe/Dublin | `b513b034` (local) / `64c1e709` (prod) |
 | 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`     | —                              | —                                      |
 | 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `completed`   | 2026-04-11 00:15 Europe/Dublin | `f56d6768` (local) / `8ff0c5a2` (prod) |
-| 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `deploying`   | —                              | —                                      |
+| 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `completed`   | 2026-04-11 00:55 Europe/Dublin | `459ad8ce` (local) / `bb1357de` (prod) |
 | 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `in-progress` | —                              | —                                      |
-| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `in-progress` | —                              | —                                      |
+| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `deploying`   | —                              | —                                      |
 | 13  | Form preview page                  | 4    | 01, 04             | `completed`   | 2026-04-11 00:45 Europe/Dublin | `fc0ea7a6` (local) / `f5563c1f` (prod) |
 | 14  | Public form + QR code              | 4    | 01, 02, 03, 04     | `in-progress` | —                              | —                                      |
 | 15  | Cleanup, translations, live counts | 5    | 10, 11, 12, 13, 14 | `pending`     | —                              | —                                      |
@@ -551,3 +551,72 @@ tenantSlug, locale, host, protocol })` returning
   - No Wave 4 deployment was `deploying` when I started; flipped
     `deploying → completed` atomically in the final log update so the
     serialisation heuristic stays clean.
+
+### [IMPL 10] — Admissions dashboard hub
+
+- **Completed:** 2026-04-11T00:55:00+01:00 (Europe/Dublin)
+- **Commit:** `459ad8ce` (local) / `bb1357de` (prod)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Rewrote `apps/web/src/app/[locale]/(school)/admissions/page.tsx` as an
+  Operations-style dashboard hub. Top KPI strip (Ready to Admit, Waiting
+  List, Conditional Approval, Approved this month, Rejected this month)
+  and a 2-column card grid linking to the Wave 4 sub-pages: Ready to
+  Admit, Conditional Approval (near-expiry badge when
+  `conditional_approval_near_expiry > 0`), Waiting List (sub-line for
+  `awaiting_year_setup`), Rejected, Admission Form preview, Overrides
+  Log. Card visibility is role-filtered via `useRoleCheck`: front office
+  sees the three actionable queues; admin roles also see rejected
+  archive, form preview, overrides. Auto-refresh every 60 s while
+  `document.visibilityState === 'visible'`. Skeleton cards during
+  initial load; empty-state card when all counts are zero. Desktop-only
+  "Capacity pressure" table beneath the grid sourced from the top-5
+  waiting-list year groups. Backend: new
+  `AdmissionsDashboardService.getSummary` + `AdmissionsDashboardController`
+  exposing `GET /v1/admissions/dashboard-summary` (permission
+  `admissions.view`). Counts run as a single `Promise.all` inside one
+  RLS-scoped transaction and the top-5 pairs are batched through
+  `AdmissionsCapacityService.getAvailableSeatsBatch`. Translations added
+  under `admissionsHub` in `en.json` + `ar.json`. 6 new unit tests
+  (populated tenant, tenant scoping, empty tenant, null pair filter,
+  Unknown year-group fallback, near-expiry 2-day window); all 174
+  admissions tests pass.
+- **Follow-ups:**
+  - Card hrefs (`/admissions/ready-to-admit`,
+    `/admissions/conditional-approval`, `/admissions/waiting-list`,
+    `/admissions/rejected`, `/admissions/overrides`) depend on impl 11
+    (queue sub-pages) and impl 15 (overrides page) for the target
+    routes. Until those land, the links 404 — expected mid-rebuild.
+  - Impl 15 is expected to wire the Operations hub's Admissions card to
+    pull its live count from this same endpoint.
+  - Dashboard summary is NOT cached. For tenants with tens of thousands
+    of applications the 9 `count` queries + 1 `groupBy` may become hot.
+    Flag if perf data shows this surfacing; a cached projection could
+    live in Redis if needed later.
+  - Dashboard page's client poll ignores in-flight requests — if a
+    refresh kicks off while one is still pending, both will run. Low
+    risk at 60-second cadence but worth tidying if auto-refresh
+    ever drops below 10 s.
+- **Session notes:**
+  - Wave 4 ran with 10/11/12/13/14 all parallel in the same worktree.
+    When I went to commit, the worktree contained in-flight edits from
+    impls 11 (applications controller queue routes, state-machine,
+    applications service), 12 (admissions/[id] modals, shared schema),
+    and 14 (public apply, public tenants). I staged only my seven
+    files explicitly, `git stash push --keep-index --include-untracked`
+    to shield the rest from lint-staged, committed cleanly, then
+    `git stash pop` + `git checkout --ours` on the two overlapping
+    files to keep my HEAD versions.
+  - Impl 13 was `deploying` when I was ready to deploy. Polled the log
+    every 30 s; 13 flipped to `completed` after one cycle and I
+    immediately flipped 10 to `deploying` and pushed the patch.
+    Production commit applied on top of impl 13's `f5563c1f`.
+  - API + web build on production took ~40 s + ~3 min. Both rebuilt
+    cleanly; Nest startup logs show `Nest application successfully
+started` at 23:50:29Z. `curl` against
+    `http://localhost:3001/api/v1/admissions/dashboard-summary` returns
+    401 (auth guard is live — route is mapped). `/en/admissions` and
+    `/en/login` both return 200.
+  - Pre-existing `approval_requests.callback_status` column-drift
+    error in prod logs is unrelated and was already flagged in impl
+    09's session notes.
