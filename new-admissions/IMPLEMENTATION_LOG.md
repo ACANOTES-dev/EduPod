@@ -103,9 +103,9 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | --- | ---------------------------------- | ---- | ------------------ | ------------- | ------------------------------ | -------------------------------------- |
 | 01  | Schema foundation                  | 1    | —                  | `completed`   | 2026-04-10 22:00 Europe/Dublin | `0b976d37` (local) / `55001a4e` (prod) |
 | 02  | Capacity service                   | 2    | 01                 | `completed`   | 2026-04-10 23:11 Europe/Dublin | `f97f31fd` (local) / `64ea88c6` (prod) |
-| 03  | State machine rewrite              | 2    | 01                 | `in-progress` | —                              | —                                      |
+| 03  | State machine rewrite              | 2    | 01                 | `completed`   | 2026-04-10 23:45 Europe/Dublin | `caca0f2d` (local) / `b4b905b9` (prod) |
 | 04  | Form service simplification        | 2    | 01                 | `completed`   | 2026-04-10 23:25 Europe/Dublin | `521d26de` (local) / `2dc85bd9` (prod) |
-| 05  | Conversion-to-student service      | 2    | 01                 | `in-progress` | —                              | —                                      |
+| 05  | Conversion-to-student service      | 2    | 01                 | `deploying`   | —                              | —                                      |
 | 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `pending`     | —                              | —                                      |
 | 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `pending`     | —                              | —                                      |
 | 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`     | —                              | —                                      |
@@ -288,3 +288,50 @@ Append new records below in chronological order. Format:
     of auto-migrating. Added a `fieldsMatchCanonical` check inside
     `ensureSystemForm` and redeployed; NHQS then migrated to a v2 form with
     the two new target fields on the next public fetch.
+
+### [IMPL 03] — State machine rewrite
+
+- **Completed:** 2026-04-10T23:45:00+01:00 (Europe/Dublin)
+- **Commit:** `caca0f2d` (local) / `b4b905b9` (prod); test commit `ea66b642` (local) / `a51fd4cc` (prod)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Rewrote `ApplicationStateMachineService` around the financially-gated
+  state graph from PLAN.md §2. Six public methods: `submit` (creates the
+  row with gating already applied — routes to `ready_to_admit` /
+  `waiting_list` / `waiting_list+awaiting_year_setup`), `moveToConditionalApproval`
+  (SELECT FOR UPDATE row lock + capacity re-check + fee resolution + deadline
+  stamping + `notifications:admissions-payment-link` enqueue),
+  `reject`, `withdraw`, `markApproved` (called from Wave-3 payment rails
+  with an optional caller-supplied tx), and `revertToWaitingList` (called
+  from Wave-3 expiry cron). `VALID_TRANSITIONS` map enforces the state graph
+  and throws `INVALID_STATUS_TRANSITION` on invalid moves; `CAPACITY_EXHAUSTED`
+  is the concurrency guard. New `FinanceFeesFacade` (`apps/api/src/modules/admissions/finance-fees.facade.ts`)
+  bridges admissions to `FinanceReadFacade` / `TenantReadFacade` so the
+  module never reaches into finance internals. `ApplicationsService.review`
+  now dispatches on `dto.status` to the granular state-machine methods;
+  legacy parent-portal `POST :id/submit` endpoint is removed. Module wires
+  `BullModule` (`notifications`), `FinanceModule`, `TenantsModule`.
+  21 new unit tests cover every transition and concurrency path.
+- **Follow-ups:**
+  - `ApplicationsService` still delegates `getConversionPreview` / `convert`
+    to `ApplicationConversionService` so prod's old controller endpoints
+    keep linking. Impl 05 removes both the controller endpoints and these
+    service shims when it lands on prod.
+  - `FinanceFeesFacade` currently ignores `academicYearId` and assumes a
+    3-term academic year for `billing_frequency: 'term'`. Wave 3 should
+    make the term count per-academic-year when the setting exists.
+  - `earlyBirdDiscounts` and automatic tenant-wide discount application
+    are NOT folded into the annual fee computation yet; impl 06/07 will
+    decide whether to apply them before or after `upfront_percentage`.
+- **Session notes:**
+  - Wave 2 parallel run: impls 02/04 landed before 03; impl 05 was still
+    in-progress when impl 03 deployed. My local `main` had impl 05's
+    commit (`3bee82a2`) ahead of my impl 03 commits because parallel
+    file edits got bundled. Rebased onto `dd3220f0` via a temporary
+    `impl-03-deploy` branch, restored `ApplicationConversionService`
+    delegations inside `ApplicationsService` (since prod's controller
+    still calls them), amended, and regenerated the patch.
+  - The prod patch file went through one rejection (applications.controller.ts
+    still references conversion methods) before the fix — type-check passed
+    on the rebased branch, build passed on prod, PM2 restart clean, all
+    `/api/v1/applications/*` routes mounted in the startup logs.
