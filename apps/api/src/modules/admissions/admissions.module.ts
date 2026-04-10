@@ -5,6 +5,7 @@ import { AcademicsModule } from '../academics/academics.module';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { FinanceModule } from '../finance/finance.module';
+import { RbacModule } from '../rbac/rbac.module';
 import { SearchModule } from '../search/search.module';
 import { SequenceModule } from '../sequence/sequence.module';
 import { TenantsModule } from '../tenants/tenants.module';
@@ -13,6 +14,10 @@ import { AdmissionFormsController } from './admission-forms.controller';
 import { AdmissionFormsService } from './admission-forms.service';
 import { AdmissionsAutoPromotionService } from './admissions-auto-promotion.service';
 import { AdmissionsCapacityService } from './admissions-capacity.service';
+import {
+  AdmissionOverridesController,
+  AdmissionsPaymentController,
+} from './admissions-payment.controller';
 import { AdmissionsPaymentService } from './admissions-payment.service';
 import { AdmissionsRateLimitService } from './admissions-rate-limit.service';
 import { ApplicationConversionService } from './application-conversion.service';
@@ -33,6 +38,7 @@ import { PublicAdmissionsController } from './public-admissions.controller';
     AcademicsModule,
     FinanceModule,
     TenantsModule,
+    RbacModule,
     BullModule.registerQueue({ name: 'notifications' }),
   ],
   controllers: [
@@ -40,6 +46,8 @@ import { PublicAdmissionsController } from './public-admissions.controller';
     ApplicationsController,
     PublicAdmissionsController,
     ParentApplicationsController,
+    AdmissionsPaymentController,
+    AdmissionOverridesController,
   ],
   providers: [
     AdmissionFormsService,

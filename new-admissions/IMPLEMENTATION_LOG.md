@@ -99,23 +99,23 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                              | Wave | Depends on         | Status        | Completed at                   | Commit SHA                             |
-| --- | ---------------------------------- | ---- | ------------------ | ------------- | ------------------------------ | -------------------------------------- |
-| 01  | Schema foundation                  | 1    | —                  | `completed`   | 2026-04-10 22:00 Europe/Dublin | `0b976d37` (local) / `55001a4e` (prod) |
-| 02  | Capacity service                   | 2    | 01                 | `completed`   | 2026-04-10 23:11 Europe/Dublin | `f97f31fd` (local) / `64ea88c6` (prod) |
-| 03  | State machine rewrite              | 2    | 01                 | `completed`   | 2026-04-10 23:45 Europe/Dublin | `caca0f2d` (local) / `b4b905b9` (prod) |
-| 04  | Form service simplification        | 2    | 01                 | `completed`   | 2026-04-10 23:25 Europe/Dublin | `521d26de` (local) / `2dc85bd9` (prod) |
-| 05  | Conversion-to-student service      | 2    | 01                 | `completed`   | 2026-04-10 23:55 Europe/Dublin | `3bee82a2` (local) / `b354c0f4` (prod) |
-| 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `pending`     | —                              | —                                      |
-| 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `pending`     | —                              | —                                      |
-| 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`     | —                              | —                                      |
-| 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `in-progress` | —                              | —                                      |
-| 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `pending`     | —                              | —                                      |
-| 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `pending`     | —                              | —                                      |
-| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `pending`     | —                              | —                                      |
-| 13  | Form preview page                  | 4    | 01, 04             | `pending`     | —                              | —                                      |
-| 14  | Public form + QR code              | 4    | 01, 02, 03, 04     | `pending`     | —                              | —                                      |
-| 15  | Cleanup, translations, live counts | 5    | 10, 11, 12, 13, 14 | `pending`     | —                              | —                                      |
+| #   | Title                              | Wave | Depends on         | Status      | Completed at                   | Commit SHA                             |
+| --- | ---------------------------------- | ---- | ------------------ | ----------- | ------------------------------ | -------------------------------------- |
+| 01  | Schema foundation                  | 1    | —                  | `completed` | 2026-04-10 22:00 Europe/Dublin | `0b976d37` (local) / `55001a4e` (prod) |
+| 02  | Capacity service                   | 2    | 01                 | `completed` | 2026-04-10 23:11 Europe/Dublin | `f97f31fd` (local) / `64ea88c6` (prod) |
+| 03  | State machine rewrite              | 2    | 01                 | `completed` | 2026-04-10 23:45 Europe/Dublin | `caca0f2d` (local) / `b4b905b9` (prod) |
+| 04  | Form service simplification        | 2    | 01                 | `completed` | 2026-04-10 23:25 Europe/Dublin | `521d26de` (local) / `2dc85bd9` (prod) |
+| 05  | Conversion-to-student service      | 2    | 01                 | `completed` | 2026-04-10 23:55 Europe/Dublin | `3bee82a2` (local) / `b354c0f4` (prod) |
+| 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `pending`   | —                              | —                                      |
+| 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `pending`   | —                              | —                                      |
+| 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`   | —                              | —                                      |
+| 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `completed` | 2026-04-11 00:15 Europe/Dublin | `f56d6768` (local) / `8ff0c5a2` (prod) |
+| 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `pending`   | —                              | —                                      |
+| 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `pending`   | —                              | —                                      |
+| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `pending`   | —                              | —                                      |
+| 13  | Form preview page                  | 4    | 01, 04             | `pending`   | —                              | —                                      |
+| 14  | Public form + QR code              | 4    | 01, 02, 03, 04     | `pending`   | —                              | —                                      |
+| 15  | Cleanup, translations, live counts | 5    | 10, 11, 12, 13, 14 | `pending`   | —                              | —                                      |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -349,3 +349,19 @@ Append new records below in chronological order. Format:
   - Prod required a fix-forward commit `00cff3e8` on top of my patch to remove residual `getConversionPreview`/`convert` delegations from `applications.service.ts` that impl 03 deliberately retained "until impl 05 lands". On local `main`, impl 03's commits were based on top of mine so this cleanup was already in place; prod's impl 03 deploy came from a rebased branch without my commit, so it kept the delegations.
 - **Session notes:**
   - Deployment serialised behind impl 03's API restart. Ran local type-check + lint + all 139 admissions tests green (10 new conversion tests: happy path, idempotency, existing parent match, ambiguous match, optional parent 2, malformed payload, missing application, cross-tenant scoping, duplicate guard, consent subject rewrite). Prod migration ran via `pnpm --filter @school/prisma migrate:deploy`; `pnpm --filter @school/prisma generate` was needed before the API rebuild picked up `materialised_student_id`.
+
+### [IMPL 09] — Auto-promotion hooks
+
+- **Completed:** 2026-04-11T00:15:00+01:00 (Europe/Dublin)
+- **Commit:** `f56d6768` (local) / `8ff0c5a2` (prod)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Added `apps/api/src/modules/admissions/admissions-auto-promotion.service.ts` — three entry points all running inside the caller's RLS transaction so freed seats are visible to the capacity re-check. `promoteYearGroup` issues a `SELECT ... FOR UPDATE SKIP LOCKED` FIFO pass over `waiting_list` rows (excluding `awaiting_year_setup`) ordered by `apply_date ASC`, promoting up to `available_seats` to `ready_to_admit`; search indexing + `notifications:admissions-auto-promoted` enqueue per promoted row, with graceful degradation on failure. `onClassAdded` resolves the new class's pair and delegates. `onYearGroupActivated` locks rows via `FOR UPDATE`, bulk-nulls the `awaiting_year_setup` sub-status, then runs a promotion pass. `ClassesService.create` now counts existing active classes and dispatches to the correct branch from within the RLS transaction (`ClassesModule` imports `AdmissionsModule` — no circular dep because all ReadFacades live in the global `ReadFacadesModule`). `ApplicationStateMachineService.reject`/`withdraw`/`revertToWaitingList` call `promoteYearGroup` when the transition releases a `conditional_approval` seat. 13 new unit tests for the service plus 3 new state-machine release-path tests and 3 classes.service hook tests; 96 affected tests green.
+- **Follow-ups:**
+  - Worker processor for `notifications:admissions-auto-promoted` is not yet implemented. Parents auto-promoted from the waiting list will not receive an email until a future notifications impl wires the template.
+  - `revertToWaitingList` → `promoteYearGroup` could re-promote the same reverted application if it holds the earliest `apply_date` in the FIFO queue. This is a logical edge case (the reverted parent failing to pay would immediately be re-admitted) — flag for impl 08 owner or a later cleanup to decide whether to stamp `apply_date = now()` on revert to push the reverted row to the back of the queue.
+  - `AdmissionsAutoPromotionService` is exported from `AdmissionsModule`; any future module that needs a manual promotion pass (e.g. an admin "force promote" tool) can inject it.
+- **Session notes:**
+  - Wave 3 ran with 06/07/08/09 in parallel. At commit time, 06/07 had modified `admissions.module.ts` (payment controllers + forwardRef) and the worktree state-machine/module files held both sets of additions. I used a backup/restore dance to stage only my three hunks of `admissions.module.ts` (new service import + provider + export) and only my log flip, then restored the combined worktree state so 06/07 keep building on top.
+  - Impl 08 committed locally during my first commit attempt; the pre-commit lint-staged hook failed to restore unstaged changes after prettier reformat. Fixed by resetting worktree to match index via `git checkout-index -f`, committing cleanly, then restoring the combined `admissions.module.ts` + log from `/tmp`.
+  - Pre-existing approvals column drift error (`approval_requests.callback_status`) is unrelated. Nest DI graph compiled successfully on prod restart: `Nest application successfully started` at `2026-04-10T23:12:41Z`.

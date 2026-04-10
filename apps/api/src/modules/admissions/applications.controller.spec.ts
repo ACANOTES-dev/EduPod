@@ -3,7 +3,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
 
-import { AdmissionsPaymentService } from './admissions-payment.service';
 import { ApplicationNotesService } from './application-notes.service';
 import { ApplicationsController } from './applications.controller';
 import { ApplicationsService } from './applications.service';
@@ -47,12 +46,6 @@ const mockApplicationNotesService = {
   create: jest.fn(),
 };
 
-const mockAdmissionsPaymentService = {
-  markPaymentReceived: jest.fn(),
-  setupPaymentPlan: jest.fn(),
-  waiveFees: jest.fn(),
-};
-
 describe('ApplicationsController', () => {
   let controller: ApplicationsController;
 
@@ -62,7 +55,6 @@ describe('ApplicationsController', () => {
       providers: [
         { provide: ApplicationsService, useValue: mockApplicationsService },
         { provide: ApplicationNotesService, useValue: mockApplicationNotesService },
-        { provide: AdmissionsPaymentService, useValue: mockAdmissionsPaymentService },
       ],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
@@ -209,57 +201,6 @@ describe('ApplicationsController', () => {
     });
   });
 
-  // ─── POST /v1/applications/:id/mark-payment-received ───────────────────────
-
-  describe('ApplicationsController -- markPaymentReceived', () => {
-    it('should delegate to admissionsPaymentService.markPaymentReceived with tenant_id, id, and user_id', async () => {
-      mockAdmissionsPaymentService.markPaymentReceived.mockResolvedValue({ success: true });
-
-      const result = await controller.markPaymentReceived(TENANT, USER, APP_ID);
-
-      expect(mockAdmissionsPaymentService.markPaymentReceived).toHaveBeenCalledWith(
-        TENANT_ID,
-        APP_ID,
-        USER_ID,
-      );
-      expect(result).toEqual({ success: true });
-    });
-  });
-
-  // ─── POST /v1/applications/:id/setup-payment-plan ──────────────────────────
-
-  describe('ApplicationsController -- setupPaymentPlan', () => {
-    it('should delegate to admissionsPaymentService.setupPaymentPlan with tenant_id, id, and user_id', async () => {
-      mockAdmissionsPaymentService.setupPaymentPlan.mockResolvedValue({ success: true });
-
-      const result = await controller.setupPaymentPlan(TENANT, USER, APP_ID);
-
-      expect(mockAdmissionsPaymentService.setupPaymentPlan).toHaveBeenCalledWith(
-        TENANT_ID,
-        APP_ID,
-        USER_ID,
-      );
-      expect(result).toEqual({ success: true });
-    });
-  });
-
-  // ─── POST /v1/applications/:id/waive-fees ──────────────────────────────────
-
-  describe('ApplicationsController -- waiveFees', () => {
-    it('should delegate to admissionsPaymentService.waiveFees with tenant_id, id, and user_id', async () => {
-      mockAdmissionsPaymentService.waiveFees.mockResolvedValue({ success: true });
-
-      const result = await controller.waiveFees(TENANT, USER, APP_ID);
-
-      expect(mockAdmissionsPaymentService.waiveFees).toHaveBeenCalledWith(
-        TENANT_ID,
-        APP_ID,
-        USER_ID,
-      );
-      expect(result).toEqual({ success: true });
-    });
-  });
-
   // ─── Permission verification ────────────────────────────────────────────────
 
   it('should require admissions.view for findAll', () => {
@@ -322,30 +263,6 @@ describe('ApplicationsController', () => {
     const permission = Reflect.getMetadata(
       'requires_permission',
       ApplicationsController.prototype.createNote,
-    );
-    expect(permission).toBe('admissions.manage');
-  });
-
-  it('should require admissions.manage for markPaymentReceived', () => {
-    const permission = Reflect.getMetadata(
-      'requires_permission',
-      ApplicationsController.prototype.markPaymentReceived,
-    );
-    expect(permission).toBe('admissions.manage');
-  });
-
-  it('should require admissions.manage for setupPaymentPlan', () => {
-    const permission = Reflect.getMetadata(
-      'requires_permission',
-      ApplicationsController.prototype.setupPaymentPlan,
-    );
-    expect(permission).toBe('admissions.manage');
-  });
-
-  it('should require admissions.manage for waiveFees', () => {
-    const permission = Reflect.getMetadata(
-      'requires_permission',
-      ApplicationsController.prototype.waiveFees,
     );
     expect(permission).toBe('admissions.manage');
   });

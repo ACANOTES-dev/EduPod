@@ -1,379 +1,502 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import Stripe from 'stripe';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import type { AdmissionOverrideType } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
-import { ConfigurationReadFacade } from '../configuration/configuration-read.facade';
-import { EncryptionService } from '../configuration/encryption.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RbacReadFacade } from '../rbac/rbac-read.facade';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+import { ApplicationConversionService } from './application-conversion.service';
+import { ApplicationStateMachineService } from './application-state-machine.service';
 
-interface PaymentIntentResult {
-  client_secret: string;
-  payment_intent_id: string;
-  amount: number;
-  discount_applied: number;
-  original_amount: number;
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type PaymentChannel = 'cash' | 'bank_transfer';
+
+type OverrideType = 'full_waiver' | 'partial_waiver' | 'deferred_payment';
+
+const LEADERSHIP_ROLE_KEY = 'school_owner';
+
+export interface RecordCashPaymentParams {
+  actingUserId: string;
+  amountCents: number;
+  receiptNumber?: string;
+  notes?: string;
 }
 
-interface EarlyBirdTier {
-  deadline: string;
-  discount_percent: number;
-  label: string;
+export interface RecordBankTransferParams {
+  actingUserId: string;
+  amountCents: number;
+  transferReference: string;
+  transferDate: string;
+  notes?: string;
 }
 
-// ─── Service ──────────────────────────────────────────────────────────────────
+export interface ForceApproveOverrideParams {
+  actingUserId: string;
+  overrideType: OverrideType;
+  actualAmountCollectedCents: number;
+  justification: string;
+}
 
+export interface PaymentApprovalResult {
+  approved: true;
+  student_id: string;
+}
+
+export interface OverrideApprovalResult extends PaymentApprovalResult {
+  override_id: string;
+}
+
+export interface AdmissionOverrideListItem {
+  id: string;
+  application_id: string;
+  application_number: string;
+  student_first_name: string;
+  student_last_name: string;
+  expected_amount_cents: number;
+  actual_amount_cents: number;
+  justification: string;
+  override_type: AdmissionOverrideType;
+  created_at: string;
+  approved_by_user_id: string;
+  approved_by_name: string | null;
+}
+
+// ─── Locked row shape ────────────────────────────────────────────────────────
+
+interface LockedApplicationRow {
+  id: string;
+  tenant_id: string;
+  status: string;
+  payment_amount_cents: number | null;
+  currency_code: string | null;
+  reviewed_by_user_id: string | null;
+}
+
+// ─── Service ─────────────────────────────────────────────────────────────────
+
+/**
+ * Non-Stripe admissions payment paths — cash, bank transfer, and the
+ * leadership-only override path for hardship cases.
+ *
+ * Every method runs inside a single interactive RLS transaction that:
+ *   1. row-locks the application (`SELECT … FOR UPDATE`),
+ *   2. asserts `status = 'conditional_approval'`,
+ *   3. validates the chosen payment channel + amount (or justification),
+ *   4. writes an `AdmissionOverride` audit row where applicable,
+ *   5. materialises the student via `ApplicationConversionService`,
+ *   6. advances the state machine to `approved` with the right `paymentSource`.
+ *
+ * Stripe-driven approvals are owned by impl 06's `AdmissionsStripeService`;
+ * expiry of unpaid conditional approvals is owned by impl 08's worker cron.
+ *
+ * See `new-admissions/PLAN.md` §5 and `implementations/07-cash-bank-override.md`.
+ */
 @Injectable()
 export class AdmissionsPaymentService {
-  private readonly logger = new Logger(AdmissionsPaymentService.name);
-
   constructor(
     private readonly prisma: PrismaService,
-    private readonly encryption: EncryptionService,
-    private readonly configService: ConfigService,
+    private readonly conversionService: ApplicationConversionService,
+    private readonly stateMachine: ApplicationStateMachineService,
     private readonly settingsService: SettingsService,
-    private readonly configurationReadFacade: ConfigurationReadFacade,
+    private readonly auditLogService: AuditLogService,
+    private readonly rbacReadFacade: RbacReadFacade,
   ) {}
 
-  // ─── Stripe Client ──────────────────────────────────────────────────────
+  // ─── Cash ──────────────────────────────────────────────────────────────────
 
-  private async getStripeClient(tenantId: string): Promise<Stripe> {
-    const stripeConfig = await this.configurationReadFacade.findStripeConfigFull(tenantId);
-    if (!stripeConfig) {
-      throw new BadRequestException({
-        code: 'STRIPE_NOT_CONFIGURED',
-        message: 'Stripe is not configured for this tenant',
-      });
-    }
-
-    const secretKey = this.encryption.decrypt(
-      stripeConfig.stripe_secret_key_encrypted,
-      stripeConfig.encryption_key_ref,
-    );
-
-    return new Stripe(secretKey, { apiVersion: '2026-02-25.clover' });
-  }
-
-  // ─── Early Bird Discount Calculation ────────────────────────────────────
-
-  calculateDiscount(
-    feeAmount: number,
-    tiers: EarlyBirdTier[],
-    submissionDate: Date = new Date(),
-  ): {
-    discount_percent: number;
-    discount_amount: number;
-    final_amount: number;
-    tier_label: string | null;
-  } {
-    if (!tiers.length) {
-      return { discount_percent: 0, discount_amount: 0, final_amount: feeAmount, tier_label: null };
-    }
-
-    // Sort tiers by deadline ascending
-    const sorted = [...tiers].sort(
-      (a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime(),
-    );
-
-    // Find the first tier where today < deadline
-    for (const tier of sorted) {
-      if (submissionDate < new Date(tier.deadline)) {
-        const discountAmount = Math.round(((feeAmount * tier.discount_percent) / 100) * 100) / 100;
-        return {
-          discount_percent: tier.discount_percent,
-          discount_amount: discountAmount,
-          final_amount: Math.round((feeAmount - discountAmount) * 100) / 100,
-          tier_label: tier.label,
-        };
-      }
-    }
-
-    return { discount_percent: 0, discount_amount: 0, final_amount: feeAmount, tier_label: null };
-  }
-
-  // ─── Create PaymentIntent for Online Payment ───────────────────────────
-
-  async createPaymentIntent(
+  async recordCashPayment(
     tenantId: string,
     applicationId: string,
-    feeAmount: number,
-  ): Promise<PaymentIntentResult> {
-    const stripe = await this.getStripeClient(tenantId);
+    params: RecordCashPaymentParams,
+  ): Promise<PaymentApprovalResult> {
+    const settings = await this.settingsService.getModuleSettings(tenantId, 'admissions');
+    if (!settings.allow_cash) {
+      throw new BadRequestException({
+        code: 'CASH_PAYMENT_DISABLED',
+        message: 'Cash payments are not enabled for this tenant',
+      });
+    }
 
-    // Get early bird discounts from tenant settings
-    const settings = await this.settingsService.getSettings(tenantId);
-    const tiers = (settings.admissions?.earlyBirdDiscounts ?? []) as EarlyBirdTier[];
-    const { discount_amount, final_amount } = this.calculateDiscount(feeAmount, tiers);
-
-    const amountInCents = Math.round(final_amount * 100);
-
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountInCents,
-      currency: 'aed', // tenant currency from settings — hardcoded for now
-      metadata: {
-        tenant_id: tenantId,
-        application_id: applicationId,
-        type: 'admissions_payment',
+    return this.runPaymentFlow(tenantId, applicationId, {
+      channel: 'cash',
+      paymentSource: 'cash',
+      actingUserId: params.actingUserId,
+      amountCents: params.amountCents,
+      noteBody: this.buildCashNote(params),
+      auditAction: 'admissions_payment_cash',
+      auditMetadata: {
+        amount_cents: params.amountCents,
+        receipt_number: params.receiptNumber ?? null,
       },
     });
+  }
 
-    // Store PaymentIntent ID and amounts on the application
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-    await prismaWithRls.$transaction(async (tx) => {
+  // ─── Bank transfer ─────────────────────────────────────────────────────────
+
+  async recordBankTransfer(
+    tenantId: string,
+    applicationId: string,
+    params: RecordBankTransferParams,
+  ): Promise<PaymentApprovalResult> {
+    const settings = await this.settingsService.getModuleSettings(tenantId, 'admissions');
+    if (!settings.allow_bank_transfer) {
+      throw new BadRequestException({
+        code: 'BANK_TRANSFER_DISABLED',
+        message: 'Bank transfer payments are not enabled for this tenant',
+      });
+    }
+
+    return this.runPaymentFlow(tenantId, applicationId, {
+      channel: 'bank_transfer',
+      paymentSource: 'bank_transfer',
+      actingUserId: params.actingUserId,
+      amountCents: params.amountCents,
+      noteBody: this.buildBankTransferNote(params),
+      auditAction: 'admissions_payment_bank_transfer',
+      auditMetadata: {
+        amount_cents: params.amountCents,
+        transfer_reference: params.transferReference,
+        transfer_date: params.transferDate,
+      },
+    });
+  }
+
+  // ─── Override ──────────────────────────────────────────────────────────────
+
+  async forceApproveWithOverride(
+    tenantId: string,
+    applicationId: string,
+    params: ForceApproveOverrideParams,
+  ): Promise<OverrideApprovalResult> {
+    const justification = params.justification.trim();
+    if (justification.length < 20) {
+      throw new BadRequestException({
+        code: 'JUSTIFICATION_TOO_SHORT',
+        message: 'Override justification must be at least 20 characters',
+      });
+    }
+
+    const settings = await this.settingsService.getModuleSettings(tenantId, 'admissions');
+    await this.assertOverrideRoleAllowed(
+      tenantId,
+      params.actingUserId,
+      settings.require_override_approval_role,
+    );
+
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    const outcome = await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
-      await db.application.update({
-        where: { id: applicationId },
+      const locked = await this.lockConditionalApproval(db, tenantId, applicationId);
+      const expectedCents = locked.payment_amount_cents ?? 0;
+
+      const override = await db.admissionOverride.create({
         data: {
-          stripe_payment_intent_id: paymentIntent.id,
-          payment_amount: final_amount,
-          discount_applied: discount_amount > 0 ? discount_amount : null,
+          tenant_id: tenantId,
+          application_id: applicationId,
+          approved_by_user_id: params.actingUserId,
+          expected_amount_cents: expectedCents,
+          actual_amount_cents: params.actualAmountCollectedCents,
+          justification,
+          override_type: params.overrideType as AdmissionOverrideType,
         },
       });
+
+      await db.application.update({
+        where: { id: applicationId },
+        data: { override_record_id: override.id },
+      });
+
+      const conversion = await this.conversionService.convertToStudent(db, {
+        tenantId,
+        applicationId,
+        triggerUserId: params.actingUserId,
+      });
+
+      await this.stateMachine.markApproved(
+        tenantId,
+        applicationId,
+        {
+          actingUserId: params.actingUserId,
+          paymentSource: 'override',
+          overrideRecordId: override.id,
+        },
+        db,
+      );
+
+      await db.applicationNote.create({
+        data: {
+          tenant_id: tenantId,
+          application_id: applicationId,
+          author_user_id: params.actingUserId,
+          note:
+            `Admission override applied (${params.overrideType}). ` +
+            `Expected ${(expectedCents / 100).toFixed(2)} ${locked.currency_code ?? ''}, ` +
+            `collected ${(params.actualAmountCollectedCents / 100).toFixed(2)}. ` +
+            `Justification: ${justification}`,
+          is_internal: true,
+        },
+      });
+
+      return { studentId: conversion.student_id, overrideId: override.id, expectedCents };
     });
 
+    await this.auditLogService.write(
+      tenantId,
+      params.actingUserId,
+      'application',
+      applicationId,
+      'admissions_override',
+      {
+        override_id: outcome.overrideId,
+        override_type: params.overrideType,
+        expected_cents: outcome.expectedCents,
+        actual_cents: params.actualAmountCollectedCents,
+        justification,
+      },
+      null,
+    );
+
     return {
-      client_secret: paymentIntent.client_secret!,
-      payment_intent_id: paymentIntent.id,
-      amount: final_amount,
-      discount_applied: discount_amount,
-      original_amount: feeAmount,
+      approved: true,
+      student_id: outcome.studentId,
+      override_id: outcome.overrideId,
     };
   }
 
-  // ─── Handle Stripe Webhook (payment confirmed) ─────────────────────────
+  // ─── Override audit listing ────────────────────────────────────────────────
 
-  async handlePaymentConfirmed(paymentIntentId: string): Promise<void> {
-    // Find the application by stripe_payment_intent_id
-    const application = await this.prisma.application.findFirst({
-      where: { stripe_payment_intent_id: paymentIntentId },
-    });
+  async listOverrides(
+    tenantId: string,
+    query: { page: number; pageSize: number },
+  ): Promise<{
+    data: AdmissionOverrideListItem[];
+    meta: { page: number; pageSize: number; total: number };
+  }> {
+    const skip = (query.page - 1) * query.pageSize;
 
-    if (!application) {
-      this.logger.warn(`No application found for PaymentIntent ${paymentIntentId}`);
-      return;
-    }
-
-    if (application.status !== 'conditional_approval') {
-      this.logger.warn(
-        `Application ${application.id} already has status ${application.status}, skipping`,
-      );
-      return;
-    }
-
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: application.tenant_id });
-    await prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-      await db.application.update({
-        where: { id: application.id },
-        data: {
-          status: 'approved',
-          payment_status: 'paid_online',
-          reviewed_at: new Date(),
+    const [rows, total] = await Promise.all([
+      this.prisma.admissionOverride.findMany({
+        where: { tenant_id: tenantId },
+        orderBy: { created_at: 'desc' },
+        skip,
+        take: query.pageSize,
+        include: {
+          application: {
+            select: {
+              application_number: true,
+              student_first_name: true,
+              student_last_name: true,
+            },
+          },
+          approved_by: {
+            select: { first_name: true, last_name: true },
+          },
         },
-      });
+      }),
+      this.prisma.admissionOverride.count({ where: { tenant_id: tenantId } }),
+    ]);
 
-      await db.applicationNote.create({
-        data: {
-          tenant_id: application.tenant_id,
-          application_id: application.id,
-          author_user_id:
-            application.submitted_by_parent_id ??
-            application.reviewed_by_user_id ??
-            '00000000-0000-0000-0000-000000000000',
-          note: `Online payment confirmed via Stripe (${paymentIntentId}). Application submitted.`,
-          is_internal: true,
-        },
-      });
-    });
+    const data: AdmissionOverrideListItem[] = rows.map((row) => ({
+      id: row.id,
+      application_id: row.application_id,
+      application_number: row.application.application_number,
+      student_first_name: row.application.student_first_name,
+      student_last_name: row.application.student_last_name,
+      expected_amount_cents: row.expected_amount_cents,
+      actual_amount_cents: row.actual_amount_cents,
+      justification: row.justification,
+      override_type: row.override_type,
+      created_at: row.created_at.toISOString(),
+      approved_by_user_id: row.approved_by_user_id,
+      approved_by_name: row.approved_by
+        ? `${row.approved_by.first_name} ${row.approved_by.last_name}`
+        : null,
+    }));
+
+    return { data, meta: { page: query.page, pageSize: query.pageSize, total } };
   }
 
-  // ─── Select Cash/Payment Plan Option ───────────────────────────────────
+  // ─── Shared payment flow (cash + bank transfer) ───────────────────────────
 
-  async selectCashOption(
+  private async runPaymentFlow(
     tenantId: string,
     applicationId: string,
-    feeAmount: number,
-  ): Promise<{ payment_deadline: Date }> {
-    const settings = await this.settingsService.getSettings(tenantId);
-    const deadlineDays = settings.admissions?.cashPaymentDeadlineDays ?? 14;
-    const deadline = new Date();
-    deadline.setDate(deadline.getDate() + deadlineDays);
+    context: {
+      channel: PaymentChannel;
+      paymentSource: 'cash' | 'bank_transfer';
+      actingUserId: string;
+      amountCents: number;
+      noteBody: string;
+      auditAction: string;
+      auditMetadata: Record<string, unknown>;
+    },
+  ): Promise<PaymentApprovalResult> {
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    // Calculate discount
-    const tiers = (settings.admissions?.earlyBirdDiscounts ?? []) as EarlyBirdTier[];
-    const { discount_amount, final_amount } = this.calculateDiscount(feeAmount, tiers);
-
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-    await prismaWithRls.$transaction(async (tx) => {
+    const outcome = await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
-      await db.application.update({
-        where: { id: applicationId },
-        data: {
-          payment_status: 'pending',
-          payment_amount: final_amount,
-          discount_applied: discount_amount > 0 ? discount_amount : null,
-          payment_deadline: deadline,
-        },
-      });
-    });
+      const locked = await this.lockConditionalApproval(db, tenantId, applicationId);
 
-    return { payment_deadline: deadline };
-  }
-
-  // ─── Admin: Mark Payment Received ──────────────────────────────────────
-
-  async markPaymentReceived(tenantId: string, applicationId: string, userId: string) {
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    return prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
-      const app = await db.application.findFirst({
-        where: { id: applicationId, tenant_id: tenantId },
-      });
-
-      if (!app) {
-        throw new NotFoundException({
-          error: { code: 'APPLICATION_NOT_FOUND', message: 'Application not found' },
+      const expected = locked.payment_amount_cents ?? 0;
+      if (expected <= 0) {
+        throw new BadRequestException({
+          code: 'EXPECTED_AMOUNT_MISSING',
+          message:
+            'Application has no expected payment amount set — cannot record a payment against it',
         });
       }
 
-      if (app.status !== 'conditional_approval') {
+      if (context.amountCents < expected) {
         throw new BadRequestException({
-          error: {
-            code: 'INVALID_STATUS',
-            message: 'Only conditional approvals can be marked as paid',
+          code: 'PAYMENT_BELOW_THRESHOLD',
+          message: `Payment is below the required upfront amount`,
+          details: {
+            expected_cents: expected,
+            received_cents: context.amountCents,
+            currency_code: locked.currency_code,
           },
         });
       }
 
-      await db.application.update({
-        where: { id: applicationId },
-        data: {
-          status: 'approved',
-          payment_status: 'paid_cash',
-          reviewed_at: new Date(),
-          payment_deadline: null,
-        },
+      const conversion = await this.conversionService.convertToStudent(db, {
+        tenantId,
+        applicationId,
+        triggerUserId: context.actingUserId,
       });
+
+      await this.stateMachine.markApproved(
+        tenantId,
+        applicationId,
+        {
+          actingUserId: context.actingUserId,
+          paymentSource: context.paymentSource,
+          overrideRecordId: null,
+        },
+        db,
+      );
 
       await db.applicationNote.create({
         data: {
           tenant_id: tenantId,
           application_id: applicationId,
-          author_user_id: userId,
-          note: 'Cash payment received. Application submitted.',
+          author_user_id: context.actingUserId,
+          note: context.noteBody,
           is_internal: true,
         },
       });
 
-      return { success: true };
+      return { studentId: conversion.student_id, expected };
     });
+
+    await this.auditLogService.write(
+      tenantId,
+      context.actingUserId,
+      'application',
+      applicationId,
+      context.auditAction,
+      {
+        ...context.auditMetadata,
+        expected_cents: outcome.expected,
+        channel: context.channel,
+      },
+      null,
+    );
+
+    return { approved: true, student_id: outcome.studentId };
   }
 
-  // ─── Admin: Setup Payment Plan ─────────────────────────────────────────
+  // ─── Row lock helper ──────────────────────────────────────────────────────
 
-  async setupPaymentPlan(tenantId: string, applicationId: string, userId: string) {
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+  private async lockConditionalApproval(
+    db: PrismaService,
+    tenantId: string,
+    applicationId: string,
+  ): Promise<LockedApplicationRow> {
+    const rawTx = db as unknown as {
+      $queryRaw: (sql: Prisma.Sql) => Promise<LockedApplicationRow[]>;
+    };
+    // eslint-disable-next-line school/no-raw-sql-outside-rls -- SELECT FOR UPDATE row lock inside RLS transaction
+    const rows = await rawTx.$queryRaw(Prisma.sql`
+      SELECT id, tenant_id, status::text AS status, payment_amount_cents, currency_code, reviewed_by_user_id
+      FROM applications
+      WHERE id = ${applicationId}::uuid
+        AND tenant_id = ${tenantId}::uuid
+      FOR UPDATE
+    `);
 
-    return prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
-      const app = await db.application.findFirst({
-        where: { id: applicationId, tenant_id: tenantId },
+    const row = rows[0];
+    if (!row) {
+      throw new NotFoundException({
+        code: 'APPLICATION_NOT_FOUND',
+        message: `Application "${applicationId}" not found`,
       });
+    }
 
-      if (!app) {
-        throw new NotFoundException({
-          error: { code: 'APPLICATION_NOT_FOUND', message: 'Application not found' },
-        });
-      }
-
-      if (app.status !== 'conditional_approval') {
-        throw new BadRequestException({
-          error: {
-            code: 'INVALID_STATUS',
-            message: 'Only conditional approvals can have payment plans',
-          },
-        });
-      }
-
-      await db.application.update({
-        where: { id: applicationId },
-        data: {
-          status: 'approved',
-          payment_status: 'payment_plan',
-          reviewed_at: new Date(),
-          payment_deadline: null,
-        },
+    if (row.status !== 'conditional_approval') {
+      throw new ConflictException({
+        code: 'INVALID_STATUS',
+        message: `Application is in status "${row.status}" — only conditional_approval applications can have payment recorded`,
       });
+    }
 
-      await db.applicationNote.create({
-        data: {
-          tenant_id: tenantId,
-          application_id: applicationId,
-          author_user_id: userId,
-          note: 'Payment plan arranged. Application submitted.',
-          is_internal: true,
-        },
-      });
-
-      return { success: true };
-    });
+    return row;
   }
 
-  // ─── Admin: Waive Fees ─────────────────────────────────────────────────
+  // ─── Role assertion ──────────────────────────────────────────────────────
 
-  async waiveFees(tenantId: string, applicationId: string, userId: string) {
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+  private async assertOverrideRoleAllowed(
+    tenantId: string,
+    actingUserId: string,
+    requiredRoleKey: 'school_owner' | 'school_principal',
+  ): Promise<void> {
+    // school_owner is always allowed (leadership bypass) in addition to the
+    // tenant-configured minimum override role.
+    const acceptedRoleKeys = new Set<string>([LEADERSHIP_ROLE_KEY, requiredRoleKey]);
 
-    return prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
+    const membership = await this.rbacReadFacade.findMembershipByUserWithPermissions(
+      tenantId,
+      actingUserId,
+    );
 
-      const app = await db.application.findFirst({
-        where: { id: applicationId, tenant_id: tenantId },
+    const holdsAcceptedRole =
+      membership?.membership_status === 'active' &&
+      membership.membership_roles.some((mr) => acceptedRoleKeys.has(mr.role.role_key));
+
+    if (!holdsAcceptedRole) {
+      throw new ForbiddenException({
+        code: 'OVERRIDE_ROLE_REQUIRED',
+        message: `This action requires the "${requiredRoleKey}" role (or school_owner)`,
       });
+    }
+  }
 
-      if (!app) {
-        throw new NotFoundException({
-          error: { code: 'APPLICATION_NOT_FOUND', message: 'Application not found' },
-        });
-      }
+  // ─── Note builders ────────────────────────────────────────────────────────
 
-      if (app.status !== 'conditional_approval') {
-        throw new BadRequestException({
-          error: {
-            code: 'INVALID_STATUS',
-            message: 'Only conditional approvals can have fees waived',
-          },
-        });
-      }
+  private buildCashNote(params: RecordCashPaymentParams): string {
+    const parts = [`Cash payment recorded: €${(params.amountCents / 100).toFixed(2)}.`];
+    if (params.receiptNumber) parts.push(`Receipt #${params.receiptNumber}.`);
+    if (params.notes) parts.push(`Notes: ${params.notes}`);
+    return parts.join(' ');
+  }
 
-      await db.application.update({
-        where: { id: applicationId },
-        data: {
-          status: 'approved',
-          payment_status: 'waived',
-          payment_amount: 0,
-          reviewed_at: new Date(),
-          payment_deadline: null,
-        },
-      });
-
-      await db.applicationNote.create({
-        data: {
-          tenant_id: tenantId,
-          application_id: applicationId,
-          author_user_id: userId,
-          note: 'Fees waived by admin. Application submitted.',
-          is_internal: true,
-        },
-      });
-
-      return { success: true };
-    });
+  private buildBankTransferNote(params: RecordBankTransferParams): string {
+    const parts = [
+      `Bank transfer recorded: €${(params.amountCents / 100).toFixed(2)}.`,
+      `Reference: ${params.transferReference}.`,
+      `Transfer date: ${params.transferDate}.`,
+    ];
+    if (params.notes) parts.push(`Notes: ${params.notes}`);
+    return parts.join(' ');
   }
 }

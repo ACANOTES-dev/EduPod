@@ -62,6 +62,29 @@ export const admissionsAnalyticsSchema = z.object({
   date_to: z.string().date().optional(),
 });
 
+// ─── Admissions payment recording (Wave 3 impl 07) ─────────────────────────
+
+export const recordCashPaymentSchema = z.object({
+  amount_cents: z.number().int().positive(),
+  receipt_number: z.string().max(100).optional(),
+  notes: z.string().max(1000).optional(),
+});
+
+export const recordBankTransferSchema = z.object({
+  amount_cents: z.number().int().positive(),
+  transfer_reference: z.string().min(1).max(100),
+  transfer_date: z.string().datetime(),
+  notes: z.string().max(1000).optional(),
+});
+
+export const forceApproveOverrideSchema = z.object({
+  override_type: z.enum(['full_waiver', 'partial_waiver', 'deferred_payment']),
+  actual_amount_collected_cents: z.number().int().nonnegative(),
+  justification: z.string().min(20).max(2000),
+});
+
+export const listAdmissionOverridesSchema = paginationQuerySchema;
+
 // Inferred types
 export type CreatePublicApplicationDto = z.infer<typeof createPublicApplicationSchema>;
 export type SubmitApplicationDto = z.infer<typeof submitApplicationSchema>;
@@ -69,3 +92,7 @@ export type ReviewApplicationDto = z.infer<typeof reviewApplicationSchema>;
 export type ListApplicationsQuery = z.infer<typeof listApplicationsSchema>;
 export type CreateApplicationNoteDto = z.infer<typeof createApplicationNoteSchema>;
 export type AdmissionsAnalyticsQuery = z.infer<typeof admissionsAnalyticsSchema>;
+export type RecordCashPaymentDto = z.infer<typeof recordCashPaymentSchema>;
+export type RecordBankTransferDto = z.infer<typeof recordBankTransferSchema>;
+export type ForceApproveOverrideDto = z.infer<typeof forceApproveOverrideSchema>;
+export type ListAdmissionOverridesQuery = z.infer<typeof listAdmissionOverridesSchema>;
