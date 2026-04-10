@@ -190,7 +190,9 @@ export default function GenerateReportCardsPage() {
       case 1:
         return state.scope.mode !== null && state.scope.ids.length > 0;
       case 2:
-        return state.academicPeriodId !== null;
+        // Phase 1b — Option B: either a per-period UUID or a full-year
+        // selection counts as "step 2 done".
+        return state.academicPeriodId !== null || state.academicYearId !== null;
       case 3:
         return state.contentScope !== null;
       case 4:
@@ -207,7 +209,10 @@ export default function GenerateReportCardsPage() {
 
   // ─── Submit handler ─────────────────────────────────────────────────────
   const handleSubmit = React.useCallback(async () => {
-    if (!state.scope.mode || state.academicPeriodId === null || state.contentScope === null) {
+    if (!state.scope.mode || state.contentScope === null) {
+      return;
+    }
+    if (state.academicPeriodId === null && state.academicYearId === null) {
       return;
     }
 
@@ -216,6 +221,7 @@ export default function GenerateReportCardsPage() {
       const payload: StartGenerationRunDto = {
         scope: buildScopePayload(state.scope.mode, state.scope.ids),
         academic_period_id: state.academicPeriodId,
+        academic_year_id: state.academicYearId ?? undefined,
         content_scope: state.contentScope,
         personal_info_fields: state.personalInfoFields,
         override_comment_gate: state.overrideCommentGate,
@@ -240,6 +246,7 @@ export default function GenerateReportCardsPage() {
     }
   }, [
     state.academicPeriodId,
+    state.academicYearId,
     state.contentScope,
     state.overrideCommentGate,
     state.personalInfoFields,

@@ -26,7 +26,16 @@ export function Step6Review({ state }: Step6Props) {
             : '—'
         }
       />
-      <ReviewRow label={t('reviewPeriod')} value={state.academicPeriodId ?? '—'} />
+      <ReviewRow
+        label={t('reviewPeriod')}
+        value={
+          state.academicPeriodId !== null
+            ? state.academicPeriodId
+            : state.academicYearId !== null
+              ? t('reviewPeriodFullYear')
+              : '—'
+        }
+      />
       <ReviewRow label={t('reviewTemplate')} value={state.contentScope ?? '—'} />
       <ReviewRow
         label={t('reviewFields')}

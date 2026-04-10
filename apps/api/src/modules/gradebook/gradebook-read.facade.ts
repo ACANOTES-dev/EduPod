@@ -87,6 +87,7 @@ const REPORT_CARD_SELECT = {
   tenant_id: true,
   student_id: true,
   academic_period_id: true,
+  academic_year_id: true,
   status: true,
   template_locale: true,
   teacher_comment: true,
@@ -198,7 +199,9 @@ export interface ReportCardRow {
   id: string;
   tenant_id: string;
   student_id: string;
-  academic_period_id: string;
+  /** NULL for full-year report cards (Phase 1b — Option B). */
+  academic_period_id: string | null;
+  academic_year_id: string;
   status: string;
   template_locale: string;
   teacher_comment: string | null;

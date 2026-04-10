@@ -200,6 +200,7 @@ describe('report_cards — RLS leakage (database layer)', () => {
         tenant_id: TENANT_A_ID,
         student_id: studentAId,
         academic_period_id: ACAD_PERIOD_A_ID,
+        academic_year_id: ACAD_YEAR_A_ID,
         template_locale: 'en',
         snapshot_payload_json: {},
       },
@@ -283,7 +284,10 @@ describe('report_cards — RLS leakage (database layer)', () => {
   // 4. Write isolation (DELETE) — Tenant B DELETE targeting Tenant A's record is silently blocked
 
   it('DELETE as Tenant B targeting Tenant A report_card leaves the record intact', async () => {
-    await mutateAsTenant(TENANT_B_ID, `DELETE FROM report_cards WHERE id = '${reportCardAId}'::uuid`);
+    await mutateAsTenant(
+      TENANT_B_ID,
+      `DELETE FROM report_cards WHERE id = '${reportCardAId}'::uuid`,
+    );
 
     // Verify via superuser (no role switch) that Tenant A's record still exists
     const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(

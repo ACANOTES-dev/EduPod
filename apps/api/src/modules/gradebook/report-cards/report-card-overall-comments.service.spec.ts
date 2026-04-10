@@ -15,6 +15,7 @@ const ADMIN_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 const STUDENT_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
 const CLASS_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 const PERIOD_ID = '11111111-1111-1111-1111-111111111111';
+const YEAR_ID = '99999999-9999-9999-9999-999999999999';
 const COMMENT_ID = '22222222-2222-2222-2222-222222222222';
 
 const mockRlsTx = {
@@ -45,6 +46,11 @@ function buildMockPrisma() {
 
 const mockWindowsService = {
   assertWindowOpenForPeriod: jest.fn(),
+  // Phase 1b — Option B: the service now resolves period/year via these
+  // helpers. The default implementations behave like the per-period path so
+  // existing tests continue to work without per-test setup.
+  resolveCommentScope: jest.fn(),
+  assertWindowOpen: jest.fn(),
 };
 
 const mockClassesReadFacade = {
@@ -56,7 +62,8 @@ const baseComment = {
   tenant_id: TENANT_ID,
   student_id: STUDENT_ID,
   class_id: CLASS_ID,
-  academic_period_id: PERIOD_ID,
+  academic_period_id: PERIOD_ID as string | null,
+  academic_year_id: YEAR_ID,
   author_user_id: HOMEROOM_TEACHER_ID,
   comment_text: 'A strong student overall.',
   finalised_at: null,
@@ -75,6 +82,25 @@ describe('ReportCardOverallCommentsService', () => {
     mockRlsTx.reportCardOverallComment.create.mockReset();
     mockRlsTx.reportCardOverallComment.update.mockReset();
     mockWindowsService.assertWindowOpenForPeriod.mockReset().mockResolvedValue(undefined);
+    mockWindowsService.assertWindowOpen.mockReset().mockResolvedValue(undefined);
+    // Default: per-period scope. Tests that exercise full-year override
+    // this on a per-test basis.
+    mockWindowsService.resolveCommentScope
+      .mockReset()
+      .mockImplementation(
+        async (
+          _tenantId: string,
+          input: { academic_period_id?: string | null; academic_year_id?: string | null },
+        ) => {
+          if (input.academic_period_id) {
+            return { periodId: input.academic_period_id, yearId: 'year-from-period' };
+          }
+          if (input.academic_year_id) {
+            return { periodId: null, yearId: input.academic_year_id };
+          }
+          throw new Error('PERIOD_OR_YEAR_REQUIRED');
+        },
+      );
     mockClassesReadFacade.findClassesGeneric.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
@@ -112,7 +138,7 @@ describe('ReportCardOverallCommentsService', () => {
         dto,
       );
       expect(result).toEqual(baseComment);
-      expect(mockWindowsService.assertWindowOpenForPeriod).toHaveBeenCalled();
+      expect(mockWindowsService.assertWindowOpen).toHaveBeenCalled();
     });
 
     it('should reject a non-homeroom teacher', async () => {
@@ -122,7 +148,7 @@ describe('ReportCardOverallCommentsService', () => {
       await expect(
         service.upsert(TENANT_ID, { userId: OTHER_TEACHER_ID, isAdmin: false }, dto),
       ).rejects.toMatchObject({ response: { code: 'INVALID_AUTHOR' } });
-      expect(mockWindowsService.assertWindowOpenForPeriod).not.toHaveBeenCalled();
+      expect(mockWindowsService.assertWindowOpen).not.toHaveBeenCalled();
     });
 
     it('should reject when class has no homeroom teacher', async () => {
@@ -146,7 +172,7 @@ describe('ReportCardOverallCommentsService', () => {
       mockClassesReadFacade.findClassesGeneric.mockResolvedValue([
         { id: CLASS_ID, homeroom_teacher: { user_id: HOMEROOM_TEACHER_ID } },
       ]);
-      mockWindowsService.assertWindowOpenForPeriod.mockRejectedValue(
+      mockWindowsService.assertWindowOpen.mockRejectedValueOnce(
         new ForbiddenException({ code: 'COMMENT_WINDOW_CLOSED', message: 'closed' }),
       );
       await expect(

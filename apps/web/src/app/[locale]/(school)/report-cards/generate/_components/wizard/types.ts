@@ -20,7 +20,18 @@ export interface WizardState {
     mode: GenerationScopeMode | null;
     ids: string[];
   };
+  /**
+   * Phase 1b — Option B: the wizard now distinguishes three states:
+   *  - `null` and `academicYearId === null` → nothing selected yet
+   *  - `string` (UUID) → per-period scope; the year is derived server-side
+   *  - `null` and `academicYearId !== null` → full-year scope
+   *
+   * Step 2 sets one of `academicPeriodId` or `academicYearId` and clears the
+   * other via `SET_PERIOD_OR_YEAR`. Step 5 dry-run + Step 6 submit pass both
+   * fields through; the API enforces exactly-one-of.
+   */
   academicPeriodId: string | null;
+  academicYearId: string | null;
   contentScope: 'grades_only' | null;
   templateLocales: string[];
   personalInfoFields: PersonalInfoField[];
@@ -55,6 +66,7 @@ export type WizardAction =
   | { type: 'SET_SCOPE_MODE'; mode: GenerationScopeMode | null }
   | { type: 'SET_SCOPE_IDS'; ids: string[] }
   | { type: 'SET_PERIOD'; id: string | null }
+  | { type: 'SET_FULL_YEAR'; academicYearId: string }
   | { type: 'SET_CONTENT_SCOPE'; contentScope: 'grades_only' | null; locales: string[] }
   | { type: 'TOGGLE_FIELD'; field: PersonalInfoField }
   | { type: 'SET_FIELDS'; fields: PersonalInfoField[] }
@@ -72,6 +84,7 @@ export const initialWizardState: WizardState = {
   step: 1,
   scope: { mode: null, ids: [] },
   academicPeriodId: null,
+  academicYearId: null,
   contentScope: null,
   templateLocales: [],
   personalInfoFields: [],
@@ -101,7 +114,11 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
     case 'SET_SCOPE_IDS':
       return { ...state, scope: { ...state.scope, ids: action.ids } };
     case 'SET_PERIOD':
-      return { ...state, academicPeriodId: action.id };
+      // Selecting a per-period scope clears any pending full-year choice.
+      return { ...state, academicPeriodId: action.id, academicYearId: null };
+    case 'SET_FULL_YEAR':
+      // Selecting a full-year scope clears any pending per-period choice.
+      return { ...state, academicPeriodId: null, academicYearId: action.academicYearId };
     case 'SET_CONTENT_SCOPE':
       return {
         ...state,

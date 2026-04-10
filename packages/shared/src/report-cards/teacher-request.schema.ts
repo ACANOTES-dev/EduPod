@@ -30,18 +30,33 @@ export const teacherRequestScopeSchema = z.object({
 export type TeacherRequestScope = z.infer<typeof teacherRequestScopeSchema>;
 
 // ─── Submit request ─────────────────────────────────────────────────────────
-// Cross-field rule:
+// Cross-field rules:
 //   - regenerate_reports: target_scope_json is REQUIRED
 //   - open_comment_window: target_scope_json MUST be null/absent
+//
+// Phase 1b — Option B: exactly one of `academic_period_id` or
+// `academic_year_id` must be provided. When `academic_period_id` is null and
+// `academic_year_id` is set, the request is a full-year reopen — approving
+// it reopens every per-period comment window in the year atomically.
 
 export const submitTeacherRequestSchema = z
   .object({
     request_type: teacherRequestTypeSchema,
-    academic_period_id: z.string().uuid(),
+    academic_period_id: z.string().uuid().nullable().optional(),
+    academic_year_id: z.string().uuid().optional(),
     target_scope_json: teacherRequestScopeSchema.nullable().optional(),
     reason: z.string().min(1).max(2000),
   })
   .superRefine((data, ctx) => {
+    const hasPeriod = data.academic_period_id != null && data.academic_period_id !== '';
+    const hasYear = data.academic_year_id != null && data.academic_year_id !== '';
+    if (!hasPeriod && !hasYear) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Either academic_period_id or academic_year_id is required',
+        path: ['academic_period_id'],
+      });
+    }
     if (data.request_type === 'regenerate_reports') {
       if (!data.target_scope_json) {
         ctx.addIssue({

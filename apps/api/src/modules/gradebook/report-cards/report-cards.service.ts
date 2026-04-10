@@ -201,12 +201,14 @@ export class ReportCardsService {
         data: { status: 'revised' },
       });
 
-      // 2. Create new draft with copied snapshot
+      // 2. Create new draft with copied snapshot. Full-year revisions
+      // preserve the null academic_period_id but keep the year scope.
       const newReportCard = await db.reportCard.create({
         data: {
           tenant_id: tenantId,
           student_id: reportCard.student_id,
           academic_period_id: reportCard.academic_period_id,
+          academic_year_id: reportCard.academic_year_id,
           status: 'draft',
           template_locale: reportCard.template_locale,
           teacher_comment: reportCard.teacher_comment,

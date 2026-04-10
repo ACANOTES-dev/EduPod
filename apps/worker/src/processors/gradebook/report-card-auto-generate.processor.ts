@@ -67,7 +67,7 @@ export class ReportCardAutoGenerateProcessor extends WorkerHost {
         },
         status: { in: ['active', 'closed'] },
       },
-      select: { id: true, name: true },
+      select: { id: true, name: true, academic_year_id: true },
     });
 
     if (recentlyEndedPeriods.length === 0) {
@@ -129,6 +129,7 @@ export class ReportCardAutoGenerateProcessor extends WorkerHost {
           tenant_id: tenantId,
           student_id: studentId,
           academic_period_id: period.id,
+          academic_year_id: period.academic_year_id,
           status: 'draft' as const,
           template_locale: locale,
           snapshot_payload_json: {},

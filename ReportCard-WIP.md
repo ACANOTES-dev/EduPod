@@ -430,9 +430,81 @@ Quick cosmetic + envelope-mismatch fixes. Single commit. No schema or product ch
 
 **Do NOT touch in Phase 1a:** schema, `ReportCard.academic_period_id`, generation service, transcript service, nav config, dashboard consolidation, priority feed.
 
-### Phase 1b — Full-year report cards (Option B)
+### Phase 1b — Full-year report cards (Option B) ✅ COMPLETE (local; awaiting deploy)
 
 This is the real implementation of Bug #4. Separate commit so it's revertable.
+
+**Status (Session 3 — 2026-04-10):** All backend, schema, worker, and frontend pieces landed locally. Type-check + lint clean across all four packages. Full regression suite green: 16,969 tests pass (api 15,057 / shared 845 / worker 803 / web 264). Net-new full-year unit tests deferred to a backlog item — see Backlog at the bottom of the implementation log.
+
+**What changed vs. the original plan in this section:**
+
+- **6 tables affected, not 8+**. `ReportCardApproval`, `ReportCardDelivery`, `ReportCardAcknowledgment`, `ReportCardVerificationToken`, `ReportCardCustomFieldValue` cascade via `report_card_id` and never hold a period field; they need no schema change.
+- **`ReportCardApprovalConfig` was NOT touched.** The model has no period or year scoping today (`is_active` flag picks the active config). Q2's "create a new full-year approval config row" is achievable without a schema change — admins can create a second row with a different name; the existing tenant-level lookup keeps working. Adding period/year scoping to approval configs is logged as a Phase 1b backlog item.
+- **No new unique constraints on `ReportCard` / `ReportCardBatchJob` / `ReportCommentWindow` / `ReportCardTeacherRequest`.** Q4's `uniq_report_card_period ON (class_id, ...)` couldn't be implemented as written: ReportCard has no `class_id` column. Existing dedup is application-level (worker `findFirst` before insert) and now branches on period vs year, so the safety net is still there. The two comment tables DO get the partial-index split because their existing per-period uniques would silently admit duplicate full-year rows.
+- **No `buildReportCardStorageKey` helper.** Storage key construction lives at exactly one site (`apps/worker/src/processors/gradebook/report-card-generation.processor.ts:388`); the full-year branch is inlined there instead of extracted to a helper.
+- **Transcript service untouched.** `report-card-transcript.service.ts` is the student-facing transcript generator, not the report-card-generation path. Worker `report-card-generation.processor.ts` has its own per-student render loop and is the file that needed the full-year branch.
+- **Approval service lookup change skipped** along with the approval config schema change above.
+
+**Files touched (Session 3):**
+
+Schema + migration:
+
+- `packages/prisma/schema.prisma` — 6 models updated with nullable period + required year + secondary year-scoped indexes.
+- `packages/prisma/migrations/20260410000000_add_full_year_report_cards/migration.sql` — full backfill + FK + nullable + partial unique indexes (subj/overall comments).
+
+Shared schemas:
+
+- `packages/shared/src/report-cards/generation.schema.ts` — `startGenerationRunSchema` and `dryRunGenerationCommentGateSchema` accept nullable period + optional year, cross-field `.refine()`.
+- `packages/shared/src/report-cards/comment-window.schema.ts` — `createCommentWindowSchema` accepts either period or year.
+- `packages/shared/src/report-cards/teacher-request.schema.ts` — `submitTeacherRequestSchema` accepts either period or year via `superRefine`.
+- `packages/shared/src/report-cards/overall-comment.schema.ts` + `subject-comment.schema.ts` — same.
+- `packages/shared/src/report-cards/matrix-library.schema.ts` — library query accepts `academic_period_id: 'full_year'` sentinel + optional `academic_year_id`.
+
+Backend services:
+
+- `apps/api/src/modules/gradebook/report-cards/report-card-generation.service.ts` — `dryRunCommentGate` and `generateRun` branch on period vs year. New `resolvePeriodOrYear` and `buildYearPeriodInFilter` helpers. `GenerationRunSummary` now has `academic_period_id: string | null` and `academic_year_id: string`. Legacy `generate()` writes both fields.
+- `apps/api/src/modules/gradebook/report-cards/report-comment-windows.service.ts` — `open()` accepts both period and year, resolves which is authoritative. New `assertWindowOpen({ periodId, yearId })` and `resolveCommentScope()` helpers. `assertWindowOpenForPeriod` retained as a back-compat wrapper.
+- `apps/api/src/modules/gradebook/report-cards/report-card-overall-comments.service.ts` — `upsert` resolves scope, `assertWindowOpen`, writes both period (nullable) and year. `findOne` and `list` filter by period or year (the literal `'full_year'` sentinel selects NULL-period rows). Update/finalise/unfinalise paths use `assertWindowOpen` with the row's stored scope.
+- `apps/api/src/modules/gradebook/report-cards/report-card-subject-comments.service.ts` — same pattern. `bulkFinalise` retained per-period semantics (the admin path doesn't need full-year support yet) but routed through `assertWindowOpen` for consistency.
+- `apps/api/src/modules/gradebook/report-cards/report-card-teacher-requests.service.ts` — `submit()` resolves period or year, stores both. New `openFullYearReopen()` private method runs a single transaction that closes any other open window, flips every per-period window in the year to `open`, and creates (or reopens) the full-year window. Approve+auto-execute branches on null period to call this path. New `resolvePeriodOrYearInput` helper.
+- `apps/api/src/modules/gradebook/report-cards/report-cards-queries.service.ts` — library list filter accepts the `'full_year'` sentinel and the new `academic_year_id` filter. Library response synthesises a `{ id: 'full-year:<yearId>', name: 'Full Year' }` entry for full-year rows. `buildLibraryGroupKey` clusters full-year rows on the year id instead of the period id so multi-locale grouping still works.
+- `apps/api/src/modules/gradebook/report-cards/report-cards.service.ts` — revision creation copies `academic_year_id`.
+- `apps/api/src/modules/gradebook/report-cards/report-card-verification.service.ts` — public verification page renders "Full Year" when the report card has a null period.
+- `apps/api/src/modules/gradebook/ai/ai-comments.service.ts` — branches on null period when loading snapshots; uses `AcademicReadFacade.findPeriodsForYear` (cross-module rule) instead of direct Prisma access. AcademicReadFacade injected as new dependency.
+- `apps/api/src/modules/gradebook/gradebook-read.facade.ts` — `REPORT_CARD_SELECT` now includes `academic_year_id`; `ReportCardRow` type widens `academic_period_id` to `string | null`.
+
+Worker:
+
+- `apps/worker/src/processors/gradebook/report-card-generation.processor.ts` — full-year branch loads all snapshots across every period in the year, collapses each (student, subject) into one mean snapshot, loads comments by `(year, NULL period)`, emits a synthetic "Full Year" period in the render payload, switches storage key to `full-year-<yearId>` segment, dedups via the `(student, NULL period, year)` triple. Per-period path unchanged.
+- `apps/worker/src/processors/gradebook/report-card-auto-generate.processor.ts` — backfills `academic_year_id` from the period when creating draft cards.
+
+Frontend:
+
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/types.ts` — wizard state gains `academicYearId: string | null` alongside `academicPeriodId`. New `SET_FULL_YEAR` action; `SET_PERIOD` clears the year.
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-2-period.tsx` — Coming Soon stopgap removed. Renders one "Full Year — <name>" card per academic year (active first) above the period list.
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-5-comment-gate.tsx` — dry-run payload sends both period (nullable) and year.
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/_components/wizard/step-6-review.tsx` — review row shows "Full year" when full-year is selected.
+- `apps/web/src/app/[locale]/(school)/report-cards/generate/page.tsx` — step 2 gating accepts either choice; submit handler sends both fields.
+- `apps/web/src/app/[locale]/(school)/report-cards/library/page.tsx` — period filter dropdown gains a "Full year" option that sends `academic_period_id=full_year`.
+- `apps/web/src/app/[locale]/(school)/report-comments/_components/request-reopen-modal.tsx` — full rebuild. Form scope token is either a UUID or `full_year:<yearId>`; submit decodes it into the right API payload. Both periods and academic years are listed.
+
+i18n:
+
+- `apps/web/messages/{en,ar}.json` — new keys: `reportCards.wizard.periodFullYearHint`, `reportCards.wizard.reviewPeriodFullYear`, `reportCards.library.periodFullYear`. Existing `reportCards.wizard.periodFullYear` gained an `{year}` interpolation slot.
+
+Tests:
+
+- `apps/api/src/modules/gradebook/report-cards/report-card-overall-comments.service.spec.ts` — fixture base comment now carries `academic_year_id`. Mock `windowsService` extended with `assertWindowOpen` and `resolveCommentScope` (default behaviour matches per-period path).
+- `apps/api/src/modules/gradebook/report-cards/report-card-subject-comments.service.spec.ts` — same.
+- `apps/api/test/report-cards.rls.spec.ts` — fixture writes `academic_year_id` on the seeded report card.
+- `apps/api/test/report-cards/library.e2e-spec.ts` — fixture report cards now write `academic_year_id`.
+- `apps/api/test/report-cards/rls-leakage.e2e-spec.ts` — fixture rows on the 4 affected tables now write `academic_year_id`.
+
+**Net-new full-year unit tests are NOT yet written.** The existing 16,969 tests cover regression of the per-period path (which is unchanged behaviourally) plus the type-system catches every structural break. The net-new tests in section 6 below remain a Backlog item — see the implementation log.
+
+---
+
+**Original plan (kept for reference, ✅ marks what landed and ⏭ marks what was skipped or restructured):**
 
 **Tasks:**
 
@@ -619,6 +691,33 @@ _Completed:_
 - Deploy script user-handling needs cleanup — the `sudo -u edupod pm2` chain inside the script breaks when the script itself is invoked as edupod. Either always invoke as root and let it sudo, or fix the script to detect the calling user.
 - Server file ownership keeps drifting back to root — investigate which runtime path is creating root-owned files (turbo cache? prisma generate?) and add a chown to the deploy script's preflight.
 - The `has_override` semantics on matrix cells changed: the override flag is preserved but the raw `overridden_value` string is no longer echoed. If teachers actually need to override the _letter_ (not the score), Phase 1b should add an explicit `letter_override` field. Otherwise the current behaviour is correct — score is authoritative.
+
+**Session 3 — 2026-04-10 (Phase 1b complete locally, awaiting deploy)**
+
+_Completed:_
+
+- ✅ Schema migration `20260410000000_add_full_year_report_cards` — 6 tables (`report_cards`, `report_card_batch_jobs`, `report_comment_windows`, `report_card_subject_comments`, `report_card_overall_comments`, `report_card_teacher_requests`) get nullable `academic_period_id` + required `academic_year_id` (backfilled from the period's parent year before the NOT NULL flip) + FK to `academic_years` + secondary year-scoped indexes. The 2 comment tables drop their period-inclusive uniques and replace them with paired partial unique indexes (`uniq_*_period` WHERE period IS NOT NULL, `uniq_*_year` WHERE period IS NULL). RLS policies are tenant-scoped and untouched. Migration is reversible only while no NULL-period rows exist.
+- ✅ Shared Zod schemas — `startGenerationRunSchema`, `dryRunGenerationCommentGateSchema`, `createCommentWindowSchema`, `submitTeacherRequestSchema`, `createOverallCommentSchema`, `createSubjectCommentSchema` accept nullable period + optional year with cross-field `.refine` enforcing exactly-one-of. `listReportCardLibraryQuerySchema` accepts the `'full_year'` sentinel and `academic_year_id` filter.
+- ✅ Generation service — `generateRun` and `dryRunCommentGate` branch via the new `resolvePeriodOrYear` helper. Snapshot/comment lookups use `buildYearPeriodInFilter` (period IN-list across the year) for full-year. Batch job rows store both `academic_period_id` (nullable) and `academic_year_id`. The legacy `generate()` method also writes `academic_year_id` to satisfy the new NOT NULL constraint.
+- ✅ Comment windows service — `open()` resolves period or year, errors loudly if neither. New `assertWindowOpen({ periodId, yearId })` and `resolveCommentScope()` helpers normalise scope across the comment write path. `assertWindowOpenForPeriod` is retained as a back-compat thin wrapper.
+- ✅ Overall + subject comment services — `upsert` resolves scope via the windows service, asserts the right window, and writes both period (nullable) and year. `findOne` accepts a nullable `academicPeriodId` and an optional `academicYearId` for full-year lookups. `list` accepts the `'full_year'` filter.
+- ✅ Teacher requests service — `submit()` resolves period or year, persists both. New `openFullYearReopen()` private method runs a single transaction that closes any other open window, flips every per-period window in the year to `open`, and creates (or reopens) the full-year window. The `auto_execute = true` approve path branches on null period to call this method, satisfying Q3's "reopening full-year = reopening every other period together" rule atomically.
+- ✅ Worker generation processor — full-year branch loads all period snapshots, collapses each (student, subject) pair into one mean snapshot, loads comments by `(year, NULL period)`, emits a synthetic "Full Year" period in the render payload, and switches the storage key segment from `<periodId>` to `full-year-<yearId>`. The dedup `findFirst` uses the `(student, NULL period, year)` triple.
+- ✅ Frontend wizard — `WizardState` gains `academicYearId`, `SET_FULL_YEAR` action, step 2 renders one "Full Year — <name>" card per academic year (active first) above the period list, step gating accepts either choice, dry-run + submit send both fields. Step 6 review labels full-year selection.
+- ✅ Library page — period filter dropdown gains a "Full year" option that sends `academic_period_id=full_year`.
+- ✅ Request-reopen modal — full rebuild. Scope token is either a period UUID or `full_year:<yearId>`; the submit handler decodes it into the right API payload. Both periods and academic years are listed in the dropdown.
+- ✅ Tests — every existing report-card service spec was extended to mock the new `assertWindowOpen` / `resolveCommentScope` methods (defaults to per-period behaviour) and to write `academic_year_id` on fixture rows. RLS + library e2e specs likewise. **All 16,969 tests pass across @school/api (15,057), @school/shared (845), @school/worker (803), @school/web (264).** Type-check + lint clean across all four packages (lint had pre-existing warnings, zero errors).
+- ✅ Adjacent fix: `ai-comments.service.ts` was using direct `prisma.academicPeriod.findMany` from gradebook (a cross-module Prisma access lint error). Switched to `AcademicReadFacade.findPeriodsForYear` and added the facade as a constructor dependency. AcademicsModule was already imported into GradebookModule so DI resolves cleanly.
+
+**Phase 1b — DONE locally.** Single commit pending. Production deploy is the next step (Phase 3).
+
+**Backlog items surfaced during Phase 1b (not Phase 1b scope, deferred):**
+
+- **Net-new full-year unit/e2e tests.** The existing tests confirm regression of the per-period path; the type system catches structural issues; but the new branches in the worker, generation service, teacher requests reopen, and comment windows resolution don't have their own happy-path tests yet. Track for a follow-up: a `report-card-generation.service.spec.ts` full-year scenario, a `report-card-teacher-requests.service.spec.ts` full-year reopen atomic check, an RLS leakage spec for full-year rows, and a frontend e2e in Phase 3.
+- **Approval config period/year scoping.** Q2's plan to add `(tenant_id, academic_year_id, NULL period_id)` columns to `ReportCardApprovalConfig` was not implemented — the existing `is_active` flag on a tenant-level config still works for both per-period and full-year runs. If the user later wants distinct approval workflows per scope, schema work + a settings UI change is needed.
+- **WIP Q4 dedup unique index plan was wrong.** `ReportCard` has no `class_id` column, so the proposed `uniq_report_card_period ON (class_id, ...)` couldn't be created. Application-level dedup in the worker `findFirst` still prevents duplicates and now branches on period vs year. If duplicate prevention proves insufficient under load, a different unique key (e.g. `(student_id, period_id, template_id, locale)`) could be added later.
+- **`buildReportCardStorageKey` helper not extracted.** The single construction site at `report-card-generation.processor.ts:388` was inlined with a branch instead of extracted to a helper. If a second construction site is added later, extracting then makes more sense.
+- **`computeYearOverview` not used by the worker.** The worker's full-year branch implements its own simple-mean aggregation across periods, matching the existing weighted-average shape it already uses for per-period runs. The user mentioned "our gradebook already has 'all period' grade information/grades" which is `computeYearOverview` in the API; the worker can't import it directly across the API/worker boundary, and pulling the logic into `packages/shared` would be a useful refactor if/when the aggregation needs period weighting. Current behaviour: equal-weight mean across periods.
 
 ---
 

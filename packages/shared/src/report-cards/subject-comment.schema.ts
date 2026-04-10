@@ -2,15 +2,31 @@ import { z } from 'zod';
 
 // ─── Subject comment — create ───────────────────────────────────────────────
 // Server resolves author_user_id from auth context. tenant_id from RLS.
+//
+// Phase 1b — Option B: exactly one of `academic_period_id` or
+// `academic_year_id` must be provided.
 
-export const createSubjectCommentSchema = z.object({
-  student_id: z.string().uuid(),
-  subject_id: z.string().uuid(),
-  class_id: z.string().uuid(),
-  academic_period_id: z.string().uuid(),
-  comment_text: z.string().min(1).max(4000),
-  is_ai_draft: z.boolean().optional(),
-});
+export const createSubjectCommentSchema = z
+  .object({
+    student_id: z.string().uuid(),
+    subject_id: z.string().uuid(),
+    class_id: z.string().uuid(),
+    academic_period_id: z.string().uuid().nullable().optional(),
+    academic_year_id: z.string().uuid().optional(),
+    comment_text: z.string().min(1).max(4000),
+    is_ai_draft: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      const hasPeriod = data.academic_period_id != null && data.academic_period_id !== '';
+      const hasYear = data.academic_year_id != null && data.academic_year_id !== '';
+      return hasPeriod || hasYear;
+    },
+    {
+      message: 'Either academic_period_id or academic_year_id is required',
+      path: ['academic_period_id'],
+    },
+  );
 
 export type CreateSubjectCommentDto = z.infer<typeof createSubjectCommentSchema>;
 

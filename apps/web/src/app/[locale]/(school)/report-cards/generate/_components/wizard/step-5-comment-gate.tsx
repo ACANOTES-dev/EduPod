@@ -24,13 +24,17 @@ export function Step5CommentGate({ state, dispatch }: Step5Props) {
   const [showDetails, setShowDetails] = React.useState(false);
 
   const runDryCheck = React.useCallback(async () => {
-    if (!state.scope.mode || state.scope.ids.length === 0 || !state.academicPeriodId) return;
+    // Phase 1b — Option B: the wizard requires either a per-period or
+    // full-year scope to run the gate.
+    if (!state.scope.mode || state.scope.ids.length === 0) return;
+    if (!state.academicPeriodId && !state.academicYearId) return;
 
     dispatch({ type: 'DRY_RUN_START' });
     try {
       const payload: DryRunGenerationCommentGateDto = {
         scope: buildScopePayload(state.scope.mode, state.scope.ids),
         academic_period_id: state.academicPeriodId,
+        academic_year_id: state.academicYearId ?? undefined,
         content_scope: state.contentScope ?? 'grades_only',
       };
       const res = await apiClient<{ data: CommentGateDryRunResult }>(
@@ -50,7 +54,15 @@ export function Step5CommentGate({ state, dispatch }: Step5Props) {
       console.error('[Step5CommentGate.runDryCheck]', err);
       dispatch({ type: 'DRY_RUN_FAILURE', error: message });
     }
-  }, [dispatch, state.academicPeriodId, state.contentScope, state.scope.ids, state.scope.mode, t]);
+  }, [
+    dispatch,
+    state.academicPeriodId,
+    state.academicYearId,
+    state.contentScope,
+    state.scope.ids,
+    state.scope.mode,
+    t,
+  ]);
 
   // Auto-run when the step mounts (or re-mounts).
   React.useEffect(() => {

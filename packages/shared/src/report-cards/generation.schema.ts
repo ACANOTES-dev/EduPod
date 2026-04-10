@@ -39,14 +39,32 @@ export type GenerationScope = z.infer<typeof generationScopeSchema>;
 
 // ─── Dry-run request ─────────────────────────────────────────────────────────
 // The wizard calls this before submit to preview the comment gate status.
+//
+// Phase 1b — Option B: exactly one of `academic_period_id` or
+// `academic_year_id` is required. Per-period runs set `academic_period_id`
+// (year can be omitted — the backend derives it). Full-year runs set
+// `academic_year_id` and leave `academic_period_id` null; the worker then
+// aggregates snapshots across every period in the year.
 
 export const dryRunGenerationCommentGateSchema = z
   .object({
     scope: generationScopeSchema,
-    academic_period_id: z.string().uuid(),
+    academic_period_id: z.string().uuid().nullable().optional(),
+    academic_year_id: z.string().uuid().optional(),
     content_scope: reportCardContentScopeSchema.default('grades_only'),
   })
-  .strict();
+  .strict()
+  .refine(
+    (val) => {
+      const hasPeriod = val.academic_period_id != null && val.academic_period_id !== '';
+      const hasYear = val.academic_year_id != null && val.academic_year_id !== '';
+      return hasPeriod || hasYear;
+    },
+    {
+      message: 'Either academic_period_id or academic_year_id is required',
+      path: ['academic_period_id'],
+    },
+  );
 
 export type DryRunGenerationCommentGateDto = z.infer<typeof dryRunGenerationCommentGateSchema>;
 
@@ -55,7 +73,8 @@ export type DryRunGenerationCommentGateDto = z.infer<typeof dryRunGenerationComm
 export const startGenerationRunSchema = z
   .object({
     scope: generationScopeSchema,
-    academic_period_id: z.string().uuid(),
+    academic_period_id: z.string().uuid().nullable().optional(),
+    academic_year_id: z.string().uuid().optional(),
     content_scope: reportCardContentScopeSchema.default('grades_only'),
     /**
      * Per-run override for the personal-info field set. If omitted the
@@ -70,7 +89,18 @@ export const startGenerationRunSchema = z
      */
     override_comment_gate: z.boolean().default(false),
   })
-  .strict();
+  .strict()
+  .refine(
+    (val) => {
+      const hasPeriod = val.academic_period_id != null && val.academic_period_id !== '';
+      const hasYear = val.academic_year_id != null && val.academic_year_id !== '';
+      return hasPeriod || hasYear;
+    },
+    {
+      message: 'Either academic_period_id or academic_year_id is required',
+      path: ['academic_period_id'],
+    },
+  );
 
 export type StartGenerationRunDto = z.infer<typeof startGenerationRunSchema>;
 

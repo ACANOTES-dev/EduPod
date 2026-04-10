@@ -325,6 +325,7 @@ export default function ReportCardsLibraryPage() {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">{tl('periodAll')}</SelectItem>
+          <SelectItem value="full_year">{tl('periodFullYear')}</SelectItem>
           {periods.map((p) => (
             <SelectItem key={p.id} value={p.id}>
               {p.name}

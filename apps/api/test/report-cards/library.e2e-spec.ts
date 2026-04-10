@@ -336,6 +336,7 @@ describe('Report Cards library (e2e) — impl 06', () => {
           tenant_id: TENANT_A,
           student_id: STUDENT_HOMEROOM_ID,
           academic_period_id: PERIOD_ID,
+          academic_year_id: ACADEMIC_YEAR_ID,
           template_id: TEMPLATE_EN_ID,
           template_locale: 'en',
           status: 'published',
@@ -347,6 +348,7 @@ describe('Report Cards library (e2e) — impl 06', () => {
           tenant_id: TENANT_A,
           student_id: STUDENT_HOMEROOM_ID,
           academic_period_id: PERIOD_ID,
+          academic_year_id: ACADEMIC_YEAR_ID,
           template_id: TEMPLATE_EN_ID, // same template → shared group key
           template_locale: 'ar',
           // 'revised' keeps the row out of the 'draft'/'published' partial
@@ -361,6 +363,7 @@ describe('Report Cards library (e2e) — impl 06', () => {
           tenant_id: TENANT_A,
           student_id: STUDENT_OTHER_ID,
           academic_period_id: PERIOD_ID,
+          academic_year_id: ACADEMIC_YEAR_ID,
           template_id: TEMPLATE_EN_ID,
           template_locale: 'en',
           status: 'published',

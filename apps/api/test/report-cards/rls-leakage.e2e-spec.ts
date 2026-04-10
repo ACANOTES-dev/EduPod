@@ -250,6 +250,7 @@ describe('Report Cards Redesign — RLS leakage (database layer)', () => {
       data: {
         tenant_id: TENANT_A_ID,
         academic_period_id: ACAD_PERIOD_A_ID,
+        academic_year_id: ACAD_YEAR_A_ID,
         opens_at: new Date('2026-04-01T08:00:00Z'),
         closes_at: new Date('2026-04-08T17:00:00Z'),
         opened_by_user_id: USER_A_ID,
@@ -265,6 +266,7 @@ describe('Report Cards Redesign — RLS leakage (database layer)', () => {
         subject_id: SUBJECT_A_ID,
         class_id: CLASS_A_ID,
         academic_period_id: ACAD_PERIOD_A_ID,
+        academic_year_id: ACAD_YEAR_A_ID,
         author_user_id: USER_A_ID,
         comment_text: 'Tenant A subject comment',
       },
@@ -277,6 +279,7 @@ describe('Report Cards Redesign — RLS leakage (database layer)', () => {
         student_id: STUDENT_A_ID,
         class_id: CLASS_A_ID,
         academic_period_id: ACAD_PERIOD_A_ID,
+        academic_year_id: ACAD_YEAR_A_ID,
         author_user_id: USER_A_ID,
         comment_text: 'Tenant A overall comment',
       },
@@ -289,6 +292,7 @@ describe('Report Cards Redesign — RLS leakage (database layer)', () => {
         requested_by_user_id: USER_A_ID,
         request_type: 'open_comment_window',
         academic_period_id: ACAD_PERIOD_A_ID,
+        academic_year_id: ACAD_YEAR_A_ID,
         reason: 'Tenant A request',
       },
     });

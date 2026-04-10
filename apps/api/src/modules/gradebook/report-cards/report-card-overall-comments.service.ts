@@ -13,7 +13,9 @@ import { ReportCommentWindowsService } from './report-comment-windows.service';
 
 export interface ListOverallCommentsQuery {
   class_id?: string;
-  academic_period_id?: string;
+  /** Non-null for per-period rows, or the literal 'full_year' to filter to NULL-period rows. */
+  academic_period_id?: string | 'full_year';
+  academic_year_id?: string;
   student_id?: string;
   author_user_id?: string;
   finalised?: boolean;
@@ -40,7 +42,12 @@ export class ReportCardOverallCommentsService {
     const pageSize = query.pageSize ?? 50;
     const where: Prisma.ReportCardOverallCommentWhereInput = { tenant_id: tenantId };
     if (query.class_id) where.class_id = query.class_id;
-    if (query.academic_period_id) where.academic_period_id = query.academic_period_id;
+    if (query.academic_period_id === 'full_year') {
+      where.academic_period_id = null;
+    } else if (query.academic_period_id) {
+      where.academic_period_id = query.academic_period_id;
+    }
+    if (query.academic_year_id) where.academic_year_id = query.academic_year_id;
     if (query.student_id) where.student_id = query.student_id;
     if (query.author_user_id) where.author_user_id = query.author_user_id;
     if (query.finalised === true) where.finalised_at = { not: null };
@@ -72,12 +79,29 @@ export class ReportCardOverallCommentsService {
     return row;
   }
 
-  async findOne(tenantId: string, args: { studentId: string; academicPeriodId: string }) {
+  async findOne(
+    tenantId: string,
+    args: {
+      studentId: string;
+      /** Non-null for per-period lookup; null selects the full-year row. */
+      academicPeriodId: string | null;
+      /** Required when academicPeriodId is null to disambiguate year. */
+      academicYearId?: string;
+    },
+  ) {
+    const scopeWhere: Prisma.ReportCardOverallCommentWhereInput =
+      args.academicPeriodId !== null
+        ? { academic_period_id: args.academicPeriodId }
+        : {
+            academic_period_id: null,
+            ...(args.academicYearId ? { academic_year_id: args.academicYearId } : {}),
+          };
+
     return this.prisma.reportCardOverallComment.findFirst({
       where: {
         tenant_id: tenantId,
         student_id: args.studentId,
-        academic_period_id: args.academicPeriodId,
+        ...scopeWhere,
       },
     });
   }
@@ -123,12 +147,24 @@ export class ReportCardOverallCommentsService {
   async upsert(tenantId: string, actor: CommentActor, dto: CreateOverallCommentDto) {
     // Authorship BEFORE window check
     await this.assertHomeroomTeacher(tenantId, actor, dto.class_id);
-    await this.windowsService.assertWindowOpenForPeriod(tenantId, dto.academic_period_id);
+
+    // Phase 1b — Option B: resolve period/year combination. The scope-aware
+    // helper validates exactly one is provided and returns both IDs.
+    const scope = await this.windowsService.resolveCommentScope(tenantId, {
+      academic_period_id: dto.academic_period_id,
+      academic_year_id: dto.academic_year_id,
+    });
+    await this.windowsService.assertWindowOpen(tenantId, scope);
 
     const prismaWithRls = createRlsClient(this.prisma, {
       tenant_id: tenantId,
       user_id: actor.userId,
     });
+
+    const existingScopeWhere: Prisma.ReportCardOverallCommentWhereInput =
+      scope.periodId !== null
+        ? { academic_period_id: scope.periodId }
+        : { academic_period_id: null, academic_year_id: scope.yearId };
 
     return prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
@@ -136,7 +172,7 @@ export class ReportCardOverallCommentsService {
         where: {
           tenant_id: tenantId,
           student_id: dto.student_id,
-          academic_period_id: dto.academic_period_id,
+          ...existingScopeWhere,
         },
       });
 
@@ -157,7 +193,8 @@ export class ReportCardOverallCommentsService {
           tenant_id: tenantId,
           student_id: dto.student_id,
           class_id: dto.class_id,
-          academic_period_id: dto.academic_period_id,
+          academic_period_id: scope.periodId,
+          academic_year_id: scope.yearId,
           author_user_id: actor.userId,
           comment_text: dto.comment_text,
         },
@@ -173,7 +210,10 @@ export class ReportCardOverallCommentsService {
   ) {
     const existing = await this.findById(tenantId, id);
     await this.assertHomeroomTeacher(tenantId, actor, existing.class_id);
-    await this.windowsService.assertWindowOpenForPeriod(tenantId, existing.academic_period_id);
+    await this.windowsService.assertWindowOpen(tenantId, {
+      periodId: existing.academic_period_id,
+      yearId: existing.academic_year_id,
+    });
 
     const prismaWithRls = createRlsClient(this.prisma, {
       tenant_id: tenantId,
@@ -196,7 +236,10 @@ export class ReportCardOverallCommentsService {
   async finalise(tenantId: string, actor: CommentActor, id: string) {
     const existing = await this.findById(tenantId, id);
     await this.assertHomeroomTeacher(tenantId, actor, existing.class_id);
-    await this.windowsService.assertWindowOpenForPeriod(tenantId, existing.academic_period_id);
+    await this.windowsService.assertWindowOpen(tenantId, {
+      periodId: existing.academic_period_id,
+      yearId: existing.academic_year_id,
+    });
 
     if (!existing.comment_text || existing.comment_text.trim().length === 0) {
       throw new ForbiddenException({
@@ -224,7 +267,10 @@ export class ReportCardOverallCommentsService {
   async unfinalise(tenantId: string, actor: CommentActor, id: string) {
     const existing = await this.findById(tenantId, id);
     await this.assertHomeroomTeacher(tenantId, actor, existing.class_id);
-    await this.windowsService.assertWindowOpenForPeriod(tenantId, existing.academic_period_id);
+    await this.windowsService.assertWindowOpen(tenantId, {
+      periodId: existing.academic_period_id,
+      yearId: existing.academic_year_id,
+    });
 
     if (!actor.isAdmin && existing.finalised_by_user_id !== actor.userId) {
       throw new ForbiddenException({

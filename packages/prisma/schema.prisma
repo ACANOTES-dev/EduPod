@@ -3373,7 +3373,11 @@ model ReportCard {
   id                         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id                  String           @db.Uuid
   student_id                 String           @db.Uuid
-  academic_period_id         String           @db.Uuid
+  // NULL for full-year report cards (Phase 1b — Option B). When NULL,
+  // `academic_year_id` is the authoritative scope field and the generation
+  // worker aggregates snapshots across every period in the year.
+  academic_period_id         String?          @db.Uuid
+  academic_year_id           String           @db.Uuid
   template_id                String?          @db.Uuid
   status                     ReportCardStatus @default(draft)
   template_locale            String           @db.VarChar(10)
@@ -3395,7 +3399,7 @@ model ReportCard {
   // Relations
   tenant          Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   student         Student             @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  academic_period AcademicPeriod      @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod?     @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
   template        ReportCardTemplate? @relation("report_card_template", fields: [template_id], references: [id], onDelete: Restrict)
   published_by    User?               @relation("report_card_publisher", fields: [published_by_user_id], references: [id], onDelete: SetNull)
   revision_of     ReportCard?         @relation("report_card_revisions", fields: [revision_of_report_card_id], references: [id], onDelete: SetNull)
@@ -3410,6 +3414,7 @@ model ReportCard {
 
   @@index([tenant_id, student_id], name: "idx_report_cards_student")
   @@index([tenant_id, academic_period_id], name: "idx_report_cards_period")
+  @@index([tenant_id, academic_year_id], name: "idx_report_cards_year")
   @@index([revision_of_report_card_id], name: "idx_report_cards_revision")
   @@map("report_cards")
 }
@@ -3963,7 +3968,10 @@ model ReportCardBatchJob {
   id                        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id                 String         @db.Uuid
   class_id                  String         @db.Uuid
-  academic_period_id        String         @db.Uuid
+  // NULL for full-year batch jobs (Phase 1b — Option B). When NULL, the
+  // worker loads snapshots and comments across every period in the year.
+  academic_period_id        String?        @db.Uuid
+  academic_year_id          String         @db.Uuid
   template_id               String?        @db.Uuid
   status                    BatchJobStatus @default(queued)
   total_count               Int            @db.SmallInt
@@ -3984,11 +3992,12 @@ model ReportCardBatchJob {
   // Relations
   tenant           Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   class_entity     Class                      @relation(fields: [class_id], references: [id], onDelete: Cascade)
-  academic_period  AcademicPeriod             @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  academic_period  AcademicPeriod?            @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
   requested_by     User                       @relation("batch_job_requester", fields: [requested_by_user_id], references: [id], onDelete: Cascade)
   teacher_requests ReportCardTeacherRequest[] @relation("teacher_request_resulting_run")
 
   @@index([tenant_id, status], name: "idx_report_card_batch_jobs_status")
+  @@index([tenant_id, academic_year_id], name: "idx_report_card_batch_jobs_year")
   @@map("report_card_batch_jobs")
 }
 
@@ -3997,7 +4006,11 @@ model ReportCardBatchJob {
 model ReportCommentWindow {
   id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id          String              @db.Uuid
-  academic_period_id String              @db.Uuid
+  // NULL for full-year comment windows (Phase 1b — Option B). Teachers write
+  // new comments during a full-year window; the generation worker reads them
+  // with (student_id, academic_year_id) and NULL period.
+  academic_period_id String?             @db.Uuid
+  academic_year_id   String              @db.Uuid
   opens_at           DateTime            @db.Timestamptz()
   closes_at          DateTime            @db.Timestamptz()
   status             CommentWindowStatus @default(scheduled)
@@ -4010,13 +4023,14 @@ model ReportCommentWindow {
 
   // Relations
   tenant           Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  academic_period  AcademicPeriod             @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  academic_period  AcademicPeriod?            @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
   opened_by        User                       @relation("comment_window_opener", fields: [opened_by_user_id], references: [id], onDelete: Restrict)
   closed_by        User?                      @relation("comment_window_closer", fields: [closed_by_user_id], references: [id], onDelete: SetNull)
   teacher_requests ReportCardTeacherRequest[] @relation("teacher_request_resulting_window")
 
   @@index([tenant_id, status], name: "idx_report_comment_windows_tenant_status")
   @@index([tenant_id, academic_period_id], name: "idx_report_comment_windows_period")
+  @@index([tenant_id, academic_year_id], name: "idx_report_comment_windows_year")
   @@map("report_comment_windows")
 }
 
@@ -4026,7 +4040,12 @@ model ReportCardSubjectComment {
   student_id           String    @db.Uuid
   subject_id           String    @db.Uuid
   class_id             String    @db.Uuid
-  academic_period_id   String    @db.Uuid
+  // NULL for full-year subject comments (Phase 1b — Option B). Uniqueness is
+  // enforced by TWO partial unique indexes (period-scoped vs year-scoped)
+  // created in the migration, not by Prisma's `@@unique` (which cannot
+  // express partial unique on nullable columns).
+  academic_period_id   String?   @db.Uuid
+  academic_year_id     String    @db.Uuid
   author_user_id       String    @db.Uuid
   comment_text         String    @db.Text
   is_ai_draft          Boolean   @default(false)
@@ -4037,17 +4056,17 @@ model ReportCardSubjectComment {
   updated_at           DateTime  @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  student         Student        @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  subject         Subject        @relation(fields: [subject_id], references: [id], onDelete: Cascade)
-  class_entity    Class          @relation(fields: [class_id], references: [id], onDelete: Cascade)
-  academic_period AcademicPeriod @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
-  author          User           @relation("subject_comment_author", fields: [author_user_id], references: [id], onDelete: Restrict)
-  finalised_by    User?          @relation("subject_comment_finaliser", fields: [finalised_by_user_id], references: [id], onDelete: SetNull)
+  tenant          Tenant          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student         Student         @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  subject         Subject         @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  class_entity    Class           @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod? @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  author          User            @relation("subject_comment_author", fields: [author_user_id], references: [id], onDelete: Restrict)
+  finalised_by    User?           @relation("subject_comment_finaliser", fields: [finalised_by_user_id], references: [id], onDelete: SetNull)
 
-  @@unique([tenant_id, student_id, subject_id, academic_period_id], name: "idx_subj_comments_unique")
   @@index([tenant_id, author_user_id, academic_period_id], name: "idx_subj_comments_teacher")
   @@index([tenant_id, class_id, subject_id, academic_period_id], name: "idx_subj_comments_class")
+  @@index([tenant_id, student_id, subject_id, academic_year_id], name: "idx_subj_comments_year")
   @@map("report_card_subject_comments")
 }
 
@@ -4056,7 +4075,11 @@ model ReportCardOverallComment {
   tenant_id            String    @db.Uuid
   student_id           String    @db.Uuid
   class_id             String    @db.Uuid
-  academic_period_id   String    @db.Uuid
+  // NULL for full-year overall comments (Phase 1b — Option B). Uniqueness is
+  // enforced by TWO partial unique indexes (period-scoped vs year-scoped)
+  // created in the migration, not by Prisma's `@@unique`.
+  academic_period_id   String?   @db.Uuid
+  academic_year_id     String    @db.Uuid
   author_user_id       String    @db.Uuid
   comment_text         String    @db.Text
   finalised_at         DateTime? @db.Timestamptz()
@@ -4065,15 +4088,15 @@ model ReportCardOverallComment {
   updated_at           DateTime  @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  student         Student        @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  class_entity    Class          @relation(fields: [class_id], references: [id], onDelete: Cascade)
-  academic_period AcademicPeriod @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
-  author          User           @relation("overall_comment_author", fields: [author_user_id], references: [id], onDelete: Restrict)
-  finalised_by    User?          @relation("overall_comment_finaliser", fields: [finalised_by_user_id], references: [id], onDelete: SetNull)
+  tenant          Tenant          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student         Student         @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  class_entity    Class           @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod? @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  author          User            @relation("overall_comment_author", fields: [author_user_id], references: [id], onDelete: Restrict)
+  finalised_by    User?           @relation("overall_comment_finaliser", fields: [finalised_by_user_id], references: [id], onDelete: SetNull)
 
-  @@unique([tenant_id, student_id, academic_period_id], name: "idx_overall_comments_unique")
   @@index([tenant_id, class_id, academic_period_id], name: "idx_overall_comments_class")
+  @@index([tenant_id, student_id, academic_year_id], name: "idx_overall_comments_year")
   @@map("report_card_overall_comments")
 }
 
@@ -4082,7 +4105,11 @@ model ReportCardTeacherRequest {
   tenant_id            String               @db.Uuid
   requested_by_user_id String               @db.Uuid
   request_type         TeacherRequestType
-  academic_period_id   String               @db.Uuid
+  // NULL for full-year reopen requests (Phase 1b — Option B). When NULL,
+  // approving the request reopens every per-period comment window in the
+  // academic year atomically (plus the full-year window if one exists).
+  academic_period_id   String?              @db.Uuid
+  academic_year_id     String               @db.Uuid
   target_scope_json    Json?
   reason               String               @db.Text
   status               TeacherRequestStatus @default(pending)
@@ -4098,12 +4125,13 @@ model ReportCardTeacherRequest {
   tenant           Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   requested_by     User                 @relation("teacher_request_author", fields: [requested_by_user_id], references: [id], onDelete: Restrict)
   reviewed_by      User?                @relation("teacher_request_reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
-  academic_period  AcademicPeriod       @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  academic_period  AcademicPeriod?      @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
   resulting_run    ReportCardBatchJob?  @relation("teacher_request_resulting_run", fields: [resulting_run_id], references: [id], onDelete: SetNull)
   resulting_window ReportCommentWindow? @relation("teacher_request_resulting_window", fields: [resulting_window_id], references: [id], onDelete: SetNull)
 
   @@index([tenant_id, status], name: "idx_teacher_requests_status")
   @@index([tenant_id, requested_by_user_id], name: "idx_teacher_requests_user")
+  @@index([tenant_id, academic_year_id], name: "idx_teacher_requests_year")
   @@map("report_card_teacher_requests")
 }
 

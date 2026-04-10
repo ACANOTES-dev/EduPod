@@ -5,10 +5,12 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 import { type GdprOutboundData, CONSENT_TYPES } from '@school/shared/gdpr';
 
+import { AcademicReadFacade } from '../../academics/academic-read.facade';
 import { AnthropicClientService } from '../../ai/anthropic-client.service';
 import { AttendanceReadFacade } from '../../attendance/attendance-read.facade';
 import { SettingsService } from '../../configuration/settings.service';
@@ -44,6 +46,7 @@ export class AiCommentsService {
     private readonly aiAuditService: AiAuditService,
     private readonly anthropicClient: AnthropicClientService,
     private readonly attendanceReadFacade: AttendanceReadFacade,
+    private readonly academicReadFacade: AcademicReadFacade,
   ) {}
 
   // ─── Generate Single Comment ──────────────────────────────────────────────
@@ -228,13 +231,26 @@ export class AiCommentsService {
 
     if (!reportCard) return null;
 
-    // Load period grade snapshots for context
+    // Load period grade snapshots for context. Full-year report cards
+    // (academic_period_id IS NULL) aggregate snapshots across every period in
+    // the academic year; per-period cards load just that period's rows.
+    const snapshotsWhere: Prisma.PeriodGradeSnapshotWhereInput = {
+      tenant_id: tenantId,
+      student_id: reportCard.student_id,
+    };
+    if (reportCard.academic_period_id !== null) {
+      snapshotsWhere.academic_period_id = reportCard.academic_period_id;
+    } else {
+      // Cross-module facade — direct Prisma access from gradebook to
+      // academicPeriod is forbidden by the no-cross-module-prisma-access rule.
+      const yearPeriods = await this.academicReadFacade.findPeriodsForYear(
+        tenantId,
+        reportCard.academic_year_id,
+      );
+      snapshotsWhere.academic_period_id = { in: yearPeriods.map((p) => p.id) };
+    }
     const snapshots = await this.prisma.periodGradeSnapshot.findMany({
-      where: {
-        tenant_id: tenantId,
-        student_id: reportCard.student_id,
-        academic_period_id: reportCard.academic_period_id,
-      },
+      where: snapshotsWhere,
       include: {
         subject: { select: { name: true } },
       },
@@ -268,7 +284,10 @@ export class AiCommentsService {
     locale: string,
   ): string {
     const studentName = `${reportCard.student.first_name} ${reportCard.student.last_name}`;
-    const periodName = reportCard.academic_period.name;
+    // Full-year report cards have a null academic_period relation; we label
+    // the prompt "Full Year" in that case so the AI has a sensible context
+    // string to work with.
+    const periodName = reportCard.academic_period?.name ?? 'Full Year';
 
     const subjectLines = reportCard.snapshots
       .map(

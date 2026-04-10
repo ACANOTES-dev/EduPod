@@ -605,6 +605,7 @@ export class ReportCardsQueriesService {
     meta: { page: number; pageSize: number; total: number };
   }> {
     const { page, pageSize, class_id, year_group_id, academic_period_id, language } = query;
+    const academicYearId = (query as { academic_year_id?: string }).academic_year_id;
     const skip = (page - 1) * pageSize;
 
     // 1. Resolve teacher scoping (if applicable)
@@ -624,8 +625,16 @@ export class ReportCardsQueriesService {
     if (scopedStudentIds !== null) {
       where.student_id = { in: scopedStudentIds };
     }
-    if (academic_period_id) {
+    // Phase 1b — Option B: the library filter accepts a period UUID (per-
+    // period scope) OR the literal "full_year" sentinel (NULL-period scope),
+    // optionally narrowed by academic_year_id.
+    if (academic_period_id === 'full_year') {
+      where.academic_period_id = null;
+      if (academicYearId) where.academic_year_id = academicYearId;
+    } else if (academic_period_id) {
       where.academic_period_id = academic_period_id;
+    } else if (academicYearId) {
+      where.academic_year_id = academicYearId;
     }
     if (language) {
       where.template_locale = language;
@@ -687,31 +696,51 @@ export class ReportCardsQueriesService {
       this.prisma.reportCard.count({ where }),
     ]);
 
-    // 3. Build a (student_id, period_id, template_id) → locales lookup so each
-    //    row can report the other languages available for the same document.
+    // 3. Build a (student_id, period_id|year_id, template_id) → locales
+    //    lookup so each row can report the other languages available for
+    //    the same document. Full-year rows (period_id IS NULL) key on
+    //    academic_year_id instead.
     const groupingKeys = rows.map((r) =>
-      this.buildLibraryGroupKey(r.student_id, r.academic_period_id, r.template_id),
+      this.buildLibraryGroupKey(
+        r.student_id,
+        r.academic_period_id,
+        r.academic_year_id,
+        r.template_id,
+      ),
     );
     const languageLookup = new Map<string, string[]>();
     if (groupingKeys.length > 0) {
       // Fetch all non-superseded siblings in a single query — limited to this
       // page's grouping keys plus the explicit tenant + status filter.
+      const periodIds = rows
+        .map((r) => r.academic_period_id)
+        .filter((id): id is string => id !== null);
+      const yearIds = Array.from(new Set(rows.map((r) => r.academic_year_id)));
       const siblings = await this.prisma.reportCard.findMany({
         where: {
           tenant_id: tenantId,
           status: { not: 'superseded' },
           student_id: { in: rows.map((r) => r.student_id) },
-          academic_period_id: { in: rows.map((r) => r.academic_period_id) },
+          OR: [
+            ...(periodIds.length > 0 ? [{ academic_period_id: { in: periodIds } }] : []),
+            { academic_period_id: null, academic_year_id: { in: yearIds } },
+          ],
         },
         select: {
           student_id: true,
           academic_period_id: true,
+          academic_year_id: true,
           template_id: true,
           template_locale: true,
         },
       });
       for (const s of siblings) {
-        const key = this.buildLibraryGroupKey(s.student_id, s.academic_period_id, s.template_id);
+        const key = this.buildLibraryGroupKey(
+          s.student_id,
+          s.academic_period_id,
+          s.academic_year_id,
+          s.template_id,
+        );
         const list = languageLookup.get(key) ?? [];
         if (!list.includes(s.template_locale)) list.push(s.template_locale);
         languageLookup.set(key, list);
@@ -724,6 +753,7 @@ export class ReportCardsQueriesService {
         const key = this.buildLibraryGroupKey(
           row.student_id,
           row.academic_period_id,
+          row.academic_year_id,
           row.template_id,
         );
         const languages_available = (languageLookup.get(key) ?? [row.template_locale]).sort();
@@ -754,10 +784,12 @@ export class ReportCardsQueriesService {
           class: row.student.homeroom_class
             ? { id: row.student.homeroom_class.id, name: row.student.homeroom_class.name }
             : null,
-          academic_period: {
-            id: row.academic_period.id,
-            name: row.academic_period.name,
-          },
+          // Full-year report cards (academic_period_id IS NULL) surface a
+          // synthetic "Full Year" entry with a stable id derived from the
+          // academic year so the frontend can group/filter them consistently.
+          academic_period: row.academic_period
+            ? { id: row.academic_period.id, name: row.academic_period.name }
+            : { id: `full-year:${row.academic_year_id}`, name: 'Full Year' },
           template: {
             id: row.template?.id ?? null,
             content_scope: row.template?.content_scope ?? null,
@@ -781,10 +813,14 @@ export class ReportCardsQueriesService {
 
   private buildLibraryGroupKey(
     studentId: string,
-    periodId: string,
+    periodId: string | null,
+    academicYearId: string,
     templateId: string | null,
   ): string {
-    return `${studentId}::${periodId}::${templateId ?? 'null'}`;
+    // Full-year rows (periodId === null) group on the year id instead so
+    // all languages for the same (student, year, template) cluster together.
+    const scopeSegment = periodId !== null ? `p:${periodId}` : `y:${academicYearId}`;
+    return `${studentId}::${scopeSegment}::${templateId ?? 'null'}`;
   }
 
   /**

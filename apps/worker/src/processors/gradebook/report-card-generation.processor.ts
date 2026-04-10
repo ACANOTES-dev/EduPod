@@ -173,13 +173,62 @@ export class ReportCardGenerationJob extends TenantAwareJob<ReportCardGeneration
       return;
     }
 
-    const period = await tx.academicPeriod.findFirst({
-      where: { id: batchJob.academic_period_id, tenant_id },
-      include: { academic_year: { select: { name: true } } },
-    });
-    if (!period) {
-      await this.failBatch(tx, batch_job_id, 'Academic period not found');
-      return;
+    // Phase 1b — Option B: full-year batch jobs have a NULL
+    // academic_period_id and rely on academic_year_id. Per-period jobs use
+    // their period as both the snapshot filter and the synthetic "period"
+    // object passed to the renderer. Full-year jobs aggregate snapshots
+    // across every period in the year and pass a synthetic "Full Year"
+    // period to the renderer.
+    const isFullYear = batchJob.academic_period_id === null;
+
+    let renderPeriod: {
+      id: string;
+      name: string;
+      academic_year: { name: string } | null;
+    };
+    let snapshotPeriodFilter: { in: string[] } | string;
+
+    if (isFullYear) {
+      const year = await tx.academicYear.findFirst({
+        where: { id: batchJob.academic_year_id, tenant_id },
+      });
+      if (!year) {
+        await this.failBatch(tx, batch_job_id, 'Academic year not found');
+        return;
+      }
+      const yearPeriods = await tx.academicPeriod.findMany({
+        where: { tenant_id, academic_year_id: batchJob.academic_year_id },
+        select: { id: true },
+        orderBy: { start_date: 'asc' },
+      });
+      if (yearPeriods.length === 0) {
+        await this.failBatch(tx, batch_job_id, 'Academic year has no periods to aggregate');
+        return;
+      }
+      // Synthetic "Full Year" period passed to the renderer. The id uses a
+      // `full-year:<yearId>` prefix so transcript caches and the storage key
+      // construction stay disjoint from real period UUIDs.
+      renderPeriod = {
+        id: `full-year:${year.id}`,
+        name: 'Full Year',
+        academic_year: { name: year.name },
+      };
+      snapshotPeriodFilter = { in: yearPeriods.map((p) => p.id) };
+    } else {
+      const period = await tx.academicPeriod.findFirst({
+        where: { id: batchJob.academic_period_id!, tenant_id },
+        include: { academic_year: { select: { name: true } } },
+      });
+      if (!period) {
+        await this.failBatch(tx, batch_job_id, 'Academic period not found');
+        return;
+      }
+      renderPeriod = {
+        id: period.id,
+        name: period.name,
+        academic_year: period.academic_year,
+      };
+      snapshotPeriodFilter = batchJob.academic_period_id!;
     }
 
     const personalInfoFields = parsePersonalInfoFields(batchJob.personal_info_fields_json);
@@ -204,30 +253,84 @@ export class ReportCardGenerationJob extends TenantAwareJob<ReportCardGeneration
 
     const studentById = new Map(students.map((s) => [s.id, s] as const));
 
-    // Load grade snapshots in bulk.
+    // Load grade snapshots in bulk. Per-period: filter by single period.
+    // Full-year: filter by IN-list of every period in the year.
     const snapshots = await tx.periodGradeSnapshot.findMany({
       where: {
         tenant_id,
         student_id: { in: resolvedStudentIds },
-        academic_period_id: batchJob.academic_period_id,
+        academic_period_id:
+          typeof snapshotPeriodFilter === 'string' ? snapshotPeriodFilter : snapshotPeriodFilter,
       },
       include: {
         subject: { select: { id: true, name: true, code: true } },
       },
     });
 
+    // Bucket snapshots by student. For full-year runs we then collapse each
+    // student's per-period rows into a single row per subject by averaging
+    // computed_value across periods. The renderer downstream sees the same
+    // shape it does today (one snapshot per subject per student).
     const snapshotsByStudent = new Map<string, typeof snapshots>();
-    for (const snapshot of snapshots) {
-      const bucket = snapshotsByStudent.get(snapshot.student_id) ?? [];
-      bucket.push(snapshot);
-      snapshotsByStudent.set(snapshot.student_id, bucket);
+    if (isFullYear) {
+      // Group by (student, subject) and produce a single mean snapshot.
+      type Acc = {
+        sample: (typeof snapshots)[number];
+        sum: number;
+        n: number;
+      };
+      const studentSubjectAcc = new Map<string, Map<string, Acc>>();
+      for (const snapshot of snapshots) {
+        const subjectMap = studentSubjectAcc.get(snapshot.student_id) ?? new Map<string, Acc>();
+        const score = Number(snapshot.computed_value);
+        const existing = subjectMap.get(snapshot.subject_id);
+        if (existing) {
+          existing.sum += Number.isFinite(score) ? score : 0;
+          existing.n += 1;
+        } else {
+          subjectMap.set(snapshot.subject_id, {
+            sample: snapshot,
+            sum: Number.isFinite(score) ? score : 0,
+            n: 1,
+          });
+        }
+        studentSubjectAcc.set(snapshot.student_id, subjectMap);
+      }
+      for (const [studentId, subjectMap] of studentSubjectAcc) {
+        const collapsed = Array.from(subjectMap.values()).map((acc) => {
+          const mean = acc.n > 0 ? acc.sum / acc.n : 0;
+          // Recreate a snapshot row using the sample as a template, with the
+          // mean injected as computed_value. display_value is null'd out so
+          // the renderer falls through to the score formatter.
+          return {
+            ...acc.sample,
+            computed_value: new Prisma.Decimal(mean),
+            display_value: '',
+            overridden_value: null,
+          } as (typeof snapshots)[number];
+        });
+        snapshotsByStudent.set(studentId, collapsed);
+      }
+    } else {
+      for (const snapshot of snapshots) {
+        const bucket = snapshotsByStudent.get(snapshot.student_id) ?? [];
+        bucket.push(snapshot);
+        snapshotsByStudent.set(snapshot.student_id, bucket);
+      }
     }
+
+    // Comments: per-period jobs filter by the period; full-year jobs filter
+    // by (year, NULL period) to load the brand-new full-year comments
+    // teachers wrote during the full-year window.
+    const commentScopeFilter = isFullYear
+      ? { academic_period_id: null, academic_year_id: batchJob.academic_year_id }
+      : { academic_period_id: batchJob.academic_period_id! };
 
     const subjectCommentRows = await tx.reportCardSubjectComment.findMany({
       where: {
         tenant_id,
         student_id: { in: resolvedStudentIds },
-        academic_period_id: batchJob.academic_period_id,
+        ...commentScopeFilter,
       },
       select: {
         student_id: true,
@@ -248,7 +351,7 @@ export class ReportCardGenerationJob extends TenantAwareJob<ReportCardGeneration
       where: {
         tenant_id,
         student_id: { in: resolvedStudentIds },
-        academic_period_id: batchJob.academic_period_id,
+        ...commentScopeFilter,
       },
       select: {
         student_id: true,
@@ -284,7 +387,7 @@ export class ReportCardGenerationJob extends TenantAwareJob<ReportCardGeneration
           tenant: tenantForRender,
           template,
           student,
-          period,
+          period: renderPeriod,
           language: 'en',
           personalInfoFields,
           subjectSnapshots: snapshotsByStudent.get(studentId) ?? [],
@@ -299,6 +402,7 @@ export class ReportCardGenerationJob extends TenantAwareJob<ReportCardGeneration
           template,
           studentId,
           periodId: batchJob.academic_period_id,
+          academicYearId: batchJob.academic_year_id,
           personalInfoFields,
           payload: englishPayload,
           locale: 'en',
@@ -310,7 +414,7 @@ export class ReportCardGenerationJob extends TenantAwareJob<ReportCardGeneration
             tenant: tenantForRender,
             template: arTemplate,
             student,
-            period,
+            period: renderPeriod,
             language: 'ar',
             personalInfoFields,
             subjectSnapshots: snapshotsByStudent.get(studentId) ?? [],
@@ -325,6 +429,7 @@ export class ReportCardGenerationJob extends TenantAwareJob<ReportCardGeneration
             template: arTemplate,
             studentId,
             periodId: batchJob.academic_period_id,
+            academicYearId: batchJob.academic_year_id,
             personalInfoFields,
             payload: arabicPayload,
             locale: 'ar',
@@ -376,7 +481,9 @@ export class ReportCardGenerationJob extends TenantAwareJob<ReportCardGeneration
       tenantId: string;
       template: { id: string; locale: string };
       studentId: string;
-      periodId: string;
+      /** NULL for full-year report cards (Phase 1b — Option B). */
+      periodId: string | null;
+      academicYearId: string;
       personalInfoFields: PersonalInfoFieldKey[];
       payload: ReportCardRenderPayload;
       locale: string;
@@ -385,14 +492,26 @@ export class ReportCardGenerationJob extends TenantAwareJob<ReportCardGeneration
   ): Promise<void> {
     const pdf = await this.renderer.render(params.payload);
 
-    const key = `report-cards/${params.studentId}/${params.periodId}/${params.template.id}/${params.locale}.pdf`;
+    // Storage key — full-year rows use a `full-year-<yearId>` segment so
+    // they live in a sibling directory to per-period PDFs and never collide.
+    const periodSegment =
+      params.periodId !== null ? params.periodId : `full-year-${params.academicYearId}`;
+    const key = `report-cards/${params.studentId}/${periodSegment}/${params.template.id}/${params.locale}.pdf`;
     const storageKey = await this.storage.upload(params.tenantId, key, pdf, 'application/pdf');
+
+    // Dedup lookup: per-period uses (student, period); full-year uses
+    // (student, NULL period, year). This matches the partial unique index
+    // pair created in the migration.
+    const scopeWhere =
+      params.periodId !== null
+        ? { academic_period_id: params.periodId }
+        : { academic_period_id: null, academic_year_id: params.academicYearId };
 
     const existing = await tx.reportCard.findFirst({
       where: {
         tenant_id: params.tenantId,
         student_id: params.studentId,
-        academic_period_id: params.periodId,
+        ...scopeWhere,
         template_id: params.template.id,
         template_locale: params.locale,
       },
@@ -425,6 +544,7 @@ export class ReportCardGenerationJob extends TenantAwareJob<ReportCardGeneration
           tenant_id: params.tenantId,
           student_id: params.studentId,
           academic_period_id: params.periodId,
+          academic_year_id: params.academicYearId,
           template_id: params.template.id,
           template_locale: params.locale,
           status: 'draft',
@@ -556,6 +676,8 @@ function buildRenderPayload(args: {
   tenant: { id: string; name: string; logo_url: string | null };
   template: { id: string };
   student: StudentForRender;
+  // The period object may be a real AcademicPeriod or a synthetic
+  // "Full Year" entry constructed by the full-year branch above.
   period: {
     id: string;
     name: string;

@@ -16,6 +16,7 @@ const STUDENT_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
 const CLASS_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 const SUBJECT_ID = '11111111-1111-1111-1111-111111111111';
 const PERIOD_ID = '22222222-2222-2222-2222-222222222222';
+const YEAR_ID = '88888888-8888-8888-8888-888888888888';
 const COMMENT_ID = '33333333-3333-3333-3333-333333333333';
 
 // ─── RLS mock ────────────────────────────────────────────────────────────────
@@ -49,6 +50,9 @@ function buildMockPrisma() {
 
 const mockWindowsService = {
   assertWindowOpenForPeriod: jest.fn(),
+  // Phase 1b — Option B: scope-aware window enforcement.
+  resolveCommentScope: jest.fn(),
+  assertWindowOpen: jest.fn(),
 };
 
 const mockClassesReadFacade = {
@@ -62,7 +66,8 @@ const baseComment = {
   student_id: STUDENT_ID,
   subject_id: SUBJECT_ID,
   class_id: CLASS_ID,
-  academic_period_id: PERIOD_ID,
+  academic_period_id: PERIOD_ID as string | null,
+  academic_year_id: YEAR_ID,
   author_user_id: TEACHER_ID,
   comment_text: 'Good effort this term.',
   is_ai_draft: false,
@@ -84,6 +89,23 @@ describe('ReportCardSubjectCommentsService', () => {
     mockRlsTx.reportCardSubjectComment.update.mockReset();
     mockRlsTx.reportCardSubjectComment.updateMany.mockReset();
     mockWindowsService.assertWindowOpenForPeriod.mockReset().mockResolvedValue(undefined);
+    mockWindowsService.assertWindowOpen.mockReset().mockResolvedValue(undefined);
+    mockWindowsService.resolveCommentScope
+      .mockReset()
+      .mockImplementation(
+        async (
+          _tenantId: string,
+          input: { academic_period_id?: string | null; academic_year_id?: string | null },
+        ) => {
+          if (input.academic_period_id) {
+            return { periodId: input.academic_period_id, yearId: 'year-from-period' };
+          }
+          if (input.academic_year_id) {
+            return { periodId: null, yearId: input.academic_year_id };
+          }
+          throw new Error('PERIOD_OR_YEAR_REQUIRED');
+        },
+      );
     mockClassesReadFacade.findById.mockReset();
     mockClassesReadFacade.findClassStaffGeneric.mockReset();
 
@@ -121,10 +143,7 @@ describe('ReportCardSubjectCommentsService', () => {
 
       const result = await service.upsert(TENANT_ID, { userId: TEACHER_ID, isAdmin: false }, dto);
       expect(result).toEqual(baseComment);
-      expect(mockWindowsService.assertWindowOpenForPeriod).toHaveBeenCalledWith(
-        TENANT_ID,
-        PERIOD_ID,
-      );
+      expect(mockWindowsService.assertWindowOpen).toHaveBeenCalled();
       expect(mockRlsTx.reportCardSubjectComment.create).toHaveBeenCalled();
     });
 
@@ -153,7 +172,7 @@ describe('ReportCardSubjectCommentsService', () => {
     it('should reject when the window is closed', async () => {
       mockClassesReadFacade.findById.mockResolvedValue({ id: CLASS_ID, subject_id: SUBJECT_ID });
       mockClassesReadFacade.findClassStaffGeneric.mockResolvedValue([{ class_id: CLASS_ID }]);
-      mockWindowsService.assertWindowOpenForPeriod.mockRejectedValue(
+      mockWindowsService.assertWindowOpen.mockRejectedValueOnce(
         new ForbiddenException({ code: 'COMMENT_WINDOW_CLOSED', message: 'closed' }),
       );
       await expect(
@@ -172,7 +191,7 @@ describe('ReportCardSubjectCommentsService', () => {
         response: { code: 'INVALID_AUTHOR' },
       });
       // Window check should NOT fire when authorship fails
-      expect(mockWindowsService.assertWindowOpenForPeriod).not.toHaveBeenCalled();
+      expect(mockWindowsService.assertWindowOpen).not.toHaveBeenCalled();
     });
 
     it('should reject when the class subject mismatches the dto subject', async () => {
@@ -241,7 +260,7 @@ describe('ReportCardSubjectCommentsService', () => {
     });
 
     it('should reject when window is closed', async () => {
-      mockWindowsService.assertWindowOpenForPeriod.mockRejectedValue(
+      mockWindowsService.assertWindowOpen.mockRejectedValueOnce(
         new ForbiddenException({ code: 'COMMENT_WINDOW_CLOSED', message: 'closed' }),
       );
       await expect(
@@ -328,7 +347,7 @@ describe('ReportCardSubjectCommentsService', () => {
     });
 
     it('should reject when window is closed', async () => {
-      mockWindowsService.assertWindowOpenForPeriod.mockRejectedValue(
+      mockWindowsService.assertWindowOpen.mockRejectedValueOnce(
         new ForbiddenException({ code: 'COMMENT_WINDOW_CLOSED', message: 'closed' }),
       );
       await expect(

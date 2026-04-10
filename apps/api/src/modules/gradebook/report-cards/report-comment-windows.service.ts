@@ -21,6 +21,18 @@ export interface ListCommentWindowsQuery {
   pageSize?: number;
   status?: CommentWindowStatus;
   academic_period_id?: string;
+  academic_year_id?: string;
+}
+
+/**
+ * Phase 1b — Option B: every comment write passes through the window
+ * enforcement. Per-period callers pass `{ periodId, yearId }`; full-year
+ * callers pass `{ periodId: null, yearId }`. The enforcement resolves to a
+ * window row matching the same shape.
+ */
+export interface CommentWindowScope {
+  periodId: string | null;
+  yearId: string;
 }
 
 // ─── State transitions ───────────────────────────────────────────────────────
@@ -86,6 +98,7 @@ export class ReportCommentWindowsService {
     const where: Prisma.ReportCommentWindowWhereInput = { tenant_id: tenantId };
     if (query.status) where.status = query.status;
     if (query.academic_period_id) where.academic_period_id = query.academic_period_id;
+    if (query.academic_year_id) where.academic_year_id = query.academic_year_id;
 
     const [data, total] = await Promise.all([
       this.prisma.reportCommentWindow.findMany({
@@ -119,12 +132,39 @@ export class ReportCommentWindowsService {
     const now = new Date();
     const initialStatus: CommentWindowStatus = opensAt <= now ? 'open' : 'scheduled';
 
-    // Verify academic period belongs to tenant
-    const period = await this.academicReadFacade.findPeriodById(tenantId, dto.academic_period_id);
-    if (!period) {
-      throw new NotFoundException({
-        code: 'ACADEMIC_PERIOD_NOT_FOUND',
-        message: `Academic period "${dto.academic_period_id}" not found`,
+    // Phase 1b — Option B: resolve period/year combination. Per-period
+    // window → derive year from period's parent. Full-year window →
+    // period stays null, year must be provided by the caller.
+    const rawPeriod = dto.academic_period_id ?? null;
+    const rawYear = dto.academic_year_id ?? null;
+
+    let periodId: string | null;
+    let academicYearId: string;
+
+    if (rawPeriod !== null && rawPeriod !== '') {
+      const period = await this.academicReadFacade.findPeriodById(tenantId, rawPeriod);
+      if (!period) {
+        throw new NotFoundException({
+          code: 'ACADEMIC_PERIOD_NOT_FOUND',
+          message: `Academic period "${rawPeriod}" not found`,
+        });
+      }
+      periodId = rawPeriod;
+      academicYearId = period.academic_year_id;
+    } else if (rawYear !== null && rawYear !== '') {
+      const year = await this.academicReadFacade.findYearById(tenantId, rawYear);
+      if (!year) {
+        throw new NotFoundException({
+          code: 'ACADEMIC_YEAR_NOT_FOUND',
+          message: `Academic year "${rawYear}" not found`,
+        });
+      }
+      periodId = null;
+      academicYearId = year.id;
+    } else {
+      throw new BadRequestException({
+        code: 'PERIOD_OR_YEAR_REQUIRED',
+        message: 'Either academic_period_id or academic_year_id is required',
       });
     }
 
@@ -136,7 +176,8 @@ export class ReportCommentWindowsService {
         return await db.reportCommentWindow.create({
           data: {
             tenant_id: tenantId,
-            academic_period_id: dto.academic_period_id,
+            academic_period_id: periodId,
+            academic_year_id: academicYearId,
             opens_at: opensAt,
             closes_at: closesAt,
             instructions: dto.instructions ?? null,
@@ -278,14 +319,32 @@ export class ReportCommentWindowsService {
   //
   // The single reusable cost-control primitive. Every comment write and every
   // AI call MUST go through this. Throws ForbiddenException with
-  // COMMENT_WINDOW_CLOSED when no open window exists for the target period.
+  // COMMENT_WINDOW_CLOSED when no open window exists for the target scope.
+  //
+  // Phase 1b — Option B: accepts either a period-scoped or year-scoped
+  // (full-year) assertion. The caller normalises the incoming DTO into a
+  // `CommentWindowScope` via `resolveCommentScope()` below.
 
   async assertWindowOpenForPeriod(tenantId: string, academicPeriodId: string): Promise<void> {
+    // Kept for backwards compatibility with callers that still pass a raw
+    // period id. Internally delegates to the scope-aware path.
+    await this.assertWindowOpen(tenantId, { periodId: academicPeriodId, yearId: '' });
+  }
+
+  async assertWindowOpen(tenantId: string, scope: CommentWindowScope): Promise<void> {
+    // Period-scoped writes match windows with the same non-null period.
+    // Full-year (NULL period) writes match full-year windows with the same
+    // academic_year_id.
+    const scopeWhere: Prisma.ReportCommentWindowWhereInput =
+      scope.periodId !== null
+        ? { academic_period_id: scope.periodId }
+        : { academic_period_id: null, academic_year_id: scope.yearId };
+
     const open = await this.prisma.reportCommentWindow.findFirst({
       where: {
         tenant_id: tenantId,
         status: 'open',
-        academic_period_id: academicPeriodId,
+        ...scopeWhere,
       },
     });
 
@@ -308,16 +367,58 @@ export class ReportCommentWindowsService {
       where: {
         tenant_id: tenantId,
         status: 'scheduled',
-        academic_period_id: academicPeriodId,
+        ...scopeWhere,
       },
       orderBy: { opens_at: 'asc' },
     });
 
     const suffix = next ? ` The next window opens at ${next.opens_at.toISOString()}.` : '';
+    const scopeLabel = scope.periodId !== null ? 'academic period' : 'academic year';
 
     throw new ForbiddenException({
       code: 'COMMENT_WINDOW_CLOSED',
-      message: `No comment window is currently open for this academic period.${suffix}`,
+      message: `No comment window is currently open for this ${scopeLabel}.${suffix}`,
+    });
+  }
+
+  /**
+   * Normalises a caller's `{ academic_period_id?, academic_year_id? }` pair
+   * into a concrete `CommentWindowScope`. Exactly one must be provided and
+   * valid. When period is set, the year is derived from the period's parent
+   * year. When period is null, the year must be supplied.
+   */
+  async resolveCommentScope(
+    tenantId: string,
+    input: { academic_period_id?: string | null; academic_year_id?: string | null },
+  ): Promise<CommentWindowScope> {
+    const rawPeriod = input.academic_period_id ?? null;
+    const rawYear = input.academic_year_id ?? null;
+
+    if (rawPeriod !== null && rawPeriod !== '') {
+      const period = await this.academicReadFacade.findPeriodById(tenantId, rawPeriod);
+      if (!period) {
+        throw new NotFoundException({
+          code: 'ACADEMIC_PERIOD_NOT_FOUND',
+          message: `Academic period "${rawPeriod}" not found`,
+        });
+      }
+      return { periodId: rawPeriod, yearId: period.academic_year_id };
+    }
+
+    if (rawYear !== null && rawYear !== '') {
+      const year = await this.academicReadFacade.findYearById(tenantId, rawYear);
+      if (!year) {
+        throw new NotFoundException({
+          code: 'ACADEMIC_YEAR_NOT_FOUND',
+          message: `Academic year "${rawYear}" not found`,
+        });
+      }
+      return { periodId: null, yearId: year.id };
+    }
+
+    throw new BadRequestException({
+      code: 'PERIOD_OR_YEAR_REQUIRED',
+      message: 'Either academic_period_id or academic_year_id is required',
     });
   }
 }

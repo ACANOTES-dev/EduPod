@@ -1,9 +1,6 @@
 import crypto from 'crypto';
 
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -116,7 +113,9 @@ export class ReportCardVerificationService {
       valid: true,
       school_name: tenant.name,
       student_name: `${report_card.student.first_name} ${report_card.student.last_name}`,
-      period_name: report_card.academic_period.name,
+      // Full-year report cards have a null academic_period relation — render
+      // the public verification card with "Full Year" in that slot.
+      period_name: report_card.academic_period?.name ?? 'Full Year',
       published_at: report_card.published_at?.toISOString() ?? null,
     };
   }

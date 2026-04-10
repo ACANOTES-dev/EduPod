@@ -40,7 +40,10 @@ export interface GenerationRunSummary {
   status: string;
   scope_type: string | null;
   scope_ids: string[];
-  academic_period_id: string;
+  /** NULL for full-year runs (Phase 1b — Option B). */
+  academic_period_id: string | null;
+  /** Always populated; authoritative when `academic_period_id` is null. */
+  academic_year_id: string;
   template_id: string | null;
   personal_info_fields: string[];
   languages_requested: string[];
@@ -263,6 +266,7 @@ export class ReportCardGenerationService {
             tenant_id: tenantId,
             student_id: student.id,
             academic_period_id: periodId,
+            academic_year_id: period.academic_year_id,
             status: 'draft',
             template_locale: templateLocale,
             snapshot_payload_json: snapshotPayload as unknown as Prisma.InputJsonValue,
@@ -446,7 +450,11 @@ export class ReportCardGenerationService {
   /**
    * Dry-run the comment gate for the wizard's final validation step.
    * Computes missing and unfinalised subject and overall comments across the
-   * resolved scope + period + tenant setting combination.
+   * resolved scope + period/year + tenant setting combination.
+   *
+   * Phase 1b — Option B: when `dto.academic_period_id` is null (full-year),
+   * snapshots are loaded across every period in the academic year and
+   * comments are filtered by `(student, academic_year_id)` with NULL period.
    */
   async dryRunCommentGate(
     tenantId: string,
@@ -465,15 +473,27 @@ export class ReportCardGenerationService {
       });
     }
 
-    const period = await this.academicReadFacade.findPeriodById(tenantId, dto.academic_period_id);
-    if (!period) {
-      throw new NotFoundException({
-        code: 'PERIOD_NOT_FOUND',
-        message: `Academic period with id "${dto.academic_period_id}" not found`,
-      });
-    }
+    // Resolve period/year. Exactly one of the two is the authoritative scope.
+    const { periodId, academicYearId } = await this.resolvePeriodOrYear(tenantId, {
+      academic_period_id: dto.academic_period_id ?? null,
+      academic_year_id: dto.academic_year_id ?? null,
+    });
 
     const settings = await this.tenantSettingsService.getPayload(tenantId);
+
+    // Snapshot filter: by period (per-period run) OR by all periods in year
+    // (full-year run).
+    const snapshotPeriodFilter =
+      periodId !== null
+        ? { academic_period_id: periodId }
+        : await this.buildYearPeriodInFilter(tenantId, academicYearId);
+
+    // Comment filter: per-period uses NOT NULL period clause; full-year uses
+    // NULL period + year clause.
+    const commentScopeFilter =
+      periodId !== null
+        ? { academic_period_id: periodId }
+        : { academic_period_id: null, academic_year_id: academicYearId };
 
     // Gather data in parallel — RLS is enforced globally on reads.
     const [studentsRaw, snapshots, subjectComments, overallComments] = await Promise.all([
@@ -497,7 +517,7 @@ export class ReportCardGenerationService {
         where: {
           tenant_id: tenantId,
           student_id: { in: studentIds },
-          academic_period_id: dto.academic_period_id,
+          ...snapshotPeriodFilter,
         },
         select: {
           student_id: true,
@@ -509,7 +529,7 @@ export class ReportCardGenerationService {
         where: {
           tenant_id: tenantId,
           student_id: { in: studentIds },
-          academic_period_id: dto.academic_period_id,
+          ...commentScopeFilter,
         },
         select: {
           student_id: true,
@@ -522,7 +542,7 @@ export class ReportCardGenerationService {
         where: {
           tenant_id: tenantId,
           student_id: { in: studentIds },
-          academic_period_id: dto.academic_period_id,
+          ...commentScopeFilter,
         },
         select: {
           student_id: true,
@@ -633,6 +653,11 @@ export class ReportCardGenerationService {
   /**
    * Kicks off a new generation run. Validates the scope, gates comments,
    * inserts a `ReportCardBatchJob` row, and enqueues the background job.
+   *
+   * Phase 1b — Option B: `dto.academic_period_id` may be null for a
+   * full-year run; `dto.academic_year_id` is then authoritative. The batch
+   * job row stores both, and the worker branches on period IS NULL to
+   * aggregate snapshots across every period in the year.
    */
   async generateRun(
     tenantId: string,
@@ -643,13 +668,13 @@ export class ReportCardGenerationService {
       throw new Error('ReportCardGenerationService is not wired for generateRun');
     }
 
-    const period = await this.academicReadFacade.findPeriodById(tenantId, dto.academic_period_id);
-    if (!period) {
-      throw new NotFoundException({
-        code: 'PERIOD_NOT_FOUND',
-        message: `Academic period with id "${dto.academic_period_id}" not found`,
-      });
-    }
+    // Resolve period/year combination. The helper validates that exactly
+    // one of the two is the authoritative scope and returns both IDs
+    // (period may be null for a full-year run).
+    const { periodId, academicYearId } = await this.resolvePeriodOrYear(tenantId, {
+      academic_period_id: dto.academic_period_id ?? null,
+      academic_year_id: dto.academic_year_id ?? null,
+    });
 
     const { studentIds, classIds } = await this.resolveScope(tenantId, dto.scope);
     if (studentIds.length === 0) {
@@ -667,7 +692,8 @@ export class ReportCardGenerationService {
 
     const dryRun = await this.dryRunCommentGate(tenantId, {
       scope: dto.scope,
-      academic_period_id: dto.academic_period_id,
+      academic_period_id: periodId,
+      academic_year_id: academicYearId,
       content_scope: dto.content_scope,
     });
 
@@ -728,7 +754,8 @@ export class ReportCardGenerationService {
         data: {
           tenant_id: tenantId,
           class_id: representativeClassId,
-          academic_period_id: dto.academic_period_id,
+          academic_period_id: periodId,
+          academic_year_id: academicYearId,
           template_id: template.id,
           status: 'queued',
           total_count: studentIds.length,
@@ -777,6 +804,76 @@ export class ReportCardGenerationService {
     return toGenerationRunSummary(run);
   }
 
+  /**
+   * Resolves a `{period_id?, year_id?}` pair into the authoritative
+   * `{periodId, academicYearId}` combination used throughout the generation
+   * flow. Accepts exactly one of:
+   *
+   *   - period_id set, year_id absent → per-period run; year is derived from
+   *     the period's parent year.
+   *   - period_id null/absent, year_id set → full-year run; period stays null.
+   *   - period_id set, year_id set → allowed if year matches the period's
+   *     parent year (otherwise rejected).
+   *
+   * Throws NotFoundException or BadRequestException otherwise.
+   */
+  async resolvePeriodOrYear(
+    tenantId: string,
+    input: { academic_period_id: string | null; academic_year_id: string | null },
+  ): Promise<{ periodId: string | null; academicYearId: string }> {
+    const rawPeriod = input.academic_period_id;
+    const rawYear = input.academic_year_id;
+
+    if ((rawPeriod === null || rawPeriod === '') && (rawYear === null || rawYear === '')) {
+      throw new NotFoundException({
+        code: 'PERIOD_OR_YEAR_REQUIRED',
+        message: 'Either academic_period_id or academic_year_id is required',
+      });
+    }
+
+    // Per-period branch.
+    if (rawPeriod !== null && rawPeriod !== '') {
+      const period = await this.academicReadFacade.findPeriodById(tenantId, rawPeriod);
+      if (!period) {
+        throw new NotFoundException({
+          code: 'PERIOD_NOT_FOUND',
+          message: `Academic period with id "${rawPeriod}" not found`,
+        });
+      }
+      if (rawYear !== null && rawYear !== '' && rawYear !== period.academic_year_id) {
+        throw new NotFoundException({
+          code: 'PERIOD_YEAR_MISMATCH',
+          message: `Period "${rawPeriod}" does not belong to academic year "${rawYear}"`,
+        });
+      }
+      return { periodId: rawPeriod, academicYearId: period.academic_year_id };
+    }
+
+    // Full-year branch — year is authoritative.
+    const year = await this.academicReadFacade.findYearById(tenantId, rawYear!);
+    if (!year) {
+      throw new NotFoundException({
+        code: 'ACADEMIC_YEAR_NOT_FOUND',
+        message: `Academic year with id "${rawYear}" not found`,
+      });
+    }
+    return { periodId: null, academicYearId: year.id };
+  }
+
+  /**
+   * Builds a Prisma `where` fragment that restricts `academic_period_id` to
+   * the IN-list of every period belonging to a given academic year. Used by
+   * the full-year dry-run path to look up snapshots across all periods.
+   */
+  private async buildYearPeriodInFilter(
+    tenantId: string,
+    academicYearId: string,
+  ): Promise<{ academic_period_id: { in: string[] } }> {
+    const periods = await this.academicReadFacade.findPeriodsForYear(tenantId, academicYearId);
+    const periodIds = periods.map((p) => p.id);
+    return { academic_period_id: { in: periodIds } };
+  }
+
   async listRuns(tenantId: string, query: ListGenerationRunsQuery) {
     const [rows, total] = await Promise.all([
       this.prisma.reportCardBatchJob.findMany({
@@ -810,7 +907,8 @@ function toGenerationRunSummary(row: {
   class_id: string;
   scope_type: string | null;
   scope_ids_json: Prisma.JsonValue | null;
-  academic_period_id: string;
+  academic_period_id: string | null;
+  academic_year_id: string;
   template_id: string | null;
   personal_info_fields_json: Prisma.JsonValue | null;
   languages_requested: string[];
@@ -851,6 +949,7 @@ function toGenerationRunSummary(row: {
     scope_type: row.scope_type,
     scope_ids: scopeIds,
     academic_period_id: row.academic_period_id,
+    academic_year_id: row.academic_year_id,
     template_id: row.template_id,
     personal_info_fields: personalInfoFields,
     languages_requested: row.languages_requested,
