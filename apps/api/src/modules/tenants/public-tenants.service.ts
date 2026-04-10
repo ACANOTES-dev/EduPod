@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
+import { runWithRlsContext } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface PublicTenantConfig {
@@ -28,16 +29,11 @@ export class PublicTenantsService {
       });
     }
 
+    // Step 1 — look up the tenant by slug. `tenants` is a platform-level
+    // table with no RLS, so a direct query is safe even with no tenant
+    // context set on the request.
     const tenant = await this.prisma.tenant.findUnique({
       where: { slug: normalised },
-      include: {
-        branding: true,
-        domains: {
-          where: { verification_status: 'verified' },
-          orderBy: { created_at: 'asc' },
-          take: 1,
-        },
-      },
     });
 
     if (!tenant || tenant.status !== 'active') {
@@ -46,18 +42,33 @@ export class PublicTenantsService {
       });
     }
 
+    // Step 2 — pull the branding row and one verified domain inside a
+    // tenant-scoped RLS transaction. Both tables have RLS policies keyed on
+    // `app.current_tenant_id`, so we need a real `SET LOCAL` before the
+    // query or Postgres will reject the session variable cast to UUID.
+    const related = await runWithRlsContext(this.prisma, { tenant_id: tenant.id }, async (tx) => {
+      const [branding, domain] = await Promise.all([
+        tx.tenantBranding.findUnique({ where: { tenant_id: tenant.id } }),
+        tx.tenantDomain.findFirst({
+          where: { tenant_id: tenant.id, verification_status: 'verified' },
+          orderBy: { created_at: 'asc' },
+        }),
+      ]);
+      return { branding, domain };
+    });
+
     return {
       tenant_id: tenant.id,
       slug: tenant.slug,
       name: tenant.name,
-      display_name: tenant.branding?.school_name_display ?? tenant.name,
-      display_name_ar: tenant.branding?.school_name_ar ?? null,
-      logo_url: tenant.branding?.logo_url ?? null,
-      primary_color: tenant.branding?.primary_color ?? null,
-      support_email: tenant.branding?.support_email ?? null,
-      support_phone: tenant.branding?.support_phone ?? null,
+      display_name: related.branding?.school_name_display ?? tenant.name,
+      display_name_ar: related.branding?.school_name_ar ?? null,
+      logo_url: related.branding?.logo_url ?? null,
+      primary_color: related.branding?.primary_color ?? null,
+      support_email: related.branding?.support_email ?? null,
+      support_phone: related.branding?.support_phone ?? null,
       default_locale: tenant.default_locale,
-      public_domain: tenant.domains[0]?.domain ?? null,
+      public_domain: related.domain?.domain ?? null,
     };
   }
 }
