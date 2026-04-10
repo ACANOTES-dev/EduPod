@@ -179,6 +179,15 @@ export interface ReportCardRenderPayload {
   template: {
     id: string;
     content_scope: 'grades_only';
+    /**
+     * The design bundle key (e.g. `editorial-academic`, `modern-editorial`)
+     * extracted from the template row's `branding_overrides_json.design_key`
+     * at payload build time. The processor reads the column under a
+     * tenant-scoped RLS transaction, so the worker's renderer can trust the
+     * value and skip the stand-alone design resolver (which would re-query
+     * without RLS context and always return null for tenant rows).
+     */
+    design_key: string | null;
   };
   student: {
     id: string;

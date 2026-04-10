@@ -182,6 +182,22 @@ export class ProductionReportCardRenderer implements ReportCardRenderer, OnModul
   // ─── Internal helpers ──────────────────────────────────────────────────
 
   private async resolveDesign(payload: ReportCardRenderPayload): Promise<DesignKey> {
+    // Prefer the design key that the processor stamped onto the payload at
+    // build time. The processor reads it from the template row inside an
+    // RLS-scoped transaction, which the standalone `designResolver` can't
+    // replicate because the worker uses a raw Prisma client. The resolver
+    // is kept as a secondary path for legacy callers that don't pass the
+    // key in the payload.
+    const inlineDesignKey = payload.template.design_key;
+    if (isDesignKey(inlineDesignKey)) {
+      return inlineDesignKey;
+    }
+    if (inlineDesignKey) {
+      this.logger.warn(
+        `Unknown inline template design_key "${inlineDesignKey}" for template ${payload.template.id} — falling back to resolver lookup`,
+      );
+    }
+
     try {
       const resolved = await this.designResolver.resolveDesignKey(payload.template.id);
       if (isDesignKey(resolved)) {

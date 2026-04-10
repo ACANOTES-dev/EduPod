@@ -70,6 +70,7 @@ function buildMockTx(overrides?: {
         tenant_id: TENANT_ID,
         locale: 'en',
         content_scope: 'grades_only',
+        branding_overrides_json: null,
       },
     )
     // Second call (ar template lookup)
@@ -80,6 +81,7 @@ function buildMockTx(overrides?: {
             tenant_id: TENANT_ID,
             locale: 'ar',
             content_scope: 'grades_only',
+            branding_overrides_json: null,
           }
         : overrides.arTemplate,
     );

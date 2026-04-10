@@ -139,13 +139,27 @@ export class ReportCardGenerationJob extends TenantAwareJob<ReportCardGeneration
       return;
     }
 
-    const arTemplate = await tx.reportCardTemplate.findFirst({
-      where: {
-        tenant_id,
-        content_scope: template.content_scope,
-        locale: 'ar',
-      },
-    });
+    // Find the Arabic companion to whatever English design was picked.
+    // Match on design_key via `branding_overrides_json` so admins that
+    // pick Modern Editorial English also get Modern Editorial Arabic,
+    // not whichever AR row happens to be stored first.
+    const englishDesignKey = extractTemplateDesignKey(template.branding_overrides_json);
+    const arTemplate = englishDesignKey
+      ? await tx.reportCardTemplate.findFirst({
+          where: {
+            tenant_id,
+            content_scope: template.content_scope,
+            locale: 'ar',
+            branding_overrides_json: { path: ['design_key'], equals: englishDesignKey },
+          },
+        })
+      : await tx.reportCardTemplate.findFirst({
+          where: {
+            tenant_id,
+            content_scope: template.content_scope,
+            locale: 'ar',
+          },
+        });
 
     const studentIds = resolveStudentIds(batchJob.scope_ids_json);
     const scopeMode = batchJob.scope_type ?? 'individual';
@@ -670,7 +684,7 @@ interface SnapshotRow {
 
 function buildRenderPayload(args: {
   tenant: { id: string; name: string; logo_url: string | null };
-  template: { id: string };
+  template: { id: string; branding_overrides_json: Prisma.JsonValue | null };
   student: StudentForRender;
   // The period object may be a real AcademicPeriod or a synthetic
   // "Full Year" entry constructed by the full-year branch above.
@@ -723,6 +737,7 @@ function buildRenderPayload(args: {
     template: {
       id: args.template.id,
       content_scope: 'grades_only',
+      design_key: extractTemplateDesignKey(args.template.branding_overrides_json),
     },
     student: {
       id: args.student.id,
@@ -779,6 +794,25 @@ function resolvePersonalInfoValue(
     default:
       return null;
   }
+}
+
+/**
+ * Reads the `design_key` string out of a template row's
+ * `branding_overrides_json`. Returns null when the field is missing so the
+ * renderer can fall back to the default design.
+ */
+function extractTemplateDesignKey(brandingOverrides: Prisma.JsonValue | null): string | null {
+  if (
+    brandingOverrides &&
+    typeof brandingOverrides === 'object' &&
+    !Array.isArray(brandingOverrides)
+  ) {
+    const candidate = (brandingOverrides as Record<string, unknown>).design_key;
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+  return null;
 }
 
 /**

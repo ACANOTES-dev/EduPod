@@ -49,7 +49,7 @@ function basePayload(overrides: Partial<ReportCardRenderPayload> = {}): ReportCa
     },
     language: 'en',
     direction: 'ltr',
-    template: { id: 'tpl-1', content_scope: 'grades_only' },
+    template: { id: 'tpl-1', content_scope: 'grades_only', design_key: null },
     student: {
       id: 's-1',
       personal_info: {
