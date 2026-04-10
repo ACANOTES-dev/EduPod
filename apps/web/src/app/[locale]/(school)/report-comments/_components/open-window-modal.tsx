@@ -146,8 +146,12 @@ export function OpenWindowModal({
           apiClient<ListResponse<ClassRow>>(
             '/api/v1/classes?pageSize=200&status=active&homeroom_only=false',
           ),
+          // pageSize is capped at 100 by the staff-profiles query schema —
+          // any tenant with more than 100 active teachers would need a
+          // paginated picker, but every onboarded school sits well under
+          // that ceiling, so a single page is enough today.
           apiClient<ListResponse<StaffRow>>(
-            '/api/v1/staff-profiles?pageSize=200&employment_status=active',
+            '/api/v1/staff-profiles?pageSize=100&employment_status=active',
           ),
         ]);
         if (cancelled) return;
