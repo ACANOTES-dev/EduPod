@@ -22,6 +22,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SearchIndexService } from '../search/search-index.service';
 import { SequenceService } from '../sequence/sequence.service';
 
+import { AdmissionsAutoPromotionService } from './admissions-auto-promotion.service';
 import { AdmissionsCapacityService } from './admissions-capacity.service';
 import { FinanceFeesFacade } from './finance-fees.facade';
 
@@ -97,6 +98,7 @@ export class ApplicationStateMachineService {
     private readonly sequenceService: SequenceService,
     private readonly settingsService: SettingsService,
     private readonly searchIndexService: SearchIndexService,
+    private readonly autoPromotionService: AdmissionsAutoPromotionService,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
 
@@ -323,6 +325,14 @@ export class ApplicationStateMachineService {
         },
       });
 
+      if (releasedSeat && current.target_academic_year_id && current.target_year_group_id) {
+        await this.autoPromotionService.promoteYearGroup(db, {
+          tenantId,
+          academicYearId: current.target_academic_year_id,
+          yearGroupId: current.target_year_group_id,
+        });
+      }
+
       return updated;
     })) as Application;
   }
@@ -384,6 +394,14 @@ export class ApplicationStateMachineService {
           is_internal: true,
         },
       });
+
+      if (releasedSeat && current.target_academic_year_id && current.target_year_group_id) {
+        await this.autoPromotionService.promoteYearGroup(db, {
+          tenantId,
+          academicYearId: current.target_academic_year_id,
+          yearGroupId: current.target_year_group_id,
+        });
+      }
 
       return updated;
     })) as Application;
@@ -485,6 +503,14 @@ export class ApplicationStateMachineService {
           is_internal: true,
         },
       });
+
+      if (current.target_academic_year_id && current.target_year_group_id) {
+        await this.autoPromotionService.promoteYearGroup(tx, {
+          tenantId,
+          academicYearId: current.target_academic_year_id,
+          yearGroupId: current.target_year_group_id,
+        });
+      }
 
       return updated;
     };

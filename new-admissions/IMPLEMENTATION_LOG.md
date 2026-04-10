@@ -99,23 +99,23 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                              | Wave | Depends on         | Status      | Completed at                   | Commit SHA                             |
-| --- | ---------------------------------- | ---- | ------------------ | ----------- | ------------------------------ | -------------------------------------- |
-| 01  | Schema foundation                  | 1    | —                  | `completed` | 2026-04-10 22:00 Europe/Dublin | `0b976d37` (local) / `55001a4e` (prod) |
-| 02  | Capacity service                   | 2    | 01                 | `completed` | 2026-04-10 23:11 Europe/Dublin | `f97f31fd` (local) / `64ea88c6` (prod) |
-| 03  | State machine rewrite              | 2    | 01                 | `completed` | 2026-04-10 23:45 Europe/Dublin | `caca0f2d` (local) / `b4b905b9` (prod) |
-| 04  | Form service simplification        | 2    | 01                 | `completed` | 2026-04-10 23:25 Europe/Dublin | `521d26de` (local) / `2dc85bd9` (prod) |
-| 05  | Conversion-to-student service      | 2    | 01                 | `completed` | 2026-04-10 23:55 Europe/Dublin | `3bee82a2` (local) / `b354c0f4` (prod) |
-| 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `pending`   | —                              | —                                      |
-| 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `pending`   | —                              | —                                      |
-| 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`   | —                              | —                                      |
-| 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `pending`   | —                              | —                                      |
-| 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `pending`   | —                              | —                                      |
-| 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `pending`   | —                              | —                                      |
-| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `pending`   | —                              | —                                      |
-| 13  | Form preview page                  | 4    | 01, 04             | `pending`   | —                              | —                                      |
-| 14  | Public form + QR code              | 4    | 01, 02, 03, 04     | `pending`   | —                              | —                                      |
-| 15  | Cleanup, translations, live counts | 5    | 10, 11, 12, 13, 14 | `pending`   | —                              | —                                      |
+| #   | Title                              | Wave | Depends on         | Status        | Completed at                   | Commit SHA                             |
+| --- | ---------------------------------- | ---- | ------------------ | ------------- | ------------------------------ | -------------------------------------- |
+| 01  | Schema foundation                  | 1    | —                  | `completed`   | 2026-04-10 22:00 Europe/Dublin | `0b976d37` (local) / `55001a4e` (prod) |
+| 02  | Capacity service                   | 2    | 01                 | `completed`   | 2026-04-10 23:11 Europe/Dublin | `f97f31fd` (local) / `64ea88c6` (prod) |
+| 03  | State machine rewrite              | 2    | 01                 | `completed`   | 2026-04-10 23:45 Europe/Dublin | `caca0f2d` (local) / `b4b905b9` (prod) |
+| 04  | Form service simplification        | 2    | 01                 | `completed`   | 2026-04-10 23:25 Europe/Dublin | `521d26de` (local) / `2dc85bd9` (prod) |
+| 05  | Conversion-to-student service      | 2    | 01                 | `completed`   | 2026-04-10 23:55 Europe/Dublin | `3bee82a2` (local) / `b354c0f4` (prod) |
+| 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `pending`     | —                              | —                                      |
+| 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `pending`     | —                              | —                                      |
+| 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`     | —                              | —                                      |
+| 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `in-progress` | —                              | —                                      |
+| 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `pending`     | —                              | —                                      |
+| 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `pending`     | —                              | —                                      |
+| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `pending`     | —                              | —                                      |
+| 13  | Form preview page                  | 4    | 01, 04             | `pending`     | —                              | —                                      |
+| 14  | Public form + QR code              | 4    | 01, 02, 03, 04     | `pending`     | —                              | —                                      |
+| 15  | Cleanup, translations, live counts | 5    | 10, 11, 12, 13, 14 | `pending`     | —                              | —                                      |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 

@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SearchIndexService } from '../search/search-index.service';
 import { SequenceService } from '../sequence/sequence.service';
 
+import { AdmissionsAutoPromotionService } from './admissions-auto-promotion.service';
 import { AdmissionsCapacityService } from './admissions-capacity.service';
 import {
   ADMISSIONS_APPLICATION_RECEIVED_JOB,
@@ -142,6 +143,24 @@ function buildService() {
     add: jest.fn().mockResolvedValue(undefined),
   };
 
+  const autoPromotionService = {
+    promoteYearGroup: jest.fn().mockResolvedValue({
+      promoted_count: 0,
+      promoted_application_ids: [],
+      remaining_seats: 0,
+    }),
+    onClassAdded: jest.fn().mockResolvedValue({
+      promoted_count: 0,
+      promoted_application_ids: [],
+      remaining_seats: 0,
+    }),
+    onYearGroupActivated: jest.fn().mockResolvedValue({
+      promoted_count: 0,
+      promoted_application_ids: [],
+      remaining_seats: 0,
+    }),
+  } as unknown as jest.Mocked<AdmissionsAutoPromotionService>;
+
   const service = new ApplicationStateMachineService(
     {} as PrismaService,
     capacityService,
@@ -149,6 +168,7 @@ function buildService() {
     sequenceService,
     settingsService,
     searchIndexService,
+    autoPromotionService,
     notificationsQueue as never,
   );
 
@@ -159,6 +179,7 @@ function buildService() {
     sequenceService,
     settingsService,
     searchIndexService,
+    autoPromotionService,
     notificationsQueue,
   };
 }
@@ -470,6 +491,41 @@ describe('ApplicationStateMachineService', () => {
       expect(noteCall.data.note).toContain('Seat released');
     });
 
+    it('runs an auto-promotion pass when rejecting a conditional_approval', async () => {
+      const harness = buildService();
+      tx.application.findFirst.mockResolvedValue(
+        sampleApplication({ status: 'conditional_approval' }),
+      );
+      tx.application.update.mockResolvedValue(sampleApplication({ status: 'rejected' }));
+
+      await harness.service.reject(TENANT_ID, APPLICATION_ID, {
+        reason: 'Changed our minds',
+        actingUserId: ADMIN_USER_ID,
+      });
+
+      expect(harness.autoPromotionService.promoteYearGroup).toHaveBeenCalledWith(
+        expect.anything(),
+        {
+          tenantId: TENANT_ID,
+          academicYearId: ACADEMIC_YEAR_ID,
+          yearGroupId: YEAR_GROUP_ID,
+        },
+      );
+    });
+
+    it('does not run promotion when rejecting a non-seat-holding row', async () => {
+      const harness = buildService();
+      tx.application.findFirst.mockResolvedValue(sampleApplication({ status: 'ready_to_admit' }));
+      tx.application.update.mockResolvedValue(sampleApplication({ status: 'rejected' }));
+
+      await harness.service.reject(TENANT_ID, APPLICATION_ID, {
+        reason: 'Not eligible',
+        actingUserId: ADMIN_USER_ID,
+      });
+
+      expect(harness.autoPromotionService.promoteYearGroup).not.toHaveBeenCalled();
+    });
+
     it('requires a non-empty reason', async () => {
       const harness = buildService();
 
@@ -550,6 +606,28 @@ describe('ApplicationStateMachineService', () => {
         data: { note: string };
       };
       expect(noteCall.data.note).toContain('Seat released');
+    });
+
+    it('runs an auto-promotion pass when withdrawing from conditional_approval', async () => {
+      const harness = buildService();
+      tx.application.findFirst.mockResolvedValue(
+        sampleApplication({ status: 'conditional_approval' }),
+      );
+      tx.application.update.mockResolvedValue(sampleApplication({ status: 'withdrawn' }));
+
+      await harness.service.withdraw(TENANT_ID, APPLICATION_ID, {
+        actingUserId: ADMIN_USER_ID,
+        isParent: false,
+      });
+
+      expect(harness.autoPromotionService.promoteYearGroup).toHaveBeenCalledWith(
+        expect.anything(),
+        {
+          tenantId: TENANT_ID,
+          academicYearId: ACADEMIC_YEAR_ID,
+          yearGroupId: YEAR_GROUP_ID,
+        },
+      );
     });
   });
 
@@ -691,6 +769,25 @@ describe('ApplicationStateMachineService', () => {
       await expect(
         harness.service.revertToWaitingList(TENANT_ID, APPLICATION_ID, 'payment_expired'),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('runs an auto-promotion pass after reverting to waiting_list', async () => {
+      const harness = buildService();
+      tx.application.findFirst.mockResolvedValue(
+        sampleApplication({ status: 'conditional_approval' }),
+      );
+      tx.application.update.mockResolvedValue(sampleApplication({ status: 'waiting_list' }));
+
+      await harness.service.revertToWaitingList(TENANT_ID, APPLICATION_ID, 'payment_expired');
+
+      expect(harness.autoPromotionService.promoteYearGroup).toHaveBeenCalledWith(
+        expect.anything(),
+        {
+          tenantId: TENANT_ID,
+          academicYearId: ACADEMIC_YEAR_ID,
+          yearGroupId: YEAR_GROUP_ID,
+        },
+      );
     });
   });
 });

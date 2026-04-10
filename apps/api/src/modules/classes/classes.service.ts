@@ -10,6 +10,7 @@ import type { PreviewResponse } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { AdmissionsAutoPromotionService } from '../admissions/admissions-auto-promotion.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import type { SchedulesService as SchedulesServiceType } from '../schedules/schedules.service';
@@ -39,6 +40,7 @@ export class ClassesService {
     private readonly redis: RedisService,
     private readonly academicReadFacade: AcademicReadFacade,
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
+    private readonly autoPromotionService: AdmissionsAutoPromotionService,
   ) {}
 
   /** Injected lazily to avoid circular dependency */
@@ -94,7 +96,23 @@ export class ClassesService {
           }
         }
 
-        return db.class.create({
+        // Detect whether this will be the first active class for the
+        // (year, year_group) pair — drives the admissions auto-promotion hook
+        // into the `onYearGroupActivated` branch (drops `awaiting_year_setup`
+        // substatus) versus `onClassAdded` (just promotes extra seats).
+        const isFirstForPair =
+          dto.status === 'active' &&
+          dto.year_group_id != null &&
+          (await db.class.count({
+            where: {
+              tenant_id: tenantId,
+              academic_year_id: dto.academic_year_id,
+              year_group_id: dto.year_group_id,
+              status: 'active',
+            },
+          })) === 0;
+
+        const newClass = await db.class.create({
           data: {
             tenant_id: tenantId,
             academic_year_id: dto.academic_year_id,
@@ -112,6 +130,23 @@ export class ClassesService {
             homeroom_room: { select: { id: true, name: true } },
           },
         });
+
+        if (dto.status === 'active' && dto.year_group_id) {
+          if (isFirstForPair) {
+            await this.autoPromotionService.onYearGroupActivated(db, {
+              tenantId,
+              academicYearId: dto.academic_year_id,
+              yearGroupId: dto.year_group_id,
+            });
+          } else {
+            await this.autoPromotionService.onClassAdded(db, {
+              tenantId,
+              classId: newClass.id,
+            });
+          }
+        }
+
+        return newClass;
       });
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {

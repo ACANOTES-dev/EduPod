@@ -1,6 +1,7 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 
+import { AdmissionsModule } from '../admissions/admissions.module';
 import { AuthModule } from '../auth/auth.module';
 import { SchedulesModule } from '../schedules/schedules.module';
 import { SchedulesService } from '../schedules/schedules.service';
@@ -16,7 +17,7 @@ import { ClassesController } from './classes.controller';
 import { ClassesService } from './classes.service';
 
 @Module({
-  imports: [AuthModule, SchedulesModule, StaffProfilesModule, TenantsModule],
+  imports: [AuthModule, SchedulesModule, StaffProfilesModule, TenantsModule, AdmissionsModule],
   controllers: [ClassesController, ClassEnrolmentsController, ClassAssignmentsController],
   providers: [ClassesService, ClassEnrolmentsService, ClassAssignmentService, ClassesReadFacade],
   exports: [ClassesService, ClassEnrolmentsService, ClassesReadFacade],

@@ -8,6 +8,7 @@ import {
   AcademicReadFacade,
   StaffProfileReadFacade,
 } from '../../common/tests/mock-facades';
+import { AdmissionsAutoPromotionService } from '../admissions/admissions-auto-promotion.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -24,6 +25,7 @@ const mockRlsTx = {
     create: jest.fn(),
     update: jest.fn(),
     findFirst: jest.fn(),
+    count: jest.fn(),
   },
   classStaff: {
     create: jest.fn(),
@@ -77,6 +79,23 @@ const baseCreateDto = {
   status: 'active' as const,
 };
 
+const EMPTY_PROMOTION_RESULT = {
+  promoted_count: 0,
+  promoted_application_ids: [],
+  remaining_seats: 0,
+};
+
+const noopAutoPromotion = {
+  onClassAdded: jest.fn().mockResolvedValue(EMPTY_PROMOTION_RESULT),
+  onYearGroupActivated: jest.fn().mockResolvedValue(EMPTY_PROMOTION_RESULT),
+  promoteYearGroup: jest.fn().mockResolvedValue(EMPTY_PROMOTION_RESULT),
+};
+
+const autoPromotionProvider = {
+  provide: AdmissionsAutoPromotionService,
+  useValue: noopAutoPromotion,
+};
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('ClassesService — create', () => {
@@ -95,6 +114,11 @@ describe('ClassesService — create', () => {
       year_group: null,
       subject: null,
     });
+    mockRlsTx.class.count.mockReset().mockResolvedValue(0);
+
+    noopAutoPromotion.onClassAdded.mockClear();
+    noopAutoPromotion.onYearGroupActivated.mockClear();
+    noopAutoPromotion.promoteYearGroup.mockClear();
 
     createAcademicFacade = {
       findYearByIdOrThrow: jest.fn().mockResolvedValue({ id: ACADEMIC_YEAR_ID }),
@@ -105,6 +129,7 @@ describe('ClassesService — create', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
+        autoPromotionProvider,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -149,6 +174,38 @@ describe('ClassesService — create', () => {
 
     await expect(service.create(TENANT_ID, baseCreateDto)).rejects.toThrow(ConflictException);
   });
+
+  it('fires onYearGroupActivated when the class is the first active class for the pair', async () => {
+    mockRlsTx.class.count.mockResolvedValue(0);
+
+    await service.create(TENANT_ID, baseCreateDto);
+
+    expect(noopAutoPromotion.onYearGroupActivated).toHaveBeenCalledWith(expect.anything(), {
+      tenantId: TENANT_ID,
+      academicYearId: ACADEMIC_YEAR_ID,
+      yearGroupId: 'yg-1',
+    });
+    expect(noopAutoPromotion.onClassAdded).not.toHaveBeenCalled();
+  });
+
+  it('fires onClassAdded when another active class already exists for the pair', async () => {
+    mockRlsTx.class.count.mockResolvedValue(2);
+
+    await service.create(TENANT_ID, baseCreateDto);
+
+    expect(noopAutoPromotion.onClassAdded).toHaveBeenCalledWith(expect.anything(), {
+      tenantId: TENANT_ID,
+      classId: CLASS_ID,
+    });
+    expect(noopAutoPromotion.onYearGroupActivated).not.toHaveBeenCalled();
+  });
+
+  it('does not fire promotion hooks when the new class is inactive', async () => {
+    await service.create(TENANT_ID, { ...baseCreateDto, status: 'inactive' });
+
+    expect(noopAutoPromotion.onClassAdded).not.toHaveBeenCalled();
+    expect(noopAutoPromotion.onYearGroupActivated).not.toHaveBeenCalled();
+  });
 });
 
 describe('ClassesService — findAll', () => {
@@ -166,6 +223,7 @@ describe('ClassesService — findAll', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
+        autoPromotionProvider,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -264,6 +322,7 @@ describe('ClassesService — findOne', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
+        autoPromotionProvider,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -326,6 +385,7 @@ describe('ClassesService — update', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
+        autoPromotionProvider,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -407,6 +467,7 @@ describe('ClassesService — assignStaff', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
+        autoPromotionProvider,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -490,6 +551,7 @@ describe('ClassesService — removeStaff', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
+        autoPromotionProvider,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -554,6 +616,7 @@ describe('ClassesService — updateStatus', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
+        autoPromotionProvider,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -621,6 +684,7 @@ describe('ClassesService — updateStatus (no schedulesService)', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
+        autoPromotionProvider,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -674,6 +738,7 @@ describe('ClassesService — findStaff', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
+        autoPromotionProvider,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -748,6 +813,7 @@ describe('ClassesService — preview', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
+        autoPromotionProvider,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -872,6 +938,7 @@ describe('ClassesService — create (room validation)', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
+        autoPromotionProvider,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
@@ -1014,6 +1081,7 @@ describe('ClassesService — update (FK validation)', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
+        autoPromotionProvider,
         ClassesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },

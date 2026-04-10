@@ -11,6 +11,7 @@ import { TenantsModule } from '../tenants/tenants.module';
 
 import { AdmissionFormsController } from './admission-forms.controller';
 import { AdmissionFormsService } from './admission-forms.service';
+import { AdmissionsAutoPromotionService } from './admissions-auto-promotion.service';
 import { AdmissionsCapacityService } from './admissions-capacity.service';
 import { AdmissionsPaymentService } from './admissions-payment.service';
 import { AdmissionsRateLimitService } from './admissions-rate-limit.service';
@@ -49,12 +50,14 @@ import { PublicAdmissionsController } from './public-admissions.controller';
     AdmissionsRateLimitService,
     AdmissionsPaymentService,
     AdmissionsCapacityService,
+    AdmissionsAutoPromotionService,
     FinanceFeesFacade,
   ],
   exports: [
     ApplicationsService,
     AdmissionsPaymentService,
     AdmissionsCapacityService,
+    AdmissionsAutoPromotionService,
     ApplicationConversionService,
   ],
 })
