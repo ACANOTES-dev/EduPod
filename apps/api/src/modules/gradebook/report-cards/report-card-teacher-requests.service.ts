@@ -12,6 +12,7 @@ import type { GenerationScope, TeacherRequestScope } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { AcademicReadFacade } from '../../academics/academic-read.facade';
+import { AuthReadFacade } from '../../auth/auth-read.facade';
 import { NotificationsService } from '../../communications/notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RbacReadFacade } from '../../rbac/rbac-read.facade';
@@ -36,6 +37,19 @@ export interface ApproveTeacherRequestResult {
   request: ReportCardTeacherRequest;
   resulting_window_id: string | null;
   resulting_run_id: string | null;
+}
+
+/**
+ * Hydrated user summary that the frontend uses to render "Sarah Daly"
+ * instead of `#2638ae0a`. Kept narrow on purpose — email is nullable so
+ * seed/system accounts without one don't break the list view.
+ */
+export interface UserSummary {
+  id: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  email: string | null;
 }
 
 // ─── State transitions ──────────────────────────────────────────────────────
@@ -85,6 +99,7 @@ export class ReportCardTeacherRequestsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly academicReadFacade: AcademicReadFacade,
+    private readonly authReadFacade: AuthReadFacade,
     private readonly notificationsService: NotificationsService,
     private readonly rbacReadFacade: RbacReadFacade,
     private readonly commentWindowsService: ReportCommentWindowsService,
@@ -107,7 +122,7 @@ export class ReportCardTeacherRequestsService {
       where.requested_by_user_id = actor.userId;
     }
 
-    const [data, total] = await Promise.all([
+    const [rawRows, total] = await Promise.all([
       this.prisma.reportCardTeacherRequest.findMany({
         where,
         orderBy: { created_at: 'desc' },
@@ -117,14 +132,16 @@ export class ReportCardTeacherRequestsService {
       this.prisma.reportCardTeacherRequest.count({ where }),
     ]);
 
+    const data = await this.hydrateUserInfo(tenantId, rawRows);
     return { data, meta: { page, pageSize, total } };
   }
 
   async listPendingForReviewer(tenantId: string) {
-    return this.prisma.reportCardTeacherRequest.findMany({
+    const rawRows = await this.prisma.reportCardTeacherRequest.findMany({
       where: { tenant_id: tenantId, status: 'pending' },
       orderBy: { created_at: 'asc' },
     });
+    return this.hydrateUserInfo(tenantId, rawRows);
   }
 
   async findById(tenantId: string, actor: TeacherRequestActor, id: string) {
@@ -146,7 +163,59 @@ export class ReportCardTeacherRequestsService {
       });
     }
 
-    return request;
+    const hydrated = await this.hydrateUserInfo(tenantId, [request]);
+    // hydrateUserInfo preserves the input length, so index 0 is always
+    // present when we pass a single-element array. The `!` is safe here.
+    return hydrated[0]!;
+  }
+
+  // ─── User-info hydration ─────────────────────────────────────────────────
+  // The frontend list/detail views render the requester's full name and
+  // email, plus the reviewer's when present. We batch-fetch them through
+  // AuthReadFacade so we don't fan out an N+1 and don't reach into the
+  // platform-level `user` table directly from the gradebook module.
+  private async hydrateUserInfo<
+    T extends {
+      requested_by_user_id: string;
+      reviewed_by_user_id: string | null;
+    },
+  >(
+    tenantId: string,
+    rows: T[],
+  ): Promise<Array<T & { requester: UserSummary; reviewer: UserSummary | null }>> {
+    if (rows.length === 0) return [];
+    const userIds = new Set<string>();
+    for (const row of rows) {
+      userIds.add(row.requested_by_user_id);
+      if (row.reviewed_by_user_id) userIds.add(row.reviewed_by_user_id);
+    }
+    const users = await this.authReadFacade.findUsersByIds(tenantId, Array.from(userIds));
+    const byId = new Map<string, UserSummary>();
+    for (const u of users) {
+      byId.set(u.id, {
+        id: u.id,
+        first_name: u.first_name,
+        last_name: u.last_name,
+        email: u.email,
+        full_name: `${u.first_name} ${u.last_name}`.trim(),
+      });
+    }
+    const fallback = (id: string): UserSummary => ({
+      id,
+      first_name: '',
+      last_name: '',
+      email: null,
+      // Surface the id prefix only as a last-resort fallback when the user
+      // row has been deleted — keeps the list stable for audit purposes.
+      full_name: `Unknown user (${id.slice(0, 8)})`,
+    });
+    return rows.map((row) => ({
+      ...row,
+      requester: byId.get(row.requested_by_user_id) ?? fallback(row.requested_by_user_id),
+      reviewer: row.reviewed_by_user_id
+        ? (byId.get(row.reviewed_by_user_id) ?? fallback(row.reviewed_by_user_id))
+        : null,
+    }));
   }
 
   // ─── Write — teacher ─────────────────────────────────────────────────────

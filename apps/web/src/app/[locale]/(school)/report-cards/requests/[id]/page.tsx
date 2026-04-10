@@ -18,11 +18,21 @@ import { RejectModal } from '../_components/reject-modal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface UserSummary {
+  id: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  email: string | null;
+}
+
 interface TeacherRequestRow {
   id: string;
   requested_by_user_id: string;
   request_type: TeacherRequestType;
-  academic_period_id: string;
+  // NULL for full-year reopen requests — the backend schema allows null.
+  academic_period_id: string | null;
+  academic_year_id: string;
   target_scope_json: TeacherRequestScope | null;
   reason: string;
   status: TeacherRequestStatus;
@@ -33,14 +43,17 @@ interface TeacherRequestRow {
   resulting_run_id: string | null;
   created_at: string;
   updated_at: string;
+  // Hydrated by the backend so the UI can render the real name + email.
+  // `reviewer` is null for requests that haven't been reviewed yet.
+  requester: UserSummary;
+  reviewer: UserSummary | null;
 }
 
-interface UserSummary {
-  id: string;
-  email?: string | null;
-  name?: string | null;
-  first_name?: string | null;
-  last_name?: string | null;
+// The ResponseTransformInterceptor wraps single-object responses as
+// `{ data: T }`. Paginated list responses already have a `data` key so they
+// pass through untouched. See apps/api/src/common/interceptors/response-transform.interceptor.ts.
+interface Envelope<T> {
+  data: T;
 }
 
 interface ListResponse<T> {
@@ -79,10 +92,14 @@ function statusBadgeVariant(
   }
 }
 
-function displayUserName(user: UserSummary | null, fallbackId: string): string {
-  if (!user) return `#${fallbackId.slice(0, 8)}`;
+function displayUserName(
+  user: UserSummary | null | undefined,
+  fallbackId: string | null | undefined,
+): string {
+  const idFallback = fallbackId ? `#${fallbackId.slice(0, 8)}` : '—';
+  if (!user) return idFallback;
   const combinedName = [user.first_name, user.last_name].filter(Boolean).join(' ').trim();
-  return user.name ?? combinedName ?? user.email ?? `#${fallbackId.slice(0, 8)}`;
+  return user.full_name || combinedName || user.email || idFallback;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -101,8 +118,6 @@ export default function ReportCardRequestDetailPage() {
 
   const [row, setRow] = React.useState<TeacherRequestRow | null>(null);
   const [period, setPeriod] = React.useState<AcademicPeriod | null>(null);
-  const [requester, setRequester] = React.useState<UserSummary | null>(null);
-  const [reviewer, setReviewer] = React.useState<UserSummary | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [loadFailed, setLoadFailed] = React.useState(false);
   const [actionInFlight, setActionInFlight] = React.useState(false);
@@ -122,51 +137,35 @@ export default function ReportCardRequestDetailPage() {
       setIsLoading(true);
       setLoadFailed(false);
       try {
-        const requestRow = await apiClient<TeacherRequestRow>(
+        // The backend wraps single-object responses in { data: ... } — unwrap
+        // before reading fields, otherwise every property lookup is undefined.
+        const response = await apiClient<Envelope<TeacherRequestRow>>(
           `/api/v1/report-card-teacher-requests/${requestId}`,
         );
         if (cancelled) return;
+        const requestRow = response.data;
         setRow(requestRow);
 
-        // Fetch period name
-        try {
-          const periodsRes = await apiClient<ListResponse<AcademicPeriod>>(
-            '/api/v1/academic-periods?pageSize=100',
-            { silent: true },
-          );
-          if (cancelled) return;
-          const found =
-            (periodsRes.data ?? []).find((p) => p.id === requestRow.academic_period_id) ?? null;
-          setPeriod(found);
-        } catch (err) {
-          console.error('[ReportCardRequestDetailPage.periods]', err);
-        }
-
-        // Fetch user names — admins can resolve them, teachers can't see the
-        // user endpoint so we fall back to id display.
-        if (isAdmin) {
+        // Fetch period name (only when the request is tied to a specific
+        // period — full-year reopen requests have no period).
+        if (requestRow.academic_period_id) {
           try {
-            const requesterRes = await apiClient<UserSummary>(
-              `/api/v1/users/${requestRow.requested_by_user_id}`,
+            const periodsRes = await apiClient<ListResponse<AcademicPeriod>>(
+              '/api/v1/academic-periods?pageSize=100',
               { silent: true },
             );
-            if (!cancelled) setRequester(requesterRes);
+            if (cancelled) return;
+            const found =
+              (periodsRes.data ?? []).find((p) => p.id === requestRow.academic_period_id) ?? null;
+            setPeriod(found);
           } catch (err) {
-            console.error('[ReportCardRequestDetailPage.requester]', err);
-          }
-
-          if (requestRow.reviewed_by_user_id) {
-            try {
-              const reviewerRes = await apiClient<UserSummary>(
-                `/api/v1/users/${requestRow.reviewed_by_user_id}`,
-                { silent: true },
-              );
-              if (!cancelled) setReviewer(reviewerRes);
-            } catch (err) {
-              console.error('[ReportCardRequestDetailPage.reviewer]', err);
-            }
+            console.error('[ReportCardRequestDetailPage.periods]', err);
           }
         }
+
+        // Requester + reviewer names come hydrated on the response — no need
+        // to fetch /api/v1/users/:id separately (teachers couldn't access that
+        // endpoint anyway).
       } catch (err) {
         console.error('[ReportCardRequestDetailPage]', err);
         if (!cancelled) {
@@ -182,7 +181,7 @@ export default function ReportCardRequestDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [requestId, isAdmin, refreshToken]);
+  }, [requestId, refreshToken]);
 
   // ─── Approve and open (manual routing) ──────────────────────────────────
   const handleApproveAndOpen = async (): Promise<void> => {
@@ -195,12 +194,19 @@ export default function ReportCardRequestDetailPage() {
       });
       toast.success(t('approveSuccess'));
 
-      // Route into the correct target page with pre-filled params.
-      if (row.request_type === 'open_comment_window') {
+      // Route into the correct target page with pre-filled params. Full-year
+      // requests have no academic_period_id — fall back to the list view in
+      // that case so we don't push an empty `period_id` query param.
+      if (row.request_type === 'open_comment_window' && row.academic_period_id) {
         router.push(
           `/${locale}/report-comments?open_window_period=${encodeURIComponent(row.academic_period_id)}`,
         );
-      } else if (row.request_type === 'regenerate_reports' && row.target_scope_json) {
+      } else if (
+        row.request_type === 'regenerate_reports' &&
+        row.target_scope_json &&
+        row.target_scope_json.ids?.length &&
+        row.academic_period_id
+      ) {
         const mode =
           row.target_scope_json.scope === 'student' ? 'individual' : row.target_scope_json.scope;
         const params = new URLSearchParams({
@@ -330,13 +336,16 @@ export default function ReportCardRequestDetailPage() {
                   {t('requester')}
                 </dt>
                 <dd className="mt-1 text-sm text-text-primary">
-                  {displayUserName(requester, row.requested_by_user_id)}
+                  {displayUserName(row.requester, row.requested_by_user_id)}
                 </dd>
+                {row.requester?.email && (
+                  <dd className="text-xs text-text-tertiary">{row.requester.email}</dd>
+                )}
               </div>
               <div>
                 <dt className="text-xs font-medium uppercase text-text-tertiary">{t('period')}</dt>
                 <dd className="mt-1 text-sm text-text-primary">
-                  {period?.name ?? row.academic_period_id}
+                  {period?.name ?? (row.academic_period_id ? row.academic_period_id : '—')}
                 </dd>
               </div>
               <div>
@@ -368,7 +377,7 @@ export default function ReportCardRequestDetailPage() {
                 </dd>
                 {row.reviewed_by_user_id && (
                   <p className="mt-2 text-xs text-text-tertiary">
-                    {t('reviewedBy')}: {displayUserName(reviewer, row.reviewed_by_user_id)}
+                    {t('reviewedBy')}: {displayUserName(row.reviewer, row.reviewed_by_user_id)}
                     {row.reviewed_at ? ` — ${formatDateTime(row.reviewed_at)}` : ''}
                   </p>
                 )}

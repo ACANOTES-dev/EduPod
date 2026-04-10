@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { AcademicReadFacade } from '../../academics/academic-read.facade';
+import { AuthReadFacade } from '../../auth/auth-read.facade';
 import { NotificationsService } from '../../communications/notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RbacReadFacade } from '../../rbac/rbac-read.facade';
@@ -77,6 +78,14 @@ const mockAcademicReadFacade = {
   findPeriodById: jest.fn(),
 };
 
+// hydrateUserInfo goes through AuthReadFacade.findUsersByIds rather than
+// touching the platform-level `user` table directly. Default to an empty
+// array so existing tests don't care about user hydration — they only
+// check the request rows.
+const mockAuthReadFacade = {
+  findUsersByIds: jest.fn().mockResolvedValue([]),
+};
+
 const mockNotificationsService = {
   createBatch: jest.fn(),
 };
@@ -102,6 +111,7 @@ describe('ReportCardTeacherRequestsService', () => {
     mockRlsTx.reportCardTeacherRequest.create.mockReset();
     mockRlsTx.reportCardTeacherRequest.update.mockReset();
     mockAcademicReadFacade.findPeriodById.mockReset();
+    mockAuthReadFacade.findUsersByIds.mockReset().mockResolvedValue([]);
     mockNotificationsService.createBatch.mockReset().mockResolvedValue(undefined);
     mockRbacReadFacade.findMembershipsWithPermissionAndUser.mockReset().mockResolvedValue([]);
     mockCommentWindowsService.open.mockReset();
@@ -112,6 +122,7 @@ describe('ReportCardTeacherRequestsService', () => {
         ReportCardTeacherRequestsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
+        { provide: AuthReadFacade, useValue: mockAuthReadFacade },
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: RbacReadFacade, useValue: mockRbacReadFacade },
         { provide: ReportCommentWindowsService, useValue: mockCommentWindowsService },

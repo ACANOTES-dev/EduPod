@@ -15,11 +15,21 @@ import { formatDateTime } from '@/lib/format-date';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface UserSummary {
+  id: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  email: string | null;
+}
+
 interface TeacherRequestRow {
   id: string;
   requested_by_user_id: string;
   request_type: TeacherRequestType;
-  academic_period_id: string;
+  // Nullable in the DB — full-year reopen requests have no period.
+  academic_period_id: string | null;
+  academic_year_id: string;
   target_scope_json: TeacherRequestScope | null;
   reason: string;
   status: TeacherRequestStatus;
@@ -30,6 +40,9 @@ interface TeacherRequestRow {
   resulting_run_id: string | null;
   created_at: string;
   updated_at: string;
+  // Hydrated by the backend (see ReportCardTeacherRequestsService.hydrateUserInfo).
+  requester: UserSummary;
+  reviewer: UserSummary | null;
 }
 
 interface ListResponse<T> {
@@ -40,14 +53,6 @@ interface ListResponse<T> {
 interface AcademicPeriod {
   id: string;
   name: string;
-}
-
-interface UserSummary {
-  id: string;
-  email?: string | null;
-  name?: string | null;
-  first_name?: string | null;
-  last_name?: string | null;
 }
 
 type AdminTab = 'pending' | 'all';
@@ -73,10 +78,14 @@ function statusBadgeVariant(
   }
 }
 
-function displayUserName(user: UserSummary | undefined, fallbackId: string): string {
-  if (!user) return `#${fallbackId.slice(0, 8)}`;
+function displayUserName(
+  user: UserSummary | null | undefined,
+  fallbackId: string | null | undefined,
+): string {
+  const idFallback = fallbackId ? `#${fallbackId.slice(0, 8)}` : '—';
+  if (!user) return idFallback;
   const combinedName = [user.first_name, user.last_name].filter(Boolean).join(' ').trim();
-  return user.name ?? combinedName ?? user.email ?? `#${fallbackId.slice(0, 8)}`;
+  return user.full_name || combinedName || user.email || idFallback;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -93,7 +102,6 @@ export default function ReportCardRequestsPage() {
   const [activeTab, setActiveTab] = React.useState<AdminTab>('pending');
   const [rows, setRows] = React.useState<TeacherRequestRow[]>([]);
   const [periods, setPeriods] = React.useState<Record<string, AcademicPeriod>>({});
-  const [users, setUsers] = React.useState<Record<string, UserSummary>>({});
   const [isLoading, setIsLoading] = React.useState(true);
   const [loadFailed, setLoadFailed] = React.useState(false);
   const [refreshToken, setRefreshToken] = React.useState(0);
@@ -128,15 +136,8 @@ export default function ReportCardRequestsPage() {
         const requestRows = requestsRes.data ?? [];
         setRows(requestRows);
 
-        // Collect unique period ids and user ids to resolve names
-        const periodIds = new Set<string>();
-        const userIds = new Set<string>();
-        for (const row of requestRows) {
-          periodIds.add(row.academic_period_id);
-          userIds.add(row.requested_by_user_id);
-        }
-
-        // Fetch periods (paginated list — simplest is to fetch all)
+        // Fetch periods (paginated list — simplest is to fetch all) so we can
+        // render friendly names instead of raw UUIDs.
         const periodsRes = await apiClient<ListResponse<AcademicPeriod>>(
           '/api/v1/academic-periods?pageSize=100',
         );
@@ -148,24 +149,7 @@ export default function ReportCardRequestsPage() {
         }
         setPeriods(periodMap);
 
-        // Fetch user summaries — best-effort individual lookups. Failures are
-        // tolerated and rows fall back to a truncated id. The endpoint is
-        // admin-only so non-admin teachers will silently skip this block.
-        if (userIds.size > 0 && isAdmin) {
-          const lookups = await Promise.allSettled(
-            Array.from(userIds).map((uid) =>
-              apiClient<{ data: UserSummary }>(`/api/v1/users/${uid}`, { silent: true }),
-            ),
-          );
-          if (cancelled) return;
-          const userMap: Record<string, UserSummary> = {};
-          for (const result of lookups) {
-            if (result.status === 'fulfilled' && result.value.data?.id) {
-              userMap[result.value.data.id] = result.value.data;
-            }
-          }
-          setUsers(userMap);
-        }
+        // Requester names come hydrated on each row — no extra lookups needed.
       } catch (err) {
         console.error('[ReportCardRequestsPage]', err);
         if (!cancelled) {
@@ -202,7 +186,10 @@ export default function ReportCardRequestsPage() {
 
   // ─── Render helpers ─────────────────────────────────────────────────────
 
-  const periodName = (id: string): string => periods[id]?.name ?? id;
+  const periodName = (id: string | null): string => {
+    if (!id) return '—';
+    return periods[id]?.name ?? id;
+  };
 
   const scopeSummary = (row: TeacherRequestRow): string => {
     if (row.request_type === 'open_comment_window') return t('scopeNone');
@@ -344,8 +331,13 @@ export default function ReportCardRequestsPage() {
                 return (
                   <tr key={row.id} className="hover:bg-surface-secondary/40">
                     {isAdmin && (
-                      <td className="whitespace-nowrap px-4 py-3 text-sm text-text-primary">
-                        {displayUserName(users[row.requested_by_user_id], row.requested_by_user_id)}
+                      <td className="whitespace-nowrap px-4 py-3 text-sm">
+                        <div className="text-text-primary">
+                          {displayUserName(row.requester, row.requested_by_user_id)}
+                        </div>
+                        {row.requester?.email && (
+                          <div className="text-xs text-text-tertiary">{row.requester.email}</div>
+                        )}
                       </td>
                     )}
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-text-primary">
