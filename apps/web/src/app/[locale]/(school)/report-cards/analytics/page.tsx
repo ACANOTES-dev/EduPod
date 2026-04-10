@@ -84,6 +84,11 @@ export default function ReportCardAnalyticsPage() {
   // /analytics/class-comparison. There is no combined endpoint and no trends
   // endpoint — the latter is a planned feature, so the trends array degrades
   // gracefully to empty and the trend chart simply doesn't render.
+  //
+  // class-comparison is inherently per-period and throws 500 when called with
+  // no period id, so we only fetch it when a specific period is selected.
+  // Each fetch is independent via allSettled — one failing never blocks the
+  // other from rendering.
   const fetchAnalytics = React.useCallback(async (periodId: string) => {
     setIsLoading(true);
     try {
@@ -91,22 +96,37 @@ export default function ReportCardAnalyticsPage() {
       if (periodId !== 'all') params.set('academic_period_id', periodId);
       const qs = params.toString();
       const qsSuffix = qs.length > 0 ? `?${qs}` : '';
-      const [dashboardRes, comparisonRes] = await Promise.all([
-        apiClient<{ data: AnalyticsSummary }>(
-          `/api/v1/report-cards/analytics/dashboard${qsSuffix}`,
-        ),
-        apiClient<{ data: ClassComparisonItem[] }>(
-          `/api/v1/report-cards/analytics/class-comparison${qsSuffix}`,
-        ),
+
+      const dashboardPromise = apiClient<{ data: AnalyticsSummary }>(
+        `/api/v1/report-cards/analytics/dashboard${qsSuffix}`,
+      );
+      const comparisonPromise =
+        periodId !== 'all'
+          ? apiClient<{ data: ClassComparisonItem[] }>(
+              `/api/v1/report-cards/analytics/class-comparison${qsSuffix}`,
+            )
+          : Promise.resolve({ data: [] as ClassComparisonItem[] });
+
+      const [dashboardResult, comparisonResult] = await Promise.allSettled([
+        dashboardPromise,
+        comparisonPromise,
       ]);
+
+      if (dashboardResult.status === 'rejected') {
+        console.error('[ReportCardsAnalyticsPage] dashboard', dashboardResult.reason);
+        setAnalytics(null);
+        return;
+      }
+      if (comparisonResult.status === 'rejected') {
+        console.error('[ReportCardsAnalyticsPage] class-comparison', comparisonResult.reason);
+      }
+
       setAnalytics({
-        summary: dashboardRes.data,
-        class_comparison: comparisonRes.data ?? [],
+        summary: dashboardResult.value.data,
+        class_comparison:
+          comparisonResult.status === 'fulfilled' ? (comparisonResult.value.data ?? []) : [],
         trends: [],
       });
-    } catch (err) {
-      console.error('[ReportCardsAnalyticsPage]', err);
-      setAnalytics(null);
     } finally {
       setIsLoading(false);
     }
