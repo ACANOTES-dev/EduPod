@@ -35,7 +35,6 @@ const USER: JwtPayload = {
 const mockApplicationsService = {
   findByParent: jest.fn(),
   findOne: jest.fn(),
-  submit: jest.fn(),
   withdraw: jest.fn(),
 };
 
@@ -75,12 +74,14 @@ describe('ParentApplicationsController', () => {
 
   describe('ParentApplicationsController -- findOwn', () => {
     it('should delegate to applicationsService.findByParent with tenant_id and user_id', async () => {
-      mockApplicationsService.findByParent.mockResolvedValue([{ id: APP_ID, status: 'submitted' }]);
+      mockApplicationsService.findByParent.mockResolvedValue([
+        { id: APP_ID, status: 'ready_to_admit' },
+      ]);
 
       const result = await controller.findOwn(TENANT, USER);
 
       expect(mockApplicationsService.findByParent).toHaveBeenCalledWith(TENANT_ID, USER_ID);
-      expect(result).toEqual([{ id: APP_ID, status: 'submitted' }]);
+      expect(result).toEqual([{ id: APP_ID, status: 'ready_to_admit' }]);
     });
   });
 
@@ -88,7 +89,7 @@ describe('ParentApplicationsController', () => {
 
   describe('ParentApplicationsController -- findOne', () => {
     it('should return application with non-internal notes when parent owns it', async () => {
-      const application = { id: APP_ID, status: 'submitted', student_first_name: 'John' };
+      const application = { id: APP_ID, status: 'ready_to_admit', student_first_name: 'John' };
       mockApplicationsService.findOne.mockResolvedValue(application);
       mockApplicationsService.findByParent.mockResolvedValue([{ id: APP_ID }]);
       mockApplicationNotesService.findByApplication.mockResolvedValue({ data: [] });
@@ -117,19 +118,6 @@ describe('ParentApplicationsController', () => {
       mockApplicationsService.findByParent.mockResolvedValue([]);
 
       await expect(controller.findOne(TENANT, USER, APP_ID)).rejects.toThrow(ForbiddenException);
-    });
-  });
-
-  // ─── POST /v1/parent/applications/:id/submit ───────────────────────────────
-
-  describe('ParentApplicationsController -- submit', () => {
-    it('should delegate to applicationsService.submit with tenant_id, id, and user_id', async () => {
-      mockApplicationsService.submit.mockResolvedValue({ id: APP_ID, status: 'submitted' });
-
-      const result = await controller.submit(TENANT, USER, APP_ID);
-
-      expect(mockApplicationsService.submit).toHaveBeenCalledWith(TENANT_ID, APP_ID, USER_ID);
-      expect(result).toEqual({ id: APP_ID, status: 'submitted' });
     });
   });
 

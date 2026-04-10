@@ -3,7 +3,6 @@ import { Prisma } from '@prisma/client';
 
 import type {
   AdmissionsAnalyticsQuery,
-  ConvertApplicationDto,
   CreatePublicApplicationDto,
   ListApplicationsQuery,
   ReviewApplicationDto,
@@ -11,10 +10,8 @@ import type {
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../sequence/sequence.service';
 
 import { AdmissionsRateLimitService } from './admissions-rate-limit.service';
-import { ApplicationConversionService } from './application-conversion.service';
 import { ApplicationStateMachineService } from './application-state-machine.service';
 
 // ─── Prisma result shapes ─────────────────────────────────────────────────────
@@ -94,34 +91,68 @@ export interface ApplicationDetail {
 export class ApplicationsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly sequenceService: SequenceService,
     private readonly rateLimitService: AdmissionsRateLimitService,
     private readonly stateMachineService: ApplicationStateMachineService,
-    private readonly conversionService: ApplicationConversionService,
   ) {}
 
   // ─── Delegated: State Machine ─────────────────────────────────────────────
 
-  async submit(tenantId: string, applicationId: string, userId: string) {
-    return this.stateMachineService.submit(tenantId, applicationId, userId);
-  }
-
+  /**
+   * Admin review endpoint dispatcher: maps the legacy `{ status }` DTO shape
+   * onto the granular new state-machine methods so the `/review` route keeps
+   * working while the state graph (impl 03 of the admissions rebuild) enforces
+   * the new transitions.
+   */
   async review(tenantId: string, id: string, dto: ReviewApplicationDto, userId: string) {
-    return this.stateMachineService.review(tenantId, id, dto, userId);
+    switch (dto.status) {
+      case 'ready_to_admit':
+        // ready_to_admit is now a gated entry state only — it is not a target
+        // an admin can flip into. Promotion back to ready_to_admit is handled
+        // by the auto-promotion service (impl 09).
+        throw new BadRequestException({
+          error: {
+            code: 'INVALID_STATUS_TRANSITION',
+            message:
+              '"ready_to_admit" is not an admin-actionable target; the state machine routes applications into it automatically.',
+          },
+        });
+      case 'conditional_approval':
+        return this.stateMachineService.moveToConditionalApproval(tenantId, id, userId);
+      case 'approved':
+        // Direct approval without a payment event is not permitted in the
+        // new flow — use the cash / bank transfer / override endpoints in
+        // impl 07 instead.
+        throw new BadRequestException({
+          error: {
+            code: 'INVALID_STATUS_TRANSITION',
+            message:
+              '"approved" cannot be set directly — record a payment or an admin override (impl 07).',
+          },
+        });
+      case 'rejected':
+        return this.stateMachineService.reject(tenantId, id, {
+          reason: dto.rejection_reason ?? '',
+          actingUserId: userId,
+        });
+      default: {
+        // Exhaustiveness guard — ReviewApplicationDto.status only allows the
+        // four branches above, so this is unreachable unless the schema grows.
+        const exhaustive: never = dto.status;
+        throw new BadRequestException({
+          error: {
+            code: 'INVALID_STATUS_TRANSITION',
+            message: `Unsupported review target: ${String(exhaustive)}`,
+          },
+        });
+      }
+    }
   }
 
   async withdraw(tenantId: string, id: string, userId: string, isParent: boolean) {
-    return this.stateMachineService.withdraw(tenantId, id, userId, isParent);
-  }
-
-  // ─── Delegated: Conversion ────────────────────────────────────────────────
-
-  async getConversionPreview(tenantId: string, id: string) {
-    return this.conversionService.getConversionPreview(tenantId, id);
-  }
-
-  async convert(tenantId: string, id: string, dto: ConvertApplicationDto, userId: string) {
-    return this.conversionService.convert(tenantId, id, dto, userId);
+    return this.stateMachineService.withdraw(tenantId, id, {
+      actingUserId: userId,
+      isParent,
+    });
   }
 
   // ─── Create Public ────────────────────────────────────────────────────────
@@ -148,12 +179,14 @@ export class ApplicationsService {
       });
     }
 
+    // Validate form is published and the payload satisfies its required
+    // fields. A small read-only RLS transaction lets us surface FORM_NOT_FOUND
+    // and VALIDATION_ERROR before the state machine opens its own write
+    // transaction.
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    return prismaWithRls.$transaction(async (tx) => {
+    await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      // Validate form exists and is published
       const form = await db.admissionFormDefinition.findFirst({
         where: {
           id: dto.form_definition_id,
@@ -174,37 +207,28 @@ export class ApplicationsService {
         });
       }
 
-      // Validate payload against form fields
       this.validatePayloadAgainstFields(dto.payload_json as Record<string, unknown>, form.fields);
-
-      // Generate application number
-      const applicationNumber = await this.sequenceService.nextNumber(tenantId, 'application', tx);
-
-      const application = await db.application.create({
-        data: {
-          tenant_id: tenantId,
-          form_definition_id: dto.form_definition_id,
-          application_number: applicationNumber,
-          student_first_name: dto.student_first_name,
-          student_last_name: dto.student_last_name,
-          date_of_birth: dto.date_of_birth ? new Date(dto.date_of_birth) : null,
-          target_academic_year_id: dto.target_academic_year_id,
-          target_year_group_id: dto.target_year_group_id,
-          status: 'submitted',
-          submitted_at: new Date(),
-          payload_json: {
-            ...(dto.payload_json as Record<string, unknown>),
-            __consents: dto.consents,
-          } as Prisma.InputJsonValue,
-        },
-      });
-
-      return {
-        id: application.id,
-        application_number: application.application_number,
-        status: application.status,
-      };
     });
+
+    const application = await this.stateMachineService.submit(tenantId, {
+      formDefinitionId: dto.form_definition_id,
+      studentFirstName: dto.student_first_name,
+      studentLastName: dto.student_last_name,
+      dateOfBirth: dto.date_of_birth ? new Date(dto.date_of_birth) : null,
+      targetAcademicYearId: dto.target_academic_year_id,
+      targetYearGroupId: dto.target_year_group_id,
+      payloadJson: {
+        ...(dto.payload_json as Record<string, unknown>),
+        __consents: dto.consents,
+      },
+      submittedByParentId: null,
+    });
+
+    return {
+      id: application.id,
+      application_number: application.application_number,
+      status: application.status,
+    };
   }
 
   // ─── Find All ─────────────────────────────────────────────────────────────

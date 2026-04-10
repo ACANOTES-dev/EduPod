@@ -1,442 +1,550 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
-  ForbiddenException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import type {
+  Application,
+  ApplicationStatus,
+  ApplicationWaitingListSubstatus,
+} from '@prisma/client';
+import type { Queue } from 'bullmq';
 
-import type { ReviewApplicationDto } from '@school/shared';
-import {
-  type ConsentCaptureDto,
-  CONSENT_TYPES,
-  consentCaptureSchema,
-  mapConsentCaptureToTypes,
-} from '@school/shared/gdpr';
+import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
-import { ApprovalRequestsService } from '../approvals/approval-requests.service';
+import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchIndexService } from '../search/search-index.service';
+import { SequenceService } from '../sequence/sequence.service';
 
-const CONSENT_CAPTURE_PAYLOAD_KEY = '__consents';
+import { AdmissionsCapacityService } from './admissions-capacity.service';
+import { FinanceFeesFacade } from './finance-fees.facade';
 
-// ─── Valid status transitions ─────────────────────────────────────────────────
-// NOTE: Wave-1 placeholder. The full state graph (capacity gates, waiting list,
-// auto-promotion, override audit trail) lands in Wave 2 — see
-// `new-admissions/implementations/03-state-machine-rewrite.md`.
+// ─── Job constants ───────────────────────────────────────────────────────────
 
-const VALID_REVIEW_TRANSITIONS: Record<string, string[]> = {
-  submitted: ['ready_to_admit', 'waiting_list', 'rejected'],
-  ready_to_admit: ['conditional_approval', 'rejected'],
-  conditional_approval: ['approved', 'rejected'],
+export const ADMISSIONS_APPLICATION_RECEIVED_JOB = 'notifications:admissions-application-received';
+export const ADMISSIONS_PAYMENT_LINK_JOB = 'notifications:admissions-payment-link';
+
+// ─── Valid status transitions ────────────────────────────────────────────────
+// `submitted` stays as a graph edge rather than a persisted state — the new
+// submit() path inserts rows directly into `ready_to_admit` or `waiting_list`.
+// The enum value remains for backwards compatibility with the Wave 1 data
+// migration that renamed legacy values.
+
+const VALID_TRANSITIONS: Record<ApplicationStatus, ApplicationStatus[]> = {
+  submitted: ['ready_to_admit', 'waiting_list'],
+  waiting_list: ['ready_to_admit', 'rejected', 'withdrawn'],
+  ready_to_admit: ['conditional_approval', 'rejected', 'withdrawn'],
+  conditional_approval: ['approved', 'waiting_list', 'rejected', 'withdrawn'],
+  approved: [],
+  rejected: [],
+  withdrawn: [],
 };
 
-const WITHDRAWABLE_STATUSES = [
-  'submitted',
-  'waiting_list',
-  'ready_to_admit',
-  'conditional_approval',
-];
+// ─── Types ───────────────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────────────────────────────────────
+export interface StateMachineSubmitParams {
+  formDefinitionId: string;
+  studentFirstName: string;
+  studentLastName: string;
+  dateOfBirth: Date | null;
+  targetAcademicYearId: string;
+  targetYearGroupId: string;
+  payloadJson: Record<string, unknown>;
+  submittedByParentId: string | null;
+  /** Explicit for deterministic testing; defaults to `now()`. */
+  applyDate?: Date;
+}
 
+type PaymentSource = 'stripe' | 'cash' | 'bank_transfer' | 'override';
+
+type RowLockResult = {
+  id: string;
+  tenant_id: string;
+  status: ApplicationStatus;
+  target_academic_year_id: string | null;
+  target_year_group_id: string | null;
+};
+
+// ─── Service ─────────────────────────────────────────────────────────────────
+
+/**
+ * New financially-gated admissions state machine.
+ *
+ * Every transition runs inside an interactive RLS transaction and, where
+ * relevant, re-checks year-group capacity through `AdmissionsCapacityService`.
+ * Seat-consuming transitions (`ready_to_admit` → `conditional_approval`) take
+ * a row-level `SELECT … FOR UPDATE` lock so two admins clicking Approve on
+ * the last free seat cannot oversubscribe the year group.
+ *
+ * See `new-admissions/PLAN.md` §2 for the state graph and
+ * `new-admissions/implementations/03-state-machine-rewrite.md` for the spec
+ * this implementation was built against.
+ */
 @Injectable()
 export class ApplicationStateMachineService {
   private readonly logger = new Logger(ApplicationStateMachineService.name);
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly approvalRequestsService: ApprovalRequestsService,
+    private readonly capacityService: AdmissionsCapacityService,
+    private readonly financeFeesFacade: FinanceFeesFacade,
+    private readonly sequenceService: SequenceService,
+    private readonly settingsService: SettingsService,
     private readonly searchIndexService: SearchIndexService,
+    @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
 
   // ─── Submit ───────────────────────────────────────────────────────────────
 
-  async submit(tenantId: string, applicationId: string, userId: string) {
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+  /**
+   * Create an application and route it to `ready_to_admit` / `waiting_list`
+   * based on the target year group's live capacity. Called by the public form
+   * path and any admin-created draft path; both flow through here so gating
+   * cannot be bypassed.
+   */
+  async submit(tenantId: string, params: StateMachineSubmitParams): Promise<Application> {
+    const applyDate = params.applyDate ?? new Date();
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const result = (await prismaWithRls.$transaction(async (tx) => {
+    const created = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      const application = await db.application.findFirst({
-        where: { id: applicationId, tenant_id: tenantId },
+      const capacity = await this.capacityService.getAvailableSeats(db, {
+        tenantId,
+        academicYearId: params.targetAcademicYearId,
+        yearGroupId: params.targetYearGroupId,
       });
 
-      if (!application) {
-        throw new NotFoundException({
-          error: {
-            code: 'APPLICATION_NOT_FOUND',
-            message: `Application with id "${applicationId}" not found`,
-          },
-        });
+      let status: ApplicationStatus;
+      let waitingListSubstatus: ApplicationWaitingListSubstatus | null = null;
+
+      if (!capacity.configured) {
+        status = 'waiting_list';
+        waitingListSubstatus = 'awaiting_year_setup';
+      } else if (capacity.available_seats > 0) {
+        status = 'ready_to_admit';
+      } else {
+        status = 'waiting_list';
       }
 
-      if (application.status !== 'submitted') {
-        throw new BadRequestException({
-          error: {
-            code: 'INVALID_STATUS_TRANSITION',
-            message: `Cannot re-submit an application with status "${application.status}".`,
-          },
-        });
-      }
+      const applicationNumber = await this.sequenceService.nextNumber(tenantId, 'application', tx);
 
-      // Ownership guard: verify the calling user owns this application
-      // (either they created it or they are a parent linked to it)
-      const parent = await db.parent.findFirst({
-        where: {
+      return db.application.create({
+        data: {
           tenant_id: tenantId,
-          user_id: userId,
+          form_definition_id: params.formDefinitionId,
+          application_number: applicationNumber,
+          submitted_by_parent_id: params.submittedByParentId,
+          student_first_name: params.studentFirstName,
+          student_last_name: params.studentLastName,
+          date_of_birth: params.dateOfBirth,
+          status,
+          waiting_list_substatus: waitingListSubstatus,
+          submitted_at: applyDate,
+          apply_date: applyDate,
+          target_academic_year_id: params.targetAcademicYearId,
+          target_year_group_id: params.targetYearGroupId,
+          payload_json: params.payloadJson as Prisma.InputJsonValue,
+        },
+      });
+    })) as Application;
+
+    await this.fireSubmissionSideEffects(tenantId, created);
+
+    return created;
+  }
+
+  // ─── Move to Conditional Approval ────────────────────────────────────────
+
+  async moveToConditionalApproval(
+    tenantId: string,
+    applicationId: string,
+    actingUserId: string,
+  ): Promise<Application> {
+    const settings = await this.settingsService.getModuleSettings(tenantId, 'admissions');
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    const updated = (await rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      const rawTx = tx as unknown as {
+        $queryRaw: (sql: Prisma.Sql) => Promise<RowLockResult[]>;
+      };
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- row-level lock for state-machine concurrency guard, inside RLS transaction
+      const locked = await rawTx.$queryRaw(Prisma.sql`
+        SELECT id, tenant_id, status, target_academic_year_id, target_year_group_id
+        FROM applications
+        WHERE id = ${applicationId}::uuid
+          AND tenant_id = ${tenantId}::uuid
+        FOR UPDATE
+      `);
+
+      const current = locked[0];
+      if (!current) {
+        throw new NotFoundException({
+          code: 'APPLICATION_NOT_FOUND',
+          message: `Application "${applicationId}" not found`,
+        });
+      }
+
+      this.assertTransitionAllowed(current.status, 'conditional_approval');
+
+      if (!current.target_academic_year_id || !current.target_year_group_id) {
+        throw new BadRequestException({
+          code: 'MISSING_TARGET_YEAR_GROUP',
+          message: 'Application is missing target academic year or target year group',
+        });
+      }
+
+      const capacity = await this.capacityService.getAvailableSeats(db, {
+        tenantId,
+        academicYearId: current.target_academic_year_id,
+        yearGroupId: current.target_year_group_id,
+      });
+
+      if (capacity.available_seats === 0) {
+        throw new ConflictException({
+          code: 'CAPACITY_EXHAUSTED',
+          message:
+            'No seats remain in this year group — application stays in Ready to Admit until another is rejected or withdrawn.',
+        });
+      }
+
+      const fee = await this.financeFeesFacade.resolveAnnualNetFeeCents(
+        tenantId,
+        current.target_academic_year_id,
+        current.target_year_group_id,
+        db,
+      );
+
+      const paymentAmountCents = Math.round((fee.amount_cents * settings.upfront_percentage) / 100);
+      const paymentDeadline = new Date(Date.now() + settings.payment_window_days * 86_400_000);
+
+      const updatedRow = await db.application.update({
+        where: { id: applicationId },
+        data: {
+          status: 'conditional_approval',
+          payment_amount_cents: paymentAmountCents,
+          currency_code: fee.currency_code,
+          payment_deadline: paymentDeadline,
+          reviewed_at: new Date(),
+          reviewed_by_user_id: actingUserId,
         },
       });
 
-      const parentId = parent?.id ?? null;
+      await db.applicationNote.create({
+        data: {
+          tenant_id: tenantId,
+          application_id: applicationId,
+          author_user_id: actingUserId,
+          note: `Moved to Conditional Approval. Seat held. Payment deadline: ${paymentDeadline.toISOString()}.`,
+          is_internal: true,
+        },
+      });
 
-      if (application.submitted_by_parent_id && application.submitted_by_parent_id !== parentId) {
-        throw new ForbiddenException({
-          error: {
-            code: 'NOT_APPLICATION_OWNER',
-            message: 'You do not have permission to submit this application',
-          },
+      return updatedRow;
+    })) as Application;
+
+    try {
+      await this.notificationsQueue.add(
+        ADMISSIONS_PAYMENT_LINK_JOB,
+        {
+          tenant_id: tenantId,
+          application_id: applicationId,
+        },
+        { attempts: 5, backoff: { type: 'exponential', delay: 60_000 } },
+      );
+    } catch (err) {
+      this.logger.error(
+        `Failed to enqueue payment-link job for application ${applicationId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    return updated;
+  }
+
+  // ─── Reject ──────────────────────────────────────────────────────────────
+
+  async reject(
+    tenantId: string,
+    applicationId: string,
+    params: { reason: string; actingUserId: string },
+  ): Promise<Application> {
+    const reason = params.reason.trim();
+    if (!reason) {
+      throw new BadRequestException({
+        code: 'REJECTION_REASON_REQUIRED',
+        message: 'A rejection reason is required when rejecting an application',
+      });
+    }
+
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+    return (await rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      const current = await db.application.findFirst({
+        where: { id: applicationId, tenant_id: tenantId },
+      });
+      if (!current) {
+        throw new NotFoundException({
+          code: 'APPLICATION_NOT_FOUND',
+          message: `Application "${applicationId}" not found`,
         });
       }
+      this.assertTransitionAllowed(current.status, 'rejected');
 
-      // Check for potential duplicates (same name + DOB within this tenant)
-      if (application.date_of_birth) {
-        const duplicates = await db.application.findMany({
-          where: {
-            tenant_id: tenantId,
-            id: { not: applicationId },
-            student_first_name: {
-              equals: application.student_first_name,
-              mode: 'insensitive',
-            },
-            student_last_name: {
-              equals: application.student_last_name,
-              mode: 'insensitive',
-            },
-            date_of_birth: application.date_of_birth,
-            status: {
-              notIn: ['withdrawn', 'rejected'],
-            },
-          },
-        });
-
-        if (duplicates.length > 0) {
-          // Flag as potential duplicate but still allow submission
-          await db.applicationNote.create({
-            data: {
-              tenant_id: tenantId,
-              application_id: applicationId,
-              author_user_id: userId,
-              note: `Potential duplicate detected: ${duplicates.length} existing application(s) with same name and date of birth (${duplicates.map((d) => d.application_number).join(', ')}).`,
-              is_internal: true,
-            },
-          });
-        }
-      }
+      const releasedSeat = current.status === 'conditional_approval';
 
       const updated = await db.application.update({
         where: { id: applicationId },
         data: {
-          status: 'submitted',
-          submitted_at: new Date(),
-          submitted_by_parent_id: parentId,
-        },
-      });
-
-      const payload = application.payload_json as Record<string, unknown>;
-      const parsedConsents = consentCaptureSchema.safeParse(payload[CONSENT_CAPTURE_PAYLOAD_KEY]);
-
-      if (parsedConsents.success) {
-        const capture = parsedConsents.data as ConsentCaptureDto;
-        const applicantConsentTypes = mapConsentCaptureToTypes(capture).filter(
-          (consentType) => consentType !== CONSENT_TYPES.WHATSAPP_CHANNEL,
-        );
-
-        if (applicantConsentTypes.length > 0) {
-          await db.consentRecord.createMany({
-            data: applicantConsentTypes.map((consentType) => ({
-              tenant_id: tenantId,
-              subject_type: 'applicant',
-              subject_id: application.id,
-              consent_type: consentType,
-              status: 'granted',
-              granted_by_user_id: userId,
-              evidence_type: 'registration_form',
-              privacy_notice_version_id: null,
-              notes: null,
-            })),
-          });
-        }
-
-        if (capture.whatsapp_channel && parentId) {
-          const existingWhatsAppConsent = await db.consentRecord.findFirst({
-            where: {
-              tenant_id: tenantId,
-              subject_type: 'parent',
-              subject_id: parentId,
-              consent_type: CONSENT_TYPES.WHATSAPP_CHANNEL,
-              status: 'granted',
-            },
-            select: { id: true },
-          });
-
-          if (!existingWhatsAppConsent) {
-            await db.consentRecord.create({
-              data: {
-                tenant_id: tenantId,
-                subject_type: 'parent',
-                subject_id: parentId,
-                consent_type: CONSENT_TYPES.WHATSAPP_CHANNEL,
-                status: 'granted',
-                granted_by_user_id: userId,
-                evidence_type: 'registration_form',
-                privacy_notice_version_id: null,
-                notes: null,
-              },
-            });
-          }
-        }
-      }
-
-      return updated;
-    })) as {
-      id: string;
-      application_number: string;
-      student_first_name: string;
-      student_last_name: string;
-      status: string;
-    };
-
-    // Enqueue search index after transaction
-    try {
-      await this.searchIndexService.indexEntity('applications', {
-        id: result.id,
-        tenant_id: tenantId,
-        application_number: result.application_number,
-        student_first_name: result.student_first_name,
-        student_last_name: result.student_last_name,
-        status: result.status,
-      });
-    } catch (indexError) {
-      this.logger.warn(
-        `Search indexing failed for application: ${indexError instanceof Error ? indexError.message : String(indexError)}`,
-      );
-    }
-
-    return result;
-  }
-
-  // ─── Review ───────────────────────────────────────────────────────────────
-
-  async review(tenantId: string, id: string, dto: ReviewApplicationDto, userId: string) {
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    return prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
-      const application = await db.application.findFirst({
-        where: { id, tenant_id: tenantId },
-      });
-
-      if (!application) {
-        throw new NotFoundException({
-          error: {
-            code: 'APPLICATION_NOT_FOUND',
-            message: `Application with id "${id}" not found`,
-          },
-        });
-      }
-
-      // Optimistic concurrency check
-      if (application.updated_at.toISOString() !== dto.expected_updated_at) {
-        throw new BadRequestException({
-          error: {
-            code: 'CONCURRENT_MODIFICATION',
-            message:
-              'The application has been modified by another user. Please reload and try again.',
-          },
-        });
-      }
-
-      // Validate status transitions
-      const allowedTargets = VALID_REVIEW_TRANSITIONS[application.status];
-      if (!allowedTargets || !allowedTargets.includes(dto.status)) {
-        throw new BadRequestException({
-          error: {
-            code: 'INVALID_STATUS_TRANSITION',
-            message: `Cannot transition from "${application.status}" to "${dto.status}"`,
-          },
-        });
-      }
-
-      // Rejection requires a mandatory note
-      if (dto.status === 'rejected') {
-        if (!dto.rejection_reason?.trim()) {
-          throw new BadRequestException({
-            error: {
-              code: 'REJECTION_REASON_REQUIRED',
-              message: 'A rejection reason is required when rejecting an application',
-            },
-          });
-        }
-
-        // Store rejection reason on the application and as an internal note
-        await db.application.update({
-          where: { id },
-          data: {
-            rejection_reason: dto.rejection_reason,
-            status: 'rejected',
-            reviewed_at: new Date(),
-            reviewed_by_user_id: userId,
-          },
-        });
-
-        await db.applicationNote.create({
-          data: {
-            tenant_id: tenantId,
-            application_id: id,
-            author_user_id: userId,
-            note: `Application rejected. Reason: ${dto.rejection_reason}`,
-            is_internal: true,
-          },
-        });
-
-        return db.application.findFirst({
-          where: { id, tenant_id: tenantId },
-        });
-      }
-
-      // For acceptance flow, check if approval is required
-      if (dto.status === 'conditional_approval') {
-        // Read tenant settings to check approval requirement
-        const tenantSettings = await db.tenantSetting.findFirst({
-          where: { tenant_id: tenantId },
-        });
-
-        const settings = (tenantSettings?.settings ?? {}) as Record<
-          string,
-          Record<string, unknown>
-        >;
-        const requireApproval = settings.admissions?.requireApprovalForAcceptance !== false;
-
-        if (requireApproval) {
-          // Check with the approval system
-          // We pass hasDirectAuthority = false; school_owner bypasses are handled
-          // by the approval workflow check itself
-          // R-21: Pass transaction client to keep approval creation atomic
-          const approvalResult = await this.approvalRequestsService.checkAndCreateIfNeeded(
-            tenantId,
-            'application_accept',
-            'application',
-            id,
-            userId,
-            false, // hasDirectAuthority
-            db,
-          );
-
-          if (!approvalResult.approved) {
-            // Hold in conditional_approval pending an approver decision.
-            const updated = await db.application.update({
-              where: { id },
-              data: {
-                status: 'conditional_approval',
-                reviewed_at: new Date(),
-                reviewed_by_user_id: userId,
-              },
-            });
-
-            return {
-              ...updated,
-              approval_request_id: approvalResult.request_id,
-              approval_required: true,
-            };
-          }
-        }
-
-        // If no approval needed or auto-approved, move straight to conditional.
-        const updated = await db.application.update({
-          where: { id },
-          data: {
-            status: 'conditional_approval',
-            reviewed_at: new Date(),
-            reviewed_by_user_id: userId,
-          },
-        });
-
-        return updated;
-      }
-
-      // Standard status update (ready_to_admit, approved, rejected)
-      const updated = await db.application.update({
-        where: { id },
-        data: {
-          status: dto.status,
+          status: 'rejected',
+          rejection_reason: reason,
           reviewed_at: new Date(),
-          reviewed_by_user_id: userId,
+          reviewed_by_user_id: params.actingUserId,
+        },
+      });
+
+      await db.applicationNote.create({
+        data: {
+          tenant_id: tenantId,
+          application_id: applicationId,
+          author_user_id: params.actingUserId,
+          note: releasedSeat
+            ? `Application rejected. Reason: ${reason}. Seat released: now counted as available in the target year group.`
+            : `Application rejected. Reason: ${reason}.`,
+          is_internal: true,
         },
       });
 
       return updated;
-    });
+    })) as Application;
   }
 
-  // ─── Withdraw ─────────────────────────────────────────────────────────────
+  // ─── Withdraw ────────────────────────────────────────────────────────────
 
-  async withdraw(tenantId: string, id: string, userId: string, isParent: boolean) {
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    return prismaWithRls.$transaction(async (tx) => {
+  async withdraw(
+    tenantId: string,
+    applicationId: string,
+    params: { actingUserId: string; isParent: boolean },
+  ): Promise<Application> {
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+    return (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      const application = await db.application.findFirst({
-        where: { id, tenant_id: tenantId },
+      const current = await db.application.findFirst({
+        where: { id: applicationId, tenant_id: tenantId },
       });
-
-      if (!application) {
+      if (!current) {
         throw new NotFoundException({
-          error: {
-            code: 'APPLICATION_NOT_FOUND',
-            message: `Application with id "${id}" not found`,
-          },
+          code: 'APPLICATION_NOT_FOUND',
+          message: `Application "${applicationId}" not found`,
         });
       }
 
-      // Parents can only withdraw their own applications
-      if (isParent) {
+      if (params.isParent) {
         const parent = await db.parent.findFirst({
-          where: { tenant_id: tenantId, user_id: userId },
+          where: { tenant_id: tenantId, user_id: params.actingUserId },
+          select: { id: true },
         });
-
-        if (!parent || application.submitted_by_parent_id !== parent.id) {
+        if (!parent || current.submitted_by_parent_id !== parent.id) {
           throw new BadRequestException({
-            error: {
-              code: 'NOT_OWNER',
-              message: 'You can only withdraw your own applications',
-            },
+            code: 'NOT_APPLICATION_OWNER',
+            message: 'You can only withdraw your own applications',
           });
         }
       }
 
-      // Can only withdraw from certain statuses
-      if (!WITHDRAWABLE_STATUSES.includes(application.status)) {
-        throw new BadRequestException({
-          error: {
-            code: 'INVALID_STATUS_TRANSITION',
-            message: `Cannot withdraw an application with status "${application.status}"`,
-          },
-        });
-      }
+      this.assertTransitionAllowed(current.status, 'withdrawn');
+      const releasedSeat = current.status === 'conditional_approval';
 
-      return db.application.update({
-        where: { id },
+      const updated = await db.application.update({
+        where: { id: applicationId },
         data: {
           status: 'withdrawn',
           reviewed_at: new Date(),
-          reviewed_by_user_id: userId,
+          reviewed_by_user_id: params.actingUserId,
         },
       });
-    });
+
+      await db.applicationNote.create({
+        data: {
+          tenant_id: tenantId,
+          application_id: applicationId,
+          author_user_id: params.actingUserId,
+          note: releasedSeat
+            ? 'Application withdrawn. Seat released: now counted as available in the target year group.'
+            : 'Application withdrawn.',
+          is_internal: true,
+        },
+      });
+
+      return updated;
+    })) as Application;
+  }
+
+  // ─── Mark Approved ───────────────────────────────────────────────────────
+
+  async markApproved(
+    tenantId: string,
+    applicationId: string,
+    params: {
+      actingUserId: string | null;
+      paymentSource: PaymentSource;
+      overrideRecordId: string | null;
+    },
+    db?: PrismaService,
+  ): Promise<Application> {
+    const work = async (tx: PrismaService): Promise<Application> => {
+      const current = await tx.application.findFirst({
+        where: { id: applicationId, tenant_id: tenantId },
+      });
+      if (!current) {
+        throw new NotFoundException({
+          code: 'APPLICATION_NOT_FOUND',
+          message: `Application "${applicationId}" not found`,
+        });
+      }
+      this.assertTransitionAllowed(current.status, 'approved');
+
+      const updated = await tx.application.update({
+        where: { id: applicationId },
+        data: {
+          status: 'approved',
+          override_record_id: params.overrideRecordId,
+          payment_deadline: null,
+          reviewed_at: new Date(),
+          ...(params.actingUserId ? { reviewed_by_user_id: params.actingUserId } : {}),
+        },
+      });
+
+      await tx.applicationNote.create({
+        data: {
+          tenant_id: tenantId,
+          application_id: applicationId,
+          author_user_id: params.actingUserId ?? SYSTEM_USER_SENTINEL,
+          note: `Application approved via ${params.paymentSource}.`,
+          is_internal: true,
+        },
+      });
+
+      return updated;
+    };
+
+    if (db) {
+      return work(db);
+    }
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+    return (await rlsClient.$transaction(async (tx) =>
+      work(tx as unknown as PrismaService),
+    )) as Application;
+  }
+
+  // ─── Revert to Waiting List ──────────────────────────────────────────────
+
+  async revertToWaitingList(
+    tenantId: string,
+    applicationId: string,
+    reason: 'payment_expired',
+    db?: PrismaService,
+  ): Promise<Application> {
+    const work = async (tx: PrismaService): Promise<Application> => {
+      const current = await tx.application.findFirst({
+        where: { id: applicationId, tenant_id: tenantId },
+      });
+      if (!current) {
+        throw new NotFoundException({
+          code: 'APPLICATION_NOT_FOUND',
+          message: `Application "${applicationId}" not found`,
+        });
+      }
+      this.assertTransitionAllowed(current.status, 'waiting_list');
+
+      const updated = await tx.application.update({
+        where: { id: applicationId },
+        data: {
+          status: 'waiting_list',
+          waiting_list_substatus: null,
+          payment_amount_cents: null,
+          payment_deadline: null,
+        },
+      });
+
+      await tx.applicationNote.create({
+        data: {
+          tenant_id: tenantId,
+          application_id: applicationId,
+          author_user_id: current.reviewed_by_user_id ?? SYSTEM_USER_SENTINEL,
+          note: `Reverted to waiting list (reason: ${reason}). Seat released.`,
+          is_internal: true,
+        },
+      });
+
+      return updated;
+    };
+
+    if (db) {
+      return work(db);
+    }
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+    return (await rlsClient.$transaction(async (tx) =>
+      work(tx as unknown as PrismaService),
+    )) as Application;
+  }
+
+  // ─── Private ─────────────────────────────────────────────────────────────
+
+  private assertTransitionAllowed(from: ApplicationStatus, to: ApplicationStatus): void {
+    const allowed = VALID_TRANSITIONS[from] ?? [];
+    if (!allowed.includes(to)) {
+      throw new BadRequestException({
+        code: 'INVALID_STATUS_TRANSITION',
+        message: `Cannot transition application from "${from}" to "${to}"`,
+      });
+    }
+  }
+
+  private async fireSubmissionSideEffects(
+    tenantId: string,
+    application: Application,
+  ): Promise<void> {
+    try {
+      await this.searchIndexService.indexEntity('applications', {
+        id: application.id,
+        tenant_id: tenantId,
+        application_number: application.application_number,
+        student_first_name: application.student_first_name,
+        student_last_name: application.student_last_name,
+        status: application.status,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Search indexing failed for application ${application.id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    try {
+      await this.notificationsQueue.add(
+        ADMISSIONS_APPLICATION_RECEIVED_JOB,
+        {
+          tenant_id: tenantId,
+          application_id: application.id,
+          application_number: application.application_number,
+          status: application.status,
+          submitted_by_parent_id: application.submitted_by_parent_id,
+        },
+        { attempts: 3, backoff: { type: 'exponential', delay: 30_000 } },
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Failed to enqueue application-received notification for ${application.id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 }

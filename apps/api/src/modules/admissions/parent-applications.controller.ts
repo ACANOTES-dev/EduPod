@@ -62,15 +62,6 @@ export class ParentApplicationsController {
     return { ...application, notes };
   }
 
-  @Post(':id/submit')
-  async submit(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.applicationsService.submit(tenant.tenant_id, id, user.sub);
-  }
-
   @Post(':id/withdraw')
   async withdraw(
     @CurrentTenant() tenant: TenantContext,
