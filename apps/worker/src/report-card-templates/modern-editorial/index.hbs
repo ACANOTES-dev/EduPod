@@ -63,12 +63,14 @@
 
       .page {
         width: 210mm;
-        min-height: 297mm;
-        padding: 22mm 20mm 16mm;
+        height: 297mm;
+        padding: 20mm 20mm 14mm;
         background: var(--paper);
         position: relative;
         overflow: hidden;
+        page-break-after: always;
       }
+      .page:last-of-type { page-break-after: auto; }
       .page::before {
         content: '';
         position: absolute;
@@ -99,7 +101,7 @@
       .page-inner {
         position: relative;
         z-index: 2;
-        min-height: calc(297mm - 38mm);
+        height: calc(297mm - 34mm);
         display: flex;
         flex-direction: column;
         padding-inline-start: 10mm;

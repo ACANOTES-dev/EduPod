@@ -2,7 +2,11 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import type { PersonalInfoFieldKey, ReportCardRenderPayload } from '@school/shared';
+import type {
+  GradingScaleConfig,
+  PersonalInfoFieldKey,
+  ReportCardRenderPayload,
+} from '@school/shared';
 
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 import {
@@ -273,6 +277,61 @@ export class ReportCardGenerationJob extends TenantAwareJob<ReportCardGeneration
       },
     });
 
+    // Load grading scales used by the class-subject pairs in the snapshots.
+    // Each class can configure a different scale per subject, so we key the
+    // resolver by (class_id, subject_id). For the overall-grade letter and the
+    // legend bands we pick the first scale we encounter as the "primary".
+    const classSubjectPairs = new Set<string>();
+    for (const snapshot of snapshots) {
+      classSubjectPairs.add(`${snapshot.class_id}:${snapshot.subject_id}`);
+    }
+    const scaleByClassSubject = new Map<string, GradingScaleConfig>();
+    let primaryScale: GradingScaleConfig | null = null;
+    if (classSubjectPairs.size > 0) {
+      const classIds = new Set<string>();
+      const subjectIds = new Set<string>();
+      for (const pair of classSubjectPairs) {
+        const [classId, subjectId] = pair.split(':');
+        if (classId) classIds.add(classId);
+        if (subjectId) subjectIds.add(subjectId);
+      }
+      const configRows = await tx.classSubjectGradeConfig.findMany({
+        where: {
+          tenant_id,
+          class_id: { in: Array.from(classIds) },
+          subject_id: { in: Array.from(subjectIds) },
+        },
+        select: {
+          class_id: true,
+          subject_id: true,
+          grading_scale: { select: { config_json: true } },
+        },
+      });
+      for (const row of configRows) {
+        const config = row.grading_scale?.config_json as unknown as GradingScaleConfig | null;
+        if (!config) continue;
+        scaleByClassSubject.set(`${row.class_id}:${row.subject_id}`, config);
+        if (!primaryScale) {
+          primaryScale = config;
+        }
+      }
+    }
+    // If no class-subject config exists (e.g., admin never wired one up),
+    // fall back to any grading_scale the tenant has defined so we still
+    // render a legend and an overall grade letter.
+    if (!primaryScale) {
+      const anyScaleRow = await tx.gradingScale.findFirst({
+        where: { tenant_id },
+        select: { config_json: true },
+        orderBy: { created_at: 'asc' },
+      });
+      if (anyScaleRow) {
+        primaryScale = anyScaleRow.config_json as unknown as GradingScaleConfig;
+      }
+    }
+    const resolveScale = (classId: string, subjectId: string): GradingScaleConfig | null =>
+      scaleByClassSubject.get(`${classId}:${subjectId}`) ?? primaryScale;
+
     // Bucket snapshots by student. For full-year runs we then collapse each
     // student's per-period rows into a single row per subject by averaging
     // computed_value across periods. The renderer downstream sees the same
@@ -305,13 +364,16 @@ export class ReportCardGenerationJob extends TenantAwareJob<ReportCardGeneration
       for (const [studentId, subjectMap] of studentSubjectAcc) {
         const collapsed = Array.from(subjectMap.values()).map((acc) => {
           const mean = acc.n > 0 ? acc.sum / acc.n : 0;
-          // Recreate a snapshot row using the sample as a template, with the
-          // mean injected as computed_value. display_value is null'd out so
-          // the renderer falls through to the score formatter.
+          // Apply the class-subject grading scale (or the primary tenant
+          // scale) to the mean so the collapsed snapshot carries a proper
+          // letter in display_value. Without this the full-year branch
+          // would leave display_value empty and the letter column blank.
+          const scale = resolveScale(acc.sample.class_id, acc.sample.subject_id);
+          const letter = scale ? applyGradingScaleFlexible(mean, scale) : '';
           return {
             ...acc.sample,
             computed_value: new Prisma.Decimal(mean),
-            display_value: '',
+            display_value: letter,
             overridden_value: null,
           } as (typeof snapshots)[number];
         });
@@ -401,6 +463,8 @@ export class ReportCardGenerationJob extends TenantAwareJob<ReportCardGeneration
           overallComment: overallComments.get(studentId) ?? '',
           settingsPayload,
           rankBadge: rankBadges.get(studentId) ?? null,
+          resolveScale,
+          primaryScale,
         });
 
         await this.renderAndUpsert(tx, {
@@ -428,6 +492,8 @@ export class ReportCardGenerationJob extends TenantAwareJob<ReportCardGeneration
             overallComment: overallComments.get(studentId) ?? '',
             settingsPayload,
             rankBadge: rankBadges.get(studentId) ?? null,
+            resolveScale,
+            primaryScale,
           });
 
           await this.renderAndUpsert(tx, {
@@ -676,6 +742,7 @@ interface StudentForRender {
 
 interface SnapshotRow {
   subject_id: string;
+  class_id: string;
   computed_value: Prisma.Decimal;
   display_value: string;
   overridden_value: string | null;
@@ -700,6 +767,8 @@ function buildRenderPayload(args: {
   overallComment: string;
   settingsPayload: TenantSettingsShape;
   rankBadge: 1 | 2 | 3 | null;
+  resolveScale: (classId: string, subjectId: string) => GradingScaleConfig | null;
+  primaryScale: GradingScaleConfig | null;
 }): ReportCardRenderPayload {
   const personalInfo: Partial<Record<PersonalInfoFieldKey, string | null>> = {};
   for (const field of args.personalInfoFields) {
@@ -708,12 +777,22 @@ function buildRenderPayload(args: {
 
   const subjects = args.subjectSnapshots.map((snapshot) => {
     const score = Number(snapshot.computed_value);
+    const finiteScore = Number.isFinite(score) ? score : null;
+    // Prefer an explicit override, else compute the letter from the scale,
+    // else fall back to whatever display_value is stored (which may already
+    // be a letter from the grade computation service). Treat empty strings
+    // as "not set" so the nullish coalesce keeps descending.
+    const override = snapshot.overridden_value?.trim() ? snapshot.overridden_value : null;
+    const scale = args.resolveScale(snapshot.class_id, snapshot.subject_id);
+    const fromScale =
+      scale && finiteScore !== null ? applyGradingScaleFlexible(finiteScore, scale) : null;
+    const storedDisplay = snapshot.display_value?.trim() ? snapshot.display_value : null;
     return {
       subject_id: snapshot.subject_id,
       subject_name: snapshot.subject.name,
       teacher_name: null,
-      score: Number.isFinite(score) ? score : null,
-      grade: snapshot.overridden_value ?? snapshot.display_value ?? null,
+      score: finiteScore,
+      grade: override ?? fromScale ?? storedDisplay ?? null,
       subject_comment: args.subjectComments.get(`${args.student.id}:${snapshot.subject_id}`) ?? '',
     };
   });
@@ -722,6 +801,13 @@ function buildRenderPayload(args: {
     subjects.length > 0
       ? subjects.reduce((sum, s) => sum + (s.score ?? 0), 0) / subjects.length
       : null;
+
+  const overallGrade =
+    args.primaryScale && weightedAverage !== null
+      ? applyGradingScaleFlexible(weightedAverage, args.primaryScale)
+      : null;
+
+  const gradingScaleBands = args.primaryScale ? bandsFromGradingScale(args.primaryScale) : [];
 
   return {
     tenant: {
@@ -753,10 +839,10 @@ function buildRenderPayload(args: {
       subjects,
       overall: {
         weighted_average: weightedAverage,
-        overall_grade: null,
+        overall_grade: overallGrade,
         overall_comment: args.overallComment,
       },
-      grading_scale: [],
+      grading_scale: gradingScaleBands,
     },
     issued_at: new Date().toISOString(),
   };
@@ -858,4 +944,102 @@ function computeRankBadges(
   }
 
   return result;
+}
+
+// ─── Grading-scale helpers ───────────────────────────────────────────────────
+// GradingScaleConfig in this codebase has historically used two different
+// shapes, and a legacy tenant ("MDAD Standard Scale") also stores a third
+// variant. We accept all of them so admins don't have to migrate data:
+//
+//   1. `type: 'numeric'` + `ranges: [{ min, max, label }]`
+//   2. `type: 'letter'|'custom'` + `grades: [{ label, numeric_value }]`
+//   3. No `type` + `grades: [{ min, max, label }]` (MDAD legacy)
+//
+// `applyGradingScaleFlexible` returns the letter whose band contains the
+// percentage. `bandsFromGradingScale` normalises the config into the
+// `{ label, min, max }` rows the template legend expects.
+
+interface LegacyGrade {
+  label: string;
+  min?: number;
+  max?: number;
+  numeric_value?: number;
+}
+
+function applyGradingScaleFlexible(percentage: number, config: GradingScaleConfig): string {
+  const pct = Math.max(0, Math.min(100, Number(percentage)));
+
+  // Shape 1 — numeric with ranges
+  if (Array.isArray(config.ranges) && config.ranges.length > 0) {
+    const sorted = [...config.ranges].sort((a, b) => b.min - a.min);
+    for (const range of sorted) {
+      if (pct >= range.min) return range.label;
+    }
+    return sorted[sorted.length - 1]?.label ?? '';
+  }
+
+  // Shape 2 & 3 — grades array
+  const grades = (config as { grades?: LegacyGrade[] }).grades;
+  if (Array.isArray(grades) && grades.length > 0) {
+    // Shape 3: grades carry min/max — pick whichever band contains the pct.
+    const hasRangeShape = grades.some(
+      (g) => typeof g.min === 'number' && typeof g.max === 'number',
+    );
+    if (hasRangeShape) {
+      const sorted = [...grades].sort((a, b) => (b.min ?? 0) - (a.min ?? 0));
+      for (const grade of sorted) {
+        const min = grade.min ?? -Infinity;
+        const max = grade.max ?? Infinity;
+        if (pct >= min && pct <= max) return grade.label;
+      }
+      return sorted[sorted.length - 1]?.label ?? '';
+    }
+    // Shape 2: grades carry numeric_value (inclusive lower bound).
+    const withValues = grades
+      .filter((g) => typeof g.numeric_value === 'number')
+      .sort((a, b) => (b.numeric_value ?? 0) - (a.numeric_value ?? 0));
+    for (const grade of withValues) {
+      if (pct >= (grade.numeric_value ?? 0)) return grade.label;
+    }
+    return withValues[withValues.length - 1]?.label ?? '';
+  }
+
+  return '';
+}
+
+function bandsFromGradingScale(
+  config: GradingScaleConfig,
+): Array<{ label: string; min: number; max: number }> {
+  if (Array.isArray(config.ranges) && config.ranges.length > 0) {
+    return config.ranges
+      .map((r) => ({ label: r.label, min: r.min, max: r.max }))
+      .sort((a, b) => b.min - a.min);
+  }
+  const grades = (config as { grades?: LegacyGrade[] }).grades;
+  if (Array.isArray(grades) && grades.length > 0) {
+    // Shape 3 — already has min/max
+    const hasRangeShape = grades.some(
+      (g) => typeof g.min === 'number' && typeof g.max === 'number',
+    );
+    if (hasRangeShape) {
+      return grades
+        .filter((g) => typeof g.min === 'number' && typeof g.max === 'number')
+        .map((g) => ({ label: g.label, min: g.min as number, max: g.max as number }))
+        .sort((a, b) => b.min - a.min);
+    }
+    // Shape 2 — derive bands from numeric_value
+    const withValues = grades
+      .filter((g) => typeof g.numeric_value === 'number')
+      .sort((a, b) => (b.numeric_value ?? 0) - (a.numeric_value ?? 0));
+    const bands: Array<{ label: string; min: number; max: number }> = [];
+    for (let i = 0; i < withValues.length; i += 1) {
+      const current = withValues[i];
+      if (!current) continue;
+      const min = current.numeric_value ?? 0;
+      const max = i === 0 ? 100 : (withValues[i - 1]?.numeric_value ?? 100) - 1;
+      bands.push({ label: current.label, min, max });
+    }
+    return bands;
+  }
+  return [];
 }

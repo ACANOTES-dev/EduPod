@@ -139,6 +139,12 @@ function buildMockTx(overrides?: {
     periodGradeSnapshot: {
       findMany: jest.fn().mockResolvedValue(overrides?.snapshots ?? []),
     },
+    classSubjectGradeConfig: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    gradingScale: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
     reportCardSubjectComment: {
       findMany: jest.fn().mockResolvedValue(overrides?.subjectComments ?? []),
     },

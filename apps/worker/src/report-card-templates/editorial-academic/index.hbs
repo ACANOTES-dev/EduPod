@@ -69,15 +69,17 @@
 
       .page {
         width: 210mm;
-        min-height: 297mm;
-        padding: 18mm 18mm 14mm;
+        height: 297mm;
+        padding: 16mm 18mm 12mm;
         background: var(--paper);
         position: relative;
         overflow: hidden;
+        page-break-after: always;
         background-image:
           radial-gradient(circle at 15% 25%, rgba(163, 127, 62, 0.025) 0%, transparent 50%),
           radial-gradient(circle at 85% 75%, rgba(163, 127, 62, 0.018) 0%, transparent 50%);
       }
+      .page:last-of-type { page-break-after: auto; }
 
       .watermark {
         position: absolute;
@@ -122,7 +124,7 @@
       .page-inner {
         position: relative;
         z-index: 1;
-        min-height: calc(297mm - 32mm);
+        height: calc(297mm - 28mm);
         display: flex;
         flex-direction: column;
       }
