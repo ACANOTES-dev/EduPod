@@ -58,10 +58,29 @@ interface SettingsResponse {
   updated_at: string;
 }
 
+interface ContentScopeLocaleEntry {
+  template_id: string;
+  locale: string;
+  is_default: boolean;
+}
+
+interface ContentScopeDesignEntry {
+  design_key: string;
+  name: string;
+  description: string;
+  preview_pdf_url: string;
+  is_default: boolean;
+  locales: ContentScopeLocaleEntry[];
+}
+
 interface ContentScopeSummary {
   content_scope: string;
   name: string;
-  locales: Array<{ template_id: string; locale: string; is_default: boolean }>;
+  locales: ContentScopeLocaleEntry[];
+  // Round-2 QA B8: read the catalogue-grouped designs instead of the flat
+  // `locales` list so the dropdown shows "Editorial Academic (EN)" rather
+  // than "Grades only (EN)" repeated for every row in the bucket.
+  designs: ContentScopeDesignEntry[];
   is_default: boolean;
   is_available: boolean;
 }
@@ -175,12 +194,27 @@ export default function ReportCardSettingsPage() {
   });
 
   // Available templates (for the default_template_id dropdown).
+  // Round-2 QA B8: iterate `scope.designs[].locales[]` instead of the flat
+  // `scope.locales` array so the labels read "Editorial Academic (EN)"
+  // instead of "Grades only (EN)" repeated. Dedupe by (design_key, locale)
+  // as a belt-and-braces guard in case the DB still has duplicate rows for
+  // a tenant that hasn't run the dedupe migration yet — first wins, which
+  // is the default row because the backend orders by `is_default DESC`.
   const availableTemplates = React.useMemo(() => {
     const rows: Array<{ id: string; label: string }> = [];
+    const seen = new Set<string>();
     for (const scope of templates) {
       if (!scope.is_available) continue;
-      for (const loc of scope.locales) {
-        rows.push({ id: loc.template_id, label: `${scope.name} (${loc.locale.toUpperCase()})` });
+      for (const design of scope.designs) {
+        for (const loc of design.locales) {
+          const key = `${design.design_key}|${loc.locale}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          rows.push({
+            id: loc.template_id,
+            label: `${design.name} (${loc.locale.toUpperCase()})`,
+          });
+        }
       }
     }
     return rows;
