@@ -106,7 +106,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 03  | State machine rewrite              | 2    | 01                 | `completed` | 2026-04-10 23:45 Europe/Dublin | `caca0f2d` (local) / `b4b905b9` (prod) |
 | 04  | Form service simplification        | 2    | 01                 | `completed` | 2026-04-10 23:25 Europe/Dublin | `521d26de` (local) / `2dc85bd9` (prod) |
 | 05  | Conversion-to-student service      | 2    | 01                 | `completed` | 2026-04-10 23:55 Europe/Dublin | `3bee82a2` (local) / `b354c0f4` (prod) |
-| 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `pending`   | —                              | —                                      |
+| 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `completed` | 2026-04-11 00:35 Europe/Dublin | `71f407a8` (local) / `90f18e65` (prod) |
 | 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `completed` | 2026-04-11 00:21 Europe/Dublin | `b513b034` (local) / `64c1e709` (prod) |
 | 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`   | —                              | —                                      |
 | 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `completed` | 2026-04-11 00:15 Europe/Dublin | `f56d6768` (local) / `8ff0c5a2` (prod) |
@@ -432,3 +432,63 @@ Append new records below in chronological order. Format:
   - Impl 08's completion record is still missing from §5 — its session never
     updated the log after committing `0cca275a`. Out of scope for this impl
     but worth flagging.
+
+### [IMPL 06] — Stripe checkout + webhook
+
+- **Completed:** 2026-04-11T00:35:00+01:00 (Europe/Dublin)
+- **Commit:** `71f407a8` (local) / `90f18e65` (prod)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Wired the Stripe rail of the gated flow. New append-only
+  `admissions_payment_events` table (migration
+  `20260411000300_add_admissions_payment_events` + RLS policy) is the
+  idempotency ledger keyed on Stripe `event.id`. `StripeService` in
+  finance gained `createAdmissionsCheckoutSession` and
+  `handleAdmissionsCheckoutCompleted` — amount, currency, expiry and
+  metadata are all derived server-side from the application row, and
+  the webhook handler runs a defence-in-depth amount check (metadata vs
+  DB vs Stripe actual) before calling `ApplicationConversionService` +
+  `ApplicationStateMachineService.markApproved` inside one interactive
+  RLS transaction. The finance ↔ admissions circular dep is broken with
+  `forwardRef` on both module imports + the two service injections;
+  `AdmissionsModule` now also exports `ApplicationStateMachineService`.
+  New `AdmissionsPaymentLinkProcessor` (worker, `notifications` queue)
+  creates the checkout session on first enqueue from the state machine,
+  stamps `stripe_checkout_session_id`, and queues an email Notification
+  row. Stripe + encryption are inlined in the worker matching
+  `KeyRotationProcessor`. Added `POST /v1/applications/:id/payment-link/regenerate`
+  for admins (Impl 11 will wire the button). Added
+  `regenerateAdmissionsPaymentLinkSchema` in `@school/shared`. Added
+  `stripe@^20.4.1` to `apps/worker`. Unit tests cover happy path,
+  idempotency, tenant/amount mismatches, out-of-band, expired branch,
+  and the worker processor orchestration; `api-surface.snapshot.json`
+  refreshed.
+- **Follow-ups:**
+  - The admissions webhook branch runs inside the finance-owned webhook
+    controller; `docs/architecture/module-blast-radius.md` should record
+    the new `finance → admissions` cross-module dependency when that
+    doc is next touched.
+  - Worker duplicates the AES-256-GCM decrypt inline. Matches the
+    key-rotation pattern; keep both in lockstep if the encryption
+    format ever changes.
+  - Impl 08 has a local commit (`0cca275a`) but no completion record in
+    §5 — flagged in impl 07's session notes, still outstanding.
+- **Session notes:**
+  - Wave 3 ran hot: 07 and 09 committed + deployed during my coding
+    session; impl 08 committed locally but never updated the log. I
+    rebased mentally on impl 07's ApplicationsController (which had
+    removed the legacy payment endpoints) and added the regenerate
+    endpoint on top.
+  - Parallel session edits kept clobbering my working tree mid-edit. I
+    worked around it by rapidly re-applying + staging + DI smoke test
+    in tight loops before committing.
+  - `turbo run type-check` initially failed because the shared package
+    build was cache-hit stale (didn't rebuild after I added the new
+    schema); forced a `--filter @school/shared build` to refresh.
+  - The API surface snapshot absorbed not just my new endpoint but also
+    impl 04/07's endpoint rearrangements that had never been snapshot
+    during their deploys.
+  - Smoke test against `nhqs.edupod.app`: the new regenerate route
+    returns 401 (auth guard active — route is mapped). Worker startup
+    logs show `AdmissionsPaymentLinkProcessor` active on the
+    `notifications` queue.
