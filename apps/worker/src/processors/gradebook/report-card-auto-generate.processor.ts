@@ -1,9 +1,6 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
-
-import { QUEUE_NAMES } from '../../base/queue.constants';
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
 
@@ -16,24 +13,17 @@ export const REPORT_CARD_AUTO_GENERATE_JOB = 'report-cards:auto-generate';
  * Iterates over all active tenants and checks if any academic periods ended
  * within the last 24 hours. For each such period, creates draft report cards
  * for all enrolled students who do not already have one.
+ *
+ * Plain @Injectable service — the `GradebookQueueDispatcher` owns the
+ * queue subscription and routes jobs to this class by name.
  */
-@Processor(QUEUE_NAMES.GRADEBOOK, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class ReportCardAutoGenerateProcessor extends WorkerHost {
+@Injectable()
+export class ReportCardAutoGenerateProcessor {
   private readonly logger = new Logger(ReportCardAutoGenerateProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
-  async process(job: Job): Promise<void> {
-    if (job.name !== REPORT_CARD_AUTO_GENERATE_JOB) {
-      return;
-    }
-
+  async process(_job: Job): Promise<void> {
     this.logger.log('Running report card auto-generate across all tenants...');
 
     const tenants = await this.prisma.tenant.findMany({

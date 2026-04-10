@@ -152,17 +152,6 @@ describe('GradebookRiskDetectionProcessor', () => {
     jest.clearAllMocks();
   });
 
-  it('should ignore jobs with a different name', async () => {
-    const mockTx = buildMockTx();
-    const mockPrisma = buildMockPrisma(mockTx);
-    const processor = new GradebookRiskDetectionProcessor(mockPrisma as never);
-
-    await processor.process(buildJob('gradebook:other-job'));
-
-    expect(mockPrisma.tenant.findMany).not.toHaveBeenCalled();
-    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
-  });
-
   it('should iterate all active tenants in cron mode and continue after a tenant failure', async () => {
     const successTx = buildMockTx({
       riskDetectionSettings: { enabled: false },

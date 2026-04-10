@@ -56,17 +56,6 @@ describe('BulkImportProcessor', () => {
   // ─── Job routing ────────────────────────────────────────────────────────
 
   describe('process — job routing', () => {
-    it('should skip jobs with a different name', async () => {
-      const job = buildMockJob('some-other-job', {
-        tenant_id: TENANT_ID,
-        rows: [],
-        imported_by_user_id: USER_ID,
-      });
-      await processor.process(job);
-
-      expect(mockTx.assessment.findFirst).not.toHaveBeenCalled();
-    });
-
     it('should reject jobs without tenant_id', async () => {
       const job = buildMockJob(BULK_IMPORT_PROCESS_JOB, {
         rows: [],

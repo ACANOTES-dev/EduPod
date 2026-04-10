@@ -38,15 +38,6 @@ describe('ReportCardAutoGenerateProcessor', () => {
     jest.clearAllMocks();
   });
 
-  it('should ignore jobs with a different name', async () => {
-    const mockPrisma = buildMockPrisma();
-    const processor = new ReportCardAutoGenerateProcessor(mockPrisma as never);
-
-    await processor.process(buildJob('report-cards:other-job'));
-
-    expect(mockPrisma.tenant.findMany).not.toHaveBeenCalled();
-  });
-
   it('should skip tenants with no recently ended periods', async () => {
     const mockPrisma = buildMockPrisma();
     const processor = new ReportCardAutoGenerateProcessor(mockPrisma as never);

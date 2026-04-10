@@ -1,9 +1,7 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -20,23 +18,17 @@ export const MASS_REPORT_CARD_PDF_JOB = 'gradebook:mass-report-card-pdf';
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.GRADEBOOK, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class MassReportCardPdfProcessor extends WorkerHost {
+/**
+ * Plain @Injectable service — the `GradebookQueueDispatcher` owns the
+ * queue subscription and routes jobs to this class by name.
+ */
+@Injectable()
+export class MassReportCardPdfProcessor {
   private readonly logger = new Logger(MassReportCardPdfProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<MassReportCardPdfPayload>): Promise<void> {
-    if (job.name !== MASS_REPORT_CARD_PDF_JOB) {
-      return;
-    }
-
     const { tenant_id } = job.data;
 
     if (!tenant_id) {

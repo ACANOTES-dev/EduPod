@@ -1,11 +1,9 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import type { PersonalInfoFieldKey, ReportCardRenderPayload } from '@school/shared';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 import {
   REPORT_CARD_RENDERER_TOKEN,
@@ -48,13 +46,13 @@ export class NullReportCardStorageWriter implements ReportCardStorageWriter {
 }
 
 // ─── Processor ───────────────────────────────────────────────────────────────
+// Plain @Injectable service — no @Processor decorator, no WorkerHost. The
+// single `GradebookQueueDispatcher` owns the queue subscription and routes
+// by `job.name` to this class, eliminating the competitive-consumer race
+// that used to silently drop jobs on the gradebook queue.
 
-@Processor(QUEUE_NAMES.GRADEBOOK, {
-  lockDuration: 5 * 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class ReportCardGenerationProcessor extends WorkerHost {
+@Injectable()
+export class ReportCardGenerationProcessor {
   private readonly logger = new Logger(ReportCardGenerationProcessor.name);
 
   constructor(
@@ -62,15 +60,9 @@ export class ReportCardGenerationProcessor extends WorkerHost {
     @Inject(REPORT_CARD_RENDERER_TOKEN) private readonly renderer: ReportCardRenderer,
     @Inject(REPORT_CARD_STORAGE_WRITER_TOKEN)
     private readonly storage: ReportCardStorageWriter,
-  ) {
-    super();
-  }
+  ) {}
 
   async process(job: Job<ReportCardGenerationPayload>): Promise<void> {
-    if (job.name !== REPORT_CARD_GENERATION_JOB) {
-      return;
-    }
-
     this.logger.log(
       `Processing ${REPORT_CARD_GENERATION_JOB} — tenant=${job.data.tenant_id} batch=${job.data.batch_job_id}`,
     );

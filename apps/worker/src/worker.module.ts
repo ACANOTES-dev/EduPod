@@ -53,6 +53,7 @@ import { GenerateEventInvoicesProcessor } from './processors/engagement/generate
 import { InvoiceApprovalCallbackProcessor } from './processors/finance/invoice-approval-callback.processor';
 import { OverdueDetectionProcessor } from './processors/finance/overdue-detection.processor';
 import { BulkImportProcessor } from './processors/gradebook/bulk-import.processor';
+import { GradebookQueueDispatcher } from './processors/gradebook/gradebook-queue-dispatcher';
 import { GradebookRiskDetectionProcessor } from './processors/gradebook/gradebook-risk-detection.processor';
 import { MassReportCardPdfProcessor } from './processors/gradebook/mass-report-card-pdf.processor';
 import { ReportCardAutoGenerateProcessor } from './processors/gradebook/report-card-auto-generate.processor';
@@ -394,7 +395,11 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     // Scheduling queue processors
     SchedulingSolverV2Processor,
     SchedulingStaleReaperProcessor,
-    // Gradebook queue processors
+    // Gradebook queue — single @Processor dispatcher routes jobs to the
+    // @Injectable processor services below by job name. This eliminates the
+    // competitive-consumer race that used to silently drop jobs when
+    // multiple @Processor(GRADEBOOK) classes coexisted.
+    GradebookQueueDispatcher,
     MassReportCardPdfProcessor,
     BulkImportProcessor,
     GradebookRiskDetectionProcessor,

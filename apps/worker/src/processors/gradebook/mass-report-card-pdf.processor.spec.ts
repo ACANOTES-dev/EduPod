@@ -49,15 +49,6 @@ describe('MassReportCardPdfProcessor', () => {
     jest.clearAllMocks();
   });
 
-  it('should ignore jobs with a different name', async () => {
-    const mockTx = buildMockTx();
-    const processor = new MassReportCardPdfProcessor(buildMockPrisma(mockTx) as never);
-
-    await processor.process(buildJob('gradebook:other-job'));
-
-    expect(mockTx.reportCard.findMany).not.toHaveBeenCalled();
-  });
-
   it('should reject jobs without tenant_id', async () => {
     const mockTx = buildMockTx();
     const processor = new MassReportCardPdfProcessor(buildMockPrisma(mockTx) as never);

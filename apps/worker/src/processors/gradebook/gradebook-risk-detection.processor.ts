@@ -1,11 +1,9 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { AcademicAlertType, AcademicRiskLevel, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { CONSENT_TYPES } from '@school/shared/gdpr';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -64,23 +62,17 @@ interface GradeDataPoint {
 
 // ─── Processor ───────────────────────────────────────────────────────────────
 
-@Processor(QUEUE_NAMES.GRADEBOOK, {
-  lockDuration: 60_000,
-  stalledInterval: 60_000,
-  maxStalledCount: 2,
-})
-export class GradebookRiskDetectionProcessor extends WorkerHost {
+/**
+ * Plain @Injectable service — the `GradebookQueueDispatcher` owns the
+ * queue subscription and routes jobs to this class by name.
+ */
+@Injectable()
+export class GradebookRiskDetectionProcessor {
   private readonly logger = new Logger(GradebookRiskDetectionProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
-  }
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
 
   async process(job: Job<GradebookRiskDetectionPayload>): Promise<void> {
-    if (job.name !== GRADEBOOK_DETECT_RISKS_JOB) {
-      return;
-    }
-
     const { tenant_id } = job.data;
 
     if (tenant_id) {
