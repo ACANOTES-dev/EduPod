@@ -104,7 +104,10 @@ export class S3Service implements OnModuleInit {
       Key: key,
     };
     if (options.downloadFilename) {
-      const safe = options.downloadFilename.replace(/[^A-Za-z0-9 _.-]+/g, '-').trim();
+      // Keep `()` and ASCII punctuation that Finder/Explorer handle fine;
+      // strip anything exotic (em dash, fancy quotes, diacritics) so the
+      // HTTP Content-Disposition header stays strictly ASCII.
+      const safe = options.downloadFilename.replace(/[^A-Za-z0-9 _.()-]+/g, '-').trim();
       const disposition = options.inline ? 'inline' : 'attachment';
       commandInput.ResponseContentDisposition = `${disposition}; filename="${safe}"`;
     }

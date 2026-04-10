@@ -629,7 +629,7 @@ export class ReportCardsService {
  */
 function sanitiseFilename(name: string): string {
   return name
-    .replace(/[^A-Za-z0-9 _.-]+/g, '-')
+    .replace(/[^A-Za-z0-9 _.()-]+/g, '-')
     .replace(/\s+/g, ' ')
     .trim();
 }
