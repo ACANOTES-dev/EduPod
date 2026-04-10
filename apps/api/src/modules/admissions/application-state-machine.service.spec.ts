@@ -790,4 +790,135 @@ describe('ApplicationStateMachineService', () => {
       );
     });
   });
+
+  // ─── manuallyPromoteToReadyToAdmit() ─────────────────────────────────────
+
+  describe('manuallyPromoteToReadyToAdmit', () => {
+    const promoteParams = { actingUserId: ADMIN_USER_ID, justification: 'Sibling priority' };
+
+    it('promotes a waiting_list row when seats are free', async () => {
+      const harness = buildService();
+      tx.$queryRaw.mockResolvedValue([
+        {
+          id: APPLICATION_ID,
+          tenant_id: TENANT_ID,
+          status: 'waiting_list',
+          target_academic_year_id: ACADEMIC_YEAR_ID,
+          target_year_group_id: YEAR_GROUP_ID,
+        },
+      ]);
+      tx.application.findFirst.mockResolvedValue({ waiting_list_substatus: null });
+      (harness.capacityService.getAvailableSeats as jest.Mock).mockResolvedValue({
+        total_capacity: 25,
+        enrolled_student_count: 20,
+        conditional_approval_count: 0,
+        available_seats: 5,
+        configured: true,
+      });
+      tx.application.update.mockResolvedValue(sampleApplication({ status: 'ready_to_admit' }));
+
+      const result = await harness.service.manuallyPromoteToReadyToAdmit(
+        TENANT_ID,
+        APPLICATION_ID,
+        promoteParams,
+      );
+
+      expect(result.status).toBe('ready_to_admit');
+      expect(tx.application.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: APPLICATION_ID },
+          data: { status: 'ready_to_admit' },
+        }),
+      );
+      expect(tx.applicationNote.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            is_internal: true,
+            note: expect.stringContaining('Sibling priority'),
+          }),
+        }),
+      );
+    });
+
+    it('rejects when the year group is at capacity', async () => {
+      const harness = buildService();
+      tx.$queryRaw.mockResolvedValue([
+        {
+          id: APPLICATION_ID,
+          tenant_id: TENANT_ID,
+          status: 'waiting_list',
+          target_academic_year_id: ACADEMIC_YEAR_ID,
+          target_year_group_id: YEAR_GROUP_ID,
+        },
+      ]);
+      tx.application.findFirst.mockResolvedValue({ waiting_list_substatus: null });
+      (harness.capacityService.getAvailableSeats as jest.Mock).mockResolvedValue({
+        total_capacity: 25,
+        enrolled_student_count: 25,
+        conditional_approval_count: 0,
+        available_seats: 0,
+        configured: true,
+      });
+
+      await expect(
+        harness.service.manuallyPromoteToReadyToAdmit(TENANT_ID, APPLICATION_ID, promoteParams),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('refuses awaiting_year_setup rows', async () => {
+      const harness = buildService();
+      tx.$queryRaw.mockResolvedValue([
+        {
+          id: APPLICATION_ID,
+          tenant_id: TENANT_ID,
+          status: 'waiting_list',
+          target_academic_year_id: ACADEMIC_YEAR_ID,
+          target_year_group_id: YEAR_GROUP_ID,
+        },
+      ]);
+      tx.application.findFirst.mockResolvedValue({
+        waiting_list_substatus: 'awaiting_year_setup',
+      });
+
+      await expect(
+        harness.service.manuallyPromoteToReadyToAdmit(TENANT_ID, APPLICATION_ID, promoteParams),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects justification shorter than 10 characters', async () => {
+      const harness = buildService();
+      await expect(
+        harness.service.manuallyPromoteToReadyToAdmit(TENANT_ID, APPLICATION_ID, {
+          actingUserId: ADMIN_USER_ID,
+          justification: 'too',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects when the application is not in waiting_list', async () => {
+      const harness = buildService();
+      tx.$queryRaw.mockResolvedValue([
+        {
+          id: APPLICATION_ID,
+          tenant_id: TENANT_ID,
+          status: 'ready_to_admit',
+          target_academic_year_id: ACADEMIC_YEAR_ID,
+          target_year_group_id: YEAR_GROUP_ID,
+        },
+      ]);
+
+      await expect(
+        harness.service.manuallyPromoteToReadyToAdmit(TENANT_ID, APPLICATION_ID, promoteParams),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws NotFoundException when the row is missing', async () => {
+      const harness = buildService();
+      tx.$queryRaw.mockResolvedValue([]);
+
+      await expect(
+        harness.service.manuallyPromoteToReadyToAdmit(TENANT_ID, APPLICATION_ID, promoteParams),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
 });

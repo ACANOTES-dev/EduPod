@@ -5,6 +5,8 @@ import type {
   AdmissionsAnalyticsQuery,
   CreatePublicApplicationDto,
   ListApplicationsQuery,
+  ListConditionalApprovalQueueQuery,
+  ListRejectedApplicationsQuery,
   ReviewApplicationDto,
 } from '@school/shared';
 import { SYSTEM_USER_SENTINEL } from '@school/shared';

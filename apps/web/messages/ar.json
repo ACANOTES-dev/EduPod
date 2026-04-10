@@ -2863,6 +2863,165 @@
     "modules": "الوحدات",
     "billing": "الفواتير"
   },
+  "admissionsQueues": {
+    "common": {
+      "loading": "جارٍ التحميل…",
+      "working": "جارٍ المعالجة…",
+      "cancel": "إلغاء",
+      "close": "إغلاق",
+      "view": "عرض",
+      "reject": "رفض",
+      "previous": "السابق",
+      "next": "التالي",
+      "pageOf": "صفحة {page} من {total}"
+    },
+    "header": {
+      "backToAdmissions": "العودة إلى القبول"
+    },
+    "errors": {
+      "loadFailed": "فشل تحميل القائمة"
+    },
+    "relative": {
+      "today": "اليوم",
+      "oneDayAgo": "قبل يوم",
+      "daysAgo": "قبل {days} أيام"
+    },
+    "row": {
+      "ageYears": "{age} سنوات",
+      "ageUnknown": "العمر غير معروف",
+      "fifoPosition": "الترتيب: #{position}",
+      "appliedOn": "تم التقديم {date} ({relative})"
+    },
+    "capacity": {
+      "notConfigured": "السنة غير مُعدَّة",
+      "enrolledShort": "مسجَّل",
+      "conditionalShort": "موافقة مشروطة",
+      "freeShort": "شاغر",
+      "tooltip": "{enrolled}/{total} مسجّلون · {conditional} موافقة مشروطة · {available} شاغر"
+    },
+    "readyToAdmit": {
+      "title": "جاهز للقبول",
+      "description": "طلبات تنتظر قرار الإدارة. الموافقة تنقلها إلى الموافقة المشروطة.",
+      "countLabel": "في الانتظار",
+      "emptyTitle": "لا توجد طلبات تنتظر قرارًا",
+      "emptyDescription": "ستظهر الطلبات التي تجتاز سعة السنة هنا.",
+      "approveButton": "موافقة",
+      "rejectButton": "رفض",
+      "approveSuccess": "تم نقل الطلب إلى الموافقة المشروطة — سيتم إرسال رابط الدفع للوالد.",
+      "approveError": "تعذرت الموافقة على الطلب.",
+      "atCapacityTooltip": "المجموعة ممتلئة — يجب رفض طلب آخر أو سحبه."
+    },
+    "waitingList": {
+      "title": "قائمة الانتظار",
+      "description": "تتم الترقية تلقائيًا إلى جاهز للقبول عند توفر مقعد.",
+      "countLabel": "منتظر",
+      "waitingSectionTitle": "في الانتظار",
+      "awaitingYearSetupSectionTitle": "بانتظار إعداد السنة",
+      "awaitingYearSetupNote": "لم يتم إعداد الفصول لهذه السنة الدراسية بعد. تتم الترقية تلقائيًا عند إنشائها.",
+      "manualPromoteButton": "ترقية يدوية",
+      "atCapacityTooltip": "المجموعة ممتلئة — يلزم شغور مقعد قبل الترقية.",
+      "emptyTitle": "قائمة الانتظار فارغة",
+      "emptyDescription": "ستظهر الطلبات التي لا تجتاز سعة السنة هنا."
+    },
+    "conditionalApproval": {
+      "title": "الموافقة المشروطة",
+      "description": "يتم حجز المقاعد لمدة 7 أيام حتى تكمل العائلة الدفع.",
+      "countLabel": "بانتظار الدفع",
+      "copyLink": "نسخ رابط الدفع",
+      "recordPayment": "تسجيل الدفع",
+      "forceApprove": "موافقة قسرية",
+      "linkCopied": "تم نسخ الرابط.",
+      "linkCopyError": "تعذر إنشاء رابط جديد.",
+      "overdueBadge": "{count} متأخر",
+      "nearExpiryBadge": "{count} قارب على الانتهاء",
+      "emptyTitle": "لا توجد طلبات بانتظار الدفع",
+      "emptyDescription": "ستظهر الموافقات المشروطة هنا.",
+      "urgency": {
+        "normal": "بانتظار الدفع",
+        "near_expiry": "قارب على الانتهاء",
+        "overdue": "متأخر"
+      },
+      "noDeadline": "لا يوجد موعد نهائي",
+      "deadlineToday": "مستحق اليوم",
+      "inDays": "خلال {days} أيام",
+      "overdueBy": "متأخر {days} أيام"
+    },
+    "rejected": {
+      "title": "المرفوضة",
+      "description": "أرشيف الطلبات المرفوضة للقراءة فقط.",
+      "countLabel": "مرفوض",
+      "searchPlaceholder": "البحث بالاسم أو رقم الطلب",
+      "emptyTitle": "لا توجد طلبات مرفوضة",
+      "emptyDescription": "ستظهر الطلبات المرفوضة هنا.",
+      "col": {
+        "applicationNumber": "الرقم",
+        "student": "الطالب",
+        "parent": "ولي الأمر",
+        "reason": "السبب",
+        "rejectedBy": "المُرفِض",
+        "rejectedOn": "تاريخ الرفض"
+      }
+    },
+    "rejectDialog": {
+      "title": "رفض الطلب",
+      "description": "يلزم إدخال سبب الرفض.",
+      "placeholder": "وضّح سبب رفض الطلب…",
+      "minLengthHint": "10 أحرف على الأقل.",
+      "submit": "رفض الطلب",
+      "success": "تم رفض الطلب.",
+      "errorTooShort": "يلزم إدخال 10 أحرف على الأقل.",
+      "errorGeneric": "تعذر رفض الطلب."
+    },
+    "manualPromoteDialog": {
+      "title": "ترقية يدوية من قائمة الانتظار",
+      "description": "هذا يتجاوز ترتيب الأولوية. سجّل تبريرًا مختصرًا.",
+      "placeholder": "مثال: شقيق طالب حالي…",
+      "minLengthHint": "10 أحرف على الأقل.",
+      "submit": "ترقية",
+      "success": "تمت ترقية الطلب.",
+      "errorTooShort": "يلزم إدخال 10 أحرف على الأقل.",
+      "errorGeneric": "تعذرت الترقية."
+    },
+    "paymentModal": {
+      "title": "تسجيل الدفع",
+      "description": "المبلغ المقدم المتوقع: {amount}. لا يمكن أن يكون المبلغ المستلم أقل.",
+      "tabs": {
+        "cash": "نقدًا",
+        "bank": "تحويل بنكي",
+        "stripe": "سترايب"
+      },
+      "amountLabel": "المبلغ المستلم",
+      "receiptLabel": "رقم الإيصال (اختياري)",
+      "notesLabel": "ملاحظات (اختياري)",
+      "referenceLabel": "مرجع التحويل",
+      "dateLabel": "تاريخ التحويل",
+      "submitCash": "تسجيل الدفع النقدي",
+      "submitBank": "تسجيل التحويل البنكي",
+      "successCash": "تم تسجيل الدفع النقدي. تم إنشاء سجل الطالب.",
+      "successBank": "تم تسجيل التحويل البنكي. تم إنشاء سجل الطالب.",
+      "errorBelowExpected": "لا يمكن أن يكون المبلغ أقل من المتوقع.",
+      "errorReferenceRequired": "يلزم إدخال مرجع التحويل.",
+      "errorGeneric": "تعذر تسجيل الدفع.",
+      "stripeDescription": "تم إرسال رابط الدفع عبر سترايب إلى الوالد بالفعل."
+    },
+    "forceApproveModal": {
+      "title": "موافقة قسرية بدون دفع",
+      "description": "هذا تجاوز مُراقَب. المتوقع: {expected}.",
+      "typeLabel": "نوع التجاوز",
+      "fullWaiver": "إعفاء كامل",
+      "partialWaiver": "إعفاء جزئي",
+      "deferredPayment": "دفع مؤجل",
+      "collectedAmountLabel": "المبلغ المحصَّل فعليًا",
+      "justificationLabel": "التبرير",
+      "justificationPlaceholder": "وضّح سبب الإعفاء…",
+      "minLengthHint": "20 حرفًا على الأقل.",
+      "submit": "اعتماد بدون دفع",
+      "success": "تم اعتماد الطلب وتسجيل التجاوز.",
+      "errorTooShort": "يلزم إدخال 20 حرفًا على الأقل.",
+      "errorInvalidAmount": "أدخل مبلغًا غير سالب.",
+      "errorGeneric": "تعذر تسجيل التجاوز."
+    }
+  },
   "admissions": {
     "title": "القبول",
     "forms": "النماذج",

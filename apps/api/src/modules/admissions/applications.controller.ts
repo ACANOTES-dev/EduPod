@@ -16,6 +16,9 @@ import {
   admissionsAnalyticsSchema,
   createApplicationNoteSchema,
   listApplicationsSchema,
+  listConditionalApprovalQueueSchema,
+  listRejectedApplicationsSchema,
+  manualPromoteApplicationSchema,
   regenerateAdmissionsPaymentLinkSchema,
   reviewApplicationSchema,
 } from '@school/shared';
@@ -24,6 +27,9 @@ import type {
   CreateApplicationNoteDto,
   JwtPayload,
   ListApplicationsQuery,
+  ListConditionalApprovalQueueQuery,
+  ListRejectedApplicationsQuery,
+  ManualPromoteApplicationDto,
   RegenerateAdmissionsPaymentLinkDto,
   ReviewApplicationDto,
   TenantContext,
@@ -72,6 +78,42 @@ export class ApplicationsController {
     query: ListApplicationsQuery,
   ) {
     return this.applicationsService.findAll(tenant.tenant_id, query);
+  }
+
+  // GET /v1/applications/queues/ready-to-admit
+  @Get('queues/ready-to-admit')
+  @RequiresPermission('admissions.view')
+  async getReadyToAdmitQueue(@CurrentTenant() tenant: TenantContext) {
+    return this.applicationsService.getReadyToAdmitQueue(tenant.tenant_id);
+  }
+
+  // GET /v1/applications/queues/waiting-list
+  @Get('queues/waiting-list')
+  @RequiresPermission('admissions.view')
+  async getWaitingListQueue(@CurrentTenant() tenant: TenantContext) {
+    return this.applicationsService.getWaitingListQueue(tenant.tenant_id);
+  }
+
+  // GET /v1/applications/queues/conditional-approval
+  @Get('queues/conditional-approval')
+  @RequiresPermission('admissions.view')
+  async getConditionalApprovalQueue(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(listConditionalApprovalQueueSchema))
+    query: ListConditionalApprovalQueueQuery,
+  ) {
+    return this.applicationsService.getConditionalApprovalQueue(tenant.tenant_id, query);
+  }
+
+  // GET /v1/applications/queues/rejected
+  @Get('queues/rejected')
+  @RequiresPermission('admissions.view')
+  async getRejectedArchive(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(listRejectedApplicationsSchema))
+    query: ListRejectedApplicationsQuery,
+  ) {
+    return this.applicationsService.getRejectedArchive(tenant.tenant_id, query);
   }
 
   @Get('analytics')
@@ -146,6 +188,22 @@ export class ApplicationsController {
     dto: CreateApplicationNoteDto,
   ) {
     return this.applicationNotesService.create(tenant.tenant_id, applicationId, user.sub, dto);
+  }
+
+  // POST /v1/applications/:id/manual-promote
+  @Post(':id/manual-promote')
+  @RequiresPermission('admissions.manage')
+  async manualPromote(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(manualPromoteApplicationSchema))
+    dto: ManualPromoteApplicationDto,
+  ) {
+    return this.applicationsService.manuallyPromote(tenant.tenant_id, id, {
+      actingUserId: user.sub,
+      justification: dto.justification,
+    });
   }
 
   // POST /v1/applications/:id/payment-link/regenerate

@@ -85,6 +85,21 @@ export const forceApproveOverrideSchema = z.object({
 
 export const listAdmissionOverridesSchema = paginationQuerySchema;
 
+// ─── Admissions queue pages (Wave 4 impl 11) ───────────────────────────────
+
+// Rejected archive — pagination + free-text search by student or parent name.
+export const listRejectedApplicationsSchema = paginationQuerySchema.extend({
+  search: z.string().max(200).optional(),
+});
+
+// Conditional-approval queue — pagination only; urgency is computed server-side.
+export const listConditionalApprovalQueueSchema = paginationQuerySchema;
+
+// Manual promotion out of FIFO order (admin override of waiting-list priority).
+export const manualPromoteApplicationSchema = z.object({
+  justification: z.string().min(10).max(2000),
+});
+
 // ─── Admissions Stripe checkout regenerate (Wave 3 impl 06) ────────────────
 
 export const regenerateAdmissionsPaymentLinkSchema = z
@@ -109,3 +124,6 @@ export type ListAdmissionOverridesQuery = z.infer<typeof listAdmissionOverridesS
 export type RegenerateAdmissionsPaymentLinkDto = z.infer<
   typeof regenerateAdmissionsPaymentLinkSchema
 >;
+export type ListRejectedApplicationsQuery = z.infer<typeof listRejectedApplicationsSchema>;
+export type ListConditionalApprovalQueueQuery = z.infer<typeof listConditionalApprovalQueueSchema>;
+export type ManualPromoteApplicationDto = z.infer<typeof manualPromoteApplicationSchema>;

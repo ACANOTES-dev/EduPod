@@ -2871,6 +2871,165 @@
     "modules": "Modules",
     "billing": "Billing"
   },
+  "admissionsQueues": {
+    "common": {
+      "loading": "Loading…",
+      "working": "Working…",
+      "cancel": "Cancel",
+      "close": "Close",
+      "view": "View",
+      "reject": "Reject",
+      "previous": "Previous",
+      "next": "Next",
+      "pageOf": "Page {page} of {total}"
+    },
+    "header": {
+      "backToAdmissions": "Back to Admissions"
+    },
+    "errors": {
+      "loadFailed": "Failed to load the queue"
+    },
+    "relative": {
+      "today": "today",
+      "oneDayAgo": "1 day ago",
+      "daysAgo": "{days} days ago"
+    },
+    "row": {
+      "ageYears": "{age} years old",
+      "ageUnknown": "Age unknown",
+      "fifoPosition": "FIFO position: #{position}",
+      "appliedOn": "Applied {date} ({relative})"
+    },
+    "capacity": {
+      "notConfigured": "Year not configured",
+      "enrolledShort": "enrolled",
+      "conditionalShort": "conditional",
+      "freeShort": "free",
+      "tooltip": "{enrolled}/{total} enrolled · {conditional} conditional · {available} free"
+    },
+    "readyToAdmit": {
+      "title": "Ready to Admit",
+      "description": "Applications waiting for an admin decision. Approve moves them to Conditional Approval and sends the parent a payment link.",
+      "countLabel": "waiting",
+      "emptyTitle": "Nothing waiting for a decision",
+      "emptyDescription": "Applications that pass capacity gating will appear here.",
+      "approveButton": "Approve",
+      "rejectButton": "Reject",
+      "approveSuccess": "Application moved to Conditional Approval — payment link will be emailed to the parent.",
+      "approveError": "Could not approve the application. Please try again.",
+      "atCapacityTooltip": "Year group at capacity — reject another application or wait for one to be withdrawn."
+    },
+    "waitingList": {
+      "title": "Waiting List",
+      "description": "Applications auto-promote to Ready to Admit when a seat opens.",
+      "countLabel": "waiting",
+      "waitingSectionTitle": "Waiting",
+      "awaitingYearSetupSectionTitle": "Awaiting Year Setup",
+      "awaitingYearSetupNote": "The school has not yet configured classes for this academic year. Applications auto-promote once classes are created.",
+      "manualPromoteButton": "Manual Promote",
+      "atCapacityTooltip": "Year group at capacity — a seat must open before you can promote.",
+      "emptyTitle": "Waiting list is empty",
+      "emptyDescription": "Applications that fail capacity gating will appear here."
+    },
+    "conditionalApproval": {
+      "title": "Conditional Approval",
+      "description": "Seats are held for 7 days while the family completes payment.",
+      "countLabel": "pending payment",
+      "copyLink": "Copy Payment Link",
+      "recordPayment": "Record Payment",
+      "forceApprove": "Force Approve",
+      "linkCopied": "Link copied. Share with the parent.",
+      "linkCopyError": "Could not generate a new link.",
+      "overdueBadge": "{count} overdue",
+      "nearExpiryBadge": "{count} expiring soon",
+      "emptyTitle": "No applications awaiting payment",
+      "emptyDescription": "Approvals with held seats will appear here.",
+      "urgency": {
+        "normal": "awaiting payment",
+        "near_expiry": "near expiry",
+        "overdue": "overdue"
+      },
+      "noDeadline": "No deadline",
+      "deadlineToday": "due today",
+      "inDays": "in {days} days",
+      "overdueBy": "overdue by {days} days"
+    },
+    "rejected": {
+      "title": "Rejected",
+      "description": "Read-only archive of rejected applications.",
+      "countLabel": "rejected",
+      "searchPlaceholder": "Search by student or application number",
+      "emptyTitle": "No rejected applications",
+      "emptyDescription": "Rejected applications will appear here.",
+      "col": {
+        "applicationNumber": "Number",
+        "student": "Student",
+        "parent": "Parent",
+        "reason": "Reason",
+        "rejectedBy": "Rejected by",
+        "rejectedOn": "Rejected on"
+      }
+    },
+    "rejectDialog": {
+      "title": "Reject application",
+      "description": "A rejection reason is required. The applicant can see this if you choose to share it.",
+      "placeholder": "Explain why the application is being rejected…",
+      "minLengthHint": "At least 10 characters.",
+      "submit": "Reject application",
+      "success": "Application rejected.",
+      "errorTooShort": "Please provide at least 10 characters.",
+      "errorGeneric": "Could not reject the application. Please try again."
+    },
+    "manualPromoteDialog": {
+      "title": "Manually promote from waiting list",
+      "description": "This bypasses FIFO order. Record a short justification for the audit trail.",
+      "placeholder": "E.g. sibling of a current student…",
+      "minLengthHint": "At least 10 characters.",
+      "submit": "Promote",
+      "success": "Application promoted to Ready to Admit.",
+      "errorTooShort": "Please provide at least 10 characters.",
+      "errorGeneric": "Could not promote the application. Please try again."
+    },
+    "paymentModal": {
+      "title": "Record payment",
+      "description": "Expected upfront amount: {amount}. Received amount cannot be lower.",
+      "tabs": {
+        "cash": "Cash",
+        "bank": "Bank transfer",
+        "stripe": "Stripe"
+      },
+      "amountLabel": "Amount received",
+      "receiptLabel": "Receipt number (optional)",
+      "notesLabel": "Notes (optional)",
+      "referenceLabel": "Transfer reference",
+      "dateLabel": "Transfer date",
+      "submitCash": "Record cash payment",
+      "submitBank": "Record bank transfer",
+      "successCash": "Cash payment recorded. Student created.",
+      "successBank": "Bank transfer recorded. Student created.",
+      "errorBelowExpected": "Amount cannot be below the expected upfront.",
+      "errorReferenceRequired": "Transfer reference is required.",
+      "errorGeneric": "Could not record the payment. Please try again.",
+      "stripeDescription": "A Stripe payment link has already been emailed to the parent. This page will update once payment is received."
+    },
+    "forceApproveModal": {
+      "title": "Force approve without payment",
+      "description": "This is an audited override. Expected upfront: {expected}.",
+      "typeLabel": "Override type",
+      "fullWaiver": "Full waiver",
+      "partialWaiver": "Partial waiver",
+      "deferredPayment": "Deferred payment",
+      "collectedAmountLabel": "Actual amount collected (can be 0)",
+      "justificationLabel": "Justification",
+      "justificationPlaceholder": "Explain why the payment is being waived…",
+      "minLengthHint": "At least 20 characters.",
+      "submit": "Approve without payment",
+      "success": "Application approved. Override recorded.",
+      "errorTooShort": "Please provide at least 20 characters.",
+      "errorInvalidAmount": "Enter a non-negative amount.",
+      "errorGeneric": "Could not record the override. Please try again."
+    }
+  },
   "admissions": {
     "title": "Admissions",
     "forms": "Forms",

@@ -407,6 +407,114 @@ export class ApplicationStateMachineService {
     })) as Application;
   }
 
+  // ─── Manual Promote (FIFO bypass) ────────────────────────────────────────
+
+  /**
+   * Admin-initiated promotion of a specific waiting-list application out of
+   * FIFO order. Used by the waiting-list queue page (impl 11) for sibling
+   * priority and other non-FIFO policy calls the school wants to make.
+   *
+   * Requires a mandatory justification which is appended as an internal
+   * note, re-checks year-group capacity under a row lock, and refuses rows
+   * in the `awaiting_year_setup` sub-status.
+   */
+  async manuallyPromoteToReadyToAdmit(
+    tenantId: string,
+    applicationId: string,
+    params: { actingUserId: string; justification: string },
+  ): Promise<Application> {
+    const justification = params.justification.trim();
+    if (justification.length < 10) {
+      throw new BadRequestException({
+        code: 'JUSTIFICATION_TOO_SHORT',
+        message: 'Manual promotion requires a justification of at least 10 characters',
+      });
+    }
+
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return (await rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      const rawTx = tx as unknown as {
+        $queryRaw: (sql: Prisma.Sql) => Promise<RowLockResult[]>;
+      };
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- row-level lock for capacity concurrency guard
+      const locked = await rawTx.$queryRaw(Prisma.sql`
+        SELECT id, tenant_id, status, target_academic_year_id, target_year_group_id
+        FROM applications
+        WHERE id = ${applicationId}::uuid
+          AND tenant_id = ${tenantId}::uuid
+        FOR UPDATE
+      `);
+
+      const current = locked[0];
+      if (!current) {
+        throw new NotFoundException({
+          code: 'APPLICATION_NOT_FOUND',
+          message: `Application "${applicationId}" not found`,
+        });
+      }
+
+      if (current.status !== 'waiting_list') {
+        throw new BadRequestException({
+          code: 'INVALID_STATUS_TRANSITION',
+          message: `Only waiting_list applications can be manually promoted (current status: ${current.status})`,
+        });
+      }
+
+      const row = await db.application.findFirst({
+        where: { id: applicationId, tenant_id: tenantId },
+        select: { waiting_list_substatus: true },
+      });
+      if (row?.waiting_list_substatus === 'awaiting_year_setup') {
+        throw new BadRequestException({
+          code: 'AWAITING_YEAR_SETUP',
+          message:
+            'This application is awaiting year-group setup and cannot be promoted until classes are created',
+        });
+      }
+
+      if (!current.target_academic_year_id || !current.target_year_group_id) {
+        throw new BadRequestException({
+          code: 'MISSING_TARGET_YEAR_GROUP',
+          message: 'Application is missing target academic year or target year group',
+        });
+      }
+
+      const capacity = await this.capacityService.getAvailableSeats(db, {
+        tenantId,
+        academicYearId: current.target_academic_year_id,
+        yearGroupId: current.target_year_group_id,
+      });
+
+      if (capacity.available_seats === 0) {
+        throw new ConflictException({
+          code: 'CAPACITY_EXHAUSTED',
+          message:
+            'No seats remain in this year group — application cannot be promoted until another is rejected or withdrawn.',
+        });
+      }
+
+      const updated = await db.application.update({
+        where: { id: applicationId },
+        data: { status: 'ready_to_admit' },
+      });
+
+      await db.applicationNote.create({
+        data: {
+          tenant_id: tenantId,
+          application_id: applicationId,
+          author_user_id: params.actingUserId,
+          note: `Manually promoted from waiting list (FIFO bypass). Justification: ${justification}`,
+          is_internal: true,
+        },
+      });
+
+      return updated;
+    })) as Application;
+  }
+
   // ─── Mark Approved ───────────────────────────────────────────────────────
 
   async markApproved(
