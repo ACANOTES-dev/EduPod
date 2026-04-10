@@ -63,7 +63,8 @@ interface ClassMatrixResponse {
   overall_by_student: Record<string, MatrixOverall>;
 }
 
-interface SubjectCommentRow {
+// Renamed to avoid colliding with the imported `SubjectCommentRow` component.
+interface SubjectCommentRecord {
   id: string;
   student_id: string;
   subject_id: string;
@@ -75,7 +76,7 @@ interface SubjectCommentRow {
 }
 
 interface SubjectCommentListResponse {
-  data: SubjectCommentRow[];
+  data: SubjectCommentRecord[];
   meta: { page: number; pageSize: number; total: number };
 }
 
@@ -84,6 +85,14 @@ interface AiDraftResponse {
   comment_text: string;
   is_ai_draft: boolean;
   finalised_at: string | null;
+}
+
+// The backend wraps single-object responses in `{ data: T }` via the
+// ResponseTransformInterceptor. Paginated list responses already carry a
+// `data` key so they pass through untouched. Use this for every single-object
+// fetch to avoid the "undefined.something" crash that B2 also hit.
+interface Envelope<T> {
+  data: T;
 }
 
 type FilterMode = 'all' | 'unfinalised' | 'finalised';
@@ -127,27 +136,33 @@ export default function SubjectCommentEditorPage() {
       setIsLoading(true);
       setLoadFailed(false);
       try {
-        // Active window — may be null
+        // Active window — may be null. Unwrap the envelope; the previous
+        // version of this page treated `apiClient<ActiveWindow | null>(...)`
+        // as if it returned the row directly, so every property read was
+        // undefined and the matrix fetch never had a real period id.
         let currentWindow: ActiveWindow | null = null;
         try {
-          currentWindow = await apiClient<ActiveWindow | null>(
+          const res = await apiClient<Envelope<ActiveWindow | null>>(
             '/api/v1/report-comment-windows/active',
             { silent: true },
           );
+          currentWindow = res.data ?? null;
         } catch (err) {
           console.error('[SubjectCommentEditor] active window', err);
         }
         if (cancelledRef.current) return;
         setActiveWindow(currentWindow);
 
-        // When no active window, we still need a period id to display historical data.
-        // We fall back to the latest academic period for display, but editing is blocked.
-        let periodId = currentWindow?.academic_period_id;
+        // When no active window, we still need a period id to display
+        // historical data. Fall back to the latest academic period — the
+        // window banner will surface "read-only" so the editor stays
+        // visible but blocked.
+        let periodId: string | null | undefined = currentWindow?.academic_period_id;
         if (!periodId) {
           const periodsRes = await apiClient<{ data: Array<{ id: string }> }>(
             '/api/v1/academic-periods?pageSize=1',
           );
-          periodId = periodsRes.data?.[0]?.id;
+          periodId = periodsRes.data?.[0]?.id ?? null;
         }
         if (!periodId) {
           setRows([]);
@@ -156,9 +171,11 @@ export default function SubjectCommentEditorPage() {
           return;
         }
 
-        // Fetch class matrix + existing comments in parallel
+        // Fetch class matrix + existing comments in parallel. The matrix is
+        // a single-object response so it gets the envelope; the comments
+        // list is paginated and passes through as-is.
         const [matrixRes, commentsRes] = await Promise.all([
-          apiClient<ClassMatrixResponse>(
+          apiClient<Envelope<ClassMatrixResponse>>(
             `/api/v1/report-cards/classes/${classId}/matrix?academic_period_id=${periodId}`,
           ),
           apiClient<SubjectCommentListResponse>(
@@ -167,16 +184,24 @@ export default function SubjectCommentEditorPage() {
         ]);
         if (cancelledRef.current) return;
 
-        setMatrix(matrixRes);
+        const matrixData = matrixRes.data;
+        setMatrix(matrixData);
 
-        const commentByStudent = new Map<string, SubjectCommentRow>();
+        const commentByStudent = new Map<string, SubjectCommentRecord>();
         for (const c of commentsRes.data ?? []) {
           commentByStudent.set(c.student_id, c);
         }
 
-        const initialRows: RowState[] = matrixRes.students.map((student) => {
-          const cell = matrixRes.cells[student.id]?.[subjectId] ?? null;
-          const overall = matrixRes.overall_by_student[student.id] ?? null;
+        // Defensive guards on every nested lookup so a partial response
+        // can't crash the page. The matrix should always carry students,
+        // cells and overall_by_student, but we don't trust the wire shape.
+        const students = matrixData.students ?? [];
+        const cells = matrixData.cells ?? {};
+        const overallByStudent = matrixData.overall_by_student ?? {};
+
+        const initialRows: RowState[] = students.map((student) => {
+          const cell = cells[student.id]?.[subjectId] ?? null;
+          const overall = overallByStudent[student.id] ?? null;
           const existing = commentByStudent.get(student.id) ?? null;
           return {
             student_id: student.id,
@@ -230,18 +255,22 @@ export default function SubjectCommentEditorPage() {
     }
     updateRow(row.student_id, { status: 'saving' });
     try {
-      const saved = await apiClient<SubjectCommentRow>('/api/v1/report-card-subject-comments', {
-        method: 'POST',
-        body: JSON.stringify({
-          student_id: row.student_id,
-          subject_id: subjectId,
-          class_id: classId,
-          academic_period_id: activeWindow.academic_period_id,
-          comment_text: trimmed,
-          is_ai_draft: false,
-        }),
-        silent: true,
-      });
+      const res = await apiClient<Envelope<SubjectCommentRecord>>(
+        '/api/v1/report-card-subject-comments',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            student_id: row.student_id,
+            subject_id: subjectId,
+            class_id: classId,
+            academic_period_id: activeWindow.academic_period_id,
+            comment_text: trimmed,
+            is_ai_draft: false,
+          }),
+          silent: true,
+        },
+      );
+      const saved = res.data;
       updateRow(row.student_id, {
         comment_id: saved.id,
         is_ai_draft: saved.is_ai_draft,
@@ -277,7 +306,7 @@ export default function SubjectCommentEditorPage() {
     if (!canEdit || !activeWindow) return;
     updateRow(row.student_id, { status: 'drafting' });
     try {
-      const res = await apiClient<AiDraftResponse>(
+      const wrapped = await apiClient<Envelope<AiDraftResponse>>(
         '/api/v1/report-card-subject-comments/ai-draft',
         {
           method: 'POST',
@@ -289,6 +318,7 @@ export default function SubjectCommentEditorPage() {
           }),
         },
       );
+      const res = wrapped.data;
       updateRow(row.student_id, {
         comment_id: res.id,
         text: res.comment_text,
@@ -310,10 +340,11 @@ export default function SubjectCommentEditorPage() {
   const handleFinalise = async (row: RowState): Promise<void> => {
     if (!canEdit || !row.comment_id) return;
     try {
-      const res = await apiClient<SubjectCommentRow>(
+      const wrapped = await apiClient<Envelope<SubjectCommentRecord>>(
         `/api/v1/report-card-subject-comments/${row.comment_id}/finalise`,
         { method: 'PATCH' },
       );
+      const res = wrapped.data;
       updateRow(row.student_id, {
         finalised_at: res.finalised_at,
         is_ai_draft: res.is_ai_draft,
@@ -328,10 +359,11 @@ export default function SubjectCommentEditorPage() {
   const handleUnfinalise = async (row: RowState): Promise<void> => {
     if (!canEdit || !row.comment_id) return;
     try {
-      const res = await apiClient<SubjectCommentRow>(
+      const wrapped = await apiClient<Envelope<SubjectCommentRecord>>(
         `/api/v1/report-card-subject-comments/${row.comment_id}/unfinalise`,
         { method: 'PATCH' },
       );
+      const res = wrapped.data;
       updateRow(row.student_id, {
         finalised_at: res.finalised_at,
         is_ai_draft: res.is_ai_draft,
@@ -369,7 +401,7 @@ export default function SubjectCommentEditorPage() {
     }
     setBulkInFlight('finalise');
     try {
-      const res = await apiClient<{ count: number }>(
+      const wrapped = await apiClient<Envelope<{ count: number }>>(
         '/api/v1/report-card-subject-comments/bulk-finalise',
         {
           method: 'POST',
@@ -380,6 +412,7 @@ export default function SubjectCommentEditorPage() {
           }),
         },
       );
+      const res = wrapped.data;
       // Optimistic local update: mark all non-empty comments as finalised now
       setRows((prev) =>
         prev.map((r) =>
