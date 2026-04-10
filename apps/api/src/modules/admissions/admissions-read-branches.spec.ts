@@ -164,11 +164,11 @@ describe('AdmissionsReadFacade — branches', () => {
 
     it('should merge where clause with tenant_id', async () => {
       mockPrisma.application.findMany.mockResolvedValue([]);
-      await facade.findApplicationsGeneric(TENANT_ID, { where: { status: 'draft' } });
+      await facade.findApplicationsGeneric(TENANT_ID, { where: { status: 'submitted' } });
       const call = mockPrisma.application.findMany.mock.calls[0]![0] as Record<string, unknown>;
       const where = call.where as Record<string, unknown>;
       expect(where.tenant_id).toBe(TENANT_ID);
-      expect(where.status).toBe('draft');
+      expect(where.status).toBe('submitted');
     });
   });
 

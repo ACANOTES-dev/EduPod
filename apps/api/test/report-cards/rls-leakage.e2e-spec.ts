@@ -241,6 +241,7 @@ describe('Report Cards Redesign — RLS leakage (database layer)', () => {
         academic_year_id: ACAD_YEAR_A_ID,
         name: 'Year 4 Maths',
         status: 'active',
+        max_capacity: 25,
       },
       update: {},
     });

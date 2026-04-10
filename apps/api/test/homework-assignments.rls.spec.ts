@@ -200,6 +200,7 @@ describe('homework_assignments — RLS leakage (database layer)', () => {
         academic_year_id: ACADEMIC_YEAR_A_ID,
         name: 'RLS HW Test Class',
         status: 'active',
+        max_capacity: 25,
       },
       update: {},
     });

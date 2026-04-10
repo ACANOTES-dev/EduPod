@@ -28,11 +28,11 @@ interface Application {
 
 interface AnalyticsResponse {
   funnel: {
-    draft: number;
     submitted: number;
-    under_review: number;
-    pending_acceptance_approval: number;
-    accepted: number;
+    waiting_list: number;
+    ready_to_admit: number;
+    conditional_approval: number;
+    approved: number;
     rejected: number;
     withdrawn: number;
   };
@@ -151,8 +151,9 @@ export default function AdmissionsPage() {
   const statusTabs = [
     { key: 'all', label: 'All' },
     { key: 'submitted', label: t('submitted') },
-    { key: 'under_review', label: t('underReview') },
-    { key: 'accepted', label: t('accepted') },
+    { key: 'ready_to_admit', label: t('readyToAdmit') },
+    { key: 'conditional_approval', label: t('conditionalApproval') },
+    { key: 'approved', label: t('approved') },
     { key: 'rejected', label: t('rejected') },
     { key: 'withdrawn', label: t('withdrawn') },
   ];
@@ -211,8 +212,8 @@ export default function AdmissionsPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <StatCard label={t('totalApplications')} value={analytics.total ?? 0} />
           <StatCard label={t('submitted')} value={analytics.funnel.submitted ?? 0} />
-          <StatCard label={t('underReview')} value={analytics.funnel.under_review ?? 0} />
-          <StatCard label={t('accepted')} value={analytics.funnel.accepted ?? 0} />
+          <StatCard label={t('readyToAdmit')} value={analytics.funnel.ready_to_admit ?? 0} />
+          <StatCard label={t('approved')} value={analytics.funnel.approved ?? 0} />
           <StatCard label={t('rejected')} value={analytics.funnel.rejected ?? 0} />
         </div>
       )}

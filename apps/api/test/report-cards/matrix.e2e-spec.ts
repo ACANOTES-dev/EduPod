@@ -181,6 +181,7 @@ describe('Report Cards matrix (e2e) — impl 06', () => {
         academic_year_id: ACADEMIC_YEAR_ID,
         name: '6A',
         status: 'active',
+        max_capacity: 25,
       },
     });
 

@@ -194,6 +194,7 @@ async function seedPrerequisites(): Promise<void> {
       academic_year_id: ACADEMIC_YEAR_A_ID,
       name: 'RLS Grades Class A',
       status: 'active',
+      max_capacity: 25,
     },
   });
   await prisma.class.upsert({
@@ -205,6 +206,7 @@ async function seedPrerequisites(): Promise<void> {
       academic_year_id: ACADEMIC_YEAR_B_ID,
       name: 'RLS Grades Class B',
       status: 'active',
+      max_capacity: 25,
     },
   });
 

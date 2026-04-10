@@ -1,7 +1,7 @@
 'use client';
 
-import { ArrowLeft, CheckCircle, Clock, UserPlus, XCircle } from 'lucide-react';
-import { useParams, useRouter, usePathname } from 'next/navigation';
+import { ArrowLeft, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -168,8 +168,6 @@ export default function ApplicationDetailPage() {
   const t = useTranslations('admissions');
   const tc = useTranslations('common');
   const router = useRouter();
-  const pathname = usePathname();
-  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [application, setApplication] = React.useState<ApplicationDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -195,7 +193,7 @@ export default function ApplicationDetailPage() {
   }, [fetchApplication]);
 
   const handleReviewAction = async (
-    status: 'under_review' | 'pending_acceptance_approval' | 'rejected',
+    status: 'ready_to_admit' | 'conditional_approval' | 'approved' | 'rejected',
   ) => {
     if (!application) return;
     if (status === 'rejected' && !rejectionReason.trim()) {
@@ -281,7 +279,7 @@ export default function ApplicationDetailPage() {
           <Button
             key="review"
             variant="outline"
-            onClick={() => handleReviewAction('under_review')}
+            onClick={() => handleReviewAction('ready_to_admit')}
             disabled={actionLoading}
           >
             <Clock className="me-2 h-4 w-4" />
@@ -289,11 +287,11 @@ export default function ApplicationDetailPage() {
           </Button>,
         );
         break;
-      case 'under_review':
+      case 'ready_to_admit':
         actions.push(
           <Button
             key="accept"
-            onClick={() => handleReviewAction('pending_acceptance_approval')}
+            onClick={() => handleReviewAction('conditional_approval')}
             disabled={actionLoading}
           >
             <CheckCircle className="me-2 h-4 w-4" />
@@ -310,18 +308,14 @@ export default function ApplicationDetailPage() {
           </Button>,
         );
         break;
-      case 'accepted':
-        actions.push(
-          <Button key="convert" onClick={() => router.push(`/${locale}/admissions/${id}/convert`)}>
-            <UserPlus className="me-2 h-4 w-4" />
-            {t('convertToStudent')}
-          </Button>,
-        );
+      case 'approved':
+        // Conversion is now automatic — admin no longer walks a wizard.
+        // Wave 4 (12-application-detail.md) rewrites this page entirely.
         break;
     }
 
-    // Withdraw is available when not already withdrawn, rejected, or draft
-    if (!['withdrawn', 'rejected', 'draft'].includes(application.status)) {
+    // Withdraw is available when not in a terminal state
+    if (!['withdrawn', 'rejected', 'approved'].includes(application.status)) {
       actions.push(
         <Button key="withdraw" variant="ghost" onClick={handleWithdraw} disabled={actionLoading}>
           {t('withdraw')}

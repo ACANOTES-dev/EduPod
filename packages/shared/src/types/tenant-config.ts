@@ -34,7 +34,25 @@ export interface TenantSettingsGradebook {
 
 export interface TenantSettingsAdmissions {
   requireApprovalForAcceptance: boolean;
+  upfront_percentage: number; // 0..100 — percent of net fees due before admission
+  payment_window_days: number; // default 7 — days before conditional approval lapses
+  max_application_horizon_years: number; // default 2 — how far ahead parents can apply
+  allow_cash: boolean;
+  allow_bank_transfer: boolean;
+  bank_iban: string | null;
+  require_override_approval_role: 'school_owner' | 'school_principal';
 }
+
+export const DEFAULT_ADMISSIONS_SETTINGS: TenantSettingsAdmissions = {
+  requireApprovalForAcceptance: true,
+  upfront_percentage: 100,
+  payment_window_days: 7,
+  max_application_horizon_years: 2,
+  allow_cash: true,
+  allow_bank_transfer: false,
+  bank_iban: null,
+  require_override_approval_role: 'school_principal',
+};
 
 export interface TenantSettingsFinance {
   requireApprovalForInvoiceIssue: boolean;

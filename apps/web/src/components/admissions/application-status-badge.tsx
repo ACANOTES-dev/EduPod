@@ -2,35 +2,27 @@
 
 import { useTranslations } from 'next-intl';
 
+import type { ApplicationStatus } from '@school/shared';
 import { StatusBadge } from '@school/ui';
-
-type ApplicationStatus =
-  | 'draft'
-  | 'submitted'
-  | 'under_review'
-  | 'pending_acceptance_approval'
-  | 'accepted'
-  | 'rejected'
-  | 'withdrawn';
 
 type BadgeVariant = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 const STATUS_VARIANT_MAP: Record<ApplicationStatus, BadgeVariant> = {
-  draft: 'neutral',
   submitted: 'info',
-  under_review: 'warning',
-  pending_acceptance_approval: 'warning',
-  accepted: 'success',
+  waiting_list: 'neutral',
+  ready_to_admit: 'warning',
+  conditional_approval: 'warning',
+  approved: 'success',
   rejected: 'danger',
   withdrawn: 'neutral',
 };
 
 const STATUS_LABEL_KEY_MAP: Record<ApplicationStatus, string> = {
-  draft: 'draft',
   submitted: 'submitted',
-  under_review: 'underReview',
-  pending_acceptance_approval: 'pendingApproval',
-  accepted: 'accepted',
+  waiting_list: 'waitingList',
+  ready_to_admit: 'readyToAdmit',
+  conditional_approval: 'conditionalApproval',
+  approved: 'approved',
   rejected: 'rejected',
   withdrawn: 'withdrawn',
 };

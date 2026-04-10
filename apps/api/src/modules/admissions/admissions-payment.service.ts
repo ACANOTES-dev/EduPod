@@ -156,7 +156,7 @@ export class AdmissionsPaymentService {
       return;
     }
 
-    if (application.status !== 'draft') {
+    if (application.status !== 'conditional_approval') {
       this.logger.warn(
         `Application ${application.id} already has status ${application.status}, skipping`,
       );
@@ -169,9 +169,9 @@ export class AdmissionsPaymentService {
       await db.application.update({
         where: { id: application.id },
         data: {
-          status: 'submitted',
+          status: 'approved',
           payment_status: 'paid_online',
-          submitted_at: new Date(),
+          reviewed_at: new Date(),
         },
       });
 
@@ -241,11 +241,11 @@ export class AdmissionsPaymentService {
         });
       }
 
-      if (app.status !== 'draft') {
+      if (app.status !== 'conditional_approval') {
         throw new BadRequestException({
           error: {
             code: 'INVALID_STATUS',
-            message: 'Only draft applications can be marked as paid',
+            message: 'Only conditional approvals can be marked as paid',
           },
         });
       }
@@ -253,9 +253,9 @@ export class AdmissionsPaymentService {
       await db.application.update({
         where: { id: applicationId },
         data: {
-          status: 'submitted',
+          status: 'approved',
           payment_status: 'paid_cash',
-          submitted_at: new Date(),
+          reviewed_at: new Date(),
           payment_deadline: null,
         },
       });
@@ -292,11 +292,11 @@ export class AdmissionsPaymentService {
         });
       }
 
-      if (app.status !== 'draft') {
+      if (app.status !== 'conditional_approval') {
         throw new BadRequestException({
           error: {
             code: 'INVALID_STATUS',
-            message: 'Only draft applications can have payment plans',
+            message: 'Only conditional approvals can have payment plans',
           },
         });
       }
@@ -304,9 +304,9 @@ export class AdmissionsPaymentService {
       await db.application.update({
         where: { id: applicationId },
         data: {
-          status: 'submitted',
+          status: 'approved',
           payment_status: 'payment_plan',
-          submitted_at: new Date(),
+          reviewed_at: new Date(),
           payment_deadline: null,
         },
       });
@@ -343,11 +343,11 @@ export class AdmissionsPaymentService {
         });
       }
 
-      if (app.status !== 'draft') {
+      if (app.status !== 'conditional_approval') {
         throw new BadRequestException({
           error: {
             code: 'INVALID_STATUS',
-            message: 'Only draft applications can have fees waived',
+            message: 'Only conditional approvals can have fees waived',
           },
         });
       }
@@ -355,10 +355,10 @@ export class AdmissionsPaymentService {
       await db.application.update({
         where: { id: applicationId },
         data: {
-          status: 'submitted',
+          status: 'approved',
           payment_status: 'waived',
           payment_amount: 0,
-          submitted_at: new Date(),
+          reviewed_at: new Date(),
           payment_deadline: null,
         },
       });

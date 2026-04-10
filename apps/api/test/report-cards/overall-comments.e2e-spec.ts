@@ -149,6 +149,7 @@ describe('Overall Comments (e2e) — impl 02', () => {
         academic_year_id: YEAR_ID,
         name: 'Year 4 Homeroom',
         status: 'active',
+        max_capacity: 25,
         homeroom_teacher_staff_id: HOMEROOM_STAFF_ID,
       },
     });

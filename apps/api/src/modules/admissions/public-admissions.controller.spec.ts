@@ -87,12 +87,12 @@ describe('PublicAdmissionsController', () => {
         payload_json: {},
       };
       const req = buildRequest({ ip: '10.0.0.1' });
-      mockApplicationsService.createPublic.mockResolvedValue({ id: 'app-1', status: 'draft' });
+      mockApplicationsService.createPublic.mockResolvedValue({ id: 'app-1', status: 'submitted' });
 
       const result = await controller.createApplication(TENANT, dto as never, req);
 
       expect(mockApplicationsService.createPublic).toHaveBeenCalledWith(TENANT_ID, dto, '10.0.0.1');
-      expect(result).toEqual({ id: 'app-1', status: 'draft' });
+      expect(result).toEqual({ id: 'app-1', status: 'submitted' });
     });
 
     it('should prefer cf-connecting-ip header for IP extraction', async () => {

@@ -61,15 +61,15 @@ export class AdmissionsAnalyticsService {
     const [appliedCount, underReviewCount, acceptedCount, enrolledCount] = await Promise.all([
       this.dataAccess.countApplications(tenantId, {
         ...baseWhere,
-        status: { notIn: ['draft', 'withdrawn'] },
+        status: { notIn: ['withdrawn'] },
       }),
       this.dataAccess.countApplications(tenantId, {
         ...baseWhere,
-        status: { in: ['under_review', 'pending_acceptance_approval'] },
+        status: { in: ['ready_to_admit', 'conditional_approval'] },
       }),
       this.dataAccess.countApplications(tenantId, {
         ...baseWhere,
-        status: 'accepted',
+        status: 'approved',
       }),
       this.dataAccess.countStudents(tenantId, { status: 'active' }),
     ]);
@@ -100,7 +100,7 @@ export class AdmissionsAnalyticsService {
 
     const decidedApplications = (await this.dataAccess.findApplications(tenantId, {
       where: {
-        status: { in: ['accepted', 'rejected'] },
+        status: { in: ['approved', 'rejected'] },
         submitted_at: { not: null },
         reviewed_at: { not: null },
         ...(hasDates && { submitted_at: dateFilter }),
@@ -194,7 +194,7 @@ export class AdmissionsAnalyticsService {
       const month = new Date(app.submitted_at).toISOString().slice(0, 7);
       const entry = monthMap.get(month) ?? { count: 0, accepted: 0, rejected: 0 };
       entry.count++;
-      if (app.status === 'accepted') entry.accepted++;
+      if (app.status === 'approved') entry.accepted++;
       if (app.status === 'rejected') entry.rejected++;
       monthMap.set(month, entry);
     }
@@ -223,7 +223,7 @@ export class AdmissionsAnalyticsService {
       where: {
         submitted_at: { not: null },
         ...(hasDates && { submitted_at: dateFilter }),
-        status: { notIn: ['draft', 'withdrawn'] },
+        status: { notIn: ['withdrawn'] },
       },
       select: { payload_json: true, status: true },
     })) as Array<{ payload_json: unknown; status: string }>;
@@ -235,7 +235,7 @@ export class AdmissionsAnalyticsService {
       const yearGroupName = (payload.year_group as string) ?? 'Not specified';
       const entry = demandMap.get(yearGroupName) ?? { count: 0, accepted: 0 };
       entry.count++;
-      if (app.status === 'accepted') entry.accepted++;
+      if (app.status === 'approved') entry.accepted++;
       demandMap.set(yearGroupName, entry);
     }
 

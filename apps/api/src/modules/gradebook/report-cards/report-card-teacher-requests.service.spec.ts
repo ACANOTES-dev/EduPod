@@ -35,6 +35,7 @@ const basePendingRequest = {
   requested_by_user_id: TEACHER_ID,
   request_type: 'open_comment_window' as const,
   academic_period_id: PERIOD_ID,
+  academic_year_id: 'year-1',
   target_scope_json: null,
   reason: 'Two students were absent during the first window.',
   status: 'pending' as const,

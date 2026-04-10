@@ -130,6 +130,7 @@ describe('Homework RLS Integration Tests', () => {
           academic_year_id: ACADEMIC_YEAR_ID,
           name: c.name,
           status: 'active',
+          max_capacity: 25,
         },
       });
     }

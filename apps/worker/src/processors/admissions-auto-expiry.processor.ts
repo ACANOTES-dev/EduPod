@@ -54,11 +54,14 @@ class AdmissionsAutoExpiryJob extends TenantAwareJob<AdmissionsAutoExpiryPayload
   protected async processJob(data: AdmissionsAutoExpiryPayload, tx: PrismaClient): Promise<void> {
     const now = new Date();
 
-    // Find all draft applications with expired payment deadline
+    // Find all conditional-approval applications with expired payment deadline.
+    // Wave 3 (`08-payment-expiry-cron.md`) replaces this worker entirely with
+    // the new `admissions-payment-expiry` processor; this body is kept
+    // compiling only so the foundation migration can ship standalone.
     const expiredApplications = await tx.application.findMany({
       where: {
         tenant_id: data.tenant_id,
-        status: 'draft',
+        status: 'conditional_approval',
         payment_deadline: { lt: now },
         payment_status: 'pending',
       },

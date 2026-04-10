@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { APPLICATION_STATUSES } from '../constants/application-status';
 import { consentCaptureSchema } from '../gdpr/consent.schema';
 
 import { paginationQuerySchema } from './pagination.schema';
@@ -10,6 +11,8 @@ export const createPublicApplicationSchema = z.object({
   student_first_name: z.string().min(1).max(100),
   student_last_name: z.string().min(1).max(100),
   date_of_birth: z.string().date().nullable().optional(),
+  target_academic_year_id: z.string().uuid(),
+  target_year_group_id: z.string().uuid(),
   payload_json: z.record(z.string(), z.unknown()),
   consents: consentCaptureSchema.default({
     health_data: false,
@@ -29,9 +32,12 @@ export const submitApplicationSchema = z.object({
   // No body needed - application_id comes from path param
 });
 
-// Review application (status transitions)
+// Review application (status transitions) — targets in the new state machine
+// are limited to the decisions an admin can take from the queue views. The
+// full transition graph is enforced server-side in
+// `application-state-machine.service.ts` which will be rewritten in Wave 2.
 export const reviewApplicationSchema = z.object({
-  status: z.enum(['under_review', 'pending_acceptance_approval', 'rejected']),
+  status: z.enum(['ready_to_admit', 'conditional_approval', 'approved', 'rejected']),
   expected_updated_at: z.string().datetime(),
   rejection_reason: z.string().min(1).max(5000).optional(),
 });
@@ -59,17 +65,7 @@ export const convertApplicationSchema = z.object({
 
 // List applications query
 export const listApplicationsSchema = paginationQuerySchema.extend({
-  status: z
-    .enum([
-      'draft',
-      'submitted',
-      'under_review',
-      'pending_acceptance_approval',
-      'accepted',
-      'rejected',
-      'withdrawn',
-    ])
-    .optional(),
+  status: z.enum(APPLICATION_STATUSES).optional(),
   form_definition_id: z.string().uuid().optional(),
   search: z.string().max(200).optional(),
 });

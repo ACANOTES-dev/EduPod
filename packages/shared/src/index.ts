@@ -16,6 +16,7 @@ export * from './constants/sequence-types';
 export * from './constants/student-status';
 export * from './constants/class-enrolment-status';
 export * from './constants/invoice-status';
+export * from './constants/application-status';
 export * from './constants/system';
 export * from './constants/feature-flags';
 

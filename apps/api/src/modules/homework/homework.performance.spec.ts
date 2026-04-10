@@ -136,6 +136,7 @@ describe('Homework Performance Load Tests', () => {
         academic_year_id: ACADEMIC_YEAR_ID,
         name: 'Load Test Class',
         status: 'active',
+        max_capacity: 25,
       },
     });
 

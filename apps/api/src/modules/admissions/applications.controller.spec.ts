@@ -147,13 +147,13 @@ describe('ApplicationsController', () => {
 
   describe('ApplicationsController -- review', () => {
     it('should delegate to applicationsService.review with tenant_id, id, dto, and user_id', async () => {
-      const dto = { decision: 'accepted', notes: 'Approved' };
-      mockApplicationsService.review.mockResolvedValue({ id: APP_ID, status: 'accepted' });
+      const dto = { decision: 'approved', notes: 'Approved' };
+      mockApplicationsService.review.mockResolvedValue({ id: APP_ID, status: 'approved' });
 
       const result = await controller.review(TENANT, USER, APP_ID, dto as never);
 
       expect(mockApplicationsService.review).toHaveBeenCalledWith(TENANT_ID, APP_ID, dto, USER_ID);
-      expect(result).toEqual({ id: APP_ID, status: 'accepted' });
+      expect(result).toEqual({ id: APP_ID, status: 'approved' });
     });
   });
 

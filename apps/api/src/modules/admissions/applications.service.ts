@@ -133,7 +133,7 @@ export class ApplicationsService {
       return {
         id: 'ignored',
         application_number: 'ignored',
-        status: 'draft',
+        status: 'submitted',
       };
     }
 
@@ -188,7 +188,10 @@ export class ApplicationsService {
           student_first_name: dto.student_first_name,
           student_last_name: dto.student_last_name,
           date_of_birth: dto.date_of_birth ? new Date(dto.date_of_birth) : null,
-          status: 'draft',
+          target_academic_year_id: dto.target_academic_year_id,
+          target_year_group_id: dto.target_year_group_id,
+          status: 'submitted',
+          submitted_at: new Date(),
           payload_json: {
             ...(dto.payload_json as Record<string, unknown>),
             __consents: dto.consents,
@@ -416,20 +419,18 @@ export class ApplicationsService {
 
       // Funnel counts by status
       const statusCounts = await Promise.all([
-        db.application.count({ where: { ...where, status: 'draft' } }),
         db.application.count({ where: { ...where, status: 'submitted' } }),
-        db.application.count({ where: { ...where, status: 'under_review' } }),
-        db.application.count({
-          where: { ...where, status: 'pending_acceptance_approval' },
-        }),
-        db.application.count({ where: { ...where, status: 'accepted' } }),
+        db.application.count({ where: { ...where, status: 'waiting_list' } }),
+        db.application.count({ where: { ...where, status: 'ready_to_admit' } }),
+        db.application.count({ where: { ...where, status: 'conditional_approval' } }),
+        db.application.count({ where: { ...where, status: 'approved' } }),
         db.application.count({ where: { ...where, status: 'rejected' } }),
         db.application.count({ where: { ...where, status: 'withdrawn' } }),
       ]);
 
       const total = statusCounts.reduce((sum, c) => sum + c, 0);
-      const accepted = statusCounts[4];
-      const conversionRate = total > 0 ? Number(((accepted / total) * 100).toFixed(1)) : 0;
+      const approved = statusCounts[4];
+      const conversionRate = total > 0 ? Number(((approved / total) * 100).toFixed(1)) : 0;
 
       // Average days to decision (from submitted_at to reviewed_at)
       const rawTx = tx as unknown as {
@@ -453,11 +454,11 @@ export class ApplicationsService {
 
       return {
         funnel: {
-          draft: statusCounts[0],
-          submitted: statusCounts[1],
-          under_review: statusCounts[2],
-          pending_acceptance_approval: statusCounts[3],
-          accepted: statusCounts[4],
+          submitted: statusCounts[0],
+          waiting_list: statusCounts[1],
+          ready_to_admit: statusCounts[2],
+          conditional_approval: statusCounts[3],
+          approved: statusCounts[4],
           rejected: statusCounts[5],
           withdrawn: statusCounts[6],
         },

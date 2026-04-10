@@ -345,13 +345,23 @@ enum ApplicationFieldType {
 }
 
 enum ApplicationStatus {
-  draft
   submitted
-  under_review
-  pending_acceptance_approval
-  accepted
+  waiting_list
+  ready_to_admit
+  conditional_approval
+  approved
   rejected
   withdrawn
+}
+
+enum ApplicationWaitingListSubstatus {
+  awaiting_year_setup
+}
+
+enum AdmissionOverrideType {
+  full_waiver
+  partial_waiver
+  deferred_payment
 }
 
 enum AdmissionPaymentStatus {
@@ -482,6 +492,7 @@ model Tenant {
   admission_form_fields      AdmissionFormField[]
   applications               Application[]
   application_notes          ApplicationNote[]
+  admission_overrides        AdmissionOverride[]
 
   // P4A Relations
   rooms                      Room[]
@@ -552,11 +563,12 @@ model Tenant {
   report_card_verification_tokens ReportCardVerificationToken[]
 
   // Report Cards Redesign Relations
-  report_comment_windows       ReportCommentWindow[]
-  report_card_subject_comments ReportCardSubjectComment[]
-  report_card_overall_comments ReportCardOverallComment[]
-  report_card_teacher_requests ReportCardTeacherRequest[]
-  report_card_tenant_settings  ReportCardTenantSettings?
+  report_comment_windows          ReportCommentWindow[]
+  report_card_subject_comments    ReportCardSubjectComment[]
+  report_card_overall_comments    ReportCardOverallComment[]
+  report_card_teacher_requests    ReportCardTeacherRequest[]
+  report_card_tenant_settings     ReportCardTenantSettings?
+  report_comment_window_homerooms ReportCommentWindowHomeroom[]
 
   // P6 Relations
   fee_structures            FeeStructure[]
@@ -1019,8 +1031,9 @@ model User {
   parents        Parent[]
 
   // P3 Relations
-  applications_reviewed ApplicationNote[]
-  applications_decided  Application[]     @relation("reviewer")
+  applications_reviewed    ApplicationNote[]
+  applications_decided     Application[]       @relation("reviewer")
+  admission_overrides_made AdmissionOverride[] @relation("admission_override_approver")
 
   // P4A Relations
   school_closures_created       SchoolClosure[]
@@ -1765,11 +1778,12 @@ model StaffProfile {
   updated_at                    DateTime         @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant           Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  user             User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  class_staff      ClassStaff[]
-  homeroom_classes Class[]      @relation("homeroom_teacher")
-  schedules        Schedule[]   @relation("schedule_teacher")
+  tenant                   Tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user                     User                          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  class_staff              ClassStaff[]
+  homeroom_classes         Class[]                       @relation("homeroom_teacher")
+  schedules                Schedule[]                    @relation("schedule_teacher")
+  comment_window_homerooms ReportCommentWindowHomeroom[] @relation("comment_window_homeroom_staff")
 
   // P4B Relations
   staff_availability           StaffAvailability[]
@@ -1833,6 +1847,7 @@ model AcademicYear {
   periods   AcademicPeriod[]
   classes   Class[]
   schedules Schedule[]
+  target_applications Application[] @relation("applications_target_year")
 
   // P4B Relations
   schedule_period_templates     SchedulePeriodTemplate[]
@@ -2237,6 +2252,7 @@ model YearGroup {
   previous_year_groups YearGroup[] @relation("year_group_chain")
   students             Student[]
   classes              Class[]
+  target_applications  Application[] @relation("applications_target_year_group")
 
   // P6 Relations
   fee_structures FeeStructure[]
@@ -2331,7 +2347,7 @@ model Class {
   homeroom_teacher_staff_id String?     @db.Uuid
   homeroom_id               String?     @db.Uuid
   name                      String      @db.VarChar(150)
-  max_capacity              Int?        @db.SmallInt
+  max_capacity              Int         @db.SmallInt
   status                    ClassStatus
   created_at                DateTime    @default(now()) @db.Timestamptz()
   updated_at                DateTime    @default(now()) @updatedAt @db.Timestamptz()
@@ -2365,8 +2381,9 @@ model Class {
   report_card_batch_jobs ReportCardBatchJob[]
 
   // Report Cards Redesign Relations
-  report_card_subject_comments ReportCardSubjectComment[]
-  report_card_overall_comments ReportCardOverallComment[]
+  report_card_subject_comments    ReportCardSubjectComment[]
+  report_card_overall_comments    ReportCardOverallComment[]
+  report_comment_window_homerooms ReportCommentWindowHomeroom[]
 
   // Homework Relations
   homework_assignments   HomeworkAssignment[]
@@ -2470,40 +2487,75 @@ model AdmissionFormField {
 }
 
 model Application {
-  id                       String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id                String                 @db.Uuid
-  form_definition_id       String                 @db.Uuid
-  application_number       String                 @db.VarChar(50)
-  submitted_by_parent_id   String?                @db.Uuid
-  student_first_name       String                 @db.VarChar(100)
-  student_last_name        String                 @db.VarChar(100)
-  date_of_birth            DateTime?              @db.Date
-  status                   ApplicationStatus      @default(draft)
-  submitted_at             DateTime?              @db.Timestamptz()
-  reviewed_at              DateTime?              @db.Timestamptz()
-  reviewed_by_user_id      String?                @db.Uuid
-  payload_json             Json
-  payment_status           AdmissionPaymentStatus @default(pending)
-  payment_amount           Decimal?               @db.Decimal(12, 2)
-  discount_applied         Decimal?               @db.Decimal(12, 2)
-  payment_deadline         DateTime?              @db.Timestamptz()
-  stripe_payment_intent_id String?                @db.VarChar(255)
-  rejection_reason         String?                @db.Text
-  created_at               DateTime               @default(now()) @db.Timestamptz()
-  updated_at               DateTime               @default(now()) @updatedAt @db.Timestamptz()
+  id                         String                           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                  String                           @db.Uuid
+  form_definition_id         String                           @db.Uuid
+  application_number         String                           @db.VarChar(50)
+  submitted_by_parent_id     String?                          @db.Uuid
+  student_first_name         String                           @db.VarChar(100)
+  student_last_name          String                           @db.VarChar(100)
+  date_of_birth              DateTime?                        @db.Date
+  status                     ApplicationStatus                @default(submitted)
+  submitted_at               DateTime?                        @db.Timestamptz()
+  reviewed_at                DateTime?                        @db.Timestamptz()
+  reviewed_by_user_id        String?                          @db.Uuid
+  payload_json               Json
+  payment_status             AdmissionPaymentStatus           @default(pending)
+  payment_amount             Decimal?                         @db.Decimal(12, 2)
+  payment_amount_cents       Int?
+  currency_code              String?                          @db.VarChar(3)
+  discount_applied           Decimal?                         @db.Decimal(12, 2)
+  payment_deadline           DateTime?                        @db.Timestamptz()
+  stripe_payment_intent_id   String?                          @db.VarChar(255)
+  stripe_checkout_session_id String?                          @db.VarChar(255)
+  rejection_reason           String?                          @db.Text
+  target_academic_year_id    String?                          @db.Uuid
+  target_year_group_id       String?                          @db.Uuid
+  apply_date                 DateTime                         @default(now()) @db.Timestamptz()
+  waiting_list_substatus     ApplicationWaitingListSubstatus?
+  override_record_id         String?                          @db.Uuid
+  created_at                 DateTime                         @default(now()) @db.Timestamptz()
+  updated_at                 DateTime                         @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant          Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  form_definition AdmissionFormDefinition @relation(fields: [form_definition_id], references: [id], onDelete: Cascade)
-  submitted_by    Parent?                 @relation(fields: [submitted_by_parent_id], references: [id], onDelete: SetNull)
-  reviewed_by     User?                   @relation("reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
-  notes           ApplicationNote[]
+  tenant               Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  form_definition      AdmissionFormDefinition @relation(fields: [form_definition_id], references: [id], onDelete: Cascade)
+  submitted_by         Parent?                 @relation(fields: [submitted_by_parent_id], references: [id], onDelete: SetNull)
+  reviewed_by          User?                   @relation("reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
+  target_academic_year AcademicYear?           @relation("applications_target_year", fields: [target_academic_year_id], references: [id], onDelete: SetNull)
+  target_year_group    YearGroup?              @relation("applications_target_year_group", fields: [target_year_group_id], references: [id], onDelete: SetNull)
+  override_record      AdmissionOverride?      @relation("application_override_record", fields: [override_record_id], references: [id], onDelete: SetNull)
+  notes                ApplicationNote[]
+  overrides            AdmissionOverride[]     @relation("overrides_of_application")
 
   @@unique([tenant_id, application_number], name: "idx_applications_number")
   @@index([tenant_id, status], name: "idx_applications_tenant_status")
   @@index([tenant_id, form_definition_id], name: "idx_applications_tenant_form")
   @@index([tenant_id, payment_status, payment_deadline], name: "idx_applications_payment_deadline")
+  @@index([tenant_id, status, target_year_group_id, target_academic_year_id, apply_date], name: "idx_applications_gating")
+  @@index([tenant_id, status, payment_deadline], name: "idx_applications_expiry")
   @@map("applications")
+}
+
+model AdmissionOverride {
+  id                    String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String                @db.Uuid
+  application_id        String                @db.Uuid
+  approved_by_user_id   String                @db.Uuid
+  expected_amount_cents Int
+  actual_amount_cents   Int                   @default(0)
+  justification         String                @db.Text
+  override_type         AdmissionOverrideType
+  created_at            DateTime              @default(now()) @db.Timestamptz()
+
+  tenant                   Tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  application              Application   @relation("overrides_of_application", fields: [application_id], references: [id], onDelete: Cascade)
+  approved_by              User          @relation("admission_override_approver", fields: [approved_by_user_id], references: [id], onDelete: Restrict)
+  linked_from_applications Application[] @relation("application_override_record")
+
+  @@index([tenant_id, created_at], name: "idx_admission_overrides_tenant_time")
+  @@index([application_id], name: "idx_admission_overrides_application")
+  @@map("admission_overrides")
 }
 
 /// Append-only, no updated_at
@@ -3373,8 +3425,17 @@ model ReportCard {
   id                         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id                  String           @db.Uuid
   student_id                 String           @db.Uuid
-  academic_period_id         String           @db.Uuid
+  // NULL for full-year report cards (Phase 1b — Option B). When NULL,
+  // `academic_year_id` is the authoritative scope field and the generation
+  // worker aggregates snapshots across every period in the year.
+  academic_period_id         String?          @db.Uuid
+  academic_year_id           String           @db.Uuid
   template_id                String?          @db.Uuid
+  // Back-link to the generation run that produced this row. Nullable so
+  // historic rows pre-dating Phase B keep working. The library's grouped
+  // view joins on this column to cluster report cards by the run that
+  // created them.
+  batch_job_id               String?          @db.Uuid
   status                     ReportCardStatus @default(draft)
   template_locale            String           @db.VarChar(10)
   /// Deprecated by Report Cards Redesign — impl 01. Use `overall_comment_text` for new code.
@@ -3395,8 +3456,9 @@ model ReportCard {
   // Relations
   tenant          Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   student         Student             @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  academic_period AcademicPeriod      @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod?     @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
   template        ReportCardTemplate? @relation("report_card_template", fields: [template_id], references: [id], onDelete: Restrict)
+  batch_job       ReportCardBatchJob? @relation("report_card_batch_job", fields: [batch_job_id], references: [id], onDelete: SetNull)
   published_by    User?               @relation("report_card_publisher", fields: [published_by_user_id], references: [id], onDelete: SetNull)
   revision_of     ReportCard?         @relation("report_card_revisions", fields: [revision_of_report_card_id], references: [id], onDelete: SetNull)
   revisions       ReportCard[]        @relation("report_card_revisions")
@@ -3410,7 +3472,9 @@ model ReportCard {
 
   @@index([tenant_id, student_id], name: "idx_report_cards_student")
   @@index([tenant_id, academic_period_id], name: "idx_report_cards_period")
+  @@index([tenant_id, academic_year_id], name: "idx_report_cards_year")
   @@index([revision_of_report_card_id], name: "idx_report_cards_revision")
+  @@index([tenant_id, batch_job_id], name: "idx_report_cards_batch_job")
   @@map("report_cards")
 }
 
@@ -3963,7 +4027,10 @@ model ReportCardBatchJob {
   id                        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id                 String         @db.Uuid
   class_id                  String         @db.Uuid
-  academic_period_id        String         @db.Uuid
+  // NULL for full-year batch jobs (Phase 1b — Option B). When NULL, the
+  // worker loads snapshots and comments across every period in the year.
+  academic_period_id        String?        @db.Uuid
+  academic_year_id          String         @db.Uuid
   template_id               String?        @db.Uuid
   status                    BatchJobStatus @default(queued)
   total_count               Int            @db.SmallInt
@@ -3984,11 +4051,13 @@ model ReportCardBatchJob {
   // Relations
   tenant           Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   class_entity     Class                      @relation(fields: [class_id], references: [id], onDelete: Cascade)
-  academic_period  AcademicPeriod             @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  academic_period  AcademicPeriod?            @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
   requested_by     User                       @relation("batch_job_requester", fields: [requested_by_user_id], references: [id], onDelete: Cascade)
   teacher_requests ReportCardTeacherRequest[] @relation("teacher_request_resulting_run")
+  report_cards     ReportCard[]               @relation("report_card_batch_job")
 
   @@index([tenant_id, status], name: "idx_report_card_batch_jobs_status")
+  @@index([tenant_id, academic_year_id], name: "idx_report_card_batch_jobs_year")
   @@map("report_card_batch_jobs")
 }
 
@@ -3997,7 +4066,11 @@ model ReportCardBatchJob {
 model ReportCommentWindow {
   id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id          String              @db.Uuid
-  academic_period_id String              @db.Uuid
+  // NULL for full-year comment windows (Phase 1b — Option B). Teachers write
+  // new comments during a full-year window; the generation worker reads them
+  // with (student_id, academic_year_id) and NULL period.
+  academic_period_id String?             @db.Uuid
+  academic_year_id   String              @db.Uuid
   opens_at           DateTime            @db.Timestamptz()
   closes_at          DateTime            @db.Timestamptz()
   status             CommentWindowStatus @default(scheduled)
@@ -4009,15 +4082,43 @@ model ReportCommentWindow {
   updated_at         DateTime            @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant           Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  academic_period  AcademicPeriod             @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
-  opened_by        User                       @relation("comment_window_opener", fields: [opened_by_user_id], references: [id], onDelete: Restrict)
-  closed_by        User?                      @relation("comment_window_closer", fields: [closed_by_user_id], references: [id], onDelete: SetNull)
-  teacher_requests ReportCardTeacherRequest[] @relation("teacher_request_resulting_window")
+  tenant               Tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_period      AcademicPeriod?               @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  opened_by            User                          @relation("comment_window_opener", fields: [opened_by_user_id], references: [id], onDelete: Restrict)
+  closed_by            User?                         @relation("comment_window_closer", fields: [closed_by_user_id], references: [id], onDelete: SetNull)
+  teacher_requests     ReportCardTeacherRequest[]    @relation("teacher_request_resulting_window")
+  homeroom_assignments ReportCommentWindowHomeroom[]
 
   @@index([tenant_id, status], name: "idx_report_comment_windows_tenant_status")
   @@index([tenant_id, academic_period_id], name: "idx_report_comment_windows_period")
+  @@index([tenant_id, academic_year_id], name: "idx_report_comment_windows_year")
   @@map("report_comment_windows")
+}
+
+/// Per-window, per-class homeroom teacher assignment.
+///
+/// Replaces the old "homeroom = classes.homeroom_teacher_staff_id" model
+/// for the report-cards code path. When an admin opens a comment window
+/// they pick which teacher writes overall comments for each class. The
+/// `classes.homeroom_teacher_staff_id` column is left intact for any
+/// non-report-card consumer that still needs a default homeroom.
+model ReportCommentWindowHomeroom {
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                 String   @db.Uuid
+  comment_window_id         String   @db.Uuid
+  class_id                  String   @db.Uuid
+  homeroom_teacher_staff_id String   @db.Uuid
+  created_at                DateTime @default(now()) @db.Timestamptz()
+  updated_at                DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  tenant         Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  comment_window ReportCommentWindow @relation(fields: [comment_window_id], references: [id], onDelete: Cascade)
+  class          Class               @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  staff_profile  StaffProfile        @relation("comment_window_homeroom_staff", fields: [homeroom_teacher_staff_id], references: [id], onDelete: Restrict)
+
+  @@unique([comment_window_id, class_id], name: "idx_report_comment_window_homerooms_window_class")
+  @@index([tenant_id, homeroom_teacher_staff_id], name: "idx_report_comment_window_homerooms_tenant_staff")
+  @@map("report_comment_window_homerooms")
 }
 
 model ReportCardSubjectComment {
@@ -4026,7 +4127,12 @@ model ReportCardSubjectComment {
   student_id           String    @db.Uuid
   subject_id           String    @db.Uuid
   class_id             String    @db.Uuid
-  academic_period_id   String    @db.Uuid
+  // NULL for full-year subject comments (Phase 1b — Option B). Uniqueness is
+  // enforced by TWO partial unique indexes (period-scoped vs year-scoped)
+  // created in the migration, not by Prisma's `@@unique` (which cannot
+  // express partial unique on nullable columns).
+  academic_period_id   String?   @db.Uuid
+  academic_year_id     String    @db.Uuid
   author_user_id       String    @db.Uuid
   comment_text         String    @db.Text
   is_ai_draft          Boolean   @default(false)
@@ -4037,17 +4143,17 @@ model ReportCardSubjectComment {
   updated_at           DateTime  @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  student         Student        @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  subject         Subject        @relation(fields: [subject_id], references: [id], onDelete: Cascade)
-  class_entity    Class          @relation(fields: [class_id], references: [id], onDelete: Cascade)
-  academic_period AcademicPeriod @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
-  author          User           @relation("subject_comment_author", fields: [author_user_id], references: [id], onDelete: Restrict)
-  finalised_by    User?          @relation("subject_comment_finaliser", fields: [finalised_by_user_id], references: [id], onDelete: SetNull)
+  tenant          Tenant          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student         Student         @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  subject         Subject         @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  class_entity    Class           @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod? @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  author          User            @relation("subject_comment_author", fields: [author_user_id], references: [id], onDelete: Restrict)
+  finalised_by    User?           @relation("subject_comment_finaliser", fields: [finalised_by_user_id], references: [id], onDelete: SetNull)
 
-  @@unique([tenant_id, student_id, subject_id, academic_period_id], name: "idx_subj_comments_unique")
   @@index([tenant_id, author_user_id, academic_period_id], name: "idx_subj_comments_teacher")
   @@index([tenant_id, class_id, subject_id, academic_period_id], name: "idx_subj_comments_class")
+  @@index([tenant_id, student_id, subject_id, academic_year_id], name: "idx_subj_comments_year")
   @@map("report_card_subject_comments")
 }
 
@@ -4056,7 +4162,11 @@ model ReportCardOverallComment {
   tenant_id            String    @db.Uuid
   student_id           String    @db.Uuid
   class_id             String    @db.Uuid
-  academic_period_id   String    @db.Uuid
+  // NULL for full-year overall comments (Phase 1b — Option B). Uniqueness is
+  // enforced by TWO partial unique indexes (period-scoped vs year-scoped)
+  // created in the migration, not by Prisma's `@@unique`.
+  academic_period_id   String?   @db.Uuid
+  academic_year_id     String    @db.Uuid
   author_user_id       String    @db.Uuid
   comment_text         String    @db.Text
   finalised_at         DateTime? @db.Timestamptz()
@@ -4065,15 +4175,15 @@ model ReportCardOverallComment {
   updated_at           DateTime  @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  student         Student        @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  class_entity    Class          @relation(fields: [class_id], references: [id], onDelete: Cascade)
-  academic_period AcademicPeriod @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
-  author          User           @relation("overall_comment_author", fields: [author_user_id], references: [id], onDelete: Restrict)
-  finalised_by    User?          @relation("overall_comment_finaliser", fields: [finalised_by_user_id], references: [id], onDelete: SetNull)
+  tenant          Tenant          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student         Student         @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  class_entity    Class           @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod? @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  author          User            @relation("overall_comment_author", fields: [author_user_id], references: [id], onDelete: Restrict)
+  finalised_by    User?           @relation("overall_comment_finaliser", fields: [finalised_by_user_id], references: [id], onDelete: SetNull)
 
-  @@unique([tenant_id, student_id, academic_period_id], name: "idx_overall_comments_unique")
   @@index([tenant_id, class_id, academic_period_id], name: "idx_overall_comments_class")
+  @@index([tenant_id, student_id, academic_year_id], name: "idx_overall_comments_year")
   @@map("report_card_overall_comments")
 }
 
@@ -4082,7 +4192,11 @@ model ReportCardTeacherRequest {
   tenant_id            String               @db.Uuid
   requested_by_user_id String               @db.Uuid
   request_type         TeacherRequestType
-  academic_period_id   String               @db.Uuid
+  // NULL for full-year reopen requests (Phase 1b — Option B). When NULL,
+  // approving the request reopens every per-period comment window in the
+  // academic year atomically (plus the full-year window if one exists).
+  academic_period_id   String?              @db.Uuid
+  academic_year_id     String               @db.Uuid
   target_scope_json    Json?
   reason               String               @db.Text
   status               TeacherRequestStatus @default(pending)
@@ -4098,12 +4212,13 @@ model ReportCardTeacherRequest {
   tenant           Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   requested_by     User                 @relation("teacher_request_author", fields: [requested_by_user_id], references: [id], onDelete: Restrict)
   reviewed_by      User?                @relation("teacher_request_reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
-  academic_period  AcademicPeriod       @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  academic_period  AcademicPeriod?      @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
   resulting_run    ReportCardBatchJob?  @relation("teacher_request_resulting_run", fields: [resulting_run_id], references: [id], onDelete: SetNull)
   resulting_window ReportCommentWindow? @relation("teacher_request_resulting_window", fields: [resulting_window_id], references: [id], onDelete: SetNull)
 
   @@index([tenant_id, status], name: "idx_teacher_requests_status")
   @@index([tenant_id, requested_by_user_id], name: "idx_teacher_requests_user")
+  @@index([tenant_id, academic_year_id], name: "idx_teacher_requests_year")
   @@map("report_card_teacher_requests")
 }
 

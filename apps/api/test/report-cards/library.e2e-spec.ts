@@ -224,6 +224,7 @@ describe('Report Cards library (e2e) — impl 06', () => {
           academic_year_id: ACADEMIC_YEAR_ID,
           name: '7A',
           status: 'active',
+          max_capacity: 25,
           homeroom_teacher_staff_id: TEACHER_STAFF_PROFILE_ID,
         },
         {
@@ -233,6 +234,7 @@ describe('Report Cards library (e2e) — impl 06', () => {
           academic_year_id: ACADEMIC_YEAR_ID,
           name: '7B',
           status: 'active',
+          max_capacity: 25,
         },
       ],
     });

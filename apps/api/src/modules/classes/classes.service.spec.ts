@@ -1107,14 +1107,12 @@ describe('ClassesService — update (FK validation)', () => {
     );
   });
 
-  it('should set max_capacity to null when explicitly set to null', async () => {
+  it('should ignore a null max_capacity update (column is NOT NULL)', async () => {
     await service.update(TENANT_ID, CLASS_ID, { max_capacity: null } as never);
 
-    expect(mockRlsTx.class.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ max_capacity: null }),
-      }),
-    );
+    const call = mockRlsTx.class.update.mock.calls[0]?.[0] as { data: Record<string, unknown> };
+    expect(call.data).toBeDefined();
+    expect(call.data).not.toHaveProperty('max_capacity');
   });
 
   it('should set max_capacity to provided value', async () => {

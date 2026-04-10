@@ -148,6 +148,7 @@ describe('Classes RLS — tenant isolation (integration)', () => {
         academic_year_id: ACADEMIC_YEAR_A_ID,
         name: 'RLS Class A',
         status: 'active',
+        max_capacity: 25,
       },
     });
     classAId = classA.id;
@@ -158,6 +159,7 @@ describe('Classes RLS — tenant isolation (integration)', () => {
         academic_year_id: ACADEMIC_YEAR_B_ID,
         name: 'RLS Class B',
         status: 'active',
+        max_capacity: 25,
       },
     });
   });

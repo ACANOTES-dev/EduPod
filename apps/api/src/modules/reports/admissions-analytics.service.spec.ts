@@ -93,9 +93,9 @@ describe('AdmissionsAnalyticsService', () => {
 
     it('should group applications by month', async () => {
       mockDataAccess.findApplications.mockResolvedValue([
-        { submitted_at: new Date('2026-01-15'), status: 'accepted' },
+        { submitted_at: new Date('2026-01-15'), status: 'approved' },
         { submitted_at: new Date('2026-01-20'), status: 'rejected' },
-        { submitted_at: new Date('2026-02-05'), status: 'under_review' },
+        { submitted_at: new Date('2026-02-05'), status: 'ready_to_admit' },
       ]);
 
       const result = await service.monthlyApplications(TENANT_ID);
@@ -220,8 +220,8 @@ describe('AdmissionsAnalyticsService', () => {
   describe('monthlyApplications — edge cases', () => {
     it('should skip applications with null submitted_at', async () => {
       mockDataAccess.findApplications.mockResolvedValue([
-        { submitted_at: null, status: 'accepted' },
-        { submitted_at: new Date('2026-02-05'), status: 'under_review' },
+        { submitted_at: null, status: 'approved' },
+        { submitted_at: new Date('2026-02-05'), status: 'ready_to_admit' },
       ]);
 
       const result = await service.monthlyApplications(TENANT_ID);
@@ -242,9 +242,9 @@ describe('AdmissionsAnalyticsService', () => {
   describe('yearGroupDemand', () => {
     it('should group applications by year_group from payload_json', async () => {
       mockDataAccess.findApplications.mockResolvedValue([
-        { payload_json: { year_group: 'Grade 5' }, status: 'accepted' },
-        { payload_json: { year_group: 'Grade 5' }, status: 'under_review' },
-        { payload_json: { year_group: 'Grade 6' }, status: 'accepted' },
+        { payload_json: { year_group: 'Grade 5' }, status: 'approved' },
+        { payload_json: { year_group: 'Grade 5' }, status: 'ready_to_admit' },
+        { payload_json: { year_group: 'Grade 6' }, status: 'approved' },
       ]);
 
       const result = await service.yearGroupDemand(TENANT_ID);

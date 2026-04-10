@@ -22,14 +22,22 @@ import { SearchIndexService } from '../search/search-index.service';
 const CONSENT_CAPTURE_PAYLOAD_KEY = '__consents';
 
 // ─── Valid status transitions ─────────────────────────────────────────────────
+// NOTE: Wave-1 placeholder. The full state graph (capacity gates, waiting list,
+// auto-promotion, override audit trail) lands in Wave 2 — see
+// `new-admissions/implementations/03-state-machine-rewrite.md`.
 
 const VALID_REVIEW_TRANSITIONS: Record<string, string[]> = {
-  submitted: ['under_review', 'rejected'],
-  under_review: ['pending_acceptance_approval', 'rejected'],
-  pending_acceptance_approval: ['rejected'],
+  submitted: ['ready_to_admit', 'waiting_list', 'rejected'],
+  ready_to_admit: ['conditional_approval', 'rejected'],
+  conditional_approval: ['approved', 'rejected'],
 };
 
-const WITHDRAWABLE_STATUSES = ['draft', 'submitted', 'under_review', 'pending_acceptance_approval'];
+const WITHDRAWABLE_STATUSES = [
+  'submitted',
+  'waiting_list',
+  'ready_to_admit',
+  'conditional_approval',
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -64,11 +72,11 @@ export class ApplicationStateMachineService {
         });
       }
 
-      if (application.status !== 'draft') {
+      if (application.status !== 'submitted') {
         throw new BadRequestException({
           error: {
             code: 'INVALID_STATUS_TRANSITION',
-            message: `Cannot submit an application with status "${application.status}". Only draft applications can be submitted.`,
+            message: `Cannot re-submit an application with status "${application.status}".`,
           },
         });
       }
@@ -301,7 +309,7 @@ export class ApplicationStateMachineService {
       }
 
       // For acceptance flow, check if approval is required
-      if (dto.status === 'pending_acceptance_approval') {
+      if (dto.status === 'conditional_approval') {
         // Read tenant settings to check approval requirement
         const tenantSettings = await db.tenantSetting.findFirst({
           where: { tenant_id: tenantId },
@@ -329,11 +337,11 @@ export class ApplicationStateMachineService {
           );
 
           if (!approvalResult.approved) {
-            // Update status to pending_acceptance_approval
+            // Hold in conditional_approval pending an approver decision.
             const updated = await db.application.update({
               where: { id },
               data: {
-                status: 'pending_acceptance_approval',
+                status: 'conditional_approval',
                 reviewed_at: new Date(),
                 reviewed_by_user_id: userId,
               },
@@ -347,11 +355,11 @@ export class ApplicationStateMachineService {
           }
         }
 
-        // If no approval needed or auto-approved, accept directly
+        // If no approval needed or auto-approved, move straight to conditional.
         const updated = await db.application.update({
           where: { id },
           data: {
-            status: 'accepted',
+            status: 'conditional_approval',
             reviewed_at: new Date(),
             reviewed_by_user_id: userId,
           },
@@ -360,7 +368,7 @@ export class ApplicationStateMachineService {
         return updated;
       }
 
-      // Standard status update (under_review, rejected)
+      // Standard status update (ready_to_admit, approved, rejected)
       const updated = await db.application.update({
         where: { id },
         data: {

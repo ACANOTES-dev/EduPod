@@ -67,7 +67,7 @@ export class UnifiedDashboardService {
 
       // Open admissions applications
       this.dataAccess.countApplications(tenantId, {
-        status: { in: ['submitted', 'under_review', 'pending_acceptance_approval'] },
+        status: { in: ['submitted', 'waiting_list', 'ready_to_admit', 'conditional_approval'] },
       }),
 
       // Overdue invoices

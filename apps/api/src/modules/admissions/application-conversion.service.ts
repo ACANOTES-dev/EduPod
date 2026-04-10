@@ -72,11 +72,11 @@ export class ApplicationConversionService {
         });
       }
 
-      if (application.status !== 'accepted') {
+      if (application.status !== 'approved') {
         throw new BadRequestException({
           error: {
-            code: 'NOT_ACCEPTED',
-            message: 'Only accepted applications can be converted to students',
+            code: 'NOT_APPROVED',
+            message: 'Only approved applications can be converted to students',
           },
         });
       }
@@ -197,11 +197,11 @@ export class ApplicationConversionService {
           });
         }
 
-        if (application.status !== 'accepted') {
+        if (application.status !== 'approved') {
           throw new BadRequestException({
             error: {
-              code: 'NOT_ACCEPTED',
-              message: 'Only accepted applications can be converted to students',
+              code: 'NOT_APPROVED',
+              message: 'Only approved applications can be converted to students',
             },
           });
         }

@@ -192,6 +192,7 @@ describe('Report Card generation runs (e2e) — impl 04', () => {
         academic_year_id: ACADEMIC_YEAR_ID,
         name: '5A',
         status: 'active',
+        max_capacity: 25,
       },
     });
 

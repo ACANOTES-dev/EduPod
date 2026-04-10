@@ -98,10 +98,10 @@ export class DashboardService {
         txClient.application.count({
           where: {
             tenant_id: tenantId,
-            status: { in: ['submitted', 'under_review', 'pending_acceptance_approval'] },
+            status: { in: ['submitted', 'waiting_list', 'ready_to_admit', 'conditional_approval'] },
           },
         }),
-        txClient.application.count({ where: { tenant_id: tenantId, status: 'accepted' } }),
+        txClient.application.count({ where: { tenant_id: tenantId, status: 'approved' } }),
       ]);
 
       return {

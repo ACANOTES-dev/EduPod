@@ -187,6 +187,7 @@ describe('AI Draft (e2e) — impl 02', () => {
         subject_id: SUBJECT_ID,
         name: 'Year 4 Maths',
         status: 'active',
+        max_capacity: 25,
       },
     });
     await prisma.classStaff.create({
