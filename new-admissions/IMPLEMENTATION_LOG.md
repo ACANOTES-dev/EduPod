@@ -99,23 +99,23 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                              | Wave | Depends on         | Status        | Completed at                   | Commit SHA                             |
-| --- | ---------------------------------- | ---- | ------------------ | ------------- | ------------------------------ | -------------------------------------- |
-| 01  | Schema foundation                  | 1    | —                  | `completed`   | 2026-04-10 22:00 Europe/Dublin | `0b976d37` (local) / `55001a4e` (prod) |
-| 02  | Capacity service                   | 2    | 01                 | `completed`   | 2026-04-10 23:11 Europe/Dublin | `f97f31fd` (local) / `64ea88c6` (prod) |
-| 03  | State machine rewrite              | 2    | 01                 | `completed`   | 2026-04-10 23:45 Europe/Dublin | `caca0f2d` (local) / `b4b905b9` (prod) |
-| 04  | Form service simplification        | 2    | 01                 | `completed`   | 2026-04-10 23:25 Europe/Dublin | `521d26de` (local) / `2dc85bd9` (prod) |
-| 05  | Conversion-to-student service      | 2    | 01                 | `deploying`   | —                              | —                                      |
-| 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `pending`     | —                              | —                                      |
-| 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `pending`     | —                              | —                                      |
-| 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`     | —                              | —                                      |
-| 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `pending`     | —                              | —                                      |
-| 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `pending`     | —                              | —                                      |
-| 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `pending`     | —                              | —                                      |
-| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `pending`     | —                              | —                                      |
-| 13  | Form preview page                  | 4    | 01, 04             | `pending`     | —                              | —                                      |
-| 14  | Public form + QR code              | 4    | 01, 02, 03, 04     | `pending`     | —                              | —                                      |
-| 15  | Cleanup, translations, live counts | 5    | 10, 11, 12, 13, 14 | `pending`     | —                              | —                                      |
+| #   | Title                              | Wave | Depends on         | Status      | Completed at                   | Commit SHA                             |
+| --- | ---------------------------------- | ---- | ------------------ | ----------- | ------------------------------ | -------------------------------------- |
+| 01  | Schema foundation                  | 1    | —                  | `completed` | 2026-04-10 22:00 Europe/Dublin | `0b976d37` (local) / `55001a4e` (prod) |
+| 02  | Capacity service                   | 2    | 01                 | `completed` | 2026-04-10 23:11 Europe/Dublin | `f97f31fd` (local) / `64ea88c6` (prod) |
+| 03  | State machine rewrite              | 2    | 01                 | `completed` | 2026-04-10 23:45 Europe/Dublin | `caca0f2d` (local) / `b4b905b9` (prod) |
+| 04  | Form service simplification        | 2    | 01                 | `completed` | 2026-04-10 23:25 Europe/Dublin | `521d26de` (local) / `2dc85bd9` (prod) |
+| 05  | Conversion-to-student service      | 2    | 01                 | `completed` | 2026-04-10 23:55 Europe/Dublin | `3bee82a2` (local) / `b354c0f4` (prod) |
+| 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `pending`   | —                              | —                                      |
+| 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `pending`   | —                              | —                                      |
+| 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`   | —                              | —                                      |
+| 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `pending`   | —                              | —                                      |
+| 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `pending`   | —                              | —                                      |
+| 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `pending`   | —                              | —                                      |
+| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `pending`   | —                              | —                                      |
+| 13  | Form preview page                  | 4    | 01, 04             | `pending`   | —                              | —                                      |
+| 14  | Public form + QR code              | 4    | 01, 02, 03, 04     | `pending`   | —                              | —                                      |
+| 15  | Cleanup, translations, live counts | 5    | 10, 11, 12, 13, 14 | `pending`   | —                              | —                                      |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -335,3 +335,17 @@ Append new records below in chronological order. Format:
     still references conversion methods) before the fix — type-check passed
     on the rebased branch, build passed on prod, PM2 restart clean, all
     `/api/v1/applications/*` routes mounted in the startup logs.
+
+### [IMPL 05] — Conversion-to-student service
+
+- **Completed:** 2026-04-10T23:55:00+01:00 (Europe/Dublin)
+- **Commit:** `3bee82a2` (local main) / `b354c0f4` (prod)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Rewrote `ApplicationConversionService.convertToStudent(db, { tenantId, applicationId, triggerUserId })` as an unattended path callable from inside the caller's interactive transaction. Idempotent via the new `applications.materialised_student_id` column (retroactive migration `20260411000200_add_application_materialised_student`, unique partial index on the non-null pointer) and a defensive duplicate-student guard (first+last+DOB on active students). Resolves parent 1/2 by email/phone match, links into an existing household when the primary parent has one, otherwise creates a new household from the payload address, generates an `STU-` sequence number, creates the student with `status=active`, `year_group_id=application.target_year_group_id`, and no homeroom class, then links `StudentParent` rows and rewrites `ConsentRecord` rows onto the student subject. Payload parsing lives in `application-conversion-payload.helper.ts`. Deleted the old admin `GET /v1/applications/:id/conversion-preview`, `POST /v1/applications/:id/convert` endpoints and the `convertApplicationSchema` / `ConvertApplicationDto` exports. Service is exported from `AdmissionsModule` for impls 06/07. `triggerUserId` is the user consent records are attributed to — impl 06 will pass `application.reviewed_by_user_id`; impl 07 will pass the recording admin.
+- **Follow-ups:**
+  - Search indexing is not called inside the transaction — `registration.service.ts` follows the same pattern. Impl 15 or a later sweep should wire admissions-created students into the search index.
+  - `SYSTEM_USER_SENTINEL` could not be used for `ConsentRecord.granted_by_user_id` (FK `onDelete: Restrict`), so the service requires `triggerUserId` to be a real user. The webhook path (impl 06) must load `application.reviewed_by_user_id` before calling conversion.
+  - Prod required a fix-forward commit `00cff3e8` on top of my patch to remove residual `getConversionPreview`/`convert` delegations from `applications.service.ts` that impl 03 deliberately retained "until impl 05 lands". On local `main`, impl 03's commits were based on top of mine so this cleanup was already in place; prod's impl 03 deploy came from a rebased branch without my commit, so it kept the delegations.
+- **Session notes:**
+  - Deployment serialised behind impl 03's API restart. Ran local type-check + lint + all 139 admissions tests green (10 new conversion tests: happy path, idempotency, existing parent match, ambiguous match, optional parent 2, malformed payload, missing application, cross-tenant scoping, duplicate guard, consent subject rewrite). Prod migration ran via `pnpm --filter @school/prisma migrate:deploy`; `pnpm --filter @school/prisma generate` was needed before the API rebuild picked up `materialised_student_id`.
