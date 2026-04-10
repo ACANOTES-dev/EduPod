@@ -80,12 +80,84 @@ export interface ContentScopeLocaleEntry {
   is_default: boolean;
 }
 
+export interface ContentScopeDesignEntry {
+  /** Machine key used by the worker renderer to pick a Handlebars bundle. */
+  design_key: string;
+  /** User-facing label + subtitle pulled from the bundled worker manifest. */
+  name: string;
+  description: string;
+  /**
+   * Relative path under `apps/web/public/` where a pre-rendered PDF preview
+   * of this design lives. The wizard links to it from the template picker.
+   */
+  preview_pdf_url: string;
+  is_default: boolean;
+  locales: ContentScopeLocaleEntry[];
+}
+
 export interface ContentScopeSummary {
   content_scope: PlannedContentScope;
   name: string;
+  /**
+   * @deprecated Flattened across all designs for backwards compatibility.
+   * New frontend code should consume the nested `designs` array instead,
+   * which pairs each [design, locale] pair with a selectable template id.
+   */
   locales: ContentScopeLocaleEntry[];
+  designs: ContentScopeDesignEntry[];
   is_default: boolean;
   is_available: boolean;
+}
+
+// ─── Design catalogue ────────────────────────────────────────────────────────
+// The worker ships two Handlebars bundles under
+// `apps/worker/src/report-card-templates/<key>/` (see the manifest.json files
+// next to each one). The API needs enough metadata about each design to power
+// the wizard's picker without cross-app imports, so the catalogue is mirrored
+// here as a small constant. If a third design lands, add it to BOTH the
+// worker manifest directory AND this array, then update
+// `apps/web/public/report-card-previews/` with the new sample PDFs.
+
+interface DesignCatalogueEntry {
+  design_key: string;
+  content_scope: PlannedContentScope;
+  name: string;
+  description: string;
+}
+
+const DESIGN_CATALOGUE: DesignCatalogueEntry[] = [
+  {
+    design_key: 'editorial-academic',
+    content_scope: 'grades_only',
+    name: 'Editorial Academic',
+    description:
+      'Fraunces serif display with an antique-gold and forest-green accent palette on warm paper.',
+  },
+  {
+    design_key: 'modern-editorial',
+    content_scope: 'grades_only',
+    name: 'Modern Editorial',
+    description:
+      'Bricolage Grotesque display with a cobalt-blue accent on cool paper — an editorial, Swiss-inspired layout.',
+  },
+];
+
+function previewPdfUrlFor(designKey: string): string {
+  return `/report-card-previews/${designKey}-en.pdf`;
+}
+
+function extractDesignKey(brandingOverrides: Prisma.JsonValue): string | null {
+  if (
+    brandingOverrides &&
+    typeof brandingOverrides === 'object' &&
+    !Array.isArray(brandingOverrides)
+  ) {
+    const candidate = (brandingOverrides as Record<string, unknown>).design_key;
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+  return null;
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -116,35 +188,75 @@ export class ReportCardTemplateService {
         locale: true,
         is_default: true,
         content_scope: true,
+        branding_overrides_json: true,
       },
       orderBy: [{ is_default: 'desc' }, { locale: 'asc' }],
     });
 
-    // Group rows by content_scope
-    const byScope = new Map<ReportCardContentScope, ContentScopeLocaleEntry[]>();
+    // Group rows by content_scope, then by design_key within each scope.
+    const byScope = new Map<
+      ReportCardContentScope,
+      { flat: ContentScopeLocaleEntry[]; byDesign: Map<string, ContentScopeLocaleEntry[]> }
+    >();
     for (const row of templates) {
-      const list = byScope.get(row.content_scope) ?? [];
-      list.push({
+      const scopeBucket = byScope.get(row.content_scope) ?? {
+        flat: [],
+        byDesign: new Map<string, ContentScopeLocaleEntry[]>(),
+      };
+      const entry: ContentScopeLocaleEntry = {
         template_id: row.id,
         template_name: row.name,
         locale: row.locale,
         is_default: row.is_default,
-      });
-      byScope.set(row.content_scope, list);
+      };
+      scopeBucket.flat.push(entry);
+      // Rows missing a design_key are silently grouped under an
+      // `unassigned` bucket so the wizard can still render them (falls back
+      // to the worker's default design at render time).
+      const designKey = extractDesignKey(row.branding_overrides_json) ?? 'unassigned';
+      const designList = scopeBucket.byDesign.get(designKey) ?? [];
+      designList.push(entry);
+      scopeBucket.byDesign.set(designKey, designList);
+      byScope.set(row.content_scope, scopeBucket);
     }
 
     return CONTENT_SCOPE_CATALOGUE.map((meta) => {
       // Only `grades_only` is a real DB enum value today. The other catalogue
       // entries will never have matching rows, so they always emit `[]`.
-      const locales =
+      const scopeBucket =
         meta.key === 'grades_only'
-          ? (byScope.get('grades_only' as ReportCardContentScope) ?? [])
-          : [];
+          ? byScope.get('grades_only' as ReportCardContentScope)
+          : undefined;
+      const locales = scopeBucket?.flat ?? [];
       const isDefault = locales.some((l) => l.is_default);
+
+      // Emit one `ContentScopeDesignEntry` per design family in the
+      // catalogue, matched by `design_key`. Designs with no rows in the
+      // tenant's DB are filtered out so the wizard only shows what it can
+      // actually select.
+      const designs: ContentScopeDesignEntry[] = DESIGN_CATALOGUE.filter(
+        (d) => d.content_scope === meta.key,
+      )
+        .map((d) => {
+          const designLocales = scopeBucket?.byDesign.get(d.design_key) ?? [];
+          if (designLocales.length === 0) return null;
+          const designIsDefault = designLocales.some((l) => l.is_default);
+          return {
+            design_key: d.design_key,
+            name: d.name,
+            description: d.description,
+            preview_pdf_url: previewPdfUrlFor(d.design_key),
+            is_default: designIsDefault,
+            locales: designLocales,
+          };
+        })
+        .filter((d): d is ContentScopeDesignEntry => d !== null);
+
       return {
         content_scope: meta.key,
         name: meta.name,
         locales,
+        designs,
         is_default: isDefault,
         is_available: meta.is_available,
       };
@@ -161,13 +273,32 @@ export class ReportCardTemplateService {
    */
   async resolveForGeneration(
     tenantId: string,
-    params: { contentScope: PlannedContentScope; locale: string },
+    params: { contentScope: PlannedContentScope; locale: string; designKey?: string | null },
   ): Promise<ReportCardTemplate | null> {
-    const { contentScope, locale } = params;
+    const { contentScope, locale, designKey } = params;
 
     // Only `grades_only` is a real Postgres enum value today.
     if (contentScope !== 'grades_only') {
       return null;
+    }
+
+    // Phase C — if the wizard explicitly picked a design, resolve the row
+    // whose `branding_overrides_json.design_key` matches. This lets the
+    // admin pick between editorial-academic and modern-editorial per run.
+    // When the caller omits `designKey`, fall through to the legacy
+    // `is_default` lookup so older callers keep working unchanged.
+    if (designKey) {
+      const byDesign = await this.prisma.reportCardTemplate.findFirst({
+        where: {
+          tenant_id: tenantId,
+          content_scope: 'grades_only',
+          locale,
+          branding_overrides_json: { path: ['design_key'], equals: designKey },
+        },
+      });
+      if (byDesign) return byDesign;
+      // If the design_key doesn't exist for this locale, fall through —
+      // the caller will probably log a warning and use the default row.
     }
 
     // Prefer the tenant's default for this locale; fall back to the first

@@ -14,11 +14,14 @@ import { ReportCardsQueriesService } from './report-cards-queries.service';
 import { ReportCardsService } from './report-cards.service';
 
 // Impl 06 added an S3Service dependency to ReportCardsQueriesService for
-// library signed URLs. Every test suite that instantiates the queries
-// service must provide a stub, even when the method under test doesn't hit
-// the library code path.
+// library signed URLs, and Phase B added `delete()` + `download()` for the
+// single-delete and bundle-PDF endpoints. Every test suite that
+// instantiates either service must provide a stub, even when the method
+// under test doesn't hit the library code path.
 const mockS3Service = {
   getPresignedUrl: jest.fn().mockResolvedValue('https://signed.example/url'),
+  delete: jest.fn().mockResolvedValue(undefined),
+  download: jest.fn().mockResolvedValue(Buffer.from('pdf-bytes')),
 };
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -252,6 +255,7 @@ describe('ReportCardsService — update', () => {
         ReportCardsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: buildMockRedis() },
+        { provide: S3Service, useValue: mockS3Service },
       ],
     }).compile();
 
@@ -376,6 +380,7 @@ describe('ReportCardsService — publish', () => {
         ReportCardsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
+        { provide: S3Service, useValue: mockS3Service },
       ],
     }).compile();
 
@@ -450,6 +455,7 @@ describe('ReportCardsService — revise', () => {
         ReportCardsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: buildMockRedis() },
+        { provide: S3Service, useValue: mockS3Service },
       ],
     }).compile();
 
@@ -506,6 +512,7 @@ describe('ReportCardsService — publishBulk', () => {
         ReportCardsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
+        { provide: S3Service, useValue: mockS3Service },
       ],
     }).compile();
 
@@ -644,6 +651,7 @@ describe('ReportCardsService — generateBulkDrafts', () => {
         ReportCardsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: buildMockRedis() },
+        { provide: S3Service, useValue: mockS3Service },
         { provide: ClassesReadFacade, useValue: mockClassesFacade },
       ],
     }).compile();

@@ -76,6 +76,46 @@ export interface ReportCardLibraryRow {
   pdf_download_url: string | null;
   generated_at: string;
   languages_available: string[];
+  status: 'draft' | 'published' | 'revised' | 'superseded';
+  batch_job_id: string | null;
+}
+
+export interface GroupedLibraryStudentRow {
+  id: string;
+  student: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    student_number: string | null;
+  };
+  status: 'draft' | 'published' | 'revised' | 'superseded';
+  locale: string;
+  template: { id: string | null; name: string | null };
+  pdf_storage_key: string | null;
+  pdf_download_url: string | null;
+  generated_at: string;
+}
+
+export interface GroupedLibraryClassNode {
+  class_id: string;
+  class_name: string;
+  year_group: { id: string; name: string } | null;
+  student_count: number;
+  report_card_count: number;
+  report_cards: GroupedLibraryStudentRow[];
+}
+
+export interface GroupedLibraryRunNode {
+  /** Null when the rows don't carry a batch_job_id (legacy pre-Phase-B rows). */
+  batch_job_id: string | null;
+  run_status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'legacy' | null;
+  run_started_at: string;
+  run_finished_at: string | null;
+  period_label: string;
+  template_name: string | null;
+  design_key: string | null;
+  total_report_cards: number;
+  classes: GroupedLibraryClassNode[];
 }
 
 /**
@@ -799,6 +839,8 @@ export class ReportCardsQueriesService {
           pdf_download_url: pdfDownloadUrl,
           generated_at: row.created_at.toISOString(),
           languages_available,
+          status: row.status,
+          batch_job_id: row.batch_job_id ?? null,
         };
       }),
     );
@@ -807,6 +849,213 @@ export class ReportCardsQueriesService {
       data,
       meta: { page, pageSize, total },
     };
+  }
+
+  // ─── Grouped library (Phase B) ──────────────────────────────────────────────
+  //
+  // Returns every non-superseded report card in the tenant bucketed by
+  // generation run → class → student. The frontend library uses this to
+  // render the "by run" view where admins see each run as a collapsible
+  // group with per-class sub-rows they can delete, publish, or bundle.
+  //
+  // Teacher scoping is identical to `listReportCardLibrary`: admins see
+  // every row; teachers (`report_cards.comment` only) are restricted to the
+  // students they teach. Rows predating the batch_job_id column are gathered
+  // under a synthetic `legacy` bucket so nothing is invisible.
+
+  async listReportCardLibraryGrouped(
+    tenantId: string,
+    actor: LibraryActorScope,
+  ): Promise<{ data: GroupedLibraryRunNode[] }> {
+    let scopedStudentIds: string[] | null = null;
+    if (!actor.is_admin) {
+      scopedStudentIds = await this.resolveTeacherVisibleStudents(tenantId, actor.user_id);
+      if (scopedStudentIds.length === 0) {
+        return { data: [] };
+      }
+    }
+
+    const where: Prisma.ReportCardWhereInput = {
+      tenant_id: tenantId,
+      status: { not: 'superseded' },
+    };
+    if (scopedStudentIds !== null) {
+      where.student_id = { in: scopedStudentIds };
+    }
+
+    const rows = await this.prisma.reportCard.findMany({
+      where,
+      orderBy: [{ created_at: 'desc' }],
+      include: {
+        student: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            student_number: true,
+            homeroom_class: {
+              select: {
+                id: true,
+                name: true,
+                year_group: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+        academic_period: { select: { id: true, name: true } },
+        template: {
+          select: { id: true, name: true, branding_overrides_json: true },
+        },
+        batch_job: {
+          select: { id: true, status: true, created_at: true, updated_at: true },
+        },
+      },
+    });
+
+    // Pre-compute presigned download URLs in parallel. The library grouped
+    // view is admin-only so we cap this at the full result set rather than
+    // paginating — for realistic schools (~1000 report cards) this is still
+    // a single S3 round-trip per row and a few seconds total worst-case.
+    const downloadUrlByRowId = new Map<string, string | null>();
+    await Promise.all(
+      rows.map(async (row) => {
+        if (!row.pdf_storage_key) {
+          downloadUrlByRowId.set(row.id, null);
+          return;
+        }
+        try {
+          const url = await this.s3Service.getPresignedUrl(
+            row.pdf_storage_key,
+            LIBRARY_SIGNED_URL_TTL_SECONDS,
+          );
+          downloadUrlByRowId.set(row.id, url);
+        } catch (err) {
+          this.logger.error(
+            `[listReportCardLibraryGrouped] failed to presign ${row.pdf_storage_key}: ${(err as Error).message}`,
+          );
+          downloadUrlByRowId.set(row.id, null);
+        }
+      }),
+    );
+
+    // Group rows by batch_job_id (with a synthetic `legacy` bucket for
+    // rows that don't carry one).
+    const runBuckets = new Map<
+      string,
+      {
+        batch_job_id: string | null;
+        run_status: GroupedLibraryRunNode['run_status'];
+        run_started_at: Date;
+        run_finished_at: Date | null;
+        period_label: string;
+        template_name: string | null;
+        design_key: string | null;
+        classes: Map<string, GroupedLibraryClassNode>;
+      }
+    >();
+
+    for (const row of rows) {
+      const runKey = row.batch_job_id ?? 'legacy';
+      const periodLabel = row.academic_period?.name ?? 'Full Year';
+      const templateName = row.template?.name ?? null;
+      const designKey =
+        row.template?.branding_overrides_json &&
+        typeof row.template.branding_overrides_json === 'object' &&
+        !Array.isArray(row.template.branding_overrides_json)
+          ? (((row.template.branding_overrides_json as Record<string, unknown>).design_key as
+              | string
+              | undefined) ?? null)
+          : null;
+
+      let bucket = runBuckets.get(runKey);
+      if (!bucket) {
+        bucket = {
+          batch_job_id: row.batch_job_id ?? null,
+          run_status: row.batch_job
+            ? (row.batch_job.status as GroupedLibraryRunNode['run_status'])
+            : 'legacy',
+          run_started_at: row.batch_job?.created_at ?? row.created_at,
+          run_finished_at: row.batch_job?.updated_at ?? null,
+          period_label: periodLabel,
+          template_name: templateName,
+          design_key: designKey,
+          classes: new Map<string, GroupedLibraryClassNode>(),
+        };
+        runBuckets.set(runKey, bucket);
+      }
+
+      const classId = row.student.homeroom_class?.id ?? '__unassigned';
+      const className = row.student.homeroom_class?.name ?? 'Unassigned';
+      const yearGroup = row.student.homeroom_class?.year_group ?? null;
+      let classNode = bucket.classes.get(classId);
+      if (!classNode) {
+        classNode = {
+          class_id: classId,
+          class_name: className,
+          year_group: yearGroup,
+          student_count: 0,
+          report_card_count: 0,
+          report_cards: [],
+        };
+        bucket.classes.set(classId, classNode);
+      }
+
+      classNode.report_cards.push({
+        id: row.id,
+        student: {
+          id: row.student.id,
+          first_name: row.student.first_name,
+          last_name: row.student.last_name,
+          student_number: row.student.student_number,
+        },
+        status: row.status,
+        locale: row.template_locale,
+        template: {
+          id: row.template?.id ?? null,
+          name: row.template?.name ?? null,
+        },
+        pdf_storage_key: row.pdf_storage_key,
+        pdf_download_url: downloadUrlByRowId.get(row.id) ?? null,
+        generated_at: row.created_at.toISOString(),
+      });
+      classNode.report_card_count += 1;
+    }
+
+    // Fill in student_count per class — unique student_ids across the rows.
+    for (const bucket of runBuckets.values()) {
+      for (const classNode of bucket.classes.values()) {
+        classNode.student_count = new Set(classNode.report_cards.map((r) => r.student.id)).size;
+        // Sort students within a class alphabetically by last name then
+        // first name so the list is predictable.
+        classNode.report_cards.sort((a, b) => {
+          const lastCmp = a.student.last_name.localeCompare(b.student.last_name);
+          if (lastCmp !== 0) return lastCmp;
+          return a.student.first_name.localeCompare(b.student.first_name);
+        });
+      }
+    }
+
+    // Emit runs newest-first; inside each run emit classes by name asc.
+    const data: GroupedLibraryRunNode[] = Array.from(runBuckets.values())
+      .sort((a, b) => b.run_started_at.getTime() - a.run_started_at.getTime())
+      .map((bucket) => ({
+        batch_job_id: bucket.batch_job_id,
+        run_status: bucket.run_status,
+        run_started_at: bucket.run_started_at.toISOString(),
+        run_finished_at: bucket.run_finished_at ? bucket.run_finished_at.toISOString() : null,
+        period_label: bucket.period_label,
+        template_name: bucket.template_name,
+        design_key: bucket.design_key,
+        total_report_cards: Array.from(bucket.classes.values()).reduce(
+          (sum, c) => sum + c.report_card_count,
+          0,
+        ),
+        classes: Array.from(bucket.classes.values()).sort((a, b) =>
+          a.class_name.localeCompare(b.class_name),
+        ),
+      }));
+
+    return { data };
   }
 
   // ─── Library helpers ────────────────────────────────────────────────────────

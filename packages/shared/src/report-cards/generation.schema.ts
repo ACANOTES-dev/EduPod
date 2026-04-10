@@ -77,6 +77,16 @@ export const startGenerationRunSchema = z
     academic_year_id: z.string().uuid().optional(),
     content_scope: reportCardContentScopeSchema.default('grades_only'),
     /**
+     * Optional design key (matches one of the worker's bundled Handlebars
+     * bundles — currently `editorial-academic` or `modern-editorial`). When
+     * supplied the generation service resolves the matching
+     * `report_card_templates` row per locale via
+     * `branding_overrides_json.design_key`. When omitted the service falls
+     * back to the legacy `(content_scope, locale, is_default)` lookup, which
+     * keeps older clients working.
+     */
+    design_key: z.string().min(1).max(64).optional(),
+    /**
      * Per-run override for the personal-info field set. If omitted the
      * service falls back to the tenant default from
      * report_card_tenant_settings.settings_json.default_personal_info_fields.

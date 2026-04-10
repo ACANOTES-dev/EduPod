@@ -628,6 +628,9 @@ export class ReportCardGenerationService {
       const arTemplate = await this.templateService.resolveForGeneration(tenantId, {
         contentScope: dto.content_scope,
         locale: 'ar',
+        // Dry-run ignores design_key — comment-gate preview only cares
+        // whether ANY AR template exists for this scope, not which design
+        // will render it.
       });
       hasArabicLocale = arTemplate !== null;
     }
@@ -724,9 +727,11 @@ export class ReportCardGenerationService {
         ? dto.personal_info_fields
         : settings.default_personal_info_fields;
 
+    // Phase C — honour the wizard's explicit design pick when present.
     const template = await this.templateService.resolveForGeneration(tenantId, {
       contentScope: dto.content_scope,
       locale: 'en',
+      designKey: dto.design_key ?? null,
     });
 
     if (!template) {

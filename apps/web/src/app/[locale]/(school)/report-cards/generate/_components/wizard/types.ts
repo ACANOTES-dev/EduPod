@@ -33,6 +33,12 @@ export interface WizardState {
   academicPeriodId: string | null;
   academicYearId: string | null;
   contentScope: 'grades_only' | null;
+  /**
+   * Which bundled Handlebars design the wizard should use for this run.
+   * Maps to `apps/worker/src/report-card-templates/<designKey>/`. Currently
+   * either `editorial-academic` or `modern-editorial`. Set by Step 3.
+   */
+  designKey: string | null;
   templateLocales: string[];
   personalInfoFields: PersonalInfoField[];
   dryRun: {
@@ -68,6 +74,12 @@ export type WizardAction =
   | { type: 'SET_PERIOD'; id: string | null }
   | { type: 'SET_FULL_YEAR'; academicYearId: string }
   | { type: 'SET_CONTENT_SCOPE'; contentScope: 'grades_only' | null; locales: string[] }
+  | {
+      type: 'SET_TEMPLATE_DESIGN';
+      contentScope: 'grades_only' | null;
+      designKey: string | null;
+      locales: string[];
+    }
   | { type: 'TOGGLE_FIELD'; field: PersonalInfoField }
   | { type: 'SET_FIELDS'; fields: PersonalInfoField[] }
   | { type: 'DRY_RUN_START' }
@@ -86,6 +98,7 @@ export const initialWizardState: WizardState = {
   academicPeriodId: null,
   academicYearId: null,
   contentScope: null,
+  designKey: null,
   templateLocales: [],
   personalInfoFields: [],
   dryRun: { loading: false, result: null, error: null },
@@ -123,6 +136,13 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       return {
         ...state,
         contentScope: action.contentScope,
+        templateLocales: action.locales,
+      };
+    case 'SET_TEMPLATE_DESIGN':
+      return {
+        ...state,
+        contentScope: action.contentScope,
+        designKey: action.designKey,
         templateLocales: action.locales,
       };
     case 'TOGGLE_FIELD': {

@@ -3379,6 +3379,11 @@ model ReportCard {
   academic_period_id         String?          @db.Uuid
   academic_year_id           String           @db.Uuid
   template_id                String?          @db.Uuid
+  // Back-link to the generation run that produced this row. Nullable so
+  // historic rows pre-dating Phase B keep working. The library's grouped
+  // view joins on this column to cluster report cards by the run that
+  // created them.
+  batch_job_id               String?          @db.Uuid
   status                     ReportCardStatus @default(draft)
   template_locale            String           @db.VarChar(10)
   /// Deprecated by Report Cards Redesign — impl 01. Use `overall_comment_text` for new code.
@@ -3401,6 +3406,7 @@ model ReportCard {
   student         Student             @relation(fields: [student_id], references: [id], onDelete: Cascade)
   academic_period AcademicPeriod?     @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
   template        ReportCardTemplate? @relation("report_card_template", fields: [template_id], references: [id], onDelete: Restrict)
+  batch_job       ReportCardBatchJob? @relation("report_card_batch_job", fields: [batch_job_id], references: [id], onDelete: SetNull)
   published_by    User?               @relation("report_card_publisher", fields: [published_by_user_id], references: [id], onDelete: SetNull)
   revision_of     ReportCard?         @relation("report_card_revisions", fields: [revision_of_report_card_id], references: [id], onDelete: SetNull)
   revisions       ReportCard[]        @relation("report_card_revisions")
@@ -3416,6 +3422,7 @@ model ReportCard {
   @@index([tenant_id, academic_period_id], name: "idx_report_cards_period")
   @@index([tenant_id, academic_year_id], name: "idx_report_cards_year")
   @@index([revision_of_report_card_id], name: "idx_report_cards_revision")
+  @@index([tenant_id, batch_job_id], name: "idx_report_cards_batch_job")
   @@map("report_cards")
 }
 
@@ -3995,6 +4002,7 @@ model ReportCardBatchJob {
   academic_period  AcademicPeriod?            @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
   requested_by     User                       @relation("batch_job_requester", fields: [requested_by_user_id], references: [id], onDelete: Cascade)
   teacher_requests ReportCardTeacherRequest[] @relation("teacher_request_resulting_run")
+  report_cards     ReportCard[]               @relation("report_card_batch_job")
 
   @@index([tenant_id, status], name: "idx_report_card_batch_jobs_status")
   @@index([tenant_id, academic_year_id], name: "idx_report_card_batch_jobs_year")

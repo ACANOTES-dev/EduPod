@@ -528,6 +528,9 @@ export class ReportCardGenerationJob extends TenantAwareJob<ReportCardGeneration
           personal_info_fields_json: params.personalInfoFields as unknown as Prisma.InputJsonValue,
           snapshot_payload_json: params.payload as unknown as Prisma.InputJsonValue,
           overall_comment_text: params.payload.grades.overall.overall_comment || null,
+          // Re-point the row at the current run so the library groups the
+          // regenerated card under the new batch rather than the original.
+          batch_job_id: params.batchJobId,
         },
       });
     } else {
@@ -544,6 +547,7 @@ export class ReportCardGenerationJob extends TenantAwareJob<ReportCardGeneration
           personal_info_fields_json: params.personalInfoFields as unknown as Prisma.InputJsonValue,
           snapshot_payload_json: params.payload as unknown as Prisma.InputJsonValue,
           overall_comment_text: params.payload.grades.overall.overall_comment || null,
+          batch_job_id: params.batchJobId,
         },
       });
     }

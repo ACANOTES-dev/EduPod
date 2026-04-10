@@ -223,6 +223,11 @@ export default function GenerateReportCardsPage() {
         academic_period_id: state.academicPeriodId,
         academic_year_id: state.academicYearId ?? undefined,
         content_scope: state.contentScope,
+        // Only attach design_key when the user explicitly picked one on
+        // Step 3. Omitting it preserves the legacy fall-through to
+        // `is_default=true` for any caller (tests, scripts) that bypass the
+        // wizard.
+        ...(state.designKey ? { design_key: state.designKey } : {}),
         personal_info_fields: state.personalInfoFields,
         override_comment_gate: state.overrideCommentGate,
       };
@@ -248,6 +253,7 @@ export default function GenerateReportCardsPage() {
     state.academicPeriodId,
     state.academicYearId,
     state.contentScope,
+    state.designKey,
     state.overrideCommentGate,
     state.personalInfoFields,
     state.scope.ids,

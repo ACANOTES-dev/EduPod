@@ -705,21 +705,39 @@ describe('ReportCardTemplateService — listContentScopes', () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  it('groups templates correctly by content_scope and locale', async () => {
+  it('groups templates by design_key and exposes a flat locales list for backwards compatibility', async () => {
     mockPrisma.reportCardTemplate.findMany.mockResolvedValue([
       {
-        id: 't-en',
-        name: 'Default EN',
+        id: 'ea-en',
+        name: 'Editorial Academic',
         locale: 'en',
         is_default: true,
         content_scope: 'grades_only',
+        branding_overrides_json: { design_key: 'editorial-academic' },
       },
       {
-        id: 't-ar',
-        name: 'القالب الافتراضي',
+        id: 'ea-ar',
+        name: 'Editorial Academic',
         locale: 'ar',
         is_default: false,
         content_scope: 'grades_only',
+        branding_overrides_json: { design_key: 'editorial-academic' },
+      },
+      {
+        id: 'me-en',
+        name: 'Modern Editorial',
+        locale: 'en',
+        is_default: false,
+        content_scope: 'grades_only',
+        branding_overrides_json: { design_key: 'modern-editorial' },
+      },
+      {
+        id: 'me-ar',
+        name: 'Modern Editorial',
+        locale: 'ar',
+        is_default: false,
+        content_scope: 'grades_only',
+        branding_overrides_json: { design_key: 'modern-editorial' },
       },
     ]);
 
@@ -727,12 +745,19 @@ describe('ReportCardTemplateService — listContentScopes', () => {
 
     const gradesOnly = result.find((r) => r.content_scope === 'grades_only');
     expect(gradesOnly).toBeDefined();
-    expect(gradesOnly?.locales).toHaveLength(2);
-    expect(gradesOnly?.locales.map((l) => l.locale).sort()).toEqual(['ar', 'en']);
-    expect(gradesOnly?.locales.map((l) => l.template_name).sort()).toEqual([
-      'Default EN',
-      'القالب الافتراضي',
-    ]);
+    // Flat list still contains every row — consumers migrating to the new
+    // shape can rely on `designs` but legacy callers keep working.
+    expect(gradesOnly?.locales).toHaveLength(4);
+    // Two design entries, one per bundle, each with both locales nested.
+    expect(gradesOnly?.designs).toHaveLength(2);
+    const ea = gradesOnly?.designs.find((d) => d.design_key === 'editorial-academic');
+    const me = gradesOnly?.designs.find((d) => d.design_key === 'modern-editorial');
+    expect(ea?.name).toBe('Editorial Academic');
+    expect(ea?.is_default).toBe(true);
+    expect(ea?.preview_pdf_url).toBe('/report-card-previews/editorial-academic-en.pdf');
+    expect(ea?.locales.map((l) => l.locale).sort()).toEqual(['ar', 'en']);
+    expect(me?.is_default).toBe(false);
+    expect(me?.locales.map((l) => l.locale).sort()).toEqual(['ar', 'en']);
     expect(gradesOnly?.is_available).toBe(true);
     expect(gradesOnly?.is_default).toBe(true);
   });
@@ -741,10 +766,11 @@ describe('ReportCardTemplateService — listContentScopes', () => {
     mockPrisma.reportCardTemplate.findMany.mockResolvedValue([
       {
         id: 't-en',
-        name: 'Default EN',
+        name: 'Editorial Academic',
         locale: 'en',
         is_default: true,
         content_scope: 'grades_only',
+        branding_overrides_json: { design_key: 'editorial-academic' },
       },
     ]);
 

@@ -517,44 +517,105 @@ async function main() {
         continue;
       }
 
-      // Default English Grades Only template
+      // Seed the two bundled design families (editorial-academic and
+      // modern-editorial) as four template rows per tenant. `branding_overrides_json.design_key`
+      // pairs each row with the corresponding Handlebars bundle in
+      // `apps/worker/src/report-card-templates/<key>/` — without this, the
+      // renderer's fallback logic kicks in and every run silently uses
+      // editorial-academic regardless of the tenant's stored template.
       const enTemplate = await prisma.reportCardTemplate.upsert({
         where: {
           idx_report_card_templates_unique: {
             tenant_id: tenantId,
-            name: 'Grades Only',
+            name: 'Editorial Academic',
             locale: 'en',
           },
         },
-        update: { content_scope: 'grades_only', is_default: true },
+        update: {
+          content_scope: 'grades_only',
+          is_default: true,
+          branding_overrides_json: { design_key: 'editorial-academic' },
+        },
         create: {
           tenant_id: tenantId,
-          name: 'Grades Only',
+          name: 'Editorial Academic',
           is_default: true,
           locale: 'en',
           content_scope: 'grades_only',
           sections_json: {},
+          branding_overrides_json: { design_key: 'editorial-academic' },
           created_by_user_id: creator.id,
         },
       });
 
-      // Default Arabic Grades Only template
       await prisma.reportCardTemplate.upsert({
         where: {
           idx_report_card_templates_unique: {
             tenant_id: tenantId,
-            name: 'Grades Only',
+            name: 'Editorial Academic',
             locale: 'ar',
           },
         },
-        update: { content_scope: 'grades_only' },
+        update: {
+          content_scope: 'grades_only',
+          branding_overrides_json: { design_key: 'editorial-academic' },
+        },
         create: {
           tenant_id: tenantId,
-          name: 'Grades Only',
+          name: 'Editorial Academic',
           is_default: false,
           locale: 'ar',
           content_scope: 'grades_only',
           sections_json: {},
+          branding_overrides_json: { design_key: 'editorial-academic' },
+          created_by_user_id: creator.id,
+        },
+      });
+
+      await prisma.reportCardTemplate.upsert({
+        where: {
+          idx_report_card_templates_unique: {
+            tenant_id: tenantId,
+            name: 'Modern Editorial',
+            locale: 'en',
+          },
+        },
+        update: {
+          content_scope: 'grades_only',
+          branding_overrides_json: { design_key: 'modern-editorial' },
+        },
+        create: {
+          tenant_id: tenantId,
+          name: 'Modern Editorial',
+          is_default: false,
+          locale: 'en',
+          content_scope: 'grades_only',
+          sections_json: {},
+          branding_overrides_json: { design_key: 'modern-editorial' },
+          created_by_user_id: creator.id,
+        },
+      });
+
+      await prisma.reportCardTemplate.upsert({
+        where: {
+          idx_report_card_templates_unique: {
+            tenant_id: tenantId,
+            name: 'Modern Editorial',
+            locale: 'ar',
+          },
+        },
+        update: {
+          content_scope: 'grades_only',
+          branding_overrides_json: { design_key: 'modern-editorial' },
+        },
+        create: {
+          tenant_id: tenantId,
+          name: 'Modern Editorial',
+          is_default: false,
+          locale: 'ar',
+          content_scope: 'grades_only',
+          sections_json: {},
+          branding_overrides_json: { design_key: 'modern-editorial' },
           created_by_user_id: creator.id,
         },
       });

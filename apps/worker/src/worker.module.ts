@@ -58,7 +58,6 @@ import { GradebookRiskDetectionProcessor } from './processors/gradebook/gradeboo
 import { MassReportCardPdfProcessor } from './processors/gradebook/mass-report-card-pdf.processor';
 import { ReportCardAutoGenerateProcessor } from './processors/gradebook/report-card-auto-generate.processor';
 import {
-  NullReportCardStorageWriter,
   REPORT_CARD_STORAGE_WRITER_TOKEN,
   ReportCardGenerationProcessor,
 } from './processors/gradebook/report-card-generation.processor';
@@ -69,6 +68,7 @@ import {
   PUPPETEER_LAUNCHER_TOKEN,
   TEMPLATE_DESIGN_RESOLVER_TOKEN,
 } from './processors/gradebook/report-card-production.renderer';
+import { S3ReportCardStorageWriter } from './processors/gradebook/s3-report-card-storage-writer';
 import { HomeworkCompletionReminderProcessor } from './processors/homework/completion-reminder.processor';
 import { HomeworkDigestProcessor } from './processors/homework/digest-homework.processor';
 import { HomeworkGenerateRecurringProcessor } from './processors/homework/generate-recurring.processor';
@@ -414,7 +414,11 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     { provide: PUPPETEER_LAUNCHER_TOKEN, useClass: DefaultPuppeteerLauncher },
     { provide: TEMPLATE_DESIGN_RESOLVER_TOKEN, useClass: PrismaTemplateDesignResolver },
     { provide: REPORT_CARD_RENDERER_TOKEN, useExisting: ProductionReportCardRenderer },
-    { provide: REPORT_CARD_STORAGE_WRITER_TOKEN, useClass: NullReportCardStorageWriter },
+    // Production S3 binding — replaces the impl-04 NullReportCardStorageWriter
+    // stub that silently returned a fake key without uploading anything.
+    // See s3-report-card-storage-writer.ts for the full rationale.
+    S3ReportCardStorageWriter,
+    { provide: REPORT_CARD_STORAGE_WRITER_TOKEN, useExisting: S3ReportCardStorageWriter },
     // Cron scheduler — registers repeatable BullMQ jobs on startup
     CronSchedulerService,
     // Finance queue processors
