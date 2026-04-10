@@ -7,10 +7,12 @@ import type {
   ListApplicationsQuery,
   ReviewApplicationDto,
 } from '@school/shared';
+import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
+import { AdmissionsCapacityService } from './admissions-capacity.service';
 import { AdmissionsRateLimitService } from './admissions-rate-limit.service';
 import { ApplicationStateMachineService } from './application-state-machine.service';
 
@@ -44,9 +46,16 @@ export interface ApplicationDetail {
   student_last_name: string;
   date_of_birth: Date | null;
   status: string;
+  waiting_list_substatus: string | null;
   submitted_at: Date | null;
+  apply_date: Date | null;
   reviewed_at: Date | null;
   reviewed_by_user_id: string | null;
+  rejection_reason: string | null;
+  payment_amount_cents: number | null;
+  currency_code: string | null;
+  payment_deadline: Date | null;
+  stripe_checkout_session_id: string | null;
   payload_json: Prisma.JsonValue;
   created_at: Date;
   updated_at: Date;
@@ -76,6 +85,12 @@ export interface ApplicationDetail {
     first_name: string;
     last_name: string;
   } | null;
+  target_academic_year: { id: string; name: string } | null;
+  target_year_group: { id: string; name: string } | null;
+  materialised_student: { id: string; first_name: string; last_name: string } | null;
+  override_record: ApplicationOverrideRecord | null;
+  payment_events: ApplicationPaymentEventSummary[];
+  capacity: ApplicationCapacitySummary | null;
   notes: Array<{
     id: string;
     note: string;
@@ -83,6 +98,50 @@ export interface ApplicationDetail {
     created_at: Date;
     author: { id: string; first_name: string; last_name: string };
   }>;
+  timeline: ApplicationTimelineEvent[];
+}
+
+export interface ApplicationOverrideRecord {
+  id: string;
+  override_type: string;
+  justification: string;
+  expected_amount_cents: number;
+  actual_amount_cents: number;
+  created_at: Date;
+  approved_by: { id: string; first_name: string; last_name: string };
+}
+
+export interface ApplicationPaymentEventSummary {
+  id: string;
+  stripe_event_id: string;
+  stripe_session_id: string | null;
+  amount_cents: number;
+  status: string;
+  created_at: Date;
+}
+
+export interface ApplicationCapacitySummary {
+  total_capacity: number;
+  enrolled_student_count: number;
+  conditional_approval_count: number;
+  available_seats: number;
+  configured: boolean;
+}
+
+export type ApplicationTimelineEventKind =
+  | 'submitted'
+  | 'status_changed'
+  | 'system_event'
+  | 'admin_note'
+  | 'payment_event'
+  | 'override_granted';
+
+export interface ApplicationTimelineEvent {
+  id: string;
+  kind: ApplicationTimelineEventKind;
+  at: Date;
+  message: string;
+  actor: { id: string; first_name: string; last_name: string } | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,6 +152,7 @@ export class ApplicationsService {
     private readonly prisma: PrismaService,
     private readonly rateLimitService: AdmissionsRateLimitService,
     private readonly stateMachineService: ApplicationStateMachineService,
+    private readonly capacityService: AdmissionsCapacityService,
   ) {}
 
   // ─── Delegated: State Machine ─────────────────────────────────────────────
@@ -295,12 +355,13 @@ export class ApplicationsService {
 
   // ─── Find One ─────────────────────────────────────────────────────────────
 
-  async findOne(tenantId: string, id: string) {
+  async findOne(tenantId: string, id: string): Promise<ApplicationDetail> {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const application = (await prismaWithRls.$transaction(async (tx) => {
+    const detail = await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
-      return db.application.findFirst({
+
+      const row = await db.application.findFirst({
         where: { id, tenant_id: tenantId },
         include: {
           form_definition: {
@@ -331,8 +392,30 @@ export class ApplicationsService {
           reviewed_by: {
             select: { id: true, first_name: true, last_name: true },
           },
+          target_academic_year: {
+            select: { id: true, name: true },
+          },
+          target_year_group: {
+            select: { id: true, name: true },
+          },
+          materialised_student: {
+            select: { id: true, first_name: true, last_name: true },
+          },
+          override_record: {
+            select: {
+              id: true,
+              override_type: true,
+              justification: true,
+              expected_amount_cents: true,
+              actual_amount_cents: true,
+              created_at: true,
+              approved_by: {
+                select: { id: true, first_name: true, last_name: true },
+              },
+            },
+          },
           notes: {
-            orderBy: { created_at: 'desc' },
+            orderBy: { created_at: 'asc' },
             include: {
               author: {
                 select: { id: true, first_name: true, last_name: true },
@@ -341,9 +424,37 @@ export class ApplicationsService {
           },
         },
       });
-    })) as ApplicationDetail | null;
 
-    if (!application) {
+      if (!row) {
+        return null;
+      }
+
+      const paymentEvents = await db.admissionsPaymentEvent.findMany({
+        where: { tenant_id: tenantId, application_id: id },
+        orderBy: { created_at: 'asc' },
+        select: {
+          id: true,
+          stripe_event_id: true,
+          stripe_session_id: true,
+          amount_cents: true,
+          status: true,
+          created_at: true,
+        },
+      });
+
+      const capacity =
+        row.target_academic_year_id && row.target_year_group_id
+          ? await this.capacityService.getAvailableSeats(db, {
+              tenantId,
+              academicYearId: row.target_academic_year_id,
+              yearGroupId: row.target_year_group_id,
+            })
+          : null;
+
+      return { row, paymentEvents, capacity };
+    });
+
+    if (!detail) {
       throw new NotFoundException({
         error: {
           code: 'APPLICATION_NOT_FOUND',
@@ -352,7 +463,95 @@ export class ApplicationsService {
       });
     }
 
-    return application;
+    const { row, paymentEvents, capacity } = detail;
+
+    const notesForResponse = [...row.notes].sort(
+      (a, b) => b.created_at.getTime() - a.created_at.getTime(),
+    );
+
+    const timeline = buildApplicationTimeline({
+      submittedAt: row.submitted_at,
+      applyDate: row.apply_date,
+      reviewedAt: row.reviewed_at,
+      status: row.status,
+      rejectionReason: row.rejection_reason,
+      notes: row.notes,
+      paymentEvents,
+      overrideRecord: row.override_record,
+      materialisedStudent: row.materialised_student,
+    });
+
+    return {
+      id: row.id,
+      tenant_id: row.tenant_id,
+      form_definition_id: row.form_definition_id,
+      application_number: row.application_number,
+      submitted_by_parent_id: row.submitted_by_parent_id,
+      student_first_name: row.student_first_name,
+      student_last_name: row.student_last_name,
+      date_of_birth: row.date_of_birth,
+      status: row.status,
+      waiting_list_substatus: row.waiting_list_substatus,
+      submitted_at: row.submitted_at,
+      apply_date: row.apply_date,
+      reviewed_at: row.reviewed_at,
+      reviewed_by_user_id: row.reviewed_by_user_id,
+      rejection_reason: row.rejection_reason,
+      payment_amount_cents: row.payment_amount_cents,
+      currency_code: row.currency_code,
+      payment_deadline: row.payment_deadline,
+      stripe_checkout_session_id: row.stripe_checkout_session_id,
+      payload_json: row.payload_json,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      form_definition: {
+        id: row.form_definition.id,
+        name: row.form_definition.name,
+        version_number: row.form_definition.version_number,
+        fields: row.form_definition.fields.map((f) => ({
+          id: f.id,
+          field_key: f.field_key,
+          label: f.label,
+          field_type: f.field_type,
+          required: f.required,
+          options_json: f.options_json,
+          display_order: f.display_order,
+        })),
+      },
+      submitted_by: row.submitted_by,
+      reviewed_by: row.reviewed_by,
+      target_academic_year: row.target_academic_year,
+      target_year_group: row.target_year_group,
+      materialised_student: row.materialised_student,
+      override_record: row.override_record
+        ? {
+            id: row.override_record.id,
+            override_type: row.override_record.override_type,
+            justification: row.override_record.justification,
+            expected_amount_cents: row.override_record.expected_amount_cents,
+            actual_amount_cents: row.override_record.actual_amount_cents,
+            created_at: row.override_record.created_at,
+            approved_by: row.override_record.approved_by,
+          }
+        : null,
+      payment_events: paymentEvents.map((event) => ({
+        id: event.id,
+        stripe_event_id: event.stripe_event_id,
+        stripe_session_id: event.stripe_session_id,
+        amount_cents: event.amount_cents,
+        status: event.status,
+        created_at: event.created_at,
+      })),
+      capacity,
+      notes: notesForResponse.map((n) => ({
+        id: n.id,
+        note: n.note,
+        is_internal: n.is_internal,
+        created_at: n.created_at,
+        author: n.author,
+      })),
+      timeline,
+    };
   }
 
   // ─── Preview ──────────────────────────────────────────────────────────────
@@ -525,6 +724,289 @@ export class ApplicationsService {
     });
   }
 
+  // ─── Queue: Ready to Admit ────────────────────────────────────────────────
+
+  async getReadyToAdmitQueue(tenantId: string) {
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      const rows = await db.application.findMany({
+        where: {
+          tenant_id: tenantId,
+          status: 'ready_to_admit',
+        },
+        orderBy: { apply_date: 'asc' },
+        select: {
+          id: true,
+          application_number: true,
+          student_first_name: true,
+          student_last_name: true,
+          date_of_birth: true,
+          apply_date: true,
+          target_academic_year_id: true,
+          target_year_group_id: true,
+          payload_json: true,
+          submitted_by: {
+            select: { first_name: true, last_name: true, email: true, phone: true },
+          },
+          target_year_group: {
+            select: { id: true, name: true, display_order: true },
+          },
+          target_academic_year: {
+            select: { id: true, name: true },
+          },
+        },
+      });
+
+      const pairs = rows
+        .filter(
+          (r): r is typeof r & { target_academic_year_id: string; target_year_group_id: string } =>
+            Boolean(r.target_academic_year_id && r.target_year_group_id),
+        )
+        .map((r) => ({
+          academicYearId: r.target_academic_year_id,
+          yearGroupId: r.target_year_group_id,
+        }));
+
+      const capacityMap = await this.capacityService.getAvailableSeatsBatch(db, {
+        tenantId,
+        pairs,
+      });
+
+      return {
+        data: groupApplicationsByYearGroup(rows, capacityMap),
+        meta: { total: rows.length },
+      };
+    });
+  }
+
+  // ─── Queue: Waiting List ──────────────────────────────────────────────────
+
+  async getWaitingListQueue(tenantId: string) {
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      const rows = await db.application.findMany({
+        where: {
+          tenant_id: tenantId,
+          status: 'waiting_list',
+        },
+        orderBy: { apply_date: 'asc' },
+        select: {
+          id: true,
+          application_number: true,
+          student_first_name: true,
+          student_last_name: true,
+          date_of_birth: true,
+          apply_date: true,
+          target_academic_year_id: true,
+          target_year_group_id: true,
+          waiting_list_substatus: true,
+          payload_json: true,
+          submitted_by: {
+            select: { first_name: true, last_name: true, email: true, phone: true },
+          },
+          target_year_group: {
+            select: { id: true, name: true, display_order: true },
+          },
+          target_academic_year: {
+            select: { id: true, name: true },
+          },
+        },
+      });
+
+      const waiting = rows.filter((r) => r.waiting_list_substatus === null);
+      const awaitingYearSetup = rows.filter(
+        (r) => r.waiting_list_substatus === 'awaiting_year_setup',
+      );
+
+      const waitingPairs = waiting
+        .filter(
+          (r): r is typeof r & { target_academic_year_id: string; target_year_group_id: string } =>
+            Boolean(r.target_academic_year_id && r.target_year_group_id),
+        )
+        .map((r) => ({
+          academicYearId: r.target_academic_year_id,
+          yearGroupId: r.target_year_group_id,
+        }));
+
+      const capacityMap = await this.capacityService.getAvailableSeatsBatch(db, {
+        tenantId,
+        pairs: waitingPairs,
+      });
+
+      return {
+        data: {
+          waiting: groupApplicationsByYearGroup(waiting, capacityMap),
+          awaiting_year_setup: groupApplicationsByYearGroup(awaitingYearSetup, new Map()),
+        },
+        meta: {
+          waiting_total: waiting.length,
+          awaiting_year_setup_total: awaitingYearSetup.length,
+        },
+      };
+    });
+  }
+
+  // ─── Queue: Conditional Approval ──────────────────────────────────────────
+
+  async getConditionalApprovalQueue(tenantId: string, query: ListConditionalApprovalQueueQuery) {
+    const { page, pageSize } = query;
+    const skip = (page - 1) * pageSize;
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      const [rows, total] = await Promise.all([
+        db.application.findMany({
+          where: { tenant_id: tenantId, status: 'conditional_approval' },
+          orderBy: [{ payment_deadline: 'asc' }, { apply_date: 'asc' }],
+          skip,
+          take: pageSize,
+          select: {
+            id: true,
+            application_number: true,
+            student_first_name: true,
+            student_last_name: true,
+            date_of_birth: true,
+            payment_amount_cents: true,
+            currency_code: true,
+            payment_deadline: true,
+            stripe_checkout_session_id: true,
+            target_year_group: { select: { id: true, name: true } },
+            target_academic_year: { select: { id: true, name: true } },
+            payload_json: true,
+            submitted_by: {
+              select: { first_name: true, last_name: true, email: true, phone: true },
+            },
+          },
+        }),
+        db.application.count({ where: { tenant_id: tenantId, status: 'conditional_approval' } }),
+      ]);
+
+      const now = Date.now();
+      const NEAR_EXPIRY_MS = 48 * 60 * 60 * 1000;
+
+      const data = rows.map((row) => {
+        const parent = extractParentContact(row.payload_json, row.submitted_by);
+        const deadline = row.payment_deadline?.getTime() ?? null;
+        let urgency: 'normal' | 'near_expiry' | 'overdue' = 'normal';
+        if (deadline !== null) {
+          if (deadline < now) urgency = 'overdue';
+          else if (deadline - now < NEAR_EXPIRY_MS) urgency = 'near_expiry';
+        }
+        return {
+          id: row.id,
+          application_number: row.application_number,
+          student_first_name: row.student_first_name,
+          student_last_name: row.student_last_name,
+          date_of_birth: row.date_of_birth,
+          target_year_group: row.target_year_group,
+          target_academic_year: row.target_academic_year,
+          parent,
+          payment_amount_cents: row.payment_amount_cents,
+          currency_code: row.currency_code,
+          payment_deadline: row.payment_deadline,
+          stripe_checkout_session_id: row.stripe_checkout_session_id,
+          has_active_payment_link: Boolean(row.stripe_checkout_session_id),
+          payment_urgency: urgency,
+        };
+      });
+
+      const nearExpiryCount = data.filter((d) => d.payment_urgency === 'near_expiry').length;
+      const overdueCount = data.filter((d) => d.payment_urgency === 'overdue').length;
+
+      return {
+        data,
+        meta: {
+          page,
+          pageSize,
+          total,
+          near_expiry_count: nearExpiryCount,
+          overdue_count: overdueCount,
+        },
+      };
+    });
+  }
+
+  // ─── Queue: Rejected archive ──────────────────────────────────────────────
+
+  async getRejectedArchive(tenantId: string, query: ListRejectedApplicationsQuery) {
+    const { page, pageSize, search } = query;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.ApplicationWhereInput = {
+      tenant_id: tenantId,
+      status: 'rejected',
+    };
+
+    if (search) {
+      where.OR = [
+        { student_first_name: { contains: search, mode: 'insensitive' } },
+        { student_last_name: { contains: search, mode: 'insensitive' } },
+        { application_number: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      const [rows, total] = await Promise.all([
+        db.application.findMany({
+          where,
+          orderBy: [{ reviewed_at: 'desc' }, { updated_at: 'desc' }],
+          skip,
+          take: pageSize,
+          select: {
+            id: true,
+            application_number: true,
+            student_first_name: true,
+            student_last_name: true,
+            rejection_reason: true,
+            reviewed_at: true,
+            reviewed_by: {
+              select: { id: true, first_name: true, last_name: true },
+            },
+            payload_json: true,
+            submitted_by: {
+              select: { first_name: true, last_name: true, email: true, phone: true },
+            },
+          },
+        }),
+        db.application.count({ where }),
+      ]);
+
+      const data = rows.map((row) => ({
+        id: row.id,
+        application_number: row.application_number,
+        student_first_name: row.student_first_name,
+        student_last_name: row.student_last_name,
+        rejection_reason: row.rejection_reason,
+        reviewed_at: row.reviewed_at,
+        reviewed_by: row.reviewed_by,
+        parent: extractParentContact(row.payload_json, row.submitted_by),
+      }));
+
+      return { data, meta: { page, pageSize, total } };
+    });
+  }
+
+  async manuallyPromote(
+    tenantId: string,
+    applicationId: string,
+    params: { actingUserId: string; justification: string },
+  ) {
+    return this.stateMachineService.manuallyPromoteToReadyToAdmit(tenantId, applicationId, params);
+  }
+
   // ─── Private helpers ──────────────────────────────────────────────────────
 
   private validatePayloadAgainstFields(
@@ -561,4 +1043,258 @@ export class ApplicationsService {
       });
     }
   }
+}
+
+// ─── Queue helpers ────────────────────────────────────────────────────────────
+
+interface QueueApplicationRow {
+  id: string;
+  application_number: string;
+  student_first_name: string;
+  student_last_name: string;
+  date_of_birth: Date | null;
+  apply_date: Date | null;
+  target_academic_year_id: string | null;
+  target_year_group_id: string | null;
+  waiting_list_substatus?: 'awaiting_year_setup' | null;
+  payload_json: Prisma.JsonValue;
+  submitted_by: {
+    first_name: string;
+    last_name: string;
+    email: string | null;
+    phone: string | null;
+  } | null;
+  target_year_group: { id: string; name: string; display_order: number } | null;
+  target_academic_year: { id: string; name: string } | null;
+}
+
+interface ParentContact {
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+function extractParentContact(
+  payload: Prisma.JsonValue,
+  submittedBy: {
+    first_name: string;
+    last_name: string;
+    email: string | null;
+    phone: string | null;
+  } | null,
+): ParentContact {
+  if (submittedBy) {
+    return {
+      first_name: submittedBy.first_name,
+      last_name: submittedBy.last_name,
+      email: submittedBy.email,
+      phone: submittedBy.phone,
+    };
+  }
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    const record = payload as Record<string, unknown>;
+    const asString = (value: unknown): string | null =>
+      typeof value === 'string' && value.trim().length > 0 ? value : null;
+    return {
+      first_name: asString(record.parent1_first_name),
+      last_name: asString(record.parent1_last_name),
+      email: asString(record.parent1_email),
+      phone: asString(record.parent1_phone),
+    };
+  }
+  return { first_name: null, last_name: null, email: null, phone: null };
+}
+
+function groupApplicationsByYearGroup(
+  rows: QueueApplicationRow[],
+  capacityMap: Map<
+    string,
+    {
+      total_capacity: number;
+      enrolled_student_count: number;
+      conditional_approval_count: number;
+      available_seats: number;
+      configured: boolean;
+    }
+  >,
+) {
+  const buckets = new Map<
+    string,
+    {
+      year_group_id: string | null;
+      year_group_name: string;
+      display_order: number;
+      target_academic_year_id: string | null;
+      target_academic_year_name: string;
+      capacity: {
+        total: number;
+        enrolled: number;
+        conditional: number;
+        available: number;
+        configured: boolean;
+      } | null;
+      applications: Array<{
+        id: string;
+        application_number: string;
+        student_first_name: string;
+        student_last_name: string;
+        date_of_birth: string | null;
+        apply_date: string | null;
+        fifo_position: number;
+        waiting_list_substatus: 'awaiting_year_setup' | null;
+        submitted_by_parent: ParentContact;
+      }>;
+    }
+  >();
+
+  for (const row of rows) {
+    const ygId = row.target_year_group_id;
+    const ayId = row.target_academic_year_id;
+    const bucketKey = `${ayId ?? 'none'}:${ygId ?? 'none'}`;
+
+    let bucket = buckets.get(bucketKey);
+    if (!bucket) {
+      const capacityKey = ayId && ygId ? `${ayId}:${ygId}` : null;
+      const cap = capacityKey ? capacityMap.get(capacityKey) : undefined;
+      bucket = {
+        year_group_id: ygId,
+        year_group_name: row.target_year_group?.name ?? 'Unknown year group',
+        display_order: row.target_year_group?.display_order ?? 9999,
+        target_academic_year_id: ayId,
+        target_academic_year_name: row.target_academic_year?.name ?? 'Unknown academic year',
+        capacity: cap
+          ? {
+              total: cap.total_capacity,
+              enrolled: cap.enrolled_student_count,
+              conditional: cap.conditional_approval_count,
+              available: cap.available_seats,
+              configured: cap.configured,
+            }
+          : null,
+        applications: [],
+      };
+      buckets.set(bucketKey, bucket);
+    }
+
+    bucket.applications.push({
+      id: row.id,
+      application_number: row.application_number,
+      student_first_name: row.student_first_name,
+      student_last_name: row.student_last_name,
+      date_of_birth: row.date_of_birth ? row.date_of_birth.toISOString() : null,
+      apply_date: row.apply_date ? row.apply_date.toISOString() : null,
+      fifo_position: bucket.applications.length + 1,
+      waiting_list_substatus: row.waiting_list_substatus ?? null,
+      submitted_by_parent: extractParentContact(row.payload_json, row.submitted_by),
+    });
+  }
+
+  return Array.from(buckets.values()).sort((a, b) => {
+    if (a.display_order !== b.display_order) return a.display_order - b.display_order;
+    return a.year_group_name.localeCompare(b.year_group_name);
+  });
+}
+
+// ─── Timeline builder ─────────────────────────────────────────────────────────
+//
+// The detail page Timeline tab is assembled from structured facts that already
+// exist on the application row and its related tables. We do not depend on a
+// note_type discriminator column: system-written notes are authored by
+// SYSTEM_USER_SENTINEL, and that is sufficient to classify them.
+
+interface TimelineInputs {
+  submittedAt: Date | null;
+  applyDate: Date | null;
+  reviewedAt: Date | null;
+  status: string;
+  rejectionReason: string | null;
+  notes: Array<{
+    id: string;
+    note: string;
+    created_at: Date;
+    author_user_id: string;
+    author: { id: string; first_name: string; last_name: string };
+  }>;
+  paymentEvents: Array<{
+    id: string;
+    amount_cents: number;
+    status: string;
+    created_at: Date;
+  }>;
+  overrideRecord: {
+    id: string;
+    override_type: string;
+    justification: string;
+    expected_amount_cents: number;
+    actual_amount_cents: number;
+    created_at: Date;
+    approved_by: { id: string; first_name: string; last_name: string };
+  } | null;
+  materialisedStudent: { id: string; first_name: string; last_name: string } | null;
+}
+
+function buildApplicationTimeline(inputs: TimelineInputs): ApplicationTimelineEvent[] {
+  const events: ApplicationTimelineEvent[] = [];
+
+  if (inputs.submittedAt) {
+    events.push({
+      id: `submitted:${inputs.submittedAt.toISOString()}`,
+      kind: 'submitted',
+      at: inputs.submittedAt,
+      message: 'Application submitted.',
+      actor: null,
+    });
+  } else if (inputs.applyDate) {
+    events.push({
+      id: `submitted:${inputs.applyDate.toISOString()}`,
+      kind: 'submitted',
+      at: inputs.applyDate,
+      message: 'Application received.',
+      actor: null,
+    });
+  }
+
+  for (const note of inputs.notes) {
+    const isSystem = note.author_user_id === SYSTEM_USER_SENTINEL;
+    events.push({
+      id: `note:${note.id}`,
+      kind: isSystem ? 'system_event' : 'admin_note',
+      at: note.created_at,
+      message: note.note,
+      actor: isSystem ? null : note.author,
+    });
+  }
+
+  for (const event of inputs.paymentEvents) {
+    events.push({
+      id: `payment:${event.id}`,
+      kind: 'payment_event',
+      at: event.created_at,
+      message: `Payment event (${event.status}): ${formatCents(event.amount_cents)}.`,
+      actor: null,
+    });
+  }
+
+  if (inputs.overrideRecord) {
+    const actor = inputs.overrideRecord.approved_by;
+    events.push({
+      id: `override:${inputs.overrideRecord.id}`,
+      kind: 'override_granted',
+      at: inputs.overrideRecord.created_at,
+      message: `Admin override (${inputs.overrideRecord.override_type}). Expected ${formatCents(
+        inputs.overrideRecord.expected_amount_cents,
+      )}, recorded ${formatCents(inputs.overrideRecord.actual_amount_cents)}. Justification: ${
+        inputs.overrideRecord.justification
+      }`,
+      actor,
+    });
+  }
+
+  events.sort((a, b) => a.at.getTime() - b.at.getTime());
+  return events;
+}
+
+function formatCents(cents: number): string {
+  return `${(cents / 100).toFixed(2)}`;
 }
