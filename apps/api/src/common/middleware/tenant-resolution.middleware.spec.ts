@@ -133,6 +133,132 @@ describe('TenantResolutionMiddleware', () => {
     expect(next).toHaveBeenCalledTimes(1);
   });
 
+  it('skips the public tenant-by-slug resolver route', async () => {
+    const req = buildRequest({
+      originalUrl: '/api/v1/public/tenants/by-slug/nhqs',
+      hostname: 'edupod.app',
+    });
+    const res = buildResponse();
+
+    await middleware.use(req, res, next);
+
+    expect(req.tenantContext).toBeNull();
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(mockRedisService.getClient).not.toHaveBeenCalled();
+    expect(mockPrisma.tenant.findUnique).not.toHaveBeenCalled();
+  });
+
+  describe('public routes via platform domain with X-Tenant-Slug', () => {
+    it('resolves a public route via the X-Tenant-Slug header when the hostname is a proxy host', async () => {
+      const req = buildRequest({
+        originalUrl: '/api/v1/public/admissions/form',
+        hostname: 'edupod.app',
+        headers: { 'x-tenant-slug': 'nhqs' },
+      });
+      const res = buildResponse();
+
+      mockRedisClient.get.mockResolvedValue(null);
+      mockPrisma.tenant.findUnique.mockResolvedValueOnce({
+        id: TENANT_CONTEXT.tenant_id,
+        slug: 'nhqs',
+        name: TENANT_CONTEXT.name,
+        status: 'active',
+        default_locale: TENANT_CONTEXT.default_locale,
+        timezone: TENANT_CONTEXT.timezone,
+      });
+
+      await middleware.use(req, res, next);
+
+      expect(mockPrisma.tenant.findUnique).toHaveBeenCalledWith({ where: { slug: 'nhqs' } });
+      expect(mockRedisClient.setex).toHaveBeenCalledWith(
+        'tenant_slug:nhqs',
+        60,
+        expect.stringContaining('nhqs'),
+      );
+      expect(req.tenantContext).toEqual(
+        expect.objectContaining({ tenant_id: TENANT_CONTEXT.tenant_id, slug: 'nhqs' }),
+      );
+      expect(next).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses a cached slug → tenant context when present', async () => {
+      const req = buildRequest({
+        originalUrl: '/api/v1/public/admissions/applications',
+        hostname: 'edupod.app',
+        headers: { 'x-tenant-slug': 'nhqs' },
+      });
+      const res = buildResponse();
+
+      // First call: hostname cache miss. Second call: slug cache hit.
+      mockRedisClient.get
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(JSON.stringify({ ...TENANT_CONTEXT, slug: 'nhqs' }));
+      (runWithRlsContext as jest.Mock).mockImplementation(async (_prisma, _ctx, cb) =>
+        cb({ tenantDomain: { findFirst: jest.fn().mockResolvedValue(null) } }),
+      );
+
+      await middleware.use(req, res, next);
+
+      expect(mockPrisma.tenant.findUnique).not.toHaveBeenCalled();
+      expect(req.tenantContext).toEqual(
+        expect.objectContaining({ tenant_id: TENANT_CONTEXT.tenant_id, slug: 'nhqs' }),
+      );
+      expect(next).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns 404 for a public route on the platform domain without a slug header', async () => {
+      const req = buildRequest({
+        originalUrl: '/api/v1/public/admissions/form',
+        hostname: 'edupod.app',
+      });
+      const res = buildResponse();
+
+      mockRedisClient.get.mockResolvedValue(null);
+
+      await middleware.use(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 for a public route with an unknown slug', async () => {
+      const req = buildRequest({
+        originalUrl: '/api/v1/public/admissions/form',
+        hostname: 'edupod.app',
+        headers: { 'x-tenant-slug': 'unknown' },
+      });
+      const res = buildResponse();
+
+      mockRedisClient.get.mockResolvedValue(null);
+      mockPrisma.tenant.findUnique.mockResolvedValueOnce(null);
+
+      await middleware.use(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('ignores the slug header on non-public routes', async () => {
+      const req = buildRequest({
+        originalUrl: '/api/v1/students',
+        hostname: 'edupod.app',
+        headers: { 'x-tenant-slug': 'nhqs' },
+      });
+      const res = buildResponse();
+
+      mockRedisClient.get.mockResolvedValue(null);
+      (runWithRlsContext as jest.Mock).mockImplementation(async (_prisma, _ctx, cb) =>
+        cb({ tenantDomain: { findFirst: jest.fn().mockResolvedValue(null) } }),
+      );
+
+      await middleware.use(req, res, next);
+
+      expect(mockPrisma.tenant.findUnique).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(next).not.toHaveBeenCalled();
+    });
+  });
+
   describe('auth routes', () => {
     it('uses cached tenant context when available', async () => {
       const req = buildRequest({ originalUrl: '/api/v1/auth/login' });

@@ -47,6 +47,15 @@ export class TenantResolutionMiddleware implements NestMiddleware {
       return next();
     }
 
+    // Skip tenant resolution for the public tenant resolver — it's the
+    // entry point for the customer-facing apply flow and looks up tenants
+    // by slug directly, so it deliberately has no tenant context of its own.
+    if (req.originalUrl.startsWith('/api/v1/public/tenants/by-slug/')) {
+      const mutableReq = req as unknown as { tenantContext: TenantContext | null };
+      mutableReq.tenantContext = null;
+      return next();
+    }
+
     // Skip tenant resolution for auth routes (login works with or without tenant context)
     if (req.originalUrl.startsWith('/api/v1/auth')) {
       // Attempt tenant resolution but don't block if no domain found
@@ -152,6 +161,20 @@ export class TenantResolutionMiddleware implements NestMiddleware {
           return next();
         }
 
+        // Public routes (`/api/v1/public/*`) can fall back to an
+        // `X-Tenant-Slug` header when the request arrives via the platform
+        // domain and there is no bearer token. This lets the customer-facing
+        // apply page submit from `edupod.app/en/apply/<slug>` without
+        // requiring a tenant-scoped subdomain.
+        if (req.originalUrl.startsWith('/api/v1/public/')) {
+          const tenantFromSlug = await this.resolveTenantFromSlugHeader(req);
+          if (tenantFromSlug) {
+            const mutableReq = req as unknown as { tenantContext: TenantContext };
+            mutableReq.tenantContext = tenantFromSlug;
+            return next();
+          }
+        }
+
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: 'Not found' },
         });
@@ -218,11 +241,7 @@ export class TenantResolutionMiddleware implements NestMiddleware {
   }
 
   private isProxyHostname(hostname: string): boolean {
-    return (
-      hostname === this.platformDomain ||
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1'
-    );
+    return hostname === this.platformDomain || hostname === 'localhost' || hostname === '127.0.0.1';
   }
 
   private getRequestHostname(req: Request): string {
@@ -233,6 +252,44 @@ export class TenantResolutionMiddleware implements NestMiddleware {
 
     const rawHost = forwardedHost || req.hostname;
     return rawHost.replace(/:\d+$/, '').toLowerCase();
+  }
+
+  /**
+   * Resolve tenant context from an `X-Tenant-Slug` header. Scoped to public
+   * routes only so it cannot be used to impersonate a tenant on authenticated
+   * endpoints. Validates the slug against the `tenants` table and respects
+   * tenant status (suspended → 403 handled by caller).
+   */
+  private async resolveTenantFromSlugHeader(req: Request): Promise<TenantContext | null> {
+    const rawSlug = req.headers['x-tenant-slug'];
+    const slug = Array.isArray(rawSlug) ? rawSlug[0] : rawSlug;
+    if (!slug || typeof slug !== 'string') return null;
+    const normalised = slug.trim().toLowerCase();
+    if (!normalised || normalised.length > 100) return null;
+
+    const client = this.redis.getClient();
+    const cacheKey = `tenant_slug:${normalised}`;
+    const cached = await client.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached) as TenantContext;
+    }
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug: normalised },
+    });
+    if (!tenant || tenant.status !== 'active') return null;
+
+    const tenantContext: TenantContext = {
+      tenant_id: tenant.id,
+      slug: tenant.slug,
+      name: tenant.name,
+      status: tenant.status,
+      default_locale: tenant.default_locale,
+      timezone: tenant.timezone,
+    };
+
+    await client.setex(cacheKey, 60, JSON.stringify(tenantContext));
+    return tenantContext;
   }
 
   /**

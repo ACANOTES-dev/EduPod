@@ -11036,5 +11036,35 @@
       "description": "Share your public form link to start receiving applications."
     },
     "loading": "Loading admissions overview…"
+  },
+  "publicApplyForm": {
+    "headerEyebrow": "Admission application",
+    "studentSection": "Student",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "dateOfBirth": "Date of birth",
+    "yearSection": "School year",
+    "detailsSection": "Application details",
+    "submitCta": "Submit application",
+    "privacyNotice": "By submitting this form you agree to the school's privacy policy. Your information is used only to process this application.",
+    "needHelp": "Need help with your application?",
+    "honeypotLabel": "Website",
+    "rateLimitError": "Too many submissions from your network right now. Please wait a few minutes and try again.",
+    "schoolNotFoundTitle": "School not found",
+    "schoolNotFoundBody": "We couldn't find a school matching that link. Please check the QR code or the link you were sent.",
+    "formUnavailableTitle": "Admission form unavailable",
+    "formUnavailableBody": "This school has not published an admission form yet. Please contact the school directly.",
+    "genericErrorTitle": "Something went wrong",
+    "genericErrorBody": "We couldn't load the application form. Please try again in a few minutes.",
+    "submittedTitle": "Thank you — your application has been received.",
+    "submittedBody": "We'll email you if we need anything further. If a seat is available for your requested year group, you'll hear from us within 14 days.",
+    "submittedRefLabel": "Application reference",
+    "submittedNextSteps": "Keep this reference number safe — you'll need it if you contact the school about your application.",
+    "paymentSuccessTitle": "Payment received",
+    "paymentSuccessBody": "Your application is being finalised.",
+    "paymentSuccessFollowup": "You'll receive a confirmation email shortly.",
+    "paymentCancelledTitle": "Payment cancelled",
+    "paymentCancelledBody": "Your application is still on hold — you can try the payment link again.",
+    "paymentCancelledFollowup": "Use the link in the email we sent you to retry the payment within the hold window."
   }
 }
