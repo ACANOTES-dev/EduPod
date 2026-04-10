@@ -306,8 +306,14 @@ export const hubConfigs: HubConfig[] = [
   },
   {
     key: 'operations',
+    // The Operations hub lands on its dashboard (/operations), which
+    // presents six cards that route into the individual sub-pages. The
+    // sub-pages remain part of this hub for active-hub detection, but
+    // there is intentionally no sub-strip config for `operations` — the
+    // dashboard itself is the navigation surface.
     labelKey: 'nav.operations',
     basePaths: [
+      '/operations',
       '/admissions',
       '/communications',
       '/approvals',
@@ -431,14 +437,8 @@ export const hubSubStripConfigs: Record<string, SubStripTabConfig[]> = {
     { labelKey: 'nav.wellbeing', href: '/wellbeing', overflow: true },
     { labelKey: 'nav.earlyWarnings', href: '/early-warnings', overflow: true },
   ],
-  operations: [
-    { labelKey: 'nav.admissions', href: '/admissions' },
-    { labelKey: 'nav.engagement', href: '/engagement' },
-    { labelKey: 'nav.communications', href: '/communications' },
-    { labelKey: 'nav.approvals', href: '/approvals' },
-    { labelKey: 'nav.scheduling', href: '/scheduling', overflow: true },
-    { labelKey: 'nav.rooms', href: '/rooms', overflow: true },
-  ],
+  // Operations intentionally has no sub-strip — the /operations dashboard
+  // page is the navigation surface for this hub (six cards → six sub-pages).
   finance: [
     { labelKey: 'nav.financeOverview', href: '/finance' },
     { labelKey: 'nav.feeStructures', href: '/finance/fee-structures' },

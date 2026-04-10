@@ -10942,5 +10942,36 @@
   "mfaQrCode": "MFA QR Code",
   "noApprovalRequests": "No approval requests",
   "pending": "Pending",
-  "rejected": "Rejected"
+  "rejected": "Rejected",
+  "operationsHub": {
+    "title": "Operations",
+    "description": "Your command centre for communications, admissions, approvals, and scheduling.",
+    "cardsAria": "Operations modules",
+    "cards": {
+      "communications": {
+        "title": "Communications",
+        "description": "Broadcast announcements, newsletters, and alerts to staff, families, and students across every channel."
+      },
+      "engagement": {
+        "title": "Engagement",
+        "description": "Plan events, trips, and activities and track participation, permissions, and family follow-ups."
+      },
+      "admissions": {
+        "title": "Admissions",
+        "description": "Manage enquiries, applications, and enrolment across the entire admissions funnel."
+      },
+      "approvals": {
+        "title": "Approvals",
+        "description": "Review pending configuration changes, unlock requests, and anything else awaiting sign-off."
+      },
+      "scheduling": {
+        "title": "Scheduling",
+        "description": "Build timetables, assign teachers to sections, and orchestrate auto-scheduling runs."
+      },
+      "rooms": {
+        "title": "Rooms",
+        "description": "Catalogue rooms and facilities, set capacities, and manage availability for the timetable."
+      }
+    }
+  }
 }

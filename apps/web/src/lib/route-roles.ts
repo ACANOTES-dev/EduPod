@@ -110,6 +110,10 @@ export const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
     roles: [...ADMIN_ROLES, 'teacher'],
   },
   { prefix: '/scheduling', roles: ADMIN_ROLES },
+  // Operations hub landing dashboard — visible to any staff role. Individual
+  // sub-pages (/admissions, /communications, etc.) still enforce their own
+  // finer-grained role checks via their own prefix entries below.
+  { prefix: '/operations', roles: STAFF_ROLES },
   {
     prefix: '/admissions',
     roles: [...ADMIN_ROLES, 'front_office'],
