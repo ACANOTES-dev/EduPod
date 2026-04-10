@@ -508,6 +508,7 @@ export class ReportCardsService {
       select: {
         id: true,
         pdf_storage_key: true,
+        academic_period_id: true,
         student: {
           select: {
             id: true,
@@ -516,6 +517,7 @@ export class ReportCardsService {
             homeroom_class: { select: { id: true, name: true } },
           },
         },
+        academic_period: { select: { name: true } },
       },
     });
 
@@ -553,6 +555,18 @@ export class ReportCardsService {
       return a.student.first_name.localeCompare(b.student.first_name);
     };
 
+    // The bundle almost always covers a single period (the admin picks one
+    // run from the library), so we use the first row's period as the label.
+    // Full-year jobs have `academic_period_id = null` and no joined period
+    // row — surface them as "Full Year" to match the library grouping.
+    const periodLabel = rows[0]?.academic_period?.name ?? 'Full Year';
+    // Collect unique class names so single-class bundles get the class in
+    // the filename (`2A — Report Cards — …`) while cross-class bundles just
+    // say "Report Cards — …".
+    const classNames = Array.from(
+      new Set(rows.map((r) => r.student.homeroom_class?.name).filter((n): n is string => !!n)),
+    );
+
     if (params.merge_mode === 'single') {
       const merged = await mergePdfBuffers(
         rows
@@ -567,9 +581,10 @@ export class ReportCardsService {
           .map((row) => pdfBuffers.get(row.id))
           .filter((buf): buf is Buffer => Buffer.isBuffer(buf)),
       );
+      const classPrefix = classNames.length === 1 ? `${classNames[0]} — ` : '';
       return {
         buffer: merged,
-        filename: `report-cards-${Date.now()}.pdf`,
+        filename: sanitiseFilename(`${classPrefix}Report Cards — ${periodLabel}.pdf`),
         mime: 'application/pdf',
       };
     }
@@ -595,16 +610,28 @@ export class ReportCardsService {
       const merged = await mergePdfBuffers(pdfs);
       // ASCII-safe filename so unzip tools don't choke on exotic class
       // names. Non-alnum/space characters are replaced with `-`.
-      const safeName = bucket.className.replace(/[^A-Za-z0-9 _-]+/g, '-').trim() || 'class';
-      zip.addFile(`${safeName}.pdf`, merged);
+      const entryName = sanitiseFilename(`${bucket.className} — Report Cards — ${periodLabel}.pdf`);
+      zip.addFile(entryName, merged);
     }
 
     return {
       buffer: zip.toBuffer(),
-      filename: `report-cards-by-class-${Date.now()}.zip`,
+      filename: sanitiseFilename(`Report Cards by Class — ${periodLabel}.zip`),
       mime: 'application/zip',
     };
   }
+}
+
+/**
+ * ASCII-safe filename for HTTP Content-Disposition. The em dash and other
+ * typographic characters in our human-friendly templates get collapsed to
+ * `-` so curl, unzip, and legacy browsers all handle the name cleanly.
+ */
+function sanitiseFilename(name: string): string {
+  return name
+    .replace(/[^A-Za-z0-9 _.-]+/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**

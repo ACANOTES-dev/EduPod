@@ -84,17 +84,31 @@ export class S3Service implements OnModuleInit {
 
   /**
    * Generate a presigned URL for client-side upload or download.
+   *
+   * `downloadFilename` sets the `ResponseContentDisposition` override on the
+   * signed URL so S3 returns `Content-Disposition: attachment; filename="…"`
+   * and the browser saves the file under that name instead of the random
+   * storage key. The name is sanitised to ASCII — any non-`[A-Za-z0-9 _.-]`
+   * character is replaced with `-` — so naive browsers and older unzip
+   * tools don't trip on exotic characters. If the caller wants to inline
+   * the file (e.g. PDF preview in a new tab), set `inline: true`.
    */
-  async getPresignedUrl(key: string, expiresIn = 3600): Promise<string> {
+  async getPresignedUrl(
+    key: string,
+    expiresIn = 3600,
+    options: { downloadFilename?: string; inline?: boolean } = {},
+  ): Promise<string> {
     const client = this.ensureClient();
-    return getSignedUrl(
-      client,
-      new GetObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-      }),
-      { expiresIn },
-    );
+    const commandInput: ConstructorParameters<typeof GetObjectCommand>[0] = {
+      Bucket: this.bucket,
+      Key: key,
+    };
+    if (options.downloadFilename) {
+      const safe = options.downloadFilename.replace(/[^A-Za-z0-9 _.-]+/g, '-').trim();
+      const disposition = options.inline ? 'inline' : 'attachment';
+      commandInput.ResponseContentDisposition = `${disposition}; filename="${safe}"`;
+    }
+    return getSignedUrl(client, new GetObjectCommand(commandInput), { expiresIn });
   }
 
   /**

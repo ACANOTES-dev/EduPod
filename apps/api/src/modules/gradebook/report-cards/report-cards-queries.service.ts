@@ -159,6 +159,25 @@ interface GradingScaleConfig {
 const LIBRARY_SIGNED_URL_TTL_SECONDS = 300; // 5 minutes
 
 /**
+ * Build the save-as filename for a single report card PDF download. We shape
+ * it as `{Last} {First} — Report Card — {Period} ({LOCALE}).pdf` so the file
+ * sorts sensibly in a downloads folder and the admin can spot the period and
+ * locale at a glance. The S3 layer further sanitises to ASCII so this string
+ * only needs to be human-readable, not shell-safe.
+ */
+function buildReportCardDownloadFilename(args: {
+  first_name: string;
+  last_name: string;
+  period_name: string;
+  locale: string;
+}): string {
+  const name = `${args.last_name} ${args.first_name}`.trim() || 'Report Card';
+  const period = args.period_name || 'Full Year';
+  const locale = (args.locale || 'en').toUpperCase();
+  return `${name} — Report Card — ${period} (${locale}).pdf`;
+}
+
+/**
  * Read-only query operations for report cards.
  * Extracted from ReportCardsService as part of CQRS-lite split (M-16).
  *
@@ -804,6 +823,14 @@ export class ReportCardsQueriesService {
             pdfDownloadUrl = await this.s3Service.getPresignedUrl(
               row.pdf_storage_key,
               LIBRARY_SIGNED_URL_TTL_SECONDS,
+              {
+                downloadFilename: buildReportCardDownloadFilename({
+                  first_name: row.student.first_name,
+                  last_name: row.student.last_name,
+                  period_name: row.academic_period?.name ?? 'Full Year',
+                  locale: row.template_locale,
+                }),
+              },
             );
           } catch (err) {
             this.logger.error(
@@ -927,6 +954,14 @@ export class ReportCardsQueriesService {
           const url = await this.s3Service.getPresignedUrl(
             row.pdf_storage_key,
             LIBRARY_SIGNED_URL_TTL_SECONDS,
+            {
+              downloadFilename: buildReportCardDownloadFilename({
+                first_name: row.student.first_name,
+                last_name: row.student.last_name,
+                period_name: row.academic_period?.name ?? 'Full Year',
+                locale: row.template_locale,
+              }),
+            },
           );
           downloadUrlByRowId.set(row.id, url);
         } catch (err) {
