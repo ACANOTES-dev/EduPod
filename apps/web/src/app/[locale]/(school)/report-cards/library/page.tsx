@@ -10,6 +10,7 @@ import {
   Package,
   Send,
   Trash2,
+  Undo2,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -83,10 +84,15 @@ export default function ReportCardsLibraryPage() {
   // Row ids currently mid-action (publishing/deleting) so we can disable
   // buttons and show loading state per-row.
   const [busyIds, setBusyIds] = React.useState<Set<string>>(new Set());
-  const [confirmDeleteTarget, setConfirmDeleteTarget] = React.useState<null | {
+  // The confirmation modal is reused for both Delete and Unpublish — both
+  // are destructive enough to warrant a guard, and the wire-up is identical.
+  // The discriminator is `kind`; the modal renders the matching copy.
+  type ConfirmAction = {
+    kind: 'delete' | 'unpublish';
     label: string;
     ids: string[];
-  }>(null);
+  };
+  const [confirmAction, setConfirmAction] = React.useState<ConfirmAction | null>(null);
 
   const fetchLibrary = React.useCallback(async () => {
     setIsLoading(true);
@@ -256,36 +262,97 @@ export default function ReportCardsLibraryPage() {
               : tl('deleteFailed');
           toast.error(message);
         } finally {
-          setConfirmDeleteTarget(null);
+          setConfirmAction(null);
         }
       });
     },
     [withBusy, tl, fetchLibrary],
   );
 
+  // Round-2 QA B5: unpublish (revise) for already-published rows. Calls
+  // POST /v1/report-cards/:id/revise per row — there is no bulk endpoint,
+  // so we loop in parallel with publish bulk semantics (count successes
+  // and failures separately so partial failures still surface).
+  const executeUnpublish = React.useCallback(
+    async (ids: string[]) => {
+      await withBusy(ids, async () => {
+        let ok = 0;
+        let fail = 0;
+        for (const id of ids) {
+          try {
+            // eslint-disable-next-line no-await-in-loop -- sequential is fine
+            // for the small (<= 25) row counts the library shows in practice
+            // and avoids stampeding the backend with N parallel requests.
+            await apiClient(`/api/v1/report-cards/${id}/revise`, { method: 'POST' });
+            ok += 1;
+          } catch (err) {
+            console.error('[library.unpublish]', err);
+            fail += 1;
+          }
+        }
+        if (ok > 0) toast.success(tl('unpublishBulkSuccess', { count: ok }));
+        if (fail > 0) toast.error(tl('unpublishBulkFailed', { count: fail }));
+        setConfirmAction(null);
+        clearSelection();
+        await fetchLibrary();
+      });
+    },
+    [withBusy, tl, fetchLibrary],
+  );
+
   const askDeleteRow = (row: GroupedStudentRow) =>
-    setConfirmDeleteTarget({
+    setConfirmAction({
+      kind: 'delete',
       label: `${row.student.first_name} ${row.student.last_name}`,
       ids: [row.id],
     });
 
   const askDeleteSelection = () =>
-    setConfirmDeleteTarget({
+    setConfirmAction({
+      kind: 'delete',
       label: tl('selectionCount', { count: selected.size }),
       ids: Array.from(selected),
     });
 
   const askDeleteClass = (cls: GroupedClassNode) =>
-    setConfirmDeleteTarget({
+    setConfirmAction({
+      kind: 'delete',
       label: `${cls.class_name} · ${cls.report_card_count}`,
       ids: cls.report_cards.map((r) => r.id),
     });
 
   const askDeleteRun = (run: GroupedRunNode) =>
-    setConfirmDeleteTarget({
+    setConfirmAction({
+      kind: 'delete',
       label: `${run.period_label} · ${run.total_report_cards}`,
       ids: run.classes.flatMap((c) => c.report_cards.map((r) => r.id)),
     });
+
+  // Unpublish helpers — the row variant has no scope ambiguity, but bulk
+  // unpublish only operates on rows currently in the 'published' state.
+  // Drafts and already-revised rows in the selection are silently skipped
+  // because reviseing them would 409.
+  const askUnpublishRow = (row: GroupedStudentRow) =>
+    setConfirmAction({
+      kind: 'unpublish',
+      label: `${row.student.first_name} ${row.student.last_name}`,
+      ids: [row.id],
+    });
+
+  const askUnpublishSelection = () => {
+    const publishedIds = allRows
+      .filter((r) => selected.has(r.id) && r.status === 'published')
+      .map((r) => r.id);
+    if (publishedIds.length === 0) {
+      toast.error(tl('unpublishNoneSelected'));
+      return;
+    }
+    setConfirmAction({
+      kind: 'unpublish',
+      label: tl('selectionCount', { count: publishedIds.length }),
+      ids: publishedIds,
+    });
+  };
 
   // ─── Bundle download ────────────────────────────────────────────────────
 
@@ -421,6 +488,17 @@ export default function ReportCardsLibraryPage() {
                 title={tl('publishAction')}
               >
                 <Send className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {row.status === 'published' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => askUnpublishRow(row)}
+                disabled={busy}
+                title={tl('unpublishAction')}
+              >
+                <Undo2 className="h-3.5 w-3.5 text-amber-600" />
               </Button>
             )}
             <Button
@@ -756,6 +834,15 @@ export default function ReportCardsLibraryPage() {
             <Button
               variant="outline"
               size="sm"
+              onClick={askUnpublishSelection}
+              className="text-amber-700 hover:bg-amber-50"
+            >
+              <Undo2 className="me-1.5 h-3.5 w-3.5" />
+              {tl('unpublishSelection')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={askDeleteSelection}
               className="text-rose-700 hover:bg-rose-50"
             >
@@ -769,30 +856,51 @@ export default function ReportCardsLibraryPage() {
         </div>
       )}
 
-      {/* Confirm-delete modal */}
-      {confirmDeleteTarget && (
+      {/* Confirmation modal — used for both delete and unpublish. */}
+      {confirmAction && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-text-primary">{tl('confirmDeleteTitle')}</h3>
+            <h3 className="text-lg font-semibold text-text-primary">
+              {confirmAction.kind === 'delete'
+                ? tl('confirmDeleteTitle')
+                : tl('confirmUnpublishTitle')}
+            </h3>
             <p className="mt-2 text-sm text-text-secondary">
-              {tl('confirmDeleteBody', {
-                label: confirmDeleteTarget.label,
-                count: confirmDeleteTarget.ids.length,
-              })}
+              {confirmAction.kind === 'delete'
+                ? tl('confirmDeleteBody', {
+                    label: confirmAction.label,
+                    count: confirmAction.ids.length,
+                  })
+                : tl('confirmUnpublishBody', {
+                    label: confirmAction.label,
+                    count: confirmAction.ids.length,
+                  })}
             </p>
             <div className="mt-5 flex items-center justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteTarget(null)}>
+              <Button variant="ghost" size="sm" onClick={() => setConfirmAction(null)}>
                 {tl('cancel')}
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100"
-                onClick={() => void executeDelete(confirmDeleteTarget.ids)}
-              >
-                <Trash2 className="me-1.5 h-3.5 w-3.5" />
-                {tl('confirmDeleteAction')}
-              </Button>
+              {confirmAction.kind === 'delete' ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                  onClick={() => void executeDelete(confirmAction.ids)}
+                >
+                  <Trash2 className="me-1.5 h-3.5 w-3.5" />
+                  {tl('confirmDeleteAction')}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                  onClick={() => void executeUnpublish(confirmAction.ids)}
+                >
+                  <Undo2 className="me-1.5 h-3.5 w-3.5" />
+                  {tl('confirmUnpublishAction')}
+                </Button>
+              )}
             </div>
           </div>
         </div>
