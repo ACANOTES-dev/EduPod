@@ -29,18 +29,27 @@ interface AcademicPeriod {
   name: string;
 }
 
+// These shapes mirror the backend's ReportCardDashboard and
+// ClassComparisonEntry in report-card-analytics.service.ts. If the backend
+// types change, update these to match and keep the JSX in sync.
 interface AnalyticsSummary {
+  period_id: string | null;
   total: number;
   published: number;
-  pending: number;
-  completion_pct: number;
-  comment_fill_pct: number;
+  draft: number;
+  revised: number;
+  pending_approval: number;
+  completion_rate: number;
+  comment_fill_rate: number;
 }
 
 interface ClassComparisonItem {
+  class_id: string;
   class_name: string;
-  avg_score: number;
-  published: number;
+  student_count: number;
+  average_grade: number;
+  published_count: number;
+  completion_rate: number;
 }
 
 interface TrendItem {
@@ -198,17 +207,17 @@ export default function ReportCardAnalyticsPage() {
             />
             <SummaryCard
               label={t('pendingApproval')}
-              value={analytics.summary.pending}
+              value={analytics.summary.pending_approval}
               variant="warning"
             />
             <SummaryCard
               label={t('completionRate')}
-              value={`${analytics.summary.completion_pct.toFixed(1)}%`}
+              value={`${(analytics.summary.completion_rate ?? 0).toFixed(1)}%`}
               variant="info"
             />
             <SummaryCard
               label={t('commentFillRate')}
-              value={`${analytics.summary.comment_fill_pct.toFixed(1)}%`}
+              value={`${(analytics.summary.comment_fill_rate ?? 0).toFixed(1)}%`}
               variant="info"
             />
           </div>
@@ -244,13 +253,13 @@ export default function ReportCardAnalyticsPage() {
                     />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     <Bar
-                      dataKey="avg_score"
+                      dataKey="average_grade"
                       name={t('avgScore')}
                       fill="var(--color-primary-500)"
                       radius={[4, 4, 0, 0]}
                     />
                     <Bar
-                      dataKey="published"
+                      dataKey="published_count"
                       name={t('statusPublished')}
                       fill="var(--color-success-500)"
                       radius={[4, 4, 0, 0]}
