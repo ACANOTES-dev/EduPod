@@ -36,6 +36,8 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 
 import { MOCK_FACADE_PROVIDERS, TenantReadFacade } from '../../common/tests/mock-facades';
 import { CircuitBreakerRegistry } from '../../common/services/circuit-breaker-registry';
+import { ApplicationConversionService } from '../admissions/application-conversion.service';
+import { ApplicationStateMachineService } from '../admissions/application-state-machine.service';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -71,6 +73,22 @@ const mockPrisma = {
   tenantBranding: {
     findUnique: jest.fn(),
   },
+  application: {
+    findFirst: jest.fn(),
+    update: jest.fn(),
+  },
+  admissionsPaymentEvent: {
+    findUnique: jest.fn(),
+    create: jest.fn(),
+  },
+};
+
+const mockApplicationConversionService = {
+  convertToStudent: jest.fn(),
+};
+
+const mockApplicationStateMachineService = {
+  markApproved: jest.fn(),
 };
 
 const mockEncryptionService = {
@@ -116,6 +134,14 @@ describe('StripeService', () => {
           useValue: {
             findById: jest.fn().mockResolvedValue({ currency_code: 'EUR' }),
           },
+        },
+        {
+          provide: ApplicationConversionService,
+          useValue: mockApplicationConversionService,
+        },
+        {
+          provide: ApplicationStateMachineService,
+          useValue: mockApplicationStateMachineService,
         },
       ],
     }).compile();
@@ -820,6 +846,350 @@ describe('StripeService', () => {
           }),
         }),
       );
+    });
+  });
+
+  // ─── createAdmissionsCheckoutSession ─────────────────────────────────────
+
+  describe('StripeService — createAdmissionsCheckoutSession', () => {
+    const APPLICATION_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+    const PAYMENT_DEADLINE = new Date('2026-05-01T00:00:00Z');
+
+    const READY_APPLICATION = {
+      id: APPLICATION_ID,
+      tenant_id: TENANT_ID,
+      application_number: 'APP-0001',
+      status: 'conditional_approval',
+      payment_amount_cents: 700_000,
+      currency_code: 'EUR',
+      payment_deadline: PAYMENT_DEADLINE,
+      student_first_name: 'Layla',
+      student_last_name: 'Khan',
+    };
+
+    beforeEach(() => {
+      mockPrisma.tenantStripeConfig.findUnique.mockResolvedValue({
+        stripe_secret_key_encrypted: 'enc',
+        encryption_key_ref: 'ref',
+      });
+      mockPrisma.application.update.mockResolvedValue({});
+      mockStripeCheckoutCreate.mockResolvedValue({
+        id: 'cs_admissions_1',
+        url: 'https://checkout.stripe.com/admissions_1',
+      });
+    });
+
+    it('creates a checkout session with server-computed amount and metadata', async () => {
+      mockPrisma.application.findFirst.mockResolvedValue(READY_APPLICATION);
+
+      const result = await service.createAdmissionsCheckoutSession(
+        TENANT_ID,
+        APPLICATION_ID,
+        'https://example.com/ok',
+        'https://example.com/cancel',
+      );
+
+      expect(result.session_id).toBe('cs_admissions_1');
+      expect(result.checkout_url).toBe('https://checkout.stripe.com/admissions_1');
+      expect(result.amount_cents).toBe(700_000);
+      expect(result.currency_code).toBe('EUR');
+
+      const callArgs = mockStripeCheckoutCreate.mock.calls[0]![0];
+      expect(callArgs.line_items[0].price_data.unit_amount).toBe(700_000);
+      expect(callArgs.line_items[0].price_data.currency).toBe('eur');
+      expect(callArgs.expires_at).toBe(Math.floor(PAYMENT_DEADLINE.getTime() / 1000));
+      expect(callArgs.metadata).toEqual({
+        purpose: 'admissions',
+        tenant_id: TENANT_ID,
+        application_id: APPLICATION_ID,
+        expected_amount_cents: '700000',
+      });
+      expect(mockPrisma.application.update).toHaveBeenCalledWith({
+        where: { id: APPLICATION_ID },
+        data: { stripe_checkout_session_id: 'cs_admissions_1' },
+      });
+    });
+
+    it('throws NotFoundException when application not found', async () => {
+      mockPrisma.application.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createAdmissionsCheckoutSession(
+          TENANT_ID,
+          APPLICATION_ID,
+          'https://example.com/ok',
+          'https://example.com/cancel',
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects when application status is not conditional_approval', async () => {
+      mockPrisma.application.findFirst.mockResolvedValue({
+        ...READY_APPLICATION,
+        status: 'ready_to_admit',
+      });
+
+      await expect(
+        service.createAdmissionsCheckoutSession(
+          TENANT_ID,
+          APPLICATION_ID,
+          'https://example.com/ok',
+          'https://example.com/cancel',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects when payment_amount_cents is null', async () => {
+      mockPrisma.application.findFirst.mockResolvedValue({
+        ...READY_APPLICATION,
+        payment_amount_cents: null,
+      });
+
+      await expect(
+        service.createAdmissionsCheckoutSession(
+          TENANT_ID,
+          APPLICATION_ID,
+          'https://example.com/ok',
+          'https://example.com/cancel',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects when payment_deadline is null', async () => {
+      mockPrisma.application.findFirst.mockResolvedValue({
+        ...READY_APPLICATION,
+        payment_deadline: null,
+      });
+
+      await expect(
+        service.createAdmissionsCheckoutSession(
+          TENANT_ID,
+          APPLICATION_ID,
+          'https://example.com/ok',
+          'https://example.com/cancel',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('falls back to success_url when Stripe returns null url', async () => {
+      mockPrisma.application.findFirst.mockResolvedValue(READY_APPLICATION);
+      mockStripeCheckoutCreate.mockResolvedValue({ id: 'cs_no_url', url: null });
+
+      const result = await service.createAdmissionsCheckoutSession(
+        TENANT_ID,
+        APPLICATION_ID,
+        'https://fallback.example/ok',
+        'https://fallback.example/cancel',
+      );
+
+      expect(result.checkout_url).toBe('https://fallback.example/ok');
+    });
+  });
+
+  // ─── handleAdmissionsCheckoutCompleted (via handleWebhook) ───────────────
+
+  describe('StripeService — handleAdmissionsCheckoutCompleted (via handleWebhook)', () => {
+    const APPLICATION_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+    const REVIEWER_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+    const CONDITIONAL_APPLICATION = {
+      id: APPLICATION_ID,
+      tenant_id: TENANT_ID,
+      status: 'conditional_approval',
+      payment_amount_cents: 700_000,
+      reviewed_by_user_id: REVIEWER_ID,
+    };
+
+    function setupAdmissionsWebhook(overrides: {
+      metadata?: Record<string, string>;
+      amount_total?: number | null;
+    }) {
+      mockConfigService.get.mockReturnValue('whsec_test_secret');
+      mockStripeWebhooksConstructEvent.mockReturnValue({
+        type: 'checkout.session.completed',
+        id: 'evt_admissions_1',
+        data: {
+          object: {
+            id: 'cs_admissions_1',
+            amount_total: overrides.amount_total ?? 700_000,
+            metadata: overrides.metadata ?? {
+              purpose: 'admissions',
+              tenant_id: TENANT_ID,
+              application_id: APPLICATION_ID,
+              expected_amount_cents: '700000',
+            },
+          },
+        },
+      });
+    }
+
+    beforeEach(() => {
+      mockPrisma.admissionsPaymentEvent.findUnique.mockResolvedValue(null);
+      mockPrisma.admissionsPaymentEvent.create.mockResolvedValue({});
+      mockApplicationConversionService.convertToStudent.mockResolvedValue({
+        student_id: 'stu-1',
+        household_id: 'hh-1',
+        primary_parent_id: 'p-1',
+        secondary_parent_id: null,
+        created: true,
+      });
+      mockApplicationStateMachineService.markApproved.mockResolvedValue({});
+    });
+
+    it('converts the application and marks it approved on happy path', async () => {
+      setupAdmissionsWebhook({});
+      mockPrisma.application.findFirst.mockResolvedValue(CONDITIONAL_APPLICATION);
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result).toEqual({ received: true });
+      expect(mockPrisma.admissionsPaymentEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            stripe_event_id: 'evt_admissions_1',
+            status: 'succeeded',
+            amount_cents: 700_000,
+          }),
+        }),
+      );
+      expect(mockApplicationConversionService.convertToStudent).toHaveBeenCalledWith(
+        expect.any(Object),
+        { tenantId: TENANT_ID, applicationId: APPLICATION_ID, triggerUserId: REVIEWER_ID },
+      );
+      expect(mockApplicationStateMachineService.markApproved).toHaveBeenCalledWith(
+        TENANT_ID,
+        APPLICATION_ID,
+        {
+          actingUserId: null,
+          paymentSource: 'stripe',
+          overrideRecordId: null,
+        },
+        expect.any(Object),
+      );
+    });
+
+    it('is idempotent on duplicate stripe_event_id', async () => {
+      setupAdmissionsWebhook({});
+      mockPrisma.admissionsPaymentEvent.findUnique.mockResolvedValue({
+        id: 'existing',
+        stripe_event_id: 'evt_admissions_1',
+      });
+
+      await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(mockApplicationConversionService.convertToStudent).not.toHaveBeenCalled();
+      expect(mockApplicationStateMachineService.markApproved).not.toHaveBeenCalled();
+      expect(mockPrisma.admissionsPaymentEvent.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects tenant mismatch between webhook and metadata', async () => {
+      setupAdmissionsWebhook({
+        metadata: {
+          purpose: 'admissions',
+          tenant_id: 'other-tenant',
+          application_id: APPLICATION_ID,
+          expected_amount_cents: '700000',
+        },
+      });
+
+      await expect(service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('rejects when metadata amount differs from application amount', async () => {
+      setupAdmissionsWebhook({});
+      mockPrisma.application.findFirst.mockResolvedValue({
+        ...CONDITIONAL_APPLICATION,
+        payment_amount_cents: 800_000,
+      });
+
+      await expect(service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('rejects when stripe amount_total differs from expected', async () => {
+      setupAdmissionsWebhook({ amount_total: 500_000 });
+      mockPrisma.application.findFirst.mockResolvedValue(CONDITIONAL_APPLICATION);
+
+      await expect(service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('records out-of-band when application no longer conditional_approval', async () => {
+      setupAdmissionsWebhook({});
+      mockPrisma.application.findFirst.mockResolvedValue({
+        ...CONDITIONAL_APPLICATION,
+        status: 'approved',
+      });
+
+      await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(mockPrisma.admissionsPaymentEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'received_out_of_band',
+          }),
+        }),
+      );
+      expect(mockApplicationConversionService.convertToStudent).not.toHaveBeenCalled();
+      expect(mockApplicationStateMachineService.markApproved).not.toHaveBeenCalled();
+    });
+
+    it('ignores purpose=admissions on expired sessions (cron handles revert)', async () => {
+      mockConfigService.get.mockReturnValue('whsec_test_secret');
+      mockStripeWebhooksConstructEvent.mockReturnValue({
+        type: 'checkout.session.expired',
+        id: 'evt_admissions_expired',
+        data: {
+          object: {
+            id: 'cs_admissions_expired',
+            metadata: { purpose: 'admissions', application_id: APPLICATION_ID },
+          },
+        },
+      });
+
+      const result = await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(result).toEqual({ received: true });
+      expect(mockApplicationConversionService.convertToStudent).not.toHaveBeenCalled();
+      expect(mockApplicationStateMachineService.markApproved).not.toHaveBeenCalled();
+    });
+
+    it('routes to invoice handler when purpose metadata is absent', async () => {
+      mockConfigService.get.mockReturnValue('whsec_test_secret');
+      mockStripeWebhooksConstructEvent.mockReturnValue({
+        type: 'checkout.session.completed',
+        id: 'evt_invoice_1',
+        data: {
+          object: {
+            id: 'cs_invoice_1',
+            metadata: {
+              tenant_id: TENANT_ID,
+              invoice_id: INVOICE_ID,
+              household_id: HOUSEHOLD_ID,
+            },
+            amount_total: 50_000,
+            payment_intent: 'pi_test',
+          },
+        },
+      });
+      mockPrisma.payment.findFirst.mockResolvedValue(null);
+      mockPrisma.payment.create.mockResolvedValue({
+        id: 'pay-1',
+        tenant_id: TENANT_ID,
+        household_id: HOUSEHOLD_ID,
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: INVOICE_ID,
+        balance_amount: '500.00',
+      });
+
+      await service.handleWebhook(TENANT_ID, Buffer.from('body'), 'sig');
+
+      expect(mockApplicationConversionService.convertToStudent).not.toHaveBeenCalled();
+      expect(mockPrisma.payment.create).toHaveBeenCalled();
     });
   });
 });

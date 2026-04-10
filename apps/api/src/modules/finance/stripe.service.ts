@@ -1,5 +1,7 @@
 import {
   BadRequestException,
+  forwardRef,
+  Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -12,6 +14,8 @@ import type { CheckoutSessionDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { CircuitBreakerRegistry } from '../../common/services/circuit-breaker-registry';
+import { ApplicationConversionService } from '../admissions/application-conversion.service';
+import { ApplicationStateMachineService } from '../admissions/application-state-machine.service';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantReadFacade } from '../tenants/tenant-read.facade';
@@ -25,6 +29,14 @@ interface StripeCheckoutResult {
   checkout_url: string;
 }
 
+export interface AdmissionsCheckoutResult {
+  session_id: string;
+  checkout_url: string;
+  amount_cents: number;
+  currency_code: string;
+  expires_at: Date;
+}
+
 @Injectable()
 export class StripeService {
   private readonly logger = new Logger(StripeService.name);
@@ -36,6 +48,10 @@ export class StripeService {
     private readonly configService: ConfigService,
     private readonly circuitBreaker: CircuitBreakerRegistry,
     private readonly tenantReadFacade: TenantReadFacade,
+    @Inject(forwardRef(() => ApplicationConversionService))
+    private readonly applicationConversionService: ApplicationConversionService,
+    @Inject(forwardRef(() => ApplicationStateMachineService))
+    private readonly applicationStateMachineService: ApplicationStateMachineService,
   ) {}
 
   private get webhookSecret(): string | undefined {
@@ -190,9 +206,27 @@ export class StripeService {
 
     // Process event (idempotency is checked inside each handler, within the transaction)
     switch (event.type) {
-      case 'checkout.session.completed':
-        await this.handleCheckoutCompleted(tenantId, event.data.object as Stripe.Checkout.Session);
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const purpose = session.metadata?.purpose;
+        if (purpose === 'admissions') {
+          await this.handleAdmissionsCheckoutCompleted(tenantId, event.id, session);
+        } else {
+          await this.handleCheckoutCompleted(tenantId, session);
+        }
         break;
+      }
+      case 'checkout.session.expired': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (session.metadata?.purpose === 'admissions') {
+          // Nothing to do — the admissions payment-expiry cron (Impl 08)
+          // owns the state revert when the deadline passes.
+          this.logger.log(
+            `Admissions checkout session expired: ${session.id} — cron will handle revert`,
+          );
+        }
+        break;
+      }
       case 'payment_intent.payment_failed':
         this.logger.warn(`Payment failed: ${event.id}`);
         break;
@@ -201,6 +235,242 @@ export class StripeService {
     }
 
     return { received: true };
+  }
+
+  /**
+   * Create a Stripe Checkout Session for an application that has just entered
+   * `conditional_approval`. The amount, currency, and expiry are all derived
+   * server-side from the application row — the parent cannot alter any of
+   * them. Called from the worker's `admissions-payment-link` processor (first
+   * send) and from the admin-facing regenerate endpoint.
+   */
+  async createAdmissionsCheckoutSession(
+    tenantId: string,
+    applicationId: string,
+    successUrl: string,
+    cancelUrl: string,
+  ): Promise<AdmissionsCheckoutResult> {
+    // eslint-disable-next-line school/no-cross-module-prisma-access -- webhook/checkout handler lives in finance for historical reasons; reads its own stripe_checkout_session_id column
+    const application = await this.prisma.application.findFirst({
+      where: { id: applicationId, tenant_id: tenantId },
+    });
+    if (!application) {
+      throw new NotFoundException({
+        code: 'APPLICATION_NOT_FOUND',
+        message: `Application with id "${applicationId}" not found`,
+      });
+    }
+    if (application.status !== 'conditional_approval') {
+      throw new BadRequestException({
+        code: 'INVALID_STATUS',
+        message: `Cannot create checkout for application with status "${application.status}"`,
+      });
+    }
+    if (!application.payment_amount_cents || application.payment_amount_cents <= 0) {
+      throw new BadRequestException({
+        code: 'NO_PAYMENT_AMOUNT',
+        message: 'Application has no payment amount set',
+      });
+    }
+    if (!application.payment_deadline) {
+      throw new BadRequestException({
+        code: 'NO_PAYMENT_DEADLINE',
+        message: 'Application has no payment deadline set',
+      });
+    }
+
+    const stripe = await this.getStripeClient(tenantId);
+    const amountCents = application.payment_amount_cents;
+    const currencyCode = application.currency_code ?? 'EUR';
+    const deadline = application.payment_deadline;
+
+    const productName = `Admission fee — application ${application.application_number}`;
+    const productDescription = `Upfront admission payment for ${application.student_first_name} ${application.student_last_name}`;
+
+    const session = await this.circuitBreaker.exec('stripe', () =>
+      stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: currencyCode.toLowerCase(),
+              unit_amount: amountCents,
+              product_data: {
+                name: productName,
+                description: productDescription,
+              },
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        expires_at: Math.floor(deadline.getTime() / 1000),
+        metadata: {
+          purpose: 'admissions',
+          tenant_id: tenantId,
+          application_id: applicationId,
+          expected_amount_cents: amountCents.toString(),
+        },
+      }),
+    );
+
+    // eslint-disable-next-line school/no-cross-module-prisma-access -- stripe_checkout_session_id is a finance-owned column on applications
+    await this.prisma.application.update({
+      where: { id: applicationId },
+      data: { stripe_checkout_session_id: session.id },
+    });
+
+    return {
+      session_id: session.id,
+      checkout_url: session.url ?? successUrl,
+      amount_cents: amountCents,
+      currency_code: currencyCode,
+      expires_at: deadline,
+    };
+  }
+
+  /**
+   * Webhook handler for the admissions branch of `checkout.session.completed`.
+   * Verifies amount, tenant, and idempotency, then converts the application
+   * into a Student record and flips it to `approved` inside a single
+   * interactive RLS transaction.
+   */
+  private async handleAdmissionsCheckoutCompleted(
+    tenantId: string,
+    eventId: string,
+    session: Stripe.Checkout.Session,
+  ): Promise<void> {
+    const applicationId = session.metadata?.application_id;
+    const expectedCentsStr = session.metadata?.expected_amount_cents;
+    const metadataTenantId = session.metadata?.tenant_id;
+
+    if (!applicationId || !expectedCentsStr) {
+      this.logger.warn(`admissions checkout.session.completed missing metadata: ${session.id}`);
+      return;
+    }
+    if (metadataTenantId && metadataTenantId !== tenantId) {
+      this.logger.error(
+        `admissions webhook: tenant mismatch (metadata=${metadataTenantId}, resolved=${tenantId}) for session ${session.id}`,
+      );
+      throw new BadRequestException({
+        code: 'TENANT_MISMATCH',
+        message: 'Webhook tenant does not match metadata tenant',
+      });
+    }
+
+    const expectedCents = Number.parseInt(expectedCentsStr, 10);
+    if (!Number.isFinite(expectedCents) || expectedCents <= 0) {
+      this.logger.error(
+        `admissions webhook: expected_amount_cents metadata not a positive integer: "${expectedCentsStr}"`,
+      );
+      throw new BadRequestException({
+        code: 'AMOUNT_METADATA_INVALID',
+        message: 'expected_amount_cents metadata is not a positive integer',
+      });
+    }
+
+    const actualCents = session.amount_total ?? 0;
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    await rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      const existing = await db.admissionsPaymentEvent.findUnique({
+        where: { stripe_event_id: eventId },
+      });
+      if (existing) {
+        this.logger.log(`Duplicate admissions event ${eventId} — skipping`);
+        return;
+      }
+
+      const application = await db.application.findFirst({
+        where: { id: applicationId, tenant_id: tenantId },
+      });
+      if (!application) {
+        this.logger.error(
+          `admissions webhook: application ${applicationId} not found for tenant ${tenantId}`,
+        );
+        throw new NotFoundException({
+          code: 'APPLICATION_NOT_FOUND',
+          message: `Application "${applicationId}" not found`,
+        });
+      }
+
+      if (application.payment_amount_cents !== expectedCents) {
+        this.logger.error(
+          `admissions webhook: metadata expected ${expectedCents} but application stored ${application.payment_amount_cents}`,
+        );
+        throw new BadRequestException({
+          code: 'AMOUNT_MISMATCH_METADATA',
+          message: 'Webhook metadata amount does not match the application payment amount',
+        });
+      }
+
+      if (actualCents !== expectedCents) {
+        this.logger.error(
+          `admissions webhook: Stripe actual ${actualCents} but expected ${expectedCents}`,
+        );
+        throw new BadRequestException({
+          code: 'AMOUNT_MISMATCH_ACTUAL',
+          message: 'Stripe session amount does not match expected amount',
+        });
+      }
+
+      if (application.status !== 'conditional_approval') {
+        this.logger.warn(
+          `admissions webhook: application ${applicationId} has status "${application.status}" — recording out-of-band`,
+        );
+        await db.admissionsPaymentEvent.create({
+          data: {
+            tenant_id: tenantId,
+            application_id: applicationId,
+            stripe_event_id: eventId,
+            stripe_session_id: session.id,
+            amount_cents: actualCents,
+            status: 'received_out_of_band',
+          },
+        });
+        return;
+      }
+
+      await db.admissionsPaymentEvent.create({
+        data: {
+          tenant_id: tenantId,
+          application_id: applicationId,
+          stripe_event_id: eventId,
+          stripe_session_id: session.id,
+          amount_cents: actualCents,
+          status: 'succeeded',
+        },
+      });
+
+      const triggerUserId = application.reviewed_by_user_id;
+      if (!triggerUserId) {
+        throw new InternalServerErrorException({
+          code: 'REVIEWER_MISSING',
+          message: 'Application has no reviewed_by_user_id — cannot attribute consent records',
+        });
+      }
+
+      await this.applicationConversionService.convertToStudent(db, {
+        tenantId,
+        applicationId,
+        triggerUserId,
+      });
+
+      await this.applicationStateMachineService.markApproved(
+        tenantId,
+        applicationId,
+        {
+          actingUserId: null,
+          paymentSource: 'stripe',
+          overrideRecordId: null,
+        },
+        db,
+      );
+    });
   }
 
   /**

@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import type { JwtPayload, TenantContext } from '@school/shared';
+
+import { StripeService } from '../finance/stripe.service';
 
 import { ApplicationNotesService } from './application-notes.service';
 import { ApplicationsController } from './applications.controller';
@@ -46,6 +49,14 @@ const mockApplicationNotesService = {
   create: jest.fn(),
 };
 
+const mockStripeService = {
+  createAdmissionsCheckoutSession: jest.fn(),
+};
+
+const mockConfigService = {
+  get: jest.fn(),
+};
+
 describe('ApplicationsController', () => {
   let controller: ApplicationsController;
 
@@ -55,6 +66,8 @@ describe('ApplicationsController', () => {
       providers: [
         { provide: ApplicationsService, useValue: mockApplicationsService },
         { provide: ApplicationNotesService, useValue: mockApplicationNotesService },
+        { provide: StripeService, useValue: mockStripeService },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
@@ -265,5 +278,60 @@ describe('ApplicationsController', () => {
       ApplicationsController.prototype.createNote,
     );
     expect(permission).toBe('admissions.manage');
+  });
+
+  // ─── POST /v1/applications/:id/payment-link/regenerate ─────────────────────
+
+  describe('POST /v1/applications/:id/payment-link/regenerate', () => {
+    it('delegates to StripeService with server-computed default URLs', async () => {
+      mockConfigService.get.mockReturnValue('https://test.edupod.app');
+      mockStripeService.createAdmissionsCheckoutSession.mockResolvedValue({
+        session_id: 'cs_admissions_regen',
+        checkout_url: 'https://checkout.stripe.com/regen',
+        amount_cents: 700_000,
+        currency_code: 'EUR',
+        expires_at: new Date('2026-05-01T00:00:00Z'),
+      });
+
+      const result = await controller.regeneratePaymentLink(TENANT, APP_ID, {});
+
+      expect(result.session_id).toBe('cs_admissions_regen');
+      expect(mockStripeService.createAdmissionsCheckoutSession).toHaveBeenCalledWith(
+        TENANT_ID,
+        APP_ID,
+        expect.stringContaining('/en/apply/payment-success'),
+        expect.stringContaining('/en/apply/payment-cancelled'),
+      );
+    });
+
+    it('uses caller-provided URLs when supplied', async () => {
+      mockStripeService.createAdmissionsCheckoutSession.mockResolvedValue({
+        session_id: 'cs_admissions_regen',
+        checkout_url: 'https://checkout.stripe.com/regen',
+        amount_cents: 700_000,
+        currency_code: 'EUR',
+        expires_at: new Date('2026-05-01T00:00:00Z'),
+      });
+
+      await controller.regeneratePaymentLink(TENANT, APP_ID, {
+        success_url: 'https://custom.example/ok',
+        cancel_url: 'https://custom.example/cancel',
+      });
+
+      expect(mockStripeService.createAdmissionsCheckoutSession).toHaveBeenCalledWith(
+        TENANT_ID,
+        APP_ID,
+        'https://custom.example/ok',
+        'https://custom.example/cancel',
+      );
+    });
+
+    it('should require admissions.manage for regeneratePaymentLink', () => {
+      const permission = Reflect.getMetadata(
+        'requires_permission',
+        ApplicationsController.prototype.regeneratePaymentLink,
+      );
+      expect(permission).toBe('admissions.manage');
+    });
   });
 });

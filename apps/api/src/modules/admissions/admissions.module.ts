@@ -1,5 +1,5 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
 import { AcademicsModule } from '../academics/academics.module';
 import { ApprovalsModule } from '../approvals/approvals.module';
@@ -36,7 +36,7 @@ import { PublicAdmissionsController } from './public-admissions.controller';
     SearchModule,
     ConfigurationModule,
     AcademicsModule,
-    FinanceModule,
+    forwardRef(() => FinanceModule),
     TenantsModule,
     RbacModule,
     BullModule.registerQueue({ name: 'notifications' }),
@@ -67,6 +67,7 @@ import { PublicAdmissionsController } from './public-admissions.controller';
     AdmissionsCapacityService,
     AdmissionsAutoPromotionService,
     ApplicationConversionService,
+    ApplicationStateMachineService,
   ],
 })
 export class AdmissionsModule {}

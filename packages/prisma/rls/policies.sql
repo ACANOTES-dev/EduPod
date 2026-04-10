@@ -2445,3 +2445,12 @@ DROP POLICY IF EXISTS admission_overrides_tenant_isolation ON admission_override
 CREATE POLICY admission_overrides_tenant_isolation ON admission_overrides
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- ─── Admissions Payment Events ──────────────────────────────────────────────
+ALTER TABLE admissions_payment_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admissions_payment_events FORCE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS admissions_payment_events_tenant_isolation ON admissions_payment_events;
+CREATE POLICY admissions_payment_events_tenant_isolation ON admissions_payment_events
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);

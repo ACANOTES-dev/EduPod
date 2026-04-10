@@ -85,6 +85,16 @@ export const forceApproveOverrideSchema = z.object({
 
 export const listAdmissionOverridesSchema = paginationQuerySchema;
 
+// ─── Admissions Stripe checkout regenerate (Wave 3 impl 06) ────────────────
+
+export const regenerateAdmissionsPaymentLinkSchema = z
+  .object({
+    success_url: z.string().url().max(2048).optional(),
+    cancel_url: z.string().url().max(2048).optional(),
+  })
+  .optional()
+  .default({});
+
 // Inferred types
 export type CreatePublicApplicationDto = z.infer<typeof createPublicApplicationSchema>;
 export type SubmitApplicationDto = z.infer<typeof submitApplicationSchema>;
@@ -96,3 +106,6 @@ export type RecordCashPaymentDto = z.infer<typeof recordCashPaymentSchema>;
 export type RecordBankTransferDto = z.infer<typeof recordBankTransferSchema>;
 export type ForceApproveOverrideDto = z.infer<typeof forceApproveOverrideSchema>;
 export type ListAdmissionOverridesQuery = z.infer<typeof listAdmissionOverridesSchema>;
+export type RegenerateAdmissionsPaymentLinkDto = z.infer<
+  typeof regenerateAdmissionsPaymentLinkSchema
+>;

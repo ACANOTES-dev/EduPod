@@ -1,18 +1,22 @@
 import {
   Body,
   Controller,
+  forwardRef,
   Get,
+  Inject,
   Param,
   ParseUUIDPipe,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 import {
   admissionsAnalyticsSchema,
   createApplicationNoteSchema,
   listApplicationsSchema,
+  regenerateAdmissionsPaymentLinkSchema,
   reviewApplicationSchema,
 } from '@school/shared';
 import type {
@@ -20,6 +24,7 @@ import type {
   CreateApplicationNoteDto,
   JwtPayload,
   ListApplicationsQuery,
+  RegenerateAdmissionsPaymentLinkDto,
   ReviewApplicationDto,
   TenantContext,
 } from '@school/shared';
@@ -30,6 +35,7 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { StripeService } from '../finance/stripe.service';
 
 import { ApplicationNotesService } from './application-notes.service';
 import { ApplicationsService } from './applications.service';
@@ -40,7 +46,23 @@ export class ApplicationsController {
   constructor(
     private readonly applicationsService: ApplicationsService,
     private readonly applicationNotesService: ApplicationNotesService,
+    @Inject(forwardRef(() => StripeService))
+    private readonly stripeService: StripeService,
+    private readonly configService: ConfigService,
   ) {}
+
+  private buildDefaultCheckoutUrls(
+    tenantId: string,
+    applicationId: string,
+  ): { success_url: string; cancel_url: string } {
+    const appUrl =
+      this.configService.get<string>('APP_URL') ?? process.env.APP_URL ?? 'https://app.edupod.app';
+    const base = appUrl.replace(/\/$/, '');
+    return {
+      success_url: `${base}/en/apply/payment-success?application=${applicationId}&tenant=${tenantId}`,
+      cancel_url: `${base}/en/apply/payment-cancelled?application=${applicationId}&tenant=${tenantId}`,
+    };
+  }
 
   @Get()
   @RequiresPermission('admissions.view')
@@ -124,5 +146,25 @@ export class ApplicationsController {
     dto: CreateApplicationNoteDto,
   ) {
     return this.applicationNotesService.create(tenant.tenant_id, applicationId, user.sub, dto);
+  }
+
+  // POST /v1/applications/:id/payment-link/regenerate
+  @Post(':id/payment-link/regenerate')
+  @RequiresPermission('admissions.manage')
+  async regeneratePaymentLink(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(regenerateAdmissionsPaymentLinkSchema))
+    dto: RegenerateAdmissionsPaymentLinkDto,
+  ) {
+    const defaults = this.buildDefaultCheckoutUrls(tenant.tenant_id, id);
+    const successUrl = dto?.success_url ?? defaults.success_url;
+    const cancelUrl = dto?.cancel_url ?? defaults.cancel_url;
+    return this.stripeService.createAdmissionsCheckoutSession(
+      tenant.tenant_id,
+      id,
+      successUrl,
+      cancelUrl,
+    );
   }
 }

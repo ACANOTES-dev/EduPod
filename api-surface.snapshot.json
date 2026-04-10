@@ -274,64 +274,22 @@
   },
   {
     "method": "GET",
-    "path": "/v1/admission-forms",
-    "controller": "AdmissionFormsController",
-    "module": "admissions",
-    "permission": "admissions.manage"
-  },
-  {
-    "method": "POST",
-    "path": "/v1/admission-forms",
-    "controller": "AdmissionFormsController",
-    "module": "admissions",
-    "permission": "admissions.manage"
-  },
-  {
-    "method": "GET",
-    "path": "/v1/admission-forms/:id",
-    "controller": "AdmissionFormsController",
-    "module": "admissions",
-    "permission": "admissions.view"
-  },
-  {
-    "method": "PUT",
-    "path": "/v1/admission-forms/:id",
-    "controller": "AdmissionFormsController",
-    "module": "admissions",
-    "permission": "admissions.view"
-  },
-  {
-    "method": "POST",
-    "path": "/v1/admission-forms/:id/archive",
-    "controller": "AdmissionFormsController",
-    "module": "admissions",
-    "permission": "admissions.manage"
-  },
-  {
-    "method": "POST",
-    "path": "/v1/admission-forms/:id/publish",
-    "controller": "AdmissionFormsController",
-    "module": "admissions",
-    "permission": "admissions.manage"
-  },
-  {
-    "method": "POST",
-    "path": "/v1/admission-forms/:id/validate-fields",
-    "controller": "AdmissionFormsController",
-    "module": "admissions",
-    "permission": "admissions.manage"
-  },
-  {
-    "method": "GET",
-    "path": "/v1/admission-forms/:id/versions",
-    "controller": "AdmissionFormsController",
-    "module": "admissions",
-    "permission": "admissions.manage"
-  },
-  {
-    "method": "POST",
     "path": "/v1/admission-forms/system",
     "controller": "AdmissionFormsController",
+    "module": "admissions",
+    "permission": "admissions.view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admission-forms/system/rebuild",
+    "controller": "AdmissionFormsController",
+    "module": "admissions",
+    "permission": "admissions.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/admission-overrides",
+    "controller": "AdmissionOverridesController",
     "module": "admissions",
     "permission": "admissions.manage"
   },
@@ -455,23 +413,30 @@
     "permission": "admissions.view"
   },
   {
-    "method": "GET",
-    "path": "/v1/applications/:id/conversion-preview",
+    "method": "POST",
+    "path": "/v1/applications/:id/payment-link/regenerate",
     "controller": "ApplicationsController",
     "module": "admissions",
     "permission": "admissions.manage"
   },
   {
     "method": "POST",
-    "path": "/v1/applications/:id/convert",
-    "controller": "ApplicationsController",
+    "path": "/v1/applications/:id/payment/bank-transfer",
+    "controller": "AdmissionsPaymentController",
     "module": "admissions",
     "permission": "admissions.manage"
   },
   {
     "method": "POST",
-    "path": "/v1/applications/:id/mark-payment-received",
-    "controller": "ApplicationsController",
+    "path": "/v1/applications/:id/payment/cash",
+    "controller": "AdmissionsPaymentController",
+    "module": "admissions",
+    "permission": "admissions.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/applications/:id/payment/override",
+    "controller": "AdmissionsPaymentController",
     "module": "admissions",
     "permission": "admissions.manage"
   },
@@ -488,20 +453,6 @@
     "controller": "ApplicationsController",
     "module": "admissions",
     "permission": "admissions.view"
-  },
-  {
-    "method": "POST",
-    "path": "/v1/applications/:id/setup-payment-plan",
-    "controller": "ApplicationsController",
-    "module": "admissions",
-    "permission": "admissions.manage"
-  },
-  {
-    "method": "POST",
-    "path": "/v1/applications/:id/waive-fees",
-    "controller": "ApplicationsController",
-    "module": "admissions",
-    "permission": "admissions.manage"
   },
   {
     "method": "POST",
@@ -5105,13 +5056,6 @@
   {
     "method": "GET",
     "path": "/v1/parent/applications/:id",
-    "controller": "ParentApplicationsController",
-    "module": "admissions",
-    "permission": null
-  },
-  {
-    "method": "POST",
-    "path": "/v1/parent/applications/:id/submit",
     "controller": "ParentApplicationsController",
     "module": "admissions",
     "permission": null

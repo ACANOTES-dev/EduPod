@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
+import { AdmissionsModule } from '../admissions/admissions.module';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
@@ -45,6 +46,7 @@ import { StripeService } from './stripe.service';
 
 @Module({
   imports: [
+    forwardRef(() => AdmissionsModule),
     ApprovalsModule,
     AuditLogModule,
     ConfigurationModule,
@@ -100,6 +102,7 @@ import { StripeService } from './stripe.service';
     RecurringInvoicesService,
     LateFeesService,
     FinanceReadFacade,
+    StripeService,
   ],
 })
 export class FinanceModule {}
