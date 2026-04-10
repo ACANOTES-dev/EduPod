@@ -12,13 +12,11 @@ import {
 import {
   admissionsAnalyticsSchema,
   createApplicationNoteSchema,
-  convertApplicationSchema,
   listApplicationsSchema,
   reviewApplicationSchema,
 } from '@school/shared';
 import type {
   AdmissionsAnalyticsQuery,
-  ConvertApplicationDto,
   CreateApplicationNoteDto,
   JwtPayload,
   ListApplicationsQuery,
@@ -103,27 +101,6 @@ export class ApplicationsController {
       user.sub,
       false, // isParent = false (staff withdrawal)
     );
-  }
-
-  @Get(':id/conversion-preview')
-  @RequiresPermission('admissions.manage')
-  async getConversionPreview(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.applicationsService.getConversionPreview(tenant.tenant_id, id);
-  }
-
-  @Post(':id/convert')
-  @RequiresPermission('admissions.manage')
-  async convert(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body(new ZodValidationPipe(convertApplicationSchema))
-    dto: ConvertApplicationDto,
-  ) {
-    return this.applicationsService.convert(tenant.tenant_id, id, dto, user.sub);
   }
 
   @Get(':applicationId/notes')

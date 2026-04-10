@@ -40,8 +40,6 @@ const mockApplicationsService = {
   preview: jest.fn(),
   review: jest.fn(),
   withdraw: jest.fn(),
-  getConversionPreview: jest.fn(),
-  convert: jest.fn(),
 };
 
 const mockApplicationNotesService = {
@@ -172,45 +170,6 @@ describe('ApplicationsController', () => {
         false,
       );
       expect(result).toEqual({ id: APP_ID, status: 'withdrawn' });
-    });
-  });
-
-  // ─── GET /v1/applications/:id/conversion-preview ────────────────────────────
-
-  describe('ApplicationsController -- getConversionPreview', () => {
-    it('should delegate to applicationsService.getConversionPreview with tenant_id and id', async () => {
-      mockApplicationsService.getConversionPreview.mockResolvedValue({
-        application: { id: APP_ID },
-        year_groups: [],
-      });
-
-      const result = await controller.getConversionPreview(TENANT, APP_ID);
-
-      expect(mockApplicationsService.getConversionPreview).toHaveBeenCalledWith(TENANT_ID, APP_ID);
-      expect(result).toEqual({ application: { id: APP_ID }, year_groups: [] });
-    });
-  });
-
-  // ─── POST /v1/applications/:id/convert ──────────────────────────────────────
-
-  describe('ApplicationsController -- convert', () => {
-    it('should delegate to applicationsService.convert with tenant_id, id, dto, and user_id', async () => {
-      const dto = {
-        year_group_id: 'yg-1',
-        student_first_name: 'John',
-        student_last_name: 'Doe',
-        date_of_birth: '2018-05-15',
-        expected_updated_at: '2026-01-01T00:00:00.000Z',
-      };
-      mockApplicationsService.convert.mockResolvedValue({
-        application_id: APP_ID,
-        student: { id: 'student-1' },
-      });
-
-      const result = await controller.convert(TENANT, USER, APP_ID, dto as never);
-
-      expect(mockApplicationsService.convert).toHaveBeenCalledWith(TENANT_ID, APP_ID, dto, USER_ID);
-      expect(result).toEqual({ application_id: APP_ID, student: { id: 'student-1' } });
     });
   });
 
@@ -347,22 +306,6 @@ describe('ApplicationsController', () => {
     const permission = Reflect.getMetadata(
       'requires_permission',
       ApplicationsController.prototype.withdraw,
-    );
-    expect(permission).toBe('admissions.manage');
-  });
-
-  it('should require admissions.manage for getConversionPreview', () => {
-    const permission = Reflect.getMetadata(
-      'requires_permission',
-      ApplicationsController.prototype.getConversionPreview,
-    );
-    expect(permission).toBe('admissions.manage');
-  });
-
-  it('should require admissions.manage for convert', () => {
-    const permission = Reflect.getMetadata(
-      'requires_permission',
-      ApplicationsController.prototype.convert,
     );
     expect(permission).toBe('admissions.manage');
   });

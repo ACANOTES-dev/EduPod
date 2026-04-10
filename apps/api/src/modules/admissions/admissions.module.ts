@@ -37,6 +37,11 @@ import { PublicAdmissionsController } from './public-admissions.controller';
     AdmissionsPaymentService,
     AdmissionsCapacityService,
   ],
-  exports: [ApplicationsService, AdmissionsPaymentService, AdmissionsCapacityService],
+  exports: [
+    ApplicationsService,
+    AdmissionsPaymentService,
+    AdmissionsCapacityService,
+    ApplicationConversionService,
+  ],
 })
 export class AdmissionsModule {}

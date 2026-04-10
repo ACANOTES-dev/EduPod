@@ -42,27 +42,6 @@ export const reviewApplicationSchema = z.object({
   rejection_reason: z.string().min(1).max(5000).optional(),
 });
 
-// Convert application to student
-export const convertApplicationSchema = z.object({
-  student_first_name: z.string().min(1).max(100),
-  student_last_name: z.string().min(1).max(100),
-  date_of_birth: z.string().date(),
-  year_group_id: z.string().uuid(),
-  national_id: z.string().min(1).max(50).nullable().optional(),
-  nationality: z.string().min(1).max(100).nullable().optional(),
-  parent1_first_name: z.string().min(1).max(100),
-  parent1_last_name: z.string().min(1).max(100),
-  parent1_email: z.string().email().nullable().optional(),
-  parent1_phone: z.string().max(50).nullable().optional(),
-  parent1_link_existing_id: z.string().uuid().nullable().optional(),
-  parent2_first_name: z.string().max(100).nullable().optional(),
-  parent2_last_name: z.string().max(100).nullable().optional(),
-  parent2_email: z.string().email().nullable().optional(),
-  parent2_link_existing_id: z.string().uuid().nullable().optional(),
-  household_name: z.string().min(1).max(255).optional(),
-  expected_updated_at: z.string().datetime(),
-});
-
 // List applications query
 export const listApplicationsSchema = paginationQuerySchema.extend({
   status: z.enum(APPLICATION_STATUSES).optional(),
@@ -87,7 +66,6 @@ export const admissionsAnalyticsSchema = z.object({
 export type CreatePublicApplicationDto = z.infer<typeof createPublicApplicationSchema>;
 export type SubmitApplicationDto = z.infer<typeof submitApplicationSchema>;
 export type ReviewApplicationDto = z.infer<typeof reviewApplicationSchema>;
-export type ConvertApplicationDto = z.infer<typeof convertApplicationSchema>;
 export type ListApplicationsQuery = z.infer<typeof listApplicationsSchema>;
 export type CreateApplicationNoteDto = z.infer<typeof createApplicationNoteSchema>;
 export type AdmissionsAnalyticsQuery = z.infer<typeof admissionsAnalyticsSchema>;

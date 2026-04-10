@@ -1735,6 +1735,9 @@ model Student {
   eng_event_participants EngagementEventParticipant[]
   eng_conf_bookings      ConferenceBooking[]
 
+  // Admissions Relations
+  materialised_from_application Application? @relation("application_materialised_student")
+
   @@index([tenant_id], name: "idx_students_tenant")
   @@index([tenant_id, status], name: "idx_students_tenant_status")
   @@index([tenant_id, household_id], name: "idx_students_tenant_household")
@@ -2514,6 +2517,7 @@ model Application {
   apply_date                 DateTime                         @default(now()) @db.Timestamptz()
   waiting_list_substatus     ApplicationWaitingListSubstatus?
   override_record_id         String?                          @db.Uuid
+  materialised_student_id    String?                          @db.Uuid
   created_at                 DateTime                         @default(now()) @db.Timestamptz()
   updated_at                 DateTime                         @default(now()) @updatedAt @db.Timestamptz()
 
@@ -2525,10 +2529,12 @@ model Application {
   target_academic_year AcademicYear?           @relation("applications_target_year", fields: [target_academic_year_id], references: [id], onDelete: SetNull)
   target_year_group    YearGroup?              @relation("applications_target_year_group", fields: [target_year_group_id], references: [id], onDelete: SetNull)
   override_record      AdmissionOverride?      @relation("application_override_record", fields: [override_record_id], references: [id], onDelete: SetNull)
+  materialised_student Student?                @relation("application_materialised_student", fields: [materialised_student_id], references: [id], onDelete: SetNull)
   notes                ApplicationNote[]
   overrides            AdmissionOverride[]     @relation("overrides_of_application")
 
   @@unique([tenant_id, application_number], name: "idx_applications_number")
+  @@unique([materialised_student_id], name: "idx_applications_materialised_student")
   @@index([tenant_id, status], name: "idx_applications_tenant_status")
   @@index([tenant_id, form_definition_id], name: "idx_applications_tenant_form")
   @@index([tenant_id, payment_status, payment_deadline], name: "idx_applications_payment_deadline")
