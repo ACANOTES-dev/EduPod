@@ -71,9 +71,17 @@ export class ReportCardsController {
   // free of permission-resolution concerns. The `report_cards.view` and
   // `report_cards.manage` permissions both grant a full cross-tenant view;
   // `report_cards.comment` users are scoped server-side to their own students.
+  //
+  // `school_owner` is an unrestricted role — it bypasses all permission
+  // checks in `PermissionGuard` (see `common/guards/permission.guard.ts`).
+  // We replicate that bypass here because owners may not hold the explicit
+  // `report_cards.view`/`.manage` permission keys in the permissions table;
+  // without this check, the library would treat them as teachers scoped to
+  // an empty student list and return an empty dataset.
 
   private async hasAnyPermission(user: JwtPayload, required: string[]): Promise<boolean> {
     if (!user.membership_id) return false;
+    if (await this.permissionCacheService.isOwner(user.membership_id)) return true;
     const perms = await this.permissionCacheService.getPermissions(user.membership_id);
     return required.some((p) => perms.includes(p));
   }

@@ -58,7 +58,7 @@ describe('ReportCardAnalyticsService — getDashboard', () => {
       .mockResolvedValueOnce(50) // total
       .mockResolvedValueOnce(30) // published
       .mockResolvedValueOnce(15) // draft
-      .mockResolvedValueOnce(5)  // revised
+      .mockResolvedValueOnce(5) // revised
       .mockResolvedValueOnce(20); // publishedWithComment
 
     mockPrisma.reportCardApproval.count.mockResolvedValue(3);
@@ -129,6 +129,26 @@ describe('ReportCardAnalyticsService — getDashboard', () => {
     await service.getDashboard(TENANT_ID);
 
     expect(mockPrisma.classEnrolment.count).not.toHaveBeenCalled();
+  });
+
+  it('translates the "full_year" sentinel into academic_period_id IS NULL', async () => {
+    mockPrisma.reportCard.count.mockResolvedValue(0);
+    mockPrisma.reportCardApproval.count.mockResolvedValue(0);
+    mockClassesFacade.countEnrolmentsGeneric.mockResolvedValue(0);
+
+    await service.getDashboard(TENANT_ID, 'full_year');
+
+    // Every report_card.count call must carry the explicit NULL scope so
+    // Postgres compares IS NULL rather than attempting a UUID cast on the
+    // literal sentinel string (which would 500 with "invalid UUID").
+    for (const call of mockPrisma.reportCard.count.mock.calls) {
+      expect(call[0].where.academic_period_id).toBeNull();
+    }
+    // The approvals count must also forward the NULL scope via the nested
+    // report_card relation filter.
+    for (const call of mockPrisma.reportCardApproval.count.mock.calls) {
+      expect(call[0].where.report_card.academic_period_id).toBeNull();
+    }
   });
 });
 

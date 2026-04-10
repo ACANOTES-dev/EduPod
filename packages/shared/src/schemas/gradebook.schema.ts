@@ -758,9 +758,14 @@ export const updateGradeThresholdConfigSchema = z.object({
 export type UpdateGradeThresholdConfigDto = z.infer<typeof updateGradeThresholdConfigSchema>;
 
 // Analytics (R10)
+//
+// `academic_period_id` accepts either a per-period UUID OR the literal
+// `'full_year'` sentinel. The sentinel matches the Phase 1b full-year
+// report cards (where `report_cards.academic_period_id IS NULL`) and
+// lets the dashboard filter analytics the same way the library does.
 
 export const analyticsQuerySchema = z.object({
-  academic_period_id: z.string().uuid().optional(),
+  academic_period_id: z.union([z.string().uuid(), z.literal('full_year')]).optional(),
 });
 
 // Acknowledgment (R13)

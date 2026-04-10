@@ -71,8 +71,14 @@ import { ReportCommentWindowsService } from './report-comment-windows.service';
     BullModule.registerQueue({ name: 'gradebook' }),
   ],
   controllers: [
-    ReportCardsController,
+    // Register ReportCardsEnhancedController BEFORE ReportCardsController.
+    // The primary controller has a catch-all `GET /report-cards/:id` route
+    // that would otherwise shadow literal sub-paths declared in the enhanced
+    // controller (templates, approval-configs, custom-fields, grade-thresholds,
+    // analytics). NestJS/Express registers controllers in this order, and
+    // the router walks them first-match-wins.
     ReportCardsEnhancedController,
+    ReportCardsController,
     ReportCardVerificationController,
     ReportCommentWindowsController,
     ReportCardSubjectCommentsController,

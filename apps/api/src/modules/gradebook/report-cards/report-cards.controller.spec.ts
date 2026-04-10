@@ -51,6 +51,11 @@ const mockPrisma = {
 
 const mockPermissionCacheService = {
   getPermissions: jest.fn(),
+  // `hasAnyPermission` in the controller calls `isOwner` first as an
+  // unrestricted bypass — default to `false` in every test so the existing
+  // permission-list branches still run, and individual tests can opt in to
+  // the owner path by overriding this.
+  isOwner: jest.fn().mockResolvedValue(false),
 };
 
 const mockGenerationService = {
@@ -288,6 +293,33 @@ describe('ReportCardsController', () => {
         { user_id: USER_ID, is_admin: false },
         { page: 1, pageSize: 20 },
       );
+    });
+
+    it('treats school_owner as admin even when explicit permissions are missing', async () => {
+      // Owners are a global bypass in PermissionGuard — the library helper
+      // must honour the same bypass so they don't fall into the scoped
+      // teacher path (which would return an empty dataset).
+      mockPermissionCacheService.isOwner.mockResolvedValueOnce(true);
+      mockPermissionCacheService.getPermissions.mockResolvedValue([]);
+      mockReportCardsQueriesService.listReportCardLibrary.mockResolvedValue({
+        data: [],
+        meta: { page: 1, pageSize: 20, total: 0 },
+      });
+
+      await controller.listLibrary(
+        tenantContext,
+        { ...jwtUser, membership_id: 'm-owner' } as never,
+        { page: 1, pageSize: 20 },
+      );
+
+      expect(mockReportCardsQueriesService.listReportCardLibrary).toHaveBeenCalledWith(
+        TENANT_ID,
+        { user_id: USER_ID, is_admin: true },
+        { page: 1, pageSize: 20 },
+      );
+      // getPermissions is a pure cache read that the helper still bypasses
+      // when isOwner resolves true — verify the short-circuit path.
+      expect(mockPermissionCacheService.getPermissions).not.toHaveBeenCalled();
     });
 
     it('passes filters through untouched', async () => {

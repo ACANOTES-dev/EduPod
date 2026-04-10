@@ -707,8 +707,20 @@ describe('ReportCardTemplateService — listContentScopes', () => {
 
   it('groups templates correctly by content_scope and locale', async () => {
     mockPrisma.reportCardTemplate.findMany.mockResolvedValue([
-      { id: 't-en', locale: 'en', is_default: true, content_scope: 'grades_only' },
-      { id: 't-ar', locale: 'ar', is_default: false, content_scope: 'grades_only' },
+      {
+        id: 't-en',
+        name: 'Default EN',
+        locale: 'en',
+        is_default: true,
+        content_scope: 'grades_only',
+      },
+      {
+        id: 't-ar',
+        name: 'القالب الافتراضي',
+        locale: 'ar',
+        is_default: false,
+        content_scope: 'grades_only',
+      },
     ]);
 
     const result = await service.listContentScopes(TENANT_ID);
@@ -717,13 +729,23 @@ describe('ReportCardTemplateService — listContentScopes', () => {
     expect(gradesOnly).toBeDefined();
     expect(gradesOnly?.locales).toHaveLength(2);
     expect(gradesOnly?.locales.map((l) => l.locale).sort()).toEqual(['ar', 'en']);
+    expect(gradesOnly?.locales.map((l) => l.template_name).sort()).toEqual([
+      'Default EN',
+      'القالب الافتراضي',
+    ]);
     expect(gradesOnly?.is_available).toBe(true);
     expect(gradesOnly?.is_default).toBe(true);
   });
 
   it('marks non-grades_only scopes as is_available: false with empty locales', async () => {
     mockPrisma.reportCardTemplate.findMany.mockResolvedValue([
-      { id: 't-en', locale: 'en', is_default: true, content_scope: 'grades_only' },
+      {
+        id: 't-en',
+        name: 'Default EN',
+        locale: 'en',
+        is_default: true,
+        content_scope: 'grades_only',
+      },
     ]);
 
     const result = await service.listContentScopes(TENANT_ID);

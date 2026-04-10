@@ -170,10 +170,15 @@ export function AnalyticsSnapshotPanel({
   analytics,
   loading,
   locale,
+  periodId,
 }: {
   analytics: AnalyticsSummary | null;
   loading: boolean;
   locale: string;
+  /** Current period scope — forwarded to the full analytics page as a query
+   *  param so the two surfaces stay in sync. Can be a UUID or `'full_year'`.
+   */
+  periodId: string | null;
 }) {
   const t = useTranslations('reportCards');
   const router = useRouter();
@@ -209,7 +214,10 @@ export function AnalyticsSnapshotPanel({
           variant="link"
           size="sm"
           className="h-auto p-0 text-xs"
-          onClick={() => router.push(`/${locale}/report-cards/analytics`)}
+          onClick={() => {
+            const qs = periodId ? `?academic_period_id=${periodId}` : '';
+            router.push(`/${locale}/report-cards/analytics${qs}`);
+          }}
         >
           {t('dashboard.analyticsSeeFull')}
           <ArrowRight className="ms-1 h-3.5 w-3.5" />

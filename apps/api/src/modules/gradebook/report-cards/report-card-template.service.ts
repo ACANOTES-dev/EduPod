@@ -75,6 +75,7 @@ const CONTENT_SCOPE_CATALOGUE: ContentScopeMeta[] = [
 
 export interface ContentScopeLocaleEntry {
   template_id: string;
+  template_name: string;
   locale: string;
   is_default: boolean;
 }
@@ -111,6 +112,7 @@ export class ReportCardTemplateService {
       where: { tenant_id: tenantId },
       select: {
         id: true,
+        name: true,
         locale: true,
         is_default: true,
         content_scope: true,
@@ -124,6 +126,7 @@ export class ReportCardTemplateService {
       const list = byScope.get(row.content_scope) ?? [];
       list.push({
         template_id: row.id,
+        template_name: row.name,
         locale: row.locale,
         is_default: row.is_default,
       });

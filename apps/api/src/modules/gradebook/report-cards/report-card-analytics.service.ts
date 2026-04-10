@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
 import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -37,9 +38,17 @@ export class ReportCardAnalyticsService {
   // ─── Dashboard ────────────────────────────────────────────────────────────
 
   async getDashboard(tenantId: string, periodId?: string): Promise<ReportCardDashboard> {
-    const where = {
+    // Phase 1b — Option B: `'full_year'` sentinel scopes to NULL-period rows
+    // (the full-year report cards aggregated across every period in the year).
+    const isFullYear = periodId === 'full_year';
+    const periodFilter: Prisma.ReportCardWhereInput = isFullYear
+      ? { academic_period_id: null }
+      : periodId
+        ? { academic_period_id: periodId }
+        : {};
+    const where: Prisma.ReportCardWhereInput = {
       tenant_id: tenantId,
-      ...(periodId ? { academic_period_id: periodId } : {}),
+      ...periodFilter,
     };
 
     const [total, published, draft, revised] = await Promise.all([
@@ -50,11 +59,16 @@ export class ReportCardAnalyticsService {
     ]);
 
     // Count report cards with pending approval steps
+    const approvalPeriodFilter: Prisma.ReportCardApprovalWhereInput = isFullYear
+      ? { report_card: { academic_period_id: null } }
+      : periodId
+        ? { report_card: { academic_period_id: periodId } }
+        : {};
     const pendingApproval = await this.prisma.reportCardApproval.count({
       where: {
         tenant_id: tenantId,
         status: 'pending',
-        ...(periodId ? { report_card: { academic_period_id: periodId } } : {}),
+        ...approvalPeriodFilter,
       },
     });
 
@@ -93,11 +107,18 @@ export class ReportCardAnalyticsService {
   // ─── Class Comparison ─────────────────────────────────────────────────────
 
   async getClassComparison(tenantId: string, periodId: string): Promise<ClassComparisonEntry[]> {
+    // Phase 1b — Option B: the `'full_year'` sentinel matches report cards
+    // that scope across a whole academic year (academic_period_id IS NULL).
+    // An empty string means "no period selected" — return an empty array
+    // rather than hitting Prisma with an invalid UUID cast.
+    if (!periodId) return [];
+    const periodFilter: Prisma.ReportCardWhereInput =
+      periodId === 'full_year' ? { academic_period_id: null } : { academic_period_id: periodId };
     // Get all classes that have report cards for this period
     const reportCards = await this.prisma.reportCard.findMany({
       where: {
         tenant_id: tenantId,
-        academic_period_id: periodId,
+        ...periodFilter,
       },
       select: {
         id: true,

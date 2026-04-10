@@ -80,6 +80,12 @@ interface GroupedCards {
 const ACTIVE_RUN_STATUSES: ReadonlyArray<GenerationRunRow['status']> = ['queued', 'processing'];
 const POLL_INTERVAL_MS = 5000;
 
+// Sentinel period id that represents "Full Year" report cards — the
+// generation wizard, library, and analytics endpoints all accept this
+// literal to scope to rows where `academic_period_id IS NULL` (Phase 1b —
+// Option B). Kept at the module level so the state type stays `string`.
+const FULL_YEAR_PERIOD_ID = 'full_year';
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ReportCardsDashboardPage() {
@@ -262,8 +268,9 @@ export default function ReportCardsDashboardPage() {
   // ─── Render helpers ────────────────────────────────────────────────────────
   const selectedPeriodName = React.useMemo(() => {
     if (!selectedPeriodId) return null;
+    if (selectedPeriodId === FULL_YEAR_PERIOD_ID) return t('dashboard.fullYearLabel');
     return periods.find((p) => p.id === selectedPeriodId)?.name ?? null;
-  }, [periods, selectedPeriodId]);
+  }, [periods, selectedPeriodId, t]);
 
   return (
     <div className="flex min-w-0 flex-col gap-8 pb-10">
@@ -282,6 +289,9 @@ export default function ReportCardsDashboardPage() {
                   <SelectValue placeholder={t('dashboard.selectPeriod')} />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={FULL_YEAR_PERIOD_ID}>
+                    {t('dashboard.fullYearLabel')}
+                  </SelectItem>
                   {periods.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name}
@@ -357,7 +367,12 @@ export default function ReportCardsDashboardPage() {
       {/* ─── Live run status + Analytics snapshot ───────────────────────── */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <LiveRunStatusPanel run={activeRun} locale={locale} />
-        <AnalyticsSnapshotPanel analytics={analytics} loading={analyticsLoading} locale={locale} />
+        <AnalyticsSnapshotPanel
+          analytics={analytics}
+          loading={analyticsLoading}
+          locale={locale}
+          periodId={selectedPeriodId}
+        />
       </section>
 
       {/* ─── Classes by year group ───────────────────────────────────────── */}

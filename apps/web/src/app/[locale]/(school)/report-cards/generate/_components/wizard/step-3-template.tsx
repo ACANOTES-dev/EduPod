@@ -11,7 +11,12 @@ import type { WizardAction, WizardState } from './types';
 interface ContentScopeSummary {
   content_scope: string;
   name: string;
-  locales: Array<{ template_id: string; locale: string; is_default: boolean }>;
+  locales: Array<{
+    template_id: string;
+    template_name: string;
+    locale: string;
+    is_default: boolean;
+  }>;
   is_default: boolean;
   is_available: boolean;
 }
@@ -109,8 +114,13 @@ export function Step3Template({ state, dispatch }: Step3Props) {
                   ) : null}
                 </div>
                 {scope.locales.length > 0 ? (
-                  <div className="mt-1 text-xs text-text-tertiary">
-                    {t('templateLocales', { locales: localesLabel })}
+                  <div className="mt-1 space-y-0.5 text-xs text-text-tertiary">
+                    <div>{t('templateLocales', { locales: localesLabel })}</div>
+                    <div className="truncate font-mono text-[11px] text-text-secondary">
+                      {scope.locales
+                        .map((l) => `${l.locale.toUpperCase()}: ${l.template_name}`)
+                        .join(' · ')}
+                    </div>
                   </div>
                 ) : null}
               </div>

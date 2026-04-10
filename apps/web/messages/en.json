@@ -5130,6 +5130,7 @@
     "backToReportCards": "Back to Report Cards",
     "dashboard": {
       "selectPeriod": "Select period",
+      "fullYearLabel": "Full Year",
       "settingsAria": "Report card settings",
       "quickActionsAria": "Quick actions",
       "tileGenerateTitle": "Generate report cards",

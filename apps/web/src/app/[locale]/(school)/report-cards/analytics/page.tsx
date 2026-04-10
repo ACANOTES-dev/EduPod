@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowLeft } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 import {
@@ -70,14 +70,26 @@ interface ListResponse<T> {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+// Sentinel value used in the period selector to mean "no period filter".
+// The dashboard hands us UUIDs or the `'full_year'` literal via the
+// `academic_period_id` query param; we keep the literal so the user lands
+// on the exact same scope they had on the dashboard snapshot.
+const ALL_PERIODS = 'all';
+const FULL_YEAR_PERIOD_ID = 'full_year';
+
 export default function ReportCardAnalyticsPage() {
   const t = useTranslations('reportCards');
   const tc = useTranslations('common');
   const router = useRouter();
+  const searchParams = useSearchParams();
   const locale = useLocale();
 
+  // Initial period comes from the URL so navigating in from the dashboard
+  // keeps the exact scope the user was looking at. Accepts a UUID or the
+  // `'full_year'` literal; anything else falls back to "all periods".
+  const initialPeriod = searchParams?.get('academic_period_id') ?? ALL_PERIODS;
   const [periods, setPeriods] = React.useState<AcademicPeriod[]>([]);
-  const [selectedPeriod, setSelectedPeriod] = React.useState('all');
+  const [selectedPeriod, setSelectedPeriod] = React.useState(initialPeriod);
   const [analytics, setAnalytics] = React.useState<AnalyticsCombined | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
@@ -102,7 +114,7 @@ export default function ReportCardAnalyticsPage() {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
-      if (periodId !== 'all') params.set('academic_period_id', periodId);
+      if (periodId !== ALL_PERIODS) params.set('academic_period_id', periodId);
       const qs = params.toString();
       const qsSuffix = qs.length > 0 ? `?${qs}` : '';
 
@@ -110,7 +122,7 @@ export default function ReportCardAnalyticsPage() {
         `/api/v1/report-cards/analytics/dashboard${qsSuffix}`,
       );
       const comparisonPromise =
-        periodId !== 'all'
+        periodId !== ALL_PERIODS
           ? apiClient<{ data: ClassComparisonItem[] }>(
               `/api/v1/report-cards/analytics/class-comparison${qsSuffix}`,
             )
@@ -173,7 +185,8 @@ export default function ReportCardAnalyticsPage() {
             <SelectValue placeholder={t('selectPeriod')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">{t('allPeriods')}</SelectItem>
+            <SelectItem value={ALL_PERIODS}>{t('allPeriods')}</SelectItem>
+            <SelectItem value={FULL_YEAR_PERIOD_ID}>{t('dashboard.fullYearLabel')}</SelectItem>
             {periods.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.name}

@@ -5121,6 +5121,7 @@
     "backToReportCards": "العودة إلى بطاقات التقارير",
     "dashboard": {
       "selectPeriod": "اختر الفترة",
+      "fullYearLabel": "العام الكامل",
       "settingsAria": "إعدادات بطاقات التقارير",
       "quickActionsAria": "إجراءات سريعة",
       "tileGenerateTitle": "إصدار بطاقات التقارير",
