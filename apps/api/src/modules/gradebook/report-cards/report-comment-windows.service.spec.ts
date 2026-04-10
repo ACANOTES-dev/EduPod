@@ -8,7 +8,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
 import { AcademicReadFacade } from '../../academics/academic-read.facade';
+import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../../staff-profiles/staff-profile-read.facade';
 
 import { ReportCommentWindowsService } from './report-comment-windows.service';
 
@@ -23,6 +25,9 @@ const mockRlsTx = {
   reportCommentWindow: {
     create: jest.fn(),
     update: jest.fn(),
+  },
+  reportCommentWindowHomeroom: {
+    createMany: jest.fn(),
   },
 };
 
@@ -43,11 +48,28 @@ function buildMockPrisma() {
       findMany: jest.fn(),
       count: jest.fn(),
     },
+    reportCommentWindowHomeroom: {
+      findFirst: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
   };
 }
 
 const mockAcademicReadFacade = {
   findPeriodById: jest.fn(),
+};
+
+const mockClassesReadFacade = {
+  findClassIdsByStaff: jest.fn().mockResolvedValue([]),
+  // Round-2 QA: open() validates classes via this generic helper. Default to
+  // an empty array; tests that pass homeroom_assignments override per case.
+  findClassesGeneric: jest.fn().mockResolvedValue([]),
+};
+
+const mockStaffProfileReadFacade = {
+  resolveProfileId: jest.fn().mockResolvedValue('staff-uuid'),
+  // Round-2 QA: open() validates staff via this generic helper. Same default.
+  findManyGeneric: jest.fn().mockResolvedValue([]),
 };
 
 const baseWindow = {
@@ -75,13 +97,20 @@ describe('ReportCommentWindowsService', () => {
     mockPrisma = buildMockPrisma();
     mockRlsTx.reportCommentWindow.create.mockReset();
     mockRlsTx.reportCommentWindow.update.mockReset();
+    mockRlsTx.reportCommentWindowHomeroom.createMany.mockReset().mockResolvedValue({ count: 0 });
     mockAcademicReadFacade.findPeriodById.mockReset();
+    mockClassesReadFacade.findClassIdsByStaff.mockReset().mockResolvedValue([]);
+    mockClassesReadFacade.findClassesGeneric.mockReset().mockResolvedValue([]);
+    mockStaffProfileReadFacade.resolveProfileId.mockReset().mockResolvedValue('staff-uuid');
+    mockStaffProfileReadFacade.findManyGeneric.mockReset().mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReportCommentWindowsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AcademicReadFacade, useValue: mockAcademicReadFacade },
+        { provide: ClassesReadFacade, useValue: mockClassesReadFacade },
+        { provide: StaffProfileReadFacade, useValue: mockStaffProfileReadFacade },
       ],
     }).compile();
 
@@ -216,6 +245,238 @@ describe('ReportCommentWindowsService', () => {
       });
       mockRlsTx.reportCommentWindow.create.mockRejectedValue(p2002);
       await expect(service.open(TENANT_ID, USER_ID, dto)).rejects.toThrow(ConflictException);
+    });
+
+    // ─── homeroom assignments (round-2 QA) ────────────────────────────────
+
+    const CLASS_A = 'aaaaaaa1-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    const CLASS_B = 'aaaaaaa2-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    const STAFF_A = 'bbbbbbb1-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    const STAFF_B = 'bbbbbbb2-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    const ACADEMIC_YEAR_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+
+    it('should insert homeroom assignment rows alongside the window', async () => {
+      mockPrisma.reportCommentWindow.findFirst.mockResolvedValue(null);
+      mockAcademicReadFacade.findPeriodById.mockResolvedValue({
+        id: PERIOD_ID,
+        academic_year_id: ACADEMIC_YEAR_ID,
+      });
+      mockClassesReadFacade.findClassesGeneric.mockResolvedValue([
+        { id: CLASS_A, academic_year_id: ACADEMIC_YEAR_ID },
+        { id: CLASS_B, academic_year_id: ACADEMIC_YEAR_ID },
+      ]);
+      mockStaffProfileReadFacade.findManyGeneric.mockResolvedValue([
+        { id: STAFF_A },
+        { id: STAFF_B },
+      ]);
+      mockRlsTx.reportCommentWindow.create.mockResolvedValue({ ...baseWindow, status: 'open' });
+
+      await service.open(TENANT_ID, USER_ID, {
+        ...dto,
+        opens_at: new Date('2020-01-01T08:00:00Z').toISOString(),
+        homeroom_assignments: [
+          { class_id: CLASS_A, homeroom_teacher_staff_id: STAFF_A },
+          { class_id: CLASS_B, homeroom_teacher_staff_id: STAFF_B },
+        ],
+      });
+
+      expect(mockRlsTx.reportCommentWindowHomeroom.createMany).toHaveBeenCalledWith({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            comment_window_id: WINDOW_ID,
+            class_id: CLASS_A,
+            homeroom_teacher_staff_id: STAFF_A,
+          }),
+          expect.objectContaining({
+            comment_window_id: WINDOW_ID,
+            class_id: CLASS_B,
+            homeroom_teacher_staff_id: STAFF_B,
+          }),
+        ]),
+      });
+    });
+
+    it('should NOT call homeroom createMany when assignments are empty', async () => {
+      mockPrisma.reportCommentWindow.findFirst.mockResolvedValue(null);
+      mockAcademicReadFacade.findPeriodById.mockResolvedValue({
+        id: PERIOD_ID,
+        academic_year_id: ACADEMIC_YEAR_ID,
+      });
+      mockRlsTx.reportCommentWindow.create.mockResolvedValue(baseWindow);
+
+      await service.open(TENANT_ID, USER_ID, {
+        ...dto,
+        opens_at: new Date('2020-01-01T08:00:00Z').toISOString(),
+      });
+
+      expect(mockRlsTx.reportCommentWindowHomeroom.createMany).not.toHaveBeenCalled();
+    });
+
+    it('should reject homeroom_assignments referencing an unknown class', async () => {
+      mockPrisma.reportCommentWindow.findFirst.mockResolvedValue(null);
+      mockAcademicReadFacade.findPeriodById.mockResolvedValue({
+        id: PERIOD_ID,
+        academic_year_id: ACADEMIC_YEAR_ID,
+      });
+      // Asked for two classes, only one returned → mismatch.
+      mockClassesReadFacade.findClassesGeneric.mockResolvedValue([
+        { id: CLASS_A, academic_year_id: ACADEMIC_YEAR_ID },
+      ]);
+      mockStaffProfileReadFacade.findManyGeneric.mockResolvedValue([
+        { id: STAFF_A },
+        { id: STAFF_B },
+      ]);
+
+      await expect(
+        service.open(TENANT_ID, USER_ID, {
+          ...dto,
+          homeroom_assignments: [
+            { class_id: CLASS_A, homeroom_teacher_staff_id: STAFF_A },
+            { class_id: CLASS_B, homeroom_teacher_staff_id: STAFF_B },
+          ],
+        }),
+      ).rejects.toMatchObject({ response: { code: 'HOMEROOM_CLASS_NOT_FOUND' } });
+    });
+
+    it('should reject homeroom_assignments referencing an unknown staff member', async () => {
+      mockPrisma.reportCommentWindow.findFirst.mockResolvedValue(null);
+      mockAcademicReadFacade.findPeriodById.mockResolvedValue({
+        id: PERIOD_ID,
+        academic_year_id: ACADEMIC_YEAR_ID,
+      });
+      mockClassesReadFacade.findClassesGeneric.mockResolvedValue([
+        { id: CLASS_A, academic_year_id: ACADEMIC_YEAR_ID },
+      ]);
+      mockStaffProfileReadFacade.findManyGeneric.mockResolvedValue([]);
+
+      await expect(
+        service.open(TENANT_ID, USER_ID, {
+          ...dto,
+          homeroom_assignments: [{ class_id: CLASS_A, homeroom_teacher_staff_id: STAFF_A }],
+        }),
+      ).rejects.toMatchObject({ response: { code: 'HOMEROOM_STAFF_NOT_FOUND' } });
+    });
+
+    it('should reject homeroom_assignments for a class on a different academic year', async () => {
+      mockPrisma.reportCommentWindow.findFirst.mockResolvedValue(null);
+      mockAcademicReadFacade.findPeriodById.mockResolvedValue({
+        id: PERIOD_ID,
+        academic_year_id: ACADEMIC_YEAR_ID,
+      });
+      mockClassesReadFacade.findClassesGeneric.mockResolvedValue([
+        { id: CLASS_A, academic_year_id: 'a-different-year-uuid' },
+      ]);
+      mockStaffProfileReadFacade.findManyGeneric.mockResolvedValue([{ id: STAFF_A }]);
+
+      await expect(
+        service.open(TENANT_ID, USER_ID, {
+          ...dto,
+          homeroom_assignments: [{ class_id: CLASS_A, homeroom_teacher_staff_id: STAFF_A }],
+        }),
+      ).rejects.toMatchObject({ response: { code: 'HOMEROOM_CLASS_WRONG_YEAR' } });
+    });
+  });
+
+  // ─── getLandingScopeForActor ───────────────────────────────────────────────
+
+  describe('getLandingScopeForActor', () => {
+    it('should return empty arrays for an admin (no filter sentinel)', async () => {
+      mockPrisma.reportCommentWindow.findFirst.mockResolvedValueOnce(baseWindow);
+      const result = await service.getLandingScopeForActor(TENANT_ID, {
+        userId: 'admin-uuid',
+        isAdmin: true,
+      });
+      expect(result).toEqual({
+        is_admin: true,
+        overall_class_ids: [],
+        subject_class_ids: [],
+        active_window_id: WINDOW_ID,
+      });
+      // Admins should never trigger the staff_profile lookup.
+      expect(mockStaffProfileReadFacade.resolveProfileId).not.toHaveBeenCalled();
+    });
+
+    it('should return homeroom + subject class ids for a non-admin teacher', async () => {
+      mockPrisma.reportCommentWindow.findFirst.mockResolvedValueOnce(baseWindow);
+      mockStaffProfileReadFacade.resolveProfileId.mockResolvedValueOnce('staff-uuid');
+      mockPrisma.reportCommentWindowHomeroom.findMany.mockResolvedValueOnce([
+        { class_id: 'class-1' },
+      ]);
+      mockClassesReadFacade.findClassIdsByStaff.mockResolvedValueOnce(['class-1', 'class-2']);
+
+      const result = await service.getLandingScopeForActor(TENANT_ID, {
+        userId: 'teacher-uuid',
+        isAdmin: false,
+      });
+      expect(result).toEqual({
+        is_admin: false,
+        overall_class_ids: ['class-1'],
+        subject_class_ids: ['class-1', 'class-2'],
+        active_window_id: WINDOW_ID,
+      });
+    });
+
+    it('should return empty arrays when no window is open', async () => {
+      mockPrisma.reportCommentWindow.findFirst.mockResolvedValueOnce(null);
+      mockStaffProfileReadFacade.resolveProfileId.mockResolvedValueOnce('staff-uuid');
+      mockClassesReadFacade.findClassIdsByStaff.mockResolvedValueOnce(['class-1']);
+
+      const result = await service.getLandingScopeForActor(TENANT_ID, {
+        userId: 'teacher-uuid',
+        isAdmin: false,
+      });
+      // Subject classes still come back (teaching assignments are
+      // window-independent), but the overall list is empty since there's
+      // nothing for the teacher to write to.
+      expect(result.overall_class_ids).toEqual([]);
+      expect(result.subject_class_ids).toEqual(['class-1']);
+      expect(result.active_window_id).toBeNull();
+    });
+
+    it('should return empty arrays when the actor has no staff profile', async () => {
+      mockPrisma.reportCommentWindow.findFirst.mockResolvedValueOnce(baseWindow);
+      mockStaffProfileReadFacade.resolveProfileId.mockRejectedValueOnce(
+        new NotFoundException({ code: 'STAFF_PROFILE_NOT_FOUND', message: 'no profile' }),
+      );
+      const result = await service.getLandingScopeForActor(TENANT_ID, {
+        userId: 'rando-uuid',
+        isAdmin: false,
+      });
+      expect(result.overall_class_ids).toEqual([]);
+      expect(result.subject_class_ids).toEqual([]);
+    });
+  });
+
+  // ─── getHomeroomTeacherForClass ────────────────────────────────────────────
+
+  describe('getHomeroomTeacherForClass', () => {
+    const SCOPE = { periodId: PERIOD_ID, yearId: 'year-uuid' };
+
+    it('should return null when no window is open for the scope', async () => {
+      mockPrisma.reportCommentWindow.findFirst.mockResolvedValueOnce(null);
+      const result = await service.getHomeroomTeacherForClass(TENANT_ID, SCOPE, 'class-uuid');
+      expect(result).toBeNull();
+    });
+
+    it('should return null when no homeroom is assigned for this class', async () => {
+      mockPrisma.reportCommentWindow.findFirst.mockResolvedValueOnce(baseWindow);
+      mockPrisma.reportCommentWindowHomeroom.findFirst.mockResolvedValueOnce(null);
+      const result = await service.getHomeroomTeacherForClass(TENANT_ID, SCOPE, 'class-uuid');
+      expect(result).toBeNull();
+    });
+
+    it('should return the assigned teacher staff_profile_id and user_id', async () => {
+      mockPrisma.reportCommentWindow.findFirst.mockResolvedValueOnce(baseWindow);
+      mockPrisma.reportCommentWindowHomeroom.findFirst.mockResolvedValueOnce({
+        homeroom_teacher_staff_id: 'staff-uuid',
+        staff_profile: { user_id: 'user-uuid' },
+      });
+      const result = await service.getHomeroomTeacherForClass(TENANT_ID, SCOPE, 'class-uuid');
+      expect(result).toEqual({
+        staff_profile_id: 'staff-uuid',
+        user_id: 'user-uuid',
+        comment_window_id: WINDOW_ID,
+      });
     });
   });
 

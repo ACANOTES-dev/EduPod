@@ -7693,6 +7693,13 @@
     "permission": "gradebook.manage"
   },
   {
+    "method": "DELETE",
+    "path": "/v1/report-cards/:id",
+    "controller": "ReportCardsController",
+    "module": "gradebook",
+    "permission": "report_cards.manage"
+  },
+  {
     "method": "GET",
     "path": "/v1/report-cards/:id",
     "controller": "ReportCardsController",
@@ -7753,7 +7760,7 @@
     "path": "/v1/report-cards/:id/pdf",
     "controller": "ReportCardsController",
     "module": "gradebook",
-    "permission": "gradebook.manage"
+    "permission": "report_cards.manage"
   },
   {
     "method": "POST",
@@ -7869,6 +7876,13 @@
   },
   {
     "method": "POST",
+    "path": "/v1/report-cards/bulk-delete",
+    "controller": "ReportCardsController",
+    "module": "gradebook",
+    "permission": "gradebook.manage"
+  },
+  {
+    "method": "POST",
     "path": "/v1/report-cards/bulk/deliver",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
@@ -7893,7 +7907,7 @@
     "path": "/v1/report-cards/classes/:classId/matrix",
     "controller": "ReportCardsController",
     "module": "gradebook",
-    "permission": "report_cards.view"
+    "permission": "report_cards.manage"
   },
   {
     "method": "GET",
@@ -8009,6 +8023,20 @@
   },
   {
     "method": "GET",
+    "path": "/v1/report-cards/library/bundle-pdf",
+    "controller": "ReportCardsController",
+    "module": "gradebook",
+    "permission": "report_cards.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/report-cards/library/grouped",
+    "controller": "ReportCardsController",
+    "module": "gradebook",
+    "permission": "report_cards.view"
+  },
+  {
+    "method": "GET",
     "path": "/v1/report-cards/students/:studentId/transcript",
     "controller": "ReportCardsEnhancedController",
     "module": "gradebook",
@@ -8115,6 +8143,13 @@
   {
     "method": "GET",
     "path": "/v1/report-comment-windows/active",
+    "controller": "ReportCommentWindowsController",
+    "module": "gradebook",
+    "permission": "report_cards.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/report-comment-windows/landing",
     "controller": "ReportCommentWindowsController",
     "module": "gradebook",
     "permission": "report_cards.view"

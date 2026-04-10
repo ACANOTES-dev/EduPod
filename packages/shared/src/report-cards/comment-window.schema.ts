@@ -13,6 +13,19 @@ export type CommentWindowStatus = z.infer<typeof commentWindowStatusSchema>;
 // one of `academic_period_id` or `academic_year_id` must be provided. When
 // full-year, teachers write brand-new comments during the window with
 // (student, year) + NULL period.
+//
+// Round-2 QA: an admin opening a window picks a homeroom teacher per class
+// at the same time. The list is optional — classes the admin doesn't
+// assign simply skip the overall-comment slot for this window. The same
+// staff_profile_id may appear on multiple class rows; each class_id may
+// appear at most once.
+
+export const homeroomAssignmentSchema = z.object({
+  class_id: z.string().uuid(),
+  homeroom_teacher_staff_id: z.string().uuid(),
+});
+
+export type HomeroomAssignmentDto = z.infer<typeof homeroomAssignmentSchema>;
 
 export const createCommentWindowSchema = z
   .object({
@@ -21,6 +34,7 @@ export const createCommentWindowSchema = z
     opens_at: z.string().datetime(),
     closes_at: z.string().datetime(),
     instructions: z.string().max(2000).nullable().optional(),
+    homeroom_assignments: z.array(homeroomAssignmentSchema).optional(),
   })
   .refine((data) => new Date(data.closes_at) > new Date(data.opens_at), {
     message: 'closes_at must be strictly after opens_at',
@@ -35,6 +49,16 @@ export const createCommentWindowSchema = z
     {
       message: 'Either academic_period_id or academic_year_id is required',
       path: ['academic_period_id'],
+    },
+  )
+  .refine(
+    (data) => {
+      const ids = (data.homeroom_assignments ?? []).map((a) => a.class_id);
+      return new Set(ids).size === ids.length;
+    },
+    {
+      message: 'homeroom_assignments must have at most one entry per class_id',
+      path: ['homeroom_assignments'],
     },
   );
 

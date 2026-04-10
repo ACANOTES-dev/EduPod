@@ -10,7 +10,9 @@ import { CommentWindowStatus, Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { AcademicReadFacade } from '../../academics/academic-read.facade';
+import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StaffProfileReadFacade } from '../../staff-profiles/staff-profile-read.facade';
 
 import type { CreateCommentWindowDto, UpdateCommentWindowDto } from './dto/comment-window.dto';
 
@@ -61,6 +63,8 @@ export class ReportCommentWindowsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly academicReadFacade: AcademicReadFacade,
+    private readonly classesReadFacade: ClassesReadFacade,
+    private readonly staffProfileReadFacade: StaffProfileReadFacade,
   ) {}
 
   // ─── Read ─────────────────────────────────────────────────────────────────
@@ -168,12 +172,63 @@ export class ReportCommentWindowsService {
       });
     }
 
+    // Round-2 QA: validate the homeroom assignment list before opening the
+    // window. Every class_id and staff_profile_id must belong to this tenant
+    // (RLS will enforce that anyway, but a friendly 400 beats a transaction
+    // rollback) and the classes must be on the same academic year as the
+    // window. Empty list is fine — classes left unassigned simply skip the
+    // overall-comment slot for this window.
+    const homeroomAssignments = dto.homeroom_assignments ?? [];
+    if (homeroomAssignments.length > 0) {
+      const classIds = Array.from(new Set(homeroomAssignments.map((a) => a.class_id)));
+      const staffIds = Array.from(
+        new Set(homeroomAssignments.map((a) => a.homeroom_teacher_staff_id)),
+      );
+
+      // Cross-module read facades — direct prisma.class / prisma.staffProfile
+      // access from the gradebook module is blocked by the architecture lint
+      // rule, so we route through the canonical generic helpers instead.
+      const [foundClassesRaw, foundStaffRaw] = await Promise.all([
+        this.classesReadFacade.findClassesGeneric(
+          tenantId,
+          { id: { in: classIds } },
+          { id: true, academic_year_id: true },
+        ),
+        this.staffProfileReadFacade.findManyGeneric(tenantId, {
+          where: { id: { in: staffIds } },
+          select: { id: true },
+        }),
+      ]);
+      const foundClasses = foundClassesRaw as Array<{ id: string; academic_year_id: string }>;
+      const foundStaff = foundStaffRaw as Array<{ id: string }>;
+
+      if (foundClasses.length !== classIds.length) {
+        throw new BadRequestException({
+          code: 'HOMEROOM_CLASS_NOT_FOUND',
+          message: 'One or more classes in homeroom_assignments do not exist for this tenant',
+        });
+      }
+      if (foundStaff.length !== staffIds.length) {
+        throw new BadRequestException({
+          code: 'HOMEROOM_STAFF_NOT_FOUND',
+          message: 'One or more staff members in homeroom_assignments do not exist for this tenant',
+        });
+      }
+      const wrongYear = foundClasses.find((c) => c.academic_year_id !== academicYearId);
+      if (wrongYear) {
+        throw new BadRequestException({
+          code: 'HOMEROOM_CLASS_WRONG_YEAR',
+          message: `Class "${wrongYear.id}" is not on the same academic year as this comment window`,
+        });
+      }
+    }
+
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       try {
-        return await db.reportCommentWindow.create({
+        const created = await db.reportCommentWindow.create({
           data: {
             tenant_id: tenantId,
             academic_period_id: periodId,
@@ -185,6 +240,19 @@ export class ReportCommentWindowsService {
             opened_by_user_id: actorUserId,
           },
         });
+
+        if (homeroomAssignments.length > 0) {
+          await db.reportCommentWindowHomeroom.createMany({
+            data: homeroomAssignments.map((a) => ({
+              tenant_id: tenantId,
+              comment_window_id: created.id,
+              class_id: a.class_id,
+              homeroom_teacher_staff_id: a.homeroom_teacher_staff_id,
+            })),
+          });
+        }
+
+        return created;
       } catch (err) {
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
           throw new ConflictException({
@@ -195,6 +263,173 @@ export class ReportCommentWindowsService {
         throw err;
       }
     });
+  }
+
+  // ─── Homeroom assignment lookups ─────────────────────────────────────────
+  //
+  // The overall-comments authorisation path and the teacher landing endpoint
+  // both ask "for the active window matching scope X, who is the homeroom
+  // teacher of class C?" and "what classes is staff S the homeroom teacher
+  // of right now?". Both go through this service so the schema decisions
+  // stay encapsulated.
+
+  /** Find the open window matching the given scope. Null when none. */
+  async findOpenWindow(tenantId: string, scope: CommentWindowScope) {
+    const scopeWhere: Prisma.ReportCommentWindowWhereInput =
+      scope.periodId !== null
+        ? { academic_period_id: scope.periodId }
+        : { academic_period_id: null, academic_year_id: scope.yearId };
+
+    return this.prisma.reportCommentWindow.findFirst({
+      where: { tenant_id: tenantId, status: 'open', ...scopeWhere },
+    });
+  }
+
+  /**
+   * Resolve the homeroom teacher assignment for (scope, class). Returns null
+   * when no window is open OR no homeroom has been assigned for this class
+   * on the active window. The user_id is included so the caller can compare
+   * against `actor.userId` without a second staff_profile lookup.
+   */
+  async getHomeroomTeacherForClass(
+    tenantId: string,
+    scope: CommentWindowScope,
+    classId: string,
+  ): Promise<{ staff_profile_id: string; user_id: string; comment_window_id: string } | null> {
+    const window = await this.findOpenWindow(tenantId, scope);
+    if (!window) return null;
+
+    const assignment = await this.prisma.reportCommentWindowHomeroom.findFirst({
+      where: {
+        tenant_id: tenantId,
+        comment_window_id: window.id,
+        class_id: classId,
+      },
+      select: {
+        homeroom_teacher_staff_id: true,
+        staff_profile: { select: { user_id: true } },
+      },
+    });
+    if (!assignment) return null;
+
+    return {
+      staff_profile_id: assignment.homeroom_teacher_staff_id,
+      user_id: assignment.staff_profile.user_id,
+      comment_window_id: window.id,
+    };
+  }
+
+  /**
+   * Return the class IDs for which the given staff member is the homeroom
+   * teacher on the open window matching `scope`. Used by the teacher
+   * landing endpoint to render "your overall-comment classes" cards.
+   */
+  async listHomeroomClassesForStaff(
+    tenantId: string,
+    scope: CommentWindowScope,
+    staffProfileId: string,
+  ): Promise<string[]> {
+    const window = await this.findOpenWindow(tenantId, scope);
+    if (!window) return [];
+
+    const rows = await this.prisma.reportCommentWindowHomeroom.findMany({
+      where: {
+        tenant_id: tenantId,
+        comment_window_id: window.id,
+        homeroom_teacher_staff_id: staffProfileId,
+      },
+      select: { class_id: true },
+    });
+    return rows.map((r) => r.class_id);
+  }
+
+  /** All (class_id, staff_profile_id) pairs for a window. Admin views. */
+  async listHomeroomAssignmentsForWindow(
+    tenantId: string,
+    commentWindowId: string,
+  ): Promise<Array<{ class_id: string; homeroom_teacher_staff_id: string }>> {
+    return this.prisma.reportCommentWindowHomeroom.findMany({
+      where: { tenant_id: tenantId, comment_window_id: commentWindowId },
+      select: { class_id: true, homeroom_teacher_staff_id: true },
+    });
+  }
+
+  // ─── Landing endpoint scoping ────────────────────────────────────────────
+  //
+  // The /report-comments landing page asks the backend "what classes can I
+  // see?". For admins the answer is everything; for teachers it's:
+  //   - overall_class_ids: classes where they are the homeroom teacher on
+  //     the open comment window (so the overall-comment slot is unlocked)
+  //   - subject_class_ids: classes they teach via class_staff (so subject
+  //     comments are visible per (class, subject))
+  // Both lists are deduplicated. When no window is open the overall list
+  // is empty — there is nothing for the teacher to write to.
+
+  async getLandingScopeForActor(
+    tenantId: string,
+    actor: { userId: string; isAdmin: boolean },
+  ): Promise<{
+    is_admin: boolean;
+    overall_class_ids: string[];
+    subject_class_ids: string[];
+    active_window_id: string | null;
+  }> {
+    const activeWindow = await this.prisma.reportCommentWindow.findFirst({
+      where: { tenant_id: tenantId, status: 'open' },
+      orderBy: { opens_at: 'desc' },
+      select: { id: true },
+    });
+
+    if (actor.isAdmin) {
+      // Admins see everything — empty arrays signal "no filter" so the
+      // frontend can render its existing class-list view as-is.
+      return {
+        is_admin: true,
+        overall_class_ids: [],
+        subject_class_ids: [],
+        active_window_id: activeWindow?.id ?? null,
+      };
+    }
+
+    // Teachers — resolve their staff_profile_id once and use it for both
+    // homeroom and class_staff lookups. If they have no profile, they
+    // simply see nothing on the landing page (no error).
+    let staffProfileId: string;
+    try {
+      staffProfileId = await this.staffProfileReadFacade.resolveProfileId(tenantId, actor.userId);
+    } catch {
+      return {
+        is_admin: false,
+        overall_class_ids: [],
+        subject_class_ids: [],
+        active_window_id: activeWindow?.id ?? null,
+      };
+    }
+
+    const overallClassIds = activeWindow
+      ? (
+          await this.prisma.reportCommentWindowHomeroom.findMany({
+            where: {
+              tenant_id: tenantId,
+              comment_window_id: activeWindow.id,
+              homeroom_teacher_staff_id: staffProfileId,
+            },
+            select: { class_id: true },
+          })
+        ).map((r) => r.class_id)
+      : [];
+
+    const subjectClassIds = await this.classesReadFacade.findClassIdsByStaff(
+      tenantId,
+      staffProfileId,
+    );
+
+    return {
+      is_admin: false,
+      overall_class_ids: overallClassIds,
+      subject_class_ids: subjectClassIds,
+      active_window_id: activeWindow?.id ?? null,
+    };
   }
 
   async closeNow(tenantId: string, actorUserId: string, id: string) {

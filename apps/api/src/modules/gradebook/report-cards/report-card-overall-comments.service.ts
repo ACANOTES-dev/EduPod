@@ -2,12 +2,14 @@ import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nest
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
-import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import type { CreateOverallCommentDto, UpdateOverallCommentDto } from './dto/overall-comment.dto';
 import type { CommentActor } from './report-card-subject-comments.service';
-import { ReportCommentWindowsService } from './report-comment-windows.service';
+import {
+  type CommentWindowScope,
+  ReportCommentWindowsService,
+} from './report-comment-windows.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,7 +34,6 @@ export class ReportCardOverallCommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly windowsService: ReportCommentWindowsService,
-    private readonly classesReadFacade: ClassesReadFacade,
   ) {}
 
   // ─── Read ─────────────────────────────────────────────────────────────────
@@ -109,32 +110,33 @@ export class ReportCardOverallCommentsService {
   // ─── Authorship check ────────────────────────────────────────────────────
 
   /**
-   * Verify the actor is the homeroom teacher for the class. Admins bypass.
+   * Verify the actor is the homeroom teacher for the class **on the open
+   * comment window matching `scope`**. Round-2 QA design: homeroom teachers
+   * are picked per-window when an admin opens a window, not pre-assigned on
+   * the class row, so this check looks them up via
+   * report_comment_window_homerooms instead of classes.homeroom_teacher.
+   *
+   * Admins bypass entirely. Non-admins are rejected with INVALID_AUTHOR
+   * when no homeroom has been assigned for this class on the open window
+   * (the admin should have picked one when opening it) or when the assigned
+   * teacher is somebody else.
    */
   private async assertHomeroomTeacher(
     tenantId: string,
     actor: CommentActor,
     classId: string,
+    scope: CommentWindowScope,
   ): Promise<void> {
     if (actor.isAdmin) return;
 
-    const classes = (await this.classesReadFacade.findClassesGeneric(
-      tenantId,
-      { id: classId },
-      {
-        id: true,
-        homeroom_teacher: { select: { user_id: true } },
-      },
-    )) as Array<{ id: string; homeroom_teacher: { user_id: string } | null }>;
-
-    const cls = classes[0];
-    if (!cls) {
-      throw new NotFoundException({
-        code: 'CLASS_NOT_FOUND',
-        message: `Class "${classId}" not found`,
+    const homeroom = await this.windowsService.getHomeroomTeacherForClass(tenantId, scope, classId);
+    if (!homeroom) {
+      throw new ForbiddenException({
+        code: 'INVALID_AUTHOR',
+        message: 'No homeroom teacher is assigned for this class on the current comment window',
       });
     }
-    if (!cls.homeroom_teacher || cls.homeroom_teacher.user_id !== actor.userId) {
+    if (homeroom.user_id !== actor.userId) {
       throw new ForbiddenException({
         code: 'INVALID_AUTHOR',
         message: 'Only the homeroom teacher can author the overall comment for this class',
@@ -145,16 +147,17 @@ export class ReportCardOverallCommentsService {
   // ─── Write ────────────────────────────────────────────────────────────────
 
   async upsert(tenantId: string, actor: CommentActor, dto: CreateOverallCommentDto) {
-    // Authorship BEFORE window check
-    await this.assertHomeroomTeacher(tenantId, actor, dto.class_id);
-
     // Phase 1b — Option B: resolve period/year combination. The scope-aware
     // helper validates exactly one is provided and returns both IDs.
+    // Resolve the scope first because the homeroom assignment is now per
+    // (window, class), so we need the scope to find the right window before
+    // we can authorise the actor.
     const scope = await this.windowsService.resolveCommentScope(tenantId, {
       academic_period_id: dto.academic_period_id,
       academic_year_id: dto.academic_year_id,
     });
     await this.windowsService.assertWindowOpen(tenantId, scope);
+    await this.assertHomeroomTeacher(tenantId, actor, dto.class_id, scope);
 
     const prismaWithRls = createRlsClient(this.prisma, {
       tenant_id: tenantId,
@@ -209,11 +212,12 @@ export class ReportCardOverallCommentsService {
     dto: UpdateOverallCommentDto,
   ) {
     const existing = await this.findById(tenantId, id);
-    await this.assertHomeroomTeacher(tenantId, actor, existing.class_id);
-    await this.windowsService.assertWindowOpen(tenantId, {
+    const scope: CommentWindowScope = {
       periodId: existing.academic_period_id,
       yearId: existing.academic_year_id,
-    });
+    };
+    await this.windowsService.assertWindowOpen(tenantId, scope);
+    await this.assertHomeroomTeacher(tenantId, actor, existing.class_id, scope);
 
     const prismaWithRls = createRlsClient(this.prisma, {
       tenant_id: tenantId,
@@ -235,11 +239,12 @@ export class ReportCardOverallCommentsService {
 
   async finalise(tenantId: string, actor: CommentActor, id: string) {
     const existing = await this.findById(tenantId, id);
-    await this.assertHomeroomTeacher(tenantId, actor, existing.class_id);
-    await this.windowsService.assertWindowOpen(tenantId, {
+    const scope: CommentWindowScope = {
       periodId: existing.academic_period_id,
       yearId: existing.academic_year_id,
-    });
+    };
+    await this.windowsService.assertWindowOpen(tenantId, scope);
+    await this.assertHomeroomTeacher(tenantId, actor, existing.class_id, scope);
 
     if (!existing.comment_text || existing.comment_text.trim().length === 0) {
       throw new ForbiddenException({
@@ -266,11 +271,12 @@ export class ReportCardOverallCommentsService {
 
   async unfinalise(tenantId: string, actor: CommentActor, id: string) {
     const existing = await this.findById(tenantId, id);
-    await this.assertHomeroomTeacher(tenantId, actor, existing.class_id);
-    await this.windowsService.assertWindowOpen(tenantId, {
+    const scope: CommentWindowScope = {
       periodId: existing.academic_period_id,
       yearId: existing.academic_year_id,
-    });
+    };
+    await this.windowsService.assertWindowOpen(tenantId, scope);
+    await this.assertHomeroomTeacher(tenantId, actor, existing.class_id, scope);
 
     if (!actor.isAdmin && existing.finalised_by_user_id !== actor.userId) {
       throw new ForbiddenException({

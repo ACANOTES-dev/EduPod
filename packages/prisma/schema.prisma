@@ -552,11 +552,12 @@ model Tenant {
   report_card_verification_tokens ReportCardVerificationToken[]
 
   // Report Cards Redesign Relations
-  report_comment_windows       ReportCommentWindow[]
-  report_card_subject_comments ReportCardSubjectComment[]
-  report_card_overall_comments ReportCardOverallComment[]
-  report_card_teacher_requests ReportCardTeacherRequest[]
-  report_card_tenant_settings  ReportCardTenantSettings?
+  report_comment_windows          ReportCommentWindow[]
+  report_card_subject_comments    ReportCardSubjectComment[]
+  report_card_overall_comments    ReportCardOverallComment[]
+  report_card_teacher_requests    ReportCardTeacherRequest[]
+  report_card_tenant_settings     ReportCardTenantSettings?
+  report_comment_window_homerooms ReportCommentWindowHomeroom[]
 
   // P6 Relations
   fee_structures            FeeStructure[]
@@ -1765,11 +1766,12 @@ model StaffProfile {
   updated_at                    DateTime         @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant           Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  user             User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  class_staff      ClassStaff[]
-  homeroom_classes Class[]      @relation("homeroom_teacher")
-  schedules        Schedule[]   @relation("schedule_teacher")
+  tenant                   Tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user                     User                          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  class_staff              ClassStaff[]
+  homeroom_classes         Class[]                       @relation("homeroom_teacher")
+  schedules                Schedule[]                    @relation("schedule_teacher")
+  comment_window_homerooms ReportCommentWindowHomeroom[] @relation("comment_window_homeroom_staff")
 
   // P4B Relations
   staff_availability           StaffAvailability[]
@@ -2365,8 +2367,9 @@ model Class {
   report_card_batch_jobs ReportCardBatchJob[]
 
   // Report Cards Redesign Relations
-  report_card_subject_comments ReportCardSubjectComment[]
-  report_card_overall_comments ReportCardOverallComment[]
+  report_card_subject_comments    ReportCardSubjectComment[]
+  report_card_overall_comments    ReportCardOverallComment[]
+  report_comment_window_homerooms ReportCommentWindowHomeroom[]
 
   // Homework Relations
   homework_assignments   HomeworkAssignment[]
@@ -4030,16 +4033,43 @@ model ReportCommentWindow {
   updated_at         DateTime            @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant           Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  academic_period  AcademicPeriod?            @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
-  opened_by        User                       @relation("comment_window_opener", fields: [opened_by_user_id], references: [id], onDelete: Restrict)
-  closed_by        User?                      @relation("comment_window_closer", fields: [closed_by_user_id], references: [id], onDelete: SetNull)
-  teacher_requests ReportCardTeacherRequest[] @relation("teacher_request_resulting_window")
+  tenant               Tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_period      AcademicPeriod?               @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  opened_by            User                          @relation("comment_window_opener", fields: [opened_by_user_id], references: [id], onDelete: Restrict)
+  closed_by            User?                         @relation("comment_window_closer", fields: [closed_by_user_id], references: [id], onDelete: SetNull)
+  teacher_requests     ReportCardTeacherRequest[]    @relation("teacher_request_resulting_window")
+  homeroom_assignments ReportCommentWindowHomeroom[]
 
   @@index([tenant_id, status], name: "idx_report_comment_windows_tenant_status")
   @@index([tenant_id, academic_period_id], name: "idx_report_comment_windows_period")
   @@index([tenant_id, academic_year_id], name: "idx_report_comment_windows_year")
   @@map("report_comment_windows")
+}
+
+/// Per-window, per-class homeroom teacher assignment.
+///
+/// Replaces the old "homeroom = classes.homeroom_teacher_staff_id" model
+/// for the report-cards code path. When an admin opens a comment window
+/// they pick which teacher writes overall comments for each class. The
+/// `classes.homeroom_teacher_staff_id` column is left intact for any
+/// non-report-card consumer that still needs a default homeroom.
+model ReportCommentWindowHomeroom {
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                 String   @db.Uuid
+  comment_window_id         String   @db.Uuid
+  class_id                  String   @db.Uuid
+  homeroom_teacher_staff_id String   @db.Uuid
+  created_at                DateTime @default(now()) @db.Timestamptz()
+  updated_at                DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  tenant         Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  comment_window ReportCommentWindow @relation(fields: [comment_window_id], references: [id], onDelete: Cascade)
+  class          Class               @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  staff_profile  StaffProfile        @relation("comment_window_homeroom_staff", fields: [homeroom_teacher_staff_id], references: [id], onDelete: Restrict)
+
+  @@unique([comment_window_id, class_id], name: "idx_report_comment_window_homerooms_window_class")
+  @@index([tenant_id, homeroom_teacher_staff_id], name: "idx_report_comment_window_homerooms_tenant_staff")
+  @@map("report_comment_window_homerooms")
 }
 
 model ReportCardSubjectComment {

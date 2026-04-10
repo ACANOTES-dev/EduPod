@@ -64,6 +64,13 @@ interface HomeroomCard {
   total_count: number;
 }
 
+interface LandingScope {
+  is_admin: boolean;
+  overall_class_ids: string[];
+  subject_class_ids: string[];
+  active_window_id: string | null;
+}
+
 interface GroupedCards {
   year_group_id: string | null;
   year_group_name: string;
@@ -147,7 +154,32 @@ export default function ReportCommentsLandingPage() {
         if (cancelled) return;
         setActiveWindow(currentWindow);
 
-        // 2. Fetch period info, year groups, subject classes, homeroom classes in parallel
+        // 2. Fetch landing scope (B6): tells us which classes the actor is
+        // allowed to see. Admins get empty arrays as a "no filter" sentinel;
+        // teachers get only their homeroom + class_staff assignments.
+        let scope: LandingScope = {
+          is_admin: true,
+          overall_class_ids: [],
+          subject_class_ids: [],
+          active_window_id: currentWindow?.id ?? null,
+        };
+        try {
+          const scopeRes = await apiClient<LandingScope | { data: LandingScope }>(
+            '/api/v1/report-comment-windows/landing',
+            { silent: true },
+          );
+          // Backend wraps single-object responses in { data: ... }; tolerate
+          // either shape so we don't crash if the envelope changes.
+          scope = 'data' in scopeRes ? scopeRes.data : scopeRes;
+        } catch (err) {
+          console.error('[ReportCommentsLanding] landing scope', err);
+        }
+        if (cancelled) return;
+
+        const overallAllowed = !scope.is_admin ? new Set(scope.overall_class_ids) : null;
+        const subjectAllowed = !scope.is_admin ? new Set(scope.subject_class_ids) : null;
+
+        // 3. Fetch period info, year groups, subject classes, homeroom classes in parallel
         const [yearGroupsRes, subjectClassesRes, homeroomClassesRes, periodsRes] =
           await Promise.all([
             apiClient<ListResponse<YearGroup>>('/api/v1/year-groups?pageSize=100'),
@@ -173,11 +205,17 @@ export default function ReportCommentsLandingPage() {
           yearGroupInfo.set(yg.id, { name: yg.name, order: yg.display_order ?? 0 });
         }
 
-        // 3. If a window is open, fetch per-assignment comment counts in parallel.
+        // 4. If a window is open, fetch per-assignment comment counts in parallel.
         // Only subject-bearing classes with at least one student are considered.
+        // Non-admins are scoped to their class_staff assignments via the
+        // landing scope endpoint.
         const subjectClasses = (subjectClassesRes.data ?? []).filter(
           (c) =>
-            (c._count?.class_enrolments ?? 0) > 0 && c.subject && c.subject.id && c.subject.name,
+            (c._count?.class_enrolments ?? 0) > 0 &&
+            c.subject &&
+            c.subject.id &&
+            c.subject.name &&
+            (subjectAllowed === null || subjectAllowed.has(c.id)),
         );
 
         const academicPeriodId = currentWindow?.academic_period_id ?? null;
@@ -257,9 +295,13 @@ export default function ReportCommentsLandingPage() {
           }));
         setGrouped(sortedGroups);
 
-        // 4. Homeroom classes — only when window is open, count overall comments
+        // 5. Homeroom classes — only when window is open, count overall
+        // comments. Non-admins are scoped to the classes they were picked
+        // for as homeroom teacher on the open window.
         const homeroomClasses = (homeroomClassesRes.data ?? []).filter(
-          (c) => (c._count?.class_enrolments ?? 0) > 0,
+          (c) =>
+            (c._count?.class_enrolments ?? 0) > 0 &&
+            (overallAllowed === null || overallAllowed.has(c.id)),
         );
 
         const homeroomPromises = homeroomClasses.map(async (cls) => {

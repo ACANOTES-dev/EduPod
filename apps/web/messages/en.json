@@ -5572,7 +5572,13 @@
       "failure": "Failed to open window.",
       "validationClosesAfterOpens": "Closes at must be after opens at.",
       "periodRequired": "Please select a period.",
-      "closesAtRequired": "Please provide a close date."
+      "closesAtRequired": "Please provide a close date.",
+      "homeroomTitle": "Homeroom teacher per class",
+      "homeroomDescription": "Pick the teacher who will write overall comments for each class. Different classes can have different teachers; the same teacher can cover multiple classes. Classes left unassigned simply skip the overall comment slot for this window.",
+      "homeroomPlaceholder": "No homeroom teacher",
+      "homeroomNone": "— No homeroom teacher —",
+      "homeroomAssignedCount": "{done} of {total} assigned",
+      "homeroomNoClasses": "No active classes found for this tenant."
     },
     "extendModal": {
       "title": "Extend comment window",

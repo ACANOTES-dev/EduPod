@@ -21,10 +21,13 @@ import { RequiresPermission } from '../../../common/decorators/requires-permissi
 import { AuthGuard } from '../../../common/guards/auth.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
+import { PermissionCacheService } from '../../../common/services/permission-cache.service';
 
 import { createCommentWindowSchema, updateCommentWindowSchema } from './dto/comment-window.dto';
 import type { CreateCommentWindowDto, UpdateCommentWindowDto } from './dto/comment-window.dto';
 import { ReportCommentWindowsService } from './report-comment-windows.service';
+
+const ADMIN_PERMISSION = 'report_cards.manage';
 
 // ─── Query Schemas ───────────────────────────────────────────────────────────
 
@@ -44,7 +47,16 @@ const extendCommentWindowSchema = z.object({
 @Controller('v1/report-comment-windows')
 @UseGuards(AuthGuard, PermissionGuard)
 export class ReportCommentWindowsController {
-  constructor(private readonly windowsService: ReportCommentWindowsService) {}
+  constructor(
+    private readonly windowsService: ReportCommentWindowsService,
+    private readonly permissionCacheService: PermissionCacheService,
+  ) {}
+
+  private async isAdmin(user: JwtPayload): Promise<boolean> {
+    if (!user.membership_id) return false;
+    const perms = await this.permissionCacheService.getPermissions(user.membership_id);
+    return perms.includes(ADMIN_PERMISSION);
+  }
 
   // GET /v1/report-comment-windows
   @Get()
@@ -58,10 +70,27 @@ export class ReportCommentWindowsController {
   }
 
   // GET /v1/report-comment-windows/active
+  // Static path before the dynamic :id route so Nest matches it first.
   @Get('active')
   @RequiresPermission('report_cards.view')
   async active(@CurrentTenant() tenant: { tenant_id: string }) {
     return this.windowsService.findActive(tenant.tenant_id);
+  }
+
+  // GET /v1/report-comment-windows/landing
+  // Round-2 QA / B6: returns the class IDs the actor is allowed to see on
+  // the report-comments landing page, partitioned into "overall" (homeroom
+  // assignments on the open window) and "subject" (class_staff
+  // assignments). Admins get empty arrays as a sentinel for "no filter —
+  // show everything".
+  @Get('landing')
+  @RequiresPermission('report_cards.view')
+  async landing(@CurrentTenant() tenant: { tenant_id: string }, @CurrentUser() user: JwtPayload) {
+    const isAdmin = await this.isAdmin(user);
+    return this.windowsService.getLandingScopeForActor(tenant.tenant_id, {
+      userId: user.sub,
+      isAdmin,
+    });
   }
 
   // GET /v1/report-comment-windows/:id
