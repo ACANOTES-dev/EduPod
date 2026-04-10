@@ -99,23 +99,23 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                              | Wave | Depends on         | Status    | Completed at | Commit SHA |
-| --- | ---------------------------------- | ---- | ------------------ | --------- | ------------ | ---------- |
-| 01  | Schema foundation                  | 1    | —                  | `pending` | —            | —          |
-| 02  | Capacity service                   | 2    | 01                 | `pending` | —            | —          |
-| 03  | State machine rewrite              | 2    | 01                 | `pending` | —            | —          |
-| 04  | Form service simplification        | 2    | 01                 | `pending` | —            | —          |
-| 05  | Conversion-to-student service      | 2    | 01                 | `pending` | —            | —          |
-| 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `pending` | —            | —          |
-| 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `pending` | —            | —          |
-| 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending` | —            | —          |
-| 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `pending` | —            | —          |
-| 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `pending` | —            | —          |
-| 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `pending` | —            | —          |
-| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `pending` | —            | —          |
-| 13  | Form preview page                  | 4    | 01, 04             | `pending` | —            | —          |
-| 14  | Public form + QR code              | 4    | 01, 02, 03, 04     | `pending` | —            | —          |
-| 15  | Cleanup, translations, live counts | 5    | 10, 11, 12, 13, 14 | `pending` | —            | —          |
+| #   | Title                              | Wave | Depends on         | Status      | Completed at                   | Commit SHA                             |
+| --- | ---------------------------------- | ---- | ------------------ | ----------- | ------------------------------ | -------------------------------------- |
+| 01  | Schema foundation                  | 1    | —                  | `completed` | 2026-04-10 22:00 Europe/Dublin | `0b976d37` (local) / `55001a4e` (prod) |
+| 02  | Capacity service                   | 2    | 01                 | `pending`   | —                              | —                                      |
+| 03  | State machine rewrite              | 2    | 01                 | `pending`   | —                              | —                                      |
+| 04  | Form service simplification        | 2    | 01                 | `pending`   | —                              | —                                      |
+| 05  | Conversion-to-student service      | 2    | 01                 | `pending`   | —                              | —                                      |
+| 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `pending`   | —                              | —                                      |
+| 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `pending`   | —                              | —                                      |
+| 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`   | —                              | —                                      |
+| 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `pending`   | —                              | —                                      |
+| 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `pending`   | —                              | —                                      |
+| 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `pending`   | —                              | —                                      |
+| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `pending`   | —                              | —                                      |
+| 13  | Form preview page                  | 4    | 01, 04             | `pending`   | —                              | —                                      |
+| 14  | Public form + QR code              | 4    | 01, 02, 03, 04     | `pending`   | —                              | —                                      |
+| 15  | Cleanup, translations, live counts | 5    | 10, 11, 12, 13, 14 | `pending`   | —                              | —                                      |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -140,4 +140,54 @@ Append new records below in chronological order. Format:
 
 <!-- ─── Append records below this line ─── -->
 
-_No records yet. Start with `/new-admissions 01`._
+### [IMPL 01] — Schema foundation
+
+- **Completed:** 2026-04-10T22:00:00+01:00 (Europe/Dublin)
+- **Commit:** `0b976d37` (local) / `55001a4e` (production)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Landed the database and shared-type foundation the rebuild needs. `ApplicationStatus`
+  is rewritten: legacy `draft`/`under_review`/`pending_acceptance_approval`/`accepted`
+  are gone, replaced by `waiting_list`/`ready_to_admit`/`conditional_approval`/`approved`
+  alongside the surviving `submitted`/`rejected`/`withdrawn`. A data migration remapped
+  existing rows (`draft→withdrawn`, `under_review→ready_to_admit`,
+  `pending_acceptance_approval→ready_to_admit`, `accepted→approved`) and the enum type
+  was swapped (rename/create/recast/drop). `Application` gained `target_academic_year_id`,
+  `target_year_group_id`, `apply_date` (FIFO), `payment_amount_cents`, `currency_code`,
+  `stripe_checkout_session_id`, `waiting_list_substatus`, `override_record_id`, plus two
+  composite indexes (`idx_applications_gating`, `idx_applications_expiry`). New
+  `AdmissionOverride` model + `ApplicationWaitingListSubstatus` / `AdmissionOverrideType`
+  enums added with RLS `FORCE`d. `Class.max_capacity` tightened to NOT NULL (backfilled 25).
+  Migrations: `20260411000000_add_new_admissions_statuses`,
+  `20260411000100_remove_legacy_admissions_statuses` (with `post_migrate.sql`).
+  `packages/shared` exports `APPLICATION_STATUSES`, `APPLICATION_WAITING_LIST_SUBSTATUSES`,
+  `ADMISSION_OVERRIDE_TYPES`, `ACTIVE_APPLICATION_STATUSES`, `TERMINAL_APPLICATION_STATUSES`.
+  `TenantSettingsAdmissions` extended with `upfront_percentage`, `payment_window_days`,
+  `max_application_horizon_years`, `allow_cash`, `allow_bank_transfer`, `bank_iban`,
+  `require_override_approval_role` + `DEFAULT_ADMISSIONS_SETTINGS`.
+  `createPublicApplicationSchema` now requires `target_academic_year_id` and
+  `target_year_group_id`. Four admissions service spec files are stubbed with
+  `describe.skip` pointing to the wave that rewrites each one (applications,
+  state-machine, conversion, payment).
+- **Follow-ups:**
+  - `pnpm db:migrate` at the repo root runs `prisma migrate dev` which prompts to
+    reset in production. Deployment used `pnpm --filter @school/prisma migrate:deploy`
+    directly. Wave 1 root README / runbook should be updated to reflect this, or the
+    root script should alias to `migrate:deploy` for non-local environments. Owner: infra.
+  - Legacy `Application.payment_amount` (Decimal) column is kept nullable — a later
+    cleanup wave should drop it once `payment_amount_cents` is fully adopted.
+  - Old `AdmissionPaymentStatus` enum (`pending`, `paid_online`, `paid_cash`,
+    `payment_plan`, `waived`) is still on the Application row for backwards
+    compatibility with the placeholder payment service. Wave 3 (06/07) decides
+    whether to retire it in favour of explicit override records.
+- **Session notes:**
+  - Worker build initially failed on `/opt/edupod/app/apps/worker/dist/apps` owned
+    by root from an earlier run — fixed with a one-shot `chown` as root.
+  - Node 24 OOM'd on `tsc --noEmit` and on the lint-staged eslint run with the
+    default heap; bumped to 8-16 GB via `NODE_OPTIONS` to get through the session.
+  - The admission_overrides RLS policy was applied directly via `psql` during
+    deployment (the original migration put the policy in `rls/policies.sql` only).
+    A `post_migrate.sql` co-located with the second migration now carries the same
+    policy so future tenants get it automatically — it ships in the follow-up log
+    commit. The policy is idempotent so the production DB is already in the right
+    state and re-running `pnpm db:post-migrate` is a no-op.
