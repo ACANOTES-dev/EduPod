@@ -78,11 +78,16 @@ export class ReportCommentWindowsController {
   }
 
   // GET /v1/report-comment-windows/landing
-  // Round-2 QA / B6: returns the class IDs the actor is allowed to see on
-  // the report-comments landing page, partitioned into "overall" (homeroom
-  // assignments on the open window) and "subject" (class_staff
-  // assignments). Admins get empty arrays as a sentinel for "no filter —
-  // show everything".
+  // Round-2 QA / B6 / B9: returns the classes and (class, subject) pairs
+  // the actor is allowed to see on the report-comments landing page:
+  //   - overall_class_ids: classes where they are the homeroom teacher on
+  //     the open window (overall_class_ids is empty for admins as a "no
+  //     filter" sentinel — admins write overall comments via the open
+  //     window's homeroom assignment list, not via a competency join).
+  //   - subject_assignments: (class_id, subject_id) pairs derived from the
+  //     curriculum matrix. For admins, every pair in the matrix. For
+  //     teachers, the subset whose (subject, year_group) appears in their
+  //     teacher_competencies.
   @Get('landing')
   @RequiresPermission('report_cards.view')
   async landing(@CurrentTenant() tenant: { tenant_id: string }, @CurrentUser() user: JwtPayload) {

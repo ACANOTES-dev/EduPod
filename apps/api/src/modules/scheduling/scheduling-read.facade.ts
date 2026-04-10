@@ -433,7 +433,7 @@ export class SchedulingReadFacade {
   async findTeacherCompetencies(
     tenantId: string,
     academicYearId: string,
-    opts?: { subjectId?: string; yearGroupId?: string },
+    opts?: { subjectId?: string; yearGroupId?: string; staffProfileId?: string },
   ): Promise<TeacherCompetencyRow[]> {
     const where: Record<string, unknown> = {
       tenant_id: tenantId,
@@ -442,6 +442,7 @@ export class SchedulingReadFacade {
 
     if (opts?.subjectId) where.subject_id = opts.subjectId;
     if (opts?.yearGroupId) where.year_group_id = opts.yearGroupId;
+    if (opts?.staffProfileId) where.staff_profile_id = opts.staffProfileId;
 
     return this.prisma.teacherCompetency.findMany({
       where,

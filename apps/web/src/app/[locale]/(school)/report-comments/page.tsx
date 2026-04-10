@@ -34,9 +34,13 @@ interface ClassRecord {
   id: string;
   name: string;
   year_group?: { id: string; name: string } | null;
-  subject?: { id: string; name: string } | null;
   homeroom_teacher_staff_id?: string | null;
   _count?: { class_enrolments: number };
+}
+
+interface SubjectRecord {
+  id: string;
+  name: string;
 }
 
 interface AcademicPeriod {
@@ -47,8 +51,8 @@ interface AcademicPeriod {
 interface AssignmentCard {
   class_id: string;
   class_name: string;
-  subject_id: string | null;
-  subject_name: string | null;
+  subject_id: string;
+  subject_name: string;
   year_group_id: string | null;
   year_group_name: string;
   year_group_order: number;
@@ -68,7 +72,7 @@ interface HomeroomCard {
 interface LandingScope {
   is_admin: boolean;
   overall_class_ids: string[];
-  subject_class_ids: string[];
+  subject_assignments: Array<{ class_id: string; subject_id: string }>;
   active_window_id: string | null;
 }
 
@@ -156,13 +160,16 @@ export default function ReportCommentsLandingPage() {
         if (cancelled) return;
         setActiveWindow(currentWindow);
 
-        // 2. Fetch landing scope (B6): tells us which classes the actor is
-        // allowed to see. Admins get empty arrays as a "no filter" sentinel;
-        // teachers get only their homeroom + class_staff assignments.
+        // 2. Fetch landing scope (B6 / B9): the backend tells us which
+        // overall homeroom classes the actor can write and which
+        // (class, subject) pairs they can write subject comments for.
+        // The subject side is derived from teacher_competencies joined
+        // against class_subject_grade_configs (the curriculum matrix).
+        // See report-comment-windows.service#getLandingScopeForActor.
         let scope: LandingScope = {
           is_admin: true,
           overall_class_ids: [],
-          subject_class_ids: [],
+          subject_assignments: [],
           active_window_id: currentWindow?.id ?? null,
         };
         try {
@@ -179,16 +186,26 @@ export default function ReportCommentsLandingPage() {
         if (cancelled) return;
 
         const overallAllowed = !scope.is_admin ? new Set(scope.overall_class_ids) : null;
-        const subjectAllowed = !scope.is_admin ? new Set(scope.subject_class_ids) : null;
 
-        // 3. Fetch period info, year groups, subject classes, homeroom classes in parallel
-        const [yearGroupsRes, subjectClassesRes, homeroomClassesRes, periodsRes] =
+        // 3. Fetch period info, year groups, classes, subjects in parallel.
+        // We need TWO class lists:
+        //   - allClassesRes (homeroom_only=false) — used as an id→class
+        //     lookup map when resolving subject_assignments pairs.
+        //   - homeroomClassesRes (default filter: subject_id IS NULL) —
+        //     the list we actually render as homeroom "overall comment"
+        //     cards. In the primary-school model every class is a
+        //     homeroom so these overlap; in a secondary-school model the
+        //     subject_assignments pairs reference subject-bearing class
+        //     rows that aren't themselves homerooms, so the two lists
+        //     diverge and both are needed.
+        const [yearGroupsRes, allClassesRes, homeroomClassesRes, subjectsRes, periodsRes] =
           await Promise.all([
             apiClient<ListResponse<YearGroup>>('/api/v1/year-groups?pageSize=100'),
             apiClient<ListResponse<ClassRecord>>(
               '/api/v1/classes?pageSize=200&homeroom_only=false',
             ),
             apiClient<ListResponse<ClassRecord>>('/api/v1/classes?pageSize=200'),
+            apiClient<ListResponse<SubjectRecord>>('/api/v1/subjects?pageSize=100'),
             apiClient<ListResponse<AcademicPeriod>>('/api/v1/academic-periods?pageSize=50'),
           ]);
 
@@ -201,40 +218,49 @@ export default function ReportCommentsLandingPage() {
           : null;
         setPeriod(resolvedPeriod);
 
-        // Build year group lookup
+        // Build lookup maps keyed by id for the card-building step below.
         const yearGroupInfo = new Map<string, { name: string; order: number }>();
         for (const yg of yearGroupsRes.data ?? []) {
           yearGroupInfo.set(yg.id, { name: yg.name, order: yg.display_order ?? 0 });
         }
 
-        // 4. If a window is open, fetch per-assignment comment counts in parallel.
-        // Only subject-bearing classes with at least one student are considered.
-        // Non-admins are scoped to their class_staff assignments via the
-        // landing scope endpoint.
-        const subjectClasses = (subjectClassesRes.data ?? []).filter(
-          (c) =>
-            (c._count?.class_enrolments ?? 0) > 0 &&
-            c.subject &&
-            c.subject.id &&
-            c.subject.name &&
-            (subjectAllowed === null || subjectAllowed.has(c.id)),
-        );
+        const classById = new Map<string, ClassRecord>();
+        for (const c of allClassesRes.data ?? []) {
+          classById.set(c.id, c);
+        }
+
+        const subjectById = new Map<string, SubjectRecord>();
+        for (const s of subjectsRes.data ?? []) {
+          subjectById.set(s.id, s);
+        }
 
         const academicPeriodId = currentWindow?.academic_period_id ?? null;
 
-        const countPromises = subjectClasses.map(async (cls) => {
+        // 4. For each (class, subject) pair the backend returned, build a
+        // card. Pairs whose class is unknown (stale data) or whose class
+        // has zero active enrolments are dropped — those simply aren't
+        // meaningful to write comments against.
+        const visiblePairs = (scope.subject_assignments ?? []).filter((pair) => {
+          const cls = classById.get(pair.class_id);
+          if (!cls) return false;
+          if ((cls._count?.class_enrolments ?? 0) <= 0) return false;
+          return true;
+        });
+
+        const countPromises = visiblePairs.map(async (pair) => {
+          const cls = classById.get(pair.class_id)!;
           const studentCount = cls._count?.class_enrolments ?? 0;
           let finalised = 0;
           let total = 0;
-          if (academicPeriodId && cls.subject) {
+          if (academicPeriodId) {
             try {
               const res = await apiClient<{ data: unknown[]; meta: { total: number } }>(
-                `/api/v1/report-card-subject-comments?class_id=${cls.id}&subject_id=${cls.subject.id}&academic_period_id=${academicPeriodId}&pageSize=1`,
+                `/api/v1/report-card-subject-comments?class_id=${pair.class_id}&subject_id=${pair.subject_id}&academic_period_id=${academicPeriodId}&pageSize=1`,
                 { silent: true },
               );
               total = res.meta?.total ?? 0;
               const resFinalised = await apiClient<{ data: unknown[]; meta: { total: number } }>(
-                `/api/v1/report-card-subject-comments?class_id=${cls.id}&subject_id=${cls.subject.id}&academic_period_id=${academicPeriodId}&finalised=true&pageSize=1`,
+                `/api/v1/report-card-subject-comments?class_id=${pair.class_id}&subject_id=${pair.subject_id}&academic_period_id=${academicPeriodId}&finalised=true&pageSize=1`,
                 { silent: true },
               );
               finalised = resFinalised.meta?.total ?? 0;
@@ -242,21 +268,22 @@ export default function ReportCommentsLandingPage() {
               console.error('[ReportCommentsLanding] count subject', err);
             }
           }
-          return { cls, studentCount, finalised, total };
+          return { pair, cls, studentCount, finalised, total };
         });
 
         const countResults = await Promise.all(countPromises);
         if (cancelled) return;
 
         const assignmentCards: AssignmentCard[] = countResults.map(
-          ({ cls, studentCount, finalised, total }) => {
+          ({ pair, cls, studentCount, finalised, total }) => {
             const ygId = cls.year_group?.id ?? null;
             const ygInfo = ygId ? yearGroupInfo.get(ygId) : null;
+            const subject = subjectById.get(pair.subject_id);
             return {
               class_id: cls.id,
               class_name: cls.name,
-              subject_id: cls.subject?.id ?? null,
-              subject_name: cls.subject?.name ?? null,
+              subject_id: pair.subject_id,
+              subject_name: subject?.name ?? '—',
               year_group_id: ygId,
               year_group_name: cls.year_group?.name ?? 'Unassigned',
               year_group_order: ygInfo?.order ?? 999,
@@ -292,19 +319,20 @@ export default function ReportCommentsLandingPage() {
               .sort(
                 (a, b) =>
                   a.class_name.localeCompare(b.class_name) ||
-                  (a.subject_name ?? '').localeCompare(b.subject_name ?? ''),
+                  a.subject_name.localeCompare(b.subject_name),
               ),
           }));
         setGrouped(sortedGroups);
 
-        // 5. Homeroom classes — only when window is open, count overall
-        // comments. Non-admins are scoped to the classes they were picked
-        // for as homeroom teacher on the open window.
-        const homeroomClasses = (homeroomClassesRes.data ?? []).filter(
-          (c) =>
-            (c._count?.class_enrolments ?? 0) > 0 &&
-            (overallAllowed === null || overallAllowed.has(c.id)),
-        );
+        // 5. Homeroom overall-comment cards. Non-admins see only the
+        // classes they were picked for as homeroom teacher on the active
+        // comment window (overall_class_ids from the landing scope). Admins
+        // render every homeroom class with active enrolments.
+        const homeroomClasses = (homeroomClassesRes.data ?? []).filter((c) => {
+          if ((c._count?.class_enrolments ?? 0) <= 0) return false;
+          if (overallAllowed === null) return true;
+          return overallAllowed.has(c.id);
+        });
 
         const homeroomPromises = homeroomClasses.map(async (cls) => {
           const studentCount = cls._count?.class_enrolments ?? 0;
@@ -532,14 +560,11 @@ export default function ReportCommentsLandingPage() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {group.cards.map((card) => {
-                const disabled = !card.subject_id;
                 return (
                   <button
-                    key={`${card.class_id}:${card.subject_id ?? 'none'}`}
+                    key={`${card.class_id}:${card.subject_id}`}
                     type="button"
-                    disabled={disabled}
                     onClick={() => {
-                      if (disabled || !card.subject_id) return;
                       router.push(
                         `/${locale}/report-comments/subject/${card.class_id}/${card.subject_id}`,
                       );
@@ -551,7 +576,7 @@ export default function ReportCommentsLandingPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <h3 className="truncate text-lg font-bold text-text-primary tracking-tight">
-                          {card.subject_name ?? '—'}
+                          {card.subject_name}
                         </h3>
                         <p className="mt-0.5 text-sm text-text-secondary">{card.class_name}</p>
                       </div>

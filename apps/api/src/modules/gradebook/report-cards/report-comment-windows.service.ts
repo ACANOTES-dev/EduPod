@@ -12,6 +12,7 @@ import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { AcademicReadFacade } from '../../academics/academic-read.facade';
 import { ClassesReadFacade } from '../../classes/classes-read.facade';
 import { PrismaService } from '../../prisma/prisma.service';
+import { SchedulingReadFacade } from '../../scheduling/scheduling-read.facade';
 import { StaffProfileReadFacade } from '../../staff-profiles/staff-profile-read.facade';
 
 import type { CreateCommentWindowDto, UpdateCommentWindowDto } from './dto/comment-window.dto';
@@ -64,6 +65,7 @@ export class ReportCommentWindowsService {
     private readonly prisma: PrismaService,
     private readonly academicReadFacade: AcademicReadFacade,
     private readonly classesReadFacade: ClassesReadFacade,
+    private readonly schedulingReadFacade: SchedulingReadFacade,
     private readonly staffProfileReadFacade: StaffProfileReadFacade,
   ) {}
 
@@ -357,13 +359,25 @@ export class ReportCommentWindowsService {
   // ─── Landing endpoint scoping ────────────────────────────────────────────
   //
   // The /report-comments landing page asks the backend "what classes can I
-  // see?". For admins the answer is everything; for teachers it's:
-  //   - overall_class_ids: classes where they are the homeroom teacher on
-  //     the open comment window (so the overall-comment slot is unlocked)
-  //   - subject_class_ids: classes they teach via class_staff (so subject
-  //     comments are visible per (class, subject))
-  // Both lists are deduplicated. When no window is open the overall list
-  // is empty — there is nothing for the teacher to write to.
+  // see?". It returns:
+  //   - overall_class_ids: classes where the actor is the homeroom teacher
+  //     on the open comment window (unlocks the overall-comment slot)
+  //   - subject_assignments: (class_id, subject_id) pairs the actor can
+  //     write subject comments for
+  //
+  // The subject_assignments list is derived by joining two tables that the
+  // user maintains explicitly:
+  //   1. class_subject_grade_configs — "which subjects does class X teach?"
+  //      (edited from the Curriculum Matrix page)
+  //   2. teacher_competencies — "which (subject, year_group) pairs is this
+  //      teacher qualified for?" (edited from the Competencies page)
+  //
+  // For an admin the answer is "every (class, subject) pair in the matrix".
+  // For a teacher it is "the subset of those pairs whose (subject, year_group)
+  // appears in their competencies". Until the timetable layer narrows a
+  // teacher to a specific sub-class (e.g. 4A vs 4B), competencies fan out
+  // across every class in that year group — the teacher sees both 4A and 4B
+  // if they have a 4th class Maths competency. That is intentional.
 
   async getLandingScopeForActor(
     tenantId: string,
@@ -371,29 +385,91 @@ export class ReportCommentWindowsService {
   ): Promise<{
     is_admin: boolean;
     overall_class_ids: string[];
-    subject_class_ids: string[];
+    subject_assignments: Array<{ class_id: string; subject_id: string }>;
     active_window_id: string | null;
   }> {
     const activeWindow = await this.prisma.reportCommentWindow.findFirst({
       where: { tenant_id: tenantId, status: 'open' },
       orderBy: { opens_at: 'desc' },
-      select: { id: true },
+      select: { id: true, academic_year_id: true },
     });
 
+    // Resolve the academic year to read competencies against. When a window
+    // is open we use its year; otherwise we fall back to the tenant's
+    // current academic year so the page still renders a read-only view.
+    const academicYearId =
+      activeWindow?.academic_year_id ??
+      (await this.academicReadFacade.findCurrentYear(tenantId))?.id ??
+      null;
+
+    // Shared helper: build (class, subject) pairs by intersecting the
+    // curriculum matrix with an optional teacher competency filter. The
+    // competency list is null for admins (no filter).
+    const buildSubjectAssignments = async (
+      competencyFilter: Array<{ subject_id: string; year_group_id: string }> | null,
+    ): Promise<Array<{ class_id: string; subject_id: string }>> => {
+      if (!academicYearId) return [];
+
+      // Load every class in this academic year with its year_group_id.
+      const classes = (await this.classesReadFacade.findClassesGeneric(
+        tenantId,
+        { academic_year_id: academicYearId, status: 'active' },
+        { id: true, year_group_id: true },
+      )) as Array<{ id: string; year_group_id: string | null }>;
+
+      if (classes.length === 0) return [];
+
+      const classIds = classes.map((c) => c.id);
+      const yearGroupByClass = new Map<string, string | null>(
+        classes.map((c) => [c.id, c.year_group_id]),
+      );
+
+      // Load every curriculum matrix row for those classes. Direct access
+      // is fine — classSubjectGradeConfig is owned by the gradebook module.
+      const matrixRows = await this.prisma.classSubjectGradeConfig.findMany({
+        where: { tenant_id: tenantId, class_id: { in: classIds } },
+        select: { class_id: true, subject_id: true },
+      });
+
+      if (competencyFilter === null) {
+        // Admin path — return every matrix row as a pair. Deduplication is
+        // implicit via the `(class_id, subject_id)` uniqueness the schema
+        // already enforces.
+        return matrixRows.map((r) => ({ class_id: r.class_id, subject_id: r.subject_id }));
+      }
+
+      if (competencyFilter.length === 0) return [];
+
+      // Teacher path — index competencies by (year_group, subject) for O(1)
+      // membership testing, then keep only matrix rows whose class sits in
+      // a year group the teacher is competent for with that subject.
+      const competencyKey = new Set(
+        competencyFilter.map((c) => `${c.year_group_id}::${c.subject_id}`),
+      );
+      const assignments: Array<{ class_id: string; subject_id: string }> = [];
+      for (const row of matrixRows) {
+        const ygId = yearGroupByClass.get(row.class_id);
+        if (!ygId) continue;
+        if (competencyKey.has(`${ygId}::${row.subject_id}`)) {
+          assignments.push({ class_id: row.class_id, subject_id: row.subject_id });
+        }
+      }
+      return assignments;
+    };
+
     if (actor.isAdmin) {
-      // Admins see everything — empty arrays signal "no filter" so the
-      // frontend can render its existing class-list view as-is.
+      const subjectAssignments = await buildSubjectAssignments(null);
       return {
         is_admin: true,
         overall_class_ids: [],
-        subject_class_ids: [],
+        subject_assignments: subjectAssignments,
         active_window_id: activeWindow?.id ?? null,
       };
     }
 
     // Teachers — resolve their staff_profile_id once and use it for both
-    // homeroom and class_staff lookups. If they have no profile, they
-    // simply see nothing on the landing page (no error).
+    // the homeroom lookup and the competency query. If they have no
+    // profile, they simply see nothing on the landing page (no error).
     let staffProfileId: string;
     try {
       staffProfileId = await this.staffProfileReadFacade.resolveProfileId(tenantId, actor.userId);
@@ -401,7 +477,7 @@ export class ReportCommentWindowsService {
       return {
         is_admin: false,
         overall_class_ids: [],
-        subject_class_ids: [],
+        subject_assignments: [],
         active_window_id: activeWindow?.id ?? null,
       };
     }
@@ -419,15 +495,20 @@ export class ReportCommentWindowsService {
         ).map((r) => r.class_id)
       : [];
 
-    const subjectClassIds = await this.classesReadFacade.findClassIdsByStaff(
-      tenantId,
-      staffProfileId,
+    const competencies = academicYearId
+      ? await this.schedulingReadFacade.findTeacherCompetencies(tenantId, academicYearId, {
+          staffProfileId,
+        })
+      : [];
+
+    const subjectAssignments = await buildSubjectAssignments(
+      competencies.map((c) => ({ subject_id: c.subject_id, year_group_id: c.year_group_id })),
     );
 
     return {
       is_admin: false,
       overall_class_ids: overallClassIds,
-      subject_class_ids: subjectClassIds,
+      subject_assignments: subjectAssignments,
       active_window_id: activeWindow?.id ?? null,
     };
   }
