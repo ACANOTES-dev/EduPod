@@ -814,11 +814,49 @@ _Production verification (Playwright as Yusuf Rahman, School Owner):_
 
 **Post-session status.** All 5 user-reported defects fixed and verified on production. `origin/main` still untouched. Rollback tag `pre-deploy-rc-dashboard-20260410-1003` → `6c1e2eb5` available if needed.
 
+**Session 7 — 2026-04-10 (Library overhaul + template picker + S3 writer fix)**
+
+_Deliverables:_
+
+- ✅ **Phase A — real S3 writer** (commit `6d7888e3`). Replaced the worker's `NullReportCardStorageWriter` stub (impl-04 leftover that returned a fake key without uploading) with `S3ReportCardStorageWriter` that uses the same env config as the API's `S3Service`. Added `s3-report-card-storage-writer.spec.ts` (3 cases). **This was the download blocker** — every previously "generated" report card had a `pdf_storage_key` populated but no actual object in S3, which is why the admin saw a `NoSuchKey` XML error in the browser.
+- ✅ **Phase A — wiped 80 orphan report card rows** on prod via psql (pure `DELETE FROM report_cards WHERE tenant_id=<nhqs>`). All were drafts from test runs; no data worth keeping. The library started the session showing 80 unopenable documents and finished at 0.
+- ✅ **Phase B — library overhaul** (commit `6d7888e3`). Added `batch_job_id` back-link on `report_cards` (new migration `20260410110000_report_cards_batch_job_link`, nullable FK + indexed), `GET /v1/report-cards/library/grouped` (nested by run → class → student with presigned URLs), `DELETE /v1/report-cards/:id` (admin-only, draft/revised only; published returns 409), `POST /v1/report-cards/bulk-delete` (explicit ids OR scope filters, refuses unscoped requests), and `GET /v1/report-cards/library/bundle-pdf?merge_mode=single|per_class` (uses `pdf-lib` for concatenation + `adm-zip` for zipping). The library page is rebuilt from scratch with three view modes (by run / year group / class), checkbox multi-select with a sticky action bar, per-row + per-class + per-run buttons for Download / Publish / Delete / Bundle, and confirmation modals on every destructive action. Publish + unpublish are finally exposed to the admin — the backend endpoint existed since impl 01 but the frontend never exposed it.
+- ✅ **Phase C — template picker** (commit `6d7888e3` + `85f16e4d` + `b59e679f` + `a073910e`). Added a data migration (`20260410100000_seed_report_card_design_templates`) that seeds four `report_card_templates` rows per tenant (Editorial Academic EN/AR + Modern Editorial EN/AR) with `branding_overrides_json.design_key` set so the worker resolver picks the right Handlebars bundle. Extended `resolveForGeneration` + `startGenerationRunSchema` to accept an optional `design_key`. Rebuilt wizard Step 3 to show one card per design family with a "View sample" link that opens the pre-rendered PDF in a new tab. Seed + API also now return a nested `designs[]` array in `/templates/content-scopes`.
+- ✅ **Hotfix 1: design-key resolution inside the worker** (commit `85f16e4d`). First post-deploy run used Modern Editorial in the wizard but the rendered PDFs still came out editorial-academic. Root cause: `PrismaTemplateDesignResolver.resolveDesignKey` uses the raw PrismaClient without setting `app.current_tenant_id`, so FORCE RLS filters every row out and the resolver returns null → fallback to `DEFAULT_DESIGN_KEY = editorial-academic`. Fix: the processor already loads the template row inside the RLS transaction, so extract `design_key` there and stamp it onto `payload.template.design_key`. The renderer now prefers the inline value and only falls back to the resolver for legacy callers that don't set it. Also tightened the Arabic companion lookup to match on `branding_overrides_json.design_key` so Modern Editorial EN pairs with Modern Editorial AR instead of whichever AR row is first.
+- ✅ **Hotfix 2: bundle-pdf single-class query-param coercion** (commit `b59e679f`). Express's default `qs` parser returns a string when a repeated param has a single value (`?class_ids=<uuid>`) and only lifts it to an array when it sees two or more. The Zod validator on the bundle endpoint was refusing the single-class case with "Expected array, received string". Added a small `z.preprocess` wrapper that lifts single strings to length-1 arrays.
+- ✅ **Phase C — committed real preview PDFs** (commit `a073910e`). Kicked off two fresh generation runs on prod (25-student 2A Modern Editorial + 1-student K1A Editorial Academic), fetched one PDF from each run out of S3, committed them as static assets under `apps/web/public/report-card-previews/`. The wizard's "View sample" links now return real PDFs with real student data instead of 404.
+
+_Deploy flow (all direct-to-server, no origin/main push):_
+
+- Commit `6d7888e3` shipped via full `deploy-production.sh` run. Migrations applied: `20260410100000_seed_report_card_design_templates` + `20260410110000_report_cards_batch_job_link`. PM2 restart step hit the same sudoers bug as prior deploys; manually restarted with `sudo -u edupod pm2 delete all && pm2 start ecosystem.config.cjs`.
+- Commits `85f16e4d`, `b59e679f`, and `a073910e` shipped as targeted rebuilds (worker-only, api-only, web-only respectively) via `pnpm --filter` + `pm2 restart <svc>`. No full redeploys.
+- Rollback tag: `pre-deploy-rc-library-20260410-1115` → `2f562e59`.
+
+_Production verification (Playwright as Yusuf Rahman, School Owner):_
+
+| Surface                                           | Before                                        | After                                                                                                  |
+| ------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| S3 `report-cards/` prefix in bucket               | zero objects                                  | 25 PDFs uploaded by worker                                                                             |
+| Library download button                           | `NoSuchKey` XML error                         | `HTTP 200, 189 KB, application/pdf`                                                                    |
+| Library page                                      | flat 80-row table                             | grouped by run → class → student with view switcher                                                    |
+| `GET /v1/report-cards/library/grouped`            | didn't exist                                  | `200 { data: [{ run, classes: [...] }] }`                                                              |
+| Bundle single PDF                                 | didn't exist                                  | `3.4 MB merged PDF, 25 report cards`                                                                   |
+| Bundle ZIP per class                              | didn't exist                                  | `ZIP containing 2A.pdf (3.4 MB, 25 cards)`                                                             |
+| `DELETE /v1/report-cards/:id` on draft            | didn't exist                                  | `200`, row count 25 → 24, class summary auto-updates                                                   |
+| Publish button                                    | didn't exist on frontend                      | `POST /publish → 201`, status badge flips to Published, delete disabled with "unpublish first" tooltip |
+| Wizard Step 3                                     | single "Grades Only" option                   | Two selectable design cards with real preview PDFs                                                     |
+| Selected Modern Editorial                         | rendered editorial-academic (broken resolver) | rendered modern-editorial (design_key stamped on payload)                                              |
+| `/report-card-previews/editorial-academic-en.pdf` | 404                                           | `HTTP 200, 155 KB, application/pdf`                                                                    |
+| `/report-card-previews/modern-editorial-en.pdf`   | 404                                           | `HTTP 200, 181 KB, application/pdf`                                                                    |
+
+**Post-session status.** Clean slate on prod (test data wiped). All Phase A/B/C deliverables landed. Four commits on top of prior session's 2f562e59: `6d7888e3`, `85f16e4d`, `b59e679f`, `a073910e`. `origin/main` still untouched.
+
 _Carry-forward backlog (unchanged since Session 5):_
 
 - AuditLogWriteProcessor stderr flood from empty-UUID `user_id`
 - Deploy script `restore_pm2_services()` sudoers bug — still manually worked around each deploy
 - Puppeteer per-user cache drift
+- **NEW** — S3 config has the bucket name in both the endpoint hostname (`edupod-assets.hel1.your-objectstorage.com`) AND `S3_BUCKET_NAME=edupod-assets` with `forcePathStyle: true`. Hetzner parses `edupod-assets` out of the subdomain, so the actual object keys end up with `edupod-assets/` embedded as a path prefix (you can see it in the prod `imports/` and `logos/` listings). The app is self-consistent (writes and reads both hit the same broken URL shape) so everything works, but future callers need to be aware of the quirk. Cleanup: change `S3_ENDPOINT` to `https://hel1.your-objectstorage.com` and migrate existing keys by renaming them to strip the `edupod-assets/` prefix.
 
 **New backlog items surfaced during Phase 3:**
 
