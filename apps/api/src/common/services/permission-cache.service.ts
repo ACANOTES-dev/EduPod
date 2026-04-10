@@ -33,11 +33,21 @@ export class PermissionCacheService {
   ) {}
 
   // ─── Owner bypass ───────────────────────────────────────────────────────────
+  // Three role_keys grant unrestricted access: school_owner, school_principal,
+  // and school_vice_principal. The principal and vice principal are trusted
+  // delegates of the owner and share every privilege (wizard, publish, settings,
+  // reopen-request approvals). Parents, accounting, and teachers go through the
+  // normal permission check.
+  private static readonly OWNER_ROLE_KEYS: readonly string[] = [
+    'school_owner',
+    'school_principal',
+    'school_vice_principal',
+  ];
 
   /**
-   * Check if a membership holds the school_owner role.
-   * Owners bypass ALL permission checks — they are the God account for the tenant.
-   * Cached separately with a 5-minute TTL since role assignments change rarely.
+   * Check if a membership holds one of the leadership roles that bypass
+   * permission checks. Cached separately with a 5-minute TTL since role
+   * assignments change rarely.
    */
   async isOwner(membershipId: string): Promise<boolean> {
     const client = this.redis.getClient();
@@ -55,7 +65,7 @@ export class PermissionCacheService {
         tx.membershipRole.findFirst({
           where: {
             membership_id: membershipId,
-            role: { role_key: 'school_owner' },
+            role: { role_key: { in: [...PermissionCacheService.OWNER_ROLE_KEYS] } },
           },
           select: { role_id: true },
         }),

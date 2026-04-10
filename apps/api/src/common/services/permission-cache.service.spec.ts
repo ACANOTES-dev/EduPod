@@ -183,7 +183,24 @@ describe('PermissionCacheService', () => {
       expect(mockRedisClient.setex).toHaveBeenCalledWith(`owner:${MEMBERSHIP_ID}`, 300, '1');
     });
 
-    it('should return false and cache the result when membership does not hold the school_owner role', async () => {
+    it('should include principal + vice principal role_keys in the lookup', async () => {
+      mockRedisClient.get.mockResolvedValue(null);
+      const findFirst = jest.fn().mockResolvedValue({ role_id: 'role-vp-id' });
+      mockPrisma.membershipRole.findFirst = findFirst;
+
+      await service.isOwner(MEMBERSHIP_ID);
+
+      // The query should be an `in` over all three leadership keys so that
+      // principal / vice principal accounts get the owner bypass too.
+      const call = findFirst.mock.calls[0]![0] as {
+        where: { role: { role_key: { in: string[] } } };
+      };
+      expect(call.where.role.role_key.in).toEqual(
+        expect.arrayContaining(['school_owner', 'school_principal', 'school_vice_principal']),
+      );
+    });
+
+    it('should return false and cache the result when membership does not hold any leadership role', async () => {
       mockRedisClient.get.mockResolvedValue(null);
       mockPrisma.membershipRole.findFirst = jest.fn().mockResolvedValue(null);
 
