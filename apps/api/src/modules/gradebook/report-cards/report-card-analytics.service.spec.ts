@@ -24,6 +24,15 @@ function buildMockPrisma() {
     classEnrolment: {
       count: jest.fn(),
     },
+    // Round-2 QA: dashboard now returns separate counters from the
+    // overall + subject comment tables. Default to zero so legacy tests
+    // don't have to know about them.
+    reportCardOverallComment: {
+      count: jest.fn().mockResolvedValue(0),
+    },
+    reportCardSubjectComment: {
+      count: jest.fn().mockResolvedValue(0),
+    },
   };
 }
 
@@ -148,6 +157,36 @@ describe('ReportCardAnalyticsService — getDashboard', () => {
     // report_card relation filter.
     for (const call of mockPrisma.reportCardApproval.count.mock.calls) {
       expect(call[0].where.report_card.academic_period_id).toBeNull();
+    }
+  });
+
+  it('returns separate finalised + total counters for overall and subject comments', async () => {
+    mockPrisma.reportCard.count.mockResolvedValue(0);
+    mockPrisma.reportCardApproval.count.mockResolvedValue(0);
+    mockClassesFacade.countEnrolmentsGeneric.mockResolvedValue(0);
+    // Two count() calls per comment table: total then finalised. The
+    // service issues them via Promise.all so the call order in the mock
+    // queue follows the destructuring order in source.
+    mockPrisma.reportCardOverallComment.count
+      .mockResolvedValueOnce(25) // total
+      .mockResolvedValueOnce(20); // finalised
+    mockPrisma.reportCardSubjectComment.count
+      .mockResolvedValueOnce(175) // total
+      .mockResolvedValueOnce(150); // finalised
+
+    const result = await service.getDashboard(TENANT_ID, PERIOD_ID);
+
+    expect(result.overall_comments_total).toBe(25);
+    expect(result.overall_comments_finalised).toBe(20);
+    expect(result.subject_comments_total).toBe(175);
+    expect(result.subject_comments_finalised).toBe(150);
+    // Both comment count queries must scope by the same period filter that
+    // the report_card counts use.
+    for (const call of mockPrisma.reportCardOverallComment.count.mock.calls) {
+      expect(call[0].where.academic_period_id).toBe(PERIOD_ID);
+    }
+    for (const call of mockPrisma.reportCardSubjectComment.count.mock.calls) {
+      expect(call[0].where.academic_period_id).toBe(PERIOD_ID);
     }
   });
 });

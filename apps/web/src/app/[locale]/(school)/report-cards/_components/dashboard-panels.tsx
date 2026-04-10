@@ -18,7 +18,19 @@ export interface AnalyticsSummary {
   revised: number;
   pending_approval: number;
   completion_rate: number;
+  /**
+   * @deprecated Reads the legacy `report_cards.teacher_comment` column;
+   * the new comment system writes elsewhere. Use the overall/subject
+   * counters below for the canonical metric.
+   */
   comment_fill_rate: number;
+  // Round-2 QA: separate counters for the two comment subsystems. The
+  // dashboard renders "n / m finalised" so admins can see at a glance
+  // how much commenting work is done before they kick off generation.
+  overall_comments_finalised: number;
+  overall_comments_total: number;
+  subject_comments_finalised: number;
+  subject_comments_total: number;
 }
 
 export interface GenerationRunRow {
@@ -183,6 +195,17 @@ export function AnalyticsSnapshotPanel({
   const t = useTranslations('reportCards');
   const router = useRouter();
 
+  // Round-2 QA: replace the misleading single comment-fill % with separate
+  // n/m counters for overall and subject comments. The "am I ready to
+  // generate?" question is answered by these two numbers, not by a weighted
+  // average that hides whether one of them is at zero.
+  const overallFraction = analytics
+    ? `${analytics.overall_comments_finalised ?? 0} / ${analytics.overall_comments_total ?? 0}`
+    : '—';
+  const subjectFraction = analytics
+    ? `${analytics.subject_comments_finalised ?? 0} / ${analytics.subject_comments_total ?? 0}`
+    : '—';
+
   const items: Array<{ label: string; value: string }> = analytics
     ? [
         {
@@ -198,8 +221,12 @@ export function AnalyticsSnapshotPanel({
           value: `${(analytics.completion_rate ?? 0).toFixed(1)}%`,
         },
         {
-          label: t('dashboard.analyticsCommentFill'),
-          value: `${(analytics.comment_fill_rate ?? 0).toFixed(1)}%`,
+          label: t('dashboard.analyticsOverallComments'),
+          value: overallFraction,
+        },
+        {
+          label: t('dashboard.analyticsSubjectComments'),
+          value: subjectFraction,
         },
       ]
     : [];
@@ -225,8 +252,8 @@ export function AnalyticsSnapshotPanel({
       </div>
 
       {loading ? (
-        <div className="mt-4 grid grid-cols-2 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+          {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="h-14 animate-pulse rounded-xl bg-surface-secondary" />
           ))}
         </div>
@@ -235,7 +262,7 @@ export function AnalyticsSnapshotPanel({
           {t('dashboard.analyticsEmpty')}
         </div>
       ) : (
-        <div className="mt-4 grid grid-cols-2 gap-4">
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
           {items.map((item) => (
             <div
               key={item.label}

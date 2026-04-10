@@ -40,7 +40,12 @@ interface AnalyticsSummary {
   revised: number;
   pending_approval: number;
   completion_rate: number;
+  /** @deprecated — see overall/subject counters below. */
   comment_fill_rate: number;
+  overall_comments_finalised: number;
+  overall_comments_total: number;
+  subject_comments_finalised: number;
+  subject_comments_total: number;
 }
 
 interface ClassComparisonItem {
@@ -211,26 +216,27 @@ export default function ReportCardAnalyticsPage() {
       ) : (
         <>
           {/* Summary cards */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <SummaryCard label={t('total')} value={analytics.summary.total} />
             <SummaryCard
               label={t('statusPublished')}
               value={analytics.summary.published}
               variant="success"
             />
-            <SummaryCard
-              label={t('pendingApproval')}
-              value={analytics.summary.pending_approval}
-              variant="warning"
-            />
+            <SummaryCard label={t('statusDraft')} value={analytics.summary.draft} variant="info" />
             <SummaryCard
               label={t('completionRate')}
               value={`${(analytics.summary.completion_rate ?? 0).toFixed(1)}%`}
               variant="info"
             />
             <SummaryCard
-              label={t('commentFillRate')}
-              value={`${(analytics.summary.comment_fill_rate ?? 0).toFixed(1)}%`}
+              label={t('dashboard.analyticsOverallComments')}
+              value={`${analytics.summary.overall_comments_finalised} / ${analytics.summary.overall_comments_total}`}
+              variant="info"
+            />
+            <SummaryCard
+              label={t('dashboard.analyticsSubjectComments')}
+              value={`${analytics.summary.subject_comments_finalised} / ${analytics.summary.subject_comments_total}`}
               variant="info"
             />
           </div>
@@ -279,6 +285,43 @@ export default function ReportCardAnalyticsPage() {
                     />
                   </BarChart>
                 </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {/* Per-class generation progress — answers the "am I done with
+              this class?" question more directly than the chart above. */}
+          {analytics.class_comparison.length > 0 && (
+            <div className="rounded-2xl border border-border bg-surface p-5">
+              <h3 className="mb-4 text-sm font-semibold text-text-primary">
+                {t('analyticsPerClassProgress')}
+              </h3>
+              <div className="space-y-3">
+                {analytics.class_comparison.map((cls) => {
+                  const pct = Math.min(100, Math.round(cls.completion_rate));
+                  return (
+                    <div key={cls.class_id} className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="font-medium text-text-primary">{cls.class_name}</span>
+                        <span className="tabular-nums text-text-secondary">
+                          {cls.published_count} / {cls.student_count} · {pct}%
+                        </span>
+                      </div>
+                      <div
+                        className="h-2 w-full overflow-hidden rounded-full bg-surface-secondary"
+                        role="progressbar"
+                        aria-valuenow={pct}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                      >
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-primary-400 to-primary-600 transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

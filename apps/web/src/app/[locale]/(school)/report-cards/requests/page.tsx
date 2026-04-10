@@ -8,6 +8,7 @@ import * as React from 'react';
 import type { TeacherRequestScope, TeacherRequestStatus, TeacherRequestType } from '@school/shared';
 import { Badge, Button, EmptyState, toast } from '@school/ui';
 
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
@@ -105,6 +106,8 @@ export default function ReportCardRequestsPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [loadFailed, setLoadFailed] = React.useState(false);
   const [refreshToken, setRefreshToken] = React.useState(0);
+  const [cancelTargetId, setCancelTargetId] = React.useState<string | null>(null);
+  const [cancelInFlight, setCancelInFlight] = React.useState(false);
 
   const bumpRefresh = React.useCallback((): void => {
     setRefreshToken((n) => n + 1);
@@ -169,18 +172,21 @@ export default function ReportCardRequestsPage() {
 
   // ─── Actions ────────────────────────────────────────────────────────────
 
-  const handleCancel = async (id: string): Promise<void> => {
-    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-      const confirmed = window.confirm(t('cancelConfirm'));
-      if (!confirmed) return;
-    }
+  const confirmCancel = async (): Promise<void> => {
+    if (!cancelTargetId) return;
+    setCancelInFlight(true);
     try {
-      await apiClient(`/api/v1/report-card-teacher-requests/${id}/cancel`, { method: 'PATCH' });
+      await apiClient(`/api/v1/report-card-teacher-requests/${cancelTargetId}/cancel`, {
+        method: 'PATCH',
+      });
       toast.success(t('cancelSuccess'));
+      setCancelTargetId(null);
       bumpRefresh();
     } catch (err) {
       console.error('[ReportCardRequestsPage.cancel]', err);
       toast.error(t('cancelFailure'));
+    } finally {
+      setCancelInFlight(false);
     }
   };
 
@@ -382,7 +388,7 @@ export default function ReportCardRequestsPage() {
                             size="sm"
                             variant="outline"
                             className="min-h-11"
-                            onClick={() => void handleCancel(row.id)}
+                            onClick={() => setCancelTargetId(row.id)}
                           >
                             {t('cancel')}
                           </Button>
@@ -409,6 +415,21 @@ export default function ReportCardRequestsPage() {
           </table>
         </div>
       )}
+
+      {/* Cancel-request confirmation — replaces the native window.confirm. */}
+      <ConfirmDialog
+        open={cancelTargetId !== null}
+        onOpenChange={(next) => {
+          if (!next) setCancelTargetId(null);
+        }}
+        title={t('cancelConfirmTitle')}
+        description={t('cancelConfirm')}
+        confirmLabel={t('cancel')}
+        cancelLabel={t('cancelKeep')}
+        variant="destructive"
+        busy={cancelInFlight}
+        onConfirm={confirmCancel}
+      />
     </div>
   );
 }

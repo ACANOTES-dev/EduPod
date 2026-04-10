@@ -7,6 +7,7 @@ import * as React from 'react';
 
 import { Button, EmptyState, toast } from '@school/ui';
 
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
@@ -105,6 +106,7 @@ export default function ReportCommentsLandingPage() {
   const [openWindowModalOpen, setOpenWindowModalOpen] = React.useState(false);
   const [extendWindowModalOpen, setExtendWindowModalOpen] = React.useState(false);
   const [requestReopenModalOpen, setRequestReopenModalOpen] = React.useState(false);
+  const [closeConfirmOpen, setCloseConfirmOpen] = React.useState(false);
   const [closingInFlight, setClosingInFlight] = React.useState(false);
 
   const bumpRefresh = React.useCallback((): void => {
@@ -358,16 +360,13 @@ export default function ReportCommentsLandingPage() {
 
   const handleCloseNow = async (): Promise<void> => {
     if (!activeWindow) return;
-    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-      const confirmed = window.confirm(tClose('description'));
-      if (!confirmed) return;
-    }
     setClosingInFlight(true);
     try {
       await apiClient(`/api/v1/report-comment-windows/${activeWindow.id}/close`, {
         method: 'PATCH',
       });
       toast.success(tClose('success'));
+      setCloseConfirmOpen(false);
       bumpRefresh();
     } catch (err) {
       console.error('[ReportCommentsLanding] close', err);
@@ -428,7 +427,7 @@ export default function ReportCommentsLandingPage() {
         isAdmin={isAdmin}
         locale={locale}
         onOpenWindow={isAdmin ? () => setOpenWindowModalOpen(true) : undefined}
-        onCloseWindow={isAdmin ? () => void handleCloseNow() : undefined}
+        onCloseWindow={isAdmin ? () => setCloseConfirmOpen(true) : undefined}
         onExtendWindow={isAdmin ? () => setExtendWindowModalOpen(true) : undefined}
         onReopenWindow={isAdmin ? () => void handleReopen() : undefined}
         onRequestReopen={!isAdmin ? () => setRequestReopenModalOpen(true) : undefined}
@@ -610,6 +609,21 @@ export default function ReportCommentsLandingPage() {
           defaultPeriodId={activeWindow?.academic_period_id ?? null}
         />
       )}
+
+      {/* Custom confirm dialog for closing the comment window — replaces
+          the native window.confirm so styling, focus trap, and i18n stay
+          consistent with the rest of the app. */}
+      <ConfirmDialog
+        open={closeConfirmOpen}
+        onOpenChange={setCloseConfirmOpen}
+        title={tClose('title')}
+        description={tClose('description')}
+        confirmLabel={tClose('confirm')}
+        cancelLabel={tClose('cancel')}
+        variant="warning"
+        busy={closingInFlight}
+        onConfirm={handleCloseNow}
+      />
     </div>
   );
 }

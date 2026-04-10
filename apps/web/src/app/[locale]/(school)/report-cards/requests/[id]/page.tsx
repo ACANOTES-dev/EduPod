@@ -8,6 +8,7 @@ import * as React from 'react';
 import type { TeacherRequestScope, TeacherRequestStatus, TeacherRequestType } from '@school/shared';
 import { Badge, Button, EmptyState, toast } from '@school/ui';
 
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
@@ -122,6 +123,8 @@ export default function ReportCardRequestDetailPage() {
   const [loadFailed, setLoadFailed] = React.useState(false);
   const [actionInFlight, setActionInFlight] = React.useState(false);
   const [rejectModalOpen, setRejectModalOpen] = React.useState(false);
+  const [autoApproveConfirmOpen, setAutoApproveConfirmOpen] = React.useState(false);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = React.useState(false);
   const [refreshToken, setRefreshToken] = React.useState(0);
 
   const bumpRefresh = React.useCallback((): void => {
@@ -227,12 +230,11 @@ export default function ReportCardRequestDetailPage() {
   };
 
   // ─── Auto-approve and execute ───────────────────────────────────────────
-  const handleAutoApprove = async (): Promise<void> => {
+  // The button opens a custom confirm dialog rather than using
+  // window.confirm so the styling, focus trap, and i18n stay consistent
+  // with the rest of the app.
+  const confirmAutoApprove = async (): Promise<void> => {
     if (!row) return;
-    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-      const confirmed = window.confirm(t('autoApproveConfirm'));
-      if (!confirmed) return;
-    }
     setActionInFlight(true);
     try {
       await apiClient<ApproveResponse>(`/api/v1/report-card-teacher-requests/${row.id}/approve`, {
@@ -240,6 +242,7 @@ export default function ReportCardRequestDetailPage() {
         body: JSON.stringify({ auto_execute: true }),
       });
       toast.success(t('approveSuccess'));
+      setAutoApproveConfirmOpen(false);
       bumpRefresh();
     } catch (err) {
       console.error('[ReportCardRequestDetailPage.autoApprove]', err);
@@ -250,18 +253,15 @@ export default function ReportCardRequestDetailPage() {
   };
 
   // ─── Cancel (teacher author, own pending) ──────────────────────────────
-  const handleCancel = async (): Promise<void> => {
+  const confirmCancel = async (): Promise<void> => {
     if (!row) return;
-    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-      const confirmed = window.confirm(tTypes('cancelConfirm'));
-      if (!confirmed) return;
-    }
     setActionInFlight(true);
     try {
       await apiClient(`/api/v1/report-card-teacher-requests/${row.id}/cancel`, {
         method: 'PATCH',
       });
       toast.success(tTypes('cancelSuccess'));
+      setCancelConfirmOpen(false);
       bumpRefresh();
     } catch (err) {
       console.error('[ReportCardRequestDetailPage.cancel]', err);
@@ -402,7 +402,7 @@ export default function ReportCardRequestDetailPage() {
                   type="button"
                   variant="outline"
                   className="min-h-11"
-                  onClick={() => void handleAutoApprove()}
+                  onClick={() => setAutoApproveConfirmOpen(true)}
                   disabled={actionInFlight}
                 >
                   <Play className="me-2 h-4 w-4" aria-hidden="true" />
@@ -425,7 +425,7 @@ export default function ReportCardRequestDetailPage() {
                 type="button"
                 variant="outline"
                 className="min-h-11"
-                onClick={() => void handleCancel()}
+                onClick={() => setCancelConfirmOpen(true)}
                 disabled={actionInFlight}
               >
                 {t('cancel')}
@@ -441,6 +441,32 @@ export default function ReportCardRequestDetailPage() {
               onRejected={bumpRefresh}
             />
           )}
+
+          {/* Auto-approve confirmation — replaces the native window.confirm.
+              Variant default since auto-approve is the happy path. */}
+          <ConfirmDialog
+            open={autoApproveConfirmOpen}
+            onOpenChange={setAutoApproveConfirmOpen}
+            title={t('autoApprove')}
+            description={t('autoApproveConfirm')}
+            confirmLabel={t('autoApprove')}
+            cancelLabel={tTypes('cancelKeep')}
+            busy={actionInFlight}
+            onConfirm={confirmAutoApprove}
+          />
+
+          {/* Cancel-own-request confirmation. */}
+          <ConfirmDialog
+            open={cancelConfirmOpen}
+            onOpenChange={setCancelConfirmOpen}
+            title={tTypes('cancelConfirmTitle')}
+            description={tTypes('cancelConfirm')}
+            confirmLabel={tTypes('cancel')}
+            cancelLabel={tTypes('cancelKeep')}
+            variant="destructive"
+            busy={actionInFlight}
+            onConfirm={confirmCancel}
+          />
         </>
       )}
     </div>

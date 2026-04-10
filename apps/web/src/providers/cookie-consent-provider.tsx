@@ -49,8 +49,14 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
     <>
       {children}
       {visible && (
-        <div className="fixed inset-x-0 bottom-0 z-50 p-4">
-          <div className="mx-auto max-w-3xl rounded-xl border border-border bg-surface/95 p-5 shadow-lg backdrop-blur-md">
+        // The outer wrapper spans the full viewport width so the inner card
+        // can be centred, but it must NOT swallow pointer events outside the
+        // card itself — otherwise admins can't click anything in the lower
+        // 100px of the page until they dismiss the banner. `pointer-events-
+        // none` on the wrapper + `pointer-events-auto` on the card lets the
+        // surface around the card pass clicks through to the page below.
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 p-4">
+          <div className="pointer-events-auto mx-auto max-w-3xl rounded-xl border border-border bg-surface/95 p-5 shadow-lg backdrop-blur-md">
             {/* Header */}
             <div className="mb-3 flex items-start gap-3">
               <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-surface">
@@ -77,9 +83,7 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-text-primary">{t('essentialTitle')}</p>
-                    <p className="text-xs text-text-secondary">
-                      {t('essentialDescription')}
-                    </p>
+                    <p className="text-xs text-text-secondary">{t('essentialDescription')}</p>
                   </div>
                   <button
                     type="button"
@@ -95,9 +99,7 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-text-primary">{t('analyticsTitle')}</p>
-                    <p className="text-xs text-text-secondary">
-                      {t('analyticsDescription')}
-                    </p>
+                    <p className="text-xs text-text-secondary">{t('analyticsDescription')}</p>
                   </div>
                   <button
                     type="button"

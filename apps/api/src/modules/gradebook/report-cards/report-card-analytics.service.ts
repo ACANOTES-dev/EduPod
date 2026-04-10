@@ -14,7 +14,22 @@ export interface ReportCardDashboard {
   revised: number;
   pending_approval: number;
   completion_rate: number;
+  /**
+   * @deprecated Reads `report_cards.teacher_comment` which is the legacy
+   * comment column. The new comment system writes to
+   * report_card_overall_comments / report_card_subject_comments — use the
+   * `_finalised` / `_total` counters below for an accurate metric. Kept on
+   * the response shape so existing consumers don't break.
+   */
   comment_fill_rate: number;
+  // Round-2 QA: separate counters for the two comment subsystems. Both are
+  // raw counts so the frontend can render "n / m finalised" instead of a
+  // misleading single percentage. _total is the count of comments started
+  // (any state); _finalised is the subset that have been finalised.
+  overall_comments_finalised: number;
+  overall_comments_total: number;
+  subject_comments_finalised: number;
+  subject_comments_total: number;
 }
 
 export interface ClassComparisonEntry {
@@ -72,7 +87,11 @@ export class ReportCardAnalyticsService {
       },
     });
 
-    // Comment fill rate: % of published report cards that have a teacher comment
+    // Legacy comment_fill_rate: % of published report cards that have a
+    // teacher comment in the deprecated `teacher_comment` column. Round-2
+    // QA found this misleading because the new comment system writes to
+    // separate tables — see overall/subject counters below for the
+    // canonical metric.
     const publishedWithComment = await this.prisma.reportCard.count({
       where: {
         ...where,
@@ -80,6 +99,36 @@ export class ReportCardAnalyticsService {
         teacher_comment: { not: null },
       },
     });
+
+    // Round-2 QA — comment counters from the new tables. Scope by period
+    // (or null period for full-year). Counts apply to the comment rows
+    // themselves, not the report cards: a teacher can have written 25
+    // overall comments before any report cards exist for the period, so
+    // these metrics answer "how much commenting work has been done?"
+    // rather than "how many cards have a snapshot stamped?".
+    const commentScopeFilter:
+      | { academic_period_id: string }
+      | { academic_period_id: null }
+      | Record<string, never> = isFullYear
+      ? { academic_period_id: null }
+      : periodId
+        ? { academic_period_id: periodId }
+        : {};
+
+    const [overallTotal, overallFinalised, subjectTotal, subjectFinalised] = await Promise.all([
+      this.prisma.reportCardOverallComment.count({
+        where: { tenant_id: tenantId, ...commentScopeFilter },
+      }),
+      this.prisma.reportCardOverallComment.count({
+        where: { tenant_id: tenantId, finalised_at: { not: null }, ...commentScopeFilter },
+      }),
+      this.prisma.reportCardSubjectComment.count({
+        where: { tenant_id: tenantId, ...commentScopeFilter },
+      }),
+      this.prisma.reportCardSubjectComment.count({
+        where: { tenant_id: tenantId, finalised_at: { not: null }, ...commentScopeFilter },
+      }),
+    ]);
 
     // Count students who have published report cards for this period
     const activeStudents = periodId
@@ -101,6 +150,10 @@ export class ReportCardAnalyticsService {
       pending_approval: pendingApproval,
       completion_rate: completionRate,
       comment_fill_rate: commentFillRate,
+      overall_comments_finalised: overallFinalised,
+      overall_comments_total: overallTotal,
+      subject_comments_finalised: subjectFinalised,
+      subject_comments_total: subjectTotal,
     };
   }
 
