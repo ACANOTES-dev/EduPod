@@ -37,6 +37,17 @@ export abstract class TenantAwareJob<T extends TenantJobPayload> {
   private static readonly UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+  /**
+   * Interactive transaction timeout (ms). Default is 5 minutes — matches the
+   * longest BullMQ `lockDuration` we use on any queue (gradebook) and gives
+   * heavy jobs (report-card render loops, mass PDF jobs, bulk imports) room
+   * to finish without Prisma's 5s default aborting them mid-flight.
+   *
+   * Subclasses can override by passing a different value to `super()` via
+   * the `transactionTimeoutMs` protected field if they need more (or less).
+   */
+  protected readonly transactionTimeoutMs: number = 5 * 60_000;
+
   async execute(data: T): Promise<void> {
     if (!data.tenant_id) {
       throw new Error(
@@ -59,16 +70,26 @@ export abstract class TenantAwareJob<T extends TenantJobPayload> {
       );
     }
 
-    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Set RLS context for this transaction using safe tagged template literal
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${data.tenant_id}::text, true)`;
+    await this.prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        // Set RLS context for this transaction using safe tagged template literal
+        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${data.tenant_id}::text, true)`;
 
-      // Set user context — defaults to sentinel for system operations
-      const userId = data.user_id || SYSTEM_USER_SENTINEL;
-      await tx.$executeRaw`SELECT set_config('app.current_user_id', ${userId}::text, true)`;
+        // Set user context — defaults to sentinel for system operations
+        const userId = data.user_id || SYSTEM_USER_SENTINEL;
+        await tx.$executeRaw`SELECT set_config('app.current_user_id', ${userId}::text, true)`;
 
-      await this.processJob(data, tx as unknown as PrismaClient);
-    });
+        await this.processJob(data, tx as unknown as PrismaClient);
+      },
+      {
+        // `maxWait` is how long Prisma waits to acquire a transaction slot
+        // from the pool; `timeout` is the max in-transaction runtime. Both
+        // default to 2s / 5s in Prisma which is far too short for the heavy
+        // workers that render PDFs or iterate many rows inside the tx.
+        maxWait: 30_000,
+        timeout: this.transactionTimeoutMs,
+      },
+    );
   }
 
   protected abstract processJob(data: T, tx: PrismaClient): Promise<void>;
