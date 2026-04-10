@@ -17,10 +17,22 @@ import { z } from 'zod';
 // `academic_period_id` accepts either a UUID or the `'full_year'` literal.
 // `locale` defaults to `'en'` so a mixed-locale bundle is never accidental.
 
+// Express's default query parser returns a string when a repeated param has
+// a single value (`?class_ids=<uuid>`) and an array only when it has two or
+// more. We coerce singles to length-1 arrays so the validator works with
+// either shape.
+const uuidArray = (max: number) =>
+  z
+    .preprocess(
+      (val) => (typeof val === 'string' ? [val] : val),
+      z.array(z.string().uuid()).max(max),
+    )
+    .optional();
+
 export const reportCardBundlePdfQuerySchema = z
   .object({
-    class_ids: z.array(z.string().uuid()).max(100).optional(),
-    report_card_ids: z.array(z.string().uuid()).max(500).optional(),
+    class_ids: uuidArray(100),
+    report_card_ids: uuidArray(500),
     academic_period_id: z
       .union([z.string().uuid(), z.literal('full_year')])
       .nullable()
