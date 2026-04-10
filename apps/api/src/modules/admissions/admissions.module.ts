@@ -7,6 +7,7 @@ import { SequenceModule } from '../sequence/sequence.module';
 
 import { AdmissionFormsController } from './admission-forms.controller';
 import { AdmissionFormsService } from './admission-forms.service';
+import { AdmissionsCapacityService } from './admissions-capacity.service';
 import { AdmissionsPaymentService } from './admissions-payment.service';
 import { AdmissionsRateLimitService } from './admissions-rate-limit.service';
 import { ApplicationConversionService } from './application-conversion.service';
@@ -33,7 +34,8 @@ import { PublicAdmissionsController } from './public-admissions.controller';
     ApplicationNotesService,
     AdmissionsRateLimitService,
     AdmissionsPaymentService,
+    AdmissionsCapacityService,
   ],
-  exports: [ApplicationsService, AdmissionsPaymentService],
+  exports: [ApplicationsService, AdmissionsPaymentService, AdmissionsCapacityService],
 })
 export class AdmissionsModule {}
