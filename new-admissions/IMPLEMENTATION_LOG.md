@@ -107,7 +107,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 04  | Form service simplification        | 2    | 01                 | `completed` | 2026-04-10 23:25 Europe/Dublin | `521d26de` (local) / `2dc85bd9` (prod) |
 | 05  | Conversion-to-student service      | 2    | 01                 | `completed` | 2026-04-10 23:55 Europe/Dublin | `3bee82a2` (local) / `b354c0f4` (prod) |
 | 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `pending`   | —                              | —                                      |
-| 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `pending`   | —                              | —                                      |
+| 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `completed` | 2026-04-11 00:21 Europe/Dublin | `b513b034` (local) / `64c1e709` (prod) |
 | 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`   | —                              | —                                      |
 | 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `completed` | 2026-04-11 00:15 Europe/Dublin | `f56d6768` (local) / `8ff0c5a2` (prod) |
 | 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `pending`   | —                              | —                                      |
@@ -365,3 +365,70 @@ Append new records below in chronological order. Format:
   - Wave 3 ran with 06/07/08/09 in parallel. At commit time, 06/07 had modified `admissions.module.ts` (payment controllers + forwardRef) and the worktree state-machine/module files held both sets of additions. I used a backup/restore dance to stage only my three hunks of `admissions.module.ts` (new service import + provider + export) and only my log flip, then restored the combined worktree state so 06/07 keep building on top.
   - Impl 08 committed locally during my first commit attempt; the pre-commit lint-staged hook failed to restore unstaged changes after prettier reformat. Fixed by resetting worktree to match index via `git checkout-index -f`, committing cleanly, then restoring the combined `admissions.module.ts` + log from `/tmp`.
   - Pre-existing approvals column drift error (`approval_requests.callback_status`) is unrelated. Nest DI graph compiled successfully on prod restart: `Nest application successfully started` at `2026-04-10T23:12:41Z`.
+
+### [IMPL 07] — Cash, bank transfer, admin override
+
+- **Completed:** 2026-04-11T00:21:00+01:00 (Europe/Dublin)
+- **Commit:** `b513b034` (local) / `64c1e709` (prod)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Rewrote `AdmissionsPaymentService` around three non-Stripe approval paths:
+  `recordCashPayment`, `recordBankTransfer`, `forceApproveWithOverride`. Each
+  opens one interactive RLS transaction that row-locks the application via
+  `SELECT … FOR UPDATE`, asserts `status = 'conditional_approval'`, validates
+  the channel + amount (or justification), writes an `AdmissionOverride` row
+  (override path), materialises the student via `ApplicationConversionService`,
+  and advances the state machine to `approved` via `markApproved()`. Added
+  `listOverrides` for the audit read endpoint. Audit logs are written through
+  `AuditLogService.write` after the transaction commits. Override role gating
+  uses `RbacReadFacade.findMembershipByUserWithPermissions` and accepts
+  `school_owner` OR the tenant-configured
+  `admissions.require_override_approval_role` (default `school_principal`).
+  New controllers `AdmissionsPaymentController` (`v1/applications/:id/payment/*`)
+  and `AdmissionOverridesController` (`v1/admission-overrides`). Split into
+  two controller classes so the override listing doesn't collide with the
+  `:id` catch-all in `ApplicationsController`. Legacy `/mark-payment-received`,
+  `/setup-payment-plan`, `/waive-fees` endpoints and their delegation methods
+  removed. New Zod schemas in `@school/shared`. `RbacModule` wired into
+  `AdmissionsModule`. 18 new unit tests cover happy paths, below-threshold
+  failures, tenant allow toggles, INVALID_STATUS/NOT_FOUND guards,
+  justification length, role gating, and cross-tenant leakage.
+- **Follow-ups:**
+  - Received-amount is stored in the application note (and for overrides in
+    `AdmissionOverride.actual_amount_cents`). There is no separate
+    `AdmissionsPaymentEvent` table — the spec suggested one but impl 01
+    didn't create it and we did not add a mid-wave migration. Impl 11/12 can
+    surface the note text for the audit view; impl 15 can decide whether to
+    retire the legacy `payment_status` enum in favour of explicit event rows.
+  - `AdmissionsPaymentService` no longer touches the legacy
+    `AdmissionPaymentStatus` column — `status='approved'` is the authoritative
+    signal. Wave 4 frontends should read that, not `payment_status`.
+  - `recordBankTransfer` currently trusts the admin's attestation of the
+    transfer reference; no bank reconciliation. Flagged as out-of-scope in
+    PLAN.md §9.
+- **Session notes:**
+  - Wave 3 ran with 06/07/08/09 in parallel. When I ran `git status`, impls
+    06/08/09's in-progress files were all in the shared worktree. I used
+    `git checkout HEAD -- <mixed files>` to reset four files
+    (`applications.controller.ts`, `applications.controller.spec.ts`,
+    `admissions.module.ts`, `application.schema.ts`) and re-applied only my
+    impl 07 hunks so the commit contained no foreign code. Commit b513b034
+    includes my 7 files. Impl 06's partial `stripe.service.ts` referencing a
+    missing `admissionsPaymentEvent` Prisma model was left untouched in the
+    worktree for impl 06's session to continue.
+  - The pre-commit lint-staged hook swept the unstaged `IMPLEMENTATION_LOG.md`
+    into my commit, reverting impls 08/09's in-flight log state. To avoid
+    corrupting prod's log I generated a code-only patch via
+    `git diff HEAD~1 HEAD -- ':!new-admissions/IMPLEMENTATION_LOG.md'` and
+    applied it on production with `git apply` + a fresh `git commit` (prod
+    commit `64c1e709`). The log update for impl 07 ships as a separate
+    follow-up commit (local + prod).
+  - Smoke test on prod `http://localhost:3001` with `Host: nhqs.edupod.app`:
+    all three POST routes return 401 (auth guard live); GET
+    `/v1/admission-overrides?page=1&pageSize=20` returns 401; removed
+    `/v1/applications/:id/mark-payment-received` and `/waive-fees` return 404.
+  - Nest startup logs confirmed `AdmissionsPaymentController` +
+    `AdmissionOverridesController` routes mapped at 23:21:01Z.
+  - Impl 08's completion record is still missing from §5 — its session never
+    updated the log after committing `0cca275a`. Out of scope for this impl
+    but worth flagging.
