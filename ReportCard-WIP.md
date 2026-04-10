@@ -778,6 +778,48 @@ _Completed:_
 
 **Phase 3 — DONE.** Production HEAD: `a1b4f2de`. Phases 1a + 1b + dispatcher fix + Phase 2 + 3 hotfixes all landed. Five commits shipped since the prior deploy: `46ff5814` (docs), `b2392e45` (dispatcher), `a8b31af4` (Phase 2), `3d5d5206` (loose ends), `c7133398` (enum+tx hotfix), `a1b4f2de` (redirect stubs). None pushed to `origin/main`. Pre-deploy backup at `/opt/edupod/backups/predeploy/predeploy-20260410-06*.dump`. Rollback tag: `pre-deploy-report-cards-20260410-0709` → `142334a4`.
 
+**Session 6 — 2026-04-10 (Post-phase-3 dashboard defect sweep)**
+
+User reported five user-facing defects after exercising the Phase 3 dashboard end-to-end (generated 25 S1 + 25 full-year reports for class 2A):
+
+1. **Library empty despite 80 drafts in DB** — root cause: `hasAnyPermission` helper in `report-cards.controller.ts` doesn't honour the `isOwner` bypass that `PermissionGuard` applies, so School Owner (who has no explicit `report_cards.view`/`.manage` in their role permissions) fell through to the teacher-scoped branch of `listReportCardLibrary` and got an empty dataset. Verified via prod DB: `school_owner` role has zero report_cards.\* permissions; the owner bypass in the guard is what lets them through the decorator check. Fixed by calling `permissionCacheService.isOwner()` first in the helper.
+
+2. **`GET /v1/report-cards/templates` returned 400 "uuid is expected"** — the primary `ReportCardsController` declares `@Get('report-cards/:id')` as a catch-all, and the module's `controllers` array listed it BEFORE `ReportCardsEnhancedController`. Express registers routes in order, so `GET /report-cards/templates` was matching the `:id` route (with `id='templates'`) and failing `ParseUUIDPipe`. Same issue silently shadowed `approval-configs`, `custom-fields`, `grade-thresholds` list endpoints. Fixed by reordering the `controllers` array so Enhanced registers first.
+
+3. **Analytics 55 vs 80 discrepancy** — dashboard snapshot defaulted to the active period (S1 → 55) while the full analytics page defaulted to "All periods" (→ 80). The "See full analytics" button wasn't forwarding the current period. Fixed by passing the `periodId` prop into `AnalyticsSnapshotPanel`, appending `?academic_period_id=<...>` to the navigation URL, and reading `searchParams` in the analytics page on mount.
+
+4. **Dashboard period selector missing "Full Year"** — the user generated 25 full-year report cards but couldn't filter the dashboard by them because the selector was populated from `/academic-periods` (only S1/S2). Added a synthetic "Full Year" option at the top of both the dashboard selector and the analytics page selector using the existing `'full_year'` sentinel. Extended `analyticsQuerySchema` to accept the literal alongside UUIDs, and updated `ReportCardAnalyticsService.{getDashboard,getClassComparison}` to translate the sentinel into `academic_period_id: null` on the where clause.
+
+5. **Wizard Step 3 didn't expose template names** — only the content scope label was shown. Extended `ContentScopeLocaleEntry` with a `template_name` field, plumbed it through `listContentScopes`, and added a `EN: <template name>` subline under the locale hint in the Step 3 card.
+
+_Deploy:_ single commit `2f562e59` shipped via git bundle + direct checkout (no origin/main push). Deploy script hit the same `restore_pm2_services` sudoers bug — manually restarted PM2 as root. Pre-deploy rollback tag: `pre-deploy-rc-dashboard-20260410-1003` → `6c1e2eb5`. Production HEAD: `2f562e59`.
+
+_Regression gate:_ `pnpm --filter @school/api test -- --testPathPattern 'modules/gradebook'` → 64 suites / 1245 tests pass. Includes two new tests: `listLibrary` owner-bypass path in `report-cards.controller.spec.ts`, and full_year sentinel translation in `report-card-analytics.service.spec.ts`. Type-check clean on api + web + shared. Lint clean on every file touched.
+
+_Production verification (Playwright as Yusuf Rahman, School Owner):_
+
+| Surface                                                 | Before                                                | After                                                                                                     |
+| ------------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Dashboard "Library" tile                                | "No documents yet"                                    | "80 documents"                                                                                            |
+| `/report-cards/library`                                 | "No report cards have been generated yet" empty state | 20 rows rendered (Roisin Dunne, Isla Evans, Adam Moore...), Full Year period label, Download (EN) buttons |
+| `GET /v1/report-cards/library?page=1&pageSize=3`        | `{data:[], meta:{total:0}}`                           | `{data:[3 rows], meta:{total:80}}`                                                                        |
+| `GET /v1/report-cards/templates`                        | `400 "uuid is expected"`                              | `200 {data:[{id, name:"Grades Only", locale:"en"}]}`                                                      |
+| `content-scopes.grades_only.locales[0]`                 | `{template_id, locale, is_default}`                   | `{template_id, template_name:"Grades Only", locale, is_default}`                                          |
+| Dashboard period selector                               | `S1`, `S2` only                                       | `Full Year`, `S1`, `S2`                                                                                   |
+| Dashboard snapshot with Full Year selected              | impossible to reach                                   | `Total 25, Draft 25`                                                                                      |
+| "See full analytics" URL                                | `/analytics` (no period)                              | `/analytics?academic_period_id=full_year`                                                                 |
+| Analytics page summary with URL period                  | Total 80 (drift)                                      | Total 25 (matches snapshot)                                                                               |
+| `GET /analytics/dashboard?academic_period_id=full_year` | `400 "Invalid ..."`                                   | `200 {period_id:"full_year", total:25, draft:25}`                                                         |
+| Wizard Step 3 Grades Only card                          | "Available in: EN"                                    | "Available in: EN / EN: Grades Only"                                                                      |
+
+**Post-session status.** All 5 user-reported defects fixed and verified on production. `origin/main` still untouched. Rollback tag `pre-deploy-rc-dashboard-20260410-1003` → `6c1e2eb5` available if needed.
+
+_Carry-forward backlog (unchanged since Session 5):_
+
+- AuditLogWriteProcessor stderr flood from empty-UUID `user_id`
+- Deploy script `restore_pm2_services()` sudoers bug — still manually worked around each deploy
+- Puppeteer per-user cache drift
+
 **New backlog items surfaced during Phase 3:**
 
 - **Library returns 0 for admins even with 55 rows in DB**. `GET /v1/report-cards/library?page=1&pageSize=5` returns `{"data":[],"meta":{"total":0}}` while `SELECT COUNT(*) FROM report_cards WHERE tenant_id = <nhqs>` returns 55 (25 drafts with pdf_storage_key, 30 older drafts without). The query in `listReportCardLibrary` filters only by `tenant_id` and `status != 'superseded'`, so it should match. RLS is fine (edupod_app can see all 55 with `app.current_tenant_id` set). API access log shows `tenant_id: null` and `user_id: null` on the library request — suggesting the access-log interceptor runs before tenant resolution, but the RLS middleware may also be failing to resolve the tenant context on this specific route. Needs deeper debugging; not a Phase 1b/2/3 regression (was broken before).
