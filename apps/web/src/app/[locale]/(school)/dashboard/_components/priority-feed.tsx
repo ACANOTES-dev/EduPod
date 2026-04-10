@@ -6,6 +6,7 @@ import {
   CircleDollarSign,
   ClipboardCheck,
   GraduationCap,
+  Inbox,
   LockOpen,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -123,6 +124,23 @@ function buildCards(
       description: t('unlockRequestDescription'),
       actionLabel: t('reviewUnlockRequests'),
       href: '/assessments?tab=approvals',
+    });
+  }
+
+  if (data.pending_report_card_requests && data.pending_report_card_requests > 0) {
+    const count = data.pending_report_card_requests;
+    cards.push({
+      id: 'report-card-teacher-requests',
+      icon: Inbox,
+      iconBg: 'bg-rose-100 dark:bg-rose-500/20',
+      iconColor: 'text-rose-600 dark:text-rose-400',
+      title:
+        count === 1
+          ? t('reportCardRequestSingular', { count })
+          : t('reportCardRequestPlural', { count }),
+      description: t('reportCardRequestDescription'),
+      actionLabel: t('reviewReportCardRequests'),
+      href: '/report-cards/requests',
     });
   }
 

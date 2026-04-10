@@ -142,12 +142,31 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const fetchReportCardRequests = React.useCallback(async () => {
+    try {
+      const result = await apiClient<{ data: unknown[]; meta: { total: number } }>(
+        '/api/v1/report-card-teacher-requests?status=pending&page=1&pageSize=1',
+        { silent: true },
+      );
+      const total = result.meta?.total ?? result.data?.length ?? 0;
+      if (total > 0) {
+        setPriorityData((prev) => ({
+          ...prev,
+          pending_report_card_requests: total,
+        }));
+      }
+    } catch (err) {
+      console.error('[fetchReportCardRequests]', err);
+    }
+  }, []);
+
   React.useEffect(() => {
     void fetchDashboard();
     void fetchFinance();
     void fetchBehaviour();
     void fetchUnlockRequests();
-  }, [fetchDashboard, fetchFinance, fetchBehaviour, fetchUnlockRequests]);
+    void fetchReportCardRequests();
+  }, [fetchDashboard, fetchFinance, fetchBehaviour, fetchUnlockRequests, fetchReportCardRequests]);
 
   const schoolName = user?.memberships?.[0]?.tenant?.name || 'EduPod School';
 

@@ -392,15 +392,6 @@ export const hubGroupedSubStripConfigs: Record<string, SubStripGroupConfig[]> = 
       children: [
         { labelKey: 'nav.assessmentDashboard', href: '/assessments' },
         { labelKey: 'nav.gradebook', href: '/gradebook' },
-        { labelKey: 'nav.reportCards', href: '/report-cards' },
-        { labelKey: 'nav.reportCardsGenerate', href: '/report-cards/generate', roles: ADMIN_ROLES },
-        { labelKey: 'nav.reportCardsSettings', href: '/report-cards/settings', roles: ADMIN_ROLES },
-        {
-          labelKey: 'nav.reportCardsRequests',
-          href: '/report-cards/requests',
-          roles: [...ADMIN_ROLES, 'teacher'],
-        },
-        { labelKey: 'nav.reportComments', href: '/report-comments' },
         { labelKey: 'nav.gradeAnalytics', href: '/analytics' },
       ],
     },
@@ -414,6 +405,14 @@ export const hubGroupedSubStripConfigs: Record<string, SubStripGroupConfig[]> = 
     {
       labelKey: 'nav.attendance',
       href: '/attendance',
+    },
+    {
+      // Report Cards is its own top-level Learning group (Phase 2). Clicking
+      // navigates straight to the consolidated `/report-cards` dashboard which
+      // handles all sub-page navigation internally. No children — no sub-strip.
+      labelKey: 'nav.reportCards',
+      href: '/report-cards',
+      roles: [...ADMIN_ROLES, 'teacher'],
     },
   ],
 };
