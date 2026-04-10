@@ -571,28 +571,54 @@ This is the real implementation of Bug #4. Separate commit so it's revertable.
 - Presented design proposal + got user approval (Option A for analytics, library 0-count OK, wizard stays own page with Back buttons)
 - User deferred "All periods" product questions, chose Option B
 
-**Session 2 — 2026-04-10 (current session — Phase 1a partial)**
+**Session 2 — 2026-04-10 (Phase 1a complete + deployed + verified on prod)**
 
 _Completed:_
 
-- ✅ Bug #5 — `step-5-comment-gate.tsx`: `apiClient<CommentGateDryRunResult>` → `apiClient<{ data: CommentGateDryRunResult }>`; dispatch `result: res.data`.
-- ✅ Bug #6 — `report-comments/overall/[classId]/page.tsx`: wrapped envelopes on 5 apiClient calls (active window, matrix, save POST, finalise PATCH, unfinalise PATCH).
+- ✅ Bug #1 — `report-cards-queries.service.ts`: built `subjectScaleMap` from `classSubjects[*].grading_scale.config_json`, passed into `buildMatrixCells`, derived `cell.grade` via `applyGradingScale(score, subjectScale)`. Always calls the helper (no null bypass) so the no-scale fallback returns the rounded percentage — same pattern `overall_grade` uses. Added regression unit test in `report-cards-queries.service.spec.ts` that seeds misleading display tokens (`"70.5%"`, `"59.2%"`) and asserts the derived letter (`"B"`) matches the aggregated score (85), not the tokens. The pre-existing "has_override" test was updated: with no scale, the override flag is preserved but the raw `overridden_value` string is no longer echoed into the grade field — score-derivation is authoritative.
+- ✅ Bug #2 — `report-cards/[classId]/page.tsx`: changed outer wrapper to `inline-block max-w-full` and table to `w-max`. Verified on prod via DOM measurement: table=1060px, wrapper=1060px, borderbox=1062px. Down from a 218px gap.
 - ✅ Bug #3 — `step-1-scope.tsx`: branched selection label on `scope.mode`. Added i18n keys `classesSelected`, `yearGroupsSelected`, `periodAll`, `periodAllHint` in both `en.json` and `ar.json`.
-- ✅ Bug #4 stopgap — `step-2-period.tsx`: added disabled "Coming soon" card at top of period list. (Will be removed in Phase 1b.)
-- ✅ Bug #1 partial — `report-cards-queries.service.ts`: added `subjectScaleMap`, passed into `buildMatrixCells`, derived `cell.grade` via `applyGradingScale(score, subjectScale)` instead of echoing last-period `display_value`. **Unit test still to add.**
+- ✅ Bug #4 stopgap — `step-2-period.tsx`: added disabled "Coming soon" card at top of period list. **REMOVE THIS in Phase 1b** when full-year support lands.
+- ✅ Bug #5 — `step-5-comment-gate.tsx`: `apiClient<CommentGateDryRunResult>` → `apiClient<{ data: CommentGateDryRunResult }>`; dispatched `result: res.data`. Verified on prod: full wizard walk Class → 2A → S1 → Grades Only → Full name → Next renders Step 5 ("Comment check") cleanly with summary cards, no error screen.
+- ✅ Bug #6 — `report-comments/overall/[classId]/page.tsx`: wrapped envelopes on 5 apiClient calls (active window, matrix, save POST, finalise PATCH, unfinalise PATCH). Verified on prod: 2A overall comments editor renders 25 student rows with weighted averages, zero console errors.
+- ✅ Bug #7 — `requests/page.tsx`: gated "New request" button and "My requests" tab on `!canManage`. Narrowed `AdminTab` type to drop `'mine'`. Removed dead `activeTab === 'mine'` code path. Also fixed a latent envelope bug on `apiClient<UserSummary>` (line 158) → `apiClient<{ data: UserSummary }>` so requester names will actually display.
+- ✅ Bug #8 — `report-cards/approvals/page.tsx`: replaced the entire page with a client redirect to `/report-cards/requests`. No more 404 console noise. Phase 2 will delete the route entirely.
+- ✅ Bug #9 — `report-cards/analytics/page.tsx`: required two follow-up commits beyond the initial fix.
+  1. **Commit `c74790d4`**: replaced the ghost `/api/v1/report-cards/analytics?` call with parallel calls to `/dashboard` + `/class-comparison`.
+  2. **Commit `ae33916a`** (analytics follow-up #1): on Playwright verification the class-comparison endpoint returned **500** when called with no period (the backend service can't handle an empty UUID string). Switched to `Promise.allSettled` so dashboard renders independently, and skipped the class-comparison fetch entirely when no specific period is selected (it's per-period by design).
+  3. **Commit `e0e6ba8f`** (analytics follow-up #2): a third surface bug — frontend `AnalyticsSummary` and `ClassComparisonItem` interfaces had drifted from the backend contract, so accessing `analytics.summary.completion_pct` hit `undefined.toFixed` and crashed the page. Aligned the interfaces with the backend's `ReportCardDashboard` and `ClassComparisonEntry` types: `pending_approval` (not `pending`), `completion_rate` / `comment_fill_rate` (not `_pct`), `average_grade` / `published_count` on the comparison items. Updated all JSX references and the BarChart `dataKey`s. Added `?? 0` fallbacks for safety.
+- ✅ Back-to-dashboard buttons added on the sub-pages that didn't already have one: generate, settings, report-comments landing, analytics. The class matrix, library, requests landing, requests/new, requests/[id] already had parent-level back buttons. All use the existing `reportCards.backToReportCards` i18n key.
+- ✅ Regression tests: api 722 suites / 15,057 tests pass; shared 36 suites / 845 pass; web 12 suites / 264 pass. Type-check clean on api + web. Lint clean on every file touched.
+- ✅ Phase 1a committed locally as `c74790d4` (16 files, +1072/-371). Two follow-up fixes committed as `ae33916a` and `e0e6ba8f`. None pushed to origin/main per the CI-gate hold.
+- ✅ Deployed to production via direct-bundle flow:
+  - Pre-deploy server SHA: `8bb74683`
+  - Final server HEAD: `e0e6ba8f`
+  - Two ownership cleanups along the way: `chown -R edupod:edupod /opt/edupod/app` (27,821 root-owned files from prior root-runs) and `chown -R edupod:edupod /opt/edupod/backups` (16 backup files). The previous session had similar issues — it's worth fixing the deploy script's user-handling story before next deploy.
+  - Stale `/tmp/edupod-deploy.lock` from a prior root-owned run had to be removed.
+  - Deploy script's PM2 restart step uses `sudo -u edupod pm2 ...`, which fails when the script is invoked as edupod (no sudo privileges). Worked around by running PM2 reload manually as root via SSH. **Same pattern next session — the deploy script needs a fix here.**
+  - Pre-deploy DB backup: `/opt/edupod/backups/predeploy/predeploy-20260409-235640.dump`
+  - Migrations: 0 pending, post-migrate 0 new / 32 skipped, verification passed.
+  - Smoke tests after restart: API health up (degraded warning from a pre-existing `behaviour:failed>5` BullMQ alert and a spurious `disk free_gb=0` probe — neither related to this deploy), web login HTTP 200, worker health healthy, auth HTTP 401 on bad creds.
+- ✅ Playwright verification on production as Yusuf Rahman (School Owner):
+  - `/en/report-cards` — landing renders, 0 console errors.
+  - `/en/report-cards/2A-id` — class matrix in Grade mode: scanned 25 rows × 7 subject columns = 175 grade cells, **zero percentage offenders** (down from 7 in the original repro). Layout: table=1060px, wrapper=1060px (no trailing gap).
+  - `/en/report-cards/generate` — full wizard walk Class → 2A → "1 class selected" → S1 → Grades Only → Full name → Step 5 "Comment check" renders with the 25-students-in-scope summary, zero console errors. "All periods · COMING SOON" card visible above S1/S2 in Step 2.
+  - `/en/report-cards/requests` — admin sees only Pending review / All tabs, no New Request, no My Requests, Back to Report Cards visible.
+  - `/en/report-cards/approvals` — clean redirect to `/en/report-cards/requests`, 0 console errors, no 404 noise.
+  - `/en/report-cards/settings` — loads, 0 errors, back button present.
+  - `/en/report-cards/library` — loads, 0 errors.
+  - `/en/report-cards/analytics` — loads, 0 errors, summary cards render: Total 30, Published 0, Pending Approval 0, Completion Rate 0.0%, Comment Fill Rate 0.0%.
+  - `/en/report-comments` — landing, 0 errors, back button present.
+  - `/en/report-comments/overall/2A-id` — editor renders 25 student rows with weighted averages (was crashing with `students.map` undefined and `class.name` undefined).
 
-_In progress when document was written:_ Phase 1a was paused to write this doc.
+**Phase 1a — DONE.** Production HEAD `e0e6ba8f`. All 9 reported bugs verified fixed. The Bug #4 stopgap is the only thing carrying forward — it's the entry point for Phase 1b.
 
-_Remaining Phase 1a:_
+**Backlog items surfaced during Phase 1a verification (not Phase 1a scope):**
 
-- Bug #2 — matrix table width
-- Bug #7 — requests page role gating
-- Bug #8 — retire approvals ghost (Phase 1a scope: redirect or noop; full removal in Phase 2)
-- Bug #9 — analytics 400 on empty query
-- Back-to-dashboard buttons on sub-pages
-- Unit test for Bug #1
-- `turbo test`
-- Commit Phase 1a
+- Backend `getClassComparison` returns 500 when called with empty `academic_period_id`. The frontend now skips the call when no period is selected, but the backend should handle the empty case gracefully. Track for a future small fix.
+- Deploy script user-handling needs cleanup — the `sudo -u edupod pm2` chain inside the script breaks when the script itself is invoked as edupod. Either always invoke as root and let it sudo, or fix the script to detect the calling user.
+- Server file ownership keeps drifting back to root — investigate which runtime path is creating root-owned files (turbo cache? prisma generate?) and add a chown to the deploy script's preflight.
+- The `has_override` semantics on matrix cells changed: the override flag is preserved but the raw `overridden_value` string is no longer echoed. If teachers actually need to override the _letter_ (not the score), Phase 1b should add an explicit `letter_override` field. Otherwise the current behaviour is correct — score is authoritative.
 
 ---
 
