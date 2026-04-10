@@ -99,23 +99,23 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                              | Wave | Depends on         | Status      | Completed at                   | Commit SHA                             |
-| --- | ---------------------------------- | ---- | ------------------ | ----------- | ------------------------------ | -------------------------------------- |
-| 01  | Schema foundation                  | 1    | —                  | `completed` | 2026-04-10 22:00 Europe/Dublin | `0b976d37` (local) / `55001a4e` (prod) |
-| 02  | Capacity service                   | 2    | 01                 | `pending`   | —                              | —                                      |
-| 03  | State machine rewrite              | 2    | 01                 | `pending`   | —                              | —                                      |
-| 04  | Form service simplification        | 2    | 01                 | `pending`   | —                              | —                                      |
-| 05  | Conversion-to-student service      | 2    | 01                 | `pending`   | —                              | —                                      |
-| 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `pending`   | —                              | —                                      |
-| 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `pending`   | —                              | —                                      |
-| 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`   | —                              | —                                      |
-| 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `pending`   | —                              | —                                      |
-| 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `pending`   | —                              | —                                      |
-| 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `pending`   | —                              | —                                      |
-| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `pending`   | —                              | —                                      |
-| 13  | Form preview page                  | 4    | 01, 04             | `pending`   | —                              | —                                      |
-| 14  | Public form + QR code              | 4    | 01, 02, 03, 04     | `pending`   | —                              | —                                      |
-| 15  | Cleanup, translations, live counts | 5    | 10, 11, 12, 13, 14 | `pending`   | —                              | —                                      |
+| #   | Title                              | Wave | Depends on         | Status        | Completed at                   | Commit SHA                             |
+| --- | ---------------------------------- | ---- | ------------------ | ------------- | ------------------------------ | -------------------------------------- |
+| 01  | Schema foundation                  | 1    | —                  | `completed`   | 2026-04-10 22:00 Europe/Dublin | `0b976d37` (local) / `55001a4e` (prod) |
+| 02  | Capacity service                   | 2    | 01                 | `completed`   | 2026-04-10 23:11 Europe/Dublin | `f97f31fd` (local) / `64ea88c6` (prod) |
+| 03  | State machine rewrite              | 2    | 01                 | `in-progress` | —                              | —                                      |
+| 04  | Form service simplification        | 2    | 01                 | `in-progress` | —                              | —                                      |
+| 05  | Conversion-to-student service      | 2    | 01                 | `in-progress` | —                              | —                                      |
+| 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `pending`     | —                              | —                                      |
+| 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `pending`     | —                              | —                                      |
+| 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`     | —                              | —                                      |
+| 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `pending`     | —                              | —                                      |
+| 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `pending`     | —                              | —                                      |
+| 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `pending`     | —                              | —                                      |
+| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `pending`     | —                              | —                                      |
+| 13  | Form preview page                  | 4    | 01, 04             | `pending`     | —                              | —                                      |
+| 14  | Public form + QR code              | 4    | 01, 02, 03, 04     | `pending`     | —                              | —                                      |
+| 15  | Cleanup, translations, live counts | 5    | 10, 11, 12, 13, 14 | `pending`     | —                              | —                                      |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -191,3 +191,49 @@ Append new records below in chronological order. Format:
     policy so future tenants get it automatically — it ships in the follow-up log
     commit. The policy is idempotent so the production DB is already in the right
     state and re-running `pnpm db:post-migrate` is a no-op.
+
+### [IMPL 02] — Capacity service
+
+- **Completed:** 2026-04-10T23:11:00+01:00 (Europe/Dublin)
+- **Commit:** `f97f31fd` (local) / `64ea88c6` (production)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Added `apps/api/src/modules/admissions/admissions-capacity.service.ts` — the
+  single source of truth for (year_group, academic_year) seat arithmetic. Three
+  entry points on `AdmissionsCapacityService`: `getAvailableSeats` for one pair,
+  `getAvailableSeatsBatch` for N pairs without N+1 queries, and
+  `getStudentYearGroupCapacity` for the auto-promotion hooks in impl 09. The
+  math: sum `classes.max_capacity` for active classes, subtract
+  `COUNT(DISTINCT class_enrolments.student_id)` for active enrolments, subtract
+  `applications.status = 'conditional_approval'` count for the same pair, clamp
+  to zero via `GREATEST(0, ...)`, and expose a `configured` flag for the
+  `awaiting_year_setup` branch of the state machine. Implemented as a single
+  CTE over two parallel `unnest()` arrays so batch lookups hit the DB once.
+  The raw SQL runs inside the caller-owned RLS transaction via the documented
+  `school/no-raw-sql-outside-rls` exception, matching the existing pattern in
+  `applications.service.ts`. Service is registered in `AdmissionsModule`
+  providers and exports. Covered by 15 unit tests
+  (`admissions-capacity.service.spec.ts`) including clamping, empty fallback,
+  tenant-id binding, ordering, and dedupe. API smoke-restarted on production,
+  Nest DI graph successfully wired the new provider.
+- **Follow-ups:**
+  - Impl 09 (auto-promotion hooks) will call `getAvailableSeats` inside its
+    transition transaction and batch via `getAvailableSeatsBatch` for the
+    year-setup retroactive gating pass.
+  - Impls 10/11 (dashboard + queue pages) will use `getAvailableSeatsBatch` to
+    surface capacity chips without N+1. They should call it inside the existing
+    RLS-scoped read transaction.
+  - `getStudentYearGroupCapacity` currently picks the student's most recent
+    active `ClassEnrolment` by `start_date DESC`. If a school ever enrols a
+    student in two concurrent classes in different academic years, this will
+    return the newer year. That's intentional for auto-promotion but worth
+    flagging if impl 09 discovers a different need.
+- **Session notes:**
+  - Wave 2 ran with impls 02/03/04/05 in parallel. No other impl was
+    `deploying` when this one deployed, so no serialisation wait was needed.
+  - The pre-existing tsc errors in `admission-forms.service.ts`/spec are from
+    impl 04's in-flight work and are unrelated to this change.
+  - A parallel session (impl 05) added `ApplicationConversionService` to the
+    `AdmissionsModule` exports while this impl was running; prettier/lint
+    reflowed the providers/exports arrays on commit but the additions are
+    independent and both made it to production.
