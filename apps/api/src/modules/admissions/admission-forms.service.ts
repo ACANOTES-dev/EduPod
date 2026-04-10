@@ -215,13 +215,15 @@ export class AdmissionFormsService {
   }
 
   /**
-   * Ensures a published system form exists for the tenant. Idempotent —
-   * if one already exists, it is returned unchanged. Called at tenant
-   * provisioning time and as a safety net inside getPublishedForm.
+   * Ensures a published system form exists for the tenant and that its
+   * stored fields match the canonical SYSTEM_FORM_FIELDS. Idempotent in
+   * the sense that repeated calls on an up-to-date tenant are no-ops, but
+   * it WILL auto-migrate a stale form by triggering a rebuild. Used as a
+   * safety net inside getPublishedForm so public callers always see the
+   * current canonical field set.
    *
-   * Note: this is called from contexts without an acting user (bootstrap,
-   * public form fetch). The audit log entry written by the internal rebuild
-   * uses a null actor which is valid per the AuditLog schema.
+   * The rebuild is written with a null actor_user_id because this path is
+   * callable from anonymous contexts (public form fetch, bootstrap).
    */
   async ensureSystemForm(tenantId: string): Promise<PublishedForm> {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
@@ -240,7 +242,7 @@ export class AdmissionFormsService {
       });
     })) as PublishedForm | null;
 
-    if (existing) {
+    if (existing && this.fieldsMatchCanonical(existing.fields)) {
       return existing;
     }
 

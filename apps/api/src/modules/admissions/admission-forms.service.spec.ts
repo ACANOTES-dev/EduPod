@@ -147,6 +147,32 @@ describe('AdmissionFormsService', () => {
       expect(mockPrisma.admissionFormDefinition.create).not.toHaveBeenCalled();
     });
 
+    it('rebuilds when the stored field set has drifted from the canonical list', async () => {
+      // Stale form missing the first canonical field — triggers fieldsMatchCanonical = false.
+      const stale = buildForm({ fields: buildStoredFields().slice(1) });
+      mockPrisma.admissionFormDefinition.findFirst
+        .mockResolvedValueOnce(stale) // ensureSystemForm pre-check
+        .mockResolvedValueOnce(stale) // rebuildSystemForm existing lookup
+        .mockResolvedValueOnce({ ...stale, version_number: 1 }); // latestVersion
+      mockPrisma.admissionFormDefinition.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.admissionFormDefinition.create.mockResolvedValue({
+        id: 'form-migrated',
+        base_form_id: 'form-1',
+        version_number: 2,
+        status: 'published',
+      });
+      mockPrisma.admissionFormDefinition.findFirstOrThrow.mockResolvedValue(
+        buildForm({ id: 'form-migrated', version_number: 2 }),
+      );
+
+      const result = await service.ensureSystemForm(TENANT_A);
+
+      expect(result.id).toBe('form-migrated');
+      expect(mockPrisma.admissionFormDefinition.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { status: 'archived' } }),
+      );
+    });
+
     it('creates a new published form when none exists', async () => {
       mockPrisma.admissionFormDefinition.findFirst
         .mockResolvedValueOnce(null) // ensureSystemForm pre-check
