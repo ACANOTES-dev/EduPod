@@ -10969,5 +10969,63 @@
         "description": "فهرسة الغرف والمرافق وضبط السعات وإدارة التوفر للجدول الزمني."
       }
     }
+  },
+  "admissionsHub": {
+    "title": "القبول",
+    "description": "إدارة الطلبات من التقديم حتى الموافقة — كل خطوة مربوطة ماليًا.",
+    "cardsAria": "أقسام القبول",
+    "kpis": {
+      "readyToAdmit": "جاهز للقبول",
+      "waitingList": "قائمة الانتظار",
+      "conditionalApproval": "موافقة مشروطة",
+      "approvedThisMonth": "تم قبولهم هذا الشهر",
+      "rejectedThisMonth": "تم رفضهم هذا الشهر"
+    },
+    "cards": {
+      "readyToAdmit": {
+        "title": "جاهز للقبول",
+        "description": "{count} طلبًا بانتظار قرارك",
+        "zero": "لا توجد طلبات بانتظار المراجعة"
+      },
+      "waitingList": {
+        "title": "قائمة الانتظار",
+        "description": "{count} طلبًا في قائمة الانتظار — تتم الترقية تلقائيًا عند توفر مقاعد",
+        "awaitingYearSetup": "{count} بانتظار إعداد الصف الدراسي",
+        "zero": "قائمة الانتظار فارغة"
+      },
+      "conditionalApproval": {
+        "title": "موافقة مشروطة",
+        "description": "{count} طلبًا بانتظار الدفع",
+        "nearExpiry": "{count} تنتهي خلال يومين",
+        "zero": "لا توجد مدفوعات معلقة"
+      },
+      "rejected": {
+        "title": "مرفوض",
+        "description": "{count} طلبًا تم رفضه حتى الآن",
+        "zero": "لم يتم رفض أي طلبات"
+      },
+      "formPreview": {
+        "title": "نموذج القبول",
+        "description": "معاينة النموذج العام والحصول على رمز QR"
+      },
+      "overrides": {
+        "title": "سجل التجاوزات",
+        "description": "{count} تجاوزًا إداريًا صادرًا",
+        "zero": "لا توجد تجاوزات مسجلة"
+      }
+    },
+    "capacityPressure": {
+      "title": "ضغط السعة",
+      "subtitle": "الصفوف الدراسية ذات أطول قائمة انتظار",
+      "headerYearGroup": "الصف الدراسي",
+      "headerWaiting": "الانتظار",
+      "headerCapacity": "السعة / المسجلون / المشروط",
+      "empty": "لا يوجد نشاط في قائمة الانتظار"
+    },
+    "empty": {
+      "title": "لا يوجد نشاط طلبات بعد",
+      "description": "شارك رابط النموذج العام لبدء استقبال الطلبات."
+    },
+    "loading": "جارٍ تحميل نظرة عامة على القبول…"
   }
 }

@@ -14,6 +14,8 @@ import { AdmissionFormsController } from './admission-forms.controller';
 import { AdmissionFormsService } from './admission-forms.service';
 import { AdmissionsAutoPromotionService } from './admissions-auto-promotion.service';
 import { AdmissionsCapacityService } from './admissions-capacity.service';
+import { AdmissionsDashboardController } from './admissions-dashboard.controller';
+import { AdmissionsDashboardService } from './admissions-dashboard.service';
 import {
   AdmissionOverridesController,
   AdmissionsPaymentController,
@@ -48,6 +50,7 @@ import { PublicAdmissionsController } from './public-admissions.controller';
     ParentApplicationsController,
     AdmissionsPaymentController,
     AdmissionOverridesController,
+    AdmissionsDashboardController,
   ],
   providers: [
     AdmissionFormsService,
@@ -59,6 +62,7 @@ import { PublicAdmissionsController } from './public-admissions.controller';
     AdmissionsPaymentService,
     AdmissionsCapacityService,
     AdmissionsAutoPromotionService,
+    AdmissionsDashboardService,
     FinanceFeesFacade,
   ],
   exports: [

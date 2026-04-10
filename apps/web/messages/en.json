@@ -10978,5 +10978,63 @@
         "description": "Catalogue rooms and facilities, set capacities, and manage availability for the timetable."
       }
     }
+  },
+  "admissionsHub": {
+    "title": "Admissions",
+    "description": "Manage applications from submission through approval — every step financially gated.",
+    "cardsAria": "Admissions sections",
+    "kpis": {
+      "readyToAdmit": "Ready to Admit",
+      "waitingList": "Waiting List",
+      "conditionalApproval": "Conditional Approval",
+      "approvedThisMonth": "Approved this month",
+      "rejectedThisMonth": "Rejected this month"
+    },
+    "cards": {
+      "readyToAdmit": {
+        "title": "Ready to Admit",
+        "description": "{count} applications waiting for your decision",
+        "zero": "No applications waiting for review"
+      },
+      "waitingList": {
+        "title": "Waiting List",
+        "description": "{count} applications queued — auto-promoted as seats open",
+        "awaitingYearSetup": "{count} awaiting year group setup",
+        "zero": "Waiting list is clear"
+      },
+      "conditionalApproval": {
+        "title": "Conditional Approval",
+        "description": "{count} applications awaiting payment",
+        "nearExpiry": "{count} expiring within 2 days",
+        "zero": "No pending payments"
+      },
+      "rejected": {
+        "title": "Rejected",
+        "description": "{count} applications rejected to date",
+        "zero": "No applications rejected"
+      },
+      "formPreview": {
+        "title": "Admission Form",
+        "description": "Preview the public form and get the QR code"
+      },
+      "overrides": {
+        "title": "Overrides Log",
+        "description": "{count} admin overrides granted",
+        "zero": "No overrides recorded"
+      }
+    },
+    "capacityPressure": {
+      "title": "Capacity pressure",
+      "subtitle": "Year groups with the longest waiting lists",
+      "headerYearGroup": "Year group",
+      "headerWaiting": "Waiting",
+      "headerCapacity": "Capacity / Enrolled / Conditional",
+      "empty": "No waiting list activity"
+    },
+    "empty": {
+      "title": "No application activity yet",
+      "description": "Share your public form link to start receiving applications."
+    },
+    "loading": "Loading admissions overview…"
   }
 }
