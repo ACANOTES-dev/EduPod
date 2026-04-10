@@ -99,23 +99,23 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                              | Wave | Depends on         | Status      | Completed at                   | Commit SHA                             |
-| --- | ---------------------------------- | ---- | ------------------ | ----------- | ------------------------------ | -------------------------------------- |
-| 01  | Schema foundation                  | 1    | —                  | `completed` | 2026-04-10 22:00 Europe/Dublin | `0b976d37` (local) / `55001a4e` (prod) |
-| 02  | Capacity service                   | 2    | 01                 | `completed` | 2026-04-10 23:11 Europe/Dublin | `f97f31fd` (local) / `64ea88c6` (prod) |
-| 03  | State machine rewrite              | 2    | 01                 | `completed` | 2026-04-10 23:45 Europe/Dublin | `caca0f2d` (local) / `b4b905b9` (prod) |
-| 04  | Form service simplification        | 2    | 01                 | `completed` | 2026-04-10 23:25 Europe/Dublin | `521d26de` (local) / `2dc85bd9` (prod) |
-| 05  | Conversion-to-student service      | 2    | 01                 | `completed` | 2026-04-10 23:55 Europe/Dublin | `3bee82a2` (local) / `b354c0f4` (prod) |
-| 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `completed` | 2026-04-11 00:35 Europe/Dublin | `71f407a8` (local) / `90f18e65` (prod) |
-| 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `completed` | 2026-04-11 00:21 Europe/Dublin | `b513b034` (local) / `64c1e709` (prod) |
-| 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`   | —                              | —                                      |
-| 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `completed` | 2026-04-11 00:15 Europe/Dublin | `f56d6768` (local) / `8ff0c5a2` (prod) |
-| 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `pending`   | —                              | —                                      |
-| 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `pending`   | —                              | —                                      |
-| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `pending`   | —                              | —                                      |
-| 13  | Form preview page                  | 4    | 01, 04             | `pending`   | —                              | —                                      |
-| 14  | Public form + QR code              | 4    | 01, 02, 03, 04     | `pending`   | —                              | —                                      |
-| 15  | Cleanup, translations, live counts | 5    | 10, 11, 12, 13, 14 | `pending`   | —                              | —                                      |
+| #   | Title                              | Wave | Depends on         | Status        | Completed at                   | Commit SHA                             |
+| --- | ---------------------------------- | ---- | ------------------ | ------------- | ------------------------------ | -------------------------------------- |
+| 01  | Schema foundation                  | 1    | —                  | `completed`   | 2026-04-10 22:00 Europe/Dublin | `0b976d37` (local) / `55001a4e` (prod) |
+| 02  | Capacity service                   | 2    | 01                 | `completed`   | 2026-04-10 23:11 Europe/Dublin | `f97f31fd` (local) / `64ea88c6` (prod) |
+| 03  | State machine rewrite              | 2    | 01                 | `completed`   | 2026-04-10 23:45 Europe/Dublin | `caca0f2d` (local) / `b4b905b9` (prod) |
+| 04  | Form service simplification        | 2    | 01                 | `completed`   | 2026-04-10 23:25 Europe/Dublin | `521d26de` (local) / `2dc85bd9` (prod) |
+| 05  | Conversion-to-student service      | 2    | 01                 | `completed`   | 2026-04-10 23:55 Europe/Dublin | `3bee82a2` (local) / `b354c0f4` (prod) |
+| 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `completed`   | 2026-04-11 00:35 Europe/Dublin | `71f407a8` (local) / `90f18e65` (prod) |
+| 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `completed`   | 2026-04-11 00:21 Europe/Dublin | `b513b034` (local) / `64c1e709` (prod) |
+| 08  | Payment expiry cron worker         | 3    | 01, 03             | `pending`     | —                              | —                                      |
+| 09  | Auto-promotion hooks               | 3    | 01, 02, 03         | `completed`   | 2026-04-11 00:15 Europe/Dublin | `f56d6768` (local) / `8ff0c5a2` (prod) |
+| 10  | Admissions dashboard hub           | 4    | 01, 02, 03         | `deploying`   | —                              | —                                      |
+| 11  | Queue sub-pages                    | 4    | 01, 02, 03, 06, 07 | `in-progress` | —                              | —                                      |
+| 12  | Application detail rewrite         | 4    | 01, 03, 07         | `in-progress` | —                              | —                                      |
+| 13  | Form preview page                  | 4    | 01, 04             | `completed`   | 2026-04-11 00:45 Europe/Dublin | `fc0ea7a6` (local) / `f5563c1f` (prod) |
+| 14  | Public form + QR code              | 4    | 01, 02, 03, 04     | `in-progress` | —                              | —                                      |
+| 15  | Cleanup, translations, live counts | 5    | 10, 11, 12, 13, 14 | `pending`     | —                              | —                                      |
 
 Note: "Depends on" lists the minimum set of implementations that must be `completed` before this one can start. In strict wave order these are automatically satisfied — the column exists so the slash command and the human can double-check.
 
@@ -492,3 +492,62 @@ Append new records below in chronological order. Format:
     returns 401 (auth guard active — route is mapped). Worker startup
     logs show `AdmissionsPaymentLinkProcessor` active on the
     `notifications` queue.
+
+### [IMPL 13] — Form preview page
+
+- **Completed:** 2026-04-11T00:45:00+01:00 (Europe/Dublin)
+- **Commit:** `fc0ea7a6` (local) / `f5563c1f` (prod)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  New admin page at `/[locale]/admissions/form-preview`
+  (`apps/web/src/app/[locale]/(school)/admissions/form-preview/page.tsx`).
+  Three sections: (1) Public link panel with resolved public apply URL,
+  Copy-link + Download-QR buttons, and an inline 224×224 QR canvas rendered
+  by `qrcode.react`; (2) Read-only form preview that fetches
+  `GET /v1/admission-forms/system` and feeds the fields into the existing
+  `DynamicFormRenderer` in `readOnly` mode with a disabled Submit button;
+  (3) Admin-only Rebuild panel that POSTs `/v1/admission-forms/system/rebuild`
+  and re-fetches on success. QR PNG download uses `canvas.toBlob` +
+  `file-saver` (already in deps). New shared helper
+  `apps/web/src/lib/public-apply-url.ts` exports `buildPublicApplyUrl({
+tenantSlug, locale, host, protocol })` returning
+  `https://<host>/<locale>/apply/<tenant_slug>` — impl 14 must import this
+  to keep the preview URL and the public route in sync. Role gate for the
+  Rebuild button lives in `form-preview-helpers.ts` (`canManageForm`) and
+  is unit-tested separately from the React tree. Added `qrcode.react@^4.2.0`
+  to `apps/web/package.json`. 13 new unit tests (4 URL builder + 9 role
+  gate); all 277 apps/web tests green.
+- **Follow-ups:**
+  - No i18n keys added — strings are inline English. Impl 15
+    (cleanup + translations) should add `admissions.formPreview.*` keys
+    and the Arabic translations, and wire a nav entry to the page from
+    the dashboard hub card grid.
+  - Tenant slug is read from `useAuth().user.memberships[0].tenant.slug`
+    which is populated by `/api/v1/auth/me`. If impl 10/11/12 change how
+    auth provider exposes the current membership, this page's URL
+    resolution may need to follow.
+  - The URL helper defaults the host to `window.location.host` so the
+    admin sees a same-origin URL. That matches production (tenants
+    already access the admin on their subdomain) but means SSR callers
+    must pass an explicit `host`. Impl 14's public route is client-only
+    so no issue.
+  - No QR logo embedding — `qrcode.react`'s `QRCodeCanvas` supports
+    `imageSettings` but reading the tenant logo requires extra work
+    flagged out of scope in the impl file. Deferred to a polish pass.
+- **Session notes:**
+  - Wave 4 ran hot: 10, 11, 12, 14 all flipped `in-progress` before I
+    started; their in-progress files (admissions-dashboard controller
+    and service, public-tenants controller, state-machine tweaks,
+    shared schema edits) were already in the worktree. Committed ONLY
+    my own files by using explicit `git add <path>` and left the rest
+    unstaged so the other sessions keep their work.
+  - `pnpm install --filter @school/web` to add `qrcode.react` produced a
+    handful of cosmetic eslint-plugin-import peer-dep re-resolutions in
+    `pnpm-lock.yaml`; those rode along with the commit.
+  - Smoke test `GET /en/admissions/form-preview` via
+    `Host: nhqs.edupod.app` → 200, PM2 web restart clean, no errors in
+    `pm2 logs web`. The route shows up in the Next build output at
+    `/[locale]/admissions/form-preview 11.8 kB / 272 kB first-load`.
+  - No Wave 4 deployment was `deploying` when I started; flipped
+    `deploying → completed` atomically in the final log update so the
+    serialisation heuristic stays clean.
