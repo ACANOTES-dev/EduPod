@@ -208,6 +208,28 @@ export class AcademicReadFacade {
   }
 
   /**
+   * Find non-closed academic years whose start date is on or before the given
+   * cutoff, ordered ascending by start date. Used by the admissions module to
+   * populate the target-year dropdown on the public application form subject
+   * to the tenant-configured application horizon.
+   */
+  async findAcademicYearsWithinHorizon(
+    tenantId: string,
+    cutoff: Date,
+  ): Promise<Array<{ id: string; name: string }>> {
+    const years = await this.prisma.academicYear.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: { in: ['active', 'planned'] },
+        start_date: { lte: cutoff },
+      },
+      select: { id: true, name: true },
+      orderBy: { start_date: 'asc' },
+    });
+    return years;
+  }
+
+  /**
    * Find all year groups for a tenant. Used by teacher competency coverage.
    */
   async findAllYearGroups(tenantId: string): Promise<Array<{ id: string; name: string }>> {

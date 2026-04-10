@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { AcademicsModule } from '../academics/academics.module';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { SearchModule } from '../search/search.module';
@@ -19,7 +20,7 @@ import { ParentApplicationsController } from './parent-applications.controller';
 import { PublicAdmissionsController } from './public-admissions.controller';
 
 @Module({
-  imports: [SequenceModule, ApprovalsModule, SearchModule, ConfigurationModule],
+  imports: [SequenceModule, ApprovalsModule, SearchModule, ConfigurationModule, AcademicsModule],
   controllers: [
     AdmissionFormsController,
     ApplicationsController,

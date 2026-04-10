@@ -41,6 +41,9 @@
       ],
       "report-cards": [
         "src/report-cards/index.ts"
+      ],
+      "admissions": [
+        "src/admissions/index.ts"
       ]
     }
   },
@@ -108,6 +111,10 @@
     "./report-cards": {
       "types": "./src/report-cards/index.ts",
       "default": "./dist/report-cards/index.js"
+    },
+    "./admissions": {
+      "types": "./src/admissions/index.ts",
+      "default": "./dist/admissions/index.js"
     }
   },
   "scripts": {

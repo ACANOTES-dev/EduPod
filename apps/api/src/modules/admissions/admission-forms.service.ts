@@ -1,39 +1,27 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ApplicationFieldType, Prisma } from '@prisma/client';
 
-import type {
-  CreateFormDefinitionDto,
-  FormFieldInput,
-  ListFormDefinitionsQuery,
-  UpdateFormDefinitionDto,
-} from '@school/shared';
-import { detectSpecialCategoryFields, type DataMinimisationWarning } from '@school/shared/gdpr';
+import {
+  DYNAMIC_OPTION_FIELD_KEYS,
+  SYSTEM_FORM_FIELDS,
+  SYSTEM_FORM_NAME,
+} from '@school/shared/admissions';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-// ─── Prisma result shapes ─────────────────────────────────────────────────────
+// ─── Published form shape returned to API consumers ──────────────────────────
 
-export interface FormDefinitionListItem {
-  id: string;
-  tenant_id: string;
-  name: string;
-  base_form_id: string | null;
-  version_number: number;
-  status: string;
-  created_at: Date;
-  updated_at: Date;
-  _count: { fields: number; applications: number };
-}
-
-export interface FormFieldRecord {
+export interface PublishedFormField {
   id: string;
   tenant_id: string;
   form_definition_id: string;
   field_key: string;
   label: string;
   help_text: string | null;
-  field_type: string;
+  field_type: ApplicationFieldType;
   required: boolean;
   visible_to_parent: boolean;
   visible_to_staff: boolean;
@@ -46,7 +34,7 @@ export interface FormFieldRecord {
   active: boolean;
 }
 
-export interface FormDefinitionDetail {
+export interface PublishedForm {
   id: string;
   tenant_id: string;
   name: string;
@@ -55,525 +43,142 @@ export interface FormDefinitionDetail {
   status: string;
   created_at: Date;
   updated_at: Date;
-  fields: FormFieldRecord[];
-  _count: { applications: number };
+  fields: PublishedFormField[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class AdmissionFormsService {
-  constructor(private readonly prisma: PrismaService) {}
-
-  // ─── Create ──────────────────────────────────────────────────────────────
-
-  async create(tenantId: string, dto: CreateFormDefinitionDto) {
-    this.validateFields(dto.fields);
-
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    return prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
-      const form = await db.admissionFormDefinition.create({
-        data: {
-          tenant_id: tenantId,
-          name: dto.name,
-          version_number: 1,
-          status: 'draft',
-        },
-      });
-
-      // Set base_form_id to self for the root form
-      await db.admissionFormDefinition.update({
-        where: { id: form.id },
-        data: { base_form_id: form.id },
-      });
-
-      for (const field of dto.fields) {
-        await db.admissionFormField.create({
-          data: {
-            tenant_id: tenantId,
-            form_definition_id: form.id,
-            field_key: field.field_key,
-            label: field.label,
-            help_text: field.help_text ?? null,
-            field_type: field.field_type,
-            required: field.required,
-            visible_to_parent: field.visible_to_parent,
-            visible_to_staff: field.visible_to_staff,
-            searchable: field.searchable,
-            reportable: field.reportable,
-            options_json: field.options_json ?? Prisma.JsonNull,
-            validation_rules_json: field.validation_rules_json ?? Prisma.JsonNull,
-            conditional_visibility_json: field.conditional_visibility_json ?? Prisma.JsonNull,
-            display_order: field.display_order,
-            active: field.active,
-          },
-        });
-      }
-
-      return db.admissionFormDefinition.findFirst({
-        where: { id: form.id, tenant_id: tenantId },
-        include: {
-          fields: { orderBy: { display_order: 'asc' } },
-          _count: { select: { applications: true } },
-        },
-      });
-    });
-  }
-
-  // ─── Find All ─────────────────────────────────────────────────────────────
-
-  async findAll(tenantId: string, query: ListFormDefinitionsQuery) {
-    const { page, pageSize, status } = query;
-    const skip = (page - 1) * pageSize;
-
-    const where: Prisma.AdmissionFormDefinitionWhereInput = {
-      tenant_id: tenantId,
-    };
-
-    if (status) {
-      where.status = status;
-    }
-
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    const result = (await prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-      return Promise.all([
-        db.admissionFormDefinition.findMany({
-          where,
-          skip,
-          take: pageSize,
-          orderBy: { created_at: 'desc' },
-          include: {
-            _count: { select: { fields: true, applications: true } },
-          },
-        }),
-        db.admissionFormDefinition.count({ where }),
-      ]);
-    })) as [FormDefinitionListItem[], number];
-
-    const [data, total] = result;
-
-    return {
-      data,
-      meta: { page, pageSize, total },
-    };
-  }
-
-  // ─── Find One ─────────────────────────────────────────────────────────────
-
-  async findOne(tenantId: string, id: string) {
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    const form = (await prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-      return db.admissionFormDefinition.findFirst({
-        where: { id, tenant_id: tenantId },
-        include: {
-          fields: { orderBy: { display_order: 'asc' } },
-          _count: { select: { applications: true } },
-        },
-      });
-    })) as FormDefinitionDetail | null;
-
-    if (!form) {
-      throw new NotFoundException({
-        error: {
-          code: 'FORM_NOT_FOUND',
-          message: `Admission form with id "${id}" not found`,
-        },
-      });
-    }
-
-    return form;
-  }
-
-  // ─── Update ───────────────────────────────────────────────────────────────
-
-  async update(tenantId: string, id: string, dto: UpdateFormDefinitionDto) {
-    this.validateFields(dto.fields);
-
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    return prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
-      const existing = await db.admissionFormDefinition.findFirst({
-        where: { id, tenant_id: tenantId },
-      });
-
-      if (!existing) {
-        throw new NotFoundException({
-          error: {
-            code: 'FORM_NOT_FOUND',
-            message: `Admission form with id "${id}" not found`,
-          },
-        });
-      }
-
-      // Optimistic concurrency check
-      if (
-        dto.expected_updated_at &&
-        existing.updated_at.toISOString() !== dto.expected_updated_at
-      ) {
-        throw new BadRequestException({
-          error: {
-            code: 'CONCURRENT_MODIFICATION',
-            message: 'The form has been modified by another user. Please reload and try again.',
-          },
-        });
-      }
-
-      // Draft forms can be edited in-place
-      if (existing.status === 'draft') {
-        // Delete existing fields and recreate
-        await db.admissionFormField.deleteMany({
-          where: { form_definition_id: id, tenant_id: tenantId },
-        });
-
-        await db.admissionFormDefinition.update({
-          where: { id },
-          data: { name: dto.name },
-        });
-
-        for (const field of dto.fields) {
-          await db.admissionFormField.create({
-            data: {
-              tenant_id: tenantId,
-              form_definition_id: id,
-              field_key: field.field_key,
-              label: field.label,
-              help_text: field.help_text ?? null,
-              field_type: field.field_type,
-              required: field.required,
-              visible_to_parent: field.visible_to_parent,
-              visible_to_staff: field.visible_to_staff,
-              searchable: field.searchable,
-              reportable: field.reportable,
-              options_json: field.options_json ?? Prisma.JsonNull,
-              validation_rules_json: field.validation_rules_json ?? Prisma.JsonNull,
-              conditional_visibility_json: field.conditional_visibility_json ?? Prisma.JsonNull,
-              display_order: field.display_order,
-              active: field.active,
-            },
-          });
-        }
-
-        return db.admissionFormDefinition.findFirst({
-          where: { id, tenant_id: tenantId },
-          include: {
-            fields: { orderBy: { display_order: 'asc' } },
-            _count: { select: { applications: true } },
-          },
-        });
-      }
-
-      // Published forms: create a new version
-      if (existing.status === 'published') {
-        const baseFormId = existing.base_form_id ?? existing.id;
-
-        // Find the highest version number in this lineage
-        const latestVersion = await db.admissionFormDefinition.findFirst({
-          where: { base_form_id: baseFormId, tenant_id: tenantId },
-          orderBy: { version_number: 'desc' },
-        });
-
-        const newVersionNumber = (latestVersion?.version_number ?? 0) + 1;
-
-        const newForm = await db.admissionFormDefinition.create({
-          data: {
-            tenant_id: tenantId,
-            name: dto.name,
-            base_form_id: baseFormId,
-            version_number: newVersionNumber,
-            status: 'draft',
-          },
-        });
-
-        for (const field of dto.fields) {
-          await db.admissionFormField.create({
-            data: {
-              tenant_id: tenantId,
-              form_definition_id: newForm.id,
-              field_key: field.field_key,
-              label: field.label,
-              help_text: field.help_text ?? null,
-              field_type: field.field_type,
-              required: field.required,
-              visible_to_parent: field.visible_to_parent,
-              visible_to_staff: field.visible_to_staff,
-              searchable: field.searchable,
-              reportable: field.reportable,
-              options_json: field.options_json ?? Prisma.JsonNull,
-              validation_rules_json: field.validation_rules_json ?? Prisma.JsonNull,
-              conditional_visibility_json: field.conditional_visibility_json ?? Prisma.JsonNull,
-              display_order: field.display_order,
-              active: field.active,
-            },
-          });
-        }
-
-        return db.admissionFormDefinition.findFirst({
-          where: { id: newForm.id, tenant_id: tenantId },
-          include: {
-            fields: { orderBy: { display_order: 'asc' } },
-            _count: { select: { applications: true } },
-          },
-        });
-      }
-
-      throw new BadRequestException({
-        error: {
-          code: 'FORM_NOT_EDITABLE',
-          message: `Cannot edit a form with status "${existing.status}"`,
-        },
-      });
-    });
-  }
-
-  // ─── Publish ──────────────────────────────────────────────────────────────
-
-  async publish(tenantId: string, id: string) {
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    return prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
-      const form = await db.admissionFormDefinition.findFirst({
-        where: { id, tenant_id: tenantId },
-        include: { fields: true },
-      });
-
-      if (!form) {
-        throw new NotFoundException({
-          error: {
-            code: 'FORM_NOT_FOUND',
-            message: `Admission form with id "${id}" not found`,
-          },
-        });
-      }
-
-      if (form.status !== 'draft') {
-        throw new BadRequestException({
-          error: {
-            code: 'INVALID_STATUS_TRANSITION',
-            message: `Cannot publish a form with status "${form.status}". Only draft forms can be published.`,
-          },
-        });
-      }
-
-      if (form.fields.length === 0) {
-        throw new BadRequestException({
-          error: {
-            code: 'NO_FIELDS',
-            message: 'Cannot publish a form with no fields',
-          },
-        });
-      }
-
-      const baseFormId = form.base_form_id ?? form.id;
-
-      // Archive all other published forms in this lineage
-      await db.admissionFormDefinition.updateMany({
-        where: {
-          tenant_id: tenantId,
-          base_form_id: baseFormId,
-          status: 'published',
-          id: { not: id },
-        },
-        data: { status: 'archived' },
-      });
-
-      await db.admissionFormDefinition.update({
-        where: { id },
-        data: { status: 'published' },
-      });
-
-      return db.admissionFormDefinition.findFirst({
-        where: { id, tenant_id: tenantId },
-        include: {
-          fields: { orderBy: { display_order: 'asc' } },
-          _count: { select: { applications: true } },
-        },
-      });
-    });
-  }
-
-  // ─── Archive ──────────────────────────────────────────────────────────────
-
-  async archive(tenantId: string, id: string) {
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    return prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
-      const form = await db.admissionFormDefinition.findFirst({
-        where: { id, tenant_id: tenantId },
-      });
-
-      if (!form) {
-        throw new NotFoundException({
-          error: {
-            code: 'FORM_NOT_FOUND',
-            message: `Admission form with id "${id}" not found`,
-          },
-        });
-      }
-
-      if (form.status === 'archived') {
-        throw new BadRequestException({
-          error: {
-            code: 'ALREADY_ARCHIVED',
-            message: 'Form is already archived',
-          },
-        });
-      }
-
-      await db.admissionFormDefinition.update({
-        where: { id },
-        data: { status: 'archived' },
-      });
-
-      return db.admissionFormDefinition.findFirst({
-        where: { id, tenant_id: tenantId },
-        include: {
-          fields: { orderBy: { display_order: 'asc' } },
-          _count: { select: { applications: true } },
-        },
-      });
-    });
-  }
-
-  // ─── Get Versions ─────────────────────────────────────────────────────────
-
-  async getVersions(tenantId: string, id: string) {
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    return prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
-      const form = await db.admissionFormDefinition.findFirst({
-        where: { id, tenant_id: tenantId },
-      });
-
-      if (!form) {
-        throw new NotFoundException({
-          error: {
-            code: 'FORM_NOT_FOUND',
-            message: `Admission form with id "${id}" not found`,
-          },
-        });
-      }
-
-      const baseFormId = form.base_form_id ?? form.id;
-
-      return db.admissionFormDefinition.findMany({
-        where: { base_form_id: baseFormId, tenant_id: tenantId },
-        orderBy: { version_number: 'desc' },
-        include: {
-          _count: { select: { fields: true, applications: true } },
-        },
-      });
-    });
-  }
-
-  // ─── Get Published Form (Public) ──────────────────────────────────────────
-
-  async getPublishedForm(tenantId: string) {
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    const form = (await prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-      return db.admissionFormDefinition.findFirst({
-        where: { tenant_id: tenantId, status: 'published' },
-        include: {
-          fields: {
-            where: { active: true, visible_to_parent: true },
-            orderBy: { display_order: 'asc' },
-          },
-        },
-      });
-    })) as FormDefinitionDetail | null;
-
-    if (!form) {
-      throw new NotFoundException({
-        error: {
-          code: 'NO_PUBLISHED_FORM',
-          message: 'No published admission form found for this school',
-        },
-      });
-    }
-
-    return form;
-  }
-
-  // ─── Create System Form ─────────────────────────────────────────────────
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settingsService: SettingsService,
+    private readonly academicReadFacade: AcademicReadFacade,
+  ) {}
+
+  // ─── Public API ────────────────────────────────────────────────────────────
 
   /**
-   * Creates and publishes a system admission form with fields matching the
-   * Registration Wizard exactly. If a published system form already exists,
-   * returns it without creating a duplicate.
+   * Returns the single published system form for the tenant with dropdown
+   * options for dynamic fields (target academic year, target year group)
+   * resolved from live DB state. Used by the public admissions controller
+   * and the admin form-preview page.
    */
-  async createSystemForm(tenantId: string) {
-    const prismaWithRls = createRlsClient(this.prisma, {
-      tenant_id: tenantId,
+  async getPublishedForm(tenantId: string): Promise<PublishedForm> {
+    await this.ensureSystemForm(tenantId);
+
+    const form = await this.loadPublishedSystemForm(tenantId);
+
+    const [academicYearOptions, yearGroupOptions] = await Promise.all([
+      this.loadAcademicYearOptions(tenantId),
+      this.loadYearGroupOptions(tenantId),
+    ]);
+
+    const fields = form.fields.map((field) => {
+      if (field.field_key === 'target_academic_year_id') {
+        return { ...field, options_json: academicYearOptions as Prisma.JsonValue };
+      }
+      if (field.field_key === 'target_year_group_id') {
+        return { ...field, options_json: yearGroupOptions as Prisma.JsonValue };
+      }
+      return field;
     });
 
-    return prismaWithRls.$transaction(async (tx) => {
+    return { ...form, fields };
+  }
+
+  /**
+   * Rebuilds the tenant's single system form from SYSTEM_FORM_FIELDS.
+   * Idempotent: if the existing published form already matches the canonical
+   * field set, returns it unchanged. Otherwise archives the existing form
+   * and creates a new published version in the same lineage. Existing
+   * applications keep referencing their original form_definition_id.
+   */
+  async rebuildSystemForm(tenantId: string, actingUserId: string | null): Promise<PublishedForm> {
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    const result = await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      // Check if a system form already exists
       const existing = await db.admissionFormDefinition.findFirst({
         where: {
           tenant_id: tenantId,
-          name: 'System Application Form',
-          status: { in: ['draft', 'published'] },
+          name: SYSTEM_FORM_NAME,
+          status: 'published',
         },
         include: {
           fields: { orderBy: { display_order: 'asc' } },
-          _count: { select: { applications: true } },
         },
       });
 
-      if (existing) {
+      if (existing && this.fieldsMatchCanonical(existing.fields)) {
         return existing;
       }
 
-      // Define canonical fields matching the Registration Wizard
-      const systemFields = this.getSystemFormFields();
+      // Archive all existing published forms in the lineage (or any stray
+      // published system forms from prior migrations).
+      const baseFormId = existing?.base_form_id ?? existing?.id ?? null;
 
-      const form = await db.admissionFormDefinition.create({
+      if (existing) {
+        await db.admissionFormDefinition.updateMany({
+          where: {
+            tenant_id: tenantId,
+            status: 'published',
+            OR: baseFormId
+              ? [{ base_form_id: baseFormId }, { id: baseFormId }]
+              : [{ name: SYSTEM_FORM_NAME }],
+          },
+          data: { status: 'archived' },
+        });
+      }
+
+      const latestVersion = baseFormId
+        ? await db.admissionFormDefinition.findFirst({
+            where: {
+              tenant_id: tenantId,
+              OR: [{ base_form_id: baseFormId }, { id: baseFormId }],
+            },
+            orderBy: { version_number: 'desc' },
+          })
+        : null;
+
+      const nextVersionNumber = (latestVersion?.version_number ?? 0) + 1;
+
+      const newForm = await db.admissionFormDefinition.create({
         data: {
           tenant_id: tenantId,
-          name: 'System Application Form',
-          version_number: 1,
+          name: SYSTEM_FORM_NAME,
+          base_form_id: baseFormId,
+          version_number: nextVersionNumber,
           status: 'published',
         },
       });
 
-      await db.admissionFormDefinition.update({
-        where: { id: form.id },
-        data: { base_form_id: form.id },
-      });
+      // If this is the first form in the lineage, point base_form_id at itself.
+      if (!baseFormId) {
+        await db.admissionFormDefinition.update({
+          where: { id: newForm.id },
+          data: { base_form_id: newForm.id },
+        });
+      }
 
-      for (const field of systemFields) {
+      for (const field of SYSTEM_FORM_FIELDS) {
         await db.admissionFormField.create({
           data: {
             tenant_id: tenantId,
-            form_definition_id: form.id,
+            form_definition_id: newForm.id,
             field_key: field.field_key,
             label: field.label,
             help_text: field.help_text ?? null,
-            field_type: field.field_type,
+            field_type: field.field_type as ApplicationFieldType,
             required: field.required,
             visible_to_parent: true,
             visible_to_staff: true,
             searchable: field.searchable ?? false,
             reportable: field.reportable ?? false,
-            options_json: field.options_json ?? Prisma.JsonNull,
+            options_json: field.options_json
+              ? (field.options_json as unknown as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
             validation_rules_json: Prisma.JsonNull,
             conditional_visibility_json: Prisma.JsonNull,
             display_order: field.display_order,
@@ -582,359 +187,178 @@ export class AdmissionFormsService {
         });
       }
 
-      // Archive any previously published forms
-      await db.admissionFormDefinition.updateMany({
-        where: {
+      await db.auditLog.create({
+        data: {
           tenant_id: tenantId,
-          status: 'published',
-          id: { not: form.id },
+          actor_user_id: actingUserId ?? null,
+          entity_type: 'admission_form_definition',
+          entity_id: newForm.id,
+          action: 'admission_form_rebuilt',
+          metadata_json: {
+            version_number: nextVersionNumber,
+            field_count: SYSTEM_FORM_FIELDS.length,
+          } satisfies Prisma.InputJsonValue,
         },
-        data: { status: 'archived' },
       });
 
-      return db.admissionFormDefinition.findFirst({
-        where: { id: form.id, tenant_id: tenantId },
+      const withFields = await db.admissionFormDefinition.findFirstOrThrow({
+        where: { id: newForm.id, tenant_id: tenantId },
         include: {
           fields: { orderBy: { display_order: 'asc' } },
-          _count: { select: { applications: true } },
         },
       });
+
+      return withFields;
     });
+
+    return result as PublishedForm;
   }
 
   /**
-   * Returns the canonical field definitions matching the Registration Wizard.
-   * Email is mandatory for online applications.
+   * Ensures a published system form exists for the tenant. Idempotent —
+   * if one already exists, it is returned unchanged. Called at tenant
+   * provisioning time and as a safety net inside getPublishedForm.
+   *
+   * Note: this is called from contexts without an acting user (bootstrap,
+   * public form fetch). The audit log entry written by the internal rebuild
+   * uses a null actor which is valid per the AuditLog schema.
    */
-  private getSystemFormFields(): Array<{
-    field_key: string;
-    label: string;
-    help_text?: string;
-    field_type: ApplicationFieldType;
-    required: boolean;
-    searchable?: boolean;
-    reportable?: boolean;
-    options_json?: Array<{ value: string; label: string }>;
-    display_order: number;
-  }> {
-    let order = 0;
-    return [
-      // ── Parent/Guardian 1 ──
-      {
-        field_key: 'parent1_first_name',
-        label: 'Parent/Guardian First Name',
-        field_type: 'short_text',
-        required: true,
-        searchable: true,
-        display_order: order++,
-      },
-      {
-        field_key: 'parent1_last_name',
-        label: 'Parent/Guardian Last Name',
-        field_type: 'short_text',
-        required: true,
-        searchable: true,
-        display_order: order++,
-      },
-      {
-        field_key: 'parent1_email',
-        label: 'Parent/Guardian Email',
-        field_type: 'email',
-        required: true,
-        searchable: true,
-        help_text: 'Required for online applications',
-        display_order: order++,
-      },
-      {
-        field_key: 'parent1_phone',
-        label: 'Parent/Guardian Phone',
-        field_type: 'phone',
-        required: true,
-        display_order: order++,
-      },
-      {
-        field_key: 'parent1_relationship',
-        label: 'Relationship to Student',
-        field_type: 'single_select',
-        required: true,
-        options_json: [
-          { value: 'father', label: 'Father' },
-          { value: 'mother', label: 'Mother' },
-          { value: 'guardian', label: 'Guardian' },
-          { value: 'other', label: 'Other' },
-        ],
-        display_order: order++,
-      },
+  async ensureSystemForm(tenantId: string): Promise<PublishedForm> {
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-      // ── Parent/Guardian 2 (optional) ──
-      {
-        field_key: 'parent2_first_name',
-        label: 'Second Parent First Name',
-        field_type: 'short_text',
-        required: false,
-        display_order: order++,
-      },
-      {
-        field_key: 'parent2_last_name',
-        label: 'Second Parent Last Name',
-        field_type: 'short_text',
-        required: false,
-        display_order: order++,
-      },
-      {
-        field_key: 'parent2_email',
-        label: 'Second Parent Email',
-        field_type: 'email',
-        required: false,
-        display_order: order++,
-      },
-      {
-        field_key: 'parent2_phone',
-        label: 'Second Parent Phone',
-        field_type: 'phone',
-        required: false,
-        display_order: order++,
-      },
-      {
-        field_key: 'parent2_relationship',
-        label: 'Second Parent Relationship',
-        field_type: 'single_select',
-        required: false,
-        options_json: [
-          { value: 'father', label: 'Father' },
-          { value: 'mother', label: 'Mother' },
-          { value: 'guardian', label: 'Guardian' },
-          { value: 'other', label: 'Other' },
-        ],
-        display_order: order++,
-      },
+    const existing = (await prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      return db.admissionFormDefinition.findFirst({
+        where: {
+          tenant_id: tenantId,
+          name: SYSTEM_FORM_NAME,
+          status: 'published',
+        },
+        include: {
+          fields: { orderBy: { display_order: 'asc' } },
+        },
+      });
+    })) as PublishedForm | null;
 
-      // ── Household / Address ──
-      {
-        field_key: 'address_line_1',
-        label: 'Address Line 1',
-        field_type: 'short_text',
-        required: true,
-        display_order: order++,
-      },
-      {
-        field_key: 'address_line_2',
-        label: 'Address Line 2',
-        field_type: 'short_text',
-        required: false,
-        display_order: order++,
-      },
-      {
-        field_key: 'city',
-        label: 'City',
-        field_type: 'short_text',
-        required: true,
-        display_order: order++,
-      },
-      {
-        field_key: 'country',
-        label: 'Country',
-        field_type: 'country',
-        required: true,
-        display_order: order++,
-      },
-      {
-        field_key: 'postal_code',
-        label: 'Postal Code',
-        field_type: 'short_text',
-        required: false,
-        display_order: order++,
-      },
+    if (existing) {
+      return existing;
+    }
 
-      // ── Emergency Contact ──
-      {
-        field_key: 'emergency_name',
-        label: 'Emergency Contact Name',
-        field_type: 'short_text',
-        required: false,
-        display_order: order++,
-      },
-      {
-        field_key: 'emergency_phone',
-        label: 'Emergency Contact Phone',
-        field_type: 'phone',
-        required: false,
-        display_order: order++,
-      },
-      {
-        field_key: 'emergency_relationship',
-        label: 'Emergency Contact Relationship',
-        field_type: 'short_text',
-        required: false,
-        display_order: order++,
-      },
-
-      // ── Student ──
-      {
-        field_key: 'student_first_name',
-        label: 'Student First Name',
-        field_type: 'short_text',
-        required: true,
-        searchable: true,
-        display_order: order++,
-      },
-      {
-        field_key: 'student_middle_name',
-        label: 'Student Middle Name',
-        field_type: 'short_text',
-        required: false,
-        display_order: order++,
-      },
-      {
-        field_key: 'student_last_name',
-        label: 'Student Last Name',
-        field_type: 'short_text',
-        required: true,
-        searchable: true,
-        display_order: order++,
-      },
-      {
-        field_key: 'student_dob',
-        label: 'Date of Birth',
-        field_type: 'date',
-        required: true,
-        display_order: order++,
-      },
-      {
-        field_key: 'student_gender',
-        label: 'Gender',
-        field_type: 'single_select',
-        required: true,
-        options_json: [
-          { value: 'male', label: 'Male' },
-          { value: 'female', label: 'Female' },
-        ],
-        reportable: true,
-        display_order: order++,
-      },
-      {
-        field_key: 'student_year_group',
-        label: 'Year Group',
-        field_type: 'short_text',
-        required: true,
-        help_text: 'The year/grade the student is applying for',
-        reportable: true,
-        display_order: order++,
-      },
-      {
-        field_key: 'student_national_id',
-        label: 'National ID',
-        field_type: 'short_text',
-        required: true,
-        display_order: order++,
-      },
-      {
-        field_key: 'student_medical_notes',
-        label: 'Medical Notes',
-        field_type: 'long_text',
-        required: false,
-        display_order: order++,
-      },
-      {
-        field_key: 'student_allergies',
-        label: 'Has Allergies',
-        field_type: 'yes_no',
-        required: false,
-        display_order: order++,
-      },
-    ];
-  }
-
-  // ─── Data Minimisation ────────────────────────────────────────────────────
-
-  validateFieldsForDataMinimisation(
-    fields: Array<{ field_key: string; label: string }>,
-  ): DataMinimisationWarning[] {
-    return detectSpecialCategoryFields(fields);
+    return this.rebuildSystemForm(tenantId, null);
   }
 
   /**
-   * Log data minimisation overrides to audit_logs when an admin
-   * justifies keeping special category fields in an admissions form.
+   * Returns the id of the tenant's single published system form. Used by
+   * other services (e.g. the applications creation path) to resolve the
+   * form_definition_id without re-fetching the full form payload.
    */
-  async logDataMinimisationOverrides(
-    tenantId: string,
-    userId: string,
-    formId: string,
-    overrides: Array<{
+  async getSystemFormDefinitionId(tenantId: string): Promise<string> {
+    const form = await this.ensureSystemForm(tenantId);
+    return form.id;
+  }
+
+  // ─── Private helpers ───────────────────────────────────────────────────────
+
+  private async loadPublishedSystemForm(tenantId: string): Promise<PublishedForm> {
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    const form = (await prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      return db.admissionFormDefinition.findFirstOrThrow({
+        where: {
+          tenant_id: tenantId,
+          name: SYSTEM_FORM_NAME,
+          status: 'published',
+        },
+        include: {
+          fields: {
+            where: { active: true, visible_to_parent: true },
+            orderBy: { display_order: 'asc' },
+          },
+        },
+      });
+    })) as PublishedForm;
+
+    return form;
+  }
+
+  /**
+   * Returns true when the stored fields exactly match SYSTEM_FORM_FIELDS
+   * (ignoring dynamic option fields whose options_json is populated at
+   * request time). Used by rebuildSystemForm to short-circuit no-op rebuilds.
+   */
+  private fieldsMatchCanonical(
+    storedFields: Array<{
       field_key: string;
-      field_label: string;
-      matched_keyword: string;
-      justification: string;
+      label: string;
+      help_text: string | null;
+      field_type: ApplicationFieldType;
+      required: boolean;
+      searchable: boolean;
+      reportable: boolean;
+      display_order: number;
+      options_json: Prisma.JsonValue;
     }>,
-  ): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      for (const override of overrides) {
-        await tx.auditLog.create({
-          data: {
-            tenant_id: tenantId,
-            actor_user_id: userId,
-            entity_type: 'admission_form_field',
-            entity_id: formId,
-            action: 'data_minimisation_override',
-            metadata_json: {
-              field_key: override.field_key,
-              field_label: override.field_label,
-              matched_keyword: override.matched_keyword,
-              justification: override.justification,
-              dpc_guidance: 'August 2025 — special category data at pre-enrolment',
-            } as Prisma.InputJsonValue,
-            ip_address: null,
-          },
-        });
-      }
-    });
-  }
-
-  // ─── Private helpers ──────────────────────────────────────────────────────
-
-  private validateFields(fields: FormFieldInput[]): void {
-    // Validate unique field_keys
-    const keys = fields.map((f) => f.field_key);
-    const uniqueKeys = new Set(keys);
-    if (uniqueKeys.size !== keys.length) {
-      const duplicates = keys.filter((k, i) => keys.indexOf(k) !== i);
-      throw new BadRequestException({
-        error: {
-          code: 'DUPLICATE_FIELD_KEYS',
-          message: `Duplicate field keys found: ${[...new Set(duplicates)].join(', ')}`,
-        },
-      });
+  ): boolean {
+    if (storedFields.length !== SYSTEM_FORM_FIELDS.length) {
+      return false;
     }
 
-    // Validate select types have options
-    for (const field of fields) {
+    for (let i = 0; i < SYSTEM_FORM_FIELDS.length; i++) {
+      const canonical = SYSTEM_FORM_FIELDS[i]!;
+      const stored = storedFields[i]!;
+
       if (
-        (field.field_type === 'single_select' || field.field_type === 'multi_select') &&
-        (!field.options_json || field.options_json.length === 0)
+        stored.field_key !== canonical.field_key ||
+        stored.label !== canonical.label ||
+        stored.field_type !== canonical.field_type ||
+        stored.required !== canonical.required ||
+        stored.display_order !== canonical.display_order ||
+        (stored.help_text ?? undefined) !== canonical.help_text ||
+        stored.searchable !== (canonical.searchable ?? false) ||
+        stored.reportable !== (canonical.reportable ?? false)
       ) {
-        throw new BadRequestException({
-          error: {
-            code: 'SELECT_REQUIRES_OPTIONS',
-            message: `Field "${field.field_key}" is a ${field.field_type} but has no options`,
-          },
-        });
+        return false;
       }
-    }
 
-    // Validate conditional visibility references
-    for (const field of fields) {
-      if (field.conditional_visibility_json) {
-        const depKey = field.conditional_visibility_json.depends_on_field_key;
-        if (!uniqueKeys.has(depKey)) {
-          throw new BadRequestException({
-            error: {
-              code: 'INVALID_CONDITIONAL_REFERENCE',
-              message: `Field "${field.field_key}" has conditional visibility referencing unknown field "${depKey}"`,
-            },
-          });
+      // Options match only for non-dynamic fields. Dynamic option fields
+      // are resolved at request time so their stored options_json is
+      // meaningless and must not trigger a rebuild.
+      if (!DYNAMIC_OPTION_FIELD_KEYS.has(canonical.field_key)) {
+        const canonicalOptions = canonical.options_json ?? null;
+        const storedOptions = stored.options_json ?? null;
+        if (JSON.stringify(canonicalOptions) !== JSON.stringify(storedOptions)) {
+          return false;
         }
       }
     }
+
+    return true;
   }
+
+  private async loadAcademicYearOptions(
+    tenantId: string,
+  ): Promise<Array<{ value: string; label: string }>> {
+    const admissionsSettings = await this.settingsService.getModuleSettings(tenantId, 'admissions');
+    const horizonYears = admissionsSettings.max_application_horizon_years;
+
+    const cutoff = addYears(new Date(), horizonYears);
+    const years = await this.academicReadFacade.findAcademicYearsWithinHorizon(tenantId, cutoff);
+    return years.map((year) => ({ value: year.id, label: year.name }));
+  }
+
+  private async loadYearGroupOptions(
+    tenantId: string,
+  ): Promise<Array<{ value: string; label: string }>> {
+    const yearGroups = await this.academicReadFacade.findAllYearGroupsWithOrder(tenantId);
+    return yearGroups.map((group) => ({ value: group.id, label: group.name }));
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function addYears(date: Date, years: number): Date {
+  const copy = new Date(date.getTime());
+  copy.setFullYear(copy.getFullYear() + years);
+  return copy;
 }

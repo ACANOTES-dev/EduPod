@@ -1,6 +1,9 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { SYSTEM_FORM_FIELDS, SYSTEM_FORM_NAME } from '@school/shared/admissions';
+
+import { AcademicReadFacade } from '../academics/academic-read.facade';
+import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AdmissionFormsService } from './admission-forms.service';
@@ -12,84 +15,116 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   })),
 }));
 
+// ─── Fixtures ────────────────────────────────────────────────────────────────
+
+const TENANT_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const TENANT_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const USER_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+
+function buildStoredFields() {
+  return SYSTEM_FORM_FIELDS.map((field, index) => ({
+    id: `field-${index}`,
+    tenant_id: TENANT_A,
+    form_definition_id: 'form-1',
+    field_key: field.field_key,
+    label: field.label,
+    help_text: field.help_text ?? null,
+    field_type: field.field_type,
+    required: field.required,
+    visible_to_parent: true,
+    visible_to_staff: true,
+    searchable: field.searchable ?? false,
+    reportable: field.reportable ?? false,
+    options_json: field.options_json ?? null,
+    validation_rules_json: null,
+    conditional_visibility_json: null,
+    display_order: field.display_order,
+    active: true,
+  }));
+}
+
+function buildForm(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'form-1',
+    tenant_id: TENANT_A,
+    name: SYSTEM_FORM_NAME,
+    base_form_id: 'form-1',
+    version_number: 1,
+    status: 'published',
+    created_at: new Date('2026-01-01T00:00:00Z'),
+    updated_at: new Date('2026-01-01T00:00:00Z'),
+    fields: buildStoredFields(),
+    ...overrides,
+  };
+}
+
+// ─── Test suite ──────────────────────────────────────────────────────────────
+
 describe('AdmissionFormsService', () => {
   let service: AdmissionFormsService;
   let mockPrisma: {
     admissionFormDefinition: {
       create: jest.Mock;
       findFirst: jest.Mock;
-      findMany: jest.Mock;
+      findFirstOrThrow: jest.Mock;
       update: jest.Mock;
       updateMany: jest.Mock;
-      count: jest.Mock;
     };
     admissionFormField: {
       create: jest.Mock;
-      deleteMany: jest.Mock;
     };
     auditLog: {
       create: jest.Mock;
     };
   };
-
-  const TENANT_ID = '11111111-1111-1111-1111-111111111111';
-
-  function buildFormField(overrides: Record<string, unknown> = {}) {
-    return {
-      field_key: 'first_name',
-      label: 'First Name',
-      field_type: 'short_text' as const,
-      required: true,
-      visible_to_parent: true,
-      visible_to_staff: true,
-      searchable: false,
-      reportable: false,
-      options_json: null,
-      validation_rules_json: null,
-      conditional_visibility_json: null,
-      display_order: 0,
-      active: true,
-      ...overrides,
-    };
-  }
-
-  function buildFormRecord(overrides: Record<string, unknown> = {}) {
-    return {
-      id: 'form-1',
-      tenant_id: TENANT_ID,
-      name: 'Test Form',
-      base_form_id: 'form-1',
-      version_number: 1,
-      status: 'draft',
-      created_at: new Date('2026-01-01T00:00:00Z'),
-      updated_at: new Date('2026-01-01T00:00:00Z'),
-      fields: [],
-      _count: { applications: 0, fields: 0 },
-      ...overrides,
-    };
-  }
+  let mockSettings: { getModuleSettings: jest.Mock };
+  let mockFacade: {
+    findAcademicYearsWithinHorizon: jest.Mock;
+    findAllYearGroupsWithOrder: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockPrisma = {
       admissionFormDefinition: {
         create: jest.fn(),
         findFirst: jest.fn(),
-        findMany: jest.fn(),
+        findFirstOrThrow: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn(),
-        count: jest.fn(),
       },
       admissionFormField: {
-        create: jest.fn(),
-        deleteMany: jest.fn(),
+        create: jest.fn().mockResolvedValue({}),
       },
       auditLog: {
-        create: jest.fn(),
+        create: jest.fn().mockResolvedValue({}),
       },
     };
 
+    mockFacade = {
+      findAcademicYearsWithinHorizon: jest.fn().mockResolvedValue([]),
+      findAllYearGroupsWithOrder: jest.fn().mockResolvedValue([]),
+    };
+
+    mockSettings = {
+      getModuleSettings: jest.fn().mockResolvedValue({
+        requireApprovalForAcceptance: true,
+        upfront_percentage: 100,
+        payment_window_days: 7,
+        max_application_horizon_years: 2,
+        allow_cash: true,
+        allow_bank_transfer: false,
+        bank_iban: null,
+        require_override_approval_role: 'school_principal',
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AdmissionFormsService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        AdmissionFormsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: SettingsService, useValue: mockSettings },
+        { provide: AcademicReadFacade, useValue: mockFacade },
+      ],
     }).compile();
 
     service = module.get<AdmissionFormsService>(AdmissionFormsService);
@@ -99,764 +134,238 @@ describe('AdmissionFormsService', () => {
     jest.clearAllMocks();
   });
 
-  // ─── Create ──────────────────────────────────────────────────────────────
+  // ─── ensureSystemForm ─────────────────────────────────────────────────────
 
-  describe('create', () => {
-    it('should create form with fields in draft status', async () => {
-      const fields = [
-        buildFormField({ field_key: 'first_name', display_order: 0 }),
-        buildFormField({ field_key: 'last_name', label: 'Last Name', display_order: 1 }),
-      ];
+  describe('ensureSystemForm', () => {
+    it('returns the existing published system form without rebuilding', async () => {
+      const existing = buildForm();
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(existing);
 
-      const createdForm = buildFormRecord();
-      mockPrisma.admissionFormDefinition.create.mockResolvedValue(createdForm);
-      mockPrisma.admissionFormDefinition.update.mockResolvedValue(createdForm);
-      mockPrisma.admissionFormField.create.mockResolvedValue({});
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue({
-        ...createdForm,
-        fields,
+      const result = await service.ensureSystemForm(TENANT_A);
+
+      expect(result.id).toBe('form-1');
+      expect(mockPrisma.admissionFormDefinition.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a new published form when none exists', async () => {
+      mockPrisma.admissionFormDefinition.findFirst
+        .mockResolvedValueOnce(null) // ensureSystemForm pre-check
+        .mockResolvedValueOnce(null) // rebuildSystemForm existing published lookup
+        .mockResolvedValueOnce(null); // rebuildSystemForm latestVersion lookup (not called)
+      mockPrisma.admissionFormDefinition.create.mockResolvedValue({
+        id: 'new-form',
+        tenant_id: TENANT_A,
+        base_form_id: null,
+        version_number: 1,
+        status: 'published',
       });
+      mockPrisma.admissionFormDefinition.update.mockResolvedValue({});
+      mockPrisma.admissionFormDefinition.findFirstOrThrow.mockResolvedValue(
+        buildForm({ id: 'new-form', base_form_id: 'new-form' }),
+      );
 
-      const result = await service.create(TENANT_ID, {
-        name: 'Test Form',
-        fields,
-      });
+      const result = await service.ensureSystemForm(TENANT_A);
 
-      expect(result).toBeDefined();
+      expect(result.id).toBe('new-form');
       expect(mockPrisma.admissionFormDefinition.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            tenant_id: TENANT_ID,
-            status: 'draft',
+            tenant_id: TENANT_A,
+            name: SYSTEM_FORM_NAME,
             version_number: 1,
+            status: 'published',
           }),
         }),
       );
-      expect(mockPrisma.admissionFormField.create).toHaveBeenCalledTimes(2);
-    });
-
-    it('should reject duplicate field_keys', async () => {
-      const fields = [
-        buildFormField({ field_key: 'same_key', display_order: 0 }),
-        buildFormField({ field_key: 'same_key', display_order: 1 }),
-      ];
-
-      await expect(service.create(TENANT_ID, { name: 'Test', fields })).rejects.toThrow(
-        BadRequestException,
-      );
-
-      try {
-        await service.create(TENANT_ID, { name: 'Test', fields });
-      } catch (e) {
-        const err = e as BadRequestException;
-        const response = err.getResponse() as Record<string, Record<string, string>>;
-        expect(response.error!.code).toBe('DUPLICATE_FIELD_KEYS');
-      }
-    });
-
-    it('should reject invalid conditional_visibility ref', async () => {
-      const fields = [
-        buildFormField({
-          field_key: 'field_a',
-          display_order: 0,
-          conditional_visibility_json: {
-            depends_on_field_key: 'nonexistent_field',
-            show_when_value: 'yes',
-          },
-        }),
-      ];
-
-      await expect(service.create(TENANT_ID, { name: 'Test', fields })).rejects.toThrow(
-        BadRequestException,
-      );
-
-      try {
-        await service.create(TENANT_ID, { name: 'Test', fields });
-      } catch (e) {
-        const err = e as BadRequestException;
-        const response = err.getResponse() as Record<string, Record<string, string>>;
-        expect(response.error!.code).toBe('INVALID_CONDITIONAL_REFERENCE');
-      }
-    });
-
-    it('should reject select fields without options', async () => {
-      const fields = [
-        buildFormField({
-          field_key: 'dropdown',
-          field_type: 'single_select',
-          options_json: null,
-          display_order: 0,
-        }),
-      ];
-
-      await expect(service.create(TENANT_ID, { name: 'Test', fields })).rejects.toThrow(
-        BadRequestException,
-      );
-
-      try {
-        await service.create(TENANT_ID, { name: 'Test', fields });
-      } catch (e) {
-        const err = e as BadRequestException;
-        const response = err.getResponse() as Record<string, Record<string, string>>;
-        expect(response.error!.code).toBe('SELECT_REQUIRES_OPTIONS');
-      }
+      expect(mockPrisma.admissionFormField.create).toHaveBeenCalledTimes(SYSTEM_FORM_FIELDS.length);
+      expect(mockPrisma.auditLog.create).toHaveBeenCalled();
     });
   });
 
-  // ─── Update ──────────────────────────────────────────────────────────────
+  // ─── rebuildSystemForm ────────────────────────────────────────────────────
 
-  describe('update', () => {
-    it('should update draft form in-place', async () => {
-      const existing = buildFormRecord({ status: 'draft' });
-      mockPrisma.admissionFormDefinition.findFirst
-        .mockResolvedValueOnce(existing) // first call: find existing
-        .mockResolvedValueOnce({ ...existing, name: 'Updated' }); // second call: return updated
-      mockPrisma.admissionFormField.deleteMany.mockResolvedValue({ count: 1 });
-      mockPrisma.admissionFormDefinition.update.mockResolvedValue({
-        ...existing,
-        name: 'Updated',
-      });
-      mockPrisma.admissionFormField.create.mockResolvedValue({});
+  describe('rebuildSystemForm', () => {
+    it('returns the existing form unchanged when fields match canonical set', async () => {
+      const existing = buildForm();
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(existing);
 
-      const result = await service.update(TENANT_ID, 'form-1', {
-        name: 'Updated',
-        fields: [buildFormField()],
-        expected_updated_at: '2026-01-01T00:00:00.000Z',
-      });
+      const result = await service.rebuildSystemForm(TENANT_A, USER_ID);
 
-      expect(result).toBeDefined();
-      expect(mockPrisma.admissionFormField.deleteMany).toHaveBeenCalled();
-      expect(mockPrisma.admissionFormDefinition.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ name: 'Updated' }),
-        }),
-      );
+      expect(result.id).toBe('form-1');
+      expect(mockPrisma.admissionFormDefinition.create).not.toHaveBeenCalled();
+      expect(mockPrisma.admissionFormField.create).not.toHaveBeenCalled();
     });
 
-    it('should create new version when editing published form', async () => {
-      const existing = buildFormRecord({ status: 'published', version_number: 1 });
+    it('archives the old form and creates a new version when fields differ', async () => {
+      // Existing form has stored fields but the first one is missing — triggers diff.
+      const existing = buildForm({
+        id: 'form-1',
+        base_form_id: 'root-form',
+        version_number: 3,
+        fields: buildStoredFields().slice(1),
+      });
       mockPrisma.admissionFormDefinition.findFirst
-        .mockResolvedValueOnce(existing) // find existing (published)
-        .mockResolvedValueOnce(existing) // find latest version
-        .mockResolvedValueOnce({ ...existing, id: 'form-2', version_number: 2, status: 'draft' }); // return new version
+        .mockResolvedValueOnce(existing) // existing system form
+        .mockResolvedValueOnce({ ...existing, version_number: 3 }); // latestVersion
+      mockPrisma.admissionFormDefinition.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.admissionFormDefinition.create.mockResolvedValue({
         id: 'form-2',
-        version_number: 2,
-        status: 'draft',
-      });
-      mockPrisma.admissionFormField.create.mockResolvedValue({});
-
-      const result = await service.update(TENANT_ID, 'form-1', {
-        name: 'Test Form v2',
-        fields: [buildFormField()],
-        expected_updated_at: '2026-01-01T00:00:00.000Z',
-      });
-
-      expect(result).toBeDefined();
-      expect(mockPrisma.admissionFormDefinition.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            status: 'draft',
-            base_form_id: 'form-1',
-          }),
-        }),
-      );
-    });
-
-    it('should reject editing archived form', async () => {
-      const existing = buildFormRecord({ status: 'archived' });
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(existing);
-
-      await expect(
-        service.update(TENANT_ID, 'form-1', {
-          name: 'Test',
-          fields: [buildFormField()],
-          expected_updated_at: '2026-01-01T00:00:00.000Z',
-        }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('edge: concurrent edit should fail', async () => {
-      const existing = buildFormRecord({
-        status: 'draft',
-        updated_at: new Date('2026-01-01T00:00:00.000Z'),
-      });
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(existing);
-
-      await expect(
-        service.update(TENANT_ID, 'form-1', {
-          name: 'Test',
-          fields: [buildFormField()],
-          expected_updated_at: '2026-01-01T12:00:00.000Z', // stale timestamp
-        }),
-      ).rejects.toThrow(BadRequestException);
-
-      try {
-        await service.update(TENANT_ID, 'form-1', {
-          name: 'Test',
-          fields: [buildFormField()],
-          expected_updated_at: '2026-01-01T12:00:00.000Z',
-        });
-      } catch (e) {
-        const err = e as BadRequestException;
-        const response = err.getResponse() as Record<string, Record<string, string>>;
-        expect(response.error!.code).toBe('CONCURRENT_MODIFICATION');
-      }
-    });
-  });
-
-  // ─── Publish ─────────────────────────────────────────────────────────────
-
-  describe('publish', () => {
-    it('should publish draft form', async () => {
-      const form = buildFormRecord({
-        status: 'draft',
-        fields: [{ id: 'f1' }],
-      });
-      mockPrisma.admissionFormDefinition.findFirst
-        .mockResolvedValueOnce(form) // find form
-        .mockResolvedValueOnce({ ...form, status: 'published' }); // return published
-      mockPrisma.admissionFormDefinition.updateMany.mockResolvedValue({ count: 0 });
-      mockPrisma.admissionFormDefinition.update.mockResolvedValue({
-        ...form,
-        status: 'published',
-      });
-
-      const result = await service.publish(TENANT_ID, 'form-1');
-
-      expect(result).toBeDefined();
-      expect(mockPrisma.admissionFormDefinition.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: { status: 'published' },
-        }),
-      );
-    });
-
-    it('should archive other published in lineage', async () => {
-      const form = buildFormRecord({
-        status: 'draft',
         base_form_id: 'root-form',
-        fields: [{ id: 'f1' }],
-      });
-      mockPrisma.admissionFormDefinition.findFirst
-        .mockResolvedValueOnce(form)
-        .mockResolvedValueOnce({ ...form, status: 'published' });
-      mockPrisma.admissionFormDefinition.updateMany.mockResolvedValue({ count: 1 });
-      mockPrisma.admissionFormDefinition.update.mockResolvedValue({
-        ...form,
+        version_number: 4,
         status: 'published',
       });
+      mockPrisma.admissionFormDefinition.findFirstOrThrow.mockResolvedValue(
+        buildForm({ id: 'form-2', base_form_id: 'root-form', version_number: 4 }),
+      );
 
-      await service.publish(TENANT_ID, 'form-1');
+      const result = await service.rebuildSystemForm(TENANT_A, USER_ID);
 
+      expect(result.id).toBe('form-2');
       expect(mockPrisma.admissionFormDefinition.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({
-            base_form_id: 'root-form',
-            status: 'published',
-            id: { not: 'form-1' },
-          }),
           data: { status: 'archived' },
         }),
       );
-    });
-
-    it('should reject publishing non-draft', async () => {
-      const form = buildFormRecord({ status: 'published', fields: [{ id: 'f1' }] });
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(form);
-
-      await expect(service.publish(TENANT_ID, 'form-1')).rejects.toThrow(BadRequestException);
-    });
-
-    it('should reject publishing empty form', async () => {
-      const form = buildFormRecord({ status: 'draft', fields: [] });
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(form);
-
-      await expect(service.publish(TENANT_ID, 'form-1')).rejects.toThrow(BadRequestException);
-    });
-  });
-
-  // ─── Versioning ──────────────────────────────────────────────────────────
-
-  describe('getVersions', () => {
-    it('should return all versions of a form lineage', async () => {
-      const form = buildFormRecord({ base_form_id: 'root-form' });
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(form);
-      mockPrisma.admissionFormDefinition.findMany.mockResolvedValue([
-        buildFormRecord({ version_number: 1 }),
-        buildFormRecord({ id: 'form-2', version_number: 2 }),
-      ]);
-
-      const result = await service.getVersions(TENANT_ID, 'form-1');
-
-      expect(result).toHaveLength(2);
-      expect(mockPrisma.admissionFormDefinition.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ base_form_id: 'root-form' }),
-        }),
-      );
-    });
-  });
-
-  // ─── Find One ────────────────────────────────────────────────────────────
-
-  describe('findOne', () => {
-    it('should return form with fields', async () => {
-      const form = buildFormRecord({ fields: [buildFormField()] });
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(form);
-
-      const result = await service.findOne(TENANT_ID, 'form-1');
-
-      expect(result).toBeDefined();
-      expect(result.fields).toBeDefined();
-    });
-
-    it('should throw NotFoundException for missing form', async () => {
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(null);
-
-      await expect(service.findOne(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  // ─── Archive ─────────────────────────────────────────────────────────────
-
-  describe('archive', () => {
-    it('should archive a form', async () => {
-      const form = buildFormRecord({ status: 'published' });
-      mockPrisma.admissionFormDefinition.findFirst
-        .mockResolvedValueOnce(form)
-        .mockResolvedValueOnce({ ...form, status: 'archived' });
-      mockPrisma.admissionFormDefinition.update.mockResolvedValue({
-        ...form,
-        status: 'archived',
-      });
-
-      const result = await service.archive(TENANT_ID, 'form-1');
-
-      expect(result).toBeDefined();
-    });
-
-    it('should reject archiving already archived form', async () => {
-      const form = buildFormRecord({ status: 'archived' });
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(form);
-
-      await expect(service.archive(TENANT_ID, 'form-1')).rejects.toThrow(BadRequestException);
-    });
-  });
-
-  // ─── Get Published Form ──────────────────────────────────────────────────
-
-  describe('getPublishedForm', () => {
-    it('should return published form with parent-visible fields', async () => {
-      const form = buildFormRecord({
-        status: 'published',
-        fields: [buildFormField({ visible_to_parent: true })],
-      });
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(form);
-
-      const result = await service.getPublishedForm(TENANT_ID);
-
-      expect(result).toBeDefined();
-      expect(result.status).toBe('published');
-    });
-
-    it('should throw when no published form exists', async () => {
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(null);
-
-      await expect(service.getPublishedForm(TENANT_ID)).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  // ─── Data Minimisation ────────────────────────────────────────────────────
-
-  describe('validateFieldsForDataMinimisation', () => {
-    it('should detect health keyword in field label', () => {
-      const result = service.validateFieldsForDataMinimisation([
-        { field_key: 'field_1', label: 'Medical Conditions' },
-      ]);
-      expect(result).toHaveLength(1);
-      expect(result[0]!.matched_keyword).toBe('medical');
-      expect(result[0]!.category).toBe('health');
-    });
-
-    it('should NOT flag non-special-category fields', () => {
-      const result = service.validateFieldsForDataMinimisation([
-        { field_key: 'student_name', label: 'Student Name' },
-      ]);
-      expect(result).toHaveLength(0);
-    });
-
-    it('should detect religion keyword', () => {
-      const result = service.validateFieldsForDataMinimisation([
-        { field_key: 'religion_field', label: 'Religion' },
-      ]);
-      expect(result).toHaveLength(1);
-      expect(result[0]!.category).toBe('religion');
-    });
-
-    it('should detect ethnicity keyword', () => {
-      const result = service.validateFieldsForDataMinimisation([
-        { field_key: 'ethnicity_field', label: 'Ethnicity' },
-      ]);
-      expect(result).toHaveLength(1);
-      expect(result[0]!.category).toBe('ethnicity');
-    });
-
-    it('should detect keyword in field_key as well as label', () => {
-      const result = service.validateFieldsForDataMinimisation([
-        { field_key: 'student_medical_notes', label: 'Additional Notes' },
-      ]);
-      expect(result).toHaveLength(1);
-      expect(result[0]!.matched_keyword).toBe('medical');
-    });
-
-    it('should return one warning per field even if multiple keywords match', () => {
-      const result = service.validateFieldsForDataMinimisation([
-        { field_key: 'health_medical', label: 'Health and Medical' },
-      ]);
-      expect(result).toHaveLength(1);
-    });
-
-    it('should handle multiple fields with mixed results', () => {
-      const result = service.validateFieldsForDataMinimisation([
-        { field_key: 'student_name', label: 'Student Name' },
-        { field_key: 'religion', label: 'Religion' },
-        { field_key: 'student_dob', label: 'Date of Birth' },
-        { field_key: 'medical_notes', label: 'Medical Conditions' },
-      ]);
-      expect(result).toHaveLength(2);
-    });
-  });
-
-  // ─── Create — additional field validation ───────────────────────────────
-
-  describe('create — additional field validation', () => {
-    it('should accept valid conditional visibility reference', async () => {
-      const fields = [
-        buildFormField({
-          field_key: 'has_allergies',
-          field_type: 'yes_no',
-          display_order: 0,
-        }),
-        buildFormField({
-          field_key: 'allergy_details',
-          display_order: 1,
-          conditional_visibility_json: {
-            depends_on_field_key: 'has_allergies',
-            show_when_value: 'yes',
-          },
-        }),
-      ];
-
-      const createdForm = buildFormRecord();
-      mockPrisma.admissionFormDefinition.create.mockResolvedValue(createdForm);
-      mockPrisma.admissionFormDefinition.update.mockResolvedValue(createdForm);
-      mockPrisma.admissionFormField.create.mockResolvedValue({});
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue({
-        ...createdForm,
-        fields,
-      });
-
-      const result = await service.create(TENANT_ID, {
-        name: 'Conditional Form',
-        fields,
-      });
-
-      expect(result).toBeDefined();
-      expect(mockPrisma.admissionFormField.create).toHaveBeenCalledTimes(2);
-    });
-
-    it('should reject multi_select without options', async () => {
-      const fields = [
-        buildFormField({
-          field_key: 'multi_field',
-          field_type: 'multi_select',
-          options_json: [],
-          display_order: 0,
-        }),
-      ];
-
-      await expect(service.create(TENANT_ID, { name: 'Test', fields })).rejects.toThrow(
-        BadRequestException,
-      );
-
-      try {
-        await service.create(TENANT_ID, { name: 'Test', fields });
-      } catch (e) {
-        const err = e as BadRequestException;
-        const response = err.getResponse() as Record<string, Record<string, string>>;
-        expect(response.error?.code).toBe('SELECT_REQUIRES_OPTIONS');
-      }
-    });
-
-    it('should accept single_select with valid options', async () => {
-      const fields = [
-        buildFormField({
-          field_key: 'gender',
-          field_type: 'single_select',
-          options_json: [
-            { value: 'male', label: 'Male' },
-            { value: 'female', label: 'Female' },
-          ],
-          display_order: 0,
-        }),
-      ];
-
-      const createdForm = buildFormRecord();
-      mockPrisma.admissionFormDefinition.create.mockResolvedValue(createdForm);
-      mockPrisma.admissionFormDefinition.update.mockResolvedValue(createdForm);
-      mockPrisma.admissionFormField.create.mockResolvedValue({});
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue({
-        ...createdForm,
-        fields,
-      });
-
-      const result = await service.create(TENANT_ID, {
-        name: 'Select Form',
-        fields,
-      });
-
-      expect(result).toBeDefined();
-    });
-  });
-
-  // ─── System Form Creation ───────────────────────────────────────────────
-
-  describe('createSystemForm', () => {
-    it('should create and publish system form when none exists', async () => {
-      mockPrisma.admissionFormDefinition.findFirst
-        .mockResolvedValueOnce(null) // no existing system form
-        .mockResolvedValueOnce(
-          buildFormRecord({
-            name: 'System Application Form',
-            status: 'published',
-          }),
-        ); // returned after creation
-      mockPrisma.admissionFormDefinition.create.mockResolvedValue(
-        buildFormRecord({ name: 'System Application Form', status: 'published' }),
-      );
-      mockPrisma.admissionFormDefinition.update.mockResolvedValue({});
-      mockPrisma.admissionFormField.create.mockResolvedValue({});
-      mockPrisma.admissionFormDefinition.updateMany.mockResolvedValue({ count: 0 });
-
-      const result = await service.createSystemForm(TENANT_ID);
-
-      expect(result).toBeDefined();
       expect(mockPrisma.admissionFormDefinition.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            name: 'System Application Form',
+            base_form_id: 'root-form',
+            version_number: 4,
             status: 'published',
           }),
         }),
       );
-      // Should create system fields
-      expect(mockPrisma.admissionFormField.create).toHaveBeenCalled();
+      expect(mockPrisma.admissionFormField.create).toHaveBeenCalledTimes(SYSTEM_FORM_FIELDS.length);
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            actor_user_id: USER_ID,
+            action: 'admission_form_rebuilt',
+          }),
+        }),
+      );
     });
 
-    it('should return existing system form without creating duplicate', async () => {
-      const existingForm = buildFormRecord({
-        name: 'System Application Form',
-        status: 'published',
-        fields: [buildFormField()],
+    it('treats dynamic option fields (target_academic_year_id) as matching even if stored options differ', async () => {
+      // Simulate a stored form where the dynamic option field was persisted
+      // with stale options_json from a previous fetch. It should still match.
+      const storedFields = buildStoredFields().map((field) => {
+        if (field.field_key === 'target_academic_year_id') {
+          return {
+            ...field,
+            options_json: [{ value: 'stale', label: 'Stale' }],
+          };
+        }
+        return field;
       });
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(existingForm);
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(
+        buildForm({ fields: storedFields }),
+      );
 
-      const result = await service.createSystemForm(TENANT_ID);
+      const result = await service.rebuildSystemForm(TENANT_A, USER_ID);
 
-      expect(result).toBeDefined();
+      expect(result.id).toBe('form-1');
       expect(mockPrisma.admissionFormDefinition.create).not.toHaveBeenCalled();
     });
   });
 
-  // ─── Form Lifecycle (draft → published → archived) ──────────────────────
+  // ─── getPublishedForm ─────────────────────────────────────────────────────
 
-  describe('form lifecycle — full state machine', () => {
-    it('draft → published → archived is valid', async () => {
-      // Publish a draft form
-      const draftForm = buildFormRecord({
-        status: 'draft',
-        fields: [{ id: 'f1' }],
-      });
-      mockPrisma.admissionFormDefinition.findFirst
-        .mockResolvedValueOnce(draftForm)
-        .mockResolvedValueOnce({ ...draftForm, status: 'published' });
-      mockPrisma.admissionFormDefinition.updateMany.mockResolvedValue({ count: 0 });
-      mockPrisma.admissionFormDefinition.update.mockResolvedValue({
-        ...draftForm,
-        status: 'published',
-      });
+  describe('getPublishedForm', () => {
+    it('returns the form with dynamic academic year and year group options populated', async () => {
+      const existing = buildForm();
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(existing);
+      mockPrisma.admissionFormDefinition.findFirstOrThrow.mockResolvedValue(existing);
+      mockFacade.findAcademicYearsWithinHorizon.mockResolvedValue([
+        { id: 'ay-1', name: '2026-2027' },
+        { id: 'ay-2', name: '2027-2028' },
+      ]);
+      mockFacade.findAllYearGroupsWithOrder.mockResolvedValue([
+        { id: 'yg-1', name: 'First Class', display_order: 0 },
+        { id: 'yg-2', name: 'Second Class', display_order: 1 },
+      ]);
 
-      const published = await service.publish(TENANT_ID, 'form-1');
-      expect(published).toBeDefined();
+      const result = await service.getPublishedForm(TENANT_A);
 
-      // Archive the published form
-      jest.clearAllMocks();
-      const publishedForm = buildFormRecord({ status: 'published' });
-      mockPrisma.admissionFormDefinition.findFirst
-        .mockResolvedValueOnce(publishedForm)
-        .mockResolvedValueOnce({ ...publishedForm, status: 'archived' });
-      mockPrisma.admissionFormDefinition.update.mockResolvedValue({
-        ...publishedForm,
-        status: 'archived',
-      });
+      const academicYearField = result.fields.find(
+        (f) => f.field_key === 'target_academic_year_id',
+      );
+      const yearGroupField = result.fields.find((f) => f.field_key === 'target_year_group_id');
 
-      const archived = await service.archive(TENANT_ID, 'form-1');
-      expect(archived).toBeDefined();
+      expect(academicYearField?.options_json).toEqual([
+        { value: 'ay-1', label: '2026-2027' },
+        { value: 'ay-2', label: '2027-2028' },
+      ]);
+      expect(yearGroupField?.options_json).toEqual([
+        { value: 'yg-1', label: 'First Class' },
+        { value: 'yg-2', label: 'Second Class' },
+      ]);
     });
 
-    it('edge: publish should throw for already published form', async () => {
-      const form = buildFormRecord({ status: 'published', fields: [{ id: 'f1' }] });
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(form);
-
-      await expect(service.publish(TENANT_ID, 'form-1')).rejects.toThrow(BadRequestException);
-
-      try {
-        await service.publish(TENANT_ID, 'form-1');
-      } catch (e) {
-        const err = e as BadRequestException;
-        const response = err.getResponse() as Record<string, Record<string, string>>;
-        expect(response.error?.code).toBe('INVALID_STATUS_TRANSITION');
-      }
-    });
-
-    it('edge: publish should throw for archived form', async () => {
-      const form = buildFormRecord({ status: 'archived', fields: [{ id: 'f1' }] });
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(form);
-
-      await expect(service.publish(TENANT_ID, 'form-1')).rejects.toThrow(BadRequestException);
-    });
-
-    it('edge: archive should throw for form not found', async () => {
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(null);
-
-      await expect(service.archive(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
-    });
-
-    it('should archive a draft form', async () => {
-      const form = buildFormRecord({ status: 'draft' });
-      mockPrisma.admissionFormDefinition.findFirst
-        .mockResolvedValueOnce(form)
-        .mockResolvedValueOnce({ ...form, status: 'archived' });
-      mockPrisma.admissionFormDefinition.update.mockResolvedValue({
-        ...form,
-        status: 'archived',
+    it('respects the tenant horizon when loading academic year options', async () => {
+      const existing = buildForm();
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(existing);
+      mockPrisma.admissionFormDefinition.findFirstOrThrow.mockResolvedValue(existing);
+      mockSettings.getModuleSettings.mockResolvedValue({
+        requireApprovalForAcceptance: true,
+        upfront_percentage: 100,
+        payment_window_days: 7,
+        max_application_horizon_years: 5,
+        allow_cash: true,
+        allow_bank_transfer: false,
+        bank_iban: null,
+        require_override_approval_role: 'school_principal',
       });
 
-      const result = await service.archive(TENANT_ID, 'form-1');
-      expect(result).toBeDefined();
+      await service.getPublishedForm(TENANT_A);
+
+      expect(mockFacade.findAcademicYearsWithinHorizon).toHaveBeenCalledWith(
+        TENANT_A,
+        expect.any(Date),
+      );
+      const cutoff = mockFacade.findAcademicYearsWithinHorizon.mock.calls[0]![1] as Date;
+      const now = new Date();
+      expect(cutoff.getFullYear()).toBe(now.getFullYear() + 5);
+    });
+
+    it('calls ensureSystemForm before loading the published form', async () => {
+      const existing = buildForm();
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(existing);
+      mockPrisma.admissionFormDefinition.findFirstOrThrow.mockResolvedValue(existing);
+
+      await service.getPublishedForm(TENANT_A);
+
+      // findFirst is called at least twice: once by ensureSystemForm, once
+      // by loadPublishedSystemForm (via findFirstOrThrow chain in real code).
+      expect(mockPrisma.admissionFormDefinition.findFirst).toHaveBeenCalled();
+      expect(mockPrisma.admissionFormDefinition.findFirstOrThrow).toHaveBeenCalled();
     });
   });
 
-  // ─── findAll ──────────────────────────────────────────────────────────────
+  // ─── getSystemFormDefinitionId ────────────────────────────────────────────
 
-  describe('findAll', () => {
-    it('should return paginated results', async () => {
-      mockPrisma.admissionFormDefinition.findMany.mockResolvedValue([buildFormRecord()]);
-      mockPrisma.admissionFormDefinition.count.mockResolvedValue(1);
+  describe('getSystemFormDefinitionId', () => {
+    it('returns the id of the ensured system form', async () => {
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(buildForm({ id: 'form-xyz' }));
 
-      const result = await service.findAll(TENANT_ID, {
-        page: 1,
-        pageSize: 20,
-        order: 'desc' as const,
-      });
+      const id = await service.getSystemFormDefinitionId(TENANT_A);
 
-      expect(result.data).toHaveLength(1);
-      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
-    });
-
-    it('should filter by status', async () => {
-      mockPrisma.admissionFormDefinition.findMany.mockResolvedValue([]);
-      mockPrisma.admissionFormDefinition.count.mockResolvedValue(0);
-
-      await service.findAll(TENANT_ID, {
-        page: 1,
-        pageSize: 20,
-        order: 'desc' as const,
-        status: 'published',
-      });
-
-      expect(mockPrisma.admissionFormDefinition.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            status: 'published',
-          }),
-        }),
-      );
+      expect(id).toBe('form-xyz');
     });
   });
 
-  // ─── Update — additional edge cases ─────────────────────────────────────
+  // ─── RLS leakage ─────────────────────────────────────────────────────────
 
-  describe('update — additional edge cases', () => {
-    it('should throw NotFoundException when form not found', async () => {
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(null);
+  describe('tenant isolation', () => {
+    it('passes tenant_id through to every lookup', async () => {
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(buildForm({ id: 'form-b' }));
 
-      await expect(
-        service.update(TENANT_ID, 'nonexistent', {
-          name: 'Test',
-          fields: [buildFormField()],
-        }),
-      ).rejects.toThrow(NotFoundException);
-    });
-  });
+      await service.ensureSystemForm(TENANT_B);
 
-  // ─── getVersions — edge cases ─────────────────────────────────────────────
-
-  describe('getVersions — edge cases', () => {
-    it('should throw NotFoundException when form not found', async () => {
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(null);
-
-      await expect(service.getVersions(TENANT_ID, 'nonexistent')).rejects.toThrow(
-        NotFoundException,
+      const whereArgs = mockPrisma.admissionFormDefinition.findFirst.mock.calls.map(
+        (call) => (call[0] as { where: { tenant_id: string } }).where.tenant_id,
       );
-    });
-
-    it('should use form id as base_form_id when base_form_id is null', async () => {
-      const form = buildFormRecord({ id: 'form-root', base_form_id: null });
-      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(form);
-      mockPrisma.admissionFormDefinition.findMany.mockResolvedValue([form]);
-
-      await service.getVersions(TENANT_ID, 'form-root');
-
-      expect(mockPrisma.admissionFormDefinition.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            base_form_id: 'form-root',
-          }),
-        }),
-      );
-    });
-  });
-
-  // ─── Publish — version management ──────────────────────────────────────
-
-  describe('publish — version management', () => {
-    it('should use form.id as base_form_id when base_form_id is null', async () => {
-      const form = buildFormRecord({
-        id: 'form-root',
-        base_form_id: null,
-        status: 'draft',
-        fields: [{ id: 'f1' }],
-      });
-      mockPrisma.admissionFormDefinition.findFirst
-        .mockResolvedValueOnce(form)
-        .mockResolvedValueOnce({ ...form, status: 'published' });
-      mockPrisma.admissionFormDefinition.updateMany.mockResolvedValue({ count: 0 });
-      mockPrisma.admissionFormDefinition.update.mockResolvedValue({
-        ...form,
-        status: 'published',
-      });
-
-      await service.publish(TENANT_ID, 'form-root');
-
-      expect(mockPrisma.admissionFormDefinition.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            base_form_id: 'form-root',
-          }),
-        }),
-      );
+      expect(whereArgs.every((t) => t === TENANT_B)).toBe(true);
     });
   });
 });

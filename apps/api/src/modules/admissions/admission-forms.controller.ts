@@ -1,34 +1,12 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Post,
-  Put,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Post, UseGuards } from '@nestjs/common';
 
-import {
-  createFormDefinitionSchema,
-  listFormDefinitionsSchema,
-  updateFormDefinitionSchema,
-} from '@school/shared';
-import type {
-  CreateFormDefinitionDto,
-  JwtPayload,
-  ListFormDefinitionsQuery,
-  TenantContext,
-  UpdateFormDefinitionDto,
-} from '@school/shared';
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { AdmissionFormsService } from './admission-forms.service';
 
@@ -37,108 +15,17 @@ import { AdmissionFormsService } from './admission-forms.service';
 export class AdmissionFormsController {
   constructor(private readonly admissionFormsService: AdmissionFormsService) {}
 
-  @Post('system')
-  @RequiresPermission('admissions.manage')
-  async createSystemForm(@CurrentTenant() tenant: TenantContext) {
-    return this.admissionFormsService.createSystemForm(tenant.tenant_id);
-  }
-
-  @Post()
-  @RequiresPermission('admissions.manage')
-  async create(
-    @CurrentTenant() tenant: TenantContext,
-    @Body(new ZodValidationPipe(createFormDefinitionSchema))
-    dto: CreateFormDefinitionDto,
-  ) {
-    return this.admissionFormsService.create(tenant.tenant_id, dto);
-  }
-
-  @Get()
+  // GET /v1/admission-forms/system
+  @Get('system')
   @RequiresPermission('admissions.view')
-  async findAll(
-    @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(listFormDefinitionsSchema))
-    query: ListFormDefinitionsQuery,
-  ) {
-    return this.admissionFormsService.findAll(tenant.tenant_id, query);
+  async getSystemForm(@CurrentTenant() tenant: TenantContext) {
+    return this.admissionFormsService.getPublishedForm(tenant.tenant_id);
   }
 
-  @Get(':id')
-  @RequiresPermission('admissions.view')
-  async findOne(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
-    return this.admissionFormsService.findOne(tenant.tenant_id, id);
-  }
-
-  @Put(':id')
+  // POST /v1/admission-forms/system/rebuild
+  @Post('system/rebuild')
   @RequiresPermission('admissions.manage')
-  async update(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body(new ZodValidationPipe(updateFormDefinitionSchema))
-    dto: UpdateFormDefinitionDto,
-  ) {
-    return this.admissionFormsService.update(tenant.tenant_id, id, dto);
-  }
-
-  // POST /v1/admission-forms/:id/validate-fields
-  @Post(':id/validate-fields')
-  @RequiresPermission('admissions.manage')
-  async validateFieldsForDataMinimisation(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body()
-    body: {
-      fields: Array<{ field_key: string; label: string }>;
-      justifications?: Record<string, string>;
-    },
-  ) {
-    // Verify form exists
-    await this.admissionFormsService.findOne(tenant.tenant_id, id);
-    const warnings = this.admissionFormsService.validateFieldsForDataMinimisation(body.fields);
-
-    // Log overrides for flagged fields that have justifications
-    if (body.justifications) {
-      const overrides = warnings
-        .filter((w) => body.justifications?.[w.field_key])
-        .map((w) => ({
-          field_key: w.field_key,
-          field_label: w.field_label,
-          matched_keyword: w.matched_keyword,
-          justification: body.justifications![w.field_key]!,
-        }));
-
-      if (overrides.length > 0) {
-        await this.admissionFormsService.logDataMinimisationOverrides(
-          tenant.tenant_id,
-          user.sub,
-          id,
-          overrides,
-        );
-      }
-    }
-
-    return { warnings };
-  }
-
-  @Post(':id/publish')
-  @RequiresPermission('admissions.manage')
-  async publish(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
-    return this.admissionFormsService.publish(tenant.tenant_id, id);
-  }
-
-  @Post(':id/archive')
-  @RequiresPermission('admissions.manage')
-  async archive(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
-    return this.admissionFormsService.archive(tenant.tenant_id, id);
-  }
-
-  @Get(':id/versions')
-  @RequiresPermission('admissions.view')
-  async getVersions(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.admissionFormsService.getVersions(tenant.tenant_id, id);
+  async rebuildSystemForm(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
+    return this.admissionFormsService.rebuildSystemForm(tenant.tenant_id, user.sub);
   }
 }

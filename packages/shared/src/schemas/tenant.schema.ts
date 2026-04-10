@@ -82,6 +82,16 @@ export const admissionsSettingsSchema = z.object({
     )
     .default([]),
   cashPaymentDeadlineDays: z.number().int().min(1).default(14),
+  // New Admissions rebuild (from PLAN.md §6)
+  upfront_percentage: z.number().int().min(0).max(100).default(100),
+  payment_window_days: z.number().int().min(1).default(7),
+  max_application_horizon_years: z.number().int().min(0).default(2),
+  allow_cash: z.boolean().default(true),
+  allow_bank_transfer: z.boolean().default(false),
+  bank_iban: z.string().nullable().default(null),
+  require_override_approval_role: z
+    .enum(['school_owner', 'school_principal'])
+    .default('school_principal'),
 });
 
 export type AdmissionsSettingsDto = z.infer<typeof admissionsSettingsSchema>;
