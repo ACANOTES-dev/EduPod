@@ -104,7 +104,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 01  | Schema foundation                  | 1    | —                  | `completed`   | 2026-04-10 22:00 Europe/Dublin | `0b976d37` (local) / `55001a4e` (prod) |
 | 02  | Capacity service                   | 2    | 01                 | `completed`   | 2026-04-10 23:11 Europe/Dublin | `f97f31fd` (local) / `64ea88c6` (prod) |
 | 03  | State machine rewrite              | 2    | 01                 | `in-progress` | —                              | —                                      |
-| 04  | Form service simplification        | 2    | 01                 | `in-progress` | —                              | —                                      |
+| 04  | Form service simplification        | 2    | 01                 | `completed`   | 2026-04-10 23:25 Europe/Dublin | `521d26de` (local) / `2dc85bd9` (prod) |
 | 05  | Conversion-to-student service      | 2    | 01                 | `in-progress` | —                              | —                                      |
 | 06  | Stripe checkout + webhook          | 3    | 01, 03, 05         | `pending`     | —                              | —                                      |
 | 07  | Cash, bank transfer, override      | 3    | 01, 03, 05         | `pending`     | —                              | —                                      |
@@ -237,3 +237,54 @@ Append new records below in chronological order. Format:
     `AdmissionsModule` exports while this impl was running; prettier/lint
     reflowed the providers/exports arrays on commit but the additions are
     independent and both made it to production.
+
+### [IMPL 04] — Form service simplification
+
+- **Completed:** 2026-04-10T23:25:00+01:00 (Europe/Dublin)
+- **Commit:** `521d26de` (local) / `2dc85bd9` (prod); base feature commit `7ec0328b` (local) / `26a922b2` (prod)
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Rewrote `AdmissionFormsService` around a single canonical system form per
+  tenant. Public surface is now four methods: `getPublishedForm`,
+  `rebuildSystemForm`, `ensureSystemForm`, `getSystemFormDefinitionId`. The
+  canonical field set moved to `packages/shared/src/admissions/system-form-fields.ts`
+  and now includes two new dynamic dropdowns — `target_academic_year_id` and
+  `target_year_group_id` — whose `options_json` is resolved at request time.
+  `getPublishedForm` fetches academic years (capped by
+  `admissions.max_application_horizon_years`) and all year groups via a new
+  `AcademicReadFacade.findAcademicYearsWithinHorizon`, keeping admissions off
+  direct cross-module Prisma access. Controller reduced to `GET /v1/admission-forms/system`
+  and `POST /v1/admission-forms/system/rebuild`. Tenant settings Zod schema
+  extended with the Wave 1 fields (`upfront_percentage`, `payment_window_days`,
+  `max_application_horizon_years`, `allow_cash`, `allow_bank_transfer`,
+  `bank_iban`, `require_override_approval_role`) so the settings service
+  returns the horizon. `ensureSystemForm` auto-migrates stale forms by
+  running `fieldsMatchCanonical` and triggering a rebuild when drift is
+  detected — existing tenants were migrated transparently on first fetch.
+- **Follow-ups:**
+  - The old multi-form frontend (`admissions/forms/*`) still calls the deleted
+    CRUD endpoints and will 404 at runtime. Impl 15 (cleanup) deletes those
+    pages. Not blocking Wave 2.
+  - `packages/shared/src/schemas/admission-form.schema.ts` is now only
+    re-exported from the shared barrel and has no consumers. Impl 15 should
+    remove it along with the frontend pages.
+  - `apps/api/test/admission-forms.e2e-spec.ts` exercises the removed CRUD
+    surface and will fail against production. Out of scope for impl 04; can
+    be deleted in impl 15 alongside the frontend pages.
+  - `AdmissionsModule` currently imports `AcademicsModule` — parallel impls
+    03/05 also touched this file and accumulated `FinanceModule`, `TenantsModule`,
+    `BullModule`, and `FinanceFeesFacade`; the serial deployments carry those
+    additions through.
+- **Session notes:**
+  - Wave 2 ran with impls 02/03/04/05 in parallel. Impl 02 had already
+    completed when this one deployed, so no serialisation wait was needed.
+  - The `no-cross-module-prisma-access` ESLint rule initially flagged direct
+    `prisma.academicYear` and `prisma.yearGroup` reads; fixed by adding
+    `findAcademicYearsWithinHorizon` to `AcademicReadFacade` and going
+    through the facade.
+  - The first deployment exposed a behaviour gap: `ensureSystemForm`
+    returned any existing published form unchanged, so the NHQS tenant (with
+    a legacy form from before this rebuild) kept the old field list instead
+    of auto-migrating. Added a `fieldsMatchCanonical` check inside
+    `ensureSystemForm` and redeployed; NHQS then migrated to a v2 form with
+    the two new target fields on the next public fetch.
