@@ -8,6 +8,7 @@ import {
 } from '@school/shared/early-warning';
 
 import { CANARY_PING_JOB, QUEUE_NAMES } from '../base/queue.constants';
+import { ADMISSIONS_PAYMENT_EXPIRY_JOB } from '../processors/admissions/admissions-payment-expiry.processor';
 import { APPROVAL_CALLBACK_RECONCILIATION_JOB } from '../processors/approvals/callback-reconciliation.processor';
 import {
   BEHAVIOUR_CRON_DISPATCH_DAILY_JOB,
@@ -72,6 +73,7 @@ export class CronSchedulerService implements OnModuleInit {
     @InjectQueue(QUEUE_NAMES.APPROVALS) private readonly approvalsQueue: Queue,
     @InjectQueue(QUEUE_NAMES.ENGAGEMENT) private readonly engagementQueue: Queue,
     @InjectQueue(QUEUE_NAMES.PASTORAL) private readonly pastoralQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.ADMISSIONS) private readonly admissionsQueue: Queue,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -89,6 +91,7 @@ export class CronSchedulerService implements OnModuleInit {
     await this.registerApprovalsCronJobs();
     await this.registerEngagementCronJobs();
     await this.registerPastoralCronJobs();
+    await this.registerAdmissionsCronJobs();
     await this.registerMonitoringCronJobs();
     await this.registerCanaryCronJobs();
   }
@@ -706,6 +709,26 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${PASTORAL_CRON_DISPATCH_OVERDUE_JOB} (hourly)`);
+  }
+
+  private async registerAdmissionsCronJobs(): Promise<void> {
+    // ── admissions:payment-expiry ──────────────────────────────────────────
+    // Runs every 15 minutes. Cross-tenant — no tenant_id in payload.
+    // Reverts conditional-approval applications whose payment window has
+    // lapsed and FIFO-promotes the next waiting-list applicant into the
+    // freed seat. Drives the financial-gating enforcement mechanism
+    // described in new-admissions/PLAN.md §5.
+    await this.admissionsQueue.add(
+      ADMISSIONS_PAYMENT_EXPIRY_JOB,
+      {},
+      {
+        repeat: { pattern: '*/15 * * * *' },
+        jobId: `cron:${ADMISSIONS_PAYMENT_EXPIRY_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${ADMISSIONS_PAYMENT_EXPIRY_JOB} (every 15 min)`);
   }
 
   private async registerMonitoringCronJobs(): Promise<void> {

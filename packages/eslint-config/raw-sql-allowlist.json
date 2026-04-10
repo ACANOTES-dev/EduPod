@@ -312,6 +312,12 @@
       "methods": ["$queryRaw"],
       "category": "anomaly-detection",
       "reason": "Security anomaly rule — aggregation query over audit_logs for unusual access pattern detection"
+    },
+    {
+      "file": "apps/worker/src/processors/admissions/admissions-payment-expiry.processor.ts",
+      "methods": ["$executeRaw", "$queryRaw"],
+      "category": "rls-infrastructure",
+      "reason": "Cross-tenant discovery scan ($queryRaw) for expired conditional approvals, plus per-tenant RLS context setting via set_config ($executeRaw) inside each revert/promotion transaction"
     }
   ]
 }

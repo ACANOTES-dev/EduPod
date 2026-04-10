@@ -8,7 +8,8 @@ import { CronSchedulerService } from './cron/cron-scheduler.service';
 import { envValidation } from './env.validation';
 import { WorkerHealthController } from './health/worker-health.controller';
 import { WorkerHealthService } from './health/worker-health.service';
-import { AdmissionsAutoExpiryProcessor } from './processors/admissions-auto-expiry.processor';
+import { AdmissionsPaymentExpiryProcessor } from './processors/admissions/admissions-payment-expiry.processor';
+import { AdmissionsPaymentLinkProcessor } from './processors/admissions/admissions-payment-link.processor';
 import { ApprovalCallbackReconciliationProcessor } from './processors/approvals/callback-reconciliation.processor';
 import { AttendanceAutoLockProcessor } from './processors/attendance-auto-lock.processor';
 import { AttendancePatternDetectionProcessor } from './processors/attendance-pattern-detection.processor';
@@ -361,7 +362,8 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     // Approvals queue processors
     ApprovalCallbackReconciliationProcessor,
     // Admissions queue processors
-    AdmissionsAutoExpiryProcessor,
+    AdmissionsPaymentExpiryProcessor,
+    AdmissionsPaymentLinkProcessor,
     // Behaviour queue processors
     BehaviourCronDispatchProcessor,
     BehaviourParentNotificationProcessor,
