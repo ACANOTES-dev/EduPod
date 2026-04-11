@@ -1,13 +1,9 @@
-import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 
 import type { AudienceDefinition } from '@school/shared/inbox';
 
-// Bridge needs the ConversationsService runtime token for DI — the
-// `school/no-cross-module-internal-import` lint rule warns here, but the
-// bridge is the single documented cross-module edge between the
-// communications dispatcher and the inbox write path. Warning is left
-// visible in line with impl 03's convention.
-import { ConversationsService } from '../inbox/conversations/conversations.service';
+import type { ConversationsService } from '../inbox/conversations/conversations.service';
 
 /**
  * InboxBridgeService — the single hand-off point from legacy
@@ -20,10 +16,25 @@ import { ConversationsService } from '../inbox/conversations/conversations.servi
  * path creates `Notification` rows and fires the existing dispatcher) —
  * the bridge passes `extraChannels: []` so there is no duplicate fan-out.
  *
- * The bridge lives in `CommunicationsModule` (not `InboxModule`) because
- * it is imported by `AnnouncementsService` there. It depends on
- * `ConversationsService` from `InboxModule` — the two modules import each
- * other via `forwardRef` to resolve the circular edge.
+ * ## Why `ModuleRef` instead of constructor injection
+ *
+ * The bridge lives in `CommunicationsModule` and needs to call
+ * `ConversationsService` in `InboxModule`. A direct constructor injection
+ * would force `CommunicationsModule` to import `InboxModule`, which in
+ * turn would create a runtime circular dep chain:
+ *
+ *   AppModule → AdmissionsModule → FinanceModule → InboxModule →
+ *   CommunicationsModule → ClassesModule → AdmissionsModule
+ *
+ * NestJS's `forwardRef` cannot resolve that deep a cycle — boot crashes
+ * with "The module at index [4] of the ClassesModule 'imports' array is
+ * undefined". Using `ModuleRef` in non-strict mode walks the globally
+ * assembled DI container at runtime, sidestepping the static module
+ * import edge entirely.
+ *
+ * `ConversationsService` is exported by `InboxModule`, so by the time
+ * `AppModule` is fully constructed the global container has the token.
+ * We resolve it lazily on first call and cache the reference.
  */
 
 export const LEGACY_ANNOUNCEMENT_SCOPES = [
@@ -49,11 +60,9 @@ export interface CreateBroadcastFromAnnouncementInput {
 @Injectable()
 export class InboxBridgeService {
   private readonly logger = new Logger(InboxBridgeService.name);
+  private conversations: ConversationsService | null = null;
 
-  constructor(
-    @Inject(forwardRef(() => ConversationsService))
-    private readonly conversations: ConversationsService,
-  ) {}
+  constructor(private readonly moduleRef: ModuleRef) {}
 
   async createBroadcastFromAnnouncement(
     input: CreateBroadcastFromAnnouncementInput,
@@ -63,7 +72,8 @@ export class InboxBridgeService {
       input.targetPayload,
     );
 
-    const result = await this.conversations.createBroadcast({
+    const conversations = await this.resolveConversations();
+    const result = await conversations.createBroadcast({
       tenantId: input.tenantId,
       senderUserId: input.senderUserId,
       audienceDefinition,
@@ -124,5 +134,31 @@ export class InboxBridgeService {
           params: { user_ids: targetPayload.user_ids ?? [] },
         };
     }
+  }
+
+  /**
+   * Lazily resolve `ConversationsService` via `ModuleRef`. Non-strict
+   * mode walks the full app DI container rather than the local
+   * `CommunicationsModule` scope — this is the only thing that keeps
+   * the circular module edge out of the static import graph.
+   */
+  private async resolveConversations(): Promise<ConversationsService> {
+    const cached = this.conversations;
+    if (cached) return cached;
+    // Import lazily to avoid pulling the class at module evaluation time
+    // (which would also poke at the DI graph and defeat the point).
+    const { ConversationsService } = await import('../inbox/conversations/conversations.service');
+    const resolved = this.moduleRef.get(ConversationsService, { strict: false });
+    this.conversations = resolved;
+    return resolved;
+  }
+
+  /**
+   * Test-only seam: injects a pre-built `ConversationsService` so unit
+   * tests can bypass `ModuleRef` entirely. Never call from production
+   * code — the normal path lazily resolves from the DI container.
+   */
+  _setConversationsServiceForTesting(conversations: ConversationsService): void {
+    this.conversations = conversations;
   }
 }

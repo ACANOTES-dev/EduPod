@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 import { AnnouncementsService } from './announcements.service';
 import { AudienceResolutionService } from './audience-resolution.service';
+import { InboxBridgeService } from './inbox-bridge.service';
 import { NotificationsService } from './notifications.service';
 
 // Mock RLS middleware — createRlsClient returns a mock with $transaction that delegates to the callback
@@ -91,6 +92,9 @@ describe('AnnouncementsService', () => {
   let mockConfigFacade: {
     findSettings: jest.Mock;
   };
+  let mockInboxBridge: {
+    createBroadcastFromAnnouncement: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -136,6 +140,13 @@ describe('AnnouncementsService', () => {
       findSettings: jest.fn().mockResolvedValue(null),
     };
 
+    mockInboxBridge = {
+      createBroadcastFromAnnouncement: jest.fn().mockResolvedValue({
+        conversation_id: 'conv-id',
+        message_id: 'msg-id',
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ...MOCK_FACADE_PROVIDERS,
@@ -144,6 +155,7 @@ describe('AnnouncementsService', () => {
         { provide: ApprovalRequestsService, useValue: mockApprovalService },
         { provide: AudienceResolutionService, useValue: mockAudienceService },
         { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: InboxBridgeService, useValue: mockInboxBridge },
         { provide: getQueueToken('notifications'), useValue: mockQueue },
         { provide: ConfigurationReadFacade, useValue: mockConfigFacade },
       ],

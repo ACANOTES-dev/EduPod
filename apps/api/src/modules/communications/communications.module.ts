@@ -1,5 +1,5 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
 import { ApprovalsModule } from '../approvals/approvals.module';
@@ -8,7 +8,6 @@ import { ClassesModule } from '../classes/classes.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { GdprModule } from '../gdpr/gdpr.module';
 import { HouseholdsModule } from '../households/households.module';
-import { InboxModule } from '../inbox/inbox.module';
 import { ParentsModule } from '../parents/parents.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RedisModule } from '../redis/redis.module';
@@ -49,11 +48,6 @@ import { WebhookService } from './webhook.service';
     ParentsModule,
     StudentsModule,
     BullModule.registerQueue({ name: 'notifications' }),
-    // Inbox bridge (impl 06) depends on `ConversationsService` from
-    // `InboxModule`, and `InboxModule` imports this module back via
-    // forwardRef. The circular edge is intentional and narrow — only
-    // the bridge crosses it.
-    forwardRef(() => InboxModule),
   ],
   controllers: [
     AnnouncementsController,

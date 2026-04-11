@@ -32,6 +32,7 @@ import { BehaviourSuspensionReturnProcessor } from './processors/behaviour/suspe
 import { BehaviourTaskRemindersProcessor } from './processors/behaviour/task-reminders.processor';
 import { AnnouncementApprovalCallbackProcessor } from './processors/communications/announcement-approval-callback.processor';
 import { DispatchNotificationsProcessor } from './processors/communications/dispatch-notifications.processor';
+import { InboxDispatchChannelsProcessor } from './processors/communications/inbox-dispatch-channels.processor';
 import { InquiryNotificationProcessor } from './processors/communications/inquiry-notification.processor';
 import { IpCleanupProcessor } from './processors/communications/ip-cleanup.processor';
 import { PublishAnnouncementProcessor } from './processors/communications/publish-announcement.processor';
@@ -106,6 +107,8 @@ import { REPORT_CARD_RENDERER_TOKEN } from './processors/report-card-render.cont
 import { AttachmentScanProcessor } from './processors/safeguarding/attachment-scan.processor';
 import { BreakGlassExpiryProcessor } from './processors/safeguarding/break-glass-expiry.processor';
 import { CriticalEscalationProcessor } from './processors/safeguarding/critical-escalation.processor';
+import { SafeguardingScanMessageProcessor } from './processors/safeguarding/message-scan.processor';
+import { SafeguardingNotifyReviewersProcessor } from './processors/safeguarding/notify-reviewers.processor';
 import { SlaCheckProcessor } from './processors/safeguarding/sla-check.processor';
 import { SchedulingSolverV2Processor } from './processors/scheduling/solver-v2.processor';
 import { SchedulingStaleReaperProcessor } from './processors/scheduling-stale-reaper.processor';
@@ -290,6 +293,15 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
         },
       },
       {
+        name: QUEUE_NAMES.SAFEGUARDING,
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 2000 },
+          removeOnComplete: 200,
+          removeOnFail: 500,
+        },
+      },
+      {
         name: QUEUE_NAMES.SECURITY,
         defaultJobOptions: {
           attempts: 2,
@@ -383,6 +395,9 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     BreakGlassExpiryProcessor,
     SlaCheckProcessor,
     CriticalEscalationProcessor,
+    // Inbox safeguarding scanner (Wave 3 impl 08) — `safeguarding` queue
+    SafeguardingScanMessageProcessor,
+    SafeguardingNotifyReviewersProcessor,
     // Phase F: Analytics + AI processors
     DetectPatternsProcessor,
     RefreshMVProcessor,
@@ -448,6 +463,7 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     // Communications / Notifications queue processors
     PublishAnnouncementProcessor,
     DispatchNotificationsProcessor,
+    InboxDispatchChannelsProcessor,
     DispatchQueuedProcessor,
     ParentDailyDigestProcessor,
     RetryFailedNotificationsProcessor,

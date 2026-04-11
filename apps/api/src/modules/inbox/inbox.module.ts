@@ -1,3 +1,4 @@
+import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
@@ -84,7 +85,7 @@ import { InboxSettingsService } from './settings/inbox-settings.service';
     // `@InjectQueue('safeguarding')` token resolves inside the inbox
     // container. BullMQ dedupes duplicate registrations across
     // modules, so the worker's own registration is unaffected.
-    BullModule.registerQueue({ name: 'safeguarding' }),
+    BullModule.registerQueue({ name: 'notifications' }, { name: 'safeguarding' }),
   ],
   controllers: [
     InboxSettingsController,

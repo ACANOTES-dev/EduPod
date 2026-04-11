@@ -2,7 +2,8 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { Queue } from 'bullmq';
 
-import { inboxDispatchChannelsJobPayloadSchema, type InboxChannel } from '@school/shared';
+import { inboxDispatchChannelsJobPayloadSchema } from '@school/shared';
+import type { InboxChannel } from '@school/shared/inbox';
 
 import { addValidatedJob } from '../../../common/utils/validated-job.util';
 

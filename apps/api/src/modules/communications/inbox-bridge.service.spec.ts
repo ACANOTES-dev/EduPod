@@ -1,3 +1,5 @@
+import type { ModuleRef } from '@nestjs/core';
+
 import type { ConversationsService } from '../inbox/conversations/conversations.service';
 
 import { InboxBridgeService } from './inbox-bridge.service';
@@ -20,7 +22,9 @@ describe('InboxBridgeService', () => {
         original_recipient_count: 5,
       }),
     };
-    service = new InboxBridgeService(conversations as unknown as ConversationsService);
+    const moduleRef = { get: jest.fn() } as unknown as ModuleRef;
+    service = new InboxBridgeService(moduleRef);
+    service._setConversationsServiceForTesting(conversations as unknown as ConversationsService);
   });
 
   afterEach(() => jest.clearAllMocks());
