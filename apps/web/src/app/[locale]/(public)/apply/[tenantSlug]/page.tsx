@@ -58,7 +58,6 @@ type LoadState = 'loading' | 'tenant-not-found' | 'form-not-found' | 'ready' | '
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const YEAR_FIELD_KEYS = new Set(['target_academic_year_id', 'target_year_group_id']);
 const STORAGE_KEY_PREFIX = 'public-apply-draft-';
 
 // Ordered field-group definitions — every canonical system-form key belongs
@@ -270,16 +269,11 @@ export default function PublicApplyPage() {
     try {
       const targetAcademicYearId = formValues.target_academic_year_id as string;
       const targetYearGroupId = formValues.target_year_group_id as string;
-      const residualPayload = Object.fromEntries(
-        Object.entries(formValues).filter(
-          ([key]) =>
-            !YEAR_FIELD_KEYS.has(key) &&
-            key !== 'student_first_name' &&
-            key !== 'student_last_name' &&
-            key !== 'student_dob',
-        ),
-      );
 
+      // The server validates required canonical fields against `payload_json`,
+      // so we pass the entire formValues through — the top-level shortcuts
+      // (student_first_name / student_last_name / date_of_birth / target_*) are
+      // still mirrored on the request envelope for the Zod schema.
       const created = unwrap(
         await apiClient<{ data: ApplicationCreatedResponse } | ApplicationCreatedResponse>(
           '/api/v1/public/admissions/applications',
@@ -295,7 +289,7 @@ export default function PublicApplyPage() {
               date_of_birth: studentDob || null,
               target_academic_year_id: targetAcademicYearId,
               target_year_group_id: targetYearGroupId,
-              payload_json: residualPayload,
+              payload_json: formValues,
               website_url: honeypot || undefined,
             }),
           },
