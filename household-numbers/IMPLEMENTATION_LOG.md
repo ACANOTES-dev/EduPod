@@ -136,14 +136,14 @@ This matrix is what you consult before deploying. "Who restarts" determines the 
 
 Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 blocked`
 
-| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status        | Completed at              | Commit SHA |
-| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ------------- | ------------------------- | ---------- |
-| 01  | Schema foundation                             | 1    | schema         | serial               | —          | `completed`   | 2026-04-11T15:00:00+01:00 | 7ff33d56   |
-| 02  | Household number generator + student refactor | 2    | backend        | parallel-safe        | 01         | `completed`   | 2026-04-11T16:26:00+01:00 | b2593a08   |
-| 03  | Multi-student API + sibling priority + lookup | 2    | backend        | parallel-safe        | 01         | `completed`   | 2026-04-11T16:30:00+01:00 | 678bb9a4   |
-| 04  | Public apply form rewrite                     | 3    | frontend       | parallel-risky       | 02, 03     | `completed`   | 2026-04-11T17:05:00+01:00 | 497e571e   |
-| 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `completed`   | 2026-04-11T17:00:00+01:00 | 39b6fe77   |
-| 06  | Polish, translations, docs, tests             | 4    | polish         | serial               | 04, 05     | `in-progress` | —                         | —          |
+| #   | Title                                         | Wave | Classification | Parallelisation mode | Depends on | Status      | Completed at              | Commit SHA |
+| --- | --------------------------------------------- | ---- | -------------- | -------------------- | ---------- | ----------- | ------------------------- | ---------- |
+| 01  | Schema foundation                             | 1    | schema         | serial               | —          | `completed` | 2026-04-11T15:00:00+01:00 | 7ff33d56   |
+| 02  | Household number generator + student refactor | 2    | backend        | parallel-safe        | 01         | `completed` | 2026-04-11T16:26:00+01:00 | b2593a08   |
+| 03  | Multi-student API + sibling priority + lookup | 2    | backend        | parallel-safe        | 01         | `completed` | 2026-04-11T16:30:00+01:00 | 678bb9a4   |
+| 04  | Public apply form rewrite                     | 3    | frontend       | parallel-risky       | 02, 03     | `completed` | 2026-04-11T17:05:00+01:00 | 497e571e   |
+| 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `completed` | 2026-04-11T17:00:00+01:00 | 39b6fe77   |
+| 06  | Polish, translations, docs, tests             | 4    | polish         | serial               | 04, 05     | `completed` | 2026-04-11T17:27:00+01:00 | 24e924d4   |
 
 ---
 
@@ -300,3 +300,32 @@ is_sibling_application DESC, apply_date ASC`. Rewrote `ApplicationConversionServ
   (en + ar) for mode picker, lookup, student fields, and batch submitted page.
 - **Follow-ups:** Impl 06 should verify the full end-to-end submit flow with 2+ students and Arabic RTL rendering.
 - **Session notes:** Ran in parallel with impl 05. First patch was "already applied" on production because impl 05 had deployed it as a dependency. Only the translations patch needed fresh application.
+
+### [IMPL 06] — Polish, translations, docs, regression tests
+
+- **Completed:** 2026-04-11T17:27:00+01:00 (Europe/Dublin)
+- **Commits:** 561cc46a, e8ac94e0, 1d1230ca, 76e5155c, 0b7cdaf4, 24e924d4
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Final polish pass for the household-numbers rebuild. Translation sweep confirmed
+  all EN/AR keys for `publicApplyForm`, `registration`, and `admissionsQueues`
+  namespaces are present and in parity — no missing or placeholder keys. Updated
+  four architecture docs: `module-blast-radius.md` (HouseholdsModule extended with
+  HouseholdNumberService exports/consumers, AdmissionsModule batch + sibling
+  entries), `state-machines.md` (tiered FIFO note on ApplicationStatus),
+  `event-job-catalog.md` (admissions:auto-promoted tiered FIFO), `feature-map.md`
+  (new household numbers & multi-student section under Admissions). Added household
+  numbers section to `docs/features/admissions.md`. Created E2E render-smoke spec
+  at `apps/web/e2e/journeys/household-flow.journey.ts` (4 tests: mode picker,
+  lookup error, section order, add-child). Fixed pre-existing test regressions:
+  regenerated `api-surface.snapshot.json`, added `HouseholdNumberService` mock to
+  `prisma-query-snapshots.spec.ts`, fixed TS2532 in `admissions-rls.e2e-spec.ts`.
+  **Bonus fix:** resolved broken logo on the public apply form — `PublicTenantsService`
+  was returning the raw S3 key instead of a presigned URL; added S3Service DI and
+  presigning logic.
+- **Follow-ups:** The inline household number generation in `ApplicationConversionService`
+  (from impl 03) was NOT consolidated to use `HouseholdNumberService` — both paths work
+  correctly, but there is duplicate logic. This is a cleanup item, not a blocker.
+- **Session notes:** All 15,266 API tests passing. Production smoke test confirmed:
+  mode picker, lookup form, new-family section order, add-child button, household
+  numbers on list page, and logo rendering all verified on nhqs.edupod.app.
