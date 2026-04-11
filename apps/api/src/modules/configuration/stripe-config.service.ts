@@ -10,7 +10,7 @@ export interface MaskedStripeConfig {
   id: string;
   tenant_id: string;
   stripe_secret_key_masked: string;
-  stripe_publishable_key: string;
+  stripe_publishable_key_masked: string;
   stripe_webhook_secret_masked: string;
   encryption_key_ref: string;
   key_last_rotated_at: Date | null;
@@ -55,7 +55,7 @@ export class StripeConfigService {
       id: config.id,
       tenant_id: config.tenant_id,
       stripe_secret_key_masked: this.encryption.mask(decryptedSecret),
-      stripe_publishable_key: config.stripe_publishable_key,
+      stripe_publishable_key_masked: this.encryption.mask(config.stripe_publishable_key),
       stripe_webhook_secret_masked: this.encryption.mask(decryptedWebhook),
       encryption_key_ref: config.encryption_key_ref,
       key_last_rotated_at: config.key_last_rotated_at,
@@ -101,7 +101,7 @@ export class StripeConfigService {
       id: config.id,
       tenant_id: config.tenant_id,
       stripe_secret_key_masked: this.encryption.mask(data.stripe_secret_key),
-      stripe_publishable_key: config.stripe_publishable_key,
+      stripe_publishable_key_masked: this.encryption.mask(data.stripe_publishable_key),
       stripe_webhook_secret_masked: this.encryption.mask(data.stripe_webhook_secret),
       encryption_key_ref: config.encryption_key_ref,
       key_last_rotated_at: config.key_last_rotated_at,

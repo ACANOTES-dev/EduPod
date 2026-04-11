@@ -59,7 +59,7 @@ describe('Stripe Config Endpoints (e2e)', () => {
     ).expect(200);
 
     expect(res.body.data).toBeDefined();
-    expect(res.body.data.stripe_publishable_key).toBe('pk_test_123456');
+    expect(res.body.data.stripe_publishable_key_masked).toMatch(/^\*{4}/);
     expect(res.body.data.stripe_secret_key_masked).toBeDefined();
     expect(res.body.data.stripe_webhook_secret_masked).toBeDefined();
   });
@@ -74,18 +74,13 @@ describe('Stripe Config Endpoints (e2e)', () => {
       AL_NOOR_DOMAIN,
     ).expect(200);
 
-    const res = await authGet(
-      app,
-      '/api/v1/stripe-config',
-      ownerToken,
-      AL_NOOR_DOMAIN,
-    ).expect(200);
+    const res = await authGet(app, '/api/v1/stripe-config', ownerToken, AL_NOOR_DOMAIN).expect(200);
 
     expect(res.body.data).toBeDefined();
     expect(res.body.data.stripe_secret_key_masked).toMatch(/^\*{4}/);
     expect(res.body.data.stripe_webhook_secret_masked).toMatch(/^\*{4}/);
     // Publishable key is not secret and returned in full
-    expect(res.body.data.stripe_publishable_key).toBe('pk_test_123456');
+    expect(res.body.data.stripe_publishable_key_masked).toMatch(/^\*{4}/);
   });
 
   it('should reject without stripe.manage permission', async () => {

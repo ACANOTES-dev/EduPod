@@ -80,7 +80,7 @@ describe('StripeConfigService', () => {
       expect(mockEncryption.decrypt).toHaveBeenCalledTimes(2);
       expect(result.stripe_secret_key_masked).toBe('****cdef');
       expect(result.stripe_webhook_secret_masked).toBe('****z123');
-      expect(result.stripe_publishable_key).toBe('pk_test_abc123');
+      expect(result.stripe_publishable_key_masked).toBe('****c123');
     });
 
     it('should throw NotFoundException when config not found', async () => {
@@ -136,7 +136,7 @@ describe('StripeConfigService', () => {
         }),
       );
       expect(result.stripe_secret_key_masked).toBe('****1234');
-      expect(result.stripe_publishable_key).toBe('pk_test_newpub');
+      expect(result.stripe_publishable_key_masked).toBe('****wpub');
     });
 
     it('should return masked webhook secret after upsert', async () => {

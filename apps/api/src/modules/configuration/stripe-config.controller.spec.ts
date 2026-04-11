@@ -64,7 +64,7 @@ describe('StripeConfigController', () => {
     const expected = {
       id: 'c1',
       stripe_secret_key_masked: '****1234',
-      stripe_publishable_key: 'pk_test_abc',
+      stripe_publishable_key_masked: '****_abc',
     };
     mockService.getConfig.mockResolvedValue(expected);
 

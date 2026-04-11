@@ -16,7 +16,6 @@ interface StripeConfigResponse {
   id?: string;
   stripe_secret_key_masked?: string;
   stripe_publishable_key_masked?: string;
-  stripe_publishable_key?: string;
   stripe_webhook_secret_masked?: string;
   is_configured?: boolean;
 }
@@ -99,9 +98,7 @@ export default function StripeConfigPage() {
         if (data.stripe_secret_key_masked || data.is_configured) {
           setIsConfigured(true);
           setMaskedSecretKey(data.stripe_secret_key_masked ?? '');
-          setMaskedPublishableKey(
-            data.stripe_publishable_key_masked ?? data.stripe_publishable_key ?? '',
-          );
+          setMaskedPublishableKey(data.stripe_publishable_key_masked ?? '');
           setMaskedWebhookSecret(data.stripe_webhook_secret_masked ?? '');
         } else {
           setIsEditing(true);
@@ -143,9 +140,7 @@ export default function StripeConfigPage() {
       setIsConfigured(true);
       setIsEditing(false);
       setMaskedSecretKey(data.stripe_secret_key_masked ?? '****');
-      setMaskedPublishableKey(
-        data.stripe_publishable_key_masked ?? data.stripe_publishable_key ?? '****',
-      );
+      setMaskedPublishableKey(data.stripe_publishable_key_masked ?? '****');
       setMaskedWebhookSecret(data.stripe_webhook_secret_masked ?? '****');
 
       // Clear entered values
