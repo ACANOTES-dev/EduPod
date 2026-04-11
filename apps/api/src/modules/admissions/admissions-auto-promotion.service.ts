@@ -161,7 +161,7 @@ export class AdmissionsAutoPromotionService {
         AND waiting_list_substatus IS NULL
         AND target_academic_year_id = ${academicYearId}::uuid
         AND target_year_group_id = ${yearGroupId}::uuid
-      ORDER BY apply_date ASC
+      ORDER BY is_sibling_application DESC, apply_date ASC
       LIMIT ${limit}
       FOR UPDATE SKIP LOCKED
     `);
