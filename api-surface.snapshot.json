@@ -4799,11 +4799,18 @@
     "path": "/v1/households/merge",
     "controller": "HouseholdsController",
     "module": "households",
-    "permission": "students.view"
+    "permission": "students.manage"
   },
   {
     "method": "POST",
     "path": "/v1/households/merge",
+    "controller": "HouseholdsController",
+    "module": "households",
+    "permission": "students.view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/households/next-number",
     "controller": "HouseholdsController",
     "module": "households",
     "permission": "students.view"
@@ -4856,6 +4863,272 @@
     "controller": "ImportController",
     "module": "imports",
     "permission": "settings.manage"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/inbox/attachments",
+    "controller": "InboxAttachmentsController",
+    "module": "inbox",
+    "permission": "inbox.send"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/inbox/audiences",
+    "controller": "SavedAudiencesController",
+    "module": "inbox",
+    "permission": "inbox.send"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/inbox/audiences",
+    "controller": "SavedAudiencesController",
+    "module": "inbox",
+    "permission": "inbox.send"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/inbox/audiences/:id",
+    "controller": "SavedAudiencesController",
+    "module": "inbox",
+    "permission": "inbox.send"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/inbox/audiences/:id",
+    "controller": "SavedAudiencesController",
+    "module": "inbox",
+    "permission": "inbox.send"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/inbox/audiences/:id",
+    "controller": "SavedAudiencesController",
+    "module": "inbox",
+    "permission": "inbox.send"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/inbox/audiences/:id/resolve",
+    "controller": "SavedAudiencesController",
+    "module": "inbox",
+    "permission": "inbox.send"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/inbox/audiences/preview",
+    "controller": "SavedAudiencesController",
+    "module": "inbox",
+    "permission": "inbox.send"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/inbox/audiences/providers",
+    "controller": "SavedAudiencesController",
+    "module": "inbox",
+    "permission": "inbox.send"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/inbox/conversations",
+    "controller": "ConversationsController",
+    "module": "inbox",
+    "permission": "inbox.read"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/inbox/conversations",
+    "controller": "ConversationsController",
+    "module": "inbox",
+    "permission": "inbox.send"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/inbox/conversations/:id",
+    "controller": "ConversationsController",
+    "module": "inbox",
+    "permission": "inbox.read"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/inbox/conversations/:id/archive",
+    "controller": "ConversationsController",
+    "module": "inbox",
+    "permission": "inbox.read"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/inbox/conversations/:id/messages",
+    "controller": "ConversationsController",
+    "module": "inbox",
+    "permission": "inbox.send"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/inbox/conversations/:id/mute",
+    "controller": "ConversationsController",
+    "module": "inbox",
+    "permission": "inbox.read"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/inbox/conversations/:id/read",
+    "controller": "ConversationsController",
+    "module": "inbox",
+    "permission": "inbox.read"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/inbox/conversations/read-all",
+    "controller": "ConversationsController",
+    "module": "inbox",
+    "permission": "inbox.send"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/inbox/messages/:id",
+    "controller": "MessagesController",
+    "module": "inbox",
+    "permission": "inbox.send"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/inbox/messages/:id",
+    "controller": "MessagesController",
+    "module": "inbox",
+    "permission": "inbox.send"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/inbox/oversight/audit-log",
+    "controller": "InboxOversightController",
+    "module": "inbox",
+    "permission": "inbox.oversight.write"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/inbox/oversight/conversations",
+    "controller": "InboxOversightController",
+    "module": "inbox",
+    "permission": "inbox.oversight.read"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/inbox/oversight/conversations/:id",
+    "controller": "InboxOversightController",
+    "module": "inbox",
+    "permission": "inbox.oversight.read"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/inbox/oversight/conversations/:id/export",
+    "controller": "InboxOversightController",
+    "module": "inbox",
+    "permission": "inbox.oversight.write"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/inbox/oversight/conversations/:id/freeze",
+    "controller": "InboxOversightController",
+    "module": "inbox",
+    "permission": "inbox.oversight.read"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/inbox/oversight/conversations/:id/unfreeze",
+    "controller": "InboxOversightController",
+    "module": "inbox",
+    "permission": "inbox.oversight.write"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/inbox/oversight/flags",
+    "controller": "InboxOversightController",
+    "module": "inbox",
+    "permission": "inbox.oversight.write"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/inbox/oversight/flags/:id/dismiss",
+    "controller": "InboxOversightController",
+    "module": "inbox",
+    "permission": "inbox.oversight.read"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/inbox/oversight/flags/:id/escalate",
+    "controller": "InboxOversightController",
+    "module": "inbox",
+    "permission": "inbox.oversight.write"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/inbox/oversight/search",
+    "controller": "InboxOversightController",
+    "module": "inbox",
+    "permission": "inbox.oversight.read"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/inbox/people-search",
+    "controller": "InboxPeopleSearchController",
+    "module": "inbox",
+    "permission": "inbox.send"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/inbox/search",
+    "controller": "InboxSearchController",
+    "module": "inbox",
+    "permission": "inbox.read"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/inbox/settings/fallback/test",
+    "controller": "InboxSettingsController",
+    "module": "inbox",
+    "permission": "inbox.settings.write"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/inbox/settings/inbox",
+    "controller": "InboxSettingsController",
+    "module": "inbox",
+    "permission": "inbox.settings.read"
+  },
+  {
+    "method": "PUT",
+    "path": "/v1/inbox/settings/inbox",
+    "controller": "InboxSettingsController",
+    "module": "inbox",
+    "permission": "inbox.settings.read"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/inbox/settings/policy",
+    "controller": "InboxSettingsController",
+    "module": "inbox",
+    "permission": "inbox.settings.read"
+  },
+  {
+    "method": "PUT",
+    "path": "/v1/inbox/settings/policy",
+    "controller": "InboxSettingsController",
+    "module": "inbox",
+    "permission": "inbox.settings.write"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/inbox/settings/policy/reset",
+    "controller": "InboxSettingsController",
+    "module": "inbox",
+    "permission": "inbox.settings.write"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/inbox/state",
+    "controller": "ConversationsController",
+    "module": "inbox",
+    "permission": "inbox.read"
   },
   {
     "method": "GET",
@@ -7126,6 +7399,13 @@
     "permission": null
   },
   {
+    "method": "POST",
+    "path": "/v1/public/households/lookup",
+    "controller": "PublicHouseholdsController",
+    "module": "public-households",
+    "permission": null
+  },
+  {
     "method": "GET",
     "path": "/v1/public/pages",
     "controller": "PublicWebsiteController",
@@ -8902,6 +9182,48 @@
     "controller": "SafeguardingController",
     "module": "safeguarding",
     "permission": "safeguarding.seal"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/safeguarding/keywords",
+    "controller": "SafeguardingKeywordsController",
+    "module": "safeguarding",
+    "permission": "safeguarding.keywords.write"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/safeguarding/keywords",
+    "controller": "SafeguardingKeywordsController",
+    "module": "safeguarding",
+    "permission": "safeguarding.keywords.write"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/safeguarding/keywords/:id",
+    "controller": "SafeguardingKeywordsController",
+    "module": "safeguarding",
+    "permission": "safeguarding.keywords.write"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/safeguarding/keywords/:id",
+    "controller": "SafeguardingKeywordsController",
+    "module": "safeguarding",
+    "permission": "safeguarding.keywords.write"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/safeguarding/keywords/:id/active",
+    "controller": "SafeguardingKeywordsController",
+    "module": "safeguarding",
+    "permission": "safeguarding.keywords.write"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/safeguarding/keywords/bulk-import",
+    "controller": "SafeguardingKeywordsController",
+    "module": "safeguarding",
+    "permission": "safeguarding.keywords.write"
   },
   {
     "method": "GET",

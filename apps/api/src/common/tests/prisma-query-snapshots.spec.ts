@@ -24,6 +24,7 @@ jest.mock('../middleware/rls.middleware', () => ({
 import { MOCK_FACADE_PROVIDERS } from './mock-facades';
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import { RedisService } from '../../modules/redis/redis.service';
+import { HouseholdNumberService } from '../../modules/households/household-number.service';
 import { SequenceService } from '../../modules/sequence/sequence.service';
 import { StudentsService } from '../../modules/students/students.service';
 import { InvoicesService } from '../../modules/finance/invoices.service';
@@ -149,6 +150,12 @@ describe('Prisma Query Snapshots — StudentsService', () => {
     mockPrisma = buildCapturingPrisma();
     const mockRedis = buildMockRedis();
     const mockSequence = { nextNumber: jest.fn().mockResolvedValue('STU-202601-0001') };
+    const mockHouseholdNumber = {
+      generateUniqueForTenant: jest.fn().mockResolvedValue('ABC123'),
+      generateStudentNumber: jest.fn().mockResolvedValue('ABC123-01'),
+      incrementStudentCounter: jest.fn().mockResolvedValue(1),
+      previewForTenant: jest.fn().mockResolvedValue('ABC123'),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -157,6 +164,7 @@ describe('Prisma Query Snapshots — StudentsService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SequenceService, useValue: mockSequence },
+        { provide: HouseholdNumberService, useValue: mockHouseholdNumber },
       ],
     }).compile();
 

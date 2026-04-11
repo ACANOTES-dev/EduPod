@@ -91,9 +91,10 @@ describe('RLS Leakage P3 — Admissions (e2e)', () => {
     void cedarTargets;
 
     const seed = buildPublicApplicationSeed(alNoorTargets);
-    seed.students[0].first_name = uniqueSearchTerm;
-    seed.students[0].last_name = 'Isolation';
-    seed.students[0].national_id = `RLS-${Date.now()}`;
+    const firstStudent = seed.students[0]!;
+    firstStudent.first_name = uniqueSearchTerm;
+    firstStudent.last_name = 'Isolation';
+    firstStudent.national_id = `RLS-${Date.now()}`;
 
     const created = await createPublicApplication(app, AL_NOOR_DOMAIN, seed);
     alNoorAppId = created.body.id as string;
