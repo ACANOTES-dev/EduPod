@@ -928,4 +928,31 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
     description: 'View homework, mark self-reported completion, diary notes',
     permission_tier: 'parent',
   },
+
+  // ─── Inbox / Messaging ────────────────────────────────────────────────────
+  {
+    permission_key: 'inbox.settings.read',
+    description: 'View tenant inbox settings and messaging policy matrix',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'inbox.settings.write',
+    description: 'Edit tenant inbox settings and messaging policy matrix',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'inbox.send',
+    description: 'Send messages in the inbox (policy engine gates what is actually allowed)',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'inbox.oversight.read',
+    description: 'Read any conversation in the tenant for safeguarding oversight',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'inbox.oversight.write',
+    description: 'Freeze / unfreeze conversations and act on safeguarding flags',
+    permission_tier: 'admin',
+  },
 ];

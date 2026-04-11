@@ -217,6 +217,14 @@ export const PERMISSIONS = {
     manage: 'safeguarding.manage',
     seal: 'safeguarding.seal',
   },
+  // Inbox / messaging (mixed tiers — see PERMISSION_TIER_MAP below)
+  inbox: {
+    settings_read: 'inbox.settings.read',
+    settings_write: 'inbox.settings.write',
+    send: 'inbox.send',
+    oversight_read: 'inbox.oversight.read',
+    oversight_write: 'inbox.oversight.write',
+  },
   // Parent tier
   parent_portal: {
     view_own_students: 'parent.view_own_students',
@@ -361,6 +369,13 @@ export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
   [PERMISSIONS.sen.view_sensitive]: 'staff',
   [PERMISSIONS.safeguarding.report]: 'staff',
 
+  // Inbox / messaging
+  [PERMISSIONS.inbox.settings_read]: 'admin',
+  [PERMISSIONS.inbox.settings_write]: 'admin',
+  [PERMISSIONS.inbox.oversight_read]: 'admin',
+  [PERMISSIONS.inbox.oversight_write]: 'admin',
+  [PERMISSIONS.inbox.send]: 'staff',
+
   // Parent tier
   [PERMISSIONS.parent_portal.view_own_students]: 'parent',
   [PERMISSIONS.parent_portal.view_attendance]: 'parent',
@@ -498,6 +513,12 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.safeguarding.view,
     PERMISSIONS.safeguarding.manage,
     PERMISSIONS.safeguarding.seal,
+    // Inbox — admin tier (all five keys)
+    PERMISSIONS.inbox.settings_read,
+    PERMISSIONS.inbox.settings_write,
+    PERMISSIONS.inbox.send,
+    PERMISSIONS.inbox.oversight_read,
+    PERMISSIONS.inbox.oversight_write,
   ],
 
   school_admin: [
@@ -588,6 +609,10 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.safeguarding.report,
     PERMISSIONS.safeguarding.view,
     PERMISSIONS.safeguarding.manage,
+    // Inbox — school_admin gets send + settings read/write, no oversight
+    PERMISSIONS.inbox.settings_read,
+    PERMISSIONS.inbox.settings_write,
+    PERMISSIONS.inbox.send,
   ],
 
   teacher: [
@@ -609,6 +634,8 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.behaviour.log,
     PERMISSIONS.behaviour.view,
     PERMISSIONS.safeguarding.report,
+    // Inbox — teachers can send
+    PERMISSIONS.inbox.send,
   ],
 
   finance_staff: [
@@ -622,12 +649,16 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.finance.view_reports,
     PERMISSIONS.finance.bulk_operations,
     PERMISSIONS.legal.view,
+    // Inbox — finance staff can send
+    PERMISSIONS.inbox.send,
   ],
 
   admissions_staff: [
     PERMISSIONS.admissions.manage,
     PERMISSIONS.admissions.view,
     PERMISSIONS.legal.view,
+    // Inbox — front-office / admissions staff can send
+    PERMISSIONS.inbox.send,
   ],
 
   parent: [
@@ -643,5 +674,8 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.legal.view,
     // Behaviour (parent tier)
     PERMISSIONS.behaviour.appeal,
+    // Inbox — parents hold inbox.send so the policy engine (not the guard)
+    // decides whether they may actually initiate or reply on a given thread.
+    PERMISSIONS.inbox.send,
   ],
 };

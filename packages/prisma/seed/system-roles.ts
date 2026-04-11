@@ -128,6 +128,12 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'parent.submit_inquiry',
       'parent.view_announcements',
       'parent.view_transcripts',
+      // Inbox — School Owner gets all five keys
+      'inbox.settings.read',
+      'inbox.settings.write',
+      'inbox.send',
+      'inbox.oversight.read',
+      'inbox.oversight.write',
       // Excluded: platform.impersonate (reserved for future platform super-admin role)
     ],
   },
@@ -231,6 +237,12 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'privacy.manage',
       'consent.manage',
       'consent.view',
+      // Inbox — Principal gets all five keys
+      'inbox.settings.read',
+      'inbox.settings.write',
+      'inbox.send',
+      'inbox.oversight.read',
+      'inbox.oversight.write',
     ],
   },
   {
@@ -311,6 +323,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'privacy.manage',
       'consent.manage',
       'consent.view',
+      // Inbox — office-style admin staff get send only
+      'inbox.send',
     ],
   },
   {
@@ -332,6 +346,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'schedule.view_personal_timetable',
       'sen.view',
       'legal.view',
+      // Inbox — teachers can send (policy engine gates actual audience)
+      'inbox.send',
     ],
   },
   {
@@ -343,6 +359,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'finance.view',
       'finance.process_payments',
       'legal.view',
+      // Inbox — finance staff can send
+      'inbox.send',
     ],
   },
   {
@@ -354,6 +372,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'admissions.view',
       'report_cards.view',
       'legal.view',
+      // Inbox — front office can send
+      'inbox.send',
     ],
   },
   {
@@ -370,6 +390,9 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'parent.view_announcements',
       'parent.view_transcripts',
       'legal.view',
+      // Inbox — parents hold the send bit; the policy engine decides whether
+      // they may actually start a thread or only reply on allow_replies threads.
+      'inbox.send',
     ],
   },
   {
@@ -386,12 +409,23 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'report_cards.view',
       'report_cards.comment',
       'report_cards.manage',
+      // Inbox — Vice Principal gets all five keys (admin tier)
+      'inbox.settings.read',
+      'inbox.settings.write',
+      'inbox.send',
+      'inbox.oversight.read',
+      'inbox.oversight.write',
     ],
   },
   {
     role_key: 'student',
     display_name: 'Student',
     role_tier: 'parent',
-    default_permissions: ['legal.view'],
+    default_permissions: [
+      'legal.view',
+      // Inbox — students hold the send bit; the policy engine decides whether
+      // they may actually start or reply (default: reply-only on allow_replies).
+      'inbox.send',
+    ],
   },
 ];

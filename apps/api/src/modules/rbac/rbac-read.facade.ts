@@ -421,6 +421,42 @@ export class RbacReadFacade {
   }
 
   /**
+   * Batch-resolve the role_keys for a set of user IDs in one query.
+   * Used by the inbox messaging-policy service to map N recipients to
+   * their canonical messaging bucket in a single round trip, rather than
+   * N calls to `findMembershipByUserWithPermissions`.
+   *
+   * Only returns active memberships. Users without an active membership
+   * at the tenant are silently excluded — callers should treat that as
+   * deny-all.
+   */
+  async findActiveMembershipRolesByUserIds(
+    tenantId: string,
+    userIds: string[],
+  ): Promise<Array<{ user_id: string; role_keys: string[] }>> {
+    if (userIds.length === 0) return [];
+
+    const rows = await this.prisma.tenantMembership.findMany({
+      where: {
+        tenant_id: tenantId,
+        user_id: { in: userIds },
+        membership_status: 'active',
+      },
+      select: {
+        user_id: true,
+        membership_roles: {
+          select: { role: { select: { role_key: true } } },
+        },
+      },
+    });
+
+    return rows.map((row) => ({
+      user_id: row.user_id,
+      role_keys: row.membership_roles.map((mr) => mr.role.role_key),
+    }));
+  }
+
+  /**
    * Find active memberships for a specific tenant with user locale info.
    * Used by GDPR privacy notice notifications.
    */
