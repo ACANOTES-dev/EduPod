@@ -66,8 +66,14 @@ export default function AdmissionsFormPreviewPage() {
   const fetchForm = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await apiClient<PublishedForm>('/api/v1/admission-forms/system');
-      setForm(res);
+      const res = await apiClient<{ data: PublishedForm } | PublishedForm>(
+        '/api/v1/admission-forms/system',
+      );
+      const payload =
+        'data' in res && (res as { data: PublishedForm }).data
+          ? (res as { data: PublishedForm }).data
+          : (res as PublishedForm);
+      setForm(payload);
     } catch (err) {
       console.error('[AdmissionsFormPreviewPage.fetchForm]', err);
       toast.error('Failed to load admission form');
@@ -113,7 +119,7 @@ export default function AdmissionsFormPreviewPage() {
     if (!canManage) return;
     setIsRebuilding(true);
     try {
-      await apiClient('/api/v1/admission-forms/system/rebuild', { method: 'POST' });
+      await apiClient<unknown>('/api/v1/admission-forms/system/rebuild', { method: 'POST' });
       toast.success('Form rebuilt from the latest wizard field set.');
       await fetchForm();
     } catch (err) {
