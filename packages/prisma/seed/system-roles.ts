@@ -377,6 +377,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     display_name: 'School Vice-Principal',
     role_tier: 'admin',
     default_permissions: [
+      'admissions.manage',
+      'admissions.view',
       'legal.view',
       'legal.manage',
       'privacy.view',

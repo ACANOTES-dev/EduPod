@@ -302,11 +302,19 @@ If a module is not listed individually, it is either:
 
 ### AdmissionsModule
 
-- **Contract**: application lifecycle, admissions read facade, enrolment pipeline
-- **Primary consumers**: registration, compliance, reports, search, parent-facing application views
-- **Imports**: ApprovalsModule, SearchModule, SequenceModule
+- **Contract**: application lifecycle (financially-gated), capacity gating, FIFO waiting list, Stripe checkout + cash/bank/override payment paths, admissions dashboard summary, public apply form
+- **Primary consumers**: registration, compliance, reports, search, parent-facing application views, finance webhook router, classes (auto-promotion hook)
+- **Imports**: ApprovalsModule, SearchModule, SequenceModule, AcademicsModule, FinanceModule (forwardRef for Stripe service), TenantsModule, RbacModule, BullModule (`notifications` queue)
+- **Exports**: ApplicationsService, ApplicationStateMachineService, ApplicationConversionService, AdmissionsCapacityService, AdmissionsAutoPromotionService, AdmissionsPaymentService
 - **Blast radius**: HIGH
-- **Notes**: application state changes feed registration, finance, and compliance workflows
+- **Notes**: application state changes feed registration, finance, compliance workflows, and the classes service (auto-promotion). Auto-promotion hooks run inside the caller's RLS transaction — any module creating classes or activating a year group calls `AdmissionsAutoPromotionService.onClassAdded`/`onYearGroupActivated`.
+
+### Cross-module dependencies added by the new-admissions rebuild
+
+- **classes → admissions**: `ClassesService.create` calls `AdmissionsAutoPromotionService.onClassAdded` / `onYearGroupActivated` from within its RLS transaction so a newly-added class retroactively promotes waiting-list applicants into any freed seats.
+- **finance → admissions** (forwardRef): `StripeService.handleCheckoutCompleted` routes `metadata.purpose === 'admissions'` events to `handleAdmissionsCheckoutCompleted`, which loads the application, verifies amounts, and calls `ApplicationConversionService.convertToStudent` + `ApplicationStateMachineService.markApproved` inside a single interactive RLS transaction.
+- **admissions → finance** (forwardRef): `FinanceFeesFacade` wraps `FinanceReadFacade` + `TenantReadFacade` so admissions can resolve the annual fee schedule and tenant Stripe configuration without reaching into finance internals.
+- **admissions → tenants / rbac**: override role gating reads membership permissions via `RbacReadFacade.findMembershipByUserWithPermissions`; tenant settings (`admissions.upfront_percentage`, `payment_window_days`, `max_application_horizon_years`, `allow_cash`, `allow_bank_transfer`, `bank_iban`, `require_override_approval_role`) resolved via `TenantReadFacade`.
 
 ### ComplianceModule
 

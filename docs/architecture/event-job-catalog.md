@@ -139,9 +139,24 @@ Missing any one of those leaves “approved but not actually executed” items i
 
 ### `admissions`
 
-- `admissions:auto-expiry`
-- **Current dispatch path**: no active enqueue site or repeatable registration was found in the current repo search outside the processor/tests
-- **Implication**: the processor exists, but the automation path is presently undocumented and not discoverable from in-repo dispatch code
+- `admissions:payment-expiry`
+- **Source**: cron registered in `CronSchedulerService`, every 15 minutes (Wave 3 / impl 08)
+- **Side effects**: scans applications where `status = 'conditional_approval' AND payment_deadline < now()`, reverts each to `waiting_list` (releasing the held seat), writes an internal note, notifies the parent the window lapsed, then calls `AdmissionsAutoPromotionService.promoteYearGroup` to FIFO-promote the next waiting applicant into the freed seat.
+
+### `notifications` (admissions-owned jobs on the shared `notifications` queue)
+
+- `admissions:payment-link`
+- **Source**: `ApplicationStateMachineService.moveToConditionalApproval` enqueues this on transition to `conditional_approval`
+- **Side effects**: worker processor `AdmissionsPaymentLinkProcessor` creates a Stripe Checkout Session (`unit_amount` = `application.payment_amount_cents`, metadata `{purpose: 'admissions', tenant_id, application_id, expected_amount_cents}`), stamps `application.stripe_checkout_session_id`, and enqueues an email `Notification` row with the payment URL
+- **Idempotency**: append-only `admissions_payment_events` ledger keyed on Stripe `event.id`
+
+- `admissions:auto-promoted`
+- **Source**: `AdmissionsAutoPromotionService.promoteYearGroup` enqueues one job per application it promotes (fire-and-forget; failure degrades gracefully)
+- **Side effects**: parent notification email that the application has moved from waiting list to ready-to-admit (processor implementation deferred — flagged in impl 09 follow-ups)
+
+### `finance → admissions` webhook branch (not a queue)
+
+- `StripeService.handleCheckoutCompleted` routes `metadata.purpose === 'admissions'` events to `handleAdmissionsCheckoutCompleted`, which dedups on the ledger, verifies the amount against `application.payment_amount_cents` (defence in depth), loads the application via `metadata.application_id`, then calls `ApplicationConversionService.convertToStudent` + `ApplicationStateMachineService.markApproved` inside a single interactive RLS transaction.
 
 ### `approvals`
 
@@ -427,7 +442,6 @@ This is source-of-truth architecture now and should be treated as a live danger,
 
 As of this verification pass, several processors exist without an obvious in-repo enqueue or cron-registration path for their jobs:
 
-- `admissions:auto-expiry`
 - `attendance:generate-sessions`
 - `attendance:detect-pending`
 - `attendance:auto-lock`

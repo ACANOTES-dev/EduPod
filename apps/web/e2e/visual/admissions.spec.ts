@@ -19,37 +19,37 @@ test.describe('Admissions', () => {
     });
   });
 
-  test.describe('Form Builder', () => {
-    test('should render the form builder in English', async ({ page }) => {
-      await page.goto('/en/admissions/forms');
+  test.describe('Ready to Admit queue', () => {
+    test('should render the ready-to-admit queue in English', async ({ page }) => {
+      await page.goto('/en/admissions/ready-to-admit');
       await page.waitForLoadState('networkidle');
-      await expect(page).toHaveScreenshot('admissions-forms-en.png', {
+      await expect(page).toHaveScreenshot('admissions-ready-to-admit-en.png', {
         fullPage: true,
       });
     });
 
-    test('should render the form builder in Arabic', async ({ page }) => {
-      await page.goto('/ar/admissions/forms');
+    test('should render the ready-to-admit queue in Arabic', async ({ page }) => {
+      await page.goto('/ar/admissions/ready-to-admit');
       await page.waitForLoadState('networkidle');
-      await expect(page).toHaveScreenshot('admissions-forms-ar.png', {
+      await expect(page).toHaveScreenshot('admissions-ready-to-admit-ar.png', {
         fullPage: true,
       });
     });
   });
 
-  test.describe('Applications', () => {
-    test('should render the application list in English', async ({ page }) => {
-      await page.goto('/en/admissions/applications');
+  test.describe('Form preview', () => {
+    test('should render the form preview page in English', async ({ page }) => {
+      await page.goto('/en/admissions/form-preview');
       await page.waitForLoadState('networkidle');
-      await expect(page).toHaveScreenshot('admissions-applications-en.png', {
+      await expect(page).toHaveScreenshot('admissions-form-preview-en.png', {
         fullPage: true,
       });
     });
 
-    test('should render the application list in Arabic', async ({ page }) => {
-      await page.goto('/ar/admissions/applications');
+    test('should render the form preview page in Arabic', async ({ page }) => {
+      await page.goto('/ar/admissions/form-preview');
       await page.waitForLoadState('networkidle');
-      await expect(page).toHaveScreenshot('admissions-applications-ar.png', {
+      await expect(page).toHaveScreenshot('admissions-form-preview-ar.png', {
         fullPage: true,
       });
     });

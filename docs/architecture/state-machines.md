@@ -120,21 +120,34 @@ report_received*
 
 ## Admissions & Registration
 
-### ApplicationStatus
+### ApplicationStatus (new-admissions rebuild, financially gated)
 
 ```
-draft                       -> [submitted]
-submitted                   -> [under_review, rejected]
-under_review                -> [pending_acceptance_approval, rejected]
-pending_acceptance_approval  -> [accepted (via approval), rejected]
-accepted                    -> [withdrawn]
-rejected*
-withdrawn*
+(public form submit)       -> submitted  (transient, gating runs on entry)
+submitted                  -> [ready_to_admit | waiting_list | waiting_list+awaiting_year_setup]
+ready_to_admit             -> [conditional_approval, rejected, withdrawn]
+waiting_list               -> [ready_to_admit (auto-promote), rejected, withdrawn]
+waiting_list+awaiting_year_setup
+                           -> [waiting_list (when year group activated), ready_to_admit (if capacity)]
+conditional_approval       -> [approved (payment match / override), waiting_list (deadline lapse), rejected, withdrawn]
+approved*                  (terminal — student, household, parent records materialised)
+rejected*                  (terminal — seat released if held)
+withdrawn*                 (terminal — seat released if held)
 ```
 
-- **Guarded by**: `applications.service.ts` line 542 (transition map) + dedicated methods
-- **Side effects**: `submitted` generates application number (SequenceService), materialises applicant consent records from `payload_json.__consents`, and may create a parent `whatsapp_channel` consent. `accepted` via approval triggers registration flow. `withdrawn` by applicant.
-- **Danger**: `draft -> submitted` is handled by a separate submission method, not the transition map. The transition map only covers post-submission states.
+- **Guarded by**: `packages/shared/src/admissions/application-status.ts` (enum + constants) + `application-state-machine.service.ts` (`VALID_TRANSITIONS` map, dedicated methods: `submit`, `moveToConditionalApproval`, `reject`, `withdraw`, `markApproved`, `revertToWaitingList`, `manuallyPromoteToReadyToAdmit`).
+- **Capacity math (critical)**: every non-terminal transition re-checks seat availability via `AdmissionsCapacityService` inside the caller's RLS transaction. Conditional approvals hold a seat until approved or the 7-day payment deadline lapses; the math subtracts them from the raw year-group capacity so concurrent approvals cannot oversubscribe.
+- **Side effects**:
+  - `submitted`: generates application number (SequenceService); runs gating to route to ready/waiting/awaiting-year-setup; stamps `apply_date` for FIFO.
+  - `ready_to_admit → conditional_approval`: row-locks the application, re-checks capacity, resolves fees via `FinanceFeesFacade`, stamps `payment_amount_cents` + `payment_deadline`, enqueues `admissions:payment-link` for Stripe session creation.
+  - `conditional_approval → approved`: calls `ApplicationConversionService.convertToStudent` which materialises Student + Household + Parent + Consent rows, stamps `materialised_student_id` for idempotency. Triggered by Stripe webhook, cash/bank recording, or admin override (with `AdmissionOverride` audit row).
+  - `conditional_approval → waiting_list` (expiry): releases the seat, fires auto-promotion pass for the same (academic_year, year_group) so the next FIFO applicant moves up. Handled by the `admissions:payment-expiry` cron (every 15 min).
+  - `reject | withdraw` from conditional_approval: releases seat, fires auto-promotion pass.
+- **Auto-promotion triggers**:
+  - `ClassesService.create` → `AdmissionsAutoPromotionService.onClassAdded` (new class with capacity).
+  - Activating a year group for the first time → `AdmissionsAutoPromotionService.onYearGroupActivated` (drops `awaiting_year_setup` sub-status for matching rows, runs gating pass).
+- **Legacy transitions removed**: `draft`, `under_review`, `pending_acceptance_approval`, `accepted` states deleted by migration `20260411000100_remove_legacy_admissions_statuses` (data migrated: `draft→withdrawn`, `under_review→ready_to_admit`, `pending_acceptance_approval→ready_to_admit`, `accepted→approved`).
+- **See**: `new-admissions/PLAN.md` for the full state diagram, gating math, and payment flow.
 
 ### FormDefinitionStatus (Admission Forms)
 

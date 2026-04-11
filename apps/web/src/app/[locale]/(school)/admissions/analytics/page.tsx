@@ -22,20 +22,26 @@ interface AnalyticsResponse {
 
 // ─── Funnel Chart ─────────────────────────────────────────────────────────────
 
-function FunnelChart({ data }: { data: Array<{ stage: string; count: number }> }) {
+function FunnelChart({
+  data,
+  title,
+}: {
+  data: Array<{ stage: string; count: number }>;
+  title: string;
+}) {
   return (
     <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-      <h3 className="mb-4 text-base font-semibold text-text-primary">{t('funnel')}</h3>
+      <h3 className="mb-4 text-base font-semibold text-text-primary">{title}</h3>
       <div className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
             layout="vertical"
-            margin={{ top: 0, right: 20, bottom: 0, left: 80 }}
+            margin={{ top: 0, right: 20, bottom: 0, left: 140 }}
           >
             <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-            <XAxis type="number" />
-            <YAxis type="category" dataKey="stage" width={80} tick={{ fontSize: 12 }} />
+            <XAxis type="number" allowDecimals={false} />
+            <YAxis type="category" dataKey="stage" width={130} tick={{ fontSize: 12 }} />
             <Tooltip />
             <Bar dataKey="count" fill="#059669" radius={[0, 4, 4, 0]} />
           </BarChart>
@@ -44,6 +50,9 @@ function FunnelChart({ data }: { data: Array<{ stage: string; count: number }> }
     </div>
   );
 }
+
+// Canonical funnel order: submitted → ready_to_admit → conditional_approval → approved.
+const FUNNEL_STAGES = ['submitted', 'ready_to_admit', 'conditional_approval', 'approved'] as const;
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -113,9 +122,18 @@ export default function AdmissionsAnalyticsPage() {
       {/* Funnel chart */}
       {analytics?.funnel && analytics.total > 0 ? (
         <FunnelChart
-          data={Object.entries(analytics.funnel).map(([stage, count]) => ({
-            stage: stage.replace(/_/g, ' '),
-            count,
+          title={t('funnel')}
+          data={FUNNEL_STAGES.map((stage) => ({
+            stage: t(
+              stage === 'submitted'
+                ? 'submitted'
+                : stage === 'ready_to_admit'
+                  ? 'readyToAdmit'
+                  : stage === 'conditional_approval'
+                    ? 'conditionalApproval'
+                    : 'approved',
+            ),
+            count: analytics.funnel[stage] ?? 0,
           }))}
         />
       ) : analytics?.total === 0 ? (

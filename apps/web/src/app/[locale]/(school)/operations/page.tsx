@@ -16,6 +16,7 @@ import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
+import { apiClient } from '@/lib/api-client';
 import type { RoleKey } from '@/lib/route-roles';
 import { ADMIN_ROLES, STAFF_ROLES } from '@/lib/route-roles';
 
@@ -98,6 +99,14 @@ const CARDS: OperationsCardConfig[] = [
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
+interface AdmissionsDashboardSummaryResponse {
+  data: {
+    counts: {
+      ready_to_admit: number;
+    };
+  };
+}
+
 export default function OperationsDashboardPage() {
   const t = useTranslations('operationsHub');
   const router = useRouter();
@@ -109,6 +118,38 @@ export default function OperationsDashboardPage() {
     () => CARDS.filter((card) => hasAnyRole(...card.roles)),
     [hasAnyRole],
   );
+
+  const admissionsVisible = React.useMemo(
+    () => visibleCards.some((card) => card.key === 'admissions'),
+    [visibleCards],
+  );
+
+  const [admissionsCount, setAdmissionsCount] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    if (!admissionsVisible) return;
+    let cancelled = false;
+    apiClient<AdmissionsDashboardSummaryResponse>('/api/v1/admissions/dashboard-summary', {
+      silent: true,
+    })
+      .then((res) => {
+        if (!cancelled) setAdmissionsCount(res.data.counts.ready_to_admit);
+      })
+      .catch((err) => {
+        console.error('[OperationsDashboardPage.admissionsSummary]', err);
+        if (!cancelled) setAdmissionsCount(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [admissionsVisible]);
+
+  const getCardDescription = (key: string): string => {
+    if (key !== 'admissions') return t(`cards.${key}.description`);
+    if (admissionsCount === null) return t('cards.admissions.description');
+    if (admissionsCount === 0) return t('cards.admissions.descriptionEmpty');
+    return t('cards.admissions.descriptionWithCount', { count: admissionsCount });
+  };
 
   return (
     <div className="flex min-w-0 flex-col gap-8 pb-10">
@@ -139,7 +180,14 @@ export default function OperationsDashboardPage() {
                 >
                   <Icon className="h-7 w-7" />
                 </div>
-                <ArrowRight className="h-5 w-5 text-text-tertiary transition-colors duration-300 group-hover:text-primary-600 rtl:rotate-180" />
+                <div className="flex items-center gap-3">
+                  {card.key === 'admissions' && admissionsCount !== null && admissionsCount > 0 ? (
+                    <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                      {admissionsCount}
+                    </span>
+                  ) : null}
+                  <ArrowRight className="h-5 w-5 text-text-tertiary transition-colors duration-300 group-hover:text-primary-600 rtl:rotate-180" />
+                </div>
               </div>
 
               <div className="relative min-w-0 space-y-2">
@@ -147,7 +195,7 @@ export default function OperationsDashboardPage() {
                   {t(`cards.${card.key}.title`)}
                 </h3>
                 <p className="text-sm leading-relaxed text-text-tertiary">
-                  {t(`cards.${card.key}.description`)}
+                  {getCardDescription(card.key)}
                 </p>
               </div>
             </button>
