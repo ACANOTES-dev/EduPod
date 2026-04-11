@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
+import { HouseholdNumberService } from '../households/household-number.service';
 import { ParentsModule } from '../parents/parents.module';
 import { SequenceModule } from '../sequence/sequence.module';
 
@@ -11,7 +12,7 @@ import { StudentsService } from './students.service';
 @Module({
   imports: [AuthModule, ParentsModule, SequenceModule],
   controllers: [StudentsController],
-  providers: [StudentsService, StudentReadFacade],
+  providers: [StudentsService, StudentReadFacade, HouseholdNumberService],
   exports: [StudentsService, StudentReadFacade],
 })
 export class StudentsModule {}

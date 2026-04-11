@@ -4,6 +4,7 @@ import { AuthModule } from '../auth/auth.module';
 import { RegistrationModule } from '../registration/registration.module';
 import { SequenceModule } from '../sequence/sequence.module';
 
+import { HouseholdNumberService } from './household-number.service';
 import { HouseholdReadFacade } from './household-read.facade';
 import { HouseholdsCrudService } from './households-crud.service';
 import { HouseholdsRelationsService } from './households-relations.service';
@@ -20,7 +21,8 @@ import { HouseholdsService } from './households.service';
     HouseholdsStructuralService,
     HouseholdsService,
     HouseholdReadFacade,
+    HouseholdNumberService,
   ],
-  exports: [HouseholdsService, HouseholdReadFacade],
+  exports: [HouseholdsService, HouseholdReadFacade, HouseholdNumberService],
 })
 export class HouseholdsModule {}
