@@ -3670,6 +3670,23 @@
       "errorTooShort": "Please provide at least 20 characters.",
       "errorInvalidAmount": "Enter a non-negative amount.",
       "errorGeneric": "Could not record the override. Please try again."
+    },
+    "approved": {
+      "title": "Approved Students",
+      "description": "All students who have been approved and enrolled through the admissions pipeline.",
+      "countLabel": "approved",
+      "searchPlaceholder": "Search by name or student number...",
+      "emptyTitle": "No approved applications yet",
+      "emptyDescription": "Applications that are approved and have completed payment will appear here.",
+      "unassigned": "Not assigned",
+      "col": {
+        "studentNumber": "Student #",
+        "student": "Student",
+        "household": "Household",
+        "class": "Class",
+        "admittedBy": "Admitted by",
+        "admittedOn": "Admitted on"
+      }
     }
   },
   "admissions": {
@@ -11925,6 +11942,11 @@
       "settings": {
         "title": "Settings",
         "description": "Configure payment rules, application limits, and approval workflows"
+      },
+      "approved": {
+        "title": "Approved",
+        "description": "{count} students admitted this month",
+        "zero": "No students admitted this month yet"
       }
     },
     "capacityPressure": {

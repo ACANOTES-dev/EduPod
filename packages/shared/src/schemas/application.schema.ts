@@ -141,6 +141,11 @@ export const listRejectedApplicationsSchema = paginationQuerySchema.extend({
   search: z.string().max(200).optional(),
 });
 
+// Approved queue — paginated list of approved applications with search.
+export const listApprovedApplicationsSchema = paginationQuerySchema.extend({
+  search: z.string().max(200).optional(),
+});
+
 // Conditional-approval queue — pagination only; urgency is computed server-side.
 export const listConditionalApprovalQueueSchema = paginationQuerySchema;
 
@@ -175,6 +180,7 @@ export type ListAdmissionOverridesQuery = z.infer<typeof listAdmissionOverridesS
 export type RegenerateAdmissionsPaymentLinkDto = z.infer<
   typeof regenerateAdmissionsPaymentLinkSchema
 >;
+export type ListApprovedApplicationsQuery = z.infer<typeof listApprovedApplicationsSchema>;
 export type ListRejectedApplicationsQuery = z.infer<typeof listRejectedApplicationsSchema>;
 export type ListConditionalApprovalQueueQuery = z.infer<typeof listConditionalApprovalQueueSchema>;
 export type ManualPromoteApplicationDto = z.infer<typeof manualPromoteApplicationSchema>;

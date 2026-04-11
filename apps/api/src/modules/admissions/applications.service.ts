@@ -1095,6 +1095,82 @@ export class ApplicationsService {
 
   // ─── Queue: Rejected archive ──────────────────────────────────────────────
 
+  async getApprovedQueue(
+    tenantId: string,
+    query: { page: number; pageSize: number; search?: string },
+  ) {
+    const { page, pageSize, search } = query;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.ApplicationWhereInput = {
+      tenant_id: tenantId,
+      status: 'approved',
+    };
+
+    if (search) {
+      where.OR = [
+        { student_first_name: { contains: search, mode: 'insensitive' } },
+        { student_last_name: { contains: search, mode: 'insensitive' } },
+        { application_number: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      const [rows, total] = await Promise.all([
+        db.application.findMany({
+          where,
+          orderBy: [{ reviewed_at: 'desc' }, { updated_at: 'desc' }],
+          skip,
+          take: pageSize,
+          select: {
+            id: true,
+            application_number: true,
+            student_first_name: true,
+            student_last_name: true,
+            reviewed_at: true,
+            reviewed_by: {
+              select: { id: true, first_name: true, last_name: true },
+            },
+            materialised_student: {
+              select: {
+                id: true,
+                student_number: true,
+                household: {
+                  select: { id: true, household_number: true, household_name: true },
+                },
+                homeroom_class: {
+                  select: { id: true, name: true },
+                },
+              },
+            },
+          },
+        }),
+        db.application.count({ where }),
+      ]);
+
+      const data = rows.map((row) => ({
+        id: row.id,
+        application_number: row.application_number,
+        student_first_name: row.student_first_name,
+        student_last_name: row.student_last_name,
+        reviewed_at: row.reviewed_at,
+        reviewed_by: row.reviewed_by,
+        student_number: row.materialised_student?.student_number ?? null,
+        household_number: row.materialised_student?.household?.household_number ?? null,
+        household_name: row.materialised_student?.household?.household_name ?? null,
+        household_id: row.materialised_student?.household?.id ?? null,
+        class_name: row.materialised_student?.homeroom_class?.name ?? null,
+        student_id: row.materialised_student?.id ?? null,
+      }));
+
+      return { data, meta: { page, pageSize, total } };
+    });
+  }
+
   async getRejectedArchive(tenantId: string, query: ListRejectedApplicationsQuery) {
     const { page, pageSize, search } = query;
     const skip = (page - 1) * pageSize;

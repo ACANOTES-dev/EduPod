@@ -16,6 +16,7 @@ import {
   admissionsAnalyticsSchema,
   createApplicationNoteSchema,
   listApplicationsSchema,
+  listApprovedApplicationsSchema,
   listConditionalApprovalQueueSchema,
   listRejectedApplicationsSchema,
   manualPromoteApplicationSchema,
@@ -27,6 +28,7 @@ import type {
   CreateApplicationNoteDto,
   JwtPayload,
   ListApplicationsQuery,
+  ListApprovedApplicationsQuery,
   ListConditionalApprovalQueueQuery,
   ListRejectedApplicationsQuery,
   ManualPromoteApplicationDto,
@@ -103,6 +105,17 @@ export class ApplicationsController {
     query: ListConditionalApprovalQueueQuery,
   ) {
     return this.applicationsService.getConditionalApprovalQueue(tenant.tenant_id, query);
+  }
+
+  // GET /v1/applications/queues/approved
+  @Get('queues/approved')
+  @RequiresPermission('admissions.view')
+  async getApprovedQueue(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(listApprovedApplicationsSchema))
+    query: ListApprovedApplicationsQuery,
+  ) {
+    return this.applicationsService.getApprovedQueue(tenant.tenant_id, query);
   }
 
   // GET /v1/applications/queues/rejected

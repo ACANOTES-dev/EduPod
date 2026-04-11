@@ -57,6 +57,7 @@ interface CardConfig {
     | 'readyToAdmit'
     | 'waitingList'
     | 'conditionalApproval'
+    | 'approved'
     | 'rejected'
     | 'formPreview'
     | 'overrides'
@@ -100,6 +101,15 @@ const CARDS: CardConfig[] = [
     accent: 'from-sky-400 via-sky-500 to-sky-600',
     iconBg: 'bg-sky-100 text-sky-700',
     glow: 'from-sky-50/80',
+    roles: QUEUE_VIEWER_ROLES,
+  },
+  {
+    key: 'approved',
+    href: '/admissions/approved',
+    icon: CheckCircle2,
+    accent: 'from-emerald-400 via-emerald-500 to-emerald-600',
+    iconBg: 'bg-emerald-100 text-emerald-700',
+    glow: 'from-emerald-50/80',
     roles: QUEUE_VIEWER_ROLES,
   },
   {
@@ -427,6 +437,14 @@ function describeCard(
           count === 0
             ? t('cards.conditionalApproval.zero')
             : t('cards.conditionalApproval.description', { count }),
+        secondary: null,
+      };
+    }
+    case 'approved': {
+      const count = counts.approved_this_month;
+      return {
+        primary:
+          count === 0 ? t('cards.approved.zero') : t('cards.approved.description', { count }),
         secondary: null,
       };
     }

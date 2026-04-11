@@ -3662,6 +3662,23 @@
       "errorTooShort": "يلزم إدخال 20 حرفًا على الأقل.",
       "errorInvalidAmount": "أدخل مبلغًا غير سالب.",
       "errorGeneric": "تعذر تسجيل التجاوز."
+    },
+    "approved": {
+      "title": "الطلاب المقبولون",
+      "description": "جميع الطلاب الذين تمت الموافقة عليهم وتسجيلهم عبر خط القبول.",
+      "countLabel": "مقبول",
+      "searchPlaceholder": "البحث بالاسم أو رقم الطالب...",
+      "emptyTitle": "لا توجد طلبات مقبولة بعد",
+      "emptyDescription": "ستظهر هنا الطلبات التي تمت الموافقة عليها واكتمل دفعها.",
+      "unassigned": "غير محدد",
+      "col": {
+        "studentNumber": "رقم الطالب",
+        "student": "الطالب",
+        "household": "الأسرة",
+        "class": "الصف",
+        "admittedBy": "قبول بواسطة",
+        "admittedOn": "تاريخ القبول"
+      }
     }
   },
   "admissions": {
@@ -11916,6 +11933,11 @@
       "settings": {
         "title": "الإعدادات",
         "description": "تكوين قواعد الدفع وحدود التقديم وسير عمل الموافقات"
+      },
+      "approved": {
+        "title": "المقبولون",
+        "description": "{count} طلاب تم قبولهم هذا الشهر",
+        "zero": "لم يتم قبول أي طلاب هذا الشهر بعد"
       }
     },
     "capacityPressure": {
