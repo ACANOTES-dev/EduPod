@@ -1,8 +1,6 @@
-import { BullModule } from '@nestjs/bullmq';
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
-import { CommunicationsModule } from '../communications/communications.module';
 import { S3Module } from '../s3/s3.module';
 
 import { AudienceComposer } from './audience/audience-composer';
@@ -77,20 +75,7 @@ import { InboxSettingsService } from './settings/inbox-settings.service';
  * the oversight thread-export path.
  */
 @Module({
-  imports: [
-    AuthModule,
-    S3Module,
-    // InboxOutboxService enqueues `inbox:dispatch-channels` onto
-    // `notifications` (impl 06) and `safeguarding:scan-message` onto
-    // `safeguarding` (impl 08). Both queues are registered here so the
-    // `@InjectQueue` tokens resolve without pulling external modules in
-    // eagerly. BullMQ dedupes duplicate registrations across modules.
-    BullModule.registerQueue({ name: 'notifications' }, { name: 'safeguarding' }),
-    // Inbox bridge (impl 06) lives in `CommunicationsModule` and depends
-    // on `ConversationsService` from this module — use `forwardRef` on
-    // both sides to resolve the circular edge.
-    forwardRef(() => CommunicationsModule),
-  ],
+  imports: [AuthModule, S3Module],
   controllers: [
     InboxSettingsController,
     InboxOversightController,
@@ -164,6 +149,9 @@ import { InboxSettingsService } from './settings/inbox-settings.service';
     ConversationsReadFacade,
     MessagesService,
     InboxOutboxService,
+    // Re-exported so `SafeguardingModule` (impl 08 keyword CRUD) can
+    // reuse the same guard on the `/v1/safeguarding/keywords` endpoints.
+    AdminTierOnlyGuard,
   ],
 })
 export class InboxModule {}
