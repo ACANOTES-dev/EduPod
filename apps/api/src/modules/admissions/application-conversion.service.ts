@@ -83,7 +83,9 @@ export class ApplicationConversionService {
       });
     }
 
-    const payload = parseConversionPayload(application.payload_json);
+    const payload = parseConversionPayload(application.payload_json, {
+      existingHousehold: !!application.household_id,
+    });
 
     // Defensive duplicate-student check — identical first/last/DOB on an
     // active student means a previous conversion committed but the pointer

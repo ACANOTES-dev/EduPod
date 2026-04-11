@@ -42,7 +42,17 @@ export interface ConversionPayload {
   consents: ConsentCaptureDto | null;
 }
 
-export function parseConversionPayload(raw: Prisma.JsonValue): ConversionPayload {
+/**
+ * Parse the application payload JSON into a typed structure.
+ *
+ * @param raw - The raw payload_json from the application row.
+ * @param options.existingHousehold - When true, parent/address fields are
+ *   optional because the household already exists (existing-family path).
+ */
+export function parseConversionPayload(
+  raw: Prisma.JsonValue,
+  options?: { existingHousehold?: boolean },
+): ConversionPayload {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new BadRequestException({
       error: { code: 'PAYLOAD_MALFORMED', message: 'Application payload missing or not an object' },
@@ -50,19 +60,23 @@ export function parseConversionPayload(raw: Prisma.JsonValue): ConversionPayload
   }
   const obj = raw as Record<string, unknown>;
 
-  const missing: RequiredPayloadKey[] = [];
-  for (const key of REQUIRED_PAYLOAD_KEYS) {
-    const v = obj[key];
-    if (v === undefined || v === null || v === '') missing.push(key);
-  }
-  if (missing.length > 0) {
-    throw new BadRequestException({
-      error: {
-        code: 'PAYLOAD_MALFORMED',
-        message: `Application payload is missing required fields: ${missing.join(', ')}`,
-        details: { missing },
-      },
-    });
+  // Existing-household applications skip household/parent validation —
+  // the payload only contains student fields.
+  if (!options?.existingHousehold) {
+    const missing: RequiredPayloadKey[] = [];
+    for (const key of REQUIRED_PAYLOAD_KEYS) {
+      const v = obj[key];
+      if (v === undefined || v === null || v === '') missing.push(key);
+    }
+    if (missing.length > 0) {
+      throw new BadRequestException({
+        error: {
+          code: 'PAYLOAD_MALFORMED',
+          message: `Application payload is missing required fields: ${missing.join(', ')}`,
+          details: { missing },
+        },
+      });
+    }
   }
 
   const asString = (k: string): string | null => {
@@ -88,8 +102,8 @@ export function parseConversionPayload(raw: Prisma.JsonValue): ConversionPayload
       : null;
 
   return {
-    parent1_first_name: String(obj.parent1_first_name),
-    parent1_last_name: String(obj.parent1_last_name),
+    parent1_first_name: asString('parent1_first_name') ?? '',
+    parent1_last_name: asString('parent1_last_name') ?? '',
     parent1_email: asString('parent1_email'),
     parent1_phone: asString('parent1_phone'),
     parent1_relationship: asString('parent1_relationship'),
@@ -98,10 +112,10 @@ export function parseConversionPayload(raw: Prisma.JsonValue): ConversionPayload
     parent2_email: asString('parent2_email'),
     parent2_phone: asString('parent2_phone'),
     parent2_relationship: asString('parent2_relationship'),
-    address_line_1: String(obj.address_line_1),
+    address_line_1: asString('address_line_1') ?? '',
     address_line_2: asString('address_line_2'),
-    city: String(obj.city),
-    country: String(obj.country),
+    city: asString('city') ?? '',
+    country: asString('country') ?? '',
     postal_code: asString('postal_code'),
     student_first_name: asString('student_first_name') ?? '',
     student_middle_name: asString('student_middle_name'),
