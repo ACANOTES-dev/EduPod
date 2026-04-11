@@ -142,7 +142,7 @@ Legend: `pending` • `in-progress` • `deploying` • `completed` • `🛑 bl
 | 02  | Household number generator + student refactor | 2    | backend        | parallel-safe        | 01         | `completed`   | 2026-04-11T16:26:00+01:00 | b2593a08   |
 | 03  | Multi-student API + sibling priority + lookup | 2    | backend        | parallel-safe        | 01         | `completed`   | 2026-04-11T16:30:00+01:00 | 678bb9a4   |
 | 04  | Public apply form rewrite                     | 3    | frontend       | parallel-risky       | 02, 03     | `in-progress` | —                         | —          |
-| 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `in-progress` | —                         | —          |
+| 05  | Wizard + admin surfaces                       | 3    | frontend       | parallel-risky       | 02, 03     | `completed`   | 2026-04-11T17:00:00+01:00 | 39b6fe77   |
 | 06  | Polish, translations, docs, tests             | 4    | polish         | serial               | 04, 05     | `pending`     | —                         | —          |
 
 ---
@@ -253,3 +253,28 @@ is_sibling_application DESC, apply_date ASC`. Rewrote `ApplicationConversionServ
 - **Session notes:** Ran in parallel with impl 02. Interleaved commits deployed via combined
   format-patch (7 patches). Tenant resolution middleware already handled `/api/v1/public/*`
   paths — no changes needed for the household lookup route.
+
+### [IMPL 05] — Walk-in wizard + admin surfaces
+
+- **Completed:** 2026-04-11T17:00:00+01:00 (Europe/Dublin)
+- **Commits:** edb32d12, 09853ef8, a3c1f9f9, 39b6fe77 (local) / patches applied on prod
+- **Deployed to production:** yes
+- **Summary (≤ 200 words):**
+  Added `GET /v1/households/next-number` endpoint to `HouseholdsController`, routed through
+  `HouseholdsService` facade → `HouseholdsCrudService.previewNextNumber` → `HouseholdNumberService.previewForTenant`
+  inside a short RLS transaction. Walk-in registration wizard (`step-parent-household.tsx`) now
+  fetches a preview household number on mount and displays it in a styled preview box below the
+  household name input, with a Refresh button that re-fetches. Uses `apiClient` + `unwrap()` for
+  the `{ data: { household_number } }` envelope. Household detail page passes `household_number`
+  as the `reference` prop to `RecordHub`, rendering it as monospace text beneath the title.
+  Household list page shows `household_number` in monospace alongside each household name.
+  Admissions queue API responses (`getReadyToAdmitQueue`, `getWaitingListQueue`) now include
+  `is_sibling_application` in the select clause, passed through `groupApplicationsByYearGroup`
+  into the bucket application type. Frontend `QueueApplication` type extended with the field;
+  `ApplicationRow` renders a sky-colored "Sibling" badge when true. Translation keys added
+  (en + ar) for preview labels (`householdNumberPreviewLabel`, `refreshNumber`,
+  `householdNumberPreviewHelper`) and `siblingBadge`.
+- **Follow-ups:** None. Impl 06 (polish) should verify all surfaces render correctly in Arabic RTL.
+- **Session notes:** Ran in parallel with impl 04. Deployed impl 04's code commit as a dependency
+  (it sat between my two code commits in git history). The `unwrap()` fix was needed because
+  `apiClient` returns the raw `{ data: T }` envelope — caught during production smoke test.
