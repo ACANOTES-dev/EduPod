@@ -12063,5 +12063,14 @@
       "subtitle": "Manage your Stripe API keys and webhook secret for online payments.",
       "manage": "Manage"
     }
+  },
+  "paymentResult": {
+    "successTitle": "Payment received — thank you!",
+    "successBody": "Your payment has been processed successfully. Your child's application has been approved and they are now being enrolled at the school. You will receive a confirmation email shortly.",
+    "successNextSteps": "The school will be in touch with next steps, including class assignments and any remaining paperwork. If you have any questions, please contact the school administration.",
+    "cancelledTitle": "Payment not completed",
+    "cancelledBody": "It looks like your payment wasn't completed. Don't worry — your child's seat is still reserved. You can try again using the payment link sent to your email, or contact the school to arrange an alternative payment method.",
+    "cancelledHelp": "Your payment window is still open. If you're experiencing difficulties, please contact the school administration — they can help you complete the payment or arrange an alternative.",
+    "applicationReference": "Application reference"
   }
 }
